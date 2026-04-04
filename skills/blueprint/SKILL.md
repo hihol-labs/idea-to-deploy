@@ -4,6 +4,8 @@ description: Generate complete project documentation set (6 files) — strategic
 argument-hint: project idea or description
 license: MIT
 effort: high
+context: fork
+agent: architect
 metadata:
   author: HiH-DimaN
   version: 1.0.0
