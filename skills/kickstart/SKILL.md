@@ -111,19 +111,52 @@ Check: missing dependencies, wrong versions, TypeScript strict mode issues. Fix 
 - Update IMPLEMENTATION_PLAN.md with progress as you go
 
 
-### Quality Gate: Auto-review
+### Quality Gate 1: Plan Review (after Phase 2, before Phase 3)
 
-After Phase 2 (Documentation Generation) and before Phase 3 (Scaffolding):
-
+**Automatic validation:**
 1. Run /review automatically on generated documents
-2. If score < 7/10 — fix critical issues before proceeding
-3. If score >= 7/10 — proceed to scaffolding
-4. Show user the review score and any warnings
+2. If score < 7/10 — fix critical issues automatically
 
-After Phase 4 (Implementation) for each step:
-1. Verify the step produces working code (no syntax errors)
-2. Run tests if they exist
-3. If tests fail — fix before moving to next step
-4. If 3 consecutive fixes fail — stop and ask user for guidance
+**User approval (MANDATORY):**
+3. Show the user a summary of the generated plan:
+   - Project type and tech stack
+   - Database tables count and main entities
+   - API endpoints count and main routes
+   - Implementation steps count and estimated timeline
+   - Review score
+4. Ask: "Вот план проекта. Всё устраивает или хотите что-то изменить?"
+5. Wait for explicit user approval before proceeding to Phase 3
+6. If user requests changes — apply them, re-run /review, show updated plan
 
-This prevents accumulating broken code across steps.
+Do NOT proceed to scaffolding without user confirmation.
+
+### Quality Gate 2: Step-by-Step Code Review (during Phase 4)
+
+After EACH implementation step:
+
+1. **Verify working code:**
+   - No syntax errors (file parses correctly)
+   - No import errors (all dependencies resolved)
+   - Application starts without crashes
+
+2. **Run /test** — generate and execute tests for new code
+
+3. **Code vs Architecture check:**
+   - New models match database schema in PROJECT_ARCHITECTURE.md
+   - New endpoints match API spec in PROJECT_ARCHITECTURE.md
+   - Naming is consistent with existing code
+   - No hardcoded values that should be in .env
+
+4. **Decision:**
+   - All checks pass → commit, update CLAUDE.md status, proceed to next step
+   - Tests fail → fix and re-test (max 3 attempts)
+   - Architecture mismatch → fix code OR update architecture doc (ask user which)
+   - 3 consecutive failures → STOP and ask user for guidance
+
+5. **Step summary** — after each step show:
+   - What was implemented
+   - Tests: X passed, Y failed
+   - Files created/modified
+   - Next step preview
+
+This ensures every step is verified before moving forward. No accumulated technical debt.
