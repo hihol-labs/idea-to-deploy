@@ -1,11 +1,16 @@
 {
   "name": "idea-to-deploy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Complete project lifecycle methodology — 10 skills from idea to deployed product. Planning, scaffolding, coding, testing, debugging, optimization, and deployment.",
   "author": {
     "name": "HiH-DimaN"
   },
   "repository": "https://github.com/HiH-DimaN/idea-to-deploy",
   "license": "MIT",
-  "skills": ["./skills/"]
+  "skills": [
+    "./skills/"
+  ],
+  "agents": [
+    "./agents/"
+  ]
 }

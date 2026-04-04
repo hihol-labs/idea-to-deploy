@@ -4,6 +4,8 @@ description: Performance analysis — find bottlenecks and optimize. Covers algo
 argument-hint: file, function, or area to analyze
 license: MIT
 effort: medium
+context: fork
+agent: perf-analyzer
 metadata:
   author: HiH-DimaN
   version: 1.0.0

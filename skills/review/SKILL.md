@@ -4,6 +4,8 @@ description: "Validate quality of generated project documentation and code. Chec
 argument-hint: project path or specific document to review
 license: MIT
 effort: high
+context: fork
+agent: code-reviewer
 metadata:
   author: HiH-DimaN
   version: 1.0.0
