@@ -84,6 +84,21 @@ You: "I want to build a delivery app"
     +-- Deploys
 ```
 
+## Seamless Route Switching
+
+Routes are not dead ends — you can switch between them at any time without losing work.
+
+| Switch | What you say | What happens |
+|--------|-------------|-------------|
+| B → A | "Start implementation" | Detects existing docs, validates, skips to coding |
+| C → A | "Start implementation" | Detects guide + docs, supplements if needed, starts coding |
+| C → B | "Create full documentation" | Reads existing guide, generates missing docs |
+| A (interrupted) → A | "Continue the project" | Finds last completed step, resumes from there |
+
+**How it works:** Each skill automatically scans for existing project files on startup. If documentation, code, or a guide already exists — the skill reuses it instead of starting from scratch. One phrase from you — and the system picks up where it left off.
+
+**Nothing is lost.** Switch routes, take breaks, come back later — the methodology remembers your progress.
+
 ## Skills
 
 ### Entry Point (1 skill)
