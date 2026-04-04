@@ -98,7 +98,7 @@ You: "I want to build a delivery app"
 |-------|-------|-------------|
 | `/kickstart` | A) Full cycle | Idea to deployed product: docs, code, tests, deploy |
 | `/blueprint` | B) Planning only | 6 documentation files, no code |
-| `/guide` | C) Have docs | Step-by-step copy-paste prompts for Claude Code |
+| `/guide` | C) Have docs already | You already have architecture and plan docs (from route B, another developer, or another tool) — generates step-by-step prompts to build it |
 
 ### Quality Assurance (1 skill)
 
