@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: "Specialized agent for cross-document and code validation. Checks consistency between PRD, architecture, implementation plan, and actual code."
-model: claude-sonnet-4-20250514
+model: sonnet
 allowed-tools: Read Grep Glob
 ---
 

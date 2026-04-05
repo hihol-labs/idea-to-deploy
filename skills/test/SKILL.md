@@ -1,9 +1,10 @@
 ---
 name: test
-description: Generate comprehensive tests for code — unit, integration, edge cases. Detects the project's test framework and follows existing conventions. Use when user says "напиши тесты", "покрой тестами", "add tests", "test this", or needs unit, integration, or edge case tests for a file or function.
+description: Generate comprehensive tests for code — unit, integration, edge cases. Detects the project's test framework and follows existing conventions. TRIGGER when user says "напиши тесты", "покрой тестами", "add tests", "test this", or after writing new code, implementing a feature, or fixing a bug. Always run this after significant code changes.
 argument-hint: file, function, or module to test
 license: MIT
 effort: medium
+paths: ["**/test_*.py", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/tests/**", "**/__tests__/**"]
 metadata:
   author: HiH-DimaN
   version: 1.0.0

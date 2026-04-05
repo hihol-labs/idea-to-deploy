@@ -1,6 +1,6 @@
 ---
 name: perf
-description: Performance analysis — find bottlenecks and optimize. Covers algorithms, database queries, memory, I/O, and caching. Use when user says "тормозит", "медленно работает", "optimize", "производительность", or needs to find and fix performance issues in code.
+description: Performance analysis — find bottlenecks and optimize. Covers algorithms, database queries, memory, I/O, and caching. TRIGGER when user says "тормозит", "медленно работает", "optimize", "производительность", reports slow page loads, high latency, or memory issues. Always use this for performance-related complaints.
 argument-hint: file, function, or area to analyze
 license: MIT
 effort: medium

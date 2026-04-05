@@ -1,7 +1,7 @@
 ---
 name: architect
 description: "Specialized agent for project architecture design. Analyzes requirements and generates database schemas, API endpoints, auth flows, and infrastructure plans."
-model: claude-sonnet-4-20250514
+model: opus
 allowed-tools: Read Grep Glob
 ---
 

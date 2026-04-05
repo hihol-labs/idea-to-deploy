@@ -1,7 +1,7 @@
 ---
 name: test-generator
 description: "Specialized agent for comprehensive test generation. Analyzes code structure and generates unit, integration, and edge case tests."
-model: claude-sonnet-4-20250514
+model: sonnet
 allowed-tools: Read Grep Glob Bash
 ---
 

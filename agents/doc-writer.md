@@ -1,7 +1,7 @@
 ---
 name: doc-writer
 description: "Specialized agent for documentation generation. Creates README, API docs, inline comments, and user guides matching project style."
-model: claude-sonnet-4-20250514
+model: haiku
 allowed-tools: Read Grep Glob
 ---
 

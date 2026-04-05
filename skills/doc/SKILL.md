@@ -1,9 +1,10 @@
 ---
 name: doc
-description: Generate documentation — README, API docs, inline comments for complex logic. Detects project style and follows existing conventions. Use when user says "напиши документацию", "создай README", "задокументируй API", "добавь комментарии", or needs docs for a file or module.
+description: Generate documentation — README, API docs, inline comments for complex logic. Detects project style and follows existing conventions. TRIGGER when user says "напиши документацию", "создай README", "задокументируй API", "добавь комментарии", or when creating/updating public APIs, modules, or project structure.
 argument-hint: file, module, or "readme" or "api"
 license: MIT
 effort: medium
+paths: ["**/README.md", "**/CHANGELOG.md", "**/docs/**"]
 metadata:
   author: HiH-DimaN
   version: 1.0.0

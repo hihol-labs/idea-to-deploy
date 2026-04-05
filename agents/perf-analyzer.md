@@ -1,7 +1,7 @@
 ---
 name: perf-analyzer
 description: "Specialized agent for performance analysis and optimization. Identifies bottlenecks in algorithms, database queries, memory usage, I/O operations, and caching."
-model: claude-sonnet-4-20250514
+model: sonnet
 allowed-tools: Read Grep Glob Bash
 ---
 

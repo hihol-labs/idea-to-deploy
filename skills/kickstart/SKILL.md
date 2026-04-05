@@ -2,6 +2,7 @@
 name: kickstart
 description: Generate a complete project from idea — architecture, plans, docs, and implementation up to deployment. Full lifecycle from concept to working product. Use when user says "создай проект", "новый проект", "start a project", or wants to go from idea to working deployed product.
 argument-hint: project idea or description
+disable-model-invocation: true
 allowed-tools: "Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*)"
 license: MIT
 effort: high

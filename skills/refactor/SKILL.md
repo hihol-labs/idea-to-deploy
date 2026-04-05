@@ -1,6 +1,6 @@
 ---
 name: refactor
-description: Refactor code for better readability, maintainability, and structure. Preserves behavior while improving quality. Use when user says "отрефактори", "упрости код", "refactor this", "слишком сложный код", or needs to improve code quality without changing behavior.
+description: Refactor code for better readability, maintainability, and structure. Preserves behavior while improving quality. TRIGGER when user says "отрефактори", "упрости код", "refactor this", "слишком сложный код", or when code has deep nesting, long functions, duplication, or poor naming that hinders understanding.
 argument-hint: file, function, or area to refactor
 license: MIT
 effort: medium
