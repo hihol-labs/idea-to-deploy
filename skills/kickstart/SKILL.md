@@ -1,6 +1,6 @@
 ---
 name: kickstart
-description: Generate a complete project from idea — architecture, plans, docs, and implementation up to deployment. Full lifecycle from concept to working product. Use when user says "создай проект", "новый проект", "start a project", or wants to go from idea to working deployed product.
+description: Generate a complete project from idea — architecture, plans, docs, and implementation up to deployment. Full lifecycle from concept to working product. TRIGGER when user says "создай проект", "новый проект", "запили проект", "сделай проект целиком", "от идеи до деплоя", "полный цикл", "end-to-end проект", "start a project", "build it from scratch", or wants to go from concept to a working deployed product in one shot. Usually invoked via /project router, but can be called directly.
 argument-hint: project idea or description
 disable-model-invocation: true
 allowed-tools: "Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*)"

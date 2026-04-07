@@ -1,6 +1,6 @@
 ---
 name: test-generator
-description: "Specialized agent for comprehensive test generation. Analyzes code structure and generates unit, integration, and edge case tests."
+description: "Specialized agent for comprehensive test generation. Analyzes code structure and generates unit, integration, and edge case tests. Use when user says 'напиши тесты', 'покрой тестами', 'добавь тесты', 'нет тестов', 'добавь покрытие', 'coverage', 'юнит-тесты', 'интеграционные тесты', 'регрессионный тест', or after writing new code / fixing a bug. Typically invoked from /test skill, but can be called directly via Agent tool for test-only work — generating a regression test for a fresh fix is part of finishing the fix."
 model: sonnet
 allowed-tools: Read Grep Glob Bash
 ---

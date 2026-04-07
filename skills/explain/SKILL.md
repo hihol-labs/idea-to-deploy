@@ -1,6 +1,6 @@
 ---
 name: explain
-description: Explain how code works — architecture, data flow, key decisions. Uses ASCII diagrams and step-by-step walkthroughs. TRIGGER when user says "объясни код", "как это работает", "explain this", "что делает эта функция", or asks any question about how existing code works.
+description: Explain how code works — architecture, data flow, key decisions. Uses ASCII diagrams and step-by-step walkthroughs. TRIGGER when user says "объясни код", "как это работает", "как устроен", "что делает эта функция", "что здесь происходит", "разбери код", "расскажи про этот модуль", "walkthrough", "архитектура этого", "explain this", or asks any question about how existing code works (versus how to write new code). For multi-file/multi-module exploration, use this rather than reading files manually.
 argument-hint: file, function, module, or concept
 license: MIT
 effort: low

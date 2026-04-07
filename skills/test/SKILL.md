@@ -1,6 +1,6 @@
 ---
 name: test
-description: Generate comprehensive tests for code — unit, integration, edge cases. Detects the project's test framework and follows existing conventions. TRIGGER when user says "напиши тесты", "покрой тестами", "add tests", "test this", or after writing new code, implementing a feature, or fixing a bug. Always run this after significant code changes.
+description: Generate comprehensive tests for code — unit, integration, edge cases. Detects the project's test framework and follows existing conventions. TRIGGER when user says "напиши тесты", "покрой тестами", "добавь тесты", "нет тестов", "добавь покрытие", "coverage", "юнит-тесты", "интеграционные тесты", "регрессионный тест", "pytest", "vitest", "jest", "add tests", "test this", or after writing new code, implementing a feature, or fixing a bug. ALWAYS run this after significant code changes — generating a regression test for a fix is part of finishing the fix, not optional polish.
 argument-hint: file, function, or module to test
 license: MIT
 effort: medium

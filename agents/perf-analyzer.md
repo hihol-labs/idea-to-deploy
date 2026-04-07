@@ -1,6 +1,6 @@
 ---
 name: perf-analyzer
-description: "Specialized agent for performance analysis and optimization. Identifies bottlenecks in algorithms, database queries, memory usage, I/O operations, and caching."
+description: "Specialized agent for performance analysis and optimization. Identifies bottlenecks in algorithms, database queries, memory usage, I/O operations, and caching. Use when user says 'тормозит', 'медленно работает', 'оптимизируй', 'узкое место', 'bottleneck', 'N+1', 'slow query', 'утечка памяти', 'memory leak', 'высокая нагрузка', or reports any performance issue. Typically invoked from /perf skill, but can be called directly via Agent tool for performance-only investigations."
 model: sonnet
 allowed-tools: Read Grep Glob Bash
 ---

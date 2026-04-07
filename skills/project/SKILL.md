@@ -1,6 +1,6 @@
 ---
 name: project
-description: Smart project creation router — determines the best workflow based on user needs and guides through the entire process. Single entry point for all project creation scenarios. Use when user says "хочу проект", "новый проект", "создать приложение", "сделай сервис", "build a project", or any project creation request.
+description: Smart project creation router — determines the best workflow based on user needs and guides through the entire process. Single entry point for all project creation scenarios. TRIGGER when user says "хочу проект", "новый проект", "создай проект", "создать приложение", "сделай сервис", "сделай сайт", "стартуем проект", "начнём проект", "новый MVP", "проект с нуля", "хочу запустить", "build a project", or any request that involves creating a new application/site/service from scratch. ALWAYS prefer this router over going directly into code — it asks 1–2 questions and picks /kickstart, /blueprint, or /guide.
 argument-hint: project idea or description
 license: MIT
 effort: medium

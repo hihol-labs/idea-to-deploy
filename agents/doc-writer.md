@@ -1,6 +1,6 @@
 ---
 name: doc-writer
-description: "Specialized agent for documentation generation. Creates README, API docs, inline comments, and user guides matching project style."
+description: "Specialized agent for documentation generation. Creates README, API docs, inline comments, and user guides matching project style. Use when user says 'напиши документацию', 'создай README', 'обнови README', 'опиши API', 'добавь inline комментарии', 'JSDoc', 'docstrings', 'changelog', or after a non-trivial feature lands. Typically invoked from /doc skill, but can be called directly via Agent tool for documentation-only work."
 model: haiku
 allowed-tools: Read Grep Glob
 ---

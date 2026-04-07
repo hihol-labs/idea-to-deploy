@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Specialized agent for project architecture design. Analyzes requirements and generates database schemas, API endpoints, auth flows, and infrastructure plans."
+description: "Specialized agent for project architecture design. Analyzes requirements and generates database schemas, API endpoints, auth flows, and infrastructure plans. Use when user says 'спроектируй архитектуру', 'database schema', 'API design', 'auth flow', 'инфраструктура', 'нарисуй архитектуру', 'выбери стек', or when /blueprint skill needs deep architectural reasoning. Typically invoked from /blueprint, but can be called directly via Agent tool for architecture-only questions."
 model: opus
 allowed-tools: Read Grep Glob
 ---

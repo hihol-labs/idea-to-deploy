@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Validate quality of generated project documentation and code. Checks architecture, plans, and implementation for completeness, consistency, and best practices. Use when user says \"проверь документацию\", \"валидация проекта\", \"review project\", \"check quality\", or automatically after /blueprint and /kickstart documentation phases."
+description: "Validate quality of generated project documentation and code. Checks architecture, plans, and implementation for completeness, consistency, and best practices. TRIGGER when user says \"проверь документацию\", \"проверь код\", \"проверь архитектуру\", \"проверь PR\", \"валидация проекта\", \"ревью\", \"code review\", \"review project\", \"check quality\", \"найди косяки\", \"оцени качество\", \"найди баги в коде\", or before any commit that touches more than 2 files. ALWAYS use this (or the code-reviewer subagent) before committing non-trivial changes — catches inconsistencies between docs/architecture/code that single-file edits miss."
 argument-hint: project path or specific document to review
 license: MIT
 effort: high

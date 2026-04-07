@@ -1,6 +1,6 @@
 ---
 name: guide
-description: Generate a CLAUDE_CODE_GUIDE.md — step-by-step copy-paste prompts for building the project from scratch via Claude Code. Includes preparation, steps, cheat sheet, and timeline. Use when user says "создай гайд", "сгенерируй промпты для проекта", "guide for project", or needs a cookbook of copy-paste prompts.
+description: Generate a CLAUDE_CODE_GUIDE.md — step-by-step copy-paste prompts for building the project from scratch via Claude Code. Includes preparation, steps, cheat sheet, and timeline. TRIGGER when user says "создай гайд", "сгенерируй промпты для проекта", "сделай cookbook промптов", "пошаговая инструкция для Claude", "промпты для Claude Code", "guide for project", "cookbook", or already has documentation/PRD and needs ready-to-paste prompts to drive Claude through implementation. Assumes /blueprint output already exists or will be created.
 argument-hint: project name or description
 license: MIT
 effort: high

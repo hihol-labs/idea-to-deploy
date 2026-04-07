@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, and git history. TRIGGER when user says "почини баг", "не работает", "ошибка", "debug this", pastes an error message, stack trace, or reports unexpected behavior. Use this instead of ad-hoc debugging.
+description: Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, and git history. TRIGGER when user says "почини баг", "не работает", "ошибка", "сломалось", "крашит", "падает", "exception", "stack trace", "стектрейс", "странное поведение", "работало вчера, сейчас нет", "не понимаю что не так", "debug this", pastes any error message, stack trace, log fragment, or describes any unexpected behavior. ALWAYS use this instead of ad-hoc tool calls (Bash/Read/Grep) — even if the bug looks small, /debug enforces root-cause analysis instead of guessing.
 argument-hint: error message, symptom, or issue description
 license: MIT
 effort: medium
