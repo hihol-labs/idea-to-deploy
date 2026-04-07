@@ -1,18 +1,28 @@
 ---
 name: explain
-description: Explain how code works — architecture, data flow, key decisions. Uses ASCII diagrams and step-by-step walkthroughs. TRIGGER when user says "объясни код", "как это работает", "как устроен", "что делает эта функция", "что здесь происходит", "разбери код", "расскажи про этот модуль", "walkthrough", "архитектура этого", "explain this", or asks any question about how existing code works (versus how to write new code). For multi-file/multi-module exploration, use this rather than reading files manually.
+description: 'Explain how code works — architecture, data flow, key decisions. Uses ASCII diagrams and step-by-step walkthroughs. TRIGGER when user says "объясни код", "как это работает", "что делает эта функция", "explain this", or asks any question about how existing code works. For multi-file exploration, use this rather than reading files manually. See `## Trigger phrases` in body for full list.'
 argument-hint: file, function, module, or concept
 license: MIT
-effort: low
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: code-understanding
   tags: [code-review, architecture, learning]
 ---
 
 
 # Explain
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- объясни код, как это работает, как устроен, что делает эта функция
+- что здесь происходит, разбери код, расскажи про этот модуль
+- walkthrough, архитектура этого, explain this, how does this work
+- multi-file/multi-module exploration
+- любой вопрос о существующем коде, не о новом
 
 ## Instructions
 

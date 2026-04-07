@@ -1,17 +1,27 @@
 ---
 name: project
-description: Smart project creation router — determines the best workflow based on user needs and guides through the entire process. Single entry point for all project creation scenarios. TRIGGER when user says "хочу проект", "новый проект", "создай проект", "создать приложение", "сделай сервис", "сделай сайт", "стартуем проект", "начнём проект", "новый MVP", "проект с нуля", "хочу запустить", "build a project", or any request that involves creating a new application/site/service from scratch. ALWAYS prefer this router over going directly into code — it asks 1–2 questions and picks /kickstart, /blueprint, or /guide.
+description: 'Smart project creation router — single entry point for all "new project from scratch" scenarios. Asks one question and routes to /kickstart, /blueprint, or /guide. TRIGGER when user says "хочу проект", "новый проект", "создай проект". ALWAYS prefer this router over jumping into code or invoking /kickstart directly. See `## Trigger phrases` in body for the full list.'
 argument-hint: project idea or description
 license: MIT
-effort: medium
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: project-creation
   tags: [router, workflow, project-creation, methodology]
 ---
 
 # Project
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- хочу проект, новый проект, создай проект, создать приложение
+- сделай сервис, сделай сайт, стартуем проект, начнём проект
+- новый MVP, проект с нуля, хочу запустить
+- build a project, start a project, new app, new service
+- любой запрос на создание нового приложения/сайта/сервиса с нуля
 
 You are the single entry point for all project creation. Your job is to understand what the user needs and route them to the right workflow.
 

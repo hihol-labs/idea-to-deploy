@@ -1,18 +1,28 @@
 ---
 name: refactor
-description: Refactor code for better readability, maintainability, and structure. Preserves behavior while improving quality. TRIGGER when user says "отрефактори", "рефактор", "упрости код", "перепиши понятнее", "вынеси в функцию", "убери дублирование", "длинная функция", "глубокая вложенность", "code smell", "слишком сложный код", "улучши читаемость", "refactor this", or when code has deep nesting, long functions, duplication, magic numbers, or poor naming that hinders understanding. Behavior must be preserved — no feature changes.
+description: 'Refactor code for readability and maintainability while preserving behavior. Uses Fowler-style catalog (Extract Function, Replace Conditional with Polymorphism, etc.). TRIGGER when user says "отрефактори", "упрости код", "перепиши понятнее", "refactor this", or when code has deep nesting/duplication/long functions. No feature changes. See `## Trigger phrases` in body for full list.'
 argument-hint: file, function, or area to refactor
 license: MIT
-effort: medium
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: code-quality
   tags: [refactoring, clean-code, readability]
 ---
 
 
 # Refactor
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- отрефактори, рефактор, упрости код, перепиши понятнее
+- вынеси в функцию, убери дублирование, длинная функция
+- глубокая вложенность, code smell, слишком сложный код
+- улучши читаемость, refactor this, clean up
+- code that has poor naming, magic numbers, god class
 
 ## Instructions
 
@@ -24,13 +34,15 @@ Read the code, understand its purpose and ALL callers/usages.
 grep -r "functionName" src/
 ```
 
-### Step 2: Identify problems
+### Step 2: Identify problems and pick a refactoring
 - Long functions (>30 lines) — extract meaningful sub-functions
 - Deep nesting (>3 levels) — use early returns, guard clauses
 - Duplicate code — extract shared logic
 - Poor naming — rename for clarity
 - God objects/functions — split by responsibility
 - Complex conditionals — simplify or extract to named functions
+
+For each smell, **consult `references/refactoring-catalog.md`** — it contains a Fowler-style catalog with 12 specific refactorings (Extract Function, Replace Nested Conditional with Guard Clauses, Introduce Parameter Object, Extract Class, Replace Conditional with Polymorphism, Introduce Null Object, Split Function, Pull Up Method, Replace Method with Method Object, Replace with Return Value, etc.). Each entry has when-to-apply, before/after code, and pitfalls. Use that as a menu — don't invent your own technique when a documented one fits.
 
 ### Step 3: Refactor
 Apply changes following these rules:

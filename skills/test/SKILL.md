@@ -1,19 +1,29 @@
 ---
 name: test
-description: Generate comprehensive tests for code — unit, integration, edge cases. Detects the project's test framework and follows existing conventions. TRIGGER when user says "напиши тесты", "покрой тестами", "добавь тесты", "нет тестов", "добавь покрытие", "coverage", "юнит-тесты", "интеграционные тесты", "регрессионный тест", "pytest", "vitest", "jest", "add tests", "test this", or after writing new code, implementing a feature, or fixing a bug. ALWAYS run this after significant code changes — generating a regression test for a fix is part of finishing the fix, not optional polish.
+description: 'Generate comprehensive tests — unit, integration, edge cases. Detects project test framework (pytest/vitest/jest/go test) and follows existing conventions. TRIGGER when user says "напиши тесты", "покрой тестами", "добавь тесты", or after writing new code / fixing a bug. Generating a regression test for a fix is part of finishing the fix. See `## Trigger phrases` in body for full list.'
 argument-hint: file, function, or module to test
 license: MIT
-effort: medium
 paths: ["**/test_*.py", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/tests/**", "**/__tests__/**"]
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: testing
   tags: [unit-tests, integration-tests, edge-cases, tdd]
 ---
 
 
 # Test
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- напиши тесты, покрой тестами, добавь тесты, нет тестов, добавь покрытие
+- coverage, юнит-тесты, интеграционные тесты, регрессионный тест
+- pytest, vitest, jest, go test, RSpec
+- add tests, test this, generate tests
+- автоматически после нового кода или после фикса бага
 
 ## Instructions
 
@@ -28,6 +38,8 @@ ls -d tests/ __tests__/ *.test.* *.spec.*
 ```
 
 If none found, ask the user which framework to use.
+
+For idiomatic patterns in each major framework (pytest fixtures, vitest mocks, jest snapshots, go test table-driven, React Testing Library) — consult `references/test-frameworks.md`. It also covers detection priority, edge-case checklist (empty/boundary/unicode/concurrent/auth), coverage targets per project type, and what NOT to test.
 
 ### Step 2: Analyze the code
 Read the target file/function. Identify:

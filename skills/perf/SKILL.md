@@ -1,20 +1,30 @@
 ---
 name: perf
-description: Performance analysis — find bottlenecks and optimize. Covers algorithms, database queries, memory, I/O, and caching. TRIGGER when user says "тормозит", "медленно работает", "лагает", "оптимизируй", "производительность", "узкое место", "bottleneck", "N+1", "slow query", "медленный запрос", "утечка памяти", "memory leak", "высокая нагрузка", "optimize", "make it faster", reports slow page loads, high latency, or memory issues. ALWAYS use this for performance-related complaints — measure first, optimize second.
+description: 'Performance analysis — find bottlenecks and optimize. Covers algorithms, DB queries, memory, I/O, caching. TRIGGER when user says "тормозит", "медленно работает", "оптимизируй", "производительность", or reports slow page loads / high latency / memory issues. Measure first, optimize second. See `## Trigger phrases` in body for full list.'
 argument-hint: file, function, or area to analyze
 license: MIT
-effort: medium
 context: fork
 agent: perf-analyzer
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: code-quality
   tags: [performance, optimization, profiling, bottleneck]
 ---
 
 
 # Perf
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- тормозит, медленно работает, лагает, оптимизируй, производительность
+- узкое место, bottleneck, N+1, slow query, медленный запрос
+- утечка памяти, memory leak, высокая нагрузка
+- optimize, make it faster, slow page load
+- любой жалобный запрос на скорость, latency, throughput
 
 ## Instructions
 

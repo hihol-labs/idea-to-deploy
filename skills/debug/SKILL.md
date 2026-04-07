@@ -1,19 +1,30 @@
 ---
 name: debug
-description: Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, and git history. TRIGGER when user says "почини баг", "не работает", "ошибка", "сломалось", "крашит", "падает", "exception", "stack trace", "стектрейс", "странное поведение", "работало вчера, сейчас нет", "не понимаю что не так", "debug this", pastes any error message, stack trace, log fragment, or describes any unexpected behavior. ALWAYS use this instead of ad-hoc tool calls (Bash/Read/Grep) — even if the bug looks small, /debug enforces root-cause analysis instead of guessing.
+description: 'Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, git history. TRIGGER when user says "почини баг", "не работает", "ошибка", "крашит", "падает", or pastes any error/stack trace. ALWAYS use this instead of ad-hoc Bash/Read/Grep — even small bugs deserve root-cause analysis. See `## Trigger phrases` in body for full list.'
 argument-hint: error message, symptom, or issue description
 license: MIT
-effort: medium
 paths: ["**/logs/**", "**/*.log"]
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: code-quality
   tags: [debugging, bugfix, troubleshooting]
 ---
 
 
 # Debug
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- почини баг, не работает, ошибка, сломалось, крашит, падает
+- exception, stack trace, стектрейс, traceback
+- странное поведение, работало вчера сейчас нет, не понимаю что не так
+- debug this, fix this bug, troubleshoot
+- любая вставка error message, log fragment, panic
+- симптом без явной ошибки (тихий сбой)
 
 ## Instructions
 
@@ -31,6 +42,8 @@ Trace from the error back to the root cause:
 - Read the stack trace / error message carefully
 - Find the relevant code path
 - Check recent changes: `git log --oneline -10` and `git diff HEAD~3`
+
+If the bug is language- or stack-specific (Python pdb, JS source maps, Go race detector, Bash quoting, SQL query plans, frontend rendering), consult `references/debugging-patterns.md` for the idiomatic tools and common pitfalls of that ecosystem.
 
 ### Step 3: Understand
 Explain WHY it fails, not just WHERE. Identify the incorrect assumption or state.

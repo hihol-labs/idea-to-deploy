@@ -1,19 +1,29 @@
 ---
 name: doc
-description: Generate documentation — README, API docs, inline comments for complex logic. Detects project style and follows existing conventions. TRIGGER when user says "напиши документацию", "создай README", "обнови README", "задокументируй API", "опиши API", "добавь комментарии", "inline комментарии", "JSDoc", "docstrings", "changelog", "напиши документ", "сгенери doc", or when creating/updating public APIs, modules, or project structure. Also use after non-trivial features land — docs are part of "done".
+description: 'Generate documentation — README, API docs, inline comments. Detects project style and follows existing conventions. TRIGGER when user says "напиши документацию", "создай README", "задокументируй API", "добавь комментарии", or when creating/updating public APIs. Docs are part of "done". See `## Trigger phrases` in body for full list.'
 argument-hint: file, module, or "readme" or "api"
 license: MIT
-effort: medium
 paths: ["**/README.md", "**/CHANGELOG.md", "**/docs/**"]
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: documentation
   tags: [readme, api-docs, comments, jsdoc]
 ---
 
 
 # Doc
+
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- напиши документацию, создай README, обнови README, задокументируй API
+- опиши API, добавь комментарии, inline комментарии
+- JSDoc, docstrings, changelog, changelog.md
+- сгенери doc, generate documentation, write docs
+- автоматически после нетривиальной фичи
 
 ## Instructions
 

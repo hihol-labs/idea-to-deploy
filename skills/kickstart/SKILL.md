@@ -1,14 +1,13 @@
 ---
 name: kickstart
-description: Generate a complete project from idea — architecture, plans, docs, and implementation up to deployment. Full lifecycle from concept to working product. TRIGGER when user says "создай проект", "новый проект", "запили проект", "сделай проект целиком", "от идеи до деплоя", "полный цикл", "end-to-end проект", "start a project", "build it from scratch", or wants to go from concept to a working deployed product in one shot. Usually invoked via /project router, but can be called directly.
+description: 'Generate a complete project from idea — architecture, plans, docs, code, tests, deploy. Full lifecycle, one shot. TRIGGER when user says "создай проект", "новый проект", "запили проект целиком", "от идеи до деплоя". Usually invoked via /project router. See `## Trigger phrases` in body for full list.'
 argument-hint: project idea or description
 disable-model-invocation: true
 allowed-tools: "Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*)"
 license: MIT
-effort: high
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: project-creation
   tags: [scaffolding, mvp, full-lifecycle, deployment]
 ---
@@ -16,7 +15,45 @@ metadata:
 
 # Kickstart
 
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- хочу проект, новый проект, создай проект, запили проект, сделай проект целиком
+- от идеи до деплоя, полный цикл, end-to-end проект
+- start a project, build it from scratch, end-to-end
+- любой запрос на создание законченного работающего продукта
+
 ## Instructions
+
+### Phase -1: Detect model and select mode (Lite vs Full)
+
+Before starting, determine which mode to use:
+
+**Detection:**
+- If running on Opus → **Full mode** (default, recommended)
+- If running on Sonnet → **Lite mode** (auto-fallback) and warn the user
+- If running on Haiku → refuse: "Этот скилл генерирует целый проект и требует Sonnet или Opus. Haiku не справится. Переключитесь (`/model sonnet` или `/model opus`)."
+- If user passes `--lite` flag → **Lite mode** (explicit)
+- If user passes `--full` flag → **Full mode** (explicit)
+
+**Mode differences:**
+
+| Aspect | Full mode | Lite mode |
+|---|---|---|
+| Documentation phase | 7 documents (Phase 2) | 4 documents (skip strategic plan + delegate guide to /guide later) |
+| Implementation plan | 8–12 steps with time estimates | 4–6 steps without estimates |
+| Quality Gate 1 (review rubric) | All Critical + all Important must pass | All Critical only (Important warnings allowed) |
+| Quality Gate 2 (per-step) | Strict — code must match architecture, tests must pass | Relaxed — tests must pass, architecture-mismatch only warned |
+| Deployment phase | Full (Docker + nginx + healthcheck + verify) | Simplified (one platform of user's choice, basic config) |
+
+Tell the user which mode you selected:
+- Full: silent (default)
+- Lite (auto): "⚠️ Запускаю в режиме Lite (Sonnet detected). Качество планирования ниже, чем в Full на Opus. Если можете — переключитесь на Opus и повторите. Иначе продолжаю в Lite."
+- Lite (explicit): "Запускаю в Lite по вашему запросу."
+
+In all subsequent phases, obey the mode setting.
 
 ### Phase 0: Detect Existing Documentation
 
@@ -35,8 +72,8 @@ Look for these files in the current directory and docs/:
 **If ALL core documents exist (ARCHITECTURE + IMPLEMENTATION_PLAN + PRD):**
 - Tell the user: "Обнаружена существующая документация. Пропускаю фазы планирования и перехожу к реализации."
 - Run /review on existing documents
-- If score >= 7/10 → skip to Phase 3 (Scaffolding) or Phase 4 (Implementation) if project is already scaffolded
-- If score < 7/10 → show issues, ask: "Документация требует доработки. Исправить автоматически или хотите скорректировать вручную?"
+- If status is `PASSED` or `PASSED_WITH_WARNINGS` → skip to Phase 3 (Scaffolding) or Phase 4 (Implementation) if project is already scaffolded; show warnings if any
+- If status is `BLOCKED` → show the failing Critical checks, ask: "Документация не проходит критические проверки. Исправить автоматически или хотите скорректировать вручную?"
 
 **If SOME documents exist (partial documentation):**
 - Tell the user which documents found and which are missing
@@ -152,18 +189,23 @@ Check: missing dependencies, wrong versions, TypeScript strict mode issues. Fix 
 
 **Automatic validation:**
 1. Run /review automatically on generated documents
-2. If score < 7/10 — fix critical issues automatically
+2. Read the status from the report:
+   - `BLOCKED` → fix the failing Critical checks automatically (or ask user if multiple), then re-run /review on those checks
+   - `PASSED_WITH_WARNINGS` → continue, but include warnings in the user summary
+   - `PASSED` → continue silently
+3. Do NOT proceed past this gate if status remains `BLOCKED` after one fix attempt — escalate to the user
 
 **User approval (MANDATORY):**
-3. Show the user a summary of the generated plan:
+4. Show the user a summary of the generated plan:
    - Project type and tech stack
    - Database tables count and main entities
    - API endpoints count and main routes
    - Implementation steps count and estimated timeline
-   - Review score
-4. Ask: "Вот план проекта. Всё устраивает или хотите что-то изменить?"
-5. Wait for explicit user approval before proceeding to Phase 3
-6. If user requests changes — apply them, re-run /review, show updated plan
+   - Review status (`PASSED` / `PASSED_WITH_WARNINGS`) + warning list if any
+   - Derived score (informational)
+5. Ask: "Вот план проекта. Всё устраивает или хотите что-то изменить?"
+6. Wait for explicit user approval before proceeding to Phase 3
+7. If user requests changes — apply them, re-run /review, show updated plan
 
 Do NOT proceed to scaffolding without user confirmation.
 

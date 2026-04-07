@@ -1,14 +1,13 @@
 ---
 name: blueprint
-description: Generate complete project documentation set (6 files) — strategic plan, architecture, implementation plan, PRD, README, Claude Code guide. Planning only, no code is written. TRIGGER when user says "спланируй проект", "создай документацию для проекта", "подготовь blueprint", "спроектируй", "архитектура проекта", "техническое задание", "ТЗ", "PRD", "только планирование без кода", "design the system", or needs the full document set before any implementation. Code generation belongs to /kickstart, not here.
+description: 'Generate complete project documentation set (6 files in Full mode, 4 in Lite) — strategic plan, architecture, implementation plan, PRD, README, Claude Code guide. Planning only, no code. TRIGGER when user says "спланируй проект", "подготовь blueprint", "спроектируй", "только планирование без кода". Code generation belongs to /kickstart, not here. See `## Trigger phrases` in body for full list.'
 argument-hint: project idea or description
 license: MIT
-effort: high
 context: fork
 agent: architect
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.2.0
   category: project-planning
   tags: [documentation, architecture, planning, prd]
 ---
@@ -16,7 +15,48 @@ metadata:
 
 # Blueprint
 
+
+## Trigger phrases
+
+These are the user phrases (Russian and English) that should auto-invoke this skill. They are kept here, not in the description, to avoid diluting the embedding-based matcher in the frontmatter. The hook `hooks/check-skills.sh` also uses this list — keep them in sync.
+
+- спланируй проект, создай документацию для проекта, подготовь blueprint
+- спроектируй, архитектура проекта, техническое задание, ТЗ, PRD
+- только планирование без кода, design the system, system design
+- набор документов для разработчика, передать другому подрядчику
+
 ## Instructions
+
+### Step -1: Detect model and select mode (Lite vs Full)
+
+Before starting, determine which mode to use:
+
+**Detection:**
+- If running on Opus → **Full mode** (default)
+- If running on Sonnet → **Lite mode** (auto-fallback)
+- If running on Haiku → refuse and ask user to switch model: "Этот скилл требует Sonnet или Opus. Haiku не справится с генерацией качественных документов. Переключитесь на Sonnet (`/model sonnet`) и повторите."
+- If user passes `--lite` flag in $ARGUMENTS → **Lite mode** (explicit override)
+- If user passes `--full` flag → **Full mode** (explicit override)
+
+**Mode differences:**
+
+| Aspect | Full mode | Lite mode |
+|---|---|---|
+| Documents generated | 6 (STRATEGIC_PLAN + ARCHITECTURE + IMPLEMENTATION_PLAN + PRD + README + CLAUDE_CODE_GUIDE) | 4 (PROJECT_ARCHITECTURE + IMPLEMENTATION_PLAN + PRD + README) |
+| Strategic plan | Required, 3+ competitors, budget, KPIs, risks | Skipped — focus on technical |
+| Architecture depth | All Critical + all Important rubric checks | All Critical only |
+| Implementation steps | 8–12 with time estimates | 4–6 without estimates |
+| User stories required | 5+ with acceptance criteria for P0 | 3+ without explicit acceptance criteria |
+| CLAUDE_CODE_GUIDE | Generated | User can run /guide separately later |
+
+**Why this exists:** Sonnet produces lower-quality output when asked to generate the full 6-document set in one shot. Lite mode reduces scope so Sonnet can deliver something usable instead of degrading silently. The user can always run `/blueprint --full` later or `/kickstart` to fill the gaps.
+
+Tell the user which mode you selected before proceeding:
+- Full mode: silent (default behavior)
+- Lite mode (auto): "Запускаю в режиме Lite (Sonnet detected). Сгенерирую 4 документа вместо 6. Для полного режима используйте Opus или явный флаг `--full`."
+- Lite mode (explicit): "Запускаю в режиме Lite по вашему запросу."
+
+In all subsequent steps where the instructions say "generate 6 documents", obey the mode: Full = 6, Lite = 4.
 
 ### Step 0: Detect Existing Documentation
 
