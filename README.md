@@ -6,8 +6,18 @@
 [![Skills: 13](https://img.shields.io/badge/Skills-13-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
 [![Version: 1.3.1](https://img.shields.io/badge/Version-1.3.1-purple.svg)](.claude-plugin/plugin.json)
+[![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
+[![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
-**[Русская версия (README.ru.md)](README.ru.md)**
+**[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](#contributing)**
+
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 13 skills and 5 subagents into your Claude Code environment — it does not run as a standalone CLI.
+
+## Demo
+
+> *Demo GIF / screenshot placeholder — to be added in a future release.*
+>
+> Until then, see the [End-to-End Example](#end-to-end-example) below for a walkthrough of a real run.
 
 ---
 
@@ -33,9 +43,49 @@ Every step is verified. Every feature is tested. Every decision is documented.
 
 ### Installation
 
+**Requirements:**
+- [Claude Code](https://claude.com/claude-code) CLI ≥ 2.0 (or the VS Code / JetBrains extension) with plugin support
+- Claude Pro / Team / Enterprise subscription
+- `git` available on `PATH` (used by several skills)
+
+**Install the plugin:**
+
 ```bash
 /plugin install HiH-DimaN/idea-to-deploy
 ```
+
+**Verify the installation:**
+
+After installation, the skills and agents are registered under:
+
+```
+~/.claude/plugins/idea-to-deploy/
+  ├── skills/          # 13 skill directories
+  ├── agents/          # 5 subagent definitions
+  └── hooks/           # optional enforcement hooks (not auto-installed)
+```
+
+Quick sanity check inside Claude Code:
+
+```
+/project
+```
+
+If the router prompt appears and offers routes A / B / C, the plugin is live.
+
+**Updating:**
+
+```bash
+/plugin update HiH-DimaN/idea-to-deploy
+```
+
+**Uninstalling:**
+
+```bash
+/plugin uninstall HiH-DimaN/idea-to-deploy
+```
+
+See the [CHANGELOG](CHANGELOG.md) for release notes.
 
 ### Usage
 
@@ -84,6 +134,31 @@ You: "I want to build a delivery app"
     +-- Deploys
 ```
 
+
+## End-to-End Example
+
+A minimal walkthrough of Route A (full cycle):
+
+```
+You:   I want to build a Telegram bot that tracks my gym workouts
+Claude: [/project] A, B, or C?
+You:   A
+Claude: [/kickstart] asks 6 clarifying questions
+        (users? auth? DB? hosting? budget? deadline?)
+You:   personal use, no auth, SQLite, local, $0, this weekend
+Claude: generates STRATEGIC_PLAN, PROJECT_ARCHITECTURE,
+        IMPLEMENTATION_PLAN, PRD, README, CLAUDE_CODE_GUIDE, CLAUDE.md
+        runs /review → PASSED_WITH_WARNINGS (2 nits)
+        shows plan, asks: "Approve and start coding?"
+You:   yes
+Claude: Step 1/9 — scaffold project, commit
+        Step 2/9 — DB models + /test
+        ...
+        Step 9/9 — deploy script + README update
+        Done. 42 tests passing. Here is your bot.
+```
+
+**Reference fixtures:** reproducible golden-path scenarios used by the test runner live in [`tests/fixtures/`](tests/fixtures/). Run them with [`tests/run-fixtures.sh`](tests/run-fixtures.sh) to see how each skill behaves on a known input.
 
 ## Skills
 
@@ -198,6 +273,8 @@ Skills can invoke each other. This is the maximum depth and the chains:
 **Recursion guard:** No skill invokes itself directly or through a chain. Maximum observed depth is 3 (`/project` → `/kickstart` → `/review`). If you observe a deeper chain or loop, file an issue — that's a bug.
 
 ## Recommended Setup: Skill Discovery Hooks
+
+> **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
 The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains two enforcement scripts that close this gap:
 
@@ -327,10 +404,69 @@ Works with any project that can be built with code:
 - E-commerce
 - Parsers and scrapers
 
+## What This Methodology Does NOT Do
+
+Setting expectations honestly:
+
+- **Does not replace a senior architect** on novel / high-risk systems. It encodes good defaults, not domain expertise for regulated industries (healthcare, fintech, aerospace).
+- **Does not guarantee a production-ready deploy.** Route A reaches a deployable state; production hardening (load testing, SRE runbooks, compliance) is still your job.
+- **Is only as good as your clarifications.** Garbage in → garbage out. Vague answers to the clarifying questions produce a vague plan.
+- **Does not audit third-party dependencies** beyond what `/security-audit` catches. You still own supply-chain risk.
+- **Is not a substitute for code review by a human** on critical paths. `/review` is a fast gate, not a replacement for peer review.
+- **Does not run autonomously forever.** After 3 consecutive step failures it stops and asks for human input — by design.
+- **Does not manage infrastructure state** (Terraform, Kubernetes secrets, IAM). It scaffolds, it does not operate.
+
+If any of these are blockers for your use case, treat idea-to-deploy as a strong starting skeleton and layer your own process on top.
+
+## Troubleshooting / FAQ
+
+**A skill is not being invoked when I expect it to.**
+Claude Code may default to ad-hoc tool calls on ambiguous prompts. Install the [skill discovery hooks](#recommended-setup-skill-discovery-hooks) — they inject `[SKILL HINT]` and `[SKILL CHECK]` reminders that raise the invocation rate significantly. You can also invoke a skill explicitly: `/debug`, `/test`, etc.
+
+**How do I update the plugin?**
+`/plugin update HiH-DimaN/idea-to-deploy`. Check the [CHANGELOG](CHANGELOG.md) for what changed.
+
+**How do I uninstall?**
+`/plugin uninstall HiH-DimaN/idea-to-deploy`. Hooks in `~/.claude/settings.json` (if you installed them) must be removed manually.
+
+**Conflicts with other plugins.**
+Skills are namespaced by plugin, so two plugins can coexist even if both define `/test`. The router will ask which one to use. Hooks are global — if another plugin also registers UserPromptSubmit hooks, they run in the order defined in `settings.json`.
+
+**`/review` flags my plan as BLOCKED but I disagree.**
+See the Troubleshooting section in the `/review` skill itself (`skills/review/SKILL.md`) — it documents how to override Critical checks with explicit user consent.
+
+**I'm on Haiku and `/kickstart` refuses to run.**
+By design — see the [Recommended Models](#recommended-models) table. `/kickstart` and `/blueprint` require at least Sonnet; Haiku is fine for `/project`, `/explain`, and read-only skills.
+
+**The methodology "forgot" my project.**
+Each skill reads `CLAUDE.md` at the project root to resume. If you deleted or renamed it, run `/project` again and say "continue the project" — it will re-scan and rebuild state from existing files.
+
+**Where are my installed skills located?**
+`~/.claude/plugins/idea-to-deploy/skills/`. Each skill has a `SKILL.md` you can read to understand its contract.
+
+**Something else is broken.**
+Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/HiH-DimaN/idea-to-deploy/issues). Include your Claude Code version, the model in use, the prompt, and the unexpected behavior.
+
+## Contributing
+
+Contributions are welcome. The project is small enough that process is lightweight:
+
+1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 13. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
+4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
+
+All PRs are reviewed against the same binary rubric that `/review` uses on generated projects. No subjective scoring.
+
 ## Requirements
 
-- Claude Code CLI or VS Code extension
+- Claude Code CLI or VS Code extension (with plugin support)
 - Claude Pro / Team / Enterprise subscription
+- `git` on `PATH`
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full release history. This project follows [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/).
 
 ## License
 
