@@ -5,14 +5,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 16](https://img.shields.io/badge/Skills-16-green.svg)](#скиллы)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#субагенты)
-[![Version: 1.8.0](https://img.shields.io/badge/Version-1.8.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.8.1](https://img.shields.io/badge/Version-1.8.1-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 13 скиллов и 5 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 16 скиллов и 5 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -61,7 +61,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 13 папок скиллов
+  ├── skills/          # 16 папок скиллов
   ├── agents/          # 5 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```

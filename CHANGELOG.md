@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.1] — 2026-04-08
+
+Patch release. Documentation consistency fix. Three stale "13 skills" references in the README body survived the v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 sequence because the badge count was updated but the in-body prose was missed. All badges and tables were already correct at 16; only narrative sentences drifted.
+
+### Fixed
+
+- **`README.md:15`** — `"Installing it registers 13 skills and 5 subagents"` → `"16 skills and 5 subagents"`. Appeared right below the badges, which was especially embarrassing because the adjacent badge already said `Skills: 16`.
+- **`README.md:64`** — installation path comment `"# 13 skill directories"` → `"# 16 skill directories"`.
+- **`README.ru.md:15`** — same as README.md:15, Russian version.
+- **`README.ru.md:64`** — same as README.md:64, Russian version.
+- **`skills/review/references/meta-review-checklist.md:37`** — M-C8 criterion said `"enforced in v1.3.1 for the existing 13 skills"`. Expanded to `"enforced in v1.3.1 for the 13 skills that existed at that time, extended to all 16 skills in v1.4.0+"` — preserves the historical fact but clarifies the current state.
+
+### Not touched
+
+`CHANGELOG.md` still contains "13 skills" references in the `[1.3.1]`, `[1.3.0]`, and `[1.4.0]` entries. Those are historical records — the changelog describes what was true *at that release*, not what is true now. Rewriting history in the changelog would be worse than the original bug.
+
+### How this was caught
+
+The user asked directly: "find all stale `13 skills` mentions in the README and fix them." The meta-review rubric didn't catch this because M-C7 only checks that the README's `Skills: N` badge matches `ls skills/ | wc -l` — it doesn't grep the prose. This is a gap in M-C7.
+
+### Follow-up for a future minor release
+
+Add **M-C12** to the meta-review rubric: "No hardcoded skill-count or agent-count numbers in any README prose outside the Skill Contracts and Recommended Models tables". Implementation: grep every `README*.md` for patterns like `\b\d+\s+(skills?|skill directories?)\b` and cross-check against the actual count from `ls skills/`. Would have caught this class of drift automatically. Deferred to v1.9.0 or later — the immediate fix is priority, the rubric expansion is follow-up.
+
+### Verified before release
+
+- `python3 tests/meta_review.py --verbose` — PASSED (0 Critical, 0 Important)
+- `python3 tests/verify_triggers.py` — 0 drift
+- Manual grep for `13\s+(skill|скилл)` outside CHANGELOG — no matches
+
+---
+
 ## [1.8.0] — 2026-04-08
 
 Minor release. Closes the last deferred item from v1.6.0 (#3 — CI workflow) and adds the missing public-repo infrastructure (CONTRIBUTING, ISSUE_TEMPLATE) that should have existed from day one of the public repo but was postponed as "solo project overhead not justified". The trigger for flipping that decision: **3 GitHub stars within 24 hours of publishing the repo**. That's a traction signal that makes "wait for first PR" the wrong posture — first PRs follow star accumulation by days, not months, and CI is far cheaper to have before the first PR than to retrofit after.

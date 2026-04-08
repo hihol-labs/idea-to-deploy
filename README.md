@@ -5,14 +5,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 16](https://img.shields.io/badge/Skills-16-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.8.0](https://img.shields.io/badge/Version-1.8.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.8.1](https://img.shields.io/badge/Version-1.8.1-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 13 skills and 5 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 16 skills and 5 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -61,7 +61,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 13 skill directories
+  ├── skills/          # 16 skill directories
   ├── agents/          # 5 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```

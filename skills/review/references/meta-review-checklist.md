@@ -34,7 +34,7 @@ If any of 1–3 disagree → fail.
 **Criterion:** `Skills: N` badge in both READMEs matches `ls skills/ | wc -l`. `Agents: N` badge matches `ls agents/ | wc -l`. Mismatch → fail.
 
 ### M-C8. Every skill has a Troubleshooting section
-**Criterion:** every `skills/*/SKILL.md` body contains a `## Troubleshooting` heading. This was enforced in v1.3.1 for the existing 13 skills and should hold for all future additions.
+**Criterion:** every `skills/*/SKILL.md` body contains a `## Troubleshooting` heading. This was enforced in v1.3.1 for the 13 skills that existed at that time, extended to all 16 skills in v1.4.0+, and should hold for all future additions.
 
 ### M-C9. No skill file has been Write'n in the current working state without its supporting artifacts on disk
 **Criterion:** git-staged `skills/*/SKILL.md` → matching `references/` (if referenced in body), trigger in hook, fixture in tests/fixtures — all staged OR already committed. This mirrors the `check-commit-completeness.sh` hook logic; the meta-review runs the same check so the state can be audited without committing.
