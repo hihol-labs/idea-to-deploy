@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 16](https://img.shields.io/badge/Skills-16-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.8.1](https://img.shields.io/badge/Version-1.8.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.9.0](https://img.shields.io/badge/Version-1.9.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -491,7 +491,7 @@ Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/H
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 13. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 16. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

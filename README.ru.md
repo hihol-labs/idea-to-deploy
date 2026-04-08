@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 16](https://img.shields.io/badge/Skills-16-green.svg)](#скиллы)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#субагенты)
-[![Version: 1.8.1](https://img.shields.io/badge/Version-1.8.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.9.0](https://img.shields.io/badge/Version-1.9.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -491,7 +491,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 13. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 16. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

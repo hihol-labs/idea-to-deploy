@@ -129,6 +129,41 @@ If any of 1–3 disagree → fail.
 
 **Why this check exists:** v1.5.0 shipped two hooks — `check-skill-completeness.sh` (PostToolUse with `decision: "block"`, advertised as hard-blocking) and `check-commit-completeness.sh` (PreToolUse with root-level `decision: "deny"`). Both were wrong per Anthropic's spec. Neither was caught by the v1.5.0 meta-review because the rubric checked structural completeness (hook exists, references correct event name), not spec compliance (field paths, exit code semantics per event). v1.6.0 adds M-C10 so the next hook-related mistake cannot repeat the same blind spot.
 
+### M-C12. Skill and agent counts in user-facing prose must match reality
+**Added in v1.9.0 — closes the v1.4.0 → v1.8.1 "stale narrative count" drift class.**
+
+**Criterion (binary, static analysis):** for each user-facing documentation file, scan narrative prose for hardcoded skill-count or agent-count numbers and verify they match `ls skills/ | wc -l` and `ls agents/*.md | wc -l` respectively.
+
+**Scope — scanned files:**
+- `README.md`
+- `README.ru.md`
+- `CONTRIBUTING.md`
+- `hooks/README.md`
+- `docs/**/*.md`
+
+**Scope — deliberately NOT scanned:**
+- `CHANGELOG.md` — historical entries legitimately reference past counts.
+- `skills/*/SKILL.md` — skill bodies mention small numbers in examples that would produce many false positives.
+- `skills/review/references/*.md` — rubric documentation may legitimately reference historical counts for context.
+
+**Skipped lines (even within scanned files):**
+- Markdown table rows (start with `|`) — tables are the authoritative per-row count, not prose.
+- Markdown headings (start with `#`) — headings legitimately list category subtotals like `### Project Creation (3 skills)`.
+- Lines with version markers (`v\d+\.\d+`) or historical phrases (`at that time`, `existed at`, `era`, `legacy`, `initially`, `was enforced`, `изначально`, `тогда существовал`, `на момент`).
+
+**Patterns caught:**
+1. **Direct count:** `\d+ skills?`, `\d+ skill directories`, `\d+ скиллов` — with a hyphen guard `(?<!\S)` to avoid false positives on qualifiers like `depth-3 skills`.
+2. **Contextual count:** `existing N` / `current N` / `существующих N` — only fires when the same line also mentions `skill` / `скилл`. This catches phrases like "the existing 13" that escape pattern 1.
+3. **Direct agent count:** `\d+ agents?`, `\d+ subagents?`, `\d+ агентов`, `\d+ субагентов` — same hyphen guard.
+
+**Failure mode:** every finding is Critical. A prose sentence saying "registers 13 skills" when there are 16 is user-visible wrongness that hurts trust.
+
+**Verification:** implemented inline in `tests/meta_review.py` under the `--- M-C12 ---` block.
+
+**Action on fail:** update the prose to the correct count. Do not work around the check by adding `v\d+\.\d+` version markers to hide drift — that defeats the purpose.
+
+**Why this check exists:** the v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 sequence bumped the skill count from 13 to 16 in badges, tables, the call graph, and the Skill Contracts section — but left 5 narrative sentences saying "13 skills". The user caught the first 3 in v1.8.1 by direct inspection. The remaining 2 (the `existing 13` phrasing in Contributing) escaped because the initial ad-hoc grep pattern only matched `\d+\s+(skill|скилл)`, not `existing \d+`. M-C12 generalizes the check so no future count bump silently drifts narrative prose. Catches the class of bug structurally instead of reactively.
+
 ### M-C11. Every canonical trigger phrase in a `SKILL.md` body routes to the right skill via `hooks/check-skills.sh`
 **Added in v1.7.0 — closes the v1.4.0 drift-class of bug.**
 
@@ -213,7 +248,7 @@ Same as the standard `/review` rubric — tier-by-tier list with ✅/❌/⚠️/
 ### Summary
 | Tier | Pass | Total | Status |
 |---|---|---|---|
-| Critical | 10 | 11 | ❌ BLOCKED |
+| Critical | 11 | 12 | ❌ BLOCKED |
 | Important | 6 | 8 | ⚠️ |
 | Nice-to-have | 3 | 4 | ℹ️ |
 
@@ -225,5 +260,7 @@ Same as the standard `/review` rubric — tier-by-tier list with ✅/❌/⚠️/
 > **v1.6.0 note:** the Critical tier grew from 9 to 10 checks with the addition of M-C10 (hook schema compliance). All 4 hooks in the v1.6.0 methodology repo pass M-C10; the check was validated on the v1.5.1 post-fix state before being merged into the rubric.
 >
 > **v1.7.0 note:** the Critical tier grew from 10 to 11 with the addition of M-C11 (trigger drift). The initial run against v1.6.1 caught 111 drift findings — all fixed as part of the v1.7.0 release before the check was merged into the rubric. v1.7.0 is the first release to pass M-C11 cleanly.
+>
+> **v1.9.0 note:** the Critical tier grew from 11 to 12 with the addition of M-C12 (prose count drift). The initial run against v1.8.1 caught 2 remaining `existing 13` references that had survived the v1.8.1 spot-fix because the user's ad-hoc grep pattern was narrower than M-C12's. Also caught 12 false-positive category-subtotal matches in headings (e.g., `### Project Creation (3 skills)`) and 2 false positives on hyphenated qualifiers (`depth-3 skills`) — both false-positive classes were closed by adding heading-skip and hyphen-guard to the check before merging it into the rubric. v1.9.0 is the first release to pass M-C12 cleanly.
 
 When `check-commit-completeness.sh` is active (recommended in the methodology repo), any Critical failure here will also block the next `git commit` — there is no path to shipping a broken release short of the documented override file.

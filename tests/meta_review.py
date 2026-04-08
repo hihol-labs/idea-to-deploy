@@ -258,6 +258,127 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-I7", f"could not load hook module: {e}")
 
+    # --- M-C12: prose skill/agent count consistency (v1.9.0) ---
+    # Scan user-facing documentation prose for hardcoded skill or agent
+    # counts that don't match reality. This catches the class of bug that
+    # accumulated silently across v1.4.0 → v1.8.1: badges and tables were
+    # updated when the count changed, but narrative sentences like
+    # "registers 13 skills" or "the existing 13" drifted unnoticed because
+    # M-C7 only checks the badge against `ls skills/`.
+    #
+    # Scope: README.md, README.ru.md, CONTRIBUTING.md, hooks/README.md,
+    # docs/**/*.md. Deliberately NOT scanned:
+    #   - CHANGELOG.md (historical entries legitimately mention old counts)
+    #   - skills/*/SKILL.md (too many false positives from examples)
+    #   - skills/review/references/*.md (rubric docs legitimately mention
+    #     historical counts for context)
+    #
+    # Skipped lines:
+    #   - Markdown table rows (start with `|`)
+    #   - Lines with version markers (`v1.x.y`) or historical phrases
+    #     ("at that time", "existed", "era", "initially", "before")
+    try:
+        actual_skills_n = len([p for p in (repo / "skills").iterdir() if p.is_dir()])
+        agents_dir = repo / "agents"
+        actual_agents_n = 0
+        if agents_dir.is_dir():
+            actual_agents_n = len(
+                [p for p in agents_dir.iterdir() if p.is_file() and p.suffix == ".md"]
+            )
+
+        doc_paths: list[Path] = [
+            repo / "README.md",
+            repo / "README.ru.md",
+            repo / "CONTRIBUTING.md",
+            repo / "hooks" / "README.md",
+        ]
+        docs_dir = repo / "docs"
+        if docs_dir.is_dir():
+            doc_paths.extend(docs_dir.rglob("*.md"))
+
+        # Pattern A: "N skill(s)", "N скилл(ов)", "N skill directories", etc.
+        # `(?<!\S)` requires the number to be preceded by whitespace or start
+        # of line — prevents false positives on hyphenated qualifiers like
+        # "depth-3 skills" where "3" is part of "depth-3", not a count.
+        skill_direct_re = re.compile(
+            r"(?<!\S)(\d+)\s+(skills?|skill\s+director\w+|скилл\w*|скилл\w*\s+директор\w+|папк\w*\s+скилл\w+)\b",
+            re.IGNORECASE,
+        )
+        # Pattern B: "existing N" / "существующих N" — only counts when the
+        # same line also mentions "skill"/"скилл" (context required).
+        skill_ctx_re = re.compile(
+            r"\b(?:existing|current|last)\s+(\d+)\b|\bсуществующ\w+\s+(\d+)\b",
+            re.IGNORECASE,
+        )
+        # Pattern C: "N agent(s)", "N субагент(ов)", etc. Same hyphen guard.
+        agent_direct_re = re.compile(
+            r"(?<!\S)(\d+)\s+(agents?|subagents?|агент\w*|субагент\w*)\b",
+            re.IGNORECASE,
+        )
+
+        table_line_re = re.compile(r"^\s*\|")
+        heading_line_re = re.compile(r"^\s*#")
+        historical_re = re.compile(
+            r"(v\d+\.\d+|at\s+that\s+time|existed\s+at|era\b|legacy\b|initially\b|"
+            r"was\s+enforced|изначально|тогда\s+существов|на\s+момент)",
+            re.IGNORECASE,
+        )
+        line_mentions_skill_re = re.compile(r"skill|скилл", re.IGNORECASE)
+        line_mentions_agent_re = re.compile(r"agent|агент|субагент", re.IGNORECASE)
+
+        for doc in doc_paths:
+            if not doc.exists():
+                continue
+            rel = doc.relative_to(repo)
+            text = doc.read_text(encoding="utf-8", errors="replace")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if table_line_re.match(line):
+                    continue
+                if heading_line_re.match(line):
+                    # Markdown headings legitimately list category subtotals
+                    # like "### Project Creation (3 skills)". M-C12 is for
+                    # global-count drift in narrative prose, not for
+                    # category counts in headings.
+                    continue
+                if historical_re.search(line):
+                    continue
+
+                line_has_skill_word = bool(line_mentions_skill_re.search(line))
+                line_has_agent_word = bool(line_mentions_agent_re.search(line))
+
+                # Pattern A — direct skill count
+                for m in skill_direct_re.finditer(line):
+                    n = int(m.group(1))
+                    if n != actual_skills_n:
+                        r.crit(
+                            "M-C12",
+                            f"{rel}:{lineno}: '{m.group(0)}' but actual skill count is {actual_skills_n}",
+                        )
+
+                # Pattern B — contextual "existing N" (requires skill word on the same line)
+                if line_has_skill_word:
+                    for m in skill_ctx_re.finditer(line):
+                        n_str = m.group(1) or m.group(2)
+                        if not n_str:
+                            continue
+                        n = int(n_str)
+                        if n != actual_skills_n:
+                            r.crit(
+                                "M-C12",
+                                f"{rel}:{lineno}: '{m.group(0)}' in skill context but actual is {actual_skills_n}",
+                            )
+
+                # Pattern C — direct agent count
+                for m in agent_direct_re.finditer(line):
+                    n = int(m.group(1))
+                    if n != actual_agents_n:
+                        r.crit(
+                            "M-C12",
+                            f"{rel}:{lineno}: '{m.group(0)}' but actual agent count is {actual_agents_n}",
+                        )
+    except Exception as e:
+        r.imp("M-C12", f"could not run prose-count check: {e}")
+
     # --- M-C11: trigger drift verifier (v1.7.0) ---
     # Delegate to tests/verify_triggers.py via subprocess. Each canonical
     # phrase in every SKILL.md `## Trigger phrases` section must match a

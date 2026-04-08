@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] — 2026-04-08
+
+Minor release. Adds **M-C12** to the meta-review rubric: structural detection of stale skill-count and agent-count numbers in user-facing documentation prose. Closes the drift class that accumulated silently across v1.4.0 → v1.8.1. The initial M-C12 run caught the last 2 `existing 13` references in Contributing sections that had escaped the v1.8.1 spot-fix.
+
+### Added
+
+- **M-C12 (Critical)** in `skills/review/references/meta-review-checklist.md`: "Skill and agent counts in user-facing prose must match reality." Full binary criterion with scanned/not-scanned file scope, skipped-line rules (tables, headings, historical contexts), pattern definitions (direct count, contextual `existing N`, agent count), and action-on-fail guidance.
+
+- **M-C12 implementation** in `tests/meta_review.py`. Scans `README.md`, `README.ru.md`, `CONTRIBUTING.md`, `hooks/README.md`, `docs/**/*.md`. Deliberately skips `CHANGELOG.md` (historical), `skills/*/SKILL.md` (too many false positives from example counts), and `skills/review/references/*.md` (rubric docs legitimately reference historical counts). Uses three regex patterns with hyphen-guards and heading-skip to suppress false positives.
+
+- **Meta-review Critical tier** grew from 11 to 12 checks.
+
+### Fixed (caught by the initial M-C12 run)
+
+- **`README.md:494`** — `the existing 13` → `the existing 16`. In the Contributing section, explaining that new skills should follow the shape of existing ones. Count was left at 13 since v1.3.x.
+- **`README.ru.md:494`** — same fix, Russian version (`существующих 13` → `существующих 16`).
+
+These two had survived the v1.8.1 cleanup because the author's ad-hoc `grep "13\s+skill"` pattern did not match `existing 13` (word "skill" appeared earlier in the sentence, not after the number). M-C12's Pattern B (`existing N` in skill context) generalizes the check to cover this form.
+
+### Calibration findings during development
+
+Before merging M-C12 into the rubric, its initial runs revealed two classes of false positives that were fixed as part of the same release — **before** the check was merged, so the rubric enters the main branch passing cleanly:
+
+1. **12 false positives on Markdown headings** — e.g., `### Project Creation (3 skills)`, `### Daily Work (6 skills)`, `### Operations (4 skills)`. These are legitimate category subtotals in section headings, not global-count claims in prose. Fix: skip all lines starting with `#`.
+2. **2 false positives on hyphenated qualifiers** — `depth-3 skills` in the Call Graph prose. Regex `\b\d+\s+skills?` matched because `\b` fires between `-` and `3`. Fix: prepend `(?<!\S)` lookbehind so only whitespace-preceded numbers count.
+
+Both fixes are documented inline in `tests/meta_review.py`.
+
+### Changed
+
+- **`plugin.json`** version 1.8.1 → 1.9.0.
+- **Both README badges** bumped.
+
+### Why this is a minor release
+
+M-C12 is a new rubric feature adding a new Critical check. Per the SemVer rules established in `CONTRIBUTING.md`, new rubric checks are minor-version bumps. The 2 prose fixes are cleanup enabled by the new feature, not the feature itself.
+
+### Verified before release
+
+- `python3 tests/meta_review.py --verbose` — PASSED (0 Critical, 0 Important) with M-C12 now active
+- `python3 tests/verify_triggers.py` — 0 drift
+- Initial M-C12 run (pre-calibration) flagged 14 findings; 12 were resolved by the heading/hyphen fixes, 2 were real drift and resolved by the Contributing fixes.
+- Branch protection on `main` rejected direct push (first-class test of the v1.8.0 setup); release went through a proper PR.
+
+### Meta — the rubric is learning faster
+
+The v1.4→v1.9 sequence shows the meta-rubric catching its predecessor's blind spot in each release:
+
+```
+v1.4 Potemkin skills             →  v1.5 spec-noncompliant hooks
+v1.5 Potemkin enforcement        →  v1.6 static hook-schema check (M-C10)
+v1.6 drift in trigger phrases    →  v1.7 trigger drift verifier (M-C11)
+v1.7 no public-repo polish       →  v1.8 CI + CONTRIBUTING + CI badge
+v1.8 drift in prose counts       →  v1.9 prose count verifier (M-C12)
+```
+
+At each step, the lesson comes from how the previous release actually failed, not from top-down design. The rubric now has 12 Critical + 8 Important + 4 Nice-to-have checks covering structural, behavioral, and narrative consistency — a defense surface that is harder to slip past than any single-person review could be.
+
+---
+
 ## [1.8.1] — 2026-04-08
 
 Patch release. Documentation consistency fix. Three stale "13 skills" references in the README body survived the v1.4.0 → v1.5.0 → v1.6.0 → v1.7.0 → v1.8.0 sequence because the badge count was updated but the in-body prose was missed. All badges and tables were already correct at 16; only narrative sentences drifted.
