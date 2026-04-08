@@ -2,6 +2,19 @@
 
 These two hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
+## Defense-in-depth overview (v1.8.0)
+
+Quality enforcement now spans **four layers**, from earliest-feedback to latest. Each layer catches something the previous ones missed:
+
+| # | Layer | Where it runs | When | What it catches | Bypass? |
+|---|---|---|---|---|---|
+| 1 | `check-skills.sh` | Local | UserPromptSubmit | Ambiguous prompts → wrong routing | Soft reminder only |
+| 2 | `check-tool-skill.sh` | Local | PreToolUse on Bash/Edit/Write | Ad-hoc tool calls when a skill fits | Soft reminder only |
+| 3 | `check-skill-completeness.sh` + `check-commit-completeness.sh` | Local | PreToolUse on Write/Edit/MultiEdit, PreToolUse on `git commit` | Incomplete skills (missing references/triggers/fixtures), incomplete commits | Only via `.methodology-self-extend-override` file |
+| 4 | **[CI workflow](../docs/CI.md)** (new in v1.8.0) | GitHub Actions | Push to main, every PR | Everything in the meta-rubric that local hooks missed OR scenarios where local hooks were never installed | Only by admin override of branch protection (audit-logged) |
+
+Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of defense — catches contributors who never installed local hooks and future Claude sessions on unprepared machines. See [`docs/CI.md`](../docs/CI.md) for how to enable it as a required check on the main branch.
+
 ## What they do
 
 | Hook | When it fires | What it does | Blocks? |

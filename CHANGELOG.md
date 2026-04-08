@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] — 2026-04-08
+
+Minor release. Closes the last deferred item from v1.6.0 (#3 — CI workflow) and adds the missing public-repo infrastructure (CONTRIBUTING, ISSUE_TEMPLATE) that should have existed from day one of the public repo but was postponed as "solo project overhead not justified". The trigger for flipping that decision: **3 GitHub stars within 24 hours of publishing the repo**. That's a traction signal that makes "wait for first PR" the wrong posture — first PRs follow star accumulation by days, not months, and CI is far cheaper to have before the first PR than to retrofit after.
+
+### Added
+
+- **`.github/workflows/meta-review.yml`** — server-side Gate 1 as a GitHub Actions workflow. Runs on every push to `main` and every pull request. Executes `python3 tests/meta_review.py --verbose` followed by `python3 tests/verify_triggers.py`. Fails the job on any non-zero exit. Uses Python 3.11 stdlib only — no `pip install` step — because both scripts are intentionally zero-dependency. Typical runtime: 20–40 seconds. Timeout: 5 minutes. Permissions: `contents: read` (no write access to the repo from the workflow).
+
+- **`CONTRIBUTING.md`** — explicit ground rules for contributors:
+  1. The `SKILL.md` body is the canonical source of truth for triggers; drift from `hooks/check-skills.sh` fails M-C11.
+  2. Every new skill must ship with its references, trigger phrases, and fixture in the same PR (enforced by `check-skill-completeness.sh` + `check-commit-completeness.sh` locally and M-C2 / M-C3 / M-C4 on CI).
+  3. `python3 tests/meta_review.py --verbose` must print `FINAL STATUS: PASSED` before opening a PR.
+  4. SemVer rules for what counts as patch / minor / major bumps.
+  Plus a PR checklist and instructions for reporting bugs and proposing new skills.
+
+- **`.github/ISSUE_TEMPLATE/bug_report.md`** — structured bug report template with environment (Claude Code version, plugin version, model in use, OS, installation method), reproduction steps, expected vs observed behavior, logs, and a "did you run the meta-review?" section that catches the most common bug report mistakes before they reach the maintainer.
+
+- **`.github/ISSUE_TEMPLATE/feature_request.md`** — new skill / rubric check proposal template with slots for one-line summary, trigger phrases (Ru + En), read/write contract, recommended model, proposed Skill Contracts row, and explicit "why not covered by existing skill" justification. Designed to force the same discipline on proposals that the methodology enforces on existing skills.
+
+- **`docs/CI.md`** — comprehensive CI documentation:
+  - What the workflow does and why
+  - The four-layer defense-in-depth table (layers 1–4, from UserPromptSubmit reminder to CI)
+  - **Step-by-step branch protection setup instructions** — cannot be provisioned from code, only via the GitHub UI. Documents every click required to make the `meta-review` check required on main, plus the "Do not allow bypassing" setting that prevents silent admin overrides.
+  - Emergency override procedures (admin override, temporary protection removal) — both leave audit trails by design.
+  - How to reproduce CI locally (run the exact same commands).
+  - Troubleshooting section covering common failure modes (CI passes locally but fails on GitHub, check doesn't appear in branch protection, CI too slow).
+
+- **CI status badge** in both `README.md` and `README.ru.md` — visible quality signal for visitors, links to the Actions history.
+
+- **"Defense-in-depth overview" section** in `hooks/README.md` — adds the 4-layer table at the top, making the relationship between local hooks (layers 1–3) and CI (layer 4) explicit.
+
+### Changed
+
+- **`plugin.json`** version 1.7.0 → 1.8.0.
+- **Both README badges** bumped; top-of-file links now include `Contributing` → `CONTRIBUTING.md` (was an in-page anchor) and `CI` → `docs/CI.md`.
+- **`hooks/README.md`** — expanded with the defense-in-depth overview referencing the new CI layer.
+
+### Philosophy — the day-one public repo lesson
+
+v1.8.0 is the first release shaped by external feedback (star count) rather than internal retrospective. Three observations from 24 hours of being public:
+
+1. **Distribution rate ≠ contribution rate, but they correlate tightly.** 3 stars/day is early-traction territory. First PRs typically follow within 1–2 weeks.
+2. **CI is a social signal, not just enforcement.** A green "meta-review passed" badge on every commit tells potential contributors "this is maintained seriously, your PR will be held to a standard". It's a magnet for quality contributions and a filter against drive-by noise.
+3. **Cost dropped after v1.6.1.** `tests/meta_review.py` already existed as a persistent, stdlib-only file. Adding CI was 20 minutes: a 15-line YAML workflow + the existing command. The hard work had been done two releases ago without me realizing it was CI prep.
+
+The lesson: when building infrastructure for future defense, **the act of extracting inline logic into a persistent file often makes the next defense layer nearly free**. v1.6.1 said "we might want CI eventually, so extract the runner now". v1.8.0 said "CI time is now, and it's 20 minutes because v1.6.1 already did the preparation". This is the inverse of the v1.4.0 Potemkin pattern — instead of declaring a defense that doesn't exist, v1.6.1 quietly built a foundation that made the real defense cheap to add when the time came.
+
+### Non-reversible setup required after merge
+
+One thing this release **cannot** do from code: enable branch protection on `main` so the CI check becomes blocking. That is a GitHub UI operation. See `docs/CI.md` for the exact steps. Until branch protection is enabled, CI will run and report status but PRs can be merged even if it fails. **This is intentional — the author should review the first CI run output before making it blocking.**
+
+### Verified before release
+
+- `python3 tests/meta_review.py --verbose` — PASSED (0 Critical, 0 Important) on the v1.8.0 staged state
+- `python3 tests/verify_triggers.py` — 0 drift
+- Commit-gate hook validated the release diff — no SKILL.md file changes, no new skills, so the per-skill completeness check is a no-op; the hook ran cleanly.
+- The workflow YAML syntax was verified by hand against the GitHub Actions schema; the first real execution will happen on the v1.8.0 push itself.
+
+### Not done (deferred by design)
+
+- **Automatic branch protection provisioning** — Terraform / GitHub Apps could technically create it via API, but requires additional permissions and is out of scope for a methodology plugin. Manual UI setup is documented in `docs/CI.md`.
+- **CI matrix (multi-Python-version)** — meta_review.py only needs 3.11, and multi-version doesn't add value for a plugin that runs on the maintainer's machine, not in a library's user environment. Single-version is correct.
+- **CI on forks** — GitHub Actions on PRs from forks run with read-only tokens by default, which is what this workflow needs. No further config required.
+
+---
+
 ## [1.7.0] — 2026-04-08
 
 Minor release. Closes v1.6.0 deferred item #2: **structural drift detection between SKILL.md bodies and `hooks/check-skills.sh` regex**. Adds `tests/verify_triggers.py` and a new rubric check M-C11. The initial run against the v1.6.1 state caught **111 pre-existing drift findings** that had accumulated silently across v1.2.0–v1.6.1 — all fixed as part of this release before M-C11 was merged into the rubric.

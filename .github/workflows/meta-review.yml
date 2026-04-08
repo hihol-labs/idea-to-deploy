@@ -1,0 +1,48 @@
+name: meta-review
+
+# Server-side Gate 1. Runs on every push to main and every PR against it.
+# Executes the same rubric that local enforcement hooks run pre-commit —
+# this is the defense-in-depth layer that catches anything the local hooks
+# missed (or were never installed to catch in the first place).
+#
+# Added in v1.8.0 per CHANGELOG reasoning: 3 GitHub stars within 24h of
+# publishing the repo flipped the cost/benefit on CI from "wait for first
+# PR" to "have it in place BEFORE the first PR arrives".
+#
+# The workflow uses only Python 3.11 stdlib — no pip install step — because
+# tests/meta_review.py and tests/verify_triggers.py are intentionally
+# zero-dependency. This keeps the run fast (< 30 seconds typically) and
+# removes supply-chain risk from the CI itself.
+#
+# To enable as a required check on main, see docs/CI.md for the GitHub UI
+# steps (branch protection must be configured manually — it cannot be
+# provisioned from code).
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  meta-review:
+    name: Gate 1 — meta-review rubric
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run meta-review rubric (verbose)
+        run: python3 tests/meta_review.py --verbose
+
+      - name: Run trigger drift verifier (standalone check)
+        run: python3 tests/verify_triggers.py
