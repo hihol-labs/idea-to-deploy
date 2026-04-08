@@ -7,7 +7,7 @@ allowed-tools: "Read Write Edit Glob Grep Bash(git:*) Bash(mkdir:*) Bash(npm:*) 
 license: MIT
 metadata:
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: project-creation
   tags: [scaffolding, mvp, full-lifecycle, deployment]
 ---
@@ -99,9 +99,49 @@ Look for these files in the current directory and docs/:
 - Resume from that step
 
 ### Phase 1: Ideation and Research
+
 1. **Clarify the idea** — ask 3-5 key questions if vague (see `references/phase-checklist.md`)
-2. **Competitive analysis** — outline existing solutions and differentiators
-3. **Define MVP scope** — cut to the smallest valuable product
+
+2. **Validate each clarifying answer before proceeding** — new in v1.4.0. Vague answers upstream become vague plans downstream (GIGO). Apply this check to every user answer:
+
+   **Mark an answer as VAGUE if any of these apply:**
+   - Contains only: "может быть", "не знаю", "всё равно", "на твоё усмотрение", "сам реши", "idk", "whatever", "doesn't matter"
+   - Is < 3 words for an open-ended question (acceptable for yes/no)
+   - Contradicts a previous answer in the same session
+   - References something that doesn't exist ("use our existing DB" when no DB was mentioned before)
+
+   **When an answer is VAGUE, ask a targeted follow-up with examples:**
+
+   > "Ваш ответ на [вопрос] размытый. Мне нужна конкретика, чтобы не сгенерировать мусорный план. Приведу примеры:
+   >
+   > ❌ Плохо: «сам реши какую БД»
+   > ✅ Хорошо: «PostgreSQL, потому что нужны транзакции и JSONB для полей конфига»
+   > ✅ Хорошо: «SQLite — данных мало, простой single-user app»
+   > ✅ Хорошо: «не знаю — задай наводящие вопросы и подскажи что лучше для моего кейса»
+   >
+   > Переформулируйте, пожалуйста."
+
+   If the user explicitly says "не знаю, подскажи" — that's a VALID answer. Switch to advisor mode: ask 2-3 narrow technical questions to extract their actual constraints (data volume, concurrency, team familiarity, budget), then propose a default with reasoning.
+
+   Maximum 2 follow-ups per original question. If the user still won't commit, record their preference as "default — user deferred" in `CLAUDE.md` and pick the methodology's default. Do not loop indefinitely.
+
+3. **Pre-generation review** — after all clarifying questions are answered, before Phase 2:
+   - Summarize the captured clarifications in a short structured block:
+     ```
+     - Project type: ...
+     - Users / scale: ...
+     - Auth: ...
+     - Data model hints: ...
+     - Deployment target: ...
+     - Budget / deadline: ...
+     ```
+   - Ask: "Вот как я понял задачу. Всё верно? (да / поправь такой-то пункт)"
+   - Wait for explicit confirmation before generating docs.
+   - This is a lightweight sanity check, NOT a full `/review` — it's on clarifications (text), not on documents (which don't exist yet).
+
+4. **Competitive analysis** — outline existing solutions and differentiators
+
+5. **Define MVP scope** — cut to the smallest valuable product
 
 ### Phase 2: Documentation Generation
 Create these files in order:

@@ -3,9 +3,9 @@
 > Complete project lifecycle methodology for Claude Code — from idea to deployed product in one command.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 13](https://img.shields.io/badge/Skills-13-green.svg)](#skills)
+[![Skills: 16](https://img.shields.io/badge/Skills-16-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.3.1](https://img.shields.io/badge/Version-1.3.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.4.0](https://img.shields.io/badge/Version-1.4.0-purple.svg)](.claude-plugin/plugin.json)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
@@ -31,7 +31,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 13 skills + 5 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 16 skills + 5 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -194,11 +194,19 @@ Claude: Step 1/9 — scaffold project, commit
 | `/explain` | Explain how code works with ASCII diagrams |
 | `/doc` | Generate documentation matching project style |
 
-### Operations (1 skill)
+### Quality Assurance — Supply Chain (1 skill, new in v1.4.0)
+
+| Skill | Description |
+|-------|-------------|
+| `/deps-audit` | Read-only dependency audit — parses lockfiles, queries OSV.dev + GitHub Advisory for known CVEs, SPDX license compatibility, abandoned-package detection (> 2y without release). Same status enum as `/review`. |
+
+### Operations (4 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/migrate` | Apply database migrations safely — backup, apply, verify, document rollback. Refuses production without explicit confirmation. |
+| `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
+| `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
 ## Subagents
 
@@ -230,7 +238,10 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/explain` | File/function/concept | Markdown explanation + ASCII diagrams (stdout) | None | ✅ |
 | `/doc` | File/module or "readme"/"api" | New/updated docs (README, API docs, inline comments) | Doc file edits | ✅ |
 | `/security-audit` | File/dir/`all` | Audit report (stdout) — Critical/Important/Recommended/Informational tiers | None (read-only by design) | ✅ |
+| `/deps-audit` | Manifest file/dir/`all` | Audit report (stdout) — CVE/license/abandoned tiers, same enum as /review | None (read-only, no package mutations) | ✅ |
 | `/migrate` | Migration file/`next`/raw SQL | Migration applied + backup file + report with rollback path | DB schema mutation, backup file written to /tmp | ⚠️ Refuses on prod without confirmation |
+| `/harden` | Service/dir/`all` | Hardening report + optional generated artifacts (health route, lifespan, logger, k6 script, runbook) | Code additions only with user approval; no deletions | ⚠️ Artifact generation is stateful |
+| `/infra` | Stack preset + target (do/aws/hetzner/k8s) | Terraform modules OR Helm chart + README with deploy commands | New files under `infra/`; no cloud API calls (read-only from cloud side) | ✅ Generation is deterministic per input |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -244,7 +255,11 @@ Skills can invoke each other. This is the maximum depth and the chains:
 /project (router, depth 1)
   ├─ /kickstart (depth 2)
   │    ├─ /review (depth 3, automatic Quality Gate 1)
-  │    └─ /test (depth 3, after each implementation step)
+  │    ├─ /test (depth 3, after each implementation step)
+  │    ├─ /security-audit (depth 3, before deploy)
+  │    ├─ /deps-audit (depth 3, before deploy)     # new in v1.4.0
+  │    ├─ /harden (depth 3, before prod deploy)    # new in v1.4.0
+  │    └─ /infra (depth 3, optional IaC generation) # new in v1.4.0
   ├─ /blueprint (depth 2)
   │    └─ architect agent (subagent fork, depth 3)
   └─ /guide (depth 2)
@@ -264,13 +279,22 @@ Skills can invoke each other. This is the maximum depth and the chains:
 /security-audit (standalone)
   └─ may suggest fixes but never applies them — separation of audit and remediation
 
+/deps-audit (standalone)
+  └─ read-only; honors .deps-audit-ignore for accepted-risk entries
+
+/harden (standalone)
+  └─ generates artifacts only with explicit user approval per item
+
+/infra (standalone)
+  └─ writes files only; never calls cloud APIs directly
+
 /migrate (standalone)
   └─ refuses on production without explicit user confirmation
 
 /debug, /refactor, /explain — leaf skills, no nested invocations.
 ```
 
-**Recursion guard:** No skill invokes itself directly or through a chain. Maximum observed depth is 3 (`/project` → `/kickstart` → `/review`). If you observe a deeper chain or loop, file an issue — that's a bug.
+**Recursion guard:** No skill invokes itself directly or through a chain. Maximum observed depth is 3 (`/project` → `/kickstart` → `/review` or any of the other depth-3 skills). If you observe a deeper chain or loop, file an issue — that's a bug.
 
 ## Recommended Setup: Skill Discovery Hooks
 
@@ -382,6 +406,9 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/doc` | Sonnet | Sonnet | Style matching is straightforward |
 | `/explain` | Haiku | Haiku | Read-only walkthrough; Haiku is fast enough |
 | `/migrate` | Sonnet | Sonnet | Mechanical (read SQL → run → verify) |
+| `/deps-audit` | Sonnet | Sonnet | Parsing + API lookups; Opus doesn't improve accuracy |
+| `/harden` | Sonnet | Opus | Cross-layer reasoning (code + infra + observability) |
+| `/infra` | Sonnet | Opus | Networking / IAM / secrets interactions are subtle |
 
 ## Who Is This For
 
@@ -406,17 +433,26 @@ Works with any project that can be built with code:
 
 ## What This Methodology Does NOT Do
 
-Setting expectations honestly:
+Setting expectations honestly. As of v1.4.0 this list is **two items** — the remaining limitations are fundamental, not gaps.
 
-- **Does not replace a senior architect** on novel / high-risk systems. It encodes good defaults, not domain expertise for regulated industries (healthcare, fintech, aerospace).
-- **Does not guarantee a production-ready deploy.** Route A reaches a deployable state; production hardening (load testing, SRE runbooks, compliance) is still your job.
-- **Is only as good as your clarifications.** Garbage in → garbage out. Vague answers to the clarifying questions produce a vague plan.
-- **Does not audit third-party dependencies** beyond what `/security-audit` catches. You still own supply-chain risk.
-- **Is not a substitute for code review by a human** on critical paths. `/review` is a fast gate, not a replacement for peer review.
-- **Does not run autonomously forever.** After 3 consecutive step failures it stops and asks for human input — by design.
-- **Does not manage infrastructure state** (Terraform, Kubernetes secrets, IAM). It scaffolds, it does not operate.
+- **Does not replace a senior architect on novel systems in regulated industries.** The methodology encodes strong defaults for typical web stacks, but LLMs cannot exercise the judgment that comes from having shipped production systems under SOC 2, HIPAA, PCI DSS, GDPR, or HITRUST audit. For healthcare, fintech, aerospace, or other high-risk domains, treat idea-to-deploy as a starting skeleton — a human expert still owns the compliance posture and the hard architectural tradeoffs.
+- **Does not run autonomously forever — by design.** After 3 consecutive step failures in Phase 4, the methodology stops and asks for human input. This is a safety feature, not a limitation. Removing it would let the LLM spin in circles on impossible tasks and burn user budget. Human-in-the-loop is the point.
 
-If any of these are blockers for your use case, treat idea-to-deploy as a strong starting skeleton and layer your own process on top.
+If either of these is a blocker for your use case, layer your own process on top of the methodology.
+
+### Previously on this list — now covered
+
+Items that used to be in this section and are now handled by the methodology:
+
+| Was a limitation | Now covered by |
+|---|---|
+| Does not guarantee a production-ready deploy | `/harden` — hardening rubric + artifact generation (health checks, graceful shutdown, structured logs, metrics, backups, load tests, runbook) |
+| Does not audit third-party dependencies | `/deps-audit` — OSV.dev + GHSA CVE lookups, license compatibility, abandoned-package detection |
+| Does not manage infrastructure | `/infra` — Terraform modules, Helm charts, secrets wiring for DO/AWS/Hetzner/K8s |
+| GIGO — vague clarifications produce vague plans | `/kickstart` v1.4.0 — clarification validation with targeted follow-ups and structured confirmation before doc generation |
+| Not a substitute for code review by a human on critical paths | `/review` v1.4.0 — expanded code rubric with SOLID checks, cyclomatic complexity, Fowler smells, Google Engineering Practices (still not a full replacement for peer review on truly critical paths, but it's now close) |
+
+See [CHANGELOG v1.4.0](CHANGELOG.md) for the detailed breakdown.
 
 ## Troubleshooting / FAQ
 

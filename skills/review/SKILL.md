@@ -8,9 +8,9 @@ context: fork
 agent: code-reviewer
 metadata:
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: quality-assurance
-  tags: [validation, quality-check, review, consistency]
+  tags: [validation, quality-check, review, consistency, solid, code-smells]
 ---
 
 # Review
@@ -55,9 +55,11 @@ If  specifies a file or path, focus on that. Otherwise review everything availab
 
 **Read `references/review-checklist.md`** — it is the single source of truth for what to check. The rubric is split into three tiers:
 
-- **Tier 1 (Critical)** — checks C1–C12 (and C-code-1, C-code-2 when source code exists). Failure of any single Critical check sets gate status to `BLOCKED`.
-- **Tier 2 (Important)** — checks I1–I9 (and I-code-1, I-code-2). Failures produce warnings but the gate passes (`PASSED_WITH_WARNINGS`).
-- **Tier 3 (Nice-to-have)** — checks N1–N4 (and N-code-1). Failures are informational only.
+- **Tier 1 (Critical)** — checks C1–C12 (and C-code-1 … C-code-4 when source code exists). Failure of any single Critical check sets gate status to `BLOCKED`.
+- **Tier 2 (Important)** — checks I1–I9 (and I-code-1 … I-code-9). Failures produce warnings but the gate passes (`PASSED_WITH_WARNINGS`).
+- **Tier 3 (Nice-to-have)** — checks N1–N4 (and N-code-1 … N-code-4). Failures are informational only.
+
+**New in v1.4.0:** the code-only rubric now includes SOLID violations (God class, long parameter list, feature envy, Interface Segregation, Dependency Inversion), cyclomatic complexity > 10, Fowler code smells (shotgun surgery, magic numbers, duplication), and Google Engineering Practices (small change size). Full definitions live in `references/review-checklist.md` under "Code-quality checks".
 
 For each check:
 1. Read the referenced files (PROJECT_ARCHITECTURE.md, PRD.md, IMPLEMENTATION_PLAN.md, CLAUDE_CODE_GUIDE.md, CLAUDE.md, source code).

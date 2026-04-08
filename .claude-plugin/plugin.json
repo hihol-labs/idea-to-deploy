@@ -1,7 +1,7 @@
 {
   "name": "idea-to-deploy",
-  "version": "1.3.1",
-  "description": "Complete project lifecycle methodology — 13 skills + 5 specialized subagents from idea to deployed product. Planning, scaffolding, coding, testing, debugging, optimization, security audit, safe DB migrations, deployment. Includes quality gates, skill discovery hooks, and regression fixtures.",
+  "version": "1.4.0",
+  "description": "Complete project lifecycle methodology — 16 skills + 5 specialized subagents from idea to deployed and hardened product. Planning, scaffolding, coding, testing, debugging, optimization, security audit, dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code. Includes quality gates, skill discovery hooks, and regression fixtures.",
   "author": {
     "name": "HiH-DimaN"
   },

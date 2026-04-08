@@ -138,6 +138,72 @@ Check: count P0 stories that have at least one test referencing them by name or 
 
 ---
 
+## Code-quality checks (SOLID, smells, complexity) — added in v1.4.0
+
+These checks run only when source code exists. They encode common sources of real bugs from Fowler's *Refactoring*, Martin's *Clean Code*, and the [Google Engineering Practices](https://google.github.io/eng-practices/) code review guide. They are **not** a full static analysis replacement — they're the checks that have the highest real-bug signal with the lowest false-positive rate at LLM-review speed.
+
+### C-code-3. (Critical) No God classes / God functions
+**Criterion:** no single class > 500 LOC AND no single function > 80 LOC.
+**Rationale:** classes/functions past these thresholds reliably correlate with defects and are hard to test. (Google's internal threshold is 200 LOC per function; 80 is the conservative external equivalent.)
+**Action on fail:** `/refactor` with Extract Class / Extract Method.
+
+### C-code-4. (Critical) No circular imports between modules
+**Criterion:** static import analysis — module A imports module B and module B imports module A (directly or via chain).
+**Rationale:** circular imports cause runtime errors that tests often miss (they show up only on cold import order), and they indicate broken boundaries.
+**Action on fail:** `/refactor` — extract shared types to a third module, or invert the dependency.
+
+### I-code-3. (Important) Cyclomatic complexity ≤ 10 per function
+**Criterion:** count branches (if/elif/else, for, while, case, try/except, &&, ||, ternary) per function. Fail if any function > 10.
+**Rationale:** McCabe's original research: functions > 10 branches have measurably more defects and are harder to test fully. Fowler's *Refactoring* catalog targets this metric directly.
+**Action on fail:** `/refactor` with Decompose Conditional, Replace Conditional with Polymorphism, or Extract Method.
+
+### I-code-4. (Important) No "long parameter list" smell
+**Criterion:** no function takes > 5 positional parameters (keyword/default args are exempt if they have sensible defaults).
+**Rationale:** long parameter lists indicate the function is doing too much OR a missing parameter object. One of the top 5 smells in Fowler's catalog.
+**Action on fail:** `/refactor` with Introduce Parameter Object or Preserve Whole Object.
+
+### I-code-5. (Important) No "feature envy" smell on critical paths
+**Criterion:** a method in class A calls > 3 methods/properties of class B without using A's own state. Check route handlers, services, domain models.
+**Rationale:** the method belongs in B, not in A. Common SRP (Single Responsibility Principle) violation. Fowler's canonical smell.
+**Action on fail:** `/refactor` with Move Method.
+
+### I-code-6. (Important) No "shotgun surgery" hotspots
+**Criterion:** a single conceptual change (e.g., adding a field) forces edits to > 5 files. Detected by: if the user's recent commit touches > 5 files for what the commit message describes as a single feature, flag as warning on next review.
+**Rationale:** the opposite of Divergent Change. Indicates missing abstraction.
+**Action on fail:** `/refactor` — introduce the missing abstraction (interface, base class, shared config).
+
+### I-code-7. (Important) SOLID: no Interface Segregation violation
+**Criterion:** no interface / abstract class has > 7 methods AND has at least one implementation that raises `NotImplementedError` / throws / returns null for some of them.
+**Rationale:** clients shouldn't be forced to depend on methods they don't use. Classic SOLID-I violation.
+**Action on fail:** `/refactor` — split the interface.
+
+### I-code-8. (Important) SOLID: no Dependency Inversion violation in business logic
+**Criterion:** business-logic modules (services, domain) do not directly `import` concrete infrastructure (DB driver, HTTP client, framework-specific types). They should depend on interfaces or dependency injection.
+**Rationale:** makes tests require real DBs/networks. Pattern across years of legacy rewrites.
+**Action on fail:** `/refactor` — extract a repository/port interface, inject the implementation.
+
+### I-code-9. (Important) Google Engineering Practices: small change size
+**Criterion:** the current git diff (staged + unstaged) touches ≤ 400 LOC across ≤ 10 files. Larger changes are reviewed with reduced confidence.
+**Rationale:** Google internal research: review quality drops sharply above 400 LOC per CL. This check warns — it does not block.
+**Action on fail:** suggest splitting the commit/PR. Warning only.
+
+### N-code-2. (Nice-to-have) No duplicated code blocks > 10 LOC
+**Criterion:** detect token-level duplication of blocks > 10 LOC across files.
+**Rationale:** DRY violations. Not blocking — sometimes duplication is cheaper than the wrong abstraction (Sandi Metz).
+**Action on fail:** consider Extract Function / Extract Module. Informational.
+
+### N-code-3. (Nice-to-have) Test coverage signal for modified files
+**Criterion:** for each modified source file, a corresponding test file exists (same stem, `_test` or `test_` prefix). Not a line-coverage check — just "does a test file exist for this module".
+**Rationale:** cheapest proxy for "was this tested at all". Line coverage requires running tests; file-existence check is free.
+**Action on fail:** suggest `/test` on the uncovered file. Informational.
+
+### N-code-4. (Nice-to-have) No magic numbers in business logic
+**Criterion:** literal numeric values (except `0`, `1`, `-1`) used in conditionals / arithmetic without a named constant. Whitelist: `len(x) == 0`, indices, test fixtures.
+**Rationale:** `if age >= 18` vs `if age >= LEGAL_AGE` — the second survives requirement changes. Clean Code chapter 17.
+**Action on fail:** suggest Extract Constant. Informational.
+
+---
+
 ## Reporting format
 
 The skill MUST output in this exact format so it can be parsed:

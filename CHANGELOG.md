@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-04-08
+
+Minor release. Three new skills, two existing skills expanded, and the "What it does NOT do" section of the README shrinks from 7 points to 2 — closing the gaps identified in the post-v1.3.1 capability audit.
+
+### Added
+
+- **`/deps-audit` skill** — read-only third-party dependency audit. Parses lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `Pipfile.lock`, `go.sum`, `Cargo.lock`, `Gemfile.lock`, `composer.lock`). Queries OSV.dev + GitHub Advisory Database for known CVEs. Cross-checks SPDX license compatibility against the project's own license. Detects abandoned packages (last release > 2 years). Same `BLOCKED / PASSED_WITH_WARNINGS / PASSED` status enum as `/review` and `/security-audit`. Honors `.deps-audit-ignore` for accepted-risk entries. Recommended model: Sonnet.
+
+- **`/harden` skill** — production-readiness hardening rubric. 8 Critical checks (health endpoint + dependency checks, graceful shutdown on SIGTERM, structured logs with `request_id`, backup strategy), 9 Important checks (rate limiting, `/metrics` endpoint, Grafana dashboards, alerts, load test scaffolding, runbook, error sanitization, outbound timeouts), 4 Nice-to-have (chaos testing, canary deploys, SLOs, on-call rotation). Generates missing artifacts on user approval: FastAPI health route, Granian lifespan handler, `structlog` migration, Prometheus middleware, k6 baseline load test, Grafana dashboard JSON, SRE runbook template. Recommended model: Opus.
+
+- **`/infra` skill** — infrastructure-as-code generator. Terraform modules for `fastapi-pg-redis`, `node-pg`, `fullstack-fastapi-vue`, `static-frontend`, `telegram-bot`, `worker-queue` presets. Targets: DigitalOcean, AWS, Hetzner, bare-metal/managed Kubernetes, serverless. Enforces best practices: remote tfstate with locking (refuses local state for prod), pinned provider versions, resource tags, `.gitignore` for `*.tfvars`/`*.tfstate`, non-root containers, resource limits, `NetworkPolicy`, `PodDisruptionBudget`, HPA. Generates Helm charts (Chart.yaml, values.yaml, values-dev/prod.yaml, deployment/service/ingress/configmap/secret/hpa/networkpolicy/pdb templates) when targeting K8s. Wires secrets to `env`, `aws-sm`, `vault`, `doppler`, or `sealed-secrets`. Every generated folder ships with a README containing exact init/plan/apply commands. Recommended model: Opus.
+
+### Changed
+
+- **`/kickstart` Phase 1** — clarification answers are now validated. Vague answers (contains only "не знаю", "сам реши", "idk", "whatever"; or is < 3 words on an open question; or contradicts an earlier answer; or references something undefined) trigger a targeted follow-up with good/bad examples. Maximum 2 follow-ups per original question — after that, the user's implicit preference is recorded as "default — user deferred" and the methodology picks its own default. Before Phase 2, the skill shows a structured summary of captured clarifications and waits for explicit confirmation. Closes the "GIGO" limitation from the v1.3.1 README.
+
+- **`/review` rubric (`skills/review/references/review-checklist.md`)** — code-only checks expanded with 11 new items: C-code-3 (no God classes/functions > 500 LOC class or > 80 LOC function), C-code-4 (no circular imports), I-code-3 (cyclomatic complexity ≤ 10), I-code-4 (no long parameter lists > 5), I-code-5 (no feature envy), I-code-6 (no shotgun surgery hotspots), I-code-7 (no Interface Segregation violations), I-code-8 (no Dependency Inversion violations in business logic), I-code-9 (Google small-change-size warning on diffs > 400 LOC / 10 files), N-code-2 (no duplicated blocks > 10 LOC), N-code-3 (test file exists for modified source), N-code-4 (no magic numbers in business logic). Draws from Fowler's *Refactoring* catalog, Martin's *Clean Code*, and the public [Google Engineering Practices](https://google.github.io/eng-practices/) code review guide.
+
+- **`plugin.json`** — `version` bumped to `1.4.0`; `description` updated from "13 skills" to "16 skills" with an added mention of dependency audit, hardening, and IaC.
+
+- **`README.md` / `README.ru.md`** — bumped to reflect 16 skills. New "What it does NOT do" section shrunk from 7 points to 2:
+    - Kept: "does not replace a senior architect in regulated industries" (LLMs lack real domain expertise for fintech/healthcare/aerospace compliance).
+    - Kept: "does not run autonomously forever — 3 consecutive step failures stop the loop" (reframed as a feature — human-in-the-loop safety, not a limitation).
+    - Removed (now covered): production-readiness (`/harden`), dependency auditing (`/deps-audit`), infrastructure management (`/infra`), clarification GIGO (`/kickstart` follow-up validation), live code review (`/review` code-quality rubric expansion).
+
+### Reason
+
+Post-v1.3.1 retrospective: the README's "does NOT do" section was an honest list of gaps, but most of the gaps were tractable with existing methodology patterns (new skill following the same frontmatter + tiered rubric contract as `/security-audit` and `/review`). Rather than leave the limitations in perpetuity, we dogfooded `/kickstart` on the task "add 3 new skills to idea-to-deploy" and shipped them in a single minor release. This is also the first release where the methodology was used to extend itself end-to-end — a useful validation that the bootstrapping works.
+
+### Not changed (by design)
+
+- **"Does not replace human-in-the-loop"** stays. The 3-failure stop is intentional: removing it would let the LLM spin in circles on impossible tasks and burn user money. Keeping it.
+- **"Does not replace a senior architect for novel regulated systems"** stays. LLMs encode patterns from training data; they cannot invent new compliance regimes or exercise the judgment that comes from having shipped production systems under SOC2/HIPAA/PCI DSS audit. A methodology is not a replacement for expertise in high-risk domains.
+
+---
+
 ## [1.3.1] — 2026-04-08
 
 Patch release. Two consistency bugs caught by an independent fact-finding pass after v1.3.0 was published. Composite quality score: 9.8 → 10.
