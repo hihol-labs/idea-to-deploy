@@ -223,6 +223,8 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 
 ## Skill Contracts
 
+> **Note for users:** in normal use, you do **not** invoke skills manually. Describe your task in natural language (*"I want to build X"*, *"fix this bug"*, *"add tests for this function"*) and Claude Code will route you to the right skill automatically via [skill discovery hooks](hooks/README.md) and trigger-phrase matching in each skill's body. Skills also invoke each other in chains — see the [Call Graph](#call-graph) section below. The contracts table exists to document behavior for debugging, contributions, and power users who want explicit control; it is **not** a "list of commands you must memorize".
+
 Each skill has a documented contract — what it reads, what it writes, what side effects it has, and whether it's safe to run twice.
 
 | Skill | Inputs | Outputs (files written) | Side effects | Idempotent |
