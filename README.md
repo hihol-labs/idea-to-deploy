@@ -38,7 +38,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
 ```
 
-Every step is verified. Every feature is tested. Every decision is documented.
+Every step is verified. Every feature is tested. Every decision is documented. Every session is preserved.
 
 ## Quick Start
 
