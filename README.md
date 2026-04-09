@@ -16,9 +16,11 @@
 
 ## Demo
 
-> *Demo GIF / screenshot placeholder — to be added in a future release.*
->
-> Until then, see the [End-to-End Example](#end-to-end-example) below for a walkthrough of a real run.
+<p align="center">
+  <img src="docs/demo.svg" alt="idea-to-deploy kickstart demo" width="788">
+</p>
+
+> See the [End-to-End Example](#end-to-end-example) below for a detailed walkthrough.
 
 ---
 
