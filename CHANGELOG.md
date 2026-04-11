@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.2] - 2026-04-11
+
+Documentation-drift audit release. Closes gaps found during the post-v1.13.1 self-review where a code-reviewer subagent + manual verification surfaced issues that the automated `meta_review.py` gate did not catch:
+
+1. **`.claude-plugin/marketplace.json` had drifted from v1.11.0 → v1.13.1 unnoticed.** The file is what external plugin catalogs index, but nothing enforced parity with `plugin.json`. Both description fields still read "17 skills" when the real count was 18; `plugins[0].version` was frozen at 1.11.0.
+2. **`skills/kickstart/SKILL.md` had `disable-model-invocation: true`** — a flag documented for script-backed skills that delegate to a binary, not for reasoning-heavy skills. The same flag on the built-in `/debug` is what forced the v1.4.0 rename to `/bugfix`. `/kickstart` is the most reasoning-heavy skill in the methodology; the flag silently blocked its invocation via the `Skill` tool from `/project`.
+3. **`scripts/sync-to-active.sh` numbered its steps "1/3 → 2/3 → 2.5/3 → 3/3"** after v1.13.1 added the fourth step (agents/) without updating the denominators. The dry-run output was visibly inconsistent.
+4. **`tests/README.md` still said "no CI integration yet"** even though `meta_review.py` has been wired into GitHub Actions since v1.12.0. Contributors reading the file got the wrong impression.
+5. **`hooks/pre-flight-check.sh` had a lossy fallback path reconstruction** that silently degraded (returned `None` instead of finding the memory dir) for projects with `-` in the directory name — including `idea-to-deploy` itself.
+
+### Fixed
+
+- **`.claude-plugin/marketplace.json`** — version `1.11.0` → `1.13.2`; both description fields updated from "17 skills" to "18 skills" and refreshed to mention daily-work routing + self-review mode; keywords expanded with `self-review`, `meta-review`, `daily-work-router`.
+- **`skills/kickstart/SKILL.md`** — removed `disable-model-invocation: true` from frontmatter. `/kickstart` can now be invoked through the `Skill` tool by `/project` router without being blocked.
+- **`scripts/sync-to-active.sh`** — renumbered all four steps to the honest `1/4, 2/4, 3/4, 4/4` scheme. Added an inline comment recording the history of the "2.5/3" transitional numbering for future maintainers.
+- **`tests/README.md`** — rewrote the "Running fixtures" / "Future" sections to clearly distinguish the **automated structural gate** (`meta_review.py` in CI, blocking on every PR) from the **manual behavioural smoke-runs** (fixture outputs that are non-deterministic by model and can only be judged by a human at release time). Added three documented paths to behavioural automation (LLM-as-judge, snapshot diffing, schema-only validation) as candidates for future releases.
+- **`hooks/pre-flight-check.sh`** — replaced the lossy `replace("-", "/")` reverse-reconstruction fallback with an iteration over `cwd_resolved.parts` suffixes, so projects with hyphens in directory names (`idea-to-deploy`, `my-app`, etc.) still resolve to their memory dir when the primary path lookup misses.
+
+### Added
+
+- **`tests/meta_review.py` — two new Critical checks** to close the gap that let v1.13.1 ship with a stale marketplace.json:
+  - **M-C13** — validates `marketplace.json.plugins[0].version == plugin.json.version` and that every "N skills" mention in either description field matches `len(skills/)`. Fires Critical on mismatch.
+  - **M-C14** — scans `tests/README.md` for stale "no CI integration yet" / "not CI-friendly" phrasing that contradicts the actual CI workflow. Fires Critical on match.
+- **`tests/meta_review.py` — SMOKE_TRIGGERS expanded** with four new rows covering `/session-save` and `/task` (the v1.10.0 and v1.5.0 skills that were never added to M-I7). Smoke coverage is now 17 skills via direct triggers + `/kickstart` via the `/project` router = all 18 skills exercised.
+- **`tests/meta_review.py` — docstring + SMOKE_TRIGGERS comment** updated from "16 skills" to "18 skills" to match reality.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.13.1` → `1.13.2`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.13.1` → `1.13.2`.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+```
+
+The sync will pick up the renumbered steps, the kickstart frontmatter change, and the pre-flight hook fix. `meta_review.py` will now flag any future marketplace.json drift as Critical.
+
+### Why a patch-level bump
+
+No new user-facing capability is added — only drift between documentation files and the actual methodology state is corrected, plus two new gates in the automated rubric to prevent the same class of drift from silently re-accumulating. Per SemVer this is a fix (PATCH), not a feature (MINOR). The methodology version counter stays at 1.13.
+
+### What the audit found vs. what shipped
+
+The qualitative self-review produced a punch list of 1 Critical + 4 Important + 3 Nice-to-have. v1.13.2 fixes the Critical and all four Important items plus extends `meta_review.py` with two new gates. The three Nice-to-have items (plugin.json keywords refresh, `doc-writer` allowed-tools clarification, `/explain` English trigger coverage) are deferred to v1.14.0 since they do not affect correctness, only indexing quality and edge-case trigger recall.
+
+---
+
 ## [1.13.1] - 2026-04-11
 
 Patch release that finishes what v1.13.0 started. Closes the 9th gap, discovered immediately after merging v1.13.0: the `sync-to-active.sh` script added in v1.12.0 handles `skills/` and `hooks/` but has no `agents/` handling. That means the v1.13.0 fix to `agents/code-reviewer.md` (methodology-mode Step 0 for the forked subagent) landed in the repo but never propagated to `~/.claude/agents/code-reviewer.md`. The `/review --self` mode was effectively inactive: subagent kept using the stale project-level instructions, would still have produced the "Missing PRD.md" nonsense reports.

@@ -26,9 +26,17 @@ tests/
 | 02 | Telegram bot — appointment booking | Light: minimal API, single bot service. Tests Lite mode and bot-specific scaffolding. |
 | 03 | CLI utility — log analyzer | Edge case: no API, no DB. Verifies that rubric correctly handles "no database" / "no API" justifications. |
 
+## What is automated vs. manual
+
+The methodology has **two tiers** of testing:
+
+1. **Structural gate (automated, CI-blocking).** `tests/meta_review.py` runs on every PR via [.github/workflows/meta-review.yml](../.github/workflows/meta-review.yml). It verifies version badges, skill count, SKILL.md frontmatter, trigger-phrase drift between `skills/` and `hooks/check-skills.sh`, marketplace.json consistency, and other invariants. A PR with any Critical drift is blocked. See [docs/CI.md](../docs/CI.md) for the full list of checks.
+
+2. **Behavioural smoke-runs (manual, release-time).** The `fixtures/` below exercise **LLM behaviour** — did `/kickstart` ask the right clarifying questions, did `/review` correctly flag a dud plan, did `/infra` produce a Terraform module that actually deploys. These outputs are non-deterministic by model, so they cannot be diffed against a golden file (would break on every model upgrade). They are run **by the maintainer on each release** before tagging. See [Future: automated behavioural tests](#future-automated-behavioural-tests) below for the options under consideration.
+
 ## Running fixtures
 
-The fixtures are **manual** for now — no CI integration yet. To run a fixture against the current methodology:
+To run a fixture against the current methodology:
 
 ```bash
 cd tests/fixtures/fixture-01-saas-clinic
@@ -69,11 +77,12 @@ When adding a fixture:
 4. Capture the output file list as `expected-files.txt`
 5. Write `notes.md` with manual checks that are too qualitative for diff
 
-## Future: automated runs
+## Future: automated behavioural tests
 
-To make this CI-friendly, we'd need:
-- A way to invoke `/kickstart` non-interactively (Claude Code SDK?)
-- A way to feed clarifying-question answers from a file
-- A way to capture the rubric output programmatically
+The structural gate (`meta_review.py`) already runs in CI on every PR. What remains manual is the **behavioural** side — did `/kickstart` actually produce the right output on a known idea? Three paths to automation, each with tradeoffs:
 
-These don't exist as of v1.2.0 — this is on the roadmap. For now, fixtures are run manually before each release.
+1. **LLM-as-judge in a nightly workflow.** A separate GitHub Actions workflow (not blocking PRs) that runs Claude Code non-interactively via the SDK on each fixture, then asks a judge model to score the output against `notes.md`. Costs API credits per run, flaky, but captures real regressions. Candidate for v1.15.0.
+2. **Snapshot diffing with tolerance.** Freeze a "good" output per fixture, diff structural markers (file list, section headings, rubric status). Tight enough to catch breakage, loose enough to survive minor model drift. Breaks hard on major model upgrades (Opus 4.6 → 5.0). Candidate for v1.14.0.
+3. **Schema-only validation.** Just assert that generated docs match expected schemas (PRD has user stories, ARCHITECTURE has DB section, etc.). No judgement, just presence. Cheap, deterministic, partial coverage. Could be added to `meta_review.py` directly.
+
+Until one of these lands, fixtures are run by the maintainer before each release tag. The structural gate in CI catches the bulk of regressions; the behavioural tier catches the long tail.
