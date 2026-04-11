@@ -140,11 +140,113 @@ When adding a fixture:
 4. Capture the output file list as `expected-files.txt`
 5. Write `notes.md` with manual checks that are too qualitative for diff
 
-## Phase 2: non-interactive execution (v1.16.0 candidate)
+## Phase 2: non-interactive execution (v1.16.0 — LANDED)
 
-Phase 1 (v1.15.0) validates *already-generated* output deterministically. Phase 2 will automate the *generation* step so the full pipeline — idea → run → validate — can be kicked off from a single command or a scheduled workflow.
+Phase 2 is **now live** as of v1.16.0. The full pipeline — idea → headless run → snapshot validation — runs via one command:
 
-### What Phase 2 will use
+```bash
+bash tests/run-fixture-headless.sh fixture-02-tg-bot
+```
+
+This invokes `claude -p` non-interactively, captures generated files in `output/`, and validates against the fixture's `expected-snapshot.json` via `verify_snapshot.py`. On success the output directory is removed (clean state); on failure it is preserved for debugging.
+
+### Prerequisites
+
+- `claude` CLI ≥ v2.1 on `PATH`
+- Authenticated session (Claude Pro/Team subscription OR `ANTHROPIC_API_KEY`)
+- Methodology installed locally: `bash scripts/sync-to-active.sh`
+- Fixture has a `stream.jsonl` file with pre-seeded clarifications (see below)
+- Fixture has `expected-snapshot.json` with `status: active`
+
+### The `stream.jsonl` file
+
+Each active fixture carries a `stream.jsonl` file with the full idea and pre-seeded answers to all clarifying questions. This is what makes the run non-interactive — the skill has no reason to stop and wait for input.
+
+Format (one JSON object per line, currently one line per fixture):
+
+```json
+{"type":"user","message":{"role":"user","content":"/blueprint <idea>\n\nPre-emptive clarifications:\n1. Users: ...\n2. Auth: ...\n...\n\nIMPORTANT: do NOT ask further clarifying questions."}}
+```
+
+See `tests/fixtures/fixture-02-tg-bot/stream.jsonl` for a working example. The `content` field is **the only thing the skill sees** — everything the skill would normally ask in Phase 1 must be pre-answered in this single message.
+
+### Runner options
+
+```bash
+bash tests/run-fixture-headless.sh <fixture-name> [options]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--model <name>` | `sonnet` | `sonnet` / `opus` / `haiku` |
+| `--budget <usd>` | `10.00` | Hard budget cap per run (`--max-budget-usd`) |
+| `--output <dir>` | `<fixture>/output` | Override output directory |
+| `--keep-output` | `0` | Preserve output dir even on pass |
+| `--dry-run` | `0` | Print the command, do not execute |
+
+### Cost profile (observed v1.16.0 POC, Sonnet pricing)
+
+| Fixture | Skill | Mode | Duration | Cost (equiv) |
+|---|---|---|---|---|
+| fixture-02-tg-bot | `/blueprint` | Lite | ~10 min | $1.73 |
+| fixture-01-saas-clinic | `/kickstart` | Full, docs-only | ~20 min | $5–8 |
+| fixture-03-cli-tool | `/blueprint` | Lite, no-DB/no-API | ~8 min | $1.50 |
+
+With a Claude Pro/Team subscription, local runs cost **$0 actual** — the `total_cost_usd` field in the stream-json output is an equivalent pay-as-you-go price for CI planning.
+
+### CI integration (optional, disabled by default)
+
+`.github/workflows/fixture-smoke.yml` is a ready-to-enable GitHub Actions workflow that runs all active fixtures via the wrapper on every `release/*` branch push. It is **disabled by default** via an `if: false` guard because enabling it requires provisioning `ANTHROPIC_API_KEY` as a repository secret. To activate:
+
+1. Provision the secret in GitHub Settings → Secrets → Actions.
+2. Edit `.github/workflows/fixture-smoke.yml` and remove the `if: false` guard.
+3. Push a `release/v1.X.Y` branch to trigger the first run.
+
+Monthly cost estimate at 4 releases/month ≈ $32–$48. A maintainer can also trigger the workflow manually via `workflow_dispatch` for a one-off cost check.
+
+### Flipping pending stubs to active
+
+Of the 10 fixture snapshots, 3 are `active` (fixture-01, fixture-02, fixture-03) and 7 are `pending` (fixture-04..10). To flip a pending stub to active:
+
+1. Write a `stream.jsonl` file in the fixture directory with the full idea + pre-seeded clarifications.
+2. Run once manually: `bash tests/run-fixture-headless.sh fixture-XX-name --keep-output`.
+3. Inspect the generated output directory to understand the actual structure.
+4. Replace the `pending` stub in `expected-snapshot.json` with a full `active` schema based on the observed output.
+5. Re-run the wrapper. It should now return PASSED.
+6. Commit the updated snapshot.
+
+This is the same workflow the v1.16.0 POC used to calibrate fixture-02. Expect 3–5 calibration iterations per fixture before the snapshot is stable.
+
+## Phase 2 internals: Claude Code flags used by the runner
+
+For curious maintainers, here is the exact invocation the wrapper builds:
+
+```bash
+claude -p \
+  --input-format stream-json \
+  --output-format stream-json \
+  --verbose \
+  --no-session-persistence \
+  --model sonnet \
+  --dangerously-skip-permissions \
+  --add-dir <fixture>/output \
+  --max-budget-usd 10.00 \
+  < <fixture>/stream.jsonl
+```
+
+Each flag and why:
+
+- `-p` / `--print` — non-interactive mode, print response and exit
+- `--input-format stream-json` — multi-message input via JSONL (needed for pre-seeded clarifications and, in the future, multi-turn fixtures)
+- `--output-format stream-json` — incremental structured output (required when input is stream-json; returns `init`, `assistant`, `user` (tool_result), `result`, `rate_limit_event` events as separate JSON objects on stdout)
+- `--verbose` — required by `--output-format stream-json`
+- `--no-session-persistence` — throwaway session, do not pollute the session picker
+- `--model sonnet` — explicit model pin for reproducibility; the wrapper accepts `opus` or `haiku` via `--model`
+- `--dangerously-skip-permissions` — required so file Write/Edit tools run without user confirmation; safe because we run in a disposable `/tmp` or output directory
+- `--add-dir <fixture>/output` — grant Claude access to the output directory (where the fixture writes files) in addition to the cwd
+- `--max-budget-usd <usd>` — hard budget cap; invocation stops with a terminal reason of `budget_exceeded` if exceeded
+
+The runner script itself is small (~160 lines of bash) and is readable — see `tests/run-fixture-headless.sh`.
 
 Claude Code supports non-interactive mode as of the current CLI:
 

@@ -1,0 +1,133 @@
+name: fixture-smoke
+
+# ─────────────────────────────────────────────────────────────────────────────
+# v1.16.0 Phase 2 — non-interactive fixture smoke-run workflow
+# ─────────────────────────────────────────────────────────────────────────────
+# Runs every `active` fixture through `claude -p` in non-interactive mode,
+# captures the output, and validates it against the expected-snapshot.json
+# via `tests/verify_snapshot.py`.
+#
+# STATUS: DISABLED BY DEFAULT.
+#
+# This workflow is committed as a ready-to-enable skeleton so the
+# methodology has a complete v1.16.0 story on disk, but it does NOT
+# run automatically until:
+#
+#   1. The repository secret `ANTHROPIC_API_KEY` is provisioned in
+#      GitHub Settings → Secrets → Actions.
+#   2. A maintainer removes the `if: false` guard in the job definition
+#      below (or changes the trigger block to `workflow_dispatch` and
+#      runs it manually for a cost check first).
+#
+# Cost profile (observed during v1.16.0 POC with Sonnet):
+#
+#   - fixture-01-saas-clinic (/kickstart docs-only):   ~$5.00–$8.00
+#   - fixture-02-tg-bot      (/blueprint Lite):         ~$1.50–$2.00
+#   - fixture-03-cli-tool    (/blueprint edge case):    ~$1.00–$1.50
+#   - Total per release:                                 ~$8.00–$12.00
+#
+# A monthly cap at 4 releases/month ≈ $32–$48. The budget cap inside the
+# runner script (--max-budget-usd) is the hard stop per invocation.
+#
+# Trigger: only on `release/*` branches — never on PRs or main pushes,
+# to avoid spending budget on every commit. Maintainers start a release
+# by creating a branch like `release/v1.17.0`, pushing it, watching
+# this workflow pass, then opening a PR to main. If the fixture smoke
+# fails, the release is aborted.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches:
+      - "release/*"
+  workflow_dispatch:
+    inputs:
+      fixtures:
+        description: "Comma-separated fixture names (default: all active)"
+        required: false
+        default: "fixture-01-saas-clinic,fixture-02-tg-bot,fixture-03-cli-tool"
+      model:
+        description: "Claude model to use (sonnet / opus / haiku)"
+        required: false
+        default: "sonnet"
+      budget:
+        description: "Max USD cap per fixture"
+        required: false
+        default: "10.00"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Headless fixture smoke-run
+    runs-on: ubuntu-latest
+    # v1.16.0 initial state — skeleton only, not yet activated.
+    # Remove this guard AFTER ANTHROPIC_API_KEY is provisioned in secrets.
+    if: false
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Claude Code CLI
+        run: |
+          # Official install command — if this changes, follow the
+          # canonical install docs at https://claude.com/claude-code
+          curl -fsSL https://claude.com/claude-code/install.sh | bash
+          echo "$HOME/.claude/bin" >> "$GITHUB_PATH"
+
+      - name: Verify claude CLI
+        run: |
+          claude --version
+          claude --help | head -5
+
+      - name: Install plugin into test environment
+        run: |
+          mkdir -p ~/.claude
+          bash scripts/sync-to-active.sh
+          ls ~/.claude/skills/ | wc -l
+
+      - name: Run fixture smoke-run — fixture-01-saas-clinic
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          bash tests/run-fixture-headless.sh fixture-01-saas-clinic \
+            --model "${{ inputs.model || 'sonnet' }}" \
+            --budget "${{ inputs.budget || '10.00' }}" \
+            --keep-output
+
+      - name: Run fixture smoke-run — fixture-02-tg-bot
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          bash tests/run-fixture-headless.sh fixture-02-tg-bot \
+            --model "${{ inputs.model || 'sonnet' }}" \
+            --budget "${{ inputs.budget || '5.00' }}" \
+            --keep-output
+
+      - name: Run fixture smoke-run — fixture-03-cli-tool
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          bash tests/run-fixture-headless.sh fixture-03-cli-tool \
+            --model "${{ inputs.model || 'sonnet' }}" \
+            --budget "${{ inputs.budget || '5.00' }}" \
+            --keep-output
+
+      - name: Upload fixture outputs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-outputs-${{ github.run_id }}
+          path: |
+            tests/fixtures/fixture-01-saas-clinic/output
+            tests/fixtures/fixture-02-tg-bot/output
+            tests/fixtures/fixture-03-cli-tool/output
+          retention-days: 14

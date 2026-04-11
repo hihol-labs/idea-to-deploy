@@ -138,14 +138,33 @@ _API_ENDPOINT_RE = re.compile(
     r"^\s*[`*]?\s*(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+",
     re.MULTILINE | re.IGNORECASE,
 )
-# User story markers: "As a X", "Как X", numbered list starting with "As"
+# User story markers — matches any of the common LLM-generated formats:
+#   1. "As a X, I want ..." / "Как X, я хочу ..." in a bullet list
+#      (the original pattern — still valid)
+#   2. "### US-N: Title" numbered user story headings (v1.16.0 POC
+#      calibration: observed in blueprint output for fixture-02)
+#   3. "> As a X, ..." / "> Как X, ..." in a blockquote (also observed
+#      in the POC output — model puts the actual story in a quote below
+#      the heading)
+# Each match is one unique user story. The heading and the blockquote
+# for the same story would double-count, so patterns 2 and 3 are
+# mutually exclusive in practice because /blueprint uses one of the
+# two conventions per document, not both.
 _USER_STORY_RE = re.compile(
-    r"^\s*(?:[-*]|\d+\.)\s+(?:as\s+a|как\s+\w+)\s+",
+    r"^\s*(?:"
+    r"(?:[-*]|\d+\.)\s+(?:as\s+a|как\s+\w+)\s+"        # bullet-list form
+    r"|#{2,4}\s+US[-\s]?\d+[:\s]"                        # "### US-1:" heading
+    r"|>\s*(?:as\s+a|как\s+\w+)\b"                      # "> Как X, ..."
+    r")",
     re.MULTILINE | re.IGNORECASE,
 )
-# Implementation plan steps — either "## Step N" or "N." at start of line
+# Implementation plan steps — strict match on "## Step N" / "## Шаг N" /
+# "## Этап N" headings ONLY. Earlier versions also matched "\d+\.\s+\w"
+# at line start, but that alternative double-counted numbered list items
+# INSIDE each step section, inflating the count by an order of magnitude
+# (v1.16.0 POC observed 83 "steps" in a 13-step document).
 _STEP_HEADING_RE = re.compile(
-    r"^\s*(?:#{1,3}\s+(?:step|шаг|этап)\s+\d+|\d+\.\s+\w)",
+    r"^\s*#{1,4}\s+(?:step|шаг|этап)\s*\d+",
     re.MULTILINE | re.IGNORECASE,
 )
 

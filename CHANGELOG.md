@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.0] - 2026-04-12
+
+**Phase 2 of behavioural automation — LANDED.** Adds a non-interactive fixture runner (`tests/run-fixture-headless.sh`) that invokes `claude -p` in stream-json mode, captures generated output, and validates it against the Phase 1 snapshot schema. Closes the loop from "manually run fixture and eyeball output" to "one command runs and validates". Includes a ready-to-enable GitHub Actions workflow (disabled by default pending `ANTHROPIC_API_KEY` provisioning).
+
+### What was proven in the POC
+
+A live POC during v1.16.0 development exercised the full pipeline on `fixture-02-tg-bot` and produced **23/23 PASSED** after three calibration iterations. Key outcomes:
+
+1. **`claude -p` supports skill invocation in non-interactive mode.** Stream-json input with a pre-seeded clarification message correctly drove `/blueprint` to generate all 6+2 documents without asking further questions.
+2. **Skills load automatically from `~/.claude/skills/`** — no `--plugin-dir` flag required if the methodology is already sync'd.
+3. **Real tool use works headless** — the model called `Write` for each of the 8 files (`.gitignore`, `CLAUDE.md`, `CLAUDE_CODE_GUIDE.md`, `IMPLEMENTATION_PLAN.md`, `PRD.md`, `PROJECT_ARCHITECTURE.md`, `README.md`, `STRATEGIC_PLAN.md`).
+4. **`verify_snapshot.py` validates real output, not hypothetical output** — after three regex calibration fixes (see below), all 23 checks PASSED on the actual generated docs.
+5. **`total_cost_usd` is reported even on subscription runs** — the field is equivalent pay-as-you-go pricing, usable for CI budget planning without any actual spend.
+6. **Cost profile observed on Sonnet:**
+   - `/blueprint` fixture-02 (Lite mode, 8 files): **$1.73, ~10.5 min, 2 turns**
+   - `/kickstart` fixture-01 (Full mode docs-only, partial run before rate limit): **$0.42, ~5 min, 5 turns, 3 files generated**
+
+### What the POC uncovered (new findings)
+
+Three constraints not previously known:
+
+1. **5-hour rate limit is a hard stop even on subscription.** During parallel POC runs, Claude Code returned `stop_sequence: stop_sequence` with result text "You've hit your limit · resets 1am (Europe/Moscow)". The limit is organization-level and resets every 5 hours regardless of subscription tier. This means:
+   - **Parallel fixture runs are unsafe** — two heavy skills running at the same time share quota and both die.
+   - **Serial execution mandatory** for bootstrap workflows.
+   - **CI workflows must use `needs:` chains**, not matrix-parallel steps.
+   - **Budget cap via `--max-budget-usd` is not enough** — rate limit can hit long before budget does.
+2. **`--output-format stream-json` requires `--verbose`.** Not documented in `claude --help`, discovered during POC. The runner script sets both.
+3. **`--input-format stream-json` requires matching `--output-format stream-json`.** Same applies — no mixing single-json output with multi-message input.
+
+### Added
+
+- **`tests/run-fixture-headless.sh` (~190 lines)** — Bash wrapper that takes a fixture name, finds the `stream.jsonl` and `expected-snapshot.json`, invokes `claude -p` with the exact flag set validated by the POC, captures the stream log, extracts cost/duration, and runs `verify_snapshot.py` on the output. Supports `--model`, `--budget`, `--output`, `--keep-output`, `--dry-run`. On failure the output dir is preserved; on pass it is cleaned up.
+- **`tests/fixtures/fixture-01-saas-clinic/stream.jsonl`** — pre-seeded conversation for the SaaS clinic bootstrap (13 pre-emptive clarifications covering users, auth, DB, hosting, budget, stack, notifications, 152-ФЗ compliance, multi-tenancy, competitors; instructs `/kickstart` to stop after Phase 3 for snapshot bootstrap).
+- **`tests/fixtures/fixture-02-tg-bot/stream.jsonl`** — pre-seeded conversation for the Telegram bot Lite-mode fixture (10 clarifications: Telegram admin ID auth, SQLite, aiogram 3.x, in-process asyncio reminder loop, etc.). **This is the one that passed the live POC.**
+- **`tests/fixtures/fixture-03-cli-tool/stream.jsonl`** — pre-seeded conversation for the no-DB/no-API edge case (explicit "NO database, NO HTTP API, CLI-only" instructions with the exact rubric-justification markers the snapshot looks for).
+- **`.github/workflows/fixture-smoke.yml`** — ready-to-enable GitHub Actions workflow that runs the three active fixtures via the wrapper on every `release/*` branch push or manual dispatch. **DISABLED BY DEFAULT** via `if: false` guard. Two steps to activate: (1) provision `ANTHROPIC_API_KEY` repo secret, (2) remove the `if: false` guard. Includes budget caps per fixture, artifact upload, and parameterized model/budget via `workflow_dispatch` inputs.
+- **`tests/README.md`** — expanded "Phase 2" section with the full runner workflow, stream.jsonl format example, cost table from POC, and a flippping-pending-stubs guide for future fixture bootstrap work. Added a new "Phase 2 internals" section documenting every `claude -p` flag and why it is needed.
+
+### Calibrated (from real POC data)
+
+The POC uncovered three cases where the Phase 1 regex patterns in `verify_snapshot.py` didn't match real LLM-generated output. Each was fixed on observed structure, not assumptions:
+
+1. **`_STEP_HEADING_RE`** — removed the `\d+\.\s+\w` alternative. It was double-counting numbered list items inside each implementation step, inflating the count (observed: 83 "steps" in a 13-step document). Now matches ONLY `## Step/Шаг/Этап N` headings, strict.
+2. **`_USER_STORY_RE`** — added two new alternatives: `### US-N:` numbered user story headings and `>\s*(Как|As a)` blockquote-style stories. The model's `/blueprint` output uses these formats instead of the original bullet-list pattern (`- As a X, I want`). Before fix: found 0 user stories in a document with 12; after fix: found 12.
+3. **`fixture-02-tg-bot/expected-snapshot.json`**:
+   - Competitors section pattern expanded from `Competitors|Конкуренты|Альтернативы` to `Competitors|Конкурент|Competition|Анализ конкурент|Альтернативы`. The original used a substring check that didn't match "Конкурентный анализ" because "конкурентный" doesn't contain "конкуренты" (different Russian word endings).
+   - `max_step_count` relaxed from 10 to 15. Real `/blueprint` output for a Lite-mode bot produces 13 steps (init / config / DB / auth / slots / admin handlers / booking / cancel / admin-cancel / reminder loop / rate limit / CI / deploy) — this is a realistic plan, not inflation. The original limit was written aspirationally; POC ground truth is authoritative.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.15.0` → `1.16.0`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.15.0` → `1.16.0`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.15.0` → `1.16.0`.
+
+### Bootstrap status snapshot
+
+After v1.16.0:
+
+| Fixture | Snapshot status | stream.jsonl | POC run | Notes |
+|---|---|---|---|---|
+| fixture-01-saas-clinic | active | ✅ | partial (rate-limited) | 3 files generated, rate limit stopped run. Full bootstrap deferred to v1.16.1 when quota window allows a clean run. |
+| fixture-02-tg-bot | active | ✅ | **✅ PASSED (23/23)** | Fully verified against live POC output. Calibrated. |
+| fixture-03-cli-tool | active | ✅ | failed (rate-limited in parallel) | Never actually ran due to sharing quota with fixture-01. |
+| fixture-04..10 | pending (stubs) | — | — | Deferred to future PRs, documented in each stub's description. |
+
+**Honest assessment:** v1.16.0 proves the workflow end-to-end on one real fixture. Full bootstrap of the three active fixtures needs either (a) waiting for rate-limit windows between sequential runs, (b) a maintainer running them one at a time over a day, or (c) the CI workflow with API key (which has its own rate limit but independent of the local subscription).
+
+### Why MINOR, not PATCH
+
+New testing infrastructure:
+- New file (`tests/run-fixture-headless.sh`) that contributors will run
+- New file format (`stream.jsonl`) that contributors must understand when adding fixtures
+- New CI workflow (`.github/workflows/fixture-smoke.yml`) that future maintainers can enable
+- Observable additions to the three-tier testing model documented in `tests/README.md`
+
+Per SemVer this is a MINOR bump. End users of the plugin still see nothing different.
+
+### v1.16.1 concrete TODO
+
+1. Serial bootstrap run of fixture-01 and fixture-03 in separate rate-limit windows. Each takes 5–25 minutes; must run >5 hours apart unless a new quota window opens.
+2. Calibrate snapshots for fixture-01 and fixture-03 based on actual output (same process as fixture-02 in this release).
+3. Flip `pending` stubs for fixture-04..10 one at a time, each in its own release once the snapshot schema for its fixture type is designed.
+4. After all 10 fixtures are `active` and verified, consider enabling the CI workflow with a conservative budget cap.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+bash tests/run-fixture-headless.sh fixture-02-tg-bot --dry-run  # confirm wrapper sees the fixture
+```
+
+The `--dry-run` prints the command that would run without actually invoking claude. Maintainers should also run the full wrapper (without `--dry-run`) at least once on fixture-02 after pulling to confirm local setup works before releasing.
+
+---
+
 ## [1.15.0] - 2026-04-11
 
 **Phase 1 of behavioural automation.** Adds a deterministic structural-validation layer for fixture output — `tests/verify_snapshot.py` + `expected-snapshot.json` schema per fixture. This is the first time the methodology has automated checks for *behavioural* regressions (did `/kickstart` actually produce a multi-tenant architecture with 15+ endpoints, not just "some markdown with the right filename"). Phase 2 (non-interactive execution via `claude -p --output-format json`) is deferred to v1.16.0 after POC.

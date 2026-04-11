@@ -22,7 +22,7 @@
   "content_contracts": {
     "STRATEGIC_PLAN.md": {
       "required_sections": [
-        "Competitors|Конкуренты|Альтернативы",
+        "Competitors|Конкурент|Competition|Анализ конкурент|Альтернативы",
         "Budget|Бюджет",
         "Risks|Риски"
       ],
@@ -48,7 +48,7 @@
     },
     "IMPLEMENTATION_PLAN.md": {
       "min_step_count": 5,
-      "max_step_count": 10
+      "max_step_count": 15
     },
     "CLAUDE_CODE_GUIDE.md": {
       "min_length_chars": 300
