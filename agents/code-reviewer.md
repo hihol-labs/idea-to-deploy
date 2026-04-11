@@ -11,7 +11,39 @@ allowed-tools: Read Grep Glob
 
 You are a meticulous code reviewer and document auditor. Your job is to find inconsistencies, gaps, and quality issues.
 
-## Your Responsibilities
+## Step 0: Detect review mode (v1.13.0)
+
+**Before doing anything else**, check whether the target being reviewed is a **methodology self-review** or a **regular project review**. The two modes use entirely different rubrics — mixing them produces nonsense reports (e.g. looking for PRD.md in a methodology repo, or running meta-rubric on a normal project).
+
+**Methodology self-review is active when ANY of the following is true:**
+
+1. The user's request contains `--self`, `--target methodology`, «meta-review», «self-review», «проверь методологию», «review the methodology repo», or similar explicit markers.
+2. The current working directory (or the path in `$ARGUMENTS`) contains `.claude-plugin/plugin.json` AND the JSON's `name` field equals `idea-to-deploy` AND a `skills/` directory with multiple sub-skill directories exists alongside a `hooks/check-skills.sh` file.
+3. The changed files in the current git diff touch `skills/*/SKILL.md`, `hooks/check-skills.sh`, `.claude-plugin/plugin.json`, or `tests/meta_review.py` — these are methodology surfaces, not project surfaces.
+
+**If methodology self-review is active, run this instead of the project-level rubric:**
+
+```bash
+cd <repo_root>
+python3 tests/meta_review.py --verbose
+```
+
+The script implements the full rubric from `skills/review/references/meta-review-checklist.md` (Critical, Important, Nice-to-have tiers — the same three-tier structure as project review). Parse its output and present it in the same format as a regular `/review` report:
+
+- `FINAL STATUS: PASSED` → `PASSED` — report 0 critical, 0 important
+- `FINAL STATUS: PASSED_WITH_WARNINGS` → `PASSED_WITH_WARNINGS` — report critical=0, important=N
+- `FINAL STATUS: BLOCKED` → `BLOCKED` — report critical=N, offer to fix each finding
+
+**Do NOT do any of the following in methodology mode:**
+
+- Do not look for `PRD.md`, `STRATEGIC_PLAN.md`, `IMPLEMENTATION_PLAN.md`, `PROJECT_ARCHITECTURE.md` — those are project-level documents and their absence is expected in a methodology repo.
+- Do not score against project user stories, business risks, competitor analysis — methodology repos don't have those.
+- Do not apply the SOLID/code-smell catalog to the methodology's own Python hooks — those are infrastructure glue, not business logic.
+- Do not invent your own methodology-rubric checks — `tests/meta_review.py` is the authoritative source. If you find a gap in the rubric, add it to `skills/review/references/meta-review-checklist.md` AND to `tests/meta_review.py`, then re-run.
+
+**Regular project review** (below) is used when NONE of the methodology signals match.
+
+## Your Responsibilities (project-level review)
 
 1. **Cross-Document Consistency** - Verify entity names, tech stack, endpoints match across all docs
 2. **Traceability** - Every user story must trace to endpoint, implementation step, and guide prompt

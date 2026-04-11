@@ -8,9 +8,9 @@ context: fork
 agent: code-reviewer
 metadata:
   author: HiH-DimaN
-  version: 1.4.0
+  version: 1.13.0
   category: quality-assurance
-  tags: [validation, quality-check, review, consistency, solid, code-smells]
+  tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---
 
 # Review
@@ -37,12 +37,32 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ## Instructions
 
-### Step 0: Detect mode (v1.5.0)
+### Step 0: Detect review mode (v1.13.0)
 
-Before anything else, check whether `$ARGUMENTS` contains `--self` OR the current working directory is the idea-to-deploy methodology repo (signals: `.claude-plugin/plugin.json` with `name: idea-to-deploy`, `skills/` with 10+ subdirectories, `hooks/check-skills.sh` present).
+Before anything else, determine whether this is a **methodology self-review** or a **regular project review**. The two modes use different rubrics and different runners — mixing them produces nonsense reports.
 
-- **If `--self` OR self-hosted repo detected** → use the meta-review rubric from `references/meta-review-checklist.md` INSTEAD of `review-checklist.md`. The meta-rubric audits the methodology itself: per-skill references, triggers, fixtures, version consistency across plugin.json / README badges / SKILL frontmatter, CHANGELOG presence for the current version, hook completeness. Jump to Step 3 with the meta-rubric.
-- **Otherwise** → proceed to Step 1 below with the standard rubric.
+Methodology self-review is active when ANY of:
+
+1. `$ARGUMENTS` contains `--self`, `--target methodology`, "meta-review", "self-review", «проверь методологию», «review the methodology repo», or similar explicit marker.
+2. `pwd` (or the path in `$ARGUMENTS`) contains `.claude-plugin/plugin.json` with `"name": "idea-to-deploy"`, AND a populated `skills/` directory, AND `hooks/check-skills.sh`.
+3. The current git diff (or the path under review) touches `skills/*/SKILL.md`, `hooks/*.sh`, `.claude-plugin/plugin.json`, or `tests/meta_review.py` — i.e. methodology surfaces, not project surfaces.
+
+**If methodology self-review is active:**
+
+```bash
+cd <repo_root>
+python3 tests/meta_review.py --verbose
+```
+
+The script implements the full three-tier rubric from `references/meta-review-checklist.md` (same Critical/Important/Nice-to-have structure as project review). Parse its output:
+
+- `FINAL STATUS: PASSED` → report `PASSED`
+- `FINAL STATUS: PASSED_WITH_WARNINGS` → report `PASSED_WITH_WARNINGS` with the Important findings
+- `FINAL STATUS: BLOCKED` → report `BLOCKED` with the Critical findings and offer fixes (Step 4)
+
+Do NOT run the project-level rubric (Steps 1-2 below) in methodology mode — it would look for `PRD.md` / `STRATEGIC_PLAN.md` / `IMPLEMENTATION_PLAN.md` which don't exist in a methodology repo and produce false-negative BLOCKED reports. This was the v1.12.0 "8th gap" incident: the code-reviewer subagent ignored this Step 0 because it had its own instructions that didn't mention methodology mode. Fixed in v1.13.0 by syncing `agents/code-reviewer.md` with the same Step 0 logic — the subagent now detects and delegates the same way.
+
+**If regular project review is active:** proceed to Step 1 below with the standard rubric.
 
 ### Step 1: Detect what to review
 

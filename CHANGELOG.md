@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.0] - 2026-04-11
+
+Methodology self-review release. Closes the 8th gap surfaced during v1.12.0 review: `/review` skill had Step 0 methodology-mode detection since v1.5.0 (`--self` flag, `.claude-plugin/plugin.json` sniffing), but the `code-reviewer` subagent to which `/review` forks via `agent: code-reviewer` had its own instructions in `agents/code-reviewer.md` that did NOT mention methodology mode. Running `/review` inside the idea-to-deploy repo produced nonsense BLOCKED reports because the subagent searched for `PRD.md`, `STRATEGIC_PLAN.md`, `IMPLEMENTATION_PLAN.md` (project-level documents that don't exist in a methodology repo).
+
+### Fixed
+
+- **`agents/code-reviewer.md`** — added Step 0 at the top of the subagent instructions, mirroring `skills/review/SKILL.md`. The subagent now detects methodology mode (`--self` flag, methodology-repo sniffing, or changed-files touching methodology surfaces) and delegates to `tests/meta_review.py --verbose` instead of running project-level checks. Explicit list of what NOT to do in methodology mode: no `PRD.md`/`STRATEGIC_PLAN.md` lookups, no user-story scoring, no SOLID/code-smell against infrastructure hooks, no inventing rubric checks (delegate to `tests/meta_review.py` which is the authoritative source).
+- **`skills/review/SKILL.md`** — Step 0 rewritten to be unambiguous. Old version said "Jump to Step 3 with the meta-rubric" which was confusing (Step 3 is output formatting, not rubric application). New version says explicitly: run `python3 tests/meta_review.py --verbose`, parse output, present as `/review`-style report. Frontmatter version 1.4.0 → 1.13.0 (jumped to match plugin.json methodology-version track).
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version 1.12.0 → 1.13.0, description adds "self-review mode" to the capability list.
+- **`README.md`** / **`README.ru.md`** — version badges 1.12.0 → 1.13.0. Skill count unchanged (18).
+
+### Why
+
+During the v1.12.0 review cycle, I invoked `/review` on the feat/v1.5.0-sync-and-hook-fix branch (17 files of methodology changes). The code-reviewer subagent came back with a report looking for project-level docs: "M-C5: C6 & C7 (Critical) — Missing PRD.md", "recommended to create PRD.md from strategic plan". This was obviously wrong — idea-to-deploy is a methodology repo, not a SaaS project. I had to do a manual review instead and the project-level review agent false-negative was flagged as the 8th gap in `session_2026-04-11_2.md`.
+
+Root cause: `skills/review/SKILL.md` already had Step 0 methodology detection, but `agent: code-reviewer` + `context: fork` in the skill frontmatter means `/review` forks to a subagent with its own instructions. The fork does not inherit SKILL.md — the subagent sees only `agents/code-reviewer.md`. That file had no methodology-mode awareness, so the subagent ran its default (project-level) validation.
+
+Fix is symmetric: sync the Step 0 block between `skills/review/SKILL.md` (for when `/review` runs in-context) and `agents/code-reviewer.md` (for when it forks). Both now detect methodology mode and both delegate to `tests/meta_review.py`. The runner script is the single source of truth for the rubric; both entry points just ask it for the report.
+
+### Migration
+
+No user action required if you already ran `bash scripts/sync-to-active.sh` after v1.12.0. For v1.13.0, re-run:
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+# no claude restart needed — subagent definitions are re-read on every invocation
+```
+
+### Verify
+
+```bash
+cd /path/to/idea-to-deploy
+# Direct runner:
+python3 tests/meta_review.py --verbose
+# Via /review skill (after claude restart to pick up new SKILL.md):
+#   /review --self
+# Expected output: "FINAL STATUS: PASSED" (or PASSED_WITH_WARNINGS with specific findings)
+```
+
+---
+
 ## [1.12.0] - 2026-04-11
 
 Methodology hardening release. Closes six systemic gaps surfaced by the NeuroExpert 2026-04-11 parallel-session incident, where two Claude sessions performed the same kong.yml tech-debt refactor in parallel because nothing in the methodology forced a pre-flight check on recent commits and no router existed for daily-work tasks on existing code.
