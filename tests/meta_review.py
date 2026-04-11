@@ -408,6 +408,59 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-I8: subagent contract — read-only agents must declare it (v1.14.0) ---
+    # Any `agents/*.md` whose `allowed-tools` frontmatter does NOT include
+    # Write/Edit must say so EXPLICITLY in its body — otherwise the model
+    # running inside that forked subagent context will try to write files,
+    # fail silently (tools unavailable), and the calling skill gets nothing.
+    #
+    # The fix (added in v1.14.0 for doc-writer and test-generator) is an
+    # "Output Format" section that tells the subagent to return text to
+    # the caller. This gate makes the pattern mandatory for all future
+    # read-only subagents — register a regression test for the clarification.
+    #
+    # A passing disclaimer contains ALL THREE markers on any line within
+    # the body:
+    #   1) the phrase "forked" (forked subagent/context)
+    #   2) the word "Write" or "Edit" (references the missing tool)
+    #   3) a negation marker ("NOT", "not have", "without", "cannot")
+    #
+    # This is intentionally loose — we want the disclaimer present, not
+    # to enforce exact wording.
+    agents_dir = repo / "agents"
+    if agents_dir.is_dir():
+        write_edit_re = re.compile(r"\bWrite\b|\bEdit\b")
+        disclaimer_re = re.compile(
+            r"forked.*(?:Write|Edit).*(?:NOT|not\s+have|without|cannot)|"
+            r"(?:NOT|not\s+have|without|cannot).*(?:Write|Edit).*forked|"
+            r"forked\s+subagent\s+context.*(?:NOT|do\s+not|without).*(?:Write|Edit)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        # Simpler check: a single block with all three markers
+        def has_disclaimer(body: str) -> bool:
+            # Look for a block (paragraph or bold line) that mentions
+            # "forked" + "Write" (or Edit) + a negation within 500 chars
+            for block in re.split(r"\n\s*\n", body):
+                if "forked" in block.lower() and write_edit_re.search(block):
+                    if re.search(r"\bNOT\b|not\s+have|without|cannot|do\s+not", block, re.IGNORECASE):
+                        return True
+            return False
+
+        for agent_md in sorted(agents_dir.glob("*.md")):
+            fm, body = read_frontmatter(agent_md)
+            tools = fm.get("allowed-tools", "")
+            has_write = bool(re.search(r"\bWrite\b", tools))
+            has_edit = bool(re.search(r"\bEdit\b", tools))
+            if has_write or has_edit:
+                # Agent can write files itself — no disclaimer required.
+                continue
+            if not has_disclaimer(body):
+                r.imp(
+                    "M-I8",
+                    f"agents/{agent_md.name}: read-only subagent (no Write/Edit in allowed-tools) "
+                    f"but body has no forked-context disclaimer — silent write failures will result",
+                )
+
     # --- M-C13: marketplace.json consistency with plugin.json (v1.13.2) ---
     # The community plugin catalog (.claude-plugin/marketplace.json) is a
     # separate file from plugin.json and is what external crawlers read. It

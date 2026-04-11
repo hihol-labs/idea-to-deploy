@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.0] - 2026-04-11
+
+Polish release closing the three Nice-to-have items from the v1.13.2 qualitative audit, plus a new `M-I8` meta-review gate that makes the subagent contract pattern auditable and regression-proof. All improvements are backward-compatible additions — MINOR bump, no user-facing behaviour changes.
+
+### Audit context
+
+The v1.13.2 PR (#16) fixed 1 Critical + 4 Important drift items but deferred three Nice-to-have items to v1.14.0 because they did not affect correctness, only discoverability and edge-case recall:
+
+1. `plugin.json.keywords` missing the new v1.13.0 capability tags.
+2. `agents/doc-writer.md` (and by analogy `test-generator.md`) had an ambiguous "Generate documentation files" instruction without disclosing that the subagent runs in a forked context with no `Write`/`Edit` tools, so the instruction is physically unfulfillable.
+3. `hooks/check-skills.sh` `/explain` trigger had thin English coverage — idiomatic phrasings like "what does this function do", "can you explain", "tell me about this module" fell through to ad-hoc tool calls.
+
+v1.14.0 closes all three and adds one bonus item: **M-I8 subagent whitelist gate** which enforces the clarification pattern for all current and future read-only subagents.
+
+### Added
+
+- **`hooks/check-skills.sh`** — extended `/explain` regex with three new idiomatic English patterns:
+  - `what\s+does\s+(this\s+|the\s+)?(\w+\s+)?(do|mean|return)` — catches "what does this function do", "what does getUserById return", "what does the auth middleware do"
+  - `can\s+you\s+explain` — catches "can you explain this regex", "can you explain what's happening"
+  - `tell\s+me\s+(about|how)\s+(this|the|that)\s+(code|function|module|class|file|method|component|handler|endpoint)` — catches "tell me about this handler", "tell me how the auth module works"
+- **`.claude-plugin/plugin.json`** — keywords extended with `self-review`, `meta-review`, `methodology-validation`, `daily-work-router`. Aligns the plugin's discoverability metadata with the v1.13.0 self-review capability, the v1.5.0 `/task` router, and the v1.12.0+ meta-review gate. Parallelism with marketplace.json restored.
+- **`.claude-plugin/marketplace.json`** — keyword `methodology-validation` added for parity with plugin.json (the other three were already present from v1.13.2).
+- **`agents/doc-writer.md`** — new "Output Format" section explicitly states that the agent runs in a forked context without `Write`/`Edit`, and must return structured text for the calling skill to persist. Applies to both invocation paths: through the `/doc` skill and directly via the `Agent` tool.
+- **`agents/test-generator.md`** — analogous disclaimer, with the additional clarification that `Bash` is in the whitelist for test-suite detection (`pytest --co`, `npm test -- --listTests`) but NOT for writing files via heredoc or `tee`.
+- **`agents/architect.md`** — analogous disclaimer for the `/blueprint` flow; specifies the `{ file_path, content }` tuple return format for multi-file architecture deliverables.
+- **`agents/code-reviewer.md`** — analogous disclaimer emphasising the separation of audit (subagent) and remediation (caller) as load-bearing for read-only review semantics. Preserves the existing v1.13.0 Step 0 methodology-mode detection.
+- **`agents/perf-analyzer.md`** — analogous disclaimer plus expanded return format per bottleneck (Description / Severity / Location / Measurement / Suggested fix / Expected improvement). Explicitly says `Bash` is for running benchmarks, not for `tee > patched.py`.
+- **`tests/meta_review.py` — new Important gate `M-I8`** — scans `agents/*.md` and, for any subagent whose frontmatter `allowed-tools` does not include `Write` or `Edit`, verifies the body contains a forked-context disclaimer (a block with all three markers: "forked", "Write/Edit", negation keyword). Silent-write-failure regressions are no longer possible without the gate flagging them. Intentionally Important (not Critical) because the same class of bug has always been a correctness issue, never a blocker for existing users.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.13.2` → `1.14.0`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.13.2` → `1.14.0`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.13.2` → `1.14.0`.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+```
+
+No configuration changes required. Active install picks up the new triggers, keyword metadata, and subagent instructions on next Claude restart.
+
+### Why MINOR, not PATCH
+
+v1.13.2 was strictly a drift fix — PATCH per SemVer. v1.14.0 is different: it adds new trigger-phrase coverage (behaviour change, even if backward-compatible), new plugin.json keywords (catalog-visible change), new subagent instructions (changes what subagents can be told to do), and a new meta-review gate (changes what the CI will block). None of these are breaking, but together they move the minor version counter, which is the right SemVer semantics for backward-compatible additions.
+
+### What remains open
+
+- **v1.15.0 candidate — snapshot testing for behavioural fixtures.** Documented in `tests/README.md` as a future path since v1.13.2. Requires a proof-of-concept of non-interactive Claude Code SDK invocation before full rollout, and a CI compute cost estimate. Not in v1.14.0 scope.
+- **WSL git-over-network issue.** `git push` and `git fetch` hang in the maintainer's WSL environment; all v1.13.2 and v1.14.0 commits are landed via `gh api graphql createCommitOnBranch`. This is an environment issue, not a methodology issue, but is tracked in memory for continuity.
+
+---
+
 ## [1.13.2] - 2026-04-11
 
 Documentation-drift audit release. Closes gaps found during the post-v1.13.1 self-review where a code-reviewer subagent + manual verification surfaced issues that the automated `meta_review.py` gate did not catch:

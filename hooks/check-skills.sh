@@ -65,7 +65,11 @@ TRIGGERS = [
         r"(объясни\s+(код|как|что)|как\s+(это\s+)?работает|как\s+устроен|что\s+делает|"
         r"что\s+здесь\s+происходит|разбер\w+\s+(как|код|этот|файл|модуль)|"
         r"расскажи\s+про|explain\s+(this|that|how|what|code)|"
-        r"how\s+does\s+this\s+work|walk\s+me\s+through|\bwalkthrough\b)",
+        r"how\s+does\s+this\s+work|walk\s+me\s+through|\bwalkthrough\b|"
+        r"what\s+does\s+(this\s+|the\s+)?(\w+\s+)?(do|mean|return)|"
+        r"can\s+you\s+explain|"
+        r"tell\s+me\s+(about|how)\s+(this|the|that)\s+"
+        r"(code|function|module|class|file|method|component|handler|endpoint))",
         "🔔 Триггер 'объясни' → используй /explain (диаграммы + пошаговый разбор).",
     ),
     (
