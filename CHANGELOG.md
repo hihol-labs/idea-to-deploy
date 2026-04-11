@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.1] - 2026-04-11
+
+PATCH release. Closes the last cheap structural win deferred from v1.14.0 deliberation: **M-I9 caller-skill tool superset gate**. Adds a new formal frontmatter field `report_only: true` to make read-only skill contracts auditable. Pure defense-in-depth addition — zero user-facing behaviour change, zero cost, catches one previously-invisible class of regression.
+
+### Audit context
+
+During v1.14.0 deliberation we walked through five possible Defense-in-depth layers for subagent contracts and found that four of them (runtime self-check, schema validation, integration test duplication, latency-inducing pre-flight gates) had measurable UX cost for marginal value. Only **M-I9** (caller-skill tool superset check) passed the cost/benefit bar: ~30 lines of Python, zero user cost, catches a real class of bug where a skill delegates to a read-only subagent but lacks `Write`/`Edit` itself and cannot persist the output.
+
+Rather than ship M-I9 in the same v1.14.0 PR (which was already doing four things), we split it into v1.14.1 as a focused single-purpose patch.
+
+### Added
+
+- **`tests/meta_review.py` — new gate `M-I9`** — for every skill with a `agent: X` frontmatter field, validates the three legitimate patterns:
+  - **Pattern A** — subagent is read-only, skill has `Write`/`Edit` (example: `/blueprint → architect`, `/perf → perf-analyzer`). Most common.
+  - **Pattern B** — skill AND subagent both read-only, skill declared `report_only: true` (example: `/review → code-reviewer`). Pure audit chain, no mutations anywhere.
+  - **Pattern C** — subagent has `Write`/`Edit` itself (forward compatibility; no current agents match this, but the gate permits it).
+  - **M-I9a** (Critical) — `agent: X` refers to a non-existent agent. Catches typos and rename misses.
+  - **M-I9b** (Critical) — both skill and subagent read-only without `report_only: true`. Catches skills that forgot to add `Write`/`Edit` when they silently need to persist output, and prevents silent-write-failure regressions in future skills.
+- **`skills/review/SKILL.md`** — added `report_only: true` frontmatter field. Formalizes the `/review` contract that has been implicit since v1.0.0: `/review` produces audit reports to stdout, never mutates files. This unblocks M-I9b for the `/review → code-reviewer` pair.
+
+### New frontmatter field: `report_only`
+
+`report_only: true` is a new optional frontmatter field for skills whose entire contract is "produce a report to stdout, apply no mutations". Currently used only by `/review`. Candidates for future adoption (not in v1.14.1 scope, to avoid mixing structural changes with the gate):
+- `/security-audit` — read-only OWASP-style audit with optional fix suggestions (no patches applied).
+- `/deps-audit` — read-only CVE/license/abandoned-package audit.
+- `/explain` — read-only walkthrough, stdout only.
+- `/project`, `/task` — routers that only print routing decisions.
+
+Claude Code ignores unknown frontmatter fields, so there is no compatibility risk. The field is purely contract metadata for the methodology's own gates.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.14.0` → `1.14.1`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.14.0` → `1.14.1`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.14.0` → `1.14.1`.
+
+### Why PATCH, not MINOR
+
+No new behaviour surface for users:
+- Only one skill got a new frontmatter field, and it is internally-consumed metadata, not a new capability.
+- The M-I9 gate is CI-only, invisible to end users.
+- No trigger changes, no keyword changes, no new checks that block the user's own workflow.
+
+Per SemVer this is a PATCH release — a bug-prevention fix, not a feature addition.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+```
+
+No configuration changes required. The gate runs on the maintainer's CI only; end users of the plugin see nothing different.
+
+### What the gate catches
+
+Concrete regression scenarios this gate prevents:
+
+1. **Typo in agent rename.** If v2.0.0 renames `code-reviewer` → `reviewer` and misses one `agent:` reference, M-I9a fires Critical.
+2. **New skill `/audit` with forgotten Write/Edit.** If a contributor adds a skill with `agent: code-reviewer` and `allowed-tools: Read Glob Grep` without declaring it report-only, M-I9b fires Critical before the PR can merge.
+3. **Silent removal of Write/Edit from an existing skill.** If `/blueprint` loses `Write Edit` in a refactor, M-I9b fires because `architect` is read-only and `/blueprint` is not declared report_only.
+
+### 10/10 structural tier
+
+This PR closes the last cheap structural win identified in the v1.13.2 audit. The methodology now has **14 Critical + 8 Important** meta-review checks, covering every class of drift previously observed in v1.4.0 → v1.13.2 history. Further structural hardening would require significantly more complex machinery (LLM-as-judge, snapshot testing, runtime integration checks) and enters the behavioural tier — next target for v1.15.0.
+
+---
+
 ## [1.14.0] - 2026-04-11
 
 Polish release closing the three Nice-to-have items from the v1.13.2 qualitative audit, plus a new `M-I8` meta-review gate that makes the subagent contract pattern auditable and regression-proof. All improvements are backward-compatible additions — MINOR bump, no user-facing behaviour changes.

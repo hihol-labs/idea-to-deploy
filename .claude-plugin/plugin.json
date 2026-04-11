@@ -1,6 +1,6 @@
 {
   "name": "idea-to-deploy",
-  "version": "1.14.0",
+  "version": "1.14.1",
   "description": "Complete project lifecycle methodology — 18 skills + 5 specialized subagents from idea to deployed and hardened product. Planning, scaffolding, coding, testing, debugging, optimization, security audit, dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code, session context persistence, daily-work routing, self-review mode.",
   "author": {
     "name": "HiH-DimaN",

@@ -408,6 +408,77 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-I9: caller-skill tool superset over delegated subagent (v1.14.1) ---
+    # When a skill delegates to a subagent via frontmatter `agent: X`, there
+    # are three contract-consistent patterns:
+    #
+    #   Pattern A: subagent is read-only, skill has Write/Edit
+    #     → subagent returns structured text, skill persists it.
+    #     Examples: /blueprint → architect, /perf → perf-analyzer.
+    #
+    #   Pattern B: skill AND subagent both read-only, skill is report_only
+    #     → entire chain produces stdout reports, nothing is written.
+    #     Example: /review → code-reviewer (audit output to user).
+    #     Requires explicit `report_only: true` in skill frontmatter.
+    #
+    #   Pattern C: subagent has Write/Edit itself
+    #     → subagent writes files directly in its forked context.
+    #     Currently no such agent exists (all 5 are read-only by design),
+    #     but the gate permits this for forward compatibility.
+    #
+    # Anything outside these three patterns is a bug. Critical findings:
+    #   - M-I9a: `agent: X` refers to non-existent agent (typo / rename miss)
+    #   - M-I9b: both read-only + missing `report_only: true` → silent write
+    #     failures when the skill tries to persist subagent output
+    agents_tools: dict[str, str] = {}
+    if agents_dir.is_dir():
+        for agent_md in sorted(agents_dir.glob("*.md")):
+            fm_a, _ = read_frontmatter(agent_md)
+            agents_tools[agent_md.stem] = fm_a.get("allowed-tools", "")
+
+    write_tool_re = re.compile(r"\b(?:Write|Edit|MultiEdit)\b")
+    for skill in skills:
+        sd = skills_dir / skill
+        fm, _ = read_frontmatter(sd / "SKILL.md")
+        agent_ref = fm.get("agent", "").strip()
+        if not agent_ref:
+            continue
+        # Strip inline comments in frontmatter value (the `#` case)
+        agent_ref = agent_ref.split("#", 1)[0].strip().strip('"').strip("'")
+        if not agent_ref:
+            continue
+        if agent_ref not in agents_tools:
+            r.crit(
+                "M-I9a",
+                f"/{skill}: frontmatter `agent: {agent_ref}` points to "
+                f"non-existent subagent. Available: {sorted(agents_tools)}",
+            )
+            continue
+
+        agent_has_write = bool(write_tool_re.search(agents_tools[agent_ref]))
+        skill_has_write = bool(write_tool_re.search(fm.get("allowed-tools", "")))
+
+        # Parse report_only flag, stripping inline comments
+        report_only_raw = fm.get("report_only", "false")
+        report_only_value = report_only_raw.split("#", 1)[0].strip().lower()
+        skill_is_report_only = report_only_value == "true"
+
+        if agent_has_write:
+            continue  # Pattern C
+        if skill_has_write:
+            continue  # Pattern A
+        if skill_is_report_only:
+            continue  # Pattern B
+        r.crit(
+            "M-I9b",
+            f"/{skill}: delegates to read-only subagent `{agent_ref}` "
+            f"(allowed-tools: {agents_tools[agent_ref]!r}) but has no Write/Edit itself "
+            f"and no `report_only: true` in frontmatter. Either add Write/Edit to "
+            f"the skill (if it must persist subagent output) or add "
+            f"`report_only: true` to formally declare the skill produces only "
+            f"stdout reports.",
+        )
+
     # --- M-I8: subagent contract — read-only agents must declare it (v1.14.0) ---
     # Any `agents/*.md` whose `allowed-tools` frontmatter does NOT include
     # Write/Edit must say so EXPLICITLY in its body — otherwise the model
