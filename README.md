@@ -199,7 +199,7 @@ Claude: Step 1/9 — scaffold project, commit
 | Skill | Description |
 |-------|-------------|
 | `/test` | Generate unit, integration, and edge case tests |
-| `/debug` | Systematically find and fix bugs |
+| `/bugfix` | Systematically find and fix bugs (was `/debug` before v1.4.0 — renamed to avoid collision with Claude Code's built-in `/debug` slash command) |
 | `/perf` | Performance analysis and optimization |
 | `/refactor` | Improve code structure without changing behavior |
 | `/explain` | Explain how code works with ASCII diagrams |
@@ -251,7 +251,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/guide` | Existing PROJECT_ARCHITECTURE.md + IMPLEMENTATION_PLAN.md | CLAUDE_CODE_GUIDE.md | None | ✅ |
 | `/review` | All project docs + code (read-only) | Validation report (stdout) + optional fix patches | Optional doc fixes if user agrees | ✅ |
 | `/test` | File/function/module path | New test files matching project conventions | New test files only | ✅ |
-| `/debug` | Error message / stack trace / symptom | Code patch fixing root cause + optional regression test | Source file edits | ⚠️ Should not be re-run after fix |
+| `/bugfix` | Error message / stack trace / symptom | Code patch fixing root cause + optional regression test | Source file edits | ⚠️ Should not be re-run after fix |
 | `/refactor` | File/function/area | Refactored code preserving behavior | Source file edits | ✅ Behavior preserved |
 | `/perf` | File/function/area + perf complaint | Bottleneck report + optimization patches | Source file edits, possibly DB index DDL | ⚠️ Measure between runs |
 | `/explain` | File/function/concept | Markdown explanation + ASCII diagrams (stdout) | None | ✅ |
@@ -314,7 +314,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 /session-save (standalone, no subagent)
   └─ writes session memory file + updates MEMORY.md index
 
-/debug, /refactor, /explain — leaf skills, no nested invocations.
+/bugfix, /refactor, /explain — leaf skills, no nested invocations.
 ```
 
 **Recursion guard:** No skill invokes itself directly or through a chain. Maximum observed depth is 3 (`/project` → `/kickstart` → `/review` or any of the other depth-3 skills). If you observe a deeper chain or loop, file an issue — that's a bug.
@@ -341,7 +341,7 @@ After installation:
 
 All four hooks fire live — no Claude Code restart needed. The two v1.5.0 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects.
 
-> **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/debug` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
+> **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
 ## Quality Gates
 
@@ -425,7 +425,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/review` | Sonnet | Opus | Cross-document validation |
 | `/security-audit` | Sonnet | Opus | Cross-file pattern recognition |
 | `/test` | Sonnet | Sonnet | Pattern-matching to existing convention |
-| `/debug` | Sonnet | Sonnet | Opus only for cross-language analysis |
+| `/bugfix` | Sonnet | Sonnet | Opus only for cross-language analysis |
 | `/refactor` | Sonnet | Sonnet | Mechanical via Fowler catalog |
 | `/perf` | Sonnet | Opus | Cross-layer reasoning helps |
 | `/doc` | Sonnet | Sonnet | Style matching is straightforward |
@@ -483,7 +483,7 @@ See [CHANGELOG v1.4.0](CHANGELOG.md) for the detailed breakdown.
 ## Troubleshooting / FAQ
 
 **A skill is not being invoked when I expect it to.**
-Claude Code may default to ad-hoc tool calls on ambiguous prompts. Install the [skill discovery hooks](#recommended-setup-skill-discovery-hooks) — they inject `[SKILL HINT]` and `[SKILL CHECK]` reminders that raise the invocation rate significantly. You can also invoke a skill explicitly: `/debug`, `/test`, etc.
+Claude Code may default to ad-hoc tool calls on ambiguous prompts. Install the [skill discovery hooks](#recommended-setup-skill-discovery-hooks) — they inject `[SKILL HINT]` and `[SKILL CHECK]` reminders that raise the invocation rate significantly. You can also invoke a skill explicitly: `/bugfix`, `/test`, etc.
 
 **How do I update the plugin?**
 `/plugin update HiH-DimaN/idea-to-deploy`. Check the [CHANGELOG](CHANGELOG.md) for what changed.

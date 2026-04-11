@@ -33,7 +33,7 @@ TRIGGERS = [
         r"log\s+fragment|любая\s+вставка\s+error|"
         r"debug\s+(this|that|it|error|bug|issue|problem)|"
         r"fix\s+(this\s+)?(error|bug)|\btroubleshoot)",
-        "🔔 Триггер 'баг/ошибка' → используй скилл /debug "
+        "🔔 Триггер 'баг/ошибка' → используй скилл /bugfix "
         "(системная отладка через стек/логи/git). Вызови Skill ПЕРВЫМ.",
     ),
     (

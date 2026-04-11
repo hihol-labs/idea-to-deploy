@@ -113,7 +113,7 @@ Pipe-test the prompt hook:
 echo '{"prompt":"у меня баг в auth"}' | ~/.claude/hooks/check-skills.sh
 ```
 
-You should see JSON output with `additionalContext` mentioning `/debug` and `security-guidance`. If you see nothing, the hook is silent — try a clearer trigger word.
+You should see JSON output with `additionalContext` mentioning `/bugfix` and `security-guidance`. If you see nothing, the hook is silent — try a clearer trigger word.
 
 Pipe-test the tool hook:
 
@@ -155,9 +155,9 @@ Common pitfalls to avoid:
 
 ## Case study
 
-In a 2026-04-07 hotfix session, Claude (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix a 3-week-old production auth outage. Throughout that work, `/debug` was a perfect fit and was never invoked. The user noticed and asked: "почему ты не используешь методологию?". The honest answer: nothing was forcing it.
+In a 2026-04-07 hotfix session, Claude (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix a 3-week-old production auth outage. Throughout that work, `/bugfix` was a perfect fit and was never invoked. The user noticed and asked: "почему ты не используешь методологию?". The honest answer: nothing was forcing it.
 
-These hooks are the answer. After installation, the same prompt — "у меня баг в auth" — would inject a SKILL HINT about `/debug` and `security-guidance` into Claude's context **before** Claude's first response. It then becomes physically impossible to skip the methodology without acknowledging it first.
+These hooks are the answer. After installation, the same prompt — "у меня баг в auth" — would inject a SKILL HINT about `/bugfix` and `security-guidance` into Claude's context **before** Claude's first response. It then becomes physically impossible to skip the methodology without acknowledging it first.
 
 ## Limitations
 

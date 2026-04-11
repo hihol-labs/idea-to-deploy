@@ -71,7 +71,7 @@ Open a GitHub issue using the feature request template and describe:
 - **What the skill does** — one-line summary
 - **When it should trigger** — example user phrases in Russian and English
 - **What it reads and writes** — similar to the Skill Contracts table in `README.md`
-- **Why it's not covered by an existing skill** — be specific; `/debug` + `/refactor` cover a lot of daily work
+- **Why it's not covered by an existing skill** — be specific; `/bugfix` + `/refactor` cover a lot of daily work
 
 Maintainer will respond within 1–2 days on whether the skill fits the methodology's scope and how to proceed.
 

@@ -1,12 +1,12 @@
-# Manual verification — fixture 07 (shared: /debug, /refactor, /perf, /security-audit, /migrate)
+# Manual verification — fixture 07 (shared: /bugfix, /refactor, /perf, /security-audit, /migrate)
 
 This fixture intentionally covers five daily-work skills in one place. Each skill targets the same `app/api/users.py` file or the `migrations/20260408_add_users_email_index.sql` file, looking for different kinds of problems.
 
-## /debug
+## /bugfix
 
 Scenario: the user reports `AttributeError: 'NoneType' object has no attribute 'orders'` when calling `GET /users/999/orders`.
 
-- [ ] `/debug` reads the stack trace and isolates the cause: user 999 does not exist, the `user` variable is `None` because the SQL returned no rows
+- [ ] `/bugfix` reads the stack trace and isolates the cause: user 999 does not exist, the `user` variable is `None` because the SQL returned no rows
 - [ ] Suggests fix: add `if user is None: raise HTTPException(status_code=404)` before the loop
 - [ ] Writes a regression test (`tests/test_users.py::test_get_orders_404`)
 - [ ] Report format: `debug-report.md` with sections: Symptom, Root cause, Fix, Regression test

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-04-11
+
+### Changed
+
+- **BREAKING (silent):** renamed `/debug` skill to `/bugfix` to avoid name collision with Claude Code's built-in `/debug` slash command. The built-in has `disableModelInvocation: true` baked into the binary, which blocked model-initiated invocation via the Skill tool and broke the "on error → /bugfix" automation rule. Users can still type `/debug` manually, but model auto-invocation never worked for the old name. Skill body, trigger phrases, and methodology are unchanged.
+- All cross-references in README.md, README.ru.md, CHANGELOG, CONTRIBUTING, skills/*/SKILL.md, skills/*/references/, hooks/check-skills.sh, hooks/check-tool-skill.sh, hooks/README.md, docs/CONTENT-PLAN.md, .github/ISSUE_TEMPLATE/, tests/fixtures/ updated to `/bugfix`.
+- Root cause investigation: `strings $(readlink -f $(which claude)) | grep 'disableModelInvocation:!0'` shows exactly two built-in skills with this flag: `batch` and `debug`. All other Idea-to-Deploy skill names (`/test`, `/refactor`, `/review`, …) remain unaffected.
+
+### Migration
+
+- Users upgrading from <1.4.0: run `rm -rf ~/.claude/skills/debug && cp -r skills/bugfix ~/.claude/skills/bugfix` after git pull. Update any personal hooks/scripts that reference `/debug` to `/bugfix`. Project-specific CLAUDE.md files may need similar updates.
+
+---
+
 ## [1.11.0] — 2026-04-09
 
 Marketplace readiness release. Fixes skill description budget overflow (6 of 17 skills were silently dropped by Claude Code Skill tool), adds missing plugin manifest fields for Anthropic Directory submission, and adds recommended agent configuration fields.

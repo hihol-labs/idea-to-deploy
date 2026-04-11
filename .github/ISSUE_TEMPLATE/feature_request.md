@@ -20,7 +20,7 @@ assignees: ''
 What gap in the current methodology are you trying to close? Be specific about:
 
 - The scenario or task the current 16 skills don't cover well
-- Why existing skills (`/debug`, `/refactor`, `/review`, `/doc`, etc.) don't already handle it
+- Why existing skills (`/bugfix`, `/refactor`, `/review`, `/doc`, etc.) don't already handle it
 - Concrete examples of when you ran into the gap
 
 ## Proposed skill / check / feature

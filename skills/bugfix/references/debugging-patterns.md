@@ -1,6 +1,6 @@
 # Debugging Patterns by Language and Stack
 
-> Reference for `/debug` skill. The skill body covers the universal 6-step process (Reproduce → Locate → Understand → Fix → Verify → Prevent). This file covers **language-specific tools and idioms** so debugging works the same way regardless of stack.
+> Reference for `/bugfix` skill (renamed from `/debug` in v1.4.0 to avoid name collision with Claude Code's built-in `/debug` command). The skill body covers the universal 6-step process (Reproduce → Locate → Understand → Fix → Verify → Prevent). This file covers **language-specific tools and idioms** so debugging works the same way regardless of stack.
 
 ## Python
 

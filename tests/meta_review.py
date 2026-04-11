@@ -52,8 +52,8 @@ SMOKE_TRIGGERS: list[tuple[str, str]] = [
     # (phrase, expected skill slug)
     ("новый проект", "project"),
     ("start a project", "project"),
-    ("почини баг", "debug"),
-    ("debug this error", "debug"),
+    ("почини баг", "bugfix"),
+    ("debug this error", "bugfix"),
     ("напиши тесты", "test"),
     ("add tests", "test"),
     ("отрефактори", "refactor"),

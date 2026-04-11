@@ -206,7 +206,7 @@ If any of 1–3 disagree → fail.
 **Criterion:** for each `skills/<name>/`, the Recommended Models table has a row.
 
 ### M-I6. Call Graph mentions every skill
-**Criterion:** the Call Graph code block in README mentions every `/<name>` at least once. Leaf skills like `/debug` may be listed as "leaf skills".
+**Criterion:** the Call Graph code block in README mentions every `/<name>` at least once. Leaf skills like `/bugfix` may be listed as "leaf skills".
 
 ### M-I7. `hooks/check-skills.sh` triggers pass a smoke test
 **Criterion:** for each skill with triggers, at least one representative Russian and English phrase actually matches via the hook's regex. The meta-review runs a synthetic smoke test by constructing `{"prompt":"<phrase>"}`, feeding it to the hook, and checking the skill name appears in `additionalContext`.

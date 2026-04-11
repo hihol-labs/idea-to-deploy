@@ -110,7 +110,7 @@ router.use(requireRole('admin'))  // add at top
 Apply this fix? [yes/no]
 ```
 
-If user says yes, ask them to invoke `/debug` or use the Edit tool directly — `/security-audit` is read-only by design (allowed-tools: Read Glob Grep). This separation prevents the auditor from also being the fixer, which is a common audit anti-pattern.
+If user says yes, ask them to invoke `/bugfix` or use the Edit tool directly — `/security-audit` is read-only by design (allowed-tools: Read Glob Grep). This separation prevents the auditor from also being the fixer, which is a common audit anti-pattern.
 
 ## Quality Gate
 
