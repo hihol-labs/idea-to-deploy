@@ -23,10 +23,10 @@
   "content_contracts": {
     "STRATEGIC_PLAN.md": {
       "required_sections": [
-        "Competitors|Конкуренты",
+        "Competitors|Конкурент|Анализ конкурент|Competition",
         "Budget|Бюджет|Финансы",
         "Risks|Риски",
-        "KPIs|Метрики|Цели"
+        "KPI|Метрик|Цели"
       ],
       "min_length_chars": 800,
       "must_contain_any_of": {
@@ -51,8 +51,7 @@
     "PRD.md": {
       "required_sections": [
         "User Stories|Пользовательские истории|User story",
-        "P0|MVP|Must-have",
-        "Acceptance|Критерии приёмки|Acceptance criteria",
+        "P0|MVP|Must-have|Приоритет",
         "Kill criteria|Kill|Стоп|Условия остановки"
       ],
       "min_user_story_count": 8

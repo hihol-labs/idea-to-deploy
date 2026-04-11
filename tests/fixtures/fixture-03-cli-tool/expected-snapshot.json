@@ -22,7 +22,7 @@
     "STRATEGIC_PLAN.md": {
       "required_sections": [
         "Users|Пользователи|Audience|Аудитория",
-        "Budget|Бюджет|Ресурсы",
+        "Budget|Бюджет|Ресурсы|Бизнес-модель|Business model|Финанс",
         "Risks|Риски"
       ],
       "min_length_chars": 400
@@ -47,10 +47,18 @@
           "no API",
           "нет API",
           "без API",
+          "нет HTTP API",
+          "Нет HTTP API",
+          "HTTP API не нужен",
+          "HTTP API не используется",
           "CLI-only",
+          "только CLI",
           "command-line only",
           "local tool",
-          "standalone"
+          "локальный инструмент",
+          "standalone",
+          "stateless CLI",
+          "CLI-утилита"
         ]
       }
     },

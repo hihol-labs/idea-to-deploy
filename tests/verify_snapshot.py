@@ -135,7 +135,11 @@ class Report:
 
 _SECTION_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 _API_ENDPOINT_RE = re.compile(
-    r"^\s*[`*]?\s*(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+",
+    r"^\s*(?:"
+    r"[`*]?\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+"
+    r"|\|\s*\d+\s*\|\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s*\|"
+    r"|\|\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+\s*\|"
+    r")",
     re.MULTILINE | re.IGNORECASE,
 )
 # User story markers — matches any of the common LLM-generated formats:
