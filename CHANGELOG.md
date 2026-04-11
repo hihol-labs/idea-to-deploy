@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.2] - 2026-04-12
+
+**Documentation drift fix + new gate to prevent recurrence + content plan refresh.** A user-spotted "the README hooks section doesn't list all hooks" turned into a 6-drift cleanup and a new `M-C15` meta-review gate that catches hook count mismatches in narrative prose. Same pattern as v1.13.2: a real bug becomes a permanent gate.
+
+### Audit context
+
+After v1.16.1 merged, a user-spotted observation: "in README tables not all skills are listed". Investigation showed:
+
+- ✅ **Skills:** all 18 listed in README tables (Entry Points / Project Creation / QA / Daily Work / Supply Chain / Operations / Session Management). No drift.
+- ✅ **Agents:** all 5 listed in Subagents table. No drift.
+- ❌ **Hooks: REAL DRIFT in 6 places.** Both `README.md` and `README.ru.md` and `hooks/README.md` had "two enforcement scripts" / "All four hooks fire live" / installation snippets that copied only 2 of 5 hooks. The `pre-flight-check.sh` (added v1.5.0) was completely absent from all README hook sections.
+
+The drift had been silently present since v1.5.0 — 11 months of releases adding more hooks while the README narrative stayed frozen at 2/4. **`M-C12` (prose count gate) covers skill/agent counts but NOT hook counts.** This is exactly the class of bug `M-C12` was designed to catch, just for a tier nobody enumerated when writing it.
+
+### Added
+
+- **`tests/meta_review.py` — new Critical gate `M-C15`** (~85 lines). Scans `README.md`, `README.ru.md`, `hooks/README.md`, `CONTRIBUTING.md` for narrative mentions of hook counts in three forms:
+  - **Numeric**: `\d+\s+(hooks?|hook|скрипт\w*|хук\w*)` — matches `5 hooks`, `4 hook`, `пять скриптов`
+  - **English number word**: `(one|two|...|nine)\s+(hooks?|enforcement scripts?|hook)` — matches `four hooks`, `two enforcement scripts`
+  - **Russian number word**: `(один|одна|два|две|...|девять)\s+(хук\w*|скрипт\w*)` — matches `четыре хука`, `два скрипта`
+  - Skips lines inside markdown tables, headings, and version markers (historical mentions are legitimate)
+  - Compares the count against `len(hooks/*.sh)` and fires Critical on mismatch
+- **POC validation**: enabling `M-C15` immediately surfaced **3 Critical findings in `hooks/README.md`** that the user's observation had already pointed at:
+  - `hooks/README.md:3` — "These two hooks turn..." (was 2, actual 5)
+  - `hooks/README.md:7` — "Quality enforcement now spans **four layers**" (was 4, actual 5)
+  - `hooks/README.md:27` — "All four hooks are written in Python 3" (was 4, actual 5)
+  - Plus 3 more in `README.md` and `README.ru.md` that were the original report
+
+### Fixed
+
+- **`README.md`** hooks section — comprehensive rewrite:
+  - Header "two enforcement scripts" → "**five hooks**" with breakdown (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader)
+  - Install snippet now copies all 5 hooks instead of 2
+  - Added recommendation to use `bash scripts/sync-to-active.sh` instead (does the same plus settings.json patch)
+  - Added a new bullet for `pre-flight-check.sh` documenting v1.5.0 functionality (git context loading, MEMORY.md injection, parallel session detection via `.active-session.lock`)
+  - "All four hooks fire live" → "All five hooks fire live"
+  - "Two v1.5.0 enforcement hooks" → "Two v1.5.1 enforcement hooks" (correct version where they were schema-fixed)
+- **`README.ru.md`** — symmetric Russian rewrite of the same section. Same 5-hook breakdown, same install snippet, same `pre-flight-check.sh` bullet translated.
+- **`hooks/README.md`** — three rewrites:
+  - "These two hooks" → "These five hooks" in the opening sentence
+  - "Defense-in-depth overview (v1.8.0)" → "(v1.16.2)" with a new row 0 for `pre-flight-check.sh` in the four-layer table (now five-layer)
+  - "All four hooks are written in Python 3" → "All five hooks"
+  - Added a new row in the "What they do" table for `pre-flight-check.sh`
+  - Updated the "If you never work on methodology repos" closing paragraph to clarify which hooks are universal vs methodology-only
+
+### Changed
+
+- **`docs/CONTENT-PLAN.md` Часть 0.1** — `marketplace.json` action item marked done (✅ completed in v1.13.2, version 1.16.x, M-C13 gate prevents drift). Remaining 3 manual tasks (form submission, English description, badge mention) still pending.
+- **`docs/CONTENT-PLAN.md` Часть 8 (NEW, ~120 lines)** — "Новые selling points после v1.13.2 → v1.16.1". Documents three unique content angles that did not exist in the original content plan because the methodology had not yet evolved them:
+  - **8.1 Self-improving methodology** — narrative arc of 5 self-found bugs across 7 releases, each surfacing a new gate. Twitter / Dev.to / Habr / YouTube angles included.
+  - **8.2 Behavioural validation, not just structural** — three-tier testing pitch (structural / snapshot / behavioural execution), $2.74 equiv POC cost finding, all 3 active fixtures verified.
+  - **8.3 Headless Claude Code POC findings** — concrete cumulative knowledge dump on `claude -p` capabilities and undocumented constraints (5h rate limit, `--verbose` requirement, skill fork in headless, etc.). Hacker News-grade material.
+  - **8.4 Per-release content units** — table mapping each of 7 releases (v1.13.2..v1.16.2) to a concrete story for Twitter thread / Dev.to article / YouTube short.
+  - **8.5 Updated KPI table** — concrete factual claims (13 → 23 meta-review checks, 0 → 3 verified fixtures, etc.) for use in press-release first 30 seconds.
+- **`.claude-plugin/plugin.json`** — version `1.16.1` → `1.16.2`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.16.1` → `1.16.2`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.16.1` → `1.16.2`.
+
+### Why PATCH, not MINOR
+
+- `M-C15` is a new Critical gate, but it catches a **subset of an existing class** (narrative count drift, M-C12 covered skills/agents). Adding hooks to the same coverage is incremental, not a new capability.
+- Six README rewrites are pure documentation drift fixes — no new behaviour, no new feature.
+- Content plan additions are pure documentation — no methodology change.
+- No user-facing surface change. Pure PATCH per SemVer.
+
+### Counts after v1.16.2
+
+| Tier | Counts | Status |
+|---|---|---|
+| Skills | 18 | All in README tables ✅ |
+| Subagents | 5 | All in Subagents table ✅ |
+| **Hooks** | **5** | All in README hooks section ✅ (fixed in v1.16.2) |
+| Meta-review checks | 14 Critical + 9 Important = **23** | M-C1..M-C15 + M-I1..M-I10 |
+| Active fixtures | 3 | All POC-verified end-to-end |
+| Pending fixture stubs | 7 | Each documents why deferred |
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+```
+
+The new `M-C15` gate fires automatically on next `meta_review.py` run. Locally and in CI.
+
+### Why this matters as a meta-finding
+
+This is the **second time** in the v1.13.2..v1.16.2 cycle where a user observation immediately turned into a previously-uncovered drift class + a new gate to prevent recurrence:
+
+- **v1.13.2** — user asked for "10/10 Anthropic compliance" → audit found marketplace.json drift → M-C13 + M-C14 added
+- **v1.16.2** — user observed "not all skills listed in README tables" → audit found 6 hook drifts → M-C15 added
+
+The pattern is real and works: **human pattern matching against a long-standing artifact catches drift that automated structural gates miss**, and the cure is to **encode that pattern as a new automated gate** so the same observation never has to be made again. v1.16.2 is the second proof of concept for this self-improvement loop.
+
+---
+
 ## [1.16.1] - 2026-04-12
 
 **Behavioural tier reaches 10/10.** All three active fixtures (01-saas-clinic, 02-tg-bot, 03-cli-tool) are now end-to-end verified via the v1.16.0 headless runner with PASSED snapshots. Total bootstrap effort: 3 runs, 76 checks, $2.74 equivalent cost (real cost on subscription: $0), ~21 minutes wall clock. This closes the deferred work from v1.16.0 where only fixture-02 had been verified.

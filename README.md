@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 18](https://img.shields.io/badge/Skills-18-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.16.1](https://img.shields.io/badge/Version-1.16.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.16.2](https://img.shields.io/badge/Version-1.16.2-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -324,23 +324,32 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains two enforcement scripts that close this gap:
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **five hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader):
 
 ```bash
 mkdir -p ~/.claude/hooks
-cp hooks/check-skills.sh hooks/check-tool-skill.sh ~/.claude/hooks/
+cp hooks/check-skills.sh hooks/check-tool-skill.sh hooks/pre-flight-check.sh \
+   hooks/check-skill-completeness.sh hooks/check-commit-completeness.sh \
+   ~/.claude/hooks/
 chmod +x ~/.claude/hooks/*.sh
 ```
 
-Then add the `hooks` block to your `~/.claude/settings.json` — full instructions, settings.json snippet, and pipe-tests in [`hooks/README.md`](hooks/README.md).
+Easier alternative — let the sync script copy them all and patch your `settings.json`:
+
+```bash
+bash scripts/sync-to-active.sh
+```
+
+Then add the `hooks` block to your `~/.claude/settings.json` (or let `sync-to-active.sh` do it for you) — full instructions, settings.json snippet, and pipe-tests in [`hooks/README.md`](hooks/README.md).
 
 After installation:
-- `check-skills.sh` (UserPromptSubmit) scans every prompt for ~80 Russian/English triggers and injects a `[SKILL HINT]` reminder when a skill matches. **Soft reminder — never blocks.**
-- `check-tool-skill.sh` (PreToolUse on Bash/Edit/Write/NotebookEdit) injects a `[SKILL CHECK]` reminder before raw tool calls. **Soft reminder — never blocks.**
+- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — runs before every user prompt. Loads `git log`, `git status`, and the project memory index (`MEMORY.md`) into Claude's context, and warns if a parallel Claude session has touched the project in the last 10 minutes (via `.active-session.lock`). **Soft context injection — never blocks.** Prevents the v1.13.2 inci­dent class where two parallel sessions independently fixed the same drift.
+- **`check-skills.sh` (UserPromptSubmit)** — scans every prompt for ~80 Russian/English triggers and injects a `[SKILL HINT]` reminder when a skill matches. **Soft reminder — never blocks.**
+- **`check-tool-skill.sh` (PreToolUse on Bash/Edit/Write/NotebookEdit)** — injects a `[SKILL CHECK]` reminder before raw tool calls, rate-limited to one reminder per 60 seconds. **Soft reminder — never blocks.**
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All four hooks fire live — no Claude Code restart needed. The two v1.5.0 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects.
+All five hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 

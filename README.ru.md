@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 18](https://img.shields.io/badge/Skills-18-green.svg)](#скиллы)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#субагенты)
-[![Version: 1.16.1](https://img.shields.io/badge/Version-1.16.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.16.2](https://img.shields.io/badge/Version-1.16.2-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -324,23 +324,32 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 > **Важно:** хуки — это **опциональный отдельный шаг**. `/plugin install` регистрирует скиллы и агентов, но намеренно **не** пишет в `~/.claude/settings.json` и не ставит глобальные хуки — это остаётся явным решением пользователя. Если пропустить эту секцию, методология всё равно работает; хуки лишь повышают частоту срабатывания скиллов на неоднозначных промптах.
 
-Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит два скрипта-энфорсера, закрывающих этот пробел:
+Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **пять хуков**, закрывающих этот пробел (два мягких напоминания, два жёстких enforcement-гейта и один pre-flight загрузчик контекста):
 
 ```bash
 mkdir -p ~/.claude/hooks
-cp hooks/check-skills.sh hooks/check-tool-skill.sh ~/.claude/hooks/
+cp hooks/check-skills.sh hooks/check-tool-skill.sh hooks/pre-flight-check.sh \
+   hooks/check-skill-completeness.sh hooks/check-commit-completeness.sh \
+   ~/.claude/hooks/
 chmod +x ~/.claude/hooks/*.sh
 ```
 
-Затем добавьте блок `hooks` в `~/.claude/settings.json` — полные инструкции, сниппет settings.json и пайп-тесты в [`hooks/README.md`](hooks/README.md).
+Проще — пусть скрипт синхронизации сам скопирует их и пропатчит `settings.json`:
+
+```bash
+bash scripts/sync-to-active.sh
+```
+
+Затем добавьте блок `hooks` в `~/.claude/settings.json` (или дайте `sync-to-active.sh` сделать это за вас) — полные инструкции, сниппет settings.json и пайп-тесты в [`hooks/README.md`](hooks/README.md).
 
 После установки:
-- `check-skills.sh` (UserPromptSubmit) сканирует каждый промпт на ~80 русских/английских триггеров и инжектит напоминание `[SKILL HINT]`, если скилл подходит. **Мягкое напоминание — не блокирует.**
-- `check-tool-skill.sh` (PreToolUse на Bash/Edit/Write/NotebookEdit) инжектит напоминание `[SKILL CHECK]` перед сырыми tool calls. **Мягкое напоминание — не блокирует.**
+- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — запускается перед каждым пользовательским промптом. Загружает `git log`, `git status` и индекс памяти проекта (`MEMORY.md`) в контекст Claude, и предупреждает, если параллельная Claude-сессия касалась проекта в последние 10 минут (через `.active-session.lock`). **Мягкая инжекция контекста — не блокирует.** Предотвращает класс инцидентов v1.13.2, когда две параллельные сессии независимо чинили один и тот же drift.
+- **`check-skills.sh` (UserPromptSubmit)** — сканирует каждый промпт на ~80 русских/английских триггеров и инжектит напоминание `[SKILL HINT]`, если скилл подходит. **Мягкое напоминание — не блокирует.**
+- **`check-tool-skill.sh` (PreToolUse на Bash/Edit/Write/NotebookEdit)** — инжектит напоминание `[SKILL CHECK]` перед сырыми tool calls, rate-limited до одного напоминания в 60 секунд. **Мягкое напоминание — не блокирует.**
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse на Write/Edit/MultiEdit)** — **до** любой правки `skills/*/SKILL.md` внутри методологического репозитория парсит pending tool input и проверяет наличие `references/`, триггеров в промпт-хуке и регрессионного фикстура. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — Write не запустится, файл не попадёт на диск.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse на Bash)** — перед любым `git commit` внутри методологического репозитория парсит staged diff и отказывает в коммите, если staged файл скилла без поддерживающих артефактов. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — коммит не запустится.**
 
-Все четыре хука срабатывают сразу — перезапуск Claude Code не нужен. Два v1.5.0 enforcement-хука активны только внутри методологического репозитория (детект через `.claude-plugin/plugin.json`); на сторонних проектах это no-op.
+Все пять хуков срабатывают сразу — перезапуск Claude Code не нужен. Два v1.5.1 enforcement-хука активны только внутри методологического репозитория (детект через `.claude-plugin/plugin.json`); на сторонних проектах это no-op. Pre-flight хук работает на любом проекте с распознанной директорией памяти; если памяти нет, он инжектит пустой блок контекста без предупреждения.
 
 > **Почему это важно:** в ретроспективе продакшен-инцидента 2026-04-07 Claude Code (Opus 4.6) потратил ~2 часа на прямую работу через SSH/sed/curl для починки auth-аутриджа. `/bugfix` был бы правильным инструментом. Его никто не вызвал — ничто не заставило. Эти хуки — ответ. Полный кейс-стади в `hooks/README.md`.
 

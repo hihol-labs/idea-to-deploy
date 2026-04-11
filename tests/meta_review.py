@@ -408,6 +408,124 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-C15: hook count consistency in README narrative (v1.16.2) ---
+    # M-C12 covers skill / agent counts in narrative prose, but NOT hook
+    # counts. The v1.16.2 audit found that README.md said "two enforcement
+    # scripts" and "All four hooks fire live" when the real count was 5
+    # (pre-flight-check.sh was added in v1.5.0 but never propagated to
+    # the README hook section). M-C15 closes this hole.
+    #
+    # Pattern: scan README.md, README.ru.md, hooks/README.md for any
+    # narrative mention of "N hooks" / "N hook" / "N скриптов-энфорсеров"
+    # / "N enforcement scripts" / "N script" — must match actual count
+    # of hooks/*.sh files. Skipped: lines inside markdown tables, lines
+    # with version markers (historical mentions are legitimate).
+    try:
+        actual_hooks_n = 0
+        hooks_dir_check = repo / "hooks"
+        if hooks_dir_check.is_dir():
+            actual_hooks_n = len(list(hooks_dir_check.glob("*.sh")))
+
+        hook_count_doc_paths: list[Path] = [
+            repo / "README.md",
+            repo / "README.ru.md",
+            repo / "hooks" / "README.md",
+            repo / "CONTRIBUTING.md",
+        ]
+
+        # English number words 1-9
+        en_words = {
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9,
+        }
+        # Russian number words (root forms) 1-9
+        ru_words = {
+            "один": 1, "одного": 1, "одно": 1, "одна": 1,
+            "два": 2, "двух": 2, "две": 2,
+            "три": 3, "трёх": 3, "трех": 3,
+            "четыре": 4, "четырёх": 4, "четырех": 4,
+            "пять": 5, "пяти": 5,
+            "шесть": 6, "шести": 6,
+            "семь": 7, "семи": 7,
+            "восемь": 8, "восьми": 8,
+            "девять": 9, "девяти": 9,
+        }
+
+        # Hook context words: must appear on the same line as the count
+        hook_ctx = re.compile(
+            r"\b(hook|hooks|скрипт|скрипты|скриптов|"
+            r"enforcement\s+script|enforcement\s+scripts|"
+            r"скрипт-?энфорсер|скрипта-?энфорсер|скриптов-?энфорсер|"
+            r"хук|хуки|хука|хуков)\b",
+            re.IGNORECASE,
+        )
+        # Numeric "N hooks" / "N скриптов" / "N hook"
+        hook_num_re = re.compile(
+            r"(?<!\S)(\d+)\s+(?:hooks?|скрипт\w*|hook\b|хук\w*)",
+            re.IGNORECASE,
+        )
+        # English word + hooks
+        hook_en_word_re = re.compile(
+            r"\b(one|two|three|four|five|six|seven|eight|nine)\s+"
+            r"(?:hooks?|enforcement\s+scripts?|hook\b)",
+            re.IGNORECASE,
+        )
+        # Russian word + хук/скрипт
+        hook_ru_word_re = re.compile(
+            r"\b(один|одного|одна|одно|два|двух|две|"
+            r"три|трёх|трех|четыре|четырёх|четырех|"
+            r"пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти)\s+"
+            r"(?:хук\w*|скрипт\w*)",
+            re.IGNORECASE,
+        )
+        # "All N hooks" / "Все N хуков" — covered by hook_num_re
+
+        for doc in hook_count_doc_paths:
+            if not doc.exists():
+                continue
+            rel = doc.relative_to(repo)
+            for lineno, line in enumerate(
+                doc.read_text(encoding="utf-8", errors="replace").splitlines(),
+                1,
+            ):
+                if line.lstrip().startswith("|"):
+                    continue  # markdown table
+                if line.lstrip().startswith("#"):
+                    continue  # heading
+                if re.search(r"v\d+\.\d+", line):
+                    continue  # version marker — historical mention
+                if not hook_ctx.search(line):
+                    continue  # no hook context
+
+                # Pattern A: numeric "N hooks"
+                for m in hook_num_re.finditer(line):
+                    n = int(m.group(1))
+                    if n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' but actual hook count is {actual_hooks_n}",
+                        )
+
+                # Pattern B: English number word "four hooks"
+                for m in hook_en_word_re.finditer(line):
+                    n = en_words.get(m.group(1).lower())
+                    if n is not None and n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' (={n}) but actual hook count is {actual_hooks_n}",
+                        )
+
+                # Pattern C: Russian number word "четыре хука"
+                for m in hook_ru_word_re.finditer(line):
+                    n = ru_words.get(m.group(1).lower())
+                    if n is not None and n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' (={n}) but actual hook count is {actual_hooks_n}",
+                        )
+    except Exception as e:
+        r.imp("M-C15", f"could not run hook-count check: {e}")
+
     # --- M-I10: fixture snapshot schema presence + validity (v1.15.0) ---
     # Phase 1 of behavioural automation — every fixture under tests/fixtures/
     # must have an `expected-snapshot.json` file, either `status: active`

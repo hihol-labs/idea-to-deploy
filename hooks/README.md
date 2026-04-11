@@ -1,13 +1,14 @@
 # Hooks — Skill Discovery Enforcement
 
-These two hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These five hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
-## Defense-in-depth overview (v1.8.0)
+## Defense-in-depth overview (v1.16.2)
 
-Quality enforcement now spans **four layers**, from earliest-feedback to latest. Each layer catches something the previous ones missed:
+Quality enforcement now spans **five layers**, from earliest-feedback to latest. Each layer catches something the previous ones missed:
 
 | # | Layer | Where it runs | When | What it catches | Bypass? |
 |---|---|---|---|---|---|
+| 0 | `pre-flight-check.sh` *(v1.5.0)* | Local | UserPromptSubmit | Stale context, parallel session conflicts, missing memory | Soft context injection only |
 | 1 | `check-skills.sh` | Local | UserPromptSubmit | Ambiguous prompts → wrong routing | Soft reminder only |
 | 2 | `check-tool-skill.sh` | Local | PreToolUse on Bash/Edit/Write | Ad-hoc tool calls when a skill fits | Soft reminder only |
 | 3 | `check-skill-completeness.sh` + `check-commit-completeness.sh` | Local | PreToolUse on Write/Edit/MultiEdit, PreToolUse on `git commit` | Incomplete skills (missing references/triggers/fixtures), incomplete commits | Only via `.methodology-self-extend-override` file |
@@ -19,12 +20,13 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 
 | Hook | When it fires | What it does | Blocks? |
 |---|---|---|---|
+| `pre-flight-check.sh` *(v1.5.0)* | Every user prompt (UserPromptSubmit) | Loads `git log -10`, `git status`, recent commits, and the project memory index (`MEMORY.md`) into Claude's context before each turn. Detects stale parallel-session lockfiles (`.active-session.lock`) and warns if another Claude session has touched this project in the last 10 minutes. | No — soft context injection only |
 | `check-skills.sh` | Every user prompt (UserPromptSubmit) | Scans the prompt for Russian/English trigger words. If matched, injects a system reminder telling Claude which skill should be invoked first. Silent if no trigger matches. | No — soft reminder only |
-| `check-tool-skill.sh` | Before every Bash/Edit/Write/NotebookEdit (PreToolUse) | Injects a checklist reminder asking Claude to verify a skill doesn't fit before doing raw tool calls. | No — soft reminder only |
+| `check-tool-skill.sh` | Before every Bash/Edit/Write/NotebookEdit (PreToolUse) | Injects a checklist reminder asking Claude to verify a skill doesn't fit before doing raw tool calls. Rate-limited to one reminder per 60 seconds per session. | No — soft reminder only |
 | `check-skill-completeness.sh` *(v1.5.1)* | **Before** Write/Edit/MultiEdit on `skills/*/SKILL.md` (PreToolUse) | Parses the pending tool input, extracts the skill name from the file path, verifies that `references/` exists and is non-empty (if the pending content mentions it), that `hooks/check-skills.sh` has a trigger phrase for the skill, and that a matching fixture exists in `tests/fixtures/`. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The Write never runs, the file never lands on disk. |
 | `check-commit-completeness.sh` *(v1.5.1)* | Before every Bash command matching `git commit` (PreToolUse) | Parses the staged diff. If any `skills/<name>/SKILL.md` is staged, the hook requires matching references/hook/fixture to also be staged (or already present on disk). Written to be the last line of defense against the v1.4.0 "Potemkin release" pattern. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
 
-All four hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+All five hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 
@@ -101,7 +103,7 @@ Add this `hooks` block to your `~/.claude/settings.json` (merge with existing se
 - `check-skills.sh` and `check-tool-skill.sh` are **soft reminders** (no blocking). Safe to run on all projects.
 - `check-skill-completeness.sh` and `check-commit-completeness.sh` are **hard blocks** (exit 2, decision: deny/block). They only fire inside methodology repos (detected via `.claude-plugin/plugin.json`). Outside the methodology repo they return 0 immediately.
 
-If you never work on methodology repos, the last two hooks are harmless but unused — you can skip registering them.
+If you never work on methodology repos, the two enforcement hooks (`check-skill-completeness.sh` and `check-commit-completeness.sh`) are harmless but unused — you can skip registering them. The other three (`pre-flight-check.sh`, `check-skills.sh`, `check-tool-skill.sh`) are useful on every project regardless of whether it's a methodology repo.
 
 After saving, the hooks fire on the very next prompt — no restart needed (Claude Code's settings watcher picks them up live).
 
