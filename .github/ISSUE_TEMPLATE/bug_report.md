@@ -32,7 +32,7 @@ Exact steps, including the prompt text you used:
 3.
 ```
 
-If the bug is in a specific skill, mention which one (`/debug`, `/kickstart`, `/infra`, etc.).
+If the bug is in a specific skill, mention which one (`/bugfix`, `/kickstart`, `/infra`, etc.).
 
 ## Minimal reproduction (optional but appreciated)
 

@@ -1,5 +1,5 @@
 ---
-name: debug
+name: bugfix
 description: 'Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, git history.'
 argument-hint: error message, symptom, or issue description
 license: MIT
@@ -7,13 +7,19 @@ allowed-tools: Read Edit Glob Grep Bash
 paths: ["**/logs/**", "**/*.log"]
 metadata:
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: code-quality
   tags: [debugging, bugfix, troubleshooting]
 ---
 
 
-# Debug
+# Bugfix
+
+> **Note:** this skill was renamed from `/debug` to `/bugfix` in v1.4.0 to avoid a
+> name collision with Claude Code's built-in `/debug` slash command. The built-in
+> `/debug` has `disableModelInvocation: true` baked into the Claude Code binary,
+> which prevented the model from invoking this skill via the Skill tool. Use
+> `/bugfix` everywhere — the methodology is unchanged.
 
 
 ## Trigger phrases

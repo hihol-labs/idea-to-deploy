@@ -21,7 +21,7 @@ def main() -> int:
     context = (
         f"[SKILL CHECK] Сейчас вызов {tool}. Прежде чем продолжить — убедись, "
         "что не подходит ни один скилл из Idea-to-Deploy "
-        "(см. ~/projects/.claude/CLAUDE.md). Если подходит /debug, /test, "
+        "(см. ~/projects/.claude/CLAUDE.md). Если подходит /bugfix, /test, "
         "/refactor, /doc, /review, /explain, /perf, /project, /blueprint, "
         "/guide, /session-save — STOP, вызови Skill сначала. Если не подходит — продолжай."
     )

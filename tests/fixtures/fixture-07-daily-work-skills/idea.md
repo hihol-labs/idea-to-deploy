@@ -1,6 +1,6 @@
 # Fixture 07: Daily-work skills shared regression fixture
 
-Covers `/debug`, `/refactor`, `/perf`, `/security-audit`, `/migrate` — the five skills from the "daily work" and "quality assurance" tiers that do not need a full-project fixture like `/kickstart` does. Each skill operates on an existing file/area and is verified by the scenarios listed in `notes.md`.
+Covers `/bugfix`, `/refactor`, `/perf`, `/security-audit`, `/migrate` — the five skills from the "daily work" and "quality assurance" tiers that do not need a full-project fixture like `/kickstart` does. Each skill operates on an existing file/area and is verified by the scenarios listed in `notes.md`.
 
 ## Shared test project
 

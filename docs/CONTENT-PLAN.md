@@ -204,14 +204,14 @@
 | 12 | Dev.to | Статья | **"Building a Full-Stack App with Claude Code in 30 Minutes (Step-by-Step)"** | Пошаговый туториал с idea-to-deploy |
 | 13 | Reddit | Пост | **"I've been using Claude Code with a strict methodology for 2 months. Here's what changed."** | r/programming — личный опыт |
 | 14 | Telegram | Пост | **"Запустил методологию для Claude Code — делюсь результатами"** | Анонс канала + ссылка на GitHub |
-| 15 | Twitter/X | Видео | **30-сек скринкаст: `/debug` находит и чинит баг** | Вау-эффект, короткий формат |
+| 15 | Twitter/X | Видео | **30-сек скринкаст: `/bugfix` находит и чинит баг** | Вау-эффект, короткий формат |
 
 ### Неделя 4: Углубление
 
 | # | Канал | Тип | Заголовок | Описание |
 |---|---|---|---|---|
 | 16 | Habr | Статья | **"Open Source как маркетинг: зачем я отдал бесплатно инструмент, который экономит часы"** | Meta-статья: стратегия продвижения через open source |
-| 17 | YouTube | Видео | **"5 Claude Code Skills Every Developer Needs"** | Обзор топ-5 скиллов: kickstart, debug, test, review, session-save |
+| 17 | YouTube | Видео | **"5 Claude Code Skills Every Developer Needs"** | Обзор топ-5 скиллов: kickstart, bugfix, test, review, session-save |
 | 18 | Dev.to | Статья | **"Why Your AI Coding Assistant Needs a Methodology, Not Just Prompts"** | Философская статья: prompts vs pipeline |
 | 19 | Twitter/X | Тред | **"The secret to making AI write GOOD code: treat it like a junior developer"** | Аналогия: онбординг джуна = настройка AI |
 | 20 | LinkedIn | Пост | **"AI заменит разработчиков? Нет. Но разработчик с AI-методологией заменит того, кто без неё"** | Провокационный тезис → раскрытие |
@@ -268,7 +268,7 @@
 | `/kickstart` | "Idea to deployed app in one command" | "From Idea to Production with /kickstart" | Полный цикл за 60 сек |
 | `/blueprint` | "Plan before you code: /blueprint generates 6 docs" | "Project Planning with AI: The /blueprint Approach" | Генерация 6 документов |
 | `/guide` | "Turn docs into step-by-step Claude prompts" | "Auto-generating Claude Code Guides" | Демо guide |
-| `/debug` | "AI debugger that actually finds root causes" | "Systematic Debugging with Claude Code" | Баг → фикс за 30 сек |
+| `/bugfix` | "AI debugger that actually finds root causes" | "Systematic Debugging with Claude Code" | Баг → фикс за 30 сек |
 | `/test` | "100% test coverage in 2 minutes" | "AI-Generated Tests That Actually Catch Bugs" | Генерация тестов |
 | `/review` | "Automated code review: 24 checks in seconds" | "Building a Code Review Pipeline with AI" | Review результат |
 | `/refactor` | "Refactor without breaking: AI knows the context" | "Safe Refactoring with Claude Code" | Before/after |
@@ -321,7 +321,7 @@
 ## Часть 6: Подготовительные активности (до начала продвижения)
 
 ### Обязательно до старта:
-1. **GIF/видео-демо** — записать 3 скринкаста (kickstart, debug, review)
+1. **GIF/видео-демо** — записать 3 скринкаста (kickstart, bugfix, review)
 2. **marketplace.json** — подготовить и подать в Anthropic
 3. **Логотип** — создать для Product Hunt и соцсетей
 4. **Twitter/X аккаунт** — создать или подготовить профиль
