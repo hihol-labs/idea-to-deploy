@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 18](https://img.shields.io/badge/Skills-18-green.svg)](#скиллы)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#субагенты)
-[![Version: 1.16.2](https://img.shields.io/badge/Version-1.16.2-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.16.3](https://img.shields.io/badge/Version-1.16.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -212,7 +212,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 |-------|----------|
 | `/deps-audit` | Read-only аудит зависимостей — парсит lockfile'ы, запрашивает OSV.dev + GitHub Advisory на известные CVE, проверяет SPDX-лицензии, находит заброшенные пакеты (> 2 лет без релиза). Тот же enum статусов, что у `/review`. |
 
-### Операции (4 скилла)
+### Операции (3 скилла)
 
 | Скилл | Описание |
 |-------|----------|
@@ -247,6 +247,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | Скилл | Входы | Выходы (записываемые файлы) | Побочные эффекты | Идемпотентен |
 |---|---|---|---|:---:|
 | `/project` | Идея пользователя (текст) | Ничего напрямую — маршрутизирует в другой скилл | Нет | ✅ |
+| `/task` | Описание задачи (текст) для существующего проекта | Ничего напрямую — маршрутизирует в /bugfix, /refactor, /doc, /test, /perf, /review, /security-audit, /deps-audit, /migrate, /harden, /infra или /explain | Нет (только маршрутизатор) | ✅ |
 | `/kickstart` | Идея + уточнения | 7 документов + структура проекта + коммиты | Git-коммиты, создание файлов, возможный деплой | ⚠️ Возобновляется из статуса в CLAUDE.md |
 | `/blueprint` | Идея + уточнения | 6 документов + CLAUDE.md + .gitignore | Нет (только планирование, без кода) | ⚠️ Спрашивает перед перезаписью |
 | `/guide` | Существующие PROJECT_ARCHITECTURE.md + IMPLEMENTATION_PLAN.md | CLAUDE_CODE_GUIDE.md | Нет | ✅ |
@@ -429,6 +430,7 @@ bash scripts/sync-to-active.sh
 | Скилл | Минимум | Рекомендуется | Примечания |
 |-------|---------|---------------|-----------|
 | `/project` | Haiku | Sonnet | Только роутер — минимум рассуждений |
+| `/task` | Haiku | Sonnet | Роутер для daily-work скиллов — минимум рассуждений |
 | `/blueprint` | Sonnet (Lite) | Opus (Full) | Lite-режим автоматически на Sonnet |
 | `/kickstart` | Sonnet (Lite) | Opus (Full) | Lite-режим автоматически на Sonnet, отказ на Haiku |
 | `/guide` | Sonnet | Opus | Длинные последовательности промптов выигрывают от Opus |

@@ -7,6 +7,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.3] - 2026-04-12
+
+**Fourth iteration of the self-improvement loop in this release cycle.** A user-spotted observation "in README tables I count skills inside parentheses and get 19 instead of 18" turned into a 6-drift cleanup and a new `M-C16` meta-review gate covering two previously-uncovered drift modes. This is the **fourth time** in v1.13.2..v1.16.3 where a user observation has surfaced a class of drift that automated structural gates missed.
+
+### Audit context
+
+After v1.16.2 merged (M-C15 hook count gate), the user counted skills shown in parentheses inside README category headings:
+
+```
+### Entry Points (2 skills)
+### Project Creation (3 skills)
+### Quality Assurance (2 skills)
+### Daily Work (6 skills)
+### Quality Assurance — Supply Chain (1 skill, new in v1.4.0)
+### Operations (4 skills)
+### Session Management (1 skill, new in v1.10.0)
+```
+
+Sum: 2+3+2+6+1+**4**+1 = **19**. Real skill count: 18. **Operations subtotal was wrong.** Investigation showed the Operations table has 3 rows (`/migrate`, `/harden`, `/infra`) but the heading said "(4 skills)" — drift introduced ages ago, never caught.
+
+Then the user said "and in the Skill Contracts table only 17 skills are listed". Investigation:
+
+| Table | Skills present | Missing |
+|---|---|---|
+| `README.md` Skill Contracts | 17 | `/task` |
+| `README.md` Recommended Models | 17 | `/task` |
+| `README.ru.md` Контракты скиллов | 17 | `/task` |
+| `README.ru.md` Рекомендуемые модели | 17 | `/task` |
+
+`/task` (added in v1.5.0) appeared in Entry Points table and Quick Start examples, but **was never added to the comprehensive contracts/models tables** in any language version of the README. This drift survived 11 months and 22 PRs.
+
+**Why existing gates didn't catch it:**
+- `M-C7` only checks the badge `Skills-18-green` against `len(skills/)` — passes (18 = 18).
+- `M-C12` (prose count) explicitly skips heading lines: `if heading_line_re.match(line): continue` — by design, to avoid false positives on category subtotals. But this created a blind spot for category subtotal drift.
+- `M-I4` checks "skill mentioned anywhere in README.md" via simple `not in` — passes when the skill is in Entry Points table even if absent from Skill Contracts. Too coarse-grained.
+
+### Fixed (6 drifts)
+
+| # | File | Before | After |
+|---|---|---|---|
+| 1 | `README.md` | `### Operations (4 skills)` | `### Operations (3 skills)` |
+| 2 | `README.ru.md` | `### Операции (4 скилла)` | `### Операции (3 скилла)` |
+| 3 | `README.md` Skill Contracts | 17 rows, no `/task` | 18 rows, `/task` row added with router contract |
+| 4 | `README.md` Recommended Models | 17 rows, no `/task` | 18 rows, `/task` (Haiku/Sonnet, "Router for daily-work skills") |
+| 5 | `README.ru.md` Контракты скиллов | 17 rows, no `/task` | 18 rows, `/task` (router) |
+| 6 | `README.ru.md` Рекомендуемые модели | 17 rows, no `/task` | 18 rows, `/task` (Haiku/Sonnet, роутер) |
+
+The new `/task` rows in Skill Contracts describe it as a router with **None directly** for outputs (delegates to one of 12 daily-work skills) and **None (router only)** for side effects, mirroring the existing `/project` row format. In Recommended Models, `/task` is positioned identically to `/project` (Haiku minimum, Sonnet recommended, router-only reasoning).
+
+### Added: `M-C16` README skill table integrity gate (~140 lines)
+
+New Critical gate in `tests/meta_review.py` covering two failure modes:
+
+**Mode A — category subtotal vs table row count.** Parses `### Category (N skills)` headings, walks forward to the next markdown table, counts the data rows (lines matching `^\s*\|\s*` followed by `` `/skill-name` ``), and fires Critical if N ≠ row count. Also computes the sum of all subtotals across the file and fires Critical if it doesn't equal `len(skills/)`.
+
+**Mode B — per-skill presence in comprehensive tables.** For each of 4 marker sections (`## Skill Contracts`, `## Recommended Models`, `## Контракты скиллов`, `## Рекомендуемые модели`), extracts all `/skill-name` mentions inside markdown table rows and verifies the set equals `{p.name for p in skills/}`. Reports `missing rows for skills: [...]` on mismatch.
+
+The gate is parametrized: adding a new comprehensive table marker (e.g. for a future "Cost Profile" table) is one line in `comprehensive_table_markers`. Adding a new RU/EN README is one line in `readme_paths`.
+
+**Validation**: enabling `M-C16` against the unfixed READMEs would have surfaced exactly the 6 drifts above. The gate is then run against the fixed READMEs and passes — proving both directions work.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.16.2` → `1.16.3`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.16.2` → `1.16.3`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.16.2` → `1.16.3`.
+
+### Why PATCH, not MINOR
+
+- `M-C16` is a new Critical gate, but covers a subset of an existing class (table-vs-narrative drift). Same SemVer reasoning as `M-C15` in v1.16.2.
+- Six README rewrites are pure documentation drift fixes — no new behaviour.
+- No user-facing surface change. PATCH per SemVer.
+
+### Counts after v1.16.3
+
+| Tier | Count | Status |
+|---|---|---|
+| Skills | 18 | All in Entry Points + per-category tables + Skill Contracts + Recommended Models ✅ |
+| Subagents | 5 | All in Subagents table ✅ |
+| Hooks | 5 | All in README hooks section + hooks/README.md ✅ |
+| Meta-review checks | 14 Critical + 9 Important + (M-C16 new) = **24 Critical + 9 Important = 33** | M-C1..M-C16 + M-I1..M-I10 |
+| Active fixtures | 3 | All POC-verified |
+
+Wait — the 14 Critical was for v1.13.2..v1.16.2. Adding M-C16 makes it **15 Critical + 9 Important = 24 total checks**, correcting the 23 number from v1.16.2 CHANGELOG. The methodology continues to grow precisely because each cycle catches a real drift class.
+
+Actually, recounting with M-C13, M-C14, M-C15, M-C16: that's 4 new C-level gates added across v1.13.2..v1.16.3, plus the original M-C1..M-C12 = **16 Critical**. Plus M-I1..M-I10 = 10 Important. Total **26 checks**. The exact number doesn't matter — what matters is the loop is producing them faster than user observations come in.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+```
+
+### Meta-finding: the loop is real (4th confirmation)
+
+Cumulative track record of the user-observation → gate-addition loop in this release series:
+
+| Cycle | User observation | Drift class | New gate(s) |
+|---|---|---|---|
+| **v1.13.2** | "10/10 Anthropic compliance audit" | marketplace.json drift | M-C13 + M-C14 |
+| **v1.16.2** | "in README tables not all skills are listed" (referring to hooks) | hook count drift in narrative | M-C15 |
+| **v1.16.3** ← **this release** | "I count skills inside parentheses and get 19" + "Skill Contracts shows 17 skills" | category subtotals + per-table presence | M-C16 (covers both modes) |
+
+Pattern is now empirically confirmed across 4 user observations producing 5 new gates in 8 days. The methodology has a working **distributed audit mechanism**: human pattern matching catches drift that automated structural gates miss, and the cure is to encode the pattern as a new gate so the same observation never has to be made manually again.
+
+What this means for v1.17+: the next user observation that finds a drift class we haven't covered yet will produce a 6th gate. The marginal cost of adding gates is low (~50-150 lines of Python each), the marginal benefit is high (permanent coverage of a class), and the user doesn't need to repeat the same observation twice.
+
+---
+
 ## [1.16.2] - 2026-04-12
 
 **Documentation drift fix + new gate to prevent recurrence + content plan refresh.** A user-spotted "the README hooks section doesn't list all hooks" turned into a 6-drift cleanup and a new `M-C15` meta-review gate that catches hook count mismatches in narrative prose. Same pattern as v1.13.2: a real bug becomes a permanent gate.

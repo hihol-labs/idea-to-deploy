@@ -408,6 +408,152 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-C16: README skill table integrity (v1.16.3) ---
+    # Two failure modes that M-C7 (badge count), M-C12 (prose count), and
+    # M-I4 (skill mentioned anywhere in README) all missed:
+    #
+    #   Mode A: category subtotal in heading "(N skills)" doesn't match
+    #     the number of skills in the markdown table that follows.
+    #     Real bug: "### Operations (4 skills)" with only 3 rows in the
+    #     table, found by user observation 2026-04-12.
+    #
+    #   Mode B: a skill is missing from a comprehensive per-skill table
+    #     (Skill Contracts, Recommended Models) even though it's mentioned
+    #     elsewhere in the README. M-I4 only checks "skill mentioned
+    #     anywhere", which passes when the skill is in Entry Points table
+    #     but absent from Skill Contracts. Real bug: /task missing from
+    #     Skill Contracts AND Recommended Models in BOTH README.md AND
+    #     README.ru.md, found by user observation 2026-04-12.
+    #
+    # Both modes are caught by parsing each README's category headings
+    # and comprehensive tables, then verifying:
+    #   - Each "### Category (N skills)" heading is followed by a
+    #     markdown table whose row count equals N
+    #   - Each comprehensive table (Skill Contracts, Recommended Models,
+    #     and their RU equivalents) contains every skill from skills/
+    #
+    # Sum of category subtotals must also equal len(skills/) — catches
+    # the case where individual subtotals look OK but their total drifts.
+    try:
+        actual_skills_n = len(skills)
+        actual_skill_set = set(skills)
+
+        # Category heading pattern: "### <name> (<N> skill[s]/скилл[ов])"
+        category_re = re.compile(
+            r"^\s{0,3}#{2,4}\s+(.+?)\s*\((\d+)\s+(?:skills?|скилл\w*)",
+            re.IGNORECASE,
+        )
+        # Skill mention in a markdown table row: leading "| " then
+        # backtick-wrapped /skill-name
+        table_skill_re = re.compile(r"^\s*\|\s*`/([\w-]+)`")
+
+        # Comprehensive tables that MUST contain every skill (Mode B).
+        # The header marker is the line that introduces the table —
+        # we scan from there until the next blank-line-then-non-table.
+        comprehensive_table_markers = [
+            ("README.md", "## Skill Contracts"),
+            ("README.md", "## Recommended Models"),
+            ("README.ru.md", "## Контракты скиллов"),
+            ("README.ru.md", "## Рекомендуемые модели"),
+        ]
+
+        readme_paths = {
+            "README.md": repo / "README.md",
+            "README.ru.md": repo / "README.ru.md",
+        }
+
+        for fname, path in readme_paths.items():
+            if not path.exists():
+                continue
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            # --- Mode A: category subtotal vs table row count ---
+            i = 0
+            subtotal_sum = 0
+            while i < len(lines):
+                m = category_re.match(lines[i])
+                if not m:
+                    i += 1
+                    continue
+                category = m.group(1).strip()
+                expected_n = int(m.group(2))
+                subtotal_sum += expected_n
+                # Walk forward to the next table (skipping blank lines /
+                # narrative). The first line starting with "|" begins it.
+                j = i + 1
+                while j < len(lines) and not lines[j].lstrip().startswith("|"):
+                    j += 1
+                if j >= len(lines):
+                    r.crit(
+                        "M-C16",
+                        f"{fname}:{i+1}: category heading '{lines[i].strip()}' "
+                        f"declared {expected_n} skills but no markdown table follows",
+                    )
+                    i += 1
+                    continue
+                # Skip header row (| Skill | ... |) and separator row (|---|...|)
+                # — both start with "|". Then count data rows until blank line
+                # or non-table content.
+                k = j
+                table_rows = 0
+                table_skills_in_section = []
+                while k < len(lines) and lines[k].lstrip().startswith("|"):
+                    sm = table_skill_re.match(lines[k])
+                    if sm:
+                        table_rows += 1
+                        table_skills_in_section.append(sm.group(1))
+                    k += 1
+                if table_rows != expected_n:
+                    r.crit(
+                        "M-C16",
+                        f"{fname}:{i+1}: category '{category}' heading says "
+                        f"({expected_n} skills) but table has {table_rows} rows",
+                    )
+                i = k
+
+            # Sum-of-subtotals check: if subtotal_sum was computed (i.e.
+            # at least one category heading was found), it must equal
+            # actual skill count.
+            if subtotal_sum > 0 and subtotal_sum != actual_skills_n:
+                r.crit(
+                    "M-C16",
+                    f"{fname}: sum of category subtotals = {subtotal_sum}, "
+                    f"actual skill count = {actual_skills_n}",
+                )
+
+        # --- Mode B: per-skill presence in every comprehensive table ---
+        for fname, marker in comprehensive_table_markers:
+            path = readme_paths.get(fname)
+            if path is None or not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            # Find the marker section
+            marker_idx = text.find(marker)
+            if marker_idx == -1:
+                r.crit(
+                    "M-C16",
+                    f"{fname}: comprehensive table marker '{marker}' not found",
+                )
+                continue
+            # Slice from marker to next "## " heading (or end of file)
+            section = text[marker_idx:]
+            next_h2 = re.search(r"\n## ", section[len(marker):])
+            if next_h2:
+                section = section[: len(marker) + next_h2.start()]
+            # Extract all /skill-name mentions in markdown table rows
+            present = set()
+            for line in section.splitlines():
+                sm = table_skill_re.match(line)
+                if sm:
+                    present.add(sm.group(1))
+            missing = actual_skill_set - present
+            if missing:
+                r.crit(
+                    "M-C16",
+                    f"{fname} '{marker}' table missing rows for skills: {sorted(missing)}",
+                )
+    except Exception as e:
+        r.imp("M-C16", f"could not run README skill table integrity check: {e}")
+
     # --- M-C15: hook count consistency in README narrative (v1.16.2) ---
     # M-C12 covers skill / agent counts in narrative prose, but NOT hook
     # counts. The v1.16.2 audit found that README.md said "two enforcement

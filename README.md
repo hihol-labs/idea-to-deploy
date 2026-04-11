@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 18](https://img.shields.io/badge/Skills-18-green.svg)](#skills)
 [![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.16.2](https://img.shields.io/badge/Version-1.16.2-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.16.3](https://img.shields.io/badge/Version-1.16.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -212,7 +212,7 @@ Claude: Step 1/9 — scaffold project, commit
 |-------|-------------|
 | `/deps-audit` | Read-only dependency audit — parses lockfiles, queries OSV.dev + GitHub Advisory for known CVEs, SPDX license compatibility, abandoned-package detection (> 2y without release). Same status enum as `/review`. |
 
-### Operations (4 skills)
+### Operations (3 skills)
 
 | Skill | Description |
 |-------|-------------|
@@ -247,6 +247,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | Skill | Inputs | Outputs (files written) | Side effects | Idempotent |
 |---|---|---|---|:---:|
 | `/project` | User idea (text) | None directly — routes to another skill | None | ✅ |
+| `/task` | Task description (text) for an existing project | None directly — routes to /bugfix, /refactor, /doc, /test, /perf, /review, /security-audit, /deps-audit, /migrate, /harden, /infra, or /explain | None (router only) | ✅ |
 | `/kickstart` | User idea + clarifications | 7 docs + scaffolded project + commits | Git commits, file scaffolding, possible deploy | ⚠️ Resumes from CLAUDE.md status |
 | `/blueprint` | User idea + clarifications | 6 docs + CLAUDE.md + .gitignore | None (planning only, no code) | ⚠️ Asks before overwrite |
 | `/guide` | Existing PROJECT_ARCHITECTURE.md + IMPLEMENTATION_PLAN.md | CLAUDE_CODE_GUIDE.md | None | ✅ |
@@ -429,6 +430,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | Skill | Minimum | Recommended | Notes |
 |-------|---------|-------------|-------|
 | `/project` | Haiku | Sonnet | Router only — minimal reasoning |
+| `/task` | Haiku | Sonnet | Router for daily-work skills — minimal reasoning |
 | `/blueprint` | Sonnet (Lite) | Opus (Full) | Lite mode auto-active on Sonnet |
 | `/kickstart` | Sonnet (Lite) | Opus (Full) | Lite mode auto-active on Sonnet, refuses Haiku |
 | `/guide` | Sonnet | Opus | Long prompt sequences benefit from Opus |
