@@ -104,19 +104,24 @@ def find_project_memory_dir(cwd: Path) -> Path | None:
     if candidate.is_dir():
         return candidate
 
-    # Fallback: find any project dir whose name is a prefix-match of cwd
-    for entry in projects_root.iterdir():
-        if not entry.is_dir():
-            continue
-        name = entry.name
-        if not name.startswith("-"):
-            continue
-        # Reconstruct a path from the dir name
-        path_guess = "/" + name.lstrip("-").replace("-", "/")
-        if str(cwd_resolved).startswith(path_guess):
-            mem = entry / "memory"
-            if mem.is_dir():
-                return mem
+    # Fallback: find any project dir whose name ends with the cwd suffix.
+    # We cannot reverse-reconstruct the path from the dir name because `-`
+    # is a lossy separator (works for `/home/user/projects/myapp` but fails
+    # on `/home/user/projects/my-app` — the reverse `replace("-", "/")`
+    # produces `my/app`). Instead, try every suffix of cwd.parts and check
+    # if the corresponding expected-dir-name exists, with root="" handled.
+    parts = cwd_resolved.parts  # ('/', 'home', 'user', 'projects', 'my-app')
+    for i in range(1, len(parts)):
+        suffix_parts = parts[i:]
+        suffix = "-".join(suffix_parts)
+        for entry in projects_root.iterdir():
+            if not entry.is_dir() or not entry.name.startswith("-"):
+                continue
+            # Dir name ends with our suffix → plausible match
+            if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
+                mem = entry / "memory"
+                if mem.is_dir():
+                    return mem
     return None
 
 

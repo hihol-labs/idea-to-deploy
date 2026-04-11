@@ -16,7 +16,7 @@ runs embedded in git-commit commands. Moving it into a real file gives us:
    need arises (see CHANGELOG [1.6.1] for the detection criteria), the
    workflow's only step is `python3 tests/meta_review.py`.
 3. Coverage expansion for M-I7 — the smoke test now exercises every one
-   of the 16 skills, not just a representative subset of 10. This closes
+   of the 18 skills, not just a representative subset of 10. This closes
    the v1.6.0-deferred item #1.
 
 Usage:
@@ -80,8 +80,15 @@ SMOKE_TRIGGERS: list[tuple[str, str]] = [
     ("production readiness", "harden"),
     ("сгенерируй terraform", "infra"),
     ("helm chart", "infra"),
-    # /kickstart has `disable-model-invocation: true`, no trigger required —
-    # it is reached via /project router. Deliberately not in this list.
+    # New in v1.13.2: session-save and task routers get their own smoke rows
+    # so every skill with a direct trigger is exercised end-to-end.
+    ("сохрани сессию", "session-save"),
+    ("save session", "session-save"),
+    ("закрой tech debt", "task"),
+    ("tech debt cleanup", "task"),
+    # /kickstart has no standalone trigger — it is reached via the /project
+    # router. The "kickstart" keyword in the project regex routes to
+    # /project, not /kickstart directly. Deliberately not in this list.
 ]
 
 
@@ -400,6 +407,71 @@ def run_rubric(repo: Path) -> Report:
                     r.crit("M-C11", f"/{f['skill']}: {f['detail']}")
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
+
+    # --- M-C13: marketplace.json consistency with plugin.json (v1.13.2) ---
+    # The community plugin catalog (.claude-plugin/marketplace.json) is a
+    # separate file from plugin.json and is what external crawlers read. It
+    # silently drifted from v1.11.0 → v1.13.1 because nothing enforced parity.
+    # This check catches: (1) version mismatch, (2) wrong skill count in any
+    # of the description fields.
+    marketplace_json = repo / ".claude-plugin" / "marketplace.json"
+    if marketplace_json.exists():
+        try:
+            mp = json.loads(marketplace_json.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            r.crit("M-C13", f"marketplace.json is not valid JSON: {e}")
+            mp = None
+        if mp is not None:
+            plugins = mp.get("plugins", [])
+            if not plugins:
+                r.crit("M-C13", "marketplace.json has no plugins array entry")
+            else:
+                entry = plugins[0]
+                mp_version = entry.get("version", "")
+                if mp_version != plugin_ver:
+                    r.crit(
+                        "M-C13",
+                        f"marketplace.json plugins[0].version is '{mp_version}', "
+                        f"but plugin.json version is '{plugin_ver}'",
+                    )
+                # Skill count must match in BOTH description fields —
+                # marketplace-level and plugin-level.
+                skill_count_re = re.compile(r"(\d+)\s+skills?", re.IGNORECASE)
+                mp_desc_top = mp.get("description", "")
+                mp_desc_plugin = entry.get("description", "")
+                for label, desc in (
+                    ("marketplace.description", mp_desc_top),
+                    ("plugins[0].description", mp_desc_plugin),
+                ):
+                    m = skill_count_re.search(desc)
+                    if m and int(m.group(1)) != len(skills):
+                        r.crit(
+                            "M-C13",
+                            f"marketplace.json {label} claims {m.group(1)} skills, "
+                            f"actual count is {len(skills)}",
+                        )
+    else:
+        r.imp("M-C13", ".claude-plugin/marketplace.json not found — plugin catalogs cannot index this plugin")
+
+    # --- M-C14: tests/README.md CI formulation (v1.13.2) ---
+    # Before v1.13.2, tests/README.md said "no CI integration yet" despite
+    # meta_review.py being wired into GitHub Actions. Contributors reading
+    # the file got the wrong impression and may have skipped local runs on
+    # the assumption CI had no coverage. Fail fast if the stale phrasing
+    # creeps back in.
+    tests_readme = repo / "tests" / "README.md"
+    if tests_readme.exists():
+        tr_text = tests_readme.read_text(encoding="utf-8")
+        stale_patterns = [
+            r"no\s+CI\s+integration\s+yet",
+            r"not\s+CI[- ]friendly",
+        ]
+        for pat in stale_patterns:
+            if re.search(pat, tr_text, re.IGNORECASE):
+                r.crit(
+                    "M-C14",
+                    f"tests/README.md contains stale '{pat}' phrasing — meta_review runs in CI since v1.12.0",
+                )
 
     # --- M-C10: hook schema + exit code compliance ---
     events_spec = {
