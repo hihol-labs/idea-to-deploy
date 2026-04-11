@@ -85,3 +85,36 @@ type: project
 - **Решения**: всегда с «почему», не просто «выбрали Redis»
 - **Следующие шаги**: actionable — можно начать выполнять сразу, не надо додумывать
 - **Неочевидный контекст**: всё, что нельзя узнать из кода или git log
+
+## Active-session lockfile (v1.5.0)
+
+Помимо файла `session_YYYY-MM-DD.md` и обновления `MEMORY.md`, `/session-save`
+обязан писать **`.active-session.lock`** в тот же memory dir. Цель — дать
+`pre-flight-check.sh` хуку в **других** параллельных Claude-сессиях сигнал,
+что этот проект уже в работе, и предотвратить дублирование задач
+(инцидент NeuroExpert 2026-04-11: один и тот же tech-debt deploy.sh
+был исправлен дважды параллельно).
+
+Формат (JSON, всегда rewrite — не append):
+
+```json
+{
+  "timestamp": 1712845200.0,
+  "pid": 12345,
+  "branch": "feat/my-feature",
+  "project": "/home/user/projects/example",
+  "note": "Саммари сессии до 150 символов"
+}
+```
+
+Правила:
+- **timestamp** — Unix epoch seconds. `pre-flight-check.sh` игнорирует locks
+  старше 10 минут (stale).
+- **pid** — pid текущего процесса (`$$` / `os.getpid()`).
+- **branch** — из `git branch --show-current`; `"unknown"` если не git-репо.
+- **project** — абсолютный путь к рабочей директории.
+- **note** — та же строка, что идёт в MEMORY.md как краткое описание.
+
+Lockfile — идемпотентный маркер «я был здесь недавно», не mutex. Не блокирует
+параллельные сессии, только предупреждает их. Stale locks игнорируются
+автоматически — никаких cleanup задач не нужно.

@@ -1,12 +1,12 @@
 ---
 name: project
-description: 'Smart project creation router — routes to /kickstart, /blueprint, or /guide based on user scenario.'
+description: 'Smart project CREATION router — routes to /kickstart, /blueprint, or /guide based on user scenario. For work on EXISTING code, use /task instead.'
 argument-hint: project idea or description
 license: MIT
 allowed-tools: Read
 metadata:
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: project-creation
   tags: [router, workflow, project-creation, methodology]
 ---
@@ -24,7 +24,9 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 - build a project, start a project, new app, new service
 - любой запрос на создание нового приложения/сайта/сервиса с нуля
 
-You are the single entry point for all project creation. Your job is to understand what the user needs and route them to the right workflow.
+You are the single entry point for all project **creation**. Your job is to understand what the user needs and route them to the right workflow.
+
+**Important boundary (v1.4.0):** `/project` is for **new** projects — "от идеи до deploy" or "есть идея, нужен план". If the user wants to work on an **existing** codebase (tech debt, bug, refactor, add a feature, update docs, run review), use `/task` instead — it's the router for daily work on existing code. If a `/project` invocation receives a request that's clearly about an existing repo (user mentions current files, stack traces, recent commits, tech debt, «почини X в проекте»), redirect to `/task` in Step 2 without running /kickstart/blueprint/guide.
 
 ## Recommended model
 
@@ -39,9 +41,24 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 Read what the user said: $ARGUMENTS
 
-### Step 2: Determine the scenario
+### Step 2: Check if this is actually an existing-project task
 
-Ask the user ONE question to determine their scenario:
+Before asking the routing question, scan `$ARGUMENTS` and the current context for **existing-project signals**:
+
+- Mentions of specific files, modules, directories (e.g., `deploy.sh`, `apps/web/`)
+- Stack traces, error messages, log fragments
+- Phrases like «tech debt», «почини в проекте», «отрефактори», «обнови docs», «добавь тест к»
+- Current cwd is a non-empty git repo with commits (run `git log --oneline -3` mentally)
+
+If ANY of these match → **redirect to `/task`** and exit:
+
+> «Похоже, задача по существующему коду, не по созданию нового проекта. Переключаюсь на `/task` — он знает про 12 daily-work скиллов (bugfix/refactor/doc/test/perf/review/...) и выберет правильный.»
+
+Invoke `/task` via the Skill tool and stop. Do NOT ask the А/Б/В routing question when the task is clearly daily-work.
+
+### Step 3: Determine the creation scenario
+
+Only reached if Step 2 did NOT redirect. Ask the user ONE question:
 
 "Какой вариант вам подходит?
 
@@ -51,7 +68,7 @@ Ask the user ONE question to determine their scenario:
 
 **В) У меня уже есть документация** — создам пошаговый гайд с промптами для Claude Code на основе ваших документов."
 
-### Step 3: Route to the right workflow
+### Step 4: Route to the right creation workflow
 
 Based on the answer:
 
@@ -83,7 +100,7 @@ This will:
 
 Tell the user: "Читаю вашу документацию и создаю пошаговый гайд. Каждый шаг — готовый промпт, который можно скопировать и вставить в Claude Code."
 
-### Step 4: After completion — offer next steps
+### Step 5: After completion — offer next steps
 
 **After А (полный цикл):** "Проект готов и задеплоен. Что дальше? Могу: добавить фичу, написать тесты (/test), проверить безопасность (security-guidance), оптимизировать (/perf)."
 

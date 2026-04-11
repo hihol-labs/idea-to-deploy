@@ -99,12 +99,44 @@ def hook_has_trigger(repo: Path, skill_name: str) -> bool:
 
 
 def fixture_exists(repo: Path, skill_name: str) -> bool:
+    """Return True if ANY fixture satisfies the skill.
+
+    Matches if the fixture directory name contains the skill name OR if
+    the fixture's `notes.md` mentions the skill as a `/skill-name` token.
+    Keep this in sync with `check-skill-completeness.sh::check_fixture`
+    (v1.5.0 fix: the two hooks previously diverged, causing false commit
+    blocks on skills exercised only by fixture content, e.g. /project
+    routed through fixture-01-saas-clinic via /kickstart).
+    """
     fixtures = repo / "tests" / "fixtures"
     if not fixtures.is_dir():
         return False
     for entry in fixtures.iterdir():
-        if entry.is_dir() and skill_name in entry.name:
+        if not entry.is_dir():
+            continue
+        if skill_name in entry.name:
             return True
+        notes = entry / "notes.md"
+        if notes.exists():
+            try:
+                content = notes.read_text(encoding="utf-8", errors="replace")
+                if re.search(
+                    rf"(^|[^-a-z])/{re.escape(skill_name)}([^-a-z]|$)",
+                    content,
+                    re.M,
+                ):
+                    return True
+                # Also match bare word form (`project` without leading `/`)
+                # for compatibility with older fixtures that don't use the
+                # slash prefix. Matches check-skill-completeness.sh logic.
+                if re.search(
+                    rf"(^|[^-a-z]){re.escape(skill_name)}([^-a-z]|$)",
+                    content,
+                    re.M,
+                ):
+                    return True
+            except Exception:
+                pass
     return False
 
 

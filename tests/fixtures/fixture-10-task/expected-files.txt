@@ -1,0 +1,28 @@
+# Expected files after /task runs
+#
+# /task is a thin router — it produces NO artifacts of its own. The target
+# skill it invokes produces the actual output. This file documents the
+# expected outputs per scenario for manual verification.
+
+# Scenario A — tech debt → /refactor
+# The router delegates to /refactor, which produces a diff/patch.
+# Expected output: whatever /refactor produces (refactor-diff.patch
+# with before/after and smell note — see fixture-07-daily-work-skills).
+
+# Scenario B — direct /perf phrasing
+# The router delegates to /perf. Expected output: perf-report.md
+# (see fixture-07-daily-work-skills).
+
+# Scenario C — chain refactor → test → review
+# Three sub-reports, one per target skill:
+#   refactor-diff.patch    (from /refactor)
+#   tests/test_*.py        (from /test)
+#   review-report.md       (from /review)
+
+# Scenario D — new project redirect
+# No /task artifacts. /project is invoked and produces its own outputs
+# (STRATEGIC_PLAN.md, ARCHITECTURE.md, etc. — see fixture-01-saas-clinic).
+
+# /task router's own output
+# The router adds ONE line to each scenario's final message indicating
+# the routing decision. No standalone file, just a chat-level annotation.

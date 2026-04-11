@@ -167,6 +167,21 @@ TRIGGERS = [
         "🔔 Триггер 'session save' → используй /session-save "
         "(сохранение контекста сессии в память проекта). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(закрой\s+tech\s*debt|закрой\s+техдолг|убери\s+техдолг|"
+        r"поправь\s+в\s+проекте|почини\s+в\s+проекте|надо\s+поправить|"
+        r"есть\s+задача\s+в\s+проекте|работа\s+в\s+существующем|"
+        r"инкрементальн\w+\s+изменен|надо\s+что-то\s+сделать\s+в\s+проекте|"
+        r"tech\s*debt\s+cleanup|work\s+on\s+existing|existing\s+project|"
+        r"maintenance\s+task|housekeeping|\bchore\b|"
+        r"поработать\s+над\s+(проектом|кодом)|"
+        r"накопилось\s+(мелоч|задач)|куча\s+мелочей)",
+        "🔔 Триггер 'существующий код / tech debt' → используй /task "
+        "(роутер daily-work: /bugfix / /refactor / /doc / /test / /perf / "
+        "/security-audit / /deps-audit / /migrate / /harden / /infra / "
+        "/explain / /review). Вызови Skill ПЕРВЫМ — если тип задачи сразу "
+        "ясен, /task делегирует без доп. вопросов.",
+    ),
 ]
 
 

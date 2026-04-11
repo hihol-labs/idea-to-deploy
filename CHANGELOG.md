@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.12.0] - 2026-04-11
+
+Methodology hardening release. Closes six systemic gaps surfaced by the NeuroExpert 2026-04-11 parallel-session incident, where two Claude sessions performed the same kong.yml tech-debt refactor in parallel because nothing in the methodology forced a pre-flight check on recent commits and no router existed for daily-work tasks on existing code.
+
+### Added
+
+- **`/task` skill (new)** — second router skill, parallel to `/project`. Where `/project` routes requests to **create** something (/kickstart, /blueprint, /guide), `/task` routes requests to **modify existing code**: /bugfix, /refactor, /doc, /test, /perf, /security-audit, /deps-audit, /migrate, /harden, /infra, /explain, /review, /session-save. Thin router — never generates code itself, always delegates via the Skill tool. Includes `references/routing-matrix.md` with 13 target skills and an indirect-signal table, plus `tests/fixtures/fixture-10-task/` with 4 routing scenarios. Methodology now has **18 skills** (was 17).
+- **`hooks/pre-flight-check.sh` (new)** — `UserPromptSubmit` hook. Injects `git log --oneline -10`, `git status --short`, `MEMORY.md` index, and `.active-session.lock` warnings into the model context on every user prompt. Prevents the NeuroExpert-style parallel-session duplication: if another Claude session touched this project in the last 10 minutes, the model sees a warning and is told to check recent commits BEFORE starting work. No-op silently when `$PWD` is not a git repo.
+- **`scripts/sync-to-active.sh` (new)** — idempotent one-command sync from this repo to the user's active install (`~/.claude/skills/`, `~/.claude/hooks/`, `~/.claude/settings.json`). Was the root cause of v1.4.0's 6-skill drift: users were expected to manually copy new skills after each release and rarely did. Now `bash scripts/sync-to-active.sh` (or `--check` for dry-run) brings the active install in line with the repo in one step. Patches `settings.json` hooks block to register all 4 hooks with correct matchers, backing up the old file as `settings.json.bak-<timestamp>`.
+- **Active-session lockfile (`.active-session.lock`)** — `/session-save` now writes a JSON lockfile to the project memory dir (`timestamp`, `pid`, `branch`, `project`, `note`). `pre-flight-check.sh` reads it and warns the next Claude session if the lock is fresher than 10 minutes. Stale locks self-expire, no cleanup task needed. Documented in `skills/session-save/references/session-save-checklist.md`.
+
+### Fixed
+
+- **`hooks/check-commit-completeness.sh` fixture detection** — previously matched only fixture directory name (`skill_name in entry.name`), while `check-skill-completeness.sh` also matched `notes.md` content. The two hooks diverged and `check-commit-completeness.sh` would false-positive-block commits touching skills whose fixture was exercised only indirectly (e.g. `/project` tested via `fixture-01-saas-clinic` through `/kickstart`). Unified the detection: both hooks now match directory name OR `/skill-name` token in `notes.md` OR bare-word mention. 7th gap surfaced during v1.5.0 review — fixed in the same release.
+
+### Changed
+
+- **`hooks/check-tool-skill.sh` — rate-limited** (60-second window per session via `/tmp/claude-skill-check-<session>.state`). Old behavior: fired a "STOP, вызови Skill" reminder before every single Bash/Edit/Write tool call, which trained models to respond with a formal "скиллы не матчатся" brush-off before every action and **defeated the purpose of the hook**. New behavior: reminder once per minute max, first call of a session always emits, language softened from "STOP" to "подумай task-level". The hard rule to evaluate skills **task-level once** lives in `~/projects/.claude/CLAUDE.md`; this hook is a periodic nudge, not an enforcement point.
+- **`skills/project/SKILL.md` — v1.4.0** — added Step 2 (detect existing-project signals and redirect to `/task`) so `/project` stops catching daily-work requests. Renamed old Steps 2/3/4 → 3/4/5. Frontmatter description clarifies "creation router" and points at `/task` for existing code. Version field bumped 1.3.1 → 1.4.0.
+- **`skills/session-save/SKILL.md` — v1.5.0** — added Step 4.5 (write active-session lockfile) with Bash and Python examples. Strengthened auto-trigger list: now includes "after any `git commit` in a branch heading for PR", "after `/review` that passed 9+/10", and "every 5 significant actions without a save". Frontmatter version 1.0.0 → 1.5.0.
+- **`hooks/check-skills.sh`** — added trigger patterns for `/task` (закрой tech debt / поправь в проекте / existing project / tech debt cleanup / maintenance task / ...). Patterns intentionally match **ambiguous** phrasings only; direct phrasings ("почини баг в X", "отрефактори Y") still fire the specific daily-work skill hints (/bugfix, /refactor) as before.
+- **`.claude-plugin/plugin.json`** — version 1.11.0 → 1.12.0, description updated to "18 skills", added "daily-work routing" to the capability list.
+- **`README.md`** / **`README.ru.md`** — skill count 17 → 18 everywhere.
+
+### Why
+
+NeuroExpert 2026-04-11: two Claude Code sessions independently picked up the "close kong.yml tech debt in `scripts/deploy.sh`" task and ran the exact same extract-method refactor in parallel. The second session didn't discover this until after all edits were written; `git status` came back clean because the first session had already committed. Root cause analysis surfaced six systemic gaps — all closed by this release:
+
+1. No pre-flight check of `git log` / `git status` / MEMORY.md before starting work → added via `pre-flight-check.sh`.
+2. `/session-save` skill wasn't installed in the active install (listed in repo, missing from `~/.claude/skills/`) because there was no sync mechanism → added via `sync-to-active.sh` (which also brings in `deps-audit`, `harden`, `infra`, `migrate`, `security-audit`, `session-save` — six skills that had drifted out).
+3. `check-tool-skill.sh` fired on every tool call, training the model to respond with formal "скиллы не матчатся" before each action → rate-limited + softer language.
+4. `/project` routed only **creation** requests; there was no entry point for "work on existing code", so the hard rule "при любом сомнении — /project" created a mental dead-end for tech-debt tasks → added `/task`.
+5. No parallel-session awareness → added `.active-session.lock` mechanism + `pre-flight-check.sh` reading it.
+6. `~/projects/.claude/CLAUDE.md` hard rule didn't explicitly cover tech-debt / refactor / existing-code cases with a mapping to `/task` → updated in the same day.
+
+### Migration
+
+- **Required:** run `bash scripts/sync-to-active.sh` once after `git pull`. This copies `/task` + 5 previously-missing skills + 2 previously-missing hooks into `~/.claude/`, and patches `settings.json` to register `pre-flight-check.sh` and the completeness hooks. Backup of the previous `settings.json` lands at `~/.claude/settings.json.bak-<timestamp>`.
+- **Restart `claude`** after the sync — skill registry is loaded at session start and does not hot-reload.
+- **Existing `/debug` references:** already handled in v1.4.0 migration — no action needed here.
+- **Hard-rule update:** the `~/projects/.claude/CLAUDE.md` hard rule now mentions `/task`. If you maintain your own copy, update it to route existing-code work through `/task` instead of `/project`.
+
+---
+
 ## [1.4.0] - 2026-04-11
 
 ### Changed
