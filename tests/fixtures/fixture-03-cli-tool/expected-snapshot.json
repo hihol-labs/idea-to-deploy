@@ -1,0 +1,73 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "blueprint-only",
+  "skill_under_test": "/blueprint",
+  "status": "active",
+  "description": "CLI log analyzer — edge case where the project has NO database and NO HTTP API. Validates that the methodology correctly handles 'no DB' / 'no API' justifications in the rubric instead of rejecting the plan as incomplete.",
+
+  "files": {
+    "required": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "CLAUDE.md"
+    ],
+    "optional": [".gitignore"],
+    "min_count": 6
+  },
+
+  "content_contracts": {
+    "STRATEGIC_PLAN.md": {
+      "required_sections": [
+        "Users|Пользователи|Audience|Аудитория",
+        "Budget|Бюджет|Ресурсы",
+        "Risks|Риски"
+      ],
+      "min_length_chars": 400
+    },
+    "PROJECT_ARCHITECTURE.md": {
+      "required_sections": [
+        "Architecture|Архитектура|Components|Компоненты|Modules|Модули",
+        "CLI|Interface|Интерфейс|Commands|Команды"
+      ],
+      "must_contain_any_of": {
+        "no_db_justification": [
+          "no database",
+          "нет БД",
+          "без БД",
+          "file-based",
+          "stdout",
+          "stateless",
+          "without a database",
+          "без базы данных"
+        ],
+        "no_api_justification": [
+          "no API",
+          "нет API",
+          "без API",
+          "CLI-only",
+          "command-line only",
+          "local tool",
+          "standalone"
+        ]
+      }
+    },
+    "PRD.md": {
+      "required_sections": [
+        "User Stories|Пользовательские истории|User story"
+      ],
+      "min_user_story_count": 3
+    },
+    "IMPLEMENTATION_PLAN.md": {
+      "min_step_count": 4,
+      "max_step_count": 10
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
+}

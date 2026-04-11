@@ -408,6 +408,62 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-I10: fixture snapshot schema presence + validity (v1.15.0) ---
+    # Phase 1 of behavioural automation — every fixture under tests/fixtures/
+    # must have an `expected-snapshot.json` file, either `status: active`
+    # (fully bootstrapped, validated by `tests/verify_snapshot.py`) or
+    # `status: pending` (stub, deferred to a later release). Missing or
+    # malformed snapshot = Important finding.
+    #
+    # See tests/README.md for the Phase 1 workflow. Phase 2 (v1.16.0
+    # candidate) will add non-interactive execution via `claude -p`, at
+    # which point pending stubs will need to be flipped to active.
+    if fixtures_dir.is_dir():
+        required_snapshot_fields = {
+            "$schema_version",
+            "fixture_type",
+            "skill_under_test",
+            "status",
+            "description",
+        }
+        allowed_statuses = {"active", "pending"}
+
+        for fd in sorted(fixtures_dir.iterdir()):
+            if not fd.is_dir():
+                continue
+            snap_path = fd / "expected-snapshot.json"
+            if not snap_path.is_file():
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}: missing expected-snapshot.json "
+                    f"— Phase 1 snapshot validation requires at least a "
+                    f"`status: pending` stub",
+                )
+                continue
+            try:
+                snap = json.loads(snap_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                r.crit(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"invalid JSON ({e})",
+                )
+                continue
+            missing = required_snapshot_fields - set(snap.keys())
+            if missing:
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"missing required fields: {sorted(missing)}",
+                )
+            status_val = snap.get("status", "")
+            if status_val not in allowed_statuses:
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"status='{status_val}' not in {sorted(allowed_statuses)}",
+                )
+
     # --- M-I9: caller-skill tool superset over delegated subagent (v1.14.1) ---
     # When a skill delegates to a subagent via frontmatter `agent: X`, there
     # are three contract-consistent patterns:

@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "task-router",
+  "skill_under_test": "/task",
+  "status": "pending",
+  "description": "Stub — /task is a pure routing skill that prints a routing decision and does not write files. Validating it needs a stdout-capture snapshot rather than a file-list snapshot. Same structural category as /project router. Deferred to v1.16.0."
+}

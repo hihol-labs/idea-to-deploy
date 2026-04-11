@@ -1,0 +1,81 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "kickstart-full",
+  "skill_under_test": "/kickstart",
+  "mode": "full",
+  "status": "active",
+  "description": "SaaS clinic management — Full mode (Opus) on a multi-tenant multi-role Russian-market SaaS. Tests heavy-end /kickstart output.",
+
+  "files": {
+    "required": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "README.md",
+      "CLAUDE.md"
+    ],
+    "optional": [".gitignore", ".env.example"],
+    "min_count": 7
+  },
+
+  "content_contracts": {
+    "STRATEGIC_PLAN.md": {
+      "required_sections": [
+        "Competitors|Конкуренты",
+        "Budget|Бюджет|Финансы",
+        "Risks|Риски",
+        "KPIs|Метрики|Цели"
+      ],
+      "min_length_chars": 800,
+      "must_contain_any_of": {
+        "competitors_named": ["MEDODS", "IDENT", "Renovatio", "Kray", "Medesk", "Klinika", "УМСМ"]
+      }
+    },
+    "PROJECT_ARCHITECTURE.md": {
+      "required_sections": [
+        "Database|База|Schema|Схема",
+        "API|Endpoints|Ресурсы",
+        "Auth|Аутентификация|Авторизация",
+        "Infrastructure|Инфраструктура|Deployment|Деплой"
+      ],
+      "must_contain": ["clinic_id"],
+      "must_contain_any_of": {
+        "core_tables": ["patients", "пациент"],
+        "doctor_table": ["doctors", "врач"],
+        "appointment_table": ["appointments", "записи", "визит"]
+      },
+      "min_api_endpoints": 15
+    },
+    "PRD.md": {
+      "required_sections": [
+        "User Stories|Пользовательские истории|User story",
+        "P0|MVP|Must-have",
+        "Acceptance|Критерии приёмки|Acceptance criteria",
+        "Kill criteria|Kill|Стоп|Условия остановки"
+      ],
+      "min_user_story_count": 8
+    },
+    "IMPLEMENTATION_PLAN.md": {
+      "min_step_count": 8,
+      "max_step_count": 12
+    },
+    "CLAUDE_CODE_GUIDE.md": {
+      "required_sections": [
+        "Prompt|Промпт|Step|Шаг"
+      ],
+      "min_length_chars": 500
+    },
+    "README.md": {
+      "required_sections": [
+        "Quick Start|Быстрый старт|Installation|Установка"
+      ]
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
+}

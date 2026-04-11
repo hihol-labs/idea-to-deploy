@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.0] - 2026-04-11
+
+**Phase 1 of behavioural automation.** Adds a deterministic structural-validation layer for fixture output — `tests/verify_snapshot.py` + `expected-snapshot.json` schema per fixture. This is the first time the methodology has automated checks for *behavioural* regressions (did `/kickstart` actually produce a multi-tenant architecture with 15+ endpoints, not just "some markdown with the right filename"). Phase 2 (non-interactive execution via `claude -p --output-format json`) is deferred to v1.16.0 after POC.
+
+### Background
+
+Before v1.15.0, the methodology had **two testing tiers**:
+
+1. Structural gate (`tests/meta_review.py`) — automated, CI-blocking, catches drift in versions/skills/frontmatter/hooks/subagent contracts. 14 Critical + 8 Important checks.
+2. Behavioural smoke-runs — **manual only**, maintainer runs each fixture on a release and eyeballs the output against `notes.md`. Catches the long tail of LLM regressions but is tedious and error-prone (a human skimming 7 generated markdown files will miss a renamed section or a missing index).
+
+v1.15.0 adds a **third tier** between them: **deterministic structural validation** of fixture output against a machine-readable schema. The generation step is still manual (or will be, until Phase 2 lands), but once the output exists, `verify_snapshot.py` validates it exhaustively against the fixture's `expected-snapshot.json` contract. Deterministic, zero API cost, zero model-version flakiness.
+
+### Added
+
+- **`tests/verify_snapshot.py`** — new CLI script (~340 lines) that validates a fixture's `output/` directory against `expected-snapshot.json`. Supports:
+  - `files.required` / `files.min_count` — file presence and count constraints
+  - `content_contracts.<file>.required_sections` — regex-based section heading check with bilingual alternatives (`"Competitors|Конкуренты"`)
+  - `content_contracts.<file>.must_contain` / `must_contain_any_of` — literal substring check, supports named-alternative groups
+  - `content_contracts.<file>.min_length_chars` — sanity length check
+  - `content_contracts.<file>.min_api_endpoints` — counts HTTP-method-prefixed lines (`^(GET|POST|PUT|...)  /path`)
+  - `content_contracts.<file>.min_user_story_count` — counts "As a ..." / "Как ..." bullet starts
+  - `content_contracts.<file>.min_step_count` / `max_step_count` — counts "## Step N" / "1." / "Шаг N" headings
+  - `rubric_status.expected` / `rubric_status.forbidden` — validates a `.rubric-status` file written manually after running `/review` on the output
+  - `status: pending` stubs auto-pass without touching the output dir — plan for gradual bootstrap
+  - `--json` flag for machine-readable output
+  - Exit codes: 0 = PASSED, 1 = FAILED, 2 = internal error
+- **`tests/fixtures/fixture-01-saas-clinic/expected-snapshot.json`** — **active** snapshot for the heavy-end fixture. Validates: 7 required files, 15+ API endpoints, `clinic_id` multi-tenancy column, 8+ user stories, 8–12 implementation plan steps, competitor naming (must mention at least one of MEDODS / IDENT / Renovatio / Kray / Medesk / Klinika / УМСМ), expected rubric status PASSED or PASSED_WITH_WARNINGS.
+- **`tests/fixtures/fixture-02-tg-bot/expected-snapshot.json`** — **active** snapshot for Lite-mode (Sonnet fallback). Validates: 6 required files, bot framework presence (aiogram / python-telegram-bot / telegraf / grammy), storage backend mentioned, 4+ user stories, 5–10 implementation steps.
+- **`tests/fixtures/fixture-03-cli-tool/expected-snapshot.json`** — **active** snapshot for the no-DB/no-API edge case. Validates: 6 required files, *explicit* "no database" / "no API" justification in the architecture doc (this is the whole point of the fixture — the rubric must correctly handle "not applicable" instead of flagging it as incomplete), 3+ user stories, 4–10 steps.
+- **`tests/fixtures/fixture-04-deps-audit/expected-snapshot.json`** through **`fixture-10-task/expected-snapshot.json`** — **pending** stubs for the 7 remaining fixtures. Each documents why the snapshot is deferred to v1.16.0 (stdout reports vs files, before/after diffs, AST-based docstring checks, stream-capture for routers, etc.). Keeps M-I10 green without forcing a premature bootstrap.
+- **`tests/meta_review.py` — new gate `M-I10`** — for every `tests/fixtures/*/` directory, validates that `expected-snapshot.json` exists, is valid JSON, has all required fields (`$schema_version`, `fixture_type`, `skill_under_test`, `status`, `description`), and has a valid `status` (`active` or `pending`). Important severity, not Critical, because missing a snapshot doesn't break existing users — it just blocks behavioural regression coverage.
+- **`tests/README.md`** — rewrote the testing-tier section. Now explicitly documents **three tiers** (structural gate, snapshot validation, behavioural execution), the Phase 1 maintainer workflow (run fixture → record `.rubric-status` → `verify_snapshot.py`), the full snapshot schema with a minimal example, and the Phase 2 plan with the exact `claude -p` invocation draft for v1.16.0. The legacy workflow (pre-v1.15.0 manual diff against `expected-files.txt`) is kept in a marked "deprecated" section for reference.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `1.14.1` → `1.15.0`.
+- **`.claude-plugin/marketplace.json`** — `plugins[0].version` `1.14.1` → `1.15.0`.
+- **`README.md`** / **`README.ru.md`** — version badges `1.14.1` → `1.15.0`.
+
+### Rubric status snapshot
+
+After v1.15.0:
+
+| Tier | Checks | Status |
+|---|---|---|
+| Structural | 14 Critical + 9 Important (M-C1..M-C14 + M-I1..M-I10) | Stable, CI-blocking |
+| Snapshot validation | 3 active + 7 pending | Phase 1 working on local runs |
+| Behavioural execution | Manual | Phase 2 candidate for v1.16.0 |
+
+### Why MINOR, not PATCH
+
+v1.15.0 adds a new testing capability (`verify_snapshot.py` + the schema format + M-I10 gate) that future contributors will need to understand when adding fixtures. That's a visible addition to the contributor contract, which per SemVer is a MINOR bump, not a PATCH. End users of the plugin see nothing different — the new infrastructure is maintainer-only.
+
+### Migration
+
+```bash
+git pull
+bash scripts/sync-to-active.sh
+python3 tests/meta_review.py --verbose
+python3 tests/verify_snapshot.py tests/fixtures/fixture-04-deps-audit  # should print PENDING
+```
+
+No configuration changes required. The gate runs on the maintainer's CI; the snapshot validator is opt-in for local runs.
+
+### Phase 2 (v1.16.0 candidate) concrete TODO
+
+Documented in detail in `tests/README.md` under "Phase 2: non-interactive execution":
+
+1. **POC** — headless `/kickstart` on fixture-01 via `claude -p --plugin-dir . --input-format stream-json --output-format json --max-budget-usd 5.00 --dangerously-skip-permissions --model sonnet`. Capture result, diff against current live snapshot.
+2. **If POC works** — write `tests/run-fixture-headless.sh` wrapper and GHA workflow `.github/workflows/fixture-smoke.yml` that runs on `release/*` branches (not every PR) with a 25-USD monthly budget cap.
+3. **Flip pending stubs to active** — one headless run per fixture to record ground truth, then update the corresponding `expected-snapshot.json` to `status: active` with populated content contracts.
+4. **Document observed cost per fixture** in `docs/CI.md`.
+5. **If POC fails** — document the exact blocker (SDK limitation, protocol gap, cost, etc.) honestly in `tests/README.md` and close the Phase 2 goal. Phase 1 alone is already a large improvement over the pre-v1.15.0 status quo.
+
+---
+
 ## [1.14.1] - 2026-04-11
 
 PATCH release. Closes the last cheap structural win deferred from v1.14.0 deliberation: **M-I9 caller-skill tool superset gate**. Adds a new formal frontmatter field `report_only: true` to make read-only skill contracts auditable. Pure defense-in-depth addition — zero user-facing behaviour change, zero cost, catches one previously-invisible class of regression.

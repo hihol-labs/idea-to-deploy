@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "daily-work",
+  "skill_under_test": "/bugfix, /refactor, /perf",
+  "status": "pending",
+  "description": "Stub — exercises three skills that mutate existing code instead of scaffolding new projects. Validating this requires a before/after diff snapshot rather than a file-list snapshot. Different mental model from /kickstart snapshots. Deferred to v1.16.0."
+}

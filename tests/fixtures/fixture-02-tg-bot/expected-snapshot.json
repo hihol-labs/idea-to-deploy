@@ -1,0 +1,62 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "kickstart-lite",
+  "skill_under_test": "/kickstart",
+  "mode": "lite",
+  "status": "active",
+  "description": "Telegram bot for appointment booking — Lite mode (Sonnet) for a single-service bot. Tests the lightweight end of /kickstart where automatic Lite-mode fallback is active and bot-specific scaffolding is applied.",
+
+  "files": {
+    "required": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "CLAUDE.md"
+    ],
+    "optional": ["README.md", ".gitignore"],
+    "min_count": 6
+  },
+
+  "content_contracts": {
+    "STRATEGIC_PLAN.md": {
+      "required_sections": [
+        "Competitors|Конкуренты|Альтернативы",
+        "Budget|Бюджет",
+        "Risks|Риски"
+      ],
+      "min_length_chars": 400
+    },
+    "PROJECT_ARCHITECTURE.md": {
+      "required_sections": [
+        "Database|База|Schema|Схема",
+        "Bot|Telegram|Handlers|Обработчики",
+        "Deployment|Деплой|Hosting"
+      ],
+      "must_contain_any_of": {
+        "bot_framework": ["aiogram", "python-telegram-bot", "telegraf", "grammy", "Bot API"],
+        "storage": ["SQLite", "PostgreSQL", "JSON", "database", "БД"]
+      }
+    },
+    "PRD.md": {
+      "required_sections": [
+        "User Stories|Пользовательские истории|User story",
+        "P0|MVP"
+      ],
+      "min_user_story_count": 4
+    },
+    "IMPLEMENTATION_PLAN.md": {
+      "min_step_count": 5,
+      "max_step_count": 10
+    },
+    "CLAUDE_CODE_GUIDE.md": {
+      "min_length_chars": 300
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
+}

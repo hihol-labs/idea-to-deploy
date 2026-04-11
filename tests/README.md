@@ -28,33 +28,96 @@ tests/
 
 ## What is automated vs. manual
 
-The methodology has **two tiers** of testing:
+The methodology has **three tiers** of testing (as of v1.15.0):
 
-1. **Structural gate (automated, CI-blocking).** `tests/meta_review.py` runs on every PR via [.github/workflows/meta-review.yml](../.github/workflows/meta-review.yml). It verifies version badges, skill count, SKILL.md frontmatter, trigger-phrase drift between `skills/` and `hooks/check-skills.sh`, marketplace.json consistency, and other invariants. A PR with any Critical drift is blocked. See [docs/CI.md](../docs/CI.md) for the full list of checks.
+1. **Structural gate (automated, CI-blocking).** `tests/meta_review.py` runs on every PR via [.github/workflows/meta-review.yml](../.github/workflows/meta-review.yml). It verifies version badges, skill count, SKILL.md frontmatter, trigger-phrase drift between `skills/` and `hooks/check-skills.sh`, marketplace.json consistency, subagent contract disclaimers (M-I8), caller-skill tool superset (M-I9), fixture snapshot schemas (M-I10), and ~20 other invariants. A PR with any Critical drift is blocked. See [docs/CI.md](../docs/CI.md) for the full list of checks.
 
-2. **Behavioural smoke-runs (manual, release-time).** The `fixtures/` below exercise **LLM behaviour** — did `/kickstart` ask the right clarifying questions, did `/review` correctly flag a dud plan, did `/infra` produce a Terraform module that actually deploys. These outputs are non-deterministic by model, so they cannot be diffed against a golden file (would break on every model upgrade). They are run **by the maintainer on each release** before tagging. See [Future: automated behavioural tests](#future-automated-behavioural-tests) below for the options under consideration.
+2. **Snapshot validation (Phase 1 automated, v1.15.0).** After a maintainer runs a fixture manually, `tests/verify_snapshot.py` deterministically validates the output against a machine-readable contract in `expected-snapshot.json`. Catches regressions that a human skimming the output would miss (section renamed, endpoint count dropped, required multi-tenant column missing). Deterministic, zero API cost, zero model-version flakiness. Runs locally on demand, not in CI. **3 fixtures (01, 02, 03) have active snapshots; 7 are `status: pending` stubs deferred to Phase 2.**
 
-## Running fixtures
+3. **Behavioural execution (manual now, v1.16.0 candidate).** The fixtures themselves still need a Claude Code run to produce the output that Phase 1 validates. That run is done by the maintainer on each release. Phase 2 automation (`claude -p --output-format json --input-format stream-json`) is the next target — see [Phase 2: non-interactive execution](#phase-2-non-interactive-execution-v1160-candidate) below.
 
-To run a fixture against the current methodology:
+## Phase 1 workflow: snapshot validation
+
+### Running a fixture (maintainer)
 
 ```bash
-cd tests/fixtures/fixture-01-saas-clinic
-mkdir output && cd output
-# Copy the idea into Claude Code:
-cat ../idea.md
-# Then in Claude: /project   (and follow the prompts)
-# Or: /kickstart {paste idea}
+# 1. Spin up Claude Code in a clean working directory
+mkdir -p tests/fixtures/fixture-01-saas-clinic/output
+cd tests/fixtures/fixture-01-saas-clinic/output
 
-# After completion, verify:
-diff <(ls -1) ../expected-files.txt
-cat ../notes.md  # manual verification checklist
+# 2. Run the fixture manually (copy the idea into Claude Code)
+#    Inside Claude Code:  /kickstart < paste contents of ../idea.md
+#    Answer clarifying questions as documented in ../notes.md
+
+# 3. After /kickstart finishes, record the rubric status
+echo "PASSED_WITH_WARNINGS" > .rubric-status   # or whatever /review returned
+
+# 4. Validate the output against the deterministic snapshot
+cd ../../../..
+python3 tests/verify_snapshot.py tests/fixtures/fixture-01-saas-clinic
+```
+
+Output:
+
+```
+✅ fixture-01-saas-clinic: PASSED
+  Snapshot: .../expected-snapshot.json
+  Output:   .../output
+  Checks:   23 run, 0 failed
 ```
 
 A fixture passes if:
-1. All files in `expected-files.txt` exist in `output/`
-2. All Critical rubric checks in the generated docs pass (`/review` returns `PASSED` or `PASSED_WITH_WARNINGS`)
-3. The notes.md manual checklist items are satisfied
+1. All `files.required` exist in `output/`
+2. All `content_contracts` (required sections, must-contain literals, count constraints) validate
+3. The recorded `.rubric-status` is in `rubric_status.expected` and not in `rubric_status.forbidden`
+
+### Snapshot schema
+
+See the docstring at the top of [`tests/verify_snapshot.py`](verify_snapshot.py) for the full schema. Minimal `expected-snapshot.json`:
+
+```json
+{
+  "$schema_version": "1.0",
+  "fixture_type": "kickstart-full",
+  "skill_under_test": "/kickstart",
+  "status": "active",
+  "description": "Why this fixture exists",
+  "files": { "required": ["STRATEGIC_PLAN.md"], "min_count": 7 },
+  "content_contracts": {
+    "STRATEGIC_PLAN.md": {
+      "required_sections": ["Competitors|Конкуренты", "Budget|Бюджет"],
+      "min_length_chars": 800,
+      "must_contain_any_of": {
+        "competitors_named": ["MEDODS", "IDENT"]
+      }
+    }
+  },
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
+}
+```
+
+All fields except `$schema_version`, `fixture_type`, `skill_under_test`, `status`, and `description` are optional.
+
+### Pending snapshots
+
+A snapshot with `status: pending` auto-passes without validation — useful when the schema for a given fixture type isn't fully bootstrapped yet. The `M-I10` meta-review gate requires every fixture to have at least a pending stub so the schema coverage is explicit. See [CHANGELOG 1.15.0](../CHANGELOG.md) for the Phase 2 work that will flip pending stubs to active.
+
+## Legacy fixture workflow (pre-v1.15.0, deprecated)
+
+Before Phase 1 snapshots, fixtures were validated by manually diffing `ls -1` against `expected-files.txt` and eyeballing `notes.md`. The old files are retained for reference but the snapshot schema is the authoritative contract going forward.
+
+```bash
+# OLD WORKFLOW (retained for reference only)
+cd tests/fixtures/fixture-01-saas-clinic
+mkdir output && cd output
+cat ../idea.md
+# /kickstart {paste idea}
+diff <(ls -1) ../expected-files.txt
+cat ../notes.md
+```
 
 ## When fixtures should fail
 
@@ -77,12 +140,55 @@ When adding a fixture:
 4. Capture the output file list as `expected-files.txt`
 5. Write `notes.md` with manual checks that are too qualitative for diff
 
-## Future: automated behavioural tests
+## Phase 2: non-interactive execution (v1.16.0 candidate)
 
-The structural gate (`meta_review.py`) already runs in CI on every PR. What remains manual is the **behavioural** side — did `/kickstart` actually produce the right output on a known idea? Three paths to automation, each with tradeoffs:
+Phase 1 (v1.15.0) validates *already-generated* output deterministically. Phase 2 will automate the *generation* step so the full pipeline — idea → run → validate — can be kicked off from a single command or a scheduled workflow.
 
-1. **LLM-as-judge in a nightly workflow.** A separate GitHub Actions workflow (not blocking PRs) that runs Claude Code non-interactively via the SDK on each fixture, then asks a judge model to score the output against `notes.md`. Costs API credits per run, flaky, but captures real regressions. Candidate for v1.15.0.
-2. **Snapshot diffing with tolerance.** Freeze a "good" output per fixture, diff structural markers (file list, section headings, rubric status). Tight enough to catch breakage, loose enough to survive minor model drift. Breaks hard on major model upgrades (Opus 4.6 → 5.0). Candidate for v1.14.0.
-3. **Schema-only validation.** Just assert that generated docs match expected schemas (PRD has user stories, ARCHITECTURE has DB section, etc.). No judgement, just presence. Cheap, deterministic, partial coverage. Could be added to `meta_review.py` directly.
+### What Phase 2 will use
 
-Until one of these lands, fixtures are run by the maintainer before each release tag. The structural gate in CI catches the bulk of regressions; the behavioural tier catches the long tail.
+Claude Code supports non-interactive mode as of the current CLI:
+
+- `claude -p, --print` — print response and exit (headless)
+- `--output-format json` — single structured JSON result
+- `--output-format stream-json` — incremental streaming output
+- `--input-format stream-json` — supply multiple user messages (needed to answer `/kickstart`'s clarifying questions from a file)
+- `--plugin-dir <path>` — load idea-to-deploy without installing it globally
+- `--tools "Read Write Edit Glob Grep Bash"` — explicit tool whitelist for the sandbox
+- `--max-budget-usd <amount>` — hard budget cap per run
+- `--dangerously-skip-permissions` — required for a non-interactive sandbox run
+- `--no-session-persistence` — throwaway session
+- `--model opus` / `--model sonnet` — model override (cost knob)
+
+The headless invocation looks roughly like:
+
+```bash
+claude -p \
+  --plugin-dir . \
+  --tools "Read Write Edit Glob Grep Bash" \
+  --input-format stream-json \
+  --output-format json \
+  --max-budget-usd 5.00 \
+  --no-session-persistence \
+  --dangerously-skip-permissions \
+  --model sonnet \
+  < fixture-01-stream.jsonl
+```
+
+`fixture-01-stream.jsonl` contains the idea and pre-seeded answers to clarifying questions as a stream of user messages. The final JSON result is parsed, the generated files are written to `output/`, and `verify_snapshot.py` runs against the result.
+
+### Why it is deferred to v1.16.0 rather than bundled into v1.15.0
+
+1. **POC required before rollout.** The SDK exists, but the exact protocol for pre-seeded clarifying-question answers (`stream-json` input format) needs hands-on testing. Bundling POC work with a release risks a half-working release.
+2. **Cost estimate required.** A single `/kickstart` Opus run costs several dollars in tokens. Running all 10 fixtures on every PR would be $20–50/month. Running only on release tags is the likely answer, but that decision needs a benchmarked run first.
+3. **CI secrets management.** The non-interactive run needs an API key injected as a GitHub Actions secret. That's infrastructure work that doesn't overlap with Phase 1 schema validation.
+4. **Snapshot bootstrap debt.** 7 of 10 fixtures currently have `status: pending` stubs. Turning them active requires one successful headless run each to record the ground truth. Doing that in the same PR as the SDK plumbing would mix research and cleanup.
+
+### v1.16.0 target workflow
+
+1. POC: headless `/kickstart` on fixture-01 → capture JSON result → diff output against current live snapshot.
+2. If POC succeeds, write `tests/run-fixture-headless.sh` wrapper.
+3. Add GitHub Actions workflow `.github/workflows/fixture-smoke.yml` that runs on `release/*` branches (not every PR) with a 25-USD budget cap.
+4. Flip all 7 pending snapshots to active by running the wrapper on each fixture.
+5. Document observed cost per fixture in `docs/CI.md`.
+
+If the POC shows Phase 2 is infeasible (unknown SDK limitation, prohibitive cost), document it honestly in this file and close the "automate behavioural tier" goal. The fallback is Phase 1 forever, which is already a large improvement over the pre-v1.15.0 status quo.
