@@ -148,12 +148,134 @@ Each document builds on the previous one. Create all files in the project root o
 Before writing, consult `references/document-templates.md` for the exact structure and level of detail expected in each document.
 
 **Order:**
-1. **STRATEGIC_PLAN.md** — стратегия, конкуренты, бюджет, KPIs, риски
+1. **STRATEGIC_PLAN.md** — стратегия, конкуренты, бюджет, KPIs, риски, Definition of Done
 2. **PROJECT_ARCHITECTURE.md** — стек, БД (все таблицы с полями), API (все эндпоинты), Docker, auth, деплой
-3. **IMPLEMENTATION_PLAN.md** — 8-12 шагов, каждый с конкретными файлами и проверками
+3. **IMPLEMENTATION_PLAN.md** — 8-12 шагов, каждый с конкретными файлами и проверками, Architectural Runway
 4. **PRD.md** — user stories, функциональные требования (P0/P1/P2), kill criteria
 5. **README.md** — быстрый старт за 30 секунд, стек, структура
 6. **CLAUDE_CODE_GUIDE.md** — готовые промпты для каждого шага (формат /guide)
+
+#### Step 2.1: Architecture Decision Trees (NEW in v1.18.0)
+
+When generating PROJECT_ARCHITECTURE.md, do NOT present only one architecture. Generate **2-3 architectural variants** with trade-offs for the user to choose from:
+
+```markdown
+## Architecture Variants
+
+### Variant A: {name} (Recommended)
+- **Approach:** {description}
+- **Pros:** {list}
+- **Cons:** {list}
+- **Best for:** {scenario}
+- **Estimated complexity:** Low / Medium / High
+
+### Variant B: {name}
+- **Approach:** {description}
+- **Pros:** {list}
+- **Cons:** {list}
+- **Best for:** {scenario}
+- **Estimated complexity:** Low / Medium / High
+
+### Variant C: {name} (if applicable)
+...
+
+### Recommendation
+Вариант A рекомендуется потому что: {rationale with reference to project constraints}.
+```
+
+**When to offer variants:**
+- Database choice (PostgreSQL vs MongoDB vs SQLite)
+- Architecture style (monolith vs microservices vs modular monolith)
+- API style (REST vs GraphQL vs gRPC)
+- Auth approach (session vs JWT vs OAuth2)
+- Deployment (VPS vs Kubernetes vs serverless)
+
+**When NOT to offer variants** (obvious choice):
+- Solo developer + MVP → monolith (don't waste time debating)
+- Telegram bot → aiogram (don't debate frameworks)
+- User explicitly specified the stack
+
+Present variants to user and wait for choice before writing full architecture.
+
+#### Step 2.5: Adversarial Architecture Debate (NEW in v1.18.0, Full mode only)
+
+After the Architect generates the chosen architecture variant, invoke the **Devil's Advocate** subagent to stress-test it. This prevents anchoring bias and ensures the architecture survives scrutiny.
+
+**Protocol:**
+
+1. **Architect proposes** — full architecture document (from Step 2)
+2. **Devil's Advocate challenges** — invoke `agents/devils-advocate.md` via Agent tool with the proposed architecture. The agent returns:
+   - Strengths acknowledged
+   - 3-7 challenges with alternatives and trade-offs
+   - Verdict: APPROVE / APPROVE WITH CONDITIONS / REQUEST REVISION
+3. **Resolution:**
+   - If APPROVE → proceed with architecture as-is
+   - If APPROVE WITH CONDITIONS → address the conditions, update architecture, note changes
+   - If REQUEST REVISION → revise architecture based on feedback, re-present to user
+4. **Document the debate** — add a section to PROJECT_ARCHITECTURE.md:
+
+```markdown
+## Architecture Decision Record (ADR)
+
+### Debate Summary
+The architecture was reviewed by Devil's Advocate agent.
+
+**Verdict:** {APPROVE / APPROVE WITH CONDITIONS / REQUEST REVISION}
+
+**Challenges raised:**
+1. {challenge} → **Resolution:** {how addressed or why accepted}
+2. {challenge} → **Resolution:** {how addressed or why accepted}
+...
+
+**Alternatives considered and rejected:**
+- {alternative} — rejected because {reason}
+```
+
+**Lite mode:** Skip adversarial debate (saves tokens). User can run it manually by saying "проверь архитектуру" after /blueprint completes.
+
+#### Step 2.6: SAFe-Inspired Patterns (NEW in v1.18.0)
+
+Incorporate these patterns from Scaled Agile Framework where applicable:
+
+**Definition of Done (DoD)** — add to STRATEGIC_PLAN.md:
+```markdown
+## Definition of Done
+
+A feature is "Done" when:
+- [ ] Code written and compiles without errors
+- [ ] Unit tests pass (coverage >= {threshold}%)
+- [ ] Integration tests pass (if applicable)
+- [ ] Code review passed (/review score >= 8/10)
+- [ ] Documentation updated (README, API docs)
+- [ ] No known Critical/High security issues (/security-audit)
+- [ ] Deployed to staging and manually verified
+```
+
+**Architectural Runway** — add to IMPLEMENTATION_PLAN.md:
+```markdown
+## Architectural Runway
+
+Infrastructure and architecture work that must be completed BEFORE feature development:
+
+| # | Item | Why first | Effort |
+|---|------|-----------|--------|
+| 1 | Database schema + migrations | All features depend on data model | 1 day |
+| 2 | Auth system | Most endpoints require authentication | 1 day |
+| 3 | CI/CD pipeline | Need automated testing before adding features | 0.5 day |
+| 4 | Docker setup | Consistent dev environment | 0.5 day |
+```
+
+**PI Planning cadence** — add to IMPLEMENTATION_PLAN.md (for projects with >8 steps):
+```markdown
+## Sprint Boundaries
+
+| Sprint | Steps | Goal | Duration |
+|--------|-------|------|----------|
+| Sprint 1 | Steps 1-3 | Core infrastructure + data model + auth | 1 week |
+| Sprint 2 | Steps 4-6 | Core business logic + API endpoints | 1 week |
+| Sprint 3 | Steps 7-9 | Frontend + integration + testing | 1 week |
+| Sprint 4 | Steps 10-12 | Deployment + hardening + polish | 1 week |
+```
 
 ### Step 3: Generate CLAUDE.md
 Project memory file with: контекст, правила, стек, структура, статус-таблица шагов. Обязательно включить правило: «В конце каждой сессии или значимого блока работы — сохранить контекст через /session-save» (обеспечивает непрерывность между сессиями).

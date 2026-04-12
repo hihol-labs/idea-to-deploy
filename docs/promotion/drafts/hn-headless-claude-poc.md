@@ -14,7 +14,7 @@ We built a self-improving methodology plugin for Claude Code and needed to test 
 
 ### Background
 
-idea-to-deploy is a Claude Code plugin (19 skills, 6 subagents) that turns Claude Code into a structured development pipeline: idea to architecture to code to tests to deploy. We have a three-tier testing system: structural meta-review (Python, runs in CI), snapshot validation (deterministic checks on generated output), and behavioural execution (actually running skills end-to-end).
+idea-to-deploy is a Claude Code plugin (19 skills, 7 subagents) that turns Claude Code into a structured development pipeline: idea to architecture to code to tests to deploy. We have a three-tier testing system: structural meta-review (Python, runs in CI), snapshot validation (deterministic checks on generated output), and behavioural execution (actually running skills end-to-end).
 
 The first two tiers are straightforward. The third is where things get interesting, because you need Claude Code to run non-interactively, produce files, and exit -- so you can validate the output programmatically.
 

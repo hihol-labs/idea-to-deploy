@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 20](https://img.shields.io/badge/Skills-20-green.svg)](#skills)
-[![Agents: 6](https://img.shields.io/badge/Agents-6-orange.svg)](#subagents)
+[![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
 [![Version: 1.17.0](https://img.shields.io/badge/Version-1.17.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
@@ -12,7 +12,7 @@
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 20 skills and 6 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 20 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -34,7 +34,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 20 skills + 6 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 20 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -64,7 +64,7 @@ After installation, the skills and agents are registered under:
 ```
 ~/.claude/plugins/idea-to-deploy/
   ├── skills/          # 20 skill directories
-  ├── agents/          # 6 subagent definitions
+  ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
 

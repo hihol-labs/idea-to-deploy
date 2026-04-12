@@ -24,7 +24,7 @@ idea-to-deploy is a Claude Code plugin (installed via `/plugin install HiH-DimaN
 - **Operations:** `/migrate`, `/harden`, `/infra`
 - **Session:** `/session-save` (context persistence between sessions)
 
-**6 subagents** (architect, code-reviewer, test-generator, perf-analyzer, doc-writer, business-analyst) for specialized deep work.
+**7 subagents** (architect, code-reviewer, test-generator, perf-analyzer, doc-writer, business-analyst) for specialized deep work.
 
 **Safety guardrails:** `/careful` warns before destructive commands (rm -rf, DROP TABLE, force push). `/freeze <path>` restricts edits to a specific directory. Both opt-in.
 

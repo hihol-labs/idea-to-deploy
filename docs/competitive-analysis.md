@@ -24,7 +24,7 @@
 | Возможность | **idea-to-deploy** | **GSD** | **gstack** | **BMAD** | **claude-code-skills** | **AI-DLC** | **Claude Buddy** |
 |---|---|---|---|---|---|---|---|
 | **Скиллов** | **20** | 7 команд | ~30 | 15 | **136** | 13 ролей | 7 |
-| **Субагентов** | 5 | 5 (researcher, planner, plan-checker, executor, verifier) | - | 9 | - | 13 "шляп" | 12 персон |
+| **Субагентов** | 7 | 5 (researcher, planner, plan-checker, executor, verifier) | - | 9 | - | 13 "шляп" | 12 персон |
 | **Project scaffolding** | /kickstart, /blueprint | /gsd-new-project | - | /product-brief | project-bootstrap | Plan Together | /buddy:foundation |
 | **Daily work router** | **/task** | /gsd-next (auto-detect) | - | - | - | - | - |
 | **Code review** | /review + **meta-review** | /gsd-verify-work | /review + auto-fix | - | audit suite | Reviewer hat | - |

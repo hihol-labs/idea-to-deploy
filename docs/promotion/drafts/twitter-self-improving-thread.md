@@ -18,11 +18,11 @@ Here's how the self-improvement loop works. Thread.
 
 ## Tweet 2
 
-The plugin: idea-to-deploy. 20 skills + 6 subagents for Claude Code.
+The plugin: idea-to-deploy. 20 skills + 7 subagents for Claude Code.
 
 Full lifecycle: idea -> architecture -> code -> tests -> review -> deploy.
 
-But the hard part isn't building skills. It's keeping 20 skills, 6 agents, READMEs, badges, and tables in sync.
+But the hard part isn't building skills. It's keeping 20 skills, 7 agents, READMEs, badges, and tables in sync.
 
 ## Tweet 3
 
@@ -108,7 +108,7 @@ Each tier catches what the others miss.
 
 The repo is MIT-licensed: github.com/HiH-DimaN/idea-to-deploy
 
-20 skills, 6 subagents, 25+ meta-review gates, 3-tier testing, product discovery (MoSCoW/RICE), safety guardrails, Red/Blue Team security mode.
+20 skills, 7 subagents, 25+ meta-review gates, 3-tier testing, product discovery (MoSCoW/RICE), safety guardrails, Red/Blue Team security mode.
 
 If your Claude Code workflow is ad-hoc, this might help.
 
