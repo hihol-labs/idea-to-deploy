@@ -156,25 +156,23 @@
 
 ---
 
-## 7. Roadmap приоритетов (на основе анализа)
+## 7. Roadmap — что реализовано и что осталось
 
-### v1.17.0 — Product Discovery (HIGH, закрывает главный gap)
-- Новый скилл `/discover` (или Phase 0 в /blueprint)
-- BA-субагент для market analysis
-- MoSCoW приоритизация встроена в output
-- Gate: все features имеют приоритет перед переходом к architecture
+### РЕАЛИЗОВАНО в v1.17.0–v1.17.2 (2026-04-12)
 
-### v1.18.0 — Safety Guardrails (MEDIUM)
-- Хук `/careful` — warn before destructive commands
-- Хук `/freeze` — restrict edits to scope
-- Интеграция с существующей hooks infrastructure
+Все 6 пунктов из конкурентного анализа реализованы в одном цикле:
 
-### v1.19.0 — Extended Audits (MEDIUM)
-- Dead code detection в /security-audit
-- Observability check в /harden
-- Concurrency analysis (optional)
+| # | Что | Источник | PR | Статус |
+|---|---|---|---|---|
+| 1 | `/discover` скилл + BA-субагент | BMAD | #25 | ✅ Done |
+| 2 | MoSCoW/RICE в /blueprint Step 1.5 | BMAD | #25 | ✅ Done |
+| 3 | Safety guardrails (careful + freeze) | gstack | #25, #26 | ✅ Done (автоматические) |
+| 4 | Shared helpers pattern | BMAD | #25 | ✅ Done |
+| 5 | Extended security audits (dead code, observability, concurrency) | claude-code-skills | #25 | ✅ Done |
+| 6 | Red/Blue Team mode (--redblue) | AI-DLC | #25 | ✅ Done |
+| 7 | ## Rules во всех 19 скиллах | Anthropic compliance | #27 | ✅ Done |
 
-### Future consideration
-- Design/UX pipeline (Canva MCP integration?)
-- Helper pattern для экономии токенов
-- Red/Blue Team mode в /security-audit
+### Оставшиеся future consideration
+
+- **Design/UX pipeline** — Canva MCP integration для wireframes и design tokens. Не критично для core methodology.
+- **Parallel sessions enhancement** — gstack Conductor (10-15 спринтов). Наш lockfile warning достаточен для solo-developer, но не для team.
