@@ -125,6 +125,16 @@ Result: Tests for valid creation, missing fields, unauthorized access, duplicate
 5. Используй реалистичные данные — `"Иван Петров"` вместо `"foo"`, `"user@example.com"` вместо `"test"`. Мокай только внешние зависимости (HTTP, DB, файловая система), не внутренний код
 6. Все тесты должны проходить перед завершением скилла — если тест падает, это баг в тесте или в коде, разберись и исправь
 
+## Self-validation
+
+Before presenting tests to user, verify:
+- [ ] Tests actually run and pass (execute test suite)
+- [ ] Tests cover the specific functionality requested by user
+- [ ] Both happy path and edge cases included
+- [ ] Test naming follows project conventions
+- [ ] No tests depend on external services without mocks
+- [ ] Test file location follows project structure conventions
+
 ## Troubleshooting
 
 ### Tests pass locally but fail in CI

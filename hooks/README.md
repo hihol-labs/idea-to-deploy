@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These seven hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These eleven hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.16.2)
 
@@ -37,7 +37,7 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 - **`careful.sh`** — **always active** inside methodology repos (auto-detected via `.claude-plugin/plugin.json`). Outside methodology repos: opt-in via `CAREFUL_MODE=1` env var or state file.
 - **`freeze.sh`** — **automatic** when skills like `/bugfix`, `/refactor`, `/perf` start work (they write the scope to `/tmp/claude-freeze-{session}.state`). Can also be activated manually: `/freeze src/auth`. Deactivate with `/unfreeze` or skill completion.
 
-All seven hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+All eleven hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 

@@ -276,6 +276,16 @@ Actions:
 4. Lockfile `.active-session.lock` обновляется при КАЖДОМ вызове — идемпотентно перезаписывается, никогда не append. Timestamp должен быть свежим (`date +%s`)
 5. Неочевидный контекст — записывай устные договорённости, ограничения не из кода, решения принятые в разговоре. Если этого поля нет или оно пустое, следующая сессия потеряет контекст, который невозможно восстановить из git
 
+
+## Self-validation
+
+Before confirming session save, verify:
+- [ ] All 9 required fields present (date, project, summary, decisions, files, blockers, next steps, non-obvious context)
+- [ ] Summary is specific (not "worked on project")
+- [ ] Next steps are actionable (can start immediately without guessing)
+- [ ] MEMORY.md index updated with new entry
+- [ ] .active-session.lock written with fresh timestamp
+
 ## Troubleshooting
 
 ### Memory directory not found

@@ -143,6 +143,14 @@ Actions:
 3. Задай ровно ОДИН routing-вопрос (А/Б/В). Не задавай уточняющих вопросов про стек, фичи, архитектуру — это работа целевого скилла
 4. Если сценарий очевиден из контекста ("у меня есть документация" = В, "покажи план заказчику" = Б) — не задавай routing-вопрос, сразу делегируй
 
+## Self-validation
+
+Before delegating to target skill, verify:
+- [ ] User scenario correctly classified (A/B/C/D)
+- [ ] Target skill (/kickstart, /blueprint, /guide, or /task) matches scenario
+- [ ] All required user input collected before delegation
+- [ ] Delegation uses Skill tool (not inline execution)
+
 ## Troubleshooting
 
 ### User doesn't know which scenario to pick

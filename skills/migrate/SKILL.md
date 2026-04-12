@@ -199,6 +199,16 @@ Actions:
 4. Refuse to apply the naive ALTER TABLE in one shot
 5. Offer to generate the multi-step migration plan if user agrees
 
+
+## Self-validation
+
+Before applying migration, verify:
+- [ ] Backup exists or backup command provided
+- [ ] Rollback path documented and tested
+- [ ] Migration SQL/script reviewed for destructive operations
+- [ ] User explicitly confirmed production application (if applicable)
+- [ ] Post-migration verification query provided
+
 ## Troubleshooting
 
 ### Migration succeeded but app still broken

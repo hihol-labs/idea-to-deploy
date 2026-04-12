@@ -186,6 +186,17 @@ Actions:
 
 Result: 8 files, IMPLEMENTATION_PLAN has 8 steps (bot simpler than full SaaS).
 
+## Self-validation
+
+Before presenting documents to user, verify:
+- [ ] All 5 documents generated (strategic plan, architecture, PRD, implementation plan, README)
+- [ ] Each document has all required sections per references/document-templates.md
+- [ ] Architecture references the correct tech stack from user input
+- [ ] PRD user stories are specific to the domain, not generic
+- [ ] Implementation plan phases are ordered by dependency
+- [ ] If DISCOVERY.md exists, its priorities are reflected in the plan
+- [ ] No placeholder text ("TODO", "TBD", "Lorem ipsum") remains
+
 ## Troubleshooting
 
 ### User doesn't know the tech stack

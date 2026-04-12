@@ -123,6 +123,16 @@ Result: Found that validation middleware silently rejected the request due to mi
 4. Перед фиксом объясни WHY (Step 3) вслух — если не можешь сформулировать причину в одном предложении, root cause ещё не найден
 5. Не меняй тесты, чтобы они проходили — если тест падает после фикса, значит тест проверял корректное поведение, а фикс сломал контракт
 
+## Self-validation
+
+Before reporting fix to user, verify:
+- [ ] Root cause identified and documented (not just symptom fix)
+- [ ] Fix addresses the specific error/behavior described by user
+- [ ] Tests pass after fix (run existing test suite)
+- [ ] No new warnings or errors introduced
+- [ ] Fix does not break other functionality (check related tests)
+- [ ] If regression test needed, it has been added or recommended
+
 ## Troubleshooting
 
 ### Dead end: No error message

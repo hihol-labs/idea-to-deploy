@@ -178,6 +178,16 @@ Actions:
 
 Result: 1 hardcoded ChatGPT API key in `lib/openai.ts:8`. Suggested fix: `process.env.OPENAI_API_KEY`.
 
+
+## Self-validation
+
+Before presenting audit report, verify:
+- [ ] All OWASP Top 10 categories checked (or marked N/A with justification)
+- [ ] Each finding has severity level (Critical/High/Medium/Low/Info)
+- [ ] No false positives from generic patterns (verify each finding against actual code)
+- [ ] Report is READ-ONLY — no fixes applied, only recommendations
+- [ ] If --redblue mode: both Red Team (attack vectors) and Blue Team (defenses) documented
+
 ## Troubleshooting
 
 ### Too many false positives

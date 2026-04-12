@@ -274,6 +274,16 @@ Actions:
 4. Generate `loadtest/README.md` with run command
 5. Offer to run locally: `docker run -i --rm grafana/k6 run - <loadtest/baseline.js`
 
+
+## Self-validation
+
+Before presenting hardening report, verify:
+- [ ] All checklist categories assessed (health, logging, metrics, backups, rate-limiting, graceful shutdown)
+- [ ] Each recommendation includes specific code/config example
+- [ ] Runbook generated (if requested) with actionable steps
+- [ ] No changes applied without explicit user approval
+- [ ] Load test recommendations include realistic parameters
+
 ## Troubleshooting
 
 ### Service runs on a platform without SIGTERM (e.g., Vercel)

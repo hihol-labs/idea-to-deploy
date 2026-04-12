@@ -282,6 +282,16 @@ Actions:
 5. Secrets: `env` via cloud-init (bot token from TF_VAR_TELEGRAM_TOKEN)
 6. Report: PASSED_WITH_WARNINGS ("single environment; consider adding a staging bot for breaking-change testing")
 
+
+## Self-validation
+
+Before presenting infrastructure code, verify:
+- [ ] Terraform/Helm/K8s manifests are syntactically valid
+- [ ] No real secrets in generated files (only .example placeholders)
+- [ ] Remote state configured with locking for production
+- [ ] Resource names follow cloud provider naming conventions
+- [ ] Cost estimate provided for provisioned resources
+
 ## Troubleshooting
 
 ### "terraform init" fails with backend config errors

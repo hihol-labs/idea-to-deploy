@@ -1,0 +1,27 @@
+{
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/autopilot",
+  "fixture": "fixture-12-autopilot",
+  "skill": "/autopilot",
+  "status": "pending",
+  "description": "Full autopilot pipeline for a simple Telegram bot. Validates that all phases execute sequentially with checkpoints between them.",
+  "expected_files": [
+    "DISCOVERY.md",
+    "STRATEGIC_PLAN.md",
+    "ARCHITECTURE.md",
+    "PRD.md",
+    "IMPLEMENTATION_PLAN.md",
+    "README.md"
+  ],
+  "required_phases": [
+    "discover",
+    "blueprint",
+    "kickstart",
+    "review",
+    "test"
+  ],
+  "min_session_saves": 1,
+  "min_review_score": 8,
+  "prompt": "Автопилот: создай Telegram-бот для записи к парикмахеру. Стек: Python + aiogram + PostgreSQL. Целевая аудитория: парикмахеры-одиночки."
+}

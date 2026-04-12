@@ -26,12 +26,12 @@
 
 ### Tagline (78 chars)
 ```
-19 skills + 6 subagents: complete project lifecycle from idea to production
+20 skills + 6 subagents: complete project lifecycle from idea to production
 ```
 
 ### Short description (187 chars)
 ```
-Claude Code plugin with 19 skills and 6 specialized subagents covering the full project lifecycle — from product discovery and planning to coding, testing, security audit, and deployment.
+Claude Code plugin with 20 skills and 6 specialized subagents covering the full project lifecycle — from product discovery and planning to coding, testing, security audit, and deployment.
 ```
 
 ### Long description (890 chars)
@@ -39,7 +39,7 @@ Claude Code plugin with 19 skills and 6 specialized subagents covering the full 
 idea-to-deploy is an open-source Claude Code plugin that provides a structured methodology for the entire software project lifecycle.
 
 Core capabilities:
-- 19 skills covering discovery (MoSCoW/RICE prioritization), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team mode), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session context persistence.
+- 20 skills covering discovery (MoSCoW/RICE prioritization), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team mode), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session context persistence.
 - 6 specialized subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, and business-analyst — each with focused expertise.
 - 7 enforcement hooks that automatically route tasks to the correct skill, apply safety guardrails, and enforce commit completeness gates.
 - Self-improving methodology with 23 meta-review gates that catch drift in the methodology itself.
@@ -68,12 +68,12 @@ Tags: claude-code, methodology, project-lifecycle, developer-tools, ai-coding, t
 
 ### Tagline (74 chars)
 ```
-Full project lifecycle in one plugin: 19 skills, 6 subagents, 7 hooks
+Full project lifecycle in one plugin: 20 skills, 6 subagents, 7 hooks
 ```
 
 ### Short description (195 chars)
 ```
-Open-source Claude Code methodology plugin. 19 skills from product discovery to deployment, 6 specialized subagents, 7 enforcement hooks, 23 meta-review gates, and 3-tier behavioural validation.
+Open-source Claude Code methodology plugin. 20 skills from product discovery to deployment, 6 specialized subagents, 7 enforcement hooks, 23 meta-review gates, and 3-tier behavioural validation.
 ```
 
 ### Long description (780 chars)
@@ -114,7 +114,7 @@ Complete dev lifecycle methodology — from idea to deployed production
 
 ### Short description (188 chars)
 ```
-19 skills + 6 subagents for Claude Code. Covers the entire project lifecycle: discovery, planning, coding, testing, debugging, security audit, DB migrations, hardening, and infrastructure.
+20 skills + 6 subagents for Claude Code. Covers the entire project lifecycle: discovery, planning, coding, testing, debugging, security audit, DB migrations, hardening, and infrastructure.
 ```
 
 ### Long description (820 chars)
@@ -122,7 +122,7 @@ Complete dev lifecycle methodology — from idea to deployed production
 idea-to-deploy is a comprehensive Claude Code plugin that replaces scattered prompts with a structured, self-improving methodology.
 
 What you get:
-- 19 skills: /kickstart, /blueprint, /guide, /task, /bugfix, /refactor, /doc, /test, /perf, /review, /explain, /session-save, /security-audit, /deps-audit, /migrate, /harden, /infra, /project, and more.
+- 20 skills: /kickstart, /blueprint, /guide, /task, /bugfix, /refactor, /doc, /test, /perf, /review, /explain, /session-save, /security-audit, /deps-audit, /migrate, /harden, /infra, /project, and more.
 - 6 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
 - 7 enforcement hooks: automatic skill routing, safety guardrails, commit completeness gates.
 - 23 meta-review gates that catch methodology drift before it reaches your code.
@@ -147,12 +147,12 @@ Open source, MIT licensed, actively maintained.
 
 ### Tagline (68 chars)
 ```
-Idea to production: 19 skills, 6 subagents, zero ad-hoc prompting
+Idea to production: 20 skills, 6 subagents, zero ad-hoc prompting
 ```
 
 ### Short description (192 chars)
 ```
-Structured methodology plugin for Claude Code. 19 skills cover the full lifecycle from product discovery (MoSCoW/RICE) to infrastructure-as-code. 6 subagents provide specialized domain depth.
+Structured methodology plugin for Claude Code. 20 skills cover the full lifecycle from product discovery (MoSCoW/RICE) to infrastructure-as-code. 6 subagents provide specialized domain depth.
 ```
 
 ### Long description (760 chars)
@@ -195,7 +195,7 @@ Ship faster with structure: 19 lifecycle skills and 6 subagents for Claude
 
 ### Short description (196 chars)
 ```
-Claude Code plugin providing a structured methodology for the entire project lifecycle. 19 skills from discovery to deployment, 6 specialized subagents, automatic task routing, and safety guardrails.
+Claude Code plugin providing a structured methodology for the entire project lifecycle. 20 skills from discovery to deployment, 6 specialized subagents, automatic task routing, and safety guardrails.
 ```
 
 ### Long description (850 chars)
@@ -238,7 +238,7 @@ Full-stack project lifecycle plugin for Claude Code — idea to deploy
 
 ### Short description (183 chars)
 ```
-Open-source Claude Code plugin with 19 skills and 6 subagents. Covers product discovery, planning, coding, testing, security audits, DB migrations, hardening, and infrastructure.
+Open-source Claude Code plugin with 20 skills and 6 subagents. Covers product discovery, planning, coding, testing, security audits, DB migrations, hardening, and infrastructure.
 ```
 
 ### Long description (770 chars)
@@ -246,7 +246,7 @@ Open-source Claude Code plugin with 19 skills and 6 subagents. Covers product di
 idea-to-deploy brings a structured, repeatable methodology to Claude Code, covering every phase of software development.
 
 Key numbers:
-- 19 skills: discovery, planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, DB migrations, production hardening, infrastructure-as-code, session persistence, and more
+- 20 skills: discovery, planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, DB migrations, production hardening, infrastructure-as-code, session persistence, and more
 - 6 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst
 - 7 enforcement hooks: automatic task routing, safety guardrails, commit completeness gates
 - 23 meta-review gates: self-improving methodology that catches its own drift
@@ -270,12 +270,12 @@ GitHub: https://github.com/HiH-DimaN/idea-to-deploy
 
 ### PR title
 ```
-Add idea-to-deploy — 19 skills + 6 subagents for full project lifecycle
+Add idea-to-deploy — 20 skills + 6 subagents for full project lifecycle
 ```
 
 ### README entry (copy-paste into the appropriate section)
 ```markdown
-- [idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy) — Complete project lifecycle methodology: 19 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 6 specialized subagents + 7 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
+- [idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy) — Complete project lifecycle methodology: 20 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 6 specialized subagents + 7 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
 ```
 
 ### PR body
@@ -292,7 +292,7 @@ Add idea-to-deploy — 19 skills + 6 subagents for full project lifecycle
 
 Open-source Claude Code plugin providing a structured methodology for the entire project lifecycle — from product discovery to deployed, hardened production.
 
-- **19 skills** covering discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session persistence.
+- **20 skills** covering discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session persistence.
 - **6 subagents:** architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
 - **7 enforcement hooks** for automatic skill routing and safety guardrails.
 - **23 meta-review gates** for self-improving methodology.

@@ -238,6 +238,17 @@ Actions:
 
 Result: Working bot with booking, calendar, and admin notifications.
 
+## Self-validation
+
+Before reporting phase completion, verify:
+- [ ] All files from implementation plan are generated
+- [ ] Code compiles/lints without errors (run linter if available)
+- [ ] Tests exist and pass
+- [ ] No hardcoded credentials or placeholder secrets
+- [ ] Docker/deployment config is functional (docker-compose up works if Docker available)
+- [ ] README includes installation and run instructions
+- [ ] /review score >= 8/10 before proceeding to next phase
+
 ## Troubleshooting
 
 ### User wants everything at once

@@ -123,6 +123,16 @@ Actions:
 4. Не добавляй абстракции "на будущее" — Extract Interface для одной реализации, Strategy для одного варианта, Factory для одного типа запрещены
 5. Маленькие инкрементальные шаги — каждый шаг компилируется и проходит тесты. Не переписывай весь файл за один Edit
 
+
+## Self-validation
+
+Before presenting refactoring to user, verify:
+- [ ] All existing tests still pass after refactoring
+- [ ] No behavior change — only structure/readability improved
+- [ ] Each refactoring step maps to a named Fowler pattern
+- [ ] No new dependencies introduced without justification
+- [ ] Code is measurably simpler (fewer lines, less nesting, clearer naming)
+
 ## Troubleshooting
 
 ### Tests fail after refactoring

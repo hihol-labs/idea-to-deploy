@@ -116,6 +116,16 @@ Actions:
 4. Не документируй очевидное — `get_user()`, простые геттеры, однострочные утилиты не нуждаются в docstring длиннее одной строки
 5. Каждый пример в API-документации должен быть валидным JSON/запросом, который можно скопировать и выполнить
 
+
+## Self-validation
+
+Before presenting documentation to user, verify:
+- [ ] Documentation matches the current state of code (not stale)
+- [ ] All public functions/endpoints documented
+- [ ] Code examples compile/run (if included)
+- [ ] Language matches user's request (Russian/English)
+- [ ] Documentation style matches existing project conventions
+
 ## Troubleshooting
 
 ### Too many files to document

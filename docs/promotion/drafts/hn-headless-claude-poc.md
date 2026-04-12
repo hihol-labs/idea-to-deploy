@@ -161,6 +161,6 @@ The headless runner is what makes this sustainable. Without it, testing a method
 
 idea-to-deploy is MIT-licensed: https://github.com/HiH-DimaN/idea-to-deploy
 
-The headless runner, snapshot validator, and meta-review scripts are all in `tests/`. The methodology itself is 19 skills covering project creation, daily work (bugfix, refactor, test, perf, security audit, deps audit, migrate, harden, infra), product discovery, documentation, and session persistence.
+The headless runner, snapshot validator, and meta-review scripts are all in `tests/`. The methodology itself is 20 skills covering project creation, daily work (bugfix, refactor, test, perf, security audit, deps audit, migrate, harden, infra), product discovery, documentation, and session persistence.
 
 If you are doing anything similar with headless Claude Code or automated LLM testing, I would be curious to hear your approach. The flag documentation is sparse and we found most of the above through experimentation.

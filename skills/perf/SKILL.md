@@ -112,6 +112,16 @@ Trade-off: Slight delay on first navigation to each route
 4. Одна оптимизация за раз — не применяй 5 фиксов одновременно, иначе невозможно понять какой дал эффект
 5. Trade-off обязателен — каждая оптимизация имеет цену (память, читаемость, сложность). Явно указывай компромисс в отчёте
 
+
+## Self-validation
+
+Before presenting performance analysis, verify:
+- [ ] Bottleneck identified with evidence (measurements, not guesses)
+- [ ] Optimization suggestions include expected impact estimate
+- [ ] No premature optimization of non-bottleneck code
+- [ ] Suggestions are actionable with specific code changes
+- [ ] Trade-offs documented (memory vs speed, complexity vs performance)
+
 ## Troubleshooting
 
 ### Can't reproduce slowness locally

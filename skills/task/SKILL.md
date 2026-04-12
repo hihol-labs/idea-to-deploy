@@ -147,6 +147,15 @@ Actions:
 2. Skip question, invoke `/review` directly
 3. Tell user: «Вижу staged diff, запускаю `/review`.»
 
+
+## Self-validation
+
+Before delegating to target skill, verify:
+- [ ] Task type correctly classified from user's description
+- [ ] Target skill matches the task type (bugfix → /bugfix, not /refactor)
+- [ ] User's input is sufficient for the target skill (or clarification requested)
+- [ ] Delegation uses Skill tool with appropriate arguments
+
 ## Troubleshooting
 
 ### User wants multiple skills in one go

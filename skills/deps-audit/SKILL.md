@@ -225,6 +225,16 @@ Actions:
 
 Result: 3 Important findings (2 GPL deps, 1 SSPL). Alternatives suggested.
 
+
+## Self-validation
+
+Before presenting audit report, verify:
+- [ ] All dependency files scanned (package.json, requirements.txt, go.mod, etc.)
+- [ ] Each CVE finding includes advisory ID and severity
+- [ ] License check covers all direct dependencies
+- [ ] Abandoned package check uses last publish date + maintainer activity
+- [ ] Report is READ-ONLY — no packages installed or updated
+
 ## Troubleshooting
 
 ### "No lockfile found"

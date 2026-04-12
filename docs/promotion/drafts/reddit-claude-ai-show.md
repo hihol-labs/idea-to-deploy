@@ -3,20 +3,20 @@
 - **Platform:** Reddit r/ClaudeAI
 - **Target length:** 500-800 words
 - **Tags/Flair:** Show (or Project Showcase, depending on subreddit rules)
-- **Hook:** I built a Claude Code plugin that audits itself and gets stricter with every release. Here's what 19 skills, 25 meta-review gates, and 3 tiers of testing look like in practice.
+- **Hook:** I built a Claude Code plugin that audits itself and gets stricter with every release. Here's what 20 skills, 25 meta-review gates, and 3 tiers of testing look like in practice.
 - **CTA:** MIT-licensed at https://github.com/HiH-DimaN/idea-to-deploy -- would love feedback, especially on the testing approach.
 
 ---
 
 ## Show r/ClaudeAI: idea-to-deploy v1.17 -- self-improving methodology plugin
 
-I built a Claude Code plugin that audits itself and gets stricter with every release. Here is what 19 skills, 25 meta-review gates, and 3 tiers of testing look like in practice.
+I built a Claude Code plugin that audits itself and gets stricter with every release. Here is what 20 skills, 25 meta-review gates, and 3 tiers of testing look like in practice.
 
 ### What it is
 
 idea-to-deploy is a Claude Code plugin (installed via `/plugin install HiH-DimaN/idea-to-deploy`) that gives Claude Code a structured development methodology instead of ad-hoc generation.
 
-**19 skills** covering the full lifecycle:
+**20 skills** covering the full lifecycle:
 - **Entry points:** `/project` (router), `/task` (daily work router), `/discover` (product discovery with MoSCoW/RICE)
 - **Project creation:** `/kickstart` (full lifecycle), `/blueprint` (planning only), `/guide` (copy-paste prompts)
 - **Daily work:** `/bugfix`, `/refactor`, `/doc`, `/test`, `/perf`, `/explain`

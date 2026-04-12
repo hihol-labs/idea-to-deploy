@@ -91,6 +91,15 @@ Result:
 4. Подстраивай глубину под уровень пользователя: если спрашивает "что такое middleware" — объясняй с основ, если спрашивает "почему здесь двойная буферизация" — не объясняй что такое буфер
 5. Ссылайся на конкретные номера строк (`file.py:42-58`), а не на абстрактные "в этом блоке"
 
+
+## Self-validation
+
+Before presenting explanation to user, verify:
+- [ ] Explanation covers all files/functions the user asked about
+- [ ] At least one ASCII diagram included for non-trivial flows
+- [ ] Technical accuracy verified against actual code (not assumptions)
+- [ ] Complexity level matches user's expertise (from memory/context)
+
 ## Troubleshooting
 
 ### Code is too large to explain at once

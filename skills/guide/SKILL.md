@@ -89,6 +89,16 @@ Result: CLAUDE_CODE_GUIDE.md with 12 steps matching existing IMPLEMENTATION_PLAN
 4. Промпты содержат конкретные значения (имена таблиц, типы полей, эндпоинты), а не абстракции ("создай модель данных")
 5. Не генерируй код внутри промптов — промпт описывает ЧТО сделать, Claude Code сам решает КАК. Исключение: конфиги и .env.example
 
+
+## Self-validation
+
+Before presenting CLAUDE_CODE_GUIDE.md, verify:
+- [ ] Each step is copy-pasteable into Claude Code
+- [ ] Steps follow the order from implementation plan
+- [ ] All steps reference correct file paths and commands
+- [ ] Pre-emptive clarifications included where skills ask questions
+- [ ] Guide covers full lifecycle (not just code generation)
+
 ## Troubleshooting
 
 ### No PROJECT_ARCHITECTURE.md exists

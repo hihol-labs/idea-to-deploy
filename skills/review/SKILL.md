@@ -159,6 +159,15 @@ Fix: Standardize to one name across all documents.
 4. Gate status детерминирован — одни и те же документы/код всегда дают одинаковый статус. Никогда не понижай BLOCKED до PASSED_WITH_WARNINGS по просьбе пользователя
 5. Score (0-10) — informational only, никогда не используется для gating. Единственный gate — бинарный статус (BLOCKED / PASSED_WITH_WARNINGS / PASSED)
 
+## Self-validation
+
+Before presenting review results, verify:
+- [ ] Every rubric item has a PASS/FAIL/N-A verdict with justification
+- [ ] Overall score is consistent with individual item verdicts
+- [ ] BLOCKED status used only when Critical items fail
+- [ ] All referenced files actually exist in the project
+- [ ] Improvement suggestions are actionable (not vague "improve code quality")
+
 ## Troubleshooting
 
 ### A Critical check fails but the user insists the project is fine

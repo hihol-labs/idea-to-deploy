@@ -14,7 +14,7 @@ How do you test a methodology that runs inside an LLM? We built three tiers of a
 
 ### The problem
 
-idea-to-deploy is a Claude Code plugin with 19 skills and 6 subagents. It provides structured workflows for the full project lifecycle: from initial idea through architecture, coding, testing, review, and deployment.
+idea-to-deploy is a Claude Code plugin with 20 skills and 6 subagents. It provides structured workflows for the full project lifecycle: from initial idea through architecture, coding, testing, review, and deployment.
 
 The challenge: the "code" is mostly markdown. Skills are prompt templates with structured sections. Subagents are markdown files describing agent roles. There are no functions to unit-test in the traditional sense.
 
@@ -59,7 +59,7 @@ SMOKE_TRIGGERS = [
     ("fix bug", "bugfix"),
     ("write tests", "test"),
     ("refactor this", "refactor"),
-    # ... 19 skills, 2+ phrases each
+    # ... 20 skills, 2+ phrases each
 ]
 for phrase, expected_skill in SMOKE_TRIGGERS:
     assert expected_skill in hook_script, f"Missing trigger for {expected_skill}"
