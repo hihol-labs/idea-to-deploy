@@ -21,6 +21,10 @@
     "deployment",
     "code-review",
     "security-audit",
+    "self-review",
+    "meta-review",
+    "methodology-validation",
+    "daily-work-router",
     "product-discovery",
     "safety-guardrails",
     "red-blue-team"

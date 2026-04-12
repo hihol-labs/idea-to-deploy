@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "infra",
+  "skill_under_test": "/infra",
+  "status": "pending",
+  "description": "Stub — /infra generates Terraform modules or Helm charts under `infra/`. Snapshot needs to validate Terraform provider block, resource types, variable declarations, and README deploy commands per target preset (do/aws/hetzner/k8s). Deferred to v1.16.0."
+}

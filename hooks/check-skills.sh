@@ -18,7 +18,9 @@ import sys
 TRIGGERS = [
     (
         r"(новый\s+проект|создай\s+проект|хочу\s+проект|стартуем\s+проект|"
-        r"начнём\s+проект|приложен|с\s+нуля|новый\s+сайт|новое\s+приложение|"
+        r"начнём\s+проект|запили\s+проект|сделай\s+проект\s+целиком|"
+        r"от\s+идеи\s+до\s+деплоя|полный\s+цикл|"
+        r"приложен|с\s+нуля|новый\s+сайт|новое\s+приложение|"
         r"сделай\s+сайт|сделай\s+сервис|новый\s+mvp|хочу\s+запустить|"
         r"start\s+a?\s*project|build\s+(it\s+|a\s+)?(from\s+scratch|project)|"
         r"end-to-end|kickstart|new\s+(app|service))",
@@ -63,7 +65,11 @@ TRIGGERS = [
         r"(объясни\s+(код|как|что)|как\s+(это\s+)?работает|как\s+устроен|что\s+делает|"
         r"что\s+здесь\s+происходит|разбер\w+\s+(как|код|этот|файл|модуль)|"
         r"расскажи\s+про|explain\s+(this|that|how|what|code)|"
-        r"how\s+does\s+this\s+work|walk\s+me\s+through|\bwalkthrough\b)",
+        r"how\s+does\s+this\s+work|walk\s+me\s+through|\bwalkthrough\b|"
+        r"what\s+does\s+(this\s+|the\s+)?(\w+\s+)?(do|mean|return)|"
+        r"can\s+you\s+explain|"
+        r"tell\s+me\s+(about|how)\s+(this|the|that)\s+"
+        r"(code|function|module|class|file|method|component|handler|endpoint))",
         "🔔 Триггер 'объясни' → используй /explain (диаграммы + пошаговый разбор).",
     ),
     (

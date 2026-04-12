@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "doc",
+  "skill_under_test": "/doc",
+  "status": "pending",
+  "description": "Stub — /doc adds docstrings to an existing Python module. Snapshot needs to validate that every public function/class gets a docstring in project style and that no obvious internal helpers are over-documented. Requires AST-based check, not just regex. Deferred to v1.16.0."
+}

@@ -1,7 +1,9 @@
 # Контент-план продвижения idea-to-deploy
 
 > Дата создания: 2026-04-09
+> Последнее обновление: 2026-04-12 (после серии релизов v1.13.2 → v1.16.1, методология достигла 10/10 по всем трём testing tiers — добавлена Часть 8 с новыми selling points)
 > Цель: максимальный охват в dev-сообществе → GitHub stars → личный бренд → монетизация через экспертизу
+> **Текущая версия методологии: v1.16.2** (18 скиллов, 5 субагентов, 5 хуков, 23 meta-review checks)
 
 ---
 
@@ -21,10 +23,10 @@
 | **Срок** | Подать в течение 1 недели |
 
 **Действия:**
-1. Проверить/создать `.claude-plugin/marketplace.json` по [официальной схеме](https://github.com/anthropics/claude-plugins-official)
-2. Заполнить форму подачи
-3. Подготовить описание на английском (marketplace — англоязычный)
-4. После одобрения — упомянуть бейдж во всех материалах
+1. ✅ **Done v1.13.2** — `.claude-plugin/marketplace.json` создан, версия 1.16.1, описания "18 skills + 5 subagents", keywords включают `self-review`, `meta-review`, `methodology-validation`, `daily-work-router`. Покрыт автоматическим gate `M-C13` который не даёт ему drift'нуть от `plugin.json`.
+2. ⏳ **TODO** — Заполнить форму подачи (требует ручной работы)
+3. ⏳ **TODO** — Подготовить описание на английском (marketplace — англоязычный) — README.md уже англоязычный, можно скопировать секции
+4. ⏳ **TODO** — После одобрения упомянуть "Anthropic Verified" бейдж во всех материалах
 
 ### 0.2. Community Marketplaces
 
@@ -343,3 +345,93 @@
 3. **Курс** — "AI-Driven Development Masterclass" (платный, Udemy/Stepik)
 4. **Enterprise-версия** — приватные скиллы + интеграции + поддержка
 5. **Выступления** — конференции (TeamLead Conf, HolyJS, PyCon) = авторитет + контакты
+
+---
+
+## Часть 8: Новые selling points после v1.13.2 → v1.16.1 (добавлено 2026-04-12)
+
+После серии из 7 релизов методология приобрела три уникальных характеристики, которых нет ни у одного другого Claude Code плагина в каталогах. Это **новые сильные ангелы для контента** — используй их когда пишешь треды/статьи/посты, чтобы выделить idea-to-deploy на фоне обычных collection-плагинов «вот вам набор скиллов».
+
+### 8.1. Self-improving methodology (главный wow-фактор)
+
+**Сюжет:** методология применяет `/review` к самой себе через `--self` режим. Каждый PR на main гоняет `tests/meta_review.py` (23 checks: 14 Critical + 9 Important) и блокирует merge если найден drift в версиях, бейджах, frontmatter, hooks, subagent contracts, marketplace.json consistency, или fixture snapshots. Между v1.13.2 и v1.16.1 этот gate был расширен **на основе реальных найденных багов**:
+
+- v1.13.2 нашёл drift в `marketplace.json` (версия заморожена на 1.11.0, "17 skills" вместо 18) → добавлен gate M-C13
+- v1.13.2 нашёл стейл "no CI integration yet" в `tests/README.md` → добавлен gate M-C14
+- v1.14.0 нашёл что 3 read-only субагента не имеют forked-context disclaimer → добавлен gate M-I8 + 5 субагентов обновлены
+- v1.14.1 нашёл что нет gate'а на caller-skill superset для subagent delegation → добавлен gate M-I9 + новое поле `report_only: true`
+- v1.16.2 нашёл что hooks count в README говорит "two enforcement scripts" / "All four hooks fire live" при реальном количестве 5 → добавлен gate M-C15
+
+**Угол для контента:**
+- Twitter тред: «How a Claude Code methodology audits ITSELF — 5 self-found bugs, 5 new gates added in 7 releases»
+- Dev.to статья: «The self-improving methodology pattern: meta-review as code»
+- Habr: «Когда методология ловит свои собственные баги: разбор 5 self-found drift incidents в idea-to-deploy»
+- YouTube short: запуск `python3 tests/meta_review.py --verbose` на чистом репо → 0 findings → запись 23/23 PASSED, потом explainer 30 сек
+
+### 8.2. Behavioural validation, not just structural
+
+**Сюжет:** большинство Claude Code плагинов проверяют только что файлы существуют. idea-to-deploy v1.15.0 + v1.16.0 + v1.16.1 ввели **трёхуровневое тестирование**:
+
+1. **Structural tier** — meta_review.py, 23 checks, CI-blocking, $0 cost
+2. **Snapshot validation tier** — `tests/verify_snapshot.py` валидирует **structure** сгенерированных fixture файлов против deterministic schema (required sections, content markers, count constraints, rubric status). 3 active fixtures × 76 checks. Catches "renamed section", "dropped multi-tenant column", "endpoint count regression"
+3. **Behavioural execution tier** — `tests/run-fixture-headless.sh` запускает `claude -p` non-interactive, генерирует fixture output автоматически, потом валидирует. Все 3 active fixtures end-to-end verified ($2.74 equiv cost on subscription = $0 actual)
+
+**Угол для контента:**
+- Twitter тред: «How to actually test an LLM-based methodology — three tiers of validation, $0 on subscription»
+- Dev.to статья: «Beyond grep: structural validation of LLM output for regression catching»
+- Habr глубокая статья: «Trust but verify: бинарная валидация behavioural output методологии для Claude Code»
+- YouTube: 3 minute video showing the runner producing 7 docs → verify_snapshot.py running → PASSED
+
+### 8.3. Headless Claude Code POC findings (uniquely valuable knowledge)
+
+**Сюжет:** во время разработки v1.16.0 был сделан реальный POC `claude -p` non-interactive mode для автоматизации fixtures. Это **новые знания о возможностях и ограничениях** Claude Code SDK, которые мало кто публиковал:
+
+- ✅ `claude -p --input-format stream-json --output-format stream-json --verbose` работает для multi-message input
+- ✅ Все 18 наших skills плюс Anthropic built-in (общим числом 22 определения) автоматически загружаются через `~/.claude/skills/`
+- ✅ Real tool use в headless: модель сама вызывает Write/Read/Bash
+- ✅ `total_cost_usd` reported даже на subscription = идеально для CI budget planning
+- ⚠️ **`--output-format stream-json` требует `--verbose`** (не документировано)
+- ⚠️ **`--input-format stream-json` требует matching output-format**
+- ⚠️ **5-hour rate limit hard stop** даже на subscription. Parallel runs делят quota, оба падают. Serial execution mandatory
+- ⚠️ **Skills с `agent: <subagent>` frontmatter форкаются в headless mode** и теряют orchestration. Subagent делает свой narrow scope (1 файл) и сессия кончается. Workaround: bypass через direct main-agent prompt
+
+**Угол для контента:**
+- Hacker News: «Show HN: Lessons from running Claude Code non-interactively for CI fixture validation» — это контент уровня HN, потому что cumulative knowledge dump
+- Dev.to: «`claude -p` deep dive: undocumented flags, rate limits, fork behaviour» — англоязычная техническая статья на 2000+ слов
+- Twitter тред: «5 things I learned running Claude Code in headless mode for the first time»
+- Reddit r/ClaudeAI: технический пост с полным cost/duration breakdown и stream-json examples
+
+### 8.4. Конкретные releases как content units (вместо abstract «новый релиз»)
+
+Каждый из 7 релизов с v1.13.2 имеет concrete narrative для отдельной публикации:
+
+| Релиз | Story для контента |
+|---|---|
+| v1.13.2 | "How a Claude Code plugin's marketplace listing silently drifted 3 versions — and the gate that catches it now" |
+| v1.14.0 | "Subagent contracts: why your read-only Agent tool needs a 'I cannot Write' disclaimer in its body" |
+| v1.14.1 | "Adding a frontmatter field (`report_only: true`) to formalize implicit contracts in skills" |
+| v1.15.0 | "Three-tier testing for LLM methodologies: structural / snapshot / behavioural" |
+| v1.16.0 | "Phase 2 of behavioural automation: `claude -p` headless runner + GitHub Actions skeleton" |
+| v1.16.1 | "Bootstrapping snapshots from real LLM output: 5 calibration fixes, 3 fixtures verified, $2.74 total" |
+| v1.16.2 | "When meta_review.py catches its own README drift: M-C15 hook count gate" |
+
+Каждый из этих можно превратить в:
+- 1 Twitter тред (10-15 твитов)
+- 1 Dev.to / Habr статья (1500-3000 слов)
+- 1 YouTube short (60 сек) или long (5-10 мин)
+
+### 8.5. Updated KPI — что добавилось как достижение
+
+| Метрика | Состояние ДО v1.13.2 | Состояние ПОСЛЕ v1.16.2 |
+|---|---|---|
+| Meta-review checks | 13 (M-C1..M-C12 + M-I1..M-I7) | **23** (14 Critical + 9 Important) |
+| Auto-validated fixtures | 0 | **3 active** + 7 pending stubs |
+| Headless invocation проверен | нет | **POC PASSED** на 3 fixtures |
+| Behavioural regression coverage | manual только | **deterministic + automated** |
+| Subagent contract enforcement | нет | **5 агентов** имеют forked-context disclaimer + M-I8 gate |
+| Marketplace.json drift protection | нет | **M-C13** + M-C15 hook count gate |
+| Total releases at v1.16.x range | — | **7 incremental releases в 4 дня** доказывают process работоспособность |
+
+**Все эти числа — конкретные factual claims**, которые работают в Show HN / Reddit posts / YouTube descriptions гораздо лучше чем "методология стала лучше". Использовать в первых 30 секундах любого пресс-release.
+
+---

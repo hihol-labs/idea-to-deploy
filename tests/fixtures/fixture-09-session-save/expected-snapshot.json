@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "session-save",
+  "skill_under_test": "/session-save",
+  "status": "pending",
+  "description": "Stub — /session-save writes `session_YYYY-MM-DD.md` to the project memory directory (`~/.claude/projects/.../memory/`) and updates MEMORY.md. Snapshot needs to validate the 9 required fields, MEMORY.md index update, and .active-session.lock structure. Deferred to v1.16.0."
+}

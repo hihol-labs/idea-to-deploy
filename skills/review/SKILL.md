@@ -6,6 +6,7 @@ license: MIT
 allowed-tools: Read Glob Grep
 context: fork
 agent: code-reviewer
+report_only: true
 metadata:
   author: HiH-DimaN
   version: 1.13.0

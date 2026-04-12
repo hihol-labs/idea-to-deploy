@@ -58,9 +58,9 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Step 1: Sync skills
+# Step 1/4: Sync skills
 # -----------------------------------------------------------------------------
-say "Step 1/3: skills/"
+say "Step 1/4: skills/"
 mkdir -p "$ACTIVE/skills"
 
 added=0
@@ -103,9 +103,9 @@ done
 ok "skills: +$added added, ~$updated updated, =$unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 2: Sync hooks
+# Step 2/4: Sync hooks
 # -----------------------------------------------------------------------------
-say "Step 2/3: hooks/"
+say "Step 2/4: hooks/"
 mkdir -p "$ACTIVE/hooks"
 
 h_added=0
@@ -147,14 +147,18 @@ done
 ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 2.5: Sync agents/*.md (subagents)
+# Step 3/4: Sync agents/*.md (subagents)
 # -----------------------------------------------------------------------------
 # Gap #9 (v1.13.1): sync-to-active.sh originally copied skills/ and hooks/
 # but NOT agents/, so updates to subagent instructions (e.g. the v1.13.0
 # methodology-mode Step 0 in agents/code-reviewer.md) never propagated to
 # ~/.claude/agents/. That made the v1.13.0 /review fix effectively inactive
-# until a manual copy. This step fixes it symmetrically with Step 2.
-say "Step 2.5/3: agents/"
+# until a manual copy. This step fixes it symmetrically with Step 2/4.
+#
+# Numbering note (v1.13.2): originally this was "Step 2.5/3" because agents/
+# was added after the 3-step layout was fixed. v1.13.2 renumbered to the
+# honest 1/4..4/4 scheme so that `--check` dry-run output matches reality.
+say "Step 3/4: agents/"
 mkdir -p "$ACTIVE/agents"
 
 a_added=0
@@ -196,9 +200,9 @@ fi
 ok "agents: +$a_added added, ~$a_updated updated, =$a_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 3: Patch settings.json "hooks" section
+# Step 4/4: Patch settings.json "hooks" section
 # -----------------------------------------------------------------------------
-say "Step 3/3: settings.json hooks registration"
+say "Step 4/4: settings.json hooks registration"
 
 SETTINGS="$ACTIVE/settings.json"
 

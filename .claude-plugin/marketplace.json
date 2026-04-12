@@ -32,7 +32,13 @@
         "deployment",
         "code-review",
         "security-audit",
-        "session-persistence"
+        "session-persistence",
+        "self-review",
+        "meta-review",
+        "daily-work-router",
+        "methodology-validation",
+        "product-discovery",
+        "safety-guardrails"
       ]
     }
   ]
