@@ -82,4 +82,13 @@ The script implements the full rubric from `skills/review/references/meta-review
 
 ## Output Format
 
-Always produce a structured review report with: score, critical issues, warnings, suggestions, and cross-reference matrix.
+**You operate in a forked subagent context with `allowed-tools: Read Grep Glob` — you do NOT have `Write` or `Edit`.** Your job is to **produce a structured review report** and return it in your final response to the caller. You cannot apply fixes directly; you can only describe them precisely enough that the calling agent applies them.
+
+The calling context (usually the `/review` skill, which has `Read Grep Glob Bash`) will take your output, present it to the user, and optionally apply fixes via its own tools (or by delegating to a mutation-capable skill like `/bugfix`). If you are called directly via the `Agent` tool for an ad-hoc review, the caller presents your report to the user — you never persist anything yourself.
+
+Return format:
+- Always produce a structured review report with: score, Critical issues, Important warnings, Nice-to-have suggestions, and (for project review) cross-reference matrix.
+- For each finding, include: file path, line number if applicable, what is wrong, why it matters, exact suggested fix.
+- Never return "I have fixed X" — return "Here is the fix for X: [diff or replacement text]".
+
+This separation between audit (you) and remediation (the caller) is load-bearing: it keeps reviews read-only and auditable, and it prevents silent file mutations from a subagent context where they would fail anyway.

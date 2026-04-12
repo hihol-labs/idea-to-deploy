@@ -408,6 +408,450 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-C16: README skill table integrity (v1.16.3) ---
+    # Two failure modes that M-C7 (badge count), M-C12 (prose count), and
+    # M-I4 (skill mentioned anywhere in README) all missed:
+    #
+    #   Mode A: category subtotal in heading "(N skills)" doesn't match
+    #     the number of skills in the markdown table that follows.
+    #     Real bug: "### Operations (4 skills)" with only 3 rows in the
+    #     table, found by user observation 2026-04-12.
+    #
+    #   Mode B: a skill is missing from a comprehensive per-skill table
+    #     (Skill Contracts, Recommended Models) even though it's mentioned
+    #     elsewhere in the README. M-I4 only checks "skill mentioned
+    #     anywhere", which passes when the skill is in Entry Points table
+    #     but absent from Skill Contracts. Real bug: /task missing from
+    #     Skill Contracts AND Recommended Models in BOTH README.md AND
+    #     README.ru.md, found by user observation 2026-04-12.
+    #
+    # Both modes are caught by parsing each README's category headings
+    # and comprehensive tables, then verifying:
+    #   - Each "### Category (N skills)" heading is followed by a
+    #     markdown table whose row count equals N
+    #   - Each comprehensive table (Skill Contracts, Recommended Models,
+    #     and their RU equivalents) contains every skill from skills/
+    #
+    # Sum of category subtotals must also equal len(skills/) — catches
+    # the case where individual subtotals look OK but their total drifts.
+    try:
+        actual_skills_n = len(skills)
+        actual_skill_set = set(skills)
+
+        # Category heading pattern: "### <name> (<N> skill[s]/скилл[ов])"
+        category_re = re.compile(
+            r"^\s{0,3}#{2,4}\s+(.+?)\s*\((\d+)\s+(?:skills?|скилл\w*)",
+            re.IGNORECASE,
+        )
+        # Skill mention in a markdown table row: leading "| " then
+        # backtick-wrapped /skill-name
+        table_skill_re = re.compile(r"^\s*\|\s*`/([\w-]+)`")
+
+        # Comprehensive tables that MUST contain every skill (Mode B).
+        # The header marker is the line that introduces the table —
+        # we scan from there until the next blank-line-then-non-table.
+        comprehensive_table_markers = [
+            ("README.md", "## Skill Contracts"),
+            ("README.md", "## Recommended Models"),
+            ("README.ru.md", "## Контракты скиллов"),
+            ("README.ru.md", "## Рекомендуемые модели"),
+        ]
+
+        readme_paths = {
+            "README.md": repo / "README.md",
+            "README.ru.md": repo / "README.ru.md",
+        }
+
+        for fname, path in readme_paths.items():
+            if not path.exists():
+                continue
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            # --- Mode A: category subtotal vs table row count ---
+            i = 0
+            subtotal_sum = 0
+            while i < len(lines):
+                m = category_re.match(lines[i])
+                if not m:
+                    i += 1
+                    continue
+                category = m.group(1).strip()
+                expected_n = int(m.group(2))
+                subtotal_sum += expected_n
+                # Walk forward to the next table (skipping blank lines /
+                # narrative). The first line starting with "|" begins it.
+                j = i + 1
+                while j < len(lines) and not lines[j].lstrip().startswith("|"):
+                    j += 1
+                if j >= len(lines):
+                    r.crit(
+                        "M-C16",
+                        f"{fname}:{i+1}: category heading '{lines[i].strip()}' "
+                        f"declared {expected_n} skills but no markdown table follows",
+                    )
+                    i += 1
+                    continue
+                # Skip header row (| Skill | ... |) and separator row (|---|...|)
+                # — both start with "|". Then count data rows until blank line
+                # or non-table content.
+                k = j
+                table_rows = 0
+                table_skills_in_section = []
+                while k < len(lines) and lines[k].lstrip().startswith("|"):
+                    sm = table_skill_re.match(lines[k])
+                    if sm:
+                        table_rows += 1
+                        table_skills_in_section.append(sm.group(1))
+                    k += 1
+                if table_rows != expected_n:
+                    r.crit(
+                        "M-C16",
+                        f"{fname}:{i+1}: category '{category}' heading says "
+                        f"({expected_n} skills) but table has {table_rows} rows",
+                    )
+                i = k
+
+            # Sum-of-subtotals check: if subtotal_sum was computed (i.e.
+            # at least one category heading was found), it must equal
+            # actual skill count.
+            if subtotal_sum > 0 and subtotal_sum != actual_skills_n:
+                r.crit(
+                    "M-C16",
+                    f"{fname}: sum of category subtotals = {subtotal_sum}, "
+                    f"actual skill count = {actual_skills_n}",
+                )
+
+        # --- Mode B: per-skill presence in every comprehensive table ---
+        for fname, marker in comprehensive_table_markers:
+            path = readme_paths.get(fname)
+            if path is None or not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            # Find the marker section
+            marker_idx = text.find(marker)
+            if marker_idx == -1:
+                r.crit(
+                    "M-C16",
+                    f"{fname}: comprehensive table marker '{marker}' not found",
+                )
+                continue
+            # Slice from marker to next "## " heading (or end of file)
+            section = text[marker_idx:]
+            next_h2 = re.search(r"\n## ", section[len(marker):])
+            if next_h2:
+                section = section[: len(marker) + next_h2.start()]
+            # Extract all /skill-name mentions in markdown table rows
+            present = set()
+            for line in section.splitlines():
+                sm = table_skill_re.match(line)
+                if sm:
+                    present.add(sm.group(1))
+            missing = actual_skill_set - present
+            if missing:
+                r.crit(
+                    "M-C16",
+                    f"{fname} '{marker}' table missing rows for skills: {sorted(missing)}",
+                )
+    except Exception as e:
+        r.imp("M-C16", f"could not run README skill table integrity check: {e}")
+
+    # --- M-C15: hook count consistency in README narrative (v1.16.2) ---
+    # M-C12 covers skill / agent counts in narrative prose, but NOT hook
+    # counts. The v1.16.2 audit found that README.md said "two enforcement
+    # scripts" and "All four hooks fire live" when the real count was 5
+    # (pre-flight-check.sh was added in v1.5.0 but never propagated to
+    # the README hook section). M-C15 closes this hole.
+    #
+    # Pattern: scan README.md, README.ru.md, hooks/README.md for any
+    # narrative mention of "N hooks" / "N hook" / "N скриптов-энфорсеров"
+    # / "N enforcement scripts" / "N script" — must match actual count
+    # of hooks/*.sh files. Skipped: lines inside markdown tables, lines
+    # with version markers (historical mentions are legitimate).
+    try:
+        actual_hooks_n = 0
+        hooks_dir_check = repo / "hooks"
+        if hooks_dir_check.is_dir():
+            actual_hooks_n = len(list(hooks_dir_check.glob("*.sh")))
+
+        hook_count_doc_paths: list[Path] = [
+            repo / "README.md",
+            repo / "README.ru.md",
+            repo / "hooks" / "README.md",
+            repo / "CONTRIBUTING.md",
+        ]
+
+        # English number words 1-9
+        en_words = {
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9,
+        }
+        # Russian number words (root forms) 1-9
+        ru_words = {
+            "один": 1, "одного": 1, "одно": 1, "одна": 1,
+            "два": 2, "двух": 2, "две": 2,
+            "три": 3, "трёх": 3, "трех": 3,
+            "четыре": 4, "четырёх": 4, "четырех": 4,
+            "пять": 5, "пяти": 5,
+            "шесть": 6, "шести": 6,
+            "семь": 7, "семи": 7,
+            "восемь": 8, "восьми": 8,
+            "девять": 9, "девяти": 9,
+        }
+
+        # Hook context words: must appear on the same line as the count
+        hook_ctx = re.compile(
+            r"\b(hook|hooks|скрипт|скрипты|скриптов|"
+            r"enforcement\s+script|enforcement\s+scripts|"
+            r"скрипт-?энфорсер|скрипта-?энфорсер|скриптов-?энфорсер|"
+            r"хук|хуки|хука|хуков)\b",
+            re.IGNORECASE,
+        )
+        # Numeric "N hooks" / "N скриптов" / "N hook"
+        hook_num_re = re.compile(
+            r"(?<!\S)(\d+)\s+(?:hooks?|скрипт\w*|hook\b|хук\w*)",
+            re.IGNORECASE,
+        )
+        # English word + hooks
+        hook_en_word_re = re.compile(
+            r"\b(one|two|three|four|five|six|seven|eight|nine)\s+"
+            r"(?:hooks?|enforcement\s+scripts?|hook\b)",
+            re.IGNORECASE,
+        )
+        # Russian word + хук/скрипт
+        hook_ru_word_re = re.compile(
+            r"\b(один|одного|одна|одно|два|двух|две|"
+            r"три|трёх|трех|четыре|четырёх|четырех|"
+            r"пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти)\s+"
+            r"(?:хук\w*|скрипт\w*)",
+            re.IGNORECASE,
+        )
+        # "All N hooks" / "Все N хуков" — covered by hook_num_re
+
+        for doc in hook_count_doc_paths:
+            if not doc.exists():
+                continue
+            rel = doc.relative_to(repo)
+            for lineno, line in enumerate(
+                doc.read_text(encoding="utf-8", errors="replace").splitlines(),
+                1,
+            ):
+                if line.lstrip().startswith("|"):
+                    continue  # markdown table
+                if line.lstrip().startswith("#"):
+                    continue  # heading
+                if re.search(r"v\d+\.\d+", line):
+                    continue  # version marker — historical mention
+                if not hook_ctx.search(line):
+                    continue  # no hook context
+
+                # Pattern A: numeric "N hooks"
+                for m in hook_num_re.finditer(line):
+                    n = int(m.group(1))
+                    if n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' but actual hook count is {actual_hooks_n}",
+                        )
+
+                # Pattern B: English number word "four hooks"
+                for m in hook_en_word_re.finditer(line):
+                    n = en_words.get(m.group(1).lower())
+                    if n is not None and n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' (={n}) but actual hook count is {actual_hooks_n}",
+                        )
+
+                # Pattern C: Russian number word "четыре хука"
+                for m in hook_ru_word_re.finditer(line):
+                    n = ru_words.get(m.group(1).lower())
+                    if n is not None and n != actual_hooks_n:
+                        r.crit(
+                            "M-C15",
+                            f"{rel}:{lineno}: '{m.group(0)}' (={n}) but actual hook count is {actual_hooks_n}",
+                        )
+    except Exception as e:
+        r.imp("M-C15", f"could not run hook-count check: {e}")
+
+    # --- M-I10: fixture snapshot schema presence + validity (v1.15.0) ---
+    # Phase 1 of behavioural automation — every fixture under tests/fixtures/
+    # must have an `expected-snapshot.json` file, either `status: active`
+    # (fully bootstrapped, validated by `tests/verify_snapshot.py`) or
+    # `status: pending` (stub, deferred to a later release). Missing or
+    # malformed snapshot = Important finding.
+    #
+    # See tests/README.md for the Phase 1 workflow. Phase 2 (v1.16.0
+    # candidate) will add non-interactive execution via `claude -p`, at
+    # which point pending stubs will need to be flipped to active.
+    if fixtures_dir.is_dir():
+        required_snapshot_fields = {
+            "$schema_version",
+            "fixture_type",
+            "skill_under_test",
+            "status",
+            "description",
+        }
+        allowed_statuses = {"active", "pending"}
+
+        for fd in sorted(fixtures_dir.iterdir()):
+            if not fd.is_dir():
+                continue
+            snap_path = fd / "expected-snapshot.json"
+            if not snap_path.is_file():
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}: missing expected-snapshot.json "
+                    f"— Phase 1 snapshot validation requires at least a "
+                    f"`status: pending` stub",
+                )
+                continue
+            try:
+                snap = json.loads(snap_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                r.crit(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"invalid JSON ({e})",
+                )
+                continue
+            missing = required_snapshot_fields - set(snap.keys())
+            if missing:
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"missing required fields: {sorted(missing)}",
+                )
+            status_val = snap.get("status", "")
+            if status_val not in allowed_statuses:
+                r.imp(
+                    "M-I10",
+                    f"tests/fixtures/{fd.name}/expected-snapshot.json: "
+                    f"status='{status_val}' not in {sorted(allowed_statuses)}",
+                )
+
+    # --- M-I9: caller-skill tool superset over delegated subagent (v1.14.1) ---
+    # When a skill delegates to a subagent via frontmatter `agent: X`, there
+    # are three contract-consistent patterns:
+    #
+    #   Pattern A: subagent is read-only, skill has Write/Edit
+    #     → subagent returns structured text, skill persists it.
+    #     Examples: /blueprint → architect, /perf → perf-analyzer.
+    #
+    #   Pattern B: skill AND subagent both read-only, skill is report_only
+    #     → entire chain produces stdout reports, nothing is written.
+    #     Example: /review → code-reviewer (audit output to user).
+    #     Requires explicit `report_only: true` in skill frontmatter.
+    #
+    #   Pattern C: subagent has Write/Edit itself
+    #     → subagent writes files directly in its forked context.
+    #     Currently no such agent exists (all 5 are read-only by design),
+    #     but the gate permits this for forward compatibility.
+    #
+    # Anything outside these three patterns is a bug. Critical findings:
+    #   - M-I9a: `agent: X` refers to non-existent agent (typo / rename miss)
+    #   - M-I9b: both read-only + missing `report_only: true` → silent write
+    #     failures when the skill tries to persist subagent output
+    agents_tools: dict[str, str] = {}
+    if agents_dir.is_dir():
+        for agent_md in sorted(agents_dir.glob("*.md")):
+            fm_a, _ = read_frontmatter(agent_md)
+            agents_tools[agent_md.stem] = fm_a.get("allowed-tools", "")
+
+    write_tool_re = re.compile(r"\b(?:Write|Edit|MultiEdit)\b")
+    for skill in skills:
+        sd = skills_dir / skill
+        fm, _ = read_frontmatter(sd / "SKILL.md")
+        agent_ref = fm.get("agent", "").strip()
+        if not agent_ref:
+            continue
+        # Strip inline comments in frontmatter value (the `#` case)
+        agent_ref = agent_ref.split("#", 1)[0].strip().strip('"').strip("'")
+        if not agent_ref:
+            continue
+        if agent_ref not in agents_tools:
+            r.crit(
+                "M-I9a",
+                f"/{skill}: frontmatter `agent: {agent_ref}` points to "
+                f"non-existent subagent. Available: {sorted(agents_tools)}",
+            )
+            continue
+
+        agent_has_write = bool(write_tool_re.search(agents_tools[agent_ref]))
+        skill_has_write = bool(write_tool_re.search(fm.get("allowed-tools", "")))
+
+        # Parse report_only flag, stripping inline comments
+        report_only_raw = fm.get("report_only", "false")
+        report_only_value = report_only_raw.split("#", 1)[0].strip().lower()
+        skill_is_report_only = report_only_value == "true"
+
+        if agent_has_write:
+            continue  # Pattern C
+        if skill_has_write:
+            continue  # Pattern A
+        if skill_is_report_only:
+            continue  # Pattern B
+        r.crit(
+            "M-I9b",
+            f"/{skill}: delegates to read-only subagent `{agent_ref}` "
+            f"(allowed-tools: {agents_tools[agent_ref]!r}) but has no Write/Edit itself "
+            f"and no `report_only: true` in frontmatter. Either add Write/Edit to "
+            f"the skill (if it must persist subagent output) or add "
+            f"`report_only: true` to formally declare the skill produces only "
+            f"stdout reports.",
+        )
+
+    # --- M-I8: subagent contract — read-only agents must declare it (v1.14.0) ---
+    # Any `agents/*.md` whose `allowed-tools` frontmatter does NOT include
+    # Write/Edit must say so EXPLICITLY in its body — otherwise the model
+    # running inside that forked subagent context will try to write files,
+    # fail silently (tools unavailable), and the calling skill gets nothing.
+    #
+    # The fix (added in v1.14.0 for doc-writer and test-generator) is an
+    # "Output Format" section that tells the subagent to return text to
+    # the caller. This gate makes the pattern mandatory for all future
+    # read-only subagents — register a regression test for the clarification.
+    #
+    # A passing disclaimer contains ALL THREE markers on any line within
+    # the body:
+    #   1) the phrase "forked" (forked subagent/context)
+    #   2) the word "Write" or "Edit" (references the missing tool)
+    #   3) a negation marker ("NOT", "not have", "without", "cannot")
+    #
+    # This is intentionally loose — we want the disclaimer present, not
+    # to enforce exact wording.
+    agents_dir = repo / "agents"
+    if agents_dir.is_dir():
+        write_edit_re = re.compile(r"\bWrite\b|\bEdit\b")
+        disclaimer_re = re.compile(
+            r"forked.*(?:Write|Edit).*(?:NOT|not\s+have|without|cannot)|"
+            r"(?:NOT|not\s+have|without|cannot).*(?:Write|Edit).*forked|"
+            r"forked\s+subagent\s+context.*(?:NOT|do\s+not|without).*(?:Write|Edit)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        # Simpler check: a single block with all three markers
+        def has_disclaimer(body: str) -> bool:
+            # Look for a block (paragraph or bold line) that mentions
+            # "forked" + "Write" (or Edit) + a negation within 500 chars
+            for block in re.split(r"\n\s*\n", body):
+                if "forked" in block.lower() and write_edit_re.search(block):
+                    if re.search(r"\bNOT\b|not\s+have|without|cannot|do\s+not", block, re.IGNORECASE):
+                        return True
+            return False
+
+        for agent_md in sorted(agents_dir.glob("*.md")):
+            fm, body = read_frontmatter(agent_md)
+            tools = fm.get("allowed-tools", "")
+            has_write = bool(re.search(r"\bWrite\b", tools))
+            has_edit = bool(re.search(r"\bEdit\b", tools))
+            if has_write or has_edit:
+                # Agent can write files itself — no disclaimer required.
+                continue
+            if not has_disclaimer(body):
+                r.imp(
+                    "M-I8",
+                    f"agents/{agent_md.name}: read-only subagent (no Write/Edit in allowed-tools) "
+                    f"but body has no forked-context disclaimer — silent write failures will result",
+                )
+
     # --- M-C13: marketplace.json consistency with plugin.json (v1.13.2) ---
     # The community plugin catalog (.claude-plugin/marketplace.json) is a
     # separate file from plugin.json and is what external crawlers read. It

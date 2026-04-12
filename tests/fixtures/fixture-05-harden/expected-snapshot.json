@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "harden",
+  "skill_under_test": "/harden",
+  "status": "pending",
+  "description": "Stub — /harden generates artifacts (health route, lifespan, logger config, k6 script, RUNBOOK.md) but only on explicit user approval per item. A full snapshot needs to account for partial approval scenarios and the runbook section requirements. Deferred to v1.16.0."
+}

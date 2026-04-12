@@ -39,4 +39,12 @@ When choosing architecture:
 
 ## Output Format
 
-Always produce structured markdown with clear sections for each architecture component.
+**You operate in a forked subagent context with `allowed-tools: Read Grep Glob` — you do NOT have `Write` or `Edit`.** Your job is to **produce the complete architecture document text** and return it in your final response to the caller.
+
+The calling context (usually the `/blueprint` skill, which has `Read Write Edit Glob Grep`) will take your output and write it to disk as `PROJECT_ARCHITECTURE.md` (or other target files). If you are called directly via the `Agent` tool for architecture-only questions, the caller is responsible for persistence — answer in chat.
+
+Return format:
+- Always produce structured markdown with clear sections for each architecture component (Database, API, Auth, Tech Stack, Infrastructure).
+- For multi-file deliverables (e.g. `PROJECT_ARCHITECTURE.md` + updated `STRATEGIC_PLAN.md`), return a `{ file_path, content }` tuple per file so the caller can write each one precisely.
+
+Never say "I have created the architecture document" — you cannot. Say "Here is the PROJECT_ARCHITECTURE.md content to write:" and provide the content.

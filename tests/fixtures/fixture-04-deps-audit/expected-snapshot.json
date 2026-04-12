@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "deps-audit",
+  "skill_under_test": "/deps-audit",
+  "status": "pending",
+  "description": "Stub — /deps-audit produces a stdout report and does not write files by default. Bootstrapping this snapshot requires capturing the rubric report to a file and validating tiered findings (CVE / license / abandoned). Deferred to v1.16.0 alongside Phase 2 non-interactive execution."
+}

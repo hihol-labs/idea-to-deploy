@@ -40,4 +40,13 @@ Match the detected style.
 
 ## Output Format
 
-Generate documentation files matching project conventions.
+**You operate in a forked subagent context with `allowed-tools: Read Grep Glob` — you do NOT have `Write` or `Edit`.** Your job is to **produce the full documentation text** and return it in your final response to the caller.
+
+The calling context (usually the `/doc` skill, which has `Read Write Edit Glob Grep`) will take your output and write it to disk. If you are called directly via the `Agent` tool by another skill or by the main agent, the caller is responsible for persistence.
+
+Return format:
+- For README / API docs / architecture docs: return the complete Markdown content, ready to write verbatim to the target file.
+- For inline comments / docstrings / JSDoc: return a structured list of `{ file_path, function_name, comment_block }` tuples so the caller can apply each one precisely.
+- Match existing project conventions (language, tone, header style, code fence formatting).
+
+Never say "I have updated the README" — you cannot. Say "Here is the README content to write to `README.md`:" and provide the content.
