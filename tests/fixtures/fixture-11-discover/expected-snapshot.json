@@ -1,7 +1,10 @@
 {
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/discover",
   "fixture": "fixture-11-discover",
   "skill": "/discover",
-  "status": "stub",
+  "status": "pending",
   "description": "Product discovery for a SaaS booking platform. Validates DISCOVERY.md generation with TAM/SAM/SOM, competitors, personas, MoSCoW+RICE.",
   "expected_files": [
     "DISCOVERY.md"

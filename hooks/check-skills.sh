@@ -176,8 +176,8 @@ TRIGGERS = [
     (
         r"(исследуй\s+рынок|анализ\s+рынк|market\s+analysis|market\s+research|"
         r"целевая\s+аудитори|кто\s+пользовател|user\s+personas?|target\s+audience|"
-        r"конкурентн\w+\s+анализ|competitor\s+analysis|competitive\s+research|"
-        r"приоритизаци\w+\s+фич|feature\s+prioritization|"
+        r"\bконкуренты\b|конкурентн\w+\s+анализ|competitor\s+analysis|competitive\s+research|"
+        r"приоритизаци\w+\s+фич|какие\s+фичи\s+важнее|feature\s+prioritization|"
         r"product\s+discovery|discovery\s+phase|discovery\s+фаз|"
         r"что\s+строить|что\s+делать\s+первым|what\s+to\s+build\s+first|"
         r"\btam\b.*\bsam\b.*\bsom\b|value\s+proposition|ценностное\s+предложени|"

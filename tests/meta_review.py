@@ -16,7 +16,7 @@ runs embedded in git-commit commands. Moving it into a real file gives us:
    need arises (see CHANGELOG [1.6.1] for the detection criteria), the
    workflow's only step is `python3 tests/meta_review.py`.
 3. Coverage expansion for M-I7 — the smoke test now exercises every one
-   of the 18 skills, not just a representative subset of 10. This closes
+   of the 19 skills, not just a representative subset of 10. This closes
    the v1.6.0-deferred item #1.
 
 Usage:
@@ -86,6 +86,10 @@ SMOKE_TRIGGERS: list[tuple[str, str]] = [
     ("save session", "session-save"),
     ("закрой tech debt", "task"),
     ("tech debt cleanup", "task"),
+    # /discover — product discovery phase (new in v1.17.0)
+    ("исследуй рынок", "discover"),
+    ("конкуренты", "discover"),
+    ("product discovery", "discover"),
     # /kickstart has no standalone trigger — it is reached via the /project
     # router. The "kickstart" keyword in the project regex routes to
     # /project, not /kickstart directly. Deliberately not in this list.
@@ -169,7 +173,7 @@ def run_rubric(repo: Path) -> Report:
     plugin_ver = plugin["version"]
 
     skills_dir = repo / "skills"
-    skills = sorted([p.name for p in skills_dir.iterdir() if p.is_dir()])
+    skills = sorted([p.name for p in skills_dir.iterdir() if p.is_dir() and not p.name.startswith("_")])
 
     hook_file = repo / "hooks" / "check-skills.sh"
     hook_text = hook_file.read_text(encoding="utf-8") if hook_file.exists() else ""
@@ -285,7 +289,7 @@ def run_rubric(repo: Path) -> Report:
     #   - Lines with version markers (`v1.x.y`) or historical phrases
     #     ("at that time", "existed", "era", "initially", "before")
     try:
-        actual_skills_n = len([p for p in (repo / "skills").iterdir() if p.is_dir()])
+        actual_skills_n = len([p for p in (repo / "skills").iterdir() if p.is_dir() and not p.name.startswith("_")])
         agents_dir = repo / "agents"
         actual_agents_n = 0
         if agents_dir.is_dir():

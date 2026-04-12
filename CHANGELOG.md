@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.0] - 2026-04-12
+
+**Competitive adaptations release.** Closes the two highest-priority gaps identified in `docs/competitive-analysis.md`: product discovery (vs BMAD) and safety guardrails (vs gstack).
+
+### Added
+
+- **New skill `/discover`** — product discovery phase: market analysis (TAM/SAM/SOM), competitor research, user personas, value proposition canvas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. Full mode on Opus, Lite mode on Sonnet, refuses Haiku.
+- **New subagent `business-analyst`** — specialized agent for `/discover`, focused on market analysis and feature prioritization in a forked context.
+- **New hooks `careful.sh` and `freeze.sh`** (optional safety guardrails) — `careful.sh` warns before destructive commands (rm -rf, DROP TABLE, force-push); `freeze.sh` restricts edits to a specific directory scope. Both are opt-in per session via `/careful` and `/freeze <path>`.
+- **`skills/_shared/helpers.md`** — shared helper definitions extracted from skill references to reduce token duplication across skills.
+- **Fixture `fixture-11-discover`** — snapshot fixture for the new `/discover` skill.
+
+### Changed
+
+- Entry Points category now has 3 skills (`/project`, `/task`, `/discover`).
+- Subagents table now has 6 entries (added `business-analyst`).
+- Hooks count updated from 5 to 7 across all documentation.
+- Skill Contracts and Recommended Models tables updated with `/discover` row.
+- `meta_review.py` excludes `skills/_shared/` (directories starting with `_`) from skill counting.
+- `check-skills.sh` trigger phrases updated with `/discover` triggers.
+
+---
+
 ## [1.16.3] - 2026-04-12
 
 **Fourth iteration of the self-improvement loop in this release cycle.** A user-spotted observation "in README tables I count skills inside parentheses and get 19 instead of 18" turned into a 6-drift cleanup and a new `M-C16` meta-review gate covering two previously-uncovered drift modes. This is the **fourth time** in v1.13.2..v1.16.3 where a user observation has surfaced a class of drift that automated structural gates missed.

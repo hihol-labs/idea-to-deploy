@@ -204,3 +204,18 @@ Before presenting DISCOVERY.md, verify:
 
 If any requirement is not met, fix it before presenting. If you cannot meet it, warn:
 "⚠️ DISCOVERY.md не соответствует минимальным требованиям: {reason}."
+
+
+## Troubleshooting
+
+**DISCOVERY.md is too shallow / generic.**
+Re-run `/discover` with more specific constraints (niche, budget, geography). The skill scales depth to the input — vague input produces vague output. Adding "--full" forces Full mode even on Sonnet.
+
+**Competitor analysis misses key players.**
+The skill relies on the model's training data. If you know competitors the model missed, provide them explicitly: "конкуренты: X, Y, Z" — the skill will incorporate them into the analysis table.
+
+**RICE scores seem arbitrary.**
+RICE scoring is approximate by design — the model estimates Reach, Impact, Confidence, and Effort based on the persona and market context you provided. Treat RICE as a conversation starter, not a final verdict. Adjust scores manually after review.
+
+**`/blueprint` does not pick up DISCOVERY.md.**
+Ensure `DISCOVERY.md` is in the project root (not a subdirectory). `/blueprint` Step 1.5 scans the root for this file by name. If the file exists but is not detected, check for typos in the filename.
