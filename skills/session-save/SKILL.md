@@ -210,6 +210,25 @@ The lockfile MUST be idempotent — it's rewritten on every `/session-save`
 call, never appended. Stale locks self-expire (the pre-flight hook
 ignores any lock older than 10 minutes).
 
+### Step 4.7: Auto-sync methodology (v1.18.1)
+
+If the current project IS the idea-to-deploy methodology repo (detected by
+`.claude-plugin/plugin.json` existence), run the sync script to propagate
+any changes to the active Claude Code install:
+
+```bash
+if [ -f ".claude-plugin/plugin.json" ]; then
+  bash scripts/sync-to-active.sh
+fi
+```
+
+This prevents the recurring bug where new skills/agents/hooks are added to
+the repo but not copied to `~/.claude/` (see: /discover not registered,
+business-analyst missing from global agents, 6 hooks missing after v1.18.0).
+
+**For non-methodology projects:** This step is a no-op (the guard clause
+skips it).
+
 ### Step 5: Confirm to user
 
 Tell the user:
