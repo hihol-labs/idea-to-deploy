@@ -3,16 +3,16 @@
 > Complete project lifecycle methodology for Claude Code — from idea to deployed product in one command.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 18](https://img.shields.io/badge/Skills-18-green.svg)](#skills)
-[![Agents: 5](https://img.shields.io/badge/Agents-5-orange.svg)](#subagents)
-[![Version: 1.16.3](https://img.shields.io/badge/Version-1.16.3-purple.svg)](.claude-plugin/plugin.json)
+[![Skills: 19](https://img.shields.io/badge/Skills-19-green.svg)](#skills)
+[![Agents: 6](https://img.shields.io/badge/Agents-6-orange.svg)](#subagents)
+[![Version: 1.17.0](https://img.shields.io/badge/Version-1.17.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 18 skills and 5 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 19 skills and 6 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -34,7 +34,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 18 skills + 5 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 19 skills + 6 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -63,8 +63,8 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 18 skill directories
-  ├── agents/          # 5 subagent definitions
+  ├── skills/          # 19 skill directories
+  ├── agents/          # 6 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
 
@@ -173,12 +173,13 @@ Claude: Step 1/9 — scaffold project, commit
 
 ## Skills
 
-### Entry Points (2 skills)
+### Entry Points (3 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/project` | Smart router for **creating** something — asks one question and routes to /kickstart, /blueprint, or /guide |
 | `/task` | Smart router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) based on the task type |
+| `/discover` | **New in v1.17.0.** Product discovery phase — market analysis (TAM/SAM/SOM), competitor research, user personas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. |
 
 ### Project Creation (3 skills)
 
@@ -237,6 +238,7 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 | `test-generator` | `/test` | Comprehensive test coverage, edge cases, mocking |
 | `perf-analyzer` | `/perf` | Bottleneck detection, N+1 queries, algorithm optimization |
 | `doc-writer` | `/doc` | README, API docs, inline comments, style matching |
+| `business-analyst` | `/discover` | Market analysis, competitor research, user personas, feature prioritization |
 
 ## Skill Contracts
 
@@ -248,6 +250,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 |---|---|---|---|:---:|
 | `/project` | User idea (text) | None directly — routes to another skill | None | ✅ |
 | `/task` | Task description (text) for an existing project | None directly — routes to /bugfix, /refactor, /doc, /test, /perf, /review, /security-audit, /deps-audit, /migrate, /harden, /infra, or /explain | None (router only) | ✅ |
+| `/discover` | Product idea or problem statement | `DISCOVERY.md` (market analysis, personas, prioritization) | None (analysis only, no code) | ✅ |
 | `/kickstart` | User idea + clarifications | 7 docs + scaffolded project + commits | Git commits, file scaffolding, possible deploy | ⚠️ Resumes from CLAUDE.md status |
 | `/blueprint` | User idea + clarifications | 6 docs + CLAUDE.md + .gitignore | None (planning only, no code) | ⚠️ Asks before overwrite |
 | `/guide` | Existing PROJECT_ARCHITECTURE.md + IMPLEMENTATION_PLAN.md | CLAUDE_CODE_GUIDE.md | None | ✅ |
@@ -325,7 +328,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **five hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader):
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **seven hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader, and two optional safety guardrails):
 
 ```bash
 mkdir -p ~/.claude/hooks
@@ -350,7 +353,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All five hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All seven hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The two v1.17.0 safety guardrails (`careful.sh`, `freeze.sh`) are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
@@ -431,6 +434,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 |-------|---------|-------------|-------|
 | `/project` | Haiku | Sonnet | Router only — minimal reasoning |
 | `/task` | Haiku | Sonnet | Router for daily-work skills — minimal reasoning |
+| `/discover` | Sonnet (Lite) | Opus (Full) | Deep market analysis, competitor research, multi-dimensional prioritization |
 | `/blueprint` | Sonnet (Lite) | Opus (Full) | Lite mode auto-active on Sonnet |
 | `/kickstart` | Sonnet (Lite) | Opus (Full) | Lite mode auto-active on Sonnet, refuses Haiku |
 | `/guide` | Sonnet | Opus | Long prompt sequences benefit from Opus |
@@ -534,7 +538,7 @@ Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/H
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 18. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 19. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

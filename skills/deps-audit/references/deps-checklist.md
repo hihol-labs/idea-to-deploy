@@ -1,5 +1,7 @@
 # Dependency Audit Checklist (binary, deterministic)
 
+> **Shared definitions:** Gate status enum, report format, secret detection patterns, and .env checks are defined in [`skills/_shared/helpers.md`](../../_shared/helpers.md). This file uses those definitions — do not re-declare them here.
+
 > Same tier semantics as `/review` and `/security-audit`. Any Critical failure → status `BLOCKED`. Any Important failure → `PASSED_WITH_WARNINGS`. All pass → `PASSED`.
 
 ## Tier 1: Critical (must all pass)

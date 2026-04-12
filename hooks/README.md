@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These five hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These seven hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.16.2)
 
@@ -26,7 +26,19 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 | `check-skill-completeness.sh` *(v1.5.1)* | **Before** Write/Edit/MultiEdit on `skills/*/SKILL.md` (PreToolUse) | Parses the pending tool input, extracts the skill name from the file path, verifies that `references/` exists and is non-empty (if the pending content mentions it), that `hooks/check-skills.sh` has a trigger phrase for the skill, and that a matching fixture exists in `tests/fixtures/`. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The Write never runs, the file never lands on disk. |
 | `check-commit-completeness.sh` *(v1.5.1)* | Before every Bash command matching `git commit` (PreToolUse) | Parses the staged diff. If any `skills/<name>/SKILL.md` is staged, the hook requires matching references/hook/fixture to also be staged (or already present on disk). Written to be the last line of defense against the v1.4.0 "Potemkin release" pattern. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
 
-All five hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+### Safety guardrails (v1.17.0, optional)
+
+| Hook | When it fires | What it does | Blocks? |
+|---|---|---|---|
+| `careful.sh` | Before Bash (PreToolUse) | Detects destructive commands (rm -rf, DROP TABLE, git push --force, git reset --hard, chmod 777, pipe-to-bash) and injects a warning asking Claude to confirm with the user. Activated via `CAREFUL_MODE=1` env var or a state file. | No — soft warning only |
+| `freeze.sh` | Before Edit/Write/NotebookEdit (PreToolUse) | Restricts file modifications to a specific directory scope. Any edit outside the frozen scope triggers a warning. Activated via a state file written by `/freeze <path>`. Deactivated with `/unfreeze`. | No — soft warning only |
+
+**Activation:** These hooks are opt-in per session. They do nothing unless explicitly activated:
+- `/careful` → creates `/tmp/claude-careful-{session}.state` with content "active"
+- `/freeze src/auth` → creates `/tmp/claude-freeze-{session}.state` with content "src/auth"
+- `/unfreeze` → deletes the freeze state file
+
+All seven hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 
@@ -39,6 +51,8 @@ cp hooks/check-skills.sh ~/.claude/hooks/
 cp hooks/check-tool-skill.sh ~/.claude/hooks/
 cp hooks/check-skill-completeness.sh ~/.claude/hooks/   # v1.5.0 enforcement
 cp hooks/check-commit-completeness.sh ~/.claude/hooks/  # v1.5.0 enforcement
+cp hooks/careful.sh ~/.claude/hooks/                     # v1.17.0 safety guardrail
+cp hooks/freeze.sh ~/.claude/hooks/                      # v1.17.0 scope guardrail
 chmod +x ~/.claude/hooks/*.sh
 
 # 2. Register them in ~/.claude/settings.json
@@ -87,6 +101,26 @@ Add this `hooks` block to your `~/.claude/settings.json` (merge with existing se
           {
             "type": "command",
             "command": "~/.claude/hooks/check-skill-completeness.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/careful.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/freeze.sh",
             "timeout": 5
           }
         ]

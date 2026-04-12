@@ -112,6 +112,37 @@ Apply this fix? [yes/no]
 
 If user says yes, ask them to invoke `/bugfix` or use the Edit tool directly — `/security-audit` is read-only by design (allowed-tools: Read Glob Grep). This separation prevents the auditor from also being the fixer, which is a common audit anti-pattern.
 
+### Step 5: Adversarial Mode (--redblue flag, v1.17.0)
+
+If user passes `--redblue` or says "red team / blue team":
+
+**Red Team phase** — think like an attacker:
+1. Identify the 3 most valuable targets in the app (user data, admin panel, payment flow)
+2. For each target, describe a concrete attack scenario:
+   - **Attack vector:** how would you get in?
+   - **Exploit steps:** 1-2-3 sequence
+   - **Impact:** what data/access is compromised?
+   - **Likelihood:** Low/Medium/High based on exposed surface
+
+**Blue Team phase** — fix each Red Team finding:
+1. For each attack scenario, propose a specific defense
+2. Classify defense as: Prevention (blocks the attack), Detection (alerts on attempt), Recovery (limits damage)
+3. Prioritize defenses by effort/impact ratio
+
+Present as a table:
+
+```markdown
+### Red Team / Blue Team Analysis
+
+| # | Target | Attack Vector | Impact | Defense | Defense Type | Priority |
+|---|--------|-------------|--------|---------|-------------|----------|
+| 1 | Admin panel | Brute-force login | Full admin access | Rate limit + account lockout + 2FA | Prevention | P0 |
+| 2 | User data | IDOR on /api/users/:id | PII leak | Ownership check middleware | Prevention | P0 |
+| 3 | Payment flow | Replay attack on webhook | Double-charge | Idempotency key + signature verification | Prevention | P1 |
+```
+
+This mode is inspired by AI-DLC's Red/Blue Team hat separation. It adds ~5 minutes to the audit but surfaces attack scenarios that checklist-based audits miss.
+
 ## Quality Gate
 
 This skill returns the same status enum as `/review`:

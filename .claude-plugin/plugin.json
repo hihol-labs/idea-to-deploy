@@ -1,7 +1,7 @@
 {
   "name": "idea-to-deploy",
-  "version": "1.16.3",
-  "description": "Complete project lifecycle methodology — 18 skills + 5 specialized subagents from idea to deployed and hardened product. Planning, scaffolding, coding, testing, debugging, optimization, security audit, dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code, session context persistence, daily-work routing, self-review mode.",
+  "version": "1.17.0",
+  "description": "Complete project lifecycle methodology — 19 skills + 6 specialized subagents from idea to deployed and hardened product. Product discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (with Red/Blue Team mode), dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code, session context persistence, daily-work routing, self-review mode, safety guardrails.",
   "author": {
     "name": "HiH-DimaN",
     "email": "HiH-DimaN@users.noreply.github.com",
@@ -24,7 +24,10 @@
     "self-review",
     "meta-review",
     "methodology-validation",
-    "daily-work-router"
+    "daily-work-router",
+    "product-discovery",
+    "safety-guardrails",
+    "red-blue-team"
   ],
   "skills": [
     "./skills/"

@@ -183,7 +183,7 @@ def verify(repo: Path) -> list[dict]:
 
     skills_dir = repo / "skills"
     for sd in sorted(skills_dir.iterdir()):
-        if not sd.is_dir():
+        if not sd.is_dir() or sd.name.startswith("_"):
             continue
         skill = sd.name
         skill_md = sd / "SKILL.md"

@@ -92,6 +92,56 @@ If the description is vague, ask:
 - Предпочтительный стек? (если нет — использовать стек из CLAUDE.md)
 - Ограничения (бюджет, сроки, платформа)?
 
+### Step 1.5: Product Discovery & Feature Prioritization (NEW in v1.17.0)
+
+After clarifying the idea, before generating documents, run a lightweight product discovery phase. This ensures that the generated documents are grounded in real priorities, not just a wishlist.
+
+**1.5.1 — Identify features and scope**
+
+Based on the clarified idea, list all features as a flat list. Then categorize each feature using **MoSCoW** prioritization:
+
+| Feature | MoSCoW | Rationale |
+|---------|--------|-----------|
+| {feature} | **Must** / **Should** / **Could** / **Won't** | Why this priority |
+
+**MoSCoW rules:**
+- **Must** — MVP cannot ship without this. If removed, the product has no value proposition
+- **Should** — Important, expected by users, but MVP can launch without it (Week 2-3 addition)
+- **Could** — Nice to have, adds polish. Only if time permits
+- **Won't** — Explicitly out of scope for this version. Prevents scope creep
+
+**1.5.2 — RICE scoring for Must/Should features (Full mode only)**
+
+For each Must and Should feature, calculate a **RICE score** to determine implementation order:
+
+| Feature | Reach (1-10) | Impact (1-5) | Confidence (%) | Effort (person-days) | RICE Score |
+|---------|-------------|-------------|---------------|---------------------|------------|
+| {feature} | {R} | {I} | {C} | {E} | R×I×C/E |
+
+- **Reach** — how many users will this affect in the first month (1=few, 10=all)
+- **Impact** — how much it moves the needle for each user (1=minimal, 5=massive)
+- **Confidence** — how sure you are about R, I, and E estimates (100%=measured, 50%=guess)
+- **Effort** — person-days to implement (estimate based on architecture complexity)
+- **RICE Score** = (Reach × Impact × Confidence) / Effort
+
+Sort features by RICE score descending. This order feeds into IMPLEMENTATION_PLAN step ordering.
+
+**1.5.3 — Validate with user**
+
+Present the MoSCoW table (and RICE table in Full mode) to the user:
+- "Вот приоритизация фич. Согласны? Хотите переместить что-то между категориями?"
+- Wait for confirmation before proceeding to document generation
+- If user disagrees, adjust priorities and re-present
+
+**1.5.4 — Feed into documents**
+
+The prioritization output directly shapes:
+- **STRATEGIC_PLAN.md** → Section "Feature Roadmap" (new, see templates)
+- **PRD.md** → P0 = Must, P1 = Should, P2 = Could. User stories ordered by RICE score
+- **IMPLEMENTATION_PLAN.md** → Steps ordered by RICE score (highest-value features first)
+
+In **Lite mode**, skip RICE (step 1.5.2) and use only MoSCoW. The MoSCoW table is still mandatory.
+
 ### Step 2: Generate 6 documents
 Each document builds on the previous one. Create all files in the project root or docs/ folder.
 
@@ -165,6 +215,8 @@ Before showing the final result, verify minimum quality:
 - At least 3 competitors analyzed
 - Budget estimation present
 - At least 3 risks identified
+- Feature Roadmap section with MoSCoW table (at least 5 features categorized)
+- RICE scoring table present (Full mode only, at least 3 Must/Should features scored)
 
 **Minimum requirements for PROJECT_ARCHITECTURE.md:**
 - At least 3 database tables with fields and types

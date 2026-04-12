@@ -174,6 +174,18 @@ TRIGGERS = [
         "(сохранение контекста сессии в память проекта). Вызови Skill ПЕРВЫМ.",
     ),
     (
+        r"(исследуй\s+рынок|анализ\s+рынк|market\s+analysis|market\s+research|"
+        r"целевая\s+аудитори|кто\s+пользовател|user\s+personas?|target\s+audience|"
+        r"\bконкуренты\b|конкурентн\w+\s+анализ|competitor\s+analysis|competitive\s+research|"
+        r"приоритизаци\w+\s+фич|какие\s+фичи\s+важнее|feature\s+prioritization|"
+        r"product\s+discovery|discovery\s+phase|discovery\s+фаз|"
+        r"что\s+строить|что\s+делать\s+первым|what\s+to\s+build\s+first|"
+        r"\btam\b.*\bsam\b.*\bsom\b|value\s+proposition|ценностное\s+предложени|"
+        r"проверь\s+идею|валидаци\w+\s+идеи|validate\s+idea|idea\s+validation)",
+        "🔔 Триггер 'product discovery' → используй /discover (анализ рынка, "
+        "персоны, конкуренты, MoSCoW/RICE приоритизация). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
         r"(закрой\s+tech\s*debt|закрой\s+техдолг|убери\s+техдолг|"
         r"поправь\s+в\s+проекте|почини\s+в\s+проекте|надо\s+поправить|"
         r"есть\s+задача\s+в\s+проекте|работа\s+в\s+существующем|"

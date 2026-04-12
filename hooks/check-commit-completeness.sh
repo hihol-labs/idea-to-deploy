@@ -151,12 +151,22 @@ def is_disable_model_invocation(repo: Path, skill_name: str) -> bool:
         return False
 
 
+def override_exists(repo: Path) -> bool:
+    """Return True if the methodology self-extend override file exists."""
+    return (repo / ".methodology-self-extend-override").exists()
+
+
 def validate(repo: Path) -> list[str]:
     """Return a list of violations, empty if commit is allowed."""
+    if override_exists(repo):
+        return []  # explicit override — documented reason in the file
+
     files = staged_files(repo)
     if not files:
         return []
     touched = skill_touched(files)
+    # Filter out _shared — it's a library, not a skill
+    touched = {k: v for k, v in touched.items() if not k.startswith("_")}
     errors: list[str] = []
 
     staged_set = set(files)

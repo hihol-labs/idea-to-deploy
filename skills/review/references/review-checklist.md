@@ -1,5 +1,7 @@
 # Review Rubric (binary, deterministic)
 
+> **Shared definitions:** Gate status enum, report format, secret detection patterns, and .env checks are defined in [`skills/_shared/helpers.md`](../../_shared/helpers.md). This file uses those definitions — do not re-declare them here.
+
 > This rubric replaces the old `score 1–10` system. Two different model invocations on the same documents will now produce the **same** pass/fail result, because every check is binary (yes/no), not subjective.
 
 The rubric has three tiers:

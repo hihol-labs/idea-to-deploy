@@ -1,5 +1,7 @@
 # Security Audit Checklist
 
+> **Shared definitions:** Gate status enum, report format, secret detection patterns, and .env checks are defined in [`skills/_shared/helpers.md`](../../_shared/helpers.md). This file uses those definitions — do not re-declare them here.
+
 > Reference for `/security-audit`. Binary checks organized into 4 tiers. Modeled on OWASP Top 10 + practical pitfalls observed in real production incidents.
 
 The 4 tiers map to gate behavior:
@@ -172,6 +174,38 @@ This is a partial list — for full coverage, run `npm audit`, `pip-audit`, `gov
 - **`html/template` vs `text/template`** — `text/template` doesn't escape, vulnerable to XSS
 - **`net/http` ServeMux** — no path traversal protection by default; sanitize before serving files
 - **`crypto/md5`, `crypto/sha1`** — never for passwords or tokens
+
+---
+
+## Extended Checks (v1.17.0, Tier 4 — Informational)
+
+These checks are inspired by claude-code-skills' 9-auditor model. They do NOT affect the gate status (informational only) but provide valuable insights for code health.
+
+### DEAD-1: Unreachable exports / unused public functions
+**Check:** scan for exported functions/classes that are never imported anywhere in the project. Use `grep -r` on the function name across all source files. Report as informational — dead code is tech debt, not a security risk.
+**Common patterns:**
+- Python: `def public_func()` defined but never imported
+- TypeScript: `export function helper()` but no `import { helper }` anywhere
+- Go: `func PublicFunc()` (capitalized) but not called from any other package
+
+### DEAD-2: Unused dependencies
+**Check:** for each direct dependency in lockfile (package.json, requirements.txt, go.mod), verify at least one import/require exists in source files. Report unused deps as informational.
+**Why it matters:** unused deps increase attack surface (supply chain) and slow builds.
+
+### OBS-1: Structured logging present
+**Check:** verify the project uses structured logging (JSON format) instead of plain `print()` / `console.log()` for production code. Acceptable: `structlog`, `loguru` with JSON sink (Python), `pino`, `winston` with JSON transport (Node), `zerolog`, `zap` (Go).
+**Why it matters:** unstructured logs are unparseable by log aggregators (Grafana Loki, ELK, Datadog).
+
+### OBS-2: Error tracking integration
+**Check:** look for Sentry, Bugsnag, Rollbar, or equivalent error tracking SDK in dependencies and initialization code. Report as informational suggestion if absent.
+
+### CONC-1: Database connection pool configured
+**Check:** if using a database, verify connection pool settings are explicit (not defaults). Look for `pool_size`, `max_overflow` (SQLAlchemy), `connectionLimit` (MySQL2/pg), `SetMaxOpenConns` (Go database/sql).
+**Why it matters:** default pool sizes under load → connection exhaustion → cascading failure.
+
+### CONC-2: Rate limiting on public endpoints
+**Check:** verify rate limiting middleware exists on at least the auth endpoints (login, register, password reset). Look for `slowapi` / `fastapi-limiter` (Python), `express-rate-limit` (Node), custom middleware with Redis counters.
+**Why it matters:** without rate limiting, brute-force attacks on auth are trivial.
 
 ---
 

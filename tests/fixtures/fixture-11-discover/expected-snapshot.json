@@ -1,0 +1,27 @@
+{
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/discover",
+  "fixture": "fixture-11-discover",
+  "skill": "/discover",
+  "status": "pending",
+  "description": "Product discovery for a SaaS booking platform. Validates DISCOVERY.md generation with TAM/SAM/SOM, competitors, personas, MoSCoW+RICE.",
+  "expected_files": [
+    "DISCOVERY.md"
+  ],
+  "required_sections": [
+    "Market Analysis",
+    "TAM",
+    "SAM",
+    "SOM",
+    "Competitor Analysis",
+    "User Personas",
+    "Value Proposition",
+    "MoSCoW",
+    "RICE"
+  ],
+  "min_competitors": 3,
+  "min_personas": 2,
+  "min_features_moscow": 8,
+  "prompt": "Проведи product discovery для SaaS-платформы онлайн-записи в салоны красоты. Целевая аудитория: владельцы салонов и их клиенты. Монетизация: подписка для салонов."
+}

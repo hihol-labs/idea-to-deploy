@@ -42,6 +42,22 @@
 ## 10. Бюджет
 | Статья | Ежемесячно | Комментарий |
 |--------|-----------|-------------|
+
+## 11. Feature Roadmap (приоритизация)
+
+### MoSCoW
+
+| Фича | MoSCoW | Обоснование |
+|------|--------|-------------|
+| {feature} | Must / Should / Could / Won't | {why} |
+
+### RICE-скоринг (Must + Should)
+
+| Фича | Reach | Impact | Confidence | Effort (дней) | RICE Score |
+|------|-------|--------|-----------|---------------|------------|
+| {feature} | 1-10 | 1-5 | 50-100% | N | R×I×C/E |
+
+Порядок реализации: по убыванию RICE Score.
 ```
 
 ## PROJECT_ARCHITECTURE.md Template

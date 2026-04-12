@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "idea-to-deploy",
-  "description": "Complete project lifecycle methodology — 18 skills + 5 specialized subagents from idea to deployed product.",
+  "description": "Complete project lifecycle methodology — 19 skills + 6 specialized subagents from idea to deployed product.",
   "owner": {
     "name": "HiH-DimaN",
     "email": "HiH-DimaN@users.noreply.github.com"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "idea-to-deploy",
-      "description": "Complete project lifecycle methodology for Claude Code — 18 skills + 5 specialized subagents. Planning, scaffolding, coding, testing, debugging, optimization, security audit, dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code, session context persistence, daily-work routing, self-review mode.",
+      "description": "Complete project lifecycle methodology for Claude Code — 19 skills + 6 specialized subagents. Product discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, safe DB migrations, deployment, production hardening, infrastructure-as-code, session context persistence, safety guardrails.",
       "category": "development",
       "author": {
         "name": "HiH-DimaN",
@@ -20,7 +20,7 @@
         "repo": "HiH-DimaN/idea-to-deploy"
       },
       "homepage": "https://github.com/HiH-DimaN/idea-to-deploy",
-      "version": "1.16.3",
+      "version": "1.17.0",
       "tags": ["community-managed"],
       "keywords": [
         "claude-code",
@@ -36,7 +36,9 @@
         "self-review",
         "meta-review",
         "daily-work-router",
-        "methodology-validation"
+        "methodology-validation",
+        "product-discovery",
+        "safety-guardrails"
       ]
     }
   ]
