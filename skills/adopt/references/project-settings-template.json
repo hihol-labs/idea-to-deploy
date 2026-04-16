@@ -23,7 +23,8 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-commit-completeness.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-commit-completeness.sh",   "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-review-before-commit.sh", "timeout": 5 }
         ]
       },
       {

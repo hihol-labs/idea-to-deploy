@@ -216,7 +216,7 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 Before reporting adoption as complete, verify:
 
 - [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
-- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills) and at least 1 in `hooks.PreToolUse` (check-tool-skill)
+- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills) and all 4 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-skill-completeness)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
@@ -246,7 +246,7 @@ Claude: [/adopt]
   Proceed? [yes/no]
 User: yes
   Step 1/3 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
-  Step 2/3 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 1 PreToolUse)
+  Step 2/3 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse)
   Step 3/3 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
 
   Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.

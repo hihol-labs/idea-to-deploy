@@ -20,7 +20,7 @@
         "repo": "HiH-DimaN/idea-to-deploy"
       },
       "homepage": "https://github.com/HiH-DimaN/idea-to-deploy",
-      "version": "1.20.0",
+      "version": "1.20.1",
       "images": [
         "https://raw.githubusercontent.com/HiH-DimaN/idea-to-deploy/main/docs/demo.svg"
       ],

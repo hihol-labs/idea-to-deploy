@@ -46,3 +46,6 @@ jobs:
 
       - name: Run trigger drift verifier (standalone check)
         run: python3 tests/verify_triggers.py
+
+      - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
+        run: bash scripts/verify-sync-to-active.sh

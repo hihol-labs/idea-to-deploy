@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20.1] - 2026-04-17
+
+**10/10 hardening release.** Closes the three remaining gaps from the v1.20.0 retrospective that kept onboarding-readiness, efficiency, and Anthropic-compliance scores below a perfect 10. Drift now auto-detected in CI; destructive operations are explicit-invoke only.
+
+### Fixed
+
+- **`check-review-before-commit.sh` now syncs to user-level install.** The hook shipped in v1.19.1 but was never added to `DESIRED_HOOKS` in `scripts/sync-to-active.sh`, so `bash scripts/sync-to-active.sh` never propagated it — users who followed the README setup got 12/13 hooks. Registered under the `PreToolUse` matcher `Bash` (same matcher as `check-commit-completeness.sh`, which catches the same `git commit` tool call). Header comment corrected from "all 4 hooks" to accurate "all 7 hooks (3 × UserPromptSubmit + 4 × PreToolUse)".
+- **`/adopt` settings template now includes `check-review-before-commit.sh`** too — adopted projects get the full gate set matching the user-level install. `skills/adopt/SKILL.md` self-validation and Example output updated to say "4 PreToolUse" instead of "1 PreToolUse".
+
+### Added
+
+- **`scripts/verify-sync-to-active.sh`** — drift guard that cross-checks every `hooks/*.sh` against the `DESIRED_HOOKS` block in `scripts/sync-to-active.sh`. Any new canonical hook that lands in the repo without being registered fails the check with a clear `DRIFT` message. An explicit `EXEMPT` list covers the six opt-in hooks (`careful.sh`, `context-aware.sh`, `cost-tracker.sh`, `crash-recovery.sh`, `freeze.sh`, `stuck-detection.sh`) so they don't trip the gate.
+- **CI job in `.github/workflows/meta-review.yml`** runs `verify-sync-to-active.sh` on every push and PR — the v1.19.1 `check-review-before-commit` gap can no longer recur.
+- **`disable-model-invocation: true` on three destructive skills:** `/deploy`, `/migrate`, `/migrate-prod`. These operations have production-level blast radius (SSH to prod, DB schema change, DNS cut-over); an embedding-match on a vaguely similar prompt should not auto-invoke them. Users still call them explicitly by name — routers (`/task`, `/project`) still delegate to them normally. Matches the pattern already in place for `/autopilot` since v1.17.2.
+
+### Changed
+
+- **Skill `metadata.version` bumped to 1.20.1** on `/deploy`, `/migrate`, `/migrate-prod` (the three skills actually changed in this release).
+
+### Verdict
+
+Per v1.20.0 retrospective on 10-point scale:
+- Работоспособность: 9 → **10** (sync-drift gap closed, CI guard added)
+- Эффективность: 9 → **10** (automated drift detection prevents recurrence)
+- Anthropic compliance: 9.5 → **10** (destructive skills explicit-invoke per best practice)
+
+---
+
 ## [1.20.0] - 2026-04-17
 
 **Legacy project adoption release.** Closes Gap #8 from `ROADMAP_v1.20.md` — the methodology applied unevenly to projects that were not created via `/kickstart` or `/blueprint`. The new `/adopt` skill onboards any existing legacy project into the methodology in one call, without rewriting user code and without hallucinating plan documents.

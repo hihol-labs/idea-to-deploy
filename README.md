@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
-[![Version: 1.20.0](https://img.shields.io/badge/Version-1.20.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.20.1](https://img.shields.io/badge/Version-1.20.1-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)

@@ -1,6 +1,6 @@
 {
   "name": "idea-to-deploy",
-  "version": "1.20.0",
+  "version": "1.20.1",
   "description": "Complete project lifecycle methodology — 25 skills + 7 specialized subagents + 13 enforcement hooks from idea to deployed and hardened product. Product discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (with Red/Blue Team mode), dependency audit, safe DB migrations, production migration between hosts, deployment, production hardening, infrastructure-as-code, session context persistence, daily-work routing, strategic replanning, advisory/consulting mode, self-review mode, legacy project adoption, safety guardrails, skill enforcement with escalation, session-open diagnostics, context-switch detection, memory staleness warnings.",
   "author": {
     "name": "HiH-DimaN",

@@ -4,9 +4,10 @@ description: 'Migrate running production services between hosts — inventory, s
 argument-hint: source host, target host, or "plan only"
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(ssh:*) Bash(scp:*) Bash(rsync:*) Bash(docker:*) Bash(pg_dump:*) Bash(dig:*) Bash(curl:*)
+disable-model-invocation: true
 metadata:
   author: HiH-DimaN
-  version: 1.19.0
+  version: 1.20.1
   category: operations
   tags: [migration, production, infrastructure, dns, rollback, dual-run]
 ---

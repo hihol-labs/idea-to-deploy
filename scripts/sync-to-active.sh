@@ -13,7 +13,8 @@
 # What it syncs:
 #   1. skills/*              → ~/.claude/skills/
 #   2. hooks/*.sh            → ~/.claude/hooks/
-#   3. settings.json hooks   → registers all 4 hooks with correct matchers
+#   3. settings.json hooks   → registers all 7 hooks with correct matchers
+#      (3 × UserPromptSubmit + 4 × PreToolUse across 3 matcher groups)
 #
 # What it does NOT touch:
 #   - ~/.claude/settings.json keys other than "hooks" (env, permissions, etc.)
@@ -244,7 +245,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "Bash",
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/check-commit-completeness.sh", "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/check-commit-completeness.sh",   "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/check-review-before-commit.sh", "timeout": 5 }
       ]
     },
     {
