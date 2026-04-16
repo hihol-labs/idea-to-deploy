@@ -258,6 +258,21 @@ TRIGGERS = [
         "/explain / /review). Вызови Skill ПЕРВЫМ — если тип задачи сразу "
         "ясен, /task делегирует без доп. вопросов.",
     ),
+    (
+        r"(адоптир\w*|адоптируй\s+проект|подключи\s+методолог\w*|"
+        r"подключи\s+idea[- ]to[- ]deploy|подключи\s+к\s+idea[- ]to[- ]deploy|"
+        r"включи\s+методолог\w*|примени\s+методолог\w*|"
+        r"bootstrap\s+methodolog\w*|добавь\s+claude\.md|"
+        r"добавь\s+хуки\s+(в\s+)?проект|настрой\s+(этот\s+)?проект\s+под\s+методолог\w*|"
+        r"этот\s+проект\s+без\s+методолог\w*|в\s+проекте\s+нет\s+claude\.md|"
+        r"нет\s+claude\.md|legacy\s+project|legacy\s+adoption|adopt\s+legacy|"
+        r"onboard\s+(this\s+|an\s+|the\s+)?(existing\s+)?project|"
+        r"adopt\s+(this\s+|the\s+)?(existing\s+|legacy\s+)?project|"
+        r"adopt\s+methodolog\w*|enable\s+methodolog\w*)",
+        "🔔 Триггер 'адоптация методологии' → используй /adopt "
+        "(минимальный bootstrap: CLAUDE.md + .claude/settings.json project-level + "
+        "memory dir, затем voice-chain в /strategy или /blueprint). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 
