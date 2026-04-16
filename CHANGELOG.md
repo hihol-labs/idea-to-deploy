@@ -18,9 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Skill count: 20 → 23 across docs, READMEs, marketplace.json.
 - Hook count: 11 → 13 across docs.
 - Defense-in-depth table version bump to v1.19.0.
 - `check-tool-skill.sh` now shows ignore counter (X/3) in reminders.
+- `pre-flight-check.sh` now includes context-switch detection and memory staleness warnings.
+
+### Phase 2: New skills
+
+- **New skill `/strategy`** (Gap #2) — strategic replanning for existing projects. 5-dimension situation analysis, gap identification with concrete numbers, 2-3 option generation with devil's advocate stress-testing, ADR for pivot decisions, LAUNCH_PLAN.md and BACKLOG.md updates.
+- **New skill `/migrate-prod`** (Gap #1) — production service migration between hosts. 8-step process: inventory → target setup → data migration → deploy → dual-run → DNS cut-over → rollback plan → decommission. Mandatory confirmation for production scope.
+- **New skill `/advisor`** (Gap #3) — advisory/consulting mode. Analysis-only (no Write/Edit), mandatory multi-perspective evaluation via business-analyst and devils-advocate subagents. Structured pros/cons/risks output.
+
+### Phase 3: Quality-of-life
+
+- **Context-switch detector** (Gap #5) — `pre-flight-check.sh` now tracks cwd changes between prompts. Warns on project switch, suggests `/session-save` after 5+ switches in 30 min.
+- **Memory staleness detection** (Gap #7) — `pre-flight-check.sh` compares version mentions in latest `session_*.md` against current `plugin.json`. Warns if stale version detected.
 
 ---
 

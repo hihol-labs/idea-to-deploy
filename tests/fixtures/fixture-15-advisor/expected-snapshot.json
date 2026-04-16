@@ -1,0 +1,20 @@
+{
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/advisor",
+  "fixture": "fixture-15-advisor",
+  "skill": "/advisor",
+  "status": "pending",
+  "description": "Advisory consultation on choosing between 3 project directions. Validates analysis-only mode (no code output), multi-perspective evaluation, and pros/cons format.",
+  "expected_files": [],
+  "required_sections": [
+    "Analysis",
+    "Pros",
+    "Cons",
+    "Recommendation",
+    "Risk"
+  ],
+  "no_write_allowed": true,
+  "min_options_evaluated": 2,
+  "prompt": "Посоветуй: у меня есть 3 идеи для добавочного проекта — (A) маркетплейс для клиник, (B) SaaS для записи, (C) телеграм-бот для пациентов. Бюджет 200K ₽, дедлайн 3 месяца. Какой вариант лучше и почему? Только анализ, без кода."
+}

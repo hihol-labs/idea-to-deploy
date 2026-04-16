@@ -3,7 +3,7 @@
 > Полная методология жизненного цикла проекта для Claude Code — от идеи до задеплоенного продукта одной командой.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 20](https://img.shields.io/badge/Skills-20-green.svg)](#скиллы)
+[![Skills: 23](https://img.shields.io/badge/Skills-23-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -12,7 +12,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 20 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 23 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -34,7 +34,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 20 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 23 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -173,13 +173,15 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 ## Скиллы
 
-### Точки входа (3 скилла)
+### Точки входа (5 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
 | `/project` | Маршрутизатор для **создания** нового — задаёт один вопрос и направляет в /kickstart, /blueprint или /guide |
 | `/task` | Маршрутизатор для **работы с существующим кодом** — направляет в нужный daily-work скилл (/bugfix, /refactor, /doc, /test, /perf, /review, …) по типу задачи |
 | `/discover` | **Новое в v1.17.0.** Фаза product discovery — анализ рынка (TAM/SAM/SOM), исследование конкурентов, пользовательские персоны, приоритизация фич (MoSCoW + RICE). Генерирует `DISCOVERY.md` для `/blueprint`. |
+| `/strategy` | **Новое в v1.19.0.** Стратегический пересмотр существующих проектов — gap-анализ по 5 измерениям, генерация вариантов с devil's advocate, ADR для pivot-решений, обновление LAUNCH_PLAN.md. |
+| `/advisor` | **Новое в v1.19.0.** Советник/консалтинг-режим — только анализ (без изменения кода), многоперспективная оценка через business-analyst + devils-advocate субагентов. |
 
 ### Создание проекта (3 скилла)
 
@@ -213,11 +215,12 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 |-------|----------|
 | `/deps-audit` | Read-only аудит зависимостей — парсит lockfile'ы, запрашивает OSV.dev + GitHub Advisory на известные CVE, проверяет SPDX-лицензии, находит заброшенные пакеты (> 2 лет без релиза). Тот же enum статусов, что у `/review`. |
 
-### Операции (3 скилла)
+### Операции (4 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/migrate` | Безопасное применение миграций БД — бэкап, применение, верификация, документирование отката. Отказывается работать на проде без явного подтверждения. |
+| `/migrate-prod` | **Новое в v1.19.0.** Миграция работающих production-сервисов между хостами — inventory, setup target, миграция данных, dual-run, DNS cut-over, rollback plan, деко��иссия. |
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
@@ -269,6 +272,9 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/infra` | Preset стека + target (do/aws/hetzner/k8s) | Terraform-модули ИЛИ Helm chart + README с командами деплоя | Новые файлы в `infra/`; не дергает cloud API (со стороны облака — read-only) | ✅ Генерация детерминирована по входу |
 | `/session-save` | Сигнал завершения сессии или явный вызов | `session_YYYY-MM-DD.md` + обновление MEMORY.md | Запись в `~/.claude/projects/` директорию памяти | ✅ Создаёт новый файл каждый раз |
 | `/autopilot` | Идея проекта (текст) | Полный проект: документы + код + тесты + отчёт ревью | Git-коммиты, создание файлов, возможный деплой (запускает цепочку discover → blueprint → kickstart → review → test) | ⚠️ Stateful-пайплайн с несколькими фазами |
+| `/strategy` | Существующий проект + контекст изменений | Обновлённый `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | Запись файлов (только план-документы, не код) | ✅ Создаёт/перезаписывает план-документы |
+| `/migrate-prod` | Source хост + target хост + список сервисов | `MIGRATION_PLAN.md` + выполненные шаги миграции | SSH, Docker, DNS-изменения, дампы БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
+| `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -454,6 +460,9 @@ bash scripts/sync-to-active.sh
 | `/infra` | Sonnet | Opus | Networking / IAM / секреты — тонкие взаимодействия |
 | `/session-save` | Sonnet | Sonnet | Чтение git log + запись резюме — простая задача |
 | `/autopilot` | Sonnet | Opus | Оркестрация полного пайплайна — выигрывает от рассуждений Opus |
+| `/strategy` | Sonnet | Opus | Многофакторный gap-анализ + генерация ADR |
+| `/migrate-prod` | Sonnet | Opus | Высокорисковые production-операции требуют тщательного рассуждения |
+| `/advisor` | Sonnet | Opus | Многоперспективный анализ через субагентов |
 
 ## Для кого
 
@@ -541,7 +550,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 20. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 23. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 
