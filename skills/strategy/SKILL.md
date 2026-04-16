@@ -7,7 +7,7 @@ allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Agent(business-a
 context: fork
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.19.0
   category: project-planning
   tags: [strategy, replanning, pivot, launch-plan, adr, kpi]
 ---

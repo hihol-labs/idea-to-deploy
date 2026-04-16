@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Glob Grep Bash(psql:*) Bash(sqlite3:*) Bash(mysql:*) Bash(pg_dump:*) Bash(docker:*)
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: code-quality
   tags: [database, migration, ddl, rollback, safety]
 ---

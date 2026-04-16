@@ -27,7 +27,7 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 
 ## Recommended model
 
-**haiku** — Read-only walkthrough. Haiku is fast enough for most files. Use Sonnet only for very complex cross-module flows (>10 files).
+**sonnet** — balanced quality for most code explanations. Haiku is sufficient for trivial single-function lookups (rename queries, one-line clarifications). Opus only for full-architecture walkthroughs spanning >10 tightly coupled modules, where cross-layer reasoning matters.
 
 Set via `/model {model}` before invoking this skill, or via the project's default model in `~/.claude/settings.json`.
 

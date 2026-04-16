@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Glob Grep
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: quality-assurance
   tags: [security, audit, vulnerabilities, owasp]
 ---

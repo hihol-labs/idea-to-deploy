@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: workflow
   tags: [router, daily-work, tech-debt, existing-code, methodology]
 ---

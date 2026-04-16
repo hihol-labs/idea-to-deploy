@@ -84,7 +84,7 @@ def main() -> int:
 
         context = (
             f"[CONTEXT MANAGEMENT — GSD-inspired]\n"
-            f"📊 Session stats: {count} tool calls, {session_minutes} min elapsed.\n\n"
+            f"📊 Session stats: {count} user prompts, {session_minutes} min elapsed.\n\n"
             f"⚠️ Long session detected — risk of context rot (quality degradation "
             f"as context window fills up).\n\n"
             f"**Recommended actions:**\n"

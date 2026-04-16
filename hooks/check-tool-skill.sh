@@ -149,13 +149,13 @@ def main() -> int:
         out = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "additionalContext": block_msg,
-                "permissionDecision": "block",
-                "reason": f"Skill enforcement: {ignore_count} consecutive ignores exceeded threshold ({MAX_IGNORES})",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": block_msg,
             }
         }
         sys.stdout.write(json.dumps(out, ensure_ascii=False))
-        return 0
+        sys.stderr.write(block_msg)
+        sys.exit(2)
 
     # --- Rate-limited reminder ---
     if not should_remind(reminder_path):

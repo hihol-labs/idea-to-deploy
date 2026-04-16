@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.19.1] - 2026-04-16
+
+**Audit-driven patch release.** Closes 5 Critical + 6 Important findings from a deep methodology audit (3-stream: functional verification, Anthropic compliance, new-user UX). Makes the methodology usable by external users on their own projects.
+
+### Fixed (Critical)
+
+- **`check-tool-skill.sh` enforcement block actually fires now.** The v1.19.0 Gap #4 deliverable shipped with a broken deny path: it emitted `"permissionDecision": "block"` (wrong — spec requires `"deny"`) and returned exit 0 (wrong — must be exit 2 to block). The 3-ignore counter worked but the block was silently dropped by Claude Code's schema validator. Fixed to emit `deny` + `permissionDecisionReason` + `sys.exit(2)`, matching the v1.5.1 pattern in `check-commit-completeness.sh`.
+- **`check-review-before-commit.sh` multi-file-commit gate unblocked.** The v1.19.0 hook assumed `Skill` tool calls route through `PreToolUse` hooks (they don't — `Skill` is an internal harness construct). The marker `/tmp/claude-review-done-{session_id}` was never written, so the hook always blocked. Architectural fix: the `/review` skill itself now writes the marker at its final step (Step 5). The hook only consumes the marker.
+- **`/deploy` skill no longer hardcodes the author's private host.** Previous version shipped with `hostland`, `185.221.213.104`, `/opt/neuroexpert`, `scripts/render-kong.sh` embedded in every step — running `/deploy` on any other project SSH'd to a server the user didn't own. Rewritten to read `DEPLOY_HOST`, `DEPLOY_PATH`, `DEPLOY_COMPOSE`, `DEPLOY_SERVICE`, `HEALTHCHECK_URL`, `DB_CONTAINER`, `GATEWAY_RENDER_CMD` from `scripts/deploy-env.sh`, `CLAUDE.md` `## Deploy config` section, or `reference_deploy*.md` memory. Asks the user (and offers to write a template) if no config found.
+- **README Subagents table now lists all 7 agents.** Previously had 6 rows but `plugin.json`/`marketplace.json` claimed 7 — `devils-advocate` (used by `/advisor`, `/strategy`, `/blueprint`) was missing. Row added in both `README.md` and `README.ru.md`.
+- **README `/deploy` version marker corrected** — was tagged "New in v1.20.0" while `plugin.json` was still on `1.19.0`. Now correctly marked "New in v1.19.0".
+
+### Fixed (Important)
+
+- **14 skills had stale `metadata.version: 1.0.0` in v1.19.0 plugin.** Bulk-aligned to the version in which each skill was last meaningfully changed (`advisor`/`migrate-prod`/`strategy` → `1.19.0`, `autopilot`/`harden`/`infra`/`task`/`migrate`/`security-audit`/`deps-audit` → `1.18.0`, `discover` → `1.17.0`, `deploy` → `1.19.1`).
+- **`kickstart` `allowed-tools` now unquoted** (was the only skill with a YAML-quoted string for this field) — format consistency across all 24 skills.
+- **`context-aware.sh` stat label corrected** — was calling `UserPromptSubmit` events "tool calls" in the context-rot warning. Renamed to "user prompts" for accuracy.
+- **`session-save` `argument-hint` is now useful** — was self-contradictory ("(no arguments needed...)" as a value of an argument hint). Now says "optional — brief note to append to the session summary".
+- **`explain` default recommended model bumped from Haiku to Sonnet** — Haiku was too aggressive for non-trivial code explanations; swap preserves Haiku for single-function lookups and adds Opus for full-architecture walkthroughs.
+- **`autopilot` marked `disable-model-invocation: true`** — high-side-effect pipeline (runs discover → blueprint → kickstart → review → test), should only be invoked explicitly. Loose embedding match on phrases like "run everything automatically" could previously trigger destructive auto-mode.
+
+### Added
+
+- **`check-review-before-commit.sh` hook row added to `hooks/README.md`** table + settings.json example (was missing from both in v1.19.0).
+- **Fixture stubs for 6 pending fixtures** (`fixture-11-discover` through `fixture-16-deploy`) — each now has `idea.md` + `notes.md` so `tests/run-fixtures.sh` can execute them manually. Snapshots remain `status: pending` (auto-pass) until detailed content contracts are bootstrapped.
+
+### Documentation
+
+- Marketplace submissions install command unified to `/plugin install HiH-DimaN/idea-to-deploy` (was mixing `/plugin install` and `claude plugin add` across channels).
+
+### Deferred
+
+Three audit findings intentionally deferred to a follow-up release:
+- Empirically-validated hooks soft-reminder format (`additionalContext` in `PreToolUse`/`PostToolUse`) — marked "works in practice" despite audit flagging it as potential spec-drift; will revisit once Anthropic spec formalizes the cross-event field.
+- README install one-liner above fold + hook-install primary path (sync-to-active promoted to primary over manual cp + settings.json edit).
+- Marketplace.json `images` / screenshots field.
+
+---
+
 ## [1.19.0] - 2026-04-16
 
 **Session enforcement + diagnostics (Phase 1).** Closes methodology gaps #4 and #6 from ROADMAP_v1.19.md — discovered during 10+ hour multi-project session where Claude bypassed methodology entirely.

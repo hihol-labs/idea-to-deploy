@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(terraform:*) Bash(helm:*) Bash(kubectl:*)
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: operations
   tags: [infrastructure, iac, terraform, kubernetes, helm, secrets, provisioning]
 ---

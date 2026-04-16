@@ -126,6 +126,23 @@ For each Critical failure (and optionally each Important warning), ask:
 
 If user agrees, fix the documents directly. Then re-run only the previously-failing checks to confirm the fix. Do not re-run the entire rubric — that's wasteful.
 
+### Step 5: Mark `/review` as done for this session
+
+This is the final step of every `/review` invocation, regardless of status. Write a marker file that signals `hooks/check-review-before-commit.sh` that `/review` has been run in this Claude Code session, unblocking subsequent multi-file `git commit` calls.
+
+Use the Bash tool:
+
+```bash
+mkdir -p /tmp
+echo "$(date +%s)" > "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
+```
+
+Why this lives in the skill and not in the hook:
+- The `Skill` tool is an internal harness construct — it does NOT route through `PreToolUse` hooks in Claude Code runtime, so a hook cannot detect "`/review` was just invoked" from the outside.
+- The skill itself, on the other hand, has a guaranteed execution point: *this* final step.
+
+The marker is session-scoped (keyed on `CLAUDE_SESSION_ID`) and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. Re-running `/review` rewrites the marker, keeping its timestamp fresh.
+
 ## Quality Gate
 
 The gate status is **deterministic** — same documents always produce the same status:

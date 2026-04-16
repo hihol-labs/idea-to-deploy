@@ -7,7 +7,7 @@ allowed-tools: Read Glob Grep Agent(business-analyst) Agent(devils-advocate)
 context: fork
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.19.0
   category: project-planning
   tags: [advisor, consulting, analysis, strategy, recommendations]
 ---

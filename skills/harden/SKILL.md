@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(docker:*) Bash(curl:*) Bash(k6:*)
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: operations
   tags: [production, hardening, sre, monitoring, observability, reliability]
 ---

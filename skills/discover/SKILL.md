@@ -8,7 +8,7 @@ context: fork
 agent: business-analyst
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.17.0
   category: project-planning
   tags: [discovery, market-analysis, personas, prioritization, moscow, rice]
 ---

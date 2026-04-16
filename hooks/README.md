@@ -26,6 +26,7 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 | `session-open-diagnostic.sh` *(v1.19.0)* | First user prompt of session (UserPromptSubmit) | Reads last `session_*.md`, next-session plan, LAUNCH_PLAN.md, BACKLOG.md, latest ROADMAP. Injects diagnostic context so Claude starts with full awareness of prior work and planned next steps. Fires once per session (sentinel file). | No — soft context injection only |
 | `check-skill-completeness.sh` *(v1.5.1)* | **Before** Write/Edit/MultiEdit on `skills/*/SKILL.md` (PreToolUse) | Parses the pending tool input, extracts the skill name from the file path, verifies that `references/` exists and is non-empty (if the pending content mentions it), that `hooks/check-skills.sh` has a trigger phrase for the skill, and that a matching fixture exists in `tests/fixtures/`. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The Write never runs, the file never lands on disk. |
 | `check-commit-completeness.sh` *(v1.5.1)* | Before every Bash command matching `git commit` (PreToolUse) | Parses the staged diff. If any `skills/<name>/SKILL.md` is staged, the hook requires matching references/hook/fixture to also be staged (or already present on disk). Written to be the last line of defense against the v1.4.0 "Potemkin release" pattern. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
+| `check-review-before-commit.sh` *(v1.19.0, fixed v1.19.1)* | Before every Bash command matching `git commit` (PreToolUse) | Blocks the commit if more than 2 files are staged AND `/review` has not been invoked in the current session. `/review` signals via the marker file `/tmp/claude-review-done-{session_id}` which the skill itself writes at its final step. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
 
 ### Safety guardrails (v1.17.0, optional)
 
@@ -51,6 +52,7 @@ cp hooks/check-skills.sh ~/.claude/hooks/
 cp hooks/check-tool-skill.sh ~/.claude/hooks/
 cp hooks/check-skill-completeness.sh ~/.claude/hooks/   # v1.5.0 enforcement
 cp hooks/check-commit-completeness.sh ~/.claude/hooks/  # v1.5.0 enforcement
+cp hooks/check-review-before-commit.sh ~/.claude/hooks/ # v1.19.0 — blocks >2-file commits without /review
 cp hooks/careful.sh ~/.claude/hooks/                     # v1.17.0 safety guardrail
 cp hooks/freeze.sh ~/.claude/hooks/                      # v1.17.0 scope guardrail
 cp hooks/session-open-diagnostic.sh ~/.claude/hooks/     # v1.19.0 session diagnostic
@@ -97,6 +99,11 @@ Add this `hooks` block to your `~/.claude/settings.json` (merge with existing se
           {
             "type": "command",
             "command": "~/.claude/hooks/check-commit-completeness.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/check-review-before-commit.sh",
             "timeout": 5
           }
         ]

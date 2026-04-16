@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
-[![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.19.1](https://img.shields.io/badge/Version-1.19.1-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -221,7 +221,7 @@ Claude: Step 1/9 — scaffold project, commit
 |-------|-------------|
 | `/migrate` | Apply database migrations safely — backup, apply, verify, document rollback. Refuses production without explicit confirmation. |
 | `/migrate-prod` | **New in v1.19.0.** Migrate running production services between hosts — inventory, setup target, data migration, dual-run, DNS cut-over, rollback plan, decommission. |
-| `/deploy` | **New in v1.20.0.** Deploy to production — sync files (tar-over-ssh), regenerate gateway config, build Docker image, restart containers, apply pending migrations, verify healthcheck. Refuses without explicit user confirmation; always calls `/session-save` after. |
+| `/deploy` | **New in v1.19.0.** Deploy to production — sync files (tar-over-ssh), regenerate gateway config, build Docker image, restart containers, apply pending migrations, verify healthcheck. Refuses without explicit user confirmation; always calls `/session-save` after. |
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
@@ -244,6 +244,7 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 | `perf-analyzer` | `/perf` | Bottleneck detection, N+1 queries, algorithm optimization |
 | `doc-writer` | `/doc` | README, API docs, inline comments, style matching |
 | `business-analyst` | `/discover` | Market analysis, competitor research, user personas, feature prioritization |
+| `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial reviewer — challenges architectural and strategic decisions, proposes counter-arguments before implementation |
 
 ## Skill Contracts
 

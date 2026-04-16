@@ -1,7 +1,7 @@
 ---
 name: session-save
 description: 'Save session context to project memory — what was done, decisions, blockers, next steps. Ensures continuity between sessions and flags parallel sessions via an active-session lockfile.'
-argument-hint: (no arguments needed — gathers context automatically)
+argument-hint: optional — brief note to append to the session summary
 license: MIT
 allowed-tools: Read Write Bash Glob Grep
 metadata:

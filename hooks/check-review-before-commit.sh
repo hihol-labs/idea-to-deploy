@@ -88,14 +88,11 @@ def main() -> int:
     tool = (payload or {}).get("tool_name") or ""
     tool_input = (payload or {}).get("tool_input") or {}
 
-    # Track /review calls: if Skill tool with skill="review" → mark done
-    if tool == "Skill":
-        skill_name = tool_input.get("skill") or ""
-        if skill_name == "review":
-            mark_review_done()
-        return 0
-
-    # Only check Bash commands
+    # Only check Bash commands. The /review marker file
+    # /tmp/claude-review-done-{session} is written by the /review skill
+    # itself at Step 5 — NOT by this hook. The Skill tool is an internal
+    # harness construct and does not route through PreToolUse hooks, so
+    # we cannot detect `/review` invocations from here.
     if tool != "Bash":
         return 0
 

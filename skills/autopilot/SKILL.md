@@ -5,9 +5,10 @@ argument-hint: project idea or description (same as /kickstart)
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash Skill
 context: fork
+disable-model-invocation: true
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.18.0
   category: workflow
   tags: [autopilot, auto-mode, pipeline, full-lifecycle, gsd-inspired]
 ---

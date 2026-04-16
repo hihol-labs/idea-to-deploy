@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
-[![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.19.1](https://img.shields.io/badge/Version-1.19.1-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -221,7 +221,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 |-------|----------|
 | `/migrate` | Безопасное применение миграций БД — бэкап, применение, верификация, документирование отката. Отказывается работать на проде без явного подтверждения. |
 | `/migrate-prod` | **Новое в v1.19.0.** Миграция работающих production-сервисов между хостами — inventory, setup target, миграция данных, dual-run, DNS cut-over, rollback plan, деко��иссия. |
-| `/deploy` | **Новое в v1.20.0.** Деплой на продакшен — синхронизация файлов (tar-over-ssh), регенерация конфига gateway, сборка Docker-образа, рестарт контейнеров, применение ожидающих миграций, проверка healthcheck. Отказывается без явного подтверждения пользователя; всегда вызывает `/session-save` после деплоя. |
+| `/deploy` | **Новое в v1.19.0.** Деплой на продакшен — синхронизация файлов (tar-over-ssh), регенерация конфига gateway, сборка Docker-образа, рестарт контейнеров, применение ожидающих миграций, проверка healthcheck. Отказывается без явного подтверждения пользователя; всегда вызывает `/session-save` после деплоя. |
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
@@ -244,6 +244,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `perf-analyzer` | `/perf` | Поиск узких мест, N+1 запросы, оптимизация алгоритмов |
 | `doc-writer` | `/doc` | README, API-документация, комментарии, подстройка под стиль |
 | `business-analyst` | `/discover` | Анализ рынка, исследование конкурентов, пользовательские персоны, приоритизация фич |
+| `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial-ревьюер — оспаривает архитектурные и стратегические решения, предлагает контраргументы до реализации |
 
 ## Контракты скиллов
 

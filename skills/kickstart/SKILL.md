@@ -2,7 +2,7 @@
 name: kickstart
 description: 'Generate a complete project from idea — architecture, plans, docs, code, tests, deploy. Full lifecycle in one shot.'
 argument-hint: project idea or description
-allowed-tools: "Read Write Edit Glob Grep Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*) Bash(pytest:*) Bash(go:*) Bash(cargo:*)"
+allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*) Bash(pytest:*) Bash(go:*) Bash(cargo:*)
 license: MIT
 metadata:
   author: HiH-DimaN

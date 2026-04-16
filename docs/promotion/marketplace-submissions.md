@@ -46,7 +46,7 @@ Core capabilities:
 - 3-tier behavioural testing: structural, snapshot, and headless validation.
 - Daily work router /task — a single entry point for 12 different task types.
 
-MIT licensed. Install: claude plugin add HiH-DimaN/idea-to-deploy
+MIT licensed. Install: /plugin install HiH-DimaN/idea-to-deploy
 ```
 
 ### Categories / Tags
@@ -129,7 +129,7 @@ What you get:
 - 3-tier behavioural testing: structural validation, snapshot comparison, headless execution.
 - /task router: one command routes to any of 12 task types.
 
-Install in one command: claude plugin add HiH-DimaN/idea-to-deploy
+Install in one command: /plugin install HiH-DimaN/idea-to-deploy
 
 Open source, MIT licensed, actively maintained.
 ```
@@ -217,7 +217,7 @@ Quality enforcement:
 - 23 meta-review gates for methodology self-correction
 - 3-tier behavioural testing pipeline
 
-v1.19.0 | MIT | Install: claude plugin add HiH-DimaN/idea-to-deploy
+v1.19.0 | MIT | Install: /plugin install HiH-DimaN/idea-to-deploy
 ```
 
 ### Status
@@ -299,7 +299,7 @@ Open-source Claude Code plugin providing a structured methodology for the entire
 - **3-tier behavioural testing** (structural + snapshot + headless).
 - **/task router** — single entry point for 12 task types.
 
-Install: `claude plugin add HiH-DimaN/idea-to-deploy`
+Install: `/plugin install HiH-DimaN/idea-to-deploy`
 ```
 
 ### Status

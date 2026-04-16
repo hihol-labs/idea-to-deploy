@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(ssh:*) Bash(scp:*) Bash(rsync:*) Bash(docker:*) Bash(pg_dump:*) Bash(dig:*) Bash(curl:*)
 metadata:
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.19.0
   category: operations
   tags: [migration, production, infrastructure, dns, rollback, dual-run]
 ---
