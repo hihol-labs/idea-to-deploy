@@ -196,6 +196,45 @@ TRIGGERS = [
         "Вызови Skill ПЕРВЫМ.",
     ),
     (
+        r"(пересмотри\s+стратеги|обнови\s+стратеги|стратегическ\w+\s+пересмотр|"
+        r"обнови\s+launch\s*plan|пересмотри\s+план\s+запуска|переоценк\w+\s+проект|"
+        r"проект\s+не\s+работает\s+как\s+планировали|нужен\s+pivot|"
+        r"что\s+изменить\s+в\s+проекте|куда\s+двигаться\s+дальше|"
+        r"обнови\s+roadmap\s+проекта|пересмотри\s+roadmap|"
+        r"kpi\s+gap|не\s+достигаем\s+целей|метрики\s+не\s+растут|"
+        r"strategic\s+review|replan\s+project|update\s+launch\s*plan|"
+        r"pivot\s+decision|project\s+reassessment|strategic\s+pivot|"
+        r"что\s+делать\s+с\s+проектом|проект\s+буксует)",
+        "🔔 Триггер 'стратегический пересмотр' → используй /strategy "
+        "(анализ текущего состояния, gap analysis, ADR для pivot decisions, "
+        "обновление LAUNCH_PLAN.md). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(мигрируй\s+серв|перенеси\s+серв|перенос\s+prod|миграци\w+\s+prod|"
+        r"перенос\s+сайт\w*\s+на\s+другой|переезд\s+серв|переезд\s+vds|"
+        r"с\s+одного\s+серв\w+\s+на\s+другой|переезд\s+на\s+новый\s+серв|"
+        r"migrate\s+prod|migrate\s+server|server\s+migration|"
+        r"move\s+to\s+new\s+(server|host|vds|vps)|"
+        r"перенос\s+инфраструктур|infrastructure\s+migration|"
+        r"dual[\s-]?run|cut[\s-]?over\s+dns)",
+        "🔔 Триггер 'миграция prod-сервисов' → используй /migrate-prod "
+        "(inventory → setup target → data migration → dual-run → cut-over → "
+        "rollback plan → decommission). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(посоветуй|дай\s+совет|стратегическ\w+\s+совет|"
+        r"консалтинг|консультац|что\s+ты\s+думаешь\s+о\s+стратеги|"
+        r"оцени\s+идею|сравни\s+варианты|какой\s+вариант\s+лучше|"
+        r"анализ\s+без\s+кода|только\s+анализ|без\s+изменений\s+в\s+код|"
+        r"advisor\s+mode|give\s+advice|strategic\s+advice|"
+        r"consult\w*\s+mode|just\s+analyze|analysis\s+only|"
+        r"compare\s+options|which\s+option\s+is\s+better|"
+        r"помоги\s+выбрать\s+направлени|какую\s+нишу\s+выбрать)",
+        "🔔 Триггер 'советник/консалтинг' → используй /advisor "
+        "(анализ без кода, Agent subagents business-analyst + devils-advocate, "
+        "output: рекомендации с pros/cons). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
         r"(закрой\s+tech\s*debt|закрой\s+техдолг|убери\s+техдолг|"
         r"поправь\s+в\s+проекте|почини\s+в\s+проекте|надо\s+поправить|"
         r"есть\s+задача\s+в\s+проекте|работа\s+в\s+существующем|"

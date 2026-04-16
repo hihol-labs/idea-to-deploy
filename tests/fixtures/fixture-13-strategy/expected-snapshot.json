@@ -1,0 +1,25 @@
+{
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/strategy",
+  "fixture": "fixture-13-strategy",
+  "skill": "/strategy",
+  "status": "pending",
+  "description": "Strategic replanning for an existing SaaS project that missed revenue targets. Validates gap analysis, option generation, ADR, and LAUNCH_PLAN.md update.",
+  "expected_files": [
+    "LAUNCH_PLAN.md"
+  ],
+  "required_sections": [
+    "Situation Analysis",
+    "Gap",
+    "Root Cause",
+    "Option A",
+    "Option B",
+    "ADR",
+    "Block",
+    "Acceptance criteria"
+  ],
+  "min_options": 2,
+  "min_gap_dimensions": 3,
+  "prompt": "Пересмотри стратегию проекта NeuroExpert. Текущий MRR 50K ₽, цель была 200K ₽ к Q2. Основная проблема: низкая конверсия trial→paid (8% вместо 25%). Есть 5 потоков выручки, доминирует один. Нужен launch plan с новыми блоками работы."
+}

@@ -23,7 +23,7 @@
 
 | Возможность | **idea-to-deploy** | **GSD** | **gstack** | **BMAD** | **claude-code-skills** | **AI-DLC** | **Claude Buddy** |
 |---|---|---|---|---|---|---|---|
-| **Скиллов** | **20** | 7 команд | ~30 | 15 | **136** | 13 ролей | 7 |
+| **Скиллов** | **23** | 7 команд | ~30 | 15 | **136** | 13 ролей | 7 |
 | **Субагентов** | 7 | 5 (researcher, planner, plan-checker, executor, verifier) | - | 9 | - | 13 "шляп" | 12 персон |
 | **Project scaffolding** | /kickstart, /blueprint | /gsd-new-project | - | /product-brief | project-bootstrap | Plan Together | /buddy:foundation |
 | **Daily work router** | **/task** | /gsd-next (auto-detect) | - | - | - | - | - |
@@ -225,7 +225,7 @@
 - **idea-to-deploy** = "curated pipeline с роутером и self-validation" (quality)
 - **Наше преимущество:** /task router, meta-review, coherent methodology
 - **Их преимущество:** масштаб (136 скиллов), 3 MCP сервера, multi-model review
-- **Messaging:** "136 скиллов без роутера = cognitive overload. 20 скиллов с /task = правильный скилл за 10 секунд"
+- **Messaging:** "136 скиллов без роутера = cognitive overload. 23 скилла с /task = правильный скилл за 10 секунд"
 
 ### vs AI-DLC (0 stars, academic)
 - **AI-DLC** = "теоретически правильный DAG pipeline" (overengineered)

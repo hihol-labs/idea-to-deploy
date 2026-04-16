@@ -38,6 +38,8 @@ from pathlib import Path
 GIT_TIMEOUT_SEC = 2
 LOCK_FRESH_SECONDS = 600  # 10 minutes
 MEMORY_INDEX_MAX_LINES = 30
+CWD_HISTORY_MAX = 10
+CWD_SWITCH_WARN_THRESHOLD = 5  # warn about /session-save after this many switches in 30 min
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> str:
@@ -175,6 +177,153 @@ def session_lock_context(mem_dir: Path) -> str:
     )
 
 
+def memory_staleness_check(cwd: Path, mem_dir: Path | None) -> str:
+    """Check if memory mentions a version that doesn't match current plugin.json.
+
+    This catches the v1.13.1→v1.18.1 drift problem from the 2026-04-15 session
+    where Claude used a stale version from memory instead of the actual one.
+    """
+    if not mem_dir:
+        return ""
+
+    # Read current version from plugin.json
+    plugin_json = cwd / ".claude-plugin" / "plugin.json"
+    if not plugin_json.is_file():
+        return ""
+
+    try:
+        current_version = json.loads(
+            plugin_json.read_text(encoding="utf-8", errors="replace")
+        ).get("version", "")
+    except Exception:
+        return ""
+
+    if not current_version:
+        return ""
+
+    # Read latest session file and check for version mentions
+    candidates = sorted(
+        mem_dir.glob("session_*.md"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        return ""
+
+    import re
+
+    try:
+        content = candidates[0].read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+
+    # Find version mentions like "v1.13.1" or "version 1.18.0"
+    version_pattern = re.compile(r"\bv?(\d+\.\d+\.\d+)\b")
+    mentioned_versions = set(version_pattern.findall(content))
+
+    if not mentioned_versions:
+        return ""
+
+    # Check if any mentioned version differs from current AND looks like
+    # a project version (not a random semver like Python 3.12.0)
+    stale_versions = []
+    for v in mentioned_versions:
+        # Skip versions that look like language/tool versions (major >= 3)
+        major = int(v.split(".")[0])
+        if major >= 3:
+            continue
+        if v != current_version:
+            stale_versions.append(v)
+
+    if not stale_versions:
+        return ""
+
+    return (
+        f"⚠️ **Memory staleness**: последняя сессия (`{candidates[0].name}`) "
+        f"упоминает версию {', '.join('v' + v for v in stale_versions)}, "
+        f"но актуальная версия — **v{current_version}** "
+        f"(из `.claude-plugin/plugin.json`). Используй актуальную."
+    )
+
+
+def session_id() -> str:
+    sid = os.environ.get("CLAUDE_SESSION_ID")
+    if sid:
+        return sid
+    try:
+        return f"pid{os.getppid()}"
+    except Exception:
+        return "default"
+
+
+def context_switch_detect(cwd: Path) -> str:
+    """Detect cwd changes between prompts. Returns warning or empty string.
+
+    Tracks last N cwd entries with timestamps in a state file. When a switch
+    is detected, warns the user. If switches exceed threshold in 30 min,
+    suggests /session-save to prevent context loss.
+    """
+    state_file = f"/tmp/claude-cwd-history-{session_id()}.json"
+    now = time.time()
+    cwd_str = str(cwd.resolve())
+
+    # Read existing history
+    history: list[dict] = []
+    try:
+        with open(state_file) as f:
+            history = json.loads(f.read() or "[]")
+    except Exception:
+        history = []
+
+    # Get previous cwd
+    prev_cwd = history[-1]["cwd"] if history else None
+
+    # Append current
+    history.append({"cwd": cwd_str, "ts": now})
+
+    # Trim to max
+    if len(history) > CWD_HISTORY_MAX:
+        history = history[-CWD_HISTORY_MAX:]
+
+    # Write back
+    try:
+        with open(state_file, "w") as f:
+            f.write(json.dumps(history))
+    except Exception:
+        pass
+
+    # No switch? Return empty
+    if prev_cwd is None or prev_cwd == cwd_str:
+        return ""
+
+    # Switch detected
+    prev_name = Path(prev_cwd).name
+    curr_name = cwd.name
+
+    # Count recent switches (last 30 min)
+    cutoff = now - 1800
+    recent_cwds = [h["cwd"] for h in history if h["ts"] >= cutoff]
+    unique_recent = len(set(recent_cwds))
+    switch_count = sum(
+        1 for i in range(1, len(recent_cwds))
+        if recent_cwds[i] != recent_cwds[i - 1]
+    )
+
+    warning = (
+        f"🔄 **Context switch**: `{prev_name}` → `{curr_name}`. "
+        "Сессия мульти-проектная. Задача task-level прежняя или начинаем новую?"
+    )
+
+    if switch_count >= CWD_SWITCH_WARN_THRESHOLD:
+        warning += (
+            f"\n\n⚠️ {switch_count} переключений за последние 30 мин "
+            f"между {unique_recent} проектами. Рекомендуется `/session-save` "
+            "чтобы не потерять контекст."
+        )
+
+    return warning
+
+
 def main() -> int:
     try:
         json.load(sys.stdin)  # consume, we don't need the content
@@ -183,6 +332,11 @@ def main() -> int:
 
     cwd = Path(os.getcwd())
     sections: list[str] = []
+
+    # Context switch detection (Gap #5)
+    ctx_switch = context_switch_detect(cwd)
+    if ctx_switch:
+        sections.append(ctx_switch)
 
     git = git_context(cwd)
     if git:
@@ -196,6 +350,11 @@ def main() -> int:
         idx = memory_index_context(mem_dir)
         if idx:
             sections.append(idx)
+
+    # Memory staleness detection (Gap #7)
+    staleness = memory_staleness_check(cwd, mem_dir)
+    if staleness:
+        sections.append(staleness)
 
     if not sections:
         return 0  # nothing to report, stay silent

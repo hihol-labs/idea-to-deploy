@@ -1,0 +1,24 @@
+{
+  "$schema_version": "1.0.0",
+  "fixture_type": "snapshot",
+  "skill_under_test": "/migrate-prod",
+  "fixture": "fixture-14-migrate-prod",
+  "skill": "/migrate-prod",
+  "status": "pending",
+  "description": "Migration of 2 production services from Beget VDS to Hostland VDS. Validates inventory, target setup, data migration plan, DNS strategy, and rollback path.",
+  "expected_files": [
+    "MIGRATION_PLAN.md"
+  ],
+  "required_sections": [
+    "Source Inventory",
+    "Target Setup",
+    "Data Migration",
+    "DNS Strategy",
+    "Dual-Run",
+    "Cut-Over",
+    "Rollback Plan",
+    "Decommission"
+  ],
+  "min_services": 2,
+  "prompt": "Перенеси 2 проекта (Telegram-бот на aiogram + FastAPI backend с PostgreSQL и Minio) с Beget VDS (Ubuntu 20.04) на новый Hostland VDS (Ubuntu 22.04, Docker, Coolify). DNS через Cloudflare. Нужен план с dual-run периодом и rollback."
+}

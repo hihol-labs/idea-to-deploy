@@ -3,7 +3,7 @@
 > Полная методология жизненного цикла проекта для Claude Code — от идеи до задеплоенного продукта одной командой.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 20](https://img.shields.io/badge/Skills-20-green.svg)](#скиллы)
+[![Skills: 23](https://img.shields.io/badge/Skills-23-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -12,7 +12,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 20 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 23 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -34,7 +34,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 20 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 23 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -269,6 +269,9 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/infra` | Preset стека + target (do/aws/hetzner/k8s) | Terraform-модули ИЛИ Helm chart + README с командами деплоя | Новые файлы в `infra/`; не дергает cloud API (со стороны облака — read-only) | ✅ Генерация детерминирована по входу |
 | `/session-save` | Сигнал завершения сессии или явный вызов | `session_YYYY-MM-DD.md` + обновление MEMORY.md | Запись в `~/.claude/projects/` директорию памяти | ✅ Создаёт новый файл каждый раз |
 | `/autopilot` | Идея проекта (текст) | Полный проект: документы + код + тесты + отчёт ревью | Git-коммиты, создание файлов, возможный деплой (запускает цепочку discover → blueprint → kickstart → review → test) | ⚠️ Stateful-пайплайн с несколькими фазами |
+| `/strategy` | Существующий проект + контекст изменений | Обновлённый `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | Запись файлов (только план-документы, не код) | ✅ Создаёт/перезаписывает план-документы |
+| `/migrate-prod` | Source хост + target хост + список сервисов | `MIGRATION_PLAN.md` + выполненные шаги миграции | SSH, Docker, DNS-изменения, дампы БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
+| `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
