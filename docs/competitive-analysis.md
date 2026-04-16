@@ -225,7 +225,7 @@
 - **idea-to-deploy** = "curated pipeline с роутером и self-validation" (quality)
 - **Наше преимущество:** /task router, meta-review, coherent methodology
 - **Их преимущество:** масштаб (136 скиллов), 3 MCP сервера, multi-model review
-- **Messaging:** "136 скиллов без роутера = cognitive overload. 23 скилла с /task = правильный скилл за 10 секунд"
+- **Messaging:** "136 скиллов без роутера = cognitive overload. 24 скилла с /task = правильный скилл за 10 секунд"
 
 ### vs AI-DLC (0 stars, academic)
 - **AI-DLC** = "теоретически правильный DAG pipeline" (overengineered)

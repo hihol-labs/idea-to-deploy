@@ -3,7 +3,7 @@
 > Полная методология жизненного цикла проекта для Claude Code — от идеи до задеплоенного продукта одной командой.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 23](https://img.shields.io/badge/Skills-23-green.svg)](#скиллы)
+[![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -12,7 +12,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 23 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 24 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -34,7 +34,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 23 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 24 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -63,7 +63,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 20 папок скиллов
+  ├── skills/          # 24 папок скиллов
   ├── agents/          # 6 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
@@ -215,12 +215,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 |-------|----------|
 | `/deps-audit` | Read-only аудит зависимостей — парсит lockfile'ы, запрашивает OSV.dev + GitHub Advisory на известные CVE, проверяет SPDX-лицензии, находит заброшенные пакеты (> 2 лет без релиза). Тот же enum статусов, что у `/review`. |
 
-### Операции (4 скилла)
+### Операции (5 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
 | `/migrate` | Безопасное применение миграций БД — бэкап, применение, верификация, документирование отката. Отказывается работать на проде без явного подтверждения. |
 | `/migrate-prod` | **Новое в v1.19.0.** Миграция работающих production-сервисов между хостами — inventory, setup target, миграция данных, dual-run, DNS cut-over, rollback plan, деко��иссия. |
+| `/deploy` | **Новое в v1.20.0.** Деплой на продакшен — синхронизация файлов (tar-over-ssh), регенерация конфига gateway, сборка Docker-образа, рестарт контейнеров, применение ожидающих миграций, проверка healthcheck. Отказывается без явного подтверждения пользователя; всегда вызывает `/session-save` после деплоя. |
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
@@ -275,6 +276,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/strategy` | Существующий проект + контекст изменений | Обновлённый `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | Запись файлов (только план-документы, не код) | ✅ Создаёт/перезаписывает план-документы |
 | `/migrate-prod` | Source хост + target хост + список сервисов | `MIGRATION_PLAN.md` + выполненные шаги миграции | SSH, Docker, DNS-изменения, дампы БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 | `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
+| `/deploy` | Имя сервиса (`web`, `all` или конкретный) + git HEAD | Задеплоенные контейнеры + результат healthcheck (stdout) | SSH к целевому хосту, синхронизация файлов, Docker build, рестарт контейнеров, опционально миграции БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -463,6 +465,7 @@ bash scripts/sync-to-active.sh
 | `/strategy` | Sonnet | Opus | Многофакторный gap-анализ + генерация ADR |
 | `/migrate-prod` | Sonnet | Opus | Высокорисковые production-операции требуют тщательного рассуждения |
 | `/advisor` | Sonnet | Opus | Многоперспективный анализ через субагентов |
+| `/deploy` | Sonnet | Sonnet | Последовательное выполнение известного чеклиста; Opus не даёт прироста над Sonnet |
 
 ## Для кого
 
@@ -550,7 +553,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 23. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 24. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

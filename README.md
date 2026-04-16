@@ -3,7 +3,7 @@
 > Complete project lifecycle methodology for Claude Code — from idea to deployed product in one command.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 23](https://img.shields.io/badge/Skills-23-green.svg)](#skills)
+[![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
 [![Version: 1.19.0](https://img.shields.io/badge/Version-1.19.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -12,7 +12,7 @@
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 23 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 24 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -34,7 +34,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 23 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 24 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -63,7 +63,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 23 skill directories
+  ├── skills/          # 24 skill directories
   ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -215,12 +215,13 @@ Claude: Step 1/9 — scaffold project, commit
 |-------|-------------|
 | `/deps-audit` | Read-only dependency audit — parses lockfiles, queries OSV.dev + GitHub Advisory for known CVEs, SPDX license compatibility, abandoned-package detection (> 2y without release). Same status enum as `/review`. |
 
-### Operations (4 skills)
+### Operations (5 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/migrate` | Apply database migrations safely — backup, apply, verify, document rollback. Refuses production without explicit confirmation. |
 | `/migrate-prod` | **New in v1.19.0.** Migrate running production services between hosts — inventory, setup target, data migration, dual-run, DNS cut-over, rollback plan, decommission. |
+| `/deploy` | **New in v1.20.0.** Deploy to production — sync files (tar-over-ssh), regenerate gateway config, build Docker image, restart containers, apply pending migrations, verify healthcheck. Refuses without explicit user confirmation; always calls `/session-save` after. |
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
@@ -275,6 +276,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/strategy` | Existing project + context of what changed | Updated `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | File writes (plan docs only, no code) | ✅ Creates/overwrites plan docs |
 | `/migrate-prod` | Source host + target host + service list | `MIGRATION_PLAN.md` + executed migration steps | SSH, Docker, DNS changes, DB dumps — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
+| `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -336,7 +338,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **eleven hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader, and two optional safety guardrails):
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **thirteen hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader, and two optional safety guardrails):
 
 ```bash
 mkdir -p ~/.claude/hooks
@@ -361,7 +363,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All eleven hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The two v1.17.0 safety guardrails (`careful.sh`, `freeze.sh`) are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All thirteen hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The two v1.17.0 safety guardrails (`careful.sh`, `freeze.sh`) are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
@@ -463,6 +465,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/strategy` | Sonnet | Opus | Multi-factor gap analysis + ADR generation |
 | `/migrate-prod` | Sonnet | Opus | High-risk production operations need careful reasoning |
 | `/advisor` | Sonnet | Opus | Multi-perspective analysis via subagents |
+| `/deploy` | Sonnet | Sonnet | Sequential execution of a known checklist; Opus doesn't add value over Sonnet |
 
 ## Who Is This For
 
@@ -550,7 +553,7 @@ Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/H
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 23. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 24. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 
