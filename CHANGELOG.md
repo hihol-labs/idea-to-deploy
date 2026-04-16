@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20.0] - 2026-04-17
+
+**Legacy project adoption release.** Closes Gap #8 from `ROADMAP_v1.20.md` — the methodology applied unevenly to projects that were not created via `/kickstart` or `/blueprint`. The new `/adopt` skill onboards any existing legacy project into the methodology in one call, without rewriting user code and without hallucinating plan documents.
+
+### Added
+
+- **`/adopt` skill** (`skills/adopt/SKILL.md`) — minimal, idempotent adoption of legacy projects. Produces exactly three writes:
+  - `CLAUDE.md` in the project root, or append-with-marker `<!-- idea-to-deploy:begin v1.20 -->` … `<!-- idea-to-deploy:end -->` if the file already exists.
+  - `.claude/settings.json` project-level with the six canonical hooks (`session-open-diagnostic`, `pre-flight-check`, `check-skills`, `check-tool-skill`, `check-commit-completeness`, `check-skill-completeness`). User-level `~/.claude/settings.json` is never touched.
+  - Memory dir bootstrap — creates `~/.claude/projects/-<dashed-cwd>/memory/` and invokes `/session-save` with a synthesized sentinel context.
+  - Self-reference guard refuses to run inside the `idea-to-deploy` repo itself.
+  - Voice-chain at the end: asks the user about plan documents → delegates to `/strategy` (live reassessment) or `/blueprint` (retroactive plan) based on the user's spoken answer plus repo heuristics (README presence, git history depth). No manual command entry.
+- **`skills/adopt/references/claude-md-template.md`** — canonical methodology block appended to user's `CLAUDE.md`. Wrapped in markers so future re-adoptions are no-ops and so a user can remove the block manually.
+- **`skills/adopt/references/project-settings-template.json`** — hook registration template with `{{PLUGIN_HOOKS_DIR}}` placeholder resolved at runtime from `$CLAUDE_PLUGIN_DIR`, `~/.claude/plugins/idea-to-deploy/hooks/`, or `~/.claude/hooks/` (legacy `sync-to-active.sh` path).
+- **`tests/fixtures/fixture-17-adopt/expected-snapshot.json`** — stub fixture with `status: pending`, matching the pattern of `fixture-16-deploy` until a full contract is bootstrapped.
+- **`adopt` trigger in `hooks/check-skills.sh`** — Russian + English trigger phrases for legacy-adoption intent, routed ahead of the `/task` tuple so legacy signals surface before generic tech-debt phrasing.
+- **Step 1a legacy-project detection in `/task`** — `skills/task/SKILL.md` now detects projects with no adoption marker, no plan documents, and no project-level hooks, and suggests running `/adopt` first. Non-blocking; user can decline and go straight to routing.
+
+### Non-scope (explicit)
+
+- `/adopt` does **not** reverse-engineer `STRATEGIC_PLAN.md`, `PROJECT_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, or `PRD.md` from source code. Hallucination risk is too high: a plausible-sounding plan that misrepresents KPIs, competitors, or scope poisons trust in the methodology. Plan generation is delegated to `/strategy` / `/blueprint` via the voice-chain.
+- `/adopt` does **not** modify `~/.claude/settings.json`. Adoption is project-scoped.
+- `/adopt` does **not** modify source code or perform any `git commit`.
+
+### Changed
+
+- **`plugin.json` version** — `1.19.2` → `1.20.0`, skills count `24` → `25`, description extended with "legacy project adoption".
+- **`marketplace.json`** — version bump and description updated to match.
+- **`README.md`, `README.ru.md`** — skill count badge + text references updated from `24` to `25`; version badge bumped.
+- **`docs/promotion/*` and `docs/competitive-analysis.md`, `docs/CONTENT-PLAN.md`** — skill counts bumped.
+- **`ROADMAP_v1.20.md`** — Gap #8 marked closed with v1.20.0 delivery record.
+
+### Rationale
+
+After v1.19.0 the methodology covered the full lifecycle for projects **created from scratch** — `/kickstart` and `/blueprint` scaffolds drop `CLAUDE.md`, memory dir, plan docs, and hooks on their own. But the dominant real-world case is **existing code**, where nothing of this infrastructure is present. A new user installing `idea-to-deploy` on a legacy project saw only half the methodology working: skills were available, but routing rules, hook reminders, memory, and planning scaffolds were absent. `/adopt` closes this gap with a single command while keeping the blast radius strictly bounded.
+
+---
+
 ## [1.19.2] - 2026-04-16
 
 **Onboarding polish release.** Closes the remaining 4 UX and 1 docstring findings deferred from v1.19.1 audit. Brings the methodology to 10/10 onboarding-readiness for external users scrolling through plugin listings.

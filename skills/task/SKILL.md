@@ -48,6 +48,27 @@ Read what the user said: `$ARGUMENTS`. Also check:
 
 If you already know the task type from the user's phrasing (e.g., explicit "отрефактори X", "почини баг Y"), skip Step 2 and go straight to Step 3 — invoke the target skill directly.
 
+### Step 1a: Legacy-project detection (v1.20.0)
+
+**Before** asking the routing question, check whether this project has been adopted into the methodology. Read from `$PROJECT_ROOT`:
+
+1. Does `CLAUDE.md` exist in the repo root AND contain the marker `<!-- idea-to-deploy:begin`?
+2. Does any plan document exist — `LAUNCH_PLAN.md`, `STRATEGIC_PLAN.md`, or `PROJECT_ARCHITECTURE.md`?
+3. Does `.claude/settings.json` exist with a `hooks` section referencing our hook script names?
+
+**If ALL THREE are absent** (no adoption marker, no plan docs, no project-level hooks) → this is a legacy project that was never onboarded. Pause routing and tell the user:
+
+> «Этот проект ещё не адоптирован в методологию idea-to-deploy (нет `CLAUDE.md`, нет plan-документов, нет хуков в `.claude/settings.json`).
+>
+> Рекомендую сначала запустить `/adopt` — это займёт ~30 секунд и включит методологию в проекте (canonical `CLAUDE.md`, регистрация хуков, bootstrap memory dir, voice-chain в `/strategy` или `/blueprint`). Потом вернусь к твоей задаче.
+>
+> Запустить `/adopt` сейчас? (да / нет, хочу сразу task)»
+
+- **«да»** → invoke `Skill(/adopt)`. After `/adopt` completes (including its voice-chain to `/strategy` or `/blueprint` if the user wants plan docs), resume Step 2 of `/task` with the original request.
+- **«нет»** → skip Step 1a forever for this conversation and continue with Step 2 as usual. User autonomy wins; the methodology guides, not enforces.
+
+**Do NOT** treat Step 1a as blocking. If any of the three checks fails inconclusively (e.g., `CLAUDE.md` exists but without our marker — user may have their own), err toward NOT suggesting `/adopt`; the prompt noise is worse than a missed adoption.
+
 ### Step 2: Determine the task type
 
 If the user's request is ambiguous (e.g., "закрой tech debt с deploy.sh", "надо поработать над auth"), ask ONE routing question:

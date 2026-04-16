@@ -1,11 +1,18 @@
 # ROADMAP v1.20 — Legacy Project Adoption Gap
 
+> **Status:** ✅ **CLOSED** — shipped in v1.20.0 on 2026-04-17.
+>
 > Создан 2026-04-16 после merge PR #42 (`/deploy` + `check-review-before-commit.sh`).
 > Обнаружен в обсуждении: методология применяется неравномерно на проектах,
 > которые изначально не создавались через `/kickstart` или `/blueprint`.
 >
 > **Цель v1.20:** закрыть Gap #8 — дать способ «адоптировать» любой
 > существующий legacy-проект в методологию одной командой.
+>
+> **Результат v1.20.0:** скилл `/adopt` реализован со strict-minimal scope
+> (CLAUDE.md append-with-marker, `.claude/settings.json` merge, memory dir
+> bootstrap, voice-chain в `/strategy` или `/blueprint`). Без reverse-engineering
+> plan-документов — план генерируется отдельным скиллом с user input.
 
 ---
 
@@ -40,7 +47,7 @@ memory dir, plan-документы, hooks активны, роутинг раб
 
 ---
 
-## 🕳️ Gap #8 — Нет способа адоптировать методологию в legacy-проект
+## ✅ Gap #8 — [CLOSED v1.20.0] Способ адоптировать методологию в legacy-проект
 
 **Что происходит сейчас:** чтобы включить методологию в существующем проекте,
 пользователю нужно **вручную**:

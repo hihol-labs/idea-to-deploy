@@ -11,16 +11,16 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#skills)
+[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
-[![Version: 1.19.2](https://img.shields.io/badge/Version-1.19.2-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.20.0](https://img.shields.io/badge/Version-1.20.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 24 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 25 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 24 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 25 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,7 +71,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 24 skill directories
+  ├── skills/          # 25 skill directories
   ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -181,12 +181,13 @@ Claude: Step 1/9 — scaffold project, commit
 
 ## Skills
 
-### Entry Points (5 skills)
+### Entry Points (6 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/project` | Smart router for **creating** something — asks one question and routes to /kickstart, /blueprint, or /guide |
 | `/task` | Smart router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) based on the task type |
+| `/adopt` | **New in v1.20.0.** Onboard a legacy project into the methodology — append idempotent `CLAUDE.md` block, register project-level hooks in `.claude/settings.json`, bootstrap memory dir, then voice-chain to `/strategy` or `/blueprint` for plan documents. No reverse-engineering of plan docs. |
 | `/discover` | **New in v1.17.0.** Product discovery phase — market analysis (TAM/SAM/SOM), competitor research, user personas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. |
 | `/strategy` | **New in v1.19.0.** Strategic replanning for existing projects — 5-dimension gap analysis, option generation with devil's advocate, ADR for pivot decisions, LAUNCH_PLAN.md updates. |
 | `/advisor` | **New in v1.19.0.** Advisory/consulting mode — analysis-only (no code changes), multi-perspective evaluation via business-analyst + devils-advocate subagents. |
@@ -286,6 +287,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/migrate-prod` | Source host + target host + service list | `MIGRATION_PLAN.md` + executed migration steps | SSH, Docker, DNS changes, DB dumps — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
 | `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
+| `/adopt` | Path to an existing legacy repo (defaults to `cwd`) + optional `skip-chain` flag | `CLAUDE.md` (append-with-marker if exists), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | File writes in project root + project memory dir (never touches `~/.claude/settings.json`); voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency — re-runs are no-ops |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -484,6 +486,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/migrate-prod` | Sonnet | Opus | High-risk production operations need careful reasoning |
 | `/advisor` | Sonnet | Opus | Multi-perspective analysis via subagents |
 | `/deploy` | Sonnet | Sonnet | Sequential execution of a known checklist; Opus doesn't add value over Sonnet |
+| `/adopt` | Sonnet | Sonnet | Declarative templating + file merge + short voice-chain — no architectural reasoning |
 
 ## Who Is This For
 
@@ -571,7 +574,7 @@ Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/H
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 24. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 25. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

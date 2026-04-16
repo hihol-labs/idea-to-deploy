@@ -11,16 +11,16 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 24](https://img.shields.io/badge/Skills-24-green.svg)](#скиллы)
+[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
-[![Version: 1.19.2](https://img.shields.io/badge/Version-1.19.2-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.20.0](https://img.shields.io/badge/Version-1.20.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 24 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 25 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 24 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 25 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -71,7 +71,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 24 папок скиллов
+  ├── skills/          # 25 папок скиллов
   ├── agents/          # 6 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
@@ -181,12 +181,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 ## Скиллы
 
-### Точки входа (5 скиллов)
+### Точки входа (6 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
 | `/project` | Маршрутизатор для **создания** нового — задаёт один вопрос и направляет в /kickstart, /blueprint или /guide |
 | `/task` | Маршрутизатор для **работы с существующим кодом** — направляет в нужный daily-work скилл (/bugfix, /refactor, /doc, /test, /perf, /review, …) по типу задачи |
+| `/adopt` | **Новое в v1.20.0.** Адоптация legacy-проекта в методологию — добавляет идемпотентный блок в `CLAUDE.md`, регистрирует project-level хуки в `.claude/settings.json`, бутстрапит memory dir, затем voice-chain в `/strategy` или `/blueprint` для plan-документов. Без reverse-engineering планов. |
 | `/discover` | **Новое в v1.17.0.** Фаза product discovery — анализ рынка (TAM/SAM/SOM), исследование конкурентов, пользовательские персоны, приоритизация фич (MoSCoW + RICE). Генерирует `DISCOVERY.md` для `/blueprint`. |
 | `/strategy` | **Новое в v1.19.0.** Стратегический пересмотр существующих проектов — gap-анализ по 5 измерениям, генерация вариантов с devil's advocate, ADR для pivot-решений, обновление LAUNCH_PLAN.md. |
 | `/advisor` | **Новое в v1.19.0.** Советник/консалтинг-режим — только анализ (без изменения кода), многоперспективная оценка через business-analyst + devils-advocate субагентов. |
@@ -286,6 +287,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/migrate-prod` | Source хост + target хост + список сервисов | `MIGRATION_PLAN.md` + выполненные шаги миграции | SSH, Docker, DNS-изменения, дампы БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 | `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 | `/deploy` | Имя сервиса (`web`, `all` или конкретный) + git HEAD | Задеплоенные контейнеры + результат healthcheck (stdout) | SSH к целевому хосту, синхронизация файлов, Docker build, рестарт контейнеров, опционально миграции БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
+| `/adopt` | Путь к legacy-репозиторию (по умолчанию `cwd`) + опциональный флаг `skip-chain` | `CLAUDE.md` (append-with-marker если существует), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | Пишет в корень проекта и в memory dir проекта (никогда не трогает `~/.claude/settings.json`); voice-chain вызывает `/strategy` или `/blueprint` | ✅ Идемпотентность через маркер — повторы = no-op |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -486,6 +488,7 @@ chmod +x ~/.claude/hooks/*.sh
 | `/migrate-prod` | Sonnet | Opus | Высокорисковые production-операции требуют тщательного рассуждения |
 | `/advisor` | Sonnet | Opus | Многоперспективный анализ через субагентов |
 | `/deploy` | Sonnet | Sonnet | Последовательное выполнение известного чеклиста; Opus не даёт прироста над Sonnet |
+| `/adopt` | Sonnet | Sonnet | Декларативный шаблон + merge файлов + короткий voice-chain — без архитектурного reasoning |
 
 ## Для кого
 
@@ -573,7 +576,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 24. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 25. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

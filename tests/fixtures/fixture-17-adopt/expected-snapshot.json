@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "adopt",
+  "skill_under_test": "/adopt",
+  "status": "pending",
+  "description": "Stub — /adopt bootstraps a legacy project into the idea-to-deploy methodology: writes CLAUDE.md (append-with-marker if existing), merges project-level .claude/settings.json (preserving any user hooks), bootstraps the memory dir via a sentinel /session-save, then voice-chains into /strategy or /blueprint per the user's answer. A full fixture would need a throwaway legacy git repo plus assertions over three artefacts (CLAUDE.md marker, settings.json hooks array, MEMORY.md + .active-session.lock in the resolved memory dir) and an idempotency re-run check. Deferred until the contract stabilises; this fixture exists now to satisfy check-skill-completeness.sh and anchor future regression work."
+}
