@@ -3,7 +3,7 @@ name: strategy
 description: 'Strategic replanning for existing projects — analyze current state, update LAUNCH_PLAN.md, create ADRs for pivot decisions. For NEW projects use /blueprint instead.'
 argument-hint: project path, LAUNCH_PLAN.md, or "from scratch"
 license: MIT
-allowed-tools: Read Write Edit Glob Grep Agent(business-analyst) Agent(devils-advocate)
+allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Agent(business-analyst) Agent(devils-advocate)
 context: fork
 metadata:
   author: HiH-DimaN

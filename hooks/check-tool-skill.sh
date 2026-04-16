@@ -98,14 +98,15 @@ def should_remind(reminder_path: str) -> bool:
 
 
 def has_bypass_marker(payload: dict) -> bool:
-    """Check if the tool input contains a SKILL_BYPASS justification."""
+    """Check if the tool input contains a SKILL_BYPASS justification.
+
+    Only checks the 'description' field (human-visible Bash description)
+    to prevent accidental bypass via crafted command strings or file paths.
+    See Anthropic compliance audit I-3.
+    """
     tool_input = payload.get("tool_input") or {}
-    # Check common fields where Claude might embed the marker
-    for field in ("command", "content", "file_path", "description"):
-        val = tool_input.get(field, "")
-        if isinstance(val, str) and "SKILL_BYPASS:" in val:
-            return True
-    return False
+    val = tool_input.get("description", "")
+    return isinstance(val, str) and "SKILL_BYPASS:" in val
 
 
 def main() -> int:

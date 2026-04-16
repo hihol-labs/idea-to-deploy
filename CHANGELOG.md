@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Skill count: 20 → 23 across docs, READMEs, marketplace.json.
-- Hook count: 11 → 13 across docs.
+- Hook count: 11 → 12 across docs.
 - Defense-in-depth table version bump to v1.19.0.
 - `check-tool-skill.sh` now shows ignore counter (X/3) in reminders.
 - `pre-flight-check.sh` now includes context-switch detection and memory staleness warnings.

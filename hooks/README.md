@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These thirteen hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These twelve hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.19.0)
 
