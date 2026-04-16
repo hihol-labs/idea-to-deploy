@@ -63,7 +63,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 20 skill directories
+  ├── skills/          # 23 skill directories
   ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -173,13 +173,15 @@ Claude: Step 1/9 — scaffold project, commit
 
 ## Skills
 
-### Entry Points (3 skills)
+### Entry Points (5 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/project` | Smart router for **creating** something — asks one question and routes to /kickstart, /blueprint, or /guide |
 | `/task` | Smart router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) based on the task type |
 | `/discover` | **New in v1.17.0.** Product discovery phase — market analysis (TAM/SAM/SOM), competitor research, user personas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. |
+| `/strategy` | **New in v1.19.0.** Strategic replanning for existing projects — 5-dimension gap analysis, option generation with devil's advocate, ADR for pivot decisions, LAUNCH_PLAN.md updates. |
+| `/advisor` | **New in v1.19.0.** Advisory/consulting mode — analysis-only (no code changes), multi-perspective evaluation via business-analyst + devils-advocate subagents. |
 
 ### Project Creation (3 skills)
 
@@ -213,11 +215,12 @@ Claude: Step 1/9 — scaffold project, commit
 |-------|-------------|
 | `/deps-audit` | Read-only dependency audit — parses lockfiles, queries OSV.dev + GitHub Advisory for known CVEs, SPDX license compatibility, abandoned-package detection (> 2y without release). Same status enum as `/review`. |
 
-### Operations (3 skills)
+### Operations (4 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/migrate` | Apply database migrations safely — backup, apply, verify, document rollback. Refuses production without explicit confirmation. |
+| `/migrate-prod` | **New in v1.19.0.** Migrate running production services between hosts — inventory, setup target, data migration, dual-run, DNS cut-over, rollback plan, decommission. |
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
@@ -457,6 +460,9 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/infra` | Sonnet | Opus | Networking / IAM / secrets interactions are subtle |
 | `/session-save` | Sonnet | Sonnet | Reading git log + writing summary — straightforward |
 | `/autopilot` | Sonnet | Opus | Orchestrates full pipeline — benefits from Opus reasoning |
+| `/strategy` | Sonnet | Opus | Multi-factor gap analysis + ADR generation |
+| `/migrate-prod` | Sonnet | Opus | High-risk production operations need careful reasoning |
+| `/advisor` | Sonnet | Opus | Multi-perspective analysis via subagents |
 
 ## Who Is This For
 
@@ -544,7 +550,7 @@ Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/H
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 20. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 23. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

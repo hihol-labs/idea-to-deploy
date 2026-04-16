@@ -209,6 +209,19 @@ Actions:
 8. Keep Beget running 7 days, then decommission
 
 
+### Example 2: Migrate single Telegram bot to new VPS
+User: "Перенеси Telegram-бот с Beget на Hetzner VPS"
+
+Actions:
+1. Confirm: single service, Telegram bot on aiogram
+2. Inventory: 1 Docker Compose stack, SQLite DB, no object storage
+3. Setup Hetzner: Ubuntu 22.04, Docker, Nginx reverse proxy
+4. Data: scp SQLite file + uploads directory
+5. Deploy on target, test bot via direct IP webhook
+6. Update Telegram webhook to new domain
+7. Keep Beget running 7 days as safety net
+
+
 ## Self-validation
 
 Before executing migration steps, verify:
