@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "deploy",
+  "skill_under_test": "/deploy",
+  "status": "pending",
+  "description": "Stub — /deploy sequentially executes sync → kong config regen → docker build → restart → migrations → healthcheck against a live production host (SSH). A full fixture needs a dedicated ephemeral test target or a mocked SSH surface, so structural validation is deferred. For now the fixture exists only to satisfy check-skill-completeness.sh and to anchor future regression work."
+}

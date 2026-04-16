@@ -165,6 +165,15 @@ TRIGGERS = [
         "🔔 Триггер 'infrastructure-as-code' → используй /infra (Terraform/Helm/secrets для DO/AWS/Hetzner/K8s, remote tfstate с локами для prod). Вызови Skill ПЕРВЫМ.",
     ),
     (
+        r"(задеплой|деплой\b|deploy\b|выкат\w*\s+на\s+прод|обнови\s+прод|"
+        r"обнови\s+сервер|update\s+(production|server)|"
+        r"залей\s+на\s+сервер|push\s+to\s+prod|"
+        r"перезапусти\s+прод|перезапусти\s+контейнер|"
+        r"rsync\s+на\s+сервер|синхронизируй\s+с\s+сервером)",
+        "🔔 Триггер 'deploy' → используй /deploy "
+        "(деплой на прод: sync, build, migrations, healthcheck). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
         r"(сохрани\s+контекст|сохрани\s+сессию|запомни\s+что\s+делали|"
         r"итоги\s+сессии|конец\s+сессии|закончили\s+работу|"
         r"на\s+сегодня\s+всё|заканчиваем\s+работу|"
