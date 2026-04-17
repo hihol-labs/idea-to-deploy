@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Skill
 metadata:
   author: HiH-DimaN
-  version: 1.20.0
+  version: 1.20.3
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---

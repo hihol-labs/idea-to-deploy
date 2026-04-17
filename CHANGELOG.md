@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20.3] - 2026-04-18
+
+**Karpathy 4 principles adoption release.** Coverage map + template enrichment + goal-driven rule. Patch-release under ROADMAP v1.21 DEFERRED (ordinary tech-debt maintenance, not a feature release).
+
+### Context
+
+External analysis of [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) (Forrest Chang, ~54K stars — systematisation of Andrej Karpathy's [X post](https://x.com/karpathy) about typical LLM-agent mistakes) through `/advisor`. Finding: 2 of 4 Karpathy principles already covered strongly by idea-to-deploy (Think Before Coding, Surgical Changes), 2 covered partially (Simplicity First, Goal-Driven Execution). Three minimal patches close the gaps compatible with DEFERRED.
+
+### Added
+
+- **`docs/competitive-analysis.md` §8 «Karpathy 4 principles — coverage map».** Table mapping Karpathy's 4 principles to existing idea-to-deploy mechanisms (skills, hooks, subagents, meta-gates). Distancing strategy vs andrej-karpathy-skills: complementary, not competing. Explicit listing of what was done in v1.20.3 and what was deliberately deferred (e.g., test-first enforcement hook awaits n≥5 signal per ROADMAP_v1.21).
+- **`skills/adopt/references/claude-md-template.md` «4 принципа аккуратного кода».** New Russian-language block inserted between skill-routing rules and project-specific context in the CLAUDE.md template written by `/adopt`. Every legacy project onboarded via `/adopt` now inherits the 4 principles (Think / Simplicity / Surgical / Goal-Driven) as part of its project-level methodology rules.
+- **`skills/bugfix/SKILL.md` Step 1 soft-recommendation for test-first.** New prose guidance in «Reproduce»: write a failing test that reproduces the bug **before** the fix, when possible. Converts vague «fix the bug» into a verifiable goal («make this test pass»). Explicit fallback when test cannot be written (UI glitch, race condition, env-specific bug): record a binary success criterion in plain text.
+
+### Changed
+
+- **`skills/bugfix/SKILL.md` Rule 2** — now expresses preference for failing-test-before-fix (Step 1) over regression-test-after-fix (Step 6). Soft wording («Предпочтительно») — not an enforcement, matching the ROADMAP_v1.21 DEFERRED posture.
+
+### Ops
+
+- **Version bumps:** `.claude-plugin/plugin.json` 1.20.2 → 1.20.3, `.claude-plugin/marketplace.json` plugins[0].version 1.20.2 → 1.20.3, `skills/adopt/SKILL.md` metadata 1.20.0 → 1.20.3 (template changed), `skills/bugfix/SKILL.md` metadata 1.4.0 → 1.5.0 (behavioural guidance added). README.md and README.ru.md version badges updated.
+- **Attribution:** [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills), [Andrej Karpathy on X](https://x.com/karpathy).
+
+### Deliberately not done (deferred to v1.21+ when multi-point signal arrives)
+
+- **Test-first enforcement hook** — a `PostToolUse` hook that would warn when `/bugfix` edits code without a preceding new test. Rejected per ROADMAP_v1.21 criteria (n=0 signal, solo-maintainer surface cost, would bypass DEFERRED).
+- **`EXAMPLES.md` for all 25 skills** — 25 × 2 anti-pattern pairs ≈ 1000 lines of docs with high drift risk. Existing in-skill examples + trigger phrases already cover the use cases.
+
+### Lessons learned (meta-review gap)
+
+- Pre-merge `/review` missed M-C5/M-C6/M-C13 drift because `plugin.json` bump was executed **after** the review agent's run. CI Gate 1 caught the drift correctly, confirming the gate's value. For future patch releases, always stage `plugin.json` + `marketplace.json` + `README.md` + `README.ru.md` + `CHANGELOG.md` version bumps **before** invoking `/review`, so the review agent sees the final drift state.
+
+---
+
 ## [1.20.2] - 2026-04-17
 
 **Follow-up polish release.** Closes the three small follow-up items deferred from v1.20.1: drift-proof M-C12 regex, content correctness in promo drafts, and automatic backup rotation for `sync-to-active.sh`.

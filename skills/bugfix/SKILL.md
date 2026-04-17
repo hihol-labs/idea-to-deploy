@@ -7,7 +7,7 @@ allowed-tools: Read Edit Glob Grep Bash
 paths: ["**/logs/**", "**/*.log"]
 metadata:
   author: HiH-DimaN
-  version: 1.4.0
+  version: 1.5.0
   category: code-quality
   tags: [debugging, bugfix, troubleshooting]
 ---
@@ -61,6 +61,16 @@ Expected: What should happen
 Actual: What happens instead
 Error: Exact error message or unexpected behavior
 ```
+
+**Рекомендация (goal-driven fix, v1.5.0):** по возможности напиши **failing test**, который воспроизводит баг, **до** правки. Это превращает размытое «почини баг» в verifiable goal: «сделай, чтобы этот тест прошёл». Преимущества:
+
+- Root cause становится явным (если тест не падает — ты ловишь не тот баг).
+- Автоматический регрессионный тест (Step 6 выполняется за счёт Step 1).
+- Проверка фикса — не ручная, а по зелёному тесту.
+
+Когда failing test писать нельзя (UI glitch без testable API, race condition без reproduction harness, env-specific баг) — зафиксируй явный критерий успеха в виде текста: «после фикса `curl /health` возвращает 200», «форма сохраняет данные после повторного submit». Критерий должен быть бинарным.
+
+Адаптировано из [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) principle #4 (Goal-Driven Execution).
 
 ### Step 2: Locate
 Trace from the error back to the root cause:
@@ -118,7 +128,7 @@ Result: Found that validation middleware silently rejected the request due to mi
 ## Rules
 
 1. Ищи root cause, а не маскируй симптомы — `try/except: pass`, подавление ошибок, fallback на default value без логирования запрещены как "фикс"
-2. Каждый исправленный баг должен сопровождаться регрессионным тестом, который падает на старом коде и проходит на новом (Step 6 не опционален)
+2. Каждый исправленный баг должен сопровождаться регрессионным тестом, который падает на старом коде и проходит на новом. **Предпочтительно** написать failing test до фикса (Step 1), а не после (Step 6) — это превращает задачу в verifiable goal и делает root cause явным (goal-driven, v1.5.0)
 3. Минимальный фикс — не рефактори окружающий код, не добавляй фичи, не меняй форматирование в незатронутых строках
 4. Перед фиксом объясни WHY (Step 3) вслух — если не можешь сформулировать причину в одном предложении, root cause ещё не найден
 5. Не меняй тесты, чтобы они проходили — если тест падает после фикса, значит тест проверял корректное поведение, а фикс сломал контракт
