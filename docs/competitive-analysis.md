@@ -273,3 +273,48 @@
 - **Design/UX pipeline** — Canva MCP integration для wireframes и design tokens. Не критично для core methodology.
 - **Multi-runtime support** — GSD поддерживает 14 рантаймов. Потенциал для расширения аудитории.
 - **Parallel sessions enhancement** — gstack Conductor (10-15 спринтов). Наш lockfile warning достаточен для solo-developer, но не для team.
+
+---
+
+## 8. Karpathy 4 principles — coverage map
+
+**Контекст.** [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) (Forrest Chang, ~54K stars) — минималистичный `CLAUDE.md` с 4 правилами поведения агента, систематизированными из поста Andrej Karpathy в X. Это **не прямой конкурент** — скорее переносимый набор правил для любой методологии, включая нашу.
+
+Проверяем, насколько эти 4 принципа уже реализованы в idea-to-deploy, и где остаются пробелы.
+
+| # | Принцип (Karpathy / Chang) | Где закрыто в idea-to-deploy | Покрытие |
+|---|---|---|:---:|
+| 1 | **Think Before Coding** — озвучивать допущения, предлагать несколько интерпретаций, останавливаться при неясности | `/blueprint` Step 1 «Clarify the idea», `/discover` (TAM/SAM/SOM), `/advisor` (advisory-only), `/project` router (выбор A/B/C до действий), subagents `business-analyst` + `devils-advocate` | **Сильно** |
+| 2 | **Simplicity First** — минимум кода, никаких «гибкостей», никаких фич «на будущее», правило «200 → 50 строк» | `/blueprint --lite` режим, MoSCoW-приоритизация в `/discover` (Won't категория против scope creep), Sonnet fallback | **Частично** (нет явного правила «200→50» для generated code) |
+| 3 | **Surgical Changes** — менять только запрошенное, не рефакторить соседний код, не удалять чужой dead code | `hooks/freeze.sh` + auto-freeze в `/bugfix` Step 0 / `/refactor` / `/perf` (v1.17.0), `freeze.sh` — soft guardrail с warning за пределами scope | **Сильно** |
+| 4 | **Goal-Driven Execution** — превратить «fix the bug» в «напиши тест, который воспроизводит баг, затем сделай так, чтобы он прошёл» | `/bugfix` Step 1 «Reproduce» + **soft-рекомендация test-first** (v1.5.0), Step 6 «Prevent» (регрессионный тест), `/test` обязателен после нового кода, 23 meta-review gates как verification loop | **Частично** (soft, не enforcement; хук-enforcement отложен до v1.21+ при multi-point signal) |
+
+### Итог
+
+- **2 из 4 принципов** закрыты сильно (Think, Surgical).
+- **2 из 4** закрыты частично:
+  - Simplicity First — на уровне документов и объёма фич, но нет универсального правила для размера generated code.
+  - Goal-Driven — тест идёт после фикса, не до. У Karpathy/Chang ключевое — `failing test → fix → test passes` именно в такой последовательности.
+
+### Что сделано в рамках этого анализа
+
+- **v1.20.3** — в `CLAUDE.md`-шаблон `/adopt` добавлен компактный блок с 4 принципами (на русском, с атрибуцией). Legacy-проекты, адоптированные через `/adopt`, получают их автоматически.
+- **v1.20.3** — в `/bugfix` Step 1 дописана soft-рекомендация «по возможности напиши failing test до правки» (без enforcement через хук — это gap, кандидат на v1.21+ при multi-point signal).
+
+### Что намеренно **не** сделано
+
+- **Отдельный хук-enforcement для test-first** — это feature work, явно подпадает под критерии отклонения `ROADMAP_v1.21.md` (нужен multi-point signal n≥5 + solo-maintainer cost). Вернёмся при появлении сигнала в issues/discussions.
+- **Отдельный файл `EXAMPLES.md` с anti-patterns** — 25 скиллов × 2 примера = ~1000 строк документации с риском drift. Существующие in-skill examples + trigger phrases покрывают кейсы лучше.
+
+### Стратегия дистанцирования vs andrej-karpathy-skills
+
+| | andrej-karpathy-skills | idea-to-deploy |
+|---|---|---|
+| **Формат** | 1 файл `CLAUDE.md` | 25 скиллов + 7 субагентов + 13 хуков |
+| **Аудитория** | Solo-разработчик, один проект | Команда / solo для full lifecycle |
+| **Scope** | Правила поведения агента | Полный pipeline idea → production |
+| **Отношение** | **Комплементарно**, не взаимозаменяемо |
+
+**Messaging:** «Karpathy skills задают 4 принципа поведения агента. idea-to-deploy — полная методология, где эти принципы встроены в 25 скиллов через хуки-guardrails и meta-review gates».
+
+**Атрибуция:** [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills), вдохновлён постом [Andrej Karpathy в X](https://x.com/karpathy).
