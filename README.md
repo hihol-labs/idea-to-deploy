@@ -5,7 +5,7 @@
 **Install in 30 seconds:**
 
 ```bash
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 ```
 
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
@@ -14,7 +14,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
-[![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
+[![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
@@ -62,7 +62,7 @@ Every step is verified. Every feature is tested. Every decision is documented. E
 **Install the plugin:**
 
 ```bash
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 ```
 
 **Verify the installation:**
@@ -87,13 +87,13 @@ If the router prompt appears and offers routes A / B / C, the plugin is live.
 **Updating:**
 
 ```bash
-/plugin update HiH-DimaN/idea-to-deploy
+/plugin update hihol-labs/idea-to-deploy
 ```
 
 **Uninstalling:**
 
 ```bash
-/plugin uninstall HiH-DimaN/idea-to-deploy
+/plugin uninstall hihol-labs/idea-to-deploy
 ```
 
 See the [CHANGELOG](CHANGELOG.md) for release notes.
@@ -354,7 +354,7 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 **Recommended — one command:**
 
 ```bash
-git clone https://github.com/HiH-DimaN/idea-to-deploy ~/idea-to-deploy-src
+git clone https://github.com/hihol-labs/idea-to-deploy ~/idea-to-deploy-src
 cd ~/idea-to-deploy-src && bash scripts/sync-to-active.sh
 ```
 
@@ -538,10 +538,10 @@ See [CHANGELOG v1.4.0](CHANGELOG.md) for the detailed breakdown.
 Claude Code may default to ad-hoc tool calls on ambiguous prompts. Install the [skill discovery hooks](#recommended-setup-skill-discovery-hooks) — they inject `[SKILL HINT]` and `[SKILL CHECK]` reminders that raise the invocation rate significantly. You can also invoke a skill explicitly: `/bugfix`, `/test`, etc.
 
 **How do I update the plugin?**
-`/plugin update HiH-DimaN/idea-to-deploy`. Check the [CHANGELOG](CHANGELOG.md) for what changed.
+`/plugin update hihol-labs/idea-to-deploy`. Check the [CHANGELOG](CHANGELOG.md) for what changed.
 
 **How do I uninstall?**
-`/plugin uninstall HiH-DimaN/idea-to-deploy`. Hooks in `~/.claude/settings.json` (if you installed them) must be removed manually.
+`/plugin uninstall hihol-labs/idea-to-deploy`. Hooks in `~/.claude/settings.json` (if you installed them) must be removed manually.
 
 **Conflicts with other plugins.**
 Skills are namespaced by plugin, so two plugins can coexist even if both define `/test`. The router will ask which one to use. Hooks are global — if another plugin also registers UserPromptSubmit hooks, they run in the order defined in `settings.json`.
@@ -567,7 +567,7 @@ Three mechanisms work together:
 `~/.claude/plugins/idea-to-deploy/skills/`. Each skill has a `SKILL.md` you can read to understand its contract.
 
 **Something else is broken.**
-Open an issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/HiH-DimaN/idea-to-deploy/issues). Include your Claude Code version, the model in use, the prompt, and the unexpected behavior.
+Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Include your Claude Code version, the model in use, the prompt, and the unexpected behavior.
 
 ## Contributing
 

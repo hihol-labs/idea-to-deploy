@@ -4,7 +4,7 @@
 - **Target length:** ~1500 words
 - **Tags:** N/A (HN has no tags)
 - **Hook:** We built a self-improving methodology plugin for Claude Code and needed to test it without a human in the loop. Here's what we learned about `claude -p` and headless LLM testing.
-- **CTA:** The plugin is MIT-licensed at https://github.com/HiH-DimaN/idea-to-deploy -- feedback welcome, especially from anyone else doing headless Claude Code automation.
+- **CTA:** The plugin is MIT-licensed at https://github.com/hihol-labs/idea-to-deploy -- feedback welcome, especially from anyone else doing headless Claude Code automation.
 
 ---
 
@@ -159,7 +159,7 @@ The headless runner is what makes this sustainable. Without it, testing a method
 
 ### The repo
 
-idea-to-deploy is MIT-licensed: https://github.com/HiH-DimaN/idea-to-deploy
+idea-to-deploy is MIT-licensed: https://github.com/hihol-labs/idea-to-deploy
 
 The headless runner, snapshot validator, and meta-review scripts are all in `tests/`. The methodology itself is 25 skills covering project creation, daily work (bugfix, refactor, test, perf, security audit, deps audit, migrate, harden, infra), product discovery, documentation, and session persistence.
 

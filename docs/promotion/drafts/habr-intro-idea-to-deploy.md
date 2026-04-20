@@ -4,7 +4,7 @@
 - **Target length:** ~2500 words
 - **Tags:** claude, ai, devtools, opensource, methodology, claude-code, automation
 - **Hook:** Claude Code умеет всё. Проблема в том, что без инструкций он делает всё одновременно, непоследовательно и без тестов. Я написал плагин, который превращает его в разработчика с чётким пайплайном — от идеи до задеплоенного продукта.
-- **CTA:** Плагин MIT-лицензирован: https://github.com/HiH-DimaN/idea-to-deploy
+- **CTA:** Плагин MIT-лицензирован: https://github.com/hihol-labs/idea-to-deploy
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Решение: idea-to-deploy
 
-[idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy) — это плагин для Claude Code, который превращает хаотичную генерацию в структурированный пайплайн:
+[idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy) — это плагин для Claude Code, который превращает хаотичную генерацию в структурированный пайплайн:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -31,7 +31,7 @@
 
 Установка одной командой:
 ```bash
-/install github:HiH-DimaN/idea-to-deploy
+/install github:hihol-labs/idea-to-deploy
 ```
 
 После этого Claude Code получает **25 скиллов**, **7 специализированных субагентов** и **13 enforcement-хуков**.
@@ -127,7 +127,7 @@
 
 ```bash
 # Установка плагина
-/install github:HiH-DimaN/idea-to-deploy
+/install github:hihol-labs/idea-to-deploy
 
 # Новый проект
 /project
@@ -138,10 +138,10 @@
 
 Плагин MIT-лицензирован, работает на всех платформах (macOS, Linux, WSL, Windows).
 
-GitHub: [github.com/HiH-DimaN/idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy)
+GitHub: [github.com/hihol-labs/idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy)
 
 ## Что дальше
 
 Методология развивается с каждым реальным использованием. Каждый баг, каждое пользовательское наблюдение порождает новый автоматический gate. Система становится строже с каждым релизом — и это by design.
 
-Буду рад фидбэку — особенно от тех, кто уже использует Claude Code для разработки. Что не хватает? Какие задачи не покрыты? Пишите в [issues](https://github.com/HiH-DimaN/idea-to-deploy/issues) или в комментариях.
+Буду рад фидбэку — особенно от тех, кто уже использует Claude Code для разработки. Что не хватает? Какие задачи не покрыты? Пишите в [issues](https://github.com/hihol-labs/idea-to-deploy/issues) или в комментариях.

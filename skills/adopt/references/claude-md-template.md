@@ -16,7 +16,7 @@ markers manually and re-run /adopt.
 > Adopted into this project on {{ADOPTED_AT}} via `/adopt`.
 > These rules route Claude Code to the right skill automatically and keep
 > commits, tests, and documentation honest. Full methodology:
-> https://github.com/HiH-DimaN/idea-to-deploy
+> https://github.com/hihol-labs/idea-to-deploy
 
 ## ⚠️ Hard rule (violation = bug)
 

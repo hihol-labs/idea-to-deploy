@@ -4,7 +4,7 @@
 - **Target length:** 12 tweets, each under 280 characters
 - **Hashtags:** #ClaudeCode #AI #DevTools #OpenSource #CodingWithAI #LLMTesting
 - **Hook:** What if your dev methodology could catch its own bugs?
-- **CTA:** Star and try the plugin at https://github.com/HiH-DimaN/idea-to-deploy
+- **CTA:** Star and try the plugin at https://github.com/hihol-labs/idea-to-deploy
 
 ---
 
@@ -106,7 +106,7 @@ Each tier catches what the others miss.
 
 ## Tweet 12
 
-The repo is MIT-licensed: github.com/HiH-DimaN/idea-to-deploy
+The repo is MIT-licensed: github.com/hihol-labs/idea-to-deploy
 
 25 skills, 7 subagents, 25+ meta-review gates, 3-tier testing, product discovery (MoSCoW/RICE), safety guardrails, Red/Blue Team security mode.
 

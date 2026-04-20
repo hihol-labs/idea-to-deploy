@@ -5,7 +5,7 @@
 **Установка за 30 секунд:**
 
 ```bash
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 ```
 
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
@@ -14,7 +14,7 @@
 [![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
-[![meta-review](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/HiH-DimaN/idea-to-deploy/actions/workflows/meta-review.yml)
+[![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
@@ -62,7 +62,7 @@ Claude Code мощный, но без инструкций работает ка
 **Установка плагина:**
 
 ```bash
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 ```
 
 **Проверка установки:**
@@ -87,13 +87,13 @@ Claude Code мощный, но без инструкций работает ка
 **Обновление:**
 
 ```bash
-/plugin update HiH-DimaN/idea-to-deploy
+/plugin update hihol-labs/idea-to-deploy
 ```
 
 **Удаление:**
 
 ```bash
-/plugin uninstall HiH-DimaN/idea-to-deploy
+/plugin uninstall hihol-labs/idea-to-deploy
 ```
 
 Заметки о релизах — в [CHANGELOG](CHANGELOG.md).
@@ -354,7 +354,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 **Рекомендуемый способ — одна команда:**
 
 ```bash
-git clone https://github.com/HiH-DimaN/idea-to-deploy ~/idea-to-deploy-src
+git clone https://github.com/hihol-labs/idea-to-deploy ~/idea-to-deploy-src
 cd ~/idea-to-deploy-src && bash scripts/sync-to-active.sh
 ```
 
@@ -540,10 +540,10 @@ chmod +x ~/.claude/hooks/*.sh
 Claude Code может скатиться в ad-hoc tool calls на неоднозначных промптах. Установите [хуки обнаружения скиллов](#рекомендуемая-настройка-хуки-обнаружения-скиллов) — они инжектят напоминания `[SKILL HINT]` и `[SKILL CHECK]`, что заметно поднимает частоту срабатывания. Можно также вызвать скилл явно: `/bugfix`, `/test` и т.д.
 
 **Как обновить плагин?**
-`/plugin update HiH-DimaN/idea-to-deploy`. Что изменилось — в [CHANGELOG](CHANGELOG.md).
+`/plugin update hihol-labs/idea-to-deploy`. Что изменилось — в [CHANGELOG](CHANGELOG.md).
 
 **Как удалить?**
-`/plugin uninstall HiH-DimaN/idea-to-deploy`. Хуки в `~/.claude/settings.json` (если вы их ставили) нужно удалить вручную.
+`/plugin uninstall hihol-labs/idea-to-deploy`. Хуки в `~/.claude/settings.json` (если вы их ставили) нужно удалить вручную.
 
 **Конфликты с другими плагинами.**
 Скиллы неймспейсятся по плагину, поэтому два плагина могут сосуществовать даже если оба определяют `/test` — роутер спросит, какой использовать. Хуки — глобальные; если другой плагин тоже вешает UserPromptSubmit-хуки, они выполняются в порядке из `settings.json`.
@@ -569,7 +569,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 `~/.claude/plugins/idea-to-deploy/skills/`. У каждого скилла есть `SKILL.md`, который можно прочитать, чтобы понять его контракт.
 
 **Что-то сломалось.**
-Заведите issue: [github.com/HiH-DimaN/idea-to-deploy/issues](https://github.com/HiH-DimaN/idea-to-deploy/issues). Приложите версию Claude Code, используемую модель, промпт и описание неожиданного поведения.
+Заведите issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Приложите версию Claude Code, используемую модель, промпт и описание неожиданного поведения.
 
 ## Контрибьютинг
 
