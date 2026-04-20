@@ -4,7 +4,7 @@
 - **Target length:** ~2000 words
 - **Tags:** #ai, #testing, #claudecode, #opensource, #devtools
 - **Hook:** How do you test a methodology that runs inside an LLM? We built three tiers of automated testing -- and each tier catches bugs the others miss.
-- **CTA:** The full test suite and plugin are MIT-licensed at https://github.com/HiH-DimaN/idea-to-deploy. PRs and feedback welcome.
+- **CTA:** The full test suite and plugin are MIT-licensed at https://github.com/hihol-labs/idea-to-deploy. PRs and feedback welcome.
 
 ---
 
@@ -220,7 +220,7 @@ The `claude -p` flags work but the documentation is sparse. We discovered most g
 
 ### Try it
 
-The full test suite and plugin are MIT-licensed at https://github.com/HiH-DimaN/idea-to-deploy.
+The full test suite and plugin are MIT-licensed at https://github.com/hihol-labs/idea-to-deploy.
 
 Key files:
 - `tests/meta_review.py` -- Tier 1 structural gates (25+ checks)

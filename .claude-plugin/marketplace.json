@@ -17,12 +17,12 @@
       },
       "source": {
         "source": "github",
-        "repo": "HiH-DimaN/idea-to-deploy"
+        "repo": "hihol-labs/idea-to-deploy"
       },
-      "homepage": "https://github.com/HiH-DimaN/idea-to-deploy",
+      "homepage": "https://github.com/hihol-labs/idea-to-deploy",
       "version": "1.20.3",
       "images": [
-        "https://raw.githubusercontent.com/HiH-DimaN/idea-to-deploy/main/docs/demo.svg"
+        "https://raw.githubusercontent.com/hihol-labs/idea-to-deploy/main/docs/demo.svg"
       ],
       "tags": ["community-managed"],
       "keywords": [

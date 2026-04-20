@@ -4,7 +4,7 @@
 - **Target length:** 500-800 words
 - **Tags/Flair:** Show (or Project Showcase, depending on subreddit rules)
 - **Hook:** I built a Claude Code plugin that audits itself and gets stricter with every release. Here's what 25 skills, 25 meta-review gates, and 3 tiers of testing look like in practice.
-- **CTA:** MIT-licensed at https://github.com/HiH-DimaN/idea-to-deploy -- would love feedback, especially on the testing approach.
+- **CTA:** MIT-licensed at https://github.com/hihol-labs/idea-to-deploy -- would love feedback, especially on the testing approach.
 
 ---
 
@@ -14,7 +14,7 @@ I built a Claude Code plugin that audits itself and gets stricter with every rel
 
 ### What it is
 
-idea-to-deploy is a Claude Code plugin (installed via `/plugin install HiH-DimaN/idea-to-deploy`) that gives Claude Code a structured development methodology instead of ad-hoc generation.
+idea-to-deploy is a Claude Code plugin (installed via `/plugin install hihol-labs/idea-to-deploy`) that gives Claude Code a structured development methodology instead of ad-hoc generation.
 
 **25 skills** covering the full lifecycle:
 - **Entry points:** `/project` (router), `/task` (daily work router), `/discover` (product discovery with MoSCoW/RICE)
@@ -64,7 +64,7 @@ The recent release series was a marathon of self-improvement:
 
 ```bash
 # Install
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 
 # Start a new project
 /project
@@ -79,6 +79,6 @@ The recent release series was a marathon of self-improvement:
 2. **The operations skills** -- are `/migrate`, `/harden`, `/infra` useful in practice, or are you using other tools for that?
 3. **The safety guardrails** -- do you use any kind of destructive-command warning in your Claude Code workflow?
 
-MIT-licensed: [github.com/HiH-DimaN/idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy)
+MIT-licensed: [github.com/hihol-labs/idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy)
 
 Happy to answer questions about the architecture, testing setup, or anything else.

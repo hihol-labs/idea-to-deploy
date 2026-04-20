@@ -46,7 +46,7 @@ save lands).
 
 - Repo-level weekly dashboard: stars, issues opened/closed, discussions,
   marketplace-install counts (if exposed by any of the 7 directories we
-  submitted to), `/plugin install HiH-DimaN/idea-to-deploy` telemetry.
+  submitted to), `/plugin install hihol-labs/idea-to-deploy` telemetry.
 - **Nothing to decide until there are numbers.** All v1.21 candidates
   are currently based on n=1 — decisions on that signal are cargo-cult.
 

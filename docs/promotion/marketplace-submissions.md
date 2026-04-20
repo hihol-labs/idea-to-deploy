@@ -13,8 +13,8 @@
 | Version     | 1.19.0                                                 |
 | License     | MIT                                                    |
 | Author      | HiH-DimaN                                              |
-| Repo        | https://github.com/HiH-DimaN/idea-to-deploy           |
-| Homepage    | https://github.com/HiH-DimaN/idea-to-deploy           |
+| Repo        | https://github.com/hihol-labs/idea-to-deploy           |
+| Homepage    | https://github.com/hihol-labs/idea-to-deploy           |
 | Category    | Development / Developer Tools                          |
 | Tags        | claude-code, methodology, project-lifecycle, developer-tools, ai-coding, testing, deployment, code-review, security-audit, session-persistence, meta-review, daily-work-router, product-discovery, safety-guardrails |
 
@@ -46,7 +46,7 @@ Core capabilities:
 - 3-tier behavioural testing: structural, snapshot, and headless validation.
 - Daily work router /task — a single entry point for 12 different task types.
 
-MIT licensed. Install: /plugin install HiH-DimaN/idea-to-deploy
+MIT licensed. Install: /plugin install hihol-labs/idea-to-deploy
 ```
 
 ### Categories / Tags
@@ -93,7 +93,7 @@ Instead of ad-hoc prompting, every task is routed through a structured methodolo
 
 The /task router automatically maps any request to the right skill among 12 task types. 7 subagents (architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst) provide deep domain expertise.
 
-v1.19.0 | MIT | github.com/HiH-DimaN/idea-to-deploy
+v1.19.0 | MIT | github.com/hihol-labs/idea-to-deploy
 ```
 
 ### Status
@@ -129,7 +129,7 @@ What you get:
 - 3-tier behavioural testing: structural validation, snapshot comparison, headless execution.
 - /task router: one command routes to any of 12 task types.
 
-Install in one command: /plugin install HiH-DimaN/idea-to-deploy
+Install in one command: /plugin install hihol-labs/idea-to-deploy
 
 Open source, MIT licensed, actively maintained.
 ```
@@ -217,7 +217,7 @@ Quality enforcement:
 - 23 meta-review gates for methodology self-correction
 - 3-tier behavioural testing pipeline
 
-v1.19.0 | MIT | Install: /plugin install HiH-DimaN/idea-to-deploy
+v1.19.0 | MIT | Install: /plugin install hihol-labs/idea-to-deploy
 ```
 
 ### Status
@@ -254,7 +254,7 @@ Key numbers:
 - 12 task types: one /task command routes to the right skill automatically
 
 MIT licensed, actively maintained, install with one command.
-GitHub: https://github.com/HiH-DimaN/idea-to-deploy
+GitHub: https://github.com/hihol-labs/idea-to-deploy
 ```
 
 ### Status
@@ -275,7 +275,7 @@ Add idea-to-deploy — 25 skills + 7 subagents for full project lifecycle
 
 ### README entry (copy-paste into the appropriate section)
 ```markdown
-- [idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy) — Complete project lifecycle methodology: 25 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 7 specialized subagents + 13 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
+- [idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy) — Complete project lifecycle methodology: 25 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 7 specialized subagents + 13 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
 ```
 
 ### PR body
@@ -283,7 +283,7 @@ Add idea-to-deploy — 25 skills + 7 subagents for full project lifecycle
 ## Add idea-to-deploy
 
 **Name:** idea-to-deploy
-**Repo:** https://github.com/HiH-DimaN/idea-to-deploy
+**Repo:** https://github.com/hihol-labs/idea-to-deploy
 **Version:** 1.19.0
 **License:** MIT
 **Author:** [HiH-DimaN](https://github.com/HiH-DimaN)
@@ -299,7 +299,7 @@ Open-source Claude Code plugin providing a structured methodology for the entire
 - **3-tier behavioural testing** (structural + snapshot + headless).
 - **/task router** — single entry point for 12 task types.
 
-Install: `/plugin install HiH-DimaN/idea-to-deploy`
+Install: `/plugin install hihol-labs/idea-to-deploy`
 ```
 
 ### Status

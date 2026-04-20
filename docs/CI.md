@@ -46,7 +46,7 @@ The workflow **runs** automatically once merged to `main`, but to make it **bloc
 
 ### Step-by-step
 
-1. Open the repo on GitHub: `https://github.com/HiH-DimaN/idea-to-deploy`
+1. Open the repo on GitHub: `https://github.com/hihol-labs/idea-to-deploy`
 2. Navigate: **Settings** → **Branches** → **Branch protection rules** → **Add rule** (or edit existing)
 3. Set **Branch name pattern**: `main`
 4. Enable: **Require a pull request before merging**

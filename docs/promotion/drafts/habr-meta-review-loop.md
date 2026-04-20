@@ -4,7 +4,7 @@
 - **Target length:** ~3000 words
 - **Tags:** claude, ai, devtools, opensource, testing, methodology, llm, claude-code
 - **Hook:** Мы написали плагин для Claude Code с 25 скилловми. Потом написали мета-ревью, которое проверяет сам плагин. А потом обнаружили, что каждый пользовательский баг-репорт порождает новый gate -- и система становится строже с каждым релизом. Вот как это работает.
-- **CTA:** Плагин MIT-лицензирован: https://github.com/HiH-DimaN/idea-to-deploy. Буду рад фидбэку -- особенно от тех, кто тоже пытается тестировать LLM-методологии.
+- **CTA:** Плагин MIT-лицензирован: https://github.com/hihol-labs/idea-to-deploy. Буду рад фидбэку -- особенно от тех, кто тоже пытается тестировать LLM-методологии.
 
 ---
 
@@ -198,11 +198,11 @@ claude -p \
 
 ### Попробовать
 
-Плагин MIT-лицензирован: [github.com/HiH-DimaN/idea-to-deploy](https://github.com/HiH-DimaN/idea-to-deploy)
+Плагин MIT-лицензирован: [github.com/hihol-labs/idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy)
 
 Установка:
 ```bash
-/plugin install HiH-DimaN/idea-to-deploy
+/plugin install hihol-labs/idea-to-deploy
 ```
 
 Ключевые файлы для тестирования:
