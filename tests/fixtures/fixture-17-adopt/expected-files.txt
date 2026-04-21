@@ -1,0 +1,31 @@
+# Expected files after /adopt runs
+#
+# /adopt writes exactly three targets per the "minimal writes" contract:
+#
+# In the project root (validated by this fixture):
+
+CLAUDE.md
+.claude/settings.json
+
+# In the Claude Code project memory dir at
+# ~/.claude/projects/-<dashed-cwd>/memory/
+# (NOT validated by expected-snapshot.json — lives outside output dir):
+#   - session_YYYY-MM-DD.md          — sentinel session file
+#   - MEMORY.md                      — pointer index (created if absent)
+#   - .active-session.lock           — current-session marker
+#
+# /adopt MUST NOT produce (contract guard):
+#   - Plan documents (LAUNCH_PLAN.md / STRATEGIC_PLAN.md / PRD.md /
+#     PROJECT_ARCHITECTURE.md / IMPLEMENTATION_PLAN.md / DISCOVERY.md)
+#     — plan docs are voice-chained to /strategy or /blueprint AFTER
+#     adoption, never hallucinated by /adopt itself
+#   - Source code (.py / .ts / .js / .vue / etc.)
+#   - Writes to ~/.claude/settings.json (user-level, not project-level)
+#   - Writes OUTSIDE $PROJECT_ROOT (except the project memory dir above)
+#
+# Idempotency:
+#   - Second /adopt run on the same project: three "skip" decisions
+#     in the plan preamble, no new writes, voice-chain question still
+#     offered (user may want to generate plan docs after initial adopt)
+#   - CLAUDE.md marker (<!-- idea-to-deploy:begin v1.20 --> ... end -->)
+#     is the source of truth for "already adopted" detection
