@@ -27,6 +27,7 @@ from pathlib import Path
 
 GIT_COMMIT_RE = re.compile(r"(^|\s|;|&&|\|\|)git\s+commit(\s|$)")
 MAX_FILES_WITHOUT_REVIEW = 2
+REVIEW_FRESHNESS_SECONDS = 900  # 15 min — post-/review commit window
 
 
 def get_session_id() -> str:
@@ -38,7 +39,43 @@ def review_marker_path() -> Path:
 
 
 def review_was_done() -> bool:
-    return review_marker_path().exists()
+    """Check for a recent /review invocation.
+
+    Fast path: exact session-id match (works when CLAUDE_SESSION_ID is
+    stable across harness and skill fork).
+
+    Fallback: any /tmp/claude-review-done-* sentinel whose mtime is
+    within REVIEW_FRESHNESS_SECONDS. Tolerates the PID mismatch where
+    the /review skill writes the sentinel under `$$` (its own process
+    PID) while this hook later runs under a different `os.getppid()`
+    inside a separate harness subprocess. See PR #56 for the workaround
+    history this replaces.
+
+    Trade-offs:
+    - Cross-project false positive: a recent /review sentinel from
+      project A also unblocks a >2-file commit in project B within the
+      same 15-minute window. Acceptable — /review was still run in the
+      session, just maybe not on this exact file set, and commit
+      frequency is low enough that collisions are rare in practice.
+    - Reboot behaviour is clean: /tmp/ is wiped on reboot, so stale
+      sentinels never persist across boots and cannot leak across
+      unrelated work sessions separated by a machine restart.
+    """
+    # Fast path — exact session match
+    if review_marker_path().exists():
+        return True
+    # Fallback — any fresh sentinel from a recent /review run
+    import glob
+    import time
+
+    cutoff = time.time() - REVIEW_FRESHNESS_SECONDS
+    for path in glob.glob("/tmp/claude-review-done-*"):
+        try:
+            if os.path.getmtime(path) > cutoff:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def mark_review_done() -> None:
