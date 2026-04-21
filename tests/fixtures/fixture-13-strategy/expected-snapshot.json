@@ -1,25 +1,47 @@
 {
-  "$schema_version": "1.0.0",
-  "fixture_type": "snapshot",
+  "$schema_version": "1.0",
+  "fixture_type": "strategy-replan",
   "skill_under_test": "/strategy",
-  "fixture": "fixture-13-strategy",
-  "skill": "/strategy",
-  "status": "pending",
-  "description": "Strategic replanning for an existing SaaS project that missed revenue targets. Validates gap analysis, option generation, ADR, and LAUNCH_PLAN.md update.",
-  "expected_files": [
-    "LAUNCH_PLAN.md"
-  ],
-  "required_sections": [
-    "Situation Analysis",
-    "Gap",
-    "Root Cause",
-    "Option A",
-    "Option B",
-    "ADR",
-    "Block",
-    "Acceptance criteria"
-  ],
-  "min_options": 2,
-  "min_gap_dimensions": 3,
-  "prompt": "Пересмотри стратегию проекта NeuroExpert. Текущий MRR 50K ₽, цель была 200K ₽ к Q2. Основная проблема: низкая конверсия trial→paid (8% вместо 25%). Есть 5 потоков выручки, доминирует один. Нужен launch plan с новыми блоками работы."
+  "status": "active",
+  "description": "Strategic replanning for an existing SaaS (NeuroExpert) that missed its MRR target by 75%. Validates that /strategy produces a LAUNCH_PLAN.md with 5-dimension gap analysis, at least two options with trade-offs, and an ADR for the pivot decision, without touching product code.",
+
+  "files": {
+    "required": [
+      "LAUNCH_PLAN.md"
+    ],
+    "optional": [
+      "BACKLOG.md",
+      "docs/adr/0001-pivot.md",
+      "docs/adr/0001-strategic-pivot.md"
+    ],
+    "min_count": 1
+  },
+
+  "content_contracts": {
+    "LAUNCH_PLAN.md": {
+      "required_sections": [
+        "Situation|Ситуация|Analysis|Анализ",
+        "Gap|Разрыв|Delta",
+        "Root Cause|Причина|Корневая",
+        "Option A|Вариант A|Опция A",
+        "Option B|Вариант B|Опция B",
+        "ADR",
+        "Block|Блок|Workstream|Направление",
+        "Acceptance|Критерии приёмки|Done criteria|Готово"
+      ],
+      "min_length_chars": 1500,
+      "must_contain_any_of": {
+        "project_name": ["NeuroExpert"],
+        "mrr_current": ["50", "50K", "50 000", "50000"],
+        "mrr_target": ["200", "200K", "200 000", "200000"],
+        "conversion_gap": ["8%", "25%", "конверс", "conversion", "trial"],
+        "pivot_marker": ["pivot", "pivot decision", "pivot-решение", "пивот"]
+      }
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
 }
