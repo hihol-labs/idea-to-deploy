@@ -1,20 +1,7 @@
 {
-  "$schema_version": "1.0.0",
-  "fixture_type": "snapshot",
+  "$schema_version": "1.0",
+  "fixture_type": "advisor-stdout",
   "skill_under_test": "/advisor",
-  "fixture": "fixture-15-advisor",
-  "skill": "/advisor",
   "status": "pending",
-  "description": "Advisory consultation on choosing between 3 project directions. Validates analysis-only mode (no code output), multi-perspective evaluation, and pros/cons format.",
-  "expected_files": [],
-  "required_sections": [
-    "Analysis",
-    "Pros",
-    "Cons",
-    "Recommendation",
-    "Risk"
-  ],
-  "no_write_allowed": true,
-  "min_options_evaluated": 2,
-  "prompt": "Посоветуй: у меня есть 3 идеи для добавочного проекта — (A) маркетплейс для клиник, (B) SaaS для записи, (C) телеграм-бот для пациентов. Бюджет 200K ₽, дедлайн 3 месяца. Какой вариант лучше и почему? Только анализ, без кода."
+  "description": "Deferred — /advisor runs in read-only analysis mode and emits its recommendation to stdout (no Write / Edit / no files produced). verify_snapshot.py's Phase 1 schema is file-shaped, so structural validation of /advisor requires the Phase 2 stdout-snapshot scheme (same bucket as fixture-10-task, deferred to v1.16.0). This stub anchors future regression work and satisfies check-skill-completeness.sh; the notes.md here documents the expected contract (sections, subagents, guard rails) for manual verification."
 }
