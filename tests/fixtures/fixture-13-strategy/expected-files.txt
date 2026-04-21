@@ -1,0 +1,25 @@
+# Expected files after /strategy runs
+#
+# /strategy is a replanning skill — it reads existing plan docs,
+# analyzes a 5-dimension gap, generates 2-3 options, and produces
+# an updated LAUNCH_PLAN.md plus an ADR for the selected direction.
+#
+# Primary artifact:
+
+LAUNCH_PLAN.md
+
+# Optional artifacts (skill writes them when context warrants):
+#   BACKLOG.md               — if user asked for new work-block breakdown
+#   docs/adr/NNNN-*.md       — one ADR file per pivot decision
+#
+# /strategy MUST NOT produce (contract guard):
+#   - Product code (.py / .ts / .js / etc.) — this is plan-only
+#   - PROJECT_ARCHITECTURE.md — that belongs to /blueprint
+#   - New README.md / CLAUDE.md — the project already has them
+#   - STRATEGIC_PLAN.md (the original one) — /strategy may *read* it
+#     but writes only LAUNCH_PLAN.md + ADR; STRATEGIC_PLAN.md is
+#     /blueprint's domain
+#
+# /strategy is safe to re-run on the same project — each run
+# produces a new ADR file (incremented number) and a rewritten
+# LAUNCH_PLAN.md with an updated dated entry.

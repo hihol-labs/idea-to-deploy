@@ -1,0 +1,36 @@
+# Expected files after /autopilot runs the full pipeline
+#
+# /autopilot chains five phases back-to-back:
+#   1. /discover  → DISCOVERY.md
+#   2. /blueprint → STRATEGIC_PLAN.md, PROJECT_ARCHITECTURE.md, PRD.md,
+#                   IMPLEMENTATION_PLAN.md, CLAUDE_CODE_GUIDE.md, README.md
+#   3. /kickstart → CLAUDE.md + scaffolded code + tests + deploy config
+#   4. /review    → on-screen verdict, no new file mandated
+#   5. /test      → test files in tests/ (counted as project code, not doc set)
+#
+# Documentation artifacts expected in the project root:
+
+DISCOVERY.md
+STRATEGIC_PLAN.md
+PROJECT_ARCHITECTURE.md
+PRD.md
+IMPLEMENTATION_PLAN.md
+CLAUDE_CODE_GUIDE.md
+README.md
+CLAUDE.md
+
+# Project scaffolding (NOT validated by expected-snapshot.json — these
+# belong to /kickstart's own regression suite; listed here for human
+# verification only):
+#   src/, tests/, Dockerfile, requirements.txt (Python project), .env.example
+#
+# /autopilot MUST NOT produce (contract guard):
+#   - Deployed containers on a real host (sandbox only)
+#   - git push to a public remote (local commits are OK)
+#   - Skipped /review phase on score < 8/10 (skill should halt instead)
+#   - More than one /discover invocation (pipeline is linear)
+#
+# Checkpoint files (from /session-save between phases) land in the
+# project memory dir (~/.claude/projects/...), not in the project root.
+# Expect at least one `.session-save` marker timestamp between phases —
+# validated via notes.md manual check, not via expected-snapshot.json.

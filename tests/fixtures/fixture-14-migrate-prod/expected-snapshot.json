@@ -1,24 +1,49 @@
 {
-  "$schema_version": "1.0.0",
-  "fixture_type": "snapshot",
+  "$schema_version": "1.0",
+  "fixture_type": "migrate-prod-plan",
   "skill_under_test": "/migrate-prod",
-  "fixture": "fixture-14-migrate-prod",
-  "skill": "/migrate-prod",
-  "status": "pending",
-  "description": "Migration of 2 production services from Beget VDS to Hostland VDS. Validates inventory, target setup, data migration plan, DNS strategy, and rollback path.",
-  "expected_files": [
-    "MIGRATION_PLAN.md"
-  ],
-  "required_sections": [
-    "Source Inventory",
-    "Target Setup",
-    "Data Migration",
-    "DNS Strategy",
-    "Dual-Run",
-    "Cut-Over",
-    "Rollback Plan",
-    "Decommission"
-  ],
-  "min_services": 2,
-  "prompt": "Перенеси 2 проекта (Telegram-бот на aiogram + FastAPI backend с PostgreSQL и Minio) с Beget VDS (Ubuntu 20.04) на новый Hostland VDS (Ubuntu 22.04, Docker, Coolify). DNS через Cloudflare. Нужен план с dual-run периодом и rollback."
+  "status": "active",
+  "description": "Migration plan for 2 production services (aiogram Telegram bot + FastAPI backend with PostgreSQL and Minio) from Beget VDS (Ubuntu 20.04) to Hostland VDS (Ubuntu 22.04, Docker, Coolify) with Cloudflare DNS cut-over and rollback path. Validates that /migrate-prod produces a MIGRATION_PLAN.md with all 8 required sections and references both source services.",
+
+  "files": {
+    "required": [
+      "MIGRATION_PLAN.md"
+    ],
+    "optional": [
+      "ROLLBACK.md",
+      "scripts/migrate.sh"
+    ],
+    "min_count": 1
+  },
+
+  "content_contracts": {
+    "MIGRATION_PLAN.md": {
+      "required_sections": [
+        "Source Inventory|Инвентаризация|Исходный",
+        "Target Setup|Настройка целевого|Целевой хост|Target host",
+        "Data Migration|Миграция данных|Перенос данных",
+        "DNS|Cloudflare",
+        "Dual-Run|Dual Run|Параллельная работа|Parallel run",
+        "Cut-Over|Cut Over|Переключение|Switchover",
+        "Rollback|Откат|Plan B",
+        "Decommission|Вывод из эксплуатации|Списание"
+      ],
+      "min_length_chars": 2000,
+      "must_contain_any_of": {
+        "source_host": ["Beget", "beget"],
+        "target_host": ["Hostland", "hostland", "Coolify", "coolify"],
+        "dns_provider": ["Cloudflare", "cloudflare"],
+        "telegram_service": ["aiogram", "Telegram", "телеграм", "бот"],
+        "backend_service": ["FastAPI", "fastapi", "backend"],
+        "database": ["PostgreSQL", "postgres", "pg_dump"],
+        "object_storage": ["Minio", "minio", "S3", "s3"],
+        "rollback_command": ["rollback", "revert", "откат", "DNS TTL"]
+      }
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
 }

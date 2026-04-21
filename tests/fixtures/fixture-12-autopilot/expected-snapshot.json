@@ -1,27 +1,88 @@
 {
-  "$schema_version": "1.0.0",
-  "fixture_type": "snapshot",
+  "$schema_version": "1.0",
+  "fixture_type": "autopilot-full",
   "skill_under_test": "/autopilot",
-  "fixture": "fixture-12-autopilot",
-  "skill": "/autopilot",
-  "status": "pending",
-  "description": "Full autopilot pipeline for a simple Telegram bot. Validates that all phases execute sequentially with checkpoints between them.",
-  "expected_files": [
-    "DISCOVERY.md",
-    "STRATEGIC_PLAN.md",
-    "ARCHITECTURE.md",
-    "PRD.md",
-    "IMPLEMENTATION_PLAN.md",
-    "README.md"
-  ],
-  "required_phases": [
-    "discover",
-    "blueprint",
-    "kickstart",
-    "review",
-    "test"
-  ],
-  "min_session_saves": 1,
-  "min_review_score": 8,
-  "prompt": "Автопилот: создай Telegram-бот для записи к парикмахеру. Стек: Python + aiogram + PostgreSQL. Целевая аудитория: парикмахеры-одиночки."
+  "mode": "full",
+  "status": "active",
+  "description": "Full autopilot pipeline (discover → blueprint → kickstart → review → test) on a simple Telegram bot. Validates that all 5 phases execute in order with /session-save checkpoints and produce the full documentation set plus DISCOVERY.md on the front.",
+
+  "files": {
+    "required": [
+      "DISCOVERY.md",
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "README.md",
+      "CLAUDE.md"
+    ],
+    "optional": [".gitignore", ".env.example"],
+    "min_count": 8
+  },
+
+  "content_contracts": {
+    "DISCOVERY.md": {
+      "required_sections": [
+        "Market|Рынок",
+        "TAM",
+        "SAM",
+        "SOM",
+        "Competitor|Конкурент",
+        "Persona|Персон",
+        "MoSCoW"
+      ],
+      "must_contain_any_of": {
+        "booking_domain": ["запись", "booking", "appointment"],
+        "hairdresser_persona": ["парикмахер", "мастер", "hairdresser"]
+      }
+    },
+    "STRATEGIC_PLAN.md": {
+      "required_sections": [
+        "Competitor|Конкурент|Competition",
+        "Budget|Бюджет|Финансы",
+        "Risks|Риски",
+        "KPI|Метрик|Цели"
+      ],
+      "min_length_chars": 600
+    },
+    "PROJECT_ARCHITECTURE.md": {
+      "required_sections": [
+        "Database|База|Schema|Схема",
+        "API|Endpoints|Ресурсы|Bot Handlers|Команды",
+        "Deployment|Деплой|Infrastructure|Инфраструктура"
+      ],
+      "must_contain_any_of": {
+        "python_stack": ["aiogram", "Python", "python"],
+        "postgres_storage": ["PostgreSQL", "postgres"]
+      }
+    },
+    "PRD.md": {
+      "required_sections": [
+        "User Stories|Пользовательские истории|User story",
+        "P0|MVP|Must-have|Приоритет"
+      ],
+      "min_user_story_count": 5
+    },
+    "IMPLEMENTATION_PLAN.md": {
+      "min_step_count": 6,
+      "max_step_count": 14
+    },
+    "CLAUDE_CODE_GUIDE.md": {
+      "required_sections": [
+        "Prompt|Промпт|Step|Шаг"
+      ],
+      "min_length_chars": 400
+    },
+    "CLAUDE.md": {
+      "required_sections": [
+        "Project|Проект|Status|Статус"
+      ]
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
 }

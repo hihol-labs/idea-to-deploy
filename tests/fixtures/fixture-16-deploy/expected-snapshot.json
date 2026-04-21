@@ -1,7 +1,7 @@
 {
   "$schema_version": "1.0",
-  "fixture_type": "deploy",
+  "fixture_type": "deploy-stdout",
   "skill_under_test": "/deploy",
   "status": "pending",
-  "description": "Stub — /deploy sequentially executes sync → kong config regen → docker build → restart → migrations → healthcheck against a live production host (SSH). A full fixture needs a dedicated ephemeral test target or a mocked SSH surface, so structural validation is deferred. For now the fixture exists only to satisfy check-skill-completeness.sh and to anchor future regression work."
+  "description": "Deferred — /deploy is a live-ops skill: it SSH-syncs files to a production host, builds Docker images, applies migrations, and verifies healthcheck against a real URL. Automated structural validation requires either an ephemeral test target or a mocked SSH surface, neither of which exists in CI today. A full fixture is deferred to v1.16.0 (alongside fixture-10-task / fixture-15-advisor stdout-snapshot work). This stub satisfies check-skill-completeness.sh and anchors future regression work; the notes.md below documents the step-by-step contract for manual verification against a safe test target."
 }

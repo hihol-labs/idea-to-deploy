@@ -1,7 +1,39 @@
 {
   "$schema_version": "1.0",
-  "fixture_type": "adopt",
+  "fixture_type": "adopt-bootstrap",
   "skill_under_test": "/adopt",
-  "status": "pending",
-  "description": "Stub — /adopt bootstraps a legacy project into the idea-to-deploy methodology: writes CLAUDE.md (append-with-marker if existing), merges project-level .claude/settings.json (preserving any user hooks), bootstraps the memory dir via a sentinel /session-save, then voice-chains into /strategy or /blueprint per the user's answer. A full fixture would need a throwaway legacy git repo plus assertions over three artefacts (CLAUDE.md marker, settings.json hooks array, MEMORY.md + .active-session.lock in the resolved memory dir) and an idempotency re-run check. Deferred until the contract stabilises; this fixture exists now to satisfy check-skill-completeness.sh and anchor future regression work."
+  "status": "active",
+  "description": "Bootstrap a legacy project into the idea-to-deploy methodology. Validates that /adopt produces three minimal, idempotent writes: CLAUDE.md (append-with-marker), .claude/settings.json (hooks merge), and a memory-dir sentinel session file. Pre-existing CLAUDE.md and settings.json content must be preserved.",
+
+  "files": {
+    "required": [
+      "CLAUDE.md"
+    ],
+    "optional": [
+      ".claude/settings.json"
+    ],
+    "min_count": 1
+  },
+
+  "content_contracts": {
+    "CLAUDE.md": {
+      "required_sections": [
+        "idea-to-deploy|Методология|Methodology"
+      ],
+      "must_contain": [
+        "<!-- idea-to-deploy:begin",
+        "<!-- idea-to-deploy:end -->"
+      ],
+      "must_contain_any_of": {
+        "methodology_version": ["v1.20", "1.20"],
+        "adoption_marker": ["adopted", "adoption", "адоптиров"]
+      },
+      "min_length_chars": 400
+    }
+  },
+
+  "rubric_status": {
+    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
+    "forbidden": ["BLOCKED"]
+  }
 }

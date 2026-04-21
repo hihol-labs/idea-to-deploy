@@ -1,0 +1,32 @@
+# Expected files after /deploy runs
+#
+# Deploy skill writes NO files in the local project root during a
+# normal run — its side effects land on the remote host (via SSH).
+# Structural validation via verify_snapshot.py cannot capture those
+# side effects without a mocked or ephemeral target.
+#
+# Side effects on the REMOTE host (NOT validated by this fixture):
+#   - Files synced via tar-over-ssh to $DEPLOY_PATH
+#   - Docker image rebuilt on target
+#   - Containers restarted
+#   - Migrations applied (if project has a migrations dir)
+#   - Healthcheck endpoint returns 200
+#   - Deploy tag created in git (local, then optionally pushed)
+#
+# Side effects LOCALLY (NOT validated by this fixture):
+#   - A new git tag matching `deploy-YYYY-MM-DD-HHMMSS` (or the
+#     project's configured pattern)
+#   - A log file in the user's temp dir with the deploy transcript
+#
+# /deploy MUST NOT produce:
+#   - Source code changes (this is a deployment, not a refactor)
+#   - New configuration files in the project root (deploy config
+#     should already exist before the skill runs — `scripts/deploy-env.sh`
+#     or `## Deploy config` section in CLAUDE.md)
+#   - Auto-push to remote git without explicit user confirmation
+#   - A second deployment attempt on the same commit without explicit
+#     user intent (deploy is not idempotent in the "restart everything"
+#     sense)
+#
+# Validation is deferred — see notes.md "Why active validation is
+# deferred" section for the rationale.

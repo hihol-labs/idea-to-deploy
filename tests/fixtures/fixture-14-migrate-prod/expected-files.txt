@@ -1,0 +1,32 @@
+# Expected files after /migrate-prod runs
+#
+# /migrate-prod is a planning + execution skill. In fixture mode we
+# validate the plan artifact; the actual rsync / docker / pg_dump steps
+# would run against live hosts and are not part of structural validation.
+#
+# Primary artifact:
+
+MIGRATION_PLAN.md
+
+# Optional artifacts (skill writes them when runbook is complex enough):
+#   ROLLBACK.md          — dedicated rollback playbook if plan is long
+#   scripts/migrate.sh   — shell driver for dual-run + cut-over, if the
+#                          user asked for a script (skill generates it
+#                          as opt-in, not default)
+#
+# /migrate-prod MUST NOT produce (contract guard):
+#   - Code for the services being migrated (this is a move, not a rewrite)
+#   - PROJECT_ARCHITECTURE.md (services already have their own architecture)
+#   - New DNS records via Cloudflare API (plan describes the change,
+#     execution happens manually after human approval)
+#   - Automatic source-host decommission — decommission is a *planned*
+#     step, not an auto-execution
+#
+# Side effects that happen during manual execution (NOT validated here):
+#   - SSH to source and target hosts
+#   - Docker image pulls / builds on target
+#   - Database dumps written to /tmp on target
+#   - DNS record updates via manual Cloudflare dashboard or API call
+#
+# These are documented in MIGRATION_PLAN.md but not produced as
+# additional files in the output dir.

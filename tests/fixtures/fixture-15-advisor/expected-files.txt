@@ -1,0 +1,30 @@
+# Expected files after /advisor runs
+#
+# NONE. /advisor is a read-only analysis skill — it prints
+# recommendations to stdout and MUST NOT create or modify files.
+#
+# Presence of ANY file in the output dir after a /advisor run is a
+# contract violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-15-advisor/output/
+#   ls -la       # should show only . and .. (plus optional
+#                # `.rubric-status` for the /review gate)
+#
+# /advisor MUST NOT produce:
+#   - *.md / *.txt / any documentation files
+#   - Source code (.py / .ts / .js / etc.)
+#   - Config files, migration files, test files
+#   - Git commits (no `git commit` allowed in this skill)
+#   - Docker / npm / pip state changes
+#
+# /advisor MAY:
+#   - Print a structured recommendation to stdout (5 sections:
+#     Analysis, Pros, Cons, Recommendation, Risk)
+#   - Invoke business-analyst and devils-advocate subagents
+#   - Read existing project files (Read / Glob / Grep)
+#   - Run read-only git / ls / cat commands
+#
+# Validation is deferred — verify_snapshot.py's Phase 1 schema is
+# file-shaped, so a proper /advisor fixture needs the Phase 2
+# stdout-snapshot scheme (deferred to v1.16.0 alongside fixture-10-task).
+# For now: manual verification via the checklist in notes.md.
