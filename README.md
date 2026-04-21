@@ -566,6 +566,9 @@ Three mechanisms work together:
 **Where are my installed skills located?**
 `~/.claude/plugins/idea-to-deploy/skills/`. Each skill has a `SKILL.md` you can read to understand its contract.
 
+**How does idea-to-deploy relate to "Dive into Claude Code" (arxiv 2604.14228)?**
+The April 2026 paper by Liu et al. ([arxiv 2604.14228](https://arxiv.org/pdf/2604.14228)) and its companion repo [VILA-Lab/Dive-into-Claude-Code](https://github.com/VILA-Lab/Dive-into-Claude-Code) formalize 16 architectural principles behind Claude Code itself. We published [`docs/DESIGN_SPACE.md`](docs/DESIGN_SPACE.md) mapping the methodology against those principles: of the 15 applicable ones, 13 are covered in full or partial form, and 2 (context budgeting and on-disk checkpoints beyond `git`) are acknowledged gaps. The map is honest by design — both gap items are candidate scope for a future v1.21 release once multi-point user signal arrives.
+
 **Something else is broken.**
 Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Include your Claude Code version, the model in use, the prompt, and the unexpected behavior.
 

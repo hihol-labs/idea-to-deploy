@@ -568,6 +568,9 @@ By design — см. таблицу [Рекомендуемые модели](#р
 **Где лежат установленные скиллы?**
 `~/.claude/plugins/idea-to-deploy/skills/`. У каждого скилла есть `SKILL.md`, который можно прочитать, чтобы понять его контракт.
 
+**Как idea-to-deploy соотносится с «Dive into Claude Code» (arxiv 2604.14228)?**
+Статья Liu et al. (апрель 2026, [arxiv 2604.14228](https://arxiv.org/pdf/2604.14228)) и репозиторий-компаньон [VILA-Lab/Dive-into-Claude-Code](https://github.com/VILA-Lab/Dive-into-Claude-Code) формализуют 16 архитектурных принципов Claude Code. В [`docs/DESIGN_SPACE.md`](docs/DESIGN_SPACE.md) лежит карта соответствия методологии этим принципам: из 15 применимых 13 покрыты полностью или частично, а 2 (context budgeting и on-disk checkpoint'ы помимо `git`) — осознанные gap'ы. Карта намеренно честная — оба gap'а являются кандидатами в будущий v1.21 при появлении multi-point user signal.
+
 **Что-то сломалось.**
 Заведите issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Приложите версию Claude Code, используемую модель, промпт и описание неожиданного поведения.
 
