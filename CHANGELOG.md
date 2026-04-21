@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+**Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
+
+### Added
+
+- **`docs/DESIGN_SPACE.md`** — mapping methodology coverage against the 16 architectural principles catalogued in *Dive into Claude Code* ([arxiv 2604.14228](https://arxiv.org/pdf/2604.14228), Liu et al., April 2026) + the [VILA-Lab companion repo](https://github.com/VILA-Lab/Dive-into-Claude-Code). 13 of 15 applicable principles are covered in full or partial form (7 ✅ / 6 ◐ / 2 ❌); K4 (context budgeting) and K16 (on-disk checkpoints beyond `git`) are flagged as signal-trigger candidates for a future v1.21 scope. §5.5 records a 2026-04-21 audit of the three `UserPromptSubmit` hooks (`pre-flight-check.sh`, `session-open-diagnostic.sh`, `context-aware.sh`) — all read-only relative to the project, `/tmp`-scoped state, no network calls, 2s git timeout — confirming the K12 pre-trust execution window surface is minimal and user-opt-in (not auto-loaded MCP). (PR #53)
+- **FAQ entry in `README.md` and `README.ru.md`**: "How does idea-to-deploy relate to 'Dive into Claude Code' (arxiv 2604.14228)?" Links to `docs/DESIGN_SPACE.md` on both languages, honestly states coverage numbers and acknowledged gaps. (PR #53)
+- **`tests/fixtures/fixture-17-adopt/idea.md`** and **`notes.md`** — created from scratch. The fixture previously existed only as a minimal snapshot stub; now has a documented FastAPI + Vue legacy-project adoption prompt and a 5-Scenario manual verification checklist (happy path / idempotency / self-reference refusal / not-a-git-repo / guard rails). (PR #56)
+- **`expected-files.txt`** across 7 fixtures (11-discover, 12-autopilot, 13-strategy, 14-migrate-prod, 15-advisor, 16-deploy, 17-adopt) — documents expected output files plus explicit "MUST NOT produce" contract guards per skill. For deferred fixtures (`/advisor`, `/deploy`), the file declares "NONE expected" or "no files in project root" with rationale. (PR #55, PR #56)
+
+### Changed
+
+- **Seven regression fixtures upgraded from `status: pending` stubs to real behavioural contracts** (ROADMAP v1.21 §D tech-debt path, explicitly allowed outside DEFERRED scope). Classification: **5 active** (artifact-generating — `/discover`, `/autopilot`, `/strategy`, `/migrate-prod`, `/adopt`) + **2 deferred with improved rationale** (stdout-only — `/advisor`, live-ops — `/deploy`). Each active snapshot now declares required sections (bilingual patterns), `must_contain_any_of` domain-specific term groups (beauty-salon / Telegram bot / NeuroExpert / Beget→Hostland / aiogram / PostgreSQL / Cloudflare / etc.), `min_length_chars`, and `rubric_status` expectations. Each `notes.md` gains 3–5 Scenarios in the style of `fixture-01-saas-clinic`: happy path + edge cases + guard rails, per-step checkboxes, cross-reference to `check-skill-completeness.sh`, `/review` status section, and a `Failures` placeholder for regression logging. Deferred stubs articulate why active validation needs Phase 2 stdout-snapshot scheme (v1.16.0 anchor) rather than leaving a bare "verify_snapshot auto-passes" note. (PR #55, PR #56)
+- **After this batch:** 14 active + 3 deferred fixtures out of 17 total. Only `fixture-10-task` remains as the original v1.16.0 stdout-snapshot anchor; all other `pending` stubs from the v1.19–v1.20 era are now either real contracts or explicit deferrals with documented rationale.
+
+### Fixed
+
+- **`README.ru.md:75`** — subagent count drift `6 определений субагентов` → `7`. Pre-existing inconsistency: the line said `6` while the badge on line 15 said `Agents: 7` and the subagents table listed 7 agents. The matching `README.md` line already said `7` correctly — Russian version drifted during earlier translations. Found as an incidental observation by `/review` during PR #53, isolated to its own narrow-scope PR per clean-commit convention. (PR #54)
+- **`hooks/check-review-before-commit.sh` — sentinel sync gap**. The review-before-commit gate's strict PID-match lookup failed whenever `CLAUDE_SESSION_ID` was empty (the default in many Claude Code setups): the `/review` skill writes `/tmp/claude-review-done-$$` under its own process PID while the hook later reads `/tmp/claude-review-done-{os.getppid()}` under a different harness subprocess's parent PID, so the two paths never aligned. The v1.20.1 "sync gap closed" fix only worked inside stable-env single-process plugin sessions; real multi-subprocess harness usage still blocked legit post-review commits (observed during PR #56, which had to split 19 staged files into 12 ≤2-file commits as a workaround). The new two-tier lookup preserves the fast-path strict match for backward compatibility and adds an mtime-based fallback: any `/tmp/claude-review-done-*` sentinel with `mtime > now - REVIEW_FRESHNESS_SECONDS` (900s / 15 min) is accepted. Cross-OS (no `/proc` ancestry walk), `OSError`-tolerant against stat races between `glob` and `getmtime`, with trade-offs documented in the function docstring (cross-project false positive in the 15-min window is accepted given low commit frequency and clean reboot behaviour since `/tmp` is wiped). Three behavioural tests verify the three cases (no sentinel → DENY, fresh sentinel → PASS, stale 16-min sentinel → DENY). Users must run `bash scripts/sync-to-active.sh` after pulling to activate the fix in their `~/.claude/hooks/`. (PR #57)
+
+### Ops
+
+- **No version bump.** `.claude-plugin/plugin.json` stays at `1.20.3`; ROADMAP v1.21 remains DEFERRED per the 2026-04-17 `/advisor` decision. All five PRs fit within the ROADMAP §B ("content batch") or §D ("tech-debt + reliability") lanes that DEFERRED explicitly permits.
+- **`/advisor` re-assessment on 2026-04-21** reconfirmed DEFERRED against a prompt to open v1.21 scope for K4/K16. Verdict: D (hold the pause), 8/10 — none of the three "When to revisit v1.21" criteria (multi-point signal n≥5, activated external user with specific pain, competitor feature shift) are objectively active. Paper publication alone is a document-layer event, not a user-pull signal. Opening scope four days after documenting the pause would erode the precedent the ROADMAP was written to protect.
+
+---
+
 ## [1.20.3] - 2026-04-18
 
 **Karpathy 4 principles adoption release.** Coverage map + template enrichment + goal-driven rule. Patch-release under ROADMAP v1.21 DEFERRED (ordinary tech-debt maintenance, not a feature release).
