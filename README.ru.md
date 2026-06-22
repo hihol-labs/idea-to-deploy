@@ -12,7 +12,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#скиллы)
-[![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
+[![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
@@ -20,7 +20,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 33 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 33 скилла и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 33 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 33 скилла + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -72,7 +72,7 @@ Claude Code мощный, но без инструкций работает ка
 ```
 ~/.claude/plugins/idea-to-deploy/
   ├── skills/          # 25 папок скиллов
-  ├── agents/          # 7 определений субагентов
+  ├── agents/          # 10 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
 
@@ -272,6 +272,9 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `doc-writer` | `/doc` | README, API-документация, комментарии, подстройка под стиль |
 | `business-analyst` | `/discover` | Анализ рынка, исследование конкурентов, пользовательские персоны, приоритизация фич |
 | `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial-ревьюер — оспаривает архитектурные и стратегические решения, предлагает контраргументы до реализации |
+| `researcher` | `/market-scan`, `/mcp-docs`, `/discover` | Ограниченное рыночное/техническое/доковое исследование, меняющее решения по продукту, архитектуре, зависимостям, интеграциям |
+| `security-reviewer` | `/security-audit`, `/harden` | Read-only аудит безопасности — ранжирование по exploitability/impact, план починки, никогда не печатает секреты |
+| `ux-reviewer` | `/browser-check`, `/review` | Browser-based UX/визуальный/accessibility ревью user-facing изменений — предпочитает Playwright-доказательства статическим догадкам |
 
 ## Контракты скиллов
 

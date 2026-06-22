@@ -26,7 +26,7 @@
 
 ### Tagline (78 chars)
 ```
-33 skills + 7 subagents: complete project lifecycle from idea to production
+33 skills + 10 subagents: complete project lifecycle from idea to production
 ```
 
 ### Short description (187 chars)
@@ -68,7 +68,7 @@ Tags: claude-code, methodology, project-lifecycle, developer-tools, ai-coding, t
 
 ### Tagline (74 chars)
 ```
-Full project lifecycle in one plugin: 33 skills, 7 subagents, 13 hooks
+Full project lifecycle in one plugin: 33 skills, 10 subagents, 13 hooks
 ```
 
 ### Short description (195 chars)
@@ -91,7 +91,7 @@ Instead of ad-hoc prompting, every task is routed through a structured methodolo
 - Infrastructure-as-code (Terraform, Kubernetes, Helm)
 - Session persistence so context survives between sessions
 
-The /task router automatically maps any request to the right skill among 12 task types. 7 subagents (architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst) provide deep domain expertise.
+The /task router automatically maps any request to the right skill among 12 task types. 10 subagents (architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst) provide deep domain expertise.
 
 v1.19.0 | MIT | github.com/hihol-labs/idea-to-deploy
 ```
@@ -114,7 +114,7 @@ Complete dev lifecycle methodology — from idea to deployed production
 
 ### Short description (188 chars)
 ```
-33 skills + 7 subagents for Claude Code. Covers the entire project lifecycle: discovery, planning, coding, testing, debugging, security audit, DB migrations, hardening, and infrastructure.
+33 skills + 10 subagents for Claude Code. Covers the entire project lifecycle: discovery, planning, coding, testing, debugging, security audit, DB migrations, hardening, and infrastructure.
 ```
 
 ### Long description (820 chars)
@@ -123,7 +123,7 @@ idea-to-deploy is a comprehensive Claude Code plugin that replaces scattered pro
 
 What you get:
 - 33 skills: /kickstart, /blueprint, /guide, /task, /bugfix, /refactor, /doc, /test, /perf, /review, /explain, /session-save, /security-audit, /deps-audit, /migrate, /harden, /infra, /project, /strategy, /advisor, /migrate-prod, and more.
-- 7 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
+- 10 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
 - 13 enforcement hooks: automatic skill routing, safety guardrails, commit completeness gates.
 - 23 meta-review gates that catch methodology drift before it reaches your code.
 - 3-tier behavioural testing: structural validation, snapshot comparison, headless execution.
@@ -147,12 +147,12 @@ Open source, MIT licensed, actively maintained.
 
 ### Tagline (68 chars)
 ```
-Idea to production: 33 skills, 7 subagents, zero ad-hoc prompting
+Idea to production: 33 skills, 10 subagents, zero ad-hoc prompting
 ```
 
 ### Short description (192 chars)
 ```
-Structured methodology plugin for Claude Code. 33 skills cover the full lifecycle from product discovery (MoSCoW/RICE) to infrastructure-as-code. 7 subagents provide specialized domain depth.
+Structured methodology plugin for Claude Code. 33 skills cover the full lifecycle from product discovery (MoSCoW/RICE) to infrastructure-as-code. 10 subagents provide specialized domain depth.
 ```
 
 ### Long description (760 chars)
@@ -190,7 +190,7 @@ Author: HiH-DimaN | v1.19.0 | MIT License
 
 ### Tagline (76 chars)
 ```
-Ship faster with structure: 23 lifecycle skills and 7 subagents for Claude
+Ship faster with structure: 23 lifecycle skills and 10 subagents for Claude
 ```
 
 ### Short description (196 chars)
@@ -209,7 +209,7 @@ For new projects:
 
 For daily work:
 - /task is a single entry point that routes to 15 specialized skills: bugfix, refactor, doc, test, perf, security-audit, deps-audit, migrate, harden, infra, review, explain, strategy, migrate-prod, advisor
-- 7 subagents (architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst) provide deep expertise
+- 10 subagents (architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst) provide deep expertise
 - /session-save preserves context between sessions so nothing is lost
 
 Quality enforcement:
@@ -238,7 +238,7 @@ Full-stack project lifecycle plugin for Claude Code — idea to deploy
 
 ### Short description (183 chars)
 ```
-Open-source Claude Code plugin with 33 skills and 7 subagents. Covers product discovery, planning, coding, testing, security audits, DB migrations, hardening, and infrastructure.
+Open-source Claude Code plugin with 33 skills and 10 subagents. Covers product discovery, planning, coding, testing, security audits, DB migrations, hardening, and infrastructure.
 ```
 
 ### Long description (770 chars)
@@ -247,7 +247,7 @@ idea-to-deploy brings a structured, repeatable methodology to Claude Code, cover
 
 Key numbers:
 - 33 skills: discovery, planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, DB migrations, production hardening, infrastructure-as-code, session persistence, and more
-- 7 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst
+- 10 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst
 - 13 enforcement hooks: automatic task routing, safety guardrails, commit completeness gates
 - 23 meta-review gates: self-improving methodology that catches its own drift
 - 3-tier testing: structural validation, snapshot comparison, headless execution
@@ -270,7 +270,7 @@ GitHub: https://github.com/hihol-labs/idea-to-deploy
 
 ### PR title
 ```
-Add idea-to-deploy — 33 skills + 7 subagents for full project lifecycle
+Add idea-to-deploy — 33 skills + 10 subagents for full project lifecycle
 ```
 
 ### README entry (copy-paste into the appropriate section)
@@ -293,7 +293,7 @@ Add idea-to-deploy — 33 skills + 7 subagents for full project lifecycle
 Open-source Claude Code plugin providing a structured methodology for the entire project lifecycle — from product discovery to deployed, hardened production.
 
 - **33 skills** covering discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session persistence.
-- **7 subagents:** architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
+- **10 subagents:** architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
 - **13 enforcement hooks** for automatic skill routing and safety guardrails.
 - **23 meta-review gates** for self-improving methodology.
 - **3-tier behavioural testing** (structural + snapshot + headless).

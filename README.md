@@ -12,7 +12,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#skills)
-[![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
+[![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
@@ -20,7 +20,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 33 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 33 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 33 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 33 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -72,7 +72,7 @@ After installation, the skills and agents are registered under:
 ```
 ~/.claude/plugins/idea-to-deploy/
   ├── skills/          # 33 skill directories
-  ├── agents/          # 7 subagent definitions
+  ├── agents/          # 10 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
 
@@ -272,6 +272,9 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 | `doc-writer` | `/doc` | README, API docs, inline comments, style matching |
 | `business-analyst` | `/discover` | Market analysis, competitor research, user personas, feature prioritization |
 | `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial reviewer — challenges architectural and strategic decisions, proposes counter-arguments before implementation |
+| `researcher` | `/market-scan`, `/mcp-docs`, `/discover` | Bounded market/technical/docs research that changes product, architecture, dependency, or integration decisions |
+| `security-reviewer` | `/security-audit`, `/harden` | Read-only security audit — exploitability/impact ranking, remediation plan, never prints secrets |
+| `ux-reviewer` | `/browser-check`, `/review` | Browser-based UX/visual/accessibility review of user-facing changes — prefers Playwright evidence over static guesses |
 
 ## Skill Contracts
 
