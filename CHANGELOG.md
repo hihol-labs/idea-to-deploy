@@ -44,6 +44,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
 
+### Added (PFO port — item 18: 8 new skills)
+
+- **8 new skills ported from product-factory-os** (25 → 33 skills), each with the full completeness set (`SKILL.md` + `references/` + trigger block in `hooks/check-skills.sh` + regression fixture, `status: pending`) and skill-contract profile frontmatter:
+  - **`/handoff`** (Workflow, memory-write) — compact `HANDOFF.md` context packet for transfer to the next session/agent before compaction/delegation/AFK/recovery; distinct from `/session-save`.
+  - **`/grill-me`** (Quality Assurance, read-only) — interactive one-question-at-a-time stress-test of plans/designs/decisions; runs before `/review`.
+  - **`/market-scan`** (Research, local-write) — fresh public market/community signal scan (~30-day via last30days) → `MARKET_BRIEF.md`; `BLOCKED_EXTERNAL_TOOL` fallback, no fabrication; distinct from `/discover`.
+  - **`/mcp-docs`** (Research, read-only) — fresh library/framework docs lookup via MCP/Context7; repo convention wins over docs unless broken/deprecated.
+  - **`/github-workflow`** (Integration, external-write, explicit-invocation) — GitHub Issues/PR/CI/release workflow; no push/merge/close/release without explicit intent; `.itd-integrations/github.json` fallback.
+  - **`/tool-sync`** (Integration, external-write, explicit-invocation) — mirror artifacts to GitHub/Linear/Notion/Google Drive/Obsidian; connector-native reads before writes (reconcile, never clobber).
+  - **`/obsidian-export`** (Integration, local-write) — derived, regenerable Obsidian knowledge layer under `.itd-integrations/obsidian/`; canon untouched.
+  - **`/browser-check`** (Quality Assurance, local-browser) — local browser smoke-test via a bundled Playwright harness (`skills/browser-check/playwright/`); broken render/flow → `BLOCKED` before deploy.
+- **Two new skill categories** in `README.md` / `README.ru.md` — **Research** (`/market-scan`, `/mcp-docs`) and **Integration** (`/github-workflow`, `/tool-sync`, `/obsidian-export`). PFO `side_effect` values mapped to the validator enum (`external-read*`/`local-export-write` → `read-only`/`local-write`).
+- Doc cascade kept `tests/meta_review.py` Critical 0 on every commit: skill count 25 → 33 + category subtotals + Skill Contracts + Recommended Models synced across both READMEs, `marketplace.json`, and M-C12-checked promo/draft docs.
+
+### Added (PFO port — item 19: golden-paths, starters, agents pack, /adopt analyzer)
+
+- **`starters/`** — 5 machine-readable starter packs matched to the methodology stack (`api-fastapi`, `saas-fastapi-vue`, `bot-aiogram`, `mini-app-vue`, `landing-vite`): `STARTER.json` (productType/stackPreset/stack/folders/commands/requiredArtifacts) + skeleton files. PFO → idea-to-deploy: `stackPreset itd-default-stack-v1*`, requiredArtifacts remapped to real artifacts.
+- **`golden-paths/`** — 5 machine-readable product-type expectations (`api-service-booking`, `saas-subscriptions`, `messaging-bot-sales`, `mini-app-loyalty`, `landing-leadgen`): prompt, productType, starter, route (`/project -> /kickstart`), requiredArtifacts, minimumGates. READMEs map each abstract gate to its skill.
+- **Reviewer agents pack** (7 → 10 agents) — `researcher` (→ `/market-scan`, `/mcp-docs`, `/discover`), `security-reviewer` (→ `/security-audit`, `/harden`), `ux-reviewer` (→ `/browser-check`, `/review`). All read-only with the M-I8 forked-context disclaimer. Agent-count doc cascade synced (Agents badge, README Subagents table both langs, `marketplace.json`, M-C12 promo).
+- **`/adopt` product-type analyzer** — new Step 0.6 detects product type from manifests/structure (aiogram→messaging_bot, Telegram Mini App SDK→mini_app, FastAPI+Vue→saas, FastAPI-only→api_service, Vite/static-only→landing_page) and passes a reference starter/golden-path hint into the `/blueprint` voice-chain. Advisory only — never written into `CLAUDE.md`.
+- **PFO plugin-native port complete (19/19 mechanisms).** `tests/meta_review.py` Critical 0 throughout; `verify_skill_profiles.py` green across 33 skills; trigger drift 0.
+
 ### Added
 
 - **`docs/DESIGN_SPACE.md`** — mapping methodology coverage against the 16 architectural principles catalogued in *Dive into Claude Code* ([arxiv 2604.14228](https://arxiv.org/pdf/2604.14228), Liu et al., April 2026) + the [VILA-Lab companion repo](https://github.com/VILA-Lab/Dive-into-Claude-Code). 13 of 15 applicable principles are covered in full or partial form (7 ✅ / 6 ◐ / 2 ❌); K4 (context budgeting) and K16 (on-disk checkpoints beyond `git`) are flagged as signal-trigger candidates for a future v1.21 scope. §5.5 records a 2026-04-21 audit of the three `UserPromptSubmit` hooks (`pre-flight-check.sh`, `session-open-diagnostic.sh`, `context-aware.sh`) — all read-only relative to the project, `/tmp`-scoped state, no network calls, 2s git timeout — confirming the K12 pre-trust execution window surface is minimal and user-opt-in (not auto-loaded MCP). (PR #53)
