@@ -77,20 +77,21 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 
 ## Known follow-up (doc drift)
 
-Adding `hooks/context-budget.sh` makes it the **14th** hook. `hooks/README.md` and the
-user-facing `README.md` were updated (13 → 14). The **promo/marketing copy still says "13
-hooks"** and needs a dedicated docs-sync pass (not done here to keep the port commits
-focused and avoid editing the published `plugin.json` description mid-port):
-`docs/promotion/marketplace-submissions.md`, `docs/promotion/drafts/habr-intro-idea-to-deploy.md`,
-`docs/DESIGN_SPACE.md`, `ROADMAP_v1.21.md`, and `.claude-plugin/plugin.json` (`description`).
+**✅ RESOLVED (v1.21.0 docs-sync pass).** All published descriptions now carry the
+current counts — **33 skills + 10 specialized subagents + 14 enforcement hooks**:
+`.claude-plugin/plugin.json` `description` (also lists the new capabilities:
+research, browser smoke-testing, MCP docs, context handoff, external-tool sync,
+Obsidian export, decision stress-testing), `.claude-plugin/marketplace.json`,
+`README.md` / `README.ru.md` (badges + prose + Skill Contracts + Recommended
+Models), and the M-C12-checked promo/draft docs (`marketplace-submissions.md`,
+`habr-*`). The M-C12/M-C13/M-C15-checked surfaces are enforced by CI.
 
-Additionally, item 18 (new skills) raises the **skill count** with every batch.
-The M-C12/M-C13-checked surfaces (`README.*`, `docs/promotion/*`, `.claude-plugin/marketplace.json`)
-are kept in sync per skill batch. **`.claude-plugin/plugin.json` `description` is NOT M-C13-checked**
-and still carries the pre-bump count — it is intentionally left for the same dedicated docs-sync /
-release pass as the "13 hooks" drift above (avoid editing the published `plugin.json`
-description mid-port). The version-pinned snapshot in `docs/DESIGN_SPACE.md` (the `v1.20.3`
-count) is correctly skipped by M-C12 and stays as a historical record.
+**Intentionally left as dated historical snapshots** (not live claims, skipped by
+M-C12): `docs/DESIGN_SPACE.md` (the `v1.20.3` commit-`df2c25e` snapshot + its
+principle-table analysis) and `docs/competitive-analysis.md` (a dated competitor
+comparison). These describe the repo *as analysed on a specific date*; rewriting
+them would falsify the snapshot. Update them only when the analysis itself is
+redone.
 
 ## Note on enforcement
 Templates are inert until wired. Wave 1 is what makes them bite: idea-to-deploy's hooks (`check-*`, `freeze.sh`, `pre-flight-check.sh`) and CI (`tests/meta_review.py`) are the enforcement substrate. Until a gate hook references a contract, the contract is documentation, not a sensor — Wave 1 closes that gap.
