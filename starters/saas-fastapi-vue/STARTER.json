@@ -1,0 +1,13 @@
+{
+  "id": "saas-fastapi-vue",
+  "productType": "saas",
+  "stackPreset": "itd-default-stack-v1",
+  "stack": ["Python", "FastAPI", "Pydantic", "PostgreSQL", "Redis", "MinIO S3", "Vue", "TypeScript", "Vite", "TailwindCSS", "Docker", "Nginx", "just"],
+  "folders": ["backend/app", "backend/tests", "frontend/src", "frontend/tests", "infra", "docs"],
+  "commands": {
+    "backendTest": "pytest",
+    "frontendTest": "npm test",
+    "build": "docker compose build"
+  },
+  "requiredArtifacts": ["PRD.md", "PROJECT_ARCHITECTURE.md", "IMPLEMENTATION_PLAN.md", ".itd/VERIFICATION_CONTRACT.json"]
+}

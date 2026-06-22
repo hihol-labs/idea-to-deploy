@@ -1,0 +1,9 @@
+{
+  "id": "landing-leadgen",
+  "prompt": "Создай лендинг для сбора заявок на консультацию",
+  "productType": "landing_page",
+  "starter": "landing-vite",
+  "route": "/project -> /kickstart",
+  "requiredArtifacts": ["MARKET_BRIEF.md", "DISCOVERY.md", "LAUNCH_PLAN.md", ".itd/VERIFICATION_CONTRACT.json", ".itd/DATA_POLICY.md"],
+  "minimumGates": ["strategy", "tests", "review", "security"]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "bot-aiogram",
+  "productType": "messaging_bot",
+  "stackPreset": "itd-default-stack-v1-bot-profile",
+  "stack": ["Python", "aiogram", "Pydantic", "PostgreSQL_or_SQLite", "Redis_optional", "httpx", "pytest", "Ruff", "mypy", "Docker", "just"],
+  "folders": ["bot", "bot/handlers", "bot/services", "tests", "infra"],
+  "commands": {
+    "test": "pytest",
+    "run": "python -m bot",
+    "build": "docker build ."
+  },
+  "requiredArtifacts": ["PRD.md", "IMPLEMENTATION_PLAN.md", ".itd/VERIFICATION_CONTRACT.json", ".itd/DATA_POLICY.md"]
+}
