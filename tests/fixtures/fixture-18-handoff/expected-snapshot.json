@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "handoff-artifact",
+  "skill_under_test": "/handoff",
+  "status": "pending",
+  "description": "Deferred — /handoff writes a compact HANDOFF.md context packet (9 required fields, Obsidian-compatible) plus a STATE.json refresh, for transfer to the next session/agent before compaction, delegation, AFK, or recovery. verify_snapshot.py's Phase 1 schema does not yet assert field-level structure of HANDOFF.md, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (9 fields, no secrets, /handoff vs /session-save) for manual verification."
+}

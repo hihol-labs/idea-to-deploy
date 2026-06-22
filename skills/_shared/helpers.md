@@ -134,3 +134,43 @@ Framework sub-detection (Node.js):
 - `express` in deps → Express
 
 Skills should detect once and cache the result for the session.
+
+---
+
+## 6. Process-Cost Tiers (complexity routing)
+
+> Added in v1.21 (PFO plugin-native port, item 15). Scales how much methodology a
+> task gets to its actual risk — a README typo must not drag the full lifecycle, and
+> a production migration must not slip through a light path. Based on PFO's
+> `product-classifier` **COMPLEXITY** signal (low/medium/high), **not** any fixed
+> "minimal/standard/full" profile.
+
+Classify by signals, then apply the matching process cost:
+
+| Tier | Signals | Contracts | Gates applied |
+|---|---|---|---|
+| **trivial** | typo, rename, one-line fix, comment/doc tweak, obvious cause | none | sanity check only — do it directly |
+| **standard** | normal feature/refactor/bugfix in existing code, single module | `SCOPE_LOCK.md` | spec-compliance (Stage A) + fail-closed verify + `/review` + `/test` |
+| **high-risk** | production mutation, schema change, deploy, infra/provisioning, auth/payment/security-sensitive, autonomous run, cross-module | full `.itd/` set + `PERMISSION_MATRIX` | all standard gates + acceptance contract + root-cause (if bugfix) + branch-finish + **explicit user approval** |
+
+The **high-risk** tier aligns with skills carrying `explicit_invocation: true` in their
+frontmatter (`migrate`, `migrate-prod`, `deploy`, `infra`, `autopilot`). When routing
+to one of those, default to the high-risk path. When in doubt between two tiers, pick
+the higher one — under-processing a risky change is the expensive mistake.
+
+---
+
+## 7. Context Budget
+
+> Added in v1.21 (PFO plugin-native port, item 16). Long tasks degrade when raw dumps
+> flood the context window. Spend context like a budget.
+
+Rules for large tool outputs (logs, HTTP responses, `cat` of big files, wide `grep`/`rg`):
+
+- **Summarize, don't dump.** Capture the signal (counts, the 3–5 relevant lines, the error) — not the whole stream.
+- **Artifact + path, not inline.** When the full output matters, write it to a file and reference the path (`see /tmp/run-1234.log`), rather than pasting thousands of lines into the conversation.
+- **Bound at the source.** Prefer `… | head -50`, `rg -m 20`, `--max-count`, `tail -n 100` over unbounded reads. Read the slice you need (Read with `offset`/`limit`), not the whole 2000-line file.
+- **No raw remote bodies.** Never paste an entire raw HTTP/API response; extract the fields in question.
+
+The soft hook `hooks/context-budget.sh` nudges when a command is likely to dump a large
+unbounded output. It is a reminder, never a block — judgment stays with the skill.

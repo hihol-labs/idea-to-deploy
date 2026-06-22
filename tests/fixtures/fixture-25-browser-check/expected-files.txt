@@ -1,0 +1,33 @@
+# Expected files after /browser-check runs
+#
+# NO PROJECT FILES. /browser-check is a local-browser smoke-test skill — it runs
+# a Playwright harness against a local URL and reports to stdout. Temporary
+# Playwright scripts live OUTSIDE the project (/tmp/itd-browser-check-*.js) and
+# MUST NOT be committed.
+#
+# Presence of a committed Playwright smoke script or any modified source file in
+# the output dir is a contract violation. Optional artifacts:
+#   screenshots (desktop/mobile) — when visual evidence is useful (saved as
+#                                  evidence, not committed source)
+#   .rubric-status (update)      — browser evidence when deploy-readiness in scope
+#
+# /browser-check MUST NOT:
+#   - Commit temporary Playwright scripts generated for smoke checks
+#   - Make production-impacting changes from the browser check (route fixes
+#     through /bugfix or the active execution node)
+#   - Rely on screenshots alone when forms/navigation can be clicked
+#   - Run headless unless requested or CI requires it
+#
+# /browser-check MAY:
+#   - Detect dev servers: node $SKILL_DIR/playwright/run.js --detect
+#   - Write a task-specific script OUTSIDE the project and run it via the harness
+#   - Exercise the critical path (render, navigation, forms, loading/error)
+#   - Capture desktop/mobile screenshots as evidence
+#   - Print the output shape (BROWSER TARGET / ENGINE / FLOW CHECKED / RESULT /
+#     EVIDENCE / SCREENSHOTS / CONSOLE OR NETWORK ISSUES / ISSUES / NEXT ACTION)
+#
+# A broken first render / blank app shell / unusable navigation / inaccessible
+# primary flow => RESULT: BLOCKED before deploy.
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (live dev server + Playwright + stdout). Manual verification via notes.md.

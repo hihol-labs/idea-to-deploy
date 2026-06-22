@@ -9,7 +9,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-06-22
+
+**Release — PFO plugin-native port complete (19/19 mechanisms).** This release lands the full port of product-factory-os's executable-methodology ideas into idea-to-deploy as a plugin: the `.itd/` contract layer + gates (Waves 0–2), 8 new skills (25 → 33), 3 new reviewer agents (7 → 10), machine-readable `starters/` + `golden-paths/`, and the `/adopt` product-type analyzer. `tests/meta_review.py` Critical 0 throughout.
+
+**PFO plugin-native port — Wave 0 (contract foundation).** Began porting the executable-methodology ideas from **product-factory-os** (a Codex CLI runtime) into idea-to-deploy *as a plugin, without a standalone runtime*. An audit of PFO against idea-to-deploy's "plugin, not CLI" identity found ~19 of PFO's mechanisms are plugin-native (templates + hooks + CI — substrates idea-to-deploy already has) and only 2 (`itd` CLI, `install.sh`) genuinely need a runtime and are the lowest-ROI; those are explicitly out of scope. This wave lands the **contract layer** that the later gate-wiring waves depend on.
+
+### Added (PFO port Wave 0)
+
+- **`docs/CONTRACTS.md`** — the keystone doc: records the plugin-vs-runtime decision, describes the `.itd/` contract + `.itd-memory/` state layers, maps all 19 plugin-native mechanisms to their landing vector (template/hook/skill/CI), and tracks port status across Waves 0–2. Also records what is intentionally NOT ported (the `itd` CLI and `install.sh`; `/skill-create` as duplicate of Anthropic `skill-creator`; and `/seo` + `/brainstorm`, which a prior analysis hallucinated — neither exists in PFO's `skills/`).
+- **`docs/templates/itd/`** — 13 project-contract templates ported and adapted from PFO (`.pfo/`→`.itd/`, `.codex-memory/`→`.itd-memory/`, `CODEX.md`→`CLAUDE.md`, actor `codex`→`claude`): `PROJECT_CONTRACT.md`, `SCOPE_LOCK.md`, `GOLDEN_FLOWS.md`, `FORBIDDEN_CHANGES.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md`, `VERIFICATION_CONTRACT.json` (fail-closed), `ACCEPTANCE_CONTRACT.json` (new — "done" as a traceable proof checklist derived from the user request), `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.json`, `PERMISSION_MATRIX.md`, `TOOL_CAPABILITY_REGISTRY.json`, `LEARNING_PROMOTION_GATE.md`.
+- **`docs/templates/`** — `UNIT_CONTEXT_MANIFEST.json` (fresh, bounded per-node context), `ROOT_CAUSE.md` (bugfix root-cause record with reproduction + regression test), `BRANCH_FINISH.md` (explicit PR/merge/keep/discard decision with fresh verification). All 6 JSON templates validated.
+
+### Added (PFO port Wave 1 — gates)
+
+- **Two-stage `/review`** — new **Stage A spec-compliance gate** runs before the quality rubric: checks the diff against `.itd/ACCEPTANCE_CONTRACT.json` criteria/evidence, `.itd/UNIT_CONTEXT_MANIFEST.json` goal + scope, and `.itd/SCOPE_LOCK.md`. Spec FAIL → `BLOCKED` regardless of code quality (beautiful code that solves the wrong task does not pass). Backward-compatible: soft no-op when no `.itd/` contracts are present.
+- **Fail-closed verification** in `/test` Step 5 and `/review` Stage A — a `passed` status now requires evidence actually produced (a real run with visible output). Un-run / errored / ambiguous verification is reported as a blocker (`RECOVERY_REQUIRED`), never as success. Mirrors `.itd/VERIFICATION_CONTRACT.json` `failClosed`.
+- **Root-cause gate** in `/bugfix` Step 3 — record root cause as an artifact (`ROOT_CAUSE.md` from template) before writing the fix; fail-closed (can't state root cause in one evidenced sentence → not found, keep analysing). Trivial one-liners use an inline sentence.
+- **TDD evidence gate** in `/test` Step 5 — for behavior changes, prefer test-first with explicit red→green evidence; impractical cases must state the exception rather than silently skip.
+- **Branch-finish decision** in `/session-save` Step 4.8 — explicit `PR | merge | keep | discard` with fresh verification when wrapping up a feature branch; never discard without typed confirmation; no-op on `main`/mid-task.
+- **Skill-contract profile frontmatter on all 25 skills** — each `skills/*/SKILL.md` now declares `effort` (low/medium/high), `side_effect` (read-only/local-write/command-execution/memory-write/external-write/production-mutation/…), and `explicit_invocation` (true for dangerous skills `migrate`/`migrate-prod`/`deploy`/`infra`/`autopilot`, false for auto-routable ones). Makes routing and safety explicit and machine-checkable instead of re-derived per skill.
+- **`scripts/verify_skill_profiles.py`** — read-only validator that fails (exit 1) if any skill is missing a profile field or uses an out-of-enum value. Intended as a CI gate (`docs/CI.md`). Currently green across all 25 skills.
+- Verified against `tests/meta_review.py`: Critical 0, FINAL STATUS PASSED_WITH_WARNINGS (unchanged from baseline; the single Important is a Windows-only env artifact, M-I7).
+
+### Added (PFO port Wave 2 — state & metrics)
+
+- **Structured session state** — `docs/templates/itd-memory/session-state.schema.json` (ITD-adapted from PFO; runtime-only fields like `experimentLoop`/`worktreeIsolation` dropped) plus `STATE.example.json` and `events.example.jsonl`. Makes recovery-after-a-break machine-checkable instead of prose. `gateResults` aligns with the Wave 1 gates (acceptanceContract, specComplianceReview, tddRed/Green, rootCause, branchFinish, …).
+- **`scripts/validate_state.py`** — validates `.itd-memory/STATE.json` against the schema; **fail-closed** (empty `approvalStatus`/`recommendedNextStep`/`nextAction` is a failure, not a pass). Verified: passes a filled example (exit 0), rejects the empty template with a fail-closed error (exit 1).
+- **`scripts/itd_metrics.py`** — aggregates harness-efficiency metrics across a workspace of `*/.itd-memory/STATE.json` (gate pass-rate, blocked/failed counts, verification events, artifact debt); JSON or `--markdown`. Lets the methodology improve by numbers, not impressions. Verified against a sample workspace (gatePassRate 0.65 on the example).
+- `tests/meta_review.py` Critical 0 / PASSED_WITH_WARNINGS unchanged.
+
+### Added (PFO port Wave 2 — routing & context budget)
+
+- **Process-cost tiers (complexity routing)** — `skills/_shared/helpers.md` §6 defines trivial / standard / high-risk tiers (based on PFO's `product-classifier` COMPLEXITY signal, **not** any fabricated "minimal/standard/full" profile) and which contracts/gates each applies. Wired into `/task` (Step 1b — classify before routing) and `/project` (Step 3b — scale the lifecycle by product complexity). The high-risk tier aligns with skills carrying `explicit_invocation: true`.
+- **Context budget** — `skills/_shared/helpers.md` §7 (summarize, bound at source, artifact + path instead of raw dumps) plus **`hooks/context-budget.sh`** — a Python 3 PreToolUse soft hook (14th hook) that nudges when a Bash command is likely to dump a large unbounded output (raw HTTP body, `cat` of big file, wide `grep`/`find`/`rg` with no cap). Soft reminder only, never blocks. Verified: warns on unbounded commands, silent on bounded ones (`-m`, `head`, `tail`, `| head`).
+- `hooks/README.md` + `README.md` hook count updated 13 → 14. (Promo copy still says 13 — flagged as a docs-sync follow-up in `docs/CONTRACTS.md`.)
+- `tests/meta_review.py` Critical 0 / PASSED_WITH_WARNINGS (M-C10 initially caught the new hook as a bash file with no declared event — fixed by rewriting it as a Python 3 PreToolUse hook per repo convention).
+
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
+
+### Added (PFO port — item 18: 8 new skills)
+
+- **8 new skills ported from product-factory-os** (25 → 33 skills), each with the full completeness set (`SKILL.md` + `references/` + trigger block in `hooks/check-skills.sh` + regression fixture, `status: pending`) and skill-contract profile frontmatter:
+  - **`/handoff`** (Workflow, memory-write) — compact `HANDOFF.md` context packet for transfer to the next session/agent before compaction/delegation/AFK/recovery; distinct from `/session-save`.
+  - **`/grill-me`** (Quality Assurance, read-only) — interactive one-question-at-a-time stress-test of plans/designs/decisions; runs before `/review`.
+  - **`/market-scan`** (Research, local-write) — fresh public market/community signal scan (~30-day via last30days) → `MARKET_BRIEF.md`; `BLOCKED_EXTERNAL_TOOL` fallback, no fabrication; distinct from `/discover`.
+  - **`/mcp-docs`** (Research, read-only) — fresh library/framework docs lookup via MCP/Context7; repo convention wins over docs unless broken/deprecated.
+  - **`/github-workflow`** (Integration, external-write, explicit-invocation) — GitHub Issues/PR/CI/release workflow; no push/merge/close/release without explicit intent; `.itd-integrations/github.json` fallback.
+  - **`/tool-sync`** (Integration, external-write, explicit-invocation) — mirror artifacts to GitHub/Linear/Notion/Google Drive/Obsidian; connector-native reads before writes (reconcile, never clobber).
+  - **`/obsidian-export`** (Integration, local-write) — derived, regenerable Obsidian knowledge layer under `.itd-integrations/obsidian/`; canon untouched.
+  - **`/browser-check`** (Quality Assurance, local-browser) — local browser smoke-test via a bundled Playwright harness (`skills/browser-check/playwright/`); broken render/flow → `BLOCKED` before deploy.
+- **Two new skill categories** in `README.md` / `README.ru.md` — **Research** (`/market-scan`, `/mcp-docs`) and **Integration** (`/github-workflow`, `/tool-sync`, `/obsidian-export`). PFO `side_effect` values mapped to the validator enum (`external-read*`/`local-export-write` → `read-only`/`local-write`).
+- Doc cascade kept `tests/meta_review.py` Critical 0 on every commit: skill count 25 → 33 + category subtotals + Skill Contracts + Recommended Models synced across both READMEs, `marketplace.json`, and M-C12-checked promo/draft docs.
+
+### Added (PFO port — item 19: golden-paths, starters, agents pack, /adopt analyzer)
+
+- **`starters/`** — 5 machine-readable starter packs matched to the methodology stack (`api-fastapi`, `saas-fastapi-vue`, `bot-aiogram`, `mini-app-vue`, `landing-vite`): `STARTER.json` (productType/stackPreset/stack/folders/commands/requiredArtifacts) + skeleton files. PFO → idea-to-deploy: `stackPreset itd-default-stack-v1*`, requiredArtifacts remapped to real artifacts.
+- **`golden-paths/`** — 5 machine-readable product-type expectations (`api-service-booking`, `saas-subscriptions`, `messaging-bot-sales`, `mini-app-loyalty`, `landing-leadgen`): prompt, productType, starter, route (`/project -> /kickstart`), requiredArtifacts, minimumGates. READMEs map each abstract gate to its skill.
+- **Reviewer agents pack** (7 → 10 agents) — `researcher` (→ `/market-scan`, `/mcp-docs`, `/discover`), `security-reviewer` (→ `/security-audit`, `/harden`), `ux-reviewer` (→ `/browser-check`, `/review`). All read-only with the M-I8 forked-context disclaimer. Agent-count doc cascade synced (Agents badge, README Subagents table both langs, `marketplace.json`, M-C12 promo).
+- **`/adopt` product-type analyzer** — new Step 0.6 detects product type from manifests/structure (aiogram→messaging_bot, Telegram Mini App SDK→mini_app, FastAPI+Vue→saas, FastAPI-only→api_service, Vite/static-only→landing_page) and passes a reference starter/golden-path hint into the `/blueprint` voice-chain. Advisory only — never written into `CLAUDE.md`.
+- **PFO plugin-native port complete (19/19 mechanisms).** `tests/meta_review.py` Critical 0 throughout; `verify_skill_profiles.py` green across 33 skills; trigger drift 0.
 
 ### Added
 

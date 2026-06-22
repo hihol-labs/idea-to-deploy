@@ -1,0 +1,9 @@
+{
+  "id": "api-service-booking",
+  "prompt": "Создай REST API для бронирования слотов",
+  "productType": "api_service",
+  "starter": "api-fastapi",
+  "route": "/project -> /kickstart",
+  "requiredArtifacts": ["PRD.md", "PROJECT_ARCHITECTURE.md", "IMPLEMENTATION_PLAN.md", ".itd/DATA_POLICY.md", ".itd/VERIFICATION_CONTRACT.json"],
+  "minimumGates": ["architecture", "tests", "review", "security", "dependencies"]
+}

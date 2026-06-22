@@ -1,0 +1,29 @@
+# Expected files after /github-workflow runs
+#
+# /github-workflow is an EXPLICIT-invocation, external-write skill — it connects
+# idea-to-deploy state to GitHub (Issues, PRs, CI, releases).
+#
+# May produce (only when relevant / approved):
+#   .itd-integrations/github.json   — export payload when live sync is
+#                                     unavailable or not approved
+#   BRANCH_FINISH.md (project root) — when branch-finish is in scope
+#   .rubric-status (update)         — reconciled with CI / PR status
+#
+# Live GitHub mutations (issue create, PR open, push, merge, close, release)
+# happen ONLY on explicit user intent — and they are external, not files.
+#
+# /github-workflow MUST NOT:
+#   - push / merge / close issues / resolve review threads / cut prod releases
+#     without explicit user intent
+#   - hide a failing CI run behind a documentation-only status
+#   - mark branch work finished without fresh verification + BRANCH_FINISH.md
+#
+# /github-workflow MAY:
+#   - read local git status before any mutation
+#   - inspect PR / CI / review state via the GitHub connector or `gh`
+#   - map findings back to idea-to-deploy artifacts (BACKLOG.md, .rubric-status)
+#   - print the output shape (GITHUB TARGET / ARTIFACTS UPDATED / CHECK STATUS /
+#     ACTION TAKEN / BLOCKERS / NEXT ACTION)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (external GitHub access + stdout). Manual verification via notes.md.

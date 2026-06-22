@@ -11,16 +11,16 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#skills)
-[![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
-[![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
+[![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#skills)
+[![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
+[![Version: 1.21.0](https://img.shields.io/badge/Version-1.21.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 25 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 33 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 25 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 33 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,8 +71,8 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 25 skill directories
-  ├── agents/          # 7 subagent definitions
+  ├── skills/          # 33 skill directories
+  ├── agents/          # 10 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
 
@@ -200,12 +200,14 @@ Claude: Step 1/9 — scaffold project, commit
 | `/blueprint` | B) Planning only | 6 documentation files, no code |
 | `/guide` | C) Have docs already | You already have architecture and plan docs (from route B, another developer, or another tool) — generates step-by-step prompts to build it |
 
-### Quality Assurance (2 skills)
+### Quality Assurance (4 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/review` | Validates documentation and code quality via deterministic binary rubric (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only OWASP-style security audit (auth, secrets, injection, CORS/CSP, deps) with same status enum as `/review` |
+| `/grill-me` | **New in v1.21.0.** Interactive read-only stress-test for plans, designs, architecture, and risky decisions — asks one question at a time (with a recommended answer) to surface assumptions, risks, and dependencies. Runs before `/review`, does not replace it. |
+| `/browser-check` | **New in v1.21.0.** Local browser smoke-test for frontend/full-stack/visual flows via a bundled Playwright harness (Browser Use / in-app browser fallback) — checks first render + critical path (navigation, forms, states). Broken render/flow → BLOCKED before deploy. |
 
 ### Daily Work (6 skills)
 
@@ -234,12 +236,28 @@ Claude: Step 1/9 — scaffold project, commit
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
-### Workflow (2 skills)
+### Workflow (3 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/session-save` | Save session context to project memory — what was done, key decisions, blockers, next steps. Ensures continuity between Claude Code sessions. |
 | `/autopilot` | Auto-pipeline that runs discover → blueprint → kickstart → review → test with minimal human intervention (GSD-inspired). Takes a project idea and produces a full project with all docs, code, tests, and review. |
+| `/handoff` | **New in v1.21.0.** Write a compact `HANDOFF.md` context packet to transfer work to the next session/agent when there is no return path — compaction, delegation, AFK run, or recovery. Distinct from `/session-save` (milestone save). |
+
+### Research (2 skills)
+
+| Skill | Description |
+|-------|-------------|
+| `/market-scan` | **New in v1.21.0.** Fresh public market & community signal scan (~30-day window via the `last30days` engine) for discovery, validation, ICP, competitor, and launch decisions. Normalizes findings into `MARKET_BRIEF.md` (dated append). Distinct from `/discover` (full discovery phase). |
+| `/mcp-docs` | **New in v1.21.0.** Read-only lookup of fresh library/framework documentation via MCP providers (Context7) — resolves a library ID, asks a narrow question, records source + decision. Use before adding dependencies or integrating against SDKs. |
+
+### Integration (3 skills)
+
+| Skill | Description |
+|-------|-------------|
+| `/github-workflow` | **New in v1.21.0.** GitHub Issues / PR / CI / release workflow — inspects PR & check status (connector or `gh`), debugs failing Actions before code changes, prepares branches/changelogs/release notes, keeps `.rubric-status` aligned. Explicit-invocation; no push/merge/close/release without explicit intent. |
+| `/tool-sync` | **New in v1.21.0.** Mirror idea-to-deploy artifacts to external tools — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native reads before writes (reconcile, never clobber), export-only fallback to `.itd-integrations/`. Explicit-invocation. |
+| `/obsidian-export` | **New in v1.21.0.** Export planning docs, handoff, memory, state, decisions, and gates into an Obsidian-compatible local knowledge graph under `.itd-integrations/obsidian/`. Derived & regenerable — canonical docs stay the source of truth. |
 
 ## Subagents
 
@@ -254,6 +272,9 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 | `doc-writer` | `/doc` | README, API docs, inline comments, style matching |
 | `business-analyst` | `/discover` | Market analysis, competitor research, user personas, feature prioritization |
 | `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial reviewer — challenges architectural and strategic decisions, proposes counter-arguments before implementation |
+| `researcher` | `/market-scan`, `/mcp-docs`, `/discover` | Bounded market/technical/docs research that changes product, architecture, dependency, or integration decisions |
+| `security-reviewer` | `/security-audit`, `/harden` | Read-only security audit — exploitability/impact ranking, remediation plan, never prints secrets |
+| `ux-reviewer` | `/browser-check`, `/review` | Browser-based UX/visual/accessibility review of user-facing changes — prefers Playwright evidence over static guesses |
 
 ## Skill Contracts
 
@@ -288,6 +309,14 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
 | `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/adopt` | Path to an existing legacy repo (defaults to `cwd`) + optional `skip-chain` flag | `CLAUDE.md` (append-with-marker if exists), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | File writes in project root + project memory dir (never touches `~/.claude/settings.json`); voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency — re-runs are no-ops |
+| `/grill-me` | Plan / design / architecture / decision (text or repo) | None — questions + analysis (stdout); optional artifact only if the user asks | None (read-only by default; no Write/Edit) | ✅ |
+| `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
+| `/market-scan` | Idea / problem / segment / competitor / launch question | `MARKET_BRIEF.md` (dated append) + optional `BACKLOG.md`/`LAUNCH_PLAN.md` updates; structured stdout summary | Local doc writes + external read-only research query (`last30days`); no secrets sent | ⚠️ Dated append — re-runs add new evidence |
+| `/mcp-docs` | Library / framework / API / version question | None — structured stdout summary; source + decision recorded in notes | None (read-only; external doc query, no file writes) | ✅ |
+| `/github-workflow` | Issue / PR / branch / check run / release | GitHub Issues/PRs/releases (external) + optional `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | External writes to GitHub only on explicit intent; reads git status first | ⚠️ External mutations — re-run with care |
+| `/tool-sync` | Source artifacts + target tool (GitHub/Linear/Notion/Drive/Obsidian) | External tool state (live) OR `.itd-integrations/<target>.json` export | External writes only on explicit intent; reconciles, never clobbers | ⚠️ External mutations — reconcile-based |
+| `/browser-check` | Local URL / route / user flow | None committed — stdout report + screenshots (evidence); temp Playwright script lives outside the project | Launches a local browser (Playwright); no production changes | ✅ |
+| `/obsidian-export` | Project artifacts + memory | Generated Obsidian note set under `.itd-integrations/obsidian/` | Local-write (derived export only); canonical docs untouched | ✅ Regenerable from source |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -349,7 +378,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **thirteen hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader, and two optional safety guardrails).
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **fourteen hooks** that close this gap (two soft reminders, two hard-blocking enforcement gates, one pre-flight context loader, and three optional safety guardrails).
 
 **Recommended — one command:**
 
@@ -383,7 +412,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All thirteen hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The two v1.17.0 safety guardrails (`careful.sh`, `freeze.sh`) are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All fourteen hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The three v1.17.0+ safety guardrails (`careful.sh`, `freeze.sh`, `context-budget.sh`) are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
@@ -487,6 +516,14 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/advisor` | Sonnet | Opus | Multi-perspective analysis via subagents |
 | `/deploy` | Sonnet | Sonnet | Sequential execution of a known checklist; Opus doesn't add value over Sonnet |
 | `/adopt` | Sonnet | Sonnet | Declarative templating + file merge + short voice-chain — no architectural reasoning |
+| `/grill-me` | Sonnet | Opus | Adversarial questioning + hidden-assumption hunting benefit from Opus |
+| `/handoff` | Haiku | Sonnet | Structured summarization of decisions + state — minimal reasoning |
+| `/market-scan` | Sonnet | Opus | Synthesis of heterogeneous public signals + adversarial discovery benefit from Opus |
+| `/mcp-docs` | Haiku | Sonnet | Library ID resolve + narrow doc query — pointed lookup, not deep reasoning |
+| `/github-workflow` | Sonnet | Sonnet | gh/git ops + artifact mapping — structured, not deep reasoning |
+| `/tool-sync` | Sonnet | Sonnet | Artifact-to-schema mapping + reconcile — structured |
+| `/browser-check` | Sonnet | Sonnet | Writing Playwright checks + interpreting render results — structured |
+| `/obsidian-export` | Sonnet | Sonnet | Derived note generation (copy + wikilinks/tags) — mechanical |
 
 ## Who Is This For
 
@@ -577,7 +614,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 25. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 33. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

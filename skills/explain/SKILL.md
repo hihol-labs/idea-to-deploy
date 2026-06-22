@@ -5,6 +5,9 @@ argument-hint: file, function, module, or concept
 license: MIT
 allowed-tools: Read Glob Grep
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: code-understanding

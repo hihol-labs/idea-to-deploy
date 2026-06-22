@@ -1,0 +1,29 @@
+# Expected files after /handoff runs
+#
+# /handoff is a memory-write skill — it produces a compact context packet.
+#
+# Produces:
+#   HANDOFF.md          — context packet in project root (Markdown,
+#                         Obsidian-compatible: frontmatter + wikilinks +
+#                         [!todo]/[!warning] callouts)
+#   STATE.json (update) — refreshed state slice in the project's memory dir
+#                         (schema: docs/templates/itd-memory/STATE.json)
+#
+# HANDOFF.md MUST contain the 9 required fields:
+#   1. From → To roles
+#   2. Reason for transfer
+#   3. Current state (node, unit, done, in-progress)
+#   4. Final decisions only
+#   5. Required inputs
+#   6. Write areas + forbidden changes
+#   7. Verification commands
+#   8. Blockers and risks
+#   9. Exact first action (one line, [!todo] callout)
+#
+# /handoff MUST NOT:
+#   - Store secrets / keys / tokens in HANDOFF.md
+#   - Modify source code or project artifacts (it transfers context, not work)
+#   - Replace /session-save (milestone save) — these are distinct
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor.
+# Manual verification via the checklist in notes.md.

@@ -5,6 +5,9 @@ argument-hint: project idea or description
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(mkdir:*) Bash(npm:*) Bash(pnpm:*) Bash(docker:*) Bash(pytest:*) Bash(go:*) Bash(cargo:*)
 license: MIT
 metadata:
+  effort: high
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.4.0
   category: project-creation

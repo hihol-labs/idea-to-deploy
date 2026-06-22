@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep
 paths: ["**/README.md", "**/CHANGELOG.md", "**/docs/**"]
 metadata:
+  effort: low
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: documentation

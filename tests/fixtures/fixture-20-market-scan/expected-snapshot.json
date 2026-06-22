@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "market-scan-research",
+  "skill_under_test": "/market-scan",
+  "status": "pending",
+  "description": "Deferred — /market-scan does a fresh public market/community signal scan (preferred engine: last30days) and normalizes findings into a structured stdout shape plus dated appends to MARKET_BRIEF.md. Validation depends on an external research tool and on stdout, neither of which verify_snapshot.py's Phase 1 file-presence schema asserts; structural validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (public-safe topic, BLOCKED_EXTERNAL_TOOL fallback, dated append, /market-scan vs /discover) for manual verification."
+}

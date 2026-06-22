@@ -1,0 +1,13 @@
+{
+  "id": "mini-app-vue",
+  "productType": "mini_app",
+  "stackPreset": "itd-default-stack-v1",
+  "stack": ["Vue", "TypeScript", "Vite", "TailwindCSS", "Telegram Mini App SDK", "FastAPI", "Pydantic", "PostgreSQL", "Redis"],
+  "folders": ["frontend/src", "backend/app", "tests", "infra"],
+  "commands": {
+    "test": "pytest && npm test",
+    "build": "npm run build",
+    "backend": "uvicorn app.main:app --reload"
+  },
+  "requiredArtifacts": ["PRD.md", ".itd/DATA_POLICY.md", ".itd/VERIFICATION_CONTRACT.json"]
+}

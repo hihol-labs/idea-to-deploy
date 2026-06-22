@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "github-workflow-integration",
+  "skill_under_test": "/github-workflow",
+  "status": "pending",
+  "description": "Deferred — /github-workflow is an explicit-invocation, external-write skill that connects idea-to-deploy state to GitHub (Issues, PRs, CI, releases): it reads local git status first, inspects PR/CI/review state via the GitHub connector or gh, maps findings back to artifacts (BACKLOG.md, .rubric-status, BRANCH_FINISH.md), and never pushes/merges/closes/releases without explicit intent. Validation depends on external GitHub access and stdout, neither of which verify_snapshot.py's Phase 1 file-presence schema asserts; deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (no destructive ops without intent, no hidden failing CI, read git status first, github.json fallback) for manual verification."
+}

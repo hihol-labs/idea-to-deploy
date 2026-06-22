@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(ssh:*) Bash(tar:*) Bash(docker:*) Bash(curl:*) Bash(git:*)
 disable-model-invocation: true
 metadata:
+  effort: high
+  side_effect: production-mutation
+  explicit_invocation: true
   author: HiH-DimaN
   version: 1.20.1
   category: operations

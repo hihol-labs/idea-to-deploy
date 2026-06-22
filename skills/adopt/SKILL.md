@@ -1,12 +1,15 @@
 ---
 name: adopt
-description: 'Adopt legacy project into idea-to-deploy methodology — add CLAUDE.md, register project-level hooks in .claude/settings.json, bootstrap memory dir. Idempotent. No reverse-engineering of plan docs. Voice-chain to /strategy or /blueprint for plan generation.'
+description: 'Adopt legacy project into idea-to-deploy methodology — add CLAUDE.md, register project-level hooks in .claude/settings.json, bootstrap memory dir. Detects product type and suggests a matching starter/golden-path for the /blueprint chain. Idempotent. No reverse-engineering of plan docs. Voice-chain to /strategy or /blueprint for plan generation.'
 argument-hint: optional — "skip-chain" to disable the final /strategy · /blueprint voice-chain
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Skill
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
-  version: 1.20.3
+  version: 1.21.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -59,7 +62,27 @@ Before writing anything:
 
 5. **Detect tech stack** (best-effort, only for the sentinel session-save — NOT for writing into CLAUDE.md). Glob manifest files: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `composer.json`, `Gemfile`, `pom.xml`, `build.gradle`, `Dockerfile`, `docker-compose*.yml`, `.github/workflows/*.yml`. Report to user as «detected stack, проверь вручную».
 
-6. **Show plan to user** before any write:
+6. **Detect product type → starter / golden-path** (read-only analysis, for the
+   `/blueprint` chain only — NOT written into `CLAUDE.md`). From the manifests
+   and structure detected in 0.5, classify the project into one product type and
+   map it to a reference starter (`starters/<id>/STARTER.json`) and golden-path
+   (`golden-paths/<id>.json`). Heuristics (first match wins):
+
+   | Signal | productType | starter | golden-path |
+   |---|---|---|---|
+   | `aiogram` in deps | `messaging_bot` | `bot-aiogram` | `messaging-bot-sales` |
+   | Telegram Mini App SDK / `@twa-dev` + frontend | `mini_app` | `mini-app-vue` | `mini-app-loyalty` |
+   | FastAPI backend **and** Vue/Vite frontend | `saas` | `saas-fastapi-vue` | `saas-subscriptions` |
+   | FastAPI/backend manifest, no frontend | `api_service` | `api-fastapi` | `api-service-booking` |
+   | Vite/static frontend only, no backend | `landing_page` | `landing-vite` | `landing-leadgen` |
+   | none of the above | `unknown` | — | — |
+
+   This is a **hint**, not a rewrite: report it and pass it into the `/blueprint`
+   chain (Step 6) so the plan references a known starter instead of inventing a
+   scaffold. If `unknown`, skip the hint silently. Always state «определено
+   эвристически по манифестам, проверь вручную».
+
+7. **Show plan to user** before any write:
 
    ```
    /adopt plan:
@@ -68,6 +91,7 @@ Before writing anything:
      - memory dir:             [create + sentinel /session-save | skip (already bootstrapped)]
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
+     - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
    Proceed? [yes/no]
    ```
 
@@ -169,9 +193,15 @@ Based on the user's answer:
 ```
 user says "да" / "yes" / "ok" / equivalent:
 ├── README.md exists AND  git log --oneline | wc -l  ≥ 3  → Skill(/strategy, "$PROJECT_ROOT")
-├── README.md exists AND  empty/initial git log            → Skill(/blueprint, "retroactive plan for existing code at $PROJECT_ROOT")
-├── README.md absent AND  any src/app/lib or manifest file → Skill(/blueprint, "retroactive plan for existing code at $PROJECT_ROOT")
-└── README.md absent AND  no code (fresh repo)             → Skill(/blueprint, "fresh project plan at $PROJECT_ROOT")
+├── README.md exists AND  empty/initial git log            → Skill(/blueprint, "retroactive plan for existing code at $PROJECT_ROOT $STARTER_HINT")
+├── README.md absent AND  any src/app/lib or manifest file → Skill(/blueprint, "retroactive plan for existing code at $PROJECT_ROOT $STARTER_HINT")
+└── README.md absent AND  no code (fresh repo)             → Skill(/blueprint, "fresh project plan at $PROJECT_ROOT $STARTER_HINT")
+
+Where `$STARTER_HINT` is, when the product type from Step 0.6 is **not** `unknown`:
+`— product type: <type>, reference starter: starters/<id>/, golden-path: golden-paths/<id>.json`
+(empty string when `unknown`). This lets `/blueprint` align the plan to a known
+starter scaffold + required artifacts instead of inventing one. `/strategy` does
+not take the hint — live reassessment reads the real project state directly.
 
 user says "нет" / "no" / "later" / equivalent:
 └── exit, print final summary
@@ -195,6 +225,7 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 ## What `/adopt` does NOT do (explicit non-scope)
 
 - **Does NOT** reverse-engineer plan documents (`STRATEGIC_PLAN.md`, `PROJECT_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `PRD.md`) from code. Hallucination risk is too high: a plausible-sounding plan that the user trusts, but that misrepresents KPIs, competitors, or scope, poisons trust in the methodology. Plan generation is delegated to `/strategy` (live reassessment with user input) or `/blueprint` (clarify-first mode) via the voice-chain in Step 5-6.
+- **Does NOT** treat the product-type detection (Step 0.6) as authoritative. It is a heuristic **hint** from manifests/structure, reported to the user and passed to `/blueprint` as a reference starter — never written into `CLAUDE.md` and never a substitute for `/blueprint`'s own clarification.
 - **Does NOT** modify `~/.claude/settings.json` (user-level). Other projects on the same machine stay untouched.
 - **Does NOT** modify project source code. Zero edits in `src/`, `app/`, `lib/`. No new dependencies installed.
 - **Does NOT** perform `git commit` or any git write operation. The user decides when and how to commit the new `CLAUDE.md` and `.claude/settings.json`.
@@ -221,6 +252,7 @@ Before reporting adoption as complete, verify:
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
 - [ ] Voice-chain question was either asked (Step 5) or skipped on `skip-chain` flag
+- [ ] Product type detected and reported (or explicitly `unknown`); when not `unknown` and chaining to `/blueprint`, the starter/golden-path hint was passed in
 - [ ] Next-skill invocation happened correctly (or user explicitly opted out)
 
 ## Examples
@@ -238,11 +270,14 @@ Claude: [/adopt]
     Memory dir:          ~/.claude/projects/-home-user-work-shop-api/memory/ (absent)
     Plugin hooks dir:    ~/.claude/plugins/idea-to-deploy/hooks/
     Detected stack:      Python + FastAPI (pyproject.toml), PostgreSQL (docker-compose.yml)
+    Detected product type: api_service → starter `api-fastapi`, golden-path `api-service-booking`
+                           (эвристически по манифестам, проверь вручную)
 
   /adopt plan:
     - CLAUDE.md:                  create
     - .claude/settings.json:      create
     - memory dir:                 create + sentinel /session-save
+    - Detected product type:      api_service → starter api-fastapi
   Proceed? [yes/no]
 User: yes
   Step 1/3 — CLAUDE.md ............. written (2.1 KB, marker v1.20)

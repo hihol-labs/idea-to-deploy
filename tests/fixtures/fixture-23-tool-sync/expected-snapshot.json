@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "tool-sync-integration",
+  "skill_under_test": "/tool-sync",
+  "status": "pending",
+  "description": "Deferred — /tool-sync is an explicit-invocation, external-write skill that mirrors idea-to-deploy artifacts (STATE.json, LAUNCH_PLAN.md, BACKLOG.md, HANDOFF.md) to external tools (GitHub, Linear, Notion, Google Drive, Obsidian): it does connector-native reads before writes (reconcile, never clobber external user edits), exports payloads under .itd-integrations/ when live sync is unavailable, and never syncs secrets. Validation depends on an external connector and stdout, neither of which verify_snapshot.py's Phase 1 file-presence schema asserts; deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (ask before live writes, reconcile not overwrite, no-secrets, export-only fallback, repo plan stays canonical) for manual verification."
+}

@@ -1,0 +1,30 @@
+# Expected files after /market-scan runs
+#
+# /market-scan is a local-write research skill — it normalizes fresh public
+# signals into project artifacts (and prints a structured summary to stdout).
+#
+# May produce / update (only when evidence is gathered):
+#   MARKET_BRIEF.md     — recent community signals, top complaints, alternatives,
+#                         adversarial discovery, evidence links (DATED append)
+#   BACKLOG.md / LAUNCH_PLAN.md (update) — only if signals change priorities
+#
+# When writing, /market-scan MUST append dated evidence, NOT overwrite prior
+# user-authored research (unless the user explicitly asks to rewrite).
+#
+# /market-scan MUST NOT:
+#   - Fabricate social / market evidence when last30days is unavailable
+#     (mark the scan BLOCKED_EXTERNAL_TOOL instead)
+#   - Send secrets / private customer data / unreleased product details to
+#     external research tools
+#   - Paste raw last30days output wholesale into artifacts
+#   - Replace /discover (full discovery phase with TAM/SAM/SOM + personas)
+#
+# /market-scan MAY:
+#   - Read existing artifacts before researching
+#   - Invoke the last30days skill for public-safe topics
+#   - Print the structured output shape (TOPIC / FRESH SIGNALS / TOP COMPLAINTS
+#     / ALTERNATIVES / ADVERSARIAL DISCOVERY / CONFIDENCE / ARTIFACT IMPACT /
+#     NEXT VALIDATION STEP)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (depends on an external tool + stdout). Manual verification via notes.md.

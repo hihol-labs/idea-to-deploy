@@ -5,6 +5,9 @@ argument-hint: one-line description of what needs to be done in the existing pro
 license: MIT
 allowed-tools: Read
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.18.0
   category: workflow
@@ -68,6 +71,16 @@ If you already know the task type from the user's phrasing (e.g., explicit "от
 - **«нет»** → skip Step 1a forever for this conversation and continue with Step 2 as usual. User autonomy wins; the methodology guides, not enforces.
 
 **Do NOT** treat Step 1a as blocking. If any of the three checks fails inconclusively (e.g., `CLAUDE.md` exists but without our marker — user may have their own), err toward NOT suggesting `/adopt`; the prompt noise is worse than a missed adoption.
+
+### Step 1b: Process-cost classification (v1.21 — PFO port)
+
+Before routing, classify the task's **process-cost tier** so the methodology scales to the risk — see `skills/_shared/helpers.md` §6:
+
+- **trivial** (typo, rename, one-liner, obvious cause) → do it directly, skip the routing question and the contract/gate machinery.
+- **standard** (normal change in one module) → route to the target skill; it applies `SCOPE_LOCK` + spec-compliance + fail-closed verify + `/review`/`/test`.
+- **high-risk** (the target is `migrate`/`migrate-prod`/`deploy`/`infra`/`autopilot`, or the change touches production data, schema, auth, payments, or security) → apply the full `.itd/` contract set + permission matrix + branch-finish + **explicit user approval** before acting.
+
+State the tier in one line when you route ("это standard-задача → /refactor"). When unsure between two tiers, pick the higher one.
 
 ### Step 2: Determine the task type
 

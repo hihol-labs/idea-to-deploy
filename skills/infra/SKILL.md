@@ -5,6 +5,9 @@ argument-hint: stack type (fastapi-pg-redis, node-pg, static-frontend) + target 
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(terraform:*) Bash(helm:*) Bash(kubectl:*)
 metadata:
+  effort: high
+  side_effect: command-execution
+  explicit_invocation: true
   author: HiH-DimaN
   version: 1.18.0
   category: operations

@@ -1,0 +1,13 @@
+{
+  "id": "landing-vite",
+  "productType": "landing_page",
+  "stackPreset": "itd-default-stack-v1-frontend-only-profile",
+  "stack": ["Vite", "Vue_or_static_HTML", "TypeScript_optional", "TailwindCSS", "Netlify_or_Vercel"],
+  "folders": ["src", "tests", "public"],
+  "commands": {
+    "test": "npm test",
+    "build": "npm run build",
+    "preview": "npm run preview"
+  },
+  "requiredArtifacts": ["MARKET_BRIEF.md", "DISCOVERY.md", "LAUNCH_PLAN.md", ".itd/VERIFICATION_CONTRACT.json"]
+}

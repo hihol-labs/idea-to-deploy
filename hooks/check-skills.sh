@@ -273,6 +273,97 @@ TRIGGERS = [
         "(минимальный bootstrap: CLAUDE.md + .claude/settings.json project-level + "
         "memory dir, затем voice-chain в /strategy или /blueprint). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(хендофф|сделай\s+хендофф|передай\s+контекст|"
+        r"передача\s+сесси|контекст\s+для\s+передач|пакет\s+контекст|"
+        r"контекст\s+(для\s+)?следующ\w+\s+сесси|перед\s+компакц|"
+        r"\bhandoff\b|make\s+a\s+handoff|hand\s+off|"
+        r"transfer\s+context|session\s+handoff|context\s+packet|"
+        r"delegate\s+to\s+(another\s+)?(agent|session))",
+        "🔔 Триггер 'передача контекста' → используй /handoff "
+        "(компактный пакет HANDOFF.md для передачи следующей сессии/агенту перед "
+        "компакцией, делегированием, AFK или восстановлением; ≠ /session-save, "
+        "которая сохраняет веху для будущего «я»). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(проверь\s+мой\s+план|устрой\s+(мне\s+)?допрос|"
+        r"погоняй\s+(меня\s+)?по\s+план|"
+        r"стресс-?тест\w*\s+(решени|план|иде|архитектур|стратеги|миграци)|"
+        r"разнеси\s+(мой\s+)?план|задай\w*\s+неудобные\s+вопрос|"
+        r"grill\s+me|stress[- ]?test\s+my\s+plan|challenge\s+my\s+(design|plan)|"
+        r"poke\s+holes|interrogate\s+the\s+plan|pressure[- ]?test)",
+        "🔔 Триггер 'стресс-тест решения' → используй /grill-me "
+        "(интерактивный read-only допрос плана/дизайна/архитектуры по одному "
+        "вопросу с рекомендуемым ответом; запускай ДО /review, чтобы поднять "
+        "качество решения). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(скан\s+рынка|сканир\w+\s+рынок|свеж\w+\s+сигнал\w+\s+рынка|"
+        r"что\s+говорят\s+о\s+(продукт|нише|рынке)|проверь\s+нишу|"
+        r"рыночн\w+\s+сигнал|сигнал\w+\s+сообществ|сигнал\w+\s+рынка|"
+        r"market\s+scan|scan\s+the\s+market|fresh\s+market\s+signal|"
+        r"market\s+signals|community\s+signals|validate\s+(my\s+)?idea|"
+        r"competitor\s+chatter|competitor\s+signals)",
+        "🔔 Триггер 'скан рынка' → используй /market-scan "
+        "(свежие публичные рыночные/комьюнити-сигналы за ~30 дней через last30days, "
+        "нормализация в MARKET_BRIEF.md; ≠ /discover, который делает полную "
+        "discovery-фазу с TAM/SAM/SOM и персонами). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(актуальн\w+\s+документац|проверь\s+доки|свеж\w+\s+доки|"
+        r"документац\w+\s+(по\s+)?библиотек|актуальн\w+\s+api|"
+        r"\bcontext7\b|посмотри\s+доки\s+библиотек|"
+        r"mcp\s+docs|check\s+the\s+docs|library\s+documentation|"
+        r"current\s+api\s+docs|look\s+up\s+docs|fetch\s+documentation|"
+        r"latest\s+(library\s+)?docs)",
+        "🔔 Триггер 'актуальная документация' → используй /mcp-docs "
+        "(подтягивание свежих доков библиотек/фреймворков через MCP-провайдеров, "
+        "в первую очередь Context7; read-only, перед добавлением зависимостей или "
+        "интеграцией против SDK). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(созда\w+\s+issue|откр\w+\s+pull\s+request|оформ\w+\s+pr\b|"
+        r"github\s+issue|github\s+actions?\s+упал|gh\s+workflow|"
+        r"релиз\s+ноут|саммари\s+pr|комментар\w+\s+ревью\s+на\s+github|"
+        r"create\s+(a\s+)?github\s+issue|open\s+(a\s+)?pull\s+request|"
+        r"ci\s+is\s+failing|failing\s+(github\s+)?actions?|"
+        r"release\s+notes|pr\s+summary|review\s+comments)",
+        "🔔 Триггер 'GitHub workflow' → вызови /github-workflow ЯВНО "
+        "(issues/PR/CI/релизы; external-write, explicit-invocation — никаких "
+        "push/merge/close/release без явного намерения). Вызови Skill.",
+    ),
+    (
+        r"(синхронизируй\s+с\s+notion|синк\s+в\s+linear|экспорт\s+в\s+obsidian|"
+        r"синк\s+с\s+google\s+drive|синхрон\w+\s+с\s+внешн|"
+        r"синхрон\w+\s+с\s+(notion|linear|obsidian|google)|"
+        r"экспорт\s+в\s+(notion|linear|google)|"
+        r"tool\s+sync|sync\s+to\s+notion|sync\s+with\s+linear|export\s+to\s+obsidian|"
+        r"mirror\s+to\s+google\s+drive|sync\s+roadmap|sync\s+project\s+state)",
+        "🔔 Триггер 'синк с внешними инструментами' → вызови /tool-sync ЯВНО "
+        "(зеркалирование артефактов в GitHub/Linear/Notion/Google Drive/Obsidian; "
+        "external-write, explicit-invocation — спрашивай перед записью в live-системы). "
+        "Вызови Skill.",
+    ),
+    (
+        r"(obsidian\s+vault|граф\s+знаний|связанн\w+\s+заметк|"
+        r"выгруз\w+\s+в\s+обсидиан|экспорт\s+в\s+obsidian|vault-?заметк|"
+        r"obsidian\s+export|knowledge\s+graph|linked\s+notes|"
+        r"export\s+to\s+vault|project\s+vault|obsidian\s+notes|"
+        r"в\s+обсидиан|в\s+vault\b)",
+        "🔔 Триггер 'Obsidian / граф знаний' → используй /obsidian-export "
+        "(производный перегенерируемый Obsidian-слой в .itd-integrations/obsidian/ "
+        "из канонических артефактов; канон не трогается). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(проверь\s+в\s+браузере|открой\s+в\s+браузере|проверь\s+верстку|"
+        r"проверь\s+вёрстку|проверь\s+страниц|отрендер\w+\s+страниц|"
+        r"смоук[- ]?тест\s+ui|проверь\s+ui\b|"
+        r"browser\s+check|smoke\s+test\s+ui|check\s+in\s+browser|"
+        r"test\s+the\s+ui|visual\s+check|playwright\s+check|browser\s+smoke)",
+        "🔔 Триггер 'проверка в браузере' → используй /browser-check "
+        "(локальный browser smoke-тест через Playwright-харнесс; первый рендер + "
+        "критический путь; BLOCKED при поломке до деплоя). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 

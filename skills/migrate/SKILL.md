@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Glob Grep Bash(psql:*) Bash(sqlite3:*) Bash(mysql:*) Bash(pg_dump:*) Bash(docker:*)
 disable-model-invocation: true
 metadata:
+  effort: high
+  side_effect: command-execution
+  explicit_invocation: true
   author: HiH-DimaN
   version: 1.20.1
   category: code-quality

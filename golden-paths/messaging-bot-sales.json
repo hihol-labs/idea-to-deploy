@@ -1,0 +1,9 @@
+{
+  "id": "messaging-bot-sales",
+  "prompt": "Сделай Telegram бот для продаж с CRM и уведомлениями",
+  "productType": "messaging_bot",
+  "starter": "bot-aiogram",
+  "route": "/project -> /kickstart",
+  "requiredArtifacts": ["DISCOVERY.md", "LAUNCH_PLAN.md", "PRD.md", ".itd/DATA_POLICY.md", ".itd/VERIFICATION_CONTRACT.json"],
+  "minimumGates": ["architecture", "tests", "review", "security", "hardening"]
+}

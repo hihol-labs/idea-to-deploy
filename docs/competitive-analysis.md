@@ -304,7 +304,7 @@
 ### Что намеренно **не** сделано
 
 - **Отдельный хук-enforcement для test-first** — это feature work, явно подпадает под критерии отклонения `ROADMAP_v1.21.md` (нужен multi-point signal n≥5 + solo-maintainer cost). Вернёмся при появлении сигнала в issues/discussions.
-- **Отдельный файл `EXAMPLES.md` с anti-patterns** — 25 скиллов × 2 примера = ~1000 строк документации с риском drift. Существующие in-skill examples + trigger phrases покрывают кейсы лучше.
+- **Отдельный файл `EXAMPLES.md` с anti-patterns** — 33 скиллов × 2 примера = ~1000 строк документации с риском drift. Существующие in-skill examples + trigger phrases покрывают кейсы лучше.
 
 ### Стратегия дистанцирования vs andrej-karpathy-skills
 

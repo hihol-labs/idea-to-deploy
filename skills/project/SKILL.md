@@ -5,6 +5,9 @@ argument-hint: project idea or description
 license: MIT
 allowed-tools: Read
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.4.0
   category: project-creation
@@ -67,6 +70,16 @@ Only reached if Step 2 did NOT redirect. Ask the user ONE question:
 **Б) Только планирование** — создам 6 документов (стратегия, архитектура, план, PRD, README, гайд). Код писать не буду. Подходит если хотите сначала согласовать план или отдать другому разработчику.
 
 **В) У меня уже есть документация** — создам пошаговый гайд с промптами для Claude Code на основе ваших документов."
+
+### Step 3b: Scale by complexity (v1.21 — PFO port)
+
+Note the product's **complexity** (PFO `product-classifier` signal: low/medium/high — see `skills/_shared/helpers.md` §6) and let it scale the lifecycle weight:
+
+- **low** (single-purpose tool, CRUD app, landing) → keep the lifecycle lean: don't over-generate strategy/market artifacts the project won't use.
+- **medium** (typical SaaS / bot / dashboard) → the standard `/kickstart` lifecycle.
+- **high** (multi-module, payments, regulated data, infra-heavy) → high-risk tier: full `.itd/` contracts + security/data review + explicit approval gates downstream.
+
+This only adjusts how much process the project carries — routing target (А/Б/В) is still chosen in Step 4.
 
 ### Step 4: Route to the right creation workflow
 

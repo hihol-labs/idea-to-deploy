@@ -1,0 +1,29 @@
+# Expected files after /obsidian-export runs
+#
+# /obsidian-export is a local-export-write skill — it generates a DERIVED,
+# regenerable Obsidian knowledge layer from canonical idea-to-deploy artifacts.
+#
+# Produces (under the generated-output dir):
+#   .itd-integrations/obsidian/PROJECT_INDEX.md     (entrypoint)
+#   .itd-integrations/obsidian/KNOWLEDGE_GRAPH.md
+#   .itd-integrations/obsidian/STATE.md
+#   .itd-integrations/obsidian/DECISIONS.md
+#   .itd-integrations/obsidian/GATES.md
+#   .itd-integrations/obsidian/<copied planning + memory notes>
+#
+# /obsidian-export MUST NOT:
+#   - Modify canonical source docs (LAUNCH_PLAN.md, BACKLOG.md, STATE.json, etc.)
+#     — canonical edits go in source, then the export is regenerated
+#   - Make Obsidian syntax mandatory for canonical idea-to-deploy docs
+#   - Sync secrets / credentials / private customer data / production dumps
+#   - Write outside the project to a real vault without asking first
+#
+# /obsidian-export MAY:
+#   - Read canonical artifacts + memory dir
+#   - Generate the vault-ready note set under .itd-integrations/obsidian/
+#   - Use [[wikilinks]], ![[embeds]], callouts, itd/* frontmatter tags
+#   - Print the output shape (OBSIDIAN EXPORT / ENTRYPOINT / NOTES /
+#     SOURCE ARTIFACTS / REGENERATE COMMAND / NEXT ACTION)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (generated output + stdout). Manual verification via notes.md.

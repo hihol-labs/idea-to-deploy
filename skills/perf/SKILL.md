@@ -7,6 +7,9 @@ allowed-tools: Read Edit Glob Grep Bash
 context: fork
 agent: perf-analyzer
 metadata:
+  effort: medium
+  side_effect: command-execution
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: code-quality

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "purpose": "Machine-readable permission matrix for idea-to-deploy agents.",
+  "defaultDecision": "deny",
+  "actors": {
+    "claude": {
+      "description": "Default coding agent session"
+    },
+    "user": {
+      "description": "Project owner or explicit human approver"
+    }
+  },
+  "capabilities": {
+    "read": {
+      "default": "allow",
+      "approvalRequired": false,
+      "evidence": ["referenced_files"]
+    },
+    "write": {
+      "default": "scoped",
+      "approvalRequired": "outside_allowed_write_areas",
+      "scopeSource": [".itd/UNIT_CONTEXT_MANIFEST.json", ".itd/EXECUTION_POLICY.json"],
+      "evidence": ["diff", "manifest"]
+    },
+    "test": {
+      "default": "allow_when_declared",
+      "approvalRequired": false,
+      "scopeSource": [".itd/VERIFICATION_CONTRACT.json", "TEST_PLAN.md"],
+      "evidence": [".itd-memory/events.jsonl", "verificationHistory"]
+    },
+    "commit": {
+      "default": "scoped",
+      "approvalRequired": "when_not_requested",
+      "evidence": ["commit_hash", ".itd-memory/events.jsonl"]
+    },
+    "push": {
+      "default": "block",
+      "approvalRequired": true,
+      "evidence": ["remote_branch", ".itd-memory/events.jsonl"]
+    },
+    "deploy": {
+      "default": "block",
+      "approvalRequired": true,
+      "requires": ["verification_contract_passed", "rollback_or_recovery_defined"],
+      "evidence": ["approval", "rollback", "gate_results", ".itd-memory/events.jsonl"]
+    },
+    "external_api": {
+      "default": "scoped",
+      "approvalRequired": "write_or_sensitive_read",
+      "scopeSource": [".itd/TOOL_CAPABILITY_REGISTRY.json"],
+      "evidence": ["tool_event", ".itd-memory/events.jsonl"]
+    },
+    "secrets": {
+      "default": "block",
+      "approvalRequired": true,
+      "evidence": ["approval", "reason", ".itd-memory/events.jsonl"]
+    }
+  },
+  "rules": [
+    "A blocked capability requires explicit user approval before action.",
+    "A scoped capability must stay inside its declared scope source.",
+    "Every approval, denial, command, gate, external tool call, and secret access attempt must be logged to .itd-memory/events.jsonl.",
+    "Production deploy, migration, DNS, billing, external writes, and secret reads are never implicit."
+  ]
+}

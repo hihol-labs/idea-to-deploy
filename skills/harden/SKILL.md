@@ -5,6 +5,9 @@ argument-hint: service name, directory, or "all" for full project
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(docker:*) Bash(curl:*) Bash(k6:*)
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.18.0
   category: operations

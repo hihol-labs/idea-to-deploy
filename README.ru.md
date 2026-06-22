@@ -11,16 +11,16 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#скиллы)
-[![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
-[![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
+[![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#скиллы)
+[![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
+[![Version: 1.21.0](https://img.shields.io/badge/Version-1.21.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 25 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 33 скилла и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 25 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 33 скилла + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -71,8 +71,8 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 25 папок скиллов
-  ├── agents/          # 7 определений субагентов
+  ├── skills/          # 33 папки скиллов
+  ├── agents/          # 10 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
 
@@ -200,12 +200,14 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/blueprint` | Б) Только план | 6 файлов документации, без кода |
 | `/guide` | В) Уже есть документация | Уже есть архитектура и план (после маршрута Б, от другого разработчика или из другого инструмента) — генерирует пошаговые промпты для реализации |
 
-### Контроль качества (2 скилла)
+### Контроль качества (4 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/review` | Валидация документации и кода через детерминированную бинарную рубрику (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
+| `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
+| `/browser-check` | **Новое в v1.21.0.** Локальный browser smoke-тест фронтенд/фуллстек/визуальных флоу через встроенный Playwright-харнесс (fallback: Browser Use / in-app browser) — проверяет первый рендер + критический путь (навигация, формы, состояния). Поломка рендера/флоу → BLOCKED до деплоя. |
 
 ### Ежедневная работа (6 скиллов)
 
@@ -234,12 +236,28 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
-### Workflow (2 скилла)
+### Workflow (3 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/session-save` | Сохранение контекста сессии в память проекта — что сделано, ключевые решения, блокеры, следующие шаги. Обеспечивает непрерывность между сессиями Claude Code. |
 | `/autopilot` | Авто-пайплайн: запускает discover → blueprint → kickstart → review → test с минимальным участием человека (вдохновлён GSD). Берёт идею проекта и выдаёт полный проект с документами, кодом, тестами и ревью. |
+| `/handoff` | **Новое в v1.21.0.** Пишет компактный пакет контекста `HANDOFF.md` для передачи работы следующей сессии/агенту, когда обратного пути нет — компакция, делегирование, AFK-прогон или восстановление. Отличается от `/session-save` (сохранение вехи). |
+
+### Исследование (2 скилла)
+
+| Скилл | Описание |
+|-------|----------|
+| `/market-scan` | **Новое в v1.21.0.** Скан свежих публичных рыночных и комьюнити-сигналов (окно ~30 дней через движок `last30days`) для discovery, валидации, ICP, конкурентов и запуска. Нормализует находки в `MARKET_BRIEF.md` (датированное дополнение). Отличается от `/discover` (полная discovery-фаза). |
+| `/mcp-docs` | **Новое в v1.21.0.** Read-only подтягивание актуальной документации библиотек/фреймворков через MCP-провайдеров (Context7) — резолвит library ID, задаёт узкий вопрос, фиксирует источник и решение. Перед добавлением зависимостей или интеграцией против SDK. |
+
+### Интеграции (3 скилла)
+
+| Скилл | Описание |
+|-------|----------|
+| `/github-workflow` | **Новое в v1.21.0.** Workflow GitHub Issues / PR / CI / релизы — смотрит статус PR и проверок (connector или `gh`), разбирает упавшие Actions до правок кода, готовит ветки/changelog/release notes, держит `.rubric-status` в соответствии. Explicit-invocation; без push/merge/close/release без явного намерения. |
+| `/tool-sync` | **Новое в v1.21.0.** Зеркалирование артефактов idea-to-deploy во внешние инструменты — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native чтение до записи (reconcile, без затирания), export-only fallback в `.itd-integrations/`. Explicit-invocation. |
+| `/obsidian-export` | **Новое в v1.21.0.** Экспорт плановых документов, handoff, памяти, состояния, решений и гейтов в Obsidian-совместимый локальный граф знаний в `.itd-integrations/obsidian/`. Производный и перегенерируемый — канон остаётся источником истины. |
 
 ## Субагенты
 
@@ -254,6 +272,9 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `doc-writer` | `/doc` | README, API-документация, комментарии, подстройка под стиль |
 | `business-analyst` | `/discover` | Анализ рынка, исследование конкурентов, пользовательские персоны, приоритизация фич |
 | `devils-advocate` | `/advisor`, `/strategy`, `/blueprint` | Adversarial-ревьюер — оспаривает архитектурные и стратегические решения, предлагает контраргументы до реализации |
+| `researcher` | `/market-scan`, `/mcp-docs`, `/discover` | Ограниченное рыночное/техническое/доковое исследование, меняющее решения по продукту, архитектуре, зависимостям, интеграциям |
+| `security-reviewer` | `/security-audit`, `/harden` | Read-only аудит безопасности — ранжирование по exploitability/impact, план починки, никогда не печатает секреты |
+| `ux-reviewer` | `/browser-check`, `/review` | Browser-based UX/визуальный/accessibility ревью user-facing изменений — предпочитает Playwright-доказательства статическим догадкам |
 
 ## Контракты скиллов
 
@@ -288,6 +309,14 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 | `/deploy` | Имя сервиса (`web`, `all` или конкретный) + git HEAD | Задеплоенные контейнеры + результат healthcheck (stdout) | SSH к целевому хосту, синхронизация файлов, Docker build, рестарт контейнеров, опционально миграции БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 | `/adopt` | Путь к legacy-репозиторию (по умолчанию `cwd`) + опциональный флаг `skip-chain` | `CLAUDE.md` (append-with-marker если существует), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | Пишет в корень проекта и в memory dir проекта (никогда не трогает `~/.claude/settings.json`); voice-chain вызывает `/strategy` или `/blueprint` | ✅ Идемпотентность через маркер — повторы = no-op |
+| `/grill-me` | План / дизайн / архитектура / решение (текст или репо) | Нет — вопросы + анализ (stdout); артефакт только по явной просьбе | Нет (read-only по умолчанию; без Write/Edit) | ✅ |
+| `/handoff` | Состояние проекта + причина передачи (компакция / делегирование / AFK / восстановление) | `HANDOFF.md` (пакет контекста) + обновление `STATE.json` | Memory-write (`HANDOFF.md` в корне + `STATE.json`); без изменений кода | ✅ Перезаписывает пакет при каждом запуске |
+| `/market-scan` | Идея / проблема / сегмент / конкурент / вопрос о запуске | `MARKET_BRIEF.md` (датированное дополнение) + опционально `BACKLOG.md`/`LAUNCH_PLAN.md`; структурированная выжимка в stdout | Локальная запись доков + внешний read-only research-запрос (`last30days`); секреты не отправляются | ⚠️ Датированное дополнение — повторы добавляют новые доказательства |
+| `/mcp-docs` | Библиотека / фреймворк / API / вопрос о версии | Нет — структурированная выжимка в stdout; источник + решение в заметках | Нет (read-only; внешний запрос к докам, без записи файлов) | ✅ |
+| `/github-workflow` | Issue / PR / ветка / check run / релиз | GitHub Issues/PRs/релизы (внешне) + опционально `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | Запись в GitHub только по явному намерению; сначала читает git status | ⚠️ Внешние мутации — повторять осторожно |
+| `/tool-sync` | Source-артефакты + целевой инструмент (GitHub/Linear/Notion/Drive/Obsidian) | Состояние внешнего инструмента (live) ИЛИ экспорт `.itd-integrations/<target>.json` | Внешняя запись только по явному намерению; reconcile, без затирания | ⚠️ Внешние мутации — на основе reconcile |
+| `/browser-check` | Локальный URL / маршрут / user flow | Ничего в коммит — отчёт в stdout + скриншоты (доказательство); временный Playwright-скрипт вне проекта | Запускает локальный браузер (Playwright); без production-изменений | ✅ |
+| `/obsidian-export` | Артефакты проекта + память | Сгенерированный набор Obsidian-заметок в `.itd-integrations/obsidian/` | Local-write (только производный экспорт); канон не трогается | ✅ Перегенерируем из source |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -489,6 +518,14 @@ chmod +x ~/.claude/hooks/*.sh
 | `/advisor` | Sonnet | Opus | Многоперспективный анализ через субагентов |
 | `/deploy` | Sonnet | Sonnet | Последовательное выполнение известного чеклиста; Opus не даёт прироста над Sonnet |
 | `/adopt` | Sonnet | Sonnet | Декларативный шаблон + merge файлов + короткий voice-chain — без архитектурного reasoning |
+| `/grill-me` | Sonnet | Opus | Адверсариальный допрос + поиск скрытых допущений выигрывают от Opus |
+| `/handoff` | Haiku | Sonnet | Структурированная суммаризация решений и состояния — минимум рассуждений |
+| `/market-scan` | Sonnet | Opus | Синтез разнородных публичных сигналов + adversarial discovery выигрывают от Opus |
+| `/mcp-docs` | Haiku | Sonnet | Резолв library ID + узкий запрос к докам — точечный lookup, не глубокое рассуждение |
+| `/github-workflow` | Sonnet | Sonnet | gh/git операции + маппинг артефактов — структурно, не глубокое рассуждение |
+| `/tool-sync` | Sonnet | Sonnet | Маппинг артефактов на схемы + reconcile — структурно |
+| `/browser-check` | Sonnet | Sonnet | Написание Playwright-проверок + интерпретация рендера — структурно |
+| `/obsidian-export` | Sonnet | Sonnet | Производная генерация заметок (копия + wikilinks/теги) — механично |
 
 ## Для кого
 
@@ -579,7 +616,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 25. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 33. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

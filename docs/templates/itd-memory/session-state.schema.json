@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "purpose": "Schema for .itd-memory/STATE.json — structured, machine-checkable session state. Ported and trimmed from product-factory-os (PFO-runtime-only fields like experimentLoop/worktreeIsolation dropped). Validated by scripts/validate_state.py.",
+  "requiredFields": [
+    "sessionState",
+    "currentStage",
+    "intent",
+    "classification",
+    "architecture",
+    "existingProject",
+    "currentUnit",
+    "gateResults",
+    "verificationHistory",
+    "decisionLog",
+    "artifacts",
+    "completedModules",
+    "failedValidations",
+    "blockers",
+    "humanSteering",
+    "eventLog",
+    "nextAction"
+  ],
+  "stateTemplate": {
+    "sessionState": "ACTIVE",
+    "currentStage": "IDLE",
+    "intent": "",
+    "classification": {
+      "productType": "",
+      "domain": "",
+      "complexity": "",
+      "requiredModules": [],
+      "infrastructure": []
+    },
+    "architecture": {
+      "pattern": "",
+      "backend": "",
+      "frontend": "",
+      "database": "",
+      "auth": "",
+      "deployment": ""
+    },
+    "existingProject": {
+      "isExistingProject": false,
+      "detectedStack": [],
+      "availableCommands": [],
+      "currentTaskRoute": "",
+      "lastAnalysisSummary": ""
+    },
+    "currentUnit": {
+      "id": "",
+      "goal": "",
+      "status": "",
+      "startedAt": "",
+      "completedAt": ""
+    },
+    "gateResults": {
+      "acceptanceContract": "",
+      "specComplianceReview": "",
+      "codeQualityReview": "",
+      "tests": "",
+      "tddRed": "",
+      "tddGreen": "",
+      "rootCause": "",
+      "scopeLock": "",
+      "dataAuthenticity": "",
+      "goldenFlows": "",
+      "fallbackPolicy": "",
+      "noSilentSubstitution": "",
+      "permissionMatrix": "",
+      "verificationContract": "",
+      "toolCapabilityRegistry": "",
+      "security": "",
+      "dependencies": "",
+      "hardening": "",
+      "branchFinish": "",
+      "learningPromotion": "",
+      "nextStepApproval": "",
+      "deploymentReadiness": ""
+    },
+    "tddEvidence": { "red": "", "green": "", "lastRecordedAt": "" },
+    "rootCause": { "status": "", "summary": "", "evidence": "", "hypothesis": "", "recordedAt": "" },
+    "reviewStages": {
+      "specCompliance": { "status": "", "evidence": "", "recordedAt": "" },
+      "codeQuality": { "status": "", "evidence": "", "recordedAt": "" }
+    },
+    "branchFinish": { "status": "", "mode": "", "verification": "", "prUrl": "", "recordedAt": "" },
+    "humanSteering": {
+      "approvalRequired": false,
+      "approvalStatus": "",
+      "recommendedNextStep": "",
+      "alternatives": [],
+      "pendingQuestions": []
+    },
+    "verificationHistory": [],
+    "decisionLog": [],
+    "artifacts": [],
+    "completedModules": [],
+    "failedValidations": [],
+    "blockers": [],
+    "eventLog": { "path": ".itd-memory/events.jsonl", "lastEventId": "", "lastEventAt": "" },
+    "nextAction": ""
+  }
+}
