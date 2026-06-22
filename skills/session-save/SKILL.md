@@ -229,6 +229,16 @@ business-analyst missing from global agents, 6 hooks missing after v1.18.0).
 **For non-methodology projects:** This step is a no-op (the guard clause
 skips it).
 
+### Step 4.8: Branch-finish decision (v1.21 — PFO port)
+
+If this session is wrapping up work on a **feature branch** (not `main`/`master`) and the branch looks done or is being parked, record an explicit branch-finish decision so no branch is left in an ambiguous state. Scaffold `BRANCH_FINISH.md` from `docs/templates/BRANCH_FINISH.md` and fill:
+
+- **Mode** — one of `PR` | `merge` | `keep` | `discard` (an explicit choice, never implicit).
+- **Verification** — *fresh* evidence collected now (re-run the relevant check at finish time; do not reuse evidence from an earlier step).
+- **Cleanup** — keep the branch/worktree for PR feedback unless `merge` or `discard` is explicitly selected.
+
+Hard rule: **never discard work without explicit typed confirmation** from the user. If the mode is unclear, default to `keep` and ask. On `main`/`master`, or mid-task (branch not finishing), this step is a soft no-op.
+
 ### Step 5: Confirm to user
 
 Tell the user:

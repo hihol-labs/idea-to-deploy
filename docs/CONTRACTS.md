@@ -52,11 +52,11 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 ### Wave 1 — gates (hooks + skill wording)
 | # | Mechanism | Vector | Status |
 |---|---|---|---|
-| 8 | Fail-closed verification (no evidence → not `passed`) | hook + `/test`,`/review` wording | ⬜ |
-| 9 | Root-cause gate for `/bugfix` (require `ROOT_CAUSE.md`) | `/bugfix` step + hook | ⬜ |
-| 10 | Two-stage `/review` (spec compliance → code quality) | restructure `/review` | ⬜ |
-| 11 | TDD evidence gate (red/green) | `/test`,`/bugfix` step + hook | ⬜ |
-| 12 | Branch-finish workflow | `/session-save`/`/deploy` step + hook | ⬜ |
+| 8 | Fail-closed verification (no evidence → not `passed`) | `/test` Step 5, `/review` Stage A wording | ✅ |
+| 9 | Root-cause gate for `/bugfix` (require `ROOT_CAUSE.md`) | `/bugfix` Step 3 | ✅ |
+| 10 | Two-stage `/review` (spec compliance → code quality) | `/review` Stage A pre-gate | ✅ |
+| 11 | TDD evidence gate (red/green) | `/test` Step 5 | ✅ |
+| 12 | Branch-finish workflow | `/session-save` Step 4.8 | ✅ |
 | 13 | Skill-contract frontmatter (`effort`/`side_effect`/`explicit_invocation`) + validator | frontmatter on all `skills/*/SKILL.md` + CI | ⬜ |
 
 ### Wave 2 — state, routing, research skills

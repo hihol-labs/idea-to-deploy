@@ -85,6 +85,10 @@ npx jest src/new.test.ts           # Jest
 
 All tests must pass before finishing.
 
+**Fail-closed verification (v1.21 — PFO port):** a verification status of `passed` requires *evidence you actually produced* — a real test run with visible output. If the suite was not run, the command errored, or the output is ambiguous, the status is **not** `passed`; report it as a blocker (`RECOVERY_REQUIRED`), not as success. "I wrote tests that should pass" is not a pass. This mirrors `.itd/VERIFICATION_CONTRACT.json` (`failClosed`): missing or un-run verification can never be reported green.
+
+**TDD evidence gate (v1.21 — PFO port):** for a behavior change (new feature or bugfix), prefer writing the test **first** and capturing red→green evidence: the test fails on the old code, passes on the new. Note both states explicitly ("red: AssertionError … → green: 1 passed"). When red-first is genuinely impractical (UI glitch, race condition, env-specific bug), state that exception explicitly rather than silently skipping it.
+
 ## Examples
 
 ### Example 1: Test a utility function

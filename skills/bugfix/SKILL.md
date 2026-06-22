@@ -80,8 +80,10 @@ Trace from the error back to the root cause:
 
 If the bug is language- or stack-specific (Python pdb, JS source maps, Go race detector, Bash quoting, SQL query plans, frontend rendering), consult `references/debugging-patterns.md` for the idiomatic tools and common pitfalls of that ecosystem.
 
-### Step 3: Understand
+### Step 3: Understand — record root cause (v1.21 — PFO port)
 Explain WHY it fails, not just WHERE. Identify the incorrect assumption or state.
+
+**Root-cause gate:** before writing the fix, record the root cause as an artifact. For non-trivial bugs, scaffold `ROOT_CAUSE.md` from `docs/templates/ROOT_CAUSE.md` and fill: Summary, Reproduction, Evidence, Fix Hypothesis, Regression Test. The gate is **fail-closed** — if you cannot state the root cause in one sentence with evidence, it is not found yet; keep analysing (Step 2), do not jump to a fix. This prevents symptom-patching and repeat bugs. For a one-line trivial fix (typo, off-by-one with obvious cause) an inline root-cause sentence is sufficient — no separate file.
 
 ### Step 4: Fix
 Implement the minimal correct fix. Do not refactor surrounding code.

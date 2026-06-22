@@ -63,7 +63,25 @@ The script implements the full three-tier rubric from `references/meta-review-ch
 
 Do NOT run the project-level rubric (Steps 1-2 below) in methodology mode — it would look for `PRD.md` / `STRATEGIC_PLAN.md` / `IMPLEMENTATION_PLAN.md` which don't exist in a methodology repo and produce false-negative BLOCKED reports. This was the v1.12.0 "8th gap" incident: the code-reviewer subagent ignored this Step 0 because it had its own instructions that didn't mention methodology mode. Fixed in v1.13.0 by syncing `agents/code-reviewer.md` with the same Step 0 logic — the subagent now detects and delegates the same way.
 
-**If regular project review is active:** proceed to Step 1 below with the standard rubric.
+**If regular project review is active:** proceed to Stage A, then Step 1 below with the standard rubric.
+
+### Stage A: Spec-compliance gate (v1.21 — PFO port)
+
+Two-stage review: **spec compliance first, code quality second.** Beautiful code that does not solve the requested task must not pass. This stage runs before the quality rubric.
+
+Check the diff/output against, in priority order:
+
+1. `.itd/ACCEPTANCE_CONTRACT.json` — does every `criterion` have attached `evidence` and a `status` of `passed`? A criterion with no evidence or an un-run `verificationCommand` is **not** satisfied.
+2. `.itd/UNIT_CONTEXT_MANIFEST.json` `goal` and `allowedWriteAreas` — does the change deliver the goal and stay inside scope?
+3. `.itd/SCOPE_LOCK.md` — does the diff touch any Forbidden Change Area?
+
+Verdict:
+
+- **Spec FAIL** (a criterion unmet, scope breached, or goal not delivered) → gate status `BLOCKED` regardless of code quality. Report which criterion/scope rule failed. Do **not** proceed to the quality rubric — fixing style on code that solves the wrong problem is wasted work.
+- **Spec PASS** → proceed to Step 1 (Stage B: code quality).
+- **No `.itd/` contracts present** (most current projects) → this stage is a soft no-op: note "Stage A skipped — no acceptance contract" and proceed to Step 1. Backward-compatible; nothing breaks.
+
+Fail-closed rule: if you cannot determine spec compliance because evidence is missing or ambiguous, treat it as **not passed** — never assume green.
 
 ### Step 1: Detect what to review
 

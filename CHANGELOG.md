@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/templates/itd/`** — 13 project-contract templates ported and adapted from PFO (`.pfo/`→`.itd/`, `.codex-memory/`→`.itd-memory/`, `CODEX.md`→`CLAUDE.md`, actor `codex`→`claude`): `PROJECT_CONTRACT.md`, `SCOPE_LOCK.md`, `GOLDEN_FLOWS.md`, `FORBIDDEN_CHANGES.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md`, `VERIFICATION_CONTRACT.json` (fail-closed), `ACCEPTANCE_CONTRACT.json` (new — "done" as a traceable proof checklist derived from the user request), `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.json`, `PERMISSION_MATRIX.md`, `TOOL_CAPABILITY_REGISTRY.json`, `LEARNING_PROMOTION_GATE.md`.
 - **`docs/templates/`** — `UNIT_CONTEXT_MANIFEST.json` (fresh, bounded per-node context), `ROOT_CAUSE.md` (bugfix root-cause record with reproduction + regression test), `BRANCH_FINISH.md` (explicit PR/merge/keep/discard decision with fresh verification). All 6 JSON templates validated.
 
+### Added (PFO port Wave 1 — gates)
+
+- **Two-stage `/review`** — new **Stage A spec-compliance gate** runs before the quality rubric: checks the diff against `.itd/ACCEPTANCE_CONTRACT.json` criteria/evidence, `.itd/UNIT_CONTEXT_MANIFEST.json` goal + scope, and `.itd/SCOPE_LOCK.md`. Spec FAIL → `BLOCKED` regardless of code quality (beautiful code that solves the wrong task does not pass). Backward-compatible: soft no-op when no `.itd/` contracts are present.
+- **Fail-closed verification** in `/test` Step 5 and `/review` Stage A — a `passed` status now requires evidence actually produced (a real run with visible output). Un-run / errored / ambiguous verification is reported as a blocker (`RECOVERY_REQUIRED`), never as success. Mirrors `.itd/VERIFICATION_CONTRACT.json` `failClosed`.
+- **Root-cause gate** in `/bugfix` Step 3 — record root cause as an artifact (`ROOT_CAUSE.md` from template) before writing the fix; fail-closed (can't state root cause in one evidenced sentence → not found, keep analysing). Trivial one-liners use an inline sentence.
+- **TDD evidence gate** in `/test` Step 5 — for behavior changes, prefer test-first with explicit red→green evidence; impractical cases must state the exception rather than silently skip.
+- **Branch-finish decision** in `/session-save` Step 4.8 — explicit `PR | merge | keep | discard` with fresh verification when wrapping up a feature branch; never discard without typed confirmation; no-op on `main`/mid-task.
+- Verified against `tests/meta_review.py`: Critical 0, FINAL STATUS PASSED_WITH_WARNINGS (unchanged from baseline; the single Important is a Windows-only env artifact, M-I7).
+
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
 
 ### Added
