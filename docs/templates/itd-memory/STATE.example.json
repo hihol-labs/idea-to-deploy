@@ -1,0 +1,84 @@
+{
+  "sessionState": "ACTIVE",
+  "currentStage": "REVIEWING",
+  "intent": "Add password reset endpoint",
+  "classification": {
+    "productType": "saas",
+    "domain": "auth",
+    "complexity": "medium",
+    "requiredModules": ["auth", "email"],
+    "infrastructure": ["postgres", "redis"]
+  },
+  "architecture": {
+    "pattern": "modular_monolith",
+    "backend": "FastAPI",
+    "frontend": "Vue",
+    "database": "PostgreSQL",
+    "auth": "python-jose JWT",
+    "deployment": "docker"
+  },
+  "existingProject": {
+    "isExistingProject": true,
+    "detectedStack": ["FastAPI", "Vue", "PostgreSQL"],
+    "availableCommands": ["just test", "just dev"],
+    "currentTaskRoute": "task",
+    "lastAnalysisSummary": "FastAPI + Vue SaaS, tests via pytest"
+  },
+  "currentUnit": {
+    "id": "U-001",
+    "goal": "POST /api/auth/reset-password returns 200 and sends email",
+    "status": "verifying",
+    "startedAt": "2026-06-22T09:00:00Z",
+    "completedAt": ""
+  },
+  "gateResults": {
+    "acceptanceContract": "passed",
+    "specComplianceReview": "passed",
+    "codeQualityReview": "pending",
+    "tests": "passed",
+    "tddRed": "passed",
+    "tddGreen": "passed",
+    "rootCause": "n/a",
+    "scopeLock": "passed",
+    "dataAuthenticity": "passed",
+    "goldenFlows": "passed",
+    "fallbackPolicy": "passed",
+    "noSilentSubstitution": "passed",
+    "permissionMatrix": "passed",
+    "verificationContract": "passed",
+    "toolCapabilityRegistry": "passed",
+    "security": "pending",
+    "dependencies": "pending",
+    "hardening": "pending",
+    "branchFinish": "pending",
+    "learningPromotion": "n/a",
+    "nextStepApproval": "approved",
+    "deploymentReadiness": "pending"
+  },
+  "tddEvidence": { "red": "AssertionError: 404 != 200", "green": "1 passed", "lastRecordedAt": "2026-06-22T09:40:00Z" },
+  "rootCause": { "status": "n/a", "summary": "", "evidence": "", "hypothesis": "", "recordedAt": "" },
+  "reviewStages": {
+    "specCompliance": { "status": "passed", "evidence": "AC-1..AC-3 satisfied", "recordedAt": "2026-06-22T09:50:00Z" },
+    "codeQuality": { "status": "pending", "evidence": "", "recordedAt": "" }
+  },
+  "branchFinish": { "status": "pending", "mode": "", "verification": "", "prUrl": "", "recordedAt": "" },
+  "humanSteering": {
+    "approvalRequired": true,
+    "approvalStatus": "approved",
+    "recommendedNextStep": "Run /review code-quality stage, then /harden before deploy",
+    "alternatives": ["defer hardening to next session"],
+    "pendingQuestions": []
+  },
+  "verificationHistory": [
+    { "at": "2026-06-22T09:40:00Z", "command": "pytest tests/test_reset.py -v", "result": "passed", "evidence": "1 passed" }
+  ],
+  "decisionLog": [
+    { "at": "2026-06-22T09:10:00Z", "decision": "Use existing email service, not a new provider", "why": "already in stack, no new dependency" }
+  ],
+  "artifacts": ["src/api/auth/reset.py", "tests/test_reset.py"],
+  "completedModules": ["auth.reset"],
+  "failedValidations": [],
+  "blockers": [],
+  "eventLog": { "path": ".itd-memory/events.jsonl", "lastEventId": "evt-3", "lastEventAt": "2026-06-22T09:50:00Z" },
+  "nextAction": "Run code-quality review stage"
+}

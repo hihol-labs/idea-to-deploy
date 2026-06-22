@@ -1,0 +1,3 @@
+{"id": "evt-1", "at": "2026-06-22T09:10:00Z", "actor": "claude", "type": "decision", "name": "email-provider", "decision": "reuse-existing", "evidence": "already in stack"}
+{"id": "evt-2", "at": "2026-06-22T09:40:00Z", "actor": "claude", "type": "command", "name": "pytest tests/test_reset.py -v", "decision": "passed", "evidence": "1 passed"}
+{"id": "evt-3", "at": "2026-06-22T09:50:00Z", "actor": "claude", "type": "gate", "name": "specComplianceReview", "decision": "passed", "evidence": "AC-1..AC-3 satisfied"}

@@ -62,10 +62,10 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 ### Wave 2 — state, routing, research skills
 | # | Mechanism | Vector | Status |
 |---|---|---|---|
-| 14 | State schema (`STATE.json` + `events.jsonl`) + `validate_state.py` | CI/hook script | ⬜ |
+| 14 | State schema (`STATE.json` + `events.jsonl`) + `validate_state.py` | `docs/templates/itd-memory/` + `scripts/validate_state.py` | ✅ |
 | 15 | Complexity-based routing (signals, not "minimal/standard/full") | `/project`,`/task` router logic | ⬜ |
 | 16 | Context budget (summary + artifact path, not raw dumps) | skill discipline + hook warning | ⬜ |
-| 17 | Metrics (`itd_metrics`) | CI script (reuse `tests/meta_review.py` infra) | ⬜ |
+| 17 | Metrics (`itd_metrics`) | `scripts/itd_metrics.py` | ✅ |
 | 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | ⬜ |
 | 19 | Enhance `/adopt` analyzer; golden-paths + starters; new agents pack | skill + templates + agents | ⬜ |
 

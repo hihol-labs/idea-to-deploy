@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/verify_skill_profiles.py`** — read-only validator that fails (exit 1) if any skill is missing a profile field or uses an out-of-enum value. Intended as a CI gate (`docs/CI.md`). Currently green across all 25 skills.
 - Verified against `tests/meta_review.py`: Critical 0, FINAL STATUS PASSED_WITH_WARNINGS (unchanged from baseline; the single Important is a Windows-only env artifact, M-I7).
 
+### Added (PFO port Wave 2 — state & metrics)
+
+- **Structured session state** — `docs/templates/itd-memory/session-state.schema.json` (ITD-adapted from PFO; runtime-only fields like `experimentLoop`/`worktreeIsolation` dropped) plus `STATE.example.json` and `events.example.jsonl`. Makes recovery-after-a-break machine-checkable instead of prose. `gateResults` aligns with the Wave 1 gates (acceptanceContract, specComplianceReview, tddRed/Green, rootCause, branchFinish, …).
+- **`scripts/validate_state.py`** — validates `.itd-memory/STATE.json` against the schema; **fail-closed** (empty `approvalStatus`/`recommendedNextStep`/`nextAction` is a failure, not a pass). Verified: passes a filled example (exit 0), rejects the empty template with a fail-closed error (exit 1).
+- **`scripts/itd_metrics.py`** — aggregates harness-efficiency metrics across a workspace of `*/.itd-memory/STATE.json` (gate pass-rate, blocked/failed counts, verification events, artifact debt); JSON or `--markdown`. Lets the methodology improve by numbers, not impressions. Verified against a sample workspace (gatePassRate 0.65 on the example).
+- `tests/meta_review.py` Critical 0 / PASSED_WITH_WARNINGS unchanged.
+
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
 
 ### Added
