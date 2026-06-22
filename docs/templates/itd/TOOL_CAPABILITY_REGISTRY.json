@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "purpose": "Project-local registry of tool and connector capabilities. Skills declare which tools they use; this registry defines the side-effect, auth, risk, fallback, and approval rules once, instead of each skill re-deriving them.",
+  "tools": [
+    {
+      "id": "filesystem",
+      "type": "local",
+      "usedBy": ["task", "project", "review", "test"],
+      "capabilities": {"read": true, "write": true, "execute": false},
+      "sideEffects": "local-filesystem-write",
+      "authNeeded": false,
+      "externalDataRisk": "none",
+      "fallbackMode": "manual-user-paste",
+      "approvalRequiredFor": ["write_outside_manifest"]
+    },
+    {
+      "id": "shell",
+      "type": "local",
+      "usedBy": ["test", "review", "harden", "deploy", "migrate", "migrate-prod"],
+      "capabilities": {"read": true, "write": true, "execute": true},
+      "sideEffects": "command-execution",
+      "authNeeded": false,
+      "externalDataRisk": "depends-on-command",
+      "fallbackMode": "record-blocker",
+      "approvalRequiredFor": ["dangerous_command", "network", "dependency_install", "production_mutation"]
+    },
+    {
+      "id": "github",
+      "type": "connector",
+      "usedBy": ["github-workflow", "tool-sync", "review", "deploy"],
+      "capabilities": {"read": true, "write": true, "execute": false},
+      "sideEffects": "external-system-write",
+      "authNeeded": true,
+      "externalDataRisk": "repository-and-ci-metadata",
+      "fallbackMode": "export-payload",
+      "approvalRequiredFor": ["write", "push", "release", "merge"]
+    },
+    {
+      "id": "browser-use",
+      "type": "browser",
+      "usedBy": ["browser-check", "review", "test", "harden", "deploy"],
+      "capabilities": {"read": true, "write": false, "execute": true},
+      "sideEffects": "local-browser-automation",
+      "authNeeded": false,
+      "externalDataRisk": "visited-page-content",
+      "fallbackMode": "playwright-smoke-or-manual-screenshot",
+      "approvalRequiredFor": ["external_site_login", "form_submit"]
+    },
+    {
+      "id": "context7",
+      "type": "mcp",
+      "usedBy": ["mcp-docs", "bugfix", "refactor", "infra", "deploy", "deps-audit", "harden"],
+      "capabilities": {"read": true, "write": false, "execute": false},
+      "sideEffects": "external-read",
+      "authNeeded": false,
+      "externalDataRisk": "query-disclosure",
+      "fallbackMode": "official-docs-manual-link",
+      "approvalRequiredFor": ["private_code_or_secret_query"]
+    },
+    {
+      "id": "last30days",
+      "type": "research",
+      "usedBy": ["market-scan", "discover", "strategy"],
+      "capabilities": {"read": true, "write": false, "execute": false},
+      "sideEffects": "external-read",
+      "authNeeded": false,
+      "externalDataRisk": "query-disclosure",
+      "fallbackMode": "manual-research-summary",
+      "approvalRequiredFor": ["private_market_or_customer_data"]
+    },
+    {
+      "id": "obsidian-export",
+      "type": "local-export",
+      "usedBy": ["obsidian-export", "session-save", "tool-sync"],
+      "capabilities": {"read": true, "write": true, "execute": false},
+      "sideEffects": "local-filesystem-write",
+      "authNeeded": false,
+      "externalDataRisk": "none",
+      "fallbackMode": "skip-export-and-record-blocker",
+      "approvalRequiredFor": ["write_outside_project"]
+    }
+  ]
+}

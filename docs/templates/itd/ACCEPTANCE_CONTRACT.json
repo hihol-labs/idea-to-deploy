@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "purpose": "Machine-readable acceptance contract derived from the original user request, written BEFORE implementation. Defines 'done' as a traceable proof checklist, not an agent's feeling.",
+  "sourceRequest": "",
+  "createdAt": "",
+  "criteriaSchema": {
+    "requiredFields": [
+      "id",
+      "criterion",
+      "source",
+      "evidence",
+      "verificationCommand",
+      "status"
+    ],
+    "allowedStatus": ["pending", "passed", "failed", "recovery_required"]
+  },
+  "criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "Replace with one acceptance criterion phrased as a checkable statement.",
+      "source": "Quote or paraphrase the exact part of the user request this comes from.",
+      "evidence": "What artifact/log/output proves this is satisfied.",
+      "verificationCommand": "Command or manual step that produces the evidence.",
+      "status": "pending"
+    }
+  ],
+  "doneRule": "The unit is 'done' only when every criterion is 'passed' with attached evidence. A criterion with no evidence or an un-run verification command stays 'pending' and blocks done (fail-closed)."
+}

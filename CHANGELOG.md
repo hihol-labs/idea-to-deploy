@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**PFO plugin-native port — Wave 0 (contract foundation).** Began porting the executable-methodology ideas from **product-factory-os** (a Codex CLI runtime) into idea-to-deploy *as a plugin, without a standalone runtime*. An audit of PFO against idea-to-deploy's "plugin, not CLI" identity found ~19 of PFO's mechanisms are plugin-native (templates + hooks + CI — substrates idea-to-deploy already has) and only 2 (`itd` CLI, `install.sh`) genuinely need a runtime and are the lowest-ROI; those are explicitly out of scope. This wave lands the **contract layer** that the later gate-wiring waves depend on.
+
+### Added (PFO port Wave 0)
+
+- **`docs/CONTRACTS.md`** — the keystone doc: records the plugin-vs-runtime decision, describes the `.itd/` contract + `.itd-memory/` state layers, maps all 19 plugin-native mechanisms to their landing vector (template/hook/skill/CI), and tracks port status across Waves 0–2. Also records what is intentionally NOT ported (the `itd` CLI and `install.sh`; `/skill-create` as duplicate of Anthropic `skill-creator`; and `/seo` + `/brainstorm`, which a prior analysis hallucinated — neither exists in PFO's `skills/`).
+- **`docs/templates/itd/`** — 13 project-contract templates ported and adapted from PFO (`.pfo/`→`.itd/`, `.codex-memory/`→`.itd-memory/`, `CODEX.md`→`CLAUDE.md`, actor `codex`→`claude`): `PROJECT_CONTRACT.md`, `SCOPE_LOCK.md`, `GOLDEN_FLOWS.md`, `FORBIDDEN_CHANGES.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md`, `VERIFICATION_CONTRACT.json` (fail-closed), `ACCEPTANCE_CONTRACT.json` (new — "done" as a traceable proof checklist derived from the user request), `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.json`, `PERMISSION_MATRIX.md`, `TOOL_CAPABILITY_REGISTRY.json`, `LEARNING_PROMOTION_GATE.md`.
+- **`docs/templates/`** — `UNIT_CONTEXT_MANIFEST.json` (fresh, bounded per-node context), `ROOT_CAUSE.md` (bugfix root-cause record with reproduction + regression test), `BRANCH_FINISH.md` (explicit PR/merge/keep/discard decision with fresh verification). All 6 JSON templates validated.
+
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
 
 ### Added

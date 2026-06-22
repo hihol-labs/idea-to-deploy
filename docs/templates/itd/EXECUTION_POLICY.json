@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "purpose": "Project-local execution policy for agent work.",
+  "commandPolicy": {
+    "default": "deny-unless-declared",
+    "allowedCommands": [
+      {
+        "id": "itd-validate",
+        "commandPrefix": "python3",
+        "allowedArgs": ["scripts/validate_state.py"],
+        "risk": "low",
+        "approval": "not-required"
+      }
+    ],
+    "dangerousCommands": [
+      "deploy",
+      "migrate",
+      "terraform apply",
+      "kubectl apply",
+      "git push",
+      "rm -rf"
+    ]
+  },
+  "writePolicy": {
+    "default": "deny-unless-in-unit-manifest",
+    "allowedWriteAreas": [
+      ".itd-memory/",
+      ".itd/",
+      "ITD_REPORT.md"
+    ],
+    "protectedPaths": [
+      ".env",
+      ".env.*",
+      "production-data/",
+      "secrets/",
+      ".itd/PROJECT_CONTRACT.md",
+      ".itd/DATA_POLICY.md",
+      ".itd/GOLDEN_FLOWS.md"
+    ]
+  },
+  "networkPolicy": {
+    "default": "deny",
+    "allowedHosts": [],
+    "externalResearchRequiresApproval": true
+  },
+  "approvalPolicy": {
+    "productionMutation": "explicit-user-confirmation",
+    "externalWrite": "explicit-user-confirmation",
+    "secretRead": "explicit-user-confirmation",
+    "dependencyInstall": "explicit-user-confirmation"
+  },
+  "linkedPolicies": {
+    "permissionMatrix": ".itd/PERMISSION_MATRIX.json",
+    "toolCapabilityRegistry": ".itd/TOOL_CAPABILITY_REGISTRY.json",
+    "eventLog": ".itd-memory/events.jsonl"
+  }
+}

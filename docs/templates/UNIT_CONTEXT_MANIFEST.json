@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "unitId": "",
+  "goal": "",
+  "createdAt": "",
+  "requiredInputs": [
+    "CLAUDE.md",
+    ".itd-memory/STATE.json",
+    ".itd/PROJECT_CONTRACT.md",
+    ".itd/SCOPE_LOCK.md",
+    ".itd/EXECUTION_POLICY.json",
+    ".itd/PERMISSION_MATRIX.md",
+    ".itd/PERMISSION_MATRIX.json",
+    ".itd/VERIFICATION_CONTRACT.json",
+    ".itd/TOOL_CAPABILITY_REGISTRY.json",
+    "ACCEPTANCE_CONTRACT.json with criteria derived from the user request",
+    "NEXT_STEP.md with approved or changed user-facing next step",
+    "ROOT_CAUSE.md for bugfix units"
+  ],
+  "allowedWriteAreas": [],
+  "forbiddenChanges": [
+    "scope outside .itd/SCOPE_LOCK.md",
+    "silent production data substitution",
+    "unapproved production mutation",
+    "commands or writes outside .itd/EXECUTION_POLICY.json and .itd/PERMISSION_MATRIX.json",
+    "tool or connector use outside .itd/TOOL_CAPABILITY_REGISTRY.json"
+  ],
+  "dependencies": [],
+  "verificationCommands": [
+    "commands declared in .itd/VERIFICATION_CONTRACT.json"
+  ],
+  "gates": [
+    "acceptanceContract",
+    "tddRed",
+    "tddGreen",
+    "rootCause",
+    "specComplianceReview",
+    "codeQualityReview",
+    "scopeLock",
+    "dataAuthenticity",
+    "goldenFlows",
+    "fallbackPolicy",
+    "noSilentSubstitution",
+    "permissionMatrix",
+    "verificationContract",
+    "branchFinish",
+    "learningPromotion",
+    "toolCapabilityRegistry"
+  ],
+  "engineeringDiscipline": {
+    "behaviorChange": false,
+    "bugfix": false,
+    "strictPlan": true,
+    "requiresTdd": "behavior changes",
+    "requiresRootCause": "bugfix units",
+    "reviewOrder": [
+      "specCompliance",
+      "codeQuality"
+    ],
+    "branchFinish": "PR, merge, keep, or discard with fresh verification"
+  },
+  "review": {
+    "specCompliance": "Check output against the unit goal, acceptance contract, and allowed scope first.",
+    "codeQuality": "Check simplicity, maintainability, tests, and integration second."
+  },
+  "recovery": "If verification is missing or ambiguous, mark RECOVERY_REQUIRED and create ITD_RECOVERY.md."
+}

@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "purpose": "Executable verification contract for the active unit.",
+  "unitId": "",
+  "createdAt": "",
+  "commandSchema": {
+    "requiredFields": [
+      "id",
+      "command",
+      "timeoutSeconds",
+      "expectedOutput",
+      "passFailParser"
+    ],
+    "allowedPassFailParsers": [
+      "exit_code_zero",
+      "stdout_contains",
+      "json_field_equals",
+      "manual_evidence"
+    ]
+  },
+  "commands": [],
+  "requiredArtifacts": [
+    ".itd-memory/STATE.json",
+    ".itd/UNIT_CONTEXT_MANIFEST.json",
+    ".itd/EXECUTION_POLICY.json",
+    ".itd/PERMISSION_MATRIX.json",
+    ".itd/PERMISSION_MATRIX.md",
+    ".itd/TOOL_CAPABILITY_REGISTRY.json",
+    "ITD_REPORT.md"
+  ],
+  "passCriteria": [
+    "All required commands exit 0.",
+    "Expected output rules match.",
+    "Required artifacts exist.",
+    "Failures are recorded as recovery, not success."
+  ],
+  "failureMode": "RECOVERY_REQUIRED",
+  "failClosed": "If a command is missing, never ran, or its parser is ambiguous, status MUST be RECOVERY_REQUIRED — never passed."
+}
