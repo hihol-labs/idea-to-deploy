@@ -5,6 +5,9 @@ argument-hint: optional — brief note to append to the session summary
 license: MIT
 allowed-tools: Read Write Bash Glob Grep
 metadata:
+  effort: low
+  side_effect: memory-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.5.0
   category: workflow

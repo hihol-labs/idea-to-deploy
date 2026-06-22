@@ -57,7 +57,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 | 10 | Two-stage `/review` (spec compliance → code quality) | `/review` Stage A pre-gate | ✅ |
 | 11 | TDD evidence gate (red/green) | `/test` Step 5 | ✅ |
 | 12 | Branch-finish workflow | `/session-save` Step 4.8 | ✅ |
-| 13 | Skill-contract frontmatter (`effort`/`side_effect`/`explicit_invocation`) + validator | frontmatter on all `skills/*/SKILL.md` + CI | ⬜ |
+| 13 | Skill-contract frontmatter (`effort`/`side_effect`/`explicit_invocation`) + validator | frontmatter on all 25 `skills/*/SKILL.md` + `scripts/verify_skill_profiles.py` | ✅ |
 
 ### Wave 2 — state, routing, research skills
 | # | Mechanism | Vector | Status |

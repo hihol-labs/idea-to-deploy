@@ -5,6 +5,9 @@ argument-hint: one-line description of what needs to be done in the existing pro
 license: MIT
 allowed-tools: Read
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.18.0
   category: workflow

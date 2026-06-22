@@ -5,6 +5,9 @@ argument-hint: file, directory, or "all" for full project
 license: MIT
 allowed-tools: Read Glob Grep
 metadata:
+  effort: medium
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.18.0
   category: quality-assurance

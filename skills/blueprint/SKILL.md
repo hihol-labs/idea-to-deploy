@@ -7,6 +7,9 @@ allowed-tools: Read Write Edit Glob Grep
 context: fork
 agent: architect
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: project-planning

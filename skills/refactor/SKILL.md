@@ -5,6 +5,9 @@ argument-hint: file, function, or area to refactor
 license: MIT
 allowed-tools: Read Edit Glob Grep Bash
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: code-quality

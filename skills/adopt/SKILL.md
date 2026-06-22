@@ -5,6 +5,9 @@ argument-hint: optional — "skip-chain" to disable the final /strategy · /blue
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Skill
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.20.3
   category: methodology

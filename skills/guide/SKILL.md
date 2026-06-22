@@ -5,6 +5,9 @@ argument-hint: project name or description
 license: MIT
 allowed-tools: Read Write Edit Glob Grep
 metadata:
+  effort: medium
+  side_effect: local-write
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: project-planning

@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Agent(business-analyst) Agent(devils-advocate)
 context: fork
 metadata:
+  effort: medium
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.19.0
   category: project-planning

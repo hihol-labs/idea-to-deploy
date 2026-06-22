@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash
 paths: ["**/test_*.py", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/tests/**", "**/__tests__/**"]
 metadata:
+  effort: medium
+  side_effect: command-execution
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.3.1
   category: testing

@@ -5,6 +5,9 @@ argument-hint: manifest file, directory, or "all" for full project
 license: MIT
 allowed-tools: Read Glob Grep Bash(npm:*) Bash(pip:*) Bash(cargo:*) Bash(go:*)
 metadata:
+  effort: low
+  side_effect: command-execution
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.18.0
   category: quality-assurance

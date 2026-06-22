@@ -7,6 +7,9 @@ allowed-tools: Read Write Edit Glob Grep
 context: fork
 agent: business-analyst
 metadata:
+  effort: medium
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.17.0
   category: project-planning

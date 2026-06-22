@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Glob Grep Agent(business-analyst) Agent(devils-advocate)
 context: fork
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.19.0
   category: project-planning

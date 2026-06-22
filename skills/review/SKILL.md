@@ -8,6 +8,9 @@ context: fork
 agent: code-reviewer
 report_only: true
 metadata:
+  effort: medium
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.13.0
   category: quality-assurance

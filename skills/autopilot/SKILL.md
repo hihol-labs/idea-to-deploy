@@ -7,6 +7,9 @@ allowed-tools: Read Write Edit Glob Grep Bash Skill
 context: fork
 disable-model-invocation: true
 metadata:
+  effort: high
+  side_effect: command-execution
+  explicit_invocation: true
   author: HiH-DimaN
   version: 1.18.0
   category: workflow

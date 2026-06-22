@@ -5,6 +5,9 @@ argument-hint: project idea or description
 license: MIT
 allowed-tools: Read
 metadata:
+  effort: low
+  side_effect: read-only
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.4.0
   category: project-creation

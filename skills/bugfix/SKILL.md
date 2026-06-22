@@ -6,6 +6,9 @@ license: MIT
 allowed-tools: Read Edit Glob Grep Bash
 paths: ["**/logs/**", "**/*.log"]
 metadata:
+  effort: medium
+  side_effect: command-execution
+  explicit_invocation: false
   author: HiH-DimaN
   version: 1.5.0
   category: code-quality
