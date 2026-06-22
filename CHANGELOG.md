@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-06-22
+
+**Release — PFO plugin-native port complete (19/19 mechanisms).** This release lands the full port of product-factory-os's executable-methodology ideas into idea-to-deploy as a plugin: the `.itd/` contract layer + gates (Waves 0–2), 8 new skills (25 → 33), 3 new reviewer agents (7 → 10), machine-readable `starters/` + `golden-paths/`, and the `/adopt` product-type analyzer. `tests/meta_review.py` Critical 0 throughout.
+
 **PFO plugin-native port — Wave 0 (contract foundation).** Began porting the executable-methodology ideas from **product-factory-os** (a Codex CLI runtime) into idea-to-deploy *as a plugin, without a standalone runtime*. An audit of PFO against idea-to-deploy's "plugin, not CLI" identity found ~19 of PFO's mechanisms are plugin-native (templates + hooks + CI — substrates idea-to-deploy already has) and only 2 (`itd` CLI, `install.sh`) genuinely need a runtime and are the lowest-ROI; those are explicitly out of scope. This wave lands the **contract layer** that the later gate-wiring waves depend on.
 
 ### Added (PFO port Wave 0)
