@@ -11,7 +11,7 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 31](https://img.shields.io/badge/Skills-31-green.svg)](#скиллы)
+[![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 31 скилл и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 33 скилла и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 31 скилл + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 33 скилла + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -200,13 +200,14 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/blueprint` | Б) Только план | 6 файлов документации, без кода |
 | `/guide` | В) Уже есть документация | Уже есть архитектура и план (после маршрута Б, от другого разработчика или из другого инструмента) — генерирует пошаговые промпты для реализации |
 
-### Контроль качества (3 скилла)
+### Контроль качества (4 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/review` | Валидация документации и кода через детерминированную бинарную рубрику (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
 | `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
+| `/browser-check` | **Новое в v1.21.0.** Локальный browser smoke-тест фронтенд/фуллстек/визуальных флоу через встроенный Playwright-харнесс (fallback: Browser Use / in-app browser) — проверяет первый рендер + критический путь (навигация, формы, состояния). Поломка рендера/флоу → BLOCKED до деплоя. |
 
 ### Ежедневная работа (6 скиллов)
 
@@ -250,12 +251,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/market-scan` | **Новое в v1.21.0.** Скан свежих публичных рыночных и комьюнити-сигналов (окно ~30 дней через движок `last30days`) для discovery, валидации, ICP, конкурентов и запуска. Нормализует находки в `MARKET_BRIEF.md` (датированное дополнение). Отличается от `/discover` (полная discovery-фаза). |
 | `/mcp-docs` | **Новое в v1.21.0.** Read-only подтягивание актуальной документации библиотек/фреймворков через MCP-провайдеров (Context7) — резолвит library ID, задаёт узкий вопрос, фиксирует источник и решение. Перед добавлением зависимостей или интеграцией против SDK. |
 
-### Интеграции (2 скилла)
+### Интеграции (3 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/github-workflow` | **Новое в v1.21.0.** Workflow GitHub Issues / PR / CI / релизы — смотрит статус PR и проверок (connector или `gh`), разбирает упавшие Actions до правок кода, готовит ветки/changelog/release notes, держит `.rubric-status` в соответствии. Explicit-invocation; без push/merge/close/release без явного намерения. |
 | `/tool-sync` | **Новое в v1.21.0.** Зеркалирование артефактов idea-to-deploy во внешние инструменты — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native чтение до записи (reconcile, без затирания), export-only fallback в `.itd-integrations/`. Explicit-invocation. |
+| `/obsidian-export` | **Новое в v1.21.0.** Экспорт плановых документов, handoff, памяти, состояния, решений и гейтов в Obsidian-совместимый локальный граф знаний в `.itd-integrations/obsidian/`. Производный и перегенерируемый — канон остаётся источником истины. |
 
 ## Субагенты
 
@@ -310,6 +312,8 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/mcp-docs` | Библиотека / фреймворк / API / вопрос о версии | Нет — структурированная выжимка в stdout; источник + решение в заметках | Нет (read-only; внешний запрос к докам, без записи файлов) | ✅ |
 | `/github-workflow` | Issue / PR / ветка / check run / релиз | GitHub Issues/PRs/релизы (внешне) + опционально `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | Запись в GitHub только по явному намерению; сначала читает git status | ⚠️ Внешние мутации — повторять осторожно |
 | `/tool-sync` | Source-артефакты + целевой инструмент (GitHub/Linear/Notion/Drive/Obsidian) | Состояние внешнего инструмента (live) ИЛИ экспорт `.itd-integrations/<target>.json` | Внешняя запись только по явному намерению; reconcile, без затирания | ⚠️ Внешние мутации — на основе reconcile |
+| `/browser-check` | Локальный URL / маршрут / user flow | Ничего в коммит — отчёт в stdout + скриншоты (доказательство); временный Playwright-скрипт вне проекта | Запускает локальный браузер (Playwright); без production-изменений | ✅ |
+| `/obsidian-export` | Артефакты проекта + память | Сгенерированный набор Obsidian-заметок в `.itd-integrations/obsidian/` | Local-write (только производный экспорт); канон не трогается | ✅ Перегенерируем из source |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -517,6 +521,8 @@ chmod +x ~/.claude/hooks/*.sh
 | `/mcp-docs` | Haiku | Sonnet | Резолв library ID + узкий запрос к докам — точечный lookup, не глубокое рассуждение |
 | `/github-workflow` | Sonnet | Sonnet | gh/git операции + маппинг артефактов — структурно, не глубокое рассуждение |
 | `/tool-sync` | Sonnet | Sonnet | Маппинг артефактов на схемы + reconcile — структурно |
+| `/browser-check` | Sonnet | Sonnet | Написание Playwright-проверок + интерпретация рендера — структурно |
+| `/obsidian-export` | Sonnet | Sonnet | Производная генерация заметок (копия + wikilinks/теги) — механично |
 
 ## Для кого
 
@@ -607,7 +613,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 31. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 33. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

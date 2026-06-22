@@ -1,0 +1,14 @@
+{
+  "name": "itd-browser-check-playwright",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Playwright harness for the idea-to-deploy browser-check skill.",
+  "type": "commonjs",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "detect": "node run.js --detect"
+  },
+  "dependencies": {
+    "playwright": "^1.54.0"
+  }
+}

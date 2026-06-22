@@ -66,7 +66,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 | 15 | Complexity-based routing (signals, not "minimal/standard/full") | `_shared/helpers.md` §6 + `/task` Step 1b + `/project` Step 3b | ✅ |
 | 16 | Context budget (summary + artifact path, not raw dumps) | `_shared/helpers.md` §7 + `hooks/context-budget.sh` (soft) | ✅ |
 | 17 | Metrics (`itd_metrics`) | `scripts/itd_metrics.py` | ✅ |
-| 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | 🔄 6/8 — ✅ `/handoff`, `/grill-me`, `/market-scan`, `/mcp-docs`, `/github-workflow`, `/tool-sync`; ⬜ `/browser-check`, `/obsidian-export`. New README categories "Research" (market-scan+mcp-docs) and "Integration" (github-workflow+tool-sync). github-workflow/tool-sync are explicit-invocation (`disable-model-invocation: true`, side_effect external-write). |
+| 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | ✅ 8/8 — all ported (commits 817df60, 5b61142, 97fbb82, + browser-check/obsidian-export). New README categories "Research" (market-scan+mcp-docs) and "Integration" (github-workflow+tool-sync+obsidian-export); browser-check → Quality Assurance. github-workflow/tool-sync are explicit-invocation. browser-check ships its Playwright runtime under `skills/browser-check/playwright/`. |
 | 19 | Enhance `/adopt` analyzer; golden-paths + starters; new agents pack | skill + templates + agents | ⬜ |
 
 ## Explicitly out of scope (runtime, low ROI)

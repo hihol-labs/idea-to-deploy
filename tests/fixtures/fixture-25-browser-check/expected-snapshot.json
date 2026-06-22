@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "browser-check-smoke",
+  "skill_under_test": "/browser-check",
+  "status": "pending",
+  "description": "Deferred — /browser-check runs a local browser smoke-test (default: the Playwright harness in skills/browser-check/playwright/) against a local URL: it detects dev servers, writes a task-specific script OUTSIDE the project, exercises render + critical path (navigation, forms, loading/error), captures screenshots, and reports PASSED/PASSED_WITH_WARNINGS/BLOCKED to stdout — committing no temp scripts and making no production changes (fixes route through /bugfix). Validation depends on a live dev server + Playwright + stdout, none of which verify_snapshot.py's Phase 1 file-presence schema asserts; deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (temp scripts outside project, BLOCKED on broken render, real interaction over screenshots) for manual verification."
+}

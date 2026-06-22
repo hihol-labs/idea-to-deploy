@@ -344,6 +344,26 @@ TRIGGERS = [
         "external-write, explicit-invocation — спрашивай перед записью в live-системы). "
         "Вызови Skill.",
     ),
+    (
+        r"(obsidian\s+vault|граф\s+знаний|связанн\w+\s+заметк|"
+        r"выгруз\w+\s+в\s+обсидиан|экспорт\s+в\s+obsidian|vault-?заметк|"
+        r"obsidian\s+export|knowledge\s+graph|linked\s+notes|"
+        r"export\s+to\s+vault|project\s+vault|obsidian\s+notes|"
+        r"в\s+обсидиан|в\s+vault\b)",
+        "🔔 Триггер 'Obsidian / граф знаний' → используй /obsidian-export "
+        "(производный перегенерируемый Obsidian-слой в .itd-integrations/obsidian/ "
+        "из канонических артефактов; канон не трогается). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(проверь\s+в\s+браузере|открой\s+в\s+браузере|проверь\s+верстку|"
+        r"проверь\s+вёрстку|проверь\s+страниц|отрендер\w+\s+страниц|"
+        r"смоук[- ]?тест\s+ui|проверь\s+ui\b|"
+        r"browser\s+check|smoke\s+test\s+ui|check\s+in\s+browser|"
+        r"test\s+the\s+ui|visual\s+check|playwright\s+check|browser\s+smoke)",
+        "🔔 Триггер 'проверка в браузере' → используй /browser-check "
+        "(локальный browser smoke-тест через Playwright-харнесс; первый рендер + "
+        "критический путь; BLOCKED при поломке до деплоя). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 

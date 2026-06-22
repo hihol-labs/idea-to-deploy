@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "obsidian-export-generated",
+  "skill_under_test": "/obsidian-export",
+  "status": "pending",
+  "description": "Deferred — /obsidian-export generates a derived, regenerable Obsidian knowledge layer (PROJECT_INDEX/KNOWLEDGE_GRAPH/STATE/DECISIONS/GATES + copied planning & memory notes) under .itd-integrations/obsidian/ from canonical idea-to-deploy artifacts, using wikilinks/embeds/callouts/itd-* frontmatter, without touching canonical source docs or leaking secrets. verify_snapshot.py's Phase 1 schema does not assert the generated note set's structure, so validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (derived output, canon untouched, no secrets, regenerable) for manual verification."
+}
