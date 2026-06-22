@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Positioning artefact under ROADMAP v1.21 DEFERRED §B (content lane).** Docs-only; no version bump, no code change.
+
+### Added
+
+- **`docs/HARNESS_ENGINEERING_MAP.md`** — maps the methodology against the 5 principles + 2 template artefacts of the [Harness Engineering course (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/), assessed on **v1.21.0**. Result: philosophy reflected in full (the course's core thesis "a harness matters more than a smarter model" *is* the methodology's central tenet); 4 of 5 principles covered in full (H1 constraining behavior, H2 context preservation, H3 preventing premature completion, H4 verification through testing), 1 partial (H5 observability — post-hoc, no live trace, = `K15`). Both templates covered: `AGENTS.md` → `CLAUDE.md` + the `.itd/` contract layer (T1); `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json`, machine-readable and fail-closed (T2). Notes that the v1.21.0 PFO port (`.itd/` contracts + `context-budget.sh`) materially raised coverage vs the pre-port state — closing the former T2 partial and improving the `K4` context-budget gap. Sister-doc to `docs/DESIGN_SPACE.md`; the one remaining gap (live execution tracing) is signal-gated.
+- **FAQ entry in `README.md` and `README.ru.md`**: "How does idea-to-deploy relate to 'Harness Engineering' (walkinglabs)?" — links to `docs/HARNESS_ENGINEERING_MAP.md` in both languages, states coverage (4/5 full, 1 partial) and both template statuses honestly.
+
+### Changed
+
+- **`docs/DESIGN_SPACE.md` §2** — added a sister-doc cross-link to `HARNESS_ENGINEERING_MAP.md` and a note that its `K4` row predates the v1.21.0 `context-budget.sh` hook (the harness map carries the current context-budget assessment).
+
 ## [1.21.0] - 2026-06-22
 
 **Release — PFO plugin-native port complete (19/19 mechanisms).** This release lands the full port of product-factory-os's executable-methodology ideas into idea-to-deploy as a plugin: the `.itd/` contract layer + gates (Waves 0–2), 8 new skills (25 → 33), 3 new reviewer agents (7 → 10), machine-readable `starters/` + `golden-paths/`, and the `/adopt` product-type analyzer. `tests/meta_review.py` Critical 0 throughout.
