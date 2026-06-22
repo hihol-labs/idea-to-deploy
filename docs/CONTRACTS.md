@@ -63,8 +63,8 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 | # | Mechanism | Vector | Status |
 |---|---|---|---|
 | 14 | State schema (`STATE.json` + `events.jsonl`) + `validate_state.py` | `docs/templates/itd-memory/` + `scripts/validate_state.py` | ✅ |
-| 15 | Complexity-based routing (signals, not "minimal/standard/full") | `/project`,`/task` router logic | ⬜ |
-| 16 | Context budget (summary + artifact path, not raw dumps) | skill discipline + hook warning | ⬜ |
+| 15 | Complexity-based routing (signals, not "minimal/standard/full") | `_shared/helpers.md` §6 + `/task` Step 1b + `/project` Step 3b | ✅ |
+| 16 | Context budget (summary + artifact path, not raw dumps) | `_shared/helpers.md` §7 + `hooks/context-budget.sh` (soft) | ✅ |
 | 17 | Metrics (`itd_metrics`) | `scripts/itd_metrics.py` | ✅ |
 | 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | ⬜ |
 | 19 | Enhance `/adopt` analyzer; golden-paths + starters; new agents pack | skill + templates + agents | ⬜ |
@@ -74,6 +74,15 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 - `install.sh` workspace installer — plugins install via `/plugin install`.
 - PFO skills not present in PFO's own `skills/`: there is **no `/seo` and no `/brainstorm`** in PFO (a prior analysis hallucinated them) — not ported.
 - `/skill-create` — already covered by the Anthropic `skill-creator` skill; low marginal value.
+
+## Known follow-up (doc drift)
+
+Adding `hooks/context-budget.sh` makes it the **14th** hook. `hooks/README.md` and the
+user-facing `README.md` were updated (13 → 14). The **promo/marketing copy still says "13
+hooks"** and needs a dedicated docs-sync pass (not done here to keep the port commits
+focused and avoid editing the published `plugin.json` description mid-port):
+`docs/promotion/marketplace-submissions.md`, `docs/promotion/drafts/habr-intro-idea-to-deploy.md`,
+`docs/DESIGN_SPACE.md`, `ROADMAP_v1.21.md`, and `.claude-plugin/plugin.json` (`description`).
 
 ## Note on enforcement
 Templates are inert until wired. Wave 1 is what makes them bite: idea-to-deploy's hooks (`check-*`, `freeze.sh`, `pre-flight-check.sh`) and CI (`tests/meta_review.py`) are the enforcement substrate. Until a gate hook references a contract, the contract is documentation, not a sensor — Wave 1 closes that gap.

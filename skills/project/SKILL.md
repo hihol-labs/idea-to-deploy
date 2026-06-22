@@ -71,6 +71,16 @@ Only reached if Step 2 did NOT redirect. Ask the user ONE question:
 
 **В) У меня уже есть документация** — создам пошаговый гайд с промптами для Claude Code на основе ваших документов."
 
+### Step 3b: Scale by complexity (v1.21 — PFO port)
+
+Note the product's **complexity** (PFO `product-classifier` signal: low/medium/high — see `skills/_shared/helpers.md` §6) and let it scale the lifecycle weight:
+
+- **low** (single-purpose tool, CRUD app, landing) → keep the lifecycle lean: don't over-generate strategy/market artifacts the project won't use.
+- **medium** (typical SaaS / bot / dashboard) → the standard `/kickstart` lifecycle.
+- **high** (multi-module, payments, regulated data, infra-heavy) → high-risk tier: full `.itd/` contracts + security/data review + explicit approval gates downstream.
+
+This only adjusts how much process the project carries — routing target (А/Б/В) is still chosen in Step 4.
+
 ### Step 4: Route to the right creation workflow
 
 Based on the answer:

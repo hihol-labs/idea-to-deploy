@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/itd_metrics.py`** — aggregates harness-efficiency metrics across a workspace of `*/.itd-memory/STATE.json` (gate pass-rate, blocked/failed counts, verification events, artifact debt); JSON or `--markdown`. Lets the methodology improve by numbers, not impressions. Verified against a sample workspace (gatePassRate 0.65 on the example).
 - `tests/meta_review.py` Critical 0 / PASSED_WITH_WARNINGS unchanged.
 
+### Added (PFO port Wave 2 — routing & context budget)
+
+- **Process-cost tiers (complexity routing)** — `skills/_shared/helpers.md` §6 defines trivial / standard / high-risk tiers (based on PFO's `product-classifier` COMPLEXITY signal, **not** any fabricated "minimal/standard/full" profile) and which contracts/gates each applies. Wired into `/task` (Step 1b — classify before routing) and `/project` (Step 3b — scale the lifecycle by product complexity). The high-risk tier aligns with skills carrying `explicit_invocation: true`.
+- **Context budget** — `skills/_shared/helpers.md` §7 (summarize, bound at source, artifact + path instead of raw dumps) plus **`hooks/context-budget.sh`** — a Python 3 PreToolUse soft hook (14th hook) that nudges when a Bash command is likely to dump a large unbounded output (raw HTTP body, `cat` of big file, wide `grep`/`find`/`rg` with no cap). Soft reminder only, never blocks. Verified: warns on unbounded commands, silent on bounded ones (`-m`, `head`, `tail`, `| head`).
+- `hooks/README.md` + `README.md` hook count updated 13 → 14. (Promo copy still says 13 — flagged as a docs-sync follow-up in `docs/CONTRACTS.md`.)
+- `tests/meta_review.py` Critical 0 / PASSED_WITH_WARNINGS (M-C10 initially caught the new hook as a bash file with no declared event — fixed by rewriting it as a Python 3 PreToolUse hook per repo convention).
+
 **Content-batch follow-ups under ROADMAP v1.21 DEFERRED.** Five PRs landed on 2026-04-21 — one positioning artefact (design-space mapping), one content hotfix, two tech-debt fixture expansions, and one reliability fix in the review-gate hook. No version bump (methodology stays at `1.20.3` per DEFERRED), but work is recorded here per Keep a Changelog convention — the `[Unreleased]` section accumulates between releases regardless of release cadence.
 
 ### Added
