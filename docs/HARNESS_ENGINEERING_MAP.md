@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (`1e95ddb`, v1.21.0): **33 skills, 10 subagents, 14 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`.
+Проверка — чтением `main` (`1e95ddb`, v1.21.0): **33 skills, 10 subagents, 15 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`.
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 33 skills + 10 agents + 14 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 33 skills + 10 agents + 15 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 
 ### 4.2. 5 ключевых принципов
 
@@ -50,7 +50,7 @@
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; статус-таблица `CLAUDE.md` для resume; автосохранение на вехах; `pre-flight-check.sh` (git + `MEMORY.md` в контекст); `session-open-diagnostic.sh`; `crash-recovery.sh`. **+ v1.21.0:** `context-budget.sh` (PreToolUse — мягко тормозит unbounded-дампы в контекст) + `UNIT_CONTEXT_MANIFEST.json` (свежий ограниченный per-node контекст) | Принцип «между сессиями» — полностью. Смежный `K4` (бюджетирование *внутри* сессии) теперь **частично закрыт** `context-budget.sh` (мягкое напоминание, не жёсткая budget-модель) — улучшение vs DESIGN_SPACE §5.2 |
 | **H3** | **Предотвращение преждевременного завершения** — защита от ложного успеха | ✅ | **Сильнейшая ось.** 2 Quality Gate; бинарные rubric'и `BLOCKED/PASSED`; стоп после **3 ошибок подряд**; `check-commit-completeness.sh` + `check-review-before-commit.sh` (hard-block); `stuck-detection.sh`. **+ v1.21.0 fail-closed гейты:** `ACCEPTANCE_CONTRACT.json` («done = traceable proof-checklist, не ощущение агента»; статусы `pending/passed/failed/recovery_required`); `VERIFICATION_CONTRACT.json` (`failClosed`, `RECOVERY_REQUIRED` вместо «passed» при un-run/ambiguous); **двухстадийный `/review`** (Stage A spec-compliance — «красивый код, решающий не ту задачу» → `BLOCKED`); fail-closed `/test` (passed только при реально полученном evidence); `ROOT_CAUSE.md`-гейт в `/bugfix`; `BRANCH_FINISH.md` | — |
 | **H4** | **Верификация через тестирование** — сквозные проверки и саморефлексия | ✅ | `/test` после каждого шага; **3 уровня качества** методологии (structural / snapshot / behavioural); `tests/fixtures/` (25 фикстур) + `run-fixtures.sh`; `meta-review.yml` в CI; `/review` · `/security-audit` · `/deps-audit`; `/harden` (k6 load-tests); `/browser-check` (Playwright runtime). **+ v1.21.0:** TDD evidence-гейт (red→green) в `/test`; fail-closed верификация | — |
-| **H5** | **Наблюдаемость** — отладка и мониторинг во время выполнения | ◐ | `cost-tracker.sh` (per-session usage); `/session-save` (post-hoc summary); `session-open-diagnostic.sh`; `ITD_REPORT.md`; session-memory как historical view | **Единственный частичный принцип (= `K15`):** всё **post-hoc**. Нет live execution trace «скилл X прочитал Y, сделал tool-call Z». Реализация — опциональный PreToolUse trace-hook (`.claude/traces/session-{id}.jsonl`), не auto-enabled. Кандидат, signal-gated |
+| **H5** | **Наблюдаемость** — отладка и мониторинг во время выполнения | ✅ | **Post-hoc:** `cost-tracker.sh` (per-session usage), `/session-save` (summary), `session-open-diagnostic.sh`, `ITD_REPORT.md`, session-memory. **+ Live (v1.21.x): `execution-trace.sh`** — PreToolUse-хук пишет по строке JSON (`{ts, tool, target}`) на каждый tool-call в `.claude/traces/session-{id}.jsonl` | **Закрыто (= `K15`).** Live execution trace «скилл X прочитал Y, сделал tool-call Z» теперь есть: zero-context (ничего не инжектит), opt-in (как `cost-tracker.sh`), `.claude/` в `.gitignore`, fail-safe |
 
 ### 4.3. Библиотека шаблонов
 
@@ -75,9 +75,16 @@
 
 Это и есть роль `feature_list.json` из курса, реализованная строже (fail-closed). Остаточный кандидат — персистентный мульти-фичный реестр поверх per-unit контрактов (для трекинга всех P0/P1/P2 фич проекта программно).
 
-### 5.3. H5 / live execution tracing (◐, = K15) — единственный реальный gap
+### 5.3. H5 / live execution tracing (✅, = K15) — закрыто в v1.21.x
 
-Наблюдаемость пока post-hoc: `cost-tracker.sh` + session-memory + `ITD_REPORT.md` дают historical view, но не live trace в реальном времени. Реализация — опциональный PreToolUse hook, пишущий jsonl-trace, не auto-enabled. Полезно прежде всего для отладки самой методологии. Полный разбор — `DESIGN_SPACE.md §5.7`. Effort ~2–3 дня, **signal-gated**.
+Наблюдаемость была post-hoc (`cost-tracker.sh` + session-memory + `ITD_REPORT.md`). **v1.21.x добавил `execution-trace.sh`** — PreToolUse-хук, который пишет по строке JSON (`{ts, tool, target}`) на каждый tool-call в `.claude/traces/session-{id}.jsonl`. Это даёт live, реиграбельный лог «какой инструмент против чего отработал» — для отладки самой методологии и user-oversight.
+
+Свойства, по которым это «честное» закрытие, а не галочка:
+- **Zero-context:** хук ничего не инжектит в контекст модели → не тратит context-budget (не конфликтует с H2).
+- **Opt-in / fail-safe:** активен только при регистрации в `settings.json` (matcher `*`), как `cost-tracker.sh`; любая ошибка → `exit 0`, сессия не ломается; `.claude/` уже в `.gitignore` → трейсы не попадают в репозиторий.
+- **Прошёл харнес репозитория:** зарегистрирован в `EXEMPT` списка `verify-sync-to-active.sh`; M-C10-схема-чек (`hookEventName: PreToolUse`, без корневого verdict) — pass.
+
+Полный разбор той же оси в рамке «Dive into Claude Code» — `DESIGN_SPACE.md §5.7 (K15)`.
 
 ### 5.4. Минорные кандидаты
 
@@ -89,26 +96,25 @@
 | Уровень | ✅ Покрыто | ◐ Частично | ❌ Gap |
 |---|---|---|---|
 | **Философия** | «harness важнее модели» | — | — |
-| **5 принципов** | H1, H2, H3, H4 | **H5** (наблюдаемость) | — |
+| **5 принципов** | H1, H2, H3, H4, **H5** | — | — |
 | **2 шаблона** | T1, **T2** (через `.itd/`) | — | — |
 
-**Итог:** философия харнес-инженерии воплощена **в полной мере** — `idea-to-deploy` является образцовым примером самой дисциплины. На **v1.21.0**: **4 из 5 принципов** покрыты полностью (H1–H4), **1 частично** (H5 — наблюдаемость post-hoc вместо live). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + `.itd/`-манифест; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (fail-closed, строже оригинала).
+**Итог:** философия харнес-инженерии воплощена **в полной мере** — `idea-to-deploy` является образцовым примером самой дисциплины. На **v1.21.x**: **все 5 принципов** покрыты полностью (H1–H5; наблюдаемость закрыта live-трейсингом `execution-trace.sh`). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + `.itd/`-манифест; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (fail-closed, строже оригинала).
 
-**Единственный содержательный остаток — live execution tracing (H5/K15).** Он, как и минорные кандидаты, **signal-gated** в духе [`ROADMAP_v1.21.md`](../ROADMAP_v1.21.md): эта карта служит сигнал-триггер-картой — когда придёт pain point по наблюдаемости, готов ответ «известный gap, вот причина, вот scope».
+**Содержательных остатков по принципам и шаблонам нет.** Остаются лишь минорные косметические кандидаты (см. §5.4: `AGENTS.md`-алиас для кросс-тул-портируемости; персистентный мульти-фичный `feature_list.json` поверх per-unit `ACCEPTANCE_CONTRACT`) — это улучшения формы, а не пробелы принципов. Карта остаётся сигнал-триггер-картой на случай изменений курса или методологии.
 
 ## 7. Следствия для ROADMAP
 
 Документ **не меняет** решения [ROADMAP v1.21 DEFERRED](../ROADMAP_v1.21.md). Его роль:
 
 1. **Честная позиция** для аудитории, говорящей на языке харнес-инженерии.
-2. **Защита от cargo-cult scope creep:** H5 не закрыт не по забывчивости, а по DEFERRED-философии — сигнал, а не velocity ради velocity.
-3. **Готовый scope при сигнале:**
+2. **Закрытие H5 (v1.21.x) — по явному запросу мейнтейнера**, что удовлетворяет signal-критерий ROADMAP (activated user с конкретным запросом), а не velocity ради velocity. Реализовано минимальным opt-in хуком (`execution-trace.sh`) без раздувания surface — не cargo-cult.
+3. **Оставшиеся кандидаты — только косметические** (форма, не принципы), по-прежнему signal-gated:
 
-| Кандидат | Принцип | Effort | Триггер |
+| Кандидат | Тип | Effort | Триггер |
 |---|---|:---:|---|
-| Live execution trace hook | H5 / K15 | 2–3d | Запрос на отладку самой методологии |
-| Персистентный `feature_list.json` | T2 | 3–5d | Нужен программный gate «все P0 фичи протестированы» перед `/deploy` |
-| `AGENTS.md`-алиас в генераторах | T1 | <1d | Запрос на кросс-тул-портируемость |
+| Персистентный `feature_list.json` | T2 (форма) | 3–5d | Нужен программный gate «все P0 фичи протестированы» перед `/deploy` |
+| `AGENTS.md`-алиас в генераторах | T1 (портируемость) | <1d | Запрос на кросс-тул-портируемость |
 
 Ни один не активируется без external signal (критерии — `ROADMAP_v1.21.md §"When to revisit v1.21"`).
 

@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These fourteen hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These fifteen hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.19.0)
 
@@ -35,12 +35,13 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 | `careful.sh` | Before Bash (PreToolUse) | Detects destructive commands (rm -rf, DROP TABLE, git push --force, git reset --hard, chmod 777, pipe-to-bash) and injects a warning asking Claude to confirm with the user. Activated via `CAREFUL_MODE=1` env var or a state file. | No — soft warning only |
 | `freeze.sh` | Before Edit/Write/NotebookEdit (PreToolUse) | Restricts file modifications to a specific directory scope. Any edit outside the frozen scope triggers a warning. Activated via a state file written by `/freeze <path>`. Deactivated with `/unfreeze`. | No — soft warning only |
 | `context-budget.sh` *(v1.21)* | Before Bash (PreToolUse) | Detects commands likely to dump a large unbounded output (raw HTTP/API bodies, `cat` of big files, wide `grep`/`find`/`rg` with no cap) and injects a reminder to bound/summarize or write to a file + reference the path. See `skills/_shared/helpers.md` §7. Opt-in via settings.json. | No — soft reminder only |
+| `execution-trace.sh` *(v1.21)* | Before any tool (PreToolUse, register with matcher `*`) | Appends one JSON line per tool call (`{ts, tool, target}`) to `.claude/traces/session-<id>.jsonl` — a live, replayable record of which tool ran against what, for debugging the methodology and user oversight. Pure side-effect telemetry: injects **nothing** into context (zero context-budget cost). `.claude/` is gitignored. Opt-in via settings.json. | No — never blocks |
 
 **Activation:**
 - **`careful.sh`** — **always active** inside methodology repos (auto-detected via `.claude-plugin/plugin.json`). Outside methodology repos: opt-in via `CAREFUL_MODE=1` env var or state file.
 - **`freeze.sh`** — **automatic** when skills like `/bugfix`, `/refactor`, `/perf` start work (they write the scope to `/tmp/claude-freeze-{session}.state`). Can also be activated manually: `/freeze src/auth`. Deactivate with `/unfreeze` or skill completion.
 
-All fourteen hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+All fifteen hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 
