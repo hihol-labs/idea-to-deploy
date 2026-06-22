@@ -14,7 +14,7 @@ We built a self-improving methodology plugin for Claude Code and needed to test 
 
 ### Background
 
-idea-to-deploy is a Claude Code plugin (27 skills, 7 subagents) that turns Claude Code into a structured development pipeline: idea to architecture to code to tests to deploy. We have a three-tier testing system: structural meta-review (Python, runs in CI), snapshot validation (deterministic checks on generated output), and behavioural execution (actually running skills end-to-end).
+idea-to-deploy is a Claude Code plugin (29 skills, 7 subagents) that turns Claude Code into a structured development pipeline: idea to architecture to code to tests to deploy. We have a three-tier testing system: structural meta-review (Python, runs in CI), snapshot validation (deterministic checks on generated output), and behavioural execution (actually running skills end-to-end).
 
 The first two tiers are straightforward. The third is where things get interesting, because you need Claude Code to run non-interactively, produce files, and exit -- so you can validate the output programmatically.
 
@@ -161,6 +161,6 @@ The headless runner is what makes this sustainable. Without it, testing a method
 
 idea-to-deploy is MIT-licensed: https://github.com/hihol-labs/idea-to-deploy
 
-The headless runner, snapshot validator, and meta-review scripts are all in `tests/`. The methodology itself is 27 skills covering project creation, daily work (bugfix, refactor, test, perf, security audit, deps audit, migrate, harden, infra), product discovery, documentation, and session persistence.
+The headless runner, snapshot validator, and meta-review scripts are all in `tests/`. The methodology itself is 29 skills covering project creation, daily work (bugfix, refactor, test, perf, security audit, deps audit, migrate, harden, infra), product discovery, documentation, and session persistence.
 
 If you are doing anything similar with headless Claude Code or automated LLM testing, I would be curious to hear your approach. The flag documentation is sparse and we found most of the above through experimentation.

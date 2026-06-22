@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "mcp-docs-stdout",
+  "skill_under_test": "/mcp-docs",
+  "status": "pending",
+  "description": "Deferred — /mcp-docs is a read-only lookup of fresh library/framework documentation via MCP providers (Context7): it resolves a library ID, asks a narrow question, records source + decision, and emits a structured stdout shape (no Write/Edit, no files). verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert an external-tool-backed stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (narrow query, no-secrets guard, MCP-unavailable fallback, repo-convention precedence) for manual verification."
+}

@@ -1,0 +1,28 @@
+# Expected files after /mcp-docs runs
+#
+# NONE. /mcp-docs is a read-only documentation-lookup skill — it queries MCP
+# documentation providers (Context7) and returns a structured summary to stdout
+# (or records the source + decision in working notes / plan / review). It MUST
+# NOT create or modify project files.
+#
+# Presence of ANY file in the output dir after a /mcp-docs run is a contract
+# violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-21-mcp-docs/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /mcp-docs MUST NOT:
+#   - Write / Edit project files (it's a read-only lookup)
+#   - Send secrets / proprietary source / credentials / private customer data
+#     to documentation tools
+#   - Block tiny local fixes when the relevant API behavior is already proven
+#     by tests or code
+#
+# /mcp-docs MAY:
+#   - Resolve a library ID and query MCP docs (Context7) with a narrow question
+#   - Fall back to official project docs when MCP is unavailable (stating so)
+#   - Print the output shape (DOC SOURCE / VERSION OR LIBRARY ID / DECISION /
+#     IMPLEMENTATION IMPACT / FOLLOW-UP RISK)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (read-only, external MCP tool + stdout). Manual verification via notes.md.

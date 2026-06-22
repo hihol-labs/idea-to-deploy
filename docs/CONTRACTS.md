@@ -66,7 +66,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 | 15 | Complexity-based routing (signals, not "minimal/standard/full") | `_shared/helpers.md` §6 + `/task` Step 1b + `/project` Step 3b | ✅ |
 | 16 | Context budget (summary + artifact path, not raw dumps) | `_shared/helpers.md` §7 + `hooks/context-budget.sh` (soft) | ✅ |
 | 17 | Metrics (`itd_metrics`) | `scripts/itd_metrics.py` | ✅ |
-| 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | 🔄 2/8 — ✅ `/handoff`, `/grill-me`; ⬜ `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export` |
+| 18 | `/browser-check`, `/github-workflow`, `/market-scan`, `/mcp-docs`, `/tool-sync`, `/obsidian-export`, `/grill-me`, `/handoff` | new skills | 🔄 4/8 — ✅ `/handoff`, `/grill-me`, `/market-scan`, `/mcp-docs`; ⬜ `/browser-check`, `/github-workflow`, `/tool-sync`, `/obsidian-export`. New category "Research" added for market-scan + mcp-docs. |
 | 19 | Enhance `/adopt` analyzer; golden-paths + starters; new agents pack | skill + templates + agents | ⬜ |
 
 ## Explicitly out of scope (runtime, low ROI)
@@ -84,13 +84,13 @@ focused and avoid editing the published `plugin.json` description mid-port):
 `docs/promotion/marketplace-submissions.md`, `docs/promotion/drafts/habr-intro-idea-to-deploy.md`,
 `docs/DESIGN_SPACE.md`, `ROADMAP_v1.21.md`, and `.claude-plugin/plugin.json` (`description`).
 
-Additionally, item 18 (new skills) bumps the **skill count** (25 → 27 and counting).
+Additionally, item 18 (new skills) raises the **skill count** with every batch.
 The M-C12/M-C13-checked surfaces (`README.*`, `docs/promotion/*`, `.claude-plugin/marketplace.json`)
 are kept in sync per skill batch. **`.claude-plugin/plugin.json` `description` is NOT M-C13-checked**
-and still says "25 skills" — it is intentionally left for the same dedicated docs-sync /
+and still carries the pre-bump count — it is intentionally left for the same dedicated docs-sync /
 release pass as the "13 hooks" drift above (avoid editing the published `plugin.json`
-description mid-port). The version-pinned snapshot in `docs/DESIGN_SPACE.md` ("v1.20.3: 25 skills")
-is correctly skipped by M-C12 and stays as a historical record.
+description mid-port). The version-pinned snapshot in `docs/DESIGN_SPACE.md` (the `v1.20.3`
+count) is correctly skipped by M-C12 and stays as a historical record.
 
 ## Note on enforcement
 Templates are inert until wired. Wave 1 is what makes them bite: idea-to-deploy's hooks (`check-*`, `freeze.sh`, `pre-flight-check.sh`) and CI (`tests/meta_review.py`) are the enforcement substrate. Until a gate hook references a contract, the contract is documentation, not a sensor — Wave 1 closes that gap.

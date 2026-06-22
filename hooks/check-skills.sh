@@ -297,6 +297,30 @@ TRIGGERS = [
         "вопросу с рекомендуемым ответом; запускай ДО /review, чтобы поднять "
         "качество решения). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(скан\s+рынка|сканир\w+\s+рынок|свеж\w+\s+сигнал\w+\s+рынка|"
+        r"что\s+говорят\s+о\s+(продукт|нише|рынке)|проверь\s+нишу|"
+        r"рыночн\w+\s+сигнал|сигнал\w+\s+сообществ|сигнал\w+\s+рынка|"
+        r"market\s+scan|scan\s+the\s+market|fresh\s+market\s+signal|"
+        r"market\s+signals|community\s+signals|validate\s+(my\s+)?idea|"
+        r"competitor\s+chatter|competitor\s+signals)",
+        "🔔 Триггер 'скан рынка' → используй /market-scan "
+        "(свежие публичные рыночные/комьюнити-сигналы за ~30 дней через last30days, "
+        "нормализация в MARKET_BRIEF.md; ≠ /discover, который делает полную "
+        "discovery-фазу с TAM/SAM/SOM и персонами). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(актуальн\w+\s+документац|проверь\s+доки|свеж\w+\s+доки|"
+        r"документац\w+\s+(по\s+)?библиотек|актуальн\w+\s+api|"
+        r"\bcontext7\b|посмотри\s+доки\s+библиотек|"
+        r"mcp\s+docs|check\s+the\s+docs|library\s+documentation|"
+        r"current\s+api\s+docs|look\s+up\s+docs|fetch\s+documentation|"
+        r"latest\s+(library\s+)?docs)",
+        "🔔 Триггер 'актуальная документация' → используй /mcp-docs "
+        "(подтягивание свежих доков библиотек/фреймворков через MCP-провайдеров, "
+        "в первую очередь Context7; read-only, перед добавлением зависимостей или "
+        "интеграцией против SDK). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 
