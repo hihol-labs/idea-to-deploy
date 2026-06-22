@@ -608,6 +608,9 @@ By design — см. таблицу [Рекомендуемые модели](#р
 **Как idea-to-deploy соотносится с «Dive into Claude Code» (arxiv 2604.14228)?**
 Статья Liu et al. (апрель 2026, [arxiv 2604.14228](https://arxiv.org/pdf/2604.14228)) и репозиторий-компаньон [VILA-Lab/Dive-into-Claude-Code](https://github.com/VILA-Lab/Dive-into-Claude-Code) формализуют 16 архитектурных принципов Claude Code. В [`docs/DESIGN_SPACE.md`](docs/DESIGN_SPACE.md) лежит карта соответствия методологии этим принципам: из 15 применимых 13 покрыты полностью или частично, а 2 (context budgeting и on-disk checkpoint'ы помимо `git`) — осознанные gap'ы. Карта намеренно честная — оба gap'а являются кандидатами в будущий v1.21 при появлении multi-point user signal.
 
+**Как idea-to-deploy соотносится с «Харнес-инженерией» (walkinglabs)?**
+Учебник [Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/ru/) формализует дисциплину: задача не сделать модель умнее, а построить замкнутую рабочую систему (harness) с явными правилами и границами — что и является центральным тезисом этой методологии. В [`docs/HARNESS_ENGINEERING_MAP.md`](docs/HARNESS_ENGINEERING_MAP.md) лежит карта соответствия 5 принципам курса на v1.21.0: 4 из 5 покрыты полностью (ограничение поведения, сохранение контекста, предотвращение преждевременного завершения, верификация через тестирование), 1 частично (наблюдаемость — post-hoc вместо live). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + слой контрактов `.itd/`; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (машиночитаемые, fail-closed). Единственный остаток (live execution tracing) — signal-gated.
+
 **Что-то сломалось.**
 Заведите issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Приложите версию Claude Code, используемую модель, промпт и описание неожиданного поведения.
 

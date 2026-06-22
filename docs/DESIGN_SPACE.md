@@ -24,6 +24,8 @@
 - **arxiv paper:** [`2604.14228`](https://arxiv.org/pdf/2604.14228) — Liu et al., «Dive into Claude Code», апрель 2026.
 - **Репозиторий-компаньон:** [`VILA-Lab/Dive-into-Claude-Code`](https://github.com/VILA-Lab/Dive-into-Claude-Code) — расширенный разбор: 13 design principles, anti-patterns, 4 CVE-класса в pre-trust window, graduated compaction, subagent cost-model, hook/skill/plugin/MCP extensibility ladder.
 
+**Документ-сестра:** [`HARNESS_ENGINEERING_MAP.md`](HARNESS_ENGINEERING_MAP.md) — та же дисциплина честного маппинга против другой рамки: 5 принципов курса [«Харнес-инженерия» (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/). Рамки пересекаются (`K4`/`K15` здесь = смежные H2/H5 там). NB: таблица §4 ниже датирована v1.20.3; `K4` предшествует хуку `context-budget.sh` (v1.21.0) — в HARNESS-карте оценка бюджета контекста актуальнее.
+
 Принципы в таблице ниже пронумерованы `K1–K16` — это наша внутренняя номерация для удобства ссылок, не из paper.
 
 ## 3. Методология маппинга
