@@ -38,6 +38,7 @@ EXEMPT=(
   "context-aware.sh"     # experimental context-rot detection
   "cost-tracker.sh"      # optional cost telemetry
   "crash-recovery.sh"    # manual inspection checkpoint, no consumer yet
+  "execution-trace.sh"   # opt-in live execution-trace telemetry (observability)
   "freeze.sh"            # opt-in freeze-on-mistake
   "stuck-detection.sh"   # experimental stuck-session detection
 )

@@ -57,7 +57,7 @@
 | **K12** | Pre-trust execution window — осознанный trade-off | Anti-patterns / 4 CVEs | ◐ | Три UserPromptSubmit хука (`pre-flight-check.sh`, `session-open-diagnostic.sh`, `context-aware.sh`) выполняются до любого trust-диалога. **Audit 2026-04-21:** все три read-only relative to project (только `git log/status`, чтение `MEMORY.md`/session/plan), запись только в `/tmp/claude-*-{session_id}.*`, без network calls, без destructive ops, таймаут 2с на git. | Отличие от CVE-класса из paper: наши хуки — user-opt-in (пользователь явно устанавливает плагин), не auto-loaded MCP. Это структурно снижает risk vs paper-described auto-MCP attack. Осознанный trade-off, не gap в strict смысле. |
 | **K13** | Single execution engine | Anti-patterns | N/A | Методология — single plugin с единой surface (Claude Code API). Принцип относится к платформе ниже нас. | — |
 | **K14** | Graduated autonomy levels | arxiv | ◐ | `/autopilot` (high autonomy) + обычный interactive flow (human-in-the-loop). После 3 подряд ошибок `/kickstart` останавливается и спрашивает человека. | Нет промежуточных уровней и нет явного autonomy-selector'а на входе. `/task` / `/project` роутеры не спрашивают autonomy mode — только task type. Gap не приоритетный: для реального UX улучшения нужен multi-user signal. |
-| **K15** | Execution transparency / tracing | arxiv | ◐ | `/session-save` фиксирует post-hoc summary; `cost-tracker.sh` (v1.18.0) пишет per-session usage; session-memory хранит historical view. | Нет live execution trace — «какой скилл прочитал какой файл, какие tool calls сделал». Полезно для retro-анализа, но требует отдельного hook-pipeline'а. Кандидат в v1.21. |
+| **K15** | Execution transparency / tracing | arxiv | ✅ | Post-hoc: `/session-save` summary, `cost-tracker.sh` per-session usage, session-memory. **+ Live (v1.21.x): `execution-trace.sh`** — PreToolUse-хук пишет jsonl-trace (`{ts, tool, target}`) на каждый tool-call в `.claude/traces/session-{id}.jsonl`. | **Закрыто** хуком `execution-trace.sh` (v1.21.x): zero-context, opt-in (`EXEMPT`), `.claude/` в `.gitignore`. См. §5.7 и `HARNESS_ENGINEERING_MAP.md §5.3`. |
 | **K16** | On-disk checkpoints | Архитектура | ❌ | Rollback опирается на `git` (коммиты + ветки). Гитхаб-level checkpoint'ы работают для текстовых файлов. | Для non-git state (docker containers, database state, deployed services) checkpoint'ов нет. `/migrate` делает backup → /tmp; `/deploy` не делает pre-deploy snapshot. Кандидат в v1.21 для `/harden` расширения. |
 
 ## 5. Детальный разбор gap'ов
@@ -149,7 +149,7 @@
 
 **Gap:** нет live execution trace вида «на шаге N скилл `/kickstart` прочитал файлы X,Y, сделал tool call Z с параметрами {...}». Полезно для retro-анализа багов в самой методологии.
 
-**Реализация:** потребовала бы PreToolUse hook, пишущий jsonl-trace в `.claude/traces/session-{id}.jsonl`. Опциональный, не auto-enabled. Кандидат в v1.21.
+**✅ ЗАКРЫТО (v1.21.x).** Добавлен `execution-trace.sh` — PreToolUse-хук, пишущий jsonl-trace (`{ts, tool, target}`) на каждый tool-call в `.claude/traces/session-{id}.jsonl`. Zero-context (ничего не инжектит в контекст), opt-in (в `EXEMPT` списка `verify-sync-to-active.sh`, активен при регистрации в settings.json с matcher `*`), fail-safe (любая ошибка → exit 0), `.claude/` в `.gitignore`. M-C10-схема-чек пройден. Полный разбор в рамке харнес-инженерии — `HARNESS_ENGINEERING_MAP.md §5.3 (H5)`.
 
 ### 5.8. K16 — On-disk checkpoints (❌)
 
@@ -166,8 +166,8 @@
 
 | Статус | Количество | Принципы |
 |---|:---:|---|
-| ✅ Покрыто | 7 | K2, K3, K6, K8, K9, K10, K11 |
-| ◐ Частично | 6 | K1, K5, K7, K12, K14, K15 |
+| ✅ Покрыто | 8 | K2, K3, K6, K8, K9, K10, K11, **K15** |
+| ◐ Частично | 5 | K1, K5, K7, K12, K14 |
 | ❌ Gap | 2 | K4, K16 |
 | N/A | 1 | K13 |
 | **Итого применимых** | **15** | K1–K12, K14–K16 |
@@ -181,16 +181,16 @@
 Этот документ **не меняет** этого решения. Его роль иная:
 
 1. **Честная позиция перед аудиторией.** Публикация paper Liu et al. задаёт language of comparison в экосистеме. Наличие DESIGN_SPACE map даёт пользователям, сравнивающим методологии, явный ответ «что покрыто, что нет».
-2. **Signal-trigger map.** Если внешний пользователь придёт с pain point, который попадает в K4, K15 или K16 — у нас готовая ссылка: «это известный gap, вот причина, вот scope для v1.21». Это удовлетворяет критерий 1 из `ROADMAP_v1.21.md §"When to revisit v1.21"` (multi-point signal on same feature).
+2. **Signal-trigger map.** Если внешний пользователь придёт с pain point, который попадает в K4 или K16 — у нас готовая ссылка: «это известный gap, вот причина, вот scope для v1.21». Это удовлетворяет критерий 1 из `ROADMAP_v1.21.md §"When to revisit v1.21"` (multi-point signal on same feature). (K15 закрыт в v1.21.x — см. ниже.)
 3. **Защита от cargo-cult scope creep.** K1, K7, K14 — намеренно не покрыты, не потому что забыли, а потому что философия проекта отличается. Документация этих решений предотвращает будущий соблазн «добавить, чтобы было как у всех».
 
 **Кандидаты в v1.21 scope** (в порядке приоритета при появлении signal):
 
-1. **K4 Context budgeting.** Highest-value gap. Реализация: hook + `/session-save` интеграция. Effort: 5–7 дней.
+1. **K4 Context budgeting.** Highest-value gap. Реализация: hook + `/session-save` интеграция. Effort: 5–7 дней. *(Частично улучшен в v1.21.0 хуком `context-budget.sh` — см. `HARNESS_ENGINEERING_MAP.md §5.1`.)*
 2. **K16 On-disk checkpoints.** В составе `/harden` или как отдельный `/checkpoint`. Effort: 3–5 дней.
-3. **K15 Live execution tracing.** Опциональный trace-hook. Effort: 2–3 дня.
+3. ~~**K15 Live execution tracing.**~~ ✅ **ЗАКРЫТО в v1.21.x** хуком `execution-trace.sh` (opt-in PreToolUse jsonl-trace).
 
-Ни один из пунктов не активируется без external signal.
+Ни один из оставшихся пунктов (K4, K16) не активируется без external signal.
 
 ---
 
