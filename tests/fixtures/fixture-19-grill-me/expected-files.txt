@@ -1,0 +1,24 @@
+# Expected files after /grill-me runs
+#
+# NONE. /grill-me is a read-only interactive stress-test — it asks questions
+# one at a time and prints to stdout. It MUST NOT create or modify files.
+#
+# Presence of ANY file in the output dir after a /grill-me run is a contract
+# violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-19-grill-me/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /grill-me MUST NOT:
+#   - Write / Edit any files (no *.md, no ADR, no code) unless the user
+#     explicitly asks to turn the result into artifacts
+#   - Run state-changing commands (git commit, docker, npm install)
+#   - Replace /review (it runs BEFORE review to improve decision quality)
+#
+# /grill-me MAY:
+#   - Read project docs and code (Read / Glob / Grep) to find answers locally
+#   - Print questions one at a time (Question / Recommended answer / Why it matters)
+#   - End with unresolved risks + the next artifact that should change
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor.
+# Manual verification via the checklist in notes.md.

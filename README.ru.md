@@ -11,7 +11,7 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#скиллы)
+[![Skills: 27](https://img.shields.io/badge/Skills-27-green.svg)](#скиллы)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#субагенты)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 25 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 27 скиллов и 7 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 25 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 27 скиллов + 7 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -200,12 +200,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/blueprint` | Б) Только план | 6 файлов документации, без кода |
 | `/guide` | В) Уже есть документация | Уже есть архитектура и план (после маршрута Б, от другого разработчика или из другого инструмента) — генерирует пошаговые промпты для реализации |
 
-### Контроль качества (2 скилла)
+### Контроль качества (3 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/review` | Валидация документации и кода через детерминированную бинарную рубрику (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
+| `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
 
 ### Ежедневная работа (6 скиллов)
 
@@ -234,12 +235,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
-### Workflow (2 скилла)
+### Workflow (3 скилла)
 
 | Скилл | Описание |
 |-------|----------|
 | `/session-save` | Сохранение контекста сессии в память проекта — что сделано, ключевые решения, блокеры, следующие шаги. Обеспечивает непрерывность между сессиями Claude Code. |
 | `/autopilot` | Авто-пайплайн: запускает discover → blueprint → kickstart → review → test с минимальным участием человека (вдохновлён GSD). Берёт идею проекта и выдаёт полный проект с документами, кодом, тестами и ревью. |
+| `/handoff` | **Новое в v1.21.0.** Пишет компактный пакет контекста `HANDOFF.md` для передачи работы следующей сессии/агенту, когда обратного пути нет — компакция, делегирование, AFK-прогон или восстановление. Отличается от `/session-save` (сохранение вехи). |
 
 ## Субагенты
 
@@ -288,6 +290,8 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 | `/deploy` | Имя сервиса (`web`, `all` или конкретный) + git HEAD | Задеплоенные контейнеры + результат healthcheck (stdout) | SSH к целевому хосту, синхронизация файлов, Docker build, рестарт контейнеров, опционально миграции БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 | `/adopt` | Путь к legacy-репозиторию (по умолчанию `cwd`) + опциональный флаг `skip-chain` | `CLAUDE.md` (append-with-marker если существует), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | Пишет в корень проекта и в memory dir проекта (никогда не трогает `~/.claude/settings.json`); voice-chain вызывает `/strategy` или `/blueprint` | ✅ Идемпотентность через маркер — повторы = no-op |
+| `/grill-me` | План / дизайн / архитектура / решение (текст или репо) | Нет — вопросы + анализ (stdout); артефакт только по явной просьбе | Нет (read-only по умолчанию; без Write/Edit) | ✅ |
+| `/handoff` | Состояние проекта + причина передачи (компакция / делегирование / AFK / восстановление) | `HANDOFF.md` (пакет контекста) + обновление `STATE.json` | Memory-write (`HANDOFF.md` в корне + `STATE.json`); без изменений кода | ✅ Перезаписывает пакет при каждом запуске |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -489,6 +493,8 @@ chmod +x ~/.claude/hooks/*.sh
 | `/advisor` | Sonnet | Opus | Многоперспективный анализ через субагентов |
 | `/deploy` | Sonnet | Sonnet | Последовательное выполнение известного чеклиста; Opus не даёт прироста над Sonnet |
 | `/adopt` | Sonnet | Sonnet | Декларативный шаблон + merge файлов + короткий voice-chain — без архитектурного reasoning |
+| `/grill-me` | Sonnet | Opus | Адверсариальный допрос + поиск скрытых допущений выигрывают от Opus |
+| `/handoff` | Haiku | Sonnet | Структурированная суммаризация решений и состояния — минимум рассуждений |
 
 ## Для кого
 
@@ -579,7 +585,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 25. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 27. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

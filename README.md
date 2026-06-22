@@ -11,7 +11,7 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 25](https://img.shields.io/badge/Skills-25-green.svg)](#skills)
+[![Skills: 27](https://img.shields.io/badge/Skills-27-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 25 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 27 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 25 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 27 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,7 +71,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 25 skill directories
+  ├── skills/          # 27 skill directories
   ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -200,12 +200,13 @@ Claude: Step 1/9 — scaffold project, commit
 | `/blueprint` | B) Planning only | 6 documentation files, no code |
 | `/guide` | C) Have docs already | You already have architecture and plan docs (from route B, another developer, or another tool) — generates step-by-step prompts to build it |
 
-### Quality Assurance (2 skills)
+### Quality Assurance (3 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/review` | Validates documentation and code quality via deterministic binary rubric (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only OWASP-style security audit (auth, secrets, injection, CORS/CSP, deps) with same status enum as `/review` |
+| `/grill-me` | **New in v1.21.0.** Interactive read-only stress-test for plans, designs, architecture, and risky decisions — asks one question at a time (with a recommended answer) to surface assumptions, risks, and dependencies. Runs before `/review`, does not replace it. |
 
 ### Daily Work (6 skills)
 
@@ -234,12 +235,13 @@ Claude: Step 1/9 — scaffold project, commit
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
-### Workflow (2 skills)
+### Workflow (3 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/session-save` | Save session context to project memory — what was done, key decisions, blockers, next steps. Ensures continuity between Claude Code sessions. |
 | `/autopilot` | Auto-pipeline that runs discover → blueprint → kickstart → review → test with minimal human intervention (GSD-inspired). Takes a project idea and produces a full project with all docs, code, tests, and review. |
+| `/handoff` | **New in v1.21.0.** Write a compact `HANDOFF.md` context packet to transfer work to the next session/agent when there is no return path — compaction, delegation, AFK run, or recovery. Distinct from `/session-save` (milestone save). |
 
 ## Subagents
 
@@ -288,6 +290,8 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
 | `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/adopt` | Path to an existing legacy repo (defaults to `cwd`) + optional `skip-chain` flag | `CLAUDE.md` (append-with-marker if exists), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | File writes in project root + project memory dir (never touches `~/.claude/settings.json`); voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency — re-runs are no-ops |
+| `/grill-me` | Plan / design / architecture / decision (text or repo) | None — questions + analysis (stdout); optional artifact only if the user asks | None (read-only by default; no Write/Edit) | ✅ |
+| `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -487,6 +491,8 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/advisor` | Sonnet | Opus | Multi-perspective analysis via subagents |
 | `/deploy` | Sonnet | Sonnet | Sequential execution of a known checklist; Opus doesn't add value over Sonnet |
 | `/adopt` | Sonnet | Sonnet | Declarative templating + file merge + short voice-chain — no architectural reasoning |
+| `/grill-me` | Sonnet | Opus | Adversarial questioning + hidden-assumption hunting benefit from Opus |
+| `/handoff` | Haiku | Sonnet | Structured summarization of decisions + state — minimal reasoning |
 
 ## Who Is This For
 
@@ -577,7 +583,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 25. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 27. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

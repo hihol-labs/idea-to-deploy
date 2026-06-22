@@ -273,6 +273,30 @@ TRIGGERS = [
         "(минимальный bootstrap: CLAUDE.md + .claude/settings.json project-level + "
         "memory dir, затем voice-chain в /strategy или /blueprint). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(хендофф|сделай\s+хендофф|передай\s+контекст|"
+        r"передача\s+сесси|контекст\s+для\s+передач|пакет\s+контекст|"
+        r"контекст\s+(для\s+)?следующ\w+\s+сесси|перед\s+компакц|"
+        r"\bhandoff\b|make\s+a\s+handoff|hand\s+off|"
+        r"transfer\s+context|session\s+handoff|context\s+packet|"
+        r"delegate\s+to\s+(another\s+)?(agent|session))",
+        "🔔 Триггер 'передача контекста' → используй /handoff "
+        "(компактный пакет HANDOFF.md для передачи следующей сессии/агенту перед "
+        "компакцией, делегированием, AFK или восстановлением; ≠ /session-save, "
+        "которая сохраняет веху для будущего «я»). Вызови Skill ПЕРВЫМ.",
+    ),
+    (
+        r"(проверь\s+мой\s+план|устрой\s+(мне\s+)?допрос|"
+        r"погоняй\s+(меня\s+)?по\s+план|"
+        r"стресс-?тест\w*\s+(решени|план|иде|архитектур|стратеги|миграци)|"
+        r"разнеси\s+(мой\s+)?план|задай\w*\s+неудобные\s+вопрос|"
+        r"grill\s+me|stress[- ]?test\s+my\s+plan|challenge\s+my\s+(design|plan)|"
+        r"poke\s+holes|interrogate\s+the\s+plan|pressure[- ]?test)",
+        "🔔 Триггер 'стресс-тест решения' → используй /grill-me "
+        "(интерактивный read-only допрос плана/дизайна/архитектуры по одному "
+        "вопросу с рекомендуемым ответом; запускай ДО /review, чтобы поднять "
+        "качество решения). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 
