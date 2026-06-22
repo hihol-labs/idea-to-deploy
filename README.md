@@ -11,7 +11,7 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 29](https://img.shields.io/badge/Skills-29-green.svg)](#skills)
+[![Skills: 31](https://img.shields.io/badge/Skills-31-green.svg)](#skills)
 [![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)](#subagents)
 [![Version: 1.20.3](https://img.shields.io/badge/Version-1.20.3-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 29 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 31 skills and 7 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 29 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 31 skills + 7 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,7 +71,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 29 skill directories
+  ├── skills/          # 31 skill directories
   ├── agents/          # 7 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -250,6 +250,13 @@ Claude: Step 1/9 — scaffold project, commit
 | `/market-scan` | **New in v1.21.0.** Fresh public market & community signal scan (~30-day window via the `last30days` engine) for discovery, validation, ICP, competitor, and launch decisions. Normalizes findings into `MARKET_BRIEF.md` (dated append). Distinct from `/discover` (full discovery phase). |
 | `/mcp-docs` | **New in v1.21.0.** Read-only lookup of fresh library/framework documentation via MCP providers (Context7) — resolves a library ID, asks a narrow question, records source + decision. Use before adding dependencies or integrating against SDKs. |
 
+### Integration (2 skills)
+
+| Skill | Description |
+|-------|-------------|
+| `/github-workflow` | **New in v1.21.0.** GitHub Issues / PR / CI / release workflow — inspects PR & check status (connector or `gh`), debugs failing Actions before code changes, prepares branches/changelogs/release notes, keeps `.rubric-status` aligned. Explicit-invocation; no push/merge/close/release without explicit intent. |
+| `/tool-sync` | **New in v1.21.0.** Mirror idea-to-deploy artifacts to external tools — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native reads before writes (reconcile, never clobber), export-only fallback to `.itd-integrations/`. Explicit-invocation. |
+
 ## Subagents
 
 Heavy skills run in isolated contexts with specialized agents for better quality:
@@ -301,6 +308,8 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
 | `/market-scan` | Idea / problem / segment / competitor / launch question | `MARKET_BRIEF.md` (dated append) + optional `BACKLOG.md`/`LAUNCH_PLAN.md` updates; structured stdout summary | Local doc writes + external read-only research query (`last30days`); no secrets sent | ⚠️ Dated append — re-runs add new evidence |
 | `/mcp-docs` | Library / framework / API / version question | None — structured stdout summary; source + decision recorded in notes | None (read-only; external doc query, no file writes) | ✅ |
+| `/github-workflow` | Issue / PR / branch / check run / release | GitHub Issues/PRs/releases (external) + optional `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | External writes to GitHub only on explicit intent; reads git status first | ⚠️ External mutations — re-run with care |
+| `/tool-sync` | Source artifacts + target tool (GitHub/Linear/Notion/Drive/Obsidian) | External tool state (live) OR `.itd-integrations/<target>.json` export | External writes only on explicit intent; reconciles, never clobbers | ⚠️ External mutations — reconcile-based |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -504,6 +513,8 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/handoff` | Haiku | Sonnet | Structured summarization of decisions + state — minimal reasoning |
 | `/market-scan` | Sonnet | Opus | Synthesis of heterogeneous public signals + adversarial discovery benefit from Opus |
 | `/mcp-docs` | Haiku | Sonnet | Library ID resolve + narrow doc query — pointed lookup, not deep reasoning |
+| `/github-workflow` | Sonnet | Sonnet | gh/git ops + artifact mapping — structured, not deep reasoning |
+| `/tool-sync` | Sonnet | Sonnet | Artifact-to-schema mapping + reconcile — structured |
 
 ## Who Is This For
 
@@ -594,7 +605,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 29. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 31. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

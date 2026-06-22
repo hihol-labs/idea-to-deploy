@@ -1,0 +1,32 @@
+# Expected files after /tool-sync runs
+#
+# /tool-sync is an EXPLICIT-invocation, external-write skill — it mirrors
+# idea-to-deploy artifacts to external planning/doc tools (GitHub, Linear,
+# Notion, Google Drive, Obsidian).
+#
+# May produce (when live sync is unavailable / not approved):
+#   .itd-integrations/<target>.json   — export payload (e.g. notion.json,
+#                                       linear.json, github.json)
+#   .itd-integrations/obsidian/       — generated vault-ready Markdown
+#                                       (prefer /obsidian-export for this)
+#   STATE.json (update)               — sync result when it affects status
+#
+# Live external writes happen ONLY on explicit user intent — and they are
+# external, not local files.
+#
+# /tool-sync MUST NOT:
+#   - modify live external systems without explicit user request
+#   - overwrite external user edits blindly (reconcile, don't clobber)
+#   - sync secrets / private customer data / credentials into planning tools
+#   - treat an external tool as authoritative over LAUNCH_PLAN.md / BACKLOG.md
+#     unless the user explicitly says so
+#
+# /tool-sync MAY:
+#   - read source artifacts (STATE.json, LAUNCH_PLAN.md, BACKLOG.md, HANDOFF.md)
+#   - do connector-native reads before writes
+#   - export payloads under .itd-integrations/
+#   - print the output shape (SYNC TARGET / SOURCE ARTIFACTS / MODE / CHANGES /
+#     UNSYNCED ITEMS / NEXT ACTION)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor
+# (external connector + stdout). Manual verification via notes.md.

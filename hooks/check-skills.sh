@@ -321,6 +321,29 @@ TRIGGERS = [
         "в первую очередь Context7; read-only, перед добавлением зависимостей или "
         "интеграцией против SDK). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(созда\w+\s+issue|откр\w+\s+pull\s+request|оформ\w+\s+pr\b|"
+        r"github\s+issue|github\s+actions?\s+упал|gh\s+workflow|"
+        r"релиз\s+ноут|саммари\s+pr|комментар\w+\s+ревью\s+на\s+github|"
+        r"create\s+(a\s+)?github\s+issue|open\s+(a\s+)?pull\s+request|"
+        r"ci\s+is\s+failing|failing\s+(github\s+)?actions?|"
+        r"release\s+notes|pr\s+summary|review\s+comments)",
+        "🔔 Триггер 'GitHub workflow' → вызови /github-workflow ЯВНО "
+        "(issues/PR/CI/релизы; external-write, explicit-invocation — никаких "
+        "push/merge/close/release без явного намерения). Вызови Skill.",
+    ),
+    (
+        r"(синхронизируй\s+с\s+notion|синк\s+в\s+linear|экспорт\s+в\s+obsidian|"
+        r"синк\s+с\s+google\s+drive|синхрон\w+\s+с\s+внешн|"
+        r"синхрон\w+\s+с\s+(notion|linear|obsidian|google)|"
+        r"экспорт\s+в\s+(notion|linear|google)|"
+        r"tool\s+sync|sync\s+to\s+notion|sync\s+with\s+linear|export\s+to\s+obsidian|"
+        r"mirror\s+to\s+google\s+drive|sync\s+roadmap|sync\s+project\s+state)",
+        "🔔 Триггер 'синк с внешними инструментами' → вызови /tool-sync ЯВНО "
+        "(зеркалирование артефактов в GitHub/Linear/Notion/Google Drive/Obsidian; "
+        "external-write, explicit-invocation — спрашивай перед записью в live-системы). "
+        "Вызови Skill.",
+    ),
 ]
 
 
