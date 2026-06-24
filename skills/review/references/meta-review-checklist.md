@@ -186,6 +186,21 @@ If any of 1–3 disagree → fail.
 
 **Why this check exists:** throughout v1.2.0–v1.6.1 the SKILL.md `## Trigger phrases` sections drifted from `hooks/check-skills.sh`. Phrases listed in bodies were never matched by hook regex (or matched the wrong one), and nothing caught it until users reported missing hints or a smoke-test caught one by accident (the v1.4.0 "provision ec2 instance" miss). v1.7.0 runs the verifier on every meta-review; the initial run against v1.6.1 found 111 drift findings that had accumulated silently over 5 minor releases. v1.7.0 closes all 111 as part of the release — see the CHANGELOG [1.7.0] entry for the fix breakdown.
 
+### M-C17. The router reaches every benchmark skill from a paraphrased prompt
+**Added in v1.21.x — port (in spirit) of product-factory-os `benchmarks/prompts.json`.**
+
+**Criterion (binary):** every prompt in `benchmarks/routing-prompts.json` routes to its `expectedSkill` through `hooks/check-skills.sh`. A prompt routes correctly iff `expectedSkill` is the **primary skill** (the first real-skill `/slug` in the hint) of at least one trigger whose regex matches the prompt. Accuracy must be 100% on the curated set.
+
+**How it differs from M-C11:** M-C11 checks the **verbatim** trigger phrases authors wrote into each `SKILL.md` — it guards against phrase/regex drift. M-C17 checks **robustness**: the benchmark prompts are deliberately NOT the verbatim phrases — they are realistic Russian + English paraphrases. A prompt that M-C17 fails to route reveals a regex too tightly coupled to one phrasing (e.g. `apply\s+migration` not matching "apply **a** migration"), which M-C11 cannot see.
+
+**Failure mode:** every misroute is Critical. The runner reports, per prompt, the expected skill and the set it actually routed to (or "no skill matched"). Prompts that route correctly but to more than one skill are reported as **ambiguous** — informational only, not a failure.
+
+**Verification script:** `tests/verify_routing.py`. Runs as part of the meta-review via subprocess (`--json`). Invoke standalone with `python3 tests/verify_routing.py` — exits 0 at/above threshold (default 1.0), 1 below, 2 on internal error.
+
+**Action on fail:** **either** (a) tighten/extend the regex in `hooks/check-skills.sh` so the prompt routes to the expected skill (the preferred fix — it makes the router more robust for real users), **or** (b) if the prompt is genuinely ambiguous or mis-specified, reclassify or remove it from `benchmarks/routing-prompts.json`. The benchmark prompt set is treated as the spec for router robustness.
+
+**Why this check exists:** the verbatim-phrase guard (M-C11) cannot detect a router that is brittle to phrasings the authors never wrote down. The initial run against the v1.21.x pre-fix state scored 92.2% — 5 realistic paraphrases ("apply a migration", "add a column", "wrap up the session", "generate a step-by-step guide for the project", "экспортируй задачи в Notion", "sync our roadmap to Linear") missed because the regexes required exact verb-target adjacency. All five were fixed by admitting optional articles / intervening words before the check was merged, raising accuracy to 100%.
+
 ---
 
 ## Tier 2: Important (warn but pass)

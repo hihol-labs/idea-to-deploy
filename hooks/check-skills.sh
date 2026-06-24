@@ -96,7 +96,7 @@ TRIGGERS = [
         r"(сгенери(руй)?\s+(гайд|guide)|создай\s+гайд|сделай\s+cookbook|"
         r"сгенерируй\s+промпт|промпты\s+для\s+claude|claude\s+code\s+guide|"
         r"пошаговая?\s+инструкция\s+для\s+claude|пошаговые\s+промпты|"
-        r"generate\s+(a\s+)?guide|step-by-step\s+prompts?|guide\s+for\s+project|"
+        r"generate\s+(a\s+)?(step-by-step\s+)?guide|step-by-step\s+prompts?|guide\s+for\s+(the\s+)?project|"
         r"\bcookbook\b|prompt\s+sequence)",
         "🔔 Триггер 'guide' → используй /guide (генерирует CLAUDE_CODE_GUIDE.md).",
     ),
@@ -111,8 +111,8 @@ TRIGGERS = [
     ),
     (
         r"(накати\s+миграц|применить\s+миграц|обнови\s+схему\s+бд|schema\s+change|"
-        r"\bmigrate\b|apply\s+migration|run\s+migration|rollback\s+migration|"
-        r"alter\s+table|add\s+column|drop\s+table|create\s+index|"
+        r"\bmigrate\b|apply\s+(a\s+)?migration|run\s+migration|rollback\s+migration|"
+        r"alter\s+table|add\s+(a\s+)?column|drop\s+table|create\s+index|"
         r"alembic\s+upgrade|prisma\s+migrate|knex\s+migrate|dbmate\s+up|"
         r"перед\s+(any\s+)?ddl|нужно\s+изменить\s+схему)",
         "🔔 Триггер 'миграция БД' → используй /migrate (с backup и rollback path). Вызови Skill ПЕРВЫМ — особенно если речь о production.",
@@ -178,7 +178,7 @@ TRIGGERS = [
         r"итоги\s+сессии|конец\s+сессии|закончили\s+работу|"
         r"на\s+сегодня\s+всё|заканчиваем\s+работу|"
         r"save\s+session|save\s+context|end\s+of\s+session|"
-        r"wrap\s+up\s+session|session\s+summary)",
+        r"wrap\s+up\s+(the\s+)?session|session\s+summary)",
         "🔔 Триггер 'session save' → используй /session-save "
         "(сохранение контекста сессии в память проекта). Вызови Skill ПЕРВЫМ.",
     ),
@@ -336,9 +336,9 @@ TRIGGERS = [
         r"(синхронизируй\s+с\s+notion|синк\s+в\s+linear|экспорт\s+в\s+obsidian|"
         r"синк\s+с\s+google\s+drive|синхрон\w+\s+с\s+внешн|"
         r"синхрон\w+\s+с\s+(notion|linear|obsidian|google)|"
-        r"экспорт\s+в\s+(notion|linear|google)|"
+        r"экспорт\w*\s+(\S+\s+){0,3}в\s+(notion|linear|google)|"
         r"tool\s+sync|sync\s+to\s+notion|sync\s+with\s+linear|export\s+to\s+obsidian|"
-        r"mirror\s+to\s+google\s+drive|sync\s+roadmap|sync\s+project\s+state)",
+        r"mirror\s+to\s+google\s+drive|sync\s+(\S+\s+){0,2}roadmap|sync\s+project\s+state)",
         "🔔 Триггер 'синк с внешними инструментами' → вызови /tool-sync ЯВНО "
         "(зеркалирование артефактов в GitHub/Linear/Notion/Google Drive/Obsidian; "
         "external-write, explicit-invocation — спрашивай перед записью в live-системы). "

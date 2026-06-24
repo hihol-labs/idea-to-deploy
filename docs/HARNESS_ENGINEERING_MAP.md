@@ -118,6 +118,52 @@
 
 Ни один не активируется без external signal (критерии — `ROADMAP_v1.21.md §"When to revisit v1.21"`).
 
+## 8. Классификация контролей: feedforward/feedback × computational/inferential
+
+> Источник модели: `product-factory-os` `docs/METHODOLOGY.md` (control-harness). Перенесена как **аналитическая линза** (не механизм) — по запросу разобрать, какие из 15 хуков являются настоящими блокерами, а какие — мягкими/наблюдательными, и зафиксировать правило дизайна будущих хуков.
+
+Курс харнес-инженерии описывает контроли по двум независимым осям:
+
+- **Контур.** *Feedforward* — контроль действует **до/в начале** действия, формируя или ограничивая его (превентивно). *Feedback* — контроль реагирует **после** действия (коррекция или наблюдение).
+- **Природа.** *Computational* — детерминированная механическая проверка (regex, счётчик, наличие файла, git-состояние); решение не зависит от суждения модели. *Inferential* — сигнал, который **интерпретирует модель** (инжектируемый хинт/контекст); хук вычисляет, *когда* подсветить, но изменение поведения зависит от того, прислушается ли модель.
+
+Центральный принцип PFO: **computational — для блокирующих инвариантов, inferential — для семантики.** Жёсткий блок (`deny`) должен быть чисто вычислительным; если проверка требует семантического суждения — она обязана быть мягкой (hint), а не `deny`, иначе в гейт входит недетерминизм.
+
+### 8.1. Все 15 хуков по квадрантам
+
+| | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
+|---|---|---|
+| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-skill-completeness` · `freeze`* · `careful`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedback** (после действия) | **Наблюдаемость (soft):** `cost-tracker` · `execution-trace`** | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
+
+`*` opt-in (активны только при наличии trigger-файла). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
+
+### 8.2. Подробно по хукам
+
+| Хук | Событие | Контур | Природа | Энфорсмент |
+|---|---|---|:---:|---|
+| `check-tool-skill.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` после 3 пропусков скилл-решения подряд |
+| `check-commit-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а без сопутствующих артефактов |
+| `check-review-before-commit.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а без пройденного review |
+| `check-skill-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` записи SKILL.md без artefacts (был PostToolUse-баг в v1.5.0 → исправлен в v1.5.1) |
+| `freeze.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — `deny` правок замороженных файлов |
+| `careful.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — режим повышенной осторожности (`ask`/`deny`) |
+| `check-skills.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит skill-hint; маршрут выбирает модель |
+| `context-aware.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит проектный контекст |
+| `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume |
+| `session-open-diagnostic.sh` | UserPromptSubmit | feedforward | inferential | soft — диагностика состояния на старте сессии |
+| `context-budget.sh` | PreToolUse | feedforward | inferential | soft — мягко рекомендует ограничить unbounded-вывод |
+| `cost-tracker.sh` | PostToolUse | feedback | computational | soft — observability: per-session usage-лог |
+| `execution-trace.sh` | PreToolUse | feedback | computational | soft — observability: JSONL-трейс tool-call'ов, zero-context |
+| `stuck-detection.sh` | PostToolUse | feedback | inferential | soft — детект застревания → напоминание сменить подход |
+| `crash-recovery.sh` | PostToolUse | feedback | inferential | soft — recovery-контекст после краша для возобновления |
+
+### 8.3. Что показывает линза
+
+- **Все 6 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла, а не «мнение» модели.
+- **9 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 2 наблюдают (computational feedback), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
+- **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
+
 ---
 
-**Обновление документа.** При изменении числа скиллов/хуков, закрытии gap'а или изменении принципов курса — обновлять §4 и §6. Если gap закрывается — статус → ✅ с пометкой о версии-релизе.
+**Обновление документа.** При изменении числа скиллов/хуков, закрытии gap'а или изменении принципов курса — обновлять §4, §6 и §8 (классификацию). Если gap закрывается — статус → ✅ с пометкой о версии-релизе.
