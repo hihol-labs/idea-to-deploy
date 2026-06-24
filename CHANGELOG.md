@@ -9,13 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Closes the last open harness-engineering principle (observability) + the coverage-map positioning artefact.** Adds one opt-in observability hook (`execution-trace.sh`) plus the Harness Engineering map. No version bump (accumulates under `[Unreleased]` per Keep a Changelog); the hook is opt-in and additive, so it ships as ordinary tech-debt/observability maintenance without a ROADMAP doc.
+## [1.22.0] - 2026-06-24
+
+**Observability, routing robustness, and harness-engineering mapping.** Adds the opt-in `execution-trace.sh` hook (closes the last open harness-engineering principle — H5 observability), a deterministic routing-accuracy benchmark with a new Critical meta-review check (M-C17), the Harness Engineering coverage map plus a control-harness hook classification, and the "meeting / interview prep" router trigger — alongside cross-platform fixes that make the skill-enforcement gate actually block on Windows. All changes are additive and backward-compatible (minor bump per SemVer).
 
 ### Fixed
 
 - **`hooks/check-tool-skill.sh` — skill-enforcement gate now actually accumulates.** `session_id()` fell back to `getppid()`, which differs on every hook spawn (a fresh python process per call, especially on Windows), so the per-session ignore counter reset to 1 on every reminder and the gate **never blocked** (the documented v1.19.0 enforcement was inert on Windows). It now anchors to a single per-day file (or `CLAUDE_SESSION_ID` when set), so consecutive ignored skill reminders accumulate and block at 3 as designed.
 - **`hooks/check-tool-skill.sh` + `check-skills.sh` — closed the "continue" loophole and require a visible decision line.** The reminder text no longer says "if you're already inside a task, continue" — the escape hatch that let the model skip skills silently. Both hooks now require declaring the skill decision on the FIRST line of the response (`Скилл: /X` or `Скилл: не нужен — <reason>`); an explicit `SKILL_BYPASS: <reason>` stays a valid, counter-resetting decision (conscious refusal != ignore).
 - **`hooks/check-skills.sh` — router robustness (found by the new M-C17 benchmark, 92.2% → 100%).** Five trigger regexes required exact verb-target adjacency and missed natural paraphrases: `/guide` ("generate a step-by-step guide for the project"), `/migrate` ("apply **a** migration", "add **a** column"), `/session-save` ("wrap up **the** session"), and `/tool-sync` ("экспортируй **задачи** в Notion", "sync **our** roadmap to Linear"). Each was widened to admit optional articles / intervening words without broadening into neighbouring skills.
+- **`skills/{test,doc,bugfix}/SKILL.md` — three daily-work skills failed to register globally.** They carried a top-level `paths:` frontmatter key (globs scoping auto-load to test files / docs / logs); on the current CLI that also made the Skill tool report "Unknown skill" in non-matching directories, so `/task` could not route to `/test`, `/doc`, or `/bugfix` in any project lacking those files — inconsistent with their sibling daily-work skills (`/perf`, `/refactor`, `/explain` carry no `paths:`). Removed the key so they register everywhere.
 
 ### Added
 
