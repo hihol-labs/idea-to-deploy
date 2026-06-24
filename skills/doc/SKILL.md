@@ -4,7 +4,6 @@ description: 'Generate documentation — README, API docs, inline comments. Dete
 argument-hint: file, module, or "readme" or "api"
 license: MIT
 allowed-tools: Read Write Edit Glob Grep
-paths: ["**/README.md", "**/CHANGELOG.md", "**/docs/**"]
 metadata:
   effort: low
   side_effect: local-write

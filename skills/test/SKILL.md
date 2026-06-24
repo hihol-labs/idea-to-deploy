@@ -4,7 +4,6 @@ description: 'Generate comprehensive tests — unit, integration, edge cases. De
 argument-hint: file, function, or module to test
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash
-paths: ["**/test_*.py", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/tests/**", "**/__tests__/**"]
 metadata:
   effort: medium
   side_effect: command-execution
