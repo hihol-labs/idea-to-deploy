@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 
 REMIND_WINDOW_SECONDS = 60
@@ -55,9 +56,10 @@ def session_id() -> str:
 def state_paths() -> tuple[str, str]:
     """Return (reminder_state_path, ignore_count_path)."""
     sid = session_id()
+    tmp = tempfile.gettempdir()
     return (
-        f"/tmp/claude-skill-check-{sid}.state",
-        f"/tmp/claude-skill-ignores-{sid}.state",
+        os.path.join(tmp, f"claude-skill-check-{sid}.state"),
+        os.path.join(tmp, f"claude-skill-ignores-{sid}.state"),
     )
 
 
@@ -144,7 +146,7 @@ def main() -> int:
             "2. Обоснуй обход — добавь в description Bash/Edit/Write текст "
             "'SKILL_BYPASS: <причина почему ни один скилл не подходит>'\n\n"
             "Подробности: ROADMAP_v1.19.md Gap #4, "
-            "~/projects/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО»."
+            "~/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО»."
         )
         out = {
             "hookSpecificOutput": {
@@ -172,7 +174,7 @@ def main() -> int:
         "скилл подходит, вызови его ПЕРВЫМ, не руками. Если уже работаешь "
         "внутри задачи (выбор сделан) — продолжай, это напоминание "
         "следующее увидишь не раньше чем через минуту. Подробности: "
-        "~/projects/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО».\n\n"
+        "~/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО».\n\n"
         f"⚠️ Счётчик игнорирований: {ignore_count + 1}/{MAX_IGNORES}. "
         f"После {MAX_IGNORES} подряд — tool calls будут ЗАБЛОКИРОВАНЫ."
     )
