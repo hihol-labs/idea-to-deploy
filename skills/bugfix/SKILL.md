@@ -4,7 +4,6 @@ description: 'Systematically debug an issue — find root cause and fix it. Trac
 argument-hint: error message, symptom, or issue description
 license: MIT
 allowed-tools: Read Edit Glob Grep Bash
-paths: ["**/logs/**", "**/*.log"]
 metadata:
   effort: medium
   side_effect: command-execution
