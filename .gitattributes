@@ -1,0 +1,6 @@
+# Normalize all text files to LF in the repo and on checkout.
+# The methodology is developed on WSL/Linux (LF); this prevents CRLF churn
+# when files are touched by Windows editors or via DrvFs (/mnt) access,
+# which previously showed up as a whole-tree "modified" diff (EOL only).
+# `text=auto` lets git auto-detect binary files and leave them untouched.
+* text=auto eol=lf
