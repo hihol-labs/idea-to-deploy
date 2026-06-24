@@ -99,3 +99,26 @@ important contacts. Everything above this section is methodology-canonical and
 updated by future `/adopt` re-runs; everything below is yours to edit freely.
 
 <!-- idea-to-deploy:end -->
+
+## Skill decision (visible line + trigger map)
+
+On every substantive request, the FIRST line of the response declares the skill
+decision: `Скилл: /<name>` (then call it via the Skill tool before any
+Read/Edit/Bash/Write) or `Скилл: не нужен — <reason>`. Silently skipping is not
+allowed; an explicit refusal with a reason IS a valid decision (the enforcement
+hook treats it so — see `SKILL_BYPASS`).
+
+Trigger → skill (apply as a rule, not a hint):
+
+- New product/feature from an idea → `/project` (or `/discover` → `/blueprint`).
+- Advisory / consulting / "analyze, don't code" → `/advisor`.
+- Stress-test a plan/design/architecture before committing → `/grill-me`.
+- Product discovery (market, personas, competitors) → `/discover`.
+- Meeting / interview prep, drafting questions → `/advisor` (or `/grill-me`).
+- Existing-project task → `/task` (routes to bugfix/refactor/test/perf/…).
+- End of a working session → `/session-save` (always, before wrapping up).
+
+When several fit, pick the most specific; when none fit, say so in the decision line.
+Pure mechanics (file generation, browser ops) and tight back-and-forth wording
+iterations are legitimate `Скилл: не нужен` cases — name the reason, don't pretend.
+

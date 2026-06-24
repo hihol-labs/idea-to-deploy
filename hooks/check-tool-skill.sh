@@ -47,8 +47,24 @@ def session_id() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
         return sid
+    # getppid() differs on every hook spawn (a fresh python process per call,
+    # especially on Windows) -> the ignore counter never accumulated past 1 and
+    # the gate never blocked. Anchor to a single per-day file so all hook spawns
+    # in a working session share one counter. CLAUDE_SESSION_ID, when set, still
+    # wins for true per-session isolation.
     try:
-        return f"pid{os.getppid()}"
+        anchor = os.path.join(tempfile.gettempdir(), "claude-skill-session-anchor")
+        try:
+            with open(anchor) as f:
+                tok = f.read().strip()
+            if tok:
+                return tok
+        except Exception:
+            pass
+        tok = time.strftime("day%Y%m%d")
+        with open(anchor, "w") as f:
+            f.write(tok)
+        return tok
     except Exception:
         return "default"
 
@@ -167,16 +183,19 @@ def main() -> int:
     write_ignore_count(ignore_path, ignore_count + 1)
 
     context = (
-        f"[SKILL CHECK — периодическое напоминание] Сейчас вызов {tool}. "
-        "Если это первое действие по новой задаче — оцени её task-level: "
-        "подходит ли /bugfix, /test, /refactor, /doc, /review, /explain, "
-        "/perf, /project, /task, /blueprint, /guide, /session-save? Если "
-        "скилл подходит, вызови его ПЕРВЫМ, не руками. Если уже работаешь "
-        "внутри задачи (выбор сделан) — продолжай, это напоминание "
-        "следующее увидишь не раньше чем через минуту. Подробности: "
-        "~/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО».\n\n"
+        f"[SKILL CHECK — реши явно] Сейчас вызов {tool}. "
+        "Если это вход в новую задачу — оцени task-level: подходит ли "
+        "/bugfix, /test, /refactor, /doc, /review, /explain, /perf, /project, "
+        "/task, /blueprint, /guide, /session-save, /advisor, /grill-me, "
+        "/discover? Если подходит — вызови его через Skill ПЕРВЫМ. Молча "
+        "продолжать руками нельзя: вынеси решение видимой ПЕРВОЙ строкой "
+        "ответа — «Скилл: /X» либо «Скилл: не нужен — <причина>». При "
+        "осознанном отказе добавь 'SKILL_BYPASS: <причина>' в description "
+        "(это валидный выбор, не игнор — счётчик сбросится). "
+        "Подробности: ~/.claude/CLAUDE.md.\n\n"
         f"⚠️ Счётчик игнорирований: {ignore_count + 1}/{MAX_IGNORES}. "
-        f"После {MAX_IGNORES} подряд — tool calls будут ЗАБЛОКИРОВАНЫ."
+        f"После {MAX_IGNORES} подряд без Skill или SKILL_BYPASS — tool calls "
+        "будут ЗАБЛОКИРОВАНЫ."
     )
 
     out = {
