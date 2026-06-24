@@ -36,6 +36,19 @@ The methodology has **three tiers** of testing (as of v1.15.0):
 
 3. **Behavioural execution (manual now, v1.16.0 candidate).** The fixtures themselves still need a Claude Code run to produce the output that Phase 1 validates. That run is done by the maintainer on each release. Phase 2 automation (`claude -p --output-format json --input-format stream-json`) is the next target — see [Phase 2: non-interactive execution](#phase-2-non-interactive-execution-v1160-candidate) below.
 
+## Routing-accuracy benchmark (M-C17)
+
+`tests/verify_routing.py` is a deterministic, CI-blocking benchmark separate from the fixtures above. It feeds a curated set of realistic, **paraphrased** user prompts (`benchmarks/routing-prompts.json`, Russian + English) through the hook router (`hooks/check-skills.sh` `TRIGGERS`) and asserts each reaches its expected skill — the expected skill must be the *primary* skill (first `/slug` in the hint) of at least one matched trigger.
+
+Where M-C11 (`verify_triggers.py`) guards the **verbatim** trigger phrases that live in each `SKILL.md` against regex drift, M-C17 measures the router's **robustness** to phrasing the authors never wrote down. A drop in accuracy means a brittle regex. Ported in spirit from product-factory-os `benchmarks/prompts.json` (which scores product-type classification); adapted to skill routing, the canon's actual deterministic classifier.
+
+```bash
+python3 tests/verify_routing.py            # human-readable accuracy report
+python3 tests/verify_routing.py --json     # machine-readable (consumed by M-C17)
+```
+
+A misroute is fixed by **either** tightening/extending the regex in `hooks/check-skills.sh` so the prompt routes correctly, **or** (if the prompt is genuinely ambiguous) reclassifying or removing it from `benchmarks/routing-prompts.json` — the prompt set is the spec. The threshold is 100% on the curated set; the runner also reports prompts that route correctly but to more than one skill (ambiguous, informational only).
+
 ## Phase 1 workflow: snapshot validation
 
 ### Running a fixture (maintainer)

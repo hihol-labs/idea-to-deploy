@@ -440,6 +440,35 @@ def run_rubric(repo: Path) -> Report:
     except Exception as e:
         r.imp("M-C11", f"could not run verify_triggers.py: {e}")
 
+    # --- M-C17: routing-accuracy benchmark (v1.21.x — PFO port) ---
+    # tests/verify_routing.py feeds realistic PARAPHRASED prompts (not the
+    # verbatim trigger phrases M-C11 checks) through the hook router and
+    # asserts each reaches its expected skill. A misroute means the router is
+    # brittle to phrasing the authors did not anticipate — fix the regex in
+    # hooks/check-skills.sh or reclassify the benchmark prompt in
+    # benchmarks/routing-prompts.json. Ported in spirit from
+    # product-factory-os benchmarks/prompts.json (product-type accuracy),
+    # adapted to skill routing — the canon's deterministic classifier.
+    try:
+        routing_script = repo / "tests" / "verify_routing.py"
+        if routing_script.exists():
+            result = subprocess.run(
+                ["python3", str(routing_script), "--json"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            data = json.loads(result.stdout) if result.stdout else {"failures": []}
+            for f in data.get("failures", []):
+                if f.get("expected_is_unknown_skill"):
+                    detail = f"expectedSkill '{f['expected']}' is not a real skill"
+                else:
+                    got = ", ".join(f.get("routed", [])) or "(no skill matched)"
+                    detail = f"expected /{f['expected']}, routed to: {got}"
+                r.crit("M-C17", f"[{f.get('id', '?')}] {detail}")
+    except Exception as e:
+        r.imp("M-C17", f"could not run verify_routing.py: {e}")
+
     # --- M-C16: README skill table integrity (v1.16.3) ---
     # Two failure modes that M-C7 (badge count), M-C12 (prose count), and
     # M-I4 (skill mentioned anywhere in README) all missed:
