@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-06-26
+
+**Definition-of-Done enforcement: high-risk commits can no longer quietly skip their mandatory skill.** Adds a narrow pre-commit gate (Layer 1) that blocks a `git commit` touching a DB migration/schema, a payments/auth/secrets path, or a brand-new source file when the matching skill (`/migrate`+`/test`, `/security-audit`, `/test`) was not run this session — plus a skill-bypass ledger and a `/session-save` self-audit (Layer 2) so a skipped gate is impossible to miss at session end. Generalises the existing `/review`-before-commit gate to the other risk signals; deliberately narrow to avoid alarm fatigue. Additive and backward-compatible (minor bump per SemVer).
+
+### Added
+
+- **`hooks/check-dod-before-commit.sh` — Definition-of-Done pre-commit gate (hook #16).** PreToolUse on Bash. On `git commit` it inspects the staged diff and BLOCKS (`deny`, exit 2) when a high-risk signal is present but the matching skill sentinel is absent this session:
+  - migration / schema / DDL (`migrations/`, `*.sql`, `schema.prisma`, `alembic/`) → requires `/migrate` **and** `/test`
+  - payments / auth / secrets in a staged file path → requires `/security-audit`
+  - a brand-new source file with no test staged → requires `/test`
+
+  Escape hatch: `SKILL_BYPASS:` in the commit message (recorded in the ledger). Shell/infra scripts are excluded from the test rule, and the `>2 files → /review` rule intentionally stays in `check-review-before-commit.sh` (not duplicated). Covered by `tests/verify_dod_gate.py` — 12 behavioural cases including false-positive guards for docs-only, modified-source, and shell-script commits.
+- **Skill sentinels in `/test`, `/migrate`, `/security-audit`** — each now writes `/tmp/claude-<skill>-done-<session>` at its final step (mirroring `/review`'s Step 5), the signal the DoD gate reads.
+- **Bypass ledger (Layer 2) in `hooks/check-tool-skill.sh`** — every `SKILL_BYPASS:` decision is appended to `/tmp/claude-skill-ledger-<session>.jsonl` (timestamp + tool + reason), best-effort and non-blocking.
+- **`/session-save` Step 4.9 — skill-coverage self-audit** — reads the bypass ledger and skill sentinels, cross-checks them against the session's risk signals, and records any gap (a risk signal present whose skill never ran) in the session memory file. Advisory; never blocks `/session-save`.
+- **`tests/verify_dod_gate.py`** — behavioural unit test for the gate, wired into `.github/workflows/meta-review.yml`.
+
+### Changed
+
+- **Hook count 15 → 16** across published descriptions and prose: `.claude-plugin/plugin.json` (+ `Definition-of-Done pre-commit gate` capability), `.claude-plugin/marketplace.json`, `README.md` / `README.ru.md` (badges + narrative), `hooks/README.md`.
+- **Hook registration** — `scripts/sync-to-active.sh` and `skills/adopt/references/project-settings-template.json` now register `check-dod-before-commit.sh` in the `Bash` PreToolUse group, so both the active install and newly-adopted projects pick up the gate.
+
 ## [1.22.0] - 2026-06-24
 
 **Observability, routing robustness, and harness-engineering mapping.** Adds the opt-in `execution-trace.sh` hook (closes the last open harness-engineering principle — H5 observability), a deterministic routing-accuracy benchmark with a new Critical meta-review check (M-C17), the Harness Engineering coverage map plus a control-harness hook classification, and the "meeting / interview prep" router trigger — alongside cross-platform fixes that make the skill-enforcement gate actually block on Windows. All changes are additive and backward-compatible (minor bump per SemVer).

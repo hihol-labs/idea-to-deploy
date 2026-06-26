@@ -242,6 +242,33 @@ If this session is wrapping up work on a **feature branch** (not `main`/`master`
 
 Hard rule: **never discard work without explicit typed confirmation** from the user. If the mode is unclear, default to `keep` and ask. On `main`/`master`, or mid-task (branch not finishing), this step is a soft no-op.
 
+### Step 4.9: Skill-coverage self-audit (v1.23.0 — Layer 2)
+
+Before confirming, run a self-audit so a session never quietly skips a mandatory skill (the exact failure this layer exists to catch). Two cheap inputs:
+
+1. **Bypass ledger** — every `SKILL_BYPASS:` recorded this session by `check-tool-skill.sh` (`/tmp/claude-skill-ledger-<session>.jsonl`).
+2. **Skill sentinels** — which skills actually ran (`/tmp/claude-<skill>-done-*`), cross-checked against the *risk signals* in the work you did this session.
+
+```bash
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+ledger="$(ls -1t /tmp/claude-skill-ledger-*.jsonl "$tmpd"/claude-skill-ledger-*.jsonl 2>/dev/null | head -1)"
+echo "— SKILL_BYPASS за сессию —"
+if [ -n "$ledger" ]; then echo "записей: $(wc -l < "$ledger")"; tail -n 20 "$ledger"; else echo "нет"; fi
+echo "— sentinel'ы скиллов (свежие/этой сессии) —"
+for s in review test migrate security-audit; do
+  if ls /tmp/claude-$s-done-* "$tmpd"/claude-$s-done-* >/dev/null 2>&1; then echo "  $s: есть"; else echo "  $s: НЕТ"; fi
+done
+```
+
+Then reason over it against what the session actually changed (use `git diff --stat` / the committed diff):
+
+- Touched a **migration/schema**? → `/migrate` **and** `/test` sentinels must be present.
+- Touched **payments/auth/secrets**? → `/security-audit` must be present.
+- Committed a **multi-file** change? → `/review` must be present.
+- Added **brand-new source files**? → `/test` must be present.
+
+For any risk signal whose sentinel is missing, add a **`## Самоаудит скиллов`** subsection to the session memory file naming the gap (e.g. "миграция была, /test не вызван — долг") and surface it to the user in one line. Bypasses with a recorded reason are fine — an explicit choice, not a miss; just report how many there were. This audit is advisory: it never blocks `/session-save`. Its value is making a skipped gate impossible to miss at session end — the same gate `hooks/check-dod-before-commit.sh` enforces at commit time.
+
 ### Step 5: Confirm to user
 
 Tell the user:

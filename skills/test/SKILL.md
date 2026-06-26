@@ -91,6 +91,17 @@ All tests must pass before finishing.
 
 **TDD evidence gate (v1.21 — PFO port):** for a behavior change (new feature or bugfix), prefer writing the test **first** and capturing red→green evidence: the test fails on the old code, passes on the new. Note both states explicitly ("red: AssertionError … → green: 1 passed"). When red-first is genuinely impractical (UI glitch, race condition, env-specific bug), state that exception explicitly rather than silently skipping it.
 
+### Step 6: Mark `/test` as done for this session (v1.23.0)
+
+Final step of every `/test` invocation, **after the suite has actually run and passed** (see the fail-closed gate above). Write a session marker so `hooks/check-dod-before-commit.sh` knows `/test` was run — this is what unblocks a `git commit` the DoD gate flags as test-requiring (DB migrations, brand-new source files). The sentinel asserts "tests were run this session", so only write it when verification genuinely passed — never to silence the gate.
+
+```bash
+mkdir -p /tmp
+echo "$(date +%s)" > "/tmp/claude-test-done-${CLAUDE_SESSION_ID:-$$}"
+```
+
+The marker is session-scoped and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. The `Skill` tool does not route through `PreToolUse` hooks, so this in-skill write is the only reliable signal that `/test` ran.
+
 ## Examples
 
 ### Example 1: Test a utility function

@@ -158,6 +158,17 @@ alembic downgrade -1
 Backup location: /tmp/backup-1712345678.dump
 \`\`\`
 
+### Step 9: Mark `/migrate` as done for this session (v1.23.0)
+
+Final step of every `/migrate` invocation. Write a session marker so `hooks/check-dod-before-commit.sh` knows `/migrate` was run — together with `/test`, this is what unblocks a `git commit` that stages a schema change or migration file. Always write it at the end of the skill — whether the migration was applied, or (for a planning-only dry run) the migration **and** its rollback path were written and reviewed. Writing it unconditionally on completion ensures the DoD gate is never left blocking a legitimate commit.
+
+```bash
+mkdir -p /tmp
+echo "$(date +%s)" > "/tmp/claude-migrate-done-${CLAUDE_SESSION_ID:-$$}"
+```
+
+The marker is session-scoped and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. The `Skill` tool does not route through `PreToolUse` hooks, so this in-skill write is the only reliable signal that `/migrate` ran.
+
 ## Examples
 
 ### Example 1: Add an index on production
