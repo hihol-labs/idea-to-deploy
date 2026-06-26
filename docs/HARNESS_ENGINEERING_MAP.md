@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (`1e95ddb`, v1.21.0): **33 skills, 10 subagents, 15 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`.
+Проверка — чтением `main` (`1e95ddb`, v1.21.0): **33 skills, 10 subagents, 16 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`.
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 33 skills + 10 agents + 15 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 33 skills + 10 agents + 16 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 
 ### 4.2. 5 ключевых принципов
 
@@ -120,7 +120,7 @@
 
 ## 8. Классификация контролей: feedforward/feedback × computational/inferential
 
-> Источник модели: `product-factory-os` `docs/METHODOLOGY.md` (control-harness). Перенесена как **аналитическая линза** (не механизм) — по запросу разобрать, какие из 15 хуков являются настоящими блокерами, а какие — мягкими/наблюдательными, и зафиксировать правило дизайна будущих хуков.
+> Источник модели: `product-factory-os` `docs/METHODOLOGY.md` (control-harness). Перенесена как **аналитическая линза** (не механизм) — по запросу разобрать, какие из 16 хуков являются настоящими блокерами, а какие — мягкими/наблюдательными, и зафиксировать правило дизайна будущих хуков.
 
 Курс харнес-инженерии описывает контроли по двум независимым осям:
 
@@ -129,11 +129,11 @@
 
 Центральный принцип PFO: **computational — для блокирующих инвариантов, inferential — для семантики.** Жёсткий блок (`deny`) должен быть чисто вычислительным; если проверка требует семантического суждения — она обязана быть мягкой (hint), а не `deny`, иначе в гейт входит недетерминизм.
 
-### 8.1. Все 15 хуков по квадрантам
+### 8.1. Все 16 хуков по квадрантам
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
-| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-skill-completeness` · `freeze`* · `careful`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `freeze`* · `careful`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
 | **Feedback** (после действия) | **Наблюдаемость (soft):** `cost-tracker` · `execution-trace`** | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
 `*` opt-in (активны только при наличии trigger-файла). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
@@ -145,6 +145,7 @@
 | `check-tool-skill.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` после 3 пропусков скилл-решения подряд |
 | `check-commit-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а без сопутствующих артефактов |
 | `check-review-before-commit.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а без пройденного review |
+| `check-dod-before-commit.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а с риск-сигналом (миграция/деньги/новый код без теста) без нужного скилла |
 | `check-skill-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` записи SKILL.md без artefacts (был PostToolUse-баг в v1.5.0 → исправлен в v1.5.1) |
 | `freeze.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — `deny` правок замороженных файлов |
 | `careful.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — режим повышенной осторожности (`ask`/`deny`) |
@@ -160,7 +161,7 @@
 
 ### 8.3. Что показывает линза
 
-- **Все 6 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла, а не «мнение» модели.
+- **Все 7 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла, а не «мнение» модели.
 - **9 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 2 наблюдают (computational feedback), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
 - **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
 

@@ -146,6 +146,17 @@ Present as a table:
 
 This mode is inspired by AI-DLC's Red/Blue Team hat separation. It adds ~5 minutes to the audit but surfaces attack scenarios that checklist-based audits miss.
 
+### Step 6: Mark `/security-audit` as done for this session (v1.23.0)
+
+Final step of every `/security-audit` invocation, regardless of status. Write a session marker so `hooks/check-dod-before-commit.sh` knows the audit was run — this unblocks a `git commit` the DoD gate flags as security-relevant (paths touching payments, auth, secrets). Writing the marker records "the audit was performed this session"; it does not assert the verdict was clean — a `BLOCKED` audit still writes it, because the gate's job is to ensure the audit *happened*, not to hide its findings.
+
+```bash
+mkdir -p /tmp
+echo "$(date +%s)" > "/tmp/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}"
+```
+
+The marker is session-scoped and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. The `Skill` tool does not route through `PreToolUse` hooks, so this in-skill write is the only reliable signal that `/security-audit` ran.
+
 ## Quality Gate
 
 This skill returns the same status enum as `/review`:

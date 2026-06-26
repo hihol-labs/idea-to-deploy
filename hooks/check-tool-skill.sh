@@ -127,6 +127,30 @@ def has_bypass_marker(payload: dict) -> bool:
     return isinstance(val, str) and "SKILL_BYPASS:" in val
 
 
+def log_bypass(payload: dict) -> None:
+    """Append an explicit SKILL_BYPASS decision to the per-session ledger
+    (v1.23.0, Layer 2). Consumed by /session-save self-audit. Best-effort —
+    never raises, never blocks the tool call."""
+    try:
+        desc = (payload.get("tool_input") or {}).get("description") or ""
+        reason = (
+            desc.split("SKILL_BYPASS:", 1)[1].strip()
+            if "SKILL_BYPASS:" in desc else ""
+        )
+        rec = {
+            "ts": time.time(),
+            "tool": payload.get("tool_name") or "?",
+            "reason": reason[:300],
+        }
+        ledger = os.path.join(
+            tempfile.gettempdir(), "claude-skill-ledger-%s.jsonl" % session_id()
+        )
+        with open(ledger, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -141,8 +165,9 @@ def main() -> int:
         write_ignore_count(ignore_path, 0)
         return 0
 
-    # --- Bypass marker in tool input → reset counter, allow ---
+    # --- Bypass marker in tool input → log to ledger, reset counter, allow ---
     if has_bypass_marker(payload):
+        log_bypass(payload)
         write_ignore_count(ignore_path, 0)
         return 0
 

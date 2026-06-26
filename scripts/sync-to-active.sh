@@ -247,6 +247,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-commit-completeness.sh",   "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/check-review-before-commit.sh",  "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/check-dod-before-commit.sh",     "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 }
       ]
     },
