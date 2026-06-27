@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-06-28
+
 **New `/context-mode-setup` context-window optimization skill (integration with the Context Mode plugin).** Adds an idea-to-deploy-native companion that brings the upstream [Context Mode plugin](https://github.com/mksglu/context-mode) (by [@mksglu](https://github.com/mksglu), ELv2) into the methodology — it sandboxes large tool output into a local SQLite FTS5 store so the agent searches it (`ctx-search`) instead of dumping it into the context window (vendor claim ~98% per-call reduction). The skill is a **detect-and-advise integration**: it never vendors the upstream ELv2 engine (idea-to-deploy stays MIT and zero-native-dep), it detects install state and runs/prints the verified CLI commands, and it maps the plugin's components onto the lifecycle. It is named `context-mode-setup` (not `context-mode`) because the upstream plugin ships its own skill named `context-mode` — discovered via a live install test, see below. The methodology's gates are unaffected. Skill count 34 → 35.
 
 ### Added
