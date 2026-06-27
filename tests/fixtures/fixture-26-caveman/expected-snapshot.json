@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "caveman-style-stdout",
+  "skill_under_test": "/caveman",
+  "status": "pending",
+  "description": "Stub — /caveman is a read-only communication-style control (terse caveman-mode output, modes lite/full/ultra/wenyan-*). It writes no files; it only changes response style for the session. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a stdout/style flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor and fixture-21-mcp-docs). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (compression rules, Auto-Clarity carve-outs, idea-to-deploy gate-status preservation) for manual verification."
+}

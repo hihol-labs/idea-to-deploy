@@ -78,7 +78,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 ## Known follow-up (doc drift)
 
 **✅ RESOLVED (v1.21.0 docs-sync pass).** All published descriptions now carry the
-current counts — **33 skills + 10 specialized subagents + 16 enforcement hooks**:
+current counts — **34 skills + 10 specialized subagents + 16 enforcement hooks**:
 `.claude-plugin/plugin.json` `description` (also lists the new capabilities:
 research, browser smoke-testing, MCP docs, context handoff, external-tool sync,
 Obsidian export, decision stress-testing), `.claude-plugin/marketplace.json`,

@@ -11,7 +11,7 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#skills)
+[![Skills: 34](https://img.shields.io/badge/Skills-34-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
 [![Version: 1.25.0](https://img.shields.io/badge/Version-1.25.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 33 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 34 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 33 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 34 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,7 +71,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 33 skill directories
+  ├── skills/          # 34 skill directories
   ├── agents/          # 10 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -259,6 +259,12 @@ Claude: Step 1/9 — scaffold project, commit
 | `/tool-sync` | **New in v1.21.0.** Mirror idea-to-deploy artifacts to external tools — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native reads before writes (reconcile, never clobber), export-only fallback to `.itd-integrations/`. Explicit-invocation. |
 | `/obsidian-export` | **New in v1.21.0.** Export planning docs, handoff, memory, state, decisions, and gates into an Obsidian-compatible local knowledge graph under `.itd-integrations/obsidian/`. Derived & regenerable — canonical docs stay the source of truth. |
 
+### Efficiency (1 skill, new in v1.26.0)
+
+| Skill | Description |
+|-------|-------------|
+| `/caveman` | **New in v1.26.0.** Token-efficiency communication mode — terse caveman-style replies (`lite`/`full`/`ultra`/`wenyan-*`) that cut output tokens ~75% while keeping full technical accuracy. Port of the public [Caveman plugin](https://github.com/JuliusBrussee/caveman) (MIT). idea-to-deploy gates still win over brevity: never compresses gate status, blockers, verification evidence, security warnings, or destructive confirmations. Style control only — does not replace `/review`, `/test`, or any work route. |
+
 ## Subagents
 
 Heavy skills run in isolated contexts with specialized agents for better quality:
@@ -317,6 +323,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/tool-sync` | Source artifacts + target tool (GitHub/Linear/Notion/Drive/Obsidian) | External tool state (live) OR `.itd-integrations/<target>.json` export | External writes only on explicit intent; reconciles, never clobbers | ⚠️ External mutations — reconcile-based |
 | `/browser-check` | Local URL / route / user flow | None committed — stdout report + screenshots (evidence); temp Playwright script lives outside the project | Launches a local browser (Playwright); no production changes | ✅ |
 | `/obsidian-export` | Project artifacts + memory | Generated Obsidian note set under `.itd-integrations/obsidian/` | Local-write (derived export only); canonical docs untouched | ✅ Regenerable from source |
+| `/caveman` | `lite`/`full`/`ultra`/`wenyan-*` mode or `normal mode` | None — changes response style only (stdout) | None (read-only; session-scoped style state) | ✅ |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -524,6 +531,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/tool-sync` | Sonnet | Sonnet | Artifact-to-schema mapping + reconcile — structured |
 | `/browser-check` | Sonnet | Sonnet | Writing Playwright checks + interpreting render results — structured |
 | `/obsidian-export` | Sonnet | Sonnet | Derived note generation (copy + wikilinks/tags) — mechanical |
+| `/caveman` | Haiku | Sonnet | Style control only — no code/doc generation |
 
 ## Who Is This For
 
@@ -617,7 +625,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 33. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 34. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 
