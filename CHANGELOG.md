@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Commit gates now count review/test/security work done by a subagent (bug #2 follow-up).** Delegating a review to the `code-reviewer` agent (instead of the `/review` skill) left no completion sentinel, so `check-review-before-commit.sh` saw "no review" and falsely blocked the commit — notably from WSL. The same class of false-block hit the DoD gate for `test-generator`/`security-reviewer`. Fixed additively with a new PostToolUse hook; the gates themselves are unchanged. Minor bump per SemVer (planned **v1.25.0**).
+
+### Added
+
+- **`hooks/record-agent-skill.sh` — PostToolUse hook on `Task`/`Agent` (hook #17).** After a subagent finishes, it writes the matching skill completion sentinel on the agent's behalf, so the commit gates count delegated work. Mapping (restricted to agents that satisfy a real gate): `code-reviewer → review`, `test-generator → test`, `security-reviewer → security-audit`. This is the only viable mechanism: the backing agents are read-only (`Read/Grep/Glob`, no `Write`/`Bash`) so they cannot write a sentinel themselves, and the `Skill` tool emits no hook events — but the `Task`/`Agent` tool does. PostToolUse (not Pre) so the sentinel marks an *actually-completed* pass. Never blocks (always exits 0); writes to every temp dir the gates search (`/tmp` + platform temp dir).
+- **`tests/verify_agent_review_sentinel.py`** — 10-case behavioural test: each mapped agent writes the right sentinel; unmapped agents and non-subagent tools write nothing; plus two end-to-end assertions through the real gates — the **review** gate denies a >2-file commit before the `code-reviewer` agent and allows it after, and the **DoD** gate denies a payments-path commit before the `security-reviewer` agent and allows it after.
+
+### Fixed
+
+- **Review/DoD gates falsely blocked commits when the review/test/security pass was delegated to a subagent.** `check-review-before-commit.sh` and `check-dod-before-commit.sh` detected skill completion only via the sentinel the *skill* writes at its final step; a subagent left none. Root cause: read-only agents can't write the sentinel, and the `Skill` tool emits no hook events. Resolved by `record-agent-skill.sh` above — no change to the gate logic, which keeps reading the same sentinel filename.
+
+### Changed
+
+- **`PostToolUse` hook registration added** with matcher `Task|Agent` → `record-agent-skill.sh`, in the active settings of both environments, `scripts/sync-to-active.sh` (the canonical desired-hooks block), and `skills/adopt/references/project-settings-template.json` so newly-adopted projects get it. `hooks/README.md` and `skills/adopt/SKILL.md` updated to document the hook.
+
 ## [1.24.0] - 2026-06-27
 
 **Two infrastructure fixes: the skill-enforcement gate no longer dead-ends a legitimate skill-driven Edit flow, and heavy fork skills have a documented escape from autocompact-thrash on large `CLAUDE.md` repos.** Both are additive and backward-compatible (minor bump per SemVer); the never-block enforcement guarantee is preserved and now regression-tested.

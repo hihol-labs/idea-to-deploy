@@ -218,11 +218,16 @@ fi
 # Matchers:
 #   UserPromptSubmit → pre-flight-check.sh, check-skills.sh  (order matters:
 #     pre-flight first so skill-check sees its output)
-#   PreToolUse matcher=Bash|Edit|Write|NotebookEdit → check-tool-skill.sh
+#   PreToolUse matcher=Bash|Edit|Write|NotebookEdit|Skill → check-tool-skill.sh
+#     (Skill in matcher = v1.24.0 forward-compat; harmless no-op until the
+#      harness emits Skill hook events)
 #   PreToolUse matcher=Bash → check-commit-completeness.sh  (no-op outside
 #     methodology repo, cheap)
 #   PreToolUse matcher=Write|Edit|MultiEdit → check-skill-completeness.sh
 #     (no-op outside methodology repo, cheap)
+#   PostToolUse matcher=Task|Agent → record-agent-skill.sh  (writes the
+#     skill sentinel when review/test/security work is delegated to a
+#     subagent, so the commit gates count it — bug #2 follow-up)
 
 DESIRED_HOOKS=$(cat <<'JSON'
 {
@@ -237,7 +242,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
   ],
   "PreToolUse": [
     {
-      "matcher": "Bash|Edit|Write|NotebookEdit",
+      "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-tool-skill.sh", "timeout": 5 }
       ]
@@ -255,6 +260,14 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "matcher": "Write|Edit|MultiEdit",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Task|Agent",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/record-agent-skill.sh", "timeout": 5 }
       ]
     }
   ]

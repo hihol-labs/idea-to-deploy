@@ -34,6 +34,14 @@
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/record-agent-skill.sh", "timeout": 5 }
+        ]
+      }
     ]
   }
 }
