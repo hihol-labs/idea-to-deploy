@@ -41,6 +41,39 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ## Instructions
 
+### Step 0 (pre): Runner selection — avoid fork-thrash on a large CLAUDE.md (v1.24.0)
+
+This skill is declared `context: fork`. A fork inherits a **copy of the current
+conversation**, including the project root `CLAUDE.md`. When that `CLAUDE.md` is
+large (heavily-onboarded repos: rough rule of thumb **> ~12 KB**, or you have
+already seen autocompact churn this session), the fork starts near the context
+limit and **autocompact-thrashes until it dies** before producing a verdict.
+
+**Fallback:** do NOT rely on the fork. Instead run the review by dispatching the
+`code-reviewer` agent via the **Agent tool**, which starts from a fresh, thin
+context instead of a copy of the bloated conversation:
+
+- Call `Agent(subagent_type: "code-reviewer", …)` with a **thin prompt**: state
+  the review target and pass files/dirs **by path** — do NOT paste `CLAUDE.md`
+  or large file bodies into the prompt (the agent reads them itself with
+  Read/Grep).
+- Keep the same Step 0 mode detection below: tell the agent whether this is a
+  methodology self-review or a regular project review (`agents/code-reviewer.md`
+  carries the matching logic).
+
+Quick size check before deciding:
+
+```bash
+wc -c CLAUDE.md 2>/dev/null   # > ~12000 bytes → prefer Agent-tool dispatch over fork
+```
+
+If `CLAUDE.md` is small / absent, the normal fork path is fine — continue below.
+
+**Caveat:** this Step runs *inside* the fork, so by the time you read it the fork
+already exists. Dispatching the Agent is still possible from within a fork, so do
+the size check and switch to Agent-tool dispatch **first thing** — before loading
+any more context — if `CLAUDE.md` is large.
+
 ### Step 0: Detect review mode (v1.13.0)
 
 Before anything else, determine whether this is a **methodology self-review** or a **regular project review**. The two modes use different rubrics and different runners — mixing them produces nonsense reports.

@@ -23,9 +23,35 @@ New behavior (v1.19.0):
   - The ignore counter also resets when Claude provides a bypass
     justification (detected by checking tool_input for SKILL_BYPASS marker).
 
+v1.24.0 change: **skill-active grace window** (infra fix #2).
+
+  Problem fixed: PreToolUse/PostToolUse hooks do NOT fire for the Skill tool
+  (confirmed: the harness does not emit hook events for Skill invocations), so
+  the `tool == "Skill"` reset branch below was dead code in production. The
+  ignore counter therefore accumulated *through* a legitimately-active skill
+  and then falsely blocked its flow — fatally so for Edit/Write/NotebookEdit,
+  which carry no `description` field and thus cannot supply an in-band
+  SKILL_BYPASS to escape the block (a true dead-end).
+
+  Fix: a per-session "skill-active" sentinel grants a grace window.
+    1. The sentinel is written by `check-skills.sh` (a UserPromptSubmit hook,
+       which DOES fire reliably) whenever the user's prompt matches a skill
+       trigger — i.e. methodology context is established for this task. It is
+       ALSO written here whenever a SKILL_BYPASS is accepted, so one bypass
+       opens a grace window instead of resetting a single call.
+    2. On any Bash/Edit/Write/NotebookEdit call, a *fresh* sentinel
+       (age < SKILL_ACTIVE_TTL_SECONDS) is treated as "a skill is running":
+       the counter resets and the call is allowed silently. The TTL bounds
+       the grace so enforcement resumes once the skill window lapses — this is
+       the never-block-FOREVER guard (regression-tested).
+    3. `Skill` is also added to the PreToolUse matcher for forward-compat: if
+       a future harness starts emitting Skill hook events, the reset+sentinel
+       branch below activates automatically. Harmless no-op until then.
+
 State files (per-session):
   /tmp/claude-skill-check-{session}.state    — last reminder timestamp
   /tmp/claude-skill-ignores-{session}.state  — ignore count (int)
+  /tmp/claude-skill-active-{session}.state    — last Skill-call timestamp (grace)
 
 Session id: CLAUDE_SESSION_ID env var → parent pid → "default".
 
@@ -41,8 +67,16 @@ import time
 
 REMIND_WINDOW_SECONDS = 60
 MAX_IGNORES = 3  # block after this many consecutive ignored reminders
+# A Skill call grants this many seconds of grace before enforcement resumes.
+# Bounded on purpose: an expired sentinel must NOT suppress the block, otherwise
+# one early skill would disable enforcement for the whole session (never-block).
+SKILL_ACTIVE_TTL_SECONDS = 900  # 15 minutes
 
 
+# NOTE: this function MUST stay byte-for-byte behaviourally identical to the
+# copy in hooks/check-skills.sh — both derive the per-session sentinel path, and
+# any divergence silently breaks the skill-active grace window. The drift-guard
+# in tests/verify_skill_enforcement.py asserts the two bodies match.
 def session_id() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
@@ -77,6 +111,37 @@ def state_paths() -> tuple[str, str]:
         os.path.join(tmp, f"claude-skill-check-{sid}.state"),
         os.path.join(tmp, f"claude-skill-ignores-{sid}.state"),
     )
+
+
+def skill_active_path() -> str:
+    """Per-session sentinel stamped with the timestamp of the last Skill call."""
+    return os.path.join(
+        tempfile.gettempdir(), f"claude-skill-active-{session_id()}.state"
+    )
+
+
+def mark_skill_active() -> None:
+    """Record that a Skill is running. Best-effort, never raises."""
+    try:
+        with open(skill_active_path(), "w") as f:
+            f.write(str(time.time()))
+    except Exception:
+        pass
+
+
+def skill_active_fresh() -> bool:
+    """True if a Skill was invoked within SKILL_ACTIVE_TTL_SECONDS.
+
+    A stale or missing sentinel returns False so enforcement resumes — this is
+    the never-block-forever guard. Reads the stored timestamp rather than the
+    file mtime so the TTL is explicit and testable.
+    """
+    try:
+        with open(skill_active_path()) as f:
+            ts = float(f.read().strip() or "0")
+    except Exception:
+        return False
+    return (time.time() - ts) < SKILL_ACTIVE_TTL_SECONDS
 
 
 def read_ignore_count(path: str) -> int:
@@ -160,14 +225,26 @@ def main() -> int:
     tool = (payload or {}).get("tool_name") or "?"
     reminder_path, ignore_path = state_paths()
 
-    # --- Skill call detected → reset ignore counter, allow silently ---
+    # --- Skill call detected → reset ignore counter, open grace window ---
     if tool == "Skill":
         write_ignore_count(ignore_path, 0)
+        mark_skill_active()
         return 0
 
-    # --- Bypass marker in tool input → log to ledger, reset counter, allow ---
+    # --- Bypass marker in tool input → log, reset, open grace window, allow ---
     if has_bypass_marker(payload):
         log_bypass(payload)
+        write_ignore_count(ignore_path, 0)
+        mark_skill_active()  # one bypass opens a grace window, not a single call
+        return 0
+
+    # --- Fresh skill-active sentinel → a skill is running, grant grace ---
+    # A legitimate skill-driven Edit/Bash flow must never be falsely blocked.
+    # Edit/Write/NotebookEdit carry no 'description' field, so they cannot
+    # supply an in-band SKILL_BYPASS — the grace window is their only escape.
+    # Reset and allow silently. The TTL (checked inside skill_active_fresh)
+    # bounds this so enforcement resumes after the skill window lapses.
+    if skill_active_fresh():
         write_ignore_count(ignore_path, 0)
         return 0
 

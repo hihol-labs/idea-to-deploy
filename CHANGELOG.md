@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-06-27
+
+**Two infrastructure fixes: the skill-enforcement gate no longer dead-ends a legitimate skill-driven Edit flow, and heavy fork skills have a documented escape from autocompact-thrash on large `CLAUDE.md` repos.** Both are additive and backward-compatible (minor bump per SemVer); the never-block enforcement guarantee is preserved and now regression-tested.
+
+### Fixed
+
+- **Skill-enforcement gate falsely blocked active skill work (`hooks/check-tool-skill.sh`).** PreToolUse/PostToolUse hooks do **not** fire for the `Skill` tool, so the gate's `tool == "Skill"` counter-reset branch was dead code in production — the ignore counter accumulated *through* a legitimately-active skill and then blocked it. The block was a true dead-end for `Edit`/`Write`/`NotebookEdit`, which carry no `description` field and therefore cannot supply an in-band `SKILL_BYPASS`. Fix: a per-session **skill-active sentinel** (`/tmp/claude-skill-active-<session>.state`) grants a bounded **grace window** (`SKILL_ACTIVE_TTL_SECONDS = 900`). The sentinel is written by `check-skills.sh` (a UserPromptSubmit hook, which *does* fire reliably) whenever the prompt matches a skill trigger, and by `check-tool-skill.sh` itself whenever a `SKILL_BYPASS` is accepted. A *fresh* sentinel resets the counter and allows silently; a *stale* one does not — so enforcement always resumes (never-block-forever guard).
+
+### Added
+
+- **`tests/verify_skill_enforcement.py`** — 9-case behavioural regression test for the enforcement gate, wired into `.github/workflows/meta-review.yml`. Locks the two guarantees against regression: the gate **still blocks** after `MAX_IGNORES` consecutive ignores, and a **stale** skill-active sentinel does **not** suppress the block. Also covers the end-to-end `check-skills.sh → check-tool-skill.sh` sentinel contract.
+- **Runner-selection fallback in the agent-backed fork skills (`/review`, `/perf`, `/blueprint`, `/discover`).** A `context: fork` skill inherits a copy of the current conversation including the project `CLAUDE.md`; on heavily-onboarded repos (> ~12 KB) the fork starts near the context limit and autocompact-thrashes until it dies. Each skill now documents the escape: when `CLAUDE.md` is large, **dispatch the backing agent via the Agent tool** (fresh thin context, files referenced by path) instead of relying on the fork.
+
+### Changed
+
+- **`Skill` added to the `check-tool-skill.sh` PreToolUse matcher** (active settings in both environments + `skills/adopt/references/project-settings-template.json`) as forward-compat: if a future harness starts emitting Skill hook events, the existing reset+sentinel branch activates automatically. Harmless no-op until then.
+
 ## [1.23.0] - 2026-06-26
 
 **Definition-of-Done enforcement: high-risk commits can no longer quietly skip their mandatory skill.** Adds a narrow pre-commit gate (Layer 1) that blocks a `git commit` touching a DB migration/schema, a payments/auth/secrets path, or a brand-new source file when the matching skill (`/migrate`+`/test`, `/security-audit`, `/test`) was not run this session — plus a skill-bypass ledger and a `/session-save` self-audit (Layer 2) so a skipped gate is impossible to miss at session end. Generalises the existing `/review`-before-commit gate to the other risk signals; deliberately narrow to avoid alarm fatigue. Additive and backward-compatible (minor bump per SemVer).
