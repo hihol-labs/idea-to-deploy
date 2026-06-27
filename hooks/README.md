@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These sixteen hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These seventeen hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.19.0)
 
@@ -28,6 +28,7 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 | `check-commit-completeness.sh` *(v1.5.1)* | Before every Bash command matching `git commit` (PreToolUse) | Parses the staged diff. If any `skills/<name>/SKILL.md` is staged, the hook requires matching references/hook/fixture to also be staged (or already present on disk). Written to be the last line of defense against the v1.4.0 "Potemkin release" pattern. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
 | `check-review-before-commit.sh` *(v1.19.0, fixed v1.19.1)* | Before every Bash command matching `git commit` (PreToolUse) | Blocks the commit if more than 2 files are staged AND `/review` has not been invoked in the current session. `/review` signals via the marker file `/tmp/claude-review-done-{session_id}` which the skill itself writes at its final step. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
 | `check-dod-before-commit.sh` *(v1.23.0)* | Before every Bash command matching `git commit` (PreToolUse) | Definition-of-Done gate. Inspects the staged diff and blocks the commit when a high-risk signal is present but the matching skill was not run this session: migration/schema → `/migrate`+`/test`; payments/auth/secrets in a file path → `/security-audit`; brand-new source file with no test staged → `/test`. Generalises the review gate to other risk signals. Escape: `SKILL_BYPASS:` in the commit message. | **Yes — exit 2 with `hookSpecificOutput.permissionDecision: "deny"`.** The commit never runs. |
+| `record-agent-skill.sh` *(v1.25.0)* | **After** a `Task`/`Agent` subagent finishes (PostToolUse) | Counts review/test/security work delegated to a subagent toward the commit gates above (bug #2 follow-up). When the finished subagent is `code-reviewer`→`/review`, `test-generator`→`/test`, or `security-reviewer`→`/security-audit`, it writes that skill's completion sentinel on the agent's behalf — the agents are read-only (no Write/Bash) and the Skill tool emits no hook events, so the gates would otherwise never see the work. | No — pure side-effect, always exits 0 (a PostToolUse block is non-blocking anyway; see v1.5.1 note). |
 
 ### Safety guardrails (v1.17.0, optional)
 
@@ -42,7 +43,7 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 - **`careful.sh`** — **always active** inside methodology repos (auto-detected via `.claude-plugin/plugin.json`). Outside methodology repos: opt-in via `CAREFUL_MODE=1` env var or state file.
 - **`freeze.sh`** — **automatic** when skills like `/bugfix`, `/refactor`, `/perf` start work (they write the scope to `/tmp/claude-freeze-{session}.state`). Can also be activated manually: `/freeze src/auth`. Deactivate with `/unfreeze` or skill completion.
 
-All sixteen hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+All seventeen hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 
@@ -57,6 +58,7 @@ cp hooks/check-skill-completeness.sh ~/.claude/hooks/   # v1.5.0 enforcement
 cp hooks/check-commit-completeness.sh ~/.claude/hooks/  # v1.5.0 enforcement
 cp hooks/check-review-before-commit.sh ~/.claude/hooks/ # v1.19.0 — blocks >2-file commits without /review
 cp hooks/check-dod-before-commit.sh ~/.claude/hooks/    # v1.23.0 — Definition-of-Done gate (migrations/payments/new code)
+cp hooks/record-agent-skill.sh ~/.claude/hooks/         # v1.25.0 — counts subagent review/test/security toward the gates
 cp hooks/careful.sh ~/.claude/hooks/                     # v1.17.0 safety guardrail
 cp hooks/freeze.sh ~/.claude/hooks/                      # v1.17.0 scope guardrail
 cp hooks/session-open-diagnostic.sh ~/.claude/hooks/     # v1.19.0 session diagnostic
@@ -143,6 +145,18 @@ Add this `hooks` block to your `~/.claude/settings.json` (merge with existing se
           {
             "type": "command",
             "command": "~/.claude/hooks/freeze.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/record-agent-skill.sh",
             "timeout": 5
           }
         ]

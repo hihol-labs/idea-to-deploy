@@ -247,7 +247,7 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 Before reporting adoption as complete, verify:
 
 - [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
-- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills) and all 4 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-skill-completeness)
+- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 5 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, check-skill-completeness), and `record-agent-skill` in `hooks.PostToolUse` (matcher `Task|Agent` — counts subagent review/test/security toward the commit gates)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
