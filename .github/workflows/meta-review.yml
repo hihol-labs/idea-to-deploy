@@ -50,5 +50,8 @@ jobs:
       - name: Run DoD pre-commit gate unit tests (v1.23.0)
         run: python3 tests/verify_dod_gate.py
 
+      - name: Run skill-enforcement gate unit tests (v1.24.0)
+        run: python3 tests/verify_skill_enforcement.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

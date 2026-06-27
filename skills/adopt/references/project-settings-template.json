@@ -15,7 +15,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-tool-skill.sh", "timeout": 5 }
         ]

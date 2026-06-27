@@ -39,6 +39,20 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ## Instructions
 
+### Step 0 (pre): Runner selection — avoid fork-thrash on a large CLAUDE.md (v1.24.0)
+
+This skill is declared `context: fork`; the fork inherits a **copy of the current
+conversation** including the project root `CLAUDE.md`. If that `CLAUDE.md` is
+large (> ~12 KB) or you have already seen autocompact churn this session, the
+fork starts near the context limit and **thrashes until it dies** before
+finishing. **Fallback:** don't fork — dispatch the `perf-analyzer` agent via the
+Agent tool (`Agent(subagent_type: "perf-analyzer", …)`) with a **thin prompt**
+that references files/dirs **by path** (don't paste `CLAUDE.md` or large file
+bodies; the agent reads them itself). Quick check: `wc -c CLAUDE.md` — if
+small/absent, the normal fork path below is fine. **Caveat:** this Step runs
+*inside* the fork, but the Agent tool is still callable from there — so do the
+check and switch first thing if `CLAUDE.md` is large.
+
 ### Step 0: Auto-freeze scope (v1.17.0)
 
 After identifying the target file/directory from $ARGUMENTS or profiling results, automatically activate scope freeze:

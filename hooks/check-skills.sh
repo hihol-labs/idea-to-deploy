@@ -8,9 +8,58 @@ Outputs JSON on stdout with hookSpecificOutput.additionalContext (injected
 back into the model context for the current turn).
 
 Silent (exit 0, no output) if no triggers match — keeps normal turns clean.
+
+v1.24.0: when a trigger matches, this hook also stamps the per-session
+"skill-active" sentinel that check-tool-skill.sh reads to grant a grace
+window. Because PreToolUse/PostToolUse hooks do NOT fire for the Skill tool,
+this UserPromptSubmit hook is the reliable place to record that the current
+task is methodology/skill work, so a legitimate Edit/Bash flow is not falsely
+blocked by the enforcement gate. The session-id derivation below MUST stay
+identical to check-tool-skill.sh or the sentinel paths will not match.
 """
 import json
+import os
 import sys
+import tempfile
+import time
+
+
+# NOTE: this function MUST stay byte-for-byte behaviourally identical to the
+# copy in hooks/check-tool-skill.sh — both derive the per-session sentinel path,
+# and any divergence silently breaks the skill-active grace window. The
+# drift-guard in tests/verify_skill_enforcement.py asserts the two bodies match.
+def session_id() -> str:
+    """Identical to check-tool-skill.sh: env var → per-day anchor → default."""
+    sid = os.environ.get("CLAUDE_SESSION_ID")
+    if sid:
+        return sid
+    try:
+        anchor = os.path.join(tempfile.gettempdir(), "claude-skill-session-anchor")
+        try:
+            with open(anchor) as f:
+                tok = f.read().strip()
+            if tok:
+                return tok
+        except Exception:
+            pass
+        tok = time.strftime("day%Y%m%d")
+        with open(anchor, "w") as f:
+            f.write(tok)
+        return tok
+    except Exception:
+        return "default"
+
+
+def mark_skill_active() -> None:
+    """Stamp the skill-active sentinel read by check-tool-skill.sh. Best-effort."""
+    try:
+        path = os.path.join(
+            tempfile.gettempdir(), "claude-skill-active-%s.state" % session_id()
+        )
+        with open(path, "w") as f:
+            f.write(str(time.time()))
+    except Exception:
+        pass
 
 
 # Each tuple: (regex pattern, hint text). All patterns are matched
@@ -400,6 +449,11 @@ def main() -> int:
 
     if not hints:
         return 0
+
+    # A skill trigger matched → methodology context is established for this
+    # task. Open a grace window so the enforcement gate (check-tool-skill.sh)
+    # does not falsely block the resulting skill-driven Edit/Bash flow.
+    mark_skill_active()
 
     context = (
         "[SKILL HINT — Idea-to-Deploy methodology]\n"
