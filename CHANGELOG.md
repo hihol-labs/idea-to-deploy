@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-06-27
+
 **New `/caveman` token-efficiency skill (port of the public Caveman plugin).** Adds an idea-to-deploy-native communication-style control that cuts output tokens ~75% via terse "caveman" replies while keeping full technical accuracy. The methodology's gates still win over brevity: gate status, blockers, verification evidence, security warnings, and destructive-action confirmations are never compressed. Skill count 33 → 34.
 
 ### Added
