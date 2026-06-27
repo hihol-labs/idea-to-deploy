@@ -1,0 +1,28 @@
+# Expected files after /caveman runs
+#
+# NONE. /caveman is a read-only communication-style control — it changes the
+# style of responses for the session and returns terse output to stdout. It MUST
+# NOT create or modify project files.
+#
+# Presence of ANY file in the output dir after a /caveman run is a contract
+# violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-26-caveman/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /caveman MUST NOT:
+#   - Write / Edit project files (it's a style control only)
+#   - Perform any global/network install of the upstream Caveman plugin, or edit
+#     shell profiles / agent config, without explicit user approval
+#   - Compress away security warnings, destructive/production confirmations,
+#     verification evidence, gate status, blockers, or the skill-decision line
+#   - Rewrite code blocks, quoted errors, URLs, paths, or commands for style
+#
+# /caveman MAY:
+#   - Switch intensity (lite / full / ultra / wenyan-lite / wenyan-full /
+#     wenyan-ultra) and revert on `normal mode` / `stop caveman`
+#   - Drop articles, filler, pleasantries, and hedging; use fragments
+#   - Preserve the user's dominant language (compress the style, not the language)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor and
+# fixture-21-mcp-docs (read-only, stdout/style flow). Manual verification via notes.md.

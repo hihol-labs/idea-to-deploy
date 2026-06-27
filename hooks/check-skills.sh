@@ -424,6 +424,14 @@ TRIGGERS = [
         "(многоперспективный разбор), /grill-me (стресс-тест) или /discover "
         "(если это product discovery). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(caveman|режим\s+caveman|talk\s+like\s+caveman|use\s+caveman|"
+        r"меньше\s+токен|сжима\w*\s+ответ|короче\s+отвеча|короткие\s+ответы|"
+        r"less\s+tokens|be\s+brief|terse\s+repl|token\s+efficiency|compress\s+output)",
+        "🔔 Триггер 'caveman / меньше токенов' → используй /caveman "
+        "(token-efficiency режим: терсе-ответы lite/full/ultra/wenyan без потери "
+        "статуса гейтов, блокеров и verification-evidence). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 

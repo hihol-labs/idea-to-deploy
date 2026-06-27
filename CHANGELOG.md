@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**New `/caveman` token-efficiency skill (port of the public Caveman plugin).** Adds an idea-to-deploy-native communication-style control that cuts output tokens ~75% via terse "caveman" replies while keeping full technical accuracy. The methodology's gates still win over brevity: gate status, blockers, verification evidence, security warnings, and destructive-action confirmations are never compressed. Skill count 33 → 34.
+
+### Added
+
+- **`skills/caveman/SKILL.md` — `/caveman` skill (new category: Efficiency).** Port of the upstream [Caveman plugin](https://github.com/JuliusBrussee/caveman) (MIT) adapted to idea-to-deploy conventions. Modes: `lite` / `full` (default) / `ultra` / `wenyan-lite` / `wenyan-full` / `wenyan-ultra`; `normal mode` / `stop caveman` reverts. Preserves the upstream compression rules, intensity table, and **Auto-Clarity** safety carve-outs (security warnings, irreversible/production confirmations, multi-step sequences, legal/medical/financial caveats), plus an idea-to-deploy fit section that keeps the skill-decision line, route/gate status, verification evidence, and commit/push/PR status explicit. Read-only, session-scoped style state; does not perform any global/network install of the upstream plugin and does not replace `/review`, `/test`, `/security-audit`, or any work route.
+- **Trigger block in `hooks/check-skills.sh`** routing caveman phrases ("caveman mode", "talk like caveman", "меньше токенов", "сжимай ответы", "less tokens", "be brief", "token efficiency", …) to `/caveman`. Verified by `tests/verify_triggers.py` (no drift) and a routing smoke-test (non-caveman phrases do not over-match).
+
+### Changed
+
+- **Skill count 33 → 34 across docs.** Updated Skills badge, prose counts, the new "Efficiency" category section, and the comprehensive Skill Contracts + Recommended Models tables in `README.md` and `README.ru.md`; description counts in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`.
+
 ## [1.25.0] - 2026-06-27
 
 **Commit gates now count review/test/security work done by a subagent (bug #2 follow-up).** Delegating a review to the `code-reviewer` agent (instead of the `/review` skill) left no completion sentinel, so `check-review-before-commit.sh` saw "no review" and falsely blocked the commit — notably from WSL. The same class of false-block hit the DoD gate for `test-generator`/`security-reviewer`. Fixed additively with a new PostToolUse hook; the gates themselves are unchanged. Minor bump per SemVer.

@@ -11,7 +11,7 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 33](https://img.shields.io/badge/Skills-33-green.svg)](#скиллы)
+[![Skills: 34](https://img.shields.io/badge/Skills-34-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
 [![Version: 1.25.0](https://img.shields.io/badge/Version-1.25.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 33 скилла и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 34 скилла и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 33 скилла + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 34 скилла + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -71,7 +71,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 33 папки скиллов
+  ├── skills/          # 34 папки скиллов
   ├── agents/          # 10 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
@@ -259,6 +259,12 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/tool-sync` | **Новое в v1.21.0.** Зеркалирование артефактов idea-to-deploy во внешние инструменты — GitHub, Linear, Notion, Google Drive, Obsidian. Connector-native чтение до записи (reconcile, без затирания), export-only fallback в `.itd-integrations/`. Explicit-invocation. |
 | `/obsidian-export` | **Новое в v1.21.0.** Экспорт плановых документов, handoff, памяти, состояния, решений и гейтов в Obsidian-совместимый локальный граф знаний в `.itd-integrations/obsidian/`. Производный и перегенерируемый — канон остаётся источником истины. |
 
+### Эффективность (1 скилл, новое в v1.26.0)
+
+| Скилл | Описание |
+|-------|----------|
+| `/caveman` | **Новое в v1.26.0.** Режим token-efficiency — терсе-ответы в стиле caveman (`lite`/`full`/`ultra`/`wenyan-*`), сокращающие вывод на ~75% без потери технической точности. Порт публичного [плагина Caveman](https://github.com/JuliusBrussee/caveman) (MIT). Гейты idea-to-deploy важнее краткости: никогда не сжимает статус гейтов, блокеры, verification-evidence, security-предупреждения и подтверждения деструктивных действий. Только стиль — не заменяет `/review`, `/test` и другие рабочие маршруты. |
+
 ## Субагенты
 
 Тяжёлые скиллы запускаются в изолированном контексте со специализированными агентами для лучшего качества:
@@ -317,6 +323,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/tool-sync` | Source-артефакты + целевой инструмент (GitHub/Linear/Notion/Drive/Obsidian) | Состояние внешнего инструмента (live) ИЛИ экспорт `.itd-integrations/<target>.json` | Внешняя запись только по явному намерению; reconcile, без затирания | ⚠️ Внешние мутации — на основе reconcile |
 | `/browser-check` | Локальный URL / маршрут / user flow | Ничего в коммит — отчёт в stdout + скриншоты (доказательство); временный Playwright-скрипт вне проекта | Запускает локальный браузер (Playwright); без production-изменений | ✅ |
 | `/obsidian-export` | Артефакты проекта + память | Сгенерированный набор Obsidian-заметок в `.itd-integrations/obsidian/` | Local-write (только производный экспорт); канон не трогается | ✅ Перегенерируем из source |
+| `/caveman` | Режим `lite`/`full`/`ultra`/`wenyan-*` или `normal mode` | Ничего — меняет только стиль ответа (stdout) | Нет (read-only; стиль на уровне сессии) | ✅ |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -526,6 +533,7 @@ chmod +x ~/.claude/hooks/*.sh
 | `/tool-sync` | Sonnet | Sonnet | Маппинг артефактов на схемы + reconcile — структурно |
 | `/browser-check` | Sonnet | Sonnet | Написание Playwright-проверок + интерпретация рендера — структурно |
 | `/obsidian-export` | Sonnet | Sonnet | Производная генерация заметок (копия + wikilinks/теги) — механично |
+| `/caveman` | Haiku | Sonnet | Только управление стилем — без генерации кода/доков |
 
 ## Для кого
 
@@ -619,7 +627,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 33. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 34. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 
