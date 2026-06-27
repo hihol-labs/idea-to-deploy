@@ -432,6 +432,16 @@ TRIGGERS = [
         "(token-efficiency режим: терсе-ответы lite/full/ultra/wenyan без потери "
         "статуса гейтов, блокеров и verification-evidence). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(context\s*-?\s*mode|режим\s+контекста|ctx\s+mode|"
+        r"экономия\s+контекст|сжать\s+контекст|забива\w*\s+контекст|контекстное\s+окно\s+забива|"
+        r"большой\s+вывод\s+инструмент|огромн\w*\s+вывод|sandbox\s+вывод|песочниц\w*\s+для\s+вывод|"
+        r"save\s+context\s+window|context\s+window\s+optim|sandbox\s+tool\s+output|huge\s+tool\s+output|too\s+much\s+context)",
+        "🔔 Триггер 'context mode / экономия контекстного окна' → используй /context-mode-setup "
+        "(интеграция upstream Context Mode: песочница большого вывода инструментов в FTS5-стор "
+        "вместо дампа в контекст; детект install + lifecycle-fit, гейты методологии не трогает). "
+        "Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 
