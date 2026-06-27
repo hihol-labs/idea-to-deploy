@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Commit gates now count review/test/security work done by a subagent (bug #2 follow-up).** Delegating a review to the `code-reviewer` agent (instead of the `/review` skill) left no completion sentinel, so `check-review-before-commit.sh` saw "no review" and falsely blocked the commit — notably from WSL. The same class of false-block hit the DoD gate for `test-generator`/`security-reviewer`. Fixed additively with a new PostToolUse hook; the gates themselves are unchanged. Minor bump per SemVer (planned **v1.25.0**).
+## [1.25.0] - 2026-06-27
+
+**Commit gates now count review/test/security work done by a subagent (bug #2 follow-up).** Delegating a review to the `code-reviewer` agent (instead of the `/review` skill) left no completion sentinel, so `check-review-before-commit.sh` saw "no review" and falsely blocked the commit — notably from WSL. The same class of false-block hit the DoD gate for `test-generator`/`security-reviewer`. Fixed additively with a new PostToolUse hook; the gates themselves are unchanged. Minor bump per SemVer.
 
 ### Added
 
