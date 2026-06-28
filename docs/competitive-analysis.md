@@ -318,3 +318,29 @@
 **Messaging:** «Karpathy skills задают 4 принципа поведения агента. idea-to-deploy — полная методология, где эти принципы встроены в 25 скиллов через хуки-guardrails и meta-review gates».
 
 **Атрибуция:** [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills), вдохновлён постом [Andrej Karpathy в X](https://x.com/karpathy).
+
+---
+
+## 9. Внешняя валидация - Google whitepaper "The New SDLC With Vibe Coding"
+
+**Контекст.** Google whitepaper *The New SDLC With Vibe Coding* (авторы Addy Osmani, Shubham Saboo, Sokratis Kartakis, 2026) - концептуальная рамка нового жизненного цикла разработки: переход от синтаксиса к намерению, спектр "vibe coding -> agentic engineering", контекст-инжиниринг, и то, как AI меняет каждую фазу SDLC (требования, дизайн, реализация, тестирование). Это **не конкурент** - это авторитетный внешний источник, описывающий ровно ту дисциплину, которую idea-to-deploy уже реализует в виде плагина. Используется как валидация позиционирования.
+
+**Маппинг рамки статьи на механизмы idea-to-deploy:**
+
+| Концепт статьи | Реализация в idea-to-deploy | Статус |
+|---|---|---|
+| Структура и дисциплина важнее "вайба" (спектр vibe -> agentic engineering) | Сам pipeline plan -> test -> review -> commit + 19 enforcement-хуков | **Реализовано** |
+| Skills как динамический контекст (progressive disclosure) | Вся skill-архитектура + profile-frontmatter (effort/side_effect) | **Реализовано** |
+| Guardrails / hooks как детерминированный слой | 19 хуков, DoD pre-commit гейт, careful/pii-egress/risk-score | **Реализовано** |
+| Tests + evals как контракт с AI (детерминированное vs недетерминированное) | /test гейт + eval-ветка /test Step 3.5 (rubric + LM-judge + trajectory) | **Реализовано (v1.31.0)** |
+| Harness engineering (feedforward / feedback петли) | docs/HARNESS_ENGINEERING_MAP.md и routing-benchmark M-C17 | **Реализовано** |
+| "Последние 20%" (edge cases, бизнес-логика, человек в контуре) | 80%-checklist /review - C-code-5/6, I-code-10/11, human-gate необратимого | **Реализовано (v1.31.0)** |
+| Intelligent model routing (дорогие модели на reasoning, дешёвые на механику) | docs/MODEL-ROUTING-POLICY.md + per-фаза "## Recommended model" | **Реализовано (v1.31.0)** |
+| Контекст-инжиниринг как финансовый рычаг (OpEx) | /context-mode-setup + cost-accounting (cost-tracker.sh ledger + ctx-stats) | **Реализовано (v1.31.0)** |
+| Конфигурация harness в фазе планирования | /adopt пишет CLAUDE.md + регистрирует хуки | **Реализовано** |
+
+**Вывод позиционирования.** Документ Google подтверждает весь словарь методологии (harness, factory model, skills как динамический контекст, structure > vibes). idea-to-deploy опережает популярный нарратив: то, что whitepaper описывает как "должное" для нового SDLC, у нас уже работает как плагин. Что было honest-пробелом на момент анализа (evals, 80%-дисциплина, cost-сознание, routing-политика) - закрыто в **v1.31.0** врезками, без раздувания surface и без собственного runtime (см. docs/adr/ADR-001-no-own-runtime.md).
+
+**Messaging:** "idea-to-deploy - это новый SDLC из whitepaper Google, реализованный как методология-плагин: skills как динамический контекст, hooks как guardrails, tests + evals как контракт с AI, и дисциплина последних 20% встроенная в gate-ы."
+
+**Атрибуция:** Addy Osmani, Shubham Saboo, Sokratis Kartakis, *The New SDLC With Vibe Coding* (Google, 2026). Серия: Day 3 - Context Engineering, Day 5 - Spec-Driven Production (кандидаты на дальнейший анализ).

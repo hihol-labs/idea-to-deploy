@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
+
 ## [1.31.0] - 2026-06-28
 
 **New-SDLC / Vibe-Coding enrichment — four points, all as врезки into existing skills, no new runtime.** A study of the Google whitepaper *The New SDLC With Vibe Coding* (Osmani, Saboo, Kartakis, 2026) found the methodology already implements most of the paper's "should" (skills = dynamic context, hooks = guardrails, test/review gates, harness map). This release closes the honest gaps it flagged — **without** new skills (avoids the ~4-artifact + doc-cascade cost) and **without** building any runtime of our own (see new `docs/adr/ADR-001-no-own-runtime.md`). Four blocks: **(A)** an opt-in/scoped **eval-suite branch** in `/test` (+ a Tier-3 `EVAL-1` in `/harden`) for AI/LLM/agent code — rubric + LM-judge + trajectory check, the non-deterministic counterpart to tests; **(D)** a **"80%-problem" checklist** in `/review` — hallucinated/slopsquatting deps, irreversible-action human-gate, business invariants, edge-case completeness; **(C)** lightweight **token/OpEx cost-accounting** врезки riding the existing `cost-tracker.sh` ledger + `ctx-stats` (no new hook); **(B)** a transparent **model-routing policy** (`docs/MODEL-ROUTING-POLICY.md`) applied via native `/model` + per-agent frontmatter (not an auto-router). Eval (A) is deliberately opt-in/scoped, never a global gate (the acceptance-gate false-block lesson). Skill count 38 → 38, hook count 19 → 19 (no count cascade).
