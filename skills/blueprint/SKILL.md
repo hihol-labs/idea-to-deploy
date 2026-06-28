@@ -159,6 +159,42 @@ The prioritization output directly shapes:
 
 In **Lite mode**, skip RICE (step 1.5.2) and use only MoSCoW. The MoSCoW table is still mandatory.
 
+### Step 1.6: Memory & context architecture (opt-in — stateful-agent / LLM products)
+
+**Trigger this step only when** the product is an AI agent or LLM app that keeps state
+across turns or sessions (chat assistant with history, auto-buying/reconciliation agent,
+RAG product — anything with `side_effect: agent`/LLM in its components). For ordinary
+stateless apps (CRUD, marketing site, classic API), **skip this step** — it would add a
+section nobody uses.
+
+Why: for a stateful agent the **context window and the memory store are the real runtime
+inputs** — design them wrong and every later turn is wrong (Google "The New SDLC With
+Vibe Coding", 2026 — Day 3, Context Engineering). Decide it once, in
+`PROJECT_ARCHITECTURE.md` under a `## Memory & context architecture` section:
+
+1. **Memory scopes** — what lives where: ephemeral *working* context (this turn),
+   *session* memory (this conversation), *long-term* memory (across sessions), *entity*
+   memory (per user/account/tenant). Name each scope and its lifetime.
+2. **Storage choice is an ADR, not a default.** Vector DB vs. relational vs. KG vs. a
+   flat file is a trade-off (recall quality, cost, consistency) — record it as an
+   Architecture-Decision variant; do not reach for a vector DB reflexively.
+3. **Write policy** — *extraction* (what is worth remembering), *consolidation* (how
+   duplicates/contradictions merge), *pruning/TTL* (when memory expires). Unbounded
+   memory rots and inflates cost.
+4. **Provenance & freshness** — every long-term record carries source + timestamp, so a
+   later **irreversible action can verify the fact is attributable and fresh** before
+   acting on it (exactly what review `C-code-6`/`C-code-7` enforce in code).
+5. **Retrieval / memory-as-tool** — does the agent *auto-inject* memory every turn or
+   *fetch on demand* as a tool? On-demand keeps the context lean and auditable.
+6. **Sync vs. async writes** — out-of-band memory writers belong to the deployed product
+   and must be **gated/reviewed, not blind upserts** (see ADR-001 async-memory note).
+7. **Trust boundary & isolation** — untrusted input (tool/RAG/web output) is data, not
+   instructions; memory is isolated per tenant; no secrets/PII in a shared store (handed
+   to `/security-audit`'s context & memory integrity checks).
+
+Output: a `## Memory & context architecture` section in `PROJECT_ARCHITECTURE.md`. The
+threat side is audited by `/security-audit`; runtime hygiene by `/harden`.
+
 ### Step 2: Generate 6 documents
 Each document builds on the previous one. Create all files in the project root or docs/ folder.
 

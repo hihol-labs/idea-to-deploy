@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.4.0
+  version: 1.5.0
   category: testing
   tags: [unit-tests, integration-tests, edge-cases, tdd]
 ---
@@ -112,6 +112,13 @@ methodology repo. Three artifacts (see `references/test-frameworks.md` →
 
 Set a regression threshold (e.g. "judge pass-rate must stay ≥ baseline") and record
 it next to the rubric — but enforcement is the project's CI choice, not this skill's.
+
+**Memory-quality dimension (stateful agents — Day-3 port, v1.32.0).** If the agent has
+long-term memory, add memory-specific criteria to the rubric: *recall* (the right past
+fact is retrieved when relevant), *freshness* (stale records are not used past their
+TTL), *consolidation correctness* (merging duplicates/contradictions does not corrupt a
+fact), and *no poisoning* (untrusted input does not become a trusted memory). These are
+eval criteria, not unit tests — memory quality is non-deterministic like any LLM output.
 
 The same fail-closed rule (Step 5) applies: an eval reported `passed` requires an
 actual judge run with visible output. "I wrote a rubric" is not an eval pass.

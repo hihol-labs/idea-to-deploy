@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.18.0
+  version: 1.19.0
   category: quality-assurance
   tags: [security, audit, vulnerabilities, owasp]
 ---
@@ -52,6 +52,13 @@ Consult `references/security-checklist.md` for the full set of checks. The check
 - **Tier 3 — Recommended**: missing CSP, no input validation library, error messages leak stack, no audit logging
 - **Tier 4 — Informational**: outdated dependencies, missing 2FA option, no penetration test history
 
+**Context & memory integrity (AI/agent targets only — Day-3 port, v1.32.0).** When the
+target is an AI agent / LLM app with a context window or a memory store, additionally run
+the `MEM-*` checks in `references/security-checklist.md`: prompt-injection trust
+boundary, memory poisoning, cross-tenant memory isolation, PII/secrets in context or
+store, memory exfiltration, and unreviewed async memory writers. N/A for non-AI targets.
+The memory store *is* an attack surface — the agentic analogue of injection/auth.
+
 For each check, look at specific files:
 - Auth: middleware, login/register routes, token issuance/verification
 - Secrets: `.env`, `config/*`, anything matching `password=`/`api_key=`/`Bearer ` not pointing to env vars
@@ -72,6 +79,8 @@ Use this exact format (parseable by `/review` and other downstream skills):
 - ✅ SECRET-1: No hardcoded API keys in source
 - ❌ INJECT-1: SQL string concat in user search
        → db/search.py:34 — use parameterized query
+- ❌ MEM-1: tool/RAG output flows into the prompt as instructions (injection)
+       → agents/researcher.py:88 — label retrieved text as data, not instructions
 
 ### Tier 2: Important
 - ⚠️ CSRF-1: No CSRF protection on POST /api/profile

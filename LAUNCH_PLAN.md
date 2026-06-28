@@ -61,11 +61,31 @@ auto-router.**
 
 ---
 
+## Block E — Day-3 Context Engineering (memory & context) — P1 — ✅ DONE (v1.32.0)
+
+Source: Google *New SDLC With Vibe Coding*, Day 3 (*Context Engineering: Sessions,
+Memory* — Milam, Gulli, Nawalgaria, 2026). Two-lens review (business-analyst +
+devils-advocate): ~80% is product-design, not process → lands as opt-in врезки the
+methodology emits when designing a stateful agent, plus one money-portfolio guardrail.
+
+- **Design (output):** `/blueprint` Step 1.6 memory-architecture checklist (opt-in,
+  stateful-agent), `/discover` Step 7.5 statefulness flag.
+- **Security (most differentiated):** `/security-audit` `MEM-1…MEM-6` agent-memory
+  threat model.
+- **Gate (money portfolio):** `/review` `C-code-7` context integrity + `MEMORY_RE`
+  signal in the DoD pre-commit hook (requires `/security-audit` on agent-memory paths).
+- **Runtime + eval + hygiene:** `/harden` `MEM-1`, `/test` Step 3.5 memory-quality
+  dimension, `/session-save` pointer to `consolidate-memory`. ADR-001 Day-3 note.
+- Counts unchanged (38/19); no new skill, no new hook file. `verify_dod_gate.py`
+  19/19. Decisions: gate (not advice) + opt-in flag (not new product type) — confirmed
+  by the user.
+
 ## Backlog / next
 
 - **P2 (deferred):** analyze Day 3 (Context Engineering) and Day 5 (Spec-Driven
   Production) of the series — technically more concrete than Day 1; likely a
-  "context-design step for agent products" follow-up on top of `context-mode-setup`.
+  "context-design step for agent products" follow-up on top of `context-mode-setup`.- **P2 (deferred):** analyze Day 5 (Spec-Driven Production) of the series. Day 3
+  (Context Engineering) — ✅ done in v1.32.0 (Block E above).
 - **Marketing (free win):** use the whitepaper as external validation in
   `docs/competitive-analysis.md` / promo ("structure scales, vibes don't", "agent =
   model + harness") — the user's portfolio *is* the agentic-engineering thesis.

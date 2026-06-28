@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.19.0
+  version: 1.20.0
   category: operations
   tags: [production, hardening, sre, monitoring, observability, reliability]
 ---
@@ -89,6 +89,14 @@ Consult `references/harden-checklist.md` for the full rubric. The checklist has 
   non-deterministic output that tests cannot. Generate via `/test` Step 3.5.
   N/A (passes) for services with no AI/LLM component. Informational, not blocking —
   scoped to AI products only, never a global gate.
+- `MEM-1` **(Day-3 Context Engineering port, v1.32.0)** If the service has an LLM/agent
+  with a durable memory or context store, its **runtime memory hygiene** is covered: a
+  retention/TTL or consolidation job (memory does not grow unbounded), per-tenant
+  isolation in the live query path, and — the load-bearing one — **async / out-of-band
+  memory writers run behind a validation gate, not a blind upsert** (cross-ref ADR-001
+  async-memory note). Pair with an observability signal on memory-store size/staleness.
+  N/A (passes) for services with no agent memory. Informational, not blocking — scoped
+  to AI products only.
 
 ### Step 3: Generate missing artifacts
 

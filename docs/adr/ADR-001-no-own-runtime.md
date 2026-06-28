@@ -66,3 +66,40 @@ policy) are врезки / policies on the existing substrate, never engines.
 - (Risk) Eval / cost signal depends on the user actually running CI and reading the
   ledger; mitigation — the врезки make it visible (`/session-save` snapshot, `/task`
   nudge, `/harden` EVAL-1) but never coerce it.
+
+---
+
+## Note (2026-06-28) — Day-3 Context Engineering scope (v1.32.0)
+
+The same series (Google, *The New SDLC With Vibe Coding*) — **Day 3, Context
+Engineering** — pulls in the same direction the original decision rejected: it is
+tempting to read "manage the agent context window" and "give the agent durable,
+async-updated memory" as *build a context store / a memory service of our own*.
+
+This note extends ADR-001 to that material without reopening it. The decision is
+unchanged:
+
+- **Context engineering is design work, performed *into the user's product*** — a
+  context-budget spec, a retrieval/grounding layout, a prompt-injection boundary, an
+  agent-memory schema. The methodology teaches and reviews this design (врезки in
+  `/blueprint`, `/discover`, `/test`, `/review`, `/harden`, `/security-audit`,
+  `/session-save`); it does **not** ship the store.
+- **Our own context substrate is still not ours to build.** Where the *methodology
+  session itself* needs context-volume control, that is already delegated to
+  **context-mode** (MCP + FTS5) and `context-budget.sh` — see the original Decision.
+  We do not add a second store.
+- **Async-memory policy (the load-bearing distinction).** "Memory that updates out of
+  band" — a background job that writes to an agent's long-term store after the turn —
+  belongs to the **user's deployed product**, not to the plugin. The plugin's own
+  cross-session memory (`MEMORY.md`, `/session-save`) stays **synchronous and
+  in-session**: it is written by an explicit skill step the user can see and review,
+  never by a daemon. An out-of-band writer would be exactly the "persistent service"
+  this ADR forbids, and — more sharply — an *unreviewed* mutation path into context,
+  which is a security surface (see review `C-code-7`, the new `MEMORY_RE` DoD signal,
+  and the `/security-audit` context-integrity врезка). Async memory is therefore a
+  **product pattern we help design and gate**, not a methodology feature.
+
+**Consequence:** Day-3 adds zero runtime, zero new skill, zero new hook *file* — only
+врезки, one new review check (`C-code-7`), and one new risk-signal (`MEMORY_RE`) inside
+the existing DoD hook. Counts stay 38 skills / 19 hooks. The Review date above is
+unchanged; this note is re-evaluated on the same 2026-09-28 cycle.

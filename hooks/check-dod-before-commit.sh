@@ -9,6 +9,7 @@ run in this session:
 
   migration / schema / DDL   -> requires /migrate AND /test
   payments / auth / secrets  -> requires /security-audit
+  agent context / memory     -> requires /security-audit
   brand-new source file with
     no test file staged       -> requires /test
 
@@ -51,6 +52,19 @@ MONEY_AUTH_RE = re.compile(
     r"\bpasswords?\b|passwd|\bsecrets?\b|\btokens?\b|\bcredentials?\b|crypto)",
     re.I,
 )
+# --- agent context / long-term memory files (Day-3 context-engineering, v1.32.0) ---
+# Files that feed an AI/agent context window or its durable memory: an unreviewed
+# write here is a context-integrity / memory-poisoning surface (review C-code-7).
+# Async/out-of-band memory writers especially must not land unreviewed (ADR-001).
+# Scoped to AGENT memory/context artifacts; ordinary docs/config never match.
+MEMORY_RE = re.compile(
+    r"(^|/)(agent[_-]?memory|long[_-]?term[_-]?memory|memor(?:y|ies)[_-]?store|"
+    r"vector[_-]?(?:store|db)|embeddings?[_-]?store|context[_-]?(?:store|window)|"
+    r"system[_-]?prompts?|prompt[_-]?templates?|rag[_-]?(?:index|pipeline)|"
+    r"retriev(?:er|al))[\w./-]*\.(py|js|jsx|ts|tsx|go|rb|java|rs|json|ya?ml|toml)$",
+    re.I,
+)
+
 # Source extensions whose BRAND-NEW files should ship with a test.
 # Shell/infra scripts deliberately excluded — rarely unit-tested here,
 # and excluding them keeps the gate from blocking its own hook commits.
@@ -123,6 +137,12 @@ def required_skills(entries: list) -> dict:
 
     if any(MONEY_AUTH_RE.search(p) for p in paths):
         req["security-audit"] = "затронуты платежи/auth/секреты (путь файла)"
+
+    if any(MEMORY_RE.search(p) for p in paths):
+        req.setdefault(
+            "security-audit",
+            "AI-агент: файл контекста/долговременной памяти (context-integrity)",
+        )
 
     new_src = [
         p for s, p in entries
