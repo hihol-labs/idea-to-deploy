@@ -442,6 +442,23 @@ TRIGGERS = [
         "вместо дампа в контекст; детект install + lifecycle-fit, гейты методологии не трогает). "
         "Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(\bseo\b|\bсео|поисков\w*\s+оптимиз|"
+        r"schema\s+markup|schema\.org|разметк\w*\s+schema|микроразметк|json-?ld|structured\s+data|"
+        r"core\s+web\s+vitals|web\s+vitals|"
+        r"\bsitemap|карт\w*\s+сайта|"
+        r"e-?e-?a-?t|eeat|"
+        r"ai\s+overview|geo\s+optimiz|generative\s+engine|ai\s+search\s+visib|"
+        r"technical\s+seo|техническ\w*\s+seo|on-?page\s+seo|"
+        r"search\s+ranking|поисков\w*\s+выдач|ранжирован\w*\s+сайт|"
+        r"backlink|обратн\w*\s+ссылк|ссылочн\w*\s+профил|"
+        r"keyword\s+research|ключев\w*\s+слов|semantic\s+cluster|кластеризац\w*\s+ключ)",
+        "🔔 Триггер 'SEO / поисковая оптимизация / schema / Core Web Vitals / GEO' → используй /seo-setup "
+        "(интеграция upstream Claude SEO plugin AgriciDaniel/claude-seo, MIT: 25 скиллов + 18 агентов "
+        "для technical SEO, E-E-A-T, schema, sitemap, CWV, local, backlinks, AI/GEO, hreflang, Google APIs; "
+        "детект install + маппинг на жизненный цикл discover/blueprint/kickstart/harden/deploy, гейты не трогает). "
+        "Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 
