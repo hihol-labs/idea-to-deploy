@@ -1,0 +1,41 @@
+# Expected files after /security-guidance-setup runs
+#
+# NONE. /security-guidance-setup is a read-only orchestrator/integration skill — it
+# detects whether the official security-guidance plugin is installed and runs or
+# prints the verified install command for the user. It MUST NOT create or modify
+# project files.
+#
+# Presence of ANY file in the output dir after a /security-guidance-setup run is a
+# contract violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-29-security-guidance-setup/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /security-guidance-setup MUST NOT:
+#   - Write / Edit project files (it's a detect-and-advise integration only)
+#   - Perform any global/network install of the upstream plugin, or edit shell
+#     profiles / plugin config, without explicit user approval
+#   - Copy upstream security-guidance first-party source (hooks/patterns/reviewer)
+#     into this repo
+#   - Claim security-guidance is installed/active without detecting it (claude plugin
+#     list / claude plugin details) — it ships default-on, but verify
+#   - Describe the mechanism as invented tools (upstream 2.0.0 is 3 layers + hooks on
+#     SessionStart / UserPromptSubmit / PostToolUse Edit-Write-MultiEdit-NotebookEdit
+#     / PostToolUse Bash git commit-push / Stop + ~25 patterns + env-var config)
+#   - Present security-guidance as a replacement for /security-audit (it complements)
+#   - Hide or weaken an idea-to-deploy gate, verification result, or the
+#     skill-decision line
+#
+# /security-guidance-setup MAY:
+#   - Run read-only detection: `claude --version`, `python3 --version`,
+#     `claude plugin list | grep security-guidance`,
+#     `claude plugin details security-guidance`
+#   - Run or print the verified install command
+#     (`claude plugin install security-guidance@claude-plugins-official`) + restart
+#   - Map the plugin's three review layers onto the lifecycle and advise when to use
+#     it (and the ENABLE_STOP_REVIEW=0 multi-agent caveat)
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor,
+# fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup,
+# fixture-28-seo-setup (read-only, detect/advise stdout flow). Manual verification
+# via notes.md.
