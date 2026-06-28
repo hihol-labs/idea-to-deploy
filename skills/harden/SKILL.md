@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.18.0
+  version: 1.19.0
   category: operations
   tags: [production, hardening, sre, monitoring, observability, reliability]
 ---
@@ -81,6 +81,14 @@ Consult `references/harden-checklist.md` for the full rubric. The checklist has 
 - `CANARY-1` Canary / blue-green deployment strategy
 - `SLO-1` SLOs / SLIs documented
 - `ONCALL-1` On-call rotation documented
+- `EVAL-1` **(New-SDLC port, v1.31.0)** If the service contains an LLM/agent
+  component (it generates, classifies, extracts, translates, or makes
+  non-deterministic decisions), an **eval-suite** exists alongside the tests — a
+  rubric + LM-judge + (for multi-step agents) a trajectory check — with a regression
+  threshold wired into CI. Tests cover deterministic paths; evals cover the
+  non-deterministic output that tests cannot. Generate via `/test` Step 3.5.
+  N/A (passes) for services with no AI/LLM component. Informational, not blocking —
+  scoped to AI products only, never a global gate.
 
 ### Step 3: Generate missing artifacts
 

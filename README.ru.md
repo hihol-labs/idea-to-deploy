@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 38](https://img.shields.io/badge/Skills-38-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.30.0](https://img.shields.io/badge/Version-1.30.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.31.0](https://img.shields.io/badge/Version-1.31.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -505,6 +505,12 @@ chmod +x ~/.claude/hooks/*.sh
 ## Рекомендуемые модели
 
 Начиная с v1.3.0, рекомендуемая модель также прописана в теле каждого скилла в секции `## Recommended model`. Таблица ниже — те же данные в сводной форме. `/blueprint` и `/kickstart` автоматически откатываются в Lite-режим на Sonnet и отказываются работать на Haiku.
+
+> **Политика выбора модели (v1.31.0):** обоснование выбора по фазам — дорогие тиры на
+> reasoning-фазах, дешёвые на механических, ради контроля OpEx — в
+> [`docs/MODEL-ROUTING-POLICY.md`](docs/MODEL-ROUTING-POLICY.md). Это прозрачная
+> политика, применяемая через `/model` + per-agent `model:` frontmatter, а не
+> авто-роутер (см. [ADR-001](docs/adr/ADR-001-no-own-runtime.md)).
 
 | Скилл | Минимум | Рекомендуется | Примечания |
 |-------|---------|---------------|-----------|

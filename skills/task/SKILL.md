@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.18.0
+  version: 1.19.0
   category: workflow
   tags: [router, daily-work, tech-debt, existing-code, methodology]
 ---
@@ -81,6 +81,15 @@ Before routing, classify the task's **process-cost tier** so the methodology sca
 - **high-risk** (the target is `migrate`/`migrate-prod`/`deploy`/`infra`/`autopilot`, or the change touches production data, schema, auth, payments, or security) → apply the full `.itd/` contract set + permission matrix + branch-finish + **explicit user approval** before acting.
 
 State the tier in one line when you route ("это standard-задача → /refactor"). When unsure between two tiers, pick the higher one.
+
+**Cost-awareness (v1.31.0 — New-SDLC port):** for a **high-risk** tier or a heavy
+target (`/kickstart`, `/autopilot`, long `/perf`/`/bugfix` sweeps) note that
+`hooks/cost-tracker.sh` keeps a per-session token/USD ledger and will ASK at the
+budget ceiling — set `ITD_COST_CEILING_TOKENS` (and `ITD_COST_PER_1M_USD`) per project
+to make the ceiling meaningful, and `/session-save` will attach the cost snapshot at
+wrap-up. This is a one-line nudge, not a gate — never block routing on it. (Token
+economics is the OpEx lever for agent-heavy products; see ADR-001 — accounting rides
+the existing hook, we don't build our own collector.)
 
 ### Step 2: Determine the task type
 

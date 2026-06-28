@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.1.0
   category: efficiency
   tags: [context-mode, context-window, token-efficiency, sandbox, fts5, integration]
 ---
@@ -146,6 +146,25 @@ Where it pays off most in the lifecycle:
 **Do not** enable it for short, single-shot tasks — the ~631-tok always-on
 overhead and the sandbox indirection cost more than they save when output is
 already small.
+
+## Cost visibility — where to see OpEx (v1.31.0 — New-SDLC port)
+
+Context engineering is a financial lever: less output in context = fewer tokens =
+lower OpEx, the dominant cost for agent-heavy products. idea-to-deploy surfaces this
+from two complementary places, **both reusing runtime that already exists** (no own
+metrics platform — see ADR-001):
+
+- **`ctx-stats`** (this plugin) — the context **savings** ratio: how many raw tool
+  bytes were kept out of context this session.
+- **`hooks/cost-tracker.sh`** (idea-to-deploy, since v1.18.0) — the per-session
+  token/USD **ledger** with a soft 80% warning and a hard-ceiling ASK at 100%
+  (`ITD_COST_CEILING_TOKENS` / `ITD_COST_PER_1M_USD`). `/session-save` Step 4.6
+  attaches a snapshot of it at wrap-up.
+
+Read them together: `ctx-stats` shows what context-mode saved; the cost ledger shows
+what the session actually spent. Neither is an observability *platform* — they are
+lightweight accounting on top of existing hooks, deliberately not a runtime we build
+or operate.
 
 ## Coexistence with idea-to-deploy hooks
 
