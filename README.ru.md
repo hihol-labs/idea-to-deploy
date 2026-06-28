@@ -11,7 +11,7 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 36](https://img.shields.io/badge/Skills-36-green.svg)](#скиллы)
+[![Skills: 37](https://img.shields.io/badge/Skills-37-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
 [![Version: 1.28.0](https://img.shields.io/badge/Version-1.28.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -20,7 +20,7 @@
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 36 скиллов и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 37 скиллов и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 36 скиллов + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 37 скиллов + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -71,7 +71,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 36 папок скиллов
+  ├── skills/          # 37 папок скиллов
   ├── agents/          # 10 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
@@ -200,12 +200,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/blueprint` | Б) Только план | 6 файлов документации, без кода |
 | `/guide` | В) Уже есть документация | Уже есть архитектура и план (после маршрута Б, от другого разработчика или из другого инструмента) — генерирует пошаговые промпты для реализации |
 
-### Контроль качества (4 скилла)
+### Контроль качества (5 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
 | `/review` | Валидация документации и кода через детерминированную бинарную рубрику (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
+| `/security-guidance-setup` | **Новое в v1.29.0.** Security-компаньон — настраивает и интегрирует официальный [плагин security-guidance](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) от Anthropic (бесплатный, ships default-on). Shift-left, всегда-включённый ревьюер кода от Claude: regex pattern-warnings на каждом Edit/Write, LLM diff-ревью на Stop (находки возвращаются до того как вы увидите ответ) и агентский commit/push-ревью кросс-файловых уязвимостей (IDOR, auth bypass, SSRF). Детектит установку, печатает проверенную CLI-команду, маппит на жизненный цикл. **Комплемент** к `/security-audit` (on-demand аудит), НЕ замена; код upstream не вендорится; гейты не затрагиваются. |
 | `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
 | `/browser-check` | **Новое в v1.21.0.** Локальный browser smoke-тест фронтенд/фуллстек/визуальных флоу через встроенный Playwright-харнесс (fallback: Browser Use / in-app browser) — проверяет первый рендер + критический путь (навигация, формы, состояния). Поломка рендера/флоу → BLOCKED до деплоя. |
 
@@ -328,6 +329,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/caveman` | Режим `lite`/`full`/`ultra`/`wenyan-*` или `normal mode` | Ничего — меняет только стиль ответа (stdout) | Нет (read-only; стиль на уровне сессии) | ✅ |
 | `/context-mode-setup` | `status`/`install`/`doctor`/`off` | Ничего — stdout (детект состояния + печать/запуск команд install upstream); код upstream не вендорится | Нет (read-only; только детект и совет) | ✅ |
 | `/seo-setup` | `status`/`install`/`audit-map`/`off` | Ничего — stdout (детект состояния + печать/запуск команд install upstream + карта жизненного цикла); код upstream не вендорится | Нет (read-only; только детект и совет) | ✅ |
+| `/security-guidance-setup` | `status`/`install`/`lifecycle-map`/`off` | Ничего — stdout (детект состояния + печать/запуск команды install upstream + карта жизненного цикла); код upstream не вендорится | Нет (read-only; только детект и совет) | ✅ |
 
 **Как читать таблицу:**
 - **Идемпотентен ✅** — безопасно запускать дважды с одним входом. Результат не меняется.
@@ -540,6 +542,7 @@ chmod +x ~/.claude/hooks/*.sh
 | `/caveman` | Haiku | Sonnet | Только управление стилем — без генерации кода/доков |
 | `/context-mode-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команд, без генерации |
 | `/seo-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команд + карта жизненного цикла, без генерации |
+| `/security-guidance-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команды + карта жизненного цикла, без генерации |
 
 ## Для кого
 
@@ -633,7 +636,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 36. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 37. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

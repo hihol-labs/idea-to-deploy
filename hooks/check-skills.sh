@@ -459,6 +459,21 @@ TRIGGERS = [
         "детект install + маппинг на жизненный цикл discover/blueprint/kickstart/harden/deploy, гейты не трогает). "
         "Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(security[\s-]?guidance|плагин\s+security|секьюрити[\s-]?гайденс|"
+        r"shift[\s-]?left\s+security|сдвиг\w*\s+безопасност\w*\s+влево|"
+        r"real[\s-]?time\s+security|безопасност\w*\s+на\s+лету|безопасност\w*\s+в\s+реальном\s+времени|"
+        r"security\s+review\s+(as|when|while|on\s+commit)|review\s+code\s+as\s+(it|i)\b|"
+        r"безопасност\w*\s+при\s+написании|ревью\s+безопасност\w*\s+при\s+коммит|commit\s+security\s+review|"
+        r"автоматическ\w*\s+security|авто[\s-]?ревью\s+безопасност|automatic\s+security\s+review|"
+        r"лов\w*\s+уязвимост|catch\s+vulnerabilit\w*\s+as\s+you|vulnerabilit\w*\s+as\s+you\s+(code|write)|"
+        r"official\s+security\s+plugin|официальн\w*\s+security[\s-]?плагин)",
+        "🔔 Триггер 'security-guidance / shift-left security / ревью безопасности на лету' → используй /security-guidance-setup "
+        "(интеграция официального Anthropic-плагина security-guidance: 3 слоя — pattern-warnings на каждом Edit/Write, "
+        "LLM diff-ревью на Stop, агентский commit/push-ревью кросс-файловых уязвимостей; ships default-on, free. "
+        "Детект install + маппинг на жизненный цикл; КОМПЛЕМЕНТ к /security-audit, не замена; гейты не трогает). "
+        "Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 

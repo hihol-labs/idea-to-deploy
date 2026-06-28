@@ -67,6 +67,8 @@
     {"id": "deploy-1", "text": "Задеплой на прод последнюю сборку", "expectedSkill": "deploy"},
     {"id": "deploy-2", "text": "Push to prod and run the healthcheck", "expectedSkill": "deploy"},
     {"id": "seo-setup-1", "text": "Надо подтянуть поисковую выдачу сайта и проверить core web vitals", "expectedSkill": "seo-setup"},
-    {"id": "seo-setup-2", "text": "Help me improve search ranking and add schema markup to the site", "expectedSkill": "seo-setup"}
+    {"id": "seo-setup-2", "text": "Help me improve search ranking and add schema markup to the site", "expectedSkill": "seo-setup"},
+    {"id": "security-guidance-setup-1", "text": "Хочу чтобы Claude ловил уязвимости на лету пока пишет код — как включить security-guidance?", "expectedSkill": "security-guidance-setup"},
+    {"id": "security-guidance-setup-2", "text": "Set up the official security-guidance plugin for shift-left security review on commit", "expectedSkill": "security-guidance-setup"}
   ]
 }
