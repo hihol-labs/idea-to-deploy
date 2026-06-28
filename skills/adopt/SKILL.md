@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.21.0
+  version: 1.22.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -110,6 +110,12 @@ Branch on existing state:
 - **File present with marker** → skip. Report «CLAUDE.md уже содержит idea-to-deploy блок, не трогаю».
 
 **Never** rewrite or remove the user's existing content. The marker is the source of truth for future updates — a user who wants to re-adopt can delete the block manually.
+
+> **Consolidation (Day-5 SDD).** Prefer a **single** `CLAUDE.md` as the agent's
+> operational manifest (the `AGENTS.md` equivalent). If the project scatters agent
+> instructions across many files (READMEs, ad-hoc prompt docs, multiple `*.cursorrules`
+> / `*.md`), flag it as *instructional fragmentation* in the Step 4 report and suggest
+> consolidating into `CLAUDE.md` — do not auto-merge their content here.
 
 ### Step 2: Write / merge .claude/settings.json
 

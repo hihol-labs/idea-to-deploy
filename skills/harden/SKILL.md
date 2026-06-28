@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.20.0
+  version: 1.21.0
   category: operations
   tags: [production, hardening, sre, monitoring, observability, reliability]
 ---
@@ -97,6 +97,18 @@ Consult `references/harden-checklist.md` for the full rubric. The checklist has 
   async-memory note). Pair with an observability signal on memory-store size/staleness.
   N/A (passes) for services with no agent memory. Informational, not blocking — scoped
   to AI products only.
+- `ZT-1` **(Day-5 Zero-Trust port, v1.33.0)** If the service runs an LLM/agent that
+  can call tools or take actions, a **zero-trust guardrail layer** is in place: (a) a
+  **policy server** — deterministic allow/deny on each action by role + environment
+  (computational rules, not vibes); (b) **sandboxing** — agent-invoked code/tools run
+  in an isolated boundary (container / `GEMINI_SANDBOX=docker`-style), not on the host;
+  (c) **human-in-the-loop** on irreversible/ambiguous actions (the agent surfaces a
+  failing test or repro before a fix, and waits for approval on side effects); (d)
+  optional **semantic gating** — an LLM "referee" that judges action intent — wired as
+  an **ASK / advisory signal only, never a hard block** (a hook cannot pause the model
+  loop; an inferential gate is non-deterministic — ADR-001, the retired score-gate
+  lesson). N/A (passes) for services with no agent / tool-calling component.
+  Informational, not blocking — scoped to AI products only.
 
 ### Step 3: Generate missing artifacts
 

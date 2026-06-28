@@ -103,3 +103,27 @@ unchanged:
 врезки, one new review check (`C-code-7`), and one new risk-signal (`MEMORY_RE`) inside
 the existing DoD hook. Counts stay 38 skills / 19 hooks. The Review date above is
 unchanged; this note is re-evaluated on the same 2026-09-28 cycle.
+
+---
+
+## Note (2026-06-28) — Day-5 Spec-Driven Production scope (v1.33.0)
+
+Day 5 of the series (*Spec-Driven Production*) tempts hardest toward an owned runtime:
+its summary ships an `agents-cli scaffold / eval run / deploy` — exactly the `itd` CLI
+this ADR rejects. The decision is unchanged:
+
+- **`agents-cli` / owned agent-runtime → icebox.** Scaffolding, eval-running and deploy
+  are delegated to the existing substrate (skills generate artifacts into the user's
+  project; the user's CI runs them). We do not ship a CLI / daemon.
+- **Zero-Trust Development is product design we help build, not our engine.** Policy
+  server, sandboxing, human-in-the-loop, context hygiene — врезки the methodology
+  *teaches and audits* (`/harden` `ZT-1`, `/security-audit` `MEM-7`, `/blueprint`
+  Step 1.6), realized inside the *user's* deployed agent.
+- **Semantic gating is an ASK, never a hard gate.** An LLM "referee" over an action is
+  inferential; a blocking inferential gate is non-deterministic (the retired score-gate
+  lesson). It is surfaced as advisory / ASK only — a hook cannot pause the model loop,
+  the same realization as `cost-tracker.sh` v1.30.0 and the `MEMORY_RE` signal.
+
+**Consequence:** Day-5 adds zero runtime, zero new skill, zero new hook file — only
+врезки (`ZT-1`, `MEM-7`, blueprint/adopt/review pointers). Counts stay 38 skills /
+19 hooks. Re-evaluated on the same 2026-09-28 cycle.

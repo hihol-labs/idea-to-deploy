@@ -80,12 +80,30 @@ methodology emits when designing a stateful agent, plus one money-portfolio guar
   19/19. Decisions: gate (not advice) + opt-in flag (not new product type) — confirmed
   by the user.
 
+## Block F — Day-5 Spec-Driven Production (Zero-Trust + SDD) — P1 — ✅ DONE (v1.33.0)
+
+Source: Google *New SDLC With Vibe Coding*, Day 5 (*Spec-Driven Production* — Boonstra
+et al., 2026). Two-lens review: ~70% already covered (evals, prompt-injection,
+agent-memory, cross-review, cost/routing from Day-1/3). Real delta = Zero-Trust runtime
+guardrails (no prior coverage) + spec-driven culture shift. Scope C (Zero-Trust + SDD),
+semantic gating advisory-only — user-confirmed.
+
+- **Zero-Trust (the differentiated gap):** `/harden` `ZT-1` (policy server, sandbox,
+  HITL, advisory semantic gating), `/security-audit` `MEM-7` (context hygiene /
+  tool-arg sanitization), `/blueprint` Step 1.6 point 8 (guardrail-layer design).
+- **SDD culture:** `/blueprint` spec-as-source + single-AGENTS.md pointer, `/adopt`
+  instructional-fragmentation flag, `/review` Conditional-LGTM / Bundled-Risk format.
+- **Icebox (ADR-001):** `agents-cli` owned runtime rejected; semantic gating = ASK,
+  never a hard inferential gate (retired score-gate lesson).
+- Counts unchanged (38/19); no new skill, no new hook file. ADR-001 Day-5 note.
+
 ## Backlog / next
 
 - **P2 (deferred):** analyze Day 3 (Context Engineering) and Day 5 (Spec-Driven
   Production) of the series — technically more concrete than Day 1; likely a
   "context-design step for agent products" follow-up on top of `context-mode-setup`.- **P2 (deferred):** analyze Day 5 (Spec-Driven Production) of the series. Day 3
-  (Context Engineering) — ✅ done in v1.32.0 (Block E above).
+  (Context Engineering) — ✅ done in v1.32.0 (Block E above).- **Series complete.** Day 1 (v1.31.0, Blocks A/D/C/B), Day 3 (v1.32.0, Block E),
+  Day 5 (v1.33.0, Block F) all ported. No further whitepaper days outstanding.
 - **Marketing (free win):** use the whitepaper as external validation in
   `docs/competitive-analysis.md` / promo ("structure scales, vibes don't", "agent =
   model + harness") — the user's portfolio *is* the agentic-engineering thesis.
