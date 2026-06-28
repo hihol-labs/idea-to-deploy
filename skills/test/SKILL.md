@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: testing
   tags: [unit-tests, integration-tests, edge-cases, tdd]
 ---
@@ -71,6 +71,50 @@ Follow quality rules:
 - Avoid testing implementation details — test behavior
 - Use realistic test data, not "foo" / "bar"
 - Mock external dependencies only, not internal code
+
+### Step 3.5: Eval-suite branch — for AI/LLM/agent code (opt-in, scoped — New-SDLC port, v1.31.0)
+
+**Trigger this branch only when** the code under test itself calls an LLM/agent or
+produces non-deterministic output (`side_effect: agent`/`command-execution` with an
+LLM in the loop), OR the user explicitly asks for an eval. For ordinary
+deterministic code (CRUD, pure functions, UI), **skip this branch entirely** — the
+normal Steps 3–6 are sufficient.
+
+Why this exists: tests assert *deterministic* contracts (same input → same output).
+LLM/agent outputs are *non-deterministic* — a passing unit test says nothing about
+whether the model's answer is actually good. The discipline that covers that gap is
+an **eval**: a rubric + a judge + (for multi-step agents) a trajectory check. Without
+both, shipping an AI feature is still vibe coding. (Source: Google "The New SDLC With
+Vibe Coding", 2026 — evals are the non-deterministic counterpart to tests.)
+
+**This is opt-in and scoped — NOT a global gate.** It never blocks a commit and never
+runs for non-AI projects. (Deliberate: a hard global eval gate would falsely block
+ordinary work — the same failure mode that retired the score≥7 gate and the
+acceptance-gate experiment. Eval signal is generated and made visible, not enforced.)
+
+Generate the eval-suite **into the user's project** (an `evals/` dir), never into the
+methodology repo. Three artifacts (see `references/test-frameworks.md` →
+"LLM / agent eval patterns" for full templates):
+
+1. **`evals/<feature>.rubric.md`** — the scoring rubric: 3–7 binary or 1–5 scaled
+   criteria the output must satisfy (e.g. for a product-card generator: *factually
+   grounded in the source SKU, no hallucinated specs, on-brand tone, within length,
+   valid target language*). The rubric is the contract — "an eval without a clear
+   rubric measures nothing."
+2. **`evals/<feature>.judge.py`** (or `.ts`) — an **LM-judge stub**: feeds (input,
+   output, rubric) to a judge model and returns per-criterion pass/score + rationale.
+   Stub, because the project wires its own model client; ships the prompt + parsing
+   shape, marked `TODO: wire model client`.
+3. **`evals/<feature>.trajectory.json`** — a **trajectory-eval scaffold** for
+   multi-step agents only (auto-buying, reconciliation, customer-service loops):
+   golden input → expected tool-call sequence / decision checkpoints, so a regression
+   in the agent's *path* (not just final answer) is caught.
+
+Set a regression threshold (e.g. "judge pass-rate must stay ≥ baseline") and record
+it next to the rubric — but enforcement is the project's CI choice, not this skill's.
+
+The same fail-closed rule (Step 5) applies: an eval reported `passed` requires an
+actual judge run with visible output. "I wrote a rubric" is not an eval pass.
 
 ### Step 4: Place tests
 Follow the project's existing conventions:

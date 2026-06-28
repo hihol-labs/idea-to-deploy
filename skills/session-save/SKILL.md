@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.5.0
+  version: 1.6.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -212,6 +212,31 @@ lock.write_text(json.dumps({
 The lockfile MUST be idempotent — it's rewritten on every `/session-save`
 call, never appended. Stale locks self-expire (the pre-flight hook
 ignores any lock older than 10 minutes).
+
+### Step 4.6: Cost snapshot (v1.31.0 — New-SDLC port)
+
+Attach a token/cost snapshot to the session memory so OpEx is *visible* at wrap-up —
+context engineering is a financial lever, and a fleet of agents needs cost-awareness,
+not just correctness. **No new collector:** read the ledger that `hooks/cost-tracker.sh`
+already maintains for this session (shipped since v1.18.0, hard-ceiling ASK since
+v1.30.0). This is lightweight accounting, **not** an observability platform (see
+ADR-001 — we delegate runtime to existing hooks, we don't build our own).
+
+```bash
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+ledger="$(ls -1t /tmp/claude-cost-${CLAUDE_SESSION_ID:-*}.json "$tmpd"/claude-cost-${CLAUDE_SESSION_ID:-*}.json 2>/dev/null | head -1)"
+if [ -n "$ledger" ] && [ -f "$ledger" ]; then
+  echo "— Cost snapshot —"; cat "$ledger"
+else
+  echo "cost ledger not found (cost-tracker.sh inactive this session)"
+fi
+```
+
+If a ledger exists, add a **`## Стоимость сессии`** line to the session memory file
+(estimated tokens + blended USD, and whether the soft/hard ceiling was hit). If
+`ctx-stats` is available (context-mode installed), note its context-savings figure on
+the same line — the two together are the "where to see cost" picture. If no ledger
+exists, this step is a soft no-op — never block `/session-save` on it.
 
 ### Step 4.7: Auto-sync methodology (v1.18.1)
 

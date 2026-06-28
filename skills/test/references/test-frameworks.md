@@ -324,3 +324,94 @@ def test_create_order_with_negative_total_rejects():
 4. **Database in transaction** — wrap each test in a transaction that rolls back
 5. **No real network calls** — mock everything; one integration test path is fine
 6. **No real time** — freeze time with `freezegun` (Python) or `vi.useFakeTimers()` (vitest)
+
+---
+
+## LLM / agent eval patterns (for `/test` Step 3.5 — non-deterministic code)
+
+> Used **only** when the code under test calls an LLM/agent or emits
+> non-deterministic output. Skip for ordinary deterministic code. Tests assert
+> deterministic contracts; **evals** assert quality of non-deterministic output.
+> The two are complementary — shipping an AI feature on tests alone is vibe coding.
+
+Three layers, smallest to largest:
+
+### 1. Rubric (the contract)
+
+A rubric is a short, explicit list of criteria the output must satisfy. Binary
+criteria are more reproducible than 1–5 scales; use scales only when "how good"
+genuinely matters. Keep it 3–7 items — a vague or missing rubric measures nothing.
+
+```markdown
+# evals/product-card.rubric.md
+Criteria (each PASS/FAIL):
+1. grounded     — every spec in the card appears in the source SKU data (no hallucinated specs)
+2. complete     — title, 3+ bullet benefits, and description all present
+3. on-brand     — tone matches the brand guide (no superlatives banned by guide)
+4. length       — description 300–600 chars
+5. language     — output is in the requested target language, fully translated
+Threshold: 5/5 PASS on the golden set; pass-rate must stay >= baseline.
+```
+
+### 2. LM-as-judge (the scorer)
+
+A judge model scores (input, output) against the rubric. Ship the prompt + the
+parsing shape; wire the project's own model client. Keep the judge model and the
+generator model distinct where possible (a model judging itself is biased).
+
+```python
+# evals/product_card_judge.py  — LM-judge STUB
+import json
+
+JUDGE_PROMPT = """You are a strict evaluator. Given INPUT, OUTPUT, and RUBRIC,
+score each criterion PASS or FAIL and give a one-line reason. Default to FAIL when
+unsure. Return JSON: {"results": [{"criterion": str, "pass": bool, "reason": str}]}.
+
+INPUT:\n{input}\n\nOUTPUT:\n{output}\n\nRUBRIC:\n{rubric}"""
+
+def judge(input_text: str, output_text: str, rubric: str) -> dict:
+    prompt = JUDGE_PROMPT.format(input=input_text, output=output_text, rubric=rubric)
+    # TODO: wire model client, e.g. Anthropic Messages API with model="claude-..."
+    # raw = client.messages.create(model=..., messages=[{"role":"user","content":prompt}])
+    # return json.loads(raw.content[0].text)
+    raise NotImplementedError("wire the model client, then parse JSON result")
+
+def pass_rate(results: list[dict]) -> float:
+    crits = [c for r in results for c in r["results"]]
+    return sum(c["pass"] for c in crits) / len(crits) if crits else 0.0
+```
+
+Run it over a small **golden set** (10–50 representative inputs with known-good
+expectations), not a single demo. "Set the bar at the eval, not the demo."
+
+### 3. Trajectory eval (multi-step agents only)
+
+For agents that take *steps* (auto-buying: search → price → order; reconciliation:
+parse → match → flag; customer service: classify → retrieve → respond), assert the
+**path**, not just the final answer — a right answer reached by a wrong/unsafe route
+(e.g. placing an order before a human gate) is a failure.
+
+```json
+// evals/auto-buy.trajectory.json
+{
+  "cases": [{
+    "input": "restock SKU-123, max buyout 1500 RUB",
+    "expected_steps": [
+      {"tool": "search_suppliers", "must_include_args": {"sku": "SKU-123"}},
+      {"tool": "compute_buyout_price", "assert": "result <= 1500"},
+      {"checkpoint": "human_gate", "required": true, "reason": "order is irreversible — must pause for approval"}
+    ],
+    "must_not": [{"tool": "place_order", "before_checkpoint": "human_gate"}]
+  }],
+  "threshold": "all cases: expected_steps in order AND no must_not violations"
+}
+```
+
+The `human_gate` / `must_not` rows tie directly to `/review` check `C-code-6`
+(irreversible external actions must be human-gated) — the eval proves at test time
+what the review checks at read time.
+
+### Fail-closed
+
+An eval result is `passed` only with an actual judge run + visible scores. A written
+rubric with no run is **not** a pass — same rule as the `/test` fail-closed gate.
