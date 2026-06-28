@@ -149,7 +149,7 @@ already small.
 
 ## Coexistence with idea-to-deploy hooks
 
-idea-to-deploy registers **17 enforcement hooks** (PreToolUse/PostToolUse/
+idea-to-deploy registers **19 enforcement hooks** (PreToolUse/PostToolUse/
 UserPromptSubmit/Stop/PreCompact/SessionStart). Context Mode registers **6**
 lifecycle hooks on overlapping events. Claude Code runs multiple plugins' hooks
 side by side — verified: after installing Context Mode, `~/.claude/settings.json`

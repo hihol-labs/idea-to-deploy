@@ -113,13 +113,14 @@ Branch on existing state:
 
 ### Step 2: Write / merge .claude/settings.json
 
-Read the template from `references/project-settings-template.json`. It encodes the same hook layout that `scripts/sync-to-active.sh` installs at user-level, but pointed at the plugin's hooks (via `~/.claude/plugins/idea-to-deploy/hooks/` by default — use the plugin hooks dir resolved in Step 0.4). Substitute `{{PLUGIN_HOOKS_DIR}}` in every `command` value.
+Read the template from `references/project-settings-template.json`. It encodes the same hook layout that `scripts/sync-to-active.sh` installs at user-level, but pointed at the plugin's hooks (via `~/.claude/plugins/idea-to-deploy/hooks/` by default — use the plugin hooks dir resolved in Step 0.4). Substitute `{{PLUGIN_HOOKS_DIR}}` in every `command` value. The template carries two keys: `hooks` (enforcement) and `permissions.ask` (recommended ASK guardrails for dangerous OS tool-classes — native Claude Code permissions, no custom DSL). Strip the `_comment_*` keys before writing.
 
-Branch:
+Branch (apply the same logic independently to `hooks` and to `permissions`):
 
-- **`.claude/settings.json` absent** → `mkdir -p .claude/` and `Write` the template with plugin-dir paths substituted.
-- **Exists, no `hooks` key** → `Edit` to add the `hooks` key from the template. Preserve every other key (`permissions`, `env`, `statusLine`, `model`, …).
-- **Exists with `hooks` key** → merge. For each event (`UserPromptSubmit`, `PreToolUse`), add any of our hook entries that are missing, matched by `command` path. **Never** remove the user's existing hooks. If all our hooks are already present → skip.
+- **`.claude/settings.json` absent** → `mkdir -p .claude/` and `Write` the template (hooks + permissions) with plugin-dir paths substituted, comments stripped.
+- **Exists, no `hooks` key** → `Edit` to add the `hooks` key from the template. Preserve every other key (`env`, `statusLine`, `model`, …).
+- **Exists with `hooks` key** → merge. For each event (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`), add any of our hook entries that are missing, matched by `command` path. **Never** remove the user's existing hooks. If all our hooks are already present → skip.
+- **`permissions` merge** → add our `permissions.ask` rules that are missing, matched by exact rule string (e.g. `Bash(rm:*)`). **Never** remove or reorder the user's existing `permissions.allow` / `permissions.deny` / other `permissions.ask` rules. If the user has no `permissions` key, create it with our `ask` list. If all our rules are already present → skip. This guardrail set is a recommended default — if the user declines, omit it; do not force it.
 
 **Never** touch `~/.claude/settings.json` (user-level). Project-level settings apply in this directory only.
 
@@ -247,7 +248,8 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 Before reporting adoption as complete, verify:
 
 - [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
-- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 5 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, check-skill-completeness), and `record-agent-skill` in `hooks.PostToolUse` (matcher `Task|Agent` — counts subagent review/test/security toward the commit gates)
+- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 6 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, check-skill-completeness, pii-egress-guard), and all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`)
+- [ ] `$PROJECT_ROOT/.claude/settings.json` carries the recommended `permissions.ask` OS-tool-class guardrails (rm/sudo/chown/dd/mkfs/kill/…) merged without clobbering the user's existing `permissions` (or the user explicitly declined them)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir

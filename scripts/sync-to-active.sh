@@ -13,8 +13,11 @@
 # What it syncs:
 #   1. skills/*              → ~/.claude/skills/
 #   2. hooks/*.sh            → ~/.claude/hooks/
-#   3. settings.json hooks   → registers all 7 hooks with correct matchers
-#      (3 × UserPromptSubmit + 4 × PreToolUse across 3 matcher groups)
+#   3. settings.json hooks   → registers the enforcement/guardrail hooks with
+#      correct matchers: 3 × UserPromptSubmit; PreToolUse (check-tool-skill,
+#      commit/review/dod gates, context-budget, check-skill-completeness,
+#      pii-egress-guard on Bash|WebFetch); PostToolUse (record-agent-skill on
+#      Task|Agent, cost-tracker + risk-score on *)
 #
 # What it does NOT touch:
 #   - ~/.claude/settings.json keys other than "hooks" (env, permissions, etc.)
@@ -261,6 +264,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 }
       ]
+    },
+    {
+      "matcher": "Bash|WebFetch",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/pii-egress-guard.sh", "timeout": 5 }
+      ]
     }
   ],
   "PostToolUse": [
@@ -268,6 +277,13 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "matcher": "Task|Agent",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/record-agent-skill.sh", "timeout": 5 }
+      ]
+    },
+    {
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh", "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/risk-score.sh",   "timeout": 5 }
       ]
     }
   ]

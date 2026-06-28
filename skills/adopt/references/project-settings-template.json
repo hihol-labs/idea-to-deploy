@@ -2,7 +2,7 @@
   "_comment_1": "Project-level .claude/settings.json template for idea-to-deploy adoption.",
   "_comment_2": "Placed by /adopt in $PROJECT_ROOT/.claude/settings.json — NOT in ~/.claude/settings.json.",
   "_comment_3": "Substitute {{PLUGIN_HOOKS_DIR}} with the resolved plugin hooks directory (default: ~/.claude/plugins/idea-to-deploy/hooks). Legacy sync-to-active.sh installs use ~/.claude/hooks.",
-  "_comment_4": "If the user already has .claude/settings.json, /adopt merges hooks entries without duplicating (match by command path). User's existing keys (permissions, env, statusLine, model) are preserved.",
+  "_comment_4": "If the user already has .claude/settings.json, /adopt merges hooks entries (by command path) AND permissions.ask entries (by rule string) without duplicating. User's existing permissions.allow / permissions.deny / other permissions.ask rules, env, statusLine, and model are preserved — never removed.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -33,6 +33,12 @@
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 }
         ]
+      },
+      {
+        "matcher": "Bash|WebFetch",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/pii-egress-guard.sh", "timeout": 5 }
+        ]
       }
     ],
     "PostToolUse": [
@@ -41,7 +47,30 @@
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/record-agent-skill.sh", "timeout": 5 }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh", "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/risk-score.sh",   "timeout": 5 }
+        ]
       }
+    ]
+  },
+  "_comment_5": "Recommended ASK guardrails for dangerous OS tool-classes via NATIVE Claude Code permissions (no custom DSL — omnigent OS-tool-class ASK ported onto the harness's own allow/deny/ask). They prompt for confirmation before genuinely destructive shell commands. Rule form Bash(cmd:*) matches when the FIRST token equals cmd, so Bash(sudo:*) also catches sudo-escalated variants. Egress (curl/wget) is intentionally left to pii-egress-guard.sh, and destructive git/db to careful.sh, to avoid double-prompting. Bash(chmod:*) is intentionally OMITTED (chmod +x fires constantly in normal dev — add it back for locked-down projects). kill/killall/pkill prompt frequently in dev-server workflows; tune or remove per project. Note: command-name rules do not catch full-path (/bin/rm) or indirect (find -delete) variants — careful.sh covers the destructive-pattern angle.",
+  "permissions": {
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(sudo:*)",
+      "Bash(chown:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Bash(kill:*)",
+      "Bash(killall:*)",
+      "Bash(pkill:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)"
     ]
   }
 }

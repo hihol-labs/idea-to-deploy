@@ -11,16 +11,16 @@
 Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 37](https://img.shields.io/badge/Skills-37-green.svg)](#skills)
+[![Skills: 38](https://img.shields.io/badge/Skills-38-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.29.0](https://img.shields.io/badge/Version-1.29.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.30.0](https://img.shields.io/badge/Version-1.30.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 37 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 38 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
 
 ## Demo
 
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 37 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 38 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -71,7 +71,7 @@ After installation, the skills and agents are registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 37 skill directories
+  ├── skills/          # 38 skill directories
   ├── agents/          # 10 subagent definitions
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
@@ -200,13 +200,14 @@ Claude: Step 1/9 — scaffold project, commit
 | `/blueprint` | B) Planning only | 6 documentation files, no code |
 | `/guide` | C) Have docs already | You already have architecture and plan docs (from route B, another developer, or another tool) — generates step-by-step prompts to build it |
 
-### Quality Assurance (5 skills)
+### Quality Assurance (6 skills)
 
 | Skill | Description |
 |-------|-------------|
 | `/review` | Validates documentation and code quality via deterministic binary rubric (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only OWASP-style security audit (auth, secrets, injection, CORS/CSP, deps) with same status enum as `/review` |
 | `/security-guidance-setup` | **New in v1.29.0.** Security companion — sets up & integrates the official [security-guidance plugin](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) by Anthropic (free, ships default-on). A shift-left, always-on reviewer of Claude-generated code: regex pattern warnings on every Edit/Write, an LLM diff review on Stop (findings fed back before you see the turn), and an agentic commit/push reviewer tracing cross-file vulns (IDOR, auth bypass, SSRF). Detects install, prints the verified CLI command, maps it onto the lifecycle. **Complements** `/security-audit` (on-demand audit), does **not** replace it; does not vendor upstream code; gates unaffected. |
+| `/cross-review` | **New in v1.30.0.** Cross-vendor second-opinion review — runs an INDEPENDENT external model (OpenAI Codex CLI or Gemini CLI) over the current diff to catch blind spots a Claude-only `/review` shares with the code it produced. Scrubs secrets/PII before egress; fail-open chain codex → gemini → native Claude red-team review. **Additive** to `/review` (the mandatory floor), never a gate. Ported from the omnigent cross-vendor-review concept. |
 | `/grill-me` | **New in v1.21.0.** Interactive read-only stress-test for plans, designs, architecture, and risky decisions — asks one question at a time (with a recommended answer) to surface assumptions, risks, and dependencies. Runs before `/review`, does not replace it. |
 | `/browser-check` | **New in v1.21.0.** Local browser smoke-test for frontend/full-stack/visual flows via a bundled Playwright harness (Browser Use / in-app browser fallback) — checks first render + critical path (navigation, forms, states). Broken render/flow → BLOCKED before deploy. |
 
@@ -330,6 +331,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/context-mode-setup` | `status`/`install`/`doctor`/`off` | None — stdout (detect state + print/run upstream install commands); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
 | `/seo-setup` | `status`/`install`/`audit-map`/`off` | None — stdout (detect state + print/run upstream install commands + lifecycle map); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
 | `/security-guidance-setup` | `status`/`install`/`lifecycle-map`/`off` | None — stdout (detect state + print/run upstream install command + lifecycle map); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
+| `/cross-review` | diff range / path / empty | None — stdout (ranked second-opinion findings, with the engine that ran named); shells out to an external CLI on a scrubbed diff | None (read-only; additive to `/review`, never a gate) | ✅ |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.
@@ -391,7 +393,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **seventeen hooks** that close this gap (two soft reminders, hard-blocking enforcement gates including the Definition-of-Done pre-commit gate, one pre-flight context loader, and optional safety/observability hooks).
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **nineteen hooks** that close this gap (two soft reminders, hard-blocking enforcement gates including the Definition-of-Done pre-commit gate, one pre-flight context loader, and optional safety/observability hooks).
 
 **Recommended — one command:**
 
@@ -425,7 +427,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All seventeen hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The three v1.17.0+ safety guardrails (`careful.sh`, `freeze.sh`, `context-budget.sh`) and the v1.21 `execution-trace.sh` observability hook are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All nineteen hooks fire live — no Claude Code restart needed. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The three v1.17.0+ safety guardrails (`careful.sh`, `freeze.sh`, `context-budget.sh`) and the v1.21 `execution-trace.sh` observability hook are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
@@ -541,6 +543,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/context-mode-setup` | Haiku | Sonnet | Orchestrator/bridge — detect install + print commands, no generation |
 | `/seo-setup` | Haiku | Sonnet | Orchestrator/bridge — detect install + print commands + lifecycle map, no generation |
 | `/security-guidance-setup` | Haiku | Sonnet | Orchestrator/bridge — detect install + print command + lifecycle map, no generation |
+| `/cross-review` | Sonnet | Opus | Orchestration — scrub the diff, shell out to an external reviewer, summarize findings |
 
 ## Who Is This For
 
@@ -634,7 +637,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 37. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 38. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

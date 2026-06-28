@@ -1,0 +1,30 @@
+# Expected files after /cross-review runs
+#
+# NONE. /cross-review is a read-only orchestrator skill — it resolves the diff,
+# scrubs it, shells out to an external review CLI (codex/gemini) or degrades to a
+# native Claude red-team review, and summarizes findings in the conversation. It
+# MUST NOT create or modify project files.
+#
+# Presence of ANY file in the output dir after a /cross-review run is a contract
+# violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-30-cross-review/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /cross-review MUST NOT:
+#   - Write / Edit project files
+#   - Write the /tmp/claude-review-done-* marker (that belongs to /review — writing
+#     it here would let cross-review wrongly satisfy the commit gate)
+#   - Send an unscrubbed diff (with live secrets/PII) to an external CLI
+#   - Fail the session when the external CLI is missing or out of quota (fail-open)
+#   - Replace or gate on /review (it is additive; /review is the mandatory floor)
+#
+# /cross-review MAY:
+#   - Run read-only git (git diff), detection (command -v codex/gemini), and the
+#     external review CLI on a SCRUBBED diff
+#   - Summarize the external findings and name which engine ran
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor,
+# fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup,
+# fixture-28-seo-setup, fixture-29-security-guidance-setup. Manual verification via
+# notes.md.
