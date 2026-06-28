@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.6.0
+  version: 1.7.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -149,6 +149,12 @@ Add a line to `MEMORY.md` in the same memory directory:
 ```
 
 If `MEMORY.md` doesn't exist, create it with the first entry.
+
+> **Memory hygiene (periodic).** When `MEMORY.md` or the memory dir grows large or
+> accumulates duplicate/stale facts, run the `anthropic-skills:consolidate-memory` skill
+> to merge duplicates, fix stale entries, and prune the index — keep it in-session and
+> reviewed, never an out-of-band writer (ADR-001 async-memory note). idea-to-deploy does
+> not build its own consolidation engine; it delegates to that skill.
 
 ### Step 4.5: Write active-session lockfile (v1.5.0)
 

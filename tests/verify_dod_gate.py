@@ -173,6 +173,40 @@ def c_author_dir_allowed(repo):
     return 0
 
 
+def c_agent_memory_blocks(repo):
+    # MEMORY_RE: agent long-term memory writer w/o /security-audit -> BLOCK
+    clear_sentinels()
+    stage(repo, "src/agent/agent_memory_store.py")
+    return 2
+
+
+def c_agent_memory_allowed_with_sentinel(repo):
+    # new .py also triggers /test (new-source rule); both sentinels clear it
+    clear_sentinels()
+    set_sentinels("security-audit", "test")
+    stage(repo, "src/agent/agent_memory_store.py")
+    return 0
+
+
+def c_vector_store_blocks(repo):
+    clear_sentinels()
+    stage(repo, "app/rag/vector_store.ts")
+    return 2
+
+
+def c_system_prompt_blocks(repo):
+    clear_sentinels()
+    stage(repo, "prompts/system_prompt.yaml")
+    return 2
+
+
+def c_memory_word_no_false_positive(repo):
+    # ordinary file that merely contains "memory" must NOT trip MEMORY_RE
+    clear_sentinels()
+    stage(repo, "docs/memory-usage-notes.md")
+    return 0
+
+
 CASES = [
     ("migration without skills -> BLOCK", c_migration_blocks, "git commit -m x"),
     ("migration with migrate+test -> allow", c_migration_allowed_with_sentinels, "git commit -m x"),
@@ -188,6 +222,11 @@ CASES = [
     ("new shell script -> allow (excluded)", c_new_shell_script_allowed, "git commit -m x"),
     ("SKILL_BYPASS in description -> allow", c_bypass_marker_allows, "git commit -m x"),
     ("non-commit bash -> no-op allow", c_non_commit_noop, "git status"),
+    ("agent memory store no skill -> BLOCK", c_agent_memory_blocks, "git commit -m x"),
+    ("agent memory store with security-audit -> allow", c_agent_memory_allowed_with_sentinel, "git commit -m x"),
+    ("vector store no skill -> BLOCK", c_vector_store_blocks, "git commit -m x"),
+    ("system prompt file no skill -> BLOCK", c_system_prompt_blocks, "git commit -m x"),
+    ("memory word doc -> allow (no false-positive)", c_memory_word_no_false_positive, "git commit -m x"),
 ]
 
 

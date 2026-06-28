@@ -170,6 +170,16 @@ After DISCOVERY.md is created, tell the user:
 - "DISCOVERY.md готов. Следующий шаг: `/blueprint` — он подхватит приоритизацию и создаст архитектуру + план реализации."
 - The /blueprint skill's Step 1.5 will detect DISCOVERY.md and skip its own lightweight prioritization, using the deeper discovery output instead.
 
+### Step 7.5: Flag statefulness for /blueprint (opt-in — agent / LLM products)
+
+If discovery reveals the product is a **stateful AI agent or LLM app** (it remembers
+across turns/sessions, retrieves knowledge, or acts autonomously), record a one-line
+`Product class: stateful-agent` marker in DISCOVERY.md. `/blueprint` reads it and runs
+its **Step 1.6 (Memory & context architecture)** — memory scopes, storage-as-ADR,
+write/pruning policy, provenance, trust boundary. For ordinary stateless products omit
+the marker and skip it. (Day-3 Context Engineering — design memory before building it,
+not after it rots.)
+
 
 ## Examples
 

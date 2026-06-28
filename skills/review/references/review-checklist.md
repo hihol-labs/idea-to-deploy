@@ -253,6 +253,24 @@ in `skills/test/references/test-frameworks.md`).
 **Rationale:** the "looks done at 80%" code typically omits exactly these branches.
 **Action on fail:** add the missing branches; `/test` the uncovered cases.
 
+### C-code-7. (Critical) Context integrity — no unsanitized/untrusted input into the agent context or memory
+**Criterion:** for AI/agent code, untrusted content (user messages, tool/web/RAG
+output, scraped pages, third-party API payloads, documents) must not flow into the
+model's context, system prompt, or long-term memory without a sanitization /
+trust-boundary step. Specifically: (a) retrieved or tool-returned text is treated as
+*data*, not instructions (prompt-injection boundary); (b) any write to agent memory /
+a vector store / a context file is validated and attributable, never a raw passthrough
+of model or tool output (memory-poisoning guard); (c) **async / out-of-band memory
+writers** (background jobs that update long-term memory after the turn) have an
+explicit review or validation gate, not a blind upsert (see ADR-001 async-memory note).
+**Rationale:** Day-3 context engineering: the context window and the memory store are
+the agent's real runtime inputs. An injected instruction or a poisoned memory record
+silently steers every later turn — including the irreversible actions guarded by
+`C-code-6`. This is the agentic analogue of SQL injection.
+**Action on fail:** add an input-trust boundary (delimit/label untrusted spans, strip
+or escape instruction-like content), validate writes before they reach memory, and gate
+async memory updates. Cross-checks the `/security-audit` "context & memory integrity"
+section and the trajectory-eval `human_gate` checkpoint from `/test` Step 3.5.
 ---
 
 ## Reporting format

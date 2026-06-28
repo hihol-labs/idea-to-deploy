@@ -148,6 +148,40 @@ This is a partial list — for full coverage, run `npm audit`, `pip-audit`, `gov
 
 ---
 
+## Context & memory integrity (AI / agent targets) — Day-3 port, v1.32.0
+
+Run these only when the target is an AI agent / LLM app that has a context window, a
+prompt assembled from multiple sources, or a durable memory / vector store. For non-AI
+targets they are all N/A (pass). The memory store and the context window are runtime
+inputs — an injected instruction or a poisoned record steers every later turn, including
+the irreversible actions guarded by `/review` `C-code-6`/`C-code-7`.
+
+### MEM-1: Prompt-injection trust boundary (Critical)
+Check: untrusted content (user input, tool/web/RAG output, scraped pages, documents) is
+treated as **data, not instructions** — delimited/labelled, not concatenated raw into the
+system prompt. Fail if retrieved/tool text can inject instructions.
+
+### MEM-2: No memory poisoning via unvalidated writes (Critical)
+Check: writes to long-term memory / a vector store are validated and attributable, never
+a raw passthrough of model or tool output. Fail on blind upsert of unverified content.
+
+### MEM-3: Cross-tenant memory isolation (Critical)
+Check: memory/vector queries are scoped by tenant/user; one account cannot retrieve
+another's stored memory. Fail on a shared store with no tenant filter in the query path.
+
+### MEM-4: No secrets / PII written to shared context or memory (Important)
+Check: secrets, tokens, and PII are not persisted into a memory store or embedded into a
+shared/cached prompt. Fail if credentials or personal data land in long-term memory.
+
+### MEM-5: Memory / context exfiltration guard (Important)
+Check: the agent cannot be steered (via injected instructions) to dump its system prompt,
+another user's memory, or secrets to an attacker-controlled sink (tool call, URL, output).
+
+### MEM-6: Async / out-of-band memory writers are reviewed (Important)
+Check: background jobs that update long-term memory after the turn pass through a
+validation/review gate, not a blind write (cross-ref ADR-001 async-memory note + the
+`MEMORY_RE` DoD signal).
+
 ## Stack-specific gotchas
 
 ### Next.js / React
