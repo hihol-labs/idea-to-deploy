@@ -65,6 +65,8 @@
     {"id": "browser-check-1", "text": "Проверь вёрстку в браузере", "expectedSkill": "browser-check"},
     {"id": "browser-check-2", "text": "Run a browser smoke test on the landing page", "expectedSkill": "browser-check"},
     {"id": "deploy-1", "text": "Задеплой на прод последнюю сборку", "expectedSkill": "deploy"},
-    {"id": "deploy-2", "text": "Push to prod and run the healthcheck", "expectedSkill": "deploy"}
+    {"id": "deploy-2", "text": "Push to prod and run the healthcheck", "expectedSkill": "deploy"},
+    {"id": "seo-setup-1", "text": "Надо подтянуть поисковую выдачу сайта и проверить core web vitals", "expectedSkill": "seo-setup"},
+    {"id": "seo-setup-2", "text": "Help me improve search ranking and add schema markup to the site", "expectedSkill": "seo-setup"}
   ]
 }

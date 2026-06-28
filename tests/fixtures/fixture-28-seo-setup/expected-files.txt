@@ -1,0 +1,36 @@
+# Expected files after /seo-setup runs
+#
+# NONE. /seo-setup is a read-only orchestrator/integration skill — it detects
+# whether the upstream Claude SEO plugin is installed and runs or prints the
+# verified install commands for the user. It MUST NOT create or modify project
+# files.
+#
+# Presence of ANY file in the output dir after a /seo-setup run is a contract
+# violation. Verify manually:
+#
+#   cd tests/fixtures/fixture-28-seo-setup/output/
+#   ls -la       # should show only . and .. (plus optional `.rubric-status`)
+#
+# /seo-setup MUST NOT:
+#   - Write / Edit project files (it's a detect-and-advise integration only)
+#   - Perform any global/network install of the upstream plugin, or edit shell
+#     profiles / plugin config, without explicit user approval
+#   - Copy upstream Claude SEO source (skills/agents/FLOW prompts) into this repo
+#   - Claim Claude SEO is installed/active without detecting it (claude plugin
+#     list / claude plugin details) and confirming the Python toolchain can run
+#   - Describe the mechanism as invented tools (upstream 2.2.0 is 25 skills +
+#     18 agents + 1 schema hook + 8 optional MCP extensions)
+#   - Hide or weaken an idea-to-deploy gate, verification result, or the
+#     skill-decision line
+#
+# /seo-setup MAY:
+#   - Run read-only detection: `claude --version`, `python3 --version`,
+#     `claude plugin list | grep claude-seo`, `claude plugin details claude-seo`
+#   - Run or print the verified install commands (`claude plugin marketplace add
+#     AgriciDaniel/claude-seo` ; `claude plugin install claude-seo@agricidaniel-claude-seo`)
+#     plus the Python deps / venv step
+#   - Map the plugin's `seo`/`seo-*` skills onto the lifecycle and advise when to use it
+#
+# Validation deferred (status: pending) — same bucket as fixture-15-advisor,
+# fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup
+# (read-only, detect/advise stdout flow). Manual verification via notes.md.
