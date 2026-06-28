@@ -33,6 +33,12 @@
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 }
         ]
+      },
+      {
+        "matcher": "Bash|WebFetch",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/pii-egress-guard.sh", "timeout": 5 }
+        ]
       }
     ],
     "PostToolUse": [
