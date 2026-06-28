@@ -45,7 +45,8 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh", "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/risk-score.sh",   "timeout": 5 }
         ]
       }
     ]

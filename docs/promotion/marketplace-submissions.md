@@ -41,7 +41,7 @@ idea-to-deploy is an open-source Claude Code plugin that provides a structured m
 Core capabilities:
 - 37 skills covering discovery (MoSCoW/RICE prioritization), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team mode), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session context persistence, strategic replanning, advisory/consulting mode, production server migration.
 - 10 specialized subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst, and devils-advocate — each with focused expertise.
-- 17 enforcement hooks that automatically route tasks to the correct skill, apply safety guardrails, and enforce commit completeness gates.
+- 18 enforcement hooks that automatically route tasks to the correct skill, apply safety guardrails, and enforce commit completeness gates.
 - Self-improving methodology with 23 meta-review gates that catch drift in the methodology itself.
 - 3-tier behavioural testing: structural, snapshot, and headless validation.
 - Daily work router /task — a single entry point for 12 different task types.
@@ -68,12 +68,12 @@ Tags: claude-code, methodology, project-lifecycle, developer-tools, ai-coding, t
 
 ### Tagline (74 chars)
 ```
-Full project lifecycle in one plugin: 37 skills, 10 subagents, 17 hooks
+Full project lifecycle in one plugin: 37 skills, 10 subagents, 18 hooks
 ```
 
 ### Short description (195 chars)
 ```
-Open-source Claude Code methodology plugin. 37 skills from product discovery to deployment, 10 specialized subagents, 17 enforcement hooks, 23 meta-review gates, and 3-tier behavioural validation.
+Open-source Claude Code methodology plugin. 37 skills from product discovery to deployment, 10 specialized subagents, 18 enforcement hooks, 23 meta-review gates, and 3-tier behavioural validation.
 ```
 
 ### Long description (780 chars)
@@ -124,7 +124,7 @@ idea-to-deploy is a comprehensive Claude Code plugin that replaces scattered pro
 What you get:
 - 37 skills: /kickstart, /blueprint, /guide, /task, /bugfix, /refactor, /doc, /test, /perf, /review, /explain, /session-save, /security-audit, /deps-audit, /migrate, /harden, /infra, /project, /strategy, /advisor, /migrate-prod, and more.
 - 10 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
-- 17 enforcement hooks: automatic skill routing, safety guardrails, commit completeness gates.
+- 18 enforcement hooks: automatic skill routing, safety guardrails, commit completeness gates.
 - 23 meta-review gates that catch methodology drift before it reaches your code.
 - 3-tier behavioural testing: structural validation, snapshot comparison, headless execution.
 - /task router: one command routes to any of 12 task types.
@@ -170,7 +170,7 @@ Lifecycle coverage:
 - Continuity: session persistence across Claude sessions
 
 Methodology enforcement:
-- 17 hooks automatically route tasks and enforce guardrails
+- 18 hooks automatically route tasks and enforce guardrails
 - 23 meta-review gates detect methodology drift
 - 3-tier behavioural validation (structural + snapshot + headless)
 
@@ -213,7 +213,7 @@ For daily work:
 - /session-save preserves context between sessions so nothing is lost
 
 Quality enforcement:
-- 17 hooks for automatic skill routing and safety guardrails
+- 18 hooks for automatic skill routing and safety guardrails
 - 23 meta-review gates for methodology self-correction
 - 3-tier behavioural testing pipeline
 
@@ -248,7 +248,7 @@ idea-to-deploy brings a structured, repeatable methodology to Claude Code, cover
 Key numbers:
 - 37 skills: discovery, planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, DB migrations, production hardening, infrastructure-as-code, session persistence, and more
 - 10 subagents: architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst
-- 17 enforcement hooks: automatic task routing, safety guardrails, commit completeness gates
+- 18 enforcement hooks: automatic task routing, safety guardrails, commit completeness gates
 - 23 meta-review gates: self-improving methodology that catches its own drift
 - 3-tier testing: structural validation, snapshot comparison, headless execution
 - 12 task types: one /task command routes to the right skill automatically
@@ -275,7 +275,7 @@ Add idea-to-deploy — 37 skills + 10 subagents for full project lifecycle
 
 ### README entry (copy-paste into the appropriate section)
 ```markdown
-- [idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy) — Complete project lifecycle methodology: 37 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 10 specialized subagents + 17 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
+- [idea-to-deploy](https://github.com/hihol-labs/idea-to-deploy) — Complete project lifecycle methodology: 37 skills (discovery, planning, coding, testing, security audit, DB migrations, hardening, infra-as-code) + 10 specialized subagents + 18 enforcement hooks. Self-improving with 23 meta-review gates. MIT.
 ```
 
 ### PR body
@@ -294,7 +294,7 @@ Open-source Claude Code plugin providing a structured methodology for the entire
 
 - **37 skills** covering discovery (MoSCoW/RICE), planning, scaffolding, coding, testing, debugging, optimization, security audit (Red/Blue Team), dependency audit, safe DB migrations, production hardening, infrastructure-as-code, and session persistence.
 - **10 subagents:** architect, code-reviewer, doc-writer, perf-analyzer, test-generator, business-analyst.
-- **17 enforcement hooks** for automatic skill routing and safety guardrails.
+- **18 enforcement hooks** for automatic skill routing and safety guardrails.
 - **23 meta-review gates** for self-improving methodology.
 - **3-tier behavioural testing** (structural + snapshot + headless).
 - **/task router** — single entry point for 12 task types.
