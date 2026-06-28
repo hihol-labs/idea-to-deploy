@@ -182,6 +182,15 @@ Check: background jobs that update long-term memory after the turn pass through 
 validation/review gate, not a blind write (cross-ref ADR-001 async-memory note + the
 `MEMORY_RE` DoD signal).
 
+### MEM-7: Context hygiene & tool-call sanitization (Important) — Day-5 Zero-Trust, v1.33.0
+Check: arguments assembled for a tool / function call (or interpolated into a downstream
+prompt) are sanitized and policy-checked **before execution** — a resolver substitutes
+trusted values for placeholders and a tool-policy middleware vets the call, rather than
+passing model-produced strings straight to a side-effecting tool (shell, HTTP, DB,
+file). Fail if an LLM-produced argument reaches such a tool with no sanitization /
+allow-list. Complements `MEM-1`: MEM-1 guards what enters the context, MEM-7 guards what
+leaves it as an action.
+
 ## Stack-specific gotchas
 
 ### Next.js / React

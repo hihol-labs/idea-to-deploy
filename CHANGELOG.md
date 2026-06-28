@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.33.0] - 2026-06-28
+
+**Day-5 Spec-Driven Production enrichment — Zero-Trust agent guardrails + spec-as-source, all as врезки, no new runtime.** Final study in the Google *New SDLC With Vibe Coding* series (Day 5, *Spec-Driven Production* — Boonstra et al., 2026). A two-lens review (business-analyst + devils-advocate) found ~70% of the paper already covered by the methodology (evals, prompt-injection, agent-memory, cross-vendor review, cost/model-routing — from the Day-1 and Day-3 ports). The real delta is **Zero-Trust Development** (policy server, sandboxing, human-in-the-loop, semantic gating, context hygiene) — for which the canon had zero coverage — plus the **spec-driven culture shift** (spec as durable source of truth, single `AGENTS.md`, Conditional LGTM). All land as opt-in врезки the methodology emits when designing/auditing a stateful, tool-calling agent. The paper's `agents-cli scaffold/eval/deploy` runtime is explicitly iceboxed (ADR-001). Zero new skills, zero new hook files; counts unchanged (38 skills / 19 hooks). Scope recorded in the new Day-5 note in `docs/adr/ADR-001-no-own-runtime.md`.
+
+### Added
+
+- **`/harden` Tier-3 `ZT-1` — Zero-Trust guardrail layer.** Informational, scoped to LLM/agent services that call tools or act: a deterministic policy server (allow/deny by role+env), sandboxing of agent-invoked code/tools (`GEMINI_SANDBOX=docker`-style), human-in-the-loop on irreversible/ambiguous actions, and optional semantic gating wired as an **ASK/advisory signal only, never a hard block** (a hook cannot pause the model loop — ADR-001, the retired score-gate lesson). N/A for non-agent services.
+- **`/security-audit` `MEM-7` — context hygiene & tool-call sanitization.** Tool/function-call arguments (and downstream-prompt interpolations) are sanitized and policy-checked before execution — a resolver substitutes trusted values for placeholders and a tool-policy middleware vets the call, rather than passing model-produced strings straight to a side-effecting tool. Complements `MEM-1` (MEM-1 guards what enters context; MEM-7 guards what leaves it as an action).
+- **`/blueprint` Step 1.6 point 8 + spec-as-source pointer.** Step 1.6 (opt-in, stateful-agent) gains a zero-trust guardrail-layer design item (policy + sandbox + HITL + advisory semantic gating). The 6-document section gains a **spec-as-source (SDD)** note: treat PRD + acceptance criteria as the durable source of truth (code is comparatively disposable), keep agent instructions in a single `CLAUDE.md` (the `AGENTS.md` equivalent), change the spec then regenerate code — not the reverse.
+- **`/adopt` consolidation pointer.** When a legacy project scatters agent instructions across many files, `/adopt` flags *instructional fragmentation* in its report and suggests consolidating into a single `CLAUDE.md` (no auto-merge).
+- **`/review` high-velocity report add-ons (optional, not new checks).** The report may surface a **Bundled Summary + Risk Assessment** and a **Conditional LGTM** ("approve provided X is fixed") — reporting formats over the same binary rubric; they never turn a Critical `BLOCKED` into a pass.
+- **`docs/adr/ADR-001-no-own-runtime.md` — Day-5 note.** Iceboxes `agents-cli`/owned agent-runtime; frames Zero-Trust Development as product design the methodology teaches and audits (not its own engine); records that semantic gating is ASK/advisory only, never a hard inferential gate.
+
+### Changed
+
+- **Version 1.32.0 → 1.33.0** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md` (MINOR — additive врезки, zero breaking). Per-skill frontmatter versions bumped on edited skills: `/blueprint` 1.3.1 → 1.4.0, `/harden` 1.20.0 → 1.21.0, `/security-audit` 1.19.0 → 1.20.0, `/adopt` 1.21.0 → 1.22.0, `/review` 1.15.0 → 1.16.0. **Skill count (38) and hook count (19) unchanged** — all changes are врезки into existing skills + an ADR note, so no count cascade (M-C7/M-C12/M-C15/M-C16 unaffected).
+
+### Verified
+
+- `tests/meta_review.py --verbose` → FINAL STATUS PASSED (Critical 0), including M-C5 (badge=1.33.0), M-C6 (CHANGELOG [1.33.0] entry), M-C13 (marketplace=plugin version).
+- `scripts/verify_skill_profiles.py` clean (edited skills keep valid `effort`/`side_effect`/`explicit_invocation` frontmatter).
+- `tests/verify_dod_gate.py` → 19 passed, 0 failed (unchanged — no DoD-hook change this release).
+- `/review --self` run before commit.
+
 ## [1.32.0] - 2026-06-28
 
 **Day-3 Context Engineering enrichment — memory & context discipline for stateful agents, all as врезки + one new review check, no new runtime.** Second study in the Google *New SDLC With Vibe Coding* series (Day 3, *Context Engineering: Sessions, Memory* — Milam, Gulli, Nawalgaria, 2026). A two-lens review (business-analyst + devils-advocate) found ~80% of the paper is **product-design** guidance (how the agent the *user* builds should manage its context/memory), not methodology process — so it lands mostly as **opt-in врезки the methodology emits when designing a stateful agent**, plus the one place it is genuinely a guardrail for the money portfolio: provenance/freshness of remembered facts before an irreversible action. Zero new skills, zero new hook *files*, counts unchanged (38 skills / 19 hooks). Scope recorded in the new Day-3 note appended to `docs/adr/ADR-001-no-own-runtime.md`.

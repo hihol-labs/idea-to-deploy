@@ -11,7 +11,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: project-planning
   tags: [documentation, architecture, planning, prd]
 ---
@@ -192,6 +192,12 @@ Vibe Coding", 2026 — Day 3, Context Engineering). Decide it once, in
    instructions; memory is isolated per tenant; no secrets/PII in a shared store (handed
    to `/security-audit`'s context & memory integrity checks).
 
+8. **Zero-trust guardrail layer (Day-5)** — for an agent that calls tools / acts: a
+   deterministic policy layer (allow/deny by role + env), a sandbox boundary for
+   agent-invoked code/tools, human-in-the-loop on irreversible actions, and optional
+   semantic gating as an *advisory* referee (never a hard auto-block). Designed here,
+   audited by `/security-audit`, hardened by `/harden` `ZT-1`.
+
 Output: a `## Memory & context architecture` section in `PROJECT_ARCHITECTURE.md`. The
 threat side is audited by `/security-audit`; runtime hygiene by `/harden`.
 
@@ -207,6 +213,13 @@ Before writing, consult `references/document-templates.md` for the exact structu
 4. **PRD.md** — user stories, функциональные требования (P0/P1/P2), kill criteria
 5. **README.md** — быстрый старт за 30 секунд, стек, структура
 6. **CLAUDE_CODE_GUIDE.md** — готовые промпты для каждого шага (формат /guide)
+
+> **Spec-as-source (Day-5 SDD).** Treat these documents — especially PRD + acceptance
+> criteria — as the **durable source of truth**: the spec is the asset, generated code
+> is comparatively disposable and regenerable from it. Keep agent instructions in a
+> **single** `CLAUDE.md` (the `AGENTS.md` equivalent), not scattered across many files
+> (instructional fragmentation). When behavior must change, change the spec, then
+> regenerate/adjust the code — not the reverse.
 
 #### Step 2.1: Architecture Decision Trees (NEW in v1.18.0)
 

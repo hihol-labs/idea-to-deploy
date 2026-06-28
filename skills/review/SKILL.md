@@ -12,7 +12,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.15.0
+  version: 1.16.0
   category: quality-assurance
   tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---
@@ -176,6 +176,13 @@ score = ((Critical_pass / Critical_total) * 0.6
        + (Nice_pass / Nice_total) * 0.1) * 10
 ```
 and is reported as **informational only** — never used for gating.
+
+> **High-velocity report add-ons (Day-5, optional — not new checks).** For fast-moving
+> teams the report may additionally surface a **Bundled Summary + Risk Assessment** (one
+> paragraph: what changed + the single biggest risk) and a **Conditional LGTM** —
+> "approve provided X is fixed" — instead of escalating a non-Critical warning. These
+> are *reporting formats* over the same binary rubric; they never turn a Critical
+> `BLOCKED` into a pass.
 
 ### Step 4: Offer fixes
 

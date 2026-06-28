@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.19.0
+  version: 1.20.0
   category: quality-assurance
   tags: [security, audit, vulnerabilities, owasp]
 ---
