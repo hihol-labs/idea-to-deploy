@@ -129,9 +129,12 @@ instead of a phrase, and it keeps every invariant above:
   codex→gemini review, writes findings to a `claude-cross-review-*.md` notes file,
   and returns immediately. It NEVER blocks the commit and NEVER writes the
   `/review` sentinel — `/review` remains the mandatory floor.
-- **Auto-disabled** in Agent Teams / linked-worktree mode (where "the diff" is
-  ambiguous and egressing another agent's work would be unsafe), and it refuses to
-  egress at all if a live credential survives scrubbing.
+- **Auto-disabled** in a linked/secondary worktree (unconditional — the index may
+  hold another agent's staged work). Also disabled under the Agent Teams flag
+  (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) **unless** you override with
+  `CROSS_REVIEW_ALLOW_AGENT_TEAMS=1` (for machines that run Agent Teams as their
+  default and still want the background review). It also refuses to egress at all
+  if a live credential survives scrubbing.
 - **Hard off-switch:** `ITD_CROSS_REVIEW=0`.
 
 Why opt-in pre-commit and not always-on per-edit/per-turn: see

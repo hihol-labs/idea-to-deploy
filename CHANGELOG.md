@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.34.2] - 2026-06-29
+
+**Overridable Agent Teams auto-disable for `cross-review-precommit.sh`.** v1.34.0 disabled the background review whenever `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` was set. On a machine that runs Agent Teams as its *default*, that disabled the hook permanently — the background review could never fire. Split the guard: the **concrete** hazard (a linked/secondary worktree, where the index may hold another agent's staged work) remains an **unconditional** skip; the bare Agent Teams **flag** is now overridable with an explicit `CROSS_REVIEW_ALLOW_AGENT_TEAMS=1` (you thereby accept that an in-process parallel agent's staged change could ride along in the egressed diff). Safe-by-default is preserved; Agent-Teams-by-default users can now opt the hook back on. PATCH — no API/count change.
+
+### Fixed
+
+- **`hooks/cross-review-precommit.sh`** — the Agent Teams auto-disable is now overridable (`CROSS_REVIEW_ALLOW_AGENT_TEAMS=1`); the unconditional linked-worktree skip is unchanged. Verified on Windows (Agent Teams on): silent skip without the override, correct background dispatch with it.
+- **`tests/verify_cross_review_precommit.py`** — added an "Agent Teams + override -> DISPATCH" case (now 10 cases).
+- **Version 1.34.1 -> 1.34.2** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md`.
+
 ## [1.34.1] - 2026-06-29
 
 **Cross-platform background dispatch for `cross-review-precommit.sh`.** The v1.34.0 hook detached its background worker with `os.fork` + `os.setsid`, which do not exist on Windows Python — there the worker silently no-op'd (fail-open, but the cross-vendor review never ran). Replaced with a portable `subprocess.Popen` that re-invokes the hook in a new `--worker` mode, using `start_new_session=True` on POSIX and `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` on Windows. The hook now actually dispatches on macOS/Linux/WSL **and** Windows. Behaviour, opt-in gating, scrubbing, and the never-a-gate invariant are unchanged; the 9-case test still passes and a live e2e confirms the detached worker writes its notes file. PATCH — no API/count change (still 20 hooks).
