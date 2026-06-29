@@ -60,6 +60,12 @@ def run_hook(repo, command="git commit -m x", env_overrides=None):
         "PATH": SAFE_PATH,
         "HOME": os.environ.get("HOME", repo),
         "TMPDIR": tempfile.mkdtemp(prefix="xreview-tmp-"),
+        # Inject a dummy engine via the override so the detached worker never
+        # fires a real (paid) external call during testing — /bin/false exists
+        # and exits non-zero, so run_engine reports "unavailable" deterministically
+        # (and resolve_engine never reaches its desktop/PATH discovery).
+        "CROSS_REVIEW_CODEX_BIN": "/bin/false",
+        "CROSS_REVIEW_GEMINI_BIN": "/bin/false",
     }
     if env_overrides:
         env.update(env_overrides)
