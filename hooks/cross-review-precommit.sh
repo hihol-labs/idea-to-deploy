@@ -142,10 +142,19 @@ def append(notes: str, text: str) -> None:
 
 def run_engine(cmd: list, promptf: str):
     """Return (stdout, ok). ok=False on missing CLI, non-zero exit, timeout, or
-    empty output — all treated as 'engine unavailable'."""
+    empty output — all treated as 'engine unavailable'.
+
+    cmd[0] is resolved to its FULL path via shutil.which. This is required on
+    Windows, where npm installs `codex`/`gemini` as `.CMD` shims that
+    CreateProcess cannot launch by bare name (subprocess.run(['codex', ...])
+    raises FileNotFoundError); the resolved `...\\codex.CMD` path runs fine."""
+    exe = shutil.which(cmd[0])
+    if not exe:
+        return "", False
     try:
         with open(promptf, "r", encoding="utf-8") as f:
-            res = subprocess.run(cmd, stdin=f, capture_output=True, text=True, timeout=120)
+            res = subprocess.run([exe] + cmd[1:], stdin=f,
+                                 capture_output=True, text=True, timeout=120)
         out = (res.stdout or "").strip()
         return out, (res.returncode == 0 and bool(out))
     except Exception:
@@ -158,7 +167,9 @@ def run_worker(promptf: str, notes: str) -> None:
         "gemini" if shutil.which("gemini") else "none")
 
     if engine == "codex":
-        out, ok = run_engine(["codex", "exec", "-"], promptf)
+        # --skip-git-repo-check: codex exec otherwise refuses outside a dir it
+        # already "trusts", which a fresh clone / CI checkout is not.
+        out, ok = run_engine(["codex", "exec", "--skip-git-repo-check", "-"], promptf)
         if ok:
             append(notes, "## Findings (engine: codex)\n\n%s\n" % out)
             _cleanup(promptf)

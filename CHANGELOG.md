@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.34.3] - 2026-06-29
+
+**Actually launch the external CLI on Windows (`run_engine` full-path resolution).** The hook invoked `subprocess.run(["codex", ...])` by bare name. On Windows, npm installs `codex`/`gemini` as `.CMD` shims that `CreateProcess` cannot launch by bare name — `subprocess.run` raises `FileNotFoundError`, so the worker always fell through to "unavailable" even when codex was installed and on `PATH`. `run_engine` now resolves the CLI to its full path via `shutil.which()` (e.g. `...\codex.CMD`), which launches correctly on Windows and is a harmless no-op on POSIX. Also pass `codex exec --skip-git-repo-check` so a fresh clone / CI checkout (a directory codex does not yet "trust") does not hard-error. PATCH — no API/count change.
+
+### Fixed
+
+- **`hooks/cross-review-precommit.sh`** — `run_engine` resolves the engine binary via `shutil.which()` and invokes the full path, so the external review actually runs on Windows (where the CLI is a `.CMD` shim). Added `--skip-git-repo-check` to the codex invocation for untrusted/fresh repos.
+- **Version 1.34.2 -> 1.34.3** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md`.
+
+> Note: this fix makes the methodology *invoke* codex/gemini correctly. Whether the external model then returns findings still depends on the user's CLI being healthy (authenticated, network-reachable, and — for codex — a `config.toml` the installed version accepts). The hook remains fail-open: any CLI error degrades to an honest "unavailable" note and never blocks the commit.
+
 ## [1.34.2] - 2026-06-29
 
 **Overridable Agent Teams auto-disable for `cross-review-precommit.sh`.** v1.34.0 disabled the background review whenever `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` was set. On a machine that runs Agent Teams as its *default*, that disabled the hook permanently — the background review could never fire. Split the guard: the **concrete** hazard (a linked/secondary worktree, where the index may hold another agent's staged work) remains an **unconditional** skip; the bare Agent Teams **flag** is now overridable with an explicit `CROSS_REVIEW_ALLOW_AGENT_TEAMS=1` (you thereby accept that an in-process parallel agent's staged change could ride along in the egressed diff). Safe-by-default is preserved; Agent-Teams-by-default users can now opt the hook back on. PATCH — no API/count change.
