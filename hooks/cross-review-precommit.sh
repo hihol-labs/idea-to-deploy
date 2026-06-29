@@ -26,9 +26,11 @@ Design constraints (see docs/adr/ADR-002-cross-review-opt-in-precommit.md):
   • ASYNC. The external CLI (8-30s, can hang under a flaky VPN) runs in a
     detached child process (subprocess.Popen, cross-platform POSIX + Windows);
     the hook itself returns in well under its 5s registration timeout.
-  • AUTO-DISABLED in multi-agent / shared-worktree mode (Agent Teams, linked
-    worktree) — "which diff?" is undefined when concurrent agents share a tree,
-    and we must never egress another agent's uncommitted code.
+  • AUTO-DISABLED in a linked/secondary worktree (the index may hold another
+    agent's staged work) — unconditional. Also disabled when the Agent Teams flag
+    (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1) is set, UNLESS overridden with
+    CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 (for machines that run Agent Teams as their
+    default and still want the background review).
   • SCRUB before egress (same patterns as pii-egress-guard.sh). If a live
     credential survives scrubbing, the diff is NOT sent — it degrades to a note.
   • Findings are NOTES, not a gate. This hook MUST NOT write the
@@ -240,7 +242,14 @@ def main() -> int:
         return 0
 
     # auto-disable in multi-agent / shared-worktree mode.
-    if os.environ.get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1":
+    # The CONCRETE hazard is a linked/secondary worktree (the index may hold
+    # another agent's staged work) — that skip below is UNCONDITIONAL. The Agent
+    # Teams FLAG alone is a weaker proxy: on a machine where Agent Teams is the
+    # default it would disable the hook permanently, so it is overridable with an
+    # explicit CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 (you thereby accept that an
+    # in-process parallel agent's staged change could ride along in the diff).
+    if (os.environ.get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1"
+            and os.environ.get("CROSS_REVIEW_ALLOW_AGENT_TEAMS") != "1"):
         return 0
     gd, gcd = git(["rev-parse", "--git-dir"]), git(["rev-parse", "--git-common-dir"])
     if gd and gcd and os.path.realpath(gd) != os.path.realpath(gcd):

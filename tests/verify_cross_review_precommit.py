@@ -117,6 +117,16 @@ def c_agent_teams_disabled(repo):
             SKIP)
 
 
+def c_agent_teams_override(repo):
+    # Agent Teams on, but explicit CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 -> dispatch
+    stage(repo, "db/migrations/001_init.sql")
+    return ("git commit -m x",
+            {"CROSS_REVIEW_EGRESS_OK": "1",
+             "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+             "CROSS_REVIEW_ALLOW_AGENT_TEAMS": "1"},
+            DISPATCH)
+
+
 def c_payments_path(repo):
     open(os.path.join(repo, ".cross-review-egress-ok"), "w").close()
     stage(repo, "app/billing/payment_service.ts")
@@ -137,6 +147,7 @@ CASES = [
     ("not a commit -> SKIP", c_non_commit),
     ("off-switch ITD_CROSS_REVIEW=0 -> SKIP", c_off_switch),
     ("Agent Teams mode -> SKIP (auto-disable)", c_agent_teams_disabled),
+    ("Agent Teams + override -> DISPATCH", c_agent_teams_override),
     ("opt-in + payments path -> DISPATCH", c_payments_path),
     ("commit via && chain -> DISPATCH", c_amp_chain_commit),
 ]

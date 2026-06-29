@@ -67,8 +67,11 @@ The hook:
   background* codex→gemini review (or an honest "unavailable" note), and returns
   immediately. It MUST NOT block the commit and MUST NOT write the
   `/tmp/claude-review-done-*` sentinel — `/review` remains the mandatory floor.
-- **auto-disables** in Agent Teams / linked-worktree mode, and refuses to egress
-  if a high-confidence secret survives scrubbing.
+- **auto-disables** unconditionally in a linked/secondary worktree; the bare
+  Agent Teams flag also disables it but is overridable with
+  `CROSS_REVIEW_ALLOW_AGENT_TEAMS=1` (v1.34.2 — so machines that run Agent Teams
+  as their default can still use the hook). Refuses to egress if a high-confidence
+  secret survives scrubbing.
 - hard off-switch: `ITD_CROSS_REVIEW=0`.
 
 This is consistent with ADR-001 (no own runtime): the hook is code that runs on
