@@ -43,6 +43,7 @@ Fail-open: ANY error path -> exit 0 (allow, never block).
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
@@ -140,20 +141,42 @@ def append(notes: str, text: str) -> None:
         pass
 
 
-def run_engine(cmd: list, promptf: str):
-    """Return (stdout, ok). ok=False on missing CLI, non-zero exit, timeout, or
-    empty output — all treated as 'engine unavailable'.
+def resolve_engine(name: str):
+    """Return a full path to the engine binary, or None. Resolution order:
 
-    cmd[0] is resolved to its FULL path via shutil.which. This is required on
-    Windows, where npm installs `codex`/`gemini` as `.CMD` shims that
-    CreateProcess cannot launch by bare name (subprocess.run(['codex', ...])
-    raises FileNotFoundError); the resolved `...\\codex.CMD` path runs fine."""
-    exe = shutil.which(cmd[0])
-    if not exe:
-        return "", False
+      1. explicit override env  CROSS_REVIEW_<NAME>_BIN  (points at any binary);
+      2. for codex on Windows, the newest OpenAI Codex *desktop* bundle
+         (%LOCALAPPDATA%\\OpenAI\\Codex\\bin\\<hash>\\codex.exe) — it is newer
+         and network-capable where the npm `codex.CMD` shim can be a stale
+         version that fails (e.g. an unknown `service_tier` or a model-refresh
+         timeout). Picking the newest by mtime survives desktop auto-updates;
+      3. whatever is on PATH (shutil.which).
+
+    Returning a FULL path also fixes the Windows `.CMD` launch problem (a bare
+    name is not launchable by CreateProcess)."""
+    override = os.environ.get("CROSS_REVIEW_%s_BIN" % name.upper())
+    if override and os.path.exists(override):
+        return override
+    if name == "codex" and os.name == "nt":
+        base = os.path.join(
+            os.environ.get("LOCALAPPDATA", ""), "OpenAI", "Codex", "bin")
+        cands = [p for p in glob.glob(os.path.join(base, "*", "codex.exe"))
+                 if os.path.exists(p)]
+        if cands:
+            try:
+                return max(cands, key=os.path.getmtime)
+            except OSError:
+                return cands[0]
+    return shutil.which(name)
+
+
+def run_engine(argv: list, promptf: str):
+    """Run an already-resolved engine invocation (argv[0] is a full path).
+    Return (stdout, ok). ok=False on non-zero exit, timeout, or empty output —
+    all treated as 'engine unavailable'."""
     try:
         with open(promptf, "r", encoding="utf-8") as f:
-            res = subprocess.run([exe] + cmd[1:], stdin=f,
+            res = subprocess.run(argv, stdin=f,
                                  capture_output=True, text=True, timeout=120)
         out = (res.stdout or "").strip()
         return out, (res.returncode == 0 and bool(out))
@@ -163,21 +186,20 @@ def run_engine(cmd: list, promptf: str):
 
 def run_worker(promptf: str, notes: str) -> None:
     """Detached child: detect engine, run it, append findings. Degrade honestly."""
-    engine = "codex" if shutil.which("codex") else (
-        "gemini" if shutil.which("gemini") else "none")
+    codex = resolve_engine("codex")
+    gemini = resolve_engine("gemini")
 
-    if engine == "codex":
+    if codex:
         # --skip-git-repo-check: codex exec otherwise refuses outside a dir it
         # already "trusts", which a fresh clone / CI checkout is not.
-        out, ok = run_engine(["codex", "exec", "--skip-git-repo-check", "-"], promptf)
+        out, ok = run_engine([codex, "exec", "--skip-git-repo-check", "-"], promptf)
         if ok:
             append(notes, "## Findings (engine: codex)\n\n%s\n" % out)
             _cleanup(promptf)
             return
-        engine = "gemini" if shutil.which("gemini") else "none"
 
-    if engine == "gemini":
-        out, ok = run_engine(["gemini", "-p", "-"], promptf)
+    if gemini:
+        out, ok = run_engine([gemini, "-p", "-"], promptf)
         if ok:
             append(notes, "## Findings (engine: gemini)\n\n%s\n" % out)
             _cleanup(promptf)

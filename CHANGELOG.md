@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.34.4] - 2026-06-29
+
+**Engine resolution prefers a working binary — fixes codex on Windows behind a flaky VPN.** The hook resolved `codex` purely via `PATH`, which on a typical Windows box is the npm `codex.CMD` shim — and that can be a stale version that fails to even start (rejects a newer `config.toml`'s `service_tier`, or times out refreshing its model list under a fake-ip VPN) while the user's *OpenAI Codex desktop* bundle (a newer, network-capable `codex.exe`) works fine. New `resolve_engine()` picks, in order: an explicit `CROSS_REVIEW_CODEX_BIN` / `CROSS_REVIEW_GEMINI_BIN` override; for codex on Windows, the **newest** `%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe` (auto-tracks desktop auto-updates); then `PATH`. PATCH — no API/count change.
+
+### Fixed
+
+- **`hooks/cross-review-precommit.sh`** — `resolve_engine()` selects a working engine binary instead of blindly trusting `PATH`. Adds the `CROSS_REVIEW_<NAME>_BIN` override and a Windows OpenAI-Codex-desktop fallback. `run_engine` now runs an already-resolved full-path argv.
+
+### Verified
+
+- **Live Windows e2e behind the user's active VPN**: the hook resolved the desktop `codex.exe` (v0.142) and the detached worker wrote **three real codex findings** (overdraft, input validation, money-precision) on a staged `app/billing/charge.py` diff — genuine cross-vendor output, non-blocking, working tree untouched.
+- `tests/verify_cross_review_precommit.py` -> 10/10; `tests/meta_review.py` -> PASSED; all 6 CI checks green; `py_compile` clean.
+- **Version 1.34.3 -> 1.34.4** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md`.
+
 ## [1.34.3] - 2026-06-29
 
 **Actually launch the external CLI on Windows (`run_engine` full-path resolution).** The hook invoked `subprocess.run(["codex", ...])` by bare name. On Windows, npm installs `codex`/`gemini` as `.CMD` shims that `CreateProcess` cannot launch by bare name — `subprocess.run` raises `FileNotFoundError`, so the worker always fell through to "unavailable" even when codex was installed and on `PATH`. `run_engine` now resolves the CLI to its full path via `shutil.which()` (e.g. `...\codex.CMD`), which launches correctly on Windows and is a harmless no-op on POSIX. Also pass `codex exec --skip-git-repo-check` so a fresh clone / CI checkout (a directory codex does not yet "trust") does not hard-error. PATCH — no API/count change.
