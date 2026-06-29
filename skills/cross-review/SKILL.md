@@ -105,6 +105,40 @@ parse and summarize its findings. No heavy generation. Set via `/model sonnet`.
 | `/cross-review` | External model (codex/gemini), else Claude red-team | Bonus independent second opinion | No — additive, fail-open |
 | `/security-guidance-setup` | security-guidance plugin | Continuous shift-left security | No — complements /security-audit |
 
+## Continuous mode — opt-in pre-commit hook (v1.34.0)
+
+On-demand `/cross-review` is the default and covers ~80% of the value: run it by
+hand before committing in correctness-critical work (`/bugfix`, `/migrate`,
+`/harden`, `/refactor`). For repos that want the second opinion *automatically*,
+there is a companion enforcement hook — `hooks/cross-review-precommit.sh` — that
+fires on `git commit`. It is the same primitive as this skill, wired to a trigger
+instead of a phrase, and it keeps every invariant above:
+
+- **DEFAULT-OFF.** It does nothing unless you explicitly opt in to external
+  egress, via env `CROSS_REVIEW_EGRESS_OK=1` (per-machine) or a
+  `.cross-review-egress-ok` marker file at the repo root. The marker is detected
+  by **presence in the working tree**, so it can be local/untracked (e.g. listed
+  in `.git/info/exclude`) and **never enters a commit or PR** — nothing lands in
+  the reviewed repo. Committing the marker is reserved for a deliberate
+  team-wide opt-in, not the default. For the common single-developer flow,
+  prefer the env var or a local marker, and reach for on-demand `/cross-review`
+  when you want to see findings *before* committing.
+- **Scoped to sensitive paths only** (migration / money / auth — the same signals
+  as the DoD gate), so ordinary commits are never taxed.
+- **Async + non-blocking.** It scrubs the diff, dispatches a *detached background*
+  codex→gemini review, writes findings to a `claude-cross-review-*.md` notes file,
+  and returns immediately. It NEVER blocks the commit and NEVER writes the
+  `/review` sentinel — `/review` remains the mandatory floor.
+- **Auto-disabled** in Agent Teams / linked-worktree mode (where "the diff" is
+  ambiguous and egressing another agent's work would be unsafe), and it refuses to
+  egress at all if a live credential survives scrubbing.
+- **Hard off-switch:** `ITD_CROSS_REVIEW=0`.
+
+Why opt-in pre-commit and not always-on per-edit/per-turn: see
+`docs/adr/ADR-002-cross-review-opt-in-precommit.md` (privacy/governance of
+third-party egress, latency under a flaky VPN, multi-agent worktree hazard, and
+non-duplication of the in-vendor `/security-guidance-setup` continuous layer).
+
 ## Self-validation
 
 Before finishing, verify:
