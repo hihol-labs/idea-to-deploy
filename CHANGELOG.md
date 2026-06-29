@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.34.1] - 2026-06-29
+
+**Cross-platform background dispatch for `cross-review-precommit.sh`.** The v1.34.0 hook detached its background worker with `os.fork` + `os.setsid`, which do not exist on Windows Python — there the worker silently no-op'd (fail-open, but the cross-vendor review never ran). Replaced with a portable `subprocess.Popen` that re-invokes the hook in a new `--worker` mode, using `start_new_session=True` on POSIX and `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` on Windows. The hook now actually dispatches on macOS/Linux/WSL **and** Windows. Behaviour, opt-in gating, scrubbing, and the never-a-gate invariant are unchanged; the 9-case test still passes and a live e2e confirms the detached worker writes its notes file. PATCH — no API/count change (still 20 hooks).
+
+### Fixed
+
+- **`hooks/cross-review-precommit.sh`** — background review now runs on Windows too (was a no-op there because `os.fork` is POSIX-only). Detach is now via `subprocess.Popen` with platform-appropriate flags; added a `--worker` self-invocation entry point.
+- **Version 1.34.0 -> 1.34.1** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md`.
+
 ## [1.34.0] - 2026-06-29
 
 **Opt-in cross-vendor pre-commit review — continuous second opinion without the always-on tax.** A two-perspective advisory pass (business-analyst + devils-advocate) evaluated making `/cross-review` continuous/automatic. The verdict: keep it on-demand by default, and add a continuous variant ONLY as an opt-in pre-commit hook, never an always-on per-edit (`PostToolUse`) or per-turn (`Stop`) layer. Rationale (privacy/governance of third-party egress, latency under a flaky VPN, multi-agent shared-worktree hazard, and non-duplication of the in-vendor `/security-guidance-setup` continuous layer) is recorded in the new `docs/adr/ADR-002-cross-review-opt-in-precommit.md`. Hook count 19 -> 20; skill/agent counts unchanged (38 / 10).

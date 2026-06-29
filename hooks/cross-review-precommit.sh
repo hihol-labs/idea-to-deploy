@@ -24,8 +24,8 @@ Design constraints (see docs/adr/ADR-002-cross-review-opt-in-precommit.md):
         nothing lands in the reviewed repo. Committing it is reserved for a
         deliberate team-wide opt-in, not the default.
   • ASYNC. The external CLI (8-30s, can hang under a flaky VPN) runs in a
-    detached child (os.fork + setsid); the hook itself returns in well under its
-    5s registration timeout.
+    detached child process (subprocess.Popen, cross-platform POSIX + Windows);
+    the hook itself returns in well under its 5s registration timeout.
   • AUTO-DISABLED in multi-agent / shared-worktree mode (Agent Teams, linked
     worktree) — "which diff?" is undefined when concurrent agents share a tree,
     and we must never egress another agent's uncommitted code.
@@ -189,27 +189,27 @@ def _cleanup(promptf: str) -> None:
 
 
 def dispatch(promptf: str, notes: str) -> None:
-    """Fork a detached child to run the (slow) external review; parent returns."""
+    """Spawn a fully detached child process to run the (slow) external review;
+    the parent returns immediately. Cross-platform (POSIX + Windows): re-invokes
+    THIS file in `--worker` mode via subprocess.Popen with platform-appropriate
+    detach flags, so a hung CLI never ties to the parent/terminal. (We avoid
+    os.fork, which does not exist on Windows.)"""
+    cmd = [sys.executable, os.path.abspath(__file__), "--worker", promptf, notes]
     try:
-        pid = os.fork()
+        devnull = open(os.devnull, "r+b")
     except OSError:
-        # No fork (shouldn't happen on Linux/WSL/macOS) — skip background work
-        # rather than block synchronously on a 120s external call.
         return
-    if pid == 0:
-        # Child: fully detach so a hung CLI never ties to the parent/terminal.
-        try:
-            os.setsid()
-            devnull = os.open(os.devnull, os.O_RDWR)
-            for fd in (0, 1, 2):
-                try:
-                    os.dup2(devnull, fd)
-                except OSError:
-                    pass
-            run_worker(promptf, notes)
-        finally:
-            os._exit(0)
-    # Parent: reap nothing (child is in its own session); return immediately.
+    kwargs = {"stdin": devnull, "stdout": devnull, "stderr": devnull}
+    if os.name == "nt":
+        # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP — no console, survives parent.
+        kwargs["creationflags"] = 0x00000008 | 0x00000200
+    else:
+        kwargs["start_new_session"] = True  # setsid — own session, no controlling tty
+    try:
+        subprocess.Popen(cmd, **kwargs)
+    except Exception:
+        # Fail-open: if we cannot spawn the worker, the commit still proceeds.
+        pass
 
 
 def main() -> int:
@@ -307,4 +307,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Detached background worker entry point (spawned by dispatch()).
+    if len(sys.argv) >= 4 and sys.argv[1] == "--worker":
+        run_worker(sys.argv[2], sys.argv[3])
+        sys.exit(0)
     sys.exit(main())
