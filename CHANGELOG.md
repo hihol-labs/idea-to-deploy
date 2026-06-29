@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.34.5] - 2026-06-29
+
+**Real cross-vendor review from inside WSL — reach the Windows Codex desktop binary over /mnt interop.** The standalone codex CLI inside WSL can be broken behind a fake-ip VPN (model-refresh timeout / Node crash), so a WSL-launched Claude Code session degraded cross-review to the native fallback. `resolve_engine` now, on WSL/Linux, also discovers the OpenAI Codex *desktop* `codex.exe` via the Windows mount (`/mnt/<drive>/Users/*/AppData/Local/OpenAI/Codex/bin/*/codex.exe`) and runs it through WSL interop — it executes as a Windows process and therefore uses the working Windows network stack. On a plain Linux box (no Windows mount) the glob matches nothing and resolution falls through to `PATH`, so nothing changes there. PATCH — no API/count change.
+
+### Fixed
+
+- **`hooks/cross-review-precommit.sh`** — `resolve_engine` gains a WSL→Windows-desktop-codex path (newest by mtime, survives desktop auto-updates), extracted a `_newest()` helper. The standalone CLI being unusable under a VPN no longer means "no cross-vendor review" in WSL.
+- **`tests/verify_cross_review_precommit.py`** — inject a dummy engine via `CROSS_REVIEW_{CODEX,GEMINI}_BIN=/bin/false` so the detached worker never fires a real (paid) call during testing now that resolution can find a real binary off `PATH`.
+- **Version 1.34.4 -> 1.34.5** across `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and the Version badge in `README.md` / `README.ru.md`.
+
+### Verified
+
+- **Live WSL run behind the user's active VPN**: `resolve_engine("codex")` resolved the Windows desktop `codex.exe` via `/mnt`, and `run_engine` returned **three real codex findings** (overdraft, input validation, money-precision) on a buggy `charge()` diff in 42.9s — the same module path the detached worker uses. (The full dispatch→detached-worker→notes chain was separately verified on Windows in v1.34.4.)
+- `tests/verify_cross_review_precommit.py` -> 10/10 (deterministic, no external call); `tests/meta_review.py` -> PASSED; all 6 CI checks green; `py_compile` clean.
+
 ## [1.34.4] - 2026-06-29
 
 **Engine resolution prefers a working binary — fixes codex on Windows behind a flaky VPN.** The hook resolved `codex` purely via `PATH`, which on a typical Windows box is the npm `codex.CMD` shim — and that can be a stale version that fails to even start (rejects a newer `config.toml`'s `service_tier`, or times out refreshing its model list under a fake-ip VPN) while the user's *OpenAI Codex desktop* bundle (a newer, network-capable `codex.exe`) works fine. New `resolve_engine()` picks, in order: an explicit `CROSS_REVIEW_CODEX_BIN` / `CROSS_REVIEW_GEMINI_BIN` override; for codex on Windows, the **newest** `%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe` (auto-tracks desktop auto-updates); then `PATH`. PATCH — no API/count change.

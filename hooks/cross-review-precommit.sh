@@ -141,32 +141,48 @@ def append(notes: str, text: str) -> None:
         pass
 
 
+def _newest(paths):
+    paths = [p for p in paths if os.path.exists(p)]
+    if not paths:
+        return None
+    try:
+        return max(paths, key=os.path.getmtime)
+    except OSError:
+        return paths[0]
+
+
 def resolve_engine(name: str):
     """Return a full path to the engine binary, or None. Resolution order:
 
       1. explicit override env  CROSS_REVIEW_<NAME>_BIN  (points at any binary);
-      2. for codex on Windows, the newest OpenAI Codex *desktop* bundle
-         (%LOCALAPPDATA%\\OpenAI\\Codex\\bin\\<hash>\\codex.exe) — it is newer
-         and network-capable where the npm `codex.CMD` shim can be a stale
-         version that fails (e.g. an unknown `service_tier` or a model-refresh
-         timeout). Picking the newest by mtime survives desktop auto-updates;
+      2. for codex, the newest OpenAI Codex *desktop* bundle — it is newer and
+         network-capable where the standalone CLI can fail (unknown `service_tier`,
+         or a model-refresh timeout behind a fake-ip VPN):
+           - on Windows: %LOCALAPPDATA%\\OpenAI\\Codex\\bin\\<hash>\\codex.exe;
+           - on WSL/Linux: the same Windows binary via /mnt interop
+             (/mnt/<drive>/Users/*/AppData/Local/OpenAI/Codex/bin/*/codex.exe).
+             It runs as a Windows process, so it uses the working Windows network
+             stack — the standalone WSL codex CLI may be broken under the VPN.
+         Picking the newest by mtime survives desktop auto-updates;
       3. whatever is on PATH (shutil.which).
 
     Returning a FULL path also fixes the Windows `.CMD` launch problem (a bare
-    name is not launchable by CreateProcess)."""
+    name is not launchable by CreateProcess). On a plain Linux box (no Windows
+    mount) the /mnt glob matches nothing and we fall straight through to PATH."""
     override = os.environ.get("CROSS_REVIEW_%s_BIN" % name.upper())
     if override and os.path.exists(override):
         return override
-    if name == "codex" and os.name == "nt":
-        base = os.path.join(
-            os.environ.get("LOCALAPPDATA", ""), "OpenAI", "Codex", "bin")
-        cands = [p for p in glob.glob(os.path.join(base, "*", "codex.exe"))
-                 if os.path.exists(p)]
-        if cands:
-            try:
-                return max(cands, key=os.path.getmtime)
-            except OSError:
-                return cands[0]
+    if name == "codex":
+        if os.name == "nt":
+            base = os.path.join(
+                os.environ.get("LOCALAPPDATA", ""), "OpenAI", "Codex", "bin")
+            found = _newest(glob.glob(os.path.join(base, "*", "codex.exe")))
+        else:
+            # WSL interop: reach the Windows desktop codex.exe across drive mounts.
+            found = _newest(glob.glob(
+                "/mnt/*/Users/*/AppData/Local/OpenAI/Codex/bin/*/codex.exe"))
+        if found:
+            return found
     return shutil.which(name)
 
 
