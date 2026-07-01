@@ -9,14 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **`docs/HARNESS_ENGINEERING_MAP.md` — version label bumped v1.37.0 → v1.38.0.** An independent audit flagged the map self-stamping v1.37.0 while `plugin.json` was v1.38.0. The asserted counts (38 skills / 10 agents / 20 hooks / 2 gates) were already correct (v1.38.0 changed only `sync-to-active.sh`, not counts/registration) — this aligns the label with reality. Docs-only.
-
 ### Added
 
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
+
+## [1.39.0] - 2026-07-01
+
+**CLAUDE.md methodology block now syncs across machines, and two drift-guards lock the wins in place.** Closes the audit's most valuable remaining items (points 3/4/5 — the ones worth chasing); points 1/2/6 are deliberate design tradeoffs (advisory complexity routing, commit-count brownfield detect, opt-in `.itd/` contracts) where forcing "10/10" would reduce effectiveness, so they're left as-is.
+
+### Added
+
+- **`docs/templates/global-claude-md.md` + `sync-to-active.sh` Step 5/5 — the global CLAUDE.md methodology block now syncs (point 3).** The repo owns the MANDATORY methodology block between `<!-- ITD:BEGIN -->`/`<!-- ITD:END -->` markers; sync replaces ONLY that marked region in the active `~/.claude/CLAUDE.md`, preserving everything outside (personal sections like token-efficiency prefs). Backup + dry-run aware + idempotent. Closes the "CLAUDE.md can silently drift between machines" gap — both installs are now kept in lockstep by the same mechanism as skills/hooks.
+- **`tests/verify_registration_and_counts.py` — two drift-guards (points 4 + 5).** (4) Every hook file must be in the canonical registration set (`DESIRED_HOOKS`) OR the explicit opt-in allowlist (`freeze`) — turns the exact v1.37.0 root-cause (hooks shipped but silently unregistered) into a failing test. (5) The skill/agent/hook counts asserted in `plugin.json`, `marketplace.json`, `HARNESS_ENGINEERING_MAP.md`, and the CLAUDE.md template must all equal the actual on-disk counts — stops stale "34 skills / 16 hooks"-style docs.
+
+### Fixed
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` — version label v1.37.0 → v1.38.0.** Independent audit flagged the map self-stamping v1.37.0 while `plugin.json` was v1.38.0; counts already correct, label aligned. Docs-only.
+
+### Changed
+
+- **`sync-to-active.sh` — step count 4 → 5**; backup cleanup now also prunes `CLAUDE.md.bak-*`.
+
+Verified: Step 5 sandbox (up-to-date / update / prepend / create — personal section preserved in every case); `verify_registration_and_counts` 9/9; `verify_brownfield_and_gate` 24/24; `verify_skill_enforcement` 10/10; `meta_review` PASSED; `bash -n` clean. MINOR — additive.
 
 ## [1.38.0] - 2026-07-01
 

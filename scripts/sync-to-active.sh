@@ -86,9 +86,9 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Step 1/4: Sync skills
+# Step 1/5: Sync skills
 # -----------------------------------------------------------------------------
-say "Step 1/4: skills/"
+say "Step 1/5: skills/"
 mkdir -p "$ACTIVE/skills"
 
 added=0
@@ -131,9 +131,9 @@ done
 ok "skills: +$added added, ~$updated updated, =$unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 2/4: Sync hooks
+# Step 2/5: Sync hooks
 # -----------------------------------------------------------------------------
-say "Step 2/4: hooks/"
+say "Step 2/5: hooks/"
 mkdir -p "$ACTIVE/hooks"
 
 h_added=0
@@ -175,7 +175,7 @@ done
 ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 3/4: Sync agents/*.md (subagents)
+# Step 3/5: Sync agents/*.md (subagents)
 # -----------------------------------------------------------------------------
 # Gap #9 (v1.13.1): sync-to-active.sh originally copied skills/ and hooks/
 # but NOT agents/, so updates to subagent instructions (e.g. the v1.13.0
@@ -186,7 +186,7 @@ ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 # Numbering note (v1.13.2): originally this was "Step 2.5/3" because agents/
 # was added after the 3-step layout was fixed. v1.13.2 renumbered to the
 # honest 1/4..4/4 scheme so that `--check` dry-run output matches reality.
-say "Step 3/4: agents/"
+say "Step 3/5: agents/"
 mkdir -p "$ACTIVE/agents"
 
 a_added=0
@@ -228,9 +228,9 @@ fi
 ok "agents: +$a_added added, ~$a_updated updated, =$a_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 4/4: Patch settings.json "hooks" section
+# Step 4/5: Patch settings.json "hooks" section
 # -----------------------------------------------------------------------------
-say "Step 4/4: settings.json hooks registration"
+say "Step 4/5: settings.json hooks registration"
 
 SETTINGS="$ACTIVE/settings.json"
 
@@ -412,14 +412,68 @@ PYEOF
   fi
 fi
 
+# -----------------------------------------------------------------------------
+# Step 5/5: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)
+# -----------------------------------------------------------------------------
+# The global CLAUDE.md carries the MANDATORY methodology instruction plus
+# personal sections (e.g. token-efficiency prefs). To keep the methodology block
+# in lockstep across machines WITHOUT clobbering personal content, the repo owns
+# the block (docs/templates/global-claude-md.md, between ITD:BEGIN/ITD:END
+# markers) and this step replaces ONLY that marked region in the active file.
+say "Step 5/5: CLAUDE.md methodology block"
+TPL="$REPO_ROOT/docs/templates/global-claude-md.md"
+CLAUDE_MD="$ACTIVE/CLAUDE.md"
+if [ ! -f "$TPL" ]; then
+  warn "template not found ($TPL) — skipping CLAUDE.md sync"
+else
+  _cmres="$(ITD_TPL="$TPL" ITD_CLAUDE="$CLAUDE_MD" ITD_DRY="$DRY_RUN" "$PYBIN" - <<'PYX'
+import os, sys, time, shutil
+BEGIN = "<!-- ITD:BEGIN"; END = "<!-- ITD:END methodology -->"
+tpl = open(os.environ["ITD_TPL"], encoding="utf-8").read()
+b, e = tpl.find(BEGIN), tpl.find(END)
+if b == -1 or e == -1:
+    print("ERROR:template markers missing"); sys.exit(0)
+block = tpl[b:e + len(END)]
+active = os.environ["ITD_CLAUDE"]; dry = os.environ["ITD_DRY"]
+if not os.path.exists(active):
+    action, result = "create", block + "\n"
+else:
+    cur = open(active, encoding="utf-8").read()
+    ab, ae = cur.find(BEGIN), cur.find(END)
+    if ab != -1 and ae != -1:
+        if cur[ab:ae + len(END)] == block:
+            print("UPTODATE"); sys.exit(0)
+        action, result = "update", cur[:ab] + block + cur[ae + len(END):]
+    else:
+        action, result = "prepend", block + "\n\n" + cur
+if dry == "1":
+    print("DRIFT:" + action); sys.exit(0)
+if os.path.exists(active):
+    shutil.copy(active, active + ".bak-" + time.strftime("%Y%m%d-%H%M%S"))
+with open(active, "w", encoding="utf-8") as f:
+    f.write(result)
+print("WROTE:" + action)
+PYX
+)"
+  case "$_cmres" in
+    UPTODATE) ok "CLAUDE.md methodology block already up-to-date" ;;
+    DRIFT:*)  warn "CLAUDE.md methodology block drift (${_cmres#DRIFT:}) — would sync" ;;
+    WROTE:*)  ok "CLAUDE.md methodology block synced (${_cmres#WROTE:})" ;;
+    ERROR:*)  err "CLAUDE.md sync: ${_cmres#ERROR:}" ;;
+    *)        warn "CLAUDE.md sync: unexpected result ($_cmres)" ;;
+  esac
+fi
+
 # v1.20.1 cleanup: keep the 5 most recent settings.json.bak-* files, delete
 # older ones. `sync-to-active` is run routinely, so these accumulate fast.
 if [ "$DRY_RUN" = "0" ]; then
-  mapfile -t _old_baks < <(ls -1t "$ACTIVE"/settings.json.bak-* 2>/dev/null | tail -n +6)
-  if [ "${#_old_baks[@]}" -gt 0 ]; then
-    rm -f "${_old_baks[@]}"
-    ok "backup cleanup: pruned ${#_old_baks[@]} old settings.json.bak files (kept 5 most recent)"
-  fi
+  for _glob in "settings.json.bak-" "CLAUDE.md.bak-"; do
+    mapfile -t _old_baks < <(ls -1t "$ACTIVE/$_glob"* 2>/dev/null | tail -n +6)
+    if [ "${#_old_baks[@]}" -gt 0 ]; then
+      rm -f "${_old_baks[@]}"
+      ok "backup cleanup: pruned ${#_old_baks[@]} old ${_glob}* files (kept 5 most recent)"
+    fi
+  done
 fi
 
 echo ""
