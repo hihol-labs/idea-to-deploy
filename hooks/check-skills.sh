@@ -492,27 +492,53 @@ TRIGGERS = [
 
 
 def project_profile(cwd: str) -> str:
-    """Optional per-project methodology profile marker (v1.35.0).
+    """Resolve the methodology profile for the project at `cwd` (v1.36.0).
 
-    Returns 'brownfield' when the project's CLAUDE.md opts out of the greenfield
-    pipeline, else '' (default = greenfield, no behaviour change). Marker forms
-    (case-insensitive, anywhere in the first 8 KB of the file):
-        itd-profile: brownfield
-        <!-- itd:brownfield -->
-    Opt-in only: greenfield projects never set it and are unaffected.
+    Precedence:
+      1. An explicit marker in the project's CLAUDE.md wins in EITHER direction
+         (case-insensitive, first 8 KB):
+             itd-profile: brownfield  /  <!-- itd:brownfield -->  -> 'brownfield'
+             itd-profile: greenfield  /  <!-- itd:greenfield -->  -> 'greenfield'
+      2. Otherwise AUTO-DETECT by repo maturity: an established git history
+         (>= ITD_BROWNFIELD_MIN_COMMITS commits, default 25) is 'brownfield';
+         a fresh/empty project (few or no commits, or no git repo) is
+         'greenfield' — the safe default that keeps the greenfield pipeline.
+
+    Returns 'brownfield' or 'greenfield'. Only 'brownfield' suppresses the
+    greenfield-pipeline hints in the caller. A mature repo that still wants the
+    pipeline (e.g. a big new feature) sets `itd-profile: greenfield` to opt back.
     """
     import re
+    # 1. Explicit marker (either direction) — check both CLAUDE.md locations.
     try:
         for name in ("CLAUDE.md", os.path.join(".claude", "CLAUDE.md")):
             p = os.path.join(cwd, name)
             if os.path.isfile(p):
                 with open(p, encoding="utf-8", errors="ignore") as f:
                     head = f.read(8192).lower()
+                if re.search(r"itd-profile:\s*greenfield|itd:greenfield", head):
+                    return "greenfield"
                 if re.search(r"itd-profile:\s*brownfield|itd:brownfield", head):
                     return "brownfield"
     except Exception:
         pass
-    return ""
+    # 2. Auto-detect by git maturity.
+    try:
+        threshold = int(os.environ.get("ITD_BROWNFIELD_MIN_COMMITS", "25"))
+    except Exception:
+        threshold = 25
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=cwd, capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0:
+            commits = int((out.stdout or "0").strip() or "0")
+            return "brownfield" if commits >= threshold else "greenfield"
+    except Exception:
+        pass
+    return "greenfield"
 
 
 # Hints whose skill belongs to the greenfield "idea → deploy" pipeline. In a
@@ -548,12 +574,22 @@ def main() -> int:
             hints.append(hint)
             seen.add(hint)
 
-    # (v1.35.0) Brownfield profile: opt-out of the greenfield pipeline. Only the
-    # project's own CLAUDE.md marker enables this; default behaviour unchanged.
-    cwd = (payload or {}).get("cwd") or os.getcwd()
-    if project_profile(cwd) == "brownfield":
-        hints = [h for h in hints
-                 if not any(s in h for s in _GREENFIELD_SKILLS)]
+    # (v1.36.0) Brownfield profile: suppress greenfield-pipeline hints on a
+    # mature/existing codebase. Auto-detected by repo maturity, overridable by an
+    # explicit marker (see project_profile). Match a hint by its OWN (primary)
+    # skill — the first "/skill" token, i.e. the one after "используй" — never by
+    # a greenfield skill merely mentioned in the prose (e.g. the /adopt hint
+    # references /blueprint). Resolve only when a greenfield hint actually fired,
+    # to avoid the git call on ordinary prompts.
+    def _primary_skill(h):
+        m = re.search(r"/([a-z][a-z-]+)", h)
+        return "/" + m.group(1) if m else ""
+
+    if any(_primary_skill(h) in _GREENFIELD_SKILLS for h in hints):
+        cwd = (payload or {}).get("cwd") or os.getcwd()
+        if project_profile(cwd) == "brownfield":
+            hints = [h for h in hints
+                     if _primary_skill(h) not in _GREENFIELD_SKILLS]
 
     if not hints:
         return 0

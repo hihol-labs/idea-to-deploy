@@ -99,6 +99,51 @@ except Exception as ex:  # noqa
     print("   error:", ex)
 
 
+# --- check-skills.sh: brownfield AUTO-DETECT by git maturity (v1.36.0) -----
+import subprocess as _sp
+
+
+def _git_project(n_commits, marker=None):
+    d = tempfile.mkdtemp(prefix="itd-git-")
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+    _sp.run(["git", "init", "-q"], cwd=d, env=env, check=True)
+    if marker is not None:
+        with open(os.path.join(d, "CLAUDE.md"), "w", encoding="utf-8") as f:
+            f.write("# p\n%s\n" % marker)
+    for i in range(n_commits):
+        _sp.run(["git", "commit", "-q", "--allow-empty", "-m", "c%d" % i],
+                cwd=d, env=env, check=True)
+    return d
+
+
+try:
+    THR = {"ITD_BROWNFIELD_MIN_COMMITS": "3"}
+
+    def _gf(cwd):  # greenfield-prompt hints for a project at cwd (threshold=3)
+        return _run(CHECK_SKILLS, {"prompt": GREENFIELD_PROMPT, "cwd": cwd},
+                    cwd=cwd, env=THR)[1]
+
+    mature = _git_project(4)
+    check("auto: mature git repo (no marker) -> /project suppressed",
+          "/project" not in _gf(mature))
+    fresh = _git_project(1)
+    check("auto: fresh git repo (< threshold) -> /project fires",
+          "/project" in _gf(fresh))
+    override = _git_project(4, marker="itd-profile: greenfield")
+    check("override: mature repo + itd-profile: greenfield -> /project fires",
+          "/project" in _gf(override))
+    nongit = tempfile.mkdtemp(prefix="itd-nogit-")
+    check("auto: non-git dir -> greenfield default -> /project fires",
+          "/project" in _gf(nongit))
+    mkbf = _git_project(1, marker="<!-- itd:brownfield -->")
+    check("override: fresh repo + brownfield marker -> /project suppressed",
+          "/project" not in _gf(mkbf))
+except Exception as ex:  # noqa
+    check("auto-detect block ran without error", False)
+    print("   error:", ex)
+
+
 # --- check-tool-skill.sh: read-only vs mutating ---------------------------
 def tool_out(cmd):
     return _run(CHECK_TOOL, {"tool_name": "Bash", "tool_input": {"command": cmd}})
