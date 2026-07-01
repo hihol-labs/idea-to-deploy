@@ -1,4 +1,4 @@
-# Project profiles & domain markers (v1.35.0)
+# Project profiles & domain markers (v1.36.0)
 
 idea-to-deploy is greenfield-first by default (idea → discover → blueprint →
 kickstart → … → deploy). That is the right shape when you build a product from
@@ -6,46 +6,56 @@ scratch. It is the wrong shape when the work is a **feature on a mature existing
 codebase** — there the greenfield pipeline is ceremony, and the project's own
 `CLAUDE.md` is the real source of truth.
 
-These **opt-in** markers let a project tell the methodology what kind of work it
-is. They change nothing by default: a project that sets no marker behaves
-exactly as before. Only the project's own `CLAUDE.md` (or `.claude/CLAUDE.md`)
-turns them on.
+Two markers let a project tell the methodology what kind of work it is:
+
+- **`itd-profile`** (brownfield vs greenfield) is **auto-detected** by repo
+  maturity from v1.36.0, and can be **overridden** explicitly in either
+  direction. Greenfield stays the default for a fresh project.
+- **`itd-domain: data-sensitive`** is **opt-in** — set it only when the project
+  mutates irreplaceable data.
+
+Markers live in the project's own `CLAUDE.md` (or `.claude/CLAUDE.md`),
+case-insensitive, matched in the first 8 KB.
 
 ---
 
-## `itd-profile: brownfield` — opt out of the greenfield pipeline
+## `itd-profile: brownfield` / `greenfield` — pick the right pipeline
 
-**What it does.** When the current project's `CLAUDE.md` contains this marker,
-the skill-hint hook (`hooks/check-skills.sh`) suppresses greenfield-pipeline
-hints so they stop firing on day-to-day feature work:
+**What it does.** On a **brownfield** project the skill-hint hook
+(`hooks/check-skills.sh`) suppresses greenfield-pipeline hints so they stop
+firing on day-to-day feature work:
 
 `/project`, `/blueprint`, `/discover`, `/kickstart`, `/guide`, `/strategy`,
 `/market-scan`, `/autopilot`.
 
 Everything else stays active — `/task`, `/bugfix`, `/refactor`, `/test`,
 `/review`, `/doc`, `/perf`, `/session-save`, `/migrate`, `/security-audit`, …
-The review gate and feature-branch discipline are untouched (they are equally
-valuable on brownfield).
+The review gate and feature-branch discipline are untouched (equally valuable on
+brownfield). A hint is matched by its own **primary** skill (the `/skill` after
+`используй`), never by a greenfield skill merely mentioned in the prose — so the
+`/adopt` hint, which references `/blueprint`, is not suppressed.
 
-**How to enable.** Put either form anywhere in the project's `CLAUDE.md`
-(case-insensitive, matched in the first 8 KB):
+**How it is resolved (v1.36.0).**
 
-```
-<!-- itd:brownfield -->
-```
+1. **Explicit marker wins**, in either direction. Put either form anywhere in
+   the project's `CLAUDE.md`:
 
-or, inside a YAML/front-matter-ish block:
+   ```
+   <!-- itd:brownfield -->      itd-profile: brownfield
+   <!-- itd:greenfield -->      itd-profile: greenfield
+   ```
 
-```
-itd-profile: brownfield
-```
+2. **Otherwise auto-detect by repo maturity.** An established git history
+   (`git rev-list --count HEAD` ≥ `ITD_BROWNFIELD_MIN_COMMITS`, default **25**)
+   → brownfield; a fresh or empty project (fewer commits, or no git repo)
+   → greenfield. Tune the threshold with the `ITD_BROWNFIELD_MIN_COMMITS`
+   environment variable.
 
-**When to use.** The project already has a substantial `CLAUDE.md` /
-architecture and you are adding features or fixing bugs, not bootstrapping a new
-product. `/adopt` can stamp this marker when it onboards a legacy project.
-
-**When NOT to use.** A new product build — leave it unset so the greenfield
-pipeline stays available.
+**When to override.** A mature repo where you want the greenfield pipeline back
+for a big new feature → set `itd-profile: greenfield`. A brand-new project you
+want treated as brownfield immediately → set `itd-profile: brownfield` (or let
+it flip automatically once history accrues). `/adopt` can stamp `brownfield`
+when it onboards a legacy project.
 
 ---
 
@@ -85,9 +95,13 @@ approved.
 
 ## Design guarantees
 
-- **Opt-in, additive.** No marker → no behaviour change. Greenfield projects are
-  never affected by these features.
-- **Project-declared, not global.** The markers live in the project's own
-  `CLAUDE.md`; the global methodology stays greenfield-first.
+- **Safe default.** A fresh project (few commits, or no git) stays greenfield —
+  the pipeline is available exactly as before. Auto-detection only flips an
+  *established* repo to brownfield, which is where the pipeline was ceremony
+  anyway; an explicit `itd-profile: greenfield` always overrides.
+- **`data-sensitive` is opt-in.** It never activates on its own — set it
+  deliberately.
+- **Override always wins.** An explicit `itd-profile:` marker beats
+  auto-detection in either direction; the project owner has the final say.
 - **Composable.** A project can set both markers (a brownfield, data-sensitive
   system — the common case for mature line-of-business software).

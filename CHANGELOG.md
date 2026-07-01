@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.36.0] - 2026-07-01
+
+**Brownfield profile is now auto-detected — no per-project marker required.** Follow-up to v1.35.0: `itd-profile` no longer needs a hand-placed marker in each project. `hooks/check-skills.sh` resolves it from repo maturity, with an explicit marker overriding in either direction.
+
+### Changed
+
+- **`hooks/check-skills.sh` — `itd-profile` auto-detection.** Resolution order: (1) an explicit `itd-profile: brownfield|greenfield` (or `<!-- itd:… -->`) in the project's `CLAUDE.md` wins in either direction; (2) otherwise auto-detect by repo maturity — an established git history (`git rev-list --count HEAD` ≥ `ITD_BROWNFIELD_MIN_COMMITS`, default 25) is brownfield, a fresh/empty project (fewer commits, or no git) is greenfield. A mature repo (e.g. a 900-commit line-of-business app) becomes brownfield with zero configuration; a new project keeps the greenfield pipeline. The git call runs only when a greenfield hint actually fired, so ordinary prompts pay nothing.
+- **`hooks/check-skills.sh` — suppression matches a hint's primary skill.** A greenfield hint is filtered by its own `/skill` (the one after `используй`), never by a greenfield skill merely referenced in the prose — fixes the `/adopt` hint (which mentions `/blueprint`) being wrongly suppressed on a brownfield project (latent since v1.35.0, exposed by auto-detection).
+
+### Added
+
+- `tests/verify_brownfield_and_gate.py` — 5 new cases for auto-detection (mature repo → brownfield, fresh repo → greenfield, explicit greenfield/brownfield override, non-git dir → greenfield); 24/24 total.
+
+Escape hatch: a mature repo that still wants the greenfield pipeline for a big new feature sets `itd-profile: greenfield`. See `docs/project-profiles.md`. MINOR — backward-compatible; explicit v1.35.0 markers keep working.
+
 ## [1.35.0] - 2026-07-01
 
 **Methodology fits brownfield feature-work, not just greenfield builds — plus two false-positive fixes to the skill gate.** Five opt-in/additive changes that make the methodology effective on a mature existing codebase (feature/maintenance work, where the project's own `CLAUDE.md` is the real source of truth) without weakening the greenfield pipeline, which stays the default. Motivated by an honest self-audit on a large brownfield accounting project (OneOfS payment calendar): the greenfield pipeline was ceremony there, the skill-decision line was ~90% "не нужен" noise, and keyword triggers mis-fired (the word *deploy* inside "idea to deploy"; bare *переписать* on a letter edit).
