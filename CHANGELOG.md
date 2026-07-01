@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` — version label bumped v1.37.0 → v1.38.0.** An independent audit flagged the map self-stamping v1.37.0 while `plugin.json` was v1.38.0. The asserted counts (38 skills / 10 agents / 20 hooks / 2 gates) were already correct (v1.38.0 changed only `sync-to-active.sh`, not counts/registration) — this aligns the label with reality. Docs-only.
+
 ### Added
 
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
