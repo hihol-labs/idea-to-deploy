@@ -216,6 +216,38 @@ def log_bypass(payload: dict) -> None:
         pass
 
 
+def is_readonly_bash(payload: dict) -> bool:
+    """True for pure inspection Bash (ls/cat/grep/find/git status|log|diff …).
+
+    Read-only recon is not "entering a task", so demanding a skill decision on
+    every such call is pure ceremony (v1.35.0). Mutations (Edit/Write/
+    NotebookEdit) and any state-changing or unrecognised Bash still go through
+    the gate below. Conservative by design: the command is split on ; | && ||
+    and EVERY segment must match the read-only allowlist, any redirection
+    (>, >>, tee) forces False, so a read-only prefix cannot smuggle a mutation
+    ("ls && rm -rf", "cat x > y"). Erring toward False only keeps the reminder —
+    it never wrongly suppresses enforcement.
+    """
+    if (payload or {}).get("tool_name") != "Bash":
+        return False
+    cmd = ((payload or {}).get("tool_input") or {}).get("command") or ""
+    if not cmd.strip():
+        return False
+    import re
+    if re.search(r">>?|\btee\b", cmd):
+        return False
+    allow = re.compile(
+        r"^(ls|ll|cat|bat|head|tail|less|more|grep|rg|ag|find|fd|wc|pwd|echo|"
+        r"printf|which|type|command|stat|file|tree|du|df|env|whoami|hostname|"
+        r"date|realpath|readlink|dirname|basename|awk|cut|sort|uniq|column|jq|"
+        r"sed\s+-n|"
+        r"git\s+(status|log|diff|show|branch|remote|rev-parse|ls-files|describe|"
+        r"blame|shortlog|config\s+--get))\b"
+    )
+    segs = [s.strip() for s in re.split(r"&&|\|\||;|\|", cmd) if s.strip()]
+    return bool(segs) and all(allow.match(s) for s in segs)
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -224,6 +256,12 @@ def main() -> int:
 
     tool = (payload or {}).get("tool_name") or "?"
     reminder_path, ignore_path = state_paths()
+
+    # --- Read-only inspection Bash → not a task entry, skip the gate silently ---
+    # (v1.35.0) Does not touch the ignore counter or grace window: recon is
+    # neither skill work nor an ignore. Mutations fall through to enforcement.
+    if is_readonly_bash(payload):
+        return 0
 
     # --- Skill call detected → reset ignore counter, open grace window ---
     if tool == "Skill":

@@ -104,7 +104,9 @@ TRIGGERS = [
         "🔔 Триггер 'производительность' → используй /perf или perf-analyzer.",
     ),
     (
-        r"(отрефактор|рефактор|упрост\w*\s+код|refactor|переписать|перепиши\s+понятнее|"
+        r"(отрефактор|рефактор|упрост\w*\s+код|refactor|"
+        r"переписать\s+(код|модул|функци|класс|метод|компонент)|"
+        r"перепиши\s+(код|модул|функци|класс|метод|понятнее)|"
         r"улучш\w+\s+(код|читаемост)|вынеси\s+в\s+функци|убери\s+дублирован|"
         r"длинн\w+\s+функци|глубок\w+\s+вложенност|слишком\s+сложн\w+\s+код|"
         r"code\s+smell|clean\s+up|poor\s+naming|magic\s+number|god\s+class)",
@@ -489,6 +491,37 @@ TRIGGERS = [
 ]
 
 
+def project_profile(cwd: str) -> str:
+    """Optional per-project methodology profile marker (v1.35.0).
+
+    Returns 'brownfield' when the project's CLAUDE.md opts out of the greenfield
+    pipeline, else '' (default = greenfield, no behaviour change). Marker forms
+    (case-insensitive, anywhere in the first 8 KB of the file):
+        itd-profile: brownfield
+        <!-- itd:brownfield -->
+    Opt-in only: greenfield projects never set it and are unaffected.
+    """
+    import re
+    try:
+        for name in ("CLAUDE.md", os.path.join(".claude", "CLAUDE.md")):
+            p = os.path.join(cwd, name)
+            if os.path.isfile(p):
+                with open(p, encoding="utf-8", errors="ignore") as f:
+                    head = f.read(8192).lower()
+                if re.search(r"itd-profile:\s*brownfield|itd:brownfield", head):
+                    return "brownfield"
+    except Exception:
+        pass
+    return ""
+
+
+# Hints whose skill belongs to the greenfield "idea → deploy" pipeline. In a
+# project that declared itd-profile: brownfield these are suppressed, because
+# the work is feature/maintenance on an existing codebase, not a new build.
+_GREENFIELD_SKILLS = ("/project", "/blueprint", "/discover", "/kickstart",
+                      "/guide", "/strategy", "/market-scan", "/autopilot")
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -502,12 +535,25 @@ def main() -> int:
     import re
 
     lp = prompt.lower()
+    # (v1.35.0) Neutralise the methodology's own name so a casual mention like
+    # "методология idea to deploy" can't self-trigger generic keyword hints
+    # (the word "deploy" inside "idea to deploy" used to fire /deploy). The
+    # /adopt trigger legitimately keys on the name, so it matches the raw prompt.
+    lp_clean = re.sub(r"idea[\s\-]?to[\s\-]?deploy", "  ", lp)
     hints = []
     seen = set()
     for pattern, hint in TRIGGERS:
-        if re.search(pattern, lp) and hint not in seen:
+        target = lp if "/adopt" in hint else lp_clean
+        if re.search(pattern, target) and hint not in seen:
             hints.append(hint)
             seen.add(hint)
+
+    # (v1.35.0) Brownfield profile: opt-out of the greenfield pipeline. Only the
+    # project's own CLAUDE.md marker enables this; default behaviour unchanged.
+    cwd = (payload or {}).get("cwd") or os.getcwd()
+    if project_profile(cwd) == "brownfield":
+        hints = [h for h in hints
+                 if not any(s in h for s in _GREENFIELD_SKILLS)]
 
     if not hints:
         return 0
