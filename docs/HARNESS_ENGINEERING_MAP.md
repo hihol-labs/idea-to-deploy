@@ -1,7 +1,7 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
 > Дата: 2026-07-01 (обновлено; исходная карта — 2026-06-22)
-> Версия idea-to-deploy: **v1.37.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0)
+> Версия idea-to-deploy: **v1.38.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.38.0 — счётчики/регистрация не менялись в v1.38.0)
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/)
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.37.0): **38 skills, 10 subagents, 20 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in.
+Проверка — чтением `main` (v1.38.0): **38 skills, 10 subagents, 20 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in.
 
 ## 4. Таблица соответствия
 
