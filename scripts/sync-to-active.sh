@@ -239,7 +239,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/session-open-diagnostic.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/pre-flight-check.sh",        "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/check-skills.sh",            "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/check-skills.sh",            "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/context-aware.sh",           "timeout": 5 }
       ]
     }
   ],
@@ -251,13 +252,20 @@ DESIRED_HOOKS=$(cat <<'JSON'
       ]
     },
     {
+      "matcher": "*",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/execution-trace.sh", "timeout": 5 }
+      ]
+    },
+    {
       "matcher": "Bash",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-commit-completeness.sh",   "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/check-review-before-commit.sh",  "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/check-dod-before-commit.sh",     "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/cross-review-precommit.sh",      "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 }
       ]
     },
     {
@@ -283,8 +291,10 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "*",
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh", "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/risk-score.sh",   "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh",      "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/risk-score.sh",        "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/stuck-detection.sh",   "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/crash-recovery.sh",    "timeout": 5 }
       ]
     }
   ]
@@ -292,13 +302,17 @@ DESIRED_HOOKS=$(cat <<'JSON'
 JSON
 )
 
-# Check if current settings.json hooks already matches desired
+# Check if current settings.json hooks already matches desired. Compare only the
+# ITD-managed event keys — foreign keys (e.g. a SessionStart hook registered by
+# another plugin) are preserved by the merge below and must not read as "drift".
 current_hooks=$(python3 -c "
 import json, sys
+KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse')
 try:
     with open('$SETTINGS') as f:
         data = json.load(f)
-    print(json.dumps(data.get('hooks', {}), sort_keys=True))
+    h = data.get('hooks', {})
+    print(json.dumps({k: h.get(k) for k in KEYS}, sort_keys=True))
 except Exception as e:
     print('ERROR:' + str(e))
     sys.exit(0)
@@ -325,7 +339,13 @@ import json, sys
 path = sys.argv[1]
 with open(path) as f:
     data = json.load(f)
-data['hooks'] = $DESIRED_HOOKS
+_itd = $DESIRED_HOOKS
+# Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
+# SessionStart hook registered by another plugin such as context-mode). ITD owns
+# UserPromptSubmit/PreToolUse/PostToolUse in full, so replacing those is correct.
+data.setdefault('hooks', {})
+for _k, _v in _itd.items():
+    data['hooks'][_k] = _v
 with open(path, 'w') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write('\n')

@@ -1,7 +1,7 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Дата: 2026-06-22
-> Версия idea-to-deploy: **v1.21.0** (`main` = `1e95ddb`)
+> Дата: 2026-07-01 (обновлено; исходная карта — 2026-06-22)
+> Версия idea-to-deploy: **v1.37.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0)
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/)
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (`1e95ddb`, v1.21.0): **33 skills, 10 subagents, 16 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`.
+Проверка — чтением `main` (v1.37.0): **38 skills, 10 subagents, 20 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in.
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 33 skills + 10 agents + 16 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 20 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
@@ -132,14 +132,14 @@
 
 Центральный принцип PFO: **computational — для блокирующих инвариантов, inferential — для семантики.** Жёсткий блок (`deny`) должен быть чисто вычислительным; если проверка требует семантического суждения — она обязана быть мягкой (hint), а не `deny`, иначе в гейт входит недетерминизм.
 
-### 8.1. Все 16 хуков по квадрантам
+### 8.1. Все 20 хуков по квадрантам
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
-| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `freeze`* · `careful`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
-| **Feedback** (после действия) | **Наблюдаемость (soft):** `cost-tracker` · `execution-trace`** | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
+| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `careful` · `freeze`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedback** (после действия) | **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
-`*` opt-in (активны только при наличии trigger-файла). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
+`*` `freeze` — opt-in (активен только при активном scope-lock). `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
 
 ### 8.2. Подробно по хукам
 
@@ -151,7 +151,8 @@
 | `check-dod-before-commit.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` commit'а с риск-сигналом (миграция/деньги/новый код без теста) без нужного скилла |
 | `check-skill-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` записи SKILL.md без artefacts (был PostToolUse-баг в v1.5.0 → исправлен в v1.5.1) |
 | `freeze.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — `deny` правок замороженных файлов |
-| `careful.sh` | PreToolUse | feedforward | computational | **blocking** (opt-in) — режим повышенной осторожности (`ask`/`deny`) |
+| `careful.sh` | PreToolUse | feedforward | computational | **blocking** (v1.37.0 always-on) — детект деструктивных команд (`rm -rf`, `DROP TABLE`, `git push --force`) → `ask`/`deny` |
+| `pii-egress-guard.sh` | PreToolUse (Bash\|WebFetch) | feedforward | computational | **blocking** — `deny`/`exit 2` при попытке отправить PII/секреты вовне |
 | `check-skills.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит skill-hint; маршрут выбирает модель |
 | `context-aware.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит проектный контекст |
 | `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume |
@@ -161,13 +162,18 @@
 | `execution-trace.sh` | PreToolUse | feedback | computational | soft — observability: JSONL-трейс tool-call'ов, zero-context |
 | `stuck-detection.sh` | PostToolUse | feedback | inferential | soft — детект застревания → напоминание сменить подход |
 | `crash-recovery.sh` | PostToolUse | feedback | inferential | soft — recovery-контекст после краша для возобновления |
+| `record-agent-skill.sh` | PostToolUse (Task\|Agent) | feedback | computational | soft — пишет skill-sentinel, когда review/test/security делегированы субагенту (чтобы commit-гейты это засчитали) |
+| `risk-score.sh` | PostToolUse | feedback | computational | soft — оценка риск-сигнала действия (не блокирует) |
+| `cross-review-precommit.sh` | PreToolUse (Bash) | feedback | computational | soft (**fail-open**) — диспетчеризует независимый cross-vendor review диффа перед commit; аддитивно к `/review`, не гейт |
 
 ### 8.3. Что показывает линза
 
-- **Все 7 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла, а не «мнение» модели.
-- **9 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 2 наблюдают (computational feedback), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
+- **Все 8 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла/детект PII, а не «мнение» модели.
+- **12 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 5 наблюдают/учитывают (computational feedback), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
 - **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
 
 ---
 
 **Обновление документа.** При изменении числа скиллов/хуков, закрытии gap'а или изменении принципов курса — обновлять §4, §6 и §8 (классификацию). Если gap закрывается — статус → ✅ с пометкой о версии-релизе.
+
+> **v1.37.0.** Устранён разрыв «декларация ↔ реальность»: хуки наблюдаемости и само-коррекции (`execution-trace`, `stuck-detection`, `crash-recovery`, `context-aware`) и guardrail `careful` физически лежали в `~/.claude/hooks/`, но **не были в наборе регистрации** `scripts/sync-to-active.sh` → де-факто молчали, хотя §8.1 числил их активными. Теперь они в каноническом наборе (always-on), а sync **мержит** ITD-события, сохраняя чужие (напр. SessionStart другого плагина). H5-наблюдаемость и Agentic-само-коррекция стали фактически, а не на бумаге. `freeze` остаётся opt-in по дизайну.
