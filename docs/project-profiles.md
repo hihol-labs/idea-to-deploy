@@ -105,3 +105,35 @@ approved.
   auto-detection in either direction; the project owner has the final say.
 - **Composable.** A project can set both markers (a brownfield, data-sensitive
   system — the common case for mature line-of-business software).
+
+---
+
+## Recommended skill sets by scenario (v1.37.0)
+
+The profile picks *which pipeline* fits; this matrix maps the **scenario** to the
+skills that carry it. It removes the last of the "the model guesses" heuristic
+for point-1 (projects of different kind/complexity). Use it as guidance, not a
+hard gate — the skill-hint hook still routes per prompt.
+
+| Scenario | Recommended skills (in order) |
+|---|---|
+| **New product from an idea** (greenfield) | `/discover` → `/blueprint` → `/kickstart` → `/review` → `/test` → `/harden` → `/deploy` |
+| **New feature on an existing codebase** (brownfield) | `/task` → (`/bugfix` \| `/refactor` \| `/perf`) → `/test` → `/review` → `/session-save` |
+| **Bug fix** | `/bugfix` (root-cause gate) → `/test` (regression) → `/review` |
+| **Refactor / tech debt** | `/refactor` → `/test` → `/review`; `/deps-audit` if dependencies |
+| **Data-sensitive change** (`itd-domain: data-sensitive`) | model read-only first → `/task` → `/migrate` (backup + rollback) → `/review`; **never** mutate prod from an ad-hoc command |
+| **Security-critical** (auth / payments / secrets) | `/security-audit` + security-guidance plugin → `/review` |
+| **Legacy onboarding** | `/adopt` → `/strategy` or `/blueprint` |
+| **Advisory / "analyze, don't code"** | `/advisor` (or `/grill-me` to stress-test a decision) — read-only |
+| **Docs** | `/doc` |
+| **Trivial / small script** | minimal — `Скилл: не нужен` (or `SKILL_BYPASS`); no ceremony |
+
+**Complexity axis (how much ceremony):**
+
+- **Trivial** (one-liner, throwaway script) → skip the pipeline; declare `не нужен`.
+- **Small** (single-file feature/fix) → the relevant single skill + `/review`.
+- **Medium** (multi-file feature) → `/task` router + `/test` + `/review` + `/session-save`.
+- **Large** (new product / subsystem) → the full greenfield or brownfield chain above.
+
+Always-on regardless of size: the review gate before a multi-file commit, tests
+for new source, and a session checkpoint at meaningful state changes.

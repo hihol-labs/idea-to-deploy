@@ -14,6 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.37.0] - 2026-07-01
+
+**Close the "orphan hook" gap — self-correction and observability hooks are now actually wired, and the two machines converge.** A 6-dimension methodology audit (effectiveness across project types, greenfield/brownfield, default-on Win+WSL, component wiring, Harness Engineering, Agentic Engineering) found that `careful`, `execution-trace`, `stuck-detection`, `crash-recovery`, and `context-aware` shipped into `~/.claude/hooks/` but were **not in the canonical registration set** — so they silently never fired, while `HARNESS_ENGINEERING_MAP.md` counted them as active (declaration ≠ reality). `careful` worked on one machine only because it had been added by hand.
+
+### Changed
+
+- **`scripts/sync-to-active.sh` — canonical hook registration now includes the always-on self-correction / observability / guardrail hooks.** Added to `DESIRED_HOOKS`: `context-aware` (UserPromptSubmit), `execution-trace` (PreToolUse `*`), `careful` (PreToolUse `Bash`), `stuck-detection` + `crash-recovery` (PostToolUse `*`). `freeze` stays opt-in by design. Registered ITD hooks 14 → 19 (of 20 files).
+- **`scripts/sync-to-active.sh` — the settings.json patch is now a MERGE, not a full replace.** It updates only the ITD-managed event keys (UserPromptSubmit / PreToolUse / PostToolUse) and **preserves foreign event keys** (e.g. a SessionStart hook registered by another plugin such as context-mode), which the old full-replace silently clobbered. The drift check compares only the ITD keys, so a foreign key no longer reads as perpetual drift.
+- **`docs/HARNESS_ENGINEERING_MAP.md` — updated to v1.37.0.** Counts 33→38 skills / 16→20 hooks; `careful` reclassified opt-in → always-on; the 4 previously-missing hooks (`pii-egress-guard`, `record-agent-skill`, `risk-score`, `cross-review-precommit`) added to §8.2; §8.3 recount 7→8 blocking / 9→12 soft; a v1.37.0 note records the declaration↔reality fix.
+
+### Added
+
+- **`docs/project-profiles.md` — "Recommended skill sets by scenario" matrix + complexity axis.** Formalizes project-kind/complexity → skill-set, removing the last heuristic gap for point 1 of the audit (projects of different kind/complexity).
+
+Deploy-time config facts fixed outside the repo (per-machine): WSL was missing `careful` + `CAREFUL_MODE=1` and both machines' `settings.json` diverged — resolved by re-syncing both to the new canonical set + adding the env var on WSL. MINOR — additive registration + docs; no skill/agent count change.
+
 ## [1.36.0] - 2026-07-01
 
 **Brownfield profile is now auto-detected — no per-project marker required.** Follow-up to v1.35.0: `itd-profile` no longer needs a hand-placed marker in each project. `hooks/check-skills.sh` resolves it from repo maturity, with an explicit marker overriding in either direction.
