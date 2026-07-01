@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
 
+## [1.38.0] - 2026-07-01
+
+**`sync-to-active.sh` is now platform-aware — a Windows `~/.claude` can be synced from WSL, no more hand-editing.** Closes the last piece of the v1.37.0 audit's "default-on Win+WSL" gap: the sync script previously emitted only bare `~/.claude/hooks/X.sh` commands (correct on WSL, which runs them via shebang), so the Windows install had to be hand-maintained — Windows invokes `.sh` hooks through `python.exe`, not a shebang.
+
+### Changed
+
+- **`scripts/sync-to-active.sh` — platform-aware hook-command emission.** On a Windows target each `~/.claude/hooks/X.sh` is rewritten to `"<python.exe>" -X utf8 "<C:/…/.claude>/hooks/X.sh"`. Target detection: auto (Git-Bash / MSYS / Cygwin host) or explicit `ITD_TARGET_OS=windows` (for the WSL → `/mnt/c` case). The interpreter comes from `ITD_WIN_PYTHON` (or is discovered on PATH); `/mnt/c/…` and `/c/…` normalise to `C:/…`. Unix/WSL behaviour is unchanged (bare shebang paths). The foreign-key merge (SessionStart) and the ITD-only drift check both run on the platform-effective set, so re-runs are idempotent on either OS. Added a `python3`→`python` launcher fallback so the script also runs under Git-Bash. Example: `ITD_TARGET_OS=windows ITD_WIN_PYTHON="C:/…/python.exe" CLAUDE_HOME=/mnt/c/Users/<you>/.claude bash scripts/sync-to-active.sh`.
+
+Verified: Windows wrapper form + `/mnt/c`→`C:` conversion + SessionStart preserved + idempotent 2nd run; unix mode unchanged; `bash -n` clean. MINOR — additive, backward-compatible.
+
 ## [1.37.0] - 2026-07-01
 
 **Close the "orphan hook" gap — self-correction and observability hooks are now actually wired, and the two machines converge.** A 6-dimension methodology audit (effectiveness across project types, greenfield/brownfield, default-on Win+WSL, component wiring, Harness Engineering, Agentic Engineering) found that `careful`, `execution-trace`, `stuck-detection`, `crash-recovery`, and `context-aware` shipped into `~/.claude/hooks/` but were **not in the canonical registration set** — so they silently never fired, while `HARNESS_ENGINEERING_MAP.md` counted them as active (declaration ≠ reality). `careful` worked on one machine only because it had been added by hand.
