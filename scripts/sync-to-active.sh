@@ -10,6 +10,14 @@
 #   bash scripts/sync-to-active.sh           # sync all
 #   bash scripts/sync-to-active.sh --check   # dry-run, report drift only
 #
+# Windows target (v1.38.0) — sync a Windows ~/.claude from WSL, emitting
+# python.exe hook invocations instead of bare shebang paths:
+#   ITD_TARGET_OS=windows \
+#   ITD_WIN_PYTHON="C:/Users/<you>/AppData/Local/Programs/Python/Python312/python.exe" \
+#   CLAUDE_HOME=/mnt/c/Users/<you>/.claude \
+#   bash scripts/sync-to-active.sh
+# (Auto-detected as windows when run from Git-Bash/MSYS/Cygwin.)
+#
 # What it syncs:
 #   1. skills/*              → ~/.claude/skills/
 #   2. hooks/*.sh            → ~/.claude/hooks/
@@ -37,6 +45,22 @@ DRY_RUN=0
 
 if [ "${1:-}" = "--check" ]; then
   DRY_RUN=1
+fi
+
+# Python launcher: python3 on Unix/WSL, python on Git-Bash-Windows.
+if command -v python3 >/dev/null 2>&1; then PYBIN=python3
+elif command -v python  >/dev/null 2>&1; then PYBIN=python
+else PYBIN=python3; fi
+
+# Target OS (v1.38.0). On a Windows target, .sh hooks cannot run via a shebang —
+# Claude Code must invoke them through python.exe. Auto-detect a Git-Bash/MSYS/
+# Cygwin host; for the WSL → /mnt/c case set ITD_TARGET_OS=windows explicitly.
+ITD_TARGET_OS="${ITD_TARGET_OS:-}"
+if [ -z "$ITD_TARGET_OS" ]; then
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) ITD_TARGET_OS=windows ;;
+    *) ITD_TARGET_OS=unix ;;
+  esac
 fi
 
 say()   { printf "\033[1;36m▶\033[0m %s\n" "$*"; }
@@ -302,10 +326,44 @@ DESIRED_HOOKS=$(cat <<'JSON'
 JSON
 )
 
+# v1.38.0: platform-aware command form. On a Windows target, rewrite each
+# "~/.claude/hooks/X.sh" into a python.exe invocation with an absolute Windows
+# path — .sh files there have no executable shebang. Unix/WSL keeps bare paths
+# (the shebang runs them). ACTIVE (/mnt/c/... or /c/... → C:/...) is normalised;
+# the interpreter is ITD_WIN_PYTHON (required for the WSL→/mnt/c case) or is
+# discovered on PATH (Git-Bash host).
+if [ "$ITD_TARGET_OS" = "windows" ]; then
+  WIN_PY="${ITD_WIN_PYTHON:-}"
+  if [ -z "$WIN_PY" ]; then
+    _p="$(command -v python 2>/dev/null || command -v py 2>/dev/null || true)"
+    [ -n "$_p" ] && WIN_PY="$(cygpath -m "$_p" 2>/dev/null || echo "$_p")"
+  fi
+  [ -z "$WIN_PY" ] && { WIN_PY="python"; warn "ITD_WIN_PYTHON unset and python not found — using bare 'python'"; }
+  EFFECTIVE_HOOKS="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_WIN_PY="$WIN_PY" ITD_ACTIVE="$ACTIVE" "$PYBIN" - <<'PYX'
+import json, os, re
+def to_win(p):
+    m = re.match(r'^/mnt/([a-zA-Z])/(.*)$', p) or re.match(r'^/([a-zA-Z])/(.*)$', p)
+    return '%s:/%s' % (m.group(1).upper(), m.group(2)) if m else p.replace('\\', '/')
+py = os.environ['ITD_WIN_PY']
+active = to_win(os.environ['ITD_ACTIVE'].rstrip('/'))
+data = json.loads(os.environ['ITD_DESIRED'])
+for ev in data.values():
+    for grp in ev:
+        for h in grp.get('hooks', []):
+            m = re.match(r'^~/\.claude/hooks/(.+)$', h['command'])
+            if m:
+                h['command'] = '"%s" -X utf8 "%s/hooks/%s"' % (py, active, m.group(1))
+print(json.dumps(data))
+PYX
+)"
+else
+  EFFECTIVE_HOOKS="$DESIRED_HOOKS"
+fi
+
 # Check if current settings.json hooks already matches desired. Compare only the
 # ITD-managed event keys — foreign keys (e.g. a SessionStart hook registered by
 # another plugin) are preserved by the merge below and must not read as "drift".
-current_hooks=$(python3 -c "
+current_hooks=$($PYBIN -c "
 import json, sys
 KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse')
 try:
@@ -318,7 +376,7 @@ except Exception as e:
     sys.exit(0)
 " 2>/dev/null || echo "ERROR")
 
-desired_normalized=$(echo "$DESIRED_HOOKS" | python3 -c "
+desired_normalized=$(echo "$EFFECTIVE_HOOKS" | $PYBIN -c "
 import json, sys
 print(json.dumps(json.load(sys.stdin), sort_keys=True))
 ")
@@ -334,12 +392,12 @@ else
     ts=$(date +%Y%m%d-%H%M%S)
     bak="$SETTINGS.bak-$ts"
     cp "$SETTINGS" "$bak"
-    python3 - "$SETTINGS" <<PYEOF
+    $PYBIN - "$SETTINGS" <<PYEOF
 import json, sys
 path = sys.argv[1]
 with open(path) as f:
     data = json.load(f)
-_itd = $DESIRED_HOOKS
+_itd = $EFFECTIVE_HOOKS
 # Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
 # SessionStart hook registered by another plugin such as context-mode). ITD owns
 # UserPromptSubmit/PreToolUse/PostToolUse in full, so replacing those is correct.
