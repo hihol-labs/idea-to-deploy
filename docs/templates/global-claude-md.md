@@ -28,6 +28,9 @@ coding from scratch:
 3. **Review before commit.** Run `/review`; never commit unreviewed multi-file changes.
 4. **Document & persist.** Record decisions; run `/session-save` when wrapping up a session.
 5. **Prefer the methodology's skills/agents** over improvising your own ad-hoc process.
+6. **WIP=1.** One active task/unit at a time; start the next only after the current
+   one passes end-to-end verification. Don't "also refactor" B while implementing A —
+   out-of-scope findings go to the backlog, not into the current diff.
 
 ## Skill decision (visible line + trigger map)
 
@@ -59,7 +62,7 @@ Absent that, apply the methodology — when in doubt, apply it.
 
 > Methodology source (canonical): WSL repo `idea-to-deploy`
 > (`/home/hihol/projects/idea-to-deploy`), published as plugin
-> `hihol-labs/idea-to-deploy`. 38 skills + 10 agents + 21 hooks.
+> `hihol-labs/idea-to-deploy`. 38 skills + 10 agents + 22 hooks.
 
 ## Project profiles & markers (v1.35.0)
 

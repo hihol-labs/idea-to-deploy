@@ -246,6 +246,55 @@ def memory_staleness_check(cwd: Path, mem_dir: Path | None) -> str:
     )
 
 
+def itd_state_context(cwd: Path) -> str:
+    """Surface .itd-memory/STATE.json so a fresh session knows the active unit.
+
+    v1.41.0: the machine-readable scope surface existed (STATE.json + schema +
+    validate_state.py) but no session-start hook ever read it — a new session
+    learned about the active unit only via /handoff. This closes that gap:
+    inject currentUnit, nextAction, blockers, and unfinished gates.
+    """
+    state_file = cwd / ".itd-memory" / "STATE.json"
+    if not state_file.is_file():
+        return ""
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return ""
+
+    lines: list[str] = ["**ITD state** (`.itd-memory/STATE.json`):"]
+
+    unit = state.get("currentUnit") or {}
+    if unit.get("id") or unit.get("goal"):
+        lines.append(
+            f"- Активный unit: `{unit.get('id') or '?'}` — {unit.get('goal') or '(без цели)'}"
+            f" [status: {unit.get('status') or '?'}]"
+        )
+        lines.append(
+            "- **WIP=1**: пока этот unit не verified — новый unit не открывается; "
+            "сначала прогони его verificationCommand'ы."
+        )
+
+    next_action = state.get("nextAction") or ""
+    if next_action:
+        lines.append(f"- Next action: {next_action}")
+
+    blockers = state.get("blockers") or []
+    if blockers:
+        lines.append("- Blockers: " + "; ".join(str(b) for b in blockers[:5]))
+
+    pending = [
+        k for k, v in (state.get("gateResults") or {}).items()
+        if v not in ("", "n/a", "passed")
+    ]
+    if pending:
+        lines.append("- Непройденные гейты: " + ", ".join(sorted(pending)[:10]))
+
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)
+
+
 def session_id() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
@@ -341,6 +390,10 @@ def main() -> int:
     git = git_context(cwd)
     if git:
         sections.append(git)
+
+    itd_state = itd_state_context(cwd)
+    if itd_state:
+        sections.append(itd_state)
 
     mem_dir = find_project_memory_dir(cwd)
     if mem_dir:

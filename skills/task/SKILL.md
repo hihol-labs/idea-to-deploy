@@ -139,6 +139,29 @@ Routing matrix (also in `references/routing-matrix.md`):
 | "Проверь PR", "оцени качество", code review | `/review` |
 | "Я хочу сохранить контекст", "заканчиваем" | `/session-save` |
 
+### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0, only when `.itd-memory/` exists)
+
+If `$PROJECT_ROOT/.itd-memory/STATE.json` exists, keep the machine-readable
+scope surface honest around the routing:
+
+1. **Before activating** — read `STATE.json.currentUnit`. If its `status` is
+   `verifying` / `recovery_required` (unfinished unit) → do NOT silently start
+   the new unit. Tell the user: «Текущий unit `<id>` не доведён до verified
+   (<status>). WIP=1: сначала доводим его верификацию, или осознанно
+   закрываем/переклассифицируем?» Proceed only after an explicit choice.
+2. **On activation** — set `currentUnit` = `{id: U-<next>, goal: <one-line
+   task>, status: "in_progress", startedAt: <now>}` and append to
+   `events.jsonl`: `{"type": "unit", "name": "<id>", "decision": "activated",
+   ...}` (convention in `docs/templates/itd-memory/events.example.jsonl`).
+3. **On verified completion** (the target skill's verification passed with
+   evidence) — set `status: "verified"`, `completedAt`, and append
+   `{"type": "unit", "name": "<id>", "decision": "verified", "evidence": ...}`.
+   These events feed `itd_metrics.py` VCR (verified/activated) and the
+   `wip-gate.sh` hook.
+
+Skip this step entirely when there is no `.itd-memory/` — do not create it
+from `/task` (that's `/adopt` / `/kickstart` territory).
+
 ### Step 4: After the target skill completes
 
 Offer next steps or close the loop:

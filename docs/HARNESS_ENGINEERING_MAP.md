@@ -1,7 +1,7 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
 > Дата: 2026-07-02 (обновлено; исходная карта — 2026-06-22)
-> Версия idea-to-deploy: **v1.40.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.40.0; в v1.40.0 добавлена ось **I** — §4.4)
+> Версия idea-to-deploy: **v1.41.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.41.0; в v1.40.0 добавлена ось **I** — §4.4; в v1.41.0 — WIP=1/VCR-слой)
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.40.0): **38 skills, 10 subagents, 21 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4).
+Проверка — чтением `main` (v1.41.0): **38 skills, 10 subagents, 22 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`.
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 21 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 22 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
@@ -74,7 +74,9 @@
 | **I6** | **Git-коммит как чекпоинт** после инициализации | ✅ | Phase 3.6 initial commit + пункт checklist «everything committed» |
 | **I7** | **Handoff-ready в конце каждой сессии** — чистый чекпоинт + свежий прогресс-артефакт | ✅ (soft by design, v1.40.0) | Stop-хук `handoff-readiness.sh`: computational-детект (dirty git tree + отсутствие свежего `session_*.md`) → мягкий hint «сделай `/session-save` или `/handoff`», rate-limited. По правилу §8.3 «закончил ли пользователь работу» — семантика, поэтому hint, а не deny. Компенсаторная половина — `pre-flight-check` / `session-open-diagnostic` / `crash-recovery` на старте следующей сессии |
 
-**Честный остаток оси:** персистентный мульти-фичный `feature_list.json` (программный прогресс-реестр проекта, переживающий сессии) — реализован per-unit (`ACCEPTANCE_CONTRACT.json`), мульти-фичный ledger остаётся signal-gated кандидатом T2 (§5.4, §7 — триггер расширен сценарием autopilot/AFK).
+**Дополнение v1.41.0 (контроль скоупа и проверенного завершения):** (a) **WIP=1** — явное правило в обоих CLAUDE.md-шаблонах («следующий unit — только после end-to-end верификации текущего») + `currentUnit` singular by construction + новый soft-хук `wip-gate.sh` (Edit/Write вне `SCOPE_LOCK.Allowed` при unit'е в `verifying`/`recovery_required` → hint); (b) **машиночитаемая поверхность скоупа теперь читается на входе сессии** — `pre-flight-check.sh` инжектит `currentUnit`/`nextAction`/blockers/непройденные гейты из `STATE.json`; (c) **VCR** (Verified Completion Rate = verified/activated units) считается в `itd_metrics.py` по unit-событиям `events.jsonl`, которые `/task` пишет при активации/верификации unit'а. Жёсткий deny «VCR<1.0 → нельзя активировать» сознательно НЕ реализован: «активация задачи» не существует как tool-событие, а суждение «это новая задача или фикс текущей» — семантика (§8.3: hint, не deny).
+
+**Честный остаток оси:** персистентный мульти-фичный `feature_list.json` (программный прогресс-реестр проекта, переживающий сессии) — реализован per-unit (`ACCEPTANCE_CONTRACT.json`) + VCR-метрикой по unit-событиям (v1.41.0), мульти-фичный ledger остаётся signal-gated кандидатом T2 (§5.4, §7 — триггер расширен сценарием autopilot/AFK).
 
 ## 5. Детальный разбор
 
@@ -149,14 +151,14 @@
 
 Центральный принцип PFO: **computational — для блокирующих инвариантов, inferential — для семантики.** Жёсткий блок (`deny`) должен быть чисто вычислительным; если проверка требует семантического суждения — она обязана быть мягкой (hint), а не `deny`, иначе в гейт входит недетерминизм.
 
-### 8.1. Все хуки (21) по квадрантам
+### 8.1. Все хуки (22) по квадрантам
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
-| **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `careful` · `freeze`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedforward** (до действия) | **Жёсткие guardrail'ы (blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `careful` · `freeze`* · **+ soft-исключение:** `wip-gate`*** (v1.41.0) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
 | **Feedback** (после действия) | **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
-`*` `freeze` — opt-in (активен только при активном scope-lock). `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
+`*` `freeze` — opt-in (активен только при активном scope-lock). `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию. `***` `wip-gate` — детект computational (status unit'а + путь vs SCOPE_LOCK), но энфорсмент **soft by design**: «начал ли пользователь новую задачу или чинит текущую» — семантика, по правилу §8.3 это hint, не deny.
 
 ### 8.2. Подробно по хукам
 
@@ -183,11 +185,12 @@
 | `risk-score.sh` | PostToolUse | feedback | computational | soft — оценка риск-сигнала действия (не блокирует) |
 | `cross-review-precommit.sh` | PreToolUse (Bash) | feedback | computational | soft (**fail-open**) — диспетчеризует независимый cross-vendor review диффа перед commit; аддитивно к `/review`, не гейт |
 | `handoff-readiness.sh` | Stop | feedback | computational | soft — systemMessage-hint «сделай `/session-save`/`/handoff`» когда ход закончился с dirty tree и без свежего `session_*.md`; rate-limited, никогда не блокирует (ось I §4.4) |
+| `wip-gate.sh` | PreToolUse (Write\|Edit\|MultiEdit) | feedforward | computational | soft — hint «WIP=1: доведи верификацию текущего unit'а или переклассифицируй» при правке вне `SCOPE_LOCK.Allowed`, когда `currentUnit.status` ∈ verifying/recovery_required; молчит без `.itd-memory/` (v1.41.0, §4.4) |
 
 ### 8.3. Что показывает линза
 
 - **Все 8 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла/детект PII, а не «мнение» модели.
-- **13 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 6 наблюдают/учитывают (computational feedback, включая `handoff-readiness` с v1.40.0), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
+- **14 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 1 — вычислительный feedforward-hint (`wip-gate`, v1.41.0 — детект детерминирован, но решение «новая ли это задача» семантическое), 6 наблюдают/учитывают (computational feedback, включая `handoff-readiness` с v1.40.0), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их финальный сигнал семантический.
 - **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
 
 ---
