@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.41.0] - 2026-07-02
+
+**Scope control & verified completion: WIP=1, the state surface reaches the session, VCR is measured, and a soft activation gate watches the scope.** Closes the four findings of the /advisor check against the scope-control principle (WIP=1 / explicit completion evidence / externalized scope surface / VCR).
+
+### Added
+
+- **Explicit WIP=1 rule** in both CLAUDE.md templates (`skills/adopt/references/claude-md-template.md` Step 1.5, `docs/templates/global-claude-md.md` Always #6): one active unit at a time; the next starts only after the current one passes end-to-end verification; "also refactor B while doing A" goes to the backlog, not the diff.
+- **`hooks/wip-gate.sh` — 22nd hook (PreToolUse Write|Edit|MultiEdit, soft).** Computational detect: `currentUnit.status` ∈ `verifying`/`recovery_required` AND the edited path is outside `SCOPE_LOCK.md → Allowed Change Areas` → additionalContext hint to finish the current unit's verification or explicitly reclassify. Silent without `.itd-memory/` or without a real declared scope; rate-limited (`ITD_WIP_GATE_RATE_MIN`, 30 min), kill-switch `ITD_WIP_GATE=0`. A hard "VCR<1.0 → deny activation" is deliberately NOT built: unit activation has no tool-call signature, and "is this a new task?" is semantic (map §8.3 — hint, not deny). Registered in `sync-to-active.sh` + `/adopt` settings template.
+- **`pre-flight-check.sh` reads `.itd-memory/STATE.json`** — injects `currentUnit` (id/goal/status + WIP=1 reminder), `nextAction`, blockers, and unfinished gates at session start. The machine-readable scope surface existed but no session-entry hook ever read it; now a fresh session knows the active unit without /handoff.
+- **VCR (Verified Completion Rate) in `scripts/itd_metrics.py`** — `vcr = unitsVerified / unitsActivated`, counted by distinct unit names from `events.jsonl` `type:"unit"` events (`activated`/`verified`; convention documented in `docs/templates/itd-memory/events.example.jsonl`, which now carries both example events).
+- **`/task` Step 3.5 — unit bookkeeping** (only when `.itd-memory/` exists): before activation, an unfinished `currentUnit` forces an explicit user choice (finish verification vs reclassify); on activation/verified completion `/task` updates `currentUnit` and appends the unit events that feed VCR and `wip-gate.sh`.
+
+### Changed
+
+- **Hook counts 21 → 22** across all asserted surfaces (`plugin.json` + version 1.41.0, `marketplace.json`, map §3/§4.1/§8, `global-claude-md.md`, `README.md`/`README.ru.md` + badges, `hooks/README.md` + new table row).
+- **`docs/HARNESS_ENGINEERING_MAP.md`** — §4.4 gains the v1.41.0 addendum (WIP=1 / state-at-entry / VCR, with the honest note on why hard activation-deny is not implementable); §8.1 quadrant gets the `wip-gate`*** soft-exception footnote; §8.2 new row; soft-hook count 13 → 14.
+
 ## [1.40.0] - 2026-07-02
 
 **The Anthropic long-running-agents port: initialization is now a real phase, and sessions are nudged to end handoff-ready.** An /advisor audit against the Anthropic research ("Effective harnesses for long-running agents") found the proactive half of the init/handoff discipline existed only as templates and norms — no skill scaffolded the `.itd/` contracts, nothing enforced session-end readiness, and the harness map was structurally blind to the axis. This release closes all five findings.

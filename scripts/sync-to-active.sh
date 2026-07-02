@@ -299,7 +299,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "Write|Edit|MultiEdit",
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/wip-gate.sh",                 "timeout": 5 }
       ]
     },
     {

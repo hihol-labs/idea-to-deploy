@@ -68,6 +68,18 @@ Evaluate the task **once**, not before every Bash/Edit/Write. If a skill fits,
 - After a `/review` of 9+/10 that led to merge/PR.
 - After a long session (5+ significant actions without a save).
 
+### Step 1.5 — WIP=1 (one active unit at a time)
+
+- Only ONE task/unit may be «active» at any moment. The next unit starts only
+  after the current one passes its end-to-end verification (verificationCommand
+  from `.itd/ACCEPTANCE_CONTRACT.json` / `VERIFICATION_CONTRACT.json`, or the
+  project's test/lint gate when no contracts exist).
+- Don't "also refactor" feature B while implementing feature A — out-of-scope
+  improvements go to the backlog, not into the current diff.
+- If `.itd-memory/STATE.json` exists: `currentUnit.status ≠ verified/completed`
+  → do NOT open a new unit; run the current unit's verification first, or
+  explicitly reclassify (update `SCOPE_LOCK.md` + `currentUnit`) before edits.
+
 ### Step 2 — Do not reflexively dismiss skill hints
 
 The hook `check-tool-skill.sh` reminds you before every Bash/Edit/Write (rate-limited).

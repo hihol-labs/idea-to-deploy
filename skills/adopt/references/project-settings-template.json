@@ -32,7 +32,8 @@
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/wip-gate.sh",                 "timeout": 5 }
         ]
       },
       {
