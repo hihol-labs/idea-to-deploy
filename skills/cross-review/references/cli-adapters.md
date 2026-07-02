@@ -70,7 +70,21 @@ fi
 ```
 
 If `codex exec -` (stdin) is not supported on the installed version, pass the
-prompt as an argument: `timeout 120 codex exec "$PROMPT"`.
+prompt as an argument: `timeout 120 codex exec "$PROMPT"` — but ONLY for small
+diffs: an argument hits the OS `ARG_MAX` limit on large diffs ("Argument list
+too long", rc=126, verified live on a ~3.7k-line diff 2026-07-02). For anything
+big, keep stdin and redirect from a file instead of a variable:
+`timeout 120 codex exec - < "$PROMPT_FILE"`.
+
+Two more "unavailable" shapes seen in the wild (both = degrade, don't block):
+
+- **Config error on startup** — e.g. `Error loading config.toml: unknown variant
+  'priority', expected 'fast' or 'flex'` in `service_tier` after a CLI up/downgrade.
+  Worth ONE retry with an inline override (`codex -c 'service_tier="flex"' exec …`);
+  if that also fails, treat as unavailable and tell the user their
+  `~/.codex/config.toml` needs fixing.
+- **Cloud handshake timeout** — `timed out waiting for cloud requirements after 15s`
+  (network/VPN). No retry loop; fall through the chain.
 
 ## 4. Google Gemini CLI
 

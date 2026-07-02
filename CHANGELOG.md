@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.41.1] - 2026-07-02
+
+### Fixed
+
+- **`skills/cross-review/references/cli-adapters.md` — hardened by a live end-to-end probe of the degradation chain.** (1) The argv fallback (`codex exec "$PROMPT"`) now carries an explicit `ARG_MAX` warning — on a ~3.7k-line diff it dies with "Argument list too long" (rc=126, reproduced live); for big diffs the recipe is stdin from a file (`codex exec - < "$PROMPT_FILE"`). (2) Documented two real "unavailable" shapes with their handling: a startup config error (`unknown variant 'priority'` in `service_tier` after a CLI version change — one retry with `codex -c 'service_tier="flex"' exec …`, then degrade) and a cloud handshake timeout (`timed out waiting for cloud requirements after 15s` — no retry, fall through). The pre-commit hook (`cross-review-precommit.sh`) was already stdin-based and needs no change. Docs-only; no code or count change.
+
 ## [1.41.0] - 2026-07-02
 
 **Scope control & verified completion: WIP=1, the state surface reaches the session, VCR is measured, and a soft activation gate watches the scope.** Closes the four findings of the /advisor check against the scope-control principle (WIP=1 / explicit completion evidence / externalized scope surface / VCR).
