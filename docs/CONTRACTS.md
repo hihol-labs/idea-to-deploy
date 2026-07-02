@@ -17,6 +17,8 @@ So idea-to-deploy stays a plugin and absorbs ~90% of PFO's value as **contracts 
 
 Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machine + human readable) plus a `.itd-memory/` directory (structured state, kept separate from the existing freeform memory/`MEMORY.md`). Templates live in `docs/templates/itd/` and `docs/templates/`.
 
+**Who scaffolds it (v1.40.0 — closes the "templates without a creator" gap):** greenfield — `/kickstart` Phase 3 step 7 creates `.itd/` + `.itd-memory/STATE.json` as part of the dedicated initialization phase, gated by the Initialization Acceptance Checklist; brownfield — `/adopt` Step 3.5 offers the same scaffold as a recommended **opt-in** (the v1.39.0 tradeoff stands: contracts are never forced onto an existing project). Before v1.40.0 the templates existed and the gates consumed them, but no skill ever created the files — a contract that is not on disk blocks nothing.
+
 | Artifact | What it pins down |
 |---|---|
 | `.itd/PROJECT_CONTRACT.md` | Invariants, real data sources, provider/output/deploy contracts |
@@ -30,7 +32,8 @@ Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machin
 | `.itd/EXECUTION_POLICY.json` | Command / write / network / approval policy |
 | `.itd/PERMISSION_MATRIX.{json,md}` | Who/what may read, write, execute, publish |
 | `.itd/TOOL_CAPABILITY_REGISTRY.json` | Tool/connector side-effects, auth, risk, fallback |
-| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node |
+| `.itd/LEARNING_PROMOTION_GATE.md` | Gate for promoting session learnings into durable docs |
+| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node (template lives at `docs/templates/UNIT_CONTEXT_MANIFEST.json`; created per unit, NOT part of the 13-file `.itd/` scaffold) |
 | `.itd-memory/STATE.json`, `events.jsonl`, `LEARNINGS.jsonl` | Structured state, audit log, learnings |
 | `ROOT_CAUSE.md`, `BRANCH_FINISH.md` | Bugfix root-cause record; branch-finish decision |
 

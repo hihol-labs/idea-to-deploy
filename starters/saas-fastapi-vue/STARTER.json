@@ -5,6 +5,7 @@
   "stack": ["Python", "FastAPI", "Pydantic", "PostgreSQL", "Redis", "MinIO S3", "Vue", "TypeScript", "Vite", "TailwindCSS", "Docker", "Nginx", "just"],
   "folders": ["backend/app", "backend/tests", "frontend/src", "frontend/tests", "infra", "docs"],
   "commands": {
+    "bootstrap": "python -m venv .venv && .venv/bin/pip install -e \"backend[dev]\" && npm ci --prefix frontend",
     "backendTest": "pytest",
     "frontendTest": "npm test",
     "build": "docker compose build"

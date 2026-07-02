@@ -186,12 +186,26 @@ Create these files in order:
 Consult `references/phase-checklist.md` for quality gates each document must pass.
 
 ### Phase 3: Project Scaffolding
-1. **Initialize** — directory structure, package.json / pyproject.toml, configs
-2. **Tooling** — linter, formatter, testing framework
+
+This phase is the **dedicated initialization phase** from the Anthropic long-running-agents research: its output is a bootstrap contract, not business code. A fresh agent session must be able to pick the project up from repo contents alone after this phase.
+
+1. **Initialize** — directory structure, package.json / pyproject.toml, configs. Prefer the matching starter (`starters/<id>/STARTER.json`) over inventing a scaffold; its `commands.bootstrap` is the canonical "bring the environment up from cold" command — keep it working.
+2. **Tooling** — linter, formatter, testing framework **with one passing example test**. The example test proves the test harness itself is wired correctly (the pillar holds weight), not that the product works.
 3. **Base files** — entry points, routes, models, types
 4. **Environment** — .env.example with all variables
 5. **Docker** — Dockerfile + docker-compose.yml
 6. **Git** — .gitignore, initial commit
+7. **`.itd/` contract layer + structured state** — scaffold the contract set so gates have sensors from day one (closes the "templates without a creator" gap; see `docs/CONTRACTS.md`):
+   - Resolve the templates dir: `docs/templates/itd/` in the methodology repo checkout, or `~/.claude/plugins/idea-to-deploy/docs/templates/itd/` for a plugin install. If neither exists, warn and continue — do not fabricate templates.
+   - Copy all 13 templates into `$PROJECT_ROOT/.itd/`, filling the obvious placeholders (project name, stack, verify commands from the starter's `commands.*`).
+   - Create `$PROJECT_ROOT/.itd-memory/STATE.json` from `docs/templates/itd-memory/STATE.example.json`, reset to this project: `sessionState: "ACTIVE"`, `currentStage: "SCAFFOLDING"`, `intent` = the project idea, empty logs/history, `existingProject.availableCommands` = the starter commands. Create an empty `.itd-memory/events.jsonl`.
+8. **Initialization Acceptance Checklist** — the exit gate of this phase. Do NOT proceed to Phase 4 until every box is checked:
+   - [ ] Bootstrap from scratch succeeds (the starter's `commands.bootstrap` — or the project equivalent — runs clean on a fresh clone)
+   - [ ] `commands.test` runs with **at least one passing example test**
+   - [ ] A new agent session can answer "how to run" and "how to test" from repo contents alone (CLAUDE.md carries the start/test commands)
+   - [ ] Task breakdown exists: IMPLEMENTATION_PLAN.md with ≥ 3 steps, each with acceptance criteria
+   - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded (step 7)
+   - [ ] Everything committed — the initialization checkpoint commit is the base all later work resumes from
 
 ### Phase 4: Implementation
 Follow IMPLEMENTATION_PLAN.md phase by phase:
@@ -250,6 +264,7 @@ Before reporting phase completion, verify:
 - [ ] No hardcoded credentials or placeholder secrets
 - [ ] Docker/deployment config is functional (docker-compose up works if Docker available)
 - [ ] README includes installation and run instructions
+- [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded and the Phase 3 Initialization Acceptance Checklist passed
 - [ ] /review score >= 8/10 before proceeding to next phase
 
 ## Troubleshooting
