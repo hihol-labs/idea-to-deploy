@@ -7,12 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.40.0] - 2026-07-02
+
+**The Anthropic long-running-agents port: initialization is now a real phase, and sessions are nudged to end handoff-ready.** An /advisor audit against the Anthropic research ("Effective harnesses for long-running agents") found the proactive half of the init/handoff discipline existed only as templates and norms — no skill scaffolded the `.itd/` contracts, nothing enforced session-end readiness, and the harness map was structurally blind to the axis. This release closes all five findings.
 
 ### Added
 
+- **`hooks/handoff-readiness.sh` — 21st hook, first on the `Stop` event.** Computational detect (dirty git tree AND no fresh `session_*.md` in the project memory dir) → soft `systemMessage` hint to run `/session-save` or `/handoff` and leave a clean checkpoint. Rate-limited (`ITD_HANDOFF_RATE_MIN`, default 45 min), freshness window `ITD_HANDOFF_FRESH_MIN` (default 120 min), kill-switch `ITD_HANDOFF_READINESS=0`, fail-safe exit 0. Per map §8.3 the "am I done?" decision is semantic, so this is a hint, never a deny. Registered in `sync-to-active.sh` `DESIRED_HOOKS` (new `Stop` event key, also added to the drift-compare `KEYS`) and in `/adopt`'s project-settings template.
+- **`/kickstart` Phase 3 is now the dedicated initialization phase** (steps 7–8): scaffolds `.itd/` (13 contracts) + `.itd-memory/STATE.json` + empty `events.jsonl`, requires the test framework to land **with one passing example test**, and gates exit from the phase on a new **Initialization Acceptance Checklist** (bootstrap-from-scratch works; ≥1 passing test; "how to run/test" answerable from repo contents alone; IMPLEMENTATION_PLAN.md with ≥3 steps; everything committed as the init checkpoint).
+- **`/adopt` Step 3.5 — optional `.itd/` + `.itd-memory/STATE.json` scaffold for brownfield** (recommended, user may decline with «без .itd» — the v1.39.0 opt-in tradeoff stands). Idempotent: never overwrites an existing `.itd/`. Closes the "templates without a creator" gap for adopted projects; `docs/CONTRACTS.md` now names the creators instead of declaring a scaffold no skill performed.
+- **`starters/` env-boot norm — mandatory `commands.bootstrap`** in every `STARTER.json` (all 5 starters updated): one non-interactive command that brings the environment up from a cold clone. Documented in `starters/README.md`; verified by the `/kickstart` Phase 3 checklist. Deliberately no separate mechanism — the norm lives in starters.
+- **`docs/HARNESS_ENGINEERING_MAP.md` §4.4 — new axis "I: Initialization phase & handoff-readiness"** (I1–I7, per the Anthropic source), with the honest residual (persistent `feature_list.json`) linked to §5.4/§7. §6 summary and the §8 hook classification (21 hooks, new feedback×computational row) updated; §7/§5.4 T2 trigger extended with the autopilot/AFK scenario (progress must survive session death programmatically).
 - **`docs/HARNESS_ENGINEERING_MAP.md` §4.1/§6 — two-layer framing.** Records that ITD realizes harness engineering on two layers: *operating* (ITD is itself a harness over Claude Code) and *output* (the Day-3/5 ports added врезки that teach/audit building the harness of the user's own product — memory/context, eval loops, zero-trust guardrails). Docs-only; no code or count change.
 - **`docs/competitive-analysis.md` §9 — external validation via the Google whitepaper *The New SDLC With Vibe Coding*** (Osmani, Saboo, Kartakis, 2026). Maps the paper's framework (structure > vibes, skills as dynamic context, hooks as guardrails, tests + evals, harness engineering, the "last 20%", model routing, context engineering as OpEx lever) onto concrete idea-to-deploy mechanisms — positioning the methodology as the plugin-form realization of the new SDLC, with the v1.31.0 enrichments closing the previously-honest gaps. Marketing/positioning only; no code or count change.
+
+### Changed
+
+- **Hook counts 20 → 21** across all asserted surfaces: `plugin.json`, `marketplace.json`, `docs/HARNESS_ENGINEERING_MAP.md` §3/§8, `docs/templates/global-claude-md.md`, `README.md`/`README.ru.md`, `hooks/README.md` (+ new table row for `handoff-readiness.sh`). The v1.39.0 count drift-guard (`verify_registration_and_counts.py`) enforces the new value.
+- **`sync-to-active.sh`** — ITD-managed settings events now include `Stop` (drift-compare `KEYS` + merge comment); the platform-aware Windows rewrite applies to the new hook automatically.
+- **`/adopt` self-validation** — hook checklist now lists all 7 PreToolUse commands (including the previously-missing `cross-review-precommit`) and the `Stop` hook.
+
+Verified: `verify_registration_and_counts.py`, `verify-sync-to-active.sh`, `meta_review.py`, `python3 -m py_compile hooks/handoff-readiness.sh`, JSON validity of all touched manifests/starters. MINOR — additive.
 
 ## [1.39.0] - 2026-07-01
 

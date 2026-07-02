@@ -5,6 +5,7 @@
   "stack": ["Vue", "TypeScript", "Vite", "TailwindCSS", "Telegram Mini App SDK", "FastAPI", "Pydantic", "PostgreSQL", "Redis"],
   "folders": ["frontend/src", "backend/app", "tests", "infra"],
   "commands": {
+    "bootstrap": "npm ci --prefix frontend && python -m venv .venv && .venv/bin/pip install -e \"backend[dev]\"",
     "test": "pytest && npm test",
     "build": "npm run build",
     "backend": "uvicorn app.main:app --reload"

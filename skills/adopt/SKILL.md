@@ -38,7 +38,7 @@ Set via `/model sonnet` before invoking this skill if Opus is active.
 
 You are the adoption operator for `idea-to-deploy`. Your job is to **minimally** onboard an existing legacy project into the methodology — without rewriting the user's code, without hallucinating plan documents, and without modifying `~/.claude/settings.json` (user-level).
 
-You produce exactly **three writes** plus one voice-chain question. Nothing more.
+You produce exactly **three writes**, one **optional fourth** (the `.itd/` contract scaffold, Step 3.5 — recommended, user may decline), plus one voice-chain question. Nothing more.
 
 ### Step 0: Safety & discovery
 
@@ -89,6 +89,7 @@ Before writing anything:
      - CLAUDE.md:              [create | append methodology block | skip (already adopted)]
      - .claude/settings.json:  [create | merge hooks | skip (already registered)]
      - memory dir:             [create + sentinel /session-save | skip (already bootstrapped)]
+     - .itd/ + .itd-memory/:   [scaffold (recommended) | skip (already present)] — опционально, скажи «без .itd» чтобы пропустить
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
      - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
@@ -153,6 +154,17 @@ Branch (apply the same logic independently to `hooks` and to `permissions`):
 
    `/session-save` will also (a) append a line to `MEMORY.md` index, (b) write `.active-session.lock` in the memory dir, (c) name the sentinel file `session_YYYY-MM-DD.md` (auto-numbered if a file for today already exists).
 
+### Step 3.5: Scaffold `.itd/` contracts + structured state (optional 4th write, recommended)
+
+Closes the "templates without a creator" gap (v1.40.0): the gates that consume `.itd/` artifacts (`/review` Stage A, `/task` tiers, `/grill-me`, `/handoff`) silently degrade to no-ops when no one ever scaffolds the files. Contracts stay **opt-in by design** (v1.39.0 tradeoff) — this step is offered in the Step 0.7 plan as recommended, and skipped entirely if the user said «без .itd».
+
+If the user accepted:
+
+1. **Resolve templates dir** — sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`). Legacy `sync-to-active.sh` installs don't carry templates — if the dir is absent, warn («шаблоны .itd/ не найдены в установке плагина — пропускаю, скаффолд можно повторить после переустановки») and skip to Step 4.
+2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
+3. **Copy all 13 templates** into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them.
+4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5) and an empty `events.jsonl`.
+
 ### Step 4: Report to user
 
 Summarize, with exact absolute paths:
@@ -161,6 +173,7 @@ Summarize, with exact absolute paths:
 Adoption complete. Wrote / updated:
   - <ABS>/CLAUDE.md                          (created | appended | unchanged)
   - <ABS>/.claude/settings.json              (created | merged | unchanged)
+  - <ABS>/.itd/ + .itd-memory/STATE.json     (scaffolded | skipped — declined | skipped — already present)
   - <MEMORY>/MEMORY.md                       (indexed)
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
@@ -226,6 +239,7 @@ Every write is guarded:
 - `CLAUDE.md` — marker `<!-- idea-to-deploy:begin v1.20 -->` makes re-runs no-ops.
 - `.claude/settings.json` — hook entries are matched by `command` path; duplicates are not added.
 - Memory dir — `/session-save` appends to `MEMORY.md`; sentinel session file is auto-numbered.
+- `.itd/` — scaffold is skipped when the directory already exists (never overwrites filled-in contracts).
 
 Re-running `/adopt` twice in a row is safe and produces no extra output beyond a confirmation that the project is already adopted.
 
@@ -254,8 +268,9 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 Before reporting adoption as complete, verify:
 
 - [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
-- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 6 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, check-skill-completeness, pii-egress-guard), and all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`)
+- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 7 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, cross-review-precommit, check-skill-completeness, pii-egress-guard), all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`), and handoff-readiness in `hooks.Stop`
 - [ ] `$PROJECT_ROOT/.claude/settings.json` carries the recommended `permissions.ask` OS-tool-class guardrails (rm/sudo/chown/dd/mkfs/kill/…) merged without clobbering the user's existing `permissions` (or the user explicitly declined them)
+- [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
@@ -285,12 +300,14 @@ Claude: [/adopt]
     - CLAUDE.md:                  create
     - .claude/settings.json:      create
     - memory dir:                 create + sentinel /session-save
+    - .itd/ + .itd-memory/:       scaffold (recommended)
     - Detected product type:      api_service → starter api-fastapi
   Proceed? [yes/no]
 User: yes
-  Step 1/3 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
-  Step 2/3 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse)
-  Step 3/3 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
+  Step 1/4 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
+  Step 2/4 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse, 1 Stop)
+  Step 3/4 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
+  Step 4/4 — .itd/ scaffold ........ OK (13 contracts + .itd-memory/STATE.json)
 
   Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.
 

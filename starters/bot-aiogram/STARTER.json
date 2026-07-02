@@ -5,6 +5,7 @@
   "stack": ["Python", "aiogram", "Pydantic", "PostgreSQL_or_SQLite", "Redis_optional", "httpx", "pytest", "Ruff", "mypy", "Docker", "just"],
   "folders": ["bot", "bot/handlers", "bot/services", "tests", "infra"],
   "commands": {
+    "bootstrap": "python -m venv .venv && .venv/bin/pip install -e \".[dev]\"",
     "test": "pytest",
     "run": "python -m bot",
     "build": "docker build ."

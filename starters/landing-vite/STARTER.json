@@ -5,6 +5,7 @@
   "stack": ["Vite", "Vue_or_static_HTML", "TypeScript_optional", "TailwindCSS", "Netlify_or_Vercel"],
   "folders": ["src", "tests", "public"],
   "commands": {
+    "bootstrap": "npm ci",
     "test": "npm test",
     "build": "npm run build",
     "preview": "npm run preview"

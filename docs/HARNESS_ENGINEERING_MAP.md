@@ -1,8 +1,8 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Дата: 2026-07-01 (обновлено; исходная карта — 2026-06-22)
-> Версия idea-to-deploy: **v1.38.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.38.0 — счётчики/регистрация не менялись в v1.38.0)
-> Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/)
+> Дата: 2026-07-02 (обновлено; исходная карта — 2026-06-22)
+> Версия idea-to-deploy: **v1.40.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.40.0; в v1.40.0 добавлена ось **I** — §4.4)
+> Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
 ---
@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.38.0): **38 skills, 10 subagents, 20 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in.
+Проверка — чтением `main` (v1.40.0): **38 skills, 10 subagents, 21 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4).
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 20 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 21 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
@@ -59,6 +59,22 @@
 |---|---|:---:|---|---|
 | **T1** | **`AGENTS.md`** — операционный манифест/память агента | ✅ | `CLAUDE.md` (нативный эквивалент) + `agents/*.md` (10 субагентов) + **слой `.itd/`** как машиночитаемый операционный манифест: `PROJECT_CONTRACT.md`, `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md` | Расхождение только по имени: `CLAUDE.md` — корректный идиом Claude Code. Минор-кандидат: `AGENTS.md`-алиас для кросс-тул-портируемости |
 | **T2** | **`feature_list.json`** — машиночитаемый реестр «сделано/протестировано» против преждевременного завершения | ✅ | **`ACCEPTANCE_CONTRACT.json`** (v1.21.0): машиночитаемый proof-checklist критериев приёмки, выведенный из запроса пользователя, со схемой (`id/criterion/source/evidence/verificationCommand/status`) и `doneRule` **fail-closed** + **`VERIFICATION_CONTRACT.json`** (исполняемые команды верификации, `failClosed`) | **Намерение курса реализовано и усилено** (fail-closed). Отличие по форме: это per-unit контракт приёмки от запроса, а не персистентный мульти-фичный ledger проекта. Для большинства задач функционально эквивалентно (и строже). Кандидат-улучшение: персистентный проектный `feature_list.json` поверх per-unit контрактов |
+
+### 4.4. Ось I: Initialization phase & handoff-readiness (первоисточник Anthropic, добавлена v1.40.0)
+
+До v1.40.0 карта строилась только по 5 принципам walkinglabs и была **структурно слепа** к аспекту первоисточника Anthropic («Effective harnesses for long-running agents»): *инициализация — выделенная фаза первой сессии, производящая bootstrap-контракт; каждая последующая сессия обязана заканчиваться handoff-ready, потому что может умереть в любой момент.* Компенсаторная половина (context recovery на старте) была реализована давно и сильнее оригинала; проактивная половина закрыта в v1.40.0. Эта секция фиксирует ось явно, чтобы карта не показывала «остатков нет», не видя этот аспект.
+
+| # | Элемент исследования | Статус | Воплощение |
+|---|---|:---:|---|
+| **I1** | **Инициализация как выделенная фаза** — первая сессия производит bootstrap, не бизнес-код | ✅ (v1.40.0) | `/kickstart` Phase 3 шаги 7–8: скаффолд `.itd/` (13 контрактов) + `.itd-memory/STATE.json` + Initialization Acceptance Checklist как гейт выхода из фазы. Brownfield: `/adopt` Step 3.5 — тот же скаффолд, **opt-in** (осознанный tradeoff v1.39.0: контракты не навязываются существующим проектам) |
+| **I2** | **Запускаемое окружение** — поднять с холода одной командой | ✅ (v1.40.0) | Обязательный `commands.bootstrap` в каждом `STARTER.json` (норма в `starters/README.md`); Phase 3 checklist требует успешный прогон bootstrap с чистого клона |
+| **I3** | **Проверяемый тестовый фреймворк** — ≥1 проходящий пример-тест | ✅ (v1.40.0) | `/kickstart` Phase 3.2: тест-фреймворк ставится **с одним проходящим example-тестом** (доказательство, что харнес держит вес, а не просто установлен) |
+| **I4** | **Bootstrap-контракт** — start commands / current state / structure из содержимого репо | ✅ (v1.40.0) | `CLAUDE.md` (команды запуска/тестов, статус-таблица) + `.itd/PROJECT_CONTRACT.md` + `.itd-memory/STATE.json` — с v1.40.0 **скаффолдятся создателем** (`/kickstart`/`/adopt`), а не лежат шаблонами без wired-создателя (это был разрыв «декларация ↔ реальность» уровня v1.37.0) |
+| **I5** | **Декомпозиция задач** с критериями приёмки | ✅ | `IMPLEMENTATION_PLAN.md` (8–12 шагов с verification per шаг) + per-unit `ACCEPTANCE_CONTRACT.json` (fail-closed — строже курса) |
+| **I6** | **Git-коммит как чекпоинт** после инициализации | ✅ | Phase 3.6 initial commit + пункт checklist «everything committed» |
+| **I7** | **Handoff-ready в конце каждой сессии** — чистый чекпоинт + свежий прогресс-артефакт | ✅ (soft by design, v1.40.0) | Stop-хук `handoff-readiness.sh`: computational-детект (dirty git tree + отсутствие свежего `session_*.md`) → мягкий hint «сделай `/session-save` или `/handoff`», rate-limited. По правилу §8.3 «закончил ли пользователь работу» — семантика, поэтому hint, а не deny. Компенсаторная половина — `pre-flight-check` / `session-open-diagnostic` / `crash-recovery` на старте следующей сессии |
+
+**Честный остаток оси:** персистентный мульти-фичный `feature_list.json` (программный прогресс-реестр проекта, переживающий сессии) — реализован per-unit (`ACCEPTANCE_CONTRACT.json`), мульти-фичный ledger остаётся signal-gated кандидатом T2 (§5.4, §7 — триггер расширен сценарием autopilot/AFK).
 
 ## 5. Детальный разбор
 
@@ -90,7 +106,7 @@
 ### 5.4. Минорные кандидаты
 
 - **`AGENTS.md`-алиас** (T1): тонкий алиас на `CLAUDE.md` в генерируемых проектах для кросс-тул-агентов, читающих нейтральный `AGENTS.md`. Косметика портируемости, <1 дня.
-- **Персистентный `feature_list.json`** (T2): проектный реестр фич поверх per-unit `ACCEPTANCE_CONTRACT`, чтобы `/deploy` мог программно проверить «все P0 имеют passing-тест». 3–5 дней.
+- **Персистентный `feature_list.json`** (T2): проектный реестр фич поверх per-unit `ACCEPTANCE_CONTRACT`, чтобы `/deploy` мог программно проверить «все P0 имеют passing-тест». 3–5 дней. Второй триггер (v1.40.0, из оси I §4.4): длинные autopilot/AFK-прогоны, где сессия может умереть до ручного подведения итогов — прогресс должен восстанавливаться программно из репо, а не из памяти сессии.
 
 ## 6. Сводка
 
@@ -99,6 +115,7 @@
 | **Философия** | «harness важнее модели» | — | — |
 | **5 принципов** | H1, H2, H3, H4, **H5** | — | — |
 | **2 шаблона** | T1, **T2** (через `.itd/`) | — | — |
+| **Ось I (Anthropic, v1.40.0)** | I1–I7 (init-фаза, bootstrap-контракт, env-boot, example-тест, декомпозиция, git-чекпоинт, handoff-readiness) | персистентный `feature_list.json` (форма, T2, signal-gated) | — |
 
 **Итог:** философия харнес-инженерии воплощена **в полной мере** — `idea-to-deploy` является образцовым примером самой дисциплины. На **v1.21.x**: **все 5 принципов** покрыты полностью (H1–H5; наблюдаемость закрыта live-трейсингом `execution-trace.sh`). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + `.itd/`-манифест; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (fail-closed, строже оригинала).
 
@@ -116,7 +133,7 @@
 
 | Кандидат | Тип | Effort | Триггер |
 |---|---|:---:|---|
-| Персистентный `feature_list.json` | T2 (форма) | 3–5d | Нужен программный gate «все P0 фичи протестированы» перед `/deploy` |
+| Персистентный `feature_list.json` | T2 (форма) | 3–5d | Нужен программный gate «все P0 фичи протестированы» перед `/deploy`, **или** регулярные autopilot/AFK-прогоны, где прогресс обязан переживать смерть сессии программно (ось I §4.4) |
 | `AGENTS.md`-алиас в генераторах | T1 (портируемость) | <1d | Запрос на кросс-тул-портируемость |
 
 Ни один не активируется без external signal (критерии — `ROADMAP_v1.21.md §"When to revisit v1.21"`).
@@ -132,12 +149,12 @@
 
 Центральный принцип PFO: **computational — для блокирующих инвариантов, inferential — для семантики.** Жёсткий блок (`deny`) должен быть чисто вычислительным; если проверка требует семантического суждения — она обязана быть мягкой (hint), а не `deny`, иначе в гейт входит недетерминизм.
 
-### 8.1. Все 20 хуков по квадрантам
+### 8.1. Все хуки (21) по квадрантам
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
 | **Feedforward** (до действия) | **Жёсткие guardrail'ы (все blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `careful` · `freeze`* | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
-| **Feedback** (после действия) | **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
+| **Feedback** (после действия) | **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
 `*` `freeze` — opt-in (активен только при активном scope-lock). `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию.
 
@@ -165,15 +182,18 @@
 | `record-agent-skill.sh` | PostToolUse (Task\|Agent) | feedback | computational | soft — пишет skill-sentinel, когда review/test/security делегированы субагенту (чтобы commit-гейты это засчитали) |
 | `risk-score.sh` | PostToolUse | feedback | computational | soft — оценка риск-сигнала действия (не блокирует) |
 | `cross-review-precommit.sh` | PreToolUse (Bash) | feedback | computational | soft (**fail-open**) — диспетчеризует независимый cross-vendor review диффа перед commit; аддитивно к `/review`, не гейт |
+| `handoff-readiness.sh` | Stop | feedback | computational | soft — systemMessage-hint «сделай `/session-save`/`/handoff`» когда ход закончился с dirty tree и без свежего `session_*.md`; rate-limited, никогда не блокирует (ось I §4.4) |
 
 ### 8.3. Что показывает линза
 
 - **Все 8 блокирующих хуков — computational × feedforward.** Методология **нигде** не вешает жёсткий `deny` на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». Гейт детерминирован: блокирует git-состояние/счётчик/наличие файла/детект PII, а не «мнение» модели.
-- **12 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 5 наблюдают/учитывают (computational feedback), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
+- **13 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 6 наблюдают/учитывают (computational feedback, включая `handoff-readiness` с v1.40.0), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — потому что их сигнал семантический.
 - **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
 
 ---
 
 **Обновление документа.** При изменении числа скиллов/хуков, закрытии gap'а или изменении принципов курса — обновлять §4, §6 и §8 (классификацию). Если gap закрывается — статус → ✅ с пометкой о версии-релизе.
+
+> **v1.40.0.** Добавлена ось **I** (§4.4) по первоисточнику Anthropic: init-фаза `/kickstart` Phase 3.7–3.8 и `/adopt` Step 3.5 теперь реально скаффолдят `.itd/` + `.itd-memory/STATE.json` (закрыт разрыв «шаблоны без создателя»), стартеры несут обязательный `commands.bootstrap`, добавлен Stop-хук `handoff-readiness.sh` (21-й). Счётчики §3/§8 обновлены (20 → 21 хук).
 
 > **v1.37.0.** Устранён разрыв «декларация ↔ реальность»: хуки наблюдаемости и само-коррекции (`execution-trace`, `stuck-detection`, `crash-recovery`, `context-aware`) и guardrail `careful` физически лежали в `~/.claude/hooks/`, но **не были в наборе регистрации** `scripts/sync-to-active.sh` → де-факто молчали, хотя §8.1 числил их активными. Теперь они в каноническом наборе (always-on), а sync **мержит** ITD-события, сохраняя чужие (напр. SessionStart другого плагина). H5-наблюдаемость и Agentic-само-коррекция стали фактически, а не на бумаге. `freeze` остаётся opt-in по дизайну.

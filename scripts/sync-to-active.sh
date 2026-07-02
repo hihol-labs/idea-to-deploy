@@ -255,6 +255,10 @@ fi
 #   PostToolUse matcher=Task|Agent → record-agent-skill.sh  (writes the
 #     skill sentinel when review/test/security work is delegated to a
 #     subagent, so the commit gates count it — bug #2 follow-up)
+#   Stop → handoff-readiness.sh  (v1.40.0 — soft systemMessage when the turn
+#     ends with a dirty git tree AND no fresh session_*.md; never blocks,
+#     rate-limited; the "end every session handoff-ready" half of the
+#     Anthropic long-running-agents port)
 
 DESIRED_HOOKS=$(cat <<'JSON'
 {
@@ -321,6 +325,13 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/crash-recovery.sh",    "timeout": 5 }
       ]
     }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/handoff-readiness.sh", "timeout": 5 }
+      ]
+    }
   ]
 }
 JSON
@@ -365,7 +376,7 @@ fi
 # another plugin) are preserved by the merge below and must not read as "drift".
 current_hooks=$($PYBIN -c "
 import json, sys
-KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse')
+KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop')
 try:
     with open('$SETTINGS') as f:
         data = json.load(f)
@@ -400,7 +411,7 @@ with open(path) as f:
 _itd = $EFFECTIVE_HOOKS
 # Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
 # SessionStart hook registered by another plugin such as context-mode). ITD owns
-# UserPromptSubmit/PreToolUse/PostToolUse in full, so replacing those is correct.
+# UserPromptSubmit/PreToolUse/PostToolUse/Stop in full, so replacing those is correct.
 data.setdefault('hooks', {})
 for _k, _v in _itd.items():
     data['hooks'][_k] = _v

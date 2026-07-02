@@ -56,6 +56,13 @@
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/risk-score.sh",   "timeout": 5 }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/handoff-readiness.sh", "timeout": 5 }
+        ]
+      }
     ]
   },
   "_comment_5": "Recommended ASK guardrails for dangerous OS tool-classes via NATIVE Claude Code permissions (no custom DSL — omnigent OS-tool-class ASK ported onto the harness's own allow/deny/ask). They prompt for confirmation before genuinely destructive shell commands. Rule form Bash(cmd:*) matches when the FIRST token equals cmd, so Bash(sudo:*) also catches sudo-escalated variants. Egress (curl/wget) is intentionally left to pii-egress-guard.sh, and destructive git/db to careful.sh, to avoid double-prompting. Bash(chmod:*) is intentionally OMITTED (chmod +x fires constantly in normal dev — add it back for locked-down projects). kill/killall/pkill prompt frequently in dev-server workflows; tune or remove per project. Note: command-name rules do not catch full-path (/bin/rm) or indirect (find -delete) variants — careful.sh covers the destructive-pattern angle.",
