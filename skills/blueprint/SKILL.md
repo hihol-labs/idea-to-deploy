@@ -274,6 +274,15 @@ After the Architect generates the chosen architecture variant, invoke the **Devi
    - Strengths acknowledged
    - 3-7 challenges with alternatives and trade-offs
    - Verdict: APPROVE / APPROVE WITH CONDITIONS / REQUEST REVISION
+2.5. **External seat (v1.43.0, opt-in)** — with egress opt-in
+   (`CROSS_REVIEW_EGRESS_OK=1` or the `.cross-review-egress-ok` marker), also
+   send a scrubbed 30–60-line decision synopsis (context, chosen variant,
+   rejected alternatives, the Advocate's top challenges) to ONE external model
+   per `skills/_shared/external-seat.md` (codex → gemini → skip; fail-open;
+   advisory, no veto). Synthesis: challenges raised by BOTH the Advocate and
+   the external seat get elevated priority; disagreements are surfaced to the
+   user as a fork with provenance (`[external: codex|gemini]`), never resolved
+   silently. Without opt-in this sub-step is skipped in silence.
 3. **Resolution:**
    - If APPROVE → proceed with architecture as-is
    - If APPROVE WITH CONDITIONS → address the conditions, update architecture, note changes

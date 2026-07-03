@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.43.0] - 2026-07-03
+
+**The model council, done the ITD way: one external seat at decision points.** Answers the "council of models" request (second signal for the v1.21-rejected "adversarial debates" candidate) without building an orchestrator: role diversity already exists (10 subagents; /advisor and /blueprint 2.5 already synthesize multi-perspective output), so the only un-captured win is a genuinely DIFFERENT model family at the table. Same-model persona ensembles buy little for 3-4× tokens; a foreign model has foreign blind spots.
+
+### Added
+
+- **`skills/_shared/external-seat.md`** — the shared protocol: scrubbed 30–60-line decision synopsis (context, chosen variant, rejected alternatives, internal skeptic's top challenges) → codex → gemini → **skip** (deliberately NO native fallback — the internal adversarial is already in the room; the seat's value is the foreign model). Same invariants as /cross-review: egress opt-in (`CROSS_REVIEW_EGRESS_OK=1` / `.cross-review-egress-ok`), scrub-before-send, fail-open (never a gate), mandatory provenance, advisory-only (no veto). Reuses the verified CLI adapters from cross-review (stdin-from-file, config-error retry, timeout).
+- **`/grill-me` Step 3.5** — for MAJOR decisions only (architecture, prod migration, strategic pivot): after the internal axes, offer the external seat; findings merge with `[external: codex|gemini]` tags; agreement between families elevates priority, disagreement is surfaced as a user fork, never resolved silently. Step 4 now names who sat at the table.
+- **`/blueprint` Step 2.5 sub-step 2.5** — the external seat alongside Devil's Advocate (Full mode): both-families challenges get elevated priority in the ADR; forks go to the user with provenance.
+
+Scope note: /strategy and /migrate-prod are named as next candidates in the protocol doc, signal-gated — not wired in this release. Docs-only; no hook/count changes; the on-demand `/cross-review` and its pre-commit hook are untouched.
+
 ## [1.42.0] - 2026-07-03
 
 **Platform symmetry + the top-10 of the deep effectiveness audit.** A full audit (pipe-tests of every hook, all verify suites, live-session evidence) scored the methodology ~8.5/10 on WSL but ~6.5/10 on Windows: ten hooks and four skill snippets exchanged sentinels through a literal `/tmp` that means three different directories across Windows-python / Git-Bash / WSL. This release makes the two platforms symmetric and lands every item of the audit's top-10.
