@@ -234,14 +234,31 @@ def is_readonly_bash(payload: dict) -> bool:
     if not cmd.strip():
         return False
     import re
+    # v1.47.0 (retro 2026-07-04, finding #2): unwrap `wsl.exe [-d X] [--exec]
+    # bash -lc "<inner>"` and judge the INNER command — on a Windows+WSL setup
+    # every repo command travels in this wrapper, so the exemption never fired
+    # and read-only recon produced hundreds of ceremony SKILL_BYPASS records
+    # (628 in the ledger, top reason «read-only lookup»).
+    for _ in range(3):  # nested wrappers are theoretical; bound the loop
+        m = re.match(
+            r"""^\s*wsl(?:\.exe)?\s+(?:-d\s+\S+\s+)?(?:--exec\s+)?
+                bash\s+-l?c\s+(["'])(.*)\1\s*$""",
+            cmd.strip(), re.VERBOSE | re.DOTALL,
+        )
+        if not m:
+            break
+        cmd = m.group(2)
     if re.search(r">>?|\btee\b", cmd):
         return False
     allow = re.compile(
         r"^(ls|ll|cat|bat|head|tail|less|more|grep|rg|ag|find|fd|wc|pwd|echo|"
         r"printf|which|type|command|stat|file|tree|du|df|env|whoami|hostname|"
         r"date|realpath|readlink|dirname|basename|awk|cut|sort|uniq|column|jq|"
-        r"sed\s+-n|"
-        r"git\s+(status|log|diff|show|branch|remote|rev-parse|ls-files|describe|"
+        r"sed\s+-n|cd|sleep|true|diff|md5sum|sha\d*sum|"
+        # gh: read-only subcommands only — merge/create/edit/close stay gated
+        r"gh\s+(pr|run|issue|release)\s+(view|list|checks|status|diff)|"
+        r"git\s+(status|log|diff|show|branch\b(?!\s+(-[dDmMf]|--delete|--move|--force))|"
+        r"remote\b(?!\s+(add|remove|rename|set-url))|rev-parse|ls-files|describe|"
         r"blame|shortlog|config\s+--get))\b"
     )
     segs = [s.strip() for s in re.split(r"&&|\|\||;|\|", cmd) if s.strip()]

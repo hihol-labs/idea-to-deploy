@@ -160,7 +160,11 @@ implementation:
    «Plan before code»). For a large/risky feature offer `/grill-me` on the plan
    first.
 3. **Implement** — surgical edits inside the declared scope; the normal gates
-   stay armed (wip-gate, careful, DoD).
+   stay armed (wip-gate, careful, DoD). **Producer-first rule** (retro
+   2026-07-04, класс «assumed producer shape» — 2 Important в одном ревью):
+   если фича ЧИТАЕТ файл/леджер/формат, который пишет другой код — сначала
+   прочитай код продюсера (реальные имена полей/форм), и тесты сей реальными
+   образцами продюсера, а не предположенной формой.
 4. **Verify** — `/test` for new code (fail-closed: evidence required; for
    projects without a test runner use the project's declared verification —
    lint/build/domain checks from `.itd/VERIFICATION_CONTRACT.json` or
@@ -174,7 +178,10 @@ Tier note (Step 1b): a feature is **standard** by default; escalate to
 ### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0, only when `.itd-memory/` exists)
 
 If `$PROJECT_ROOT/.itd-memory/STATE.json` exists, keep the machine-readable
-scope surface honest around the routing:
+scope surface honest around the routing. Если `events.jsonl` в `.itd-memory/`
+отсутствует — создай пустой и пиши события в него: пустой лог = слепые VCR и
+/retro (боевая находка retro 2026-07-04: проект с 10+ PR/неделю и нулём
+unit-событий).
 
 1. **Before activating** — read `STATE.json.currentUnit`. If its `status` is
    `verifying` / `recovery_required` (unfinished unit) → do NOT silently start

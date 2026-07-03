@@ -44,7 +44,19 @@ DESTRUCTIVE_PATTERNS = [
     (r"\bgit\s+reset\s+--hard\b", "git reset --hard (discards uncommitted changes)"),
     (r"\bgit\s+clean\s+[^|]*-f", "git clean -f (deletes untracked files)"),
     (r"\bgit\s+checkout\s+--\s+\.", "git checkout -- . (discards all changes)"),
-    (r"\bgit\s+branch\s+-D\b", "git branch -D (force-deletes branch)"),
+    # The force-delete flag is CASE-SENSITIVE: under the file-global
+    # re.IGNORECASE the old pattern made `-D` swallow the harmless `-d`
+    # (soft delete of an already-merged branch) and even
+    # `gh pr merge --delete-branch` — 3 false positives in one day
+    # (retro 2026-07-04, finding #1). (?-i:) is scoped to the SHORT flags
+    # only, so `GIT BRANCH -D` still matches (review I1: a whole-pattern
+    # (?-i:) regressed uppercase keywords) and combined forms -Df/-fD/-df/-fd
+    # are covered (any d+f combo forces delete). Long flags stay
+    # case-insensitive via the global flag. Soft `-d`/`--delete` alone and
+    # `--delete-branch` stay unmatched.
+    (r"\bgit\s+branch\s+(?:(?-i:-D|-[dD][fF]|-[fF][dD])\b|"
+     r"--delete\s+--force\b|--force\s+--delete\b)",
+     "git branch -D / --delete --force (force-deletes branch)"),
     # Docker destruction
     (r"\bdocker\s+(system\s+prune|volume\s+rm|rmi\s+-f)", "docker destructive command"),
     # Process killing
