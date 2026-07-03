@@ -43,6 +43,25 @@ file. The GOAL.json artifact itself IS machine-checkable:
 - Open a second unit while the current one is unverified (WIP=1).
 - Recreate or truncate an existing active `GOAL.json`.
 
+## Harness tools (v1.45.0) — covered by tests/verify_goal_tools.py
+
+State transitions are made by the HARNESS, not the agent:
+
+- `skills/goal/scripts/itd_goal_verify.py` («ОТК») — the only writer of
+  `verified`: executes the unit's verificationCommand itself; `--activate`
+  enforces WIP=1; verify refuses `pending` (gate on passing); failure keeps
+  `in_progress`; `--recheck` demotes a regressed verified unit; `--block`
+  requires `--reason` (fail-closed); every transition → events.jsonl with
+  `actor: "harness"`.
+- `skills/goal/scripts/itd_goal_report.py` — deterministic handoff report FROM
+  the ledger (progress, backpressure, unit table, first action); /handoff and
+  /session-save paste its output verbatim.
+
+Functional coverage is automated: `python3 tests/verify_goal_tools.py`
+(20 checks incl. the blocked-only backpressure scenario and Markdown-pipe
+escaping, runs on both interpreters + the windows-verify CI leg) — so this
+part of the contract is NOT manual-only anymore.
+
 ## Pre-flight integration to verify
 
 With an active `GOAL.json` in the project, `hooks/pre-flight-check.sh` must

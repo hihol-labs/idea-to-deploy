@@ -57,6 +57,14 @@ Opus избыточен. Haiku допустим для совсем коротк
   ведётся долгая цель `/goal`), `BUILD_PLAN`,
   `LAUNCH_PLAN.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`, `.itd/FORBIDDEN_CHANGES.md`
   (если есть).
+- Если есть `.itd-memory/GOAL.json` — раздел «Состояние» генерирует **репортёр
+  харнеса**, не пересказ (v1.45.0): вставь его вывод в `HANDOFF.md` как есть
+  (прозу добавляй вокруг, цифры не меняй):
+
+  ```bash
+  GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"
+  python3 "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json
+  ```
 - Зафиксируй текущий узел/юнит и что именно в процессе.
 
 ### Step 2: Напиши `HANDOFF.md` (9 обязательных полей)

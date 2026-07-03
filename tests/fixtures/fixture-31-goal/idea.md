@@ -8,6 +8,7 @@ session resumes from the first non-verified unit instead of re-deriving the plan
 
 Sample prompts that should route here:
 - "поставь цель: календарь прогнозирует все выплаты с точностью 91%"
+- "ставлю цель: закрыть Этап 1 автонаполнения календаря"
 - "работаем в режиме цели, декомпозируй цель на юниты"
 - "продолжай цель" (в проекте уже есть .itd-memory/GOAL.json)
 - "goal mode: ship self-serve password reset end-to-end"
