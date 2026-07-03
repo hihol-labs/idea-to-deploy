@@ -1,0 +1,12 @@
+# Expected files after /retro runs
+#
+# At most ONE file: docs/retros/RETRO-YYYY-MM-DD.md (when run in the
+# methodology repo) or a retro note in the project memory dir. NOTHING else —
+# /retro must not touch skills/, hooks/, docs counters, CHANGELOG, or any
+# project source. A /retro run that edits the methodology itself is a contract
+# violation: proposals go through the ordinary branch → /review → PR → human
+# merge pipeline like any other change.
+#
+# The scan half is machine-checked (tests/verify_retro_scan.py); the proposal
+# half is manual via notes.md. Validation deferred (status: pending) — same
+# bucket as fixture-15-advisor / fixture-19-grill-me.

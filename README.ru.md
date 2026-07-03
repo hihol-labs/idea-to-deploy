@@ -11,16 +11,16 @@
 Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 39](https://img.shields.io/badge/Skills-39-green.svg)](#скиллы)
+[![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.45.0](https://img.shields.io/badge/Version-1.45.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.46.0](https://img.shields.io/badge/Version-1.46.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 39 скиллов и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 40 скиллов и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
 
 ## Демо
 
@@ -42,7 +42,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 39 скиллов + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. 40 скиллов + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -71,7 +71,7 @@ Claude Code мощный, но без инструкций работает ка
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 39 папок скиллов
+  ├── skills/          # 40 папок скиллов
   ├── agents/          # 10 определений субагентов
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
@@ -238,7 +238,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
-### Workflow (4 скилла)
+### Workflow (5 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
@@ -246,6 +246,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/autopilot` | Авто-пайплайн: запускает discover → blueprint → kickstart → review → test с минимальным участием человека (вдохновлён GSD). Берёт идею проекта и выдаёт полный проект с документами, кодом, тестами и ревью. |
 | `/handoff` | **Новое в v1.21.0.** Пишет компактный пакет контекста `HANDOFF.md` для передачи работы следующей сессии/агенту, когда обратного пути нет — компакция, делегирование, AFK-прогон или восстановление. Отличается от `/session-save` (сохранение вехи). |
 | `/goal` | **Новое в v1.44.0.** Режим долгой цели — декомпозирует цель на несколько сессий в упорядоченные проверяемые юниты в `.itd-memory/GOAL.json` (с одобрением пользователя), ведёт их по одному через штатный конвейер `/task` (WIP=1, `verified` только с evidence) и возобновляется между сессиями с первого не-verified юнита. Brownfield-first; не гейт — не обходит `/review`, `/test` и DoD. |
+| `/retro` | **Новое в v1.46.0.** Самопредлагающий цикл улучшений самой методологии, разделённый ФАКТЫ / ПРЕДЛОЖЕНИЯ / MERGE: `itd_retro_scan.py` детерминированно агрегирует телеметрию (VCR, регрессии, активные цели, SKILL_BYPASS-леджер, cost), модель превращает факты в ранжированные предложения с обязательным evidence (анти-Гудхарт: только внешние сигналы), merge остаётся за человеком через обычный релизный конвейер. Сам методологию не правит; не гейт. |
 
 ### Исследование (2 скилла)
 
@@ -323,6 +324,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/grill-me` | План / дизайн / архитектура / решение (текст или репо) | Нет — вопросы + анализ (stdout); артефакт только по явной просьбе | Нет (read-only по умолчанию; без Write/Edit) | ✅ |
 | `/handoff` | Состояние проекта + причина передачи (компакция / делегирование / AFK / восстановление) | `HANDOFF.md` (пакет контекста) + обновление `STATE.json` | Memory-write (`HANDOFF.md` в корне + `STATE.json`); без изменений кода | ✅ Перезаписывает пакет при каждом запуске |
 | `/goal` | Текст цели (пусто = resume активной цели) | `.itd-memory/GOAL.json` (персистентный реестр юнитов) + unit-события в `events.jsonl`; юниты поставляются через штатный конвейер `/task` | Только memory-write; изменения кода — внутри `/task` под его гейтами | ✅ Resume-only — активный реестр никогда не пересоздаётся |
+| `/retro` | Workspace-корни для скана (по умолчанию cwd) | `docs/retros/RETRO-YYYY-MM-DD.md` (скан + ранжированные предложения с evidence); кандидаты в бэклог — на решение ПОЛЬЗОВАТЕЛЯ | Memory-write только отчёта — skills/hooks/docs не правит (самомержа нет) | ✅ Новый датированный отчёт на каждый запуск; скан детерминирован |
 | `/market-scan` | Идея / проблема / сегмент / конкурент / вопрос о запуске | `MARKET_BRIEF.md` (датированное дополнение) + опционально `BACKLOG.md`/`LAUNCH_PLAN.md`; структурированная выжимка в stdout | Локальная запись доков + внешний read-only research-запрос (`last30days`); секреты не отправляются | ⚠️ Датированное дополнение — повторы добавляют новые доказательства |
 | `/mcp-docs` | Библиотека / фреймворк / API / вопрос о версии | Нет — структурированная выжимка в stdout; источник + решение в заметках | Нет (read-only; внешний запрос к докам, без записи файлов) | ✅ |
 | `/github-workflow` | Issue / PR / ветка / check run / релиз | GitHub Issues/PRs/релизы (внешне) + опционально `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | Запись в GitHub только по явному намерению; сначала читает git status | ⚠️ Внешние мутации — повторять осторожно |
@@ -544,6 +546,7 @@ chmod +x ~/.claude/hooks/*.sh
 | `/grill-me` | Sonnet | Opus | Адверсариальный допрос + поиск скрытых допущений выигрывают от Opus |
 | `/handoff` | Haiku | Sonnet | Структурированная суммаризация решений и состояния — минимум рассуждений |
 | `/goal` | Sonnet | Opus | Декомпозиция размытой цели в бинарно-проверяемые юниты — рассуждение; сама бухгалтерия юнитов механична |
+| `/retro` | Sonnet | Opus | Интерпретация телеметрии в ранжированные предложения — рассуждение; сам скан — скрипт |
 | `/market-scan` | Sonnet | Opus | Синтез разнородных публичных сигналов + adversarial discovery выигрывают от Opus |
 | `/mcp-docs` | Haiku | Sonnet | Резолв library ID + узкий запрос к докам — точечный lookup, не глубокое рассуждение |
 | `/github-workflow` | Sonnet | Sonnet | gh/git операции + маппинг артефактов — структурно, не глубокое рассуждение |
@@ -648,7 +651,7 @@ By design — см. таблицу [Рекомендуемые модели](#р
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 39. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 40. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

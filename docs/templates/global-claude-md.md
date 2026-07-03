@@ -48,6 +48,10 @@ Trigger → skill (apply as a rule, not a hint):
 - Product discovery (market, personas, competitors) → `/discover`.
 - Meeting / interview prep, drafting questions → `/advisor` (or `/grill-me`).
 - Existing-project task → `/task` (routes to bugfix/refactor/test/perf/…).
+- A goal spanning multiple sessions ("поставь/ставлю цель…") → `/goal`
+  (persistent GOAL.json unit ledger, resume from the first non-verified unit).
+- Methodology retro / "что улучшить в методологии" → `/retro`
+  (telemetry facts from the harness, evidence-gated proposals, human merge).
 - End of a working session → `/session-save` (always, before wrapping up).
 
 When several fit, pick the most specific; when none fit, say so in the decision line.
@@ -62,7 +66,7 @@ Absent that, apply the methodology — when in doubt, apply it.
 
 > Methodology source (canonical): WSL repo `idea-to-deploy`
 > (`/home/hihol/projects/idea-to-deploy`), published as plugin
-> `hihol-labs/idea-to-deploy`. 39 skills + 10 agents + 22 hooks.
+> `hihol-labs/idea-to-deploy`. 40 skills + 10 agents + 22 hooks.
 
 ## Project profiles & markers (v1.35.0)
 
