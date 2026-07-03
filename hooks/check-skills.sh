@@ -302,12 +302,15 @@ TRIGGERS = [
         r"tech\s*debt\s+cleanup|work\s+on\s+existing|existing\s+project|"
         r"maintenance\s+task|housekeeping|\bchore\b|"
         r"поработать\s+над\s+(проектом|кодом)|"
-        r"накопилось\s+(мелоч|задач)|куча\s+мелочей)",
-        "🔔 Триггер 'существующий код / tech debt' → используй /task "
+        r"накопилось\s+(мелоч|задач)|куча\s+мелочей|"
+        r"реализуй\s+фичу|добавь\s+функциональн|новая\s+фича\s+в|"
+        r"implement\s+(a\s+)?feature|add\s+a\s+feature|feature\s+in\s+existing)",
+        "🔔 Триггер 'существующий код / tech debt / фича' → используй /task "
         "(роутер daily-work: /bugfix / /refactor / /doc / /test / /perf / "
         "/security-audit / /deps-audit / /migrate / /harden / /infra / "
-        "/explain / /review). Вызови Skill ПЕРВЫМ — если тип задачи сразу "
-        "ясен, /task делегирует без доп. вопросов.",
+        "/explain / /review; новая фича в существующем проекте → "
+        "feature-конвейер /task Step 3f). Вызови Skill ПЕРВЫМ — если тип "
+        "задачи сразу ясен, /task делегирует без доп. вопросов.",
     ),
     (
         r"(адоптир\w*|адоптируй\s+проект|подключи\s+методолог\w*|"

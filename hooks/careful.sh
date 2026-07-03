@@ -24,12 +24,16 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 # Patterns that match destructive commands
 DESTRUCTIVE_PATTERNS = [
-    # File deletion
-    (r"\brm\s+(-[a-zA-Z]*[rf]|--recursive|--force)", "rm with -rf (recursive/force delete)"),
-    (r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f|\brm\s+-[a-zA-Z]*f[a-zA-Z]*r", "rm -rf (recursive force delete)"),
+    # File deletion — precision matters (live 2026-07-03: `rm -f file` was
+    # mislabeled "rm -rf"; the two differ by a whole directory tree).
+    # Recursive delete (with or without -f) — the truly dangerous class:
+    (r"\brm\s+(-[a-zA-Z]*r|--recursive)\b", "rm -r (recursive delete)"),
+    # Plain force delete WITHOUT recursion — real but milder, label honestly:
+    (r"\brm\s+(-[a-zA-Z]*f(?![a-zA-Z]*r)|--force)\b(?!.*(-[a-zA-Z]*r\b|--recursive))", "rm -f (force delete, non-recursive)"),
     # Database destruction
     (r"\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX)\b", "DROP TABLE/DATABASE (irreversible data loss)"),
     (r"\bTRUNCATE\s+TABLE\b", "TRUNCATE TABLE (deletes all rows)"),
@@ -92,13 +96,15 @@ def is_active() -> bool:
     # Check env var
     if os.environ.get("CAREFUL_MODE") == "1":
         return True
-    # Check session state file (set when user says /careful)
-    state_file = f"/tmp/claude-careful-{session_id()}.state"
-    try:
-        with open(state_file) as f:
-            return f.read().strip() == "active"
-    except Exception:
-        return False
+    # Check session state file (set when user says /careful) — both temp dirs
+    for d in (tempfile.gettempdir(), "/tmp"):
+        try:
+            with open(os.path.join(d, f"claude-careful-{session_id()}.state")) as f:
+                if f.read().strip() == "active":
+                    return True
+        except Exception:
+            continue
+    return False
 
 
 def main() -> int:

@@ -297,10 +297,11 @@ DESIRED_HOOKS=$(cat <<'JSON'
       ]
     },
     {
-      "matcher": "Write|Edit|MultiEdit",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/wip-gate.sh",                 "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/wip-gate.sh",                 "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/freeze.sh",                   "timeout": 5 }
       ]
     },
     {

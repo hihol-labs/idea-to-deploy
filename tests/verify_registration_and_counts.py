@@ -20,7 +20,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Hooks that ship but are intentionally NOT registered (activated on demand).
-OPT_IN_HOOKS = {"freeze.sh"}
+# v1.42.0: freeze.sh is now REGISTERED (it is a no-op until a skill writes the
+# freeze state file, so always-on registration costs nothing) — the set is
+# empty, kept for the next genuinely opt-in hook.
+OPT_IN_HOOKS: set = set()
 
 PASS, FAIL = 0, 0
 

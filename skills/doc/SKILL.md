@@ -138,3 +138,12 @@ Follow the majority. If 80% is in Russian, write in Russian.
 
 ### No existing style to follow
 Default to: JSDoc for JS/TS, Google-style docstrings for Python, rustdoc for Rust.
+
+## Fail-closed gate (v1.42.0)
+
+Документация обязана трассироваться к коду: каждое фактическое утверждение
+(команда, endpoint, флаг, поведение) проверяется по файлу/конфигу перед записью.
+Команды install/run/test в README — прогнать, если окружение позволяет; если
+нет — пометить `<!-- unverified -->` и перечислить такие места в финальном
+отчёте. Утверждение, которое не удалось проверить, никогда не подаётся как
+проверенное — это тот же принцип «нет evidence → не passed», что в /test.

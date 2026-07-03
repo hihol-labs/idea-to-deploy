@@ -30,10 +30,11 @@
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skill-completeness.sh", "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/wip-gate.sh",                 "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/wip-gate.sh",                 "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/freeze.sh",                   "timeout": 5 }
         ]
       },
       {

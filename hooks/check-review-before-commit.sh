@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -34,8 +35,20 @@ def get_session_id() -> str:
     return os.environ.get("CLAUDE_SESSION_ID") or str(os.getppid())
 
 
-def review_marker_path() -> Path:
-    return Path(f"/tmp/claude-review-done-{get_session_id()}")
+def _sentinel_dirs() -> list:
+    """Platform temp + literal /tmp. The /review skill writes from bash
+    (Git-Bash /tmp == %TEMP%; WSL /tmp == /tmp), this hook may run under
+    Windows python (where "/tmp" means C:\\tmp) — read all of them."""
+    dirs = []
+    for d in (tempfile.gettempdir(), "/tmp"):
+        if d and d not in dirs:
+            dirs.append(d)
+    return dirs
+
+
+def review_marker_paths() -> list:
+    sid = get_session_id()
+    return [Path(d) / f"claude-review-done-{sid}" for d in _sentinel_dirs()]
 
 
 def review_was_done() -> bool:
@@ -61,20 +74,22 @@ def review_was_done() -> bool:
       sentinels never persist across boots and cannot leak across
       unrelated work sessions separated by a machine restart.
     """
-    # Fast path — exact session match
-    if review_marker_path().exists():
-        return True
-    # Fallback — any fresh sentinel from a recent /review run
+    # Fast path — exact session match in any temp dir
+    for p in review_marker_paths():
+        if p.exists():
+            return True
+    # Fallback — any fresh sentinel from a recent /review run, in any temp dir
     import glob
     import time
 
     cutoff = time.time() - REVIEW_FRESHNESS_SECONDS
-    for path in glob.glob("/tmp/claude-review-done-*"):
-        try:
-            if os.path.getmtime(path) > cutoff:
-                return True
-        except OSError:
-            continue
+    for d in _sentinel_dirs():
+        for path in glob.glob(os.path.join(d, "claude-review-done-*")):
+            try:
+                if os.path.getmtime(path) > cutoff:
+                    return True
+            except OSError:
+                continue
     return False
 
 

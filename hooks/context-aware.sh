@@ -19,10 +19,11 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 
-# Session tool call counter file
-COUNTER_DIR = "/tmp"
+# Session tool call counter file (platform temp: /tmp on Unix, %TEMP% on Windows)
+COUNTER_DIR = tempfile.gettempdir()
 TOOL_CALL_THRESHOLD = 40  # Suggest fresh context after this many calls
 WARNING_INTERVAL_SEC = 300  # Don't warn more than once per 5 min
 

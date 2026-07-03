@@ -32,6 +32,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -312,7 +313,7 @@ def context_switch_detect(cwd: Path) -> str:
     is detected, warns the user. If switches exceed threshold in 30 min,
     suggests /session-save to prevent context loss.
     """
-    state_file = f"/tmp/claude-cwd-history-{session_id()}.json"
+    state_file = os.path.join(tempfile.gettempdir(), f"claude-cwd-history-{session_id()}.json")
     now = time.time()
     cwd_str = str(cwd.resolve())
 

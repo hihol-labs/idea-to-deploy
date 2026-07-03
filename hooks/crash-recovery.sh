@@ -33,6 +33,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 
 CHECKPOINT_INTERVAL = 10  # Save checkpoint every N tool calls
@@ -51,7 +52,7 @@ def session_id() -> str:
 
 
 def checkpoint_file() -> str:
-    return f"/tmp/claude-checkpoint-{session_id()}.json"
+    return os.path.join(tempfile.gettempdir(), f"claude-checkpoint-{session_id()}.json")
 
 
 def git_info() -> dict:

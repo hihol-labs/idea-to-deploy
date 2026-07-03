@@ -1,0 +1,34 @@
+name: windows-verify
+
+# v1.42.0 — the Windows leg of CI. The methodology runs on two platforms in
+# production (WSL + a native-Windows Claude Code install), but until now every
+# verify suite ran only on Linux — which is exactly how the "/tmp on Windows"
+# sentinel-exchange bug class (dead review-gate/cost/risk/stuck/crash on the
+# Windows machine, fixed in v1.42.0) shipped unnoticed. This job runs the
+# platform-sensitive suites on windows-latest so that class cannot regress.
+#
+# Zero-dependency by design (stdlib only), same as meta-review.yml.
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows-verify:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Platform tmp symmetry + new-hook functional tests
+        run: python tests/verify_platform_tmp_and_new_hooks.py
+      - name: Registration & count drift-guards
+        run: python tests/verify_registration_and_counts.py
+      - name: Skill contract profiles
+        run: python scripts/verify_skill_profiles.py
+      - name: Meta-review rubric
+        run: python tests/meta_review.py

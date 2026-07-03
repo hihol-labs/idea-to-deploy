@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 
 
 def session_id() -> str:
@@ -41,14 +42,21 @@ def session_id() -> str:
 
 
 def get_frozen_scope() -> str | None:
-    """Return the frozen scope path, or None if not active."""
-    state_file = f"/tmp/claude-freeze-{session_id()}.state"
-    try:
-        with open(state_file) as f:
-            scope = f.read().strip()
-            return scope if scope else None
-    except Exception:
-        return None
+    """Return the frozen scope path, or None if not active.
+
+    Reads BOTH the platform temp dir and literal /tmp: skills write the state
+    from bash (whose /tmp is %TEMP% under Git-Bash but /tmp under WSL), while
+    this hook may run under Windows python (where "/tmp" means C:\\tmp).
+    """
+    for d in (tempfile.gettempdir(), "/tmp"):
+        try:
+            with open(os.path.join(d, f"claude-freeze-{session_id()}.state")) as f:
+                scope = f.read().strip()
+                if scope:
+                    return scope
+        except Exception:
+            continue
+    return None
 
 
 def main() -> int:

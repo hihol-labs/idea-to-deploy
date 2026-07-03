@@ -33,14 +33,11 @@ fi
 # These are experimental / opt-in — users enable them manually if they want.
 # If you add a new canonical hook, DO NOT put it here — add it to
 # DESIRED_HOOKS in sync-to-active.sh instead.
+# v1.42.0: список пуст — все хуки в каноническом наборе регистрации
+# (freeze.sh с v1.42.0 зарегистрирован: он no-op без state-файла, регистрация
+# бесплатна и убирает фантомный «opt-in» компонент). Держим массив для
+# следующего действительно opt-in хука.
 EXEMPT=(
-  "careful.sh"           # opt-in per-command caution messages
-  "context-aware.sh"     # experimental context-rot detection
-  "cost-tracker.sh"      # optional cost telemetry
-  "crash-recovery.sh"    # manual inspection checkpoint, no consumer yet
-  "execution-trace.sh"   # opt-in live execution-trace telemetry (observability)
-  "freeze.sh"            # opt-in freeze-on-mistake
-  "stuck-detection.sh"   # experimental stuck-session detection
 )
 
 is_exempt() {

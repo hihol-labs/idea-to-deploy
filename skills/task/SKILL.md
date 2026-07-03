@@ -27,6 +27,8 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 - надо что-то сделать в проекте, инкрементальное изменение
 - existing project, work on existing, tech debt cleanup
 - maintenance task, housekeeping, chore
+- реализуй фичу, добавь функциональность, новая фича в существующем проекте
+- implement feature, add a feature, feature in existing project
 - любой запрос на изменение уже существующего работающего кода, где тип задачи (bug/refactor/doc/test/perf) не очевиден в первой фразе
 
 **Важно:** если пользователь сразу сказал что-то конкретное («почини баг в users.py», «отрефактори process_checkout», «добавь тесты к auth модулю»), хук поднимет сразу целевой daily-work скилл (`/bugfix`, `/refactor`, `/test` и т.д.), минуя `/task`. `/task` — для случаев когда **тип задачи неочевиден** или пользователь явно зашёл как «надо поработать над проектом».
@@ -108,7 +110,8 @@ If the user's request is ambiguous (e.g., "закрой tech debt с deploy.sh",
 > **9) Production hardening** — health check, logs, metrics, rate limit, runbook → `/harden`
 > **10) Инфраструктура** — Terraform, K8s, Helm, secrets manager → `/infra`
 > **11) Объяснить код** — разобрать архитектуру, модуль, функцию → `/explain`
-> **12) Review изменений** — проверить качество PR / diff → `/review`»
+> **12) Review изменений** — проверить качество PR / diff → `/review`
+> **13) Новая фича в существующем проекте** — добавить функциональность (не баг, не рефакторинг) → **feature-конвейер** (Step 3f)»
 
 **Do NOT ask this question** if:
 - The user already said something specific → jump to the target skill directly
@@ -137,7 +140,36 @@ Routing matrix (also in `references/routing-matrix.md`):
 | "Terraform", "Helm", "k8s manifests", "provision" | `/infra` |
 | "Объясни код", "как это работает", walkthrough | `/explain` |
 | "Проверь PR", "оцени качество", code review | `/review` |
+| "Реализуй фичу X", "добавь функциональность", "сделай в проекте новое …" | **feature-конвейер** (Step 3f) |
 | "Я хочу сохранить контекст", "заканчиваем" | `/session-save` |
+
+### Step 3f: Feature pipeline — новая функциональность в brownfield (v1.42.0)
+
+The daily-work case the matrix used to miss: implementing a NEW feature in an
+existing project is neither `/bugfix` nor `/refactor`, and `/kickstart` is
+forbidden here. For this route `/task` acts as the pipeline conductor — it does
+not write the code "as a router", it walks the standard chain around the
+implementation:
+
+1. **Scope first.** If `.itd/` exists — fill `SCOPE_LOCK.md` (Current Task +
+   Allowed/Forbidden Change Areas) and open a unit per Step 3.5. Without
+   `.itd/` — state the scope in one message (files/modules to touch, what is
+   explicitly out of scope).
+2. **Plan → approve.** For anything beyond ~1 file: a short plan (steps, files,
+   verification per step) and explicit user approval before code (global rule
+   «Plan before code»). For a large/risky feature offer `/grill-me` on the plan
+   first.
+3. **Implement** — surgical edits inside the declared scope; the normal gates
+   stay armed (wip-gate, careful, DoD).
+4. **Verify** — `/test` for new code (fail-closed: evidence required; for
+   projects without a test runner use the project's declared verification —
+   lint/build/domain checks from `.itd/VERIFICATION_CONTRACT.json` or
+   CLAUDE.md).
+5. **`/review`** before any multi-file commit (mandatory floor), then commit
+   per the project's branch/PR rules; `/session-save` at the block end.
+
+Tier note (Step 1b): a feature is **standard** by default; escalate to
+**high-risk** when it touches prod data, schema, auth, payments, or security.
 
 ### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0, only when `.itd-memory/` exists)
 

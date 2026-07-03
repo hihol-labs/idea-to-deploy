@@ -31,6 +31,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 RISK_THRESHOLD = 12  # accumulate this many points before escalating
 try:
@@ -67,7 +68,7 @@ def session_id() -> str:
 
 
 def state_file() -> str:
-    return f"/tmp/claude-risk-{session_id()}.json"
+    return os.path.join(tempfile.gettempdir(), f"claude-risk-{session_id()}.json")
 
 
 def read_state() -> dict:
@@ -102,20 +103,23 @@ def latest_paydown_marker() -> float:
     """
     newest = 0.0
     sid = session_id()
-    candidates = [
-        f"/tmp/claude-review-done-{sid}",
-        f"/tmp/claude-security-audit-done-{sid}",
-    ]
+    names = [f"claude-review-done-{sid}", f"claude-security-audit-done-{sid}"]
     if sid != "default":
-        candidates += [
-            "/tmp/claude-review-done-default",
-            "/tmp/claude-security-audit-done-default",
-        ]
-    for path in candidates:
-        try:
-            newest = max(newest, os.path.getmtime(path))
-        except Exception:
-            continue
+        names += ["claude-review-done-default", "claude-security-audit-done-default"]
+    dirs = []
+    for d in (tempfile.gettempdir(), "/tmp"):
+        if d and d not in dirs:
+            dirs.append(d)
+    for d in dirs:
+        for name in names:
+            try:
+                newest = max(newest, os.path.getmtime(os.path.join(d, name)))
+            except Exception:
+                continue
+    # NOTE: deliberately NO cross-session glob fallback here. risk-score's
+    # contract (verify_risk_score case 9) is stricter than the review/DoD
+    # gates: a sentinel from session A must not pay down session B's risk.
+    # Restart tolerance is provided by the gates that own the decision.
     return newest
 
 
