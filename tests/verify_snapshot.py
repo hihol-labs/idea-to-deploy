@@ -136,9 +136,15 @@ class Report:
 _SECTION_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 _API_ENDPOINT_RE = re.compile(
     r"^\s*(?:"
-    r"[`*]?\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+"
+    # v1.43.1: the path must START with /, : or { — bare `METHOD word` is prose
+    # («GET requests are cached»), not an endpoint (regression: verify_endpoint_regex.py)
+    r"[`*]?\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[`]?[/:{][/:\w{}\-]*"
     r"|\|\s*\d+\s*\|\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s*\|"
-    r"|\|\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[/:\w{}\-]+\s*\|"
+    r"|\|\s*(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+[`]?[/:{][/:\w{}\-]*\s*\|"
+    # v1.43.1: method in its OWN table cell, path in the NEXT cell —
+    # `| GET | /api/v1/auth/login | ... |` (live fixture-01 headless run
+    # 2026-07-03 generated exactly this shape and scored 0/15 endpoints)
+    r"|\|\s*[`*]?(?:GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)[`*]?\s*\|\s*[`]?[/:{]"
     r")",
     re.MULTILINE | re.IGNORECASE,
 )

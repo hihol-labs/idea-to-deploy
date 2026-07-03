@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.43.1] - 2026-07-03
+
+### Fixed
+
+- **`tests/verify_snapshot.py` `_API_ENDPOINT_RE`** — counts the fourth legitimate endpoint shape: method in its OWN markdown-table cell, path in the next (`| GET | /api/v1/... |`). Caught by the first live headless run of fixture-01 (the generated architecture doc's API section held 40+ endpoints in exactly this shape yet scored 0 against the `min_api_endpoints: 15` contract → false FAIL); same output re-validates 33/33 after the fix. Regression pinned by the new `tests/verify_endpoint_regex.py` (4 positive shapes + 5 negative cases: table headers, separator rows, prose with method words).
+
+### Added
+
+- **`docs/greenfield-live-run-2026-07-03.md`** — the act of the first live greenfield run: kickstart Phase 1–2 via the standard headless fixture runner (33/33, $1.02) + a headless probe of the v1.40.0 initialization phase (Phase 3 steps 1–8): `PHASE3-PROBE-DONE 6/6`, independently verified by hand (pytest 1 passed in the project venv, 13 `.itd/` contracts, `validate_state.py` OK, 2 git checkpoint commits). Operational notes: headless claude from Windows requires a login shell (`wsl.exe --exec bash -lc`); Phases 4–5 remain signal-gated ($10–25/run). Greenfield score on the audit scale: 8 → 9.
+
 ## [1.43.0] - 2026-07-03
 
 **The model council, done the ITD way: one external seat at decision points.** Answers the "council of models" request (second signal for the v1.21-rejected "adversarial debates" candidate) without building an orchestrator: role diversity already exists (10 subagents; /advisor and /blueprint 2.5 already synthesize multi-perspective output), so the only un-captured win is a genuinely DIFFERENT model family at the table. Same-model persona ensembles buy little for 3-4× tokens; a foreign model has foreign blind spots.
