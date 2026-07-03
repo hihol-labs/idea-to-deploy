@@ -491,6 +491,19 @@ TRIGGERS = [
         "PII-scrub перед отправкой; fail-open цепочка codex→gemini→нативный red-team review Claude; "
         "АДДИТИВНО к /review, не заменяет и не является гейтом). Вызови Skill ПЕРВЫМ.",
     ),
+    (
+        r"(долг\w*\s+цель|режим\s+цели|поставь\s+цель|"
+        r"декомпозир\w*\s+цель|цель\s+на\s+несколько\s+сесси|"
+        r"продолж\w*\s+цель|верн\w*\s+к\s+цели|работаем\s+к\s+цели|"
+        r"goal\s+mode|long-?running\s+goal|multi-?session\s+goal|"
+        r"decompose\s+the\s+goal|goal\s+ledger|"
+        r"\bgoal\.json\b)",
+        "🔔 Триггер 'долгая цель / goal mode' → используй /goal "
+        "(режим долгой цели: декомпозиция в проверяемые юниты в .itd-memory/GOAL.json "
+        "с одобрением пользователя, ведение по одному юниту через штатный конвейер "
+        "/task при WIP=1, resume между сессиями с первого не-verified юнита; "
+        "НЕ гейт — /review и DoD не обходит). Вызови Skill ПЕРВЫМ.",
+    ),
 ]
 
 

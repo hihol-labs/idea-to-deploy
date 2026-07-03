@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.44.0] - 2026-07-03
+
+**Long-goal mode (`/goal`) — the persistent unit ledger a brownfield goal was missing.** For greenfield the "one phrase → whole pipeline" mode already existed (`/autopilot`); in brownfield a goal spanning multiple sessions lived in prose (`session_*.md`) and in the model's head — a dead session was resumed by re-reading text, not programmatically. This release activates the deferred T2 candidate ("persistent multi-feature ledger", HARNESS map §4.2/§5.4/§7) on its second signal, per the ROADMAP's own criteria — as a thin layer over the existing v1.41 unit mechanics, not an orchestrator (ADR-001). Skill count 38 → 39.
+
+### Added
+
+- **`/goal` skill (39th)** — decomposes a multi-session goal into ORDERED verifiable units (binary `criterion` + executable `verificationCommand`), shows the decomposition and **waits for explicit user approval** before writing anything; then drives units ONE at a time (WIP=1) through the standard `/task` pipeline (scope → plan → code → `/test` → `/review`), flips a unit to `verified` only with evidence from an actual `verificationCommand` run, and logs unit events to `events.jsonl` — the VCR metric counts goal work automatically. **Resume, never recreate:** with an active `GOAL.json` present, `/goal` continues from the first non-verified unit. NOT a gate — never bypasses `/review`, `/test`, the DoD, or any hook; brownfield-first (deliberately absent from the `_GREENFIELD_SKILLS` suppression list).
+- **`.itd-memory/GOAL.json` ledger** — `docs/templates/itd-memory/GOAL.example.json` + `goal.schema.json` (goal statuses `active|done|abandoned`; unit statuses `pending|in_progress|verified|skipped`). `scripts/validate_state.py` now dispatches on the `GOAL` filename and validates the ledger fail-closed: empty goal/criterion/verificationCommand, a `skipped` unit without `skippedReason`, duplicate/dangling unit ids, or a `done` goal with open units are FAILURES.
+- **Pre-flight goal injection** — `hooks/pre-flight-check.sh` `itd_state_context` also reads `GOAL.json` (works even without `STATE.json`) and injects "Цель (/goal): X — N/M юнитов verified, текущий `G-k`" plus a resume hint, so a fresh session picks the goal up on entry instead of re-deriving it.
+- **Routing + regression anchors** — `/goal` trigger block in `hooks/check-skills.sh` (долгая цель / режим цели / поставь цель / продолжай цель / goal mode / resume the goal / …), `tests/fixtures/fixture-31-goal/` (pending stub in the memory-write bucket of fixture-09/18; the GOAL.json artifact itself is machine-checkable via `validate_state.py` today), `/handoff` + `/session-save` checklists now carry `GOAL.json` (durable artifact to read/refresh; a verified goal unit is an incremental checkpoint trigger).
+
+### Changed
+
+- Counts 38 → 39 skills across `plugin.json`, `marketplace.json`, both READMEs (incl. Workflow table 3 → 4 skills, I/O and model-recommendation tables), `docs/templates/global-claude-md.md`, `docs/HARNESS_ENGINEERING_MAP.md` (recount at v1.44.0; T2 row and the §4.4 "honest remainder" updated — the multi-unit persistent ledger is now implemented as `GOAL.json`).
+
+---
+
 ## [1.43.1] - 2026-07-03
 
 ### Fixed

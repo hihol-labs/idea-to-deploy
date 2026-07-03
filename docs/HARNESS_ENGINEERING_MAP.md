@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.41.0): **38 skills, 10 subagents, 22 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`.
+Проверка — чтением `main` (v1.44.0): **39 skills, 10 subagents, 22 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`.
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 38 skills + 10 agents + 22 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 39 skills + 10 agents + 22 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
@@ -58,7 +58,7 @@
 | # | Шаблон курса | Статус | Аналог в idea-to-deploy (v1.21.0) | Комментарий |
 |---|---|:---:|---|---|
 | **T1** | **`AGENTS.md`** — операционный манифест/память агента | ✅ | `CLAUDE.md` (нативный эквивалент) + `agents/*.md` (10 субагентов) + **слой `.itd/`** как машиночитаемый операционный манифест: `PROJECT_CONTRACT.md`, `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md` | Расхождение только по имени: `CLAUDE.md` — корректный идиом Claude Code. Минор-кандидат: `AGENTS.md`-алиас для кросс-тул-портируемости |
-| **T2** | **`feature_list.json`** — машиночитаемый реестр «сделано/протестировано» против преждевременного завершения | ✅ | **`ACCEPTANCE_CONTRACT.json`** (v1.21.0): машиночитаемый proof-checklist критериев приёмки, выведенный из запроса пользователя, со схемой (`id/criterion/source/evidence/verificationCommand/status`) и `doneRule` **fail-closed** + **`VERIFICATION_CONTRACT.json`** (исполняемые команды верификации, `failClosed`) | **Намерение курса реализовано и усилено** (fail-closed). Отличие по форме: это per-unit контракт приёмки от запроса, а не персистентный мульти-фичный ledger проекта. Для большинства задач функционально эквивалентно (и строже). Кандидат-улучшение: персистентный проектный `feature_list.json` поверх per-unit контрактов |
+| **T2** | **`feature_list.json`** — машиночитаемый реестр «сделано/протестировано» против преждевременного завершения | ✅ | **`ACCEPTANCE_CONTRACT.json`** (v1.21.0): машиночитаемый proof-checklist критериев приёмки, выведенный из запроса пользователя, со схемой (`id/criterion/source/evidence/verificationCommand/status`) и `doneRule` **fail-closed** + **`VERIFICATION_CONTRACT.json`** (исполняемые команды верификации, `failClosed`) | **Намерение курса реализовано и усилено** (fail-closed). Отличие по форме: это per-unit контракт приёмки от запроса, а не персистентный мульти-фичный ledger проекта. Для большинства задач функционально эквивалентно (и строже). **v1.44.0 закрывает и форму**: `/goal` ведёт персистентный мульти-юнитный реестр цели `.itd-memory/GOAL.json` (schema `goal.schema.json`, валидация `validate_state.py`) поверх per-unit контрактов — прогресс долгой цели переживает смерть сессии программно |
 
 ### 4.4. Ось I: Initialization phase & handoff-readiness (первоисточник Anthropic, добавлена v1.40.0)
 
@@ -76,7 +76,7 @@
 
 **Дополнение v1.41.0 (контроль скоупа и проверенного завершения):** (a) **WIP=1** — явное правило в обоих CLAUDE.md-шаблонах («следующий unit — только после end-to-end верификации текущего») + `currentUnit` singular by construction + новый soft-хук `wip-gate.sh` (Edit/Write вне `SCOPE_LOCK.Allowed` при unit'е в `verifying`/`recovery_required` → hint); (b) **машиночитаемая поверхность скоупа теперь читается на входе сессии** — `pre-flight-check.sh` инжектит `currentUnit`/`nextAction`/blockers/непройденные гейты из `STATE.json`; (c) **VCR** (Verified Completion Rate = verified/activated units) считается в `itd_metrics.py` по unit-событиям `events.jsonl`, которые `/task` пишет при активации/верификации unit'а. Жёсткий deny «VCR<1.0 → нельзя активировать» сознательно НЕ реализован: «активация задачи» не существует как tool-событие, а суждение «это новая задача или фикс текущей» — семантика (§8.3: hint, не deny).
 
-**Честный остаток оси:** персистентный мульти-фичный `feature_list.json` (программный прогресс-реестр проекта, переживающий сессии) — реализован per-unit (`ACCEPTANCE_CONTRACT.json`) + VCR-метрикой по unit-событиям (v1.41.0), мульти-фичный ledger остаётся signal-gated кандидатом T2 (§5.4, §7 — триггер расширен сценарием autopilot/AFK).
+**Остаток оси закрыт в v1.44.0:** T2-кандидат «персистентный мульти-фичный реестр, переживающий сессии» активирован по второму сигналу (критерии ROADMAP): `/goal` + `.itd-memory/GOAL.json` — упорядоченный реестр юнитов цели (`id/criterion/verificationCommand/status`, schema `docs/templates/itd-memory/goal.schema.json`, fail-closed валидация в `validate_state.py`), декомпозиция с одобрением пользователя, ведение через штатный конвейер `/task` при WIP=1, unit-события в `events.jsonl` (VCR считается по цели автоматически), resume с первого не-verified юнита; `pre-flight-check.sh` инжектит «Цель: X — N/M юнитов verified» на входе каждой сессии. До v1.44.0 было реализовано per-unit (`ACCEPTANCE_CONTRACT.json`) + VCR (v1.41.0).
 
 ## 5. Детальный разбор
 
@@ -108,7 +108,7 @@
 ### 5.4. Минорные кандидаты
 
 - **`AGENTS.md`-алиас** (T1): тонкий алиас на `CLAUDE.md` в генерируемых проектах для кросс-тул-агентов, читающих нейтральный `AGENTS.md`. Косметика портируемости, <1 дня.
-- **Персистентный `feature_list.json`** (T2): проектный реестр фич поверх per-unit `ACCEPTANCE_CONTRACT`, чтобы `/deploy` мог программно проверить «все P0 имеют passing-тест». 3–5 дней. Второй триггер (v1.40.0, из оси I §4.4): длинные autopilot/AFK-прогоны, где сессия может умереть до ручного подведения итогов — прогресс должен восстанавливаться программно из репо, а не из памяти сессии.
+- **Персистентный `feature_list.json`** (T2): ~~проектный реестр фич поверх per-unit `ACCEPTANCE_CONTRACT`~~ — **закрыт в v1.44.0** по второму сигналу (вопрос пользователя про аналог codex `/goal`): реализован как `/goal` + `.itd-memory/GOAL.json` (мульти-юнитный реестр цели, resume между сессиями программно). См. §4.4.
 
 ## 6. Сводка
 
@@ -117,11 +117,11 @@
 | **Философия** | «harness важнее модели» | — | — |
 | **5 принципов** | H1, H2, H3, H4, **H5** | — | — |
 | **2 шаблона** | T1, **T2** (через `.itd/`) | — | — |
-| **Ось I (Anthropic, v1.40.0)** | I1–I7 (init-фаза, bootstrap-контракт, env-boot, example-тест, декомпозиция, git-чекпоинт, handoff-readiness) | персистентный `feature_list.json` (форма, T2, signal-gated) | — |
+| **Ось I (Anthropic, v1.40.0)** | I1–I7 (init-фаза, bootstrap-контракт, env-boot, example-тест, декомпозиция, git-чекпоинт, handoff-readiness) + персистентный goal-ledger (`/goal` + `GOAL.json`, v1.44.0) | — | — |
 
 **Итог:** философия харнес-инженерии воплощена **в полной мере** — `idea-to-deploy` является образцовым примером самой дисциплины. На **v1.21.x**: **все 5 принципов** покрыты полностью (H1–H5; наблюдаемость закрыта live-трейсингом `execution-trace.sh`). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + `.itd/`-манифест; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (fail-closed, строже оригинала).
 
-**Содержательных остатков по принципам и шаблонам нет.** Остаются лишь минорные косметические кандидаты (см. §5.4: `AGENTS.md`-алиас для кросс-тул-портируемости; персистентный мульти-фичный `feature_list.json` поверх per-unit `ACCEPTANCE_CONTRACT`) — это улучшения формы, а не пробелы принципов. Карта остаётся сигнал-триггер-картой на случай изменений курса или методологии.
+**Содержательных остатков по принципам и шаблонам нет.** Остаётся один минорный косметический кандидат (см. §5.4: `AGENTS.md`-алиас для кросс-тул-портируемости); персистентный мульти-фичный ledger закрыт в v1.44.0 (`/goal` + `GOAL.json`, §4.4) — это было улучшение формы, а не пробел принципов. Карта остаётся сигнал-триггер-картой на случай изменений курса или методологии.
 
 **Обновление (v1.32.0–v1.33.0 — порты Day-3/5).** Харнес-инженерия в ITD теперь читается в **два слоя**: (1) *operating* — ITD сам является харнесом над Claude Code (это §4–§5 выше); (2) *output* — методология учит и аудирует построение харнеса *продукта пользователя*. Day-3 (Context Engineering, v1.32.0) и Day-5 (Zero-Trust + SDD, v1.33.0) добавили именно output-слой: дизайн памяти/контекста, eval-петель и zero-trust guardrails врезками в `/blueprint`·`/discover`·`/security-audit`·`/harden`·`/test`·`/review`·`/adopt`. Принцип ADR-001 неизменен: методология *проектирует и проверяет* харнес продукта, но не *является* его рантаймом (semantic gating = ASK, `agents-cli` = icebox).
 
@@ -135,10 +135,10 @@
 
 | Кандидат | Тип | Effort | Триггер |
 |---|---|:---:|---|
-| Персистентный `feature_list.json` | T2 (форма) | 3–5d | Нужен программный gate «все P0 фичи протестированы» перед `/deploy`, **или** регулярные autopilot/AFK-прогоны, где прогресс обязан переживать смерть сессии программно (ось I §4.4) |
+| ~~Персистентный `feature_list.json`~~ | T2 (форма) | — | **Активирован и закрыт в v1.44.0** по второму сигналу (вопрос пользователя про режим долгой цели) — `/goal` + `.itd-memory/GOAL.json`, см. §4.4/§5.4 |
 | `AGENTS.md`-алиас в генераторах | T1 (портируемость) | <1d | Запрос на кросс-тул-портируемость |
 
-Ни один не активируется без external signal (критерии — `ROADMAP_v1.21.md §"When to revisit v1.21"`).
+Оставшийся кандидат не активируется без external signal (критерии — `ROADMAP_v1.21.md §"When to revisit v1.21"`); T2-строка сохранена как прецедент корректной активации по сигналу.
 
 ## 8. Классификация контролей: feedforward/feedback × computational/inferential
 

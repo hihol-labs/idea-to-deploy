@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "purpose": "Schema for .itd-memory/GOAL.json — the persistent long-goal unit ledger written by /goal (v1.44.0). A goal is decomposed into an ORDERED list of verifiable units; each unit is driven one at a time (WIP=1) through the standard /task pipeline and flipped to 'verified' only with evidence. The file survives session death — a fresh session resumes from the first non-verified unit instead of re-deriving the plan. Validated by scripts/validate_state.py (dispatches on the GOAL.json filename). Goal units reference the same unit mechanics as STATE.json.currentUnit (v1.41.0): activating a goal unit opens it as the current unit and logs unit events to events.jsonl, so the VCR metric counts goal work automatically.",
+  "requiredFields": [
+    "version",
+    "goal",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "currentUnitId",
+    "units"
+  ],
+  "unitRequiredFields": [
+    "id",
+    "criterion",
+    "verificationCommand",
+    "status"
+  ],
+  "goalStatuses": ["active", "done", "abandoned"],
+  "unitStatuses": ["pending", "in_progress", "verified", "skipped"],
+  "goalTemplate": {
+    "version": 1,
+    "goal": "",
+    "status": "active",
+    "createdAt": "",
+    "updatedAt": "",
+    "currentUnitId": "",
+    "units": [
+      {
+        "id": "",
+        "criterion": "",
+        "verificationCommand": "",
+        "status": "pending",
+        "verifiedAt": "",
+        "evidence": "",
+        "skippedReason": ""
+      }
+    ]
+  }
+}
