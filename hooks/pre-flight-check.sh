@@ -287,10 +287,13 @@ def itd_state_context(cwd: Path) -> str:
             (u.get("id") for u in units
              if u.get("status") in ("in_progress", "pending")), "")
         goal_status = goal.get("status") or "active"
+        blocked = sum(1 for u in units if u.get("status") == "blocked")
         goal_line = (
             f"- Цель (/goal): {goal.get('goal') or '(без формулировки)'} — "
             f"{verified}/{total} юнитов verified"
         )
+        if blocked:
+            goal_line += f", blocked: {blocked}"
         if goal_status != "active":
             goal_line += f" [статус цели: {goal_status}]"
         elif current:

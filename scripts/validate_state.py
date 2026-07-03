@@ -106,6 +106,8 @@ def validate_goal(path: Path) -> None:
             fail(f"{where}: status '{unit.get('status')}' not in {unit_statuses}")
         if unit.get("status") == "skipped" and not str(unit.get("skippedReason") or "").strip():
             fail(f"{where}: skipped unit must carry a non-empty skippedReason (fail-closed)")
+        if unit.get("status") == "blocked" and not str(unit.get("blockedReason") or "").strip():
+            fail(f"{where}: blocked unit must carry a non-empty blockedReason (fail-closed)")
 
     current = str(goal.get("currentUnitId") or "").strip()
     if current and current not in seen_ids:
@@ -113,7 +115,7 @@ def validate_goal(path: Path) -> None:
 
     if goal.get("status") == "done":
         open_units = [u.get("id") for u in units
-                      if u.get("status") in ("pending", "in_progress")]
+                      if u.get("status") in ("pending", "in_progress", "blocked")]
         if open_units:
             fail(f"{path}: goal is 'done' but units {open_units} are still open")
 

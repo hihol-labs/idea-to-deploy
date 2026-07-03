@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.45.0] - 2026-07-03
+
+**The /goal harness grows hands: transitions and handoff reports are made by scripts, not by the agent.** v1.44.0 shipped the persistent ledger; the remaining walkinglabs feature-list principles — «переходами управляет harness, а не агент» and the script-generated handoff reporter — land here as two stdlib tools INSIDE the skill folder (`skills/goal/scripts/`), so both `sync-to-active.sh` and the plugin install deliver them to target projects. Simulated end-to-end in a sandbox (activate → verify green → verify red stays → block → report → pre-flight) before release.
+
+### Added
+
+- **`itd_goal_verify.py` («ОТК»)** — the ONLY writer of `verified`: executes the unit's `verificationCommand` itself and records `evidence` from the actual run. Enforces the course's state machine: `--activate` (pending/blocked → in_progress, WIP=1 refused while another unit is open), verify only from `in_progress` (gate on passing; `pending` is refused with "activate first"), failure keeps `in_progress`, `--recheck` demotes a regressed `verified` back to `in_progress` (deliberate delta from the course's irreversible passing — the ledger reflects VERIFIED reality), `--block --reason` is fail-closed. Every transition appends a unit event with `actor: "harness"` to `events.jsonl` — VCR counts them automatically.
+- **`itd_goal_report.py` (handoff reporter)** — deterministic session summary generated FROM the ledger (+ event tail): goal, N/M verified, backpressure (open units; 0 = done), state distribution, per-unit table with evidence, the receiving session's first action. `/handoff` and `/session-save` now paste its output verbatim (prose around, never numbers-by-memory); `--json` for machine use.
+- **`blocked` unit state** in `goal.schema.json` (full course automaton: pending / in_progress / blocked / verified, plus `skipped`): `blockedReason` fail-closed in `validate_state.py`, blocked count surfaced in the pre-flight goal line, unblock via `--activate`.
+- **«ставлю цель» trigger** — `check-skills.sh` `поставь\s+цель` widened to `(?<![а-яё])(?:постав\w*|став(?:лю|им))\s+цель` (covers «ставлю/ставим/поставь/поставим/поставил цель»; the lookbehind keeps «сопоставь/составь/приставлю…» silent — review finding), phrase added to `/goal` SKILL.md + fixture-31 sample prompts (user-confirmed backlog item).
+- **`tests/verify_goal_tools.py`** — 20 functional checks of both tools (WIP=1, gate on passing, evidence, regression demote, fail-closed block, reporter consistency, ledger validity, blocked-only backpressure, pipe escaping), cross-platform by construction; wired into the windows-verify CI leg. The Windows run immediately caught a real cp125x decode bug (em-dash 0x97 from a child process kills a utf-8 reader) — both tools now pin `encoding="utf-8", errors="replace"` on subprocess capture and reconfigure their own stdout/stderr.
+- **Review findings fixed pre-merge** (code-reviewer PASSED_WITH_WARNINGS): both tools were blocked-blind in their "no open units / закрыть цель" messages (a blocked unit IS open — now the verifier lists blockers after the last actionable unit and the reporter says «все открытые юниты заблокированы» instead of suggesting closure); Markdown-pipe escaping in report table cells; explicit shell=True trust-model + `--recheck` asymmetry notes in the verifier docstring; a hand-corrupted ledger with >1 `in_progress` now prints a WIP=1 violation warning.
+
+### Changed
+
+- `/goal` SKILL.md — new «Инструменты харнеса» section + Step 2 rewritten: activation/verification go through the ОТК script (manual fallback only without python3, and it must be said aloud); Self-validation and Rules extended («Харнес, не агент»). `/handoff` Step 1 and `/session-save` Step 1 call the reporter and embed its output as-is. `HARNESS_ENGINEERING_MAP.md` §4.4: the last feature-list principle marked closed, with the one deliberate delta (reversible passing) recorded honestly.
+
+---
+
 ## [1.44.0] - 2026-07-03
 
 **Long-goal mode (`/goal`) — the persistent unit ledger a brownfield goal was missing.** For greenfield the "one phrase → whole pipeline" mode already existed (`/autopilot`); in brownfield a goal spanning multiple sessions lived in prose (`session_*.md`) and in the model's head — a dead session was resumed by re-reading text, not programmatically. This release activates the deferred T2 candidate ("persistent multi-feature ledger", HARNESS map §4.2/§5.4/§7) on its second signal, per the ROADMAP's own criteria — as a thin layer over the existing v1.41 unit mechanics, not an orchestrator (ADR-001). Skill count 38 → 39.

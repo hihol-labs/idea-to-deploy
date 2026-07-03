@@ -30,6 +30,8 @@ jobs:
           python-version: "3.12"
       - name: Platform tmp symmetry + new-hook functional tests
         run: python tests/verify_platform_tmp_and_new_hooks.py
+      - name: Goal harness tools (verifier + reporter) functional tests
+        run: python tests/verify_goal_tools.py
       - name: Registration & count drift-guards
         run: python tests/verify_registration_and_counts.py
       - name: Skill contract profiles

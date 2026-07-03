@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.44.0
+  version: 1.45.0
   category: workflow
   tags: [goal, long-running, units, wip, resume, brownfield, ledger]
 ---
@@ -18,7 +18,7 @@ metadata:
 
 ## Trigger phrases
 
-- долгая цель, режим цели, поставь цель
+- долгая цель, режим цели, поставь цель, ставлю цель
 - декомпозируй цель, цель на несколько сессий
 - продолжай цель, вернись к цели, работаем к цели
 - goal mode, long-running goal, multi-session goal
@@ -43,6 +43,32 @@ metadata:
 > как обычно внутри каждого юнита. Главный кейс — brownfield; скилл не входит в
 > подавляемый greenfield-список. Для greenfield-цели «с нуля до деплоя» есть
 > `/autopilot`.
+
+### Инструменты харнеса (v1.45.0) — переходами управляет харнес, не агент
+
+Рядом со скиллом лежат два stdlib-скрипта (в репо — `skills/goal/scripts/`,
+после установки — `~/.claude/skills/goal/scripts/`):
+
+- **`itd_goal_verify.py`** — «ОТК»: `--activate` (pending/blocked → in_progress,
+  WIP=1 enforced), verify по умолчанию (САМ исполняет `verificationCommand` и
+  единственный пишет `verified`+`evidence`; провал — юнит остаётся
+  `in_progress`), `--recheck` (регрессия демотирует verified → in_progress),
+  `--block --reason "…"` (fail-closed). Каждый переход — unit-событие в
+  `events.jsonl` с `actor: "harness"`.
+- **`itd_goal_report.py`** — репортёр handoff: детерминированное саммари ИЗ
+  леджера (прогресс, обратное давление, таблица юнитов, первое действие
+  принимающей сессии, хвост событий). `/handoff` и `/session-save` вставляют
+  вывод как есть; модель добавляет прозу ВОКРУГ, но не меняет цифры.
+
+Резолв пути (работает и в репо методологии, и в целевом проекте):
+
+```bash
+GT="skills/goal/scripts"; [ -f "$GT/itd_goal_verify.py" ] || GT="$HOME/.claude/skills/goal/scripts"
+```
+
+Пока `python3` доступен — статусы юнитов руками НЕ редактируются. Ручной
+фоллбэк (та же семантика: evidence обязателен, событие в events.jsonl,
+fail-closed причины) — только если python3 недоступен; скажи об этом явно.
 
 ### Step 0: Resume-check (всегда первым)
 
@@ -85,25 +111,29 @@ python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/n
 
 Цикл, пока есть `pending`-юниты и пользователь не остановил:
 
-1. **Активируй** следующий юнит: `status: in_progress`, `currentUnitId: <id>`,
-   `updatedAt`; событие в `.itd-memory/events.jsonl`
-   (`{"type":"unit","name":"G-002","decision":"activated","evidence":"<criterion>"}` —
-   формат `events.example.jsonl`). Если ведётся `STATE.json` — юнит цели И ЕСТЬ
-   `currentUnit` (unit-механика v1.41: один и тот же юнит, не два учёта).
+1. **Активируй** следующий юнит через ОТК:
+   `python3 "$GT/itd_goal_verify.py" --activate G-00X` — скрипт сам проверит
+   WIP=1 (откажет, пока другой юнит in_progress), выставит `currentUnitId` и
+   запишет событие `activated` (actor: harness). Если ведётся `STATE.json` —
+   юнит цели И ЕСТЬ `currentUnit` (unit-механика v1.41: один и тот же юнит,
+   не два учёта).
 2. **Прогони через штатный конвейер**: юнит = обычная задача → `/task`
    (фича → Step 3f: scope → короткий план → код → `/test` → `/review` → коммит
    по правилам репо; баг → `/bugfix`; и т.д.). `/goal` не дублирует конвейер —
    только скоуп юнита на входе и учёт на выходе.
-3. **Верифицируй**: выполни `verificationCommand`, зафиксируй фактический вывод.
-   Прошла → `status: verified`, `verifiedAt`, `evidence` (короткая решающая
-   строка вывода), unit-событие `decision: "verified"` в events.jsonl (VCR в
-   `itd_metrics.py` начинает считаться по цели автоматически). Не прошла —
-   юнит остаётся `in_progress`, чини в рамках конвейера; **не открывай
-   следующий** (wip-gate это же и подсказывает).
-4. **Skip — только по явному решению пользователя**: `status: skipped` +
-   непустой `skippedReason` (fail-closed: валидатор отвергнет пустой).
+3. **Верифицируй через ОТК**: `python3 "$GT/itd_goal_verify.py" G-00X` —
+   скрипт исполняет `verificationCommand` и при exit 0 сам переводит юнит в
+   `verified` с `evidence` и событием (VCR в `itd_metrics.py` начинает
+   считаться по цели автоматически). Агент `verified` руками НЕ ставит.
+   Провал → юнит остаётся `in_progress`, чини в рамках конвейера; **не
+   открывай следующий** (и ОТК не даст — WIP=1).
+4. **Blocked — внешний блокер**: `--block G-00X --reason "ждём ключ от
+   заказчика"` (fail-closed: без причины откажет); разблокировка —
+   `--activate G-00X`. **Skip — только по явному решению пользователя**:
+   `status: skipped` + непустой `skippedReason` (валидатор отвергнет пустой).
 5. Между юнитами — инкрементальный `/session-save` (verified-юнит = значимая
-   смена состояния).
+   смена состояния); в его срез вставь вывод
+   `python3 "$GT/itd_goal_report.py"`.
 
 ### Step 3: Закрытие цели
 
@@ -146,10 +176,13 @@ Actions:
 - [ ] Существующий active-`GOAL.json` НЕ пересоздан (resume-путь).
 - [ ] Декомпозиция показана пользователю и получен явный approve ДО записи.
 - [ ] У каждого юнита бинарный `criterion` и исполняемая `verificationCommand`.
+- [ ] Переходы статусов сделаны `itd_goal_verify.py` (руками `verified` не
+      ставился; ручной фоллбэк — только без python3, и это озвучено).
 - [ ] `verified` ставится только после фактического прогона команды, с `evidence`.
-- [ ] `skipped` — только с непустым `skippedReason`.
+- [ ] `skipped` — только с непустым `skippedReason`; `blocked` — с `blockedReason`.
 - [ ] Unit-события (`activated`/`verified`) записаны в `events.jsonl`.
 - [ ] Открыт максимум один юнит (WIP=1); гейты конвейера не обойдены.
+- [ ] Для handoff/session-save использован вывод `itd_goal_report.py`, не пересказ.
 
 ## Troubleshooting
 
@@ -159,9 +192,10 @@ Actions:
 цели, ledger не заводи.
 
 ### GOAL.json разъехался с реальностью
-(юнит verified, а тест уже падает) — прогони `verificationCommand` заново; если
-падает, верни `in_progress`, событие в events.jsonl, чини штатно. Ledger
-отражает ПРОВЕРЕННОЕ состояние, не желаемое.
+(юнит verified, а тест уже падает) — `python3 "$GT/itd_goal_verify.py" --recheck
+G-00X`: скрипт перепрогонит команду и при провале сам демотирует юнит в
+`in_progress` с событием `regressed`. Ledger отражает ПРОВЕРЕННОЕ состояние,
+не желаемое.
 
 ### Пользователь хочет параллелить юниты
 Не параллель: WIP=1 — принцип методологии (v1.41), wip-gate подсветит. Если
@@ -177,6 +211,8 @@ kickstart → review → test). `/goal` — для brownfield-целей над 
 
 - **Resume, never recreate** — активный `GOAL.json` не перезаписывается.
 - **Approve перед записью** — декомпозиция без одобрения не сохраняется.
+- **Харнес, не агент** — статусы юнитов меняет `itd_goal_verify.py`;
+  саммари для handoff генерирует `itd_goal_report.py`.
 - **WIP=1** — следующий юнит только после verified/skipped текущего.
 - **Evidence-gated** — `verified` без прогона `verificationCommand` не бывает.
 - **Не гейт** — `/review`, `/test`, DoD и все хуки работают как обычно.

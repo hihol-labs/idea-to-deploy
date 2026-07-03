@@ -77,8 +77,9 @@ Also check:
 - Current working directory (project path)
 - Open plans in `.claude/plans/`
 - Current task list (if any)
-- `.itd-memory/GOAL.json` — активная долгая цель (`/goal`): включи в резюме
-  «цель + N/M юнитов verified, текущий юнит»
+- `.itd-memory/GOAL.json` — активная долгая цель (`/goal`): срез генерирует
+  репортёр харнеса, вставь вывод в session-файл как есть (v1.45.0):
+  `GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"; python3 "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json`
 - What was discussed in the conversation (summarize from memory)
 
 ### Step 2: Summarize the session
