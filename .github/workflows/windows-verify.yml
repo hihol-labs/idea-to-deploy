@@ -34,6 +34,8 @@ jobs:
         run: python tests/verify_goal_tools.py
       - name: Retro telemetry scanner functional tests
         run: python tests/verify_retro_scan.py
+      - name: Retro-fix pack v1.47.0 functional tests
+        run: python tests/verify_v147_fixes.py
       - name: Registration & count drift-guards
         run: python tests/verify_registration_and_counts.py
       - name: Skill contract profiles

@@ -20,8 +20,17 @@ high-priority ASK the model must surface to the user.
 
 Writes a ledger file reviewable with `cat /tmp/claude-cost-<session>.json`.
 
+Granularity note (v1.47.0): without CLAUDE_SESSION_ID the ledger key is the
+shared PER-DAY anchor (same convention as the enforcement hooks), so the
+ceiling is effectively a DAILY aggregate across all sessions of the day —
+"runaway day", not "runaway loop". Deliberate trade-off: the old getppid()
+key produced a ledger per hook spawn (500 near-empty files, cost never
+accumulated at all), which made the ceiling dead. Set CLAUDE_SESSION_ID for
+true per-session budgets.
+
 v1.18.0: Adaptation from GSD v2 cost tracking (soft warn).
 v1.30.0: Hard-ceiling ASK gate (omnigent cost_budget port).
+v1.47.0: day-anchor session key + 14-day ledger rotation (retro 2026-07-04 #6).
 
 Reads JSON on stdin: {"tool_name": "...", "tool_input": {...}, "response": "..."}
 """
@@ -69,14 +78,63 @@ def session_id() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
         return sid
+    # v1.47.0 (retro 2026-07-04, finding #6): getppid() differs on EVERY hook
+    # spawn (fresh python per call, especially on Windows) → a new tiny ledger
+    # per tool call: the scan found 500 ledgers averaging ~1.3k tokens, i.e.
+    # cost was never accumulated per session at all. Reuse the shared per-day
+    # anchor written by check-skills.sh / check-tool-skill.sh so all spawns of
+    # a working session aggregate into ONE ledger (env var still wins for true
+    # per-session isolation).
     try:
-        return f"pid{os.getppid()}"
+        anchor = os.path.join(tempfile.gettempdir(), "claude-skill-session-anchor")
+        try:
+            with open(anchor) as f:
+                tok = f.read().strip()
+            if tok:
+                return tok
+        except Exception:
+            pass
+        tok = time.strftime("day%Y%m%d")
+        with open(anchor, "w") as f:
+            f.write(tok)
+        return tok
     except Exception:
         return "default"
 
 
 def ledger_file() -> str:
     return os.path.join(tempfile.gettempdir(), f"claude-cost-{session_id()}.json")
+
+
+ROTATE_AFTER_DAYS = 14
+ROTATE_MARKER = "claude-cost-rotate.marker"
+
+
+def rotate_old_ledgers() -> None:
+    """Delete cost ledgers older than ROTATE_AFTER_DAYS (retro #6: 500 stale
+    files had accumulated). Runs at most once a day (marker file), best-effort,
+    never raises, never touches today's ledger."""
+    tmp = tempfile.gettempdir()
+    marker = os.path.join(tmp, ROTATE_MARKER)
+    now = time.time()
+    try:
+        if now - os.path.getmtime(marker) < 86400:
+            return
+    except Exception:
+        pass
+    try:
+        with open(marker, "w") as f:
+            f.write(str(now))
+    except Exception:
+        return
+    import glob
+    cutoff = now - ROTATE_AFTER_DAYS * 86400
+    for path in glob.glob(os.path.join(tmp, "claude-cost-*.json")):
+        try:
+            if os.path.getmtime(path) < cutoff:
+                os.remove(path)
+        except Exception:
+            continue
 
 
 def read_ledger() -> dict:
@@ -120,6 +178,7 @@ def main() -> int:
 
     tool = (payload or {}).get("tool_name") or "default"
 
+    rotate_old_ledgers()  # at most once a day, best-effort (retro #6)
     ledger = read_ledger()
     tokens = TOKEN_ESTIMATES.get(tool, TOKEN_ESTIMATES["default"])
 

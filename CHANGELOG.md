@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.47.0] - 2026-07-04
+
+**The first live /retro run, implemented — the self-improvement loop pays for itself in one day.** Every item below traces to evidence in `docs/retros/RETRO-2026-07-04.md` (committed with this release): three live incidents and three telemetry signals from the v1.44–v1.46 release marathon, turned into fixes through the ordinary pipeline — exactly the FACTS → PROPOSALS → human-MERGE contract v1.46.0 shipped.
+
+### Fixed
+
+- **#1 `careful.sh` — `git branch -D` false positives (live ×3/day).** The file-global `re.IGNORECASE` made the case-sensitive force flag `-D` swallow the harmless soft `-d` (deleting an already-merged branch in the release pipeline) and even gh's `--delete-branch`. The pattern now runs in a case-sensitive inline group `(?-i:…)` and additionally covers `-df`/`-fd`/`--delete --force`; soft deletes stay silent.
+- **#2 `check-tool-skill.sh` — the read-only Bash exemption never fired on a Windows+WSL setup (628 ceremony SKILL_BYPASS records, top reason «read-only lookup»; one hard block mid-approved-release).** `is_readonly_bash` now unwraps `wsl.exe [-d X] [--exec] bash -lc "…"` and judges the INNER command; the allowlist gains `cd`/`sleep`/`true`/`diff`/checksums and gh's read-only subcommands (`gh pr|run|issue|release view|list|checks|status|diff`). Hardened while there: `git branch`/`git remote` with mutating flags (`-d/-D/-m/-f`, `add/remove/set-url`) are no longer «read-only»; redirects still force the gate; `gh pr merge` and any wrapped mutation stay gated.
+- **#6 `cost-tracker.sh` — a new ledger per hook spawn (500 stale files averaging ~1.3k tokens).** `session_id()` derived from `getppid()`, which differs on every spawn; it now reuses the shared per-day anchor (`claude-skill-session-anchor`, same convention as the enforcement hooks), so a working session accumulates ONE ledger; `CLAUDE_SESSION_ID` still wins. **Semantic shift, deliberate and documented (review I2):** without `CLAUDE_SESSION_ID` the budget ceiling now gates the DAILY aggregate across all sessions of the day («runaway day»), not a single session — the old per-spawn key made the ceiling dead entirely, which is worse. Plus daily-throttled rotation: ledgers older than 14 days are deleted (marker-guarded, best-effort).
+
+### Added
+
+- **#3 blind-telemetry warning** — `pre-flight-check.sh` warns once per session-start when `.itd-memory/` is in use but `events.jsonl` is missing/empty (the live project had 10+ PRs/week and ZERO unit events — VCR and /retro were blind); `/task` Step 3.5 now says to create the missing `events.jsonl` and write events.
+- **#4 named reviewer anti-pattern** — `agents/code-reviewer.md` Final-message contract: a closing paragraph that starts with «Now check…»/«Далее проверю…» is process narration by definition (three more live incidents — every marathon release review needed a resume ping); the agent must either do that check immediately or write the verdict from what it has.
+- **#5 producer-first rule** — `/task` Step 3f and a new `code-reviewer` check: a consumer of an existing file/ledger/format must be written (and reviewed) against the PRODUCER's actual code, with tests seeded from real producer samples — the exact class that produced 2 Important findings in one v1.46.0 review.
+- **`tests/verify_v147_fixes.py`** — 19 functional checks pinning all of the above (careful case-sensitivity ± gh flag, wsl-unwrap exemption vs gated mutations/redirects, pre-flight hint on/off, stable session id + ledger rotation); wired into the windows-verify CI leg. `docs/retros/RETRO-2026-07-04.md` committed as the evidence trail.
+
+---
+
 ## [1.46.0] - 2026-07-03
 
 **The methodology closes its own feedback loop — /retro, a self-proposing improvement cycle that never eats the merge gate.** Self-diagnosis existed (meta-review, drift-guards, CI); the missing piece was turning the telemetry the harness already collects into concrete release candidates without waiting for a human to notice the signals. The loop is deliberately split three ways: FACTS from a script, PROPOSALS from the model (evidence-required), MERGE from the human via the ordinary release pipeline. Full autonomy (self-merge) is explicitly rejected: the approve/review gates are the very mechanism that keeps every release provably non-regressive. Skill count 39 → 40.

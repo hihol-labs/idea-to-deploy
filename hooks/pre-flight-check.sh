@@ -331,6 +331,21 @@ def itd_state_context(cwd: Path) -> str:
     if pending:
         lines.append("- Непройденные гейты: " + ", ".join(sorted(pending)[:10]))
 
+    # v1.47.0 (retro 2026-07-04, finding #3): a live project had STATE.json but
+    # ZERO unit events — VCR and /retro were blind. If the memory dir is in use
+    # but the event log is missing/empty, say so once per session-start.
+    events_file = mem_dir / "events.jsonl"
+    try:
+        events_empty = (not events_file.is_file()) or events_file.stat().st_size == 0
+    except Exception:
+        events_empty = False
+    if events_empty:
+        lines.append(
+            "- ⚠️ Unit-телеметрия: `events.jsonl` пуст/отсутствует — пиши "
+            "unit-события (activated/verified) по /task Step 3.5, иначе VCR "
+            "и /retro слепы."
+        )
+
     if len(lines) == 1:
         return ""
     return "\n".join(lines)
