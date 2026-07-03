@@ -53,7 +53,8 @@ Opus избыточен. Haiku допустим для совсем коротк
 ### Step 1: Собери состояние (read-only)
 
 - `git log --oneline -10` + `git status --short` — что закоммичено, есть ли WIP.
-- Прочитай актуальные durable-артефакты: `STATE.json`, `BUILD_PLAN`,
+- Прочитай актуальные durable-артефакты: `STATE.json`, `GOAL.json` (если
+  ведётся долгая цель `/goal`), `BUILD_PLAN`,
   `LAUNCH_PLAN.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`, `.itd/FORBIDDEN_CHANGES.md`
   (если есть).
 - Зафиксируй текущий узел/юнит и что именно в процессе.
@@ -80,7 +81,9 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 
 Обнови `STATE.json` в memory-dir проекта (схема-образец:
 `docs/templates/itd-memory/STATE.json`) — текущий узел, статус, ссылка на
-`HANDOFF.md`. Для публикации пакета в Obsidian-vault — `/obsidian-export`
+`HANDOFF.md`. Если ведётся долгая цель (`/goal`) — актуализируй статусы юнитов
+в `.itd-memory/GOAL.json` (схема: `docs/templates/itd-memory/goal.schema.json`),
+чтобы получатель продолжил с первого не-verified юнита. Для публикации пакета в Obsidian-vault — `/obsidian-export`
 (если подключён).
 
 ### Step 4: Self-validation
@@ -129,6 +132,7 @@ Actions:
 - [ ] В файле нет секретов/ключей/токенов.
 - [ ] Ссылки на durable-артефакты (`[[STATE]]`), а не на историю чата.
 - [ ] `STATE.json` обновлён.
+- [ ] `GOAL.json` актуален (если ведётся долгая цель `/goal`).
 
 ## Troubleshooting
 

@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "goal-ledger",
+  "skill_under_test": "/goal",
+  "status": "pending",
+  "description": "Deferred — /goal writes a persistent long-goal unit ledger (.itd-memory/GOAL.json, schema docs/templates/itd-memory/goal.schema.json) in the TARGET project and drives its units one at a time (WIP=1) through the standard /task pipeline, resuming across sessions from the first non-verified unit. verify_snapshot.py's Phase 1 schema is file-shaped for project scaffolds and cannot assert a decompose→approve→drive→resume flow, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same memory-write bucket as fixture-09-session-save and fixture-18-handoff). The GOAL.json artifact itself is machine-checkable today via scripts/validate_state.py (filename dispatch). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (resume-never-recreate, approve-before-write, WIP=1, evidence-gated verified, fail-closed skippedReason, not-a-gate) for manual verification."
+}

@@ -1,0 +1,21 @@
+# Expected files after /goal runs
+#
+# NONE in this fixture's output dir. /goal is a memory-write skill: its single
+# durable artifact is `.itd-memory/GOAL.json` in the TARGET project (schema:
+# docs/templates/itd-memory/goal.schema.json), plus unit events appended to
+# `.itd-memory/events.jsonl`. It never scaffolds project files itself — code
+# changes inside a unit are produced by the standard /task pipeline the unit is
+# driven through, under that pipeline's own gates.
+#
+# Verify the artifact manually in a target project:
+#
+#   python3 scripts/validate_state.py <project>/.itd-memory/GOAL.json
+#
+# /goal MUST NOT:
+#   - Write project source files directly (units go through /task)
+#   - Write the /tmp/claude-review-done-* marker (that belongs to /review)
+#   - Recreate an existing active GOAL.json (resume-only)
+#
+# Validation deferred (status: pending) — same memory-write bucket as
+# fixture-09-session-save and fixture-18-handoff. Manual verification via
+# notes.md.

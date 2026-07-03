@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "goal": "Self-serve password reset works end-to-end in production (request → email → reset → login)",
+  "status": "active",
+  "createdAt": "2026-07-03T09:00:00Z",
+  "updatedAt": "2026-07-03T12:30:00Z",
+  "currentUnitId": "G-002",
+  "units": [
+    {
+      "id": "G-001",
+      "criterion": "POST /api/auth/reset-password returns 200 and sends the reset email",
+      "verificationCommand": "pytest tests/test_reset.py -v",
+      "status": "verified",
+      "verifiedAt": "2026-07-03T10:40:00Z",
+      "evidence": "2 passed",
+      "skippedReason": ""
+    },
+    {
+      "id": "G-002",
+      "criterion": "Reset token expires after 30 minutes and is single-use",
+      "verificationCommand": "pytest tests/test_reset_token.py -v",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": ""
+    },
+    {
+      "id": "G-003",
+      "criterion": "Reset endpoint is rate-limited (5 requests / 15 min per IP)",
+      "verificationCommand": "pytest tests/test_reset_rate_limit.py -v",
+      "status": "pending",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": ""
+    }
+  ]
+}

@@ -254,16 +254,53 @@ def itd_state_context(cwd: Path) -> str:
     validate_state.py) but no session-start hook ever read it — a new session
     learned about the active unit only via /handoff. This closes that gap:
     inject currentUnit, nextAction, blockers, and unfinished gates.
+
+    v1.44.0 (/goal layer): also surfaces .itd-memory/GOAL.json — the persistent
+    long-goal unit ledger — as "Цель: X — N/M юнитов verified, текущий G-k", so
+    a fresh session RESUMES the goal from the first non-verified unit instead of
+    re-deriving the plan. Works even when STATE.json is absent.
     """
-    state_file = cwd / ".itd-memory" / "STATE.json"
-    if not state_file.is_file():
-        return ""
-    try:
-        state = json.loads(state_file.read_text(encoding="utf-8", errors="replace"))
-    except Exception:
+    mem_dir = cwd / ".itd-memory"
+
+    def _load(p: Path) -> dict:
+        if not p.is_file():
+            return {}
+        try:
+            data = json.loads(p.read_text(encoding="utf-8", errors="replace"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    state = _load(mem_dir / "STATE.json")
+    goal = _load(mem_dir / "GOAL.json")
+    if not state and not goal:
         return ""
 
-    lines: list[str] = ["**ITD state** (`.itd-memory/STATE.json`):"]
+    sources = [n for n, d in (("STATE.json", state), ("GOAL.json", goal)) if d]
+    lines: list[str] = ["**ITD state** (`.itd-memory/" + " + ".join(sources) + "`):"]
+
+    if goal:
+        units = [u for u in (goal.get("units") or []) if isinstance(u, dict)]
+        total = len(units)
+        verified = sum(1 for u in units if u.get("status") == "verified")
+        current = goal.get("currentUnitId") or next(
+            (u.get("id") for u in units
+             if u.get("status") in ("in_progress", "pending")), "")
+        goal_status = goal.get("status") or "active"
+        goal_line = (
+            f"- Цель (/goal): {goal.get('goal') or '(без формулировки)'} — "
+            f"{verified}/{total} юнитов verified"
+        )
+        if goal_status != "active":
+            goal_line += f" [статус цели: {goal_status}]"
+        elif current:
+            goal_line += f", текущий `{current}`"
+        lines.append(goal_line)
+        if goal_status == "active" and verified < total:
+            lines.append(
+                "- Resume: продолжай с первого не-verified юнита через /goal — "
+                "`GOAL.json` не пересоздаётся."
+            )
 
     unit = state.get("currentUnit") or {}
     if unit.get("id") or unit.get("goal"):
