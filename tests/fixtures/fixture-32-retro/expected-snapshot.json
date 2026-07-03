@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "retro-report",
+  "skill_under_test": "/retro",
+  "status": "pending",
+  "description": "Deferred — /retro is the methodology's self-improvement loop, split FACTS/PROPOSALS/MERGE: itd_retro_scan.py deterministically aggregates telemetry (VCR + regressions from events.jsonl, active goals from GOAL.json, pending gates from STATE.json, SKILL_BYPASS ledger, cost ledgers), the model turns facts into ranked evidence-cited proposals (anti-Goodhart: external signals only), and the human merges via the ordinary release pipeline — /retro itself never edits the methodology. The scan half is machine-checked today by tests/verify_retro_scan.py (both interpreters + windows-verify CI); the proposal half cannot be asserted by verify_snapshot.py's Phase 1 file-shaped schema, so it is deferred to the Phase 2 scheme (same read-and-advise bucket as fixture-15-advisor and fixture-19-grill-me). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (facts-from-script, evidence-per-proposal, empty-scan-is-a-finding, no self-merge, not a gate) for manual verification."
+}

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.46.0] - 2026-07-03
+
+**The methodology closes its own feedback loop — /retro, a self-proposing improvement cycle that never eats the merge gate.** Self-diagnosis existed (meta-review, drift-guards, CI); the missing piece was turning the telemetry the harness already collects into concrete release candidates without waiting for a human to notice the signals. The loop is deliberately split three ways: FACTS from a script, PROPOSALS from the model (evidence-required), MERGE from the human via the ordinary release pipeline. Full autonomy (self-merge) is explicitly rejected: the approve/review gates are the very mechanism that keeps every release provably non-regressive. Skill count 39 → 40.
+
+### Added
+
+- **`/retro` skill (40th)** — Step 1 runs the scanner and pastes its output verbatim (facts come from the harness, never from conversation memory); Step 2 turns facts into RANKED proposals where every proposal carries {signal quoted from the scan, concrete change, effort S/M/L, risk + the suite that pins it}; Step 3 writes `docs/retros/RETRO-YYYY-MM-DD.md` and STOPS — the user decides what enters the backlog. Selection rules: no evidence — no proposal; anti-Goodhart (a change justified only by improving the methodology's own metric — VCR, meta-review pass-rate — is rejected; signals must be external: live failures, trigger false positives, bypass reasons, cost anomalies); ROADMAP signal-gating (one weak signal → backlog note, a release candidate needs two signals or one live incident); an EMPTY scan is itself a finding («телеметрия не пишется — почему?»), never a licence to invent signals.
+- **`itd_retro_scan.py`** (`skills/retro/scripts/`, delivered by both sync-to-active and the plugin install) — deterministic stdlib aggregation of: unit events (`*/.itd-memory/events.jsonl` → per-project and global VCR, regressions, failed verifications), active goals (`GOAL.json` → N/M verified, backpressure with `blocked` counted as open, blocked reasons), pending gates/blockers (`STATE.json`), `SKILL_BYPASS` ledger grouped by TOOL with a reasons tail (the real `check-tool-skill.sh` records carry `tool`, not `skill` — review finding), and cost-tracker ledgers (USD derived from the persisted `total_tokens` with the hook's own rate — the ledger never stores USD; review finding). Markdown + `--json`; `--tmp-dir` override; malformed sources are skipped, never fatal; pipe-escaping and utf-8/replace decoding from day one (both are pinned regression classes from v1.45.0).
+- **`tests/verify_retro_scan.py`** — 12 functional checks (mixed workspace with malformed sources, VCR math, blocked-in-backpressure, ledger aggregation, cost summing, markdown↔`--json` consistency, empty-workspace honesty, usage errors) on BOTH interpreters + a windows-verify CI step.
+- **Routing + anchors** — `/retro` trigger block in `check-skills.sh` (методология-anchored phrases only: «ретроспектива методологии», «что улучшить в методологии», methodology/itd retro — bare «ретроспектива спринта», «sprint retro report», «retro style» do NOT fire), `tests/fixtures/fixture-32-retro/` (pending stub documenting the facts/proposals/merge contract), `/goal` + `/retro` rows added to the global CLAUDE.md template trigger map, `docs/retros/` home with a README.
+
+### Changed
+
+- Counts 39 → 40 skills across `plugin.json` (+ retro capability phrase), `marketplace.json`, both READMEs (Workflow table 4 → 5, I/O and model tables), `docs/templates/global-claude-md.md`, `docs/HARNESS_ENGINEERING_MAP.md` (recount at v1.46.0) and promotion-doc prose.
+
+---
+
 ## [1.45.0] - 2026-07-03
 
 **The /goal harness grows hands: transitions and handoff reports are made by scripts, not by the agent.** v1.44.0 shipped the persistent ledger; the remaining walkinglabs feature-list principles — «переходами управляет harness, а не агент» and the script-generated handoff reporter — land here as two stdlib tools INSIDE the skill folder (`skills/goal/scripts/`), so both `sync-to-active.sh` and the plugin install deliver them to target projects. Simulated end-to-end in a sandbox (activate → verify green → verify red stays → block → report → pre-flight) before release.
