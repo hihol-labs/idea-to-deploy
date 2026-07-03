@@ -19,6 +19,10 @@ jobs:
   windows-verify:
     runs-on: windows-latest
     timeout-minutes: 10
+    env:
+      # The runner console is cp1252; meta_review prints emoji markers.
+      # Real Windows installs invoke hooks with `python -X utf8` — mirror that.
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
