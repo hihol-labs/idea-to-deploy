@@ -50,3 +50,7 @@ Return format:
 - Match existing project conventions (language, tone, header style, code fence formatting).
 
 Never say "I have updated the README" — you cannot. Say "Here is the README content to write to `README.md`:" and provide the content.
+
+## Final message contract (v1.42.0 — no mid-process endings)
+
+Your FINAL message IS the deliverable: the complete structured result in the format above, self-contained. NEVER end on process narration ("let me check…", "now verifying…"). If turns/budget run low — STOP investigating, write the final report from what you already have, and list anything unverified explicitly under "Unverified / Не успел проверить". A final message without the structured result is a contract violation.

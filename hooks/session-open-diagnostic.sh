@@ -24,6 +24,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 # Max lines to include from each source to avoid blowing context
@@ -43,7 +44,7 @@ def session_id() -> str:
 
 
 def sentinel_path() -> str:
-    return f"/tmp/claude-session-diag-{session_id()}.done"
+    return os.path.join(tempfile.gettempdir(), f"claude-session-diag-{session_id()}.done")
 
 
 def already_fired() -> bool:

@@ -147,8 +147,10 @@ All tests must pass before finishing.
 Final step of every `/test` invocation, **after the suite has actually run and passed** (see the fail-closed gate above). Write a session marker so `hooks/check-dod-before-commit.sh` knows `/test` was run — this is what unblocks a `git commit` the DoD gate flags as test-requiring (DB migrations, brand-new source files). The sentinel asserts "tests were run this session", so only write it when verification genuinely passed — never to silence the gate.
 
 ```bash
-mkdir -p /tmp
-echo "$(date +%s)" > "/tmp/claude-test-done-${CLAUDE_SESSION_ID:-$$}"
+# Dual-write (/tmp + platform temp) — см. v1.42.0 platform symmetry
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+mkdir -p /tmp 2>/dev/null || true
+echo "$(date +%s)" | tee "/tmp/claude-test-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-test-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-test-done-${CLAUDE_SESSION_ID:-$$}"
 ```
 
 The marker is session-scoped and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. The `Skill` tool does not route through `PreToolUse` hooks, so this in-skill write is the only reliable signal that `/test` ran.

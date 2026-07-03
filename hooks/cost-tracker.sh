@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 
 # Rough token estimates per tool call type (conservative)
@@ -75,7 +76,7 @@ def session_id() -> str:
 
 
 def ledger_file() -> str:
-    return f"/tmp/claude-cost-{session_id()}.json"
+    return os.path.join(tempfile.gettempdir(), f"claude-cost-{session_id()}.json")
 
 
 def read_ledger() -> dict:

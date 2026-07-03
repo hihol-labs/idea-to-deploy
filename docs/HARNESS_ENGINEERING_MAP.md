@@ -1,7 +1,7 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
 > Дата: 2026-07-02 (обновлено; исходная карта — 2026-06-22)
-> Версия idea-to-deploy: **v1.41.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.41.0; в v1.40.0 добавлена ось **I** — §4.4; в v1.41.0 — WIP=1/VCR-слой)
+> Версия idea-to-deploy: **v1.42.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.42.0; в v1.40.0 добавлена ось **I** — §4.4; в v1.41.0 — WIP=1/VCR; в v1.42.0 — платформенная tmp-симметрия, feature-конвейер /task, freeze в каноне)
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
@@ -158,7 +158,7 @@
 | **Feedforward** (до действия) | **Жёсткие guardrail'ы (blocking):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `careful` · `freeze`* · **+ soft-исключение:** `wip-gate`*** (v1.41.0) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
 | **Feedback** (после действия) | **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
-`*` `freeze` — opt-in (активен только при активном scope-lock). `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию. `***` `wip-gate` — детект computational (status unit'а + путь vs SCOPE_LOCK), но энфорсмент **soft by design**: «начал ли пользователь новую задачу или чинит текущую» — семантика, по правилу §8.3 это hint, не deny.
+`*` `freeze` — с v1.42.0 зарегистрирован always-on, но действует только при активном scope-lock state-файле (его пишут `/bugfix`/`/refactor`/`/perf`); фантомного «/freeze-скилла» нет — интерфейс = state-файл. `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию. `***` `wip-gate` — детект computational (status unit'а + путь vs SCOPE_LOCK), но энфорсмент **soft by design**: «начал ли пользователь новую задачу или чинит текущую» — семантика, по правилу §8.3 это hint, не deny.
 
 ### 8.2. Подробно по хукам
 

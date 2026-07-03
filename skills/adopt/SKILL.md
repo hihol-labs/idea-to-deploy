@@ -120,6 +120,17 @@ Branch on existing state:
 
 ### Step 2: Write / merge .claude/settings.json
 
+**Step 2.0 — user-level installation detect (v1.42.0).** Before writing any
+project-level hooks, check `~/.claude/settings.json`: if the ITD hooks are
+already registered **user-level** (command paths reference our hook script
+names — on Windows via the python.exe wrapper form), do NOT duplicate them at
+project level: every hook would fire twice per event, and bare `.sh` commands
+do not execute on Windows anyway (live case: OneOfS adoption 2026-07-02).
+In that case write/merge ONLY the `permissions` key from the template and
+report: «hooks уже зарегистрированы user-level — project-дубли пропущены».
+Project-level hook registration remains the right path for machines where the
+plugin is installed without `sync-to-active.sh` (no user-level registration).
+
 Read the template from `references/project-settings-template.json`. It encodes the same hook layout that `scripts/sync-to-active.sh` installs at user-level, but pointed at the plugin's hooks (via `~/.claude/plugins/idea-to-deploy/hooks/` by default — use the plugin hooks dir resolved in Step 0.4). Substitute `{{PLUGIN_HOOKS_DIR}}` in every `command` value. The template carries two keys: `hooks` (enforcement) and `permissions.ask` (recommended ASK guardrails for dangerous OS tool-classes — native Claude Code permissions, no custom DSL). Strip the `_comment_*` keys before writing.
 
 Branch (apply the same logic independently to `hooks` and to `permissions`):

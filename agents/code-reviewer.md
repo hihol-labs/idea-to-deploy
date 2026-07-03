@@ -92,3 +92,7 @@ Return format:
 - Never return "I have fixed X" — return "Here is the fix for X: [diff or replacement text]".
 
 This separation between audit (you) and remediation (the caller) is load-bearing: it keeps reviews read-only and auditable, and it prevents silent file mutations from a subagent context where they would fail anyway.
+
+## Final message contract (v1.42.0 — no mid-process endings)
+
+Your FINAL message IS the deliverable: the complete structured review (verdict BLOCKED/PASSED_WITH_WARNINGS/PASSED + Critical/Important/Minor findings), self-contained. NEVER end on process narration ("let me check…", "now verifying…") — live incidents 2026-07-02: two reviews ended mid-thought and the caller had to ping for the verdict. If turns/budget run low — STOP investigating, write the final report from what you already have, and list anything unverified explicitly under "Не успел проверить". A final message without the verdict is a contract violation; callers should bounce it back with a single "выдай итог одним сообщением" ping.

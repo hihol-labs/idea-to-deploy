@@ -58,8 +58,10 @@ check and switch first thing if `CLAUDE.md` is large.
 After identifying the target file/directory from $ARGUMENTS or profiling results, automatically activate scope freeze:
 
 ```bash
-# Write freeze state — limits edits to the optimization target
-echo "/path/to/perf/directory" > /tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state
+# Write freeze state — limits edits to the optimization target (dual-write: /tmp + platform temp)
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+mkdir -p /tmp 2>/dev/null || true
+echo "/path/to/perf/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" 2>/dev/null || echo "/path/to/perf/directory" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state"
 ```
 
 This prevents accidental edits outside the performance optimization scope. The freeze is cleared when the skill completes. If the optimization legitimately requires changes outside the frozen scope (e.g., adding a database index migration), the freeze hook will warn and ask for confirmation.
@@ -149,3 +151,11 @@ The optimization was too aggressive. Revert and apply a safer version. Common ca
 
 ### Multiple bottlenecks
 Fix one at a time, measure after each. Don't optimize everything at once — the biggest bottleneck may mask others.
+
+## Fail-closed gate (v1.42.0)
+
+«Оптимизировано» без чисел — не статус. Каждое perf-изменение обязано иметь:
+**baseline-замер ДО** и **замер ПОСЛЕ тем же инструментом/нагрузкой** (профайлер,
+k6, EXPLAIN ANALYZE, timeit — что уместно). Нет пары до/после → результат
+помечается `UNVERIFIED` (не «улучшено»), и это явно выносится в финальный отчёт.
+Ожидание («должно стать быстрее») никогда не записывается как факт.

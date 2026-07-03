@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 
 WINDOW_SIZE = 8  # Track last N tool calls
@@ -39,7 +40,7 @@ def session_id() -> str:
 
 
 def state_file() -> str:
-    return f"/tmp/claude-stuck-{session_id()}.json"
+    return os.path.join(tempfile.gettempdir(), f"claude-stuck-{session_id()}.json")
 
 
 def read_state() -> dict:

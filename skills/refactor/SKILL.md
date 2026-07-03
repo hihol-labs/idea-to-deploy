@@ -42,8 +42,10 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 After identifying the target file/directory from $ARGUMENTS, automatically activate scope freeze:
 
 ```bash
-# Write freeze state — limits edits to the refactoring target
-echo "/path/to/refactor/directory" > /tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state
+# Write freeze state — limits edits to the refactoring target (dual-write: /tmp + platform temp)
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+mkdir -p /tmp 2>/dev/null || true
+echo "/path/to/refactor/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" 2>/dev/null || echo "/path/to/refactor/directory" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state"
 ```
 
 This prevents accidental edits outside the refactoring scope. The freeze is cleared when the skill completes. If the refactoring legitimately requires changes outside the frozen scope (e.g., updating callers), the freeze hook will warn and ask for confirmation.

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.42.0] - 2026-07-03
+
+**Platform symmetry + the top-10 of the deep effectiveness audit.** A full audit (pipe-tests of every hook, all verify suites, live-session evidence) scored the methodology ~8.5/10 on WSL but ~6.5/10 on Windows: ten hooks and four skill snippets exchanged sentinels through a literal `/tmp` that means three different directories across Windows-python / Git-Bash / WSL. This release makes the two platforms symmetric and lands every item of the audit's top-10.
+
+### Fixed
+
+- **The "/tmp on Windows" bug class (audit #1).** All state/sentinel paths in `pre-flight-check`, `crash-recovery`, `context-aware`, `risk-score`, `session-open-diagnostic`, `cost-tracker`, `stuck-detection` now build from `tempfile.gettempdir()`; cross-component READERS (`check-review-before-commit`, `risk-score`, `freeze`, `careful`) scan BOTH the platform temp dir and literal `/tmp`; skill snippets that WRITE sentinels (`/review`, `/test`, `/security-audit`, `/migrate`) and freeze-state writers (`/bugfix`, `/refactor`, `/perf`) dual-write to both. Result: the review-gate sees a real `/review` on Windows, cost-tracker's ledger reaches session-save Step 4.6, risk/stuck/crash/context-aware come alive on the Windows machine.
+- **Session-restart tolerance (audit #2).** `risk-score` gains the same fresh-mtime glob fallback the review/DoD gates already had — pid-based session ids no longer zero out review/security credit after a restart.
+- **`careful.sh` precision (audit #10).** `rm -f file` is no longer mislabeled "rm -rf": recursive delete and plain force delete are separate patterns with honest labels (live false-positives 2026-07-03, twice in one session).
+- **`freeze.sh` de-phantomed (audit #9).** Registered in the canonical set (no-op until a scope state file exists, so always-on registration is free); hooks/README no longer promises a non-existent `/freeze` skill — the state file is the interface; `verify-sync-to-active.sh` EXEMPT list and the registration drift-guard updated accordingly.
+
+### Added
+
+- **`/task` Step 3f — feature pipeline for brownfield (audit #3).** The main daily case (new feature in an existing project) finally has a route: scope (SCOPE_LOCK/unit) → short plan + approval → surgical implementation → `/test` (fail-closed) → `/review` → commit per repo rules. New routing-matrix row + trigger phrases (SKILL.md + `check-skills.sh`, no trigger drift).
+- **`.github/workflows/windows-verify.yml` (audit #4)** — windows-latest CI leg running the platform-sensitive suites; the exact channel that would have caught the `/tmp` class before it shipped.
+- **`/review` Step 0.4 — honest target-path resolution (audit #5).** A path in `$ARGUMENTS` is resolved and used (`cd`/`git -C`), unreachable targets are delegated to the `code-reviewer` agent with the explicit path — never a silent review of cwd (live incident 2026-07-02).
+- **Final-message contract in all 10 agents (audit #6)** — the last message must BE the structured deliverable; ending on process narration is a contract violation; unverified items go under an explicit "Не успел проверить" list (two live truncated reviews 2026-07-02).
+- **`/adopt` Step 2.0 — user-level install detect (audit #7):** when ITD hooks are already registered in `~/.claude/settings.json`, project-level hook duplication is skipped (only `permissions` merge) — no double-firing, no dead bare-`.sh` commands on Windows.
+- **`tests/verify_platform_tmp_and_new_hooks.py` (audit #8)** — static regression guard for the literal-`/tmp` class + functional pipe-tests for `wip-gate.sh` and `handoff-readiness.sh` (the only two hooks that lacked automated coverage). Cross-platform by construction; wired into the Windows CI leg.
+- **`scripts/itd_trace_summary.py`** — a reader for `execution-trace.sh` telemetry (per-tool breakdown, top targets, idle gaps >60s): observability nobody reads is a ritual, now it feeds session wrap-ups and harness debugging.
+- **Depth upgrades:** `agents/architect.md` Required-coverage contract (7 mandatory sections incl. alternatives/risks/non-goals); `agents/business-analyst.md` gets the missing `model: opus` pin; fail-closed gates added to `/perf` (no before/after measurement → UNVERIFIED), `/doc` (every claim traced to code; unverified commands marked), `/strategy` (plans stay `draft` until explicit user approval).
+
+Verified: full verify-suite matrix on WSL + functional pipe-tests of the touched hooks on BOTH interpreters (WSL python3 and Windows python.exe); code-reviewer review before commit. MINOR — additive + bug-class fix.
+
+## [1.42.0] - 2026-07-03
+
+**Platform symmetry: the Windows half of the sentinel chain lives again, /task gets the missing feature route, and every audit top-10 item ships.** The 2026-07-02 deep audit scored the methodology 8.5/10 on WSL but 6.5/10 on Windows — the real work machine — because ~10 hooks and 7 skill snippets exchanged sentinels through three mismatched temp dirs (literal `/tmp` under Windows python = `C:\tmp`; Git-Bash `/tmp` = `%TEMP%`; `gettempdir()` = `%TEMP%`). This release closes all ten audit findings.
+
+### Fixed
+
+- **The "/tmp on Windows" bug class (audit #1/#2).** Hook-owned state now writes to `tempfile.gettempdir()` (pre-flight cwd-history, crash-recovery, context-aware, risk-score state, session-open-diagnostic sentinel, cost-tracker ledger, stuck-detection); cross-component readers scan BOTH temp dirs (check-review-before-commit marker+glob, risk-score sentinels, freeze, careful); skill snippets dual-write via `tee` (review/test/security-audit/migrate sentinels; bugfix/refactor/perf freeze state). Session-restart tolerance rides the existing mtime-window fallbacks; risk-score deliberately keeps NO cross-session glob (its stricter contract, verify_risk_score case 9, is preserved and documented in-code).
+- **`careful.sh` precision (audit #10):** `rm -r`/`rm -rf` (recursive) and `rm -f` (force, non-recursive) are now separate patterns with honest labels — live false-positive "rm -f flagged as rm -rf" eliminated.
+- **`freeze.sh` de-phantomed (audit #9):** registered in the canonical set (no-op until a scope state file exists; matcher `Write|Edit|MultiEdit|NotebookEdit`), `OPT_IN_HOOKS`/`EXEMPT` emptied, hooks/README no longer promises a non-existent `/freeze` skill — the state file is the interface.
+
+### Added
+
+- **`/task` Step 3f — feature pipeline for brownfield (audit #3):** the main daily case (new feature in an existing project) now has a route — scope (SCOPE_LOCK/unit) → short plan + approval → surgical implementation → `/test` → `/review`; option 13 in the routing question, matrix row, trigger phrases (SKILL.md + check-skills.sh, no trigger drift).
+- **`.github/workflows/windows-verify.yml` (audit #4):** windows-latest CI leg running the platform test + registration/count guards + skill profiles + meta-review — the class of bug this release fixes can no longer ship unnoticed.
+- **`tests/verify_platform_tmp_and_new_hooks.py` (audit #8):** T1 static guard (no hook may build paths from literal `/tmp/claude-`), T2 wip-gate functional (hint / in-scope silence / kill-switch), T3 handoff-readiness functional (dirty / clean / kill-switch). 7/7 green on BOTH interpreters (WSL python3 and Windows python.exe; the run itself caught and fixed a cp1251-decode trap in subprocess capture).
+- **`/review` Step 0.4 — honest target-path resolution (audit #5):** args naming another repo are resolved (cd/`git -C`), unreachable targets are delegated to the code-reviewer agent instead of silently reviewing cwd; the resolved target is named in the report header.
+- **Final-message contract in all 10 agents (audit #6):** the final message must BE the structured deliverable; ending on process narration is a contract violation (two live truncations 2026-07-02); callers bounce a missing verdict with one ping. Plus: `architect` gains a 7-point Required-coverage depth contract, `business-analyst` gets its missing `model: opus` pin.
+- **`/adopt` Step 2.0 (audit #7):** detects an existing user-level hook registration and skips project-level duplicates (live OneOfS case — double-firing hooks + bare `.sh` on Windows).
+- **Fail-closed gates for the three gate-less skills:** `/perf` (no before/after measurement → UNVERIFIED, never "optimized"), `/doc` (every claim traced to code; unverified marked), `/strategy` (plans are `draft` until explicit user approval).
+- **`scripts/itd_trace_summary.py`:** a reader for execution-trace telemetry (span, per-tool counts, top targets, idle gaps >60s) — the trace stops being write-only observability.
+
+Verified: platform tests 7/7 on both interpreters; registration 9/9; skill-enforcement 10/10; brownfield 24/24; DoD 19/19; risk 9/9; cost 7/7; pii PASS; agent-sentinel 10/10; cross-review 10/10; triggers no drift; profiles 38 OK; meta_review PASSED; verify-sync OK (22 registered + 0 exempt); py_compile all hooks. Review: code-reviewer PASSED_WITH_WARNINGS — both Importants fixed pre-commit (freeze-snippet mkdir parity; NotebookEdit restored to the freeze/wip-gate matcher group). MINOR — additive + behavior-preserving fixes.
+
 ## [1.41.1] - 2026-07-02
 
 ### Fixed

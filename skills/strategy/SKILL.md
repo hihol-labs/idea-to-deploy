@@ -176,3 +176,11 @@ Document each perspective in the situation analysis. Present options that addres
 - **ADR is mandatory for any pivot decision.**
 - **Review date is mandatory.** Strategy without re-evaluation trigger becomes stale.
 - **Match the user's language** for all generated artifacts.
+
+## Approval gate (v1.42.0)
+
+Обновлённый `LAUNCH_PLAN.md` / ADR — это РЕШЕНИЕ, а решения принимает
+пользователь. До явного подтверждения («да», «принимаем», approve) документ
+пишется с пометкой `status: draft` в шапке и не считается действующим планом;
+финальный отчёт скилла всегда заканчивается явным вопросом на утверждение.
+Молчание пользователя ≠ согласие — draft остаётся draft.

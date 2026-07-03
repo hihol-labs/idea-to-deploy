@@ -74,6 +74,24 @@ already exists. Dispatching the Agent is still possible from within a fork, so d
 the size check and switch to Agent-tool dispatch **first thing** — before loading
 any more context — if `CLAUDE.md` is large.
 
+### Step 0.4: Resolve the review TARGET path (v1.42.0 — do not silently review cwd)
+
+`$ARGUMENTS` may point the review at a DIFFERENT repo/path than the current
+working directory (live incident 2026-07-02: args named a WSL repo, the fork
+reviewed cwd and reported «nothing to review»). Rule:
+
+1. Extract any absolute path / repo reference from `$ARGUMENTS` (POSIX path,
+   Windows path, `\\wsl.localhost\...` UNC, or an explicit «репо X»).
+2. If it differs from `pwd` — `cd` into it for every git/inspection command
+   (or prefix commands with `git -C <target>`); when the path is not reachable
+   from this fork (другая машина/окружение) — do NOT fall back to cwd:
+   **delegate** to the `code-reviewer` agent with the explicit target path in
+   its prompt and relay its verdict as this review's result (the sentinel in
+   Step "mark done" is still written — the review DID happen, by delegation).
+3. If no path in args — cwd is the target (default, старое поведение).
+4. Never report «нет изменений» from a directory the user did not ask about:
+   name the resolved target in the report header so a mismatch is visible.
+
 ### Step 0: Detect review mode (v1.13.0)
 
 Before anything else, determine whether this is a **methodology self-review** or a **regular project review**. The two modes use different rubrics and different runners — mixing them produces nonsense reports.
@@ -198,8 +216,12 @@ This is the final step of every `/review` invocation, regardless of status. Writ
 Use the Bash tool:
 
 ```bash
-mkdir -p /tmp
-echo "$(date +%s)" > "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
+# Dual-write: literal /tmp AND the platform temp dir. Under Git-Bash /tmp is
+# %TEMP% while a Windows-python gate hook resolves "/tmp" to C:\tmp — writing
+# both keeps the sentinel visible to every reader (v1.42.0 platform symmetry).
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+mkdir -p /tmp 2>/dev/null || true
+echo "$(date +%s)" | tee "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
 ```
 
 Why this lives in the skill and not in the hook:
