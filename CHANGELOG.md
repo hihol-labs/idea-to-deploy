@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.49.0] - 2026-07-04
+
+**The narration-final anti-pattern gets a mechanical detector — prompt-level contracts demonstrably don't hold.** Retro signal #1 (evidence ×5): during the single v1.48.0 release review, the code-reviewer subagent ended its message on «Now check…»/«Далее проверю…» five times — AFTER the named anti-pattern was written into the agent contract in v1.47.0. Same class of fix as `handoff-readiness.sh`: computational detect, minimal intervention, never a prompt plea.
+
+### Added
+
+- **`hooks/narration-final.sh` — SubagentStop hook, the 23rd hook.** When a subagent stops with a final message whose last paragraph STARTS with a narration opener (Now / Next / Let's / Let me / Далее / Теперь / Сейчас + a check/verify/test/run verb) and the message carries NO verdict marker anywhere (PASSED / BLOCKED / FAILED / PASSED_WITH_WARNINGS / FINAL STATUS / Verdict / Вердикт / Итог), the hook blocks the stop (`{"decision":"block"}`) and feeds a «finish with the deliverable in one message» instruction back to the subagent — the auto-resume that callers previously did by hand («выдай итог одним сообщением»). Verdict-finals are NEVER blocked, including the valid «Не успел проверить: …» tail; long final paragraphs (content, not announcements) pass through. Rails: at most `ITD_NARRATION_MAX_PINGS` (default 2) blocks per subagent transcript, `stop_hook_active` loop guard, `ITD_NARRATION_FINAL=0` kill switch, fail-open (exit 0) on any parse/IO error. Transcript resolution covers both harness layouts observed live: transcript_path = the subagent's own `subagents/agent-*.jsonl` (isSidechain entries) and transcript_path = the main session file (fallback to the newest `<session-stem>/subagents/agent-*.jsonl`).
+- **`tests/verify_narration_final.py` — 13 functional checks**, both transcript layouts, positives (EN/RU/markdown-bold narration-finals block) and the negative space that matters more (verdict-final never blocked; narration opener mid-message + verdict final silent; «Не успел проверить» tail silent; long content paragraph silent; stop_hook_active / kill-switch / missing transcript / garbage stdin silent; ping cap 2 then pass-through; `ITD_NARRATION_MAX_PINGS=1` honored). Wired into windows-verify CI.
+
+### Changed
+
+- **`scripts/sync-to-active.sh`** — canonical registration now includes the `SubagentStop` event (DESIRED_HOOKS + the ITD-managed keys tuple), so both machines pick the hook up on the next sync; hook count 22 → 23 across README.md, hooks/README.md, docs/HARNESS_ENGINEERING_MAP.md, plugin.json, marketplace.json and the global CLAUDE.md template (P5 drift-guard stays green).
+- **`agents/code-reviewer.md`** — the final-message contract now names the mechanical backstop and keeps the burden on the agent: the hook bounces a narration-final back at most twice, and it cannot see a verdict that was never written.
+
+---
+
 ## [1.48.0] - 2026-07-04
 
 **The two critical items of the 2026-07-04 battle-readiness audit: no hook is silently dead, no fixture is a stub.** The audit scored the arsenal 9/10 with two honest gaps — 9 hooks had only smoke coverage (the «silently dead safety layer» class /retro already caught twice), and 24 of 32 fixtures were pending stubs (claimed↔verified gap). Both closed.
