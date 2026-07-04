@@ -36,6 +36,10 @@ jobs:
         run: python tests/verify_retro_scan.py
       - name: Retro-fix pack v1.47.0 functional tests
         run: python tests/verify_v147_fixes.py
+      - name: Hook semantic-depth tests (9 previously smoke-only hooks)
+        run: python tests/verify_hook_depth.py
+      - name: Fixture contracts — all fixtures by status (Phase-2)
+        run: python tests/verify_snapshot.py --all
       - name: Registration & count drift-guards
         run: python tests/verify_registration_and_counts.py
       - name: Skill contract profiles

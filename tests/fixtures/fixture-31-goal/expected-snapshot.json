@@ -1,7 +1,34 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "goal-ledger",
   "skill_under_test": "/goal",
-  "status": "pending",
-  "description": "Deferred — /goal writes a persistent long-goal unit ledger (.itd-memory/GOAL.json, schema docs/templates/itd-memory/goal.schema.json) in the TARGET project and drives its units one at a time (WIP=1) through the standard /task pipeline, resuming across sessions from the first non-verified unit. verify_snapshot.py's Phase 1 schema is file-shaped for project scaffolds and cannot assert a decompose→approve→drive→resume flow, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same memory-write bucket as fixture-09-session-save and fixture-18-handoff). The GOAL.json artifact itself is machine-checkable today via scripts/validate_state.py (filename dispatch). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (resume-never-recreate, approve-before-write, WIP=1, evidence-gated verified, fail-closed skippedReason, not-a-gate) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /goal writes a persistent long-goal unit ledger (.itd-memory/GOAL.json, schema docs/templates/itd-memory/goal.schema.json) in the TARGET project and drives its units one at a time (WIP=1) through the standard /task pipeline, resuming across sessions from the first non-verified unit. verify_snapshot.py's Phase 1 schema is file-shaped for project scaffolds and cannot assert a decompose→approve→drive→resume flow, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same memory-write bucket as fixture-09-session-save and fixture-18-handoff). The GOAL.json artifact itself is machine-checkable today via scripts/validate_state.py (filename dispatch). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (resume-never-recreate, approve-before-write, WIP=1, evidence-gated verified, fail-closed skippedReason, not-a-gate) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "goal",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/goal",
+      ".itd-memory/GOAL.json",
+      "docs/templates/itd-memory/goal.schema.json",
+      "/task",
+      "active",
+      "criterion",
+      "verificationCommand",
+      "pending",
+      "GOAL.json",
+      "/test",
+      "/review",
+      "verified"
+    ],
+    "harness_suite": "tests/verify_goal_tools.py"
+  }
 }

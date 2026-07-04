@@ -1,7 +1,26 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "grill-me-stdout",
   "skill_under_test": "/grill-me",
-  "status": "pending",
-  "description": "Deferred — /grill-me runs a read-only interactive stress-test: it asks one question at a time (Question / Recommended answer / Why it matters) across scope, assumptions, dependencies, risks, alternatives, security, rollout, and cost, and emits to stdout (no Write/Edit, no files). verify_snapshot.py's Phase 1 schema is file-shaped, so structural validation of an interactive stdout flow requires the Phase 2 stdout-snapshot scheme (same bucket as fixture-10-task and fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (one-at-a-time questions, no-write guard, /grill-me vs /review) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /grill-me runs a read-only interactive stress-test: it asks one question at a time (Question / Recommended answer / Why it matters) across scope, assumptions, dependencies, risks, alternatives, security, rollout, and cost, and emits to stdout (no Write/Edit, no files). verify_snapshot.py's Phase 1 schema is file-shaped, so structural validation of an interactive stdout flow requires the Phase 2 stdout-snapshot scheme (same bucket as fixture-10-task and fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (one-at-a-time questions, no-write guard, /grill-me vs /review) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "grill-me",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/grill-me",
+      "/review",
+      "git commit",
+      "docker",
+      "npm install"
+    ]
+  }
 }

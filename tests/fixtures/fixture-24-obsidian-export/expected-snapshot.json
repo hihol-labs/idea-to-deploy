@@ -1,7 +1,33 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "obsidian-export-generated",
   "skill_under_test": "/obsidian-export",
-  "status": "pending",
-  "description": "Deferred — /obsidian-export generates a derived, regenerable Obsidian knowledge layer (PROJECT_INDEX/KNOWLEDGE_GRAPH/STATE/DECISIONS/GATES + copied planning & memory notes) under .itd-integrations/obsidian/ from canonical idea-to-deploy artifacts, using wikilinks/embeds/callouts/itd-* frontmatter, without touching canonical source docs or leaking secrets. verify_snapshot.py's Phase 1 schema does not assert the generated note set's structure, so validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (derived output, canon untouched, no secrets, regenerable) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /obsidian-export generates a derived, regenerable Obsidian knowledge layer (PROJECT_INDEX/KNOWLEDGE_GRAPH/STATE/DECISIONS/GATES + copied planning & memory notes) under .itd-integrations/obsidian/ from canonical idea-to-deploy artifacts, using wikilinks/embeds/callouts/itd-* frontmatter, without touching canonical source docs or leaking secrets. verify_snapshot.py's Phase 1 schema does not assert the generated note set's structure, so validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (derived output, canon untouched, no secrets, regenerable) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "obsidian-export",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/obsidian-export",
+      "CLAUDE.md",
+      "STATE.json",
+      ".itd-integrations/obsidian/",
+      "PROJECT_INDEX.md",
+      "KNOWLEDGE_GRAPH.md",
+      "STATE.md",
+      "DECISIONS.md",
+      "GATES.md",
+      "[[wikilinks]]",
+      "![[KNOWLEDGE_GRAPH]]",
+      "itd/project"
+    ]
+  }
 }

@@ -1,7 +1,33 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "deploy-stdout",
   "skill_under_test": "/deploy",
-  "status": "pending",
-  "description": "Deferred — /deploy is a live-ops skill: it SSH-syncs files to a production host, builds Docker images, applies migrations, and verifies healthcheck against a real URL. Automated structural validation requires either an ephemeral test target or a mocked SSH surface, neither of which exists in CI today. A full fixture is deferred to v1.16.0 (alongside fixture-10-task / fixture-15-advisor stdout-snapshot work). This stub satisfies check-skill-completeness.sh and anchors future regression work; the notes.md below documents the step-by-step contract for manual verification against a safe test target."
+  "status": "contract",
+  "description": "Deferred — /deploy is a live-ops skill: it SSH-syncs files to a production host, builds Docker images, applies migrations, and verifies healthcheck against a real URL. Automated structural validation requires either an ephemeral test target or a mocked SSH surface, neither of which exists in CI today. A full fixture is deferred to v1.16.0 (alongside fixture-10-task / fixture-15-advisor stdout-snapshot work). This stub satisfies check-skill-completeness.sh and anchors future regression work; the notes.md below documents the step-by-step contract for manual verification against a safe test target. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "deploy",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/deploy",
+      "disable-model-invocation: true",
+      "pending",
+      "scripts/deploy-env.sh",
+      "DEPLOY_HOST",
+      "DEPLOY_PATH",
+      "DEPLOY_COMPOSE",
+      "DEPLOY_ENV_FILE",
+      "DEPLOY_SERVICE",
+      "HEALTHCHECK_URL",
+      "git tag --list 'deploy-*' | tail -1",
+      "git status"
+    ]
+  }
 }

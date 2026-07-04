@@ -73,6 +73,36 @@ All fields are optional except `$schema_version`, `fixture_type`, and
 `status`. A snapshot with `status: pending` returns PASSED immediately
 (no validation performed), so contributors can stage schema files before
 bootstrapping the actual expectations.
+
+Phase 2 (v1.48.0) — `status: "contract"`. For stdout/dialog/orchestrator
+skills whose behaviour cannot be asserted file-shaped, the snapshot pins the
+SKILL CONTRACT instead: machine-checks that the guarantees documented in the
+fixture's notes.md still exist verbatim in skills/<name>/SKILL.md. This is a
+DRIFT GUARD (green at adoption time, fails when a later SKILL.md edit drops a
+documented guarantee), not a live-behaviour test — live behaviour stays with
+battle runs / headless runs. Schema addition:
+
+    {
+      "$schema_version": "2.0",
+      "status": "contract",
+      "skill_contract": {
+        "skill": "goal",                        // skills/<skill>/SKILL.md
+        "required_sections": ["Trigger phrases", ...],   // section_matches()
+        "must_contain": ["literal anchor", ...],          // verbatim in SKILL.md
+        "must_contain_any_of": {"label": ["alt1", "alt2"]},
+        "harness_suite": "tests/verify_goal_tools.py"     // optional: must exist
+                                                          // and be wired into CI
+      }
+    }
+
+`--all` iterates every tests/fixtures/fixture-*/: contract fixtures are
+validated, pending are counted, active (Phase-1) are validated only when an
+output/ dir exists locally (outputs are not in git — absent output is SKIP,
+not failure). Exit 1 if any validated fixture fails.
+
+Regeneration helper: tests/gen_phase2_contracts.py (extracts anchors from
+notes.md that literally appear in SKILL.md; fixtures with too few anchors
+stay pending for manual curation).
 """
 from __future__ import annotations
 
@@ -373,6 +403,109 @@ def validate(snapshot: dict, output_dir: Path, report: Report) -> None:
                 )
 
 
+def validate_contract(snapshot: dict, fixture_dir: Path, repo_root: Path,
+                      report: Report) -> None:
+    """Phase-2: pin the documented skill contract against SKILL.md (drift guard)."""
+    spec = snapshot.get("skill_contract") or {}
+    # Single skill ("skill") or a scenario fixture spanning several ("skills",
+    # e.g. fixture-07-daily-work-skills → bugfix/refactor/perf): anchors are
+    # checked against the concatenation, each SKILL.md must exist.
+    skills = spec.get("skills") or [
+        spec.get("skill") or (snapshot.get("skill_under_test") or "").lstrip("/")]
+    texts = []
+    for skill in skills:
+        skill_md = repo_root / "skills" / skill / "SKILL.md"
+        if not skill_md.is_file():
+            report.add(f"contract.skill_md_exists[{skill}]", False,
+                       f"missing {skill_md}")
+            return
+        report.add(f"contract.skill_md_exists[{skill}]", True)
+        texts.append(skill_md.read_text(encoding="utf-8", errors="replace"))
+    text = "\n".join(texts)
+    sections = count_sections(text)
+
+    for pattern in spec.get("required_sections", []):
+        ok = section_matches(sections, pattern)
+        report.add(f"contract.section[{pattern}]", ok,
+                   "" if ok else f"no SKILL.md heading matches '{pattern}'")
+
+    for literal in spec.get("must_contain", []):
+        ok = literal in text
+        report.add(f"contract.must_contain[{literal[:60]}]", ok,
+                   "" if ok else "documented guarantee no longer present in SKILL.md")
+
+    for label, alts in (spec.get("must_contain_any_of") or {}).items():
+        ok = any(a in text for a in alts)
+        report.add(f"contract.any_of[{label}]", ok,
+                   "" if ok else f"none of {alts} found in SKILL.md")
+
+    suite = spec.get("harness_suite")
+    if suite:
+        suite_path = repo_root / suite
+        report.add("contract.harness_suite_exists", suite_path.is_file(),
+                   "" if suite_path.is_file() else f"missing {suite}")
+        ci = repo_root / ".github" / "workflows" / "windows-verify.yml"
+        wired = ci.is_file() and Path(suite).name in ci.read_text(
+            encoding="utf-8", errors="replace")
+        report.add("contract.harness_suite_in_ci", wired,
+                   "" if wired else f"{Path(suite).name} not wired into windows-verify.yml")
+
+    notes = fixture_dir / "notes.md"
+    report.add("contract.notes_exist", notes.is_file(),
+               "" if notes.is_file() else "notes.md (manual half of the contract) missing")
+
+
+def run_all(fixtures_root: Path, as_json: bool) -> int:
+    """--all mode: validate every fixture by its status. Absent Phase-1 output
+    dirs are SKIP (outputs are not committed), never a failure."""
+    repo_root = fixtures_root.parents[1]
+    totals = {"contract_pass": 0, "contract_fail": 0, "pending": 0,
+              "active_pass": 0, "active_fail": 0, "active_skip": 0,
+              "load_fail": 0}
+    failures: list[str] = []
+    for fixture_dir in sorted(p for p in fixtures_root.iterdir() if p.is_dir()):
+        try:
+            snapshot = load_snapshot(fixture_dir)
+        except (FileNotFoundError, ValueError) as e:
+            # neutral bucket (review N2): a missing/broken snapshot is a load
+            # problem, not a failed contract — but it still fails the run
+            totals["load_fail"] += 1
+            failures.append(f"{fixture_dir.name}: {e}")
+            continue
+        status = snapshot.get("status")
+        if status == "pending":
+            totals["pending"] += 1
+            continue
+        report = Report(fixture=fixture_dir.name,
+                        snapshot_path=str(fixture_dir / "expected-snapshot.json"),
+                        output_path="-")
+        if status == "contract":
+            validate_contract(snapshot, fixture_dir, repo_root, report)
+            key = "contract_pass" if report.passed else "contract_fail"
+            totals[key] += 1
+        else:  # Phase-1 active
+            output_dir = fixture_dir / "output"
+            if not output_dir.is_dir():
+                totals["active_skip"] += 1
+                continue
+            report.output_path = str(output_dir)
+            validate(snapshot, output_dir, report)
+            key = "active_pass" if report.passed else "active_fail"
+            totals[key] += 1
+        if not report.passed:
+            for c in report.failed_checks:
+                failures.append(f"{fixture_dir.name}: {c.name} — {c.detail}")
+    result = {"totals": totals, "failures": failures}
+    if as_json:
+        print(json.dumps(result, ensure_ascii=False, indent=1))
+    else:
+        print("verify_snapshot --all:", ", ".join(f"{k}={v}" for k, v in totals.items()))
+        for f in failures:
+            print("  ❌ " + f)
+    return 1 if (totals["contract_fail"] or totals["active_fail"]
+                 or totals["load_fail"]) else 0
+
+
 def load_snapshot(fixture_dir: Path) -> dict:
     snapshot_path = fixture_dir / "expected-snapshot.json"
     if not snapshot_path.is_file():
@@ -398,7 +531,16 @@ def main() -> int:
     parser.add_argument(
         "fixture_dir",
         type=Path,
+        nargs="?",
+        default=None,
         help="Path to fixture directory (tests/fixtures/fixture-XX-name/)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Validate every fixture under tests/fixtures/ by its status "
+        "(contract fixtures validated, pending counted, Phase-1 active "
+        "validated only when output/ exists locally)",
     )
     parser.add_argument(
         "--output",
@@ -412,6 +554,13 @@ def main() -> int:
         help="Emit machine-readable JSON instead of human-readable output",
     )
     args = parser.parse_args()
+
+    if args.all:
+        fixtures_root = Path(__file__).resolve().parent / "fixtures"
+        return run_all(fixtures_root, args.json)
+
+    if args.fixture_dir is None:
+        parser.error("fixture_dir is required unless --all is given")
 
     fixture_dir = args.fixture_dir.resolve()
     if not fixture_dir.is_dir():
@@ -429,6 +578,26 @@ def main() -> int:
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+
+    # Phase-2 contract snapshots validate SKILL.md, no output dir involved.
+    if snapshot.get("status") == "contract":
+        report = Report(
+            fixture=fixture_dir.name,
+            snapshot_path=str(fixture_dir / "expected-snapshot.json"),
+            output_path="- (contract mode)",
+        )
+        # fixture-XX -> fixtures -> tests -> REPO ROOT
+        validate_contract(snapshot, fixture_dir, fixture_dir.parents[2], report)
+        if args.json:
+            print(json.dumps(report.to_json(), indent=2, ensure_ascii=False))
+        else:
+            icon = "✅" if report.passed else "❌"
+            print(f"{icon} {fixture_dir.name}: "
+                  f"{'PASSED' if report.passed else 'FAILED'} (contract mode, "
+                  f"{len(report.checks)} checks, {len(report.failed_checks)} failed)")
+            for c in report.failed_checks:
+                print(f"  ❌ {c.name}: {c.detail}")
+        return 0 if report.passed else 1
 
     # Pending snapshots auto-pass without touching the output dir.
     if snapshot.get("status") == "pending":

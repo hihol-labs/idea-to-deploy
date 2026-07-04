@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.48.0] - 2026-07-04
+
+**The two critical items of the 2026-07-04 battle-readiness audit: no hook is silently dead, no fixture is a stub.** The audit scored the arsenal 9/10 with two honest gaps — 9 hooks had only smoke coverage (the «silently dead safety layer» class /retro already caught twice), and 24 of 32 fixtures were pending stubs (claimed↔verified gap). Both closed.
+
+### Added
+
+- **`tests/verify_hook_depth.py` — 19 semantic checks for the 9 previously smoke-only hooks** (stuck-detection, crash-recovery, context-aware, context-budget, execution-trace, session-open-diagnostic, freeze, record-agent-skill, check-commit-completeness). Each hook is pinned on BOTH sides of its contract: fires on the trigger condition (3rd identical command; checkpoint after the interval; long-session warning; unbounded dump; out-of-scope edit under freeze; subagent gate-sentinel; BLOCK of an incomplete skill commit in a synthetic repo) and stays silent otherwise. Isolated per-test session ids, state cleanup, cross-platform; wired into windows-verify CI. Result of the first run: all 9 hooks are semantically alive — zero dead layers found.
+- **Phase-2 fixture validation — `status: "contract"`** in `verify_snapshot.py`: for stdout/dialog/orchestrator skills whose behaviour is not file-shaped, the snapshot now machine-pins the DOCUMENTED contract — anchors quoted in the fixture's notes.md must exist verbatim in `skills/<name>/SKILL.md` (+ required sections, + harness-suite existence and CI wiring for goal/retro, + multi-skill support for scenario fixtures). Honest framing: this is a DRIFT GUARD (green at adoption, fails when a later SKILL.md edit drops a documented guarantee), not a live-behaviour test — live behaviour stays with battle/headless runs. New `--all` mode validates every fixture by status (absent Phase-1 outputs are SKIP, not failure) and is wired into CI.
+- **`tests/gen_phase2_contracts.py`** — regeneration tool: harvests backtick/bold anchors from notes.md, keeps only those verbatim-present in SKILL.md, converts the fixture; fixtures with too few anchors stay pending for manual curation (it converted 20/24 automatically; doc, session-save, mcp-docs and the multi-skill daily-work fixture were curated by hand).
+
+### Changed
+
+- **All 24 pending fixture stubs are now active Phase-2 contracts** — `verify_snapshot.py --all`: contract_pass=24, pending=0, active_pass=1 (fixture-01 with its committed live output). The «заявлено↔проверено» gap for the skill arsenal is closed at the contract layer: 100% of fixtures are now machine-validated (25 validated vs 8 before).
+
+---
+
 ## [1.47.0] - 2026-07-04
 
 **The first live /retro run, implemented — the self-improvement loop pays for itself in one day.** Every item below traces to evidence in `docs/retros/RETRO-2026-07-04.md` (committed with this release): three live incidents and three telemetry signals from the v1.44–v1.46 release marathon, turned into fixes through the ordinary pipeline — exactly the FACTS → PROPOSALS → human-MERGE contract v1.46.0 shipped.

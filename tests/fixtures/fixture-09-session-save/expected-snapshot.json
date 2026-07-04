@@ -1,7 +1,24 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "session-save",
   "skill_under_test": "/session-save",
-  "status": "pending",
-  "description": "Stub — /session-save writes `session_YYYY-MM-DD.md` to the project memory directory (`~/.claude/projects/.../memory/`) and updates MEMORY.md. Snapshot needs to validate the 9 required fields, MEMORY.md index update, and .active-session.lock structure. Deferred to v1.16.0."
+  "status": "contract",
+  "description": "Stub — /session-save writes `session_YYYY-MM-DD.md` to the project memory directory (`~/.claude/projects/.../memory/`) and updates MEMORY.md. Snapshot needs to validate the 9 required fields, MEMORY.md index update, and .active-session.lock structure. Deferred to v1.16.0. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture (manually curated anchors) — documented guarantees are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour stays with battle runs.]",
+  "skill_contract": {
+    "skill": "session-save",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "MEMORY.md",
+      "session_YYYY-MM-DD.md",
+      ".active-session.lock",
+      "sync-to-active.sh"
+    ]
+  }
 }
