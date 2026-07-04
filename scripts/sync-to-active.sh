@@ -259,6 +259,10 @@ fi
 #     ends with a dirty git tree AND no fresh session_*.md; never blocks,
 #     rate-limited; the "end every session handoff-ready" half of the
 #     Anthropic long-running-agents port)
+#   SubagentStop → narration-final.sh  (v1.49.0 — mechanical narration-final
+#     detector: blocks a subagent's stop (≤2 pings) when its final message
+#     ends on process narration with no verdict; retro signal ×5 — the
+#     prompt-level contract alone did not fix this class)
 
 DESIRED_HOOKS=$(cat <<'JSON'
 {
@@ -334,6 +338,13 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/handoff-readiness.sh", "timeout": 5 }
       ]
     }
+  ],
+  "SubagentStop": [
+    {
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/narration-final.sh", "timeout": 10 }
+      ]
+    }
   ]
 }
 JSON
@@ -378,7 +389,7 @@ fi
 # another plugin) are preserved by the merge below and must not read as "drift".
 current_hooks=$($PYBIN -c "
 import json, sys
-KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop')
+KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop')
 try:
     with open('$SETTINGS') as f:
         data = json.load(f)
@@ -413,7 +424,8 @@ with open(path) as f:
 _itd = $EFFECTIVE_HOOKS
 # Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
 # SessionStart hook registered by another plugin such as context-mode). ITD owns
-# UserPromptSubmit/PreToolUse/PostToolUse/Stop in full, so replacing those is correct.
+# UserPromptSubmit/PreToolUse/PostToolUse/Stop/SubagentStop in full, so replacing
+# those is correct.
 data.setdefault('hooks', {})
 for _k, _v in _itd.items():
     data['hooks'][_k] = _v

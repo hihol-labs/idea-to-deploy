@@ -38,6 +38,8 @@ jobs:
         run: python tests/verify_v147_fixes.py
       - name: Hook semantic-depth tests (9 previously smoke-only hooks)
         run: python tests/verify_hook_depth.py
+      - name: Narration-final detector functional tests (SubagentStop)
+        run: python tests/verify_narration_final.py
       - name: Fixture contracts — all fixtures by status (Phase-2)
         run: python tests/verify_snapshot.py --all
       - name: Registration & count drift-guards
