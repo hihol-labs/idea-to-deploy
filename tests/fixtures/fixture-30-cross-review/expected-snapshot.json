@@ -1,7 +1,27 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "orchestrator-stdout",
   "skill_under_test": "/cross-review",
-  "status": "pending",
-  "description": "Stub — /cross-review is a read-only orchestrator skill that ports the omnigent 'one vendor reviews another vendor's code' concept as an outcome (independent second opinion), not as omnigent's orchestration server. It writes no project files; it resolves the diff, scrubs secrets/PII before egress, shells out to an external review CLI (codex, else gemini) and folds findings back, or gracefully degrades to a native Claude red-team review when no external CLI is available or it is out of quota. It is additive to /review (the mandatory floor), never a gate, and never writes the /tmp/claude-review-done-* marker. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a shell-out/stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup, fixture-28-seo-setup, fixture-29-security-guidance-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (scrub-before-egress, codex->gemini->native fail-open chain, name-the-engine, additive-not-gate, no review-done marker) for manual verification."
+  "status": "contract",
+  "description": "Stub — /cross-review is a read-only orchestrator skill that ports the omnigent 'one vendor reviews another vendor's code' concept as an outcome (independent second opinion), not as omnigent's orchestration server. It writes no project files; it resolves the diff, scrubs secrets/PII before egress, shells out to an external review CLI (codex, else gemini) and folds findings back, or gracefully degrades to a native Claude red-team review when no external CLI is available or it is out of quota. It is additive to /review (the mandatory floor), never a gate, and never writes the /tmp/claude-review-done-* marker. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a shell-out/stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup, fixture-28-seo-setup, fixture-29-security-guidance-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (scrub-before-egress, codex->gemini->native fail-open chain, name-the-engine, additive-not-gate, no review-done marker) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "cross-review",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/cross-review",
+      "/review",
+      "/tmp/claude-review-done-*",
+      "additive to `/review`",
+      "scrub",
+      "fail-open",
+      "never a gate"
+    ]
+  }
 }

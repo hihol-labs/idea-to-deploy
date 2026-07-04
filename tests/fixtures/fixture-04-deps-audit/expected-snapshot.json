@@ -1,7 +1,31 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "deps-audit",
   "skill_under_test": "/deps-audit",
-  "status": "pending",
-  "description": "Stub — /deps-audit produces a stdout report and does not write files by default. Bootstrapping this snapshot requires capturing the rubric report to a file and validating tiered findings (CVE / license / abandoned). Deferred to v1.16.0 alongside Phase 2 non-interactive execution."
+  "status": "contract",
+  "description": "Stub — /deps-audit produces a stdout report and does not write files by default. Bootstrapping this snapshot requires capturing the rubric report to a file and validating tiered findings (CVE / license / abandoned). Deferred to v1.16.0 alongside Phase 2 non-interactive execution. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "deps-audit",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/deps-audit",
+      "package.json",
+      "package-lock.json",
+      "lodash@4.17.15",
+      "axios@0.21.0",
+      "left-pad@1.3.0",
+      "BLOCKED",
+      "npm install",
+      "npm audit --json",
+      "PASSED_WITH_WARNINGS"
+    ]
+  }
 }

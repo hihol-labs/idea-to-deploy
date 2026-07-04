@@ -1,7 +1,30 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "handoff-artifact",
   "skill_under_test": "/handoff",
-  "status": "pending",
-  "description": "Deferred — /handoff writes a compact HANDOFF.md context packet (9 required fields, Obsidian-compatible) plus a STATE.json refresh, for transfer to the next session/agent before compaction, delegation, AFK, or recovery. verify_snapshot.py's Phase 1 schema does not yet assert field-level structure of HANDOFF.md, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (9 fields, no secrets, /handoff vs /session-save) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /handoff writes a compact HANDOFF.md context packet (9 required fields, Obsidian-compatible) plus a STATE.json refresh, for transfer to the next session/agent before compaction, delegation, AFK, or recovery. verify_snapshot.py's Phase 1 schema does not yet assert field-level structure of HANDOFF.md, so structural validation is deferred to the Phase 2 artifact-snapshot scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (9 fields, no secrets, /handoff vs /session-save) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "handoff",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/handoff",
+      "HANDOFF.md",
+      "/session-save",
+      "> [!todo]",
+      "[[STATE]]",
+      "[[BUILD_PLAN]]",
+      "> [!warning]",
+      "From → To",
+      "milestone save"
+    ]
+  }
 }

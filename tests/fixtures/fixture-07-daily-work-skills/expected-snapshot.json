@@ -1,7 +1,25 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "daily-work",
   "skill_under_test": "/bugfix, /refactor, /perf",
-  "status": "pending",
-  "description": "Stub — exercises three skills that mutate existing code instead of scaffolding new projects. Validating this requires a before/after diff snapshot rather than a file-list snapshot. Different mental model from /kickstart snapshots. Deferred to v1.16.0."
+  "status": "contract",
+  "description": "Stub — exercises three skills that mutate existing code instead of scaffolding new projects. Validating this requires a before/after diff snapshot rather than a file-list snapshot. Different mental model from /kickstart snapshots. Deferred to v1.16.0. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture (manually curated anchors) — documented guarantees are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour stays with battle runs.]",
+  "skill_contract": {
+    "skills": [
+      "bugfix",
+      "refactor",
+      "perf"
+    ],
+    "required_sections": [
+      "Trigger phrases",
+      "Instructions",
+      "Self-validation"
+    ],
+    "must_contain": [
+      "Root cause",
+      "Fowler",
+      "before/after",
+      "bottleneck"
+    ]
+  }
 }

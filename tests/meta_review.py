@@ -740,9 +740,11 @@ def run_rubric(repo: Path) -> Report:
     # `status: pending` (stub, deferred to a later release). Missing or
     # malformed snapshot = Important finding.
     #
-    # See tests/README.md for the Phase 1 workflow. Phase 2 (v1.16.0
-    # candidate) will add non-interactive execution via `claude -p`, at
-    # which point pending stubs will need to be flipped to active.
+    # See tests/README.md for the Phase 1 workflow. v1.48.0 adds the third
+    # status `contract` (Phase 2): the snapshot pins the documented skill
+    # contract against SKILL.md (drift guard, validated by
+    # `verify_snapshot.py --all`) for stdout/dialog skills whose behaviour is
+    # not file-shaped.
     if fixtures_dir.is_dir():
         required_snapshot_fields = {
             "$schema_version",
@@ -751,7 +753,7 @@ def run_rubric(repo: Path) -> Report:
             "status",
             "description",
         }
-        allowed_statuses = {"active", "pending"}
+        allowed_statuses = {"active", "pending", "contract"}
 
         for fd in sorted(fixtures_dir.iterdir()):
             if not fd.is_dir():

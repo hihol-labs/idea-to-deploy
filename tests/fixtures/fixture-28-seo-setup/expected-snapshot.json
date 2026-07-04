@@ -1,7 +1,31 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "orchestrator-stdout",
   "skill_under_test": "/seo-setup",
-  "status": "pending",
-  "description": "Stub — /seo-setup is a read-only orchestrator/integration skill for the upstream Claude SEO plugin (AgriciDaniel/claude-seo, MIT; bundled FLOW prompts CC BY 4.0). It writes no project files; it detects install state (claude plugin list / claude plugin details / python3 --version) and runs or prints the verified install commands for the user. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a detect/advise stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (no-vendoring of upstream code, detect-before-claim, accurate mechanism, lifecycle fit, gate coexistence) for manual verification."
+  "status": "contract",
+  "description": "Stub — /seo-setup is a read-only orchestrator/integration skill for the upstream Claude SEO plugin (AgriciDaniel/claude-seo, MIT; bundled FLOW prompts CC BY 4.0). It writes no project files; it detects install state (claude plugin list / claude plugin details / python3 --version) and runs or prints the verified install commands for the user. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a detect/advise stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (no-vendoring of upstream code, detect-before-claim, accurate mechanism, lifecycle fit, gate coexistence) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "seo-setup",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/seo-setup",
+      "seo-setup",
+      "(invoked",
+      "claude plugin list | grep claude-seo",
+      "/seo audit <url>",
+      "claude plugin details claude-seo",
+      "/harden",
+      "/seo technical <url>",
+      "/seo geo <url>",
+      "check-review-before-commit.sh",
+      "read-only"
+    ]
+  }
 }

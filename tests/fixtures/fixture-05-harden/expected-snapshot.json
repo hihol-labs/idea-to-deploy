@@ -1,7 +1,28 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "harden",
   "skill_under_test": "/harden",
-  "status": "pending",
-  "description": "Stub — /harden generates artifacts (health route, lifespan, logger config, k6 script, RUNBOOK.md) but only on explicit user approval per item. A full snapshot needs to account for partial approval scenarios and the runbook section requirements. Deferred to v1.16.0."
+  "status": "contract",
+  "description": "Stub — /harden generates artifacts (health route, lifespan, logger config, k6 script, RUNBOOK.md) but only on explicit user approval per item. A full snapshot needs to account for partial approval scenarios and the runbook section requirements. Deferred to v1.16.0. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "harden",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/harden",
+      "harden-checklist.md",
+      "app/routers/health.py",
+      "main.py",
+      "structlog",
+      "docs/BACKUP.md",
+      "docs/RUNBOOK.md"
+    ]
+  }
 }

@@ -1,7 +1,32 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "orchestrator-stdout",
   "skill_under_test": "/security-guidance-setup",
-  "status": "pending",
-  "description": "Stub — /security-guidance-setup is a read-only orchestrator/integration skill for the official security-guidance plugin (anthropics/claude-code; first-party Anthropic code, no standard OSS SPDX, use under Anthropic Commercial Terms; free, ships enabled by default in claude-plugins-official). It writes no project files; it detects install state (claude plugin list / claude plugin details / claude --version / python3 --version) and runs or prints the verified install command for the user. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a detect/advise stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup, fixture-28-seo-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (no-vendoring of first-party upstream code, detect-before-claim, accurate 3-layer mechanism, lifecycle fit, gate coexistence, complement-not-replace relationship to /security-audit) for manual verification."
+  "status": "contract",
+  "description": "Stub — /security-guidance-setup is a read-only orchestrator/integration skill for the official security-guidance plugin (anthropics/claude-code; first-party Anthropic code, no standard OSS SPDX, use under Anthropic Commercial Terms; free, ships enabled by default in claude-plugins-official). It writes no project files; it detects install state (claude plugin list / claude plugin details / claude --version / python3 --version) and runs or prints the verified install command for the user. verify_snapshot.py's Phase 1 schema is file-shaped and cannot assert a detect/advise stdout flow, so structural validation is deferred to the Phase 2 stdout-snapshot scheme (same bucket as fixture-15-advisor, fixture-21-mcp-docs, fixture-26-caveman, fixture-27-context-mode-setup, fixture-28-seo-setup). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (no-vendoring of first-party upstream code, detect-before-claim, accurate 3-layer mechanism, lifecycle fit, gate coexistence, complement-not-replace relationship to /security-audit) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "security-guidance-setup",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/security-guidance-setup",
+      "claude-plugins-official",
+      "/security-audit",
+      "security-guidance-setup",
+      "claude plugin list | grep security-guidance",
+      "claude plugin details",
+      "claude plugin install security-guidance@claude-plugins-official",
+      "claude plugin details security-guidance",
+      "/deploy",
+      "/harden",
+      "/review",
+      "ENABLE_STOP_REVIEW=0"
+    ]
+  }
 }

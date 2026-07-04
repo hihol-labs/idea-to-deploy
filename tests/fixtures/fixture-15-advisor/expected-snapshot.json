@@ -1,7 +1,30 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "advisor-stdout",
   "skill_under_test": "/advisor",
-  "status": "pending",
-  "description": "Deferred — /advisor runs in read-only analysis mode and emits its recommendation to stdout (no Write / Edit / no files produced). verify_snapshot.py's Phase 1 schema is file-shaped, so structural validation of /advisor requires the Phase 2 stdout-snapshot scheme (same bucket as fixture-10-task, deferred to v1.16.0). This stub anchors future regression work and satisfies check-skill-completeness.sh; the notes.md here documents the expected contract (sections, subagents, guard rails) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /advisor runs in read-only analysis mode and emits its recommendation to stdout (no Write / Edit / no files produced). verify_snapshot.py's Phase 1 schema is file-shaped, so structural validation of /advisor requires the Phase 2 stdout-snapshot scheme (same bucket as fixture-10-task, deferred to v1.16.0). This stub anchors future regression work and satisfies check-skill-completeness.sh; the notes.md here documents the expected contract (sections, subagents, guard rails) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "advisor",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "and",
+      "git commit",
+      "npm install",
+      "read-only analysis mode",
+      "deferred",
+      "Pros",
+      "Cons",
+      "Recommendation",
+      "Risk"
+    ]
+  }
 }

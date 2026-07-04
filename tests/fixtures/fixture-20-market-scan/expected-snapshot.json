@@ -1,7 +1,27 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "market-scan-research",
   "skill_under_test": "/market-scan",
-  "status": "pending",
-  "description": "Deferred — /market-scan does a fresh public market/community signal scan (preferred engine: last30days) and normalizes findings into a structured stdout shape plus dated appends to MARKET_BRIEF.md. Validation depends on an external research tool and on stdout, neither of which verify_snapshot.py's Phase 1 file-presence schema asserts; structural validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (public-safe topic, BLOCKED_EXTERNAL_TOOL fallback, dated append, /market-scan vs /discover) for manual verification."
+  "status": "contract",
+  "description": "Deferred — /market-scan does a fresh public market/community signal scan (preferred engine: last30days) and normalizes findings into a structured stdout shape plus dated appends to MARKET_BRIEF.md. Validation depends on an external research tool and on stdout, neither of which verify_snapshot.py's Phase 1 file-presence schema asserts; structural validation is deferred to the Phase 2 scheme (same bucket as fixture-15-advisor). This stub satisfies check-skill-completeness.sh and anchors future regression work; notes.md documents the contract (public-safe topic, BLOCKED_EXTERNAL_TOOL fallback, dated append, /market-scan vs /discover) for manual verification. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "market-scan",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/market-scan",
+      "last30days",
+      "/discover",
+      "DISCOVERY.md",
+      "MARKET_BRIEF.md",
+      "BLOCKED_EXTERNAL_TOOL"
+    ]
+  }
 }

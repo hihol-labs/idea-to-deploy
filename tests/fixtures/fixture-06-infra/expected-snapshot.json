@@ -1,7 +1,33 @@
 {
-  "$schema_version": "1.0",
+  "$schema_version": "2.0",
   "fixture_type": "infra",
   "skill_under_test": "/infra",
-  "status": "pending",
-  "description": "Stub — /infra generates Terraform modules or Helm charts under `infra/`. Snapshot needs to validate Terraform provider block, resource types, variable declarations, and README deploy commands per target preset (do/aws/hetzner/k8s). Deferred to v1.16.0."
+  "status": "contract",
+  "description": "Stub — /infra generates Terraform modules or Helm charts under `infra/`. Snapshot needs to validate Terraform provider block, resource types, variable declarations, and README deploy commands per target preset (do/aws/hetzner/k8s). Deferred to v1.16.0. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture — the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour is still validated by battle/headless runs.]",
+  "skill_contract": {
+    "skill": "infra",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/infra",
+      "terraform init",
+      "required_providers",
+      ".gitignore",
+      "*.tfvars",
+      "tags",
+      "sensitive = true",
+      "variable",
+      "description",
+      "type",
+      "output",
+      "terraform output"
+    ]
+  }
 }
