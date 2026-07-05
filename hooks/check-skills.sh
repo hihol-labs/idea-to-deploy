@@ -207,7 +207,13 @@ TRIGGERS = [
         r"load\s+test|нагрузочн\w+\s+тест|\bk6\b|"
         r"health\s*check|/healthz|liveness|readiness|"
         r"structured\s+log|structured\s+logs|logs?\s+to\s+json|"
-        r"secrets?\s+management|\bvault\b|\bdoppler\b|"
+        # v1.56.0 (Release D1, second A/B): bare `vault` (the secrets manager)
+        # also matched "obsidian vault", so /harden co-fired obsidian-export-2.
+        # Fixed-width negative-lookbehind excludes ONLY "obsidian vault"; the
+        # canonical harden phrase "vault", plus "secrets vault"/"hashicorp vault",
+        # still match (verify_triggers stays green). The obsidian-export trigger
+        # already owns `obsidian\s+vault`, so real Obsidian prompts route there.
+        r"secrets?\s+management|(?<!obsidian )\bvault\b|\bdoppler\b|"
         r"backup\s+strateg|стратеги\w+\s+бэкап)",
         "🔔 Триггер 'production hardening' → используй /harden (рубрика health/logs/metrics/backups/load-test/runbook, генерация артефактов с согласия пользователя). Вызови Skill ПЕРВЫМ.",
     ),

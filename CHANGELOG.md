@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.56.0] - 2026-07-05
+
+**Release D1 — second measured A/B (advisor↔blueprint was the first).** Continuing wave 2 one A/B at a time. After D1's first change, the remaining 9 routing ambiguities were classified bug-vs-by-design: most are broad-gate co-fires that route correctly and are intentional (`/review` co-firing on the literal word "review"/"audit"; `migrate`⊂`migrate-prod` substring, already handled). This release fixes the one clean, non-by-design case. No new hook/agent/skill — counts stay 40/10/24.
+
+### Changed
+
+- **`check-skills.sh` — harden's bare `vault` trigger no longer matches "obsidian vault".** `\bvault\b` (the secrets-manager Vault, a canonical harden phrase alongside "doppler"/"secrets management") also matched "obsidian vault", so `/harden` co-fired on `obsidian-export-2` ("Export this to my Obsidian vault as linked notes"). Added a fixed-width negative-lookbehind — `(?<!obsidian )\bvault\b` — that excludes ONLY "obsidian vault"; the canonical "vault" phrase and "secrets vault"/"hashicorp vault" still match (so `verify_triggers.py` stays green), and the obsidian-export trigger already owns `obsidian\s+vault`. **A/B measured:** routing accuracy 100.0% → 100.0% (no degradation); ambiguous prompts 9 → 8 (`obsidian-export-2` now routes to `/obsidian-export` alone); no trigger drift.
+
+---
+
 ## [1.55.0] - 2026-07-05
 
 **Release D1 — skill-overlap de-prescription (wave 2, strictly one A/B at a time).** The 2026-07-05 `/advisor` audit flagged conceptual overlaps between skills; Release D resolves them one *measured* A/B at a time (baseline → change → `verify_routing.py` re-measure → rollback on any accuracy drop). Of the three pairs the audit named (project↔task, blueprint↔strategy, advisor↔grill-me), the routing benchmark showed **none** as a measurable ambiguity — the router is already 100% accurate. D1 therefore targets the only overlap that *did* surface as measurable routing ambiguity, `advisor`↔`blueprint`, chosen on evidence rather than the plan's assumed pairs. No new hook/agent/skill — counts stay 40/10/24.
