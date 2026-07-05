@@ -42,6 +42,77 @@ from pathlib import Path
 
 
 # --------------------------------------------------------------------------
+# Spelled-number parsing for the M-C15 hook-count check (module-level so the
+# regression test can import it). v1.53.0 (retro 2026-07-05, P2): teens +
+# twenties WITH compound parsing — «двадцать четыре» = 24 (not «четыре» = 4,
+# the v1.51.0 false-BLOCK), «семнадцать» = 17 (was uncovered, let a stale
+# README.ru count survive v1.49/v1.50). Counts are small, so 1..39 suffices.
+# --------------------------------------------------------------------------
+_RU_UNIT = {
+    "один": 1, "одного": 1, "одно": 1, "одна": 1,
+    "два": 2, "двух": 2, "две": 2, "три": 3, "трёх": 3, "трех": 3,
+    "четыре": 4, "четырёх": 4, "четырех": 4, "пять": 5, "пяти": 5,
+    "шесть": 6, "шести": 6, "семь": 7, "семи": 7,
+    "восемь": 8, "восьми": 8, "девять": 9, "девяти": 9,
+}
+_RU_TEEN = {
+    "десять": 10, "одиннадцать": 11, "двенадцать": 12, "тринадцать": 13,
+    "четырнадцать": 14, "пятнадцать": 15, "шестнадцать": 16,
+    "семнадцать": 17, "восемнадцать": 18, "девятнадцать": 19,
+}
+_RU_TENS = {"двадцать": 20, "тридцать": 30}
+_EN_UNIT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9}
+_EN_TEEN = {"ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+            "fourteen": 14, "fifteen": 15, "sixteen": 16,
+            "seventeen": 17, "eighteen": 18, "nineteen": 19}
+_EN_TENS = {"twenty": 20, "thirty": 30}
+
+
+def num_ru(phrase: str):
+    """Russian spelled number → int (1..39, compounds), else None."""
+    parts = phrase.lower().split()
+    if len(parts) == 2 and parts[0] in _RU_TENS and parts[1] in _RU_UNIT:
+        return _RU_TENS[parts[0]] + _RU_UNIT[parts[1]]
+    w = parts[0] if parts else ""
+    return _RU_TENS.get(w) or _RU_TEEN.get(w) or _RU_UNIT.get(w)
+
+
+def num_en(phrase: str):
+    """English spelled number → int (1..39, hyphenated compounds), else None."""
+    parts = re.split(r"[\s-]+", phrase.lower())
+    if len(parts) == 2 and parts[0] in _EN_TENS and parts[1] in _EN_UNIT:
+        return _EN_TENS[parts[0]] + _EN_UNIT[parts[1]]
+    w = parts[0] if parts else ""
+    return _EN_TENS.get(w) or _EN_TEEN.get(w) or _EN_UNIT.get(w)
+
+
+# Spelled-number-word regexes (module-level so verify_hook_count_words.py can
+# pin the over-match guard). Each REQUIRES a hook-word right after the number,
+# so «двадцать четыре часа» / «twenty-four hours» (24 HOURS, not hooks) never
+# matches — the guard that keeps the count check from firing on unrelated
+# numbers. The tens alternative is FIRST so a compound «двадцать четыре» /
+# "twenty-four" matches the whole thing, not bare «четыре»/"four".
+HOOK_EN_WORD_RE = re.compile(
+    r"\b((?:twenty|thirty)(?:[\s-]+(?:one|two|three|four|five|six|"
+    r"seven|eight|nine))?|ten|eleven|twelve|thirteen|fourteen|fifteen|"
+    r"sixteen|seventeen|eighteen|nineteen|one|two|three|four|five|six|"
+    r"seven|eight|nine)\s+"
+    r"(?:hooks?|enforcement\s+scripts?|hook\b)",
+    re.IGNORECASE,
+)
+HOOK_RU_WORD_RE = re.compile(
+    r"\b((?:двадцать|тридцать)(?:\s+(?:один|два|две|три|четыре|пять|"
+    r"шесть|семь|восемь|девять))?|десять|одиннадцать|двенадцать|"
+    r"тринадцать|четырнадцать|пятнадцать|шестнадцать|семнадцать|"
+    r"восемнадцать|девятнадцать|один|одного|одна|одно|два|двух|две|три|"
+    r"трёх|трех|четыре|четырёх|четырех|пять|пяти|шесть|шести|семь|семи|"
+    r"восемь|восьми|девять|девяти)\s+(?:хук\w*|скрипт\w*)",
+    re.IGNORECASE,
+)
+
+
+# --------------------------------------------------------------------------
 # Configuration
 # --------------------------------------------------------------------------
 
@@ -640,23 +711,8 @@ def run_rubric(repo: Path) -> Report:
             repo / "CONTRIBUTING.md",
         ]
 
-        # English number words 1-9
-        en_words = {
-            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-            "six": 6, "seven": 7, "eight": 8, "nine": 9,
-        }
-        # Russian number words (root forms) 1-9
-        ru_words = {
-            "один": 1, "одного": 1, "одно": 1, "одна": 1,
-            "два": 2, "двух": 2, "две": 2,
-            "три": 3, "трёх": 3, "трех": 3,
-            "четыре": 4, "четырёх": 4, "четырех": 4,
-            "пять": 5, "пяти": 5,
-            "шесть": 6, "шести": 6,
-            "семь": 7, "семи": 7,
-            "восемь": 8, "восьми": 8,
-            "девять": 9, "девяти": 9,
-        }
+        # Number words are parsed by module-level num_ru / num_en (v1.53.0,
+        # retro P2 — importable by tests/verify_hook_count_words.py).
 
         # Hook context words: must appear on the same line as the count
         hook_ctx = re.compile(
@@ -671,20 +727,10 @@ def run_rubric(repo: Path) -> Report:
             r"(?<!\S)(\d+)\s+(?:hooks?|скрипт\w*|hook\b|хук\w*)",
             re.IGNORECASE,
         )
-        # English word + hooks
-        hook_en_word_re = re.compile(
-            r"\b(one|two|three|four|five|six|seven|eight|nine)\s+"
-            r"(?:hooks?|enforcement\s+scripts?|hook\b)",
-            re.IGNORECASE,
-        )
-        # Russian word + хук/скрипт
-        hook_ru_word_re = re.compile(
-            r"\b(один|одного|одна|одно|два|двух|две|"
-            r"три|трёх|трех|четыре|четырёх|четырех|"
-            r"пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти)\s+"
-            r"(?:хук\w*|скрипт\w*)",
-            re.IGNORECASE,
-        )
+        # Spelled-number-word regexes live at module level (HOOK_EN_WORD_RE /
+        # HOOK_RU_WORD_RE) so the over-match guard is pinned by the test.
+        hook_en_word_re = HOOK_EN_WORD_RE
+        hook_ru_word_re = HOOK_RU_WORD_RE
         # "All N hooks" / "Все N хуков" — covered by hook_num_re
 
         for doc in hook_count_doc_paths:
@@ -713,18 +759,18 @@ def run_rubric(repo: Path) -> Report:
                             f"{rel}:{lineno}: '{m.group(0)}' but actual hook count is {actual_hooks_n}",
                         )
 
-                # Pattern B: English number word "four hooks"
+                # Pattern B: English number word "four hooks" / "twenty-four hooks"
                 for m in hook_en_word_re.finditer(line):
-                    n = en_words.get(m.group(1).lower())
+                    n = num_en(m.group(1))
                     if n is not None and n != actual_hooks_n:
                         r.crit(
                             "M-C15",
                             f"{rel}:{lineno}: '{m.group(0)}' (={n}) but actual hook count is {actual_hooks_n}",
                         )
 
-                # Pattern C: Russian number word "четыре хука"
+                # Pattern C: Russian number word "четыре хука" / "двадцать четыре хука"
                 for m in hook_ru_word_re.finditer(line):
-                    n = ru_words.get(m.group(1).lower())
+                    n = num_ru(m.group(1))
                     if n is not None and n != actual_hooks_n:
                         r.crit(
                             "M-C15",

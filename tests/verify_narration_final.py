@@ -130,6 +130,28 @@ NARR_MID_VERDICT = ("Now check the edge cases — done, results below.\n\n"
 NE_USPEL_TAIL = ("Разобрал 3 из 5 файлов, замечаний нет.\n\n"
                  "Не успел проверить: hooks/careful.sh, tests/meta_review.py.")
 LONG_CONTENT_PARA = ("Summary of the change.\n\nNow check " + "x" * 450)
+# v1.53.0 (retro 2026-07-05, P3): narration in the LAST sentence after a status
+# sentence, and the "time to …" opener + refute/wrap verbs.
+NARR_LAST_SENTENCE = ("I read all four files and cross-checked the hooks.\n\n"
+                      "Now I have full coverage. Time to refute my own findings "
+                      "before reporting.")
+NARR_RU_OPROVERG = ("Собрал находки по всем частям.\n\n"
+                    "Теперь опровергну каждую перед отчётом.")
+# Guards for the P3 prune: report/wrap/finalize double as user-facing
+# instructions and must NOT false-block (pruned to the evidenced `refute` only).
+GUARD_REPORT_BACK = ("Всё готово, изменения внесены.\n\n"
+                     "Now report back to the team with the results.")
+GUARD_WRAP_UP = ("Задача выполнена, тесты зелёные.\n\n"
+                 "Now wrap up: no further action needed.")
+GUARD_FINALIZE = ("Правки внесены во все три файла.\n\n"
+                  "Now finalize the docs and hand off.")
+# Guard: a content final whose last sentence is NOT an opener+verb → silent.
+CONTENT_LAST_SENTENCE = ("Разобрал дифф, вопросов нет.\n\n"
+                         "Все три части согласованы между собой. Отчёт выше "
+                         "покрывает найденное.")
+# Guard: verdict present + a "time to refute" sentence → verdict exemption wins.
+VERDICT_WITH_TIMETO = ("Time to refute the last finding — done.\n\n"
+                       "Вердикт: PASSED — все находки опровергнуты или закрыты.")
 
 
 def main() -> int:
@@ -143,8 +165,30 @@ def main() -> int:
     p = run_hook(make_layout(NARR_BOLD, "agent-direct"))
     check("markdown-bold narration opener still blocks", blocked(p),
           p.stdout[:200])
+    # v1.53.0 P3: last-sentence narration + "time to …" opener + refute/wrap verbs
+    p = run_hook(make_layout(NARR_LAST_SENTENCE, "agent-direct"))
+    check("P3: narration in last sentence («… Time to refute …») blocks",
+          blocked(p), p.stdout[:200])
+    p = run_hook(make_layout(NARR_RU_OPROVERG, "main-fallback"))
+    check("P3: «Теперь опровергну …» blocks", blocked(p), p.stdout[:200])
 
     # --- negatives: a verdict-final is NEVER blocked ------------------------
+    p = run_hook(make_layout(CONTENT_LAST_SENTENCE, "agent-direct"))
+    check("P3 guard: content last sentence (no opener+verb) stays silent",
+          not blocked(p), p.stdout[:200])
+    p = run_hook(make_layout(VERDICT_WITH_TIMETO, "agent-direct"))
+    check("P3 guard: verdict present + «time to refute» stays silent",
+          not blocked(p), p.stdout[:200])
+    # P3 prune guards: report/wrap/finalize are user-facing instructions, silent.
+    p = run_hook(make_layout(GUARD_REPORT_BACK, "agent-direct"))
+    check("P3 prune: «Now report back to the team» stays silent (not narration)",
+          not blocked(p), p.stdout[:200])
+    p = run_hook(make_layout(GUARD_WRAP_UP, "agent-direct"))
+    check("P3 prune: «Now wrap up: no further action» stays silent",
+          not blocked(p), p.stdout[:200])
+    p = run_hook(make_layout(GUARD_FINALIZE, "agent-direct"))
+    check("P3 prune: «Now finalize the docs» stays silent",
+          not blocked(p), p.stdout[:200])
     p = run_hook(make_layout(VERDICT_FINAL, "agent-direct"))
     check("verdict-final stays silent", not blocked(p), p.stdout[:200])
     p = run_hook(make_layout(NARR_MID_VERDICT, "agent-direct"))

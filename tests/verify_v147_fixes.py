@@ -100,6 +100,13 @@ def main() -> int:
           not ro(bash('wsl.exe -d Ubuntu-24.04 --exec bash -lc "git push origin main"')))
     check("#2 wsl-wrapped inner redirect still gated",
           not ro(bash('wsl.exe --exec bash -lc "git log > /tmp/x"')))
+    # v1.53.0 (retro 2026-07-05, P1): the SHORT `-e` form of --exec must unwrap too.
+    check("#2 wsl -e (short exec) read-only exempted",
+          ro(bash("wsl -e bash -lc 'cd /repo && git status --short'")))
+    check("#2 wsl -d X -e (short exec) read-only exempted",
+          ro(bash("wsl -d Ubuntu-24.04 -e bash -lc 'git log --oneline -5'")))
+    check("#2 wsl -e mutation still gated",
+          not ro(bash("wsl -e bash -lc 'git commit -m x'")))
     check("#2 gh pr checks exempted", ro(bash("gh pr checks 108")))
     check("#2 gh pr merge still gated", not ro(bash("gh pr merge 108 --squash")))
     check("#2 cd && read-only exempted", ro(bash("cd /x && git status")))
