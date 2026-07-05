@@ -51,50 +51,90 @@ def review_marker_paths() -> list:
     return [Path(d) / f"claude-review-done-{sid}" for d in _sentinel_dirs()]
 
 
-def review_was_done() -> bool:
-    """Check for a recent /review invocation.
+TREE_TOKEN_RE = re.compile(r"^tree:([0-9a-f]{40})$")
 
-    Fast path: exact session-id match (works when CLAUDE_SESSION_ID is
-    stable across harness and skill fork).
 
-    Fallback: any /tmp/claude-review-done-* sentinel whose mtime is
-    within REVIEW_FRESHNESS_SECONDS. Tolerates the PID mismatch where
-    the /review skill writes the sentinel under `$$` (its own process
-    PID) while this hook later runs under a different `os.getppid()`
-    inside a separate harness subprocess. See PR #56 for the workaround
-    history this replaces.
+def staged_tree_hash() -> str | None:
+    """Deterministic hash of the exact staged content, via `git write-tree`.
 
-    Trade-offs:
-    - Cross-project false positive: a recent /review sentinel from
-      project A also unblocks a >2-file commit in project B within the
-      same 15-minute window. Acceptable — /review was still run in the
-      session, just maybe not on this exact file set, and commit
-      frequency is low enough that collisions are rare in practice.
-    - Reboot behaviour is clean: /tmp/ is wiped on reboot, so stale
-      sentinels never persist across boots and cannot leak across
-      unrelated work sessions separated by a machine restart.
+    `git write-tree` serialises the current index to a tree object and prints
+    its SHA-1; it moves no ref and is idempotent (git dedups the tree), so it
+    is a read-only fingerprint of *what would be committed*. Two properties
+    make it the right binding key for the review sentinel:
+
+    - **Foreign-project immunity**: project B's staged tree differs from
+      project A's, so A's sentinel cannot unblock a commit in B.
+    - **Staleness immunity**: if the staged content changes after /review
+      (files edited or re-staged), the tree hash changes and the old
+      sentinel no longer matches — the review is correctly re-required.
+
+    Returns None if git cannot compute it (not a repo / git error); callers
+    treat that as "no binding available".
     """
-    # Fast path — exact session match in any temp dir
-    for p in review_marker_paths():
-        if p.exists():
-            return True
-    # Fallback — any fresh sentinel from a recent /review run, in any temp dir
+    try:
+        result = subprocess.run(
+            ["git", "write-tree"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        h = result.stdout.strip()
+        return h if re.fullmatch(r"[0-9a-f]{40}", h) else None
+    except Exception:
+        return None
+
+
+def review_was_done() -> bool:
+    """True only if a fresh /review sentinel is bound to the CURRENT staged
+    tree (`tree:<git-write-tree>`).
+
+    v1.59.0 diff-binding (this hook's core tightening): a sentinel counts
+    only when its content is `tree:<sha>` and `<sha>` equals the tree that
+    *this* commit would write. A stale sentinel (content changed since
+    /review) or a cross-project sentinel (different tree) no longer passes —
+    closing the "any fresh sentinel unblocks any commit" hole documented in
+    PR #56's era. Bare-timestamp sentinels (the pre-v1.59.0 format) are NOT
+    accepted, so a legacy or hand-touched marker cannot wildcard the gate.
+
+    Match is by *content*, not session id, which keeps the cross-session /
+    PID-mismatch tolerance (the /review skill and this hook may run under
+    different PIDs) — we simply require the content to prove it reviewed the
+    exact change being committed.
+
+    Fail-CLOSED on unknown tree: if `git write-tree` cannot compute the
+    current tree, we return False (deny) rather than accept an unverifiable
+    sentinel. `git write-tree` succeeds for any valid repo with a readable
+    index (it returns HEAD's tree even when nothing is staged), so this
+    branch fires only on a genuine git fault — corrupted index, `.git`
+    permission error, missing git binary, or the 5s timeout. Accepting a
+    fresh tree:-bound sentinel there would re-open the very wildcard this
+    binding closes (a foreign `tree:<other-repo-hash>` would pass), so the
+    safe direction is to deny and make the user re-run /review after the git
+    fault clears. (A repo so broken that write-tree fails cannot commit
+    anyway.) Non-git-repo cwd never reaches here: staged_file_count() fails
+    closed to 0 and main() short-circuits before this runs.
+    """
     import glob
     import time
 
+    current = staged_tree_hash()
+    if current is None:
+        return False  # cannot fingerprint the tree → no sentinel is verifiable
     cutoff = time.time() - REVIEW_FRESHNESS_SECONDS
     for d in _sentinel_dirs():
         for path in glob.glob(os.path.join(d, "claude-review-done-*")):
             try:
-                if os.path.getmtime(path) > cutoff:
-                    return True
+                if os.path.getmtime(path) <= cutoff:
+                    continue
+                content = Path(path).read_text().strip()
             except OSError:
                 continue
+            m = TREE_TOKEN_RE.match(content)
+            if not m:
+                continue  # legacy bare-timestamp / malformed → never a wildcard
+            if m.group(1) == current:
+                return True
     return False
-
-
-def mark_review_done() -> None:
-    review_marker_path().write_text(str(os.getpid()))
 
 
 def staged_file_count() -> int:

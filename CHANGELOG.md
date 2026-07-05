@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.59.0] - 2026-07-06
+
+**Ось 1 (Harness engineering) / G-001 — diff-bound review-sentinel.** The review commit gate (`check-review-before-commit.sh`) previously unblocked a >2-file `git commit` on *any* fresh `claude-review-done-*` sentinel (bare timestamp), so a stale review (content edited since) or a sentinel from an unrelated project wildcarded the gate. It is now **bound to `tree:<git-write-tree>`** — the SHA of the exact staged content — and unblocks only a commit whose staged tree matches. Closes the wildcard hole; fails **closed** when git cannot fingerprint the tree (no re-opened bypass). No new/removed skill or hook — counts stay 40/10/24.
+
+### Changed
+
+- **`hooks/check-review-before-commit.sh`** — `review_was_done()` now requires the sentinel content to equal `tree:<current-staged-tree>` (via new `staged_tree_hash()` → `git write-tree`). Bare-timestamp / malformed sentinels are rejected (no wildcard). Fail-closed on git fault (deny, re-require /review) — a foreign `tree:` token can no longer slip through on a git error.
+- **`hooks/record-agent-skill.sh`** — writes the review sentinel for the delegated `code-reviewer` subagent as `tree:<hash>` (bound), matching what the gate computes at commit time; other skills keep the plain timestamp (they feed existence-based gates).
+- **`skills/review/SKILL.md`** — Step 5 writes `tree:$(git write-tree)` instead of a bare timestamp (timestamp fallback only on genuine git error).
+
+### Tests
+
+- **`tests/verify_review_sentinel_diffbind.py`** (new, 12 checks) — real deny(exit 2)/allow(exit 0) exercises: foreign/stale/legacy sentinels denied, matching tree allowed, staleness re-block, end-to-end via the recorder, and a fail-closed regression guard (git-fault + foreign sentinel → not done).
+- **`tests/verify_agent_review_sentinel.py`** — `run_record` gained `cwd` so the end-to-end case binds to the test repo's tree (models runtime: delegated review + commit share the repo). Still 10/10; DoD gate 19/19 (existence-based, unaffected).
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.

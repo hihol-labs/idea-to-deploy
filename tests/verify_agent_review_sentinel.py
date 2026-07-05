@@ -61,7 +61,12 @@ def sentinel_exists(skill):
     return any(os.path.exists(p) for p in sentinel_paths(skill))
 
 
-def run_record(tool_name, subagent_type=None):
+def run_record(tool_name, subagent_type=None, cwd=None):
+    # cwd matters since v1.59.0: for the /review skill the recorder writes a
+    # `tree:<git-write-tree>` sentinel bound to the repo it runs in, and the
+    # commit gate later matches it against that same repo's staged tree. At
+    # runtime the delegated review and the commit share the project repo, so
+    # the end-to-end cases below pass cwd=repo to model that.
     ti = {}
     if subagent_type is not None:
         ti["subagent_type"] = subagent_type
@@ -69,7 +74,7 @@ def run_record(tool_name, subagent_type=None):
     env = dict(os.environ)
     env["CLAUDE_SESSION_ID"] = SID
     return subprocess.run(
-        ["python3", REC_HOOK], input=payload,
+        ["python3", REC_HOOK], input=payload, cwd=cwd,
         capture_output=True, text=True, env=env,
     ).returncode
 
@@ -170,7 +175,7 @@ def main():
     repo = make_repo_with_n_staged(3)
     try:
         before = run_gate(REVIEW_HOOK, repo)
-        run_record("Agent", "code-reviewer")
+        run_record("Agent", "code-reviewer", cwd=repo)  # v1.59.0: bind to this repo's tree
         after = run_gate(REVIEW_HOOK, repo)
         check("review gate DENIES >2 files before agent (exit 2)", before == 2)
         check("review gate ALLOWS >2 files after code-reviewer agent (exit 0)",
