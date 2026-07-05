@@ -259,9 +259,21 @@ def is_readonly_bash(payload: dict) -> bool:
         r"printf|which|type|command|stat|file|tree|du|df|env|whoami|hostname|"
         r"date|realpath|readlink|dirname|basename|awk|cut|sort|uniq|column|jq|"
         r"sed\s+-n|cd|sleep|true|diff|md5sum|sha\d*sum|"
+        # test-runners: running a suite is verification recon, not entering a new
+        # task (v1.54.0, Release E1). Narrow on purpose — bare `pytest`,
+        # `python[3] -m pytest` / `python[3] tests/…`, `npm test` / `npm run test`,
+        # `go test`. `python app.py`, `npm run build`, `npm run dev` etc. stay
+        # gated (they run product code, not the suite). Evidence: 691 ceremony
+        # SKILL_BYPASS records this session, dominated by verification/recon.
+        r"pytest\b|python3?\s+(?:-m\s+pytest\b|tests/\S+)|npm\s+(?:test|run\s+test)\b|"
+        r"go\s+test\b|"
         # gh: read-only subcommands only — merge/create/edit/close stay gated
         r"gh\s+(pr|run|issue|release)\s+(view|list|checks|status|diff)|"
-        r"git\s+(status|log|diff|show|branch\b(?!\s+(-[dDmMf]|--delete|--move|--force))|"
+        # git: optional `-C <dir>` prefix, then a read-only subcommand (v1.54.0,
+        # Release E1 — `git -C <path> status|log|…` is the same read-only recon;
+        # a non-read-only sub after `-C` still fails and stays gated).
+        r"git\s+(?:-C\s+\S+\s+)?(status|log|diff|show|"
+        r"branch\b(?!\s+(-[dDmMf]|--delete|--move|--force))|"
         r"remote\b(?!\s+(add|remove|rename|set-url))|rev-parse|ls-files|describe|"
         r"blame|shortlog|config\s+--get))\b"
     )
