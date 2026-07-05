@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: 'Auto-pipeline: runs the full methodology chain (discover → blueprint → kickstart → review → test) with minimal human intervention. Inspired by GSD auto mode.'
+description: 'Auto-pipeline: runs the full methodology chain (discover → blueprint → kickstart → review → test) autonomously under the methodology mechanical gates (review-before-commit, DoD, careful, the native permissions.ask matrix) — it never performs an outward/irreversible action itself (no deploy, no push, no PR; stops at a local commit). Inspired by GSD auto mode.'
 argument-hint: project idea or description (same as /kickstart)
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash Skill
@@ -18,6 +18,16 @@ metadata:
 
 
 # Autopilot
+
+> **When to use — prefer `/kickstart` by default.** `/kickstart` runs the same
+> full lifecycle in the **main context**, where the methodology's mechanical
+> gates (review-before-commit, DoD, careful, permission-ask) always apply — that
+> is the safe, recommended path for "idea → built product". Reach for
+> `/autopilot` only for a **deliberate hands-free greenfield spike**, where you
+> knowingly want the chain to auto-advance through review + test. Autopilot adds
+> the auto-advance and the boundary below; it does not add capability over
+> `/kickstart`. This is an explicit, opt-in command (`disable-model-invocation`)
+> — the router never picks it for you.
 
 
 ## Trigger phrases
@@ -69,6 +79,41 @@ Proceed? (да/нет)
 
 Wait for explicit confirmation before proceeding.
 
+### Safety model — the harness enforces, autopilot does not babysit (v1.58.0)
+
+Autopilot auto-advances through the phases — that autonomy is the point, and it
+is **harness-aligned by design**: safety lives in the methodology's MECHANICAL
+gates, not in a human "да/нет" between every phase (that would duplicate the
+harness and defeat the autonomy). The enforcement hooks fire on **every**
+tool call regardless of which skill is orchestrating, so the risky edges stay
+closed under autopilot exactly as they do in manual work:
+
+- `check-review-before-commit.sh` blocks a multi-file commit without `/review`;
+- `check-dod-before-commit.sh` blocks a commit with a migration/payments/auth
+  signal that skipped the matching skill;
+- `careful.sh` + the native `permissions.ask` matrix prompt before deploy /
+  destructive / egress commands;
+- `pii-egress-guard.sh` denies a secret leaving the box.
+
+So autopilot does **not** invent its own per-phase checkpoints. What it owns is a
+single hard **boundary** at the irreversible / outward-facing edge:
+
+- **Autopilot never performs an outward/irreversible action itself** — no deploy,
+  no `git push`, no `gh pr create`. It stops at "generated + reviewed + committed
+  locally" and hands those steps to the user (Step 6 lists them). This is a
+  boundary the skill owns, not a checkpoint it re-asks each phase.
+- **`context: fork` caveat.** If a forked skill context does not inherit the
+  settings.json enforcement hooks, the mechanical gates above may not fire inside
+  autopilot. The boundary is what makes this safe regardless: because autopilot
+  itself performs no deploy/push/PR, the un-gated path can only ever reach a
+  local commit — never an outward action — even in the worst case.
+- **Cost.** A full pipeline is token-heavy; `hooks/cost-tracker.sh` ASKs at the
+  ceiling. Surface that to the user rather than pushing through it.
+
+If the user asks for true unattended execution *including* deploy/push, that
+crosses the boundary above — decline it and point at running the deploy step
+themselves (or `/kickstart` directly for the one-shot lifecycle).
+
 ### Step 1: Discovery phase
 
 Invoke `/discover` with the user's input:
@@ -92,7 +137,7 @@ Invoke `/blueprint` with DISCOVERY.md as input:
 
 Invoke `/kickstart` with the generated plans:
 - /kickstart auto-detects architecture + implementation plan
-- This is the longest phase — code generation, tests, deployment config
+- This is the longest phase — code generation, tests, deployment config (config is *generated*, not deployed — the no-auto-deploy boundary above still holds)
 - **Checkpoint:** Run `/session-save` after each kickstart sub-phase (Phase 2, 3, 4)
 
 **On error:** This is the most error-prone phase. Report to user with specific error. Do NOT auto-retry more than once.
@@ -180,7 +225,9 @@ Skip Phase 1 (/discover). Start directly from /blueprint with user's input.
 
 - NEVER proceed to the next phase if the current phase failed
 - ALWAYS checkpoint with /session-save between phases (crash resilience)
-- ALWAYS ask for user confirmation before starting the pipeline
+- ALWAYS ask for user confirmation before STARTING the pipeline (auto-advance between phases afterward is intended — safety comes from the mechanical harness, not per-phase prompts; see «Safety model»)
+- NEVER perform an outward/irreversible action from autopilot itself — no deploy, no `git push`, no `gh pr create`. Stop at a local commit and hand those to the user
+- `/review` is a HARD gate: never advance past it on a failing review (mechanically backstopped by `check-review-before-commit.sh`)
 - If any phase takes longer than expected, report progress to the user
 - The user can interrupt at any time — respect interruptions immediately
 - Do not combine phases — run them sequentially for clarity

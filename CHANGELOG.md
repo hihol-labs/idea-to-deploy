@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.58.0] - 2026-07-05
+
+**Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.
+
+### Changed
+
+- **`skills/autopilot/SKILL.md` — safety model reframed in harness terms; honest description; explicit boundary.** The old description ("minimal human intervention") oversold hands-free autonomy and understated the gates. Rewrote it around the actual safety model: autopilot auto-advances (that autonomy is the point and is harness-legitimate), and safety comes from the methodology's **mechanical gates** (`check-review-before-commit`, `check-dod-before-commit`, `careful`, `permission-ask`, `pii-egress-guard`) which fire on every tool call regardless of the orchestrating skill — **not** from human "да/нет" between phases. Autopilot owns exactly one hard **boundary**: it never performs an outward/irreversible action itself (no deploy, no `git push`, no `gh pr create`) — it stops at a local commit and hands those to the user. Added an explicit `context: fork` caveat: if a forked context does not inherit the enforcement hooks, the boundary still keeps the worst case to a local commit. Added a "prefer `/kickstart`" steer at the top (same lifecycle, main context, gates always apply; autopilot only for a deliberate hands-free greenfield spike) — turning the redundancy into a clear human choice instead of a trap. `/review` stays a hard gate (mechanically backstopped). Docs-only; no behavior/count change.
+
+---
+
 ## [1.57.0] - 2026-07-05
 
 **Release D2 — routing eval + CI gate for the de-prescribed skills.** Wave 2, next plan item after D1's two de-prescriptions. The audit's "evals for skills with false-match history" made concrete: D1's fixes were measured only *locally* — `verify_routing.py` was **not wired into any CI workflow**, so a re-broadened trigger would keep 100% accuracy while silently re-introducing the ambiguity the de-prescription removed. D2 closes that gap. No new hook/agent/skill — counts stay 40/10/24.
