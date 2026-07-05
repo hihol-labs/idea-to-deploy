@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.4.0
   category: code-quality
   tags: [refactoring, clean-code, readability]
 ---
@@ -49,6 +49,21 @@ echo "/path/to/refactor/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID
 ```
 
 This prevents accidental edits outside the refactoring scope. The freeze is cleared when the skill completes. If the refactoring legitimately requires changes outside the frozen scope (e.g., updating callers), the freeze hook will warn and ask for confirmation.
+
+### Step 0.5: Optional worktree isolation for a large file-only refactor (v1.4.0)
+
+For a **large, file-only** refactor (multi-file rename / extract / move, no behaviour change), you may upgrade from the soft freeze to hard **git-worktree isolation**: do the whole refactor in a throwaway worktree, verify green there, and merge back only on success — the main working tree is never touched until then. This is **opt-in**, not the default.
+
+Use it when the user asks for an isolated/worktree refactor, or offer it for a large file-only job. For a small in-place edit, the Step 0 freeze is enough — do not spin a worktree for a two-line change.
+
+**Read `references/worktree-isolation.md`** for the full procedure and the hook path-assumption audit (all 24 hooks are worktree-safe — repo-root detection finds `.claude-plugin/plugin.json` in the worktree, sentinels are session-scoped). The shape:
+
+1. Preconditions (git repo, worktree-capable git, ideally a clean tree). If ANY fails → **fall back to the Step 0 freeze path and say why in one line**. Never hard-fail the refactor because a worktree could not be created (harness best-effort invariant — worktree isolation transports the intent, it is not the contract).
+2. `git worktree add <path> -b refactor/<name>` off HEAD; make ALL edits against paths under the worktree.
+3. Run the project's tests **inside the worktree** (the green baseline is the gate). On green, **commit inside the worktree** (`git -C <wt> add -A && git -C <wt> commit`) — that commit is what step 4 merges back; without it the merge is a silent no-op that loses the work.
+4. On green → `git merge --ff-only` (or `--no-ff`) the branch into the working branch, then `git worktree remove` + delete the branch. **If the merge conflicts** (the working branch diverged and overlaps), `git merge --abort` and drop to the freeze path, keeping the branch/worktree so the verified work is not lost. On red (nothing committed) → `git worktree remove --force` and discard; the main tree stays pristine.
+
+Behaviour-changing refactors are out of scope for this mode (they need `/test` first, Rule 2) — worktree isolation is only for structure-preserving, file-only work.
 
 ### Step 1: Analyze
 Read the code, understand its purpose and ALL callers/usages.

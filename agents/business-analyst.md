@@ -2,7 +2,7 @@
 name: business-analyst
 description: 'Product discovery specialist — market analysis, user personas, competitor research, feature prioritization (MoSCoW + RICE). Read-only analysis, does not write files.'
 model: opus
-effort: high
+effort: medium
 maxTurns: 20
 allowed-tools: Read Grep Glob
 report_only: true

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.52.0] - 2026-07-05
+
+**Fable 5 adoption, release B — safety + calibration** (order A→C→B→D). Three changes: stronger isolation for large refactors, the data-sensitive gate applied to memory consolidation, and effort-tier calibration across the subagents. No new hook — the hook count stays 24.
+
+### Added
+
+- **`skills/refactor/references/worktree-isolation.md` + `/refactor` Step 0.5 — opt-in git-worktree isolation** for large, file-only refactors: do the whole refactor in a throwaway worktree, verify green there, merge back only on success — the main working tree is never touched until then. **Opt-in, not the default**; graceful fallback to the existing `freeze.sh` scope guard when a worktree can't be created (not a git repo, old git, dirty tree, user declines). Worktree isolation transports the "don't corrupt the working tree" intent — it is not the contract (harness best-effort invariant).
+- **Hook path-assumption audit (precondition, documented in the same reference).** All 24 hooks are worktree-safe: repo-root detection walks up to `.claude-plugin/plugin.json` (a worktree checks it out), and sentinels are keyed on `session_id`, not path. Two benign path-coupled cases (`execution-trace.sh` traces land in the transient worktree; `handoff-readiness.sh` may soft-nag on the dirty worktree) degrade, never break.
+- **`tests/verify_worktree_hook_safety.py` — audit invariant test**, wired into windows-verify CI. Drives the commit gate's actual `find_repo_root(start)` against a REAL git worktree (fidelity), asserting the repo root resolves from inside the worktree and from a nested dir, with a non-repo control. SKIPs gracefully if git is unavailable (falls back to a simulated checkout for the walk-up assertions).
+- **`docs/AGENT_EFFORT_TIERS.md`** — the per-role effort-tier framework (role class → effort), the durable rationale for the calibration below.
+
+### Changed
+
+- **Per-role effort tiers across the 10 subagents.** Before: almost every agent at `high` (no cost differentiation). After: verify/judge/design/deep-analysis (`code-reviewer`, `security-reviewer`, `devils-advocate`, `architect`, `perf-analyzer`, `test-generator`) stay `high`; gather/advise (`researcher` high→medium, `business-analyst` high→medium) drop to `medium`; mechanical `doc-writer` medium→low. `test-generator` stays `high` on purpose — its output gates everything else. `effort` is a per-call override via the Agent tool, so the frontmatter value is a default, not a floor.
+- **`skills/session-save/SKILL.md` — memory consolidation is now approval-diff-only.** `MEMORY.md` and the session files are durable state, so running `anthropic-skills:consolidate-memory` follows the data-sensitive gate (harness best-effort invariant): model changes read-only → show the before/after diff of which facts are dropped/merged → explicit human approval → only then write. Never a blind rewrite, never an out-of-band writer. The gate is ITD's, not optional.
+- **`plugin.json` / `marketplace.json` / README badges → 1.52.0.**
+
+### Decided (not implemented — backlog with triggers)
+
+- Release D — strictly retro-evidence-gated (skill de-prescription A/B one at a time; SendMessage fix→re-review within one session, advice-only; evals for 2–3 skills with false-match history).
+- Drift-guard hardening (from the C review): `verify_registration_and_counts.py` / M-C15 miss loose/spelled-out count mentions in README prose — fold into a retro fix.
+
+---
+
 ## [1.51.0] - 2026-07-05
 
 **Fable 5 adoption, release C — the review pack.** Three coupled upgrades to the review gate, taken before B/D flow through it (order A→C→B→D, decided 2026-07-05). The gate now collects findings for recall, filters them adversarially, and hands downstream a machine-readable verdict — with a mechanical stop-gate so the machine-readable part is never silently dropped. Battle-tested on this release's own review cycle.

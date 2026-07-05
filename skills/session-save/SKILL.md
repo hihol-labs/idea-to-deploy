@@ -163,11 +163,18 @@ Add a line to `MEMORY.md` in the same memory directory:
 
 If `MEMORY.md` doesn't exist, create it with the first entry.
 
-> **Memory hygiene (periodic).** When `MEMORY.md` or the memory dir grows large or
-> accumulates duplicate/stale facts, run the `anthropic-skills:consolidate-memory` skill
-> to merge duplicates, fix stale entries, and prune the index — keep it in-session and
-> reviewed, never an out-of-band writer (ADR-001 async-memory note). idea-to-deploy does
-> not build its own consolidation engine; it delegates to that skill.
+> **Memory hygiene (periodic) — approval-diff mode only (v1.52.0).** When `MEMORY.md`
+> or the memory dir grows large or accumulates duplicate/stale facts, run the
+> `anthropic-skills:consolidate-memory` skill to merge duplicates, fix stale entries,
+> and prune the index. `MEMORY.md` and the session files are **durable state** — the
+> consolidation follows the data-sensitive gate (global CLAUDE.md, harness best-effort
+> invariant): **model the changes read-only first → show the before/after diff → get
+> explicit human approval → only then write.** Never a blind rewrite, never an
+> out-of-band/async writer (ADR-001 async-memory note): a merge that silently drops a
+> fact is worse than a slightly stale index. Concretely — before applying, surface the
+> proposed deletions/merges as a diff (which facts are being removed or rewritten, and
+> why), and wait for the user's go. idea-to-deploy does not build its own consolidation
+> engine; it delegates to that skill, but the approval-diff gate is ITD's, not optional.
 
 ### Step 4.5: Write active-session lockfile (v1.5.0)
 
