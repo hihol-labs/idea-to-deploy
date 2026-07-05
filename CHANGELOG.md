@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.54.0] - 2026-07-05
+
+**Release E — usability fix-pack (wave 1 of the 2026-07-05 `/advisor` effectiveness audit, grade A−).** Three evidence-backed items: E1 shrinks the biggest ceremony source (691 SKILL_BYPASS this session), E2 makes two subagent contracts honest about their tools, E3 records a keep-with-justification decision for the three "silent" hooks and closes a hook-doc gap the drift-guard never caught. No new hook/agent/skill — counts stay 40/10/24.
+
+### Changed
+
+- **E1 — `check-tool-skill.sh` read-only allowlist now exempts test-runners and `git -C <dir>`.** Evidence: **691 SKILL_BYPASS records this session, all Bash**, dominated by verification/recon; a forked `/advisor` was blocked 3/3 on read-only work. Running a suite is verification recon, not entering a new task — so `pytest`, `python[3] -m pytest` / `python[3] tests/…`, `npm test` / `npm run test`, and `go test` are now exempt, while product-code runs (`python app.py`, `npm run build`/`dev`) stay gated. `git -C <path> <read-only-sub>` (status/log/…) joins the git allowlist; a mutation after `-C` (push/commit) stays gated. Pipe-safe recon (`grep`/`find`/`ls … | head/wc/sort`, `pytest | tail`) is regression-locked, and a read-only leader still cannot smuggle a mutation through a pipe (`grep … | xargs rm` stays gated). Test: `verify_v147_fixes.py` (+21 cases, 47 total).
+
+### Fixed
+
+- **E3 (doc-gap) — 6 of 24 hooks were missing from the `hooks/README.md` table though the count claimed 24.** The table documented only 18; three of the missing six are **wired by default in the `/adopt` template** (`risk-score.sh`, `cost-tracker.sh`, `pii-egress-guard.sh`) yet were undiscoverable. Added all six — `pii-egress-guard.sh` to the safety-guardrails table, and a new "Budget, observability & session-management" table for `cost-tracker`/`risk-score`/`crash-recovery`/`context-aware`/`stuck-detection`. The `24 hooks` claim now matches the table. (The numeric drift-guard passed on `24` — it never asserted table-completeness; that assertion is a backlog candidate, deferred as a new mechanism.)
+
+### Contracts
+
+- **E2 — `ux-reviewer` and `researcher` agent contracts reconciled with their tools (audit Important).** Both forks carry `allowed-tools: Read Grep Glob`, but their contracts implied they gather browser/web evidence themselves. Both now state explicitly that **the caller supplies the evidence** — `ux-reviewer` reviews `/browser-check` Playwright output (screenshots, a11y snapshots); `researcher` synthesizes `/market-scan` (last30days) / `/mcp-docs` (Context7) output — and if the needed evidence is absent, the agent must say so under "Unverified" (never fabricate) and recommend the caller run the tool and re-invoke. Tools now match responsibilities; the description frontmatter was updated to match.
+
+### Decided (evidence-backed, E3)
+
+- **Keep all three "silent" hooks — evidence attached, none deregistered.** `context-budget.sh`: fired live this session on real `cat`/recon commands → proven value, keep (opt-in). `execution-trace.sh`: injects **nothing** into context (zero context-budget cost by construction) → keep as opt-in observability. `risk-score.sh`: wired by default, conservative (escalates once per `ITD_RISK_THRESHOLD`=12 worth of accrued risk), catches the "death by a thousand edits" drift binary gates miss → keep, and now documented (it was the doc-gap above).
+
+---
+
 ## [1.53.0] - 2026-07-05
 
 **The first live `/retro` cycle, implemented.** `/retro` ran over the harness telemetry (SKILL_BYPASS ledger, cost, VCR) plus this session's external signals (real review findings, a reviewer stall, drift-guard holes) and produced `docs/retros/RETRO-2026-07-05.md`. The human accepted all four evidence-backed candidates; this release implements them. No new hook/agent — counts stay 40/10/24.

@@ -115,6 +115,34 @@ def main() -> int:
     check("#2 git branch -d NOT read-only", not ro(bash("git branch -d x")))
     check("#2 git remote add NOT read-only", not ro(bash("git remote add o url")))
 
+    # --- v1.54.0 Release E1: test-runners + git -C + pipe-safe ---
+    # Test-runners are verification recon, exempt; product-code invocations stay gated.
+    check("E1 pytest exempted", ro(bash("pytest -q")))
+    check("E1 bare pytest exempted", ro(bash("pytest")))
+    check("E1 python3 -m pytest exempted", ro(bash("python3 -m pytest tests/")))
+    check("E1 python3 tests/verify exempted", ro(bash("python3 tests/verify_v147_fixes.py")))
+    check("E1 python -m pytest exempted", ro(bash("python -m pytest")))
+    check("E1 npm test exempted", ro(bash("npm test")))
+    check("E1 npm run test exempted", ro(bash("npm run test")))
+    check("E1 go test exempted", ro(bash("go test ./...")))
+    check("E1 python app.py NOT exempt (runs product code)", not ro(bash("python3 app.py")))
+    check("E1 npm run build NOT exempt", not ro(bash("npm run build")))
+    check("E1 npm run dev NOT exempt", not ro(bash("npm run dev")))
+    # git -C <dir> <read-only-sub> is the same recon; a mutation after -C stays gated.
+    check("E1 git -C status exempted", ro(bash("git -C /repo status --short")))
+    check("E1 git -C log exempted", ro(bash("git -C /home/x log --oneline -5")))
+    check("E1 git -C push still gated", not ro(bash("git -C /repo push origin main")))
+    check("E1 git -C commit still gated", not ro(bash("git -C /repo commit -m x")))
+    check("E1 wsl-wrapped pytest exempted",
+          ro(bash("wsl -e bash -lc 'cd /repo && python3 -m pytest'")))
+    # Pipe-safe recon: a read-only leader piped into head/wc/sort (regression lock).
+    check("E1 grep | head pipe-safe", ro(bash("grep -r foo src | head -50")))
+    check("E1 find | wc pipe-safe", ro(bash("find . -name '*.py' | wc -l")))
+    check("E1 ls | sort pipe-safe", ro(bash("ls -la | sort")))
+    check("E1 pytest | tail pipe-safe", ro(bash("pytest -q | tail -20")))
+    # A read-only leader must NOT smuggle a mutation through a pipe (xargs rm).
+    check("E1 grep | xargs rm still gated", not ro(bash("grep -rl foo . | xargs rm")))
+
     # --- #3 pre-flight events.jsonl hint ---
     with tempfile.TemporaryDirectory() as td:
         proj = Path(td)
