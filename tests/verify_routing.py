@@ -118,9 +118,18 @@ def run(repo: Path) -> dict:
         pid = p.get("id", "?")
         text = p.get("text", "")
         expected = p.get("expectedSkill", "")
+        # `exclusive` prompts (v1.57.0, Release D2 eval): the router must reach
+        # the expected skill AND nothing else. This is a regression guard for
+        # skills whose over-broad triggers were de-prescribed in D1 — without it
+        # a re-broadened trigger keeps 100% accuracy (expected still in routed)
+        # while silently re-introducing the ambiguity the de-prescription removed.
+        exclusive = bool(p.get("exclusive"))
         routed = route(text, triggers, skills)
         bad_expected = expected not in skills
-        correct = (not bad_expected) and (expected in routed)
+        if exclusive:
+            correct = (not bad_expected) and routed == [expected]
+        else:
+            correct = (not bad_expected) and (expected in routed)
         results.append(
             {
                 "id": pid,
@@ -129,6 +138,7 @@ def run(repo: Path) -> dict:
                 "routed": routed,
                 "correct": correct,
                 "ambiguous": len(routed) > 1,
+                "exclusive": exclusive,
                 "expected_is_unknown_skill": bad_expected,
             }
         )
@@ -188,6 +198,13 @@ def main() -> int:
         for f in report["failures"]:
             if f["expected_is_unknown_skill"]:
                 detail = f"expectedSkill '{f['expected']}' is not a real skill under skills/"
+            elif f.get("exclusive") and f["expected"] in f["routed"]:
+                others = ", ".join(s for s in f["routed"] if s != f["expected"])
+                detail = (
+                    f"/{f['expected']} must route EXCLUSIVELY, but also co-fired: "
+                    f"{others} — a de-prescription regression (D1/D2 exclusivity eval); "
+                    f"re-narrow the over-broad trigger in hooks/check-skills.sh"
+                )
             else:
                 got = ", ".join(f["routed"]) if f["routed"] else "(no skill matched)"
                 detail = f"expected /{f['expected']}, routed to: {got}"

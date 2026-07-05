@@ -130,8 +130,13 @@ def load_hook_triggers(hook_path: Path) -> list[tuple[str, str]]:
     as Python (it is Python despite the .sh extension)."""
     import importlib.util
     import shutil
+    import tempfile
 
-    tmp = Path("/tmp") / "_check_skills_import.py"
+    # tempfile.gettempdir(), not a hardcoded "/tmp" — otherwise this blows up on
+    # the native-Windows CI leg (`\tmp\...` does not exist). verify_triggers ran
+    # only on Ubuntu until v1.57.0 wired verify_routing (which imports this
+    # loader) into windows-verify.yml, which surfaced the latent bug.
+    tmp = Path(tempfile.gettempdir()) / "_check_skills_import.py"
     shutil.copy(hook_path, tmp)
     spec = importlib.util.spec_from_file_location("_check_skills_import", tmp)
     if spec is None or spec.loader is None:

@@ -54,5 +54,7 @@ jobs:
         run: python tests/verify_registration_and_counts.py
       - name: Skill contract profiles
         run: python scripts/verify_skill_profiles.py
+      - name: Routing-accuracy benchmark + exclusivity eval (v1.57.0, D2)
+        run: python tests/verify_routing.py
       - name: Meta-review rubric
         run: python tests/meta_review.py

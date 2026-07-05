@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.57.0] - 2026-07-05
+
+**Release D2 — routing eval + CI gate for the de-prescribed skills.** Wave 2, next plan item after D1's two de-prescriptions. The audit's "evals for skills with false-match history" made concrete: D1's fixes were measured only *locally* — `verify_routing.py` was **not wired into any CI workflow**, so a re-broadened trigger would keep 100% accuracy while silently re-introducing the ambiguity the de-prescription removed. D2 closes that gap. No new hook/agent/skill — counts stay 40/10/24.
+
+### Added
+
+- **`exclusive` benchmark flag + exclusivity assertion in `verify_routing.py`.** A prompt tagged `"exclusive": true` must route to the expected skill **and nothing else** (`routed == [expected]`), not merely reach it. This is the regression guard for a de-prescribed skill: an over-broad trigger that co-fires again fails the benchmark instead of passing silently on accuracy. Proven to have teeth (a synthetic co-firing prompt tagged exclusive fails). Tagged the two D1 de-prescriptions — `advisor-1` (advisor↔blueprint) and `obsidian-export-2` (harden↔obsidian) — locking them against silent regression.
+- **`verify_routing.py` wired into CI** (`windows-verify.yml`). The routing-accuracy benchmark (68 prompts, `--min-accuracy 1.0`) and the new exclusivity eval now run on every push/PR. Previously the whole routing benchmark was ungated — the D1 A/B measurements lived only in local runs.
+
+### Fixed
+
+- **`verify_triggers.load_hook_triggers` — hardcoded `/tmp` → `tempfile.gettempdir()`.** Wiring `verify_routing.py` (which imports this loader) into `windows-verify` immediately surfaced a latent "/tmp on Windows" bug: the loader copied `check-skills.sh` to `Path("/tmp")/...`, which fails on the native-Windows CI leg (`\tmp\...` does not exist). `verify_triggers` had only ever run on Ubuntu, so the bug was invisible until D2 exercised the shared loader on Windows — exactly the bug class `windows-verify.yml` exists to catch.
+
+---
+
 ## [1.56.0] - 2026-07-05
 
 **Release D1 — second measured A/B (advisor↔blueprint was the first).** Continuing wave 2 one A/B at a time. After D1's first change, the remaining 9 routing ambiguities were classified bug-vs-by-design: most are broad-gate co-fires that route correctly and are intentional (`/review` co-firing on the literal word "review"/"audit"; `migrate`⊂`migrate-prod` substring, already handled). This release fixes the one clean, non-by-design case. No new hook/agent/skill — counts stay 40/10/24.
