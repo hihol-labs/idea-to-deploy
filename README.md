@@ -397,7 +397,24 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **24 hooks** that close this gap (two soft reminders, hard-blocking enforcement gates including the Definition-of-Done pre-commit gate, the opt-in fail-open cross-vendor pre-commit review, one pre-flight context loader, a session-end handoff-readiness detector, a subagent narration-final stop-gate, a vendor-neutral verdict-contract stop-gate, and optional safety/observability hooks).
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **24 hooks** — but that number conflates two very different things. **8 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **16 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **8 hard gates, not 24**. The taxonomy below makes the split explicit so the count is never read as 24× the blocking power it actually has.
+
+### Hook taxonomy — 8 hard gates vs 16 soft (v1.59.0)
+
+| # | Hard gate (can block/deny) | Event | What it stops |
+|---|---|---|---|
+| 1 | `check-review-before-commit.sh` | PreToolUse · Bash | a >2-file `git commit` without a diff-bound `/review` (v1.59.0) |
+| 2 | `check-dod-before-commit.sh` | PreToolUse · Bash | a commit on a sensitive/payments path without the required `/security-audit` etc. |
+| 3 | `check-commit-completeness.sh` | PreToolUse · Bash | committing a `SKILL.md` without its supporting artifacts |
+| 4 | `check-skill-completeness.sh` | PreToolUse · Write/Edit | writing a `SKILL.md` without `references/`, fixtures, or trigger phrases |
+| 5 | `check-tool-skill.sh` | PreToolUse · Bash/Edit/Write | a raw mutating tool call after 3 ignored skill decisions (with a skill-active grace window) |
+| 6 | `pii-egress-guard.sh` | PreToolUse · Bash | a command that would egress secrets/PII to a third party |
+| 7 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
+| 8 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
+
+**Soft (16):** `careful`, `check-skills`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
+
+**Hard-gate coverage** — the metric that keeps the 8 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 8/16/24 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` (unit G-003) enforces coverage. **Target: 8/8.**
 
 **Recommended — one command:**
 
@@ -427,7 +444,7 @@ Then add the `hooks` block to your `~/.claude/settings.json` — full settings.j
 After installation:
 - **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — runs before every user prompt. Loads `git log`, `git status`, and the project memory index (`MEMORY.md`) into Claude's context, and warns if a parallel Claude session has touched the project in the last 10 minutes (via `.active-session.lock`). **Soft context injection — never blocks.** Prevents the v1.13.2 inci­dent class where two parallel sessions independently fixed the same drift.
 - **`check-skills.sh` (UserPromptSubmit)** — scans every prompt for ~80 Russian/English triggers and injects a `[SKILL HINT]` reminder when a skill matches. **Soft reminder — never blocks.**
-- **`check-tool-skill.sh` (PreToolUse on Bash/Edit/Write/NotebookEdit)** — injects a `[SKILL CHECK]` reminder before raw tool calls, rate-limited to one reminder per 60 seconds. **Soft reminder — never blocks.**
+- **`check-tool-skill.sh` (PreToolUse on Bash/Edit/Write/NotebookEdit)** — injects a `[SKILL CHECK]` reminder before raw tool calls, rate-limited to one reminder per 60 seconds. **Escalating hard gate (#5 above):** it reminds for the first 2 ignored skill decisions, then on the 3rd consecutive ignore (no Skill call and no `SKILL_BYPASS`) it **denies** the tool call (exit 2). A skill-active grace window and the read-only-Bash allowlist keep routine recon from tripping it.
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
