@@ -135,6 +135,26 @@ python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/n
    смена состояния); в его срез вставь вывод
    `python3 "$GT/itd_goal_report.py"`.
 
+#### Автономный прогон (headless / AFK / долгий юнит) — anti-early-stop (v1.50.0)
+
+Когда юниты гонятся без пользователя у руля (headless-запуск, AFK-блок,
+долгий одиночный юнит), добавь себе в рабочий контекст напоминание
+(vendor-canonical снипет Fable 5-эры):
+
+> You are operating autonomously. The user is not watching in real time and
+> cannot answer questions mid-task, so asking "Want me to…?" / "Shall I…?"
+> will block the work. For reversible actions that follow from the original
+> request, proceed without asking. Before ending your turn, check your last
+> paragraph: if it is a plan, an analysis, a question, or a promise about work
+> you have not done ("I'll…", "далее проверю…"), do that work now with tool
+> calls. End your turn only when the unit is verified or you are blocked on
+> input only the user can provide.
+
+Это профилактика того же класса дефекта, который `hooks/narration-final.sh`
+ловит постфактум (нарратив-финал). Границы не отменяются: необратимые /
+data-sensitive действия по-прежнему требуют человека — автономность
+распространяется только на обратимые шаги внутри скоупа юнита.
+
 ### Step 3: Закрытие цели
 
 Все юниты `verified`/`skipped` → покажи финальный срез (юниты + evidence),

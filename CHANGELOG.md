@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.50.0] - 2026-07-05
+
+**Fable 5 adoption, release A — vendor-canonical snippets + the harness best-effort invariant.** External signal (model-generation change), routed through /advisor (ROI panel) + red-team stress-test on 2026-07-05: four zero-risk snippet adoptions from Anthropic's official Fable 5 migration guidance, plus the cross-cutting invariant the red team demanded as a precondition for every later harness-feature adoption (releases B/C/D stay in the backlog, gated on retro evidence).
+
+### Added
+
+- **`docs/templates/global-claude-md.md` — Always #7 «Grounded progress claims».** Vendor-canonical snippet: every progress claim must be auditable against a tool result from the session; unverified work is declared as such. Global — applies to all skills, not just `/goal` (which already lived by it via the ОТК-verifier).
+- **`docs/templates/global-claude-md.md` — «Harness-native features — best-effort invariant» section** (inside the ITD:BEGIN/END managed block, so it rolls out with sync). Two rules: (1) a harness-native feature may transport a methodology contract, never be it — no gate/`verified`/handoff depends on a specific tool-call, contracts stay vendor-neutral; (2) egress goes through the cross-review-grade scrubber + human confirmation, durable-state mutation follows the data-sensitive gate, background harness agents are read-only reporters. This is the red-team's cross-cutting blocker, now standing policy.
+- **`skills/goal/SKILL.md` — autonomous-run reminder (Step 2)** for headless/AFK unit driving: proceed on reversible in-scope actions without asking, self-check the last paragraph for narration-finals before ending a turn. Prevention-side twin of `hooks/narration-final.sh` (which stays as the postfactum detector); data-sensitive boundary explicitly preserved.
+- **`skills/_shared/helpers.md` §8 «Delegation Intent Template».** Every subagent spawn carries three intent lines (what larger task, for whom, what the result unblocks) — Fable 5-era models measurably improve with intent context; plus two companion rules: prescriptive WHEN-triggers for tools/skills, and the report-back contract (outcome first, evidence attached, «Не успел проверить» tail).
+- **`tests/verify_fable_snippets.py` — 28 structural checks**, wired into windows-verify CI. Positional, not substring-only: grounded-claims must be a numbered item inside `## Always`; the invariant section must sit inside the managed ITD block (sync only propagates that block); the goal reminder must live between Step 2 and Step 3; caveman's Fable note must precede Auto-Clarity and keep lite as default.
+
+### Changed
+
+- **`skills/caveman/SKILL.md` — Fable 5-class note in Intensity.** On Fable 5-era models, `full`/`ultra`/`wenyan-*` stay acceptable for working inter-tool-call messages but never for the final summary of a long task (vendor guidance bans arrow chains / invented abbreviations there — fighting the training degrades quality). Final summary auto-drops to `lite`, treated as an Auto-Clarity case.
+
+### Decided (not implemented — backlog with triggers)
+
+- Release C (review pack: coverage-first finder + refute-verifier + vendor-neutral JSON verdict contract) — next unit, goes through its own battle-test cycle.
+- Release B (worktree isolation for file-only `/refactor` after a hook path-assumption audit; consolidate-memory in approval-diff mode only; per-role effort tiers) — after C.
+- Release D (skill de-prescription A/B one at a time; SendMessage fix→re-review within one session, advice-only; evals for 2–3 skills with false-match history) — strictly retro-evidence-gated.
+- Rejected outright (red team): Artifact publishing of review/retro reports (secret egress), background harness agents with mutation rights, spawn_task chips as a BACKLOG.md replacement.
+
+---
+
 ## [1.49.0] - 2026-07-04
 
 **The narration-final anti-pattern gets a mechanical detector — prompt-level contracts demonstrably don't hold.** Retro signal #1 (evidence ×5): during the single v1.48.0 release review, the code-reviewer subagent ended its message on «Now check…»/«Далее проверю…» five times — AFTER the named anti-pattern was written into the agent contract in v1.47.0. Same class of fix as `handoff-readiness.sh`: computational detect, minimal intervention, never a prompt plea.
