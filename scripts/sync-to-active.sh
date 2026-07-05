@@ -263,6 +263,10 @@ fi
 #     detector: blocks a subagent's stop (≤2 pings) when its final message
 #     ends on process narration with no verdict; retro signal ×5 — the
 #     prompt-level contract alone did not fix this class)
+#   SubagentStop → verdict-contract.sh  (v1.51.0 — vendor-neutral verdict
+#     contract: blocks a subagent's stop (≤2 pings) when its final message
+#     declares a review verdict in prose but ships no valid ```json verdict
+#     block; complementary to narration-final on the same event, no loop)
 
 DESIRED_HOOKS=$(cat <<'JSON'
 {
@@ -342,7 +346,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
   "SubagentStop": [
     {
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/narration-final.sh", "timeout": 10 }
+        { "type": "command", "command": "~/.claude/hooks/narration-final.sh",  "timeout": 10 },
+        { "type": "command", "command": "~/.claude/hooks/verdict-contract.sh", "timeout": 10 }
       ]
     }
   ]
