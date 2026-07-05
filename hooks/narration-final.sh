@@ -63,13 +63,24 @@ MAX_PINGS_DEFAULT = 2
 # almost certainly content, not an announcement — stay silent on those.
 MAX_FINAL_PARA_LEN = 400
 
-# Opener at the very start of the final paragraph + a check-verb within the
-# next couple of words. Kept deliberately narrow: a false BLOCK costs a whole
-# extra subagent turn, a false pass costs one manual ping.
+# Opener at the very start of the final paragraph (or its LAST sentence) + a
+# check/deliverable-verb within the next couple of words. Kept deliberately
+# narrow: a false BLOCK costs a whole extra subagent turn, a false pass costs
+# one manual ping.
+# v1.53.0 (retro 2026-07-05, P3): added the "time to …" opener and the SINGLE
+# evidenced verb refute (+ RU опроверг), and the match now also probes the LAST
+# sentence of the final paragraph. Evidence: a reviewer ended on «Now I have
+# full coverage. Time to refute my own findings before reporting.» — the
+# narration sits in the last sentence, not the paragraph start, so start-only
+# matching missed it. Deliberately NOT added: report/finalize/summarize/wrap —
+# they double as user-facing instructions («Now report back to the team», «Now
+# wrap up») and would false-block non-review subagents (review-flagged, pruned
+# to the evidenced minimum; re-expand only on a second concrete incident).
 NARRATION_RE = re.compile(
-    r"^(?:now|next|let'?s|let\s+me|далее|теперь|сейчас)[,\s]+(?:[\w-]+[\s,]+){0,2}?"
-    r"(?:check|verify|test|re-?run|run|search|look|inspect|"
-    r"провер|перепровер|запус|посмотр|глян|поищ|протест)",
+    r"^(?:now|next|let'?s|let\s+me|time\s+to|далее|теперь|сейчас)[,\s]+"
+    r"(?:[\w-]+[\s,]+){0,2}?"
+    r"(?:check|verify|test|re-?run|run|search|look|inspect|refute|"
+    r"провер|перепровер|запус|посмотр|глян|поищ|протест|опроверг)",
     re.IGNORECASE,
 )
 
@@ -206,8 +217,14 @@ def main() -> int:
     if not para or len(para) > MAX_FINAL_PARA_LEN:
         return 0
     # Strip markdown emphasis so «**Далее** проверю…» still matches.
-    probe = re.sub(r"[*_`]+", " ", para).lstrip("#>–—•- \t")
-    if not NARRATION_RE.match(probe.strip()):
+    probe = re.sub(r"[*_`]+", " ", para).lstrip("#>–—•- \t").strip()
+    # Probe the paragraph start AND its last sentence: narration often trails a
+    # status sentence («Now I have coverage. Time to refute …»), which the
+    # start-only match missed (v1.53.0 P3). The verdict-marker exemption above
+    # is the real safety net — a review that issued its verdict is never here.
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", probe) if s.strip()]
+    last = sentences[-1] if sentences else ""
+    if not (NARRATION_RE.match(probe) or NARRATION_RE.match(last)):
         return 0
     if not take_ping_slot(key, env_int("ITD_NARRATION_MAX_PINGS", MAX_PINGS_DEFAULT)):
         return 0

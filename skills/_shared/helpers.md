@@ -202,3 +202,13 @@ Two companion rules:
   value, not a user-facing chat: outcome first, evidence attached,
   «Не успел проверить: …» tail when applicable (pairs with
   `hooks/narration-final.sh`).
+- **Re-verify after BLOCKED with a FRESH narrow agent, not a resume (v1.53.0,
+  retro 2026-07-05, P4).** When a review returns BLOCKED and you fix the
+  findings, confirm the fix by dispatching a NEW subagent scoped to just the
+  changed points — do not resume the original long transcript. Evidence: a
+  resumed re-check stalled (600s watchdog, no progress) while a fresh narrow
+  agent returned PASSED in 84s. A fresh agent starts from a thin context (cheaper,
+  less stall-prone) and its verdict is independent of the finder's prior
+  reasoning — the same fresh-context property the refute pass relies on. Pass the
+  specific findings + fixed file paths by value; keep the scope to "is each prior
+  finding resolved + any new defect introduced," not a from-scratch re-review.

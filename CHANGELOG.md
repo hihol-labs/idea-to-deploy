@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.53.0] - 2026-07-05
+
+**The first live `/retro` cycle, implemented.** `/retro` ran over the harness telemetry (SKILL_BYPASS ledger, cost, VCR) plus this session's external signals (real review findings, a reviewer stall, drift-guard holes) and produced `docs/retros/RETRO-2026-07-05.md`. The human accepted all four evidence-backed candidates; this release implements them. No new hook/agent — counts stay 40/10/24.
+
+### Changed
+
+- **P1 — `check-tool-skill.sh` read-only Bash exemption now fires for `wsl -e`.** Evidence: **691 SKILL_BYPASS records this session, all Bash**, reasons dominated by read-only/verification/staging. Reading the code (not memory) refined the fix: the read-only allowlist + `wsl … bash -lc` unwrap already existed (v1.35.0/v1.47.0), but the unwrap regex only matched the long `--exec` — the far more common short `-e` form (`wsl -e bash -lc …`) never unwrapped, so a whole session of read-only recon produced ceremony bypasses. Added `-e` to the unwrap; mutations inside `wsl -e` stay gated (verified). Test: `verify_v147_fixes.py` (+3 cases).
+- **P2 — M-C15 hook-count check now parses teens + twenties (compounds).** Evidence: «семнадцать хуков» (17) sat stale in README.ru through v1.49/v1.50 (parser knew only 1-9), and «двадцать четыре хука» was misread as «четыре»=4, a false BLOCK in v1.51.0. The spelled-number parser (`num_ru`/`num_en`, now module-level in `meta_review.py`) covers 1..39 with compound parsing. New regression test `tests/verify_hook_count_words.py`, wired into CI. Residual (documented, no evidence yet): loose non-adjacent forms like «их N хуков» stay uncovered — over-match risk too high without a second signal.
+- **P3 — `narration-final.sh` widened (cautiously, pruned to evidence).** Evidence: a reviewer ended on «Now I have full coverage. Time to refute my own findings before reporting.» — the narration was in the LAST sentence, not the paragraph start, so start-only matching missed it. Added the `time to …` opener, the single evidenced verb `refute` (+ RU `опроверг`), and a last-sentence probe. The review of this very release flagged an over-widening in the first draft: `report`/`finalize`/`summarize`/`wrap` double as user-facing instructions («Now report back to the team», «Now wrap up») and false-blocked benign non-review finals — pruned to the evidenced minimum, re-expand only on a second concrete incident. Safety nets: the verdict-marker exemption (a review that issued its verdict is never blocked) + the ≤2 ping cap; `verify_narration_final.py` adds positive + false-block-guard cases (+7, including the pruned-verb guards).
+
+### Added
+
+- **P4 — helper rule: re-verify after BLOCKED with a fresh narrow agent, not a resume** (`skills/_shared/helpers.md` §8). Evidence: a resumed re-check stalled (600s watchdog) while a fresh narrow agent returned PASSED in 84s. A fresh agent starts thin (cheaper, less stall-prone) and its verdict is independent of the finder's reasoning.
+- **`docs/retros/RETRO-2026-07-05.md`** — the retro report (scan as-is + the evidence-ranked candidate table + the human decision).
+
+### Decided (not implemented — backlog with triggers)
+
+- Release D — strictly retro-evidence-gated (skill de-prescription A/B one at a time; SendMessage fix→re-review within one session, advice-only; evals for 2-3 skills with false-match history).
+
+---
+
 ## [1.52.0] - 2026-07-05
 
 **Fable 5 adoption, release B — safety + calibration** (order A→C→B→D). Three changes: stronger isolation for large refactors, the data-sensitive gate applied to memory consolidation, and effort-tier calibration across the subagents. No new hook — the hook count stays 24.

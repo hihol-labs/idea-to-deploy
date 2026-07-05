@@ -234,14 +234,18 @@ def is_readonly_bash(payload: dict) -> bool:
     if not cmd.strip():
         return False
     import re
-    # v1.47.0 (retro 2026-07-04, finding #2): unwrap `wsl.exe [-d X] [--exec]
+    # v1.47.0 (retro 2026-07-04, finding #2): unwrap `wsl.exe [-d X] [--exec|-e]
     # bash -lc "<inner>"` and judge the INNER command — on a Windows+WSL setup
     # every repo command travels in this wrapper, so the exemption never fired
     # and read-only recon produced hundreds of ceremony SKILL_BYPASS records
     # (628 in the ledger, top reason «read-only lookup»).
+    # v1.53.0 (retro 2026-07-05, P1): also unwrap the SHORT `-e` form of --exec.
+    # v1.47.0 only matched the long `--exec`, but `wsl -e bash -lc …` is the far
+    # more common spelling — it never unwrapped, so a whole session of read-only
+    # recon produced 691 ceremony SKILL_BYPASS records (all Bash) in the ledger.
     for _ in range(3):  # nested wrappers are theoretical; bound the loop
         m = re.match(
-            r"""^\s*wsl(?:\.exe)?\s+(?:-d\s+\S+\s+)?(?:--exec\s+)?
+            r"""^\s*wsl(?:\.exe)?\s+(?:-d\s+\S+\s+)?(?:(?:--exec|-e)\s+)?
                 bash\s+-l?c\s+(["'])(.*)\1\s*$""",
             cmd.strip(), re.VERBOSE | re.DOTALL,
         )
