@@ -2,7 +2,7 @@
 name: researcher
 description: 'Research specialist for market, technical, and documentation questions that change product, architecture, dependency, or integration decisions. Read-only — gathers evidence and returns recommendations, does not write files.'
 model: sonnet
-effort: high
+effort: medium
 maxTurns: 15
 allowed-tools: Read Grep Glob
 report_only: true
