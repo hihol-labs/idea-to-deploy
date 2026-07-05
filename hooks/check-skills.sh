@@ -138,7 +138,15 @@ TRIGGERS = [
         "🔔 Триггер 'review' → используй /review или субагента code-reviewer.",
     ),
     (
-        r"(спланируй|архитект|blueprint|подготовь\s+документац|спроектируй|"
+        # v1.55.0 (Release D1, advisor↔blueprint de-prescription): the bare stem
+        # `архитект` matched "варианты архитектуры" in an analysis-only prompt,
+        # so blueprint stole advisor's routing (advisor-1 was ambiguous). Narrowed
+        # to architecture-OF-a-thing (project/app/system/product/service) — keeps
+        # the canonical "архитектура проекта" phrase (verify_triggers) and genuine
+        # design prompts, but no longer fires on "сравни варианты архитектуры".
+        # Design-verb prompts ("спроектируй архитектуру") still match via `спроектируй`.
+        r"(спланируй|архитектур\w*\s+(?:проект|приложени|систем|продукт|сервис)|"
+        r"blueprint|подготовь\s+документац|спроектируй|"
         r"создай\s+документацию\s+для\s+проекта|техническое\s+задание|"
         r"\bprd\b|design\s+the\s+system|system\s+design)",
         "🔔 Триггер 'планирование/архитектура' → используй /blueprint или architect.",

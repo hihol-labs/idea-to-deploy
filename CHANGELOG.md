@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.55.0] - 2026-07-05
+
+**Release D1 — skill-overlap de-prescription (wave 2, strictly one A/B at a time).** The 2026-07-05 `/advisor` audit flagged conceptual overlaps between skills; Release D resolves them one *measured* A/B at a time (baseline → change → `verify_routing.py` re-measure → rollback on any accuracy drop). Of the three pairs the audit named (project↔task, blueprint↔strategy, advisor↔grill-me), the routing benchmark showed **none** as a measurable ambiguity — the router is already 100% accurate. D1 therefore targets the only overlap that *did* surface as measurable routing ambiguity, `advisor`↔`blueprint`, chosen on evidence rather than the plan's assumed pairs. No new hook/agent/skill — counts stay 40/10/24.
+
+### Changed
+
+- **`check-skills.sh` — blueprint's bare `архитект` trigger narrowed to architecture-of-a-thing.** The bare stem matched "варианты архитектуры" in the analysis-only benchmark prompt `advisor-1` ("Только анализ, без кода: сравни варианты архитектуры"), so `/blueprint` co-fired and stole `/advisor`'s routing (ambiguous). Narrowed to `архитектур\w*\s+(?:проект|приложени|систем|продукт|сервис)` — still matches the canonical "архитектура проекта" phrase (so `verify_triggers.py` stays green) and genuine design prompts, and design-verb prompts ("спроектируй архитектуру") still route via `спроектируй`; it no longer fires on "сравни варианты архитектуры". **A/B measured:** routing accuracy 100.0% → 100.0% (no degradation); ambiguous prompts 10 → 9 (`advisor-1` now routes to `/advisor` alone); `verify_triggers.py` reports no drift.
+
+---
+
 ## [1.54.0] - 2026-07-05
 
 **Release E — usability fix-pack (wave 1 of the 2026-07-05 `/advisor` effectiveness audit, grade A−).** Three evidence-backed items: E1 shrinks the biggest ceremony source (691 SKILL_BYPASS this session), E2 makes two subagent contracts honest about their tools, E3 records a keep-with-justification decision for the three "silent" hooks and closes a hook-doc gap the drift-guard never caught. No new hook/agent/skill — counts stay 40/10/24.
