@@ -173,6 +173,50 @@ For each check:
 
 Do NOT invent your own criteria. If the rubric does not cover something, note it in the "Additional observations" section but do not let it affect gate status.
 
+**Coverage-first collection (v1.51.0 — release C, part a).** At the finding
+stage optimise for **recall, not precision**: surface EVERY candidate issue,
+including uncertain and low-severity ones, each tagged `severity`
+(critical/important/minor) + `confidence` (high/medium/low). Do not silently
+drop a finding because it feels unsure or minor — the refute pass (Step 2.6)
+filters, not you. This does NOT touch the binary rubric or the deterministic
+gate (Rule 4): coverage-first only widens the candidate list feeding the refute
+pass and the report; gate status is still computed from the PASS/FAIL rubric
+checks alone.
+
+### Step 2.6: Refute pass — adversarially verify each surfaced finding (v1.51.0 — release C, part b)
+
+Before writing the report, put every **Critical and Important** candidate
+finding through an independent refutation. A plausible-but-wrong finding that
+survives to the report wastes the caller's time and erodes trust in the gate;
+this pass exists to kill exactly those.
+
+For each such finding, dispatch a **fresh-context** subagent via the **Agent
+tool** — `Agent(subagent_type: "code-reviewer", …)` with a **refute prompt**:
+
+- state the single finding verbatim (its `file:line`, claim, why-it-matters) and
+  instruct the agent to **REFUTE** it — read the actual code/doc and look for the
+  reason it is NOT real (guarded elsewhere, false premise, already handled, N/A
+  path). Tell it to **default to `refuted: true` under uncertainty**.
+- fresh context is load-bearing: the refuter must not inherit your reasoning, or
+  it will rubber-stamp. Pass the finding by value, the target by path — nothing
+  else.
+- the refuter returns a one-finding verdict block (`BLOCKED` = confirmed real,
+  `PASSED` = refuted). A finding refuted survives → **drop it** from the escalated
+  set (move to "Additional observations" with a `refuted` note, do not let it
+  affect gate status). A finding confirmed → keep it at its tier.
+
+Scale: for a handful of findings, verify each. For many, batch the Agent
+dispatches in one message so they run concurrently. If you cannot dispatch
+subagents in this runner (e.g. a constrained fork), do the refutation inline in
+a separate reasoning pass with the same adversarial framing and say so in the
+report ("refute pass: inline"). Minor/low findings are NOT refuted — they never
+gate, so the cost is not justified; report them as observations.
+
+**Gate interaction:** the refute pass can only REMOVE unconfirmed findings from
+escalation; it never turns a rubric-Critical FAIL into a pass. If a Critical
+rubric check itself fails, that is deterministic and stands regardless of any
+finding-level refutation (Rule 4).
+
 ### Step 3: Generate report
 
 Output the report in **exactly** the format specified at the bottom of `references/review-checklist.md` (`## Reporting format` section). The format is parseable so other skills (`/kickstart` Quality Gate 1) can consume it.
@@ -194,6 +238,31 @@ score = ((Critical_pass / Critical_total) * 0.6
        + (Nice_pass / Nice_total) * 0.1) * 10
 ```
 and is reported as **informational only** — never used for gating.
+
+**Vendor-neutral JSON verdict block (v1.51.0 — release C, part c).** End the
+report with a fenced ```json block carrying the machine-readable verdict — the
+stable contract downstream consumers parse (`/kickstart` Quality Gate 1, tiering,
+the refute-pass ledger) instead of re-parsing prose. It is plain text, not a
+harness tool-call, so it survives a vendor/version switch; a native
+`ReportFindings` call is only an OPTIONAL transport, never the contract (harness
+best-effort invariant). Emit it every run — the `verdict-contract.sh`
+SubagentStop hook blocks a prose verdict that ships without it. `findings` holds
+the **escalated** (Critical + Important, post-refute) findings; the array may be
+empty. Schema:
+
+```json
+{
+  "verdict": "PASSED | PASSED_WITH_WARNINGS | BLOCKED",
+  "findings": [
+    { "severity": "critical|important|minor",
+      "confidence": "high|medium|low",
+      "file": "path/to/file",
+      "line": 42,
+      "summary": "one-line statement of the defect" }
+  ],
+  "unverified": ["area or claim you could not check"]
+}
+```
 
 > **High-velocity report add-ons (Day-5, optional — not new checks).** For fast-moving
 > teams the report may additionally surface a **Bundled Summary + Risk Assessment** (one

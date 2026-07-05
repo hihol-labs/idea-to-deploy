@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.49.0](https://img.shields.io/badge/Version-1.49.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.51.0](https://img.shields.io/badge/Version-1.51.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -397,7 +397,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 > **Важно:** хуки — это **опциональный отдельный шаг**. `/plugin install` регистрирует скиллы и агентов, но намеренно **не** пишет в `~/.claude/settings.json` и не ставит глобальные хуки — это остаётся явным решением пользователя. Если пропустить эту секцию, методология всё равно работает; хуки лишь повышают частоту срабатывания скиллов на неоднозначных промптах.
 
-Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **семнадцать хуков**, закрывающих этот пробел (два мягких напоминания, жёсткие enforcement-гейты включая Definition-of-Done pre-commit гейт, один pre-flight загрузчик контекста и опциональные safety/observability-хуки).
+Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **24 хука**, закрывающих этот пробел (два мягких напоминания, жёсткие enforcement-гейты включая Definition-of-Done pre-commit гейт, один pre-flight загрузчик контекста, детектор handoff-readiness в конце сессии, SubagentStop-гейты нарратив-финала и контракта вердикта, и опциональные safety/observability-хуки).
 
 **Рекомендуемый способ — одна команда:**
 
@@ -433,7 +433,7 @@ chmod +x ~/.claude/hooks/*.sh
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse на Write/Edit/MultiEdit)** — **до** любой правки `skills/*/SKILL.md` внутри методологического репозитория парсит pending tool input и проверяет наличие `references/`, триггеров в промпт-хуке и регрессионного фикстура. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — Write не запустится, файл не попадёт на диск.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse на Bash)** — перед любым `git commit` внутри методологического репозитория парсит staged diff и отказывает в коммите, если staged файл скилла без поддерживающих артефактов. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — коммит не запустится.**
 
-Все хуки (их 23) срабатывают сразу — перезапуск Claude Code не нужен. Два v1.5.1 enforcement-хука активны только внутри методологического репозитория (детект через `.claude-plugin/plugin.json`); на сторонних проектах это no-op. Два v1.17.0 safety-хука (`careful.sh`, `freeze.sh`) и v1.21 observability-хук `execution-trace.sh` активируются по запросу пользователя. Pre-flight хук работает на любом проекте с распознанной директорией памяти; если памяти нет, он инжектит пустой блок контекста без предупреждения.
+Все хуки (их 24) срабатывают сразу — перезапуск Claude Code не нужен. Два v1.5.1 enforcement-хука активны только внутри методологического репозитория (детект через `.claude-plugin/plugin.json`); на сторонних проектах это no-op. Два v1.17.0 safety-хука (`careful.sh`, `freeze.sh`) и v1.21 observability-хук `execution-trace.sh` активируются по запросу пользователя. Pre-flight хук работает на любом проекте с распознанной директорией памяти; если памяти нет, он инжектит пустой блок контекста без предупреждения.
 
 > **Почему это важно:** в ретроспективе продакшен-инцидента 2026-04-07 Claude Code (Opus 4.6) потратил ~2 часа на прямую работу через SSH/sed/curl для починки auth-аутриджа. `/bugfix` был бы правильным инструментом. Его никто не вызвал — ничто не заставило. Эти хуки — ответ. Полный кейс-стади в `hooks/README.md`.
 

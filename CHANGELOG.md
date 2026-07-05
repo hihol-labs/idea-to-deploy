@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.51.0] - 2026-07-05
+
+**Fable 5 adoption, release C — the review pack.** Three coupled upgrades to the review gate, taken before B/D flow through it (order A→C→B→D, decided 2026-07-05). The gate now collects findings for recall, filters them adversarially, and hands downstream a machine-readable verdict — with a mechanical stop-gate so the machine-readable part is never silently dropped. Battle-tested on this release's own review cycle.
+
+### Added
+
+- **`hooks/verdict-contract.sh` — 24th hook, SubagentStop (part c).** A review subagent must emit its verdict as a vendor-neutral fenced ```json block (`{verdict, findings[], unverified[]}`). The hook blocks the subagent's stop (≤2 pings) when the final message declares a review verdict in prose (`FINAL STATUS:`, `Вердикт:`/`Verdict:`, or `PASSED_WITH_WARNINGS`) but ships no valid JSON block. Deliberately narrow — bare "PASSED"/"BLOCKED" don't trip it, so test-generator/researcher finals pass through. Complementary to `narration-final.sh` on the same event (missing verdict vs verdict-missing-its-block); no loop. Kill switch `ITD_VERDICT_CONTRACT=0`, fail-open on any parse/IO error. The native `ReportFindings` tool-call is only an optional transport — the load-bearing contract is the text block (harness best-effort invariant).
+- **`tests/verify_verdict_contract.py` — 15 functional checks** (positives / valid-contract negatives / non-review pass-through / guards / ping-cap), both transcript layouts, wired into CI alongside the other hook suites.
+- **`skills/review/SKILL.md` Step 2.6 — refute pass (part b).** Every Critical/Important candidate finding is put through an independent **fresh-context** `code-reviewer` subagent prompted to REFUTE it (default `refuted: true` under uncertainty); a finding that survives refutation escalates, a refuted one drops to observations. Fresh context is load-bearing — the refuter must not inherit the finder's reasoning. Never turns a rubric-Critical FAIL into a pass (Rule 4).
+
+### Changed
+
+- **Coverage-first finder (part a)** in `skills/review/SKILL.md` (Step 2) and `agents/code-reviewer.md`: the finding stage optimises for **recall, not precision** — surface every candidate, incl. uncertain/low-severity, each tagged `severity` + `confidence`; filtering happens downstream (refute pass + tiering), not by self-censoring. The binary rubric and the deterministic gate are untouched — coverage-first only widens the candidate list.
+- **`agents/code-reviewer.md`** — findings now carry `severity` + `confidence`; the final message must end with the vendor-neutral JSON verdict block; new refute-mode section for when the agent is dispatched to disprove a single finding.
+- **`.claude-plugin/plugin.json` version → 1.51.0** (was stale at 1.49.0 — the v1.50.0 doc-only release did not bump it; the count triple gated, the semver did not). Hook count 23→24 propagated across plugin.json, marketplace.json, `docs/HARNESS_ENGINEERING_MAP.md`, the global CLAUDE.md template, README.md, and hooks/README.md; `verdict-contract.sh` registered in `scripts/sync-to-active.sh` (DESIRED_HOOKS + SubagentStop block).
+
+### Decided (not implemented — backlog with triggers)
+
+- Release B (worktree isolation for file-only `/refactor` after a hook path-assumption audit; consolidate-memory in approval-diff mode only; per-role effort tiers) — next.
+- Release D — strictly retro-evidence-gated (skill de-prescription A/B one at a time; SendMessage fix→re-review within one session, advice-only; evals for 2–3 skills with false-match history).
+
+---
+
 ## [1.50.0] - 2026-07-05
 
 **Fable 5 adoption, release A — vendor-canonical snippets + the harness best-effort invariant.** External signal (model-generation change), routed through /advisor (ROI panel) + red-team stress-test on 2026-07-05: four zero-risk snippet adoptions from Anthropic's official Fable 5 migration guidance, plus the cross-cutting invariant the red team demanded as a precondition for every later harness-feature adoption (releases B/C/D stay in the backlog, gated on retro evidence).

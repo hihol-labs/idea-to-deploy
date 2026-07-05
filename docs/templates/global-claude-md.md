@@ -92,7 +92,7 @@ Absent that, apply the methodology — when in doubt, apply it.
 
 > Methodology source (canonical): WSL repo `idea-to-deploy`
 > (`/home/hihol/projects/idea-to-deploy`), published as plugin
-> `hihol-labs/idea-to-deploy`. 40 skills + 10 agents + 23 hooks.
+> `hihol-labs/idea-to-deploy`. 40 skills + 10 agents + 24 hooks.
 
 ## Project profiles & markers (v1.35.0)
 
