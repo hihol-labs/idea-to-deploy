@@ -162,6 +162,8 @@
 
 `*` `freeze` — с v1.42.0 зарегистрирован always-on, но действует только при активном scope-lock state-файле (его пишут `/bugfix`/`/refactor`/`/perf`); фантомного «/freeze-скилла» нет — интерфейс = state-файл. `careful` с v1.37.0 в каноническом наборе (always-on). `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли, а не по событию. `***` `wip-gate` — детект computational (status unit'а + путь vs SCOPE_LOCK), но энфорсмент **soft by design**: «начал ли пользователь новую задачу или чинит текущую» — семантика, по правилу §8.3 это hint, не deny.
 
+> **Fixture-proof self-grading (v1.59.0, ось 1 / G-003).** Метки ✅ по H1/H3 (энфорсмент) держатся не на «хук существует», а на **поведенческом доказательстве**: ровно **8 hard-гейтов** (те, что реально `deny`/`block`) — `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract` — каждый подпёрт тестом, который **спавнит хук и проверяет реальный exit-2/block** (не doc-grep). Грид `tests/verify_harness_map_fixtures.py` держит **hard-gate coverage = 8/8**: он выводит hard-множество тем же blocking-decision-регэкспом, что и `verify_gate_taxonomy.py`, и падает, если появится 9-й hard-гейт без проходящего behavioural-теста — гейт не может получить ✅ без доказанного block/deny. Разведение 8 hard / 16 soft — в README (§ «Hook taxonomy»).
+
 ### 8.2. Подробно по хукам
 
 | Хук | Событие | Контур | Природа | Энфорсмент |

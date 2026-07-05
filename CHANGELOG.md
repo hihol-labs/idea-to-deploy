@@ -38,6 +38,20 @@ The "24 hooks" count conflated enforcement strength with hook count. README now 
 
 - **`tests/verify_gate_taxonomy.py`** (new, 9 checks) — derives the hard/soft split from `hooks/*.sh` by a strict blocking-decision regex (8/16/24), then asserts the README table and prose stay in sync with the derived sets (a 9th hard gate forces a doc update). Reports current hard-gate coverage.
 
+### G-003 — fixture-proof self-grading grid (doc-vs-enforcement gap closed)
+
+The HARNESS_MAP's H1/H3 enforcement ✅ rested on "the hook exists." Two hard gates — `check-commit-completeness` and `check-skill-completeness` — had **no test that actually drove them to `deny`** (referenced only structurally), so their ✅ was unproven. Now every hard gate is behaviourally fixture-proofed.
+
+**Added**
+
+- **`tests/verify_commit_completeness_gate.py`** (new, 3 checks) — spawns `check-commit-completeness.sh` against a temp methodology repo and asserts a real exit-2 deny for an incomplete skill commit (+ allow when complete, + no-op outside a methodology repo).
+- **`tests/verify_skill_completeness_gate.py`** (new, 4 checks) — spawns `check-skill-completeness.sh` on a Write payload and asserts exit-2 deny for a `SKILL.md` referencing a missing `references/` (+ allow paths).
+- **`tests/verify_harness_map_fixtures.py`** (new, 27 checks) — the grid: derives the 8 hard gates (same regex as the taxonomy test), maps each to a behavioural proof test, statically checks each proof spawns the hook + asserts block/deny, **runs each and requires it to pass**, and asserts **hard-gate coverage == 8/8**. A 9th hard gate without a passing proof fails the grid — a gate can never be ✅ without a proven block/deny.
+
+**Changed**
+
+- **`docs/HARNESS_ENGINEERING_MAP.md`** — the ✅ enforcement marks now cite the fixture-proof grid (8/8 behavioural coverage), not hook existence.
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.
