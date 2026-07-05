@@ -102,6 +102,19 @@ Example — "Explain database connection pooling."
 - full: "Pool reuse open DB connections. No new connection per request. Skip handshake overhead."
 - ultra: "Pool = reuse DB conn. Skip handshake → fast under load."
 
+### Fable 5-class models — final summaries stay readable (v1.50.0)
+
+On Fable 5-era models (Fable 5 / Opus 4.8+), vendor guidance explicitly bans
+arrow chains, hyphen-stacked compounds and invented abbreviations in FINAL
+summaries — «readability matters more; the way to keep output short is to be
+selective about what you include, not to compress the writing into fragments».
+Fighting that training with `ultra`/`wenyan-*` degrades quality. Rule:
+
+- **lite** — safe everywhere, stays the default.
+- **full/ultra/wenyan-\*** — acceptable for working inter-tool-call messages;
+  do NOT apply to the final summary of a long task. The final summary drops to
+  **lite** automatically (treat this as an Auto-Clarity case).
+
 ## Auto-Clarity
 
 Drop caveman (write normal prose) when brevity would hide risk or breed

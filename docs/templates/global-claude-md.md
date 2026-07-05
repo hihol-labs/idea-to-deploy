@@ -31,6 +31,32 @@ coding from scratch:
 6. **WIP=1.** One active task/unit at a time; start the next only after the current
    one passes end-to-end verification. Don't "also refactor" B while implementing A —
    out-of-scope findings go to the backlog, not into the current diff.
+7. **Grounded progress claims.** Before reporting progress, audit each claim
+   against a tool result from this session. Only report work you can point to
+   evidence for; if something is not yet verified, say so explicitly. Report
+   outcomes faithfully: if tests fail, say so with the output; if a step was
+   skipped, say that; when something is done and verified, state it plainly
+   without hedging. (Vendor-canonical snippet, Fable 5 era — v1.50.0.)
+
+## Harness-native features — best-effort invariant (v1.50.0)
+
+The CLI harness (Claude Code / codex / gemini) ships vendor-specific tools
+(typed tool-calls, chips, artifacts, background agents, transcript search).
+Standing rule for ALL of them:
+
+- **Best-effort layer only.** A harness-native feature may TRANSPORT a
+  methodology contract, never BE the contract. No gate, no `verified`
+  transition, no handoff may depend on the presence of a specific tool-call —
+  the contract stays vendor-neutral (text/JSON in the transcript, files in the
+  repo), so it survives a vendor or version switch. A harness feature silently
+  disappearing must degrade to the neutral path, not to a false "all green".
+- **Egress + mutation guard.** Anything that leaves the machine (web publish,
+  artifact upload, transcript mining to an external model) goes through the
+  cross-review-grade secret scrubber AND explicit human confirmation. Anything
+  that mutates durable state (prod data, `MEMORY.md`, ledgers) from a harness
+  feature follows the data-sensitive gate: read-only diff → human approve →
+  apply. Background/scheduled harness agents are read-only reporters; they
+  never commit, push, or edit files unattended.
 
 ## Skill decision (visible line + trigger map)
 

@@ -174,3 +174,31 @@ Rules for large tool outputs (logs, HTTP responses, `cat` of big files, wide `gr
 
 The soft hook `hooks/context-budget.sh` nudges when a command is likely to dump a large
 unbounded output. It is a reminder, never a block — judgment stays with the skill.
+
+## 8. Delegation Intent Template (v1.50.0)
+
+> Fable 5-era models perform measurably better when they understand the intent
+> behind a request — they connect the task to relevant context instead of
+> inferring intent on their own. This matters most for delegated subagents,
+> which see none of the parent conversation.
+
+When spawning ANY subagent (architect, code-reviewer, test-generator, Explore,
+researcher, …), the prompt MUST carry three intent lines before the request:
+
+```
+Я работаю над [большая задача] для [кто потребитель результата].
+Результат нужен, чтобы [что он разблокирует / как будет использован].
+С учётом этого: [конкретный запрос к субагенту].
+```
+
+Two companion rules:
+
+- **Prescriptive triggers, not capability lists.** When the subagent gets
+  tools/скиллы, say WHEN to use each ("зови `/test`, когда меняешь
+  исполняемый код; НЕ зови для чистых доков"), not merely that they exist —
+  trigger conditions in the instruction give measurable lift on should-call
+  rate (vendor guidance, Opus 4.7+/Fable 5).
+- **Report-back contract.** Tell the subagent its final message is a return
+  value, not a user-facing chat: outcome first, evidence attached,
+  «Не успел проверить: …» tail when applicable (pairs with
+  `hooks/narration-final.sh`).
