@@ -89,6 +89,18 @@ parse and summarize its findings. No heavy generation. Set via `/model sonnet`.
    Pipe the scrubbed diff with a focused review prompt (correctness bugs, security,
    missed edge cases) and capture stdout. Treat any non-zero exit as "unavailable".
 
+3a. **Verdict-completeness — auto-re-ping once on a verdict-less return (v1.60.0
+   — Ось 2, agentic engineering).** Whether the reviewer is an external CLI or
+   the native red-team fallback (an Agent-tool `code-reviewer` dispatch), its
+   output must end on a findings/verdict conclusion. If the captured output ends
+   **without one** — a truncated stream, a dangling narration, an empty tail —
+   **auto-re-ping ONCE, caller-side, without asking the user**: re-run the CLI
+   with «выдай вердикт и список находок одним ответом», or resume the subagent
+   per `/review` Step 2.7. Detect by the **ABSENCE of the conclusion marker**,
+   not by pattern-matching whether the prose "looks like" narration. Bounded to
+   one retry; still empty → report «внешний ревьюер не вернул вердикт» and
+   degrade (fail-open) — never silently treat an empty return as clean.
+
 4. **Fold findings into review notes.** Summarize the external model's findings,
    de-duplicate against what Claude already knows, and present a short ranked list
    (file:line + concrete fix). Always state which engine actually ran (codex /

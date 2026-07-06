@@ -56,5 +56,8 @@ jobs:
       - name: Run subagent-review sentinel tests (v1.25.0)
         run: python3 tests/verify_agent_review_sentinel.py
 
+      - name: Run caller-side auto-ping-for-verdict doc-contract (v1.60.0, Ось 2)
+        run: python3 tests/verify_review_autoping.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh
