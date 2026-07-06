@@ -71,6 +71,20 @@ The skill-enforcement gate had two dead-ends that produced ceremony `SKILL_BYPAS
 - **`tests/verify_bypass_friction.py`** (new, 17 checks) — drives the real hook: readonly+bypass now resets/opens-window/logs (Bug 1); readonly-without-bypass stays exempt; end-to-end Edit dead-end → blocked, then one-off bypass opens the window, next Edit allowed (Bug 2 escape); allowlist additions classified read-only.
 - **`tests/verify_retro_scan.py`** — asserts the new per-session metric in markdown and `--json`.
 
+### G-005 — hook-table drift-guard + empirical context:fork inheritance
+
+**Added**
+
+- **`tests/verify_hook_table_completeness.py`** (new, 7 checks) — a drift-guard that asserts the HARNESS_MAP §8.2 per-hook table lists exactly `hooks/*.sh`, the §8.1 matrix mentions every hook, the §8.2 **blocking** rows equal the 8 hard gates (classifier), and the README taxonomy union equals the disk hook set. It caught real drift on arrival (see below).
+
+**Fixed (drift the guard exposed)**
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` §8** — the §8.2 per-hook table was missing `narration-final.sh` and `verdict-contract.sh` (the two SubagentStop hard gates), and §8.1/§8.2 mislabelled `careful.sh`/`freeze.sh` as "blocking" though both self-declare `exit 0, permissionDecision: allow`. Reconciled: 24 hooks; **8 hard = 6 feedforward `deny` + 2 SubagentStop `block`**; 16 soft (careful/freeze are soft detectors). §8.1 header 22→24; §8.3 "8 blocking = feedforward" → "computational; 6 FF + 2 SubagentStop".
+
+**Verified empirically**
+
+- **`skills/autopilot/SKILL.md`** — the hedged `context: fork` caveat ("if a forked context does not inherit the enforcement hooks…") is replaced with evidence: a probe subagent in a forked context ran two Bash calls and the parent `settings.json` `PreToolUse` hooks BOTH fired (`careful`, `check-tool-skill`), delivered as `PreToolUse:Bash hook additional context`. So mechanical gates DO apply inside a fork. Recorded in HARNESS_MAP §8.4. (Separate mechanism: a fork does not inherit the parent `SKILL.md` — instruction inheritance, not hook firing.)
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.

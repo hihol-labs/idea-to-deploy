@@ -102,11 +102,17 @@ single hard **boundary** at the irreversible / outward-facing edge:
   no `git push`, no `gh pr create`. It stops at "generated + reviewed + committed
   locally" and hands those steps to the user (Step 6 lists them). This is a
   boundary the skill owns, not a checkpoint it re-asks each phase.
-- **`context: fork` caveat.** If a forked skill context does not inherit the
-  settings.json enforcement hooks, the mechanical gates above may not fire inside
-  autopilot. The boundary is what makes this safe regardless: because autopilot
-  itself performs no deploy/push/PR, the un-gated path can only ever reach a
-  local commit — never an outward action — even in the worst case.
+- **`context: fork` — hooks ARE inherited (empirically verified v1.59.0, G-005).**
+  A probe subagent run inside a forked/Agent context ran two Bash tool calls; the
+  parent session's `settings.json` `PreToolUse:Bash` hooks BOTH fired on them
+  (`careful.sh` on a destructive command, `check-tool-skill.sh` on a mutation),
+  delivered as `PreToolUse:Bash hook additional context`. So the mechanical gates
+  DO apply to tool calls inside a fork — this closes the earlier hedge ("may not
+  fire"). NB (separate mechanism): a forked context does **not** inherit the
+  parent's `SKILL.md` instructions (it sees only the backing agent's `.md`) — that
+  is about instruction inheritance, not hook firing. Belt-and-suspenders remains:
+  autopilot itself performs no deploy/push/PR, so even the worst case stops at a
+  local commit — never an outward action.
 - **Cost.** A full pipeline is token-heavy; `hooks/cost-tracker.sh` ASKs at the
   ceiling. Surface that to the user rather than pushing through it.
 
