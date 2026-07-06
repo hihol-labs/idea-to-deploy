@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.62.0] - 2026-07-06
+
+**Completion Gate — a harness subsystem against premature "done".** Closes the
+gap where completion was judged by agent confidence, not runtime signals: an
+independent gate now vetoes a `git commit` when the three-layer completion
+ladder (L1 static → L2 tests → L3 e2e) is unproven, judging from an objective
+signal ledger rather than the model's say-so. Vendor-neutral contract (JSON in
+`.claude/completion/` + a "Определение завершения" section in the global
+CLAUDE.md template); the hooks only transport it and degrade to advisory when no
+ledger exists (best-effort invariant). Hook count **24 → 27**; hard gates
+**8 → 9**.
+
+### Hooks (3 new)
+
+- `completion-signals.sh` (PostToolUse · Bash, soft) — classifies each Bash call
+  into a layer signal (`static`/`test_run`/`app_start`/`side_effect`/`cleanup`)
+  and appends it to `.claude/completion/signals.jsonl`; returns a teacher-style
+  `FAILED | WHY | FIX` mark the moment a test/build fails (self-correction).
+- `completion-gate.sh` (PreToolUse · Bash, **hard gate**) — on a commit touching
+  source code: **deny** when a layer is FAIL or tests exist but were not run this
+  session; **degrade** to advisory when there are no signals; pass when green.
+  Bypass: `COMPLETION_BYPASS:` in the commit's Bash `description`.
+- `completion-stop.sh` (Stop, soft) — reminds, without blocking, when a turn ends
+  with a dirty code tree and a non-green verdict.
+- `completion_lib.py` (library) — signal classification, three-layer
+  `compute_verdict` (latest-per-command so a fix+rerun supersedes an old fail),
+  `red_mark` + `FIX_HINTS`. Projects without unit tests declare an L2 equivalent
+  via `.claude/completion/config.json` (`l2_evidence_patterns`).
+
+### Registration, contract & docs
+
+- `scripts/sync-to-active.sh` registers the 3 hooks (PostToolUse Bash → signals,
+  PreToolUse Bash → gate, Stop → stop) with `-X utf8` on Windows targets.
+- `docs/templates/global-claude-md.md` — new "Определение завершения" section
+  (the vendor-neutral completion contract).
+- Count/taxonomy synced to 27 hooks / 9 hard / 18 soft across `plugin.json`,
+  `marketplace.json`, `HARNESS_ENGINEERING_MAP.md` (§8.1/§8.2), the global
+  CLAUDE.md template and `README.md`.
+
+### Tests
+
+- `tests/verify_completion_gate.py` (new, behavioural) — spawns the gate and
+  asserts real `deny`/exit-2 on a failed-L2 ledger, plus degradation/pass/bypass.
+- `tests/verify_harness_map_fixtures.py` — `GATE_TESTS` gains the completion-gate
+  mapping so hard-gate coverage stays 9/9.
+
+---
+
 ## [1.61.0] - 2026-07-06
 
 **Ось 3 — Fable 5 absorption (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the Fable-5-absorption axis from a self-graded ~7.0 toward **~9 — explicitly NOT 10**: literal "absorbed EVERY harness feature" would be 10 and is *not the goal*. The value is a verifiably-complete, consciously-decided registry, not breadth. What was name-dropped across the invariant block, CHANGELOG, and DESIGN_SPACE is now consolidated into one proven ledger, its fallbacks are fixture-proven (not just declared), abstentions get a periodic re-review, and two measured adoptions land. Every unit is backed by a section-scoped, mutation-tested CI gate. Counts stay **40/10/24** throughout.

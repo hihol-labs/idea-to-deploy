@@ -14,7 +14,7 @@ test pins the honest split and keeps the README in sync with `hooks/`:
 Assertions (all derived from source, then cross-checked against the doc, so
 the doc cannot drift from reality):
   1. Classifying `hooks/*.sh` by the blocking-decision regex yields exactly
-     8 hard + 16 soft = 24.
+     9 hard + 18 soft = 27.
   2. README.md's "Hook taxonomy" table lists exactly the 8 derived hard
      gates (no more, no less) — a 9th hard gate forces a doc update.
   3. README.md's "Soft (N)" line lists exactly the 16 derived soft hooks.
@@ -101,9 +101,9 @@ def main():
             failed += 1
 
     hard, soft = classify()
-    check("exactly 8 hard gates (blocking-decision regex)", len(hard) == 8)
-    check("exactly 16 soft hooks", len(soft) == 16)
-    check("hard + soft == 24", len(hard) + len(soft) == 24)
+    check("exactly 9 hard gates (blocking-decision regex)", len(hard) == 9)
+    check("exactly 18 soft hooks", len(soft) == 18)
+    check("hard + soft == 27", len(hard) + len(soft) == 27)
 
     md = open(README, encoding="utf-8").read()
 

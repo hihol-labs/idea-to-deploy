@@ -1,6 +1,6 @@
 # Hooks — Skill Discovery Enforcement
 
-These 24 hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
+These 27 hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
 ## Defense-in-depth overview (v1.19.0)
 
@@ -65,7 +65,7 @@ opt-in per project.
 - **`careful.sh`** — **always active** inside methodology repos (auto-detected via `.claude-plugin/plugin.json`). Outside methodology repos: opt-in via `CAREFUL_MODE=1` env var or state file.
 - **`freeze.sh`** — **automatic** when skills like `/bugfix`, `/refactor`, `/perf` start work (they dual-write the scope state file to `/tmp` AND the platform temp dir, v1.42.0). Manual activation/deactivation = create/delete the state file (see the table row above); there is no `/freeze` command.
 
-All 24 hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
+All 27 hooks are written in Python 3 (works out of the box on macOS/Linux/WSL), depend only on the standard library, and exit silently in degenerate cases (bad JSON, empty payload, not in the methodology repo) — they never break your session on unrelated work.
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects — they fire only when you're inside a methodology (or methodology-like) repository.
 
@@ -259,6 +259,35 @@ These hooks are the answer. After installation, the same prompt — "у меня
 - The PreToolUse hook fires on every Bash/Edit/Write — that's a lot of noise on long sessions. If it bothers you, change the matcher to match only specific tools or specific commands (e.g., `Bash(git:*)`).
 - Hooks slow each prompt by ~50ms (Python startup). Acceptable for interactive use; might matter for scripted/CI use.
 - Only Russian + English triggers are included by default. Add your language by editing `check-skills.sh`.
+
+## Completion Gate (v1.51.0)
+
+Anti-premature-completion subsystem. Judges task completion from an objective
+runtime-signal ledger, not agent confidence. Vendor-neutral contract (JSON in
+`.claude/completion/` + the "Определение завершения" section in the global
+CLAUDE.md); the hooks only transport it and degrade to advisory when no ledger
+exists (best-effort invariant).
+
+| File | Event | Role |
+|---|---|---|
+| `completion_lib.py` | — (library) | signal classification into layers L1 static / L2 tests / L3 e2e, three-layer verdict with blocked-transition, `red_mark`+`FIX_HINTS` |
+| `completion-signals.sh` | PostToolUse · Bash | appends each Bash call to `.claude/completion/signals.jsonl`; returns a WHY+FIX teacher mark on a failed test/build. Soft. |
+| `completion-gate.sh` | PreToolUse · Bash | on a `git commit` touching source: **deny** when a completion layer is FAIL or tests exist-but-unrun; degrade to advisory when no signals; pass when green. **Hard gate.** |
+| `completion-stop.sh` | Stop | reminder when the turn ends with a dirty code tree and a non-green verdict; never blocks. Soft. |
+
+**Ladder (cheap→expensive, blocked transition):** L1 syntax/static → L2 runtime
+tests (green or not done) → L3 e2e/smoke. No layer advances until the previous is
+green.
+
+**Projects without unit tests** declare an L2 equivalent in
+`.claude/completion/config.json` (`l2_evidence_patterns`) — a behaviour-proving
+command (e.g. a register-diff / repost script) counts as `test_run`.
+
+**Toggles:** `ITD_COMPLETION_GATE=0` (veto), `ITD_COMPLETION_STOP=0` (Stop),
+`ITD_COMPLETION_SIGNALS=0` (collection). Conscious bypass of one commit:
+`COMPLETION_BYPASS: <reason>` in the Bash `description` field.
+
+Behavioural proof: `tests/verify_completion_gate.py` drives the gate to `deny`.
 
 ## License
 

@@ -45,6 +45,7 @@ GATE_TESTS = {
     "pii-egress-guard.sh":           "verify_pii_egress.py",
     "narration-final.sh":            "verify_narration_final.py",
     "verdict-contract.sh":           "verify_verdict_contract.py",
+    "completion-gate.sh":            "verify_completion_gate.py",
 }
 
 # a mapped test is "behavioural" if it spawns a subprocess and asserts a
@@ -83,7 +84,7 @@ def main():
             failed += 1
 
     hard = derived_hard_gates()
-    check("derived hard-gate set has 8 members", len(hard) == 8)
+    check("derived hard-gate set has 9 members", len(hard) == 9)
 
     # every hard gate is mapped to a proof, and nothing extraneous is mapped
     check("GATE_TESTS covers exactly the derived hard set (no gap)",
@@ -116,7 +117,7 @@ def main():
     cov_ok = covered == len(hard)
     print("\n[metric] hard-gate coverage = %d/%d (%.0f%%)"
           % (covered, len(hard), 100.0 * covered / max(1, len(hard))))
-    check("hard-gate coverage == 8/8 (every hard gate behaviourally proven)", cov_ok)
+    check("hard-gate coverage == 9/9 (every hard gate behaviourally proven)", cov_ok)
 
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0
