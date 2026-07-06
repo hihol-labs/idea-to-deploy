@@ -89,7 +89,13 @@ The skill-enforcement gate had two dead-ends that produced ceremony `SKILL_BYPAS
 
 **Added**
 
-- **`tests/verify_redteam_multihost.py`** (new, 8 checks) — the ceiling unit. Part A red-team: the fixture grid proves all 8 hard gates deny/block, and targeted circumvention attempts must FAIL — a foreign/fresh `tree:` review sentinel is rejected, a legacy bare-timestamp wildcard is rejected, a `SKILL_BYPASS` smuggled in the Bash *command* (not the audited `description`) is not honoured, and read-only smuggles (`ls && rm -rf x`, `cat x > y`, `git status && curl …`) are not classified read-only. Part B multi-host: hooks are spawned with `sys.executable`, and the red-team is proven green on **two distinct OS/interpreter hosts** — WSL-Linux (py3.12.3) and Windows (py3.12.10) — with per-host evidence committed under `tests/fixtures/redteam-hosts/`. The comprehensive fixture grid stays WSL-canonical (skippable on a secondary host whose git/temp harness differs); the cross-host robustness proof rests on the targeted adversarial cases, which run identically everywhere.
+- **`tests/verify_redteam_multihost.py`** (new, 8 checks) — the ceiling unit. Part A red-team: the fixture grid proves all 8 hard gates deny/block, and targeted circumvention attempts must FAIL — a foreign/fresh `tree:` review sentinel is rejected, a legacy bare-timestamp wildcard is rejected, a `SKILL_BYPASS` smuggled in the Bash *command* (not the audited `description`) is not honoured, and read-only smuggles (`ls && rm -rf x`, `cat x > y`, `git status && curl …`) are not classified read-only. Part B multi-host: hooks are spawned with `sys.executable`, and the red-team is proven green on **two distinct OS/interpreter hosts** — WSL-Linux (py3.12.3) and Windows (py3.12.10) — with per-host evidence committed under `tests/redteam-hosts/`. The comprehensive fixture grid stays WSL-canonical (skippable on a secondary host whose git/temp harness differs); the cross-host robustness proof rests on the targeted adversarial cases, which run identically everywhere.
+
+### G-007 — HARNESS_MAP re-score + axis close
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` §6** — records the honest post-Ось-1 self-assessment of the Harness-engineering axis: **~9.5/10**, up from ~7.5, with the systemic holes closed (diff-bound sentinel, 8/8 behavioural gate coverage, hard/soft split, friction cut, drift-guard, empirical fork inheritance, cross-host red-team). The last 0.5 to 10 is explicitly **external**: an independent red-team and multi-*OS* confirmation beyond Win+WSL — evidence a methodology cannot grant itself. Not scored as 10 for exactly that reason.
+- **`tests/redteam-hosts/`** — moved out of `tests/fixtures/` (host evidence is data, not a snapshot fixture) so `verify_snapshot.py --all` stays green.
+- Rolled out to `~/.claude` (WSL + Windows) via `scripts/sync-to-active.sh`.
 
 ## [1.58.0] - 2026-07-05
 

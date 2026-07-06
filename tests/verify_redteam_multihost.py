@@ -28,7 +28,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS = os.path.join(REPO, "hooks")
 TESTS = os.path.join(REPO, "tests")
-HOSTS_DIR = os.path.join(TESTS, "fixtures", "redteam-hosts")
+HOSTS_DIR = os.path.join(TESTS, "redteam-hosts")  # NOT under fixtures/ (not a snapshot fixture)
 PY = sys.executable  # spawn hooks with the SAME interpreter this host uses
 
 
