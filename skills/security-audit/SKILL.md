@@ -66,6 +66,39 @@ For each check, look at specific files:
 - CORS/CSP: server response headers, middleware setup
 - Dependencies: `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml` — flag known-vulnerable versions if recognizable
 
+### Step 2.5: Refute pass — adversarially verify each Critical/Important finding before it escalates (v1.60.0 — Ось 2, agentic engineering)
+
+The refute pass from `/review` Step 2.6, applied to the security verify fleet. A
+plausible-but-wrong vulnerability that survives to the report is a false alarm
+that erodes trust in the gate and wastes remediation effort — this pass exists to
+kill exactly those. Before writing the report, put every **Critical and
+Important** candidate finding through an independent refutation.
+
+For each such finding, dispatch a **fresh-context** subagent via the **Agent
+tool** (`Agent(subagent_type: "security-reviewer", …)`) with a **refute prompt**:
+state the single finding verbatim (its `file:line`, the vuln class, the claimed
+exploit path) and instruct the agent to **REFUTE exploitability** — read the
+actual code and look for a **concrete** reason it is NOT exploitable (input
+sanitized upstream, route unreachable / behind auth, the "secret" is a test
+fixture, the sink is not attacker-reachable). Fresh context is load-bearing: the
+refuter must not inherit your reasoning, or it will rubber-stamp — pass the
+finding by value, the target by path.
+
+- A finding **refuted with a concrete reason** → move it to "Informational" with
+  a `refuted` note; it no longer gates.
+- A finding **not refuted** → keep it at its tier. Security-specific tie-break:
+  vague doubt is **not** a refutation — «я не смог подтвердить» drops nothing
+  (false-negative on a real vuln is worse than a false-positive here).
+- **Minor / Recommended / Informational findings are NOT refuted** — they never
+  gate, so the cost is not justified; report them as observations.
+
+**Invariant:** the refute pass can only REMOVE unconfirmed findings from
+escalation; it never invents a new vulnerability and never downgrades a
+*confirmed* Critical. If subagents cannot be dispatched in this runner, do the
+refutation inline as a separate adversarial reasoning pass and say so ("refute
+pass: inline"). This is distinct from `--redblue` (Step 5), which *models*
+attack/defense pairs; the refute pass *filters* the findings already surfaced.
+
 ### Step 3: Generate report
 
 Use this exact format (parseable by `/review` and other downstream skills):

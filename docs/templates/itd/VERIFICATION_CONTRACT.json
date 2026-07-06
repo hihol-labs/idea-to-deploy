@@ -35,5 +35,139 @@
     "Failures are recorded as recovery, not success."
   ],
   "failureMode": "RECOVERY_REQUIRED",
-  "failClosed": "If a command is missing, never ran, or its parser is ambiguous, status MUST be RECOVERY_REQUIRED — never passed."
+  "failClosed": "If a command is missing, never ran, or its parser is ambiguous, status MUST be RECOVERY_REQUIRED — never passed.",
+  "skillDoneSignalSchema": {
+    "purpose": "Machine-readable Definition-of-Done for the verify/impl skills (v1.60.0 — Ось 2). A skill's DoD must be expressed as >=1 structured done-signal below, not only prose Self-validation — so 'done' is a check, not a vibe. verify_dod_coverage.py enforces coverage of the required set and cross-checks every sentinel ref against the skill that writes it.",
+    "allowedDoneSignalTypes": [
+      "sentinel",
+      "command",
+      "artifact",
+      "json_field",
+      "evidence"
+    ],
+    "requiredCoverageSkills": [
+      "review",
+      "test",
+      "security-audit",
+      "perf",
+      "bugfix",
+      "refactor",
+      "deps-audit",
+      "migrate",
+      "harden",
+      "infra"
+    ]
+  },
+  "skillDefinitionOfDone": {
+    "review": {
+      "roleClass": "verify",
+      "doneSignals": [
+        {
+          "type": "sentinel",
+          "ref": "claude-review-done",
+          "desc": "/review ran this session, bound to the staged tree"
+        },
+        {
+          "type": "json_field",
+          "ref": "verdict",
+          "desc": "machine-readable verdict block: PASSED | PASSED_WITH_WARNINGS | BLOCKED"
+        }
+      ]
+    },
+    "test": {
+      "roleClass": "verify",
+      "doneSignals": [
+        {
+          "type": "sentinel",
+          "ref": "claude-test-done",
+          "desc": "suite actually ran and passed this session"
+        },
+        {
+          "type": "evidence",
+          "ref": "red->green",
+          "desc": "fail-closed TDD evidence: real run output, not 'should pass'"
+        }
+      ]
+    },
+    "security-audit": {
+      "roleClass": "verify",
+      "doneSignals": [
+        {
+          "type": "sentinel",
+          "ref": "claude-security-audit-done",
+          "desc": "audit was performed this session (verdict may still be BLOCKED)"
+        }
+      ]
+    },
+    "perf": {
+      "roleClass": "verify",
+      "doneSignals": [
+        {
+          "type": "evidence",
+          "ref": "before/after",
+          "desc": "fail-closed: bottleneck measured before/after, not guessed"
+        }
+      ]
+    },
+    "bugfix": {
+      "roleClass": "impl",
+      "doneSignals": [
+        {
+          "type": "evidence",
+          "ref": "red->green",
+          "desc": "regression test fails on the old code, passes on the fix"
+        }
+      ]
+    },
+    "refactor": {
+      "roleClass": "impl",
+      "doneSignals": [
+        {
+          "type": "command",
+          "ref": "test-suite",
+          "desc": "behavior-preserving: existing suite green before AND after"
+        }
+      ]
+    },
+    "deps-audit": {
+      "roleClass": "verify",
+      "doneSignals": [
+        {
+          "type": "artifact",
+          "ref": "deps-audit-report",
+          "desc": "severity-tiered CVE/license/abandonment report produced"
+        }
+      ]
+    },
+    "migrate": {
+      "roleClass": "impl",
+      "doneSignals": [
+        {
+          "type": "sentinel",
+          "ref": "claude-migrate-done",
+          "desc": "migration ran with a backup + a rollback path"
+        }
+      ]
+    },
+    "harden": {
+      "roleClass": "impl",
+      "doneSignals": [
+        {
+          "type": "artifact",
+          "ref": "runbook+health",
+          "desc": "generated hardening artifacts (health checks, runbook, limits)"
+        }
+      ]
+    },
+    "infra": {
+      "roleClass": "impl",
+      "doneSignals": [
+        {
+          "type": "artifact",
+          "ref": "iac+plan-step",
+          "desc": "generated IaC (Terraform/Helm/K8s) plus a documented plan/validate step the user runs before apply — /infra generates, it does not itself apply"
+        }
+      ]
+    }
+  }
 }

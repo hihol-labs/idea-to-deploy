@@ -74,6 +74,11 @@ already exists. Dispatching the Agent is still possible from within a fork, so d
 the size check and switch to Agent-tool dispatch **first thing** — before loading
 any more context — if `CLAUDE.md` is large.
 
+This fork-thrash fallback is one instance of the general **stall-resilience**
+rule: on ANY subagent stall (watchdog timeout, autocompact death, empty return),
+a fresh narrow agent is the **automatic** fallback — not a manual «resume or
+retry?» decision. See `skills/_shared/helpers.md` §9.
+
 ### Step 0.4: Resolve the review TARGET path (v1.42.0 — do not silently review cwd)
 
 `$ARGUMENTS` may point the review at a DIFFERENT repo/path than the current
@@ -216,6 +221,54 @@ gate, so the cost is not justified; report them as observations.
 escalation; it never turns a rubric-Critical FAIL into a pass. If a Critical
 rubric check itself fails, that is deterministic and stands regardless of any
 finding-level refutation (Rule 4).
+
+### Step 2.7: Caller-side verdict-completeness — auto-re-ping a subagent that returned without a verdict (v1.60.0 — Ось 2, agentic engineering)
+
+Every subagent this skill dispatches via the **Agent tool** — the Step 0
+delegation to `code-reviewer`, and each Step 2.6 refuter — is contracted to end
+on a verdict (a `PASSED` / `PASSED_WITH_WARNINGS` / `BLOCKED` marker, or the
+fenced ```json verdict block from Step 3). When the returned final message
+carries **no verdict marker at all**, the subagent stopped mid-work (process
+narration, a dangling «далее проверю…», an autocompact death). The historical
+failure mode was the human pinging «выдай итог одним сообщением» by hand — the
+#1 drag, observed ×4 in a single session. This step makes the recovery
+**mechanical and caller-side**: the conductor issues the re-ping itself, so the
+user never does.
+
+Rule — after each Agent-tool dispatch returns, **before** you use its result:
+
+1. **Detect by ABSENCE of the contract marker, not by pattern-matching the
+   prose.** Check whether the returned final message contains a verdict marker
+   (`PASSED` / `PASSED_WITH_WARNINGS` / `BLOCKED` / `FINAL STATUS` / `Verdict` /
+   `Вердикт` / `Итог`, or the ```json verdict block). The ```json verdict block
+   from Step 3 is the **canonical** marker; the bare verdict words are a
+   deliberate tolerance so a subagent that voiced a valid verdict but garbled
+   the JSON fencing still short-circuits the re-ping instead of looping — the
+   JSON-block *completeness* is separately enforced by `verdict-contract.sh`, so
+   this step does not double-gate it. Marker present → accept the result, done. Do **not** try to classify a return by guessing whether the
+   prose "looks like" a narration opener — the only question is «есть ли маркер
+   вердикта». Regex-guessing the opener is the subagent-side hook's job (below),
+   never the caller's decision; widening a narration regex is strictly less
+   reliable than checking for the presence of the required marker.
+2. **Absent → auto-re-ping ONCE, without asking the user.** Continue the same
+   subagent (SendMessage / resume) with the minimal instruction: «Заверши: выдай
+   вердикт одним сообщением — verdict-блок (PASSED / PASSED_WITH_WARNINGS /
+   BLOCKED + findings). Не пересказывай процесс.» This is a reversible, in-scope
+   recovery — proceed automatically (never «Хочешь, я переспрошу?»).
+3. **Bounded.** At most `ITD_AUTOPING_MAX` (default 2) re-pings per subagent; if
+   still no verdict, escalate to the user with what the subagent DID return — a
+   genuinely stuck subagent becomes a visible blocker, not a silent green.
+
+**Belt and suspenders.** This caller-side step is the *belt*. The *suspenders*
+are two SubagentStop hooks that catch the same defect at the subagent boundary,
+so it usually never reaches the caller: `hooks/narration-final.sh` blocks a
+subagent stop whose final paragraph is a dangling narration opener with no
+verdict marker (feeding the resume instruction back to the subagent), and
+`hooks/verdict-contract.sh` blocks a prose verdict that ships without the
+machine-readable ```json block. If a harness drops SubagentStop hooks
+(vendor/version switch — harness best-effort invariant), the suspenders silently
+disappear but this documented caller-side belt still recovers the verdict; the
+two layers degrade independently, never to a false green.
 
 ### Step 3: Generate report
 

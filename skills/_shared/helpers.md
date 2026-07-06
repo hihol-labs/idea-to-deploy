@@ -212,3 +212,43 @@ Two companion rules:
   reasoning — the same fresh-context property the refute pass relies on. Pass the
   specific findings + fixed file paths by value; keep the scope to "is each prior
   finding resolved + any new defect introduced," not a from-scratch re-review.
+
+## 9. Stall-resilience — fresh narrow agent as the AUTOMATIC stall fallback (v1.60.0 — Ось 2)
+
+> Generalizes §8's post-BLOCKED fresh-agent rule to EVERY stall. A subagent that
+> stalls — autocompact-thrashes until it dies, trips a watchdog with no progress,
+> or returns empty/truncated — used to force a manual «resume or retry?» decision.
+> That manual step is itself a stall in the loop. This makes the recovery
+> **mechanical and automatic**: on a detected stall, spawn a fresh narrow agent —
+> do not deliberate, do not ask the user.
+
+**Detect a stall by MECHANICAL signals, not by judgement:**
+
+- a watchdog/turn timeout elapsed with no new tool call or output (no-progress);
+- the subagent died mid-run (autocompact death, terminal API error after retries)
+  and returned nothing usable;
+- the returned final is empty or truncated (no deliverable / no verdict marker —
+  overlaps `/review` Step 2.7's absence check).
+
+**Automatic response — a fresh narrow agent, NOT a manual choice:**
+
+1. **Spawn fresh, do not resume.** Dispatch a NEW `Agent(...)` from a thin
+   context — never resume the stalled transcript (a resumed long transcript
+   re-loads the same bloat that caused the stall; §8 evidence: resume stalled at
+   the 600s watchdog while a fresh narrow agent returned in 84s).
+2. **Narrow the scope.** Split the original task into the smallest independently
+   useful slice (one dimension, one file, one finding) and pass inputs by value /
+   by path — a smaller prompt is both cheaper and far less stall-prone.
+3. **This is the default path, not an option to weigh.** Do not stop to ask
+   «resume or retry?» — for a detected stall the fresh narrow agent IS the
+   procedure. Proceed automatically (reversible, in-scope recovery).
+4. **Bounded, then escalate.** At most `ITD_STALL_MAX_RESPAWNS` (default 2) fresh
+   respawns per task; still stalling → surface a visible blocker to the user with
+   what was and wasn't done — a persistently stuck task is a reported blocker,
+   never a silent drop.
+
+Belt-and-suspenders with the hooks: `hooks/narration-final.sh` catches a
+verdict-less stop at the subagent boundary; this §9 is the caller-side procedure
+when the subagent stalls hard enough that nothing usable comes back at all. The
+layers are independent — if a harness drops the hook (best-effort invariant), the
+documented fresh-narrow fallback still recovers.

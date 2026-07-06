@@ -142,6 +142,36 @@ All tests must pass before finishing.
 
 **TDD evidence gate (v1.21 — PFO port):** for a behavior change (new feature or bugfix), prefer writing the test **first** and capturing red→green evidence: the test fails on the old code, passes on the new. Note both states explicitly ("red: AssertionError … → green: 1 passed"). When red-first is genuinely impractical (UI glitch, race condition, env-specific bug), state that exception explicitly rather than silently skipping it.
 
+### Step 5.5: Refute pass — mutation-check each new test before you trust it as coverage (v1.60.0 — Ось 2, agentic engineering)
+
+The refute pass from `/review` Step 2.6, applied to the test verify fleet. Here
+the "finding" is a new test's implicit claim «this asserts real behavior». A
+test that passes on BOTH the correct and the broken code is vacuous coverage — a
+green that proves nothing and lies to every later reader. This pass adversarially
+challenges that claim before the suite's green is trusted.
+
+For each **behavior-asserting** test just written (not trivial getters /
+formatting / snapshot-only tests), run a **fresh** mutation check: break the code
+path the test claims to cover — invert a condition, drop a guard, return a wrong
+constant (or dispatch `Agent(subagent_type: "test-generator", …)` with a refute
+prompt to attempt it) — and confirm the test now **FAILS**. A test that stays
+green under the mutation is **refuted as meaningful coverage**. This is the
+red→green TDD gate (Step 5) run in reverse: green→red-under-mutation. **Default
+to `refuted: true` under uncertainty** — if you cannot make the test fail by
+breaking what it supposedly checks, treat its coverage claim as unproven.
+
+- Refuted (survives the mutation) → the test is vacuous: fix it (tighten the
+  assertion) or drop it; do not count it as coverage.
+- Confirmed (fails under mutation) → real coverage, keep it.
+- **Trivial / non-behavioral tests are NOT mutation-checked** — the cost is not
+  justified.
+
+**Invariant:** the refute pass can only REMOVE vacuous tests from the trusted
+coverage set; it never fabricates a passing test and never reports mutation
+evidence it did not actually run. When a real mutation run is impractical
+(env-specific, flaky), state that exception explicitly rather than silently
+claiming the coverage is proven — same honesty rule as the TDD gate above.
+
 ### Step 6: Mark `/test` as done for this session (v1.23.0)
 
 Final step of every `/test` invocation, **after the suite has actually run and passed** (see the fail-closed gate above). Write a session marker so `hooks/check-dod-before-commit.sh` knows `/test` was run — this is what unblocks a `git commit` the DoD gate flags as test-requiring (DB migrations, brand-new source files). The sentinel asserts "tests were run this session", so only write it when verification genuinely passed — never to silence the gate.

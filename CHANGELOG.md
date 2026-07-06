@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.60.0] - 2026-07-06
+
+**Ось 2 — Agentic engineering (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the agentic-engineering axis from a self-graded ~7.5 toward ~9: make subagent recovery mechanical (never a manual ping), extend the adversarial refute discipline across the whole verify fleet, lock the risk-tier⇒model ordering, make the skill Definition-of-Done machine-readable, and turn stall recovery into an automatic fallback. Every unit is backed by a section-scoped, mutation-tested CI gate. Counts stay **40/10/24** throughout.
+
+### G-001 — caller-side auto-ping-for-verdict in `/review`
+
+The #1 agentic drag was a subagent ending its final message on process narration instead of a verdict, recovered only by a human ping. `/review` gains **Step 2.7**: after each Agent-tool dispatch, the conductor detects a verdict-less return by the **absence of the verdict marker** (not by regex-guessing the prose — strictly less reliable) and **auto-re-pings once, without asking the user**, bounded by `ITD_AUTOPING_MAX` (default 2). `/cross-review` gets the symmetric step 3a. The two SubagentStop hooks (`narration-final.sh`, `verdict-contract.sh`) are the *suspenders* to this caller-side *belt*; the layers degrade independently (harness best-effort invariant).
+
+**Tests** — `tests/verify_review_autoping.py` (new, 12 checks, section-scoped to Step 2.7 / 3a).
+
+### G-002 — refute pass across the whole verify fleet
+
+The `/review` Step 2.6 adversarial refute is extended to the rest of the verify fleet: `/security-audit` **Step 2.5** (refute exploitability of each Critical/Important vuln; security tie-break — vague doubt is not a refutation), `/perf` **Step 2.5** (refute each HIGH/MEDIUM bottleneck; must be measured on the hot path), `/test` **Step 5.5** (mutation-check each behavior-asserting test — green under a mutation = vacuous coverage). Shared invariant: the refute pass can only REMOVE findings, never invent one; minor/low findings are exempt.
+
+**Tests** — `tests/verify_refute_fleet.py` (new, 19 checks, section-scoped per skill).
+
+### G-003 — risk-tier ⇒ model monotonicity invariant
+
+A machine-checked invariant: the `security-reviewer`'s model tier is never below the `code-reviewer`'s (security is the higher-risk verify class). `MODEL-ROUTING-POLICY.md` is reconciled with the actual frontmatter (its table previously said code-review→opus while the `code-reviewer` subagent runs sonnet+high) — the interactive `/review` conductor row (opus) and the thin `code-reviewer` subagent row (sonnet+high) are now split and consistent.
+
+**Tests** — `tests/verify_model_risk_monotonic.py` (new) parses the `model:` frontmatter (tier-normalized, tolerant of a pinned full id) and pins both doc tables to it; a future inversion or doc-drift fails CI.
+
+### G-004 — machine-readable skill Definition-of-Done
+
+`VERIFICATION_CONTRACT.json` gains a `skillDefinitionOfDone` registry: each verify/impl skill's DoD is expressed as ≥1 **structured** done-signal (sentinel / command / artifact / json_field / evidence), not only prose. Anti-fabrication: every `sentinel` done-signal must actually be **written** by its skill (a redirection/`tee` line, not a prose mention).
+
+**Tests** — `tests/verify_dod_coverage.py` (new) counts coverage of the required verify/impl set (==100%) and grounds every sentinel ref.
+
+### G-005 — mechanical stall-resilience fresh-narrow fallback
+
+`skills/_shared/helpers.md` gains **§9**: on ANY subagent stall (watchdog timeout / autocompact death / empty return), the recovery is a fresh narrow agent spawned **automatically** — the default procedure, not a manual «resume or retry?» decision — generalizing §8's post-BLOCKED rule. Bounded by `ITD_STALL_MAX_RESPAWNS` (default 2), then escalates a visible blocker. Referenced from `/review` Step 0 and `/task` Step 3f.
+
+**Tests** — `tests/verify_stall_fallback.py` (new, 8 checks, section-scoped to §9).
+
+All five gates wired into `.github/workflows/meta-review.yml`. Live dogfood: during G-005's own review the `code-reviewer` ended on narration without a verdict — Step 2.7's caller-side auto-re-ping recovered the verdict in one message, zero manual pings.
+
+---
+
 ## [1.59.0] - 2026-07-06
 
 **Ось 1 — Harness engineering (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the harness-engineering axis from a self-graded ~7.5 toward ~9.5: diff-bind the review gate, make the self-grading honest and behaviourally fixture-proofed, split hard vs soft gates explicitly, cut ceremony friction, and prove hook-inheritance + gate-robustness empirically. Counts stay **40/10/24** throughout.

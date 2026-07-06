@@ -28,8 +28,9 @@ opaque router to debug.
 |---|---|---|
 | Requirements, discovery (`/discover`, `/blueprint` strategy) | **opus** | Open-ended reasoning, market/spec synthesis — frontier judgment pays for itself. |
 | Architecture, design (`/blueprint` architecture, `architect`/`devils-advocate` agents) | **opus** | Cross-cutting trade-offs held in working memory; cheap models miss interactions. |
-| Cross-document / code review (`/review`, `code-reviewer`) | **opus** | Must hold 6 docs + ~30 rubric checks at once; the quality floor of the whole methodology. |
-| Security & production judgment (`/security-audit`, `/harden`) | **opus** | Exploitability reasoning and cross-layer hardening are high-stakes, low-volume. |
+| Cross-document review — interactive `/review` conductor | **opus** | Must hold 6 docs + ~30 rubric checks at once; the quality floor of the whole methodology. |
+| Code review — the `code-reviewer` **subagent** (thin, one focused diff) | **sonnet + high effort** | Dispatched with a thin prompt against one target by path, it holds a bounded diff, not 6 docs — `sonnet`+`high` covers it (per `AGENT_EFFORT_TIERS.md`); `effort` buys the depth here, not `model`. |
+| Security & production judgment (`/security-audit`, `/harden`, `security-reviewer`) | **opus** | Exploitability reasoning and cross-layer hardening are high-stakes, low-volume — and, being the higher-risk verify class, its model tier must never sit below the code reviewer's (see "Risk-tier ⇒ model monotonicity" below). |
 | Implementation (`/kickstart` codegen, `/bugfix`, `/refactor`) | **opus → sonnet** | Opus for novel/complex logic; sonnet once the pattern is established and the change is mechanical. |
 | Test generation (`/test`) | **sonnet** | Pattern-matching against existing test conventions; sonnet covers all major frameworks. |
 | Routing & wrap-up (`/task`, `/session-save`, `/doc` formatting) | **sonnet (haiku-class acceptable)** | Mechanical: one routing question, summarize git log, format prose. High volume → cheapest safe tier. |
@@ -48,6 +49,21 @@ current — see the `claude-api` skill for live ids; do not hardcode an id here.
 3. **Cost feedback:** `hooks/cost-tracker.sh` + `/session-save` Step 4.6 make the
    actual spend visible, so the policy can be tuned against real numbers rather than
    guessed. (Accounting only — not an observability platform; see ADR-001.)
+
+## Risk-tier ⇒ model monotonicity (invariant, v1.60.0 — Ось 2)
+
+Routing to a cheaper tier is legitimate — but the **higher-risk** a verify agent's
+surface is, the **higher** (never lower) its model tier must be. Concretely: the
+`security-reviewer` gates the highest-stakes surface (exploitability, production
+safety), so its `model` frontmatter is never below the `code-reviewer`'s. Today
+`security-reviewer` = `opus`, `code-reviewer` = `sonnet` — monotone. This is not a
+comment we hope stays true: `tests/verify_model_risk_monotonic.py` parses the
+`model:` frontmatter of both agents and FAILS CI if the ordering ever inverts (a
+future cost-cut that quietly drops `security-reviewer` to `sonnet` while
+`code-reviewer` is `opus`, say). The gate also pins this table and
+`AGENT_EFFORT_TIERS.md` to the actual frontmatter, so the *contract* (the docs)
+can no longer invert from the *model* (the frontmatter) — the class of drift this
+invariant exists to kill.
 
 ## Non-goals (explicit)
 
