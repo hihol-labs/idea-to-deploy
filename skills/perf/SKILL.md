@@ -88,6 +88,35 @@ For each finding:
 **Trade-off**: any downsides
 ```
 
+### Step 2.5: Refute pass — adversarially verify each surfaced bottleneck before you trust it (v1.60.0 — Ось 2, agentic engineering)
+
+The refute pass from `/review` Step 2.6, applied to the perf verify fleet. A
+plausible-but-wrong bottleneck (a hot-looking loop that is actually cold, an N+1
+on a 3-row table, an "optimization" that trades against a real constraint)
+wastes effort and can regress correctness — this pass filters them before they
+reach the prioritized list. Put every **HIGH and MEDIUM** finding through an
+independent refutation.
+
+For each such finding, run a **fresh** adversarial verification (a separate
+reasoning pass, or `Agent(subagent_type: "perf-analyzer", …)` with a refute
+prompt) that tries to prove the finding is NOT worth acting on — read the code
+and the evidence and look for the reason: **is it actually on the hot path**
+(measured, not guessed — this skill's «measure first» rule is the refutation's
+teeth), is the input size real, would the proposed fix *measurably* help, does
+the trade-off cost more than it saves. **Default to `refuted: true` under
+uncertainty**: a bottleneck you cannot back with a measurement or a concrete
+hot-path argument is dropped, not shipped as a guess.
+
+- Refuted (cold path / negligible N / fix wouldn't help / bad trade-off) → move
+  to "Additional observations" with a `refuted` note; it does not gate priority.
+- Confirmed (measured on the hot path, fix helps) → keep it, ranked by impact.
+- **LOW-impact / micro-optimization findings are NOT refuted** — they never gate,
+  so the cost is not justified.
+
+**Invariant:** the refute pass can only REMOVE unconfirmed findings from the
+prioritized set; it never invents a new bottleneck and never manufactures a
+measurement it did not take.
+
 ### Step 3: Prioritize
 Sort by impact. Focus on real bottlenecks, not micro-optimizations.
 
