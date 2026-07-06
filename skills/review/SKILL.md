@@ -74,6 +74,11 @@ already exists. Dispatching the Agent is still possible from within a fork, so d
 the size check and switch to Agent-tool dispatch **first thing** — before loading
 any more context — if `CLAUDE.md` is large.
 
+This fork-thrash fallback is one instance of the general **stall-resilience**
+rule: on ANY subagent stall (watchdog timeout, autocompact death, empty return),
+a fresh narrow agent is the **automatic** fallback — not a manual «resume or
+retry?» decision. See `skills/_shared/helpers.md` §9.
+
 ### Step 0.4: Resolve the review TARGET path (v1.42.0 — do not silently review cwd)
 
 `$ARGUMENTS` may point the review at a DIFFERENT repo/path than the current

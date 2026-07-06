@@ -68,5 +68,8 @@ jobs:
       - name: Run skill DoD machine-readable coverage (v1.60.0, Ось 2)
         run: python3 tests/verify_dod_coverage.py
 
+      - name: Run stall-resilience fresh-narrow-agent fallback doc-contract (v1.60.0, Ось 2)
+        run: python3 tests/verify_stall_fallback.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

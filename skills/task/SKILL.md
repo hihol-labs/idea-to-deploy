@@ -175,6 +175,13 @@ implementation:
 Tier note (Step 1b): a feature is **standard** by default; escalate to
 **high-risk** when it touches prod data, schema, auth, payments, or security.
 
+Stall-resilience: when any step here dispatches a subagent (the routed skill's
+verify/review agents, an Explore/refute agent) and it **stalls** — watchdog
+timeout, autocompact death, empty return — the recovery is **automatic**: spawn a
+fresh narrow agent scoped to the smallest useful slice, do not stop to ask
+«resume or retry?». This is the shared rule in `skills/_shared/helpers.md` §9,
+not a per-skill judgement call.
+
 ### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0, only when `.itd-memory/` exists)
 
 If `$PROJECT_ROOT/.itd-memory/STATE.json` exists, keep the machine-readable
