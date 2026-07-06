@@ -39,6 +39,9 @@ DIR_NAME = "completion"
 SIGNALS_FILE = "signals.jsonl"
 VERDICT_FILE = "completion.json"
 SESSION_WINDOW_SEC = 6 * 3600  # если session_id недоступен — окно свежести сигналов
+MAX_LEDGER_LINES = 2000          # верхняя граница строк леджера сигналов
+LEDGER_SOFT_BYTES = 512 * 1024    # прунинг срабатывает только когда файл перерос этот размер
+                                  # (амортизированный O(1) на append: полный rewrite раз в ~MAX строк)
 
 
 def now_iso() -> str:
@@ -261,8 +264,20 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
 def append_signal(cwd: Path, session_id: str, sig: dict) -> None:
     sig = dict(sig)
     sig["session"] = str(session_id or "unknown")
-    with signals_path(cwd).open("a", encoding="utf-8") as f:
+    p = signals_path(cwd)
+    with p.open("a", encoding="utf-8") as f:
         f.write(json.dumps(sig, ensure_ascii=False) + "\n")
+    # Amortized bound: keep the ledger from growing without limit. The size gate
+    # keeps this O(1) per append — a full read+rewrite fires only once the file
+    # crosses the soft cap (~every MAX_LEDGER_LINES appends), so read_signals /
+    # the gate never parse an unbounded file. Best-effort: any error is swallowed.
+    try:
+        if p.stat().st_size > LEDGER_SOFT_BYTES:
+            lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+            if len(lines) > MAX_LEDGER_LINES:
+                p.write_text("\n".join(lines[-MAX_LEDGER_LINES:]) + "\n", encoding="utf-8")
+    except Exception:
+        pass
 
 
 def read_signals(cwd: Path, session_id: str | None) -> list:
