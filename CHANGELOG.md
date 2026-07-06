@@ -52,6 +52,25 @@ The HARNESS_MAP's H1/H3 enforcement ✅ rested on "the hook exists." Two hard ga
 
 - **`docs/HARNESS_ENGINEERING_MAP.md`** — the ✅ enforcement marks now cite the fixture-proof grid (8/8 behavioural coverage), not hook existence.
 
+### G-004 — skill-gate friction cut + bypass/session metric
+
+The skill-enforcement gate had two dead-ends that produced ceremony `SKILL_BYPASS` records (the live ledger's dominant reason class was read-only recon and "skill active but the hook can't see the Skill call").
+
+**Fixed**
+
+- **`hooks/check-tool-skill.sh`** — the `SKILL_BYPASS` check now runs **before** the read-only fast-path. Previously a read-only Bash carrying `SKILL_BYPASS:` was swallowed by the read-only short-circuit, so the natural `true` + `SKILL_BYPASS:` gesture used to open a grace window did nothing (no reset, no window, no log). It now reliably opens the window — the only in-band escape Edit/Write (no `description` field) have.
+- **`hooks/check-tool-skill.sh`** — the block message no longer tells Edit/Write users to "add SKILL_BYPASS to the description" (impossible — they have no such field); it now points them to the correct escape (a one-off harmless Bash with `SKILL_BYPASS:` in its description opens a grace window covering the following Edit/Write burst).
+
+**Changed**
+
+- **`hooks/check-tool-skill.sh`** — evidence-driven read-only allowlist additions from the bypass ledger: `tsc --noEmit` (type-check, read-only) and `node --test` (built-in test runner). Bare `tsc` (emits) and `node app.js` stay gated.
+- **`skills/retro/scripts/itd_retro_scan.py`** — new **bypass/session** friction metric (`bypassSessionCount`, `bypassPerSession`) rendered in the retro report and exposed in `--json`; it must trend down release to release.
+
+**Tests**
+
+- **`tests/verify_bypass_friction.py`** (new, 17 checks) — drives the real hook: readonly+bypass now resets/opens-window/logs (Bug 1); readonly-without-bypass stays exempt; end-to-end Edit dead-end → blocked, then one-off bypass opens the window, next Edit allowed (Bug 2 escape); allowlist additions classified read-only.
+- **`tests/verify_retro_scan.py`** — asserts the new per-session metric in markdown and `--json`.
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.
