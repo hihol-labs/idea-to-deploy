@@ -71,5 +71,20 @@ jobs:
       - name: Run stall-resilience fresh-narrow-agent fallback doc-contract (v1.60.0, Ось 2)
         run: python3 tests/verify_stall_fallback.py
 
+      - name: Run harness-native feature ledger structural gate (v1.61.0, Ось 3)
+        run: python3 tests/verify_feature_ledger.py
+
+      - name: Run feature-ledger completeness drift-guard (v1.61.0, Ось 3)
+        run: python3 tests/verify_feature_ledger_completeness.py
+
+      - name: Run feature-ledger fallback fixture-proof (v1.61.0, Ось 3)
+        run: python3 tests/verify_feature_ledger_fallbacks.py
+
+      - name: Run /retro abstention re-review gate (v1.61.0, Ось 3)
+        run: python3 tests/verify_retro_abstention_review.py
+
+      - name: Run feature-ledger targeted-adoptions gate (v1.61.0, Ось 3)
+        run: python3 tests/verify_feature_ledger_adoptions.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh
