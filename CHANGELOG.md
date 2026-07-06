@@ -85,6 +85,12 @@ The skill-enforcement gate had two dead-ends that produced ceremony `SKILL_BYPAS
 
 - **`skills/autopilot/SKILL.md`** — the hedged `context: fork` caveat ("if a forked context does not inherit the enforcement hooks…") is replaced with evidence: a probe subagent in a forked context ran two Bash calls and the parent `settings.json` `PreToolUse` hooks BOTH fired (`careful`, `check-tool-skill`), delivered as `PreToolUse:Bash hook additional context`. So mechanical gates DO apply inside a fork. Recorded in HARNESS_MAP §8.4. (Separate mechanism: a fork does not inherit the parent `SKILL.md` — instruction inheritance, not hook firing.)
 
+### G-006 — adversarial red-team + multi-host proof
+
+**Added**
+
+- **`tests/verify_redteam_multihost.py`** (new, 8 checks) — the ceiling unit. Part A red-team: the fixture grid proves all 8 hard gates deny/block, and targeted circumvention attempts must FAIL — a foreign/fresh `tree:` review sentinel is rejected, a legacy bare-timestamp wildcard is rejected, a `SKILL_BYPASS` smuggled in the Bash *command* (not the audited `description`) is not honoured, and read-only smuggles (`ls && rm -rf x`, `cat x > y`, `git status && curl …`) are not classified read-only. Part B multi-host: hooks are spawned with `sys.executable`, and the red-team is proven green on **two distinct OS/interpreter hosts** — WSL-Linux (py3.12.3) and Windows (py3.12.10) — with per-host evidence committed under `tests/fixtures/redteam-hosts/`. The comprehensive fixture grid stays WSL-canonical (skippable on a secondary host whose git/temp harness differs); the cross-host robustness proof rests on the targeted adversarial cases, which run identically everywhere.
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.
