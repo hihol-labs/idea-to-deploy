@@ -288,9 +288,21 @@ Use the Bash tool:
 # Dual-write: literal /tmp AND the platform temp dir. Under Git-Bash /tmp is
 # %TEMP% while a Windows-python gate hook resolves "/tmp" to C:\tmp — writing
 # both keeps the sentinel visible to every reader (v1.42.0 platform symmetry).
+#
+# v1.59.0 diff-binding: the marker content is `tree:<git-write-tree>` — the
+# SHA of the exact staged content this review looked at, NOT a bare timestamp.
+# check-review-before-commit.sh only unblocks a commit whose staged tree hash
+# matches, so a stale review (content edited since) or a foreign-project
+# marker no longer wildcards the gate. `git write-tree` returns a hash for any
+# valid repo (HEAD's tree even when nothing is staged), so the timestamp
+# fallback below fires only when git errors outright (e.g. not a repo); the
+# gate then rejects the bare timestamp and re-requires /review — the safe
+# direction.
 tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
 mkdir -p /tmp 2>/dev/null || true
-echo "$(date +%s)" | tee "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
+tree="$(git write-tree 2>/dev/null)"
+if [ -n "$tree" ]; then marker="tree:$tree"; else marker="$(date +%s)"; fi
+echo "$marker" | tee "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$marker" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
 ```
 
 Why this lives in the skill and not in the hook:

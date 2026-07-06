@@ -267,6 +267,14 @@ def is_readonly_bash(payload: dict) -> bool:
         # SKILL_BYPASS records this session, dominated by verification/recon.
         r"pytest\b|python3?\s+(?:-m\s+pytest\b|tests/\S+)|npm\s+(?:test|run\s+test)\b|"
         r"go\s+test\b|"
+        # v1.59.0 (ось 1 / G-004, evidence-driven — bypass ledger): type-check
+        # and the node built-in test runner are verification recon, not a task
+        # entry. `tsc --noEmit` only (bare `tsc` EMITS files → stays gated);
+        # `node --test` runs the suite. `node app.js` / `tsc` w/o --noEmit stay
+        # gated (they run/emit product code). The `--test(?=\s|$)` lookahead
+        # pins the bare test flag so the `--test-reporter=`/`--test-only` flag
+        # family (a `-` after `--test` would satisfy a bare `\b`) stays gated.
+        r"tsc\s+--noEmit\b|node\s+--test(?=\s|$)|"
         # gh: read-only subcommands only — merge/create/edit/close stay gated
         r"gh\s+(pr|run|issue|release)\s+(view|list|checks|status|diff)|"
         # git: optional `-C <dir>` prefix, then a read-only subcommand (v1.54.0,
@@ -290,23 +298,36 @@ def main() -> int:
     tool = (payload or {}).get("tool_name") or "?"
     reminder_path, ignore_path = state_paths()
 
-    # --- Read-only inspection Bash → not a task entry, skip the gate silently ---
-    # (v1.35.0) Does not touch the ignore counter or grace window: recon is
-    # neither skill work nor an ignore. Mutations fall through to enforcement.
-    if is_readonly_bash(payload):
-        return 0
-
     # --- Skill call detected → reset ignore counter, open grace window ---
+    # NB: in the current Claude Code runtime the Skill tool does NOT emit
+    # PreToolUse, so this branch is a forward-compat no-op today; the grace
+    # window is actually opened by a SKILL_BYPASS below and by check-skills.sh
+    # (UserPromptSubmit) at prompt start.
     if tool == "Skill":
         write_ignore_count(ignore_path, 0)
         mark_skill_active()
         return 0
 
     # --- Bypass marker in tool input → log, reset, open grace window, allow ---
+    # v1.59.0 (ось 1 / G-004): this MUST run BEFORE the read-only fast-path.
+    # Previously is_readonly_bash() returned first, so a read-only Bash that
+    # carried an explicit `SKILL_BYPASS:` — the natural `true  # SKILL_BYPASS: …`
+    # gesture a user runs to open a grace window ahead of an Edit/Write burst —
+    # was swallowed silently: the bypass was neither logged nor did it open the
+    # window. Handling it here makes that gesture reliable, and it is the only
+    # in-band escape Edit/Write (which carry no `description` field) have.
     if has_bypass_marker(payload):
         log_bypass(payload)
         write_ignore_count(ignore_path, 0)
         mark_skill_active()  # one bypass opens a grace window, not a single call
+        return 0
+
+    # --- Read-only inspection Bash → not a task entry, skip the gate silently ---
+    # (v1.35.0) Does not touch the ignore counter or grace window: recon is
+    # neither skill work nor an ignore. Mutations fall through to enforcement.
+    # (Runs after the bypass check so an explicit SKILL_BYPASS on a read-only
+    # command still opens the grace window — see G-004 above.)
+    if is_readonly_bash(payload):
         return 0
 
     # --- Fresh skill-active sentinel → a skill is running, grant grace ---
@@ -332,8 +353,11 @@ def main() -> int:
             "(/bugfix, /test, /refactor, /doc, /review, /explain, /perf, "
             "/project, /task, /blueprint, /guide, /session-save, "
             "/security-audit, /deps-audit, /migrate, /harden, /infra)\n"
-            "2. Обоснуй обход — добавь в description Bash/Edit/Write текст "
-            "'SKILL_BYPASS: <причина почему ни один скилл не подходит>'\n\n"
+            "2. Обоснуй обход через SKILL_BYPASS в поле `description` инструмента "
+            "Bash: 'SKILL_BYPASS: <причина>'. У Edit/Write/NotebookEdit поля "
+            "description НЕТ, поэтому для них открой grace-окно ОДНИМ безвредным "
+            "Bash (команда `true`) с 'SKILL_BYPASS: <причина>' в его description — "
+            "окно снимет блок и с последующих Edit/Write, пока активно.\n\n"
             "Подробности: ROADMAP_v1.19.md Gap #4, "
             "~/.claude/CLAUDE.md раздел «ЖЁСТКОЕ ПРАВИЛО»."
         )

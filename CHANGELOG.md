@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.59.0] - 2026-07-06
+
+**Ось 1 — Harness engineering (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the harness-engineering axis from a self-graded ~7.5 toward ~9.5: diff-bind the review gate, make the self-grading honest and behaviourally fixture-proofed, split hard vs soft gates explicitly, cut ceremony friction, and prove hook-inheritance + gate-robustness empirically. Counts stay **40/10/24** throughout.
+
+### G-001 — diff-bound review-sentinel
+
+The review commit gate (`check-review-before-commit.sh`) previously unblocked a >2-file `git commit` on *any* fresh `claude-review-done-*` sentinel (bare timestamp), so a stale review (content edited since) or a sentinel from an unrelated project wildcarded the gate. It is now **bound to `tree:<git-write-tree>`** — the SHA of the exact staged content — and unblocks only a commit whose staged tree matches. Closes the wildcard hole; fails **closed** when git cannot fingerprint the tree (no re-opened bypass).
+
+**Changed**
+
+- **`hooks/check-review-before-commit.sh`** — `review_was_done()` now requires the sentinel content to equal `tree:<current-staged-tree>` (via new `staged_tree_hash()` → `git write-tree`). Bare-timestamp / malformed sentinels are rejected (no wildcard). Fail-closed on git fault (deny, re-require /review) — a foreign `tree:` token can no longer slip through on a git error.
+- **`hooks/record-agent-skill.sh`** — writes the review sentinel for the delegated `code-reviewer` subagent as `tree:<hash>` (bound), matching what the gate computes at commit time; other skills keep the plain timestamp (they feed existence-based gates).
+- **`skills/review/SKILL.md`** — Step 5 writes `tree:$(git write-tree)` instead of a bare timestamp (timestamp fallback only on genuine git error).
+
+**Tests**
+
+- **`tests/verify_review_sentinel_diffbind.py`** (new, 12 checks) — real deny(exit 2)/allow(exit 0) exercises: foreign/stale/legacy sentinels denied, matching tree allowed, staleness re-block, end-to-end via the recorder, and a fail-closed regression guard (git-fault + foreign sentinel → not done).
+- **`tests/verify_agent_review_sentinel.py`** — `run_record` gained `cwd` so the end-to-end case binds to the test repo's tree (models runtime: delegated review + commit share the repo). Still 10/10; DoD gate 19/19 (existence-based, unaffected).
+
+### G-002 — hard/soft gate taxonomy + hard-gate coverage metric
+
+The "24 hooks" count conflated enforcement strength with hook count. README now splits it explicitly: **8 hard gates** (can `deny`/`block` — `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract`) vs **16 soft** (reminders/context/observability, always exit 0). Introduces the **hard-gate coverage** metric — the fraction of hard gates backed by a behavioural deny/block test (target 8/8).
+
+**Changed**
+
+- **`README.md` / `README.ru.md`** — new "Hook taxonomy — 8 hard gates vs 16 soft" table + hard-gate coverage definition; the bare "24 hooks" oversell is gone. Fixed a stale line that described the escalating `check-tool-skill.sh` as "Soft reminder — never blocks" (it denies on the 3rd ignored skill decision).
+
+**Tests**
+
+- **`tests/verify_gate_taxonomy.py`** (new, 9 checks) — derives the hard/soft split from `hooks/*.sh` by a strict blocking-decision regex (8/16/24), then asserts the README table and prose stay in sync with the derived sets (a 9th hard gate forces a doc update). Reports current hard-gate coverage.
+
+### G-003 — fixture-proof self-grading grid (doc-vs-enforcement gap closed)
+
+The HARNESS_MAP's H1/H3 enforcement ✅ rested on "the hook exists." Two hard gates — `check-commit-completeness` and `check-skill-completeness` — had **no test that actually drove them to `deny`** (referenced only structurally), so their ✅ was unproven. Now every hard gate is behaviourally fixture-proofed.
+
+**Added**
+
+- **`tests/verify_commit_completeness_gate.py`** (new, 3 checks) — spawns `check-commit-completeness.sh` against a temp methodology repo and asserts a real exit-2 deny for an incomplete skill commit (+ allow when complete, + no-op outside a methodology repo).
+- **`tests/verify_skill_completeness_gate.py`** (new, 4 checks) — spawns `check-skill-completeness.sh` on a Write payload and asserts exit-2 deny for a `SKILL.md` referencing a missing `references/` (+ allow paths).
+- **`tests/verify_harness_map_fixtures.py`** (new, 27 checks) — the grid: derives the 8 hard gates (same regex as the taxonomy test), maps each to a behavioural proof test, statically checks each proof spawns the hook + asserts block/deny, **runs each and requires it to pass**, and asserts **hard-gate coverage == 8/8**. A 9th hard gate without a passing proof fails the grid — a gate can never be ✅ without a proven block/deny.
+
+**Changed**
+
+- **`docs/HARNESS_ENGINEERING_MAP.md`** — the ✅ enforcement marks now cite the fixture-proof grid (8/8 behavioural coverage), not hook existence.
+
+### G-004 — skill-gate friction cut + bypass/session metric
+
+The skill-enforcement gate had two dead-ends that produced ceremony `SKILL_BYPASS` records (the live ledger's dominant reason class was read-only recon and "skill active but the hook can't see the Skill call").
+
+**Fixed**
+
+- **`hooks/check-tool-skill.sh`** — the `SKILL_BYPASS` check now runs **before** the read-only fast-path. Previously a read-only Bash carrying `SKILL_BYPASS:` was swallowed by the read-only short-circuit, so the natural `true` + `SKILL_BYPASS:` gesture used to open a grace window did nothing (no reset, no window, no log). It now reliably opens the window — the only in-band escape Edit/Write (no `description` field) have.
+- **`hooks/check-tool-skill.sh`** — the block message no longer tells Edit/Write users to "add SKILL_BYPASS to the description" (impossible — they have no such field); it now points them to the correct escape (a one-off harmless Bash with `SKILL_BYPASS:` in its description opens a grace window covering the following Edit/Write burst).
+
+**Changed**
+
+- **`hooks/check-tool-skill.sh`** — evidence-driven read-only allowlist additions from the bypass ledger: `tsc --noEmit` (type-check, read-only) and `node --test` (built-in test runner). Bare `tsc` (emits) and `node app.js` stay gated.
+- **`skills/retro/scripts/itd_retro_scan.py`** — new **bypass/session** friction metric (`bypassSessionCount`, `bypassPerSession`) rendered in the retro report and exposed in `--json`; it must trend down release to release.
+
+**Tests**
+
+- **`tests/verify_bypass_friction.py`** (new, 17 checks) — drives the real hook: readonly+bypass now resets/opens-window/logs (Bug 1); readonly-without-bypass stays exempt; end-to-end Edit dead-end → blocked, then one-off bypass opens the window, next Edit allowed (Bug 2 escape); allowlist additions classified read-only.
+- **`tests/verify_retro_scan.py`** — asserts the new per-session metric in markdown and `--json`.
+
+### G-005 — hook-table drift-guard + empirical context:fork inheritance
+
+**Added**
+
+- **`tests/verify_hook_table_completeness.py`** (new, 7 checks) — a drift-guard that asserts the HARNESS_MAP §8.2 per-hook table lists exactly `hooks/*.sh`, the §8.1 matrix mentions every hook, the §8.2 **blocking** rows equal the 8 hard gates (classifier), and the README taxonomy union equals the disk hook set. It caught real drift on arrival (see below).
+
+**Fixed (drift the guard exposed)**
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` §8** — the §8.2 per-hook table was missing `narration-final.sh` and `verdict-contract.sh` (the two SubagentStop hard gates), and §8.1/§8.2 mislabelled `careful.sh`/`freeze.sh` as "blocking" though both self-declare `exit 0, permissionDecision: allow`. Reconciled: 24 hooks; **8 hard = 6 feedforward `deny` + 2 SubagentStop `block`**; 16 soft (careful/freeze are soft detectors). §8.1 header 22→24; §8.3 "8 blocking = feedforward" → "computational; 6 FF + 2 SubagentStop".
+
+**Verified empirically**
+
+- **`skills/autopilot/SKILL.md`** — the hedged `context: fork` caveat ("if a forked context does not inherit the enforcement hooks…") is replaced with evidence: a probe subagent in a forked context ran two Bash calls and the parent `settings.json` `PreToolUse` hooks BOTH fired (`careful`, `check-tool-skill`), delivered as `PreToolUse:Bash hook additional context`. So mechanical gates DO apply inside a fork. Recorded in HARNESS_MAP §8.4. (Separate mechanism: a fork does not inherit the parent `SKILL.md` — instruction inheritance, not hook firing.)
+
+### G-006 — adversarial red-team + multi-host proof
+
+**Added**
+
+- **`tests/verify_redteam_multihost.py`** (new, 8 checks) — the ceiling unit. Part A red-team: the fixture grid proves all 8 hard gates deny/block, and targeted circumvention attempts must FAIL — a foreign/fresh `tree:` review sentinel is rejected, a legacy bare-timestamp wildcard is rejected, a `SKILL_BYPASS` smuggled in the Bash *command* (not the audited `description`) is not honoured, and read-only smuggles (`ls && rm -rf x`, `cat x > y`, `git status && curl …`) are not classified read-only. Part B multi-host: hooks are spawned with `sys.executable`, and the red-team is proven green on **two distinct OS/interpreter hosts** — WSL-Linux (py3.12.3) and Windows (py3.12.10) — with per-host evidence committed under `tests/redteam-hosts/`. The comprehensive fixture grid stays WSL-canonical (skippable on a secondary host whose git/temp harness differs); the cross-host robustness proof rests on the targeted adversarial cases, which run identically everywhere.
+
+### G-007 — HARNESS_MAP re-score + axis close
+
+- **`docs/HARNESS_ENGINEERING_MAP.md` §6** — records the honest post-Ось-1 self-assessment of the Harness-engineering axis: **~9.5/10**, up from ~7.5, with the systemic holes closed (diff-bound sentinel, 8/8 behavioural gate coverage, hard/soft split, friction cut, drift-guard, empirical fork inheritance, cross-host red-team). The last 0.5 to 10 is explicitly **external**: an independent red-team and multi-*OS* confirmation beyond Win+WSL — evidence a methodology cannot grant itself. Not scored as 10 for exactly that reason.
+- **`tests/redteam-hosts/`** — moved out of `tests/fixtures/` (host evidence is data, not a snapshot fixture) so `verify_snapshot.py --all` stays green.
+- Rolled out to `~/.claude` (WSL + Windows) via `scripts/sync-to-active.sh`.
+
 ## [1.58.0] - 2026-07-05
 
 **Release D3 — `/autopilot` re-evaluation (audit graded it C, worst value/risk).** The plan's D3 item. Re-evaluated and **hardened, harness-aligned** (not deprecated, and not with per-phase human checkpoints — those would duplicate the mechanical harness and defeat the autonomy that is autopilot's whole point). The deciding fact: autopilot is already `disable-model-invocation: true`, so it is never auto-routed — a pure opt-in command. That removes most of the "redundant routing footgun" case for deprecation, leaving only a misleading description and a `context: fork` safety question, both fixed here. No new/removed skill — counts stay 40/10/24.

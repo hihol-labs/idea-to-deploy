@@ -126,8 +126,13 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     """
     bypasses: dict[str, int] = {}
     bypass_reasons: list[str] = []
+    bypass_sessions = 0  # one ledger file == one session that logged >=1 bypass
     for path in sorted(tmp_dir.glob("claude-skill-ledger-*.jsonl")):
-        for rec in read_jsonl(path):
+        recs = read_jsonl(path)
+        if not recs:
+            continue
+        bypass_sessions += 1
+        for rec in recs:
             tool = str(rec.get("tool") or rec.get("skill") or "unknown")
             bypasses[tool] = bypasses.get(tool, 0) + 1
             reason = str(rec.get("reason") or "").strip()
@@ -165,10 +170,17 @@ def scan_ledgers(tmp_dir: Path) -> dict:
                 except (TypeError, ValueError):
                     continue
 
+    bypass_total = sum(bypasses.values())
     return {
-        "bypassTotal": sum(bypasses.values()),
+        "bypassTotal": bypass_total,
         "bypassByTool": dict(sorted(bypasses.items(), key=lambda kv: -kv[1])[:5]),
         "bypassReasonsTail": bypass_reasons[-10:],
+        # bypass/session is the friction metric that must trend DOWN release to
+        # release (ceremony bypasses are the tax the read-only allowlist + grace
+        # window exist to cut). Normalising by session makes it comparable
+        # across retros of different length.
+        "bypassSessionCount": bypass_sessions,
+        "bypassPerSession": round(bypass_total / bypass_sessions, 2) if bypass_sessions else 0.0,
         "costSessions": cost_sessions,
         "costTokensTotal": cost_tokens,
         "costUsdEstimate": round(cost_usd, 2),
@@ -241,6 +253,10 @@ def render_markdown(r: dict) -> str:
             out.append(line)
         out.append("")
     out.append(f"**SKILL_BYPASS:** всего {r['bypassTotal']}"
+               + (f" за {r['bypassSessionCount']} сессий "
+                  f"(**{r['bypassPerSession']}/сессия** — метрика трения, "
+                  f"должна падать от релиза к релизу)"
+                  if r.get("bypassSessionCount") else "")
                + (f", по инструментам: " + ", ".join(
                    f"{k}×{v}" for k, v in r["bypassByTool"].items())
                   if r["bypassByTool"] else ""))

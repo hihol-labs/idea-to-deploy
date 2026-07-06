@@ -118,6 +118,8 @@ def main() -> int:
               "ship reset \\| end-to-end" in out, out[:600])
         check("bypass ledger aggregated by tool (real record shape)",
               "всего 3" in out and "Bash×2" in out.replace(" ", ""), out[:800])
+        check("bypass/session friction metric rendered (3.0 over 1 session)",
+              "1 сессий" in out and "3.0/сессия" in out, out[:800])
         check("cost derived from persisted total_tokens (real ledger shape)",
               "$2.0" in out and "2 сессий" in out and "66667 токенов" in out,
               out[:800])
@@ -133,6 +135,8 @@ def main() -> int:
             ok = (data["vcrGlobal"] == 0.5 and data["unitsActivated"] == 2
                   and data["regressions"] == 1 and data["bypassTotal"] == 3
                   and data["bypassByTool"] == {"Bash": 2, "Edit": 1}
+                  and data["bypassSessionCount"] == 1
+                  and data["bypassPerSession"] == 3.0
                   and data["costTokensTotal"] == 66667
                   and data["costUsdEstimate"] == 2.0
                   and data["projectsScanned"] == 3

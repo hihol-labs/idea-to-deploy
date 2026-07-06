@@ -82,14 +82,46 @@ def sentinel_dirs() -> list:
     return dirs
 
 
+def _staged_tree_hash() -> str:
+    """`git write-tree` fingerprint of the current index, or "" on failure.
+
+    Runs in the hook's cwd, which at runtime is the project repo where the
+    delegated review happened and where the commit will occur — so the token
+    matches what check-review-before-commit.sh computes at commit time.
+    """
+    try:
+        import subprocess
+        r = subprocess.run(["git", "write-tree"],
+                           capture_output=True, text=True, timeout=5)
+        h = r.stdout.strip() if r.returncode == 0 else ""
+        return h if len(h) == 40 and all(c in "0123456789abcdef" for c in h) else ""
+    except Exception:
+        return ""
+
+
+def sentinel_content(skill: str) -> str:
+    """The /review gate (v1.59.0) is DIFF-BOUND: it accepts the review
+    sentinel only when its content is `tree:<staged-tree-hash>` matching the
+    commit. A subagent (code-reviewer) can't write its own sentinel, so this
+    hook writes the bound token on its behalf. Other skills feed the
+    existence-based DoD/commit gates, which don't parse content, so they keep
+    the plain timestamp. If git can't fingerprint the tree, fall back to a
+    timestamp — the review gate will then simply re-require /review (safe)."""
+    if skill == "review":
+        h = _staged_tree_hash()
+        if h:
+            return "tree:%s" % h
+    return str(int(time.time()))
+
+
 def write_sentinel(skill: str) -> None:
     sid = session_id()
-    stamp = str(int(time.time()))
+    content = sentinel_content(skill)
     for d in sentinel_dirs():
         try:
             path = os.path.join(d, "claude-%s-done-%s" % (skill, sid))
             with open(path, "w") as f:
-                f.write(stamp)
+                f.write(content)
         except OSError:
             continue
 
