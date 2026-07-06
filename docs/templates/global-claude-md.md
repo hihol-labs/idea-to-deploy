@@ -58,6 +58,67 @@ Standing rule for ALL of them:
   apply. Background/scheduled harness agents are read-only reporters; they
   never commit, push, or edit files unattended.
 
+## Определение завершения (Completion Gate, v1.51.0)
+
+Фича завершена = **сквозная верификация пройдена**, а не «код написан». Суждение
+о завершении выносит НЕ агент по своей уверенности, а независимый harness-гейт по
+объективным runtime-сигналам (леджер `.claude/completion/signals.jsonl`, вердикт
+`.claude/completion/completion.json`). Это вендор-нейтральный контракт: сигналы и
+вердикт — JSON-файлы в репо, а хуки (`completion-signals`, `completion-gate`,
+`completion-stop`) лишь ТРАНСПОРТИРУЮТ его. Нет леджера → гейт деградирует в
+advisory, а не в ложное «all green» (best-effort invariant, см. секцию выше).
+
+### Трёхслойная лестница (дёшево → дорого, переход только после зелёного)
+
+Порядок обязателен — не переходи на следующий слой, пока предыдущий не зелёный
+(правило исполняется `compute_verdict`, не на словах):
+
+- **L1 — Синтаксис и статика** (дёшево, мало информации, но обязателен): линт,
+  типы, сборка (`tsc`, `eslint`, `ruff`, `next build`, `cargo check`…). Сначала
+  «написать слова правильно».
+- **L2 — Runtime-поведение** (основное доказательство): **тесты реально прогнаны
+  и зелёные**, приложение стартует, критические пути отрабатывают. Правило
+  жёсткое: **тесты зелёные — иначе не done**. «Написать тест» ≠ «прогнать тест».
+  Не переходи к L2, пока L1 красный.
+- **L3 — Системное подтверждение** (дорого, последняя линия): e2e/smoke,
+  интеграция, симуляция пользовательского сценария. Недостаточно «работает» —
+  должно работать ПРАВИЛЬНО. Не переходи к L3, пока L2 красный.
+
+### Runtime-сигналы (что собирается автоматически)
+
+`completion-signals` (PostToolUse) классифицирует каждый Bash-вызов в сигнал:
+`static`(L1) / `test_run`(L2) / `app_start`(L3) / `side_effect`(миграции, записи
+в БД) / `cleanup`(удаление временных ресурсов). Чек-лист доказательства
+завершения — это те же сигналы: **прошли ли тесты; стартовало ли приложение;
+корректны ли записи в БД и другие побочные эффекты; очищены ли временные
+ресурсы**. Проекты без юнит-тестов подставляют свой L2-эквивалент через
+`.claude/completion/config.json` (`l2_evidence_patterns`) — команда-доказательство
+поведения засчитывается как `test_run`.
+
+### Красные пометки (WHY + FIX, гарантированы контрактом)
+
+Любой сбой проверки оформляется как пометка учителя, а не «просто крест»:
+`FAILED: <что> | WHY: <сигнал> | FIX: <конкретное действие> | FILE: <путь>`.
+`completion-signals` возвращает такую пометку модели в момент провала теста/
+сборки (self-correction без ожидания коммита); таблица `FIX_HINTS` в
+`completion_lib.py` даёт действие по классу ошибки (5xx→env, `ECONNREFUSED`→подними
+сервис, `TS####`→типы, `relation … does not exist`→миграция, …).
+
+### Механика вето и деградации
+
+- `completion-gate` (PreToolUse на `git commit`, где в staged-диффе есть **код**):
+  слой в FAIL или «тесты есть, но не прогнаны» → **вето** (deny, коммит стоп);
+  нет ни одного сигнала за сессию → **деградация** в advisory (коммит идёт, но с
+  напоминанием); слои зелёные → пропуск.
+- `completion-stop` (Stop): при грязном по коду дереве и не-зелёном вердикте —
+  мягкое напоминание, никогда не блокирует.
+- **Осознанный обход**: `COMPLETION_BYPASS: <причина>` (или `SKILL_BYPASS:`) в
+  поле description Bash-вызова коммита. Полное отключение: `ITD_COMPLETION_GATE=0`
+  (гейт), `ITD_COMPLETION_STOP=0` (Stop), `ITD_COMPLETION_SIGNALS=0` (сбор).
+
+Гейт узкий (срабатывает только на коммитах с исходным кодом) и деградирующий —
+это Definition of Done через объективные сигналы, а не алармизм.
+
 ## Skill decision (visible line + trigger map)
 
 On every substantive request, the FIRST line of the response declares the skill
@@ -92,7 +153,7 @@ Absent that, apply the methodology — when in doubt, apply it.
 
 > Methodology source (canonical): WSL repo `idea-to-deploy`
 > (`/home/hihol/projects/idea-to-deploy`), published as plugin
-> `hihol-labs/idea-to-deploy`. 40 skills + 10 agents + 24 hooks.
+> `hihol-labs/idea-to-deploy`. 40 skills + 10 agents + 27 hooks.
 
 ## Project profiles & markers (v1.35.0)
 

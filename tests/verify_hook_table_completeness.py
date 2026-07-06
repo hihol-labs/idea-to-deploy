@@ -123,11 +123,11 @@ def main():
 
     # 3. §8.2 'blocking' rows == the 8 hard gates (classifier)
     doc_blocking = {h for h, b in rows.items() if b}
-    check("§8.2 'blocking' rows == the 8 hard gates",
+    check("§8.2 'blocking' rows == the 9 hard gates",
           doc_blocking == hard,
           "doc-only: %s | classifier-only: %s"
           % (sorted(doc_blocking - hard), sorted(hard - doc_blocking)))
-    check("exactly 8 hard gates", len(hard) == 8)
+    check("exactly 9 hard gates", len(hard) == 9)
 
     # 4. README taxonomy union == disk hooks
     r_hard, r_soft = readme_taxonomy(rd)

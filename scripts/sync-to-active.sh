@@ -301,7 +301,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/check-dod-before-commit.sh",     "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/cross-review-precommit.sh",      "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 5 }
       ]
     },
     {
@@ -334,12 +335,19 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/stuck-detection.sh",   "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/crash-recovery.sh",    "timeout": 5 }
       ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 }
+      ]
     }
   ],
   "Stop": [
     {
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/handoff-readiness.sh", "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/handoff-readiness.sh", "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/completion-stop.sh",   "timeout": 5 }
       ]
     }
   ],
