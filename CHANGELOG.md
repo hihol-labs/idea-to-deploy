@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.61.0] - 2026-07-06
+
+**Ось 3 — Fable 5 absorption (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the Fable-5-absorption axis from a self-graded ~7.0 toward **~9 — explicitly NOT 10**: literal "absorbed EVERY harness feature" would be 10 and is *not the goal*. The value is a verifiably-complete, consciously-decided registry, not breadth. What was name-dropped across the invariant block, CHANGELOG, and DESIGN_SPACE is now consolidated into one proven ledger, its fallbacks are fixture-proven (not just declared), abstentions get a periodic re-review, and two measured adoptions land. Every unit is backed by a section-scoped, mutation-tested CI gate. Counts stay **40/10/24** throughout.
+
+### G-001 — one consolidated harness-native feature ledger
+
+`docs/FABLE5_FEATURE_LEDGER.md` — one row per harness-native feature (20 rows) with **adopt/abstain + evidence (a real repo path) + a vendor-neutral fallback**. Consolidates the previously-scattered invariant block (`global-claude-md.md`), Fable releases A–D in `CHANGELOG.md`, and DESIGN_SPACE overlaps. All five features named in the invariant (typed tool-calls, chips, artifacts, background agents, transcript search) appear as rows. The "~9, not 10" ceiling is stated in the doc.
+
+**Tests** — `tests/verify_feature_ledger.py` (new, structural + mutation-proven: empty cell / bogus decision / non-existent evidence path / stripped disclaimer all fail).
+
+### G-002 — verifiable completeness (drift-guard)
+
+`tests/verify_feature_ledger_completeness.py` proves the ledger COVERS the frontier, turning "scattered" into "provably consolidated". Mechanism A LIVE-parses the invariant's feature sentence — add a noun there without a ledger row and it FAILS. Mechanism B holds a curated set of adopted CHANGELOG tokens, each required to stay grounded in `CHANGELOG.md` and covered by an actual table row.
+
+### G-003 — fixture-proof of fallbacks (proven, not declared)
+
+`tests/verify_feature_ledger_fallbacks.py` SIMULATES a feature being absent and asserts the exact vendor-neutral path engages: it imports `hooks/cross-review-precommit.sh`, forces both engines absent (`resolve_engine → None`), and asserts the honest "UNAVAILABLE … run `/cross-review`" degrade with **no fabricated "Findings" green** (a positive control proves the absent-branch is not vacuous); and it shows the worktree precondition genuinely fails in a non-git dir so `freeze.sh` is the real fallback. The best-effort invariant is now PROVEN for two adopted features.
+
+### G-004 — periodic re-review of abstentions via `/retro`
+
+`skills/retro/scripts/itd_ledger_abstentions.py` (new FACTS producer) surfaces the ledger's `abstain` rows + their fallback; `/retro` Step 1b raises them ("has a safe use appeared?") under the same anti-Goodhart gate (a flip needs an EXTERNAL signal). Non-fatal outside the methodology repo. **Test** — `tests/verify_retro_abstention_review.py` (SKILL wiring + helper faithfulness vs an independent ledger parse + non-fatal-on-absent).
+
+### G-005 — two measured, invariant-safe adoptions (not breadth)
+
+`F-21` scheduled **read-only** nudge (`ScheduleWakeup`/cron) for the abstention re-review — makes "periodic" real; the scheduled agent stays a read-only reporter. `F-16` flips `abstain → adopt (complement only)`: a `spawn_task` chip *transports* an out-of-scope finding to the UI while `BACKLOG.md` stays the contract (chips AS the backlog stays rejected) — wired into `skills/_shared/helpers.md` §10. **Test** — `tests/verify_feature_ledger_adoptions.py` (each adoption is really wired, evidence path exists, fallback preserved, invariant guard stated).
+
+### G-006 — release v1.61.0
+
+Version bumped across `plugin.json`, `marketplace.json`, both README badges; this CHANGELOG entry; the five new gates wired into `meta-review.yml` and `windows-verify.yml`. Self-assessment: **~9/10, deliberately not 10** — the last point is external evidence / red-team, not more code.
+
 ## [1.60.0] - 2026-07-06
 
 **Ось 2 — Agentic engineering (multi-unit; goal `.itd-memory/GOAL.json`).** A push to raise the agentic-engineering axis from a self-graded ~7.5 toward ~9: make subagent recovery mechanical (never a manual ping), extend the adversarial refute discipline across the whole verify fleet, lock the risk-tier⇒model ordering, make the skill Definition-of-Done machine-readable, and turn stall recovery into an automatic fallback. Every unit is backed by a section-scoped, mutation-tested CI gate. Counts stay **40/10/24** throughout.

@@ -48,6 +48,16 @@ jobs:
         run: python tests/verify_hook_count_words.py
       - name: Fable 5 release-A snippet pack (v1.50.0)
         run: python tests/verify_fable_snippets.py
+      - name: Fable 5 feature ledger — structural gate (v1.61.0, Ось 3)
+        run: python tests/verify_feature_ledger.py
+      - name: Fable 5 feature ledger — completeness drift-guard (v1.61.0, Ось 3)
+        run: python tests/verify_feature_ledger_completeness.py
+      - name: Fable 5 feature ledger — fallback fixture-proof (v1.61.0, Ось 3)
+        run: python tests/verify_feature_ledger_fallbacks.py
+      - name: /retro abstention re-review gate (v1.61.0, Ось 3)
+        run: python tests/verify_retro_abstention_review.py
+      - name: Fable 5 feature ledger — adoptions gate (v1.61.0, Ось 3)
+        run: python tests/verify_feature_ledger_adoptions.py
       - name: Fixture contracts — all fixtures by status (Phase-2)
         run: python tests/verify_snapshot.py --all
       - name: Registration & count drift-guards
