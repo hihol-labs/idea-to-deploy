@@ -140,7 +140,10 @@ h_added=0
 h_updated=0
 h_unchanged=0
 
-for src_hook in "$REPO_ROOT"/hooks/*.sh; do
+# Sync executable hooks (*.sh) AND their Python libraries (*.py, e.g.
+# completion_lib.py imported by the completion-* hooks) — a lib left unsynced
+# makes its hooks silently no-op on a fresh machine (import fails, fail-safe).
+for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
   [ -e "$src_hook" ] || continue
   name="$(basename "$src_hook")"
   dst="$ACTIVE/hooks/$name"
