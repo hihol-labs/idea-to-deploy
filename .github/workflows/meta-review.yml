@@ -62,5 +62,8 @@ jobs:
       - name: Run refute-pass fleet doc-contract (v1.60.0, Ось 2)
         run: python3 tests/verify_refute_fleet.py
 
+      - name: Run risk-tier => model monotonicity invariant (v1.60.0, Ось 2)
+        run: python3 tests/verify_model_risk_monotonic.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh
