@@ -48,11 +48,12 @@ fallback'ом, а не в ширине абсорбции. Абстенция с
 | F-13 | Typed / structured tool-call outputs | adopt (transport only) | `docs/templates/global-claude-md.md` (invariant) | Text/JSON в транскрипте — контракт vendor-нейтрален |
 | F-14 | Artifact publishing (egress отчётов review/retro) | abstain | `CHANGELOG.md` (red-team: secret egress) | Findings остаются в репо (`claude-*.md` notes / транскрипт) |
 | F-15 | Background agents с mutation-правами | abstain | `docs/templates/global-claude-md.md` (invariant: read-only reporters) | Read-only reporter + human-approved mutation (data-sensitive gate) |
-| F-16 | spawn_task chips как замена BACKLOG.md | abstain | `CHANGELOG.md` (red-team) | `BACKLOG.md` файл в репо |
+| F-16 | spawn_task chip — out-of-scope находки (дополнение, НЕ замена BACKLOG.md) | adopt (complement only) | `skills/_shared/helpers.md` (§10) | `BACKLOG.md` файл в репо — контракт; chip лишь транспорт. Как ЗАМЕНА BACKLOG — по-прежнему abstain (red-team) |
 | F-17 | Transcript search / mining к внешней модели | abstain | `docs/DESIGN_SPACE.md` (K10 file-based memory) | `MEMORY.md` pointer-index + `session_*.md` |
 | F-18 | Graduated compaction / context budgeting (full, K4) | abstain (defer) | `docs/DESIGN_SPACE.md` (§5.2, ROADMAP DEFERRED) | `hooks/context-budget.sh` + `/session-save` nudge |
 | F-19 | On-disk checkpoints помимо git (K16) | abstain (defer) | `docs/DESIGN_SPACE.md` (§5.8) | git commits/branches + `/migrate` `/tmp` backup |
 | F-20 | Graduated trust / 7 permission modes (K1) | abstain | `docs/DESIGN_SPACE.md` (§5.1) | `hooks/careful.sh` / `hooks/freeze.sh` + explicit confirm на `/deploy`,`/migrate` |
+| F-21 | Scheduled read-only nudge (ScheduleWakeup / cron) для ре-review абстенций | adopt | `skills/retro/SKILL.md` (scheduled nudge) | Ручной `/retro` (vendor-neutral) — пропуск пинга теряет напоминание, не механизм |
 
 Все 5 фич, названных в invariant-блоке — **typed tool-calls** (F-13), **chips**
 (F-16), **artifacts** (F-14), **background agents** (F-15), **transcript search**

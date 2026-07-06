@@ -252,3 +252,21 @@ verdict-less stop at the subagent boundary; this §9 is the caller-side procedur
 when the subagent stalls hard enough that nothing usable comes back at all. The
 layers are independent — if a harness drops the hook (best-effort invariant), the
 documented fresh-narrow fallback still recovers.
+
+## 10. Out-of-scope findings — chip transport (v1.61.0 — Ось 3)
+
+WIP=1 says an out-of-scope finding spotted mid-task goes to the backlog, not into
+the current diff. When the harness offers a task-chip surface (`spawn_task`),
+ALSO raise the finding as a chip — the chip **transports** the finding to the
+user's UI so it is visible now, it does not REPLACE the durable record.
+
+- **`BACKLOG.md` (or the project's memory backlog) stays the contract.** The
+  canonical, vendor-neutral record is the file; the chip is a best-effort
+  notification on top. Write the finding to the backlog first, then (if available)
+  mirror it as a chip.
+- **Fallback:** no chip surface → the backlog file alone, exactly as before. A
+  harness that drops `spawn_task` loses visibility, never the finding.
+- **Scope, not replacement.** Using chips AS the backlog (dropping the file) stays
+  rejected (red-team, egress/durability) — this is the narrower *complement* use,
+  the kind of safe adoption the /retro abstention re-review (`itd_ledger_abstentions.py`)
+  is meant to surface.
