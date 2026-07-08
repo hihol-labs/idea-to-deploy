@@ -59,18 +59,24 @@ MAX_TOOL_HISTORY = 20  # Keep last N tool calls in checkpoint
 SIGNIFICANT_TOOLS = {"Write", "Edit", "Bash", "Agent", "Skill"}
 
 
-def session_id() -> str:
-    sid = os.environ.get("CLAUDE_SESSION_ID")
+def session_id(payload: dict | None = None) -> str:
+    # v1.69.1: payload первым — Claude Code кладёт session_id в stdin-JSON
+    # КАЖДОГО хук-события. env CLAUDE_SESSION_ID на Windows-хуках пуст, а
+    # fallback pid{getppid()} НЕСТАБИЛЕН между вызовами: tool-коллы и
+    # Stop/SubagentStop писали в РАЗНЫЕ файлы (наблюдалось 369 фрагментов),
+    # clean-маркер бил мимо — фантомные «Crash recovery» возвращались.
+    sid = (payload or {}).get("session_id") or os.environ.get("CLAUDE_SESSION_ID")
     if sid:
-        return sid
+        return str(sid)
     try:
         return f"pid{os.getppid()}"
     except Exception:
         return "default"
 
 
-def checkpoint_file() -> str:
-    return os.path.join(tempfile.gettempdir(), f"claude-checkpoint-{session_id()}.json")
+def checkpoint_file(sid: str | None = None, payload: dict | None = None) -> str:
+    return os.path.join(tempfile.gettempdir(),
+                        f"claude-checkpoint-{sid or session_id(payload)}.json")
 
 
 def git_info() -> dict:
@@ -97,13 +103,13 @@ def git_info() -> dict:
     return info
 
 
-def read_checkpoint() -> dict:
+def read_checkpoint(sid: str) -> dict:
     try:
-        with open(checkpoint_file(), encoding="utf-8") as f:
+        with open(checkpoint_file(sid), encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {
-            "session_id": session_id(),
+            "session_id": sid,
             "session_start": time.time(),
             "tool_history": [],
             "call_count": 0,
@@ -112,9 +118,9 @@ def read_checkpoint() -> dict:
         }
 
 
-def write_checkpoint(cp: dict) -> None:
+def write_checkpoint(cp: dict, sid: str) -> None:
     try:
-        with open(checkpoint_file(), "w", encoding="utf-8") as f:
+        with open(checkpoint_file(sid), "w", encoding="utf-8") as f:
             json.dump(cp, f, indent=2, ensure_ascii=False)
     except Exception:
         pass
@@ -145,6 +151,7 @@ def main() -> int:
 
     payload = payload or {}
     tool = payload.get("tool_name") or ""
+    sid = session_id(payload)  # v1.69.1: payload-first, стабилен для всех событий агента
 
     # v1.67.0: on Stop (turn ended normally) mark the checkpoint clean.
     # v1.69.0: SubagentStop тоже — субагенты пишут чекпоинты (PostToolUse
@@ -154,10 +161,10 @@ def main() -> int:
     # мид-флайт субагент по-прежнему всплывает (сюда не доходит).
     event = (payload.get("hook_event_name") or "").lower()
     if event in ("stop", "subagentstop") or ("stop_hook_active" in payload and not tool):
-        cp = read_checkpoint()
+        cp = read_checkpoint(sid)
         cp["clean_exit"] = True
         cp["cwd"] = _cwd()
-        write_checkpoint(cp)
+        write_checkpoint(cp, sid)
         return 0
 
     # Only track significant tool calls
@@ -166,7 +173,7 @@ def main() -> int:
 
     tool_input = payload.get("tool_input") or {}
 
-    cp = read_checkpoint()
+    cp = read_checkpoint(sid)
     cp["call_count"] = cp.get("call_count", 0) + 1
     cp["cwd"] = _cwd()
     cp["clean_exit"] = False  # work in flight — a death from here on is a crash
@@ -189,7 +196,7 @@ def main() -> int:
         cp["git"] = git_info()
         cp["last_checkpoint"] = time.time()
 
-    write_checkpoint(cp)
+    write_checkpoint(cp, sid)
 
     # Silent hook — no output to Claude context.
     # M-C10 marker: "hookEventName": "PostToolUse"

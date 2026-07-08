@@ -352,11 +352,62 @@ def t10_subagent_stop_marks_clean() -> None:
           "crash-recovery.sh" in block, block[-200:] if block else "block not found")
 
 
+def t11_payload_session_id_wins() -> None:
+    """v1.69.1 regression: session_id берётся из payload, а не только из env.
+
+    Живая находка смоука v1.69.0: на Windows CLAUDE_SESSION_ID отсутствует в env
+    хуков → fallback pid{getppid()} НЕСТАБИЛЕН между вызовами (tool-коллы и
+    SubagentStop писали в РАЗНЫЕ файлы, 369 фрагментов, clean-маркер бил мимо
+    → фантомы возвращались). Claude Code кладёт session_id в stdin-JSON каждого
+    события — хук обязан предпочесть его.
+    """
+    sid = "vpay-" + uuid.uuid4().hex[:8]
+    cp_file = Path(tempfile.gettempdir()) / f"claude-checkpoint-{sid}.json"
+    env_clear = {"CLAUDE_SESSION_ID": ""}  # env пуст — как на Windows-хуках
+    with tempfile.TemporaryDirectory(prefix="itd-payload-") as td:
+        proj = Path(td)
+        try:
+            run([PY, str(CRASH_HOOK)], cwd=proj,
+                stdin_text=json.dumps({"session_id": sid, "tool_name": "Edit",
+                                       "tool_input": {"file_path": "a.py"}}),
+                env_extra=env_clear)
+            check("checkpoint keyed by payload session_id", cp_file.is_file())
+            if not cp_file.is_file():
+                return
+            run([PY, str(CRASH_HOOK)], cwd=proj,
+                stdin_text=json.dumps({"session_id": sid,
+                                       "hook_event_name": "SubagentStop"}),
+                env_extra=env_clear)
+            data = json.loads(cp_file.read_text(encoding="utf-8"))
+            check("stop-mark lands in the SAME file (no fragmentation)",
+                  data.get("clean_exit") is True, str(data.get("clean_exit")))
+
+            # pre-flight исключает СВОЙ чекпоинт по payload session_id
+            run([PY, str(CRASH_HOOK)], cwd=proj,
+                stdin_text=json.dumps({"session_id": sid, "tool_name": "Edit",
+                                       "tool_input": {"file_path": "b.py"}}),
+                env_extra=env_clear)
+            rc, out = run([PY, str(PREFLIGHT)], cwd=proj,
+                          stdin_text=json.dumps({"session_id": sid}),
+                          env_extra=env_clear)
+            check("pre-flight excludes own checkpoint via payload sid",
+                  "Crash recovery" not in out)
+            data = json.loads(cp_file.read_text(encoding="utf-8"))
+            check("own dirty checkpoint NOT consumed by own session",
+                  not data.get("consumed_at"))
+        finally:
+            try:
+                cp_file.unlink()
+            except OSError:
+                pass
+
+
 def main() -> int:
     for t in (t1_init_validate_selftest, t2_drift_selftest, t3_filled_functional,
               t4_crash_pipeline, t5_goal_mirror_shape,
               t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step,
-              t9_non_ascii_repo_path, t10_subagent_stop_marks_clean):
+              t9_non_ascii_repo_path, t10_subagent_stop_marks_clean,
+              t11_payload_session_id_wins):
         t()
     print()
     if FAILURES:

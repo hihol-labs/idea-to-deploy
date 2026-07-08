@@ -516,7 +516,16 @@ def plan_without_goal_context(cwd: Path) -> str:
     )
 
 
+_PAYLOAD_SID: str = ""  # v1.69.1: session_id из stdin-payload (main() заполняет)
+
+
 def session_id() -> str:
+    # v1.69.1: payload-first — env CLAUDE_SESSION_ID на Windows-хуках пуст,
+    # а pid-fallback нестабилен (см. crash-recovery.sh); payload несёт
+    # session_id в каждом событии, что даёт тот же ключ, каким crash-recovery
+    # именует чекпоинт этой сессии (иначе own-exclusion промахивался).
+    if _PAYLOAD_SID:
+        return _PAYLOAD_SID
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
         return sid
@@ -691,8 +700,11 @@ def context_switch_detect(cwd: Path) -> str:
 
 
 def main() -> int:
+    global _PAYLOAD_SID
     try:
-        json.load(sys.stdin)  # consume, we don't need the content
+        payload = json.load(sys.stdin)
+        if isinstance(payload, dict) and payload.get("session_id"):
+            _PAYLOAD_SID = str(payload["session_id"])
     except Exception:
         pass  # OK if missing
 
