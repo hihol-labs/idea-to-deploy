@@ -158,6 +158,17 @@ frontmatter (`migrate`, `migrate-prod`, `deploy`, `infra`, `autopilot`). When ro
 to one of those, default to the high-risk path. When in doubt between two tiers, pick
 the higher one — under-processing a risky change is the expensive mistake.
 
+**Micro-path regression cadence (v1.66.0, retro-2026-07-08 P4).** Within the
+**standard** tier, a task of ≤1–2 units with a small diff scales the *cadence*,
+not the gate: per-unit verification stays mandatory (the unit's own verification
+command must go green before the next step), but the cumulative regression suite
+may run ONCE as a final full pass instead of after every unit. Measured evidence:
+after-every-unit regression on a micro-task cost ×3.5 wall-clock and ×7 tool
+calls versus a free run at zero difference in verified-completion rate — the
+re-runs were the whole multiplier. Classify by unit count, not by feel: 3+
+units, cross-module effects, or any high-risk signal → after-every-unit
+regression as before.
+
 ---
 
 ## 7. Context Budget

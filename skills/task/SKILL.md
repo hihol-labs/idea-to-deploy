@@ -93,6 +93,16 @@ wrap-up. This is a one-line nudge, not a gate — never block routing on it. (To
 economics is the OpEx lever for agent-heavy products; see ADR-001 — accounting rides
 the existing hook, we don't build our own collector.)
 
+**Micro-path — regression cadence for tiny tasks (v1.66.0, retro-2026-07-08 P4):**
+for a **standard**-tier task of **≤1–2 units** with a small diff, per-unit
+verification stays MANDATORY (the unit's own verification command goes green
+before anything else starts), but the **cumulative regression suite runs ONCE as
+a final full pass** instead of after every unit. Evidence: the measured cost of
+after-every-unit regression on a micro-task was ×3.5 wall-clock and ×7 tool calls
+at zero difference in verified-completion rate. Classify by unit count, not by
+feel: 3+ units, cross-module effects, or any high-risk signal → back to
+after-every-unit regression (see `skills/_shared/helpers.md` §6).
+
 ### Step 2: Determine the task type
 
 If the user's request is ambiguous (e.g., "закрой tech debt с deploy.sh", "надо поработать над auth"), ask ONE routing question:
