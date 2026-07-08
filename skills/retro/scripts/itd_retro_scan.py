@@ -127,6 +127,11 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     bypasses: dict[str, int] = {}
     bypass_reasons: list[str] = []
     bypass_sessions = 0  # one ledger file == one session that logged >=1 bypass
+    # v1.66.0 (retro-2026-07-08 P1): the hook now flags "ceremonial" bypasses —
+    # markers that arrived while the gate was open anyway (fresh grace window /
+    # read-only command). Real escapes and habit annotations are different
+    # friction signals; count them separately so the metric stays honest.
+    bypass_ceremonial = 0
     for path in sorted(tmp_dir.glob("claude-skill-ledger-*.jsonl")):
         recs = read_jsonl(path)
         if not recs:
@@ -135,6 +140,8 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         for rec in recs:
             tool = str(rec.get("tool") or rec.get("skill") or "unknown")
             bypasses[tool] = bypasses.get(tool, 0) + 1
+            if rec.get("ceremonial"):
+                bypass_ceremonial += 1
             reason = str(rec.get("reason") or "").strip()
             if reason:
                 bypass_reasons.append(clip(f"{tool}: {reason}"))
@@ -173,6 +180,7 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     bypass_total = sum(bypasses.values())
     return {
         "bypassTotal": bypass_total,
+        "bypassCeremonialTotal": bypass_ceremonial,
         "bypassByTool": dict(sorted(bypasses.items(), key=lambda kv: -kv[1])[:5]),
         "bypassReasonsTail": bypass_reasons[-10:],
         # bypass/session is the friction metric that must trend DOWN release to
@@ -259,7 +267,10 @@ def render_markdown(r: dict) -> str:
                   if r.get("bypassSessionCount") else "")
                + (f", по инструментам: " + ", ".join(
                    f"{k}×{v}" for k, v in r["bypassByTool"].items())
-                  if r["bypassByTool"] else ""))
+                  if r["bypassByTool"] else "")
+               + (f"; из них ceremonial (гейт уже был открыт — привычная "
+                  f"аннотация, не реальный обход): {r['bypassCeremonialTotal']}"
+                  if r.get("bypassCeremonialTotal") else ""))
     if r["bypassReasonsTail"]:
         out.append("<details><summary>Последние причины bypass</summary>")
         out.append("")

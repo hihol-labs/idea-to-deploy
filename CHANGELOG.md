@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.66.0] - 2026-07-08
+
+**Retro-2026-07-08 release: friction cut + tail-quality (P1–P4).** All four
+candidates from `docs/retros/RETRO-2026-07-08.md` (evidence: telemetry scan —
+864 SKILL_BYPASS / 2 sessions, 432/session, all Bash — plus a measured A/B
+WIP=1 experiment and a completion-evidence audit), accepted by the user as one
+release, implemented in order:
+
+- **P1 — skill-gate friction cut** (`hooks/check-tool-skill.sh`):
+  - **Sliding grace window** — allowed skill work refreshes the sentinel, so a
+    long skill flow no longer lapses mid-flight; an idle gap > TTL still
+    expires it (never-block-forever guard regression-tested).
+  - **Hard-gated mutation classes** — `git push`, migration appliers
+    (`psql -f` / `prisma migrate` / `alembic upgrade|downgrade` /
+    `flyway migrate|clean`) and deploy scripts (`deploy.sh`) never ride the
+    grace window or the read-only fast-path; explicit SKILL_BYPASS stays their
+    only in-band escape and is always ledgered.
+  - **Honest ledger** — a bypass that arrives while the gate was open anyway
+    (fresh window / read-only command) is logged `"ceremonial": true`;
+    `itd_retro_scan.py` now reports ceremonial vs real separately
+    (`bypassCeremonialTotal`).
+  - **wsl unwrap** now also matches the bare `--` separator form
+    (`wsl.exe -- bash -lc "…"`) — the dominant live-session spelling that
+    silently never unwrapped.
+  - +7 FP-corpus cases in `tests/verify_skill_enforcement.py` (17 total).
+- **P2 — negative scenarios are verified, not merely written**: new rubric item
+  `I-code-12` in `skills/review/references/review-checklist.md` + an
+  advisory-only tail on the completion-gate green path (`completion_lib.py`
+  sets `verdict.advisory` when L2 is pass; never a veto — best-effort
+  invariant). Evidence: A/B run shipped a truthful "6/6 done" with 87% branch
+  coverage and unverified error branches.
+- **P3 — scope audit of the diff**: new rubric item `I-code-13` — public
+  API/behavior introduced by the diff must map to a requirement or a test;
+  flagged as a question, not a block. Evidence: a 100%-passing run still
+  shipped a dead public method and +14% src of scope drift.
+- **P4 — micro-path regression cadence**: `/task` Step 1b +
+  `skills/_shared/helpers.md` §6 — for standard-tier tasks of ≤1–2 units the
+  cumulative regression suite runs once as a final full pass; per-unit
+  verification stays mandatory. Evidence: after-every-unit regression on a
+  micro-task cost ×3.5 wall-clock / ×7 tool calls at zero difference in
+  verified-completion rate.
+
+Core stays untouched on purpose: WIP=1, the L1→L3 ladder and the
+completion-gate proved their lower-bound-guarantee role in the same retro.
+
+---
+
 ## [1.65.0] - 2026-07-08
 
 **Contract-drift detection goes automatic.** `pre-flight-check.sh` gains an

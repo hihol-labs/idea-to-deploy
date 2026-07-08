@@ -48,6 +48,33 @@ v1.24.0 change: **skill-active grace window** (infra fix #2).
        a future harness starts emitting Skill hook events, the reset+sentinel
        branch below activates automatically. Harmless no-op until then.
 
+v1.66.0 change: **retro-2026-07-08 P1 — friction cut inside an active skill**.
+
+  Evidence: retro scan 2026-07-08 — 864 SKILL_BYPASS records over 2 sessions
+  (432/session, all Bash), reasons clustered on "executing skill steps /
+  verification of in-progress fix": legitimate work INSIDE an active skill
+  kept paying the bypass tax because the grace window is a FIXED 15-min TTL
+  that lapses mid-flight on long skill executions.
+
+  Four changes, one contract:
+    1. SLIDING grace window — an allowed tool call while the window is fresh
+       refreshes the sentinel. Continuous skill work no longer lapses; an
+       idle gap > TTL still expires it (never-block-forever guard intact).
+    2. HARD-GATED mutation classes — `git push`, migration appliers
+       (psql -f / prisma migrate / alembic upgrade|downgrade / flyway) and
+       deploy scripts (deploy.sh) NEVER ride the grace window or the
+       read-only fast-path: they always face the reminder/counter/block
+       ladder. Explicit SKILL_BYPASS remains their escape and is always
+       ledgered. Money movement has no command signature — it is banned
+       outright by the data-sensitive project contract, not by this hook.
+    3. HONEST ledger — a bypass marker that arrives when the gate was open
+       anyway (fresh window / read-only command) is logged with
+       "ceremonial": true, so the retro friction metric separates real
+       escapes from habit annotations.
+    4. The wsl unwrap now also matches the bare `--` separator form
+       (`wsl.exe -- bash -lc "…"`) — the most common spelling in live
+       sessions; without it the read-only exemption silently never fired.
+
 State files (per-session):
   /tmp/claude-skill-check-{session}.state    — last reminder timestamp
   /tmp/claude-skill-ignores-{session}.state  — ignore count (int)
@@ -192,10 +219,15 @@ def has_bypass_marker(payload: dict) -> bool:
     return isinstance(val, str) and "SKILL_BYPASS:" in val
 
 
-def log_bypass(payload: dict) -> None:
+def log_bypass(payload: dict, ceremonial: bool = False) -> None:
     """Append an explicit SKILL_BYPASS decision to the per-session ledger
     (v1.23.0, Layer 2). Consumed by /session-save self-audit. Best-effort —
-    never raises, never blocks the tool call."""
+    never raises, never blocks the tool call.
+
+    v1.66.0: `ceremonial=True` marks a bypass that arrived while the gate was
+    open anyway (fresh grace window / read-only command) — a habit annotation,
+    not a real escape. The retro friction metric reports the two separately.
+    """
     try:
         desc = (payload.get("tool_input") or {}).get("description") or ""
         reason = (
@@ -207,6 +239,8 @@ def log_bypass(payload: dict) -> None:
             "tool": payload.get("tool_name") or "?",
             "reason": reason[:300],
         }
+        if ceremonial:
+            rec["ceremonial"] = True
         ledger = os.path.join(
             tempfile.gettempdir(), "claude-skill-ledger-%s.jsonl" % session_id()
         )
@@ -214,6 +248,69 @@ def log_bypass(payload: dict) -> None:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except Exception:
         pass
+
+
+def _unwrap_wsl(cmd: str) -> str:
+    """Unwrap `wsl(.exe) [-d X] [--] [--exec|-e] bash -lc "<inner>"` and return
+    the INNER command — on a Windows+WSL setup every repo command travels in
+    this wrapper, so command classifiers must judge the inner text.
+
+    v1.47.0 (retro 2026-07-04, finding #2): long `--exec` form; the exemption
+    never fired before and read-only recon produced hundreds of ceremony
+    SKILL_BYPASS records (628 in the ledger, top reason «read-only lookup»).
+    v1.53.0 (retro 2026-07-05, P1): short `-e` form — the far more common
+    spelling (691 ceremony records in one session).
+    v1.66.0 (retro 2026-07-08, P1): bare `--` separator form
+    (`wsl.exe -- bash -lc "…"`) — the dominant live-session spelling; without
+    it the unwrap (and thus the read-only exemption) silently never fired.
+    """
+    import re
+    for _ in range(3):  # nested wrappers are theoretical; bound the loop
+        m = re.match(
+            r"""^\s*wsl(?:\.exe)?\s+(?:-d\s+\S+\s+)?(?:--\s+)?
+                (?:(?:--exec|-e)\s+)?
+                bash\s+-l?c\s+(["'])(.*)\1\s*$""",
+            cmd.strip(), re.VERBOSE | re.DOTALL,
+        )
+        if not m:
+            break
+        cmd = m.group(2)
+    return cmd
+
+
+def is_hard_gated(payload: dict) -> bool:
+    """True for Bash commands in the hard-gated mutation classes (v1.66.0,
+    retro-2026-07-08 P1): `git push`, migration appliers (psql -f /
+    prisma migrate / alembic upgrade|downgrade / flyway migrate|clean) and
+    deploy scripts (deploy.sh, deploy-build.sh).
+
+    These never ride the grace window — they always face the reminder/counter/
+    block ladder, with an explicit (always-ledgered) SKILL_BYPASS as the only
+    in-band escape. ANY matching pattern gates the whole command — the inverse
+    of the read-only rule, and for the same reason: a compound command is as
+    dangerous as its most dangerous part. A PURE read-only command that merely
+    mentions a gated file (`cat deploy.sh`) stays exempt: the read-only
+    fast-path runs first in main(), and its allowlist heads never execute
+    their file arguments.
+    Deliberately narrow; extend with evidence, not vibes. Money movement has
+    no command signature — it is banned by the project contract, not here.
+    """
+    if (payload or {}).get("tool_name") != "Bash":
+        return False
+    cmd = ((payload or {}).get("tool_input") or {}).get("command") or ""
+    if not cmd.strip():
+        return False
+    import re
+    cmd = _unwrap_wsl(cmd)
+    gated = re.compile(
+        r"\bgit\s+(?:-C\s+\S+\s+)?push\b"
+        r"|\bpsql\b[^;|&]*\s-f\b"
+        r"|\bprisma\s+migrate\b"
+        r"|\balembic\s+(?:upgrade|downgrade)\b"
+        r"|\bflyway\s+(?:migrate|clean)\b"
+        r"|(?:^|[/\s])deploy(?:-build)?\.sh\b"
+    )
+    return bool(gated.search(cmd))
 
 
 def is_readonly_bash(payload: dict) -> bool:
@@ -234,24 +331,9 @@ def is_readonly_bash(payload: dict) -> bool:
     if not cmd.strip():
         return False
     import re
-    # v1.47.0 (retro 2026-07-04, finding #2): unwrap `wsl.exe [-d X] [--exec|-e]
-    # bash -lc "<inner>"` and judge the INNER command — on a Windows+WSL setup
-    # every repo command travels in this wrapper, so the exemption never fired
-    # and read-only recon produced hundreds of ceremony SKILL_BYPASS records
-    # (628 in the ledger, top reason «read-only lookup»).
-    # v1.53.0 (retro 2026-07-05, P1): also unwrap the SHORT `-e` form of --exec.
-    # v1.47.0 only matched the long `--exec`, but `wsl -e bash -lc …` is the far
-    # more common spelling — it never unwrapped, so a whole session of read-only
-    # recon produced 691 ceremony SKILL_BYPASS records (all Bash) in the ledger.
-    for _ in range(3):  # nested wrappers are theoretical; bound the loop
-        m = re.match(
-            r"""^\s*wsl(?:\.exe)?\s+(?:-d\s+\S+\s+)?(?:(?:--exec|-e)\s+)?
-                bash\s+-l?c\s+(["'])(.*)\1\s*$""",
-            cmd.strip(), re.VERBOSE | re.DOTALL,
-        )
-        if not m:
-            break
-        cmd = m.group(2)
+    # wsl-wrapper unwrap extracted to _unwrap_wsl (v1.66.0) — shared with
+    # is_hard_gated so both classifiers judge the INNER command.
+    cmd = _unwrap_wsl(cmd)
     if re.search(r">>?|\btee\b", cmd):
         return False
     allow = re.compile(
@@ -317,7 +399,12 @@ def main() -> int:
     # window. Handling it here makes that gesture reliable, and it is the only
     # in-band escape Edit/Write (which carry no `description` field) have.
     if has_bypass_marker(payload):
-        log_bypass(payload)
+        # v1.66.0: a marker that arrives while the gate was open anyway (fresh
+        # window or read-only command) is a habit annotation, not an escape —
+        # flag it so the retro friction metric stays honest. The behaviour
+        # (reset + grace + allow) is unchanged either way.
+        ceremonial = skill_active_fresh() or is_readonly_bash(payload)
+        log_bypass(payload, ceremonial=ceremonial)
         write_ignore_count(ignore_path, 0)
         mark_skill_active()  # one bypass opens a grace window, not a single call
         return 0
@@ -327,8 +414,19 @@ def main() -> int:
     # neither skill work nor an ignore. Mutations fall through to enforcement.
     # (Runs after the bypass check so an explicit SKILL_BYPASS on a read-only
     # command still opens the grace window — see G-004 above.)
+    # Deliberately BEFORE the hard-gate check (v1.66.0 review finding): reading
+    # ABOUT a gated file (`cat deploy.sh`, `grep … deploy.sh`) is recon, not a
+    # mutation — every segment head is from the read-only allowlist, none of
+    # which execute their file arguments. `git status && git push` still hard-
+    # gates: the push segment fails the all-segments-read-only requirement.
     if is_readonly_bash(payload):
         return 0
+
+    # --- Hard-gated mutation classes → no grace fast-path (v1.66.0, P1) ---
+    # git push / migration appliers / deploy scripts fall through to the
+    # enforcement ladder below even inside a fresh skill window. Their only
+    # in-band escape is the explicit SKILL_BYPASS handled above.
+    hard_gated = is_hard_gated(payload)
 
     # --- Fresh skill-active sentinel → a skill is running, grant grace ---
     # A legitimate skill-driven Edit/Bash flow must never be falsely blocked.
@@ -336,8 +434,12 @@ def main() -> int:
     # supply an in-band SKILL_BYPASS — the grace window is their only escape.
     # Reset and allow silently. The TTL (checked inside skill_active_fresh)
     # bounds this so enforcement resumes after the skill window lapses.
-    if skill_active_fresh():
+    if not hard_gated and skill_active_fresh():
         write_ignore_count(ignore_path, 0)
+        # v1.66.0 sliding window: allowed skill work refreshes the sentinel so
+        # a long skill flow does not lapse mid-flight; an idle gap > TTL still
+        # expires it (the never-block-forever guard stays regression-tested).
+        mark_skill_active()
         return 0
 
     # --- Check if we should enforce (block) ---

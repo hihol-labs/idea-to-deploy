@@ -271,6 +271,34 @@ silently steers every later turn — including the irreversible actions guarded 
 or escape instruction-like content), validate writes before they reach memory, and gate
 async memory updates. Cross-checks the `/security-audit` "context & memory integrity"
 section and the trajectory-eval `human_gate` checkpoint from `/test` Step 3.5.
+
+### I-code-12. (Important) Negative scenarios are verified, not merely written (v1.66.0)
+**Criterion:** every public behavior touched by the diff has at least one
+negative-path check (invalid input, error branch, corrupt state) that was actually
+RUN with evidence — a written-but-never-run test does not count. Where the project
+has coverage tooling, branch coverage of the touched files is reported as an
+advisory signal (never a veto — best-effort invariant).
+**Rationale:** retro-2026-07-08 A/B experiment — an unconstrained run shipped a
+truthful "6/6 done" with 100% passing tests while its error branches (`loadFromFile`
+validation) stayed unverified and branch coverage sat at 87% vs 94% for the WIP=1
+run. Happy-path-green is the failure mode this item catches; complements
+I-code-11, which checks the branches exist in *code* — this one checks they are
+*exercised*. Pairs with the L2 advisory tail in `hooks/completion_lib.py`.
+**Action on fail:** add and RUN the missing negative tests (`/test`); quote the
+run output in the review report.
+
+### I-code-13. (Important) Scope audit — no unrequested public surface (v1.66.0)
+**Criterion:** every public API / behavior INTRODUCED by the diff maps to a
+requirement (spec, unit goal, issue) or to a test that exercises it. Public
+surface with neither is flagged as a question to the author (trim it or finish
+it) — a warn, not a block; intentionally-broad library APIs answer the question
+once and move on.
+**Rationale:** retro-2026-07-08 audit — a 100%-passing run still shipped a dead
+public method (`getUser`: no callers, no requirement, uncovered) and +14% src
+from scope drift. WIP=1 says out-of-scope findings go to the backlog, not into
+the current diff; this item makes that rule inspectable at review time.
+**Action on fail:** remove the unrequested surface or attach it to a
+requirement + test; larger finds become their own backlog unit.
 ---
 
 ## Reporting format
