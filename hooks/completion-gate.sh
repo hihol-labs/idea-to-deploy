@@ -143,10 +143,15 @@ def main() -> int:
             )
             return allow(msg)
 
-        # Зелёный путь.
+        # Зелёный путь. Advisory-хвост (retro-2026-07-08 P2) — подсказка про
+        # негативные сценарии/branch coverage; никогда не влияет на решение.
         L = verdict.get("layers", {})
         summ = " · ".join(f"L{k}:{L[k]['status']}" for k in ("1", "2", "3") if k in L)
-        return allow(f"[COMPLETION-GATE] Слои подтверждены сигналами ({summ}). Коммит разрешён.")
+        adv = verdict.get("advisory") or ""
+        return allow(
+            f"[COMPLETION-GATE] Слои подтверждены сигналами ({summ}). Коммит разрешён."
+            + (("\n" + adv) if adv else "")
+        )
     except Exception:
         return allow()
 
