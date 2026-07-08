@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.69.1] - 2026-07-08
+
+**Hotfix: checkpoint fragmentation on Windows — session id now comes from the
+hook payload.** Found by the post-restart live smoke of v1.69.0: the phantom
+banners' DEEPER root cause was not the missing SubagentStop leg alone.
+
+- Root cause: `CLAUDE_SESSION_ID` is absent from the hook environment on
+  Windows, so `session_id()` fell back to `pid{os.getppid()}` — which is
+  UNSTABLE across hook invocations. A subagent's tool calls and its
+  Stop/SubagentStop mark landed in DIFFERENT checkpoint files (369 fragments
+  observed for one project); the clean mark missed, phantoms returned.
+- Fix: `crash-recovery.sh` and `pre-flight-check.sh` prefer
+  `payload["session_id"]` — Claude Code puts it in the stdin JSON of every
+  hook event — over the env var; the pid fallback remains last resort. One
+  agent = one checkpoint file across PostToolUse/Stop/SubagentStop, and
+  pre-flight's own-checkpoint exclusion uses the same key.
+- Regression: `verify_init_contracts.py` t11 (suite 27 → 31 checks) — red on
+  the old code exactly at "checkpoint keyed by payload session_id".
+
+---
+
 ## [1.69.0] - 2026-07-08
 
 **Fix: phantom "Crash recovery" banners from background subagents** — the one
