@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.65.0] - 2026-07-08
+
+**Contract-drift detection goes automatic.** `pre-flight-check.sh` gains an
+inline advisory: if the project has `.itd/` and CLAUDE.md, the `snapshot @ <sha>`
+markers in derived `.itd/*.md` docs are compared against the last commit that
+touched CLAUDE.md. On drift, one warning line enters the pre-flight context
+(with a pointer to `.itd/check_contract_drift.py` for details). Rate-limited to
+once per 4h per project; advisory-only; any error (no git, not a repo) is a
+silent skip. The logic is implemented INLINE — a user-level hook never executes
+code from the project directory (reads data, does not run scripts).
+
+---
+
 ## [1.64.0] - 2026-07-08
 
 **/session-save: methodology-memory auto-push.** New Step 4.7b — when
