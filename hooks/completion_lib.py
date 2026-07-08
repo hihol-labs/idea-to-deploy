@@ -112,6 +112,12 @@ SIDE_EFFECT_RE = re.compile(
     re.I,
 )
 
+# VCS / сдача-репорт — НЕ доказательство. Коммит / пуш / открытие PR — это акт
+# СДАЧИ, а не ПРОВЕРКИ; он никогда не должен выдаваться за прогон теста слоя 2.
+# Прямое исполнение принципа «commit ≠ test»: до этого `git commit … && git log`
+# ловился как test_run/L2 и «зеленил» слой поведения самим фактом коммита.
+VCS_LEAD_RE = re.compile(r"^\s*(git|gh|hg|svn|jj)\s", re.I)
+
 # Очистка временных ресурсов -> layer 0 (учёт «cleanup»).
 CLEANUP_RE = re.compile(
     r"(^|\s|;|&&|\|\|)(rm\s+-rf?\s+[^|]*\b(tmp|temp|\.cache|node_modules/\.cache|dist|build|coverage)\b|"
@@ -161,27 +167,46 @@ FAIL_TEXT_RE = re.compile(
     re.I,
 )
 
-# Явные признаки успеха.
+# Явные признаки успеха. ТОЛЬКО сильные сигналы (test-summary / build-summary /
+# TAP): ложный `pass` = опасная false-зелёнка (гейт зелёный на сломанном), тогда
+# как ложный `unknown` безопасно деградирует в advisory. Поэтому слабые фразы
+# («clean», «no errors», голое «ok») из pass-детекции УБРАНЫ — они встречаются в
+# произвольном выводе (HTTP 200-логи, прогресс сборки) и давали FP на L2/L3.
+# Реальный успех почти всегда несёт exit-код или эхо EXIT=0 (см. outcome_from),
+# которые авторитетнее текста; сюда доходит лишь текст-only фоллбэк.
 PASS_TEXT_RE = re.compile(
     r"("
     r"\ball\s+tests?\s+pass|"
     r"\b0\s+fail(ing|ed|ures?)?\b|"
     r"tests?:\s*.*?\b\d+\s+passed(?!.*\bfailed)|"
     r"=+\s*\d+\s+passed(?!.*failed)|"
-    r"\bPASS\b|\bok\b\s+\d+|"
-    r"compiled successfully|build succeeded|"
     r"\b\d+\s+passing\b|"
-    r"no\s+(lint\s+)?errors?|clean)",
+    r"compiled successfully|build succeeded|build passed)",
     re.I,
 )
 
 
+# Эхнутый exit-код команды. Раннеры часто маскируют реальный $? пайпом через
+# head/tail, а хостовый tool_response не всегда несёт структурный exit-код.
+# Проектная конвенция — дописывать echo "EXIT: $?" / TSC_EXIT=$? / "exit: N".
+# Матчит "EXIT: 0", "TSC_EXIT=0", "exit: 0" (последний в выводе — авторитетный).
+_EXIT_ECHO_RE = re.compile(r"\b(?:[A-Z][A-Z0-9_]*_)?EXIT\s*[:=]\s*(\d+)\b", re.I)
+
+
 def outcome_from(text: str, exit_code: int | None) -> str:
-    """pass | fail | unknown — из exit-кода (приоритет) и текста."""
+    """pass | fail | unknown — из exit-кода, эхнутого EXIT=N, затем текста."""
     if exit_code is not None:
         return "pass" if exit_code == 0 else "fail"
     if not text:
         return "unknown"
+    # Эхнутый код команды (последний в выводе) авторитетнее эвристики по тексту:
+    # без него «tsc … ; echo EXIT: 0» молча оставался unknown и слой L1 никогда
+    # не становился pass.
+    m = None
+    for mm in _EXIT_ECHO_RE.finditer(text):
+        m = mm
+    if m is not None:
+        return "pass" if m.group(1) == "0" else "fail"
     if FAIL_TEXT_RE.search(text):
         return "fail"
     if PASS_TEXT_RE.search(text):
@@ -226,6 +251,11 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     доказательство поведения для проектов без юнит-тестов.
     """
     if not command:
+        return None
+    # VCS/сдача — не runtime-доказательство (см. VCS_LEAD_RE). Коммит и его
+    # многострочное тело часто случайно матчат L2-паттерны; сбрасываем до
+    # классификации, чтобы акт сдачи не считался проверкой.
+    if VCS_LEAD_RE.search(command):
         return None
     text, code = _extract_output(tool_response)
     outcome = outcome_from(text, code)
@@ -419,7 +449,13 @@ def compute_verdict(cwd: Path, signals: list) -> dict:
         "degraded": bool  # True => нет данных для суждения (best-effort деградация)
       }
     """
-    has_tests = repo_has_tests(cwd)
+    # Проект, объявивший l2_evidence_patterns (compare-registers/репост в
+    # config.json), ЗАЯВЛЯЕТ об отсутствии юнит-тестов — доказательство даёт
+    # ручная сверка. Инцидентный матч generic-скана (случайный .spec./test-путь)
+    # для него ложный, поэтому источник истины — декларация: real_tests подавляем.
+    declared_l2 = bool(_project_l2_patterns(cwd))
+    real_tests = False if declared_l2 else repo_has_tests(cwd)
+    has_tests = real_tests or declared_l2
     l1s, l1e = _layer_status(signals, 1)
     l2s, l2e = _layer_status(signals, 2)
     l3s, l3e = _layer_status(signals, 3)
@@ -460,13 +496,25 @@ def compute_verdict(cwd: Path, signals: list) -> dict:
         return verdict
 
     if has_tests and l2s == "unknown":
-        # тесты в репо есть, но в этой сессии их не прогнали (или результат неясен)
-        # — классический признак преждевременной сдачи.
-        verdict["blocked"] = True
-        verdict["reason"] = red_mark(
-            "Слой 2 (тесты) не подтверждён",
-            "в репозитории есть тесты, но в этой сессии не зафиксирован их успешный прогон",
-            "прогони тесты (npm test / pytest / go test …) — «код написан» ≠ «работает»",
+        if real_tests:
+            # реальные юнит-тесты в репо есть, но в этой сессии не прогнаны —
+            # классический признак преждевременной сдачи → жёсткий блок.
+            verdict["blocked"] = True
+            verdict["reason"] = red_mark(
+                "Слой 2 (тесты) не подтверждён",
+                "в репозитории есть тесты, но в этой сессии не зафиксирован их успешный прогон",
+                "прогони тесты (npm test / pytest / go test …) — «код написан» ≠ «работает»",
+            )
+            return verdict
+        # только объявленный L2 (compare-registers/репост) — ручная, привязанная
+        # к конкретному диффу сверка. Знать, нужна ли она ИМЕННО этому диффу,
+        # автоматически нельзя → advisory, а не false-блок каждого коммита
+        # (в т.ч. docs/reports). Реальный провал L2 (l2s=="fail") перехвачен выше.
+        verdict["degraded"] = True
+        verdict["reason"] = (
+            "Слой 2 для этого проекта — ручная сверка (compare-registers/"
+            "репост). Если изменение затрагивает проведение документов — "
+            "прогони сверку регистров с 1С; иначе обход осознанный."
         )
         return verdict
 

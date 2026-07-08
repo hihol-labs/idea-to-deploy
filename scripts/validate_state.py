@@ -36,10 +36,35 @@ _OBJECT_FIELDS = ("classification", "architecture", "existingProject", "currentU
 _LIST_FIELDS = ("verificationHistory", "decisionLog", "artifacts",
                 "completedModules", "failedValidations", "blockers")
 
+_ACTIVE_UNIT_STATUSES = {"in_progress", "verifying", "recovery_required"}
+
 
 def fail(message: str) -> None:
     print(f"ERROR: {message}")
     sys.exit(1)
+
+
+def _check_single_wip(path: Path, state: dict) -> None:
+    """WIP=1 across both state ledgers. Removes the dual source of "current
+    unit": STATE.currentUnit (ad-hoc /task unit) and GOAL.json (long goal) must
+    not be active simultaneously -- otherwise it is ambiguous what is in flight.
+    GOAL.json owns long-goal units; STATE.currentUnit owns /task units.
+    """
+    cu = state.get("currentUnit") or {}
+    state_active = str(cu.get("status", "")).strip() in _ACTIVE_UNIT_STATUSES
+    goal_path = path.parent / "GOAL.json"
+    goal_active, goal_unit = False, ""
+    if goal_path.is_file():
+        try:
+            goal = json.loads(goal_path.read_text(encoding="utf-8"))
+            goal_unit = str(goal.get("currentUnitId", "")).strip()
+            goal_active = str(goal.get("status", "")).strip() != "done" and bool(goal_unit)
+        except Exception:
+            goal_active = False
+    if state_active and goal_active:
+        fail(f"{path}: WIP=1 violated -- both STATE.currentUnit "
+             f"('{cu.get('id', '')}') and GOAL.json ('{goal_unit}') are active. "
+             f"Finish/close one before activating the other.")
 
 
 def validate_state(path: Path) -> None:
@@ -66,6 +91,8 @@ def validate_state(path: Path) -> None:
         fail(f"{path}: gateResults.nextStepApproval must be present")
     if not state.get("nextAction"):
         fail(f"{path}: nextAction must not be empty (fail-closed)")
+
+    _check_single_wip(path, state)
 
 
 def validate_goal(path: Path) -> None:
