@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.64.0] - 2026-07-08
+
+**/session-save: methodology-memory auto-push.** New Step 4.7b — when
+`~/.claude/methodology-memory/` is a git repo with a remote (private
+`idea-to-deploy-memory`), every `/session-save` commits and pushes the memory
+checkpoint. Best-effort: a network/auth failure never blocks the save (the
+local commit still preserves state). Scope guard: only methodology notes live
+there; secret VALUES never go into memory files; the remote must stay private.
+
+---
+
 ## [1.63.0] - 2026-07-08
 
 **Completion Gate hardening + contract-drift detector + WIP=1 cross-check.**

@@ -283,6 +283,34 @@ business-analyst missing from global agents, 6 hooks missing after v1.18.0).
 **For non-methodology projects:** This step is a no-op (the guard clause
 skips it).
 
+### Step 4.7b: Methodology-memory auto-push (v1.64.0)
+
+If `~/.claude/methodology-memory/` is a git repo (it has a private remote —
+`idea-to-deploy-memory`), commit and push any changes so every checkpoint of
+the methodology memory is backed up off-machine:
+
+```bash
+MM="$HOME/.claude/methodology-memory"
+if [ -d "$MM/.git" ]; then
+  git -C "$MM" add -A
+  git -C "$MM" diff --cached --quiet || \
+    git -C "$MM" commit -q -m "memory: session checkpoint $(date +%F)"
+  if git -C "$MM" remote get-url origin >/dev/null 2>&1; then
+    git -C "$MM" push -q origin HEAD || echo "memory push failed (offline?) — commit is local, will push next time"
+  fi
+fi
+```
+
+Rules:
+- **Best-effort** — a network/auth failure NEVER blocks `/session-save`;
+  report one line and move on (the local commit still preserves the state).
+- **Scope guard** — only methodology notes (`*.md` + index) live in this repo.
+  Never move project/business memory there, and never write secret VALUES into
+  memory files (env-var names are fine — the standing egress guard applies;
+  the remote must stay private).
+- No repo / no remote → soft no-op (e.g. a machine where the memory dir was
+  never initialized).
+
 ### Step 4.8: Branch-finish decision (v1.21 — PFO port)
 
 If this session is wrapping up work on a **feature branch** (not `main`/`master`) and the branch looks done or is being parked, record an explicit branch-finish decision so no branch is left in an ambiguous state. Scaffold `BRANCH_FINISH.md` from `docs/templates/BRANCH_FINISH.md` and fill:
