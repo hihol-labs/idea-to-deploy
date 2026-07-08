@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.63.0] - 2026-07-08
+
+**Completion Gate hardening + contract-drift detector + WIP=1 cross-check.**
+Follow-up to 1.62.0 closing three defects found by auditing the gate on a live
+project.
+
+### Fixed (completion_lib.py classifier)
+
+- `outcome_from` now reads an echoed exit code (`EXIT: 0` / `TSC_EXIT=0` /
+  `exit: 1`). Commands that pipe through `head`/`tail` mask `$?` and the host
+  tool-response often omits a structured exit code, so every signal landed as
+  `unknown` and L1 never turned `pass`.
+- VCS/submission commands (`git`/`gh`/`hg`/`svn`/`jj`) are excluded from signal
+  classification. A `git commit ... && git log` was classified as an L2
+  `test_run` - the act of submitting masqueraded as proof (violated the gate's
+  own "commit != test").
+- PASS text heuristic tightened to strong signals only (test/build summaries).
+  Weak phrases (`clean`, `no errors`, bare `PASS`, `ok N`) no longer yield a
+  false `pass` on arbitrary output - they degrade to `unknown` (safe). A false
+  `pass` is a dangerous false-green; a false `unknown` is a safe advisory.
+- Projects with declared `l2_evidence_patterns` (no unit tests) no longer
+  hard-block every commit on an incidental test-file scan match: the generic
+  scan is suppressed, hard block only for real unit tests, otherwise advisory.
+
+### Added
+
+- `scripts/validate_state.py`: WIP=1 cross-ledger check. `STATE.currentUnit`
+  (ad-hoc /task unit) and `GOAL.json` (long goal) may not be active at the same
+  time - removes the dual source of "current unit" (fail-closed).
+- `docs/templates/itd/check_contract_drift.py`: detector for silent drift of
+  derived `.itd/*` contract copies from CLAUDE.md. Compares a `snapshot @ <sha>`
+  marker against the last commit touching CLAUDE.md; `--strict` for a gate,
+  `--selftest` for the compare logic.
+
+---
+
 ## [1.62.0] - 2026-07-06
 
 **Completion Gate — a harness subsystem against premature "done".** Closes the
