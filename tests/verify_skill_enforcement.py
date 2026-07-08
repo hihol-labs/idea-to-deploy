@@ -31,6 +31,7 @@ TMP = tempfile.gettempdir()
 IGNORES = os.path.join(TMP, "claude-skill-ignores-%s.state" % SID)
 REMINDER = os.path.join(TMP, "claude-skill-check-%s.state" % SID)
 ACTIVE = os.path.join(TMP, "claude-skill-active-%s.state" % SID)
+LEDGER = os.path.join(TMP, "claude-skill-ledger-%s.jsonl" % SID)
 
 # Must mirror the constants in the hook.
 MAX_IGNORES = 3
@@ -46,7 +47,7 @@ def _rm(*paths):
 
 
 def reset_state():
-    _rm(IGNORES, REMINDER, ACTIVE)
+    _rm(IGNORES, REMINDER, ACTIVE, LEDGER)
 
 
 def set_count(n):
@@ -78,9 +79,10 @@ def set_active(age_seconds):
         f.write(str(time.time() - age_seconds))
 
 
-def run_hook(tool, description=""):
+def run_hook(tool, description="", command=""):
     payload = json.dumps(
-        {"tool_name": tool, "tool_input": {"description": description}}
+        {"tool_name": tool,
+         "tool_input": {"description": description, "command": command}}
     )
     env = dict(os.environ)
     env["CLAUDE_SESSION_ID"] = SID
@@ -181,6 +183,119 @@ def c_e2e_nontrigger_prompt_keeps_enforcement():
     return rc == 2 and "deny" in out, "rc=%d" % rc
 
 
+# --- v1.66.0 (retro-2026-07-08 P1) FP-corpus cases ---
+# Evidence: 864 SKILL_BYPASS records over 2 sessions (432/session, all Bash),
+# reasons clustered on legitimate work inside an active skill.
+
+
+def _active_age():
+    try:
+        with open(ACTIVE) as f:
+            return time.time() - float(f.read().strip() or "0")
+    except OSError:
+        return None
+
+
+def _last_ledger_rec():
+    try:
+        with open(LEDGER, encoding="utf-8") as f:
+            lines = [ln for ln in f.read().splitlines() if ln.strip()]
+        return json.loads(lines[-1]) if lines else None
+    except OSError:
+        return None
+
+
+def c_sliding_window_refreshes():
+    """Mutation Bash inside a fresh window refreshes the sentinel —
+    continuous skill work must not lapse mid-flight."""
+    reset_state()
+    set_count(0)
+    set_active(600)  # old but still fresh (TTL 900)
+    rc, _ = run_hook("Bash", command="npm run build")
+    age = _active_age()
+    return rc == 0 and age is not None and age < 60, \
+        "rc=%d age=%s" % (rc, age)
+
+
+def c_stale_window_not_rearmed():
+    """Idle gap > TTL: enforcement resumes AND the denied call does not
+    silently re-arm the stale sentinel (never-block-forever intact)."""
+    reset_state()
+    set_count(MAX_IGNORES)
+    set_active(TTL + 100)
+    rc, out = run_hook("Bash", command="npm run build")
+    age = _active_age()
+    return rc == 2 and "deny" in out and age is not None and age > TTL, \
+        "rc=%d age=%s" % (rc, age)
+
+
+def c_hard_gated_blocked_despite_grace():
+    """`git push` at MAX ignores is blocked even inside a fresh window —
+    hard-gated mutation classes never ride the grace window."""
+    reset_state()
+    set_count(MAX_IGNORES)
+    set_active(5)
+    rc, out = run_hook("Bash", command="git push origin main")
+    return rc == 2 and "deny" in out, "rc=%d" % rc
+
+
+def c_hard_gated_reminded_inside_grace():
+    """Below MAX, a hard-gated command (in the live wsl `--` wrapper form)
+    still gets the reminder ladder inside a fresh window, not a silent pass."""
+    reset_state()
+    set_count(0)
+    allow_reminder()
+    set_active(5)
+    rc, out = run_hook(
+        "Bash", command="wsl.exe -- bash -lc 'git push origin main'")
+    return rc == 0 and read_count() == 1 and "SKILL CHECK" in out, \
+        "rc=%d count=%d" % (rc, read_count())
+
+
+def c_hard_gated_bypass_still_escapes():
+    """Explicit SKILL_BYPASS stays the escape valve for hard-gated commands."""
+    reset_state()
+    set_count(MAX_IGNORES)
+    rc, _ = run_hook("Bash", "SKILL_BYPASS: push after review+approval",
+                     command="git push origin main")
+    return rc == 0 and read_count() == 0, \
+        "rc=%d count=%d" % (rc, read_count())
+
+
+def c_ceremonial_bypass_flagged():
+    """A bypass while the gate was open anyway (fresh window) is ledgered
+    with ceremonial:true — the friction metric must not count habit."""
+    reset_state()
+    set_active(5)
+    rc, _ = run_hook("Bash", "SKILL_BYPASS: habit annotation",
+                     command="npm run build")
+    rec = _last_ledger_rec()
+    return rc == 0 and rec is not None and rec.get("ceremonial") is True, \
+        "rc=%d rec=%r" % (rc, rec)
+
+
+def c_readonly_mention_of_gated_file_exempt():
+    """v1.66.0 review finding: READING a gated file (`cat deploy.sh`) is
+    recon — the read-only fast-path must win over the hard-gate pattern."""
+    reset_state()
+    set_count(MAX_IGNORES)
+    rc, _ = run_hook("Bash", command="cat deploy.sh && grep rsync deploy.sh")
+    return rc == 0 and read_count() == MAX_IGNORES, \
+        "rc=%d count=%d" % (rc, read_count())
+
+
+def c_real_bypass_not_flagged():
+    """A bypass that actually escapes enforcement (no window, mutation
+    command) is ledgered WITHOUT the ceremonial flag."""
+    reset_state()
+    set_count(MAX_IGNORES)
+    rc, _ = run_hook("Bash", "SKILL_BYPASS: real escape",
+                     command="npm run build")
+    rec = _last_ledger_rec()
+    return rc == 0 and rec is not None and not rec.get("ceremonial"), \
+        "rc=%d rec=%r" % (rc, rec)
+
+
 def _session_id_code(path):
     """Return the executable lines of `def session_id` in a hook file, stripped
     of comments, docstrings and blank lines, so two copies can be compared for
@@ -219,6 +334,15 @@ CASES = [
     ("e2e: trigger prompt opens grace window", c_e2e_trigger_prompt_opens_grace),
     ("e2e: non-trigger prompt keeps enforcement", c_e2e_nontrigger_prompt_keeps_enforcement),
     ("session_id() has no drift between hooks", c_session_id_no_drift),
+    # v1.66.0 (retro-2026-07-08 P1)
+    ("sliding window: skill work refreshes sentinel", c_sliding_window_refreshes),
+    ("stale window not re-armed by denied call", c_stale_window_not_rearmed),
+    ("hard-gated blocked despite fresh grace window", c_hard_gated_blocked_despite_grace),
+    ("hard-gated reminded inside grace (wsl -- form)", c_hard_gated_reminded_inside_grace),
+    ("hard-gated: explicit SKILL_BYPASS still escapes", c_hard_gated_bypass_still_escapes),
+    ("ceremonial bypass flagged in ledger", c_ceremonial_bypass_flagged),
+    ("readonly mention of gated file stays exempt", c_readonly_mention_of_gated_file_exempt),
+    ("real bypass not flagged ceremonial", c_real_bypass_not_flagged),
 ]
 
 
