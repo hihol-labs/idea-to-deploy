@@ -412,7 +412,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/narration-final.sh",  "timeout": 10 },
-        { "type": "command", "command": "~/.claude/hooks/verdict-contract.sh", "timeout": 10 }
+        { "type": "command", "command": "~/.claude/hooks/verdict-contract.sh", "timeout": 10 },
+        { "type": "command", "command": "~/.claude/hooks/crash-recovery.sh",   "timeout": 5 }
       ]
     }
   ]

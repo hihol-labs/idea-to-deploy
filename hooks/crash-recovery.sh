@@ -147,10 +147,13 @@ def main() -> int:
     tool = payload.get("tool_name") or ""
 
     # v1.67.0: on Stop (turn ended normally) mark the checkpoint clean.
-    # A session that dies mid-work never reaches this — clean_exit stays
-    # false and pre-flight surfaces the checkpoint to the next session.
+    # v1.69.0: SubagentStop тоже — субагенты пишут чекпоинты (PostToolUse
+    # фаерится в их контексте со своим session_id), но завершаются через
+    # SubagentStop; без этой ветки их чекпоинты вечно clean_exit=false и
+    # всплывали фантомными «Crash recovery» в главной сессии. Умерший
+    # мид-флайт субагент по-прежнему всплывает (сюда не доходит).
     event = (payload.get("hook_event_name") or "").lower()
-    if event == "stop" or ("stop_hook_active" in payload and not tool):
+    if event in ("stop", "subagentstop") or ("stop_hook_active" in payload and not tool):
         cp = read_checkpoint()
         cp["clean_exit"] = True
         cp["cwd"] = _cwd()
