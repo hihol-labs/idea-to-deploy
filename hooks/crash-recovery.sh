@@ -16,16 +16,23 @@ The checkpoint is a JSON file with:
   - Timestamp
   - Session goal (if detectable from first prompt)
 
-The checkpoint lives at /tmp/claude-checkpoint-{session_id}.json and
-is meant for manual inspection after a crash — open it to see the last
-N tool calls that ran before the crash. Automatic re-hydration by
-pre-flight-check.sh is a future enhancement (see ROADMAP); today the
-checkpoint is written but not automatically consumed.
+The checkpoint lives at /tmp/claude-checkpoint-{session_id}.json.
 
 v1.18.0: Adaptation from GSD v2 crash recovery.
 v1.19.2: Docstring clarified — no automatic consumer yet.
+v1.67.0: Automatic consumer CLOSED (init-audit gap #5):
+  - the checkpoint now records `cwd`, so a later session can match it to
+    the project;
+  - the same script is also registered on the Stop event: a turn that ends
+    normally marks `clean_exit: true`, and every significant tool call
+    flips it back to false — so `clean_exit: false` at session death means
+    "died mid-work";
+  - `pre-flight-check.sh` (crash_checkpoint_context) reads crashed
+    checkpoints for the current cwd on session start, injects the last
+    tool calls into context, and marks them consumed.
 
-Reads JSON on stdin: {"tool_name": "...", "tool_input": {...}}
+Reads JSON on stdin (PostToolUse): {"tool_name": "...", "tool_input": {...}}
+                     (Stop):       {"hook_event_name": "Stop", ...}
 """
 from __future__ import annotations
 
@@ -125,16 +132,30 @@ def main() -> int:
     except Exception:
         return 0
 
-    tool = (payload or {}).get("tool_name") or ""
+    payload = payload or {}
+    tool = payload.get("tool_name") or ""
+
+    # v1.67.0: on Stop (turn ended normally) mark the checkpoint clean.
+    # A session that dies mid-work never reaches this — clean_exit stays
+    # false and pre-flight surfaces the checkpoint to the next session.
+    event = (payload.get("hook_event_name") or "").lower()
+    if event == "stop" or ("stop_hook_active" in payload and not tool):
+        cp = read_checkpoint()
+        cp["clean_exit"] = True
+        cp["cwd"] = os.getcwd()
+        write_checkpoint(cp)
+        return 0
 
     # Only track significant tool calls
     if tool not in SIGNIFICANT_TOOLS:
         return 0
 
-    tool_input = (payload or {}).get("tool_input") or {}
+    tool_input = payload.get("tool_input") or {}
 
     cp = read_checkpoint()
     cp["call_count"] = cp.get("call_count", 0) + 1
+    cp["cwd"] = os.getcwd()
+    cp["clean_exit"] = False  # work in flight — a death from here on is a crash
 
     # Add to tool history
     history = cp.get("tool_history", [])
@@ -153,7 +174,6 @@ def main() -> int:
     if count % CHECKPOINT_INTERVAL == 0:
         cp["git"] = git_info()
         cp["last_checkpoint"] = time.time()
-        cp["clean_exit"] = False
 
     write_checkpoint(cp)
 

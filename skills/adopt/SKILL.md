@@ -3,7 +3,7 @@ name: adopt
 description: 'Adopt legacy project into idea-to-deploy methodology — add CLAUDE.md, register project-level hooks in .claude/settings.json, bootstrap memory dir. Detects product type and suggests a matching starter/golden-path for the /blueprint chain. Idempotent. No reverse-engineering of plan docs. Voice-chain to /strategy or /blueprint for plan generation.'
 argument-hint: optional — "skip-chain" to disable the final /strategy · /blueprint voice-chain
 license: MIT
-allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Skill
+allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Bash(python3:*) Bash(node:*) Bash(go:*) Bash(cargo:*) Bash(make:*) Skill
 metadata:
   effort: medium
   side_effect: local-write
@@ -38,7 +38,7 @@ Set via `/model sonnet` before invoking this skill if Opus is active.
 
 You are the adoption operator for `idea-to-deploy`. Your job is to **minimally** onboard an existing legacy project into the methodology — without rewriting the user's code, without hallucinating plan documents, and without modifying `~/.claude/settings.json` (user-level).
 
-You produce exactly **three writes**, one **optional fourth** (the `.itd/` contract scaffold, Step 3.5 — recommended, user may decline), plus one voice-chain question. Nothing more.
+You produce exactly **three writes**, plus up to three **optional recommended** ones the user may decline — the `.itd/` contract scaffold (Step 3.5), an example test when the project has none (Step 3.6), a runnability check via the init validator (Step 3.7) — plus one voice-chain question. Nothing more.
 
 ### Step 0: Safety & discovery
 
@@ -90,6 +90,8 @@ Before writing anything:
      - .claude/settings.json:  [create | merge hooks | skip (already registered)]
      - memory dir:             [create + sentinel /session-save | skip (already bootstrapped)]
      - .itd/ + .itd-memory/:   [scaffold (recommended) | skip (already present)] — опционально, скажи «без .itd» чтобы пропустить
+     - example test:           [create + run (recommended — тестов не найдено) | skip (тесты уже есть)] — «без example test» чтобы пропустить
+     - runnability check:      [run init validator (recommended) | skip] — «без проверки запускаемости» чтобы пропустить
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
      - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
@@ -173,8 +175,34 @@ If the user accepted:
 
 1. **Resolve templates dir** — sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`). Legacy `sync-to-active.sh` installs don't carry templates — if the dir is absent, warn («шаблоны .itd/ не найдены в установке плагина — пропускаю, скаффолд можно повторить после переустановки») and skip to Step 4.
 2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
-3. **Copy all 13 templates** into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them.
+3. **Copy all 13 contract templates plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`) into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them.
 4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5) and an empty `events.jsonl`.
+
+### Step 3.6: Example test — «столб держит вес» for brownfield (optional 5th write, recommended; v1.67.0)
+
+Closes init-audit gap #2 (2026-07-08): `/adopt` never proved the test harness works, so the completion gate's L2 layer had nothing to stand on in legacy projects. Offered in the Step 0.7 plan; skipped if the user said «без example test».
+
+1. **Detect existing tests** — glob `tests/`, `test/`, `**/*_test.*`, `**/*.test.*`, `**/test_*.py`, `src/**/__tests__/`. If ANY test file exists → skip (report «тесты уже есть — example test не нужен») and go to Step 3.7.
+2. **Pick a ZERO-DEPENDENCY built-in runner** for the detected stack — `/adopt` must not install anything (non-scope):
+   - Python (`pyproject.toml`/`requirements*.txt`) → `tests/test_smoke.py` on stdlib `unittest`; run: `python3 -m unittest discover -s tests -v`. (If `pytest` is ALREADY a declared dependency, prefer `python3 -m pytest tests/ -q`.)
+   - Node ≥ 18 (`package.json`) → `tests/smoke.test.mjs` on built-in `node:test`; run: `node --test tests/`.
+   - Go (`go.mod`) → `smoke_test.go` in the main package; run: `go test ./...`.
+   - Rust (`Cargo.toml`) → `#[test] fn smoke()` in `tests/smoke.rs`; run: `cargo test`.
+   - Anything else (PHP without PHPUnit, etc.) → report «встроенного runner'а нет — example test пропущен, добавь через /test когда выберешь фреймворк» and skip.
+3. **Write ONE trivial smoke test** — imports the project's top-level package/module (or just asserts `1 + 1 == 2` when even importing needs env) with a comment explaining it proves the harness, not the product. Zero business logic, zero new dependencies, zero edits outside the tests dir.
+4. **Run it** and show the real output. A red example test means the harness itself is broken — report the WHY and leave the test in place as the fix target; do not delete it to make adoption look green.
+5. Record the working test command as the project's baseline L2 evidence: mention it in the Step 3 sentinel `/session-save` and, if `.itd/VERIFICATION_CONTRACT.json` was scaffolded, note it there as a candidate verify command.
+
+### Step 3.7: Runnability check — init validator on the legacy project (optional, recommended; v1.67.0)
+
+Closes init-audit gap #1: `/adopt` only detected the stack by manifests and never proved the project actually comes up from a clean clone. Offered in the Step 0.7 plan; skipped if the user said «без проверки запускаемости». Requires Step 3.5 (the validator is copied as `.itd/itd_init_validate.py`; when `.itd/` was declined, run it straight from the plugin templates dir).
+
+1. **Detect commands** (best-effort, confirm with the user when ambiguous):
+   - bootstrap: `make setup` (Makefile target exists) / `npm ci` / `pnpm install --frozen-lockfile` / `pip install -e .[dev]` / `poetry install` / `go mod download` / `cargo fetch`.
+   - test: `make test` / `package.json scripts.test` / `python3 -m pytest` (or the Step 3.6 built-in-runner command) / `go test ./...` / `cargo test`.
+2. **Run**: `python3 .itd/itd_init_validate.py --bootstrap "<cmd>" --test "<cmd>"` — it clones the repo into an isolated temp dir and executes both commands there.
+3. **Advisory for brownfield** — a red result does NOT roll back the adoption. Report the WHY+FIX mark verbatim; a legacy project that cannot bootstrap from a clean clone is exactly what the user needs to see on day one (the validator keeps the failed clone for inspection). Record PASS/FAIL in the sentinel `/session-save`.
+4. Skip silently when the project has no commits yet (validator prints SKIP) or when secrets/external services make an isolated bootstrap impossible — say so explicitly instead of faking green.
 
 ### Step 4: Report to user
 
@@ -185,6 +213,8 @@ Adoption complete. Wrote / updated:
   - <ABS>/CLAUDE.md                          (created | appended | unchanged)
   - <ABS>/.claude/settings.json              (created | merged | unchanged)
   - <ABS>/.itd/ + .itd-memory/STATE.json     (scaffolded | skipped — declined | skipped — already present)
+  - <ABS>/tests/<example test>               (created + run: PASS/FAIL | skipped — tests exist | skipped — declined | skipped — no built-in runner)
+  - runnability check (init validator)       (PASS | FAIL: <why> | skipped — declined | skipped — no commits)
   - <MEMORY>/MEMORY.md                       (indexed)
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
@@ -259,7 +289,7 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 - **Does NOT** reverse-engineer plan documents (`STRATEGIC_PLAN.md`, `PROJECT_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `PRD.md`) from code. Hallucination risk is too high: a plausible-sounding plan that the user trusts, but that misrepresents KPIs, competitors, or scope, poisons trust in the methodology. Plan generation is delegated to `/strategy` (live reassessment with user input) or `/blueprint` (clarify-first mode) via the voice-chain in Step 5-6.
 - **Does NOT** treat the product-type detection (Step 0.6) as authoritative. It is a heuristic **hint** from manifests/structure, reported to the user and passed to `/blueprint` as a reference starter — never written into `CLAUDE.md` and never a substitute for `/blueprint`'s own clarification.
 - **Does NOT** modify `~/.claude/settings.json` (user-level). Other projects on the same machine stay untouched.
-- **Does NOT** modify project source code. Zero edits in `src/`, `app/`, `lib/`. No new dependencies installed.
+- **Does NOT** modify project source code. Zero edits in `src/`, `app/`, `lib/`. No new dependencies installed. The single carve-out is the **opt-in** Step 3.6 example test — one new file in the tests dir, on a built-in zero-dependency runner only; if creating it would require installing anything, it is skipped.
 - **Does NOT** perform `git commit` or any git write operation. The user decides when and how to commit the new `CLAUDE.md` and `.claude/settings.json`.
 - **Does NOT** rewrite an existing `CLAUDE.md` that already contains the idea-to-deploy block. Use idempotent append-with-marker pattern only.
 
@@ -282,6 +312,8 @@ Before reporting adoption as complete, verify:
 - [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 7 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, cross-review-precommit, check-skill-completeness, pii-egress-guard), all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`), and handoff-readiness in `hooks.Stop`
 - [ ] `$PROJECT_ROOT/.claude/settings.json` carries the recommended `permissions.ask` OS-tool-class guardrails (rm/sudo/chown/dd/mkfs/kill/…) merged without clobbering the user's existing `permissions` (or the user explicitly declined them)
 - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
+- [ ] Example test created **and actually run** with real output shown (or skip reason recorded: tests exist / declined / no built-in runner) — a red run is reported, never hidden
+- [ ] Runnability check ran via `itd_init_validate.py` with its PASS/FAIL recorded in the sentinel session-save (or skip reason recorded: declined / no commits / isolated bootstrap impossible)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir

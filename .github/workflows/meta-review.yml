@@ -86,5 +86,8 @@ jobs:
       - name: Run feature-ledger targeted-adoptions gate (v1.61.0, Ось 3)
         run: python3 tests/verify_feature_ledger_adoptions.py
 
+      - name: Run init-hardening contracts gate (v1.67.0, init-audit P1-P5)
+        run: python3 tests/verify_init_contracts.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

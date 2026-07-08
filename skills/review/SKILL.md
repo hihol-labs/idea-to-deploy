@@ -142,6 +142,17 @@ Verdict:
 
 Fail-closed rule: if you cannot determine spec compliance because evidence is missing or ambiguous, treat it as **not passed** — never assume green.
 
+**Stage A.5: Contract health (v1.67.0 — init-audit gap #3).** When `.itd/` exists, before reading the contracts as gates, verify they are trustworthy sensors — rubric check **I10** (Important tier, see `references/review-checklist.md`):
+
+```bash
+python3 .itd/check_contract_drift.py            # derived contracts vs CLAUDE.md
+python3 .itd/check_contract_drift.py --filled   # key contracts are not template prose
+```
+
+- Any `DRIFT` line, or `FORBIDDEN_CHANGES.md` / `SCOPE_LOCK.md` / `VERIFICATION_CONTRACT.json` reported as `TMPL`/`MISS` → mark **I10 fail** (Important warning in the report, gate still passes) and say explicitly which gates are running blind on template prose. Do NOT escalate to BLOCKED — a stale contract is a warning about the sensors, not proof the change is wrong.
+- The project's `.itd/` copy may predate the `--filled` flag — fall back to the read-only Grep checks described in I10.
+- No `.itd/` → I10 is N/A, silent skip.
+
 ### Step 1: Detect what to review
 
 Read available project files:
@@ -161,7 +172,7 @@ If  specifies a file or path, focus on that. Otherwise review everything availab
 **Read `references/review-checklist.md`** — it is the single source of truth for what to check. The rubric is split into three tiers:
 
 - **Tier 1 (Critical)** — checks C1–C12 (and C-code-1 … C-code-6 when source code exists). Failure of any single Critical check sets gate status to `BLOCKED`.
-- **Tier 2 (Important)** — checks I1–I9 (and I-code-1 … I-code-11). Failures produce warnings but the gate passes (`PASSED_WITH_WARNINGS`).
+- **Tier 2 (Important)** — checks I1–I10 (and I-code-1 … I-code-11). Failures produce warnings but the gate passes (`PASSED_WITH_WARNINGS`).
 - **Tier 3 (Nice-to-have)** — checks N1–N4 (and N-code-1 … N-code-4). Failures are informational only.
 
 **New in v1.4.0:** the code-only rubric now includes SOLID violations (God class, long parameter list, feature envy, Interface Segregation, Dependency Inversion), cyclomatic complexity > 10, Fowler code smells (shotgun surgery, magic numbers, duplication), and Google Engineering Practices (small change size). Full definitions live in `references/review-checklist.md` under "Code-quality checks".
@@ -280,7 +291,7 @@ The summary table is mandatory:
 | Tier | Pass | Total | Status |
 |---|---|---|---|
 | Critical | X | 12 | ✅/❌ |
-| Important | Y | 9 | ✅/⚠️ |
+| Important | Y | 10 | ✅/⚠️ |
 | Nice-to-have | Z | 4 | ✅/ℹ️ |
 ```
 
