@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -351,6 +352,77 @@ def itd_state_context(cwd: Path) -> str:
     return "\n".join(lines)
 
 
+_DRIFT_MARKER_RE = re.compile(r"снапшот\s*@\s*([0-9a-f]{7,40})", re.I)
+DRIFT_CHECK_INTERVAL_SEC = 4 * 3600  # advisory раз в 4 часа на проект, не каждый промпт
+
+
+def itd_contract_drift_context(cwd: Path) -> str:
+    """v1.65.0: advisory-детектор дрейфа производных .itd/*.md от CLAUDE.md.
+
+    Логика зеркалит .itd/check_contract_drift.py, но реализована ИНЛАЙН —
+    user-level хук не исполняет код из проектной директории (данные читаем,
+    код не запускаем). Маркер «снапшот @ <sha>» в доке сравнивается с последним
+    коммитом, тронувшим CLAUDE.md. Advisory-only, rate-limited, любая ошибка
+    (нет git, не репо, таймаут) — молчаливый скип: дрейф-чек не имеет права
+    шуметь или ломать pre-flight.
+    """
+    itd_dir = cwd / ".itd"
+    if not itd_dir.is_dir() or not (cwd / "CLAUDE.md").is_file():
+        return ""
+
+    # rate-limit: одна проверка на проект в DRIFT_CHECK_INTERVAL_SEC
+    stamp = Path(tempfile.gettempdir()) / (
+        "claude-itd-drift-" + re.sub(r"[^A-Za-z0-9]+", "-", str(cwd))[-80:] + ".stamp"
+    )
+    try:
+        if stamp.is_file() and (time.time() - stamp.stat().st_mtime) < DRIFT_CHECK_INTERVAL_SEC:
+            return ""
+    except Exception:
+        pass
+
+    try:
+        res = subprocess.run(
+            ["git", "log", "-1", "--format=%h", "--", "CLAUDE.md"],
+            cwd=str(cwd), capture_output=True, text=True, timeout=4,
+        )
+        current = res.stdout.strip().lower()
+        if res.returncode != 0 or not current:
+            return ""
+    except Exception:
+        return ""
+
+    drift: list[str] = []
+    unmarked = 0
+    try:
+        for md in sorted(itd_dir.glob("*.md")):
+            try:
+                m = _DRIFT_MARKER_RE.search(md.read_text(encoding="utf-8", errors="replace"))
+            except Exception:
+                continue
+            if not m:
+                unmarked += 1
+                continue
+            marker = m.group(1).lower()
+            if not (current.startswith(marker) or marker.startswith(current)):
+                drift.append(md.name)
+    except Exception:
+        return ""
+
+    try:
+        stamp.write_text(str(time.time()))
+    except Exception:
+        pass
+
+    if not drift:
+        return ""  # unmarked-доки не шумят в pre-flight — advisory только на реальный дрейф
+    return (
+        f"⚠️ **Дрейф .itd-контрактов**: {', '.join(drift[:6])} — CLAUDE.md ушёл вперёд "
+        f"(@ {current}) с момента снапшота. Пересверь и обнови маркер «снапшот @ <sha>» "
+        f"(детали: `python .itd/check_contract_drift.py`)."
+        + (f" Без маркера: {unmarked}." if unmarked else "")
+    )
+
+
 def session_id() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID")
     if sid:
@@ -450,6 +522,10 @@ def main() -> int:
     itd_state = itd_state_context(cwd)
     if itd_state:
         sections.append(itd_state)
+
+    drift = itd_contract_drift_context(cwd)
+    if drift:
+        sections.append(drift)
 
     mem_dir = find_project_memory_dir(cwd)
     if mem_dir:
