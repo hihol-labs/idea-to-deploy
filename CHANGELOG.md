@@ -26,6 +26,21 @@ test) — the validator failed on a real Cyrillic-path repo
   running the suite with **`PYTHONUTF8=0`** — the job-level UTF-8 env was
   masking exactly this bug class. The test harness's own subprocess reader
   fixed the same way.
+- The new CI step immediately caught three more Windows defects of the same
+  family (each fixed + covered):
+  - `crash-recovery.sh` stored `os.getcwd()` verbatim — an 8.3 short path
+    (`RUNNER~1`) never matched the consumer's resolved path, so the crash
+    section silently failed to surface. Both sides now compare **resolved**
+    paths; checkpoint file I/O got explicit UTF-8.
+  - `pre-flight-check.sh` crashed with `UnicodeEncodeError` emitting Cyrillic
+    advisories to a cp1252 console — stdout/stderr now reconfigured to UTF-8
+    (production invokes hooks with `-X utf8`; this is the belt for CI/legacy).
+  - `sync-to-active.sh` PYBIN discovery trusted `command -v python` — on
+    Windows that can be the Microsoft Store STUB which prints "Python" and
+    exits non-zero. Candidates (`ITD_WIN_PYTHON`, python3, python, py) are now
+    validated by executing `-c "print(1)"`.
+  - Test-side: Git-Bash bash.exe preferred over the System32 WSL stub when
+    running the sync step on Windows.
 
 ---
 

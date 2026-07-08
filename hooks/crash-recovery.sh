@@ -42,6 +42,17 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
+
+
+def _cwd() -> str:
+    """Нормализованный cwd: Path.resolve() разворачивает 8.3-short-paths
+    Windows (RUNNER~1 -> длинное имя), иначе consumer в pre-flight не сматчит
+    чекпоинт по cwd (v1.68.1)."""
+    try:
+        return str(Path.cwd().resolve())
+    except Exception:
+        return os.getcwd()
 
 CHECKPOINT_INTERVAL = 10  # Save checkpoint every N tool calls
 MAX_TOOL_HISTORY = 20  # Keep last N tool calls in checkpoint
@@ -88,7 +99,7 @@ def git_info() -> dict:
 
 def read_checkpoint() -> dict:
     try:
-        with open(checkpoint_file()) as f:
+        with open(checkpoint_file(), encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {
@@ -103,7 +114,7 @@ def read_checkpoint() -> dict:
 
 def write_checkpoint(cp: dict) -> None:
     try:
-        with open(checkpoint_file(), "w") as f:
+        with open(checkpoint_file(), "w", encoding="utf-8") as f:
             json.dump(cp, f, indent=2, ensure_ascii=False)
     except Exception:
         pass
@@ -142,7 +153,7 @@ def main() -> int:
     if event == "stop" or ("stop_hook_active" in payload and not tool):
         cp = read_checkpoint()
         cp["clean_exit"] = True
-        cp["cwd"] = os.getcwd()
+        cp["cwd"] = _cwd()
         write_checkpoint(cp)
         return 0
 
@@ -154,7 +165,7 @@ def main() -> int:
 
     cp = read_checkpoint()
     cp["call_count"] = cp.get("call_count", 0) + 1
-    cp["cwd"] = os.getcwd()
+    cp["cwd"] = _cwd()
     cp["clean_exit"] = False  # work in flight — a death from here on is a crash
 
     # Add to tool history

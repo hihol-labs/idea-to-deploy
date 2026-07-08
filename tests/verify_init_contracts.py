@@ -27,6 +27,12 @@ import tempfile
 import uuid
 from pathlib import Path
 
+try:  # legacy-консоль Windows (PYTHONUTF8=0 в CI-шаге) не должна ронять сам тест
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "docs" / "templates" / "itd"
 INIT_VALIDATE = TEMPLATES / "itd_init_validate.py"
@@ -108,7 +114,10 @@ def t4_crash_pipeline() -> None:
                                                  "tool_input": {"file_path": "a.py"}}),
                           env_extra={"CLAUDE_SESSION_ID": sid})
             data = json.loads(cp_file.read_text(encoding="utf-8"))
-            check("checkpoint records cwd", data.get("cwd") == str(proj.resolve()),
+            # resolved-сравнение: на Windows tempdir может быть 8.3-short-path
+            check("checkpoint records cwd",
+                  bool(data.get("cwd"))
+                  and Path(data["cwd"]).resolve() == proj.resolve(),
                   str(data.get("cwd")))
             check("checkpoint clean_exit=false mid-work", data.get("clean_exit") is False)
 
@@ -226,14 +235,40 @@ def t7_preflight_contract_health() -> None:
               "План без машинного зеркала" not in ctx)
 
 
+def _find_bash() -> str | None:
+    """POSIX bash для sync-to-active. На Windows `bash` в PATH может быть
+    WSL-заглушкой System32 (UTF-16 «no installed distributions») — предпочитаем
+    Git Bash (v1.68.1)."""
+    if sys.platform == "win32":
+        for cand in (r"C:\Program Files\Git\bin\bash.exe",
+                     r"C:\Program Files\Git\usr\bin\bash.exe"):
+            if Path(cand).is_file():
+                return cand
+        import shutil
+        p = shutil.which("bash")
+        if p and "system32" not in p.lower():
+            return p
+        return None
+    return "bash"
+
+
 def t8_sync_templates_step() -> None:
     """v1.68.0 C4: sync-to-active.sh зеркалит docs/templates/{itd,itd-memory} в CLAUDE_HOME."""
+    bash = _find_bash()
+    if not bash:
+        print("  SKIP  t8: POSIX bash не найден (WSL-заглушка не подходит) — шаг пропущен")
+        return
     with tempfile.TemporaryDirectory(prefix="itd-synchome-") as td:
         home = Path(td) / "claude-home"
         home.mkdir()
-        rc, out = run(["bash", str(ROOT / "scripts" / "sync-to-active.sh")],
+        rc, out = run([bash, str(ROOT / "scripts" / "sync-to-active.sh")],
                       cwd=ROOT,
-                      env_extra={"CLAUDE_HOME": str(home).replace("\\", "/")})
+                      env_extra={
+                          "CLAUDE_HOME": str(home).replace("\\", "/"),
+                          # windows-target: не дать sync подобрать Store-стаб
+                          # python из PATH — явный интерпретатор теста
+                          "ITD_WIN_PYTHON": str(PY).replace("\\", "/"),
+                      })
         check("sync-to-active exits 0 on fresh CLAUDE_HOME", rc == 0, out[-300:])
         v = home / "templates" / "itd" / "itd_init_validate.py"
         d = home / "templates" / "itd" / "check_contract_drift.py"
