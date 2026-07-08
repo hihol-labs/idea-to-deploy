@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.68.0] - 2026-07-08
+
+**Init-hardening round 2: the four residual gaps from the post-v1.67.0
+re-audit (44/50), closed C1–C4.** Round 1 gave every init element an
+executable sensor; this round moves the sensor TRIGGERS from skill prompts to
+the harness where cheap, and fixes the one distribution gap found while
+verifying the rollout.
+
+- **C1 — init validator is now a completion-gate signal**
+  (`hooks/completion_lib.py` TEST_RE): a run of `itd_init_validate.py`
+  (path-prefixed forms included) classifies as a `test_run`/L2 signal — its
+  exit 0 is a real test execution in a clean clone, so the commit veto sees
+  it like any other test run. The `commit ≠ test` VCS guard still wins:
+  `git commit -m itd_init_validate` is not a signal.
+- **C2 — `--filled` check in the pre-flight hook**
+  (`hooks/pre-flight-check.sh`): the 4-hourly `.itd/` advisory now also
+  mirrors `check_contract_drift.py --filled` inline (placeholder prose /
+  empty `commands[]` / broken JSON / missing key contract) — template-prose
+  contracts surface at session start, not only when `/review` happens to
+  run. Filledness is pure file reading, so unlike drift it does not require
+  git.
+- **C3 — plan-without-mirror detector** (`hooks/pre-flight-check.sh`):
+  when `IMPLEMENTATION_PLAN.md` exists (root or `docs/`) but
+  `.itd-memory/GOAL.json` does not, pre-flight says so once per 4h — a
+  project resuming "from prose" is now visible instead of silent.
+- **C4 — templates ship with sync installs** (`scripts/sync-to-active.sh`
+  new Step 4/6, steps renumbered to /6): `docs/templates/{itd,itd-memory}`
+  are mirrored to `~/.claude/templates/` — a sync-based install on a machine
+  without the repo checkout (e.g. the Windows side) can now scaffold `.itd/`;
+  `/adopt` Step 3.5 and `/kickstart` Phase 3 resolve `~/.claude/templates/itd/`
+  as a fallback.
+- **Tests/CI**: `tests/verify_init_contracts.py` extended 14 → 23 checks
+  (classifier L2 + VCS guard, pre-flight red/green for C2+C3 on throwaway
+  git projects, full `sync-to-active.sh` run into a fresh `CLAUDE_HOME`
+  asserting bit-identical mirrored templates).
+
+---
+
 ## [1.67.0] - 2026-07-08
 
 **Init-hardening release: the five gaps from the 2026-07-08 initialization

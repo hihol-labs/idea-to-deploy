@@ -67,6 +67,9 @@ def verdict_path(cwd: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 # Раннеры тестов -> layer 2 (доказательство поведения во время выполнения).
+# v1.68.0: itd_init_validate — init-валидатор (bootstrap+test в изолированном
+# клоне) считается L2-сигналом: его exit 0 — реальный прогон тестов в чистом
+# окружении, а не self-asserted галочка (init-audit round 2, C1).
 TEST_RE = re.compile(
     r"(^|\s|;|&&|\|\|)("
     r"npm\s+(run\s+)?test|npm\s+t\b|pnpm\s+(run\s+)?test|yarn\s+(run\s+)?test|"
@@ -74,7 +77,7 @@ TEST_RE = re.compile(
     r"pytest|py\.test|python\s+-m\s+pytest|unittest|nose2|tox|"
     r"go\s+test|cargo\s+test|mvn\s+(test|verify)|gradle\s+test|"
     r"phpunit|rspec|bundle\s+exec\s+rspec|dotnet\s+test|"
-    r"ctest|bats)\b",
+    r"ctest|bats|\S*itd_init_validate(\.py)?)\b",
     re.I,
 )
 

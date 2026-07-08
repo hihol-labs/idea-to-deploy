@@ -355,6 +355,40 @@ def itd_state_context(cwd: Path) -> str:
 _DRIFT_MARKER_RE = re.compile(r"снапшот\s*@\s*([0-9a-f]{7,40})", re.I)
 DRIFT_CHECK_INTERVAL_SEC = 4 * 3600  # advisory раз в 4 часа на проект, не каждый промпт
 
+# v1.68.0 (C2): заполненность ключевых контрактов — зеркалит
+# check_contract_drift.py --filled, но инлайн (данные читаем, код проекта не
+# исполняем). Шаблонный плейсхолдер / пустой commands[] => контракт-декорация.
+_PLACEHOLDER_RE = re.compile(r"Replace this line with", re.I)
+_KEY_CONTRACTS = ("FORBIDDEN_CHANGES.md", "SCOPE_LOCK.md", "VERIFICATION_CONTRACT.json")
+
+
+def _unfilled_contracts(itd_dir: Path) -> list[str]:
+    gaps: list[str] = []
+    for name in _KEY_CONTRACTS:
+        p = itd_dir / name
+        try:
+            if not p.is_file():
+                gaps.append(name + " (нет)")
+                continue
+            text = p.read_text(encoding="utf-8", errors="replace")
+            if not text.strip():
+                gaps.append(name + " (пуст)")
+            elif name.endswith(".json"):
+                try:
+                    data = json.loads(text)
+                except Exception:
+                    gaps.append(name + " (битый JSON)")
+                    continue
+                if name == "VERIFICATION_CONTRACT.json" and not (
+                    isinstance(data, dict) and data.get("commands")
+                ):
+                    gaps.append(name + " (commands[] пуст)")
+            elif _PLACEHOLDER_RE.search(text):
+                gaps.append(name + " (плейсхолдеры)")
+        except Exception:
+            continue
+    return gaps
+
 
 def itd_contract_drift_context(cwd: Path) -> str:
     """v1.65.0: advisory-детектор дрейфа производных .itd/*.md от CLAUDE.md.
@@ -380,46 +414,98 @@ def itd_contract_drift_context(cwd: Path) -> str:
     except Exception:
         pass
 
+    # drift требует git (сравнение с последним коммитом CLAUDE.md); filled —
+    # нет (чистое чтение файлов). Недоступный git скипает только drift-часть.
+    current = ""
     try:
         res = subprocess.run(
             ["git", "log", "-1", "--format=%h", "--", "CLAUDE.md"],
             cwd=str(cwd), capture_output=True, text=True, timeout=4,
         )
-        current = res.stdout.strip().lower()
-        if res.returncode != 0 or not current:
-            return ""
+        if res.returncode == 0:
+            current = res.stdout.strip().lower()
     except Exception:
-        return ""
+        current = ""
 
     drift: list[str] = []
     unmarked = 0
-    try:
-        for md in sorted(itd_dir.glob("*.md")):
-            try:
-                m = _DRIFT_MARKER_RE.search(md.read_text(encoding="utf-8", errors="replace"))
-            except Exception:
-                continue
-            if not m:
-                unmarked += 1
-                continue
-            marker = m.group(1).lower()
-            if not (current.startswith(marker) or marker.startswith(current)):
-                drift.append(md.name)
-    except Exception:
-        return ""
+    if current:
+        try:
+            for md in sorted(itd_dir.glob("*.md")):
+                try:
+                    m = _DRIFT_MARKER_RE.search(md.read_text(encoding="utf-8", errors="replace"))
+                except Exception:
+                    continue
+                if not m:
+                    unmarked += 1
+                    continue
+                marker = m.group(1).lower()
+                if not (current.startswith(marker) or marker.startswith(current)):
+                    drift.append(md.name)
+        except Exception:
+            drift = []
+
+    unfilled = _unfilled_contracts(itd_dir)  # v1.68.0 (C2)
 
     try:
         stamp.write_text(str(time.time()))
     except Exception:
         pass
 
-    if not drift:
-        return ""  # unmarked-доки не шумят в pre-flight — advisory только на реальный дрейф
+    if not drift and not unfilled:
+        return ""  # unmarked-доки не шумят в pre-flight — advisory только на дрейф/пустоту
+    parts: list[str] = []
+    if drift:
+        parts.append(
+            f"⚠️ **Дрейф .itd-контрактов**: {', '.join(drift[:6])} — CLAUDE.md ушёл вперёд "
+            f"(@ {current}) с момента снапшота. Пересверь и обнови маркер «снапшот @ <sha>» "
+            f"(детали: `python .itd/check_contract_drift.py`)."
+            + (f" Без маркера: {unmarked}." if unmarked else "")
+        )
+    if unfilled:
+        parts.append(
+            f"⚠️ **Контракты-декорации**: {', '.join(unfilled[:4])} — шаблон с "
+            "плейсхолдерами не является связывающим контрактом; гейты, которые его "
+            "читают (/review Stage A, wip-gate), работают вслепую. Заполни при "
+            "первом касании (детали: `python .itd/check_contract_drift.py --filled`)."
+        )
+    return "\n\n".join(parts)
+
+
+PLAN_GOAL_CHECK_INTERVAL_SEC = 4 * 3600
+
+
+def plan_without_goal_context(cwd: Path) -> str:
+    """v1.68.0 (C3): IMPLEMENTATION_PLAN.md есть, а .itd-memory/GOAL.json — нет.
+
+    Markdown-план читают люди; машинный resume-субстрат (WIP=1, evidence-gated
+    verified, инжект цели на старте сессии) работает только от GOAL.json.
+    Проект с планом без зеркала перезапускается «из прозы» — скажи об этом
+    один раз в 4 часа, advisory.
+    """
+    plan = next(
+        (p for p in (cwd / "IMPLEMENTATION_PLAN.md", cwd / "docs" / "IMPLEMENTATION_PLAN.md")
+         if p.is_file()),
+        None,
+    )
+    if plan is None or (cwd / ".itd-memory" / "GOAL.json").is_file():
+        return ""
+
+    stamp = Path(tempfile.gettempdir()) / (
+        "claude-itd-plangoal-" + re.sub(r"[^A-Za-z0-9]+", "-", str(cwd))[-80:] + ".stamp"
+    )
+    try:
+        if stamp.is_file() and (time.time() - stamp.stat().st_mtime) < PLAN_GOAL_CHECK_INTERVAL_SEC:
+            return ""
+        stamp.write_text(str(time.time()))
+    except Exception:
+        pass
+
     return (
-        f"⚠️ **Дрейф .itd-контрактов**: {', '.join(drift[:6])} — CLAUDE.md ушёл вперёд "
-        f"(@ {current}) с момента снапшота. Пересверь и обнови маркер «снапшот @ <sha>» "
-        f"(детали: `python .itd/check_contract_drift.py`)."
-        + (f" Без маркера: {unmarked}." if unmarked else "")
+        f"📋 **План без машинного зеркала**: `{plan.name}` существует, а "
+        "`.itd-memory/GOAL.json` — нет. Resumability и WIP=1+evidence работают "
+        "только от GOAL.json-юнитов — сгенерируй зеркало (юнит на шаг плана): "
+        "/kickstart Phase 3 step 7.5 для нового проекта или /goal для существующего."
     )
 
 
@@ -619,6 +705,10 @@ def main() -> int:
     drift = itd_contract_drift_context(cwd)
     if drift:
         sections.append(drift)
+
+    plan_gap = plan_without_goal_context(cwd)
+    if plan_gap:
+        sections.append(plan_gap)
 
     mem_dir = find_project_memory_dir(cwd)
     if mem_dir:
