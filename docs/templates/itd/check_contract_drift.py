@@ -36,6 +36,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:  # legacy-консоль Windows (cp866/cp1252) не должна ронять вывод (v1.68.1)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]
 ITD_DIR = ROOT / ".itd"
 CLAUDE_MD = ROOT / "CLAUDE.md"

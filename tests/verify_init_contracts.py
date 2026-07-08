@@ -51,7 +51,8 @@ def run(args: list[str], cwd: Path | None = None, stdin_text: str | None = None,
     if env_extra:
         env.update(env_extra)
     res = subprocess.run(args, cwd=str(cwd) if cwd else None, input=stdin_text,
-                         capture_output=True, text=True, timeout=300, env=env)
+                         capture_output=True, text=True, encoding="utf-8",
+                         errors="replace", timeout=300, env=env)
     return res.returncode, (res.stdout or "") + (res.stderr or "")
 
 
@@ -231,7 +232,8 @@ def t8_sync_templates_step() -> None:
         home = Path(td) / "claude-home"
         home.mkdir()
         rc, out = run(["bash", str(ROOT / "scripts" / "sync-to-active.sh")],
-                      cwd=ROOT, env_extra={"CLAUDE_HOME": str(home)})
+                      cwd=ROOT,
+                      env_extra={"CLAUDE_HOME": str(home).replace("\\", "/")})
         check("sync-to-active exits 0 on fresh CLAUDE_HOME", rc == 0, out[-300:])
         v = home / "templates" / "itd" / "itd_init_validate.py"
         d = home / "templates" / "itd" / "check_contract_drift.py"
@@ -242,10 +244,35 @@ def t8_sync_templates_step() -> None:
         check("templates/itd-memory mirrored (goal schema)", g.is_file())
 
 
+def t9_non_ascii_repo_path() -> None:
+    """v1.68.1 regression: валидатор работает в репо с не-ASCII путём.
+
+    Живой баг с Windows (упр. 1 init-аудита): text=True без encoding
+    декодировал UTF-8-путь из `git rev-parse` локальной кодировкой →
+    WinError 267 на CreateProcess. Тест гоняет валидатор subprocess'ом
+    (без -X utf8) в директории с кириллицей — на Windows это и есть
+    падавший сценарий, на Linux — smoke той же ветки кода.
+    """
+    with tempfile.TemporaryDirectory(prefix="итд-тест-") as td:
+        repo = Path(td) / "проект-очередь"
+        repo.mkdir()
+        (repo / "README.md").write_text("# т\n", encoding="utf-8")
+        for args in (["git", "init", "-q"],
+                     ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"],
+                     ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "i"]):
+            subprocess.run(args, cwd=str(repo), capture_output=True, timeout=30)
+        rc, out = run([PY, str(INIT_VALIDATE),
+                       "--bootstrap", f'"{PY}" -c "print(1)"',
+                       "--test", f'"{PY}" -c "import sys; sys.exit(0)"'],
+                      cwd=repo)
+        check("validator PASS in non-ASCII repo path", rc == 0 and "PASS" in out, out[-300:])
+
+
 def main() -> int:
     for t in (t1_init_validate_selftest, t2_drift_selftest, t3_filled_functional,
               t4_crash_pipeline, t5_goal_mirror_shape,
-              t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step):
+              t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step,
+              t9_non_ascii_repo_path):
         t()
     print()
     if FAILURES:

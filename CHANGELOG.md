@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.68.1] - 2026-07-08
+
+**Hotfix: init validator on Windows with non-ASCII repo paths.** Found by
+actually running the init-audit exercises (exercise 1: fresh-session bootstrap
+test) — the validator failed on a real Cyrillic-path repo
+(`C:/Users/Дмитрий/…`) with `WinError 267`. Two defects of the same class:
+
+- `itd_init_validate.py` `run()`: `text=True` without `encoding` decoded git's
+  UTF-8 output with the Windows locale codepage — the repo root path turned to
+  mojibake and the next `subprocess` got a nonexistent `cwd`. Fixed with
+  explicit `encoding="utf-8", errors="replace"`.
+- Both template utilities crashed with `UnicodeEncodeError` when printing
+  `⚠`/Cyrillic marks to a legacy console (cp866/cp1252) — `sys.stdout`/`stderr`
+  are now reconfigured to UTF-8 with `errors="replace"` (best-effort).
+- Regression: `tests/verify_init_contracts.py` t9 runs the validator in a
+  Cyrillic-named repo (suite now 24 checks); `windows-verify.yml` gains a step
+  running the suite with **`PYTHONUTF8=0`** — the job-level UTF-8 env was
+  masking exactly this bug class. The test harness's own subprocess reader
+  fixed the same way.
+
+---
+
 ## [1.68.0] - 2026-07-08
 
 **Init-hardening round 2: the four residual gaps from the post-v1.67.0
