@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -303,11 +304,59 @@ def t9_non_ascii_repo_path() -> None:
         check("validator PASS in non-ASCII repo path", rc == 0 and "PASS" in out, out[-300:])
 
 
+def t10_subagent_stop_marks_clean() -> None:
+    """v1.69.0 regression: SubagentStop помечает чекпоинт clean (фантомные баннеры).
+
+    Живой FP из упражнений init-аудита (×5 за сессию): PostToolUse фаерится и в
+    контексте фоновых субагентов (свой session_id), но при их завершении
+    приходит SubagentStop, а не Stop — чекпоинт вечно clean_exit=false, и
+    pre-flight ГЛАВНОЙ сессии всплывал его как «Crash recovery». Умерший
+    мид-флайт субагент по-прежнему должен всплывать — проверяется t4.
+    """
+    with tempfile.TemporaryDirectory(prefix="itd-subagent-") as td:
+        proj = Path(td)
+        sid = "vsub-" + uuid.uuid4().hex[:8]
+        cp_file = Path(tempfile.gettempdir()) / f"claude-checkpoint-{sid}.json"
+        try:
+            run([PY, str(CRASH_HOOK)], cwd=proj,
+                stdin_text=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "a.py"}}),
+                env_extra={"CLAUDE_SESSION_ID": sid})
+            data = json.loads(cp_file.read_text(encoding="utf-8"))
+            check("subagent checkpoint dirty mid-work", data.get("clean_exit") is False)
+
+            run([PY, str(CRASH_HOOK)], cwd=proj,
+                stdin_text=json.dumps({"hook_event_name": "SubagentStop",
+                                       "stop_hook_active": False}),
+                env_extra={"CLAUDE_SESSION_ID": sid})
+            data = json.loads(cp_file.read_text(encoding="utf-8"))
+            check("SubagentStop flips clean_exit=true", data.get("clean_exit") is True,
+                  str(data.get("clean_exit")))
+
+            rc, out = run([PY, str(PREFLIGHT)], cwd=proj, stdin_text="{}",
+                          env_extra={"CLAUDE_SESSION_ID": sid + "-main"})
+            check("no phantom crash banner after SubagentStop",
+                  "Crash recovery" not in out)
+        finally:
+            try:
+                cp_file.unlink()
+            except OSError:
+                pass
+
+    # Настоящая дыра была в РЕГИСТРАЦИИ: SubagentStop-события вообще не
+    # доходили до хука. Проверяем, что sync-to-active регистрирует
+    # crash-recovery.sh в SubagentStop-блоке settings.json.
+    sync_text = (ROOT / "scripts" / "sync-to-active.sh").read_text(encoding="utf-8")
+    m = re.search(r'"SubagentStop":\s*\[(.*?)\n\s*\]\s*,?\n', sync_text, re.S)
+    block = m.group(1) if m else ""
+    check("sync registers crash-recovery on SubagentStop",
+          "crash-recovery.sh" in block, block[-200:] if block else "block not found")
+
+
 def main() -> int:
     for t in (t1_init_validate_selftest, t2_drift_selftest, t3_filled_functional,
               t4_crash_pipeline, t5_goal_mirror_shape,
               t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step,
-              t9_non_ascii_repo_path):
+              t9_non_ascii_repo_path, t10_subagent_stop_marks_clean):
         t()
     print()
     if FAILURES:

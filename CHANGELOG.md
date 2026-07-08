@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.69.0] - 2026-07-08
+
+**Fix: phantom "Crash recovery" banners from background subagents** — the one
+remaining positive-ROI item from the init-audit close-out (found live by
+exercise 2: ×5 phantom banners in a single session).
+
+- Root cause: subagents write crash checkpoints too (PostToolUse fires in
+  their context with their own session id), but they finish via
+  **SubagentStop**, which the hook was not registered on — their checkpoints
+  stayed `clean_exit: false` forever and pre-flight surfaced them to the MAIN
+  session as crashes.
+- Fix: `crash-recovery.sh` accepts SubagentStop as a clean-exit marker and
+  `sync-to-active.sh` registers it on SubagentStop (now 3 hooks there). A
+  subagent that dies mid-work still surfaces — that signal is real and kept.
+- Regression: `verify_init_contracts.py` t10 (suite 24 → 27 checks) — the
+  registration assertion was red on the old code, green now; the functional
+  leg proves SubagentStop flips `clean_exit` and pre-flight stays silent.
+
+---
+
 ## [1.68.1] - 2026-07-08
 
 **Hotfix: init validator on Windows with non-ASCII repo paths.** Found by
