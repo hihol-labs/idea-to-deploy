@@ -37,6 +37,13 @@ import tempfile
 import time
 from pathlib import Path
 
+try:  # legacy-консоль Windows (cp866/cp1252) не должна ронять хук (v1.68.1);
+    # боевые инсталлы зовут хуки через `python -X utf8`, это — страховка.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 GIT_TIMEOUT_SEC = 2
 LOCK_FRESH_SECONDS = 600  # 10 minutes
 MEMORY_INDEX_MAX_LINES = 30
@@ -554,8 +561,16 @@ def crash_checkpoint_context(cwd: Path) -> str:
         if not isinstance(data, dict) or data.get("clean_exit") or data.get("consumed_at"):
             continue
         # Old-format checkpoints carry no cwd — skip rather than warn about a
-        # foreign project (fail quiet, not fail loud on ambiguity).
-        if data.get("cwd") != cwd_str:
+        # foreign project (fail quiet, not fail loud on ambiguity). Compare
+        # RESOLVED paths: Windows 8.3-short-path (RUNNER~1) и длинное имя —
+        # один каталог (v1.68.1).
+        stored = data.get("cwd")
+        if not stored:
+            continue
+        try:
+            if str(Path(stored).resolve()) != cwd_str:
+                continue
+        except Exception:
             continue
         history = data.get("tool_history") or []
         last_ts = 0.0

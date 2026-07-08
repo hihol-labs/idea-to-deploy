@@ -48,9 +48,16 @@ if [ "${1:-}" = "--check" ]; then
 fi
 
 # Python launcher: python3 on Unix/WSL, python on Git-Bash-Windows.
-if command -v python3 >/dev/null 2>&1; then PYBIN=python3
-elif command -v python  >/dev/null 2>&1; then PYBIN=python
-else PYBIN=python3; fi
+# Runnable python for inline snippets. On Windows Git-Bash, `python`/`python3`
+# on PATH may be the Microsoft Store STUB that prints "Python" and exits
+# non-zero — `command -v` alone cannot tell. Validate the candidate by actually
+# executing it; honour explicit ITD_WIN_PYTHON first (v1.68.1).
+PYBIN=""
+for _cand in "${ITD_WIN_PYTHON:-}" python3 python py; do
+  [ -n "$_cand" ] || continue
+  if "$_cand" -c "print(1)" >/dev/null 2>&1; then PYBIN="$_cand"; break; fi
+done
+[ -n "$PYBIN" ] || PYBIN=python3
 
 # Target OS (v1.38.0). On a Windows target, .sh hooks cannot run via a shebang —
 # Claude Code must invoke them through python.exe. Auto-detect a Git-Bash/MSYS/

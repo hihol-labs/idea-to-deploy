@@ -41,15 +41,28 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:  # legacy-консоль Windows (cp866/cp1252) не должна ронять вывод (v1.68.1)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 DEFAULT_TIMEOUT_SEC = 900  # bootstrap на холодном кэше бывает долгим
 OUTPUT_TAIL_CHARS = 2000
 
 
 def run(cmd: list[str] | str, cwd: Path, timeout: int, shell: bool = False) -> tuple[int, str]:
-    """Исполнить команду, вернуть (returncode, объединённый вывод). Никогда не бросает."""
+    """Исполнить команду, вернуть (returncode, объединённый вывод). Никогда не бросает.
+
+    encoding="utf-8" обязателен: git отдаёт пути в UTF-8, а text=True без
+    encoding декодирует локальной кодировкой Windows (cp1251/cp866) — не-ASCII
+    путь репозитория (C:/Users/Дмитрий/…) превращался в мусор и следующий
+    subprocess падал с WinError 267 «неверно задано имя каталога» (v1.68.1).
+    """
     try:
         res = subprocess.run(
-            cmd, cwd=str(cwd), shell=shell, capture_output=True, text=True, timeout=timeout,
+            cmd, cwd=str(cwd), shell=shell, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout,
         )
         out = (res.stdout or "") + (res.stderr or "")
         return res.returncode, out

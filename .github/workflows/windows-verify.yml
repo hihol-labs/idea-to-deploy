@@ -68,3 +68,10 @@ jobs:
         run: python tests/verify_routing.py
       - name: Meta-review rubric
         run: python tests/meta_review.py
+      - name: Init-hardening contracts gate on legacy encoding (v1.68.1)
+        # PYTHONUTF8=0 deliberately: the non-ASCII-path regression only
+        # manifests when subprocess text-mode falls back to the locale
+        # codepage - the exact Windows environment the job-level UTF8 masks.
+        env:
+          PYTHONUTF8: "0"
+        run: python tests/verify_init_contracts.py

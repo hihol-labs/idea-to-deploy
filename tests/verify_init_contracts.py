@@ -27,6 +27,12 @@ import tempfile
 import uuid
 from pathlib import Path
 
+try:  # legacy-консоль Windows (PYTHONUTF8=0 в CI-шаге) не должна ронять сам тест
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "docs" / "templates" / "itd"
 INIT_VALIDATE = TEMPLATES / "itd_init_validate.py"
@@ -51,7 +57,8 @@ def run(args: list[str], cwd: Path | None = None, stdin_text: str | None = None,
     if env_extra:
         env.update(env_extra)
     res = subprocess.run(args, cwd=str(cwd) if cwd else None, input=stdin_text,
-                         capture_output=True, text=True, timeout=300, env=env)
+                         capture_output=True, text=True, encoding="utf-8",
+                         errors="replace", timeout=300, env=env)
     return res.returncode, (res.stdout or "") + (res.stderr or "")
 
 
@@ -107,7 +114,10 @@ def t4_crash_pipeline() -> None:
                                                  "tool_input": {"file_path": "a.py"}}),
                           env_extra={"CLAUDE_SESSION_ID": sid})
             data = json.loads(cp_file.read_text(encoding="utf-8"))
-            check("checkpoint records cwd", data.get("cwd") == str(proj.resolve()),
+            # resolved-сравнение: на Windows tempdir может быть 8.3-short-path
+            check("checkpoint records cwd",
+                  bool(data.get("cwd"))
+                  and Path(data["cwd"]).resolve() == proj.resolve(),
                   str(data.get("cwd")))
             check("checkpoint clean_exit=false mid-work", data.get("clean_exit") is False)
 
@@ -225,13 +235,40 @@ def t7_preflight_contract_health() -> None:
               "План без машинного зеркала" not in ctx)
 
 
+def _find_bash() -> str | None:
+    """POSIX bash для sync-to-active. На Windows `bash` в PATH может быть
+    WSL-заглушкой System32 (UTF-16 «no installed distributions») — предпочитаем
+    Git Bash (v1.68.1)."""
+    if sys.platform == "win32":
+        for cand in (r"C:\Program Files\Git\bin\bash.exe",
+                     r"C:\Program Files\Git\usr\bin\bash.exe"):
+            if Path(cand).is_file():
+                return cand
+        import shutil
+        p = shutil.which("bash")
+        if p and "system32" not in p.lower():
+            return p
+        return None
+    return "bash"
+
+
 def t8_sync_templates_step() -> None:
     """v1.68.0 C4: sync-to-active.sh зеркалит docs/templates/{itd,itd-memory} в CLAUDE_HOME."""
+    bash = _find_bash()
+    if not bash:
+        print("  SKIP  t8: POSIX bash не найден (WSL-заглушка не подходит) — шаг пропущен")
+        return
     with tempfile.TemporaryDirectory(prefix="itd-synchome-") as td:
         home = Path(td) / "claude-home"
         home.mkdir()
-        rc, out = run(["bash", str(ROOT / "scripts" / "sync-to-active.sh")],
-                      cwd=ROOT, env_extra={"CLAUDE_HOME": str(home)})
+        rc, out = run([bash, str(ROOT / "scripts" / "sync-to-active.sh")],
+                      cwd=ROOT,
+                      env_extra={
+                          "CLAUDE_HOME": str(home).replace("\\", "/"),
+                          # windows-target: не дать sync подобрать Store-стаб
+                          # python из PATH — явный интерпретатор теста
+                          "ITD_WIN_PYTHON": str(PY).replace("\\", "/"),
+                      })
         check("sync-to-active exits 0 on fresh CLAUDE_HOME", rc == 0, out[-300:])
         v = home / "templates" / "itd" / "itd_init_validate.py"
         d = home / "templates" / "itd" / "check_contract_drift.py"
@@ -242,10 +279,35 @@ def t8_sync_templates_step() -> None:
         check("templates/itd-memory mirrored (goal schema)", g.is_file())
 
 
+def t9_non_ascii_repo_path() -> None:
+    """v1.68.1 regression: валидатор работает в репо с не-ASCII путём.
+
+    Живой баг с Windows (упр. 1 init-аудита): text=True без encoding
+    декодировал UTF-8-путь из `git rev-parse` локальной кодировкой →
+    WinError 267 на CreateProcess. Тест гоняет валидатор subprocess'ом
+    (без -X utf8) в директории с кириллицей — на Windows это и есть
+    падавший сценарий, на Linux — smoke той же ветки кода.
+    """
+    with tempfile.TemporaryDirectory(prefix="итд-тест-") as td:
+        repo = Path(td) / "проект-очередь"
+        repo.mkdir()
+        (repo / "README.md").write_text("# т\n", encoding="utf-8")
+        for args in (["git", "init", "-q"],
+                     ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"],
+                     ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "i"]):
+            subprocess.run(args, cwd=str(repo), capture_output=True, timeout=30)
+        rc, out = run([PY, str(INIT_VALIDATE),
+                       "--bootstrap", f'"{PY}" -c "print(1)"',
+                       "--test", f'"{PY}" -c "import sys; sys.exit(0)"'],
+                      cwd=repo)
+        check("validator PASS in non-ASCII repo path", rc == 0 and "PASS" in out, out[-300:])
+
+
 def main() -> int:
     for t in (t1_init_validate_selftest, t2_drift_selftest, t3_filled_functional,
               t4_crash_pipeline, t5_goal_mirror_shape,
-              t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step):
+              t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step,
+              t9_non_ascii_repo_path):
         t()
     print()
     if FAILURES:
