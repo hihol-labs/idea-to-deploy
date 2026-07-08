@@ -433,6 +433,94 @@ def session_id() -> str:
         return "default"
 
 
+CRASH_CHECKPOINT_MAX_AGE_SEC = 48 * 3600
+CRASH_TOOLS_SHOWN = 5
+
+
+def crash_checkpoint_context(cwd: Path) -> str:
+    """v1.67.0: auto-consume crash checkpoints (init-audit gap #5).
+
+    `crash-recovery.sh` writes claude-checkpoint-<session>.json on every
+    significant tool call (clean_exit=false while work is in flight) and marks
+    clean_exit=true on Stop. A checkpoint that still says clean_exit=false
+    belongs to a session that died mid-work. Surface it ONCE to the next
+    session in the same project (cwd match), then mark it consumed — the
+    "written but not automatically consumed" gap from the crash-recovery
+    docstring is closed here.
+    """
+    tmp = Path(tempfile.gettempdir())
+    own = f"claude-checkpoint-{session_id()}.json"
+    cwd_str = str(cwd.resolve())
+    now = time.time()
+
+    crashed: list[tuple[float, Path, dict]] = []
+    try:
+        candidates = list(tmp.glob("claude-checkpoint-*.json"))
+    except Exception:
+        return ""
+    for f in candidates:
+        if f.name == own:
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+        if not isinstance(data, dict) or data.get("clean_exit") or data.get("consumed_at"):
+            continue
+        # Old-format checkpoints carry no cwd — skip rather than warn about a
+        # foreign project (fail quiet, not fail loud on ambiguity).
+        if data.get("cwd") != cwd_str:
+            continue
+        history = data.get("tool_history") or []
+        last_ts = 0.0
+        for key in ("last_checkpoint", "session_start"):
+            try:
+                last_ts = max(last_ts, float(data.get(key) or 0))
+            except (TypeError, ValueError):
+                pass
+        if history:
+            try:
+                last_ts = max(last_ts, float(history[-1].get("time") or 0))
+            except (TypeError, ValueError):
+                pass
+        if not last_ts or (now - last_ts) > CRASH_CHECKPOINT_MAX_AGE_SEC:
+            continue
+        crashed.append((last_ts, f, data))
+
+    if not crashed:
+        return ""
+
+    # Consume ALL matched checkpoints (so they don't re-fire next prompt),
+    # report the most recent one.
+    for _, f, data in crashed:
+        try:
+            data["consumed_at"] = now
+            f.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+    last_ts, _, data = max(crashed, key=lambda t: t[0])
+    age_min = int((now - last_ts) // 60)
+    age = f"{age_min} мин" if age_min < 120 else f"{age_min // 60} ч"
+    git = data.get("git") or {}
+    lines = [
+        "💥 **Crash recovery**: предыдущая сессия в этом проекте оборвалась "
+        f"без чистого завершения ~{age} назад"
+        + (f" (branch `{git.get('branch')}`" + (f", last commit `{git.get('last_commit')}`" if git.get("last_commit") else "") + ")." if git.get("branch") else "."),
+        "",
+        "Последние действия перед обрывом:",
+    ]
+    for h in (data.get("tool_history") or [])[-CRASH_TOOLS_SHOWN:]:
+        lines.append(f"- {h.get('tool', '?')}: {h.get('summary', '')}")
+    lines.append("")
+    lines.append(
+        "Проверь `git status` и незакоммиченные результаты ПЕРЕД началом новой "
+        "работы — часть задачи могла быть уже сделана. Чекпоинт помечен как "
+        "обработанный и повторно не всплывёт."
+    )
+    return "\n".join(lines)
+
+
 def context_switch_detect(cwd: Path) -> str:
     """Detect cwd changes between prompts. Returns warning or empty string.
 
@@ -514,6 +602,11 @@ def main() -> int:
     ctx_switch = context_switch_detect(cwd)
     if ctx_switch:
         sections.append(ctx_switch)
+
+    # Crash recovery consumer (v1.67.0)
+    crash = crash_checkpoint_context(cwd)
+    if crash:
+        sections.append(crash)
 
     git = git_context(cwd)
     if git:

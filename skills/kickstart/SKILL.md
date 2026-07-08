@@ -197,25 +197,47 @@ This phase is the **dedicated initialization phase** from the Anthropic long-run
 6. **Git** — .gitignore, initial commit
 7. **`.itd/` contract layer + structured state** — scaffold the contract set so gates have sensors from day one (closes the "templates without a creator" gap; see `docs/CONTRACTS.md`):
    - Resolve the templates dir: `docs/templates/itd/` in the methodology repo checkout, or `~/.claude/plugins/idea-to-deploy/docs/templates/itd/` for a plugin install. If neither exists, warn and continue — do not fabricate templates.
-   - Copy all 13 templates into `$PROJECT_ROOT/.itd/`, filling the obvious placeholders (project name, stack, verify commands from the starter's `commands.*`).
+   - Copy all 13 contract templates **plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`) into `$PROJECT_ROOT/.itd/`, filling the obvious placeholders (project name, stack, verify commands from the starter's `commands.*`).
    - Create `$PROJECT_ROOT/.itd-memory/STATE.json` from `docs/templates/itd-memory/STATE.example.json`, reset to this project: `sessionState: "ACTIVE"`, `currentStage: "SCAFFOLDING"`, `intent` = the project idea, empty logs/history, `existingProject.availableCommands` = the starter commands. Create an empty `.itd-memory/events.jsonl`.
-8. **Initialization Acceptance Checklist** — the exit gate of this phase. Do NOT proceed to Phase 4 until every box is checked:
-   - [ ] Bootstrap from scratch succeeds (the starter's `commands.bootstrap` — or the project equivalent — runs clean on a fresh clone)
-   - [ ] `commands.test` runs with **at least one passing example test**
+
+7.5. **Mirror IMPLEMENTATION_PLAN.md into `.itd-memory/GOAL.json`** (v1.67.0 — unified verification substrate, init-audit gap #4). The markdown plan is for humans; GOAL.json is the machine-readable resume surface that `pre-flight-check.sh` injects and `itd_goal_verify.py` gates. Without this mirror, resumability existed only for `/goal`-initiated work — a kickstarted project restarted from prose.
+   - Write `$PROJECT_ROOT/.itd-memory/GOAL.json` per `docs/templates/itd-memory/goal.schema.json` (`goalTemplate`): `goal` = the one-line project idea, `status: "active"`, `currentUnitId: "U-1"`, and **one unit per IMPLEMENTATION_PLAN.md step**, in plan order:
+     - `id`: `U-<step number>`
+     - `criterion`: the step's acceptance criterion from the plan (binary, verbatim — not a paraphrase)
+     - `verificationCommand`: the step's verification command from the plan (`pytest tests/test_auth.py`, `curl …`, `npm test …`). Every plan step already carries one (rubric C9 requires it); if a step genuinely has none, write the closest executable proxy and flag it in the plan as a gap.
+     - `status: "pending"`
+   - Validate: `python3 <plugin>/scripts/validate_state.py .itd-memory/GOAL.json` must pass before the checkpoint commit.
+   - From here on, unit statuses are changed ONLY via `skills/goal/scripts/itd_goal_verify.py` (`--activate`, verify with evidence, `--recheck`) — never by hand-editing the JSON. WIP=1 and evidence-gated `verified` now cover kickstarted work automatically.
+
+8. **Initialization Acceptance Checklist** — the exit gate of this phase. Do NOT proceed to Phase 4 until every box is checked. The first two boxes are **executed, not self-asserted** (v1.67.0 — closes the "green in words" gap from the 2026-07-08 init audit):
+
+   ```bash
+   # after the initialization checkpoint commit (step 6) exists:
+   python3 .itd/itd_init_validate.py \
+     --bootstrap "<starter commands.bootstrap>" \
+     --test      "<starter commands.test>"
+   ```
+
+   The validator clones the repo into an isolated temp dir and actually runs both commands there; exit 0 is the ONLY acceptable evidence for the first two boxes. On failure it prints a WHY+FIX mark and keeps the clone for inspection — fix and re-run, do not check the box by judgement.
+
+   - [ ] `itd_init_validate.py` exits 0 — bootstrap from scratch succeeds AND `commands.test` passes (with **at least one passing example test**) in a clean clone
    - [ ] A new agent session can answer "how to run" and "how to test" from repo contents alone (CLAUDE.md carries the start/test commands)
    - [ ] Task breakdown exists: IMPLEMENTATION_PLAN.md with ≥ 3 steps, each with acceptance criteria
+   - [ ] `.itd-memory/GOAL.json` mirrors the plan steps as verifiable units (step 7.5) — the machine-readable resume surface
    - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded (step 7)
-   - [ ] Everything committed — the initialization checkpoint commit is the base all later work resumes from
+   - [ ] Everything committed — the initialization checkpoint commit is the base all later work resumes from (re-run the validator after this commit if the last run predates it)
 
 ### Phase 4: Implementation
-Follow IMPLEMENTATION_PLAN.md phase by phase:
-1. Implement each task from the current step
-2. **After each completed feature** — invoke /test to generate tests for the new code
-3. Run code-review after each significant feature
-4. If a test or review finds issues — fix before moving to the next step
-5. Commit after each passing step: "step-N: description"
-6. Update CLAUDE.md status table (step N ✅)
-7. Update docs if architecture changes
+Follow IMPLEMENTATION_PLAN.md phase by phase. The plan's steps are mirrored as GOAL.json units (Phase 3 step 7.5) — drive each step through the unit ledger so progress is machine-verifiable and resumable:
+1. Activate the unit: `python3 <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N> --activate` (WIP=1 is enforced by the script)
+2. Implement each task from the current step
+3. **After each completed feature** — invoke /test to generate tests for the new code
+4. Run code-review after each significant feature
+5. If a test or review finds issues — fix before moving to the next step
+6. Verify the unit: `python3 <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N>` — it runs the unit's `verificationCommand` and flips the status to `verified` only on real green output (never mark done by judgement)
+7. Commit after each passing step: "step-N: description"
+8. Update CLAUDE.md status table (step N ✅)
+9. Update docs if architecture changes — and keep GOAL.json units in sync when the plan itself changes (add/adjust units via the same script-driven flow, not hand edits)
 
 ### Phase 5: Deployment
 1. **Ask the user:** "Куда деплоим? (Docker + VPS / Vercel / Railway / другое)"

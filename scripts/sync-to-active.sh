@@ -350,7 +350,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/handoff-readiness.sh", "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/completion-stop.sh",   "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/completion-stop.sh",   "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/crash-recovery.sh",    "timeout": 5 }
       ]
     }
   ],

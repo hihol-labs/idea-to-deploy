@@ -16,7 +16,7 @@ The skill MUST report each check by name with ✅ / ❌ / ⚠️ and produce a s
 
 ```
 Critical:        12/12 ✅
-Important:       7/9 ⚠️ (2 warnings)
+Important:       8/10 ⚠️ (2 warnings)
 Nice-to-have:    3/4 ⚠️ (1 info)
 Status:          PASSED_WITH_WARNINGS
 Derived score:   8.5/10  (informational only — not used for gating)
@@ -98,6 +98,12 @@ Check: each numbered step has an `Estimated: Xh` or `Estimated: X-Yh` annotation
 
 ### I9. CLAUDE_CODE_GUIDE.md exists with prompts matching steps
 Check: file exists; for each step in IMPLEMENTATION_PLAN.md, there is a corresponding section in the guide with a copy-paste prompt.
+
+### I10. Contract health — .itd/ contracts in sync and actually filled (v1.67.0)
+Check (only when `.itd/` exists — otherwise N/A, not a failure):
+1. `python3 .itd/check_contract_drift.py` reports no `DRIFT` lines (derived contracts in sync with CLAUDE.md).
+2. `python3 .itd/check_contract_drift.py --filled` reports all three key contracts `ok`: `FORBIDDEN_CHANGES.md` and `SCOPE_LOCK.md` carry project-specific content (no "Replace this line with…" placeholders), `VERIFICATION_CONTRACT.json` has ≥ 1 entry in `commands[]`.
+Fallback when the project's `.itd/` copy predates the `--filled` flag: apply the same two checks read-only via Grep. Rationale: a scaffold that is pure template prose is decoration, not a contract — the gates that read it (`/review` Stage A, `/task` tiers, wip-gate) run silently blind.
 
 ---
 
@@ -331,7 +337,7 @@ The skill MUST output in this exact format so it can be parsed:
 | Tier | Pass | Total | Status |
 |---|---|---|---|
 | Critical | 11 | 12 | ❌ BLOCKED |
-| Important | 7 | 9 | ⚠️ |
+| Important | 7 | 10 | ⚠️ |
 | Nice-to-have | 3 | 4 | ℹ️ |
 
 **Final status:** BLOCKED (must fix C3 before proceeding)

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.67.0] - 2026-07-08
+
+**Init-hardening release: the five gaps from the 2026-07-08 initialization
+audit (advisor + devils-advocate, scored 36/50), closed P1–P5.** The audit's
+calibration lens — "a skill prompt is not enforcement" — drove every item:
+each fix lands as an executable script/hook with a functional test
+(`tests/verify_init_contracts.py`, wired into CI), not as more prose.
+
+- **P1 — init validator, executable instead of self-asserted**
+  (`docs/templates/itd/itd_init_validate.py`, new): clones the repo into an
+  isolated temp dir (`git clone --local --no-hardlinks` — committed state
+  only) and actually runs the bootstrap and test commands there, with
+  WHY+FIX failure marks and the failed clone kept for inspection;
+  `--selftest` exercises the positive and negative paths on a throwaway git
+  repo. `/kickstart` Phase 3 Initialization Acceptance Checklist now requires
+  the validator's exit 0 as the ONLY acceptable evidence for its first two
+  boxes ("green in words" is gone); `/adopt` gains Step 3.7 — an advisory
+  runnability check for legacy projects (a brownfield repo that cannot
+  bootstrap from a clean clone is surfaced on day one, adoption not rolled
+  back).
+- **P2 — `/adopt` example test ("the pillar holds weight" for brownfield)**:
+  new Step 3.6 — when the project has NO tests, offer to create ONE smoke
+  test on a ZERO-dependency built-in runner (stdlib `unittest` / `node:test`
+  / `go test` / `cargo test`) and actually run it; a red run is reported as
+  the finding, never deleted to look green. No new dependencies ever — the
+  non-scope carve-out is explicit; stacks without a built-in runner are
+  skipped with a pointer to `/test`.
+- **P3 — contract health: drift + filledness gate in `/review`**:
+  `check_contract_drift.py` gains a `--filled` mode (template placeholders /
+  empty `commands[]` => TMPL — a scaffold of template prose is decoration,
+  not a contract; selftest extended, 11 cases). New Important rubric check
+  **I10** (`references/review-checklist.md`, Important tier now 10 checks) +
+  Stage A.5 in `/review` run both modes when `.itd/` exists, with a
+  read-only Grep fallback for projects whose `.itd/` copy predates the flag.
+  Complements the v1.65.0 pre-flight drift advisory — now the review gate
+  sees it too, and emptiness (not just staleness) is finally detected.
+- **P4 — unified verification substrate: `/kickstart` mirrors the plan into
+  GOAL.json** (new Phase 3 step 7.5): one unit per IMPLEMENTATION_PLAN.md
+  step (criterion = the step's acceptance criterion, verificationCommand =
+  its verify command), validated by `scripts/validate_state.py` before the
+  init checkpoint commit; Phase 4 drives each step through
+  `itd_goal_verify.py` (`--activate` -> implement -> verify with evidence).
+  Resumability and the WIP=1 + evidence-gated `verified` mechanics no longer
+  depend on the entry point — kickstarted projects get the same
+  machine-readable resume surface `/goal` projects had.
+- **P5 — crash checkpoints are now consumed, not just written**
+  (`hooks/crash-recovery.sh` + `hooks/pre-flight-check.sh`): the checkpoint
+  records `cwd`; every significant tool call flips `clean_exit: false`, a
+  Stop registration (added to `sync-to-active.sh`) flips it back to true on
+  a normal turn end — so a checkpoint left `clean_exit: false` means "died
+  mid-work". `pre-flight-check.sh` surfaces such a checkpoint ONCE to the
+  next session in the same project (last tool calls + branch + "check git
+  status before redoing work") and marks it consumed. Closes the
+  "written but not automatically consumed" gap documented in the hook's own
+  docstring since v1.19.2.
+- **Tests/CI**: `tests/verify_init_contracts.py` (14 checks: both selftests,
+  functional `--filled` red->green, the full crash-checkpoint pipe-test
+  surface-once/consume/clean-stop, GOAL.json mirror shape vs
+  `validate_state.py`) added to `meta-review.yml`.
+
+---
+
 ## [1.66.0] - 2026-07-08
 
 **Retro-2026-07-08 release: friction cut + tail-quality (P1–P4).** All four
