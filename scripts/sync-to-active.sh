@@ -86,9 +86,9 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Step 1/5: Sync skills
+# Step 1/6: Sync skills
 # -----------------------------------------------------------------------------
-say "Step 1/5: skills/"
+say "Step 1/6: skills/"
 mkdir -p "$ACTIVE/skills"
 
 added=0
@@ -131,9 +131,9 @@ done
 ok "skills: +$added added, ~$updated updated, =$unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 2/5: Sync hooks
+# Step 2/6: Sync hooks
 # -----------------------------------------------------------------------------
-say "Step 2/5: hooks/"
+say "Step 2/6: hooks/"
 mkdir -p "$ACTIVE/hooks"
 
 h_added=0
@@ -178,7 +178,7 @@ done
 ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 3/5: Sync agents/*.md (subagents)
+# Step 3/6: Sync agents/*.md (subagents)
 # -----------------------------------------------------------------------------
 # Gap #9 (v1.13.1): sync-to-active.sh originally copied skills/ and hooks/
 # but NOT agents/, so updates to subagent instructions (e.g. the v1.13.0
@@ -189,7 +189,7 @@ ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 # Numbering note (v1.13.2): originally this was "Step 2.5/3" because agents/
 # was added after the 3-step layout was fixed. v1.13.2 renumbered to the
 # honest 1/4..4/4 scheme so that `--check` dry-run output matches reality.
-say "Step 3/5: agents/"
+say "Step 3/6: agents/"
 mkdir -p "$ACTIVE/agents"
 
 a_added=0
@@ -231,9 +231,55 @@ fi
 ok "agents: +$a_added added, ~$a_updated updated, =$a_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 4/5: Patch settings.json "hooks" section
+# Step 4/6: Sync docs/templates (itd contracts + itd-memory examples)
 # -----------------------------------------------------------------------------
-say "Step 4/5: settings.json hooks registration"
+# v1.68.0 (init-audit round 2, C4): /adopt Step 3.5 and /kickstart Phase 3
+# resolve the .itd/ scaffold templates from a plugin install or the repo
+# checkout; a sync-based install on a machine WITHOUT the checkout (e.g. the
+# Windows side of a WSL repo) had no template source at all — scaffolding
+# degraded to "warn and skip". Mirror the templates to
+# $ACTIVE/templates/{itd,itd-memory} so the scaffold works install-locally.
+say "Step 4/6: docs/templates/ (itd + itd-memory)"
+t_added=0
+t_updated=0
+t_unchanged=0
+for sub in itd itd-memory; do
+  src_dir="$REPO_ROOT/docs/templates/$sub"
+  [ -d "$src_dir" ] || continue
+  mkdir -p "$ACTIVE/templates/$sub"
+  for src_t in "$src_dir"/*; do
+    [ -f "$src_t" ] || continue   # dirs (__pycache__) are skipped
+    name="$(basename "$src_t")"
+    dst="$ACTIVE/templates/$sub/$name"
+    if [ ! -f "$dst" ]; then
+      if [ "$DRY_RUN" = "1" ]; then
+        printf "  + would add   %s/%s\n" "$sub" "$name"
+      else
+        cp "$src_t" "$dst"
+        printf "  + added       %s/%s\n" "$sub" "$name"
+      fi
+      t_added=$((t_added + 1))
+      continue
+    fi
+    if cmp -s "$src_t" "$dst"; then
+      t_unchanged=$((t_unchanged + 1))
+      continue
+    fi
+    if [ "$DRY_RUN" = "1" ]; then
+      printf "  ~ would sync  %s/%s (content drift)\n" "$sub" "$name"
+    else
+      cp "$src_t" "$dst"
+      printf "  ~ updated     %s/%s\n" "$sub" "$name"
+    fi
+    t_updated=$((t_updated + 1))
+  done
+done
+ok "templates: +$t_added added, ~$t_updated updated, =$t_unchanged unchanged"
+
+# -----------------------------------------------------------------------------
+# Step 5/6: Patch settings.json "hooks" section
+# -----------------------------------------------------------------------------
+say "Step 5/6: settings.json hooks registration"
 
 SETTINGS="$ACTIVE/settings.json"
 
@@ -455,14 +501,14 @@ PYEOF
 fi
 
 # -----------------------------------------------------------------------------
-# Step 5/5: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)
+# Step 6/6: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)
 # -----------------------------------------------------------------------------
 # The global CLAUDE.md carries the MANDATORY methodology instruction plus
 # personal sections (e.g. token-efficiency prefs). To keep the methodology block
 # in lockstep across machines WITHOUT clobbering personal content, the repo owns
 # the block (docs/templates/global-claude-md.md, between ITD:BEGIN/ITD:END
 # markers) and this step replaces ONLY that marked region in the active file.
-say "Step 5/5: CLAUDE.md methodology block"
+say "Step 6/6: CLAUDE.md methodology block"
 TPL="$REPO_ROOT/docs/templates/global-claude-md.md"
 CLAUDE_MD="$ACTIVE/CLAUDE.md"
 if [ ! -f "$TPL" ]; then

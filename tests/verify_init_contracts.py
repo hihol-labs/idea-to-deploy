@@ -157,9 +157,95 @@ def t5_goal_mirror_shape() -> None:
         check("kickstart GOAL.json mirror validates", rc == 0, out[-300:])
 
 
+def _mini_git_project(base: Path) -> Path:
+    proj = base / "proj"
+    proj.mkdir()
+    (proj / "CLAUDE.md").write_text("# rules\n", encoding="utf-8")
+    for args in (["git", "init", "-q"],
+                 ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "CLAUDE.md"],
+                 ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"]):
+        subprocess.run(args, cwd=str(proj), capture_output=True, timeout=30)
+    return proj
+
+
+def t6_classifier_l2() -> None:
+    """v1.68.0 C1: init-валидатор классифицируется как L2 test_run; commit — нет."""
+    sys.path.insert(0, str(ROOT / "hooks"))
+    import completion_lib as cl
+    s = cl.classify_bash('python3 .itd/itd_init_validate.py --bootstrap "x" --test "y"',
+                         {"stdout": "PASS.", "interrupted": False})
+    check("classifier: validator run -> test_run/L2",
+          bool(s) and s.get("kind") == "test_run" and s.get("layer") == 2, str(s))
+    s2 = cl.classify_bash("git commit -m itd_init_validate", {"stdout": ""})
+    check("classifier: commit mentioning validator is NOT a signal", not s2, str(s2))
+
+
+def _preflight_ctx(proj: Path) -> str:
+    rc, out = run([PY, str(PREFLIGHT)], cwd=proj, stdin_text="{}")
+    if not out.strip():
+        return ""
+    try:
+        return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    except Exception:
+        return out
+
+
+def t7_preflight_contract_health() -> None:
+    """v1.68.0 C2+C3: pre-flight предупреждает о контрактах-декорациях и плане без GOAL.json."""
+    with tempfile.TemporaryDirectory(prefix="itd-pf-red-") as td:
+        proj = _mini_git_project(Path(td))
+        itd = proj / ".itd"
+        itd.mkdir()
+        for name in ("FORBIDDEN_CHANGES.md", "SCOPE_LOCK.md", "VERIFICATION_CONTRACT.json"):
+            (itd / name).write_text((TEMPLATES / name).read_text(encoding="utf-8"),
+                                    encoding="utf-8")
+        (proj / "IMPLEMENTATION_PLAN.md").write_text("# plan\n", encoding="utf-8")
+        ctx = _preflight_ctx(proj)
+        check("pre-flight warns on template contracts", "Контракты-декорации" in ctx, ctx[-200:])
+        check("pre-flight warns on plan without GOAL.json",
+              "План без машинного зеркала" in ctx, ctx[-200:])
+
+    with tempfile.TemporaryDirectory(prefix="itd-pf-green-") as td:
+        proj = _mini_git_project(Path(td))
+        itd = proj / ".itd"
+        itd.mkdir()
+        (itd / "FORBIDDEN_CHANGES.md").write_text("# FC\n- нет платежей из кода\n", encoding="utf-8")
+        (itd / "SCOPE_LOCK.md").write_text("## Current Task\n- задача X\n", encoding="utf-8")
+        (itd / "VERIFICATION_CONTRACT.json").write_text('{"commands": [{"id": "t"}]}',
+                                                        encoding="utf-8")
+        (proj / "IMPLEMENTATION_PLAN.md").write_text("# plan\n", encoding="utf-8")
+        mem = proj / ".itd-memory"
+        mem.mkdir()
+        (mem / "GOAL.json").write_text(json.dumps({
+            "version": 1, "goal": "g", "status": "active", "createdAt": "x",
+            "updatedAt": "x", "currentUnitId": "U-1", "units": []}), encoding="utf-8")
+        ctx = _preflight_ctx(proj)
+        check("pre-flight silent on filled contracts", "Контракты-декорации" not in ctx)
+        check("pre-flight silent when GOAL.json exists",
+              "План без машинного зеркала" not in ctx)
+
+
+def t8_sync_templates_step() -> None:
+    """v1.68.0 C4: sync-to-active.sh зеркалит docs/templates/{itd,itd-memory} в CLAUDE_HOME."""
+    with tempfile.TemporaryDirectory(prefix="itd-synchome-") as td:
+        home = Path(td) / "claude-home"
+        home.mkdir()
+        rc, out = run(["bash", str(ROOT / "scripts" / "sync-to-active.sh")],
+                      cwd=ROOT, env_extra={"CLAUDE_HOME": str(home)})
+        check("sync-to-active exits 0 on fresh CLAUDE_HOME", rc == 0, out[-300:])
+        v = home / "templates" / "itd" / "itd_init_validate.py"
+        d = home / "templates" / "itd" / "check_contract_drift.py"
+        g = home / "templates" / "itd-memory" / "goal.schema.json"
+        check("templates/itd mirrored (validator)", v.is_file())
+        check("templates/itd mirrored (drift checker) bit-identical",
+              d.is_file() and d.read_bytes() == DRIFT.read_bytes())
+        check("templates/itd-memory mirrored (goal schema)", g.is_file())
+
+
 def main() -> int:
     for t in (t1_init_validate_selftest, t2_drift_selftest, t3_filled_functional,
-              t4_crash_pipeline, t5_goal_mirror_shape):
+              t4_crash_pipeline, t5_goal_mirror_shape,
+              t6_classifier_l2, t7_preflight_contract_health, t8_sync_templates_step):
         t()
     print()
     if FAILURES:

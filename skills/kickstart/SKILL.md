@@ -196,7 +196,7 @@ This phase is the **dedicated initialization phase** from the Anthropic long-run
 5. **Docker** — Dockerfile + docker-compose.yml
 6. **Git** — .gitignore, initial commit
 7. **`.itd/` contract layer + structured state** — scaffold the contract set so gates have sensors from day one (closes the "templates without a creator" gap; see `docs/CONTRACTS.md`):
-   - Resolve the templates dir: `docs/templates/itd/` in the methodology repo checkout, or `~/.claude/plugins/idea-to-deploy/docs/templates/itd/` for a plugin install. If neither exists, warn and continue — do not fabricate templates.
+   - Resolve the templates dir, in order: `docs/templates/itd/` in the methodology repo checkout, `~/.claude/plugins/idea-to-deploy/docs/templates/itd/` for a plugin install, or `~/.claude/templates/itd/` (mirrored by `sync-to-active.sh` Step 4/6 since v1.68.0 — covers sync-based installs without a checkout). If none exists, warn and continue — do not fabricate templates.
    - Copy all 13 contract templates **plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`) into `$PROJECT_ROOT/.itd/`, filling the obvious placeholders (project name, stack, verify commands from the starter's `commands.*`).
    - Create `$PROJECT_ROOT/.itd-memory/STATE.json` from `docs/templates/itd-memory/STATE.example.json`, reset to this project: `sessionState: "ACTIVE"`, `currentStage: "SCAFFOLDING"`, `intent` = the project idea, empty logs/history, `existingProject.availableCommands` = the starter commands. Create an empty `.itd-memory/events.jsonl`.
 
