@@ -33,7 +33,9 @@ Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machin
 | `.itd/PERMISSION_MATRIX.{json,md}` | Who/what may read, write, execute, publish |
 | `.itd/TOOL_CAPABILITY_REGISTRY.json` | Tool/connector side-effects, auth, risk, fallback |
 | `.itd/LEARNING_PROMOTION_GATE.md` | Gate for promoting session learnings into durable docs |
-| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node (template lives at `docs/templates/UNIT_CONTEXT_MANIFEST.json`; created per unit, NOT part of the 13-file `.itd/` scaffold) |
+| `.itd/DECISIONS.md` | Append-only decision journal («какое/почему/когда»), written by `/session-save`, read by `/handoff` (v1.70.0) |
+| `.itd/itd_progress.py` | Derived-view generator → `.itd-memory/PROGRESS.md` (glance-сводка; best-effort, never a gate — canon stays in STATE/GOAL JSON; v1.70.0) |
+| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node (template lives at `docs/templates/UNIT_CONTEXT_MANIFEST.json`; created per unit, NOT part of the 14-file `.itd/` scaffold) |
 | `.itd-memory/STATE.json`, `events.jsonl`, `LEARNINGS.jsonl` | Structured state, audit log, learnings |
 | `ROOT_CAUSE.md`, `BRANCH_FINISH.md` | Bugfix root-cause record; branch-finish decision |
 

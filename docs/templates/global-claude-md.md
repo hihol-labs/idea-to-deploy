@@ -175,7 +175,15 @@ behaviour. See `docs/project-profiles.md` in the methodology repo.
 **Memory is the continuity backbone.** Checkpoint via `/session-save` on every
 meaningful state change (subphase / roadmap item done, migration applied, before a
 risky or irreversible op, after an external artifact is sent) — cheap incremental
-checkpoints, not one big end-of-session save.
+checkpoints, not one big end-of-session save. Durable-решения при этом дописываются
+в `.itd/DECISIONS.md` (append-only журнал «какое/почему/когда», v1.70.0), а не
+только в session-файл.
+
+**Порог контекста 60% → `/handoff` (v1.70.0).** Если задача по оценке требует
+>60% контекстного окна — закладывай handoff с самого старта (durable-артефакты
+по ходу); если израсходовано ~60% окна и конец работы в этой сессии не виден —
+пиши `HANDOFF.md` немедленно, не дожидаясь авто-компакции (после неё пакет
+писать уже не из чего).
 
 **Read-only Bash does not need a skill line.** Pure inspection (ls/cat/grep/find/
 git status|log|diff) is exempt from the skill-decision gate; declare the skill only
