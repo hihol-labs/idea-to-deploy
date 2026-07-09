@@ -241,12 +241,38 @@ Two companion rules:
 - the returned final is empty or truncated (no deliverable / no verdict marker —
   overlaps `/review` Step 2.7's absence check).
 
-**Automatic response — a fresh narrow agent, NOT a manual choice:**
+**Class check first (v1.72.0 — root cause 2026-07-09): finish-line
+interruption ≠ true stall.** Mechanical signals of the finish-line class (all
+must hold):
+
+- the run was labelled «completed» (or died on a terminal API error), yet the
+  final message is empty/truncated;
+- the transcript tail is live tool activity (`tool_use`/`tool_result`) right
+  up to the cut — no no-progress window, no autocompact churn.
+
+That is a **finish-line interruption**: the deliverable is most likely already
+computed in the subagent's context. Recovery order for THIS class:
+
+1. the dispatcher passed a report-file path → **read that file FIRST**: a
+   complete report on disk needs no ping at all;
+2. no file / file incomplete → **ONE resume re-ping** (`SendMessage` — same
+   mechanism as `/review` Step 2.7).
+
+Evidence: 3/3 review agents recovered
+instantly on 2026-07-09 (one with zero extra tool calls), where a fresh agent
+would have repeated 9–15 minutes of work
+(`methodology-memory/ROOT_CAUSE-empty-review-finals-2026-07-09.md`). The ping
+did not produce the deliverable, or the stall shows no-progress/autocompact
+signals → it is a TRUE stall; proceed below.
+
+**Automatic response to a TRUE stall — a fresh narrow agent, NOT a manual choice:**
 
 1. **Spawn fresh, do not resume.** Dispatch a NEW `Agent(...)` from a thin
    context — never resume the stalled transcript (a resumed long transcript
    re-loads the same bloat that caused the stall; §8 evidence: resume stalled at
-   the 600s watchdog while a fresh narrow agent returned in 84s).
+   the 600s watchdog while a fresh narrow agent returned in 84s; the finish-line
+   class above is the deliberate exception — there the transcript is healthy
+   and holds the result).
 2. **Narrow the scope.** Split the original task into the smallest independently
    useful slice (one dimension, one file, one finding) and pass inputs by value /
    by path — a smaller prompt is both cheaper and far less stall-prone.
