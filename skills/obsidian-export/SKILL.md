@@ -10,7 +10,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.21.0
+  version: 1.21.1
   category: integration
   tags: [obsidian, markdown, knowledge-graph, memory, export]
 ---
@@ -45,6 +45,10 @@ idea-to-deploy. Подробный чеклист — в `references/obsidian-ex
   `ARCHITECTURE.md`, `STRATEGIC_PLAN.md`, `MARKET_BRIEF.md`.
 - Память: `MEMORY.md`, `session_YYYY-MM-DD.md`, `STATE.json`.
 - Контракты: `.itd/SCOPE_LOCK.md`, `.itd/GOLDEN_FLOWS.md`, `.itd/PROJECT_CONTRACT.md`.
+- Решения: `.itd/DECISIONS.md` — канонический append-only журнал (v1.70.0).
+  Vault-заметка `DECISIONS.md` — ПРЯМАЯ производная этого файла (записи +
+  wikilinks), а не пересинтез из session-файлов; session-файлы — лишь
+  дополнительный источник для решений, ещё не попавших в канон (v1.71.1).
 - Передача: `HANDOFF.md`.
 
 ### Procedure

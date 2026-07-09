@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.71.1] - 2026-07-09
+
+**Follow-up по ретро-ревью #136** (ревью-агент перед мержем v1.70.0 умер, не
+выдав отчёта; ретроспективное ревью: Critical 0, Important 3, Minor 1 — все
+закрыты этим патчем).
+
+- `/handoff` Step 3 + `/session-save` Step 3.3: вызов `itd_progress.py` — с
+  интерпретаторным фолбэком `python3 || python || py -3 || true` (на Windows
+  `python3` бывает Store-заглушкой — класс, уже описанный в
+  `sync-to-active.sh`); ни одного интерпретатора → шаг тихо пропускается,
+  опционально `ITD_WIN_PYTHON`.
+- `itd_progress.py`: из тела `PROGRESS.md` убран wall-clock-таймстамп —
+  перегенерация без содержательных изменений больше не даёт git-diff; в шапке
+  вью и в `docs/CONTRACTS.md` зафиксировано: `PROGRESS.md` — кандидат в
+  `.gitignore` целевого проекта (derived).
+- `/obsidian-export`: `.itd/DECISIONS.md` добавлен в Source-артефакты —
+  vault-заметка `DECISIONS.md` теперь прямая производная канонического
+  журнала, а не пересинтез из session-файлов.
+- `docs/CONTRACTS.md`: строка `itd_progress.py` явно помечена «utility, NOT
+  counted in the 14 contract templates» (граница «14» была неоднозначна).
+- Версии: handoff 1.22.1, session-save 1.10.1, obsidian-export 1.21.1.
+
+---
+
 ## [1.71.0] - 2026-07-09
 
 **Retro 2026-07-09 (amnesia-lab, 14 сессий-агентов): закрыты оба замеренных

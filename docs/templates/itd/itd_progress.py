@@ -19,7 +19,6 @@ Usage (from the project root, where /adopt copied it into .itd/):
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import subprocess
 import sys
@@ -177,15 +176,17 @@ def section_next(state) -> list[str]:
 def render(root: Path) -> str:
     state = _read_json(root / ".itd-memory" / "STATE.json")
     goal = _read_json(root / ".itd-memory" / "GOAL.json")
-    now = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    # No wall-clock timestamp in the body (v1.71.1, review finding): the view
+    # is regenerated on every /session-save — a timestamp would produce a git
+    # diff even when nothing changed. Freshness = mtime / the git state below.
     parts: list[list[str]] = [
         [
             "# PROGRESS — derived view",
             "",
-            f"> DERIVED, regenerable — сгенерировано `itd_progress.py` {now}.",
-            "> НЕ редактируй руками и НЕ завязывай на этот файл гейты: канон —",
-            "> `STATE.json` / `GOAL.json` / `events.jsonl`. Перегенерация:",
-            "> `python3 .itd/itd_progress.py`.",
+            "> DERIVED, regenerable — сгенерировано `itd_progress.py`; кандидат",
+            "> в `.gitignore` целевого проекта. НЕ редактируй руками и НЕ",
+            "> завязывай на этот файл гейты: канон — `STATE.json` / `GOAL.json`",
+            "> / `events.jsonl`. Перегенерация: `python3 .itd/itd_progress.py`.",
         ],
         section_current_state(root, state),
         section_goal(goal),
