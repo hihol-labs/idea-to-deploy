@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.10.0
+  version: 1.10.1
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -180,15 +180,20 @@ Durable = влияет на будущие правки (выбор подход
 
 ### Step 3.3: Regenerate PROGRESS view (v1.70.0)
 
-Если есть `.itd/itd_progress.py` — перегенерируй glance-вью:
+Если есть `.itd/itd_progress.py` — перегенерируй glance-вью (с
+Windows-фолбэком: `python3` может быть Store-заглушкой — v1.71.1, тот же
+класс, что валидация интерпретатора в `sync-to-active.sh`):
 
 ```bash
-python3 .itd/itd_progress.py   # → .itd-memory/PROGRESS.md
+python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true
+# → .itd-memory/PROGRESS.md
 ```
 
 Best-effort: скрипт всегда выходит с кодом 0, при ошибке НЕ блокируй
-сохранение сессии. `PROGRESS.md` — derived-вью (канон: `STATE.json` /
-`GOAL.json` / `events.jsonl`), гейты на него не завязываются.
+сохранение сессии; ни один интерпретатор не найден — шаг тихо пропускается.
+`PROGRESS.md` — derived-вью (канон: `STATE.json` / `GOAL.json` /
+`events.jsonl`), гейты на него не завязываются; в целевом проекте он —
+кандидат в `.gitignore` (перегенерируем, коммитить не обязательно).
 
 ### Step 4: Update MEMORY.md
 

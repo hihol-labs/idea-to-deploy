@@ -10,7 +10,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.22.0
+  version: 1.22.1
   category: workflow
   tags: [handoff, context, delegation, recovery, memory]
 ---
@@ -104,7 +104,16 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 в `.itd-memory/GOAL.json` (схема: `docs/templates/itd-memory/goal.schema.json`),
 чтобы получатель продолжил с первого не-verified юнита. Если в проекте есть
 `.itd/itd_progress.py` — перегенерируй glance-вью (best-effort, при ошибке не
-блокируй): `python3 .itd/itd_progress.py` → `.itd-memory/PROGRESS.md` (v1.70.0).
+блокируй) → `.itd-memory/PROGRESS.md` (v1.70.0). На Windows `python3` может
+быть Store-заглушкой (см. валидацию интерпретатора в `sync-to-active.sh`) —
+поэтому с фолбэком (v1.71.1):
+
+```bash
+python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true
+```
+
+Если ни один интерпретатор не сработал — шаг тихо пропускается (вью derived,
+канон не страдает); при желании задай `ITD_WIN_PYTHON` и вызови им напрямую.
 Для публикации пакета в Obsidian-vault — `/obsidian-export`
 (если подключён).
 
