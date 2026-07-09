@@ -154,6 +154,10 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         per_1m = COST_PER_1M_USD_DEFAULT
     cost_tokens = 0
     cost_usd = 0.0
+    # Semantics shift v1.71.0: ledgers are keyed per agent session (payload
+    # sid), so cost_sessions counts agent-sessions/subagents, not "active
+    # days" as under the old day-anchor key — expect a step-change upward
+    # after the upgrade; totals stay comparable.
     cost_sessions = 0
     for path in sorted(tmp_dir.glob("claude-cost-*.json")):
         data = read_json(path)

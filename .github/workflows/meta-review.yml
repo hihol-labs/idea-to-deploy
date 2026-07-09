@@ -89,5 +89,8 @@ jobs:
       - name: Run init-hardening contracts gate (v1.67.0, init-audit P1-P5)
         run: python3 tests/verify_init_contracts.py
 
+      - name: Run cost-tracker ledger isolation + context sensor gate (v1.71.0, retro 2026-07-09)
+        run: python3 tests/verify_cost_tracker.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

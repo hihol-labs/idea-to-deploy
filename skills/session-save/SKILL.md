@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.9.0
+  version: 1.10.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -154,6 +154,16 @@ File naming:
 - `session_YYYY-MM-DD_2.md` — if a file for today already exists
 
 ### Step 3.2: Append decisions to `.itd/DECISIONS.md` (v1.70.0)
+
+**Микро-путь (v1.71.0, retro 2026-07-09 P3):** для micro-сессии (≤1–2 юнита,
+малый дифф, НИ ОДНОГО durable-решения) пропусти Steps 3.2 и 3.3 целиком —
+достаточно session-файла + строки в MEMORY.md. Замер amnesia-lab: артефакты
+стоят +2–8 tool-вызовов и +5–15k токенов за сессию и на микро-проекте не
+окупаются (recovery-разрыв A/B всего 14 vs 9 вызовов); окупаемость растёт с
+размером кодовой базы (recovery без артефактов = O(код), с ними = O(1)).
+Классификация — по числу юнитов и наличию durable-решений, не «по ощущению»
+(тот же критерий, что micro-path в `skills/_shared/helpers.md` §6). Есть хоть
+одно durable-решение — Step 3.2 обязателен независимо от размера сессии.
 
 Если в проекте есть `.itd/` — каждое **durable**-решение из поля «Ключевые
 решения» дополнительно допиши В КОНЕЦ `.itd/DECISIONS.md` (append-only журнал,
