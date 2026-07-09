@@ -10,7 +10,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.21.0
+  version: 1.22.0
   category: workflow
   tags: [handoff, context, delegation, recovery, memory]
 ---
@@ -50,13 +50,24 @@ Opus избыточен. Haiku допустим для совсем коротк
 - Восстановление после неоднозначного/проваленного гейта.
 - Релиз/PR/CI/внешний инструмент требует ограниченного пакета контекста.
 
+**Порог контекста — 60% (v1.70.0, кодифицировано).** Не жди компакции:
+- если по оценке задача потребует **больше 60% контекстного окна** — заложи
+  handoff в план с самого старта (пиши durable-артефакты по ходу, а не в конце);
+- если израсходовано **~60% окна**, а конец работы в этой сессии не виден —
+  пиши `HANDOFF.md` **сейчас**. После авто-компакции пакет писать уже не из
+  чего: детали, ради которых он существует, потеряны.
+Оценку «сколько окна съедено/потребуется» делай по ходу (объём прочитанных
+файлов/логов, длина сессии); точный процент не важен — важно готовить передачу
+ДО того, как харнес принудит к ней.
+
 ### Step 1: Собери состояние (read-only)
 
 - `git log --oneline -10` + `git status --short` — что закоммичено, есть ли WIP.
 - Прочитай актуальные durable-артефакты: `STATE.json`, `GOAL.json` (если
   ведётся долгая цель `/goal`), `BUILD_PLAN`,
-  `LAUNCH_PLAN.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`, `.itd/FORBIDDEN_CHANGES.md`
-  (если есть).
+  `LAUNCH_PLAN.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`, `.itd/FORBIDDEN_CHANGES.md`,
+  `.itd/DECISIONS.md` (журнал решений — поле 4 «Финальные решения» опирается
+  на него, а не на пересказ чата; v1.70.0) — всё если есть.
 - Если есть `.itd-memory/GOAL.json` — раздел «Состояние» генерирует **репортёр
   харнеса**, не пересказ (v1.45.0): вставь его вывод в `HANDOFF.md` как есть
   (прозу добавляй вокруг, цифры не меняй):
@@ -91,7 +102,10 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 `docs/templates/itd-memory/STATE.json`) — текущий узел, статус, ссылка на
 `HANDOFF.md`. Если ведётся долгая цель (`/goal`) — актуализируй статусы юнитов
 в `.itd-memory/GOAL.json` (схема: `docs/templates/itd-memory/goal.schema.json`),
-чтобы получатель продолжил с первого не-verified юнита. Для публикации пакета в Obsidian-vault — `/obsidian-export`
+чтобы получатель продолжил с первого не-verified юнита. Если в проекте есть
+`.itd/itd_progress.py` — перегенерируй glance-вью (best-effort, при ошибке не
+блокируй): `python3 .itd/itd_progress.py` → `.itd-memory/PROGRESS.md` (v1.70.0).
+Для публикации пакета в Obsidian-vault — `/obsidian-export`
 (если подключён).
 
 ### Step 4: Self-validation

@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.8.0
+  version: 1.9.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -152,6 +152,33 @@ YYYY-MM-DD
 File naming:
 - `session_YYYY-MM-DD.md` — primary format
 - `session_YYYY-MM-DD_2.md` — if a file for today already exists
+
+### Step 3.2: Append decisions to `.itd/DECISIONS.md` (v1.70.0)
+
+Если в проекте есть `.itd/` — каждое **durable**-решение из поля «Ключевые
+решения» дополнительно допиши В КОНЕЦ `.itd/DECISIONS.md` (append-only журнал,
+формат в шапке файла: `## YYYY-MM-DD: <решение>` + Почему / Отвергнуто /
+Ограничение / Ссылки). Если файла нет, а `.itd/` есть — создай из шаблона
+`docs/templates/itd/DECISIONS.md` (или `~/.claude/templates/itd/DECISIONS.md`).
+
+Durable = влияет на будущие правки (выбор подхода, отвергнутая альтернатива,
+договорённость с заказчиком, сознательный trade-off). Ход работ и разовые
+наблюдения в журнал НЕ идут — они остаются в session-файле. Session-файл в
+«Ключевых решениях» может ссылаться на журнал вместо дублирования прозы.
+Отмена старого решения — новая запись со ссылкой на отменяемую, старую не
+редактируй. Нет `.itd/` — шаг пропускается молча (opt-in контрактного слоя).
+
+### Step 3.3: Regenerate PROGRESS view (v1.70.0)
+
+Если есть `.itd/itd_progress.py` — перегенерируй glance-вью:
+
+```bash
+python3 .itd/itd_progress.py   # → .itd-memory/PROGRESS.md
+```
+
+Best-effort: скрипт всегда выходит с кодом 0, при ошибке НЕ блокируй
+сохранение сессии. `PROGRESS.md` — derived-вью (канон: `STATE.json` /
+`GOAL.json` / `events.jsonl`), гейты на него не завязываются.
 
 ### Step 4: Update MEMORY.md
 

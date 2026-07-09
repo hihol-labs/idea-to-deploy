@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.22.0
+  version: 1.23.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -175,7 +175,7 @@ If the user accepted:
 
 1. **Resolve templates dir** — try in order: (a) sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`); (b) `~/.claude/templates/itd/` — `sync-to-active.sh` mirrors the templates there since v1.68.0 (Step 4/6), so sync-based installs carry them too; (c) `docs/templates/itd/` in a methodology repo checkout if one is known. If none exists, warn («шаблоны .itd/ не найдены — обнови установку: `bash scripts/sync-to-active.sh` из репо методологии») and skip to Step 4.
 2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
-3. **Copy all 13 contract templates plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`) into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them.
+3. **Copy all 14 contract templates plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`, `itd_progress.py`) into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them. Заметные среди 14: `DECISIONS.md` (v1.70.0) — append-only журнал решений «какое/почему/когда», который дальше ведёт `/session-save`; `itd_progress.py` (v1.70.0) — генератор derived-вью `.itd-memory/PROGRESS.md` (glance-сводка поверх STATE/GOAL/events; НЕ контракт — гейты продолжают читать JSON).
 4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5) and an empty `events.jsonl`.
 
 ### Step 3.6: Example test — «столб держит вес» for brownfield (optional 5th write, recommended; v1.67.0)
@@ -350,7 +350,7 @@ User: yes
   Step 1/4 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
   Step 2/4 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse, 1 Stop)
   Step 3/4 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
-  Step 4/4 — .itd/ scaffold ........ OK (13 contracts + .itd-memory/STATE.json)
+  Step 4/4 — .itd/ scaffold ........ OK (14 contracts + .itd-memory/STATE.json)
 
   Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.
 

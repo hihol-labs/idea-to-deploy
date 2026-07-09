@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.70.0] - 2026-07-09
+
+**«Инженер с амнезией»: закрыты 3 гэпа непрерывности** (внешняя оценка подхода
+PROGRESS.md / DECISIONS.md / git-чекпоинты / clock-in-out дала 9/10 — минус
+балл ровно за эти три пункта).
+
+- **DECISIONS.md — первоклассный контракт** (гэп: решения были размазаны по
+  session-файлам памяти и ADR, единого журнала «какое/почему/когда» не было):
+  - новый 14-й шаблон `docs/templates/itd/DECISIONS.md` — append-only журнал
+    решений (формат: решение / Почему / Отвергнуто / Ограничение / Ссылки);
+    отмена решения = новая запись, старые не переписываются;
+  - `/adopt` Step 3.5 копирует его в `.itd/` вместе с остальными контрактами;
+  - `/session-save` Step 3.2 дописывает durable-решения сессии в журнал
+    (session-файл ссылается, а не дублирует); нет `.itd/` — шаг молчит (opt-in);
+  - `/handoff` Step 1 читает журнал как источник поля 4 «Финальные решения».
+- **PROGRESS view — единая glance-точка** (гэп: роль PROGRESS.md делили
+  STATE.json / GOAL.json / MEMORY.md / session-файлы — машиночитаемо, но
+  человеку «одним взглядом» не охватить):
+  - новый `docs/templates/itd/itd_progress.py` — рендерит
+    `.itd-memory/PROGRESS.md` из STATE.json + GOAL.json + events.jsonl + git +
+    DECISIONS.md (+ вердикт Completion Gate, если есть); per-section
+    деградация на битых/отсутствующих входах, всегда exit 0 (best-effort);
+  - в шапке вью и в скиллах явно: PROGRESS.md — DERIVED, канон остаётся в
+    JSON, гейты на вью не завязываются (best-effort invariant соблюдён);
+  - перегенерация: `/session-save` Step 3.3 и `/handoff` Step 3.
+- **Порог контекста 60% → `/handoff` кодифицирован** (гэп: момент вызова
+  оставался на суждении агента): задача требует >60% окна → handoff
+  закладывается с самого старта; израсходовано ~60% и конец не виден →
+  `HANDOFF.md` пишется немедленно, до авто-компакции. Правило — в
+  `/handoff` «Когда вызывать», в `references/handoff-checklist.md` и в
+  global-claude-md блоке («Memory is the continuity backbone»).
+- Версии скиллов: adopt 1.23.0, handoff 1.22.0, session-save 1.9.0.
+
+---
+
 ## [1.69.1] - 2026-07-08
 
 **Hotfix: checkpoint fragmentation on Windows — session id now comes from the
