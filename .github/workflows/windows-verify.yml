@@ -75,3 +75,11 @@ jobs:
         env:
           PYTHONUTF8: "0"
         run: python tests/verify_init_contracts.py
+      - name: Cost-tracker ledger isolation + context sensor gate (v1.71.0)
+        run: python tests/verify_cost_tracker.py
+      - name: Cost-tracker gate on legacy encoding (v1.71.0)
+        # Same rationale as the v1.68.1 step above: the Cyrillic context-hint
+        # emit crashes only under the locale codepage (review finding C1).
+        env:
+          PYTHONUTF8: "0"
+        run: python tests/verify_cost_tracker.py
