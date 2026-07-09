@@ -12,7 +12,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.16.0
+  version: 1.17.0
   category: quality-assurance
   tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---
@@ -60,6 +60,17 @@ context instead of a copy of the bloated conversation:
 - Keep the same Step 0 mode detection below: tell the agent whether this is a
   methodology self-review or a regular project review (`agents/code-reviewer.md`
   carries the matching logic).
+- **Pass a report-file path (v1.72.0 — root cause 2026-07-09):** include in the
+  thin prompt a concrete path — предпочтительно ВНЕ git-дерева review-цели
+  (scratchpad/tempdir; `claude-review-<slug>.md`); если внутри дерева —
+  добавь/посоветуй `claude-review-*.md` в `.gitignore` цели и удали файл после
+  принятия вердикта. Требование агенту: писать findings в файл ИНКРЕМЕНТАЛЬНО
+  по ходу ревью (контракт —
+  «Report file» в `agents/code-reviewer.md`). Долгие (9–15 мин) ревью-прогоны
+  трижды за один день были убиты харнесом mid-stream с «no output» — файл на
+  диске делает работу невыгораемой: file = contract, final message = transport.
+  При обрыве/пустом финале: **сначала прочитай report-файл**, потом Step 2.7
+  re-ping, и только затем fresh narrow (helpers §9, finish-line class).
 
 Quick size check before deciding:
 
@@ -266,6 +277,12 @@ Rule — after each Agent-tool dispatch returns, **before** you use its result:
    вердикт одним сообщением — verdict-блок (PASSED / PASSED_WITH_WARNINGS /
    BLOCKED + findings). Не пересказывай процесс.» This is a reversible, in-scope
    recovery — proceed automatically (never «Хочешь, я переспрошу?»).
+   **Empty return = the same case (v1.72.0):** a long dispatch that comes back
+   «completed» with an EMPTY final is a harness mislabel of a mid-stream kill —
+   the finish-line interruption class (helpers §9; root cause 2026-07-09,
+   3/3 recovered by this very re-ping). Before pinging, read the report file
+   you passed in the dispatch prompt — a complete file on disk IS the result,
+   no ping needed.
 3. **Bounded.** At most `ITD_AUTOPING_MAX` (default 2) re-pings per subagent; if
    still no verdict, escalate to the user with what the subagent DID return — a
    genuinely stuck subagent becomes a visible blocker, not a silent green.

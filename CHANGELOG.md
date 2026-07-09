@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.72.0] - 2026-07-09
+
+**Ревью-прогоны переживают обрыв харнеса: report-файл + класс «finish-line
+interruption»** (реализация фикс-кандидатов 1–2 из
+`ROOT_CAUSE-empty-review-finals-2026-07-09`: три длинных (9–15 мин) ревью за
+день были убиты mid-stream и отрапортованы «completed» с пустым финалом;
+готовый отчёт жил только в транскрипте).
+
+- **Finish-line interruption ≠ true stall** (helpers §9 + `/review` Step 2.7):
+  пустой/обрубленный финал после долгого «completed»-прогона со здоровой
+  tool-цепочкой — обрыв на финальной миле, результат уже вычислен в контексте
+  субагента. Первый ход — ОДИН дешёвый resume re-ping (3/3 живых
+  восстановления 2026-07-09, одно с нулём доп. tool-вызовов); правило §9
+  «fresh narrow, never resume» остаётся для TRUE stalls (no-progress /
+  autocompact) — прежнее evidence (§8: resume 600s vs fresh 84s) относится
+  именно к ним.
+- **Report-файл ревью** (`agents/code-reviewer.md` + `/review` dispatch):
+  диспетчер передаёт путь `claude-review-<slug>.md` в thin-промпте; ревьюер
+  создаёт файл в начале, дописывает findings после каждой dimension и кладёт
+  вердикт+```json-блок в файл до финального сообщения (финал — прежний полный
+  deliverable + строка `Report file: <path>`). Убитый прогон оставляет каждую
+  завершённую dimension на диске: file = contract, final message = transport
+  (best-effort invariant). `Write` добавлен в allowed-tools агента с жёстким
+  ограничением «писать можно ТОЛЬКО report-файл» — само ревью остаётся
+  read-only.
+- Порядок восстановления при обрыве: report-файл → Step 2.7 re-ping → fresh
+  narrow (§9).
+- Гейт: `tests/verify_review_report_file.py` (13 checks) — в обеих CI-ногах.
+- Версии: review 1.17.0.
+
+---
+
 ## [1.71.1] - 2026-07-09
 
 **Follow-up по ретро-ревью #136** (ревью-агент перед мержем v1.70.0 умер, не

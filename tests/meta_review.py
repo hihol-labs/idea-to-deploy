@@ -847,15 +847,20 @@ def run_rubric(repo: Path) -> Report:
     #
     #   Pattern B: skill AND subagent both read-only, skill is report_only
     #     → entire chain produces stdout reports, nothing is written.
-    #     Example: /review → code-reviewer (audit output to user).
     #     Requires explicit `report_only: true` in skill frontmatter.
     #
     #   Pattern C: subagent has Write/Edit itself
     #     → subagent writes files directly in its forked context.
-    #     Currently no such agent exists (all 5 are read-only by design),
-    #     but the gate permits this for forward compatibility.
     #
-    # Anything outside these three patterns is a bug. Critical findings:
+    #   Pattern D (v1.72.0, a narrow sub-case of C): subagent carries a
+    #     SINGLE-PURPOSE Write under a caller that stays `report_only: true`.
+    #     Example: /review → code-reviewer — the agent's only permitted write
+    #     is its own report file (agents/code-reviewer.md «Report file»), so
+    #     an interrupted run leaves findings on disk; the review of the CODE
+    #     stays read-only, and the /review skill still persists nothing
+    #     itself. Structurally the gate matches this as Pattern C.
+    #
+    # Anything outside these patterns is a bug. Critical findings:
     #   - M-I9a: `agent: X` refers to non-existent agent (typo / rename miss)
     #   - M-I9b: both read-only + missing `report_only: true` → silent write
     #     failures when the skill tries to persist subagent output
