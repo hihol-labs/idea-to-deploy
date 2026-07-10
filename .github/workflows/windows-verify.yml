@@ -81,6 +81,8 @@ jobs:
         run: python tests/verify_review_report_file.py
       - name: ACID state-hardening (atomic writes, ledger lock, errors.log, state-guard, reconciliation) (v1.75.0)
         run: python tests/verify_state_hardening.py
+      - name: run-all.sh vs workflows drift-guard (v1.79.1)
+        run: python tests/verify_runall_drift.py
       - name: Cost-tracker gate on legacy encoding (v1.71.0)
         # Same rationale as the v1.68.1 step above: the Cyrillic context-hint
         # emit crashes only under the locale codepage (review finding C1).

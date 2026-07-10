@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.79.1] - 2026-07-10
+
+**Дрифт-гард `tests/run-all.sh` ↔ workflow-файлы** (кандидат из
+RELEASE_RUNBOOK, мандат пользователя): зеркало «прогнать всё локально»,
+синхронизируемое руками, протухает молча — тест добавили в CI, а локальный
+«DONE fails:none» перестал означать зелёный CI.
+
+- `tests/verify_runall_drift.py`: каждая verify-проверка из обоих workflow
+  обязана присутствовать в run-all.sh (строго CI ⊆ run-all; обратное —
+  «локально строже» — лишь репортится). Anti-rot: минимальные счётчики
+  распарсенного зашиты assert'ами (пустой парс = false-green); самореференс —
+  гард требует собственной регистрации в CI и в run-all.
+- Гард окупился первым же прогоном: нашёл ОБРАТНЫЙ дрейф — 4 проверки были
+  local-only и не гонялись в CI вовсе (`verify_gate_taxonomy`,
+  `verify_harness_map_fixtures` (G-003!), `verify_completion_gate`,
+  `verify_completion_ledger`) — добавлены в meta-review workflow.
+
 ## [1.79.0] - 2026-07-10
 
 **Cold-start гэпы закрыты** (упражнение «5 вопросов новичка»: свежий агент
