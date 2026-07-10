@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.75.0](https://img.shields.io/badge/Version-1.75.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.76.0](https://img.shields.io/badge/Version-1.76.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -397,7 +397,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 > **Важно:** хуки — это **опциональный отдельный шаг**. `/plugin install` регистрирует скиллы и агентов, но намеренно **не** пишет в `~/.claude/settings.json` и не ставит глобальные хуки — это остаётся явным решением пользователя. Если пропустить эту секцию, методология всё равно работает; хуки лишь повышают частоту срабатывания скиллов на неоднозначных промптах.
 
-Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **28 хуков** — но это число смешивает две разные вещи. **9 из них — жёсткие гейты**, которые реально останавливают действие (`permissionDecision: "deny"` на PreToolUse либо `decision: "block"` на SubagentStop, exit 2); остальные **19 — мягкие** (напоминания, инжект контекста, наблюдаемость, самокоррекция — всегда exit 0, никогда не блокируют). Сила enforcement'а харнеса — это **9 жёстких гейтов, а не 28**. Полная таблица (9 жёстких + 18 мягких) и метрика «hard-gate coverage» — в англоязычном [README.md](README.md); тест `tests/verify_gate_taxonomy.py` держит таблицу в синхроне с `hooks/`.
+Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **28 хуков** — но это число смешивает две разные вещи. **10 из них — жёсткие гейты**, которые реально останавливают действие (`permissionDecision: "deny"` на PreToolUse либо `decision: "block"` на SubagentStop, exit 2); остальные **18 — мягкие** (напоминания, инжект контекста, наблюдаемость, самокоррекция — всегда exit 0, никогда не блокируют). Сила enforcement'а харнеса — это **10 жёстких гейтов, а не 28**. Полная таблица (10 жёстких + 18 мягких) и метрика «hard-gate coverage» — в англоязычном [README.md](README.md); тест `tests/verify_gate_taxonomy.py` держит таблицу в синхроне с `hooks/`.
 
 **8 жёстких гейтов:** `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract`. **16 мягких:** `careful`, `check-skills`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate`.
 

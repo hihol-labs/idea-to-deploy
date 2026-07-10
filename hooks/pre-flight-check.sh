@@ -699,6 +699,58 @@ def context_switch_detect(cwd: Path) -> str:
     return warning
 
 
+PERSIST_ERR_INTERVAL_SEC = 4 * 3600  # surfaced-строка раз в 4 часа, не каждый промпт
+
+
+def persist_errors_context(cwd: Path) -> str:
+    """v1.76.0 (ACID-audit, ось D): потребитель persist-error-логов.
+
+    v1.75.0 сделал сбои персиста НАБЛЮДАЕМЫМИ (completion_lib.log_persist_error
+    → .claude/completion/errors.log; crash-recovery →
+    <tmp>/claude-checkpoint-errors.log), но у логов не было ни одного читателя —
+    ошибки писались в никуда. Recovery-стратегия методологии human-in-loop:
+    сигнал существует, только если человек/модель его ВИДИТ. Эта секция
+    всплывает счётчик + последнюю запись на старте промпта, rate-limited
+    (раз в PERSIST_ERR_INTERVAL_SEC на проект). Advisory-only, любая ошибка —
+    молчаливый скип.
+    """
+    reports: list[str] = []
+    targets = [
+        ("`.claude/completion/errors.log`", cwd / ".claude" / "completion" / "errors.log"),
+        ("`<tmp>/claude-checkpoint-errors.log`",
+         Path(tempfile.gettempdir()) / "claude-checkpoint-errors.log"),
+    ]
+    try:
+        stamp = Path(tempfile.gettempdir()) / (
+            "claude-persist-err-" + re.sub(r"[^A-Za-z0-9]+", "-", str(cwd))[-80:] + ".stamp"
+        )
+        if stamp.is_file() and (time.time() - stamp.stat().st_mtime) < PERSIST_ERR_INTERVAL_SEC:
+            return ""
+        for label, p in targets:
+            if not p.is_file():
+                continue
+            try:
+                lines = [l for l in p.read_text(encoding="utf-8", errors="replace").splitlines()
+                         if l.strip()]
+            except Exception:
+                continue
+            if not lines:
+                continue
+            reports.append(f"{label} — {len(lines)} записей, последняя: {lines[-1][:200]}")
+        if not reports:
+            return ""
+        stamp.write_text(str(time.time()), encoding="utf-8")
+    except Exception:
+        return ""
+    return (
+        "⚠️ **Persist-failure log не пуст** — были сбои записи durable-состояния "
+        "(completion-леджер/вердикт/чекпоинт писались с ошибками):\n- "
+        + "\n- ".join(reports)
+        + "\nРазберись в причине (диск/права/антивирус) и почисти лог — молчаливый "
+        "сбой персиста ломает Completion Gate и crash-recovery незаметно."
+    )
+
+
 def main() -> int:
     global _PAYLOAD_SID
     try:
@@ -736,6 +788,11 @@ def main() -> int:
     plan_gap = plan_without_goal_context(cwd)
     if plan_gap:
         sections.append(plan_gap)
+
+    # Persist-failure surfacing (v1.76.0, ACID-audit D)
+    perr = persist_errors_context(cwd)
+    if perr:
+        sections.append(perr)
 
     mem_dir = find_project_memory_dir(cwd)
     if mem_dir:

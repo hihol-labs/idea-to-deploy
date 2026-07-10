@@ -98,5 +98,8 @@ jobs:
       - name: Run ACID state-hardening (atomic writes, ledger lock, errors.log, state-guard, reconciliation) (v1.75.0)
         run: python3 tests/verify_state_hardening.py
 
+      - name: Run hook-table completeness G-005 (map quadrants/blocking rows vs hooks/) (v1.76.0 — был латентным, протух на v1.75.0)
+        run: python3 tests/verify_hook_table_completeness.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

@@ -121,7 +121,16 @@ def _check_single_wip(path: Path, state: dict, errors: list[str]) -> None:
 
 def _last_unit_event(events_path: Path, unit_id: str) -> dict | None:
     """Last {"type":"unit","name":<unit_id>,...} record in events.jsonl."""
-    last = None
+    return _last_unit_events(events_path).get(unit_id)
+
+
+def _last_unit_events(events_path: Path) -> dict:
+    """One pass over events.jsonl → {unit_name: last unit-event record}.
+
+    v1.76.0: shared by STATE and GOAL reconciliation — GOAL ledgers hold many
+    units, per-unit rescans would be O(units × log).
+    """
+    last: dict = {}
     try:
         with events_path.open(encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -132,13 +141,75 @@ def _last_unit_event(events_path: Path, unit_id: str) -> dict | None:
                     rec = json.loads(line)
                 except Exception:
                     continue
-                if not isinstance(rec, dict):
+                if not isinstance(rec, dict) or rec.get("type") != "unit":
                     continue
-                if rec.get("type") == "unit" and str(rec.get("name", "")) == unit_id:
-                    last = rec
+                name = str(rec.get("name", "") or "").strip()
+                if name:
+                    last[name] = rec
+    except Exception:
+        return {}
+    return last
+
+
+def _events_ledger(path: Path) -> Path | None:
+    """events.jsonl next to the ledger, or None when there is nothing to
+    reconcile against (missing/empty — legacy projects stay valid)."""
+    events_path = path.parent / "events.jsonl"
+    if not events_path.is_file():
+        return None
+    try:
+        if events_path.stat().st_size == 0:
+            return None
     except Exception:
         return None
-    return last
+    return events_path
+
+
+def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[str]]:
+    """v1.76.0 — the reconciliation invariant GOAL.json ↔ events.jsonl.
+
+    Same semantics as the STATE check (contradiction fails, absence warns),
+    applied per unit of the long-goal ledger:
+      - a unit still OPEN in GOAL (pending/in_progress/verifying/blocked)
+        while the log already recorded a terminal decision for it → ERROR;
+      - a unit VERIFIED in GOAL with no terminal decision in a non-empty
+        log → WARNING (capped at 3 to keep the CLI readable).
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    events_path = _events_ledger(path)
+    if events_path is None:
+        return errors, warnings
+    last_by_unit = _last_unit_events(events_path)
+
+    units = goal.get("units")
+    if not isinstance(units, list):
+        return errors, warnings
+    open_statuses = {"pending", "in_progress", "verifying", "blocked"}
+    for unit in units:
+        if not isinstance(unit, dict):
+            continue
+        uid = str(unit.get("id", "") or "").strip()
+        status = str(unit.get("status", "") or "").strip()
+        if not uid or not status:
+            continue
+        last = last_by_unit.get(uid)
+        last_decision = str((last or {}).get("decision", "") or "").strip().lower()
+        if status in open_statuses and last_decision in _TERMINAL_DECISIONS:
+            errors.append(
+                f"{path}: reconciliation violated -- unit '{uid}' is "
+                f"'{status}' in GOAL.json, but events.jsonl already recorded "
+                f"'{last_decision}' for it. Goal ledger tail is stale: update "
+                f"the unit status or append the missing unit event.")
+        elif status == "verified" and last_decision not in _TERMINAL_DECISIONS:
+            if len(warnings) < 3:
+                seen = ("no unit event at all" if last is None
+                        else f"last decision '{last_decision}'")
+                warnings.append(
+                    f"{path}: unit '{uid}' is 'verified' in GOAL.json, but "
+                    f"events.jsonl has {seen} for it -- append the 'verified' "
+                    f"unit event so the ledger stays the source of truth.")
+    return errors, warnings
 
 
 def reconcile_with_events(path: Path, state: dict) -> tuple[list[str], list[str]]:
@@ -284,7 +355,9 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
         if open_units:
             errors.append(f"{path}: goal is 'done' but units {open_units} are still open")
 
-    return errors, []
+    rec_errors, warnings = reconcile_goal_with_events(path, goal)
+    errors.extend(rec_errors)
+    return errors, warnings
 
 
 def validate_path(path: Path) -> tuple[list[str], list[str]]:

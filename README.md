@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.75.0](https://img.shields.io/badge/Version-1.75.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.76.0](https://img.shields.io/badge/Version-1.76.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -397,9 +397,9 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **28 hooks** — but that number conflates two very different things. **9 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **19 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **9 hard gates, not 28**. The taxonomy below makes the split explicit so the count is never read as 28× the blocking power it actually has.
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **28 hooks** — but that number conflates two very different things. **10 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **18 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **10 hard gates, not 28**. The taxonomy below makes the split explicit so the count is never read as 28× the blocking power it actually has.
 
-### Hook taxonomy — 9 hard gates vs 19 soft (v1.59.0)
+### Hook taxonomy — 10 hard gates vs 18 soft (v1.59.0; state-guard hard since v1.76.0)
 
 | # | Hard gate (can block/deny) | Event | What it stops |
 |---|---|---|---|
@@ -412,10 +412,11 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 | 7 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
 | 8 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
 | 9 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
+| 10 | `state-guard.sh` | PreToolUse · Write/Edit | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
 
-**Soft (19):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `state-guard`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
+**Soft (18):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 
-**Hard-gate coverage** — the metric that keeps the 9 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 9/18/27 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` (unit G-003) enforces coverage. **Target: 9/9.**
+**Hard-gate coverage** — the metric that keeps the 10 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 10/18/28 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` (unit G-003) enforces coverage. **Target: 10/10.**
 
 **Recommended — one command:**
 
