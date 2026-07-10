@@ -71,6 +71,9 @@ jobs:
       - name: Run stall-resilience fresh-narrow-agent fallback doc-contract (v1.60.0, Ось 2)
         run: python3 tests/verify_stall_fallback.py
 
+      - name: Run declared-source read doc-contract (v1.77.0)
+        run: python3 tests/verify_source_read_contract.py
+
       - name: Run harness-native feature ledger structural gate (v1.61.0, Ось 3)
         run: python3 tests/verify_feature_ledger.py
 
