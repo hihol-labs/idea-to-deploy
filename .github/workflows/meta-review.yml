@@ -104,5 +104,20 @@ jobs:
       - name: Run hook-table completeness G-005 (map quadrants/blocking rows vs hooks/) (v1.76.0 — был латентным, протух на v1.75.0)
         run: python3 tests/verify_hook_table_completeness.py
 
+      - name: Run gate taxonomy (10 hard / 18 soft) (v1.79.1 — были local-only, найдено дрифт-гардом)
+        run: python3 tests/verify_gate_taxonomy.py
+
+      - name: Run G-003 fixture-proof grid (hard-gate coverage 10/10) (v1.79.1)
+        run: python3 tests/verify_harness_map_fixtures.py
+
+      - name: Run completion-gate behavioural proof (v1.79.1)
+        run: python3 tests/verify_completion_gate.py
+
+      - name: Run completion-ledger checks (v1.79.1)
+        run: python3 tests/verify_completion_ledger.py
+
+      - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
+        run: python3 tests/verify_runall_drift.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh
