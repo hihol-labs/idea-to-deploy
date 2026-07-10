@@ -57,11 +57,11 @@
 
 ## Открытые кандидаты (следующие релизы)
 
-- validate_state_core: bound на размер `events.jsonl` при реконсиляции
-  (очень большой журнал + hook-timeout 5с → валидация молча скипнется).
-- `.gitignore`: `.itd-memory/` и `tests/fixtures/*/output/` (dogfood-
-  артефакты шумят в git status; minor ревью v1.78.1).
+Список пуст (на v1.80.1). Новые кандидаты добавлять сюда же — из findings
+ревью/пересдач, с пометкой источника.
 
 Закрытые: дрифт-гард run-all↔workflows (v1.79.1, нашёл 4 local-only гейта);
-git checkout/restore леджера — hard при явном пути + git-токены в soft
-(v1.80.0); POSIX flock → LOCK_NB с bounded-ретраями (v1.80.0).
+git-перезапись леджера — hard при явном пути + безусловная soft-ревалидация
+GIT_REWRITE_RE (v1.80.0); POSIX flock → LOCK_NB с bounded-ретраями (v1.80.0);
+bound на events.jsonl в реконсиляции + .gitignore dogfood-артефактов
+(v1.80.1).
