@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.78.0] - 2026-07-10
+
+**Bash-канал гейтится pre-write — Isolation до 9** (important-finding финальной
+пересдачи ACID v1.76.x: параллельная сессия через `jq … > STATE.json` всё ещё
+была last-writer-wins — deny-гейт покрывал только Write/Edit-инструменты).
+
+- `state-guard.sh` зарегистрирован и на **PreToolUse Bash** (4-я регистрация):
+  команда, где леджер `.itd-memory/STATE.json|GOAL*.json` — ЦЕЛЬ записи, при
+  чужом свежем owned-локе отклоняется тем же решением (общий deny-бюджет ≤2
+  per сессия+проект, ownerless не гейтится, ITD_STATE_GUARD=0).
+- Регэксп гейта **target-anchored** (редирект/`tee`/`sed -i`/`mv`/`cp`/
+  `truncate`/`dd of=`/PowerShell `Set-Content` прямо В леджер) — широкое
+  со-вхождение (`git diff .itd-memory/STATE.json > out.txt`) сознательно НЕ
+  гейтится: цена false-deny у hard-гейта выше, такие случаи остаются на
+  soft-ревалидации PostToolUse-ноги (v1.76.0).
+- Тесты: +4 проверки (deny редиректа в леджер и `sed -i`; allow со-вхождения
+  и read-only pipe) — verify_state_hardening 50/50 (WSL + Windows cp1251).
+
 ## [1.77.0] - 2026-07-10
 
 **Declared-source read contract: субагент, не прочитавший заявленный источник,
