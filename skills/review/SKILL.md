@@ -235,17 +235,19 @@ on a verdict. Rule — after each dispatch returns, **before** you use its resul
 2. **Absent → auto-re-ping ONCE, without asking the user**: continue the same
    subagent with «Заверши: выдай вердикт одним сообщением — verdict-блок
    (PASSED / PASSED_WITH_WARNINGS / BLOCKED + findings). Не пересказывай
-   процесс.» **Empty return = the same case (v1.72.0)** — finish-line
-   interruption class; but FIRST read the report file you passed in the
-   dispatch prompt: a complete file on disk IS the result, no ping needed.
+   процесс.» **Empty return = the same case (v1.72.0)** — a harness mislabel
+   of a mid-stream kill (finish-line interruption class); but FIRST read the
+   report file you passed in the dispatch prompt: a complete file on disk IS
+   the result, no ping needed.
 3. **Bounded.** At most `ITD_AUTOPING_MAX` (default 2) re-pings per subagent;
    still no verdict → escalate to the user with what the subagent DID return —
    a stuck subagent becomes a visible blocker, not a silent green.
 
-История отказа (×4 ручных пинга за сессию), rationale маркер-детекции и
-двухслойная защита belt (этот шаг) + suspenders (SubagentStop-хуки
-`narration-final.sh` / `verdict-contract.sh`, деградируют независимо) —
-`references/runner-and-recovery.md` §2.7.
+This caller-side step is the *belt*; the *suspenders* are two SubagentStop
+hooks — `hooks/narration-final.sh` and `hooks/verdict-contract.sh` — and the
+two layers degrade independently (best-effort invariant), never to a false
+green. История отказа (×4 ручных пинга за сессию), rationale маркер-детекции
+и детали слоёв — `references/runner-and-recovery.md` §2.7.
 
 ### Step 3: Generate report
 
