@@ -335,11 +335,14 @@ fi
 #     contract: blocks a subagent's stop (≤2 pings) when its final message
 #     declares a review verdict in prose but ships no valid ```json verdict
 #     block; complementary to narration-final on the same event, no loop)
-#   PostToolUse matcher=Write|Edit|MultiEdit|NotebookEdit → state-guard.sh
-#     (v1.75.0 — ACID-audit fix #4: validates .itd-memory/STATE.json /
-#      GOAL*.json immediately after each mutation via validate_state_core
-#      and heartbeats .active-session.lock on every Write/Edit so the
-#      parallel-session warning stops going stale between /session-save's)
+#   state-guard.sh — три регистрации (v1.76.0):
+#     PreToolUse  matcher=Write|Edit|MultiEdit|NotebookEdit → single-writer
+#       гейт леджера: deny записи .itd-memory/STATE.json|GOAL*.json при
+#       свежем локе ДРУГОЙ сессии (≤2 deny/сессию, потом warn-allow)
+#     PostToolUse matcher=Write|Edit|MultiEdit|NotebookEdit → (v1.75.0)
+#       немедленная валидация леджера + heartbeat .active-session.lock
+#     PostToolUse matcher=Bash → детект мутации леджера в обход Write/Edit
+#       (редиректы/sed -i/tee/jq) → перевалидация, красная пометка
 
 DESIRED_HOOKS=$(cat <<'JSON'
 {
@@ -383,7 +386,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-skill-completeness.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/wip-gate.sh",                 "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/freeze.sh",                   "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/freeze.sh",                   "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",              "timeout": 5 }
       ]
     },
     {
@@ -418,7 +422,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "Bash",
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",        "timeout": 5 }
       ]
     }
   ],

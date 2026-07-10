@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.76.0] - 2026-07-10
+
+**ACID до 9: остаточные капы пересдачи аудита закрыты** — по findings
+адверсариальной переоценки v1.75.0 (A 7.5 / C 8 / I 6.5 / D 8, итог ~7.6).
+
+- **A: durable rename** — `atomic_write_text` теперь fsync'ает данные ПЕРЕД
+  `os.replace` (без этого rename мог пережить данные при крэше ядра/питания —
+  пустой-но-существующий файл) + dir-fsync на POSIX; tmp-сирота убирается и
+  при падении самой записи, не только replace. То же в чекпоинте
+  `crash-recovery.sh`.
+- **C: реконсиляция GOAL.json ↔ events.jsonl** — та же семантика, что для
+  STATE (v1.75.0), per unit долгой цели: открытый юнит при записанном
+  terminal-событии = ERROR, verified без события = WARNING (cap 3). Один
+  проход по журналу (`_last_unit_events`).
+- **C: Bash-bypass закрыт** — `state-guard.sh` зарегистрирован и на
+  PostToolUse Bash: мутация леджера в обход Write/Edit (редиректы, `sed -i`,
+  `tee`, `jq`, `mv`/`cp`, PowerShell `Set-Content`) детектится по команде →
+  леджеры проекта перевалидируются, нарушение — та же красная пометка.
+- **I: single-writer гейт леджера (state-guard стал 10-м HARD-гейтом)** —
+  PreToolUse на Write|Edit|MultiEdit|NotebookEdit: запись
+  `.itd-memory/STATE.json`/`GOAL*.json` при СВЕЖЕМ `.active-session.lock`
+  ДРУГОЙ сессии отклоняется (`permissionDecision: "deny"`, exit 2) — ровно
+  класс инцидента NeuroExpert 2026-04-11 (last-writer-wins). ≤2 deny на
+  сессию, третья попытка проходит с warning (escape-hatch как у
+  narration-final); ownerless-локи (легаси /session-save) не гейтятся —
+  атрибуция невозможна. Таксономия: 10 hard / 18 soft из 28;
+  behavioural-proof добавлен в грид G-003 (`verify_harness_map_fixtures`).
+- **I: изоляция деградирует наблюдаемо** — отказ взятия лока
+  `signals.jsonl.lock` логируется в errors.log (once per process), а
+  Windows-путь лока переведён на неблокирующий `LK_NBLCK` с bounded-ретраями
+  (~2с): блокирующий `LK_LOCK` ждал до 10с — дольше hook-timeout 5с, под
+  контенцией харнес убивал бы хук mid-write.
+- **D: у errors.log появился читатель** — `pre-flight-check.sh` всплывает
+  непустые persist-error-логи (`.claude/completion/errors.log` проекта +
+  `<tmp>/claude-checkpoint-errors.log`) на старте промпта: счётчик +
+  последняя запись, rate-limited 4ч. v1.75.0 сделал сбои персиста
+  наблюдаемыми — v1.76.0 делает их УВИДЕННЫМИ (human-in-loop работает,
+  только если сигнал доходит).
+- Тесты: `verify_state_hardening.py` 27→45 проверок (deny-proof гейта —
+  реальный subprocess до exit 2, auto-allow третьей попытки, ownerless-,
+  stale- и no-memdir-кейсы, Bash-детект, GOAL-реконсиляция, fsync-сирота,
+  наблюдаемый отказ лока, rate-limit потребителя errors.log).
+- По ревью релиза: deny-бюджет гейта скоуплен per (сессия, проект) — не
+  утекает между проектами одной сессии; вывод хука `ensure_ascii=True`
+  (cp1251-пайп Windows глотал эмодзи и превращал warn-allow в молчание);
+  латентный тест G-005 `verify_hook_table_completeness.py` (протух ещё на
+  v1.75.0: заголовок §8.1 «(27)») починен вместе с квадрантами §8.1/§8.2
+  карты и добавлен в meta-review CI.
+
 ## [1.75.0] - 2026-07-10
 
 **ACID-хардeнинг управления состоянием** — по итогам адверсариального

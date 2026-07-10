@@ -128,7 +128,18 @@ def write_checkpoint(cp: dict, sid: str) -> None:
     try:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cp, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())  # v1.76.0: rename не должен пережить данные при крэше ядра
         os.replace(tmp, target)
+        try:  # durable rename на POSIX (Windows dir-fsync не имеет)
+            dfd = os.open(os.path.dirname(target) or ".",
+                          getattr(os, "O_DIRECTORY", os.O_RDONLY))
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+        except Exception:
+            pass
     except Exception as exc:
         try:
             if os.path.exists(tmp):

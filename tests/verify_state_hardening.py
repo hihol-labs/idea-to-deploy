@@ -249,6 +249,174 @@ def main() -> int:
     check("state-guard stays silent on non-ledger files",
           res.returncode == 0 and "FAILED" not in (res.stdout or ""))
 
+    # ================= v1.76.0 — ACID to 9 =================
+
+    # ---- fix A2: orphan tmp removed when the WRITE itself fails ----------
+    orig_fsync = os.fsync
+    try:
+        def _boom(fd):
+            raise OSError("simulated fsync failure")
+        os.fsync = _boom
+        raised = False
+        try:
+            cl.atomic_write_text(tmp / "never.json", "x")
+        except OSError:
+            raised = True
+        finally:
+            os.fsync = orig_fsync
+    finally:
+        os.fsync = orig_fsync
+    check("atomic_write_text raises on write/fsync failure", raised)
+    check("atomic_write_text removes orphan tmp on write failure",
+          not list(tmp.glob("never.json.tmp-*")))
+    check("failed atomic write leaves no target", not (tmp / "never.json").exists())
+
+    # ---- fix I2: lock-acquisition failure is LOGGED, not silent ----------
+    orig_lock = cl._lock_file
+    cl._LOCK_FAIL_LOGGED = False
+    try:
+        cl._lock_file = lambda f: False
+        cl.append_signal(proj, "sess-lock", {"kind": "static", "layer": 1,
+                                             "outcome": "pass"})
+    finally:
+        cl._lock_file = orig_lock
+    txt = errlog.read_text(encoding="utf-8")
+    check("lock-acquisition failure lands in errors.log",
+          "append_signal.lock" in txt)
+
+    # ---- fix C2: GOAL.json <-> events.jsonl reconciliation ---------------
+    gmem = tmp / "goalrec" / ".itd-memory"
+    gmem.mkdir(parents=True)
+    goal_schema = json.loads(
+        (ROOT / "docs" / "templates" / "itd-memory" / "goal.schema.json")
+        .read_text(encoding="utf-8"))
+    unit = {}
+    for f in goal_schema.get("unitRequiredFields", []):
+        unit[f] = "x"
+    unit.update({"id": "U-1", "status": "in_progress"})
+    goal_statuses = goal_schema.get("goalStatuses", ["active"])
+    goal = {"goal": "test goal", "status": ("active" if "active" in goal_statuses
+                                            else goal_statuses[0]),
+            "units": [unit], "currentUnitId": "U-1"}
+    for f in goal_schema.get("requiredFields", []):
+        goal.setdefault(f, "x")
+    gpath = gmem / "GOAL.json"
+    gpath.write_text(json.dumps(goal, ensure_ascii=False), encoding="utf-8")
+    errors, warnings = core.validate_path(gpath)
+    check("valid GOAL without events.jsonl -> no errors", errors == [])
+
+    gevents = gmem / "events.jsonl"
+    gevents.write_text(
+        json.dumps({"type": "unit", "name": "U-1", "decision": "verified"}) + "\n",
+        encoding="utf-8")
+    errors, warnings = core.validate_path(gpath)
+    check("open GOAL unit vs verified event -> reconciliation ERROR",
+          any("reconciliation" in e for e in errors))
+
+    unit["status"] = "verified"
+    goal["currentUnitId"] = ""
+    gpath.write_text(json.dumps(goal, ensure_ascii=False), encoding="utf-8")
+    gevents.write_text(
+        json.dumps({"type": "unit", "name": "U-1", "decision": "activated"}) + "\n",
+        encoding="utf-8")
+    errors, warnings = core.validate_path(gpath)
+    check("verified GOAL unit with activated-only log -> WARNING, not error",
+          errors == [] and len(warnings) == 1)
+
+    # ---- fix I1: PreToolUse single-writer gate (behavioural deny proof) --
+    gate_proj = tmp / "gate"
+    (gate_proj / ".itd-memory").mkdir(parents=True)
+    fakehome = tmp / "gatehome"
+    parts = gate_proj.resolve().parts
+    memdir2 = fakehome / ".claude" / "projects" / ("-" + "-".join(parts[1:])) / "memory"
+    memdir2.mkdir(parents=True)
+    genv = dict(os.environ)
+    genv["HOME"] = str(fakehome)
+    genv["USERPROFILE"] = str(fakehome)
+
+    (memdir2 / ".active-session.lock").write_text(json.dumps(
+        {"timestamp": time.time(), "session": "other-owner", "pid": 1,
+         "branch": "b", "project": str(gate_proj), "note": "n"}), encoding="utf-8")
+    gsid = f"gate-{os.getpid()}"
+    gpayload = {"hook_event_name": "PreToolUse", "session_id": gsid,
+                "cwd": str(gate_proj), "tool_name": "Write",
+                "tool_input": {"file_path": str(gate_proj / ".itd-memory" / "STATE.json")}}
+
+    def run_gate(pl):
+        return subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                              input=json.dumps(pl), capture_output=True,
+                              text=True, timeout=30, env=genv)
+
+    res = run_gate(gpayload)
+    check("ledger gate DENIES on a foreign fresh owned lock (exit 2)",
+          res.returncode == 2 and "permissionDecision" in res.stdout
+          and "deny" in res.stdout)
+    res = run_gate(gpayload)
+    check("second attempt is still denied", res.returncode == 2)
+    res = run_gate(gpayload)
+    check("third attempt auto-allows with a warning",
+          res.returncode == 0 and "auto-allow" in (res.stdout or ""))
+
+    (memdir2 / ".active-session.lock").write_text(json.dumps(
+        {"timestamp": time.time(), "pid": 1, "branch": "b",
+         "project": str(gate_proj), "note": "ownerless"}), encoding="utf-8")
+    gpayload["session_id"] = f"gate2-{os.getpid()}"
+    res = run_gate(gpayload)
+    check("ownerless legacy lock is never gated", res.returncode == 0)
+
+    gpayload["tool_input"]["file_path"] = str(gate_proj / "src" / "x.py")
+    res = run_gate(gpayload)
+    check("gate ignores non-ledger writes", res.returncode == 0)
+
+    # stale foreign owned lock -> allow (through the real gate subprocess)
+    (memdir2 / ".active-session.lock").write_text(json.dumps(
+        {"timestamp": time.time() - 3600, "session": "other-owner", "pid": 1,
+         "branch": "b", "project": str(gate_proj), "note": "stale"}),
+        encoding="utf-8")
+    gpayload["session_id"] = f"gate3-{os.getpid()}"
+    gpayload["tool_input"]["file_path"] = str(gate_proj / ".itd-memory" / "STATE.json")
+    res = run_gate(gpayload)
+    check("stale foreign owned lock is not gated", res.returncode == 0)
+
+    # no memory dir at all -> allow
+    genv_nomem = dict(genv)
+    genv_nomem["HOME"] = str(tmp / "gatehome-empty")
+    genv_nomem["USERPROFILE"] = str(tmp / "gatehome-empty")
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(gpayload), capture_output=True,
+                         text=True, timeout=30, env=genv_nomem)
+    check("missing memory dir is not gated", res.returncode == 0)
+
+    # ---- fix C3: Bash-bypass detection ------------------------------------
+    bpayload = {"hook_event_name": "PostToolUse", "session_id": "bash-t",
+                "cwd": str(mem.parent), "tool_name": "Bash",
+                "tool_input": {"command": 'printf "{}" > .itd-memory/STATE.json'}}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(bpayload), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("Bash mutation of a ledger triggers re-validation (red mark)",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+
+    bpayload["tool_input"]["command"] = "git status && ls .itd-memory"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(bpayload), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("non-mutating Bash near the ledger stays silent",
+          res.returncode == 0 and "FAILED" not in (res.stdout or ""))
+
+    # ---- fix D2: pre-flight consumes persist-error logs -------------------
+    pf = load_hook_module("pre-flight-check.sh", "pre_flight_ht")
+    perr_proj = tmp / "perr"
+    (perr_proj / ".claude" / "completion").mkdir(parents=True)
+    (perr_proj / ".claude" / "completion" / "errors.log").write_text(
+        "2026-07-10T00:00:00+00:00 write_verdict: OSError: disk full\n",
+        encoding="utf-8")
+    ctx = pf.persist_errors_context(perr_proj)
+    check("pre-flight surfaces a non-empty persist-error log",
+          "Persist-failure" in ctx and "write_verdict" in ctx)
+    ctx2 = pf.persist_errors_context(perr_proj)
+    check("persist-error surfacing is rate-limited", ctx2 == "")
+
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
 

@@ -57,14 +57,22 @@ def now_iso() -> str:
 # ---------------------------------------------------------------------------
 
 def atomic_write_text(path: Path, text: str) -> None:
-    """tmp + os.replace: a reader never sees a truncated file (audit fix #1).
+    """tmp + fsync + os.replace: a reader never sees a truncated file (fix #1).
 
     os.replace is atomic on POSIX and on NTFS. The tmp file lives in the SAME
     directory so the replace never crosses a filesystem boundary.
+    v1.76.0: fsync before the replace — without it the rename can outlive the
+    DATA on a kernel/power crash (ext4/NTFS journal metadata, not content),
+    leaving an empty-but-present file. The orphan tmp is removed on ANY
+    failure, including the write itself (v1.75.0 cleaned up only on a failed
+    replace). Directory fsync is POSIX-only best-effort.
     """
     tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
-    tmp.write_text(text, encoding="utf-8")
     try:
+        with tmp.open("w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
     except Exception:
         try:
@@ -72,6 +80,14 @@ def atomic_write_text(path: Path, text: str) -> None:
         except Exception:
             pass
         raise
+    try:  # durable rename on POSIX: fsync the containing directory
+        dfd = os.open(str(path.parent), getattr(os, "O_DIRECTORY", os.O_RDONLY))
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+    except Exception:
+        pass  # Windows has no dir-fsync; the file fsync above is the guarantee
 
 
 def log_persist_error(cwd: Path, where: str, exc: BaseException) -> None:
@@ -96,7 +112,15 @@ def log_persist_error(cwd: Path, where: str, exc: BaseException) -> None:
 
 def _lock_file(fileobj) -> bool:
     """Advisory exclusive lock (audit fix #2). Best-effort, cross-platform:
-    fcntl on POSIX, msvcrt on Windows; True if the lock was taken."""
+    fcntl on POSIX, msvcrt on Windows; True if the lock was taken.
+
+    v1.76.0: the Windows path is NON-blocking with bounded retries (~2s).
+    msvcrt.locking(LK_LOCK) blocks in 1s probes for up to 10s — longer than
+    the 5s hook timeout in settings.json, so under contention the harness
+    would kill the hook mid-write. LK_NBLCK keeps the worst case under the
+    timeout; on giving up the caller proceeds unlocked and LOGS the
+    degradation (observable isolation loss, not a silent one).
+    """
     try:
         import fcntl
         fcntl.flock(fileobj.fileno(), fcntl.LOCK_EX)
@@ -107,11 +131,18 @@ def _lock_file(fileobj) -> bool:
         return False
     try:
         import msvcrt
-        fileobj.seek(0)
-        msvcrt.locking(fileobj.fileno(), msvcrt.LK_LOCK, 1)
-        return True
     except Exception:
         return False
+    for _ in range(20):  # 20 × 0.1s = максимум ~2s под hook-timeout 5s
+        try:
+            fileobj.seek(0)
+            msvcrt.locking(fileobj.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            time.sleep(0.1)
+        except Exception:
+            return False
+    return False
 
 
 def _unlock_file(fileobj) -> None:
@@ -377,6 +408,9 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     }
 
 
+_LOCK_FAIL_LOGGED = False  # once-per-process: не спамить errors.log на каждый append
+
+
 def append_signal(cwd: Path, session_id: str, sig: dict) -> None:
     sig = dict(sig)
     sig["session"] = str(session_id or "unknown")
@@ -386,11 +420,16 @@ def append_signal(cwd: Path, session_id: str, sig: dict) -> None:
     # atomic os.replace swaps the inode, and a concurrent writer holding the
     # old fd would append into the unlinked file (lost lines — exactly the
     # cross-session race the audit flagged). The lock file is never replaced.
-    # Best-effort: if locking is unavailable, proceed unlocked as before.
+    # Best-effort: if locking is unavailable, proceed unlocked as before —
+    # but v1.76.0: the degradation is LOGGED (once per process), не молчит.
+    global _LOCK_FAIL_LOGGED
     lock_f = None
     try:
         lock_f = (completion_dir(cwd) / (SIGNALS_FILE + ".lock")).open("a+", encoding="utf-8")
-        _lock_file(lock_f)
+        if not _lock_file(lock_f) and not _LOCK_FAIL_LOGGED:
+            _LOCK_FAIL_LOGGED = True
+            log_persist_error(cwd, "append_signal.lock", RuntimeError(
+                "advisory lock unavailable — append/trim proceeding unlocked"))
     except Exception:
         lock_f = None
     try:
