@@ -57,8 +57,11 @@
 
 ## Открытые кандидаты (следующие релизы)
 
-- state-guard: `git checkout/restore` леджера не покрыт ни hard-, ни
-  soft-ногой (informational-гэп ревью v1.78.0; брать при инциденте).
-- validate_state_core: bound на размер `events.jsonl` при реконсиляции.
-- POSIX `flock` без таймаута (асимметрия с bounded msvcrt-веткой).
-- Дрифт-гард `tests/run-all.sh` ↔ workflow-файлы (сейчас синхрон руками).
+- validate_state_core: bound на размер `events.jsonl` при реконсиляции
+  (очень большой журнал + hook-timeout 5с → валидация молча скипнется).
+- `.gitignore`: `.itd-memory/` и `tests/fixtures/*/output/` (dogfood-
+  артефакты шумят в git status; minor ревью v1.78.1).
+
+Закрытые: дрифт-гард run-all↔workflows (v1.79.1, нашёл 4 local-only гейта);
+git checkout/restore леджера — hard при явном пути + git-токены в soft
+(v1.80.0); POSIX flock → LOCK_NB с bounded-ретраями (v1.80.0).

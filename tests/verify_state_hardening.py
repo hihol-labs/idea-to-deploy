@@ -421,6 +421,17 @@ def main() -> int:
     res = run_gate(bpay)
     check("mv INTO ledger (destination) is denied pre-write", res.returncode == 2)
 
+    # v1.80.0: git checkout/restore with an EXPLICIT ledger path is a
+    # deliberate overwrite -> hard-gated; branch switching is not.
+    bpay["session_id"] = f"gitgate-{os.getpid()}"
+    bpay["tool_input"]["command"] = "git checkout -- .itd-memory/STATE.json"
+    res = run_gate(bpay)
+    check("git checkout of ledger path is denied pre-write",
+          res.returncode == 2 and "deny" in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "git checkout feature-branch"
+    res = run_gate(bpay)
+    check("git branch switch (no ledger path) is not gated", res.returncode == 0)
+
     # v1.78.1: PowerShell tool is the same mutation channel
     bpay["tool_name"] = "PowerShell"
     bpay["session_id"] = f"psgate-{os.getpid()}"
@@ -449,6 +460,46 @@ def main() -> int:
                          text=True, timeout=30, env=env)
     check("python without -c/-e near ledger stays silent",
           res.returncode == 0 and "FAILED" not in (res.stdout or ""))
+
+    # v1.80.0: git overwrite of a ledger — soft revalidation fires
+    ipay["tool_input"]["command"] = "git restore .itd-memory/STATE.json"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("git restore of ledger triggers soft re-validation",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+
+    # important review v1.80.0: BARE git checkout/reset (no ledger path in
+    # the command!) must ALSO trigger soft re-validation — the working-tree
+    # rewrite rolls the ledger back without ever naming it.
+    ipay["tool_input"]["command"] = "git checkout feature-branch"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("bare git checkout triggers soft re-validation",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+    ipay["tool_input"]["command"] = "git status && git log --oneline -3"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("non-rewriting git (status/log) stays silent",
+          res.returncode == 0 and "FAILED" not in (res.stdout or ""))
+
+    # v1.80.0: POSIX flock is non-blocking with bounded retries (symmetric
+    # to the msvcrt path) — a held lock returns False fast, never hangs.
+    if os.name == "posix":
+        import fcntl as _fcntl
+        lockp = tmp / "posix.lock"
+        holder = lockp.open("a+")
+        _fcntl.flock(holder.fileno(), _fcntl.LOCK_EX)
+        contender = lockp.open("a+")
+        t0 = time.time()
+        got = cl._lock_file(contender)
+        took = time.time() - t0
+        check("held POSIX lock -> _lock_file gives up (False)", got is False)
+        check("POSIX lock give-up is bounded (< 4s)", took < 4)
+        _fcntl.flock(holder.fileno(), _fcntl.LOCK_UN)
+        holder.close(); contender.close()
 
     # stale foreign owned lock -> allow (through the real gate subprocess)
     (memdir2 / ".active-session.lock").write_text(json.dumps(

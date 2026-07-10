@@ -120,14 +120,23 @@ def _lock_file(fileobj) -> bool:
     would kill the hook mid-write. LK_NBLCK keeps the worst case under the
     timeout; on giving up the caller proceeds unlocked and LOGS the
     degradation (observable isolation loss, not a silent one).
+    v1.80.0: the POSIX path is symmetric — LOCK_EX|LOCK_NB with the same
+    bounded retries; a blocking flock had the same kill-the-hook exposure
+    under extreme contention (re-audit finding, RUNBOOK candidate closed).
     """
     try:
         import fcntl
-        fcntl.flock(fileobj.fileno(), fcntl.LOCK_EX)
-        return True
     except ImportError:
-        pass
-    except Exception:
+        fcntl = None
+    if fcntl is not None:
+        for _ in range(20):  # 20 × 0.1s = максимум ~2s под hook-timeout 5s
+            try:
+                fcntl.flock(fileobj.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except (BlockingIOError, InterruptedError):
+                time.sleep(0.1)
+            except Exception:
+                return False
         return False
     try:
         import msvcrt
