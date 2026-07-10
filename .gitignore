@@ -6,3 +6,7 @@
 node_modules/
 __pycache__/
 .claude/
+
+# dogfood/test-run артефакты (minor ревью v1.78.1)
+.itd-memory/
+tests/fixtures/*/output/

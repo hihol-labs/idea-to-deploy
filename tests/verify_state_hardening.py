@@ -173,6 +173,31 @@ def main() -> int:
     check("verified STATE with activated-only log -> WARNING, not error",
           errors == [] and len(warnings) == 1)
 
+    # v1.80.1: reconciliation reads only the TAIL of a huge events.jsonl
+    # (bounded work under the 5s hook timeout); a recent decision in the
+    # tail is still found, and the whole pass stays fast.
+    big = mem / "events.jsonl"
+    junk = json.dumps({"type": "unit", "name": "U-other", "decision": "activated"})
+    with big.open("w", encoding="utf-8") as f:
+        need = core.EVENTS_TAIL_BYTES * 2 // (len(junk) + 1)
+        for _ in range(need):
+            f.write(junk + "\n")
+        f.write(json.dumps({"type": "unit", "name": "U-1",
+                            "decision": "verified"}) + "\n")
+    make_valid_state(mem, unit_status="in_progress")
+    t0 = time.time()
+    errors, warnings = core.validate_path(mem / "STATE.json")
+    took = time.time() - t0
+    check("huge events.jsonl: recent decision in tail still reconciles",
+          any("reconciliation" in e for e in errors))
+    check("huge events.jsonl: bounded pass is fast (< 3s)", took < 3)
+    # восстановить состояние, ожидаемое следующим CLI-блоком:
+    # STATE=verified + events c одним activated (warning-кейс)
+    big.write_text(
+        json.dumps({"type": "unit", "name": "U-1", "decision": "activated"}) + "\n",
+        encoding="utf-8")
+    make_valid_state(mem, unit_status="verified")
+
     # ---- fix #5: CLI wrapper contract ------------------------------------
     cli = ROOT / "scripts" / "validate_state.py"
     res = subprocess.run([sys.executable, str(cli), str(state_p)],

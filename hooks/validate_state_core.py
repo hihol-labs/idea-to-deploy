@@ -124,28 +124,42 @@ def _last_unit_event(events_path: Path, unit_id: str) -> dict | None:
     return _last_unit_events(events_path).get(unit_id)
 
 
+EVENTS_TAIL_BYTES = 512 * 1024  # реконсиляция читает не больше этого хвоста
+
+
 def _last_unit_events(events_path: Path) -> dict:
     """One pass over events.jsonl → {unit_name: last unit-event record}.
 
     v1.76.0: shared by STATE and GOAL reconciliation — GOAL ledgers hold many
     units, per-unit rescans would be O(units × log).
+
+    v1.80.1 (RUNBOOK-кандидат): чтение ограничено ХВОСТОМ EVENTS_TAIL_BYTES.
+    Очень большой журнал + hook-timeout 5с → валидация молча скипалась бы
+    целиком; хвост — безопасная деградация: «последнее решение по юниту»
+    tail-biased по построению, а юнит, чьи события целиком старше окна,
+    выглядит как «нет события» → это WARNING-ветка (absence), не ложный fail.
     """
     last: dict = {}
     try:
-        with events_path.open(encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(rec, dict) or rec.get("type") != "unit":
-                    continue
-                name = str(rec.get("name", "") or "").strip()
-                if name:
-                    last[name] = rec
+        size = events_path.stat().st_size
+        with events_path.open("rb") as fb:
+            if size > EVENTS_TAIL_BYTES:
+                fb.seek(size - EVENTS_TAIL_BYTES)
+                fb.readline()  # отбрасываем, скорее всего, неполную первую строку
+            payload = fb.read().decode("utf-8", errors="replace")
+        for line in payload.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(rec, dict) or rec.get("type") != "unit":
+                continue
+            name = str(rec.get("name", "") or "").strip()
+            if name:
+                last[name] = rec
     except Exception:
         return {}
     return last
