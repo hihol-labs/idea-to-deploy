@@ -95,5 +95,8 @@ jobs:
       - name: Run review report-file + finish-line interruption doc-contract (v1.72.0)
         run: python3 tests/verify_review_report_file.py
 
+      - name: Run ACID state-hardening (atomic writes, ledger lock, errors.log, state-guard, reconciliation) (v1.75.0)
+        run: python3 tests/verify_state_hardening.py
+
       - name: Verify sync-to-active hook registration (drift guard, v1.20.1+)
         run: bash scripts/verify-sync-to-active.sh

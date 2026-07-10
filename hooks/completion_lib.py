@@ -44,8 +44,91 @@ LEDGER_SOFT_BYTES = 512 * 1024    # прунинг срабатывает тол
                                   # (амортизированный O(1) на append: полный rewrite раз в ~MAX строк)
 
 
+ERRORS_FILE = "errors.log"
+ERRORS_SOFT_BYTES = 64 * 1024     # bound the error log the same way as the ledger
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# ---------------------------------------------------------------------------
+# v1.75.0 (ACID-audit fixes #1–#3) — durable-write primitives
+# ---------------------------------------------------------------------------
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """tmp + os.replace: a reader never sees a truncated file (audit fix #1).
+
+    os.replace is atomic on POSIX and on NTFS. The tmp file lives in the SAME
+    directory so the replace never crosses a filesystem boundary.
+    """
+    tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
+    tmp.write_text(text, encoding="utf-8")
+    try:
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            tmp.unlink()
+        except Exception:
+            pass
+        raise
+
+
+def log_persist_error(cwd: Path, where: str, exc: BaseException) -> None:
+    """Persistence failures must be OBSERVABLE, not swallowed (audit fix #3).
+
+    The whole recovery strategy is human-in-loop; an invisible persist failure
+    is the one class the human can never fix. Appends one line to
+    .claude/completion/errors.log, bounded (keeps the tail on overflow).
+    Itself best-effort: never raises.
+    """
+    try:
+        p = completion_dir(cwd) / ERRORS_FILE
+        line = f"{now_iso()} {where}: {type(exc).__name__}: {exc}\n"
+        with p.open("a", encoding="utf-8") as f:
+            f.write(line)
+        if p.stat().st_size > ERRORS_SOFT_BYTES:
+            tail = p.read_text(encoding="utf-8", errors="replace")[-ERRORS_SOFT_BYTES // 2:]
+            atomic_write_text(p, tail)
+    except Exception:
+        pass
+
+
+def _lock_file(fileobj) -> bool:
+    """Advisory exclusive lock (audit fix #2). Best-effort, cross-platform:
+    fcntl on POSIX, msvcrt on Windows; True if the lock was taken."""
+    try:
+        import fcntl
+        fcntl.flock(fileobj.fileno(), fcntl.LOCK_EX)
+        return True
+    except ImportError:
+        pass
+    except Exception:
+        return False
+    try:
+        import msvcrt
+        fileobj.seek(0)
+        msvcrt.locking(fileobj.fileno(), msvcrt.LK_LOCK, 1)
+        return True
+    except Exception:
+        return False
+
+
+def _unlock_file(fileobj) -> None:
+    try:
+        import fcntl
+        fcntl.flock(fileobj.fileno(), fcntl.LOCK_UN)
+        return
+    except ImportError:
+        pass
+    except Exception:
+        return
+    try:
+        import msvcrt
+        fileobj.seek(0)
+        msvcrt.locking(fileobj.fileno(), msvcrt.LK_UNLCK, 1)
+    except Exception:
+        pass
 
 
 def completion_dir(cwd: Path) -> Path:
@@ -298,19 +381,41 @@ def append_signal(cwd: Path, session_id: str, sig: dict) -> None:
     sig = dict(sig)
     sig["session"] = str(session_id or "unknown")
     p = signals_path(cwd)
-    with p.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(sig, ensure_ascii=False) + "\n")
-    # Amortized bound: keep the ledger from growing without limit. The size gate
-    # keeps this O(1) per append — a full read+rewrite fires only once the file
-    # crosses the soft cap (~every MAX_LEDGER_LINES appends), so read_signals /
-    # the gate never parse an unbounded file. Best-effort: any error is swallowed.
+    # v1.75.0 (audit fix #2): append+trim are serialized through a DEDICATED
+    # lock file. Locking the ledger itself would not survive the trim — the
+    # atomic os.replace swaps the inode, and a concurrent writer holding the
+    # old fd would append into the unlinked file (lost lines — exactly the
+    # cross-session race the audit flagged). The lock file is never replaced.
+    # Best-effort: if locking is unavailable, proceed unlocked as before.
+    lock_f = None
     try:
-        if p.stat().st_size > LEDGER_SOFT_BYTES:
-            lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-            if len(lines) > MAX_LEDGER_LINES:
-                p.write_text("\n".join(lines[-MAX_LEDGER_LINES:]) + "\n", encoding="utf-8")
+        lock_f = (completion_dir(cwd) / (SIGNALS_FILE + ".lock")).open("a+", encoding="utf-8")
+        _lock_file(lock_f)
     except Exception:
-        pass
+        lock_f = None
+    try:
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(sig, ensure_ascii=False) + "\n")
+        # Amortized bound: keep the ledger from growing without limit. The size
+        # gate keeps this O(1) per append — a full read+rewrite fires only once
+        # the file crosses the soft cap (~every MAX_LEDGER_LINES appends), so
+        # read_signals / the gate never parse an unbounded file. The rewrite is
+        # atomic (audit fix #1): a crash mid-trim can no longer truncate the
+        # ledger, and a failed trim is logged, not swallowed (audit fix #3).
+        try:
+            if p.stat().st_size > LEDGER_SOFT_BYTES:
+                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+                if len(lines) > MAX_LEDGER_LINES:
+                    atomic_write_text(p, "\n".join(lines[-MAX_LEDGER_LINES:]) + "\n")
+        except Exception as exc:
+            log_persist_error(cwd, "append_signal.trim", exc)
+    finally:
+        if lock_f is not None:
+            try:
+                _unlock_file(lock_f)
+                lock_f.close()
+            except Exception:
+                pass
 
 
 def read_signals(cwd: Path, session_id: str | None) -> list:
@@ -549,9 +654,11 @@ def compute_verdict(cwd: Path, signals: list) -> dict:
 
 
 def write_verdict(cwd: Path, verdict: dict) -> None:
+    # v1.75.0 (audit fixes #1+#3): atomic replace — the gate can never read a
+    # half-written verdict; a failed persist is logged, not swallowed.
     try:
-        verdict_path(cwd).write_text(
-            json.dumps(verdict, ensure_ascii=False, indent=2), encoding="utf-8"
+        atomic_write_text(
+            verdict_path(cwd), json.dumps(verdict, ensure_ascii=False, indent=2)
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        log_persist_error(cwd, "write_verdict", exc)
