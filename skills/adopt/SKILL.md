@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.23.0
+  version: 1.24.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -92,6 +92,7 @@ Before writing anything:
      - .itd/ + .itd-memory/:   [scaffold (recommended) | skip (already present)] — опционально, скажи «без .itd» чтобы пропустить
      - example test:           [create + run (recommended — тестов не найдено) | skip (тесты уже есть)] — «без example test» чтобы пропустить
      - runnability check:      [run init validator (recommended) | skip] — «без проверки запускаемости» чтобы пропустить
+     - CLAUDE.md router split: [propose (recommended — файл N строк > 300) | skip (файл компактен / уже роутер)] — «без сплита» чтобы пропустить
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
      - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
@@ -204,6 +205,32 @@ Closes init-audit gap #1: `/adopt` only detected the stack by manifests and neve
 3. **Advisory for brownfield** — a red result does NOT roll back the adoption. Report the WHY+FIX mark verbatim; a legacy project that cannot bootstrap from a clean clone is exactly what the user needs to see on day one (the validator keeps the failed clone for inspection). Record PASS/FAIL in the sentinel `/session-save`.
 4. Skip silently when the project has no commits yet (validator prints SKIP) or when secrets/external services make an isolated bootstrap impossible — say so explicitly instead of faking green.
 
+### Step 3.8: CLAUDE.md router split — «принцип чемодана» для проектного entry-файла (optional, recommended; v1.24.0)
+
+Закрывает главный гэп аудита «чемодана» 2026-07-10: методология держала СВОЙ
+entry-файл коротким и роутинговым, но не экспортировала принцип на проектные
+`CLAUDE.md` — а именно там живёт основной вес контекста (реальный кейс: проект
+с ~1500-строчным `CLAUDE.md`, грузящимся целиком каждый ход). Предлагается в
+плане Step 0.7; пропускается, если пользователь сказал «без сплита».
+
+1. **Замер**: `wc -l CLAUDE.md`. ≤ 300 строк ИЛИ маркер `<!-- itd:claude-router -->`
+   уже присутствует → skip (report «CLAUDE.md компактен / уже роутер»).
+   Порог согласован с `/review` Step 0 (> ~12 KB = fork-thrash зона).
+2. **Предложение**: прочитай `references/claude-md-router.md` (целевая
+   структура, правила нарезки, шаблон entry-роутера) и составь план сплита:
+   что остаётся в entry (обзор, quick start, ≤15 жёстких ограничений, индекс
+   тем со строками-условиями применимости), какие секции уходят в какие
+   `docs/claude/*.md`, что предлагается удалить (устаревшее / дублирующее код).
+3. **Явное подтверждение обязательно** — это единственный шаг `/adopt`,
+   который РЕОРГАНИЗУЕТ пользовательский контент, а не только дописывает.
+   Контент переносится дословно; удаления — отдельным видимым списком;
+   без подтверждения — ничего не трогать (только план).
+4. **Идемпотентность**: маркер `<!-- itd:claude-router -->` в entry делает
+   повторные прогоны no-op.
+
+Для уже-адоптированных проектов шаг доступен через идемпотентный re-run
+`/adopt` (всё остальное будет skip, сплит — предложен).
+
 ### Step 4: Report to user
 
 Summarize, with exact absolute paths:
@@ -215,6 +242,7 @@ Adoption complete. Wrote / updated:
   - <ABS>/.itd/ + .itd-memory/STATE.json     (scaffolded | skipped — declined | skipped — already present)
   - <ABS>/tests/<example test>               (created + run: PASS/FAIL | skipped — tests exist | skipped — declined | skipped — no built-in runner)
   - runnability check (init validator)       (PASS | FAIL: <why> | skipped — declined | skipped — no commits)
+  - CLAUDE.md router split                   (done: entry N строк + M topic-доков | proposed, waiting approval | skipped — compact | skipped — declined)
   - <MEMORY>/MEMORY.md                       (indexed)
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
@@ -291,7 +319,7 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 - **Does NOT** modify `~/.claude/settings.json` (user-level). Other projects on the same machine stay untouched.
 - **Does NOT** modify project source code. Zero edits in `src/`, `app/`, `lib/`. No new dependencies installed. The single carve-out is the **opt-in** Step 3.6 example test — one new file in the tests dir, on a built-in zero-dependency runner only; if creating it would require installing anything, it is skipped.
 - **Does NOT** perform `git commit` or any git write operation. The user decides when and how to commit the new `CLAUDE.md` and `.claude/settings.json`.
-- **Does NOT** rewrite an existing `CLAUDE.md` that already contains the idea-to-deploy block. Use idempotent append-with-marker pattern only.
+- **Does NOT** rewrite an existing `CLAUDE.md` that already contains the idea-to-deploy block. Use idempotent append-with-marker pattern only. The single carve-out is the **opt-in** Step 3.8 router split — it reorganizes the file into entry + `docs/claude/*.md` ONLY after the user approves the shown plan (content moved verbatim, deletions listed explicitly).
 
 ## Rules
 
@@ -314,6 +342,7 @@ Before reporting adoption as complete, verify:
 - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
 - [ ] Example test created **and actually run** with real output shown (or skip reason recorded: tests exist / declined / no built-in runner) — a red run is reported, never hidden
 - [ ] Runnability check ran via `itd_init_validate.py` with its PASS/FAIL recorded in the sentinel session-save (or skip reason recorded: declined / no commits / isolated bootstrap impossible)
+- [ ] CLAUDE.md weight measured; router split done/proposed for a >300-line file (or skip reason: compact / already router / declined). A completed split moved content verbatim, listed deletions explicitly, left the `<!-- itd:claude-router -->` marker, and got explicit user approval BEFORE any write
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
@@ -390,7 +419,11 @@ If `~/.claude/plugins/idea-to-deploy/hooks/` does not exist AND `$CLAUDE_PLUGIN_
 
 ### CLAUDE.md is very large (> 20 KB)
 
-Append still works — the marker block is ~60 lines, cost is negligible. If the user prefers, they can move the marker block into a separate file (`docs/claude-methodology.md`) and link from CLAUDE.md; that is a manual refactor, not in `/adopt` scope.
+Append still works — the marker block is ~60 lines, cost is negligible. But a
+file that size is itself the problem: the whole thing enters context on every
+turn. Offer **Step 3.8 (router split)** — entry ≤200 строк + тематические
+`docs/claude/*.md` по условию применимости (см. `references/claude-md-router.md`).
+The split runs only with the user's explicit approval of the shown plan.
 
 ### Hooks in .claude/settings.json don't fire
 

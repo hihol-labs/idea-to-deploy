@@ -110,6 +110,11 @@ tech stack, deploy target, conventions, non-obvious constraints, runbook URLs,
 important contacts. Everything above this section is methodology-canonical and
 updated by future `/adopt` re-runs; everything below is yours to edit freely.
 
+> Держи весь `CLAUDE.md` в пределах ~200 строк: это entry-роутер, он грузится в
+> контекст каждый ход. Тематические подробности — в `docs/claude/*.md` + строка
+> в индексе «когда читать» (сплит предлагает `/adopt` Step 3.8). Историю
+> изменений — в отдельный changelog-файл, который в контекст не грузится.
+
 <!-- idea-to-deploy:end -->
 
 ## Skill decision (visible line + trigger map)
