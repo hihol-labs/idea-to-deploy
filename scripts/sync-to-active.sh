@@ -12,11 +12,11 @@
 #
 # Windows target (v1.38.0) — sync a Windows ~/.claude from WSL, emitting
 # python.exe hook invocations instead of bare shebang paths:
-#   ITD_TARGET_OS=windows \
-#   ITD_WIN_PYTHON="C:/Users/<you>/AppData/Local/Programs/Python/Python312/python.exe" \
-#   CLAUDE_HOME=/mnt/c/Users/<you>/.claude \
-#   bash scripts/sync-to-active.sh
-# (Auto-detected as windows when run from Git-Bash/MSYS/Cygwin.)
+#   CLAUDE_HOME=/mnt/c/Users/<you>/.claude bash scripts/sync-to-active.sh
+# (v1.73.1: the Windows target is auto-detected from the CLAUDE_HOME path —
+# /mnt/<drive>/ or <drive>:/ — and from a Git-Bash/MSYS/Cygwin host; the
+# interpreter is harvested from an existing wrapper registration in the target
+# settings.json. ITD_TARGET_OS / ITD_WIN_PYTHON remain as explicit overrides.)
 #
 # What it syncs:
 #   1. skills/*              → ~/.claude/skills/
@@ -61,12 +61,24 @@ done
 
 # Target OS (v1.38.0). On a Windows target, .sh hooks cannot run via a shebang —
 # Claude Code must invoke them through python.exe. Auto-detect a Git-Bash/MSYS/
-# Cygwin host; for the WSL → /mnt/c case set ITD_TARGET_OS=windows explicitly.
+# Cygwin host; ITD_TARGET_OS env still overrides everything.
 ITD_TARGET_OS="${ITD_TARGET_OS:-}"
 if [ -z "$ITD_TARGET_OS" ]; then
   case "$(uname -s 2>/dev/null)" in
     MINGW*|MSYS*|CYGWIN*) ITD_TARGET_OS=windows ;;
     *) ITD_TARGET_OS=unix ;;
+  esac
+  # v1.73.1: target OS is a property of the TARGET path, not of the host.
+  # WSL→/mnt/c (or a raw C:/ path) means the deployed ~/.claude lives on
+  # Windows, where .sh hooks have no shebang execution. Root cause 2026-07-10:
+  # sync from WSL with CLAUDE_HOME=/mnt/c/... auto-detected 'unix' and wrote
+  # bare POSIX hook commands into the Windows settings.json — Git-Bash then
+  # executed python-bodied hooks as shell (syntax error → exit 2), and a
+  # '*'-matcher PreToolUse hook DENIED every tool call until manual restore
+  # from the .bak. Detect by path so the operator no longer has to remember
+  # the env var from the header comment.
+  case "${CLAUDE_HOME:-}" in
+    /mnt/[a-zA-Z]/*|[A-Za-z]:*) ITD_TARGET_OS=windows ;;
   esac
 fi
 
@@ -429,9 +441,24 @@ JSON
 # discovered on PATH (Git-Bash host).
 if [ "$ITD_TARGET_OS" = "windows" ]; then
   WIN_PY="${ITD_WIN_PYTHON:-}"
+  # v1.73.1: harvest the interpreter from an EXISTING wrapper registration in
+  # the target settings.json before PATH discovery. On a WSL host `command -v
+  # python` finds the LINUX interpreter — a wrapper built from it is broken on
+  # Windows; the .exe path already recorded in settings.json is the one
+  # interpreter known to work on that machine.
+  if [ -z "$WIN_PY" ] && [ -f "$SETTINGS" ]; then
+    # JSON escapes the wrapper's inner quotes (\"C:/...python.exe\"), so match
+    # the bare path, not surrounding quotes; `|| true` — no match must not
+    # trip set -e.
+    WIN_PY="$(grep -o '[A-Za-z]:/[^"\\ ]*python[^"\\ ]*\.exe' "$SETTINGS" 2>/dev/null | head -1 || true)"
+    [ -n "$WIN_PY" ] && warn "ITD_WIN_PYTHON unset — interpreter harvested from existing settings.json: $WIN_PY"
+  fi
   if [ -z "$WIN_PY" ]; then
     _p="$(command -v python 2>/dev/null || command -v py 2>/dev/null || true)"
     [ -n "$_p" ] && WIN_PY="$(cygpath -m "$_p" 2>/dev/null || echo "$_p")"
+    case "$WIN_PY" in
+      /usr/*|/bin/*|/opt/*) warn "PATH python ($WIN_PY) is a Linux interpreter — useless in a Windows wrapper; set ITD_WIN_PYTHON"; WIN_PY="" ;;
+    esac
   fi
   [ -z "$WIN_PY" ] && { WIN_PY="python"; warn "ITD_WIN_PYTHON unset and python not found — using bare 'python'"; }
   EFFECTIVE_HOOKS="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_WIN_PY="$WIN_PY" ITD_ACTIVE="$ACTIVE" "$PYBIN" - <<'PYX'
@@ -478,6 +505,16 @@ print(json.dumps(json.load(sys.stdin), sort_keys=True))
 
 if [ "$current_hooks" = "$desired_normalized" ]; then
   ok "settings.json hooks already up-to-date"
+# v1.73.1 fail-closed guard: never downgrade an existing Windows python-wrapper
+# registration to bare .sh commands. A bare-.sh registration on Windows makes
+# Git-Bash execute python-bodied hooks as shell → exit 2 → the '*'-matcher
+# PreToolUse hook denies EVERY tool call (live incident 2026-07-10). If the
+# target settings.json shows wrapper form but the target OS resolved non-
+# windows, the resolution is wrong — refuse and tell the operator, keep the
+# working registration untouched.
+elif [ "$ITD_TARGET_OS" != "windows" ] && printf '%s' "$current_hooks" | grep -qi '[A-Za-z]:/[^"]*python[^"]*\.exe'; then
+  err "settings.json registers hooks via a Windows python wrapper, but target OS resolved '$ITD_TARGET_OS'."
+  err "REFUSING to overwrite (would brick every tool call). Re-run with ITD_TARGET_OS=windows (+ ITD_WIN_PYTHON), or fix CLAUDE_HOME."
 else
   if [ "$DRY_RUN" = "1" ]; then
     warn "settings.json hooks would be updated (drift detected)"
