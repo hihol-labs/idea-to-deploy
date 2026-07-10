@@ -388,6 +388,39 @@ def main() -> int:
     check("locator resolves real munged layout (underscore path) -> gate denies",
           res.returncode == 2 and "deny" in (res.stdout or ""))
 
+    # v1.78.0: Bash pre-write gate — ledger as WRITE TARGET is denied,
+    # mere co-occurrence is not (soft revalidation still covers it).
+    (memdir2 / ".active-session.lock").write_text(json.dumps(
+        {"timestamp": time.time(), "session": "other-owner", "pid": 1,
+         "branch": "b", "project": str(gate_proj), "note": "n"}), encoding="utf-8")
+    bsid = f"bashgate-{os.getpid()}"
+    bpay = {"hook_event_name": "PreToolUse", "session_id": bsid,
+            "cwd": str(gate_proj), "tool_name": "Bash",
+            "tool_input": {"command": 'echo "{}" > .itd-memory/STATE.json'}}
+    res = run_gate(bpay)
+    check("Bash redirect INTO ledger is denied pre-write (exit 2)",
+          res.returncode == 2 and "deny" in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "sed -i s/a/b/ .itd-memory/GOAL.json"
+    bpay["session_id"] = f"bashgate2-{os.getpid()}"
+    res = run_gate(bpay)
+    check("sed -i on ledger is denied pre-write", res.returncode == 2)
+    bpay["tool_input"]["command"] = "git diff .itd-memory/STATE.json > out.txt"
+    res = run_gate(bpay)
+    check("co-occurrence (redirect NOT into ledger) is not gated",
+          res.returncode == 0 and "deny" not in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "cat .itd-memory/STATE.json | jq .nextAction"
+    res = run_gate(bpay)
+    check("read-only pipe over ledger is not gated", res.returncode == 0)
+    # review v1.78.0 (important): ledger as mv/cp SOURCE is a read — not gated
+    bpay["tool_input"]["command"] = "cp .itd-memory/STATE.json backup.json"
+    res = run_gate(bpay)
+    check("cp with ledger as SOURCE (backup) is not gated",
+          res.returncode == 0 and "deny" not in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "mv new-state.json .itd-memory/STATE.json"
+    bpay["session_id"] = f"bashgate3-{os.getpid()}"
+    res = run_gate(bpay)
+    check("mv INTO ledger (destination) is denied pre-write", res.returncode == 2)
+
     # stale foreign owned lock -> allow (through the real gate subprocess)
     (memdir2 / ".active-session.lock").write_text(json.dumps(
         {"timestamp": time.time() - 3600, "session": "other-owner", "pid": 1,

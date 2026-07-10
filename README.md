@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.77.0](https://img.shields.io/badge/Version-1.77.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.78.0](https://img.shields.io/badge/Version-1.78.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -412,7 +412,7 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 | 7 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
 | 8 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
 | 9 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
-| 10 | `state-guard.sh` | PreToolUse · Write/Edit | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
+| 10 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
 
 **Soft (18):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 

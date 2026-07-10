@@ -335,7 +335,10 @@ fi
 #     contract: blocks a subagent's stop (≤2 pings) when its final message
 #     declares a review verdict in prose but ships no valid ```json verdict
 #     block; complementary to narration-final on the same event, no loop)
-#   state-guard.sh — три регистрации (v1.76.0):
+#   state-guard.sh — четыре регистрации (v1.78.0):
+#     PreToolUse  matcher=Bash → тот же single-writer гейт для Bash-канала
+#       (deny, когда леджер — ЦЕЛЬ записи: редирект/tee/sed -i/mv/cp/dd of=/
+#       Set-Content; target-anchored, со-вхождение не гейтится)
 #     PreToolUse  matcher=Write|Edit|MultiEdit|NotebookEdit → single-writer
 #       гейт леджера: deny записи .itd-memory/STATE.json|GOAL*.json при
 #       свежем локе ДРУГОЙ сессии (≤2 deny/сессию, потом warn-allow)
@@ -378,7 +381,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/cross-review-precommit.sh",      "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",                  "timeout": 5 }
       ]
     },
     {
