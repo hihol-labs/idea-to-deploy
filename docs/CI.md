@@ -7,8 +7,9 @@ Added in **v1.8.0**. Runs the meta-review rubric on every push to `main` and eve
 The workflow `.github/workflows/meta-review.yml` executes two commands on every push and PR:
 
 ```bash
-python3 tests/meta_review.py --verbose
-python3 tests/verify_triggers.py
+bash tests/run-all.sh            # весь локальный CI-эквивалент (v1.79.0)
+bash tests/run-all.sh --quick    # быстрый статический костяк
+# точечно: python3 tests/meta_review.py --verbose / python3 tests/verify_triggers.py
 ```
 
 Both must exit 0. Any Critical failure (exit 1 from `meta_review.py` or non-zero from `verify_triggers.py`) fails the job, which then blocks the PR from being merged if branch protection is enabled (see below).
@@ -74,8 +75,9 @@ Either path leaves a trace. Neither is silent. This is intentional: emergency ov
 Before pushing or opening a PR:
 
 ```bash
-python3 tests/meta_review.py --verbose
-python3 tests/verify_triggers.py
+bash tests/run-all.sh            # весь локальный CI-эквивалент (v1.79.0)
+bash tests/run-all.sh --quick    # быстрый статический костяк
+# точечно: python3 tests/meta_review.py --verbose / python3 tests/verify_triggers.py
 ```
 
 If both exit 0, your commit will pass CI. If either fails, fix the findings first. The scripts are identical to what CI runs — no environment differences.

@@ -1,5 +1,11 @@
 # ROADMAP v1.21 — Deliberate Pause
 
+> ⚠️ **Исторический документ** (апрель 2026). Пауза давно снята; актуальный
+> прогресс и последние решения — **[CHANGELOG.md](../CHANGELOG.md)** (живёт
+> при каждом релизе). Forward-план ведётся инкрементально там же +
+> `docs/RELEASE_RUNBOOK.md` § «Открытые кандидаты». Roadmap-файлы не
+> обновляются с v1.21 и оставлены как история решений.
+
 > **Status:** 🟡 **DEFERRED — no code release planned for v1.21.**
 > Decision made 2026-04-17 via `/advisor` session (business-analyst +
 > devils-advocate subagents). Methodology is stable at v1.20.2; the

@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.78.1](https://img.shields.io/badge/Version-1.78.1-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.79.0](https://img.shields.io/badge/Version-1.79.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -178,6 +178,8 @@ Claude: Step 1/9 — scaffold project, commit
 ```
 
 **Reference fixtures:** reproducible golden-path scenarios used by the test runner live in [`tests/fixtures/`](tests/fixtures/). Run them with [`tests/run-fixtures.sh`](tests/run-fixtures.sh) to see how each skill behaves on a known input.
+
+**Current progress / verification entry points:** the living progress log is [CHANGELOG.md](CHANGELOG.md) (per-release, includes rationale); `ROADMAP_v*.md` files are historical. To verify the whole system locally run `bash tests/run-all.sh` (mirrors both CI workflows; `--quick` for the static core); the release procedure and its known pitfalls live in [docs/RELEASE_RUNBOOK.md](docs/RELEASE_RUNBOOK.md).
 
 ## Skills
 
