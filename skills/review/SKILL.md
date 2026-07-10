@@ -12,7 +12,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.17.0
+  version: 1.18.0
   category: quality-assurance
   tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---
@@ -43,52 +43,28 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ### Step 0 (pre): Runner selection — avoid fork-thrash on a large CLAUDE.md (v1.24.0)
 
-This skill is declared `context: fork`. A fork inherits a **copy of the current
-conversation**, including the project root `CLAUDE.md`. When that `CLAUDE.md` is
-large (heavily-onboarded repos: rough rule of thumb **> ~12 KB**, or you have
-already seen autocompact churn this session), the fork starts near the context
-limit and **autocompact-thrashes until it dies** before producing a verdict.
-
-**Fallback:** do NOT rely on the fork. Instead run the review by dispatching the
-`code-reviewer` agent via the **Agent tool**, which starts from a fresh, thin
-context instead of a copy of the bloated conversation:
-
-- Call `Agent(subagent_type: "code-reviewer", …)` with a **thin prompt**: state
-  the review target and pass files/dirs **by path** — do NOT paste `CLAUDE.md`
-  or large file bodies into the prompt (the agent reads them itself with
-  Read/Grep).
-- Keep the same Step 0 mode detection below: tell the agent whether this is a
-  methodology self-review or a regular project review (`agents/code-reviewer.md`
-  carries the matching logic).
-- **Pass a report-file path (v1.72.0 — root cause 2026-07-09):** include in the
-  thin prompt a concrete path — предпочтительно ВНЕ git-дерева review-цели
-  (scratchpad/tempdir; `claude-review-<slug>.md`); если внутри дерева —
-  добавь/посоветуй `claude-review-*.md` в `.gitignore` цели и удали файл после
-  принятия вердикта. Требование агенту: писать findings в файл ИНКРЕМЕНТАЛЬНО
-  по ходу ревью (контракт —
-  «Report file» в `agents/code-reviewer.md`). Долгие (9–15 мин) ревью-прогоны
-  трижды за один день были убиты харнесом mid-stream с «no output» — файл на
-  диске делает работу невыгораемой: file = contract, final message = transport.
-  При обрыве/пустом финале: **сначала прочитай report-файл**, потом Step 2.7
-  re-ping, и только затем fresh narrow (helpers §9, finish-line class).
-
-Quick size check before deciding:
+**First thing, before loading any more context**:
 
 ```bash
 wc -c CLAUDE.md 2>/dev/null   # > ~12000 bytes → prefer Agent-tool dispatch over fork
 ```
 
-If `CLAUDE.md` is small / absent, the normal fork path is fine — continue below.
+Small / absent `CLAUDE.md` → the normal fork path is fine, continue below.
+Large → do NOT rely on the fork (it inherits the bloated conversation and
+autocompact-thrashes to death); dispatch the review instead:
 
-**Caveat:** this Step runs *inside* the fork, so by the time you read it the fork
-already exists. Dispatching the Agent is still possible from within a fork, so do
-the size check and switch to Agent-tool dispatch **first thing** — before loading
-any more context — if `CLAUDE.md` is large.
+- `Agent(subagent_type: "code-reviewer", …)` with a **thin prompt**: review
+  target + files/dirs **by path** — never paste `CLAUDE.md` or file bodies
+  (the agent reads them itself).
+- Tell the agent the review mode (methodology self-review vs regular project —
+  Step 0 detection below; `agents/code-reviewer.md` carries matching logic).
+- **Pass a report-file path** (`claude-review-<slug>.md`, предпочтительно вне
+  git-дерева цели) and require INCREMENTAL writes — file = contract, final
+  message = transport. При обрыве/пустом финале: сначала прочитай report-файл,
+  потом Step 2.7 re-ping, затем fresh narrow (helpers §9).
 
-This fork-thrash fallback is one instance of the general **stall-resilience**
-rule: on ANY subagent stall (watchdog timeout, autocompact death, empty return),
-a fresh narrow agent is the **automatic** fallback — not a manual «resume or
-retry?» decision. See `skills/_shared/helpers.md` §9.
+Обоснования (fork-thrash механика, история v1.72.0, детали контракта
+report-файла, stall-resilience) — `references/runner-and-recovery.md` §0.
 
 ### Step 0.4: Resolve the review TARGET path (v1.42.0 — do not silently review cwd)
 
@@ -248,55 +224,30 @@ finding-level refutation (Rule 4).
 
 Every subagent this skill dispatches via the **Agent tool** — the Step 0
 delegation to `code-reviewer`, and each Step 2.6 refuter — is contracted to end
-on a verdict (a `PASSED` / `PASSED_WITH_WARNINGS` / `BLOCKED` marker, or the
-fenced ```json verdict block from Step 3). When the returned final message
-carries **no verdict marker at all**, the subagent stopped mid-work (process
-narration, a dangling «далее проверю…», an autocompact death). The historical
-failure mode was the human pinging «выдай итог одним сообщением» by hand — the
-#1 drag, observed ×4 in a single session. This step makes the recovery
-**mechanical and caller-side**: the conductor issues the re-ping itself, so the
-user never does.
-
-Rule — after each Agent-tool dispatch returns, **before** you use its result:
+on a verdict. Rule — after each dispatch returns, **before** you use its result:
 
 1. **Detect by ABSENCE of the contract marker, not by pattern-matching the
-   prose.** Check whether the returned final message contains a verdict marker
-   (`PASSED` / `PASSED_WITH_WARNINGS` / `BLOCKED` / `FINAL STATUS` / `Verdict` /
-   `Вердикт` / `Итог`, or the ```json verdict block). The ```json verdict block
-   from Step 3 is the **canonical** marker; the bare verdict words are a
-   deliberate tolerance so a subagent that voiced a valid verdict but garbled
-   the JSON fencing still short-circuits the re-ping instead of looping — the
-   JSON-block *completeness* is separately enforced by `verdict-contract.sh`, so
-   this step does not double-gate it. Marker present → accept the result, done. Do **not** try to classify a return by guessing whether the
-   prose "looks like" a narration opener — the only question is «есть ли маркер
-   вердикта». Regex-guessing the opener is the subagent-side hook's job (below),
-   never the caller's decision; widening a narration regex is strictly less
-   reliable than checking for the presence of the required marker.
-2. **Absent → auto-re-ping ONCE, without asking the user.** Continue the same
-   subagent (SendMessage / resume) with the minimal instruction: «Заверши: выдай
-   вердикт одним сообщением — verdict-блок (PASSED / PASSED_WITH_WARNINGS /
-   BLOCKED + findings). Не пересказывай процесс.» This is a reversible, in-scope
-   recovery — proceed automatically (never «Хочешь, я переспрошу?»).
-   **Empty return = the same case (v1.72.0):** a long dispatch that comes back
-   «completed» with an EMPTY final is a harness mislabel of a mid-stream kill —
-   the finish-line interruption class (helpers §9; root cause 2026-07-09,
-   3/3 recovered by this very re-ping). Before pinging, read the report file
-   you passed in the dispatch prompt — a complete file on disk IS the result,
-   no ping needed.
-3. **Bounded.** At most `ITD_AUTOPING_MAX` (default 2) re-pings per subagent; if
-   still no verdict, escalate to the user with what the subagent DID return — a
-   genuinely stuck subagent becomes a visible blocker, not a silent green.
+   prose.** Marker = the ```json verdict block from Step 3 (canonical), or the
+   bare verdict words (`PASSED` / `PASSED_WITH_WARNINGS` / `BLOCKED` /
+   `FINAL STATUS` / `Verdict` / `Вердикт` / `Итог`) — deliberate tolerance for
+   garbled JSON fencing. Marker present → accept, done. Never classify by
+   whether prose «looks like» narration — the only question is «есть ли маркер».
+2. **Absent → auto-re-ping ONCE, without asking the user**: continue the same
+   subagent with «Заверши: выдай вердикт одним сообщением — verdict-блок
+   (PASSED / PASSED_WITH_WARNINGS / BLOCKED + findings). Не пересказывай
+   процесс.» **Empty return = the same case (v1.72.0)** — a harness mislabel
+   of a mid-stream kill (finish-line interruption class); but FIRST read the
+   report file you passed in the dispatch prompt: a complete file on disk IS
+   the result, no ping needed.
+3. **Bounded.** At most `ITD_AUTOPING_MAX` (default 2) re-pings per subagent;
+   still no verdict → escalate to the user with what the subagent DID return —
+   a stuck subagent becomes a visible blocker, not a silent green.
 
-**Belt and suspenders.** This caller-side step is the *belt*. The *suspenders*
-are two SubagentStop hooks that catch the same defect at the subagent boundary,
-so it usually never reaches the caller: `hooks/narration-final.sh` blocks a
-subagent stop whose final paragraph is a dangling narration opener with no
-verdict marker (feeding the resume instruction back to the subagent), and
-`hooks/verdict-contract.sh` blocks a prose verdict that ships without the
-machine-readable ```json block. If a harness drops SubagentStop hooks
-(vendor/version switch — harness best-effort invariant), the suspenders silently
-disappear but this documented caller-side belt still recovers the verdict; the
-two layers degrade independently, never to a false green.
+This caller-side step is the *belt*; the *suspenders* are two SubagentStop
+hooks — `hooks/narration-final.sh` and `hooks/verdict-contract.sh` — and the
+two layers degrade independently (best-effort invariant), never to a false
+green. История отказа (×4 ручных пинга за сессию), rationale маркер-детекции
+и детали слоёв — `references/runner-and-recovery.md` §2.7.
 
 ### Step 3: Generate report
 
@@ -366,19 +317,8 @@ This is the final step of every `/review` invocation, regardless of status. Writ
 Use the Bash tool:
 
 ```bash
-# Dual-write: literal /tmp AND the platform temp dir. Under Git-Bash /tmp is
-# %TEMP% while a Windows-python gate hook resolves "/tmp" to C:\tmp — writing
-# both keeps the sentinel visible to every reader (v1.42.0 platform symmetry).
-#
-# v1.59.0 diff-binding: the marker content is `tree:<git-write-tree>` — the
-# SHA of the exact staged content this review looked at, NOT a bare timestamp.
-# check-review-before-commit.sh only unblocks a commit whose staged tree hash
-# matches, so a stale review (content edited since) or a foreign-project
-# marker no longer wildcards the gate. `git write-tree` returns a hash for any
-# valid repo (HEAD's tree even when nothing is staged), so the timestamp
-# fallback below fires only when git errors outright (e.g. not a repo); the
-# gate then rejects the bare timestamp and re-requires /review — the safe
-# direction.
+# tree:<git-write-tree> = diff-binding (v1.59.0); dual-write /tmp + tempdir =
+# platform symmetry (v1.42.0). Rationale: references/runner-and-recovery.md §5.
 tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
 mkdir -p /tmp 2>/dev/null || true
 tree="$(git write-tree 2>/dev/null)"
@@ -386,11 +326,8 @@ if [ -n "$tree" ]; then marker="tree:$tree"; else marker="$(date +%s)"; fi
 echo "$marker" | tee "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$marker" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
 ```
 
-Why this lives in the skill and not in the hook:
-- The `Skill` tool is an internal harness construct — it does NOT route through `PreToolUse` hooks in Claude Code runtime, so a hook cannot detect "`/review` was just invoked" from the outside.
-- The skill itself, on the other hand, has a guaranteed execution point: *this* final step.
-
-The marker is session-scoped (keyed on `CLAUDE_SESSION_ID`) and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. Re-running `/review` rewrites the marker, keeping its timestamp fresh.
+Why in the skill, why dual-write, why tree-hash (and the safe-direction
+timestamp fallback) — `references/runner-and-recovery.md` §5.
 
 ## Quality Gate
 

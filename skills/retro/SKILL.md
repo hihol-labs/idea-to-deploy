@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.46.0
+  version: 1.47.0
   category: methodology
   tags: [retro, self-improvement, telemetry, vcr, backlog, evidence]
 ---
@@ -55,6 +55,16 @@ python3 "$RT/itd_retro_scan.py" <workspace-корни из $ARGUMENTS или .>
 цели/давление/блокеры из `GOAL.json`, незакрытые гейты из `STATE.json`,
 SKILL_BYPASS-леджер и cost-леджеры из tempdir. Вставь вывод в отчёт **как
 есть** — факты приходят из харнеса, не из воспоминаний сессии.
+
+Когда среди workspace-корней есть сам репо методологии, скан дополнительно
+сверяет **lifecycle стоячих инструкций** (`docs/instruction-registry.json` ↔
+`docs/templates/global-claude-md.md`, v1.73.0): незарегистрированные секции,
+осиротевшие записи, битые `enforced_by`-пути, просроченные `review_by`.
+Каждая такая строка — готовый PROPOSAL-кандидат Step 2 с внешним сигналом
+«срок истёк / код исчез»: перечитать секцию против текущего кода и **обновить
+или удалить** (инструкции управляются как зависимости — неиспользуемые
+удаляются, а не копятся). Закрывая просрочку, ставь новый `review_by` в
+реестре — не снимай поле.
 
 Дополни скан внешними сигналами, если они есть под рукой (read-only): свежие
 находки code-reviewer по классам, ловли CI (windows-verify), false-positive
