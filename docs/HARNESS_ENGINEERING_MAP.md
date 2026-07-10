@@ -32,7 +32,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.46.0): **40 skills, 10 subagents, 27 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`; с v1.49.0 — SubagentStop-хук `narration-final.sh` (механический детектор нарратив-финала субагентов, ≤2 блок-пинга); с v1.51.0 — SubagentStop-хук `verdict-contract.sh` (вендор-нейтральный контракт вердикта ревью: блок при прозаическом вердикте без валидного JSON-блока, ≤2 пинга).
+Проверка — чтением `main` (v1.46.0): **40 skills, 10 subagents, 28 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`; с v1.49.0 — SubagentStop-хук `narration-final.sh` (механический детектор нарратив-финала субагентов, ≤2 блок-пинга); с v1.51.0 — SubagentStop-хук `verdict-contract.sh` (вендор-нейтральный контракт вердикта ревью: блок при прозаическом вердикте без валидного JSON-блока, ≤2 пинга).
 
 ## 4. Таблица соответствия
 
@@ -40,7 +40,7 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 40 skills + 10 agents + 27 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 40 skills + 10 agents + 28 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
@@ -187,6 +187,7 @@
 | `execution-trace.sh` | PreToolUse | feedback | computational | soft — observability: JSONL-трейс tool-call'ов, zero-context |
 | `stuck-detection.sh` | PostToolUse | feedback | inferential | soft — детект застревания → напоминание сменить подход |
 | `crash-recovery.sh` | PostToolUse | feedback | inferential | soft — recovery-контекст после краша для возобновления |
+| `state-guard.sh` | PostToolUse | feedback | computational | soft — немедленная валидация state-леджеров после записи + heartbeat session-лока (v1.75.0) |
 | `record-agent-skill.sh` | PostToolUse (Task\|Agent) | feedback | computational | soft — пишет skill-sentinel, когда review/test/security делегированы субагенту (чтобы commit-гейты это засчитали) |
 | `risk-score.sh` | PostToolUse | feedback | computational | soft — оценка риск-сигнала действия (не блокирует) |
 | `cross-review-precommit.sh` | PreToolUse (Bash) | feedback | computational | soft (**fail-open**) — диспетчеризует независимый cross-vendor review диффа перед commit; аддитивно к `/review`, не гейт |

@@ -119,9 +119,39 @@ def read_checkpoint(sid: str) -> dict:
 
 
 def write_checkpoint(cp: dict, sid: str) -> None:
+    # v1.75.0 (ACID-audit fixes #1+#3): atomic tmp+os.replace — a session that
+    # dies mid-write can no longer leave a truncated checkpoint (the consumer
+    # in pre-flight would silently skip it); a failed persist is logged to a
+    # bounded error file instead of being swallowed.
+    target = checkpoint_file(sid)
+    tmp = f"{target}.tmp-{os.getpid()}"
     try:
-        with open(checkpoint_file(sid), "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cp, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, target)
+    except Exception as exc:
+        try:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        except Exception:
+            pass
+        _log_persist_error("write_checkpoint", exc)
+
+
+def _log_persist_error(where: str, exc: BaseException) -> None:
+    """Persist failures must be observable (audit fix #3). Best-effort."""
+    try:
+        p = os.path.join(tempfile.gettempdir(), "claude-checkpoint-errors.log")
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {where}: "
+                    f"{type(exc).__name__}: {exc}\n")
+        if os.path.getsize(p) > 64 * 1024:
+            with open(p, encoding="utf-8", errors="replace") as f:
+                tail = f.read()[-32 * 1024:]
+            tmp = f"{p}.tmp-{os.getpid()}"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(tail)
+            os.replace(tmp, p)
     except Exception:
         pass
 

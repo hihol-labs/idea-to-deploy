@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.75.0] - 2026-07-10
+
+**ACID-хардeнинг управления состоянием** — по итогам адверсариального
+ACID-аудита (A=4, C=6.5, I=3.5, D=7): пять самых дешёвых фиксов, закрывающих
+все наблюдённые классы инцидентов персиста без покупки полной транзакционности
+(дизайн остаётся single-writer + human-in-loop + дешёвый откат из git).
+
+- **Fix #1 (Atomicity): атомарные записи** — `atomic_write_text` (tmp +
+  `os.replace`) в `hooks/completion_lib.py`; применено к `write_verdict`
+  (раньше голый `write_text` — обрыв mid-write = усечённый вердикт), к триму
+  `signals.jsonl` и к чекпоинту `crash-recovery.sh`. Читатель больше никогда
+  не видит полуфайл.
+- **Fix #2 (Isolation): лок на append+trim леджера** — `append_signal`
+  сериализуется через ВЫДЕЛЕННЫЙ lock-файл `signals.jsonl.lock` (fcntl на
+  POSIX / msvcrt на Windows, best-effort). Лок именно на отдельном файле:
+  атомарный трим подменяет inode леджера, и лок на самом леджере не пережил
+  бы `os.replace` — конкурентный писатель дописывал бы в unlinked-файл
+  (ровно та cross-session гонка потери строк, что нашёл аудит).
+- **Fix #3 (Durability): сбои персиста наблюдаемы** — `log_persist_error`
+  пишет в bounded `.claude/completion/errors.log` (64KB, хвост);
+  `except: pass` в триме/вердикте заменён на логирование; crash-recovery
+  логирует в `<tmp>/claude-checkpoint-errors.log`. Вся recovery-стратегия
+  human-in-loop — невидимый сбой персиста был единственным классом, который
+  человек не мог починить в принципе.
+- **Fix #4 (Consistency+Isolation): новый хук `state-guard.sh`** (PostToolUse
+  на Write|Edit|MultiEdit|NotebookEdit, 28-й хук, soft): (а) правка
+  `.itd-memory/STATE.json`/`GOAL*.json` валидируется НЕМЕДЛЕННО (та же
+  логика, что CLI) — нарушение возвращается красной пометкой
+  FAILED/WHY/FIX через additionalContext; consistency сдвигается из «на
+  старте следующей сессии» в «после каждой мутации»; (б) heartbeat
+  `.active-session.lock` на каждом Write/Edit — лок больше не протухает
+  между `/session-save` (инцидент NeuroExpert 2026-04-11: параллельные
+  сессии не видели друг друга); ЧУЖОЙ свежий лок не перетирается.
+  Отключение: `ITD_STATE_GUARD=0`. Зарегистрирован в `sync-to-active.sh` и
+  в `/adopt`-шаблоне project-settings.
+- **Fix #5 (Consistency): инвариант реконсиляции STATE ↔ events.jsonl** —
+  валидатор проверяет, что хвост STATE не ПРОТИВОРЕЧИТ хвосту журнала:
+  активный unit при уже записанном `verified`-событии = ERROR (fail-closed);
+  отсутствие события (легаси-проекты до конвенции events) = WARNING, не fail.
+  Заявленный «event sourcing» стал проверяемым, а не декларативным.
+- Рефактор: логика валидации вынесена в `hooks/validate_state_core.py`
+  (единый источник для CLI и хука, схемы резолвятся из repo- и
+  install-раскладки с fallback'ом на встроенный список — best-effort
+  invariant); `scripts/validate_state.py` — тонкий CLI-враппер, контракт
+  сохранён (ERROR/OK, exit 0/1; новое: строки `WARNING:` без влияния на код
+  выхода).
+- Тесты: `tests/verify_state_hardening.py` (27 проверок, stdlib,
+  кросс-платформенный) в обоих workflow (meta-review + windows-verify);
+  taxonomy обновлена (9 hard / 19 soft = 28), счётчики хуков — во всех
+  доках/манифестах.
+
 ## [1.74.0] - 2026-07-10
 
 **Retro 2026-07-10: best-effort invariant — rationale в topic-док, entry ещё
