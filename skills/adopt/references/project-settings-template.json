@@ -40,6 +40,12 @@
         ]
       },
       {
+        "matcher": "PowerShell",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
+        ]
+      },
+      {
         "matcher": "Bash|WebFetch",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/pii-egress-guard.sh", "timeout": 5 }
@@ -61,6 +67,12 @@
       },
       {
         "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
         ]

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.78.1] - 2026-07-10
+
+**Follow-up'ы фокусной пересдачи оси I** (оба minor-finding'а закрыты):
+
+- **PowerShell-tool = тот же канал мутаций**: state-guard получил отдельные
+  matcher-блоки `PowerShell` на PreToolUse (hard-гейт цели записи, включая
+  `Set-Content`/`Out-File`/`Add-Content`) и PostToolUse (soft-ревалидация) —
+  в `sync-to-active.sh` и `/adopt`-шаблоне; в хуке `SHELL_TOOLS = {Bash,
+  PowerShell}`. До этого Windows-инсталл с PowerShell-tool не гейтился вовсе.
+- **Интерпретаторные записи** (`python -c` / `py -c` / `node -e`) добавлены в
+  soft-детект `BASH_MUTATION_RE` — co-occurrence с путём леджера уже
+  требуется, цена FP ~0 (молчит на валидном леджере). Hard-гейт для них
+  сознательно не строится (парсить код интерпретатора — вне best-effort).
+- Тесты: +4 проверки (PowerShell deny/read-allow; python -c детект /
+  python без -c молчит) — verify_state_hardening 56/56.
+
 ## [1.78.0] - 2026-07-10
 
 **Bash-канал гейтится pre-write — Isolation до 9** (important-finding финальной

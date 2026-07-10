@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-state-guard (v1.78.0) — страж state-леджеров `.itd-memory/`.
+state-guard (v1.78.1) — страж state-леджеров `.itd-memory/`.
 
-Регистрируется на ЧЕТЫРЕ регистрации (одно тело, ветвление по hook_event_name/tool):
+ШЕСТЬ регистраций (одно тело, ветвление по hook_event_name/tool; PowerShell —
+отдельные matcher-блоки в sync-to-active/adopt-шаблоне):
 
 1. **PreToolUse Write|Edit|MultiEdit|NotebookEdit — гейт единственного писателя
    (v1.76.0, HARD).** Если правится леджер (`.itd-memory/STATE.json` /
@@ -22,12 +23,13 @@ state-guard (v1.78.0) — страж state-леджеров `.itd-memory/`.
    (б) heartbeat `.active-session.lock` — лок не протухает между
    /session-save; ЧУЖОЙ свежий лок не перетирается.
 
-3. **PostToolUse Bash (v1.76.0, soft).** Мутация леджера в обход Write/Edit
+3. **PostToolUse Bash|PowerShell (v1.76.0, soft; v1.78.1 + PowerShell-tool
+   и интерпретаторные записи python -c/py -c/node -e).** Мутация леджера в обход Write/Edit
    (редиректы `>`, `sed -i`, `tee`, `jq`, `mv/cp`, PowerShell Set-Content …)
    детектится по команде → леджеры проекта перевалидируются, нарушение —
    та же красная пометка. Закрывает Bash-bypass из ACID-аудита.
 
-4. **PreToolUse Bash (v1.78.0, HARD).** Тот же single-writer гейт, что и в
+4. **PreToolUse Bash|PowerShell (v1.78.0, HARD; v1.78.1 + PowerShell-tool).** Тот же single-writer гейт, что и в
    п.1, для Bash-канала: команда, где леджер — ЦЕЛЬ записи (target-anchored:
    редирект/`tee`/`sed -i`/`mv`/`cp`/`truncate`/`dd of=`/`Set-Content` прямо
    в `.itd-memory/STATE.json|GOAL*.json`), при чужом свежем owned-локе
@@ -58,6 +60,7 @@ LOCK_FRESH_SECONDS = 600      # тот же порог, что у pre-flight-che
 HEARTBEAT_MIN_INTERVAL = 60   # не переписывать свой лок чаще раза в минуту
 MAX_DENIES = 2                # PreToolUse-гейт: не больше 2 отказов на сессию
 GUARD_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+SHELL_TOOLS = {"Bash", "PowerShell"}  # v1.78.1: PowerShell-tool = тот же канал мутаций
 
 # Bash-мутация леджера: путь на .itd-memory-леджер + пишущий токен.
 # Широкое СО-ВХОЖДЕНИЕ — только для SOFT-ревалидации после Bash (цена FP ~0:
@@ -65,7 +68,10 @@ GUARD_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 LEDGER_PATH_RE = re.compile(r"\.itd-memory[/\\]+(STATE\.json|GOAL[\w.-]*\.json)")
 BASH_MUTATION_RE = re.compile(
     r"(>>?|\btee\b|\bsed\s+(-[a-zA-Z]*\s+)*-i\b|\bmv\b|\bcp\b|\bjq\b|"
-    r"\btruncate\b|\bdd\b|Set-Content|Out-File|Add-Content)")
+    r"\btruncate\b|\bdd\b|Set-Content|Out-File|Add-Content|"
+    # v1.78.1: интерпретаторные записи (python -c / py -c / node -e) — soft-
+    # детект; co-occurrence с путём леджера уже требуется, цена FP ~0
+    r"\bpython[\w.]*\s[^|;&\n]*-c\b|\bpy\s[^|;&\n]*-c\b|\bnode\s[^|;&\n]*-e\b)")
 
 # v1.78.0 — pre-write HARD-гейт для Bash-канала: леджер должен быть ЦЕЛЬЮ
 # записи, а не просто упомянут (иначе `git diff .itd-memory/STATE.json >
@@ -350,7 +356,7 @@ def main() -> int:
     file_path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
 
     if event.lower() == "pretooluse":
-        if tool == "Bash":
+        if tool in SHELL_TOOLS:
             # v1.78.0: Bash-канал гейтится PRE-write — тем же решением
             # (чужой свежий owned-лок, общий deny-бюджет), но только когда
             # леджер — ЦЕЛЬ записи (target-anchored regex, не со-вхождение).
@@ -372,7 +378,7 @@ def main() -> int:
         return emit("PreToolUse", reason if action == "warn" else None)
 
     # --- PostToolUse ---
-    if tool == "Bash":
+    if tool in SHELL_TOOLS:
         command = str(tool_input.get("command") or "")
         return emit("PostToolUse", bash_ledger_context(cwd, command))
 
