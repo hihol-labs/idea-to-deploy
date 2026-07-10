@@ -335,7 +335,8 @@ fi
 #     contract: blocks a subagent's stop (≤2 pings) when its final message
 #     declares a review verdict in prose but ships no valid ```json verdict
 #     block; complementary to narration-final on the same event, no loop)
-#   state-guard.sh — четыре регистрации (v1.78.0):
+#   state-guard.sh — шесть регистраций (v1.78.1: + PreToolUse/PostToolUse PowerShell —
+#     тот же канал мутаций на Windows-инсталле):
 #     PreToolUse  matcher=Bash → тот же single-writer гейт для Bash-канала
 #       (deny, когда леджер — ЦЕЛЬ записи: редирект/tee/sed -i/mv/cp/dd of=/
 #       Set-Content; target-anchored, со-вхождение не гейтится)
@@ -395,6 +396,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
       ]
     },
     {
+      "matcher": "PowerShell",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh", "timeout": 5 }
+      ]
+    },
+    {
       "matcher": "Bash|WebFetch",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/pii-egress-guard.sh", "timeout": 5 }
@@ -428,6 +435,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/state-guard.sh",        "timeout": 5 }
+      ]
+    },
+    {
+      "matcher": "PowerShell",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh", "timeout": 5 }
       ]
     }
   ],

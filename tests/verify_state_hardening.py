@@ -421,6 +421,35 @@ def main() -> int:
     res = run_gate(bpay)
     check("mv INTO ledger (destination) is denied pre-write", res.returncode == 2)
 
+    # v1.78.1: PowerShell tool is the same mutation channel
+    bpay["tool_name"] = "PowerShell"
+    bpay["session_id"] = f"psgate-{os.getpid()}"
+    bpay["tool_input"]["command"] = 'Set-Content .itd-memory/STATE.json "x"'
+    res = run_gate(bpay)
+    check("PowerShell Set-Content into ledger is denied pre-write",
+          res.returncode == 2 and "deny" in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "Get-Content .itd-memory/STATE.json"
+    res = run_gate(bpay)
+    check("PowerShell read of ledger is not gated", res.returncode == 0)
+    bpay["tool_name"] = "Bash"
+
+    # v1.78.1: interpreter writes are caught by the SOFT leg (PostToolUse)
+    ipay = {"hook_event_name": "PostToolUse", "session_id": "interp-t",
+            "cwd": str(mem.parent), "tool_name": "Bash",
+            "tool_input": {"command":
+                "python -c \"open('.itd-memory/STATE.json','w').write('{}')\""}}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("python -c write near ledger triggers soft re-validation",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+    ipay["tool_input"]["command"] = "python -m json.tool .itd-memory/STATE.json"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("python without -c/-e near ledger stays silent",
+          res.returncode == 0 and "FAILED" not in (res.stdout or ""))
+
     # stale foreign owned lock -> allow (through the real gate subprocess)
     (memdir2 / ".active-session.lock").write_text(json.dumps(
         {"timestamp": time.time() - 3600, "session": "other-owner", "pid": 1,
