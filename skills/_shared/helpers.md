@@ -213,6 +213,9 @@ Two companion rules:
   value, not a user-facing chat: outcome first, evidence attached,
   «Не успел проверить: …» tail when applicable (pairs with
   `hooks/narration-final.sh`).
+- **Declared-source contract.** Передаёшь источник по пути (файл инструкций,
+  данных, чек-лист) — см. §11: пометь его обязательность и продиктуй
+  READ_FAILED-отказ; молчаливая подмена источника недопустима.
 - **Re-verify after BLOCKED with a FRESH narrow agent, not a resume (v1.53.0,
   retro 2026-07-05, P4).** When a review returns BLOCKED and you fix the
   findings, confirm the fix by dispatching a NEW subagent scoped to just the
@@ -307,3 +310,30 @@ user's UI so it is visible now, it does not REPLACE the durable record.
   rejected (red-team, egress/durability) — this is the narrower *complement* use,
   the kind of safe adoption the /retro abstention re-review (`itd_ledger_abstentions.py`)
   is meant to surface.
+
+## 11. Declared-source read contract — no silent continuation (v1.77.0 — retro 2026-07-10 №2)
+
+> Замер lost-in-the-middle 2026-07-10: 6 из 21 субагентов, не сумев прочитать
+> ЗАЯВЛЕННЫЙ файл инструкций (флаки-путь), молча выполнили задачу из ДРУГИХ
+> источников (контекст проекта) — без критического правила и без единого слова
+> о подмене. Недоступный источник = тихая потеря правил; молчание неотличимо
+> от успеха. Контракт двусторонний:
+
+**Subagent side.** Если промпт называет файл/путь ЕДИНСТВЕННЫМ или обязательным
+источником (инструкций, данных, чек-листа), а прочитать его не удалось после
+разумных попыток (ретрай Read, Glob по имени рядом):
+
+- НЕ выполняй задачу из других источников и НЕ выдумывай содержимое;
+- финальное сообщение начинается строкой `READ_FAILED: <путь>` + одна строка
+  «что пробовал»; дальше — только то, что диспетчер явно разрешил как fallback.
+
+**Dispatcher side (дополняет §8).** Называя источник в thin-prompt:
+
+- пометь обязательность («твой ЕДИНСТВЕННЫЙ источник — файл X»);
+- продиктуй отказ дословно: «файл не читается → ответь ровно READ_FAILED»;
+- получив `READ_FAILED` — почини доступ и перезапусти (в замере виновником был
+  UNC-путь `\\wsl.localhost` под конкуренцией; лечение — локальная копия файла);
+  ответ, собранный из незаявленных источников, не принимается как результат.
+
+Evidence: в том же замере добавление отказ-инструкции в промпт дало 6/6
+корректных прогонов (0 тихих подмен против 6/21 без неё).
