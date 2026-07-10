@@ -35,8 +35,8 @@
       "match": "Harness-native features",
       "since": "v1.50.0",
       "enforced_by": ["hooks/pii-egress-guard.sh"],
-      "review_by": "2026-10-10",
-      "notes": "egress-guard в коде; сам best-effort invariant — prose-контракт поверх всех хуков"
+      "review_by": "2027-01-10",
+      "notes": "пересмотрено retro 2026-07-10 (v1.74.0): rationale вынесен в docs/harness-best-effort.md, в entry — только поведенческие правила"
     },
     {
       "match": "Определение завершения",

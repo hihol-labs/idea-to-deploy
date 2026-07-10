@@ -38,25 +38,23 @@ coding from scratch:
    skipped, say that; when something is done and verified, state it plainly
    without hedging. (Vendor-canonical snippet, Fable 5 era — v1.50.0.)
 
-## Harness-native features — best-effort invariant (v1.50.0)
+## Harness-native features — best-effort invariant (v1.50.0 · enforced-by: hooks/pii-egress-guard.sh)
 
-The CLI harness (Claude Code / codex / gemini) ships vendor-specific tools
-(typed tool-calls, chips, artifacts, background agents, transcript search).
-Standing rule for ALL of them:
+The harness ships vendor-specific tools (typed tool-calls, chips, artifacts,
+background agents, transcript search). Standing rule for ALL of them:
 
-- **Best-effort layer only.** A harness-native feature may TRANSPORT a
-  methodology contract, never BE the contract. No gate, no `verified`
-  transition, no handoff may depend on the presence of a specific tool-call —
-  the contract stays vendor-neutral (text/JSON in the transcript, files in the
-  repo), so it survives a vendor or version switch. A harness feature silently
-  disappearing must degrade to the neutral path, not to a false "all green".
-- **Egress + mutation guard.** Anything that leaves the machine (web publish,
-  artifact upload, transcript mining to an external model) goes through the
-  cross-review-grade secret scrubber AND explicit human confirmation. Anything
-  that mutates durable state (prod data, `MEMORY.md`, ledgers) from a harness
-  feature follows the data-sensitive gate: read-only diff → human approve →
-  apply. Background/scheduled harness agents are read-only reporters; they
-  never commit, push, or edit files unattended.
+- A harness feature may TRANSPORT a contract, never BE the contract:
+  no gate, no `verified` transition, no handoff may depend on a specific
+  tool-call — the contract stays vendor-neutral (text/JSON in the transcript,
+  files in the repo); a feature silently disappearing degrades to that
+  neutral path, never to a false "all green".
+- Egress (anything leaving the machine) goes through the secret scrubber AND
+  explicit human confirmation; durable-state mutation from a harness feature
+  follows the data-sensitive gate (read-only diff → approve → apply);
+  background/scheduled agents are read-only reporters — never commit, push,
+  or edit unattended.
+
+Расширенный rationale и примеры — topic-док `docs/harness-best-effort.md`.
 
 ## Определение завершения (Completion Gate, v1.51.0 · enforced-by: hooks/completion-{signals,gate,stop}.sh)
 
