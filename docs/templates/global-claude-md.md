@@ -40,17 +40,21 @@ coding from scratch:
 
 ## Harness-native features — best-effort invariant (v1.50.0 · enforced-by: hooks/pii-egress-guard.sh)
 
-- A harness-native feature may TRANSPORT a methodology contract, never BE the
-  contract; a feature silently disappearing degrades to the vendor-neutral
-  path (text/JSON in the transcript, files in the repo), never to a false
-  "all green".
-- Egress (anything leaving the machine) → secret scrubber + explicit human
-  confirmation; durable-state mutation from a harness feature → data-sensitive
-  gate (read-only diff → approve → apply); background/scheduled agents are
-  read-only reporters — never commit, push, or edit unattended.
+The harness ships vendor-specific tools (typed tool-calls, chips, artifacts,
+background agents, transcript search). Standing rule for ALL of them:
 
-Полный контракт и rationale — topic-док `docs/harness-best-effort.md` в репо
-методологии (читать при адопции новых харнесс-фич, не держать в контексте).
+- A harness feature may TRANSPORT a contract, never BE the contract:
+  no gate, no `verified` transition, no handoff may depend on a specific
+  tool-call — the contract stays vendor-neutral (text/JSON in the transcript,
+  files in the repo); a feature silently disappearing degrades to that
+  neutral path, never to a false "all green".
+- Egress (anything leaving the machine) goes through the secret scrubber AND
+  explicit human confirmation; durable-state mutation from a harness feature
+  follows the data-sensitive gate (read-only diff → approve → apply);
+  background/scheduled agents are read-only reporters — never commit, push,
+  or edit unattended.
+
+Расширенный rationale и примеры — topic-док `docs/harness-best-effort.md`.
 
 ## Определение завершения (Completion Gate, v1.51.0 · enforced-by: hooks/completion-{signals,gate,stop}.sh)
 

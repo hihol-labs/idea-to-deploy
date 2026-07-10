@@ -16,10 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 файле) зафиксировал правило «поведенчески-критичное остаётся в entry»).
 
 - Секция «Harness-native features» в `docs/templates/global-claude-md.md`
-  сжата 19→13 строк: в entry остались ОБА поведенческих правила
-  (transport-not-contract + деградация в vendor-neutral path; egress/mutation
-  guard + read-only reporters), rationale и примеры — в новый topic-док
-  `docs/harness-best-effort.md`. Entry-шаблон 150→144 строки.
+  ужата 19→17 строк с указателем на новый topic-док
+  `docs/harness-best-effort.md` (полный контракт + rationale + связи с
+  FEATURE_LEDGER/completion-gate). Сжатие скромнее плана — и это находка
+  ретро: doc-contract тесты (`verify_fable_snippets`,
+  `verify_feature_ledger_completeness`) машинно парсят из секции
+  frontier-перечень фич и контрактные фразы — секция почти целиком
+  поведенческий контракт, а не rationale; шум для не-методологических задач
+  ограничен её плотностью, дальше не сжимается без потери контракта.
+  Entry-шаблон 150→148 строк.
 - Реестр инструкций: запись пересмотрена (notes + свежий `review_by`
   2027-01-10) — первый живой цикл lifecycle-механики v1.73.0.
 - Ретро-отчёт `docs/retros/RETRO-2026-07-10.md` (скан as-is + замеры +
