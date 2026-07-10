@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.76.1] - 2026-07-10
+
+**Hotfix: локатор memory-dir не находил реальную раскладку ~/.claude/projects**
+— live-смоук deny-гейта v1.76.0 на боевом Windows-инсталле показал allow там,
+где должен быть deny. Root cause НЕ в гейте: `find_project_memory_dir`
+(pre-flight-check.sh и его копия в state-guard.sh) строил имя каталога только
+заменой `/`→`-`, а реальный munging Claude Code заменяет КАЖДЫЙ не-alnum
+символ (`C:\Users\Дмитрий\AI\OneOfS_tmp` → `C--Users---------AI-OneOfS-tmp`;
+подчёркивания и не-ASCII включительно, на Windows без ведущего дефиса). На
+таких путях молча превращались в no-op: memory-index и parallel-session
+warning pre-flight (баг ПРЕ-существующий, задолго до v1.75), heartbeat лока и
+single-writer гейт state-guard.
+
+- Оба локатора: кандидаты = {настоящий munging, легаси-вариант} + suffix-
+  фолбэк теперь матчит и munged-суффиксы; ведущий дефис больше не обязателен
+  (Windows-имена начинаются с буквы диска).
+- Регресс-тест: гейт доводится до deny через раскладку с underscore-путём и
+  настоящим munging (46-я проверка verify_state_hardening).
+
 ## [1.76.0] - 2026-07-10
 
 **ACID до 9: остаточные капы пересдачи аудита закрыты** — по findings

@@ -18,6 +18,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -367,6 +368,25 @@ def main() -> int:
     gpayload["tool_input"]["file_path"] = str(gate_proj / "src" / "x.py")
     res = run_gate(gpayload)
     check("gate ignores non-ledger writes", res.returncode == 0)
+
+    # v1.76.1: locator resolves the REAL Claude Code munging (every non-alnum
+    # char of the resolved cwd -> '-'; underscores/non-ASCII included). The
+    # pre-v1.76.1 candidate missed such layouts and the gate was a silent
+    # no-op — caught by the live smoke on a real Windows install.
+    uproj = tmp / "und_proj"
+    (uproj / ".itd-memory").mkdir(parents=True)
+    munged_name = re.sub(r"[^A-Za-z0-9]", "-", str(uproj.resolve()))
+    memdir3 = fakehome / ".claude" / "projects" / munged_name / "memory"
+    memdir3.mkdir(parents=True)
+    (memdir3 / ".active-session.lock").write_text(json.dumps(
+        {"timestamp": time.time(), "session": "other-owner", "pid": 1,
+         "branch": "b", "project": str(uproj), "note": "n"}), encoding="utf-8")
+    upayload = {"hook_event_name": "PreToolUse", "session_id": f"und-{os.getpid()}",
+                "cwd": str(uproj), "tool_name": "Write",
+                "tool_input": {"file_path": str(uproj / ".itd-memory" / "STATE.json")}}
+    res = run_gate(upayload)
+    check("locator resolves real munged layout (underscore path) -> gate denies",
+          res.returncode == 2 and "deny" in (res.stdout or ""))
 
     # stale foreign owned lock -> allow (through the real gate subprocess)
     (memdir2 / ".active-session.lock").write_text(json.dumps(

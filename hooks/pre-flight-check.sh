@@ -99,21 +99,28 @@ def find_project_memory_dir(cwd: Path) -> Path | None:
     """Find the Claude project memory dir for the current cwd.
 
     Claude Code stores per-project memory at:
-      ~/.claude/projects/-home-USER-path-to-project/memory/
-    where the dir name is the cwd with `/` replaced by `-` and a leading `-`.
-    We resolve it heuristically.
+      ~/.claude/projects/<munged-cwd>/memory/
+    where <munged-cwd> replaces EVERY non-alphanumeric character of the
+    resolved cwd with `-` (v1.76.1 — verified against a live Windows install:
+    'C:\\Users\\Дмитрий\\AI\\OneOfS_tmp' → 'C--Users---------AI-OneOfS-tmp';
+    underscores and non-ASCII are munged too, and there is NO leading dash on
+    Windows because the drive letter survives). The pre-v1.76.1 candidate
+    (only '/'→'-' + leading dash) silently missed such paths — memory index,
+    parallel-session warning and the state-guard heartbeat/gate were no-ops
+    on them. Kept as a legacy candidate for old layouts.
     """
     home = Path.home()
     projects_root = home / ".claude" / "projects"
     if not projects_root.is_dir():
         return None
 
-    # Compute the expected dir name for cwd
     cwd_resolved = cwd.resolve()
-    expected = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
-    candidate = projects_root / expected / "memory"
-    if candidate.is_dir():
-        return candidate
+    munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
+    legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
+    for name in (munged, legacy):
+        candidate = projects_root / name / "memory"
+        if candidate.is_dir():
+            return candidate
 
     # Fallback: find any project dir whose name ends with the cwd suffix.
     # We cannot reverse-reconstruct the path from the dir name because `-`
@@ -123,16 +130,16 @@ def find_project_memory_dir(cwd: Path) -> Path | None:
     # if the corresponding expected-dir-name exists, with root="" handled.
     parts = cwd_resolved.parts  # ('/', 'home', 'user', 'projects', 'my-app')
     for i in range(1, len(parts)):
-        suffix_parts = parts[i:]
-        suffix = "-".join(suffix_parts)
+        raw = "-".join(parts[i:])
+        suffixes = {raw, re.sub(r"[^A-Za-z0-9]", "-", raw)}
         for entry in projects_root.iterdir():
-            if not entry.is_dir() or not entry.name.startswith("-"):
+            if not entry.is_dir():
                 continue
-            # Dir name ends with our suffix → plausible match
-            if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
-                mem = entry / "memory"
-                if mem.is_dir():
-                    return mem
+            for suffix in suffixes:
+                if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
+                    mem = entry / "memory"
+                    if mem.is_dir():
+                        return mem
     return None
 
 
