@@ -86,27 +86,38 @@ def deny(reason: str) -> int:
 
 def find_project_memory_dir(cwd: Path) -> Path | None:
     """Локатор memory-dir проекта. Копия pre-flight-check.sh
-    find_project_memory_dir (тот же lossy-suffix фолбэк) — хуки самодостаточны
-    by design; при изменении раскладки ~/.claude/projects править ОБА места."""
+    find_project_memory_dir (та же логика) — хуки самодостаточны by design;
+    при изменении раскладки ~/.claude/projects править ОБА места.
+
+    v1.76.1: реальный munging Claude Code — КАЖДЫЙ не-alnum символ пути → '-'
+    (Windows 'C:\\Users\\Дмитрий\\AI\\OneOfS_tmp' → 'C--Users---------AI-OneOfS-tmp';
+    подчёркивания и не-ASCII тоже заменяются). Прежний кандидат (только '/'→'-')
+    промахивался на таких путях, и heartbeat/гейт молча превращались в no-op —
+    live-смоук v1.76.0 это и поймал.
+    """
     home = Path.home()
     projects_root = home / ".claude" / "projects"
     if not projects_root.is_dir():
         return None
     cwd_resolved = cwd.resolve()
-    expected = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
-    candidate = projects_root / expected / "memory"
-    if candidate.is_dir():
-        return candidate
+    munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
+    legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
+    for name in (munged, legacy):
+        candidate = projects_root / name / "memory"
+        if candidate.is_dir():
+            return candidate
     parts = cwd_resolved.parts
     for i in range(1, len(parts)):
-        suffix = "-".join(parts[i:])
+        raw = "-".join(parts[i:])
+        suffixes = {raw, re.sub(r"[^A-Za-z0-9]", "-", raw)}
         for entry in projects_root.iterdir():
-            if not entry.is_dir() or not entry.name.startswith("-"):
+            if not entry.is_dir():
                 continue
-            if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
-                mem = entry / "memory"
-                if mem.is_dir():
-                    return mem
+            for suffix in suffixes:
+                if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
+                    mem = entry / "memory"
+                    if mem.is_dir():
+                        return mem
     return None
 
 
