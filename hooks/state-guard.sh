@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-state-guard (v1.78.1) — страж state-леджеров `.itd-memory/`.
+state-guard (v1.80.0) — страж state-леджеров `.itd-memory/`.
 
 ШЕСТЬ регистраций (одно тело, ветвление по hook_event_name/tool; PowerShell —
 отдельные matcher-блоки в sync-to-active/adopt-шаблоне):
@@ -73,6 +73,15 @@ BASH_MUTATION_RE = re.compile(
     # детект; co-occurrence с путём леджера уже требуется, цена FP ~0
     r"\bpython[\w.]*\s[^|;&\n]*-c\b|\bpy\s[^|;&\n]*-c\b|\bnode\s[^|;&\n]*-e\b)")
 
+# v1.80.0: git-перезапись рабочего дерева (checkout/restore/reset) может
+# откатить леджер БЕЗ упоминания его пути в команде (`git checkout ветка`,
+# `git reset --hard`) — поэтому триггер БЕЗУСЛОВНЫЙ, вне co-occurrence-гейта
+# (important ревью v1.80.0: AND-условие делало эту ногу мёртвой для голого
+# checkout). После отката леджер валиден по схеме, но ПРОТУХ относительно
+# events.jsonl — ловит реконсиляция в перевалидации. Цена FP ~0: валидация
+# гоняется только если леджеры проекта существуют, и молчит на валидных.
+GIT_REWRITE_RE = re.compile(r"\bgit\b[^|;&\n]*\b(?:checkout|restore|reset)\b")
+
 # v1.78.0 — pre-write HARD-гейт для Bash-канала: леджер должен быть ЦЕЛЬЮ
 # записи, а не просто упомянут (иначе `git diff .itd-memory/STATE.json >
 # out.txt` ловил бы false-deny). Ленивая цена FP у deny выше, чем у soft —
@@ -92,6 +101,12 @@ LEDGER_WRITE_TARGET_RE = re.compile(
     r"|\btruncate\b[^|;&\n]*" + _L +                         # truncate -s0 ledger
     r"|\bdd\b[^|;&\n]*\bof=['\"]?" + _L +                    # dd of=ledger
     r"|(?:Set-Content|Out-File|Add-Content)[^|;&\n]*" + _L + # PowerShell в леджер
+    # v1.80.0: git checkout/restore с ЯВНЫМ путём леджера = намеренная
+    # перезапись файла старой версией → hard-гейт при чужом свежем локе.
+    # git reset --hard / checkout <ветка> БЕЗ пути леджера НЕ гейтятся
+    # (обычное переключение веток — false-deny дороже); их протухание ловит
+    # soft-ревалидация + реконсиляция с events.jsonl.
+    r"|\bgit\b[^|;&\n]*\b(?:checkout|restore)\b[^|;&\n]*\s['\"]?" + _L +
     r")")
 
 
@@ -321,7 +336,11 @@ def ledger_gate_decision(cwd: Path, sid: str, file_path: str) -> tuple[str, str]
 def bash_ledger_context(cwd: Path, command: str) -> str | None:
     if not command:
         return None
-    if not LEDGER_PATH_RE.search(command) or not BASH_MUTATION_RE.search(command):
+    co_occurrence = bool(LEDGER_PATH_RE.search(command)
+                         and BASH_MUTATION_RE.search(command))
+    # git-перезапись — безусловно (леджер откатывается и без упоминания
+    # его пути в команде; см. GIT_REWRITE_RE, important ревью v1.80.0)
+    if not co_occurrence and not GIT_REWRITE_RE.search(command):
         return None
     mem = cwd / ".itd-memory"
     contexts = []
