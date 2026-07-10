@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.73.1] - 2026-07-10
+
+**Hotfix раскатки на Windows-инсталл: sync больше не затирает python-wrapper
+регистрацию хуков POSIX-формой** (живой инцидент 2026-07-10 при раскатке
+v1.73.0: `CLAUDE_HOME=/mnt/c/... bash scripts/sync-to-active.sh` из WSL
+резолвил target OS по `uname` хоста → 'unix' → записал голые
+`~/.claude/hooks/*.sh` в Windows settings.json → Git-Bash исполнял
+python-телые хуки как shell (syntax error, exit 2) → PreToolUse-хук с
+matcher'ом `*` блокировал КАЖДЫЙ вызов инструмента, а сломанный Stop-хук —
+завершение хода; восстановление — ручной откат settings.json из .bak).
+
+- **Авто-детект Windows-таргета по ПУТИ** (`scripts/sync-to-active.sh`):
+  target OS — свойство целевого пути, не хоста; `CLAUDE_HOME` на
+  `/mnt/<диск>/…` или `<диск>:/…` → `windows` без ручного `ITD_TARGET_OS`
+  (env-переменная остаётся override'ом).
+- **Интерпретатор — из существующей wrapper-регистрации**: до PATH-discovery
+  python.exe добывается из текущего settings.json таргета (на WSL-хосте
+  `command -v python` находит Linux-интерпретатор — обёртка из него так же
+  сломана; Linux-пути теперь отбрасываются с предупреждением).
+- **Fail-closed guard от даунгрейда**: если существующая регистрация —
+  Windows-wrapper, а target OS резолвнулся не-windows, Step 5 ОТКАЗЫВАЕТСЯ
+  перезаписывать hooks (ошибка с инструкцией оператору) — рабочая
+  регистрация не трогается ни при какой ошибке резолюции.
+- Верификация вживую: repro-команда инцидента теперь даёт «hooks already
+  up-to-date» (wrapper-форма, интерпретатор harvested); guard-тест —
+  REFUSING + settings байт-в-байт нетронуты; WSL-инсталл — без
+  false-positive.
+
 ## [1.73.0] - 2026-07-10
 
 **«Принцип чемодана» доведён до конца: entry-файлы — роутинговые, инструкции —
