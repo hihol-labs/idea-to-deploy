@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.46.0
+  version: 1.47.0
   category: methodology
   tags: [retro, self-improvement, telemetry, vcr, backlog, evidence]
 ---

@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.10.1
+  version: 1.11.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
@@ -226,60 +226,12 @@ know that someone is (or was very recently) working on this project —
 so they don't unknowingly duplicate the work (see NeuroExpert 2026-04-11
 incident: same kong.yml tech debt fixed twice in parallel).
 
-Format (JSON, one line is fine):
-
-```json
-{
-  "timestamp": 1712845200.0,
-  "pid": 12345,
-  "branch": "feat/session-save-lockfile",
-  "project": "/home/user/projects/example",
-  "note": "Saved session 2026-04-11: implemented feature X, blocker on Y"
-}
-```
-
-Fields:
-- `timestamp` — Unix epoch seconds (`date +%s` or Python `time.time()`).
-  `pre-flight-check.sh` treats locks older than 10 minutes as stale.
-- `pid` — current shell pid (`$$` in bash, `os.getpid()` in Python).
-- `branch` — current git branch from `git branch --show-current`.
-- `project` — absolute path to the project (current `pwd`).
-- `note` — one-line summary, same as the MEMORY.md index entry.
-
-Bash example:
-
-```bash
-cat > "$MEM_DIR/.active-session.lock" <<EOF
-{
-  "timestamp": $(date +%s),
-  "pid": $$,
-  "branch": "$(git branch --show-current 2>/dev/null || echo unknown)",
-  "project": "$(pwd)",
-  "note": "$SUMMARY"
-}
-EOF
-```
-
-Python example (for skills that use python):
-
-```python
-import json, os, subprocess, time
-lock = mem_dir / ".active-session.lock"
-branch = subprocess.run(
-    ["git", "branch", "--show-current"], capture_output=True, text=True
-).stdout.strip() or "unknown"
-lock.write_text(json.dumps({
-    "timestamp": time.time(),
-    "pid": os.getpid(),
-    "branch": branch,
-    "project": str(Path.cwd()),
-    "note": summary,
-}))
-```
-
 The lockfile MUST be idempotent — it's rewritten on every `/session-save`
-call, never appended. Stale locks self-expire (the pre-flight hook
-ignores any lock older than 10 minutes).
+call, never appended. Stale locks self-expire (the pre-flight hook ignores any
+lock older than 10 minutes). Fields: `timestamp` (epoch seconds), `pid`,
+`branch`, `project` (abs path), `note` (one-line summary = MEMORY.md entry).
+Точный JSON-формат и готовые bash/python-сниппеты —
+`references/lockfile-format.md` (прочитай перед записью).
 
 ### Step 4.6: Cost snapshot (v1.31.0 — New-SDLC port)
 
@@ -290,21 +242,11 @@ already maintains for this session (shipped since v1.18.0, hard-ceiling ASK sinc
 v1.30.0). This is lightweight accounting, **not** an observability platform (see
 ADR-001 — we delegate runtime to existing hooks, we don't build our own).
 
-```bash
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
-ledger="$(ls -1t /tmp/claude-cost-${CLAUDE_SESSION_ID:-*}.json "$tmpd"/claude-cost-${CLAUDE_SESSION_ID:-*}.json 2>/dev/null | head -1)"
-if [ -n "$ledger" ] && [ -f "$ledger" ]; then
-  echo "— Cost snapshot —"; cat "$ledger"
-else
-  echo "cost ledger not found (cost-tracker.sh inactive this session)"
-fi
-```
-
-If a ledger exists, add a **`## Стоимость сессии`** line to the session memory file
-(estimated tokens + blended USD, and whether the soft/hard ceiling was hit). If
-`ctx-stats` is available (context-mode installed), note its context-savings figure on
-the same line — the two together are the "where to see cost" picture. If no ledger
-exists, this step is a soft no-op — never block `/session-save` on it.
+Read the cost-tracker ledger (script: `references/wrapup-scripts.md` §4.6). If
+a ledger exists, add a **`## Стоимость сессии`** line to the session memory file
+(estimated tokens + blended USD, and whether the soft/hard ceiling was hit); note
+`ctx-stats` context-savings on the same line when context-mode is installed. No
+ledger → soft no-op — never block `/session-save` on it.
 
 ### Step 4.7: Auto-sync methodology (v1.18.1)
 
@@ -329,29 +271,12 @@ skips it).
 
 If `~/.claude/methodology-memory/` is a git repo (it has a private remote —
 `idea-to-deploy-memory`), commit and push any changes so every checkpoint of
-the methodology memory is backed up off-machine:
-
-```bash
-MM="$HOME/.claude/methodology-memory"
-if [ -d "$MM/.git" ]; then
-  git -C "$MM" add -A
-  git -C "$MM" diff --cached --quiet || \
-    git -C "$MM" commit -q -m "memory: session checkpoint $(date +%F)"
-  if git -C "$MM" remote get-url origin >/dev/null 2>&1; then
-    git -C "$MM" push -q origin HEAD || echo "memory push failed (offline?) — commit is local, will push next time"
-  fi
-fi
-```
-
-Rules:
-- **Best-effort** — a network/auth failure NEVER blocks `/session-save`;
-  report one line and move on (the local commit still preserves the state).
-- **Scope guard** — only methodology notes (`*.md` + index) live in this repo.
-  Never move project/business memory there, and never write secret VALUES into
-  memory files (env-var names are fine — the standing egress guard applies;
-  the remote must stay private).
-- No repo / no remote → soft no-op (e.g. a machine where the memory dir was
-  never initialized).
+the methodology memory is backed up off-machine (script:
+`references/wrapup-scripts.md` §4.7b). Rules: **best-effort** — a network/auth
+failure NEVER blocks `/session-save` (one line report, local commit already
+preserved the state); **scope guard** — only methodology notes live there,
+never project/business memory, never secret VALUES (env-var names fine; the
+remote stays private); no repo / no remote → soft no-op.
 
 ### Step 4.8: Branch-finish decision (v1.21 — PFO port)
 
@@ -370,17 +295,7 @@ Before confirming, run a self-audit so a session never quietly skips a mandatory
 1. **Bypass ledger** — every `SKILL_BYPASS:` recorded this session by `check-tool-skill.sh` (`/tmp/claude-skill-ledger-<session>.jsonl`).
 2. **Skill sentinels** — which skills actually ran (`/tmp/claude-<skill>-done-*`), cross-checked against the *risk signals* in the work you did this session.
 
-```bash
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
-ledger="$(ls -1t /tmp/claude-skill-ledger-*.jsonl "$tmpd"/claude-skill-ledger-*.jsonl 2>/dev/null | head -1)"
-echo "— SKILL_BYPASS за сессию —"
-if [ -n "$ledger" ]; then echo "записей: $(wc -l < "$ledger")"; tail -n 20 "$ledger"; else echo "нет"; fi
-echo "— sentinel'ы скиллов (свежие/этой сессии) —"
-for s in review test migrate security-audit; do
-  if ls /tmp/claude-$s-done-* "$tmpd"/claude-$s-done-* >/dev/null 2>&1; then echo "  $s: есть"; else echo "  $s: НЕТ"; fi
-done
-```
-
+Сбор обоих входов — готовый скрипт в `references/wrapup-scripts.md` §4.9.
 Then reason over it against what the session actually changed (use `git diff --stat` / the committed diff):
 
 - Touched a **migration/schema**? → `/migrate` **and** `/test` sentinels must be present.
