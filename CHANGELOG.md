@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.74.0] - 2026-07-10
+
+**Retro 2026-07-10: best-effort invariant — rationale в topic-док, entry ещё
+легче** (кандидат №1 ретро `docs/retros/RETRO-2026-07-10.md`; два внешних
+сигнала: SNR-аудит — секция релевантна 1 из 5 типов задач, A/B-замер сжатия —
+20/20 паритет поведения; третий замер (6/21 тихих продолжений при недоступном
+файле) зафиксировал правило «поведенчески-критичное остаётся в entry»).
+
+- Секция «Harness-native features» в `docs/templates/global-claude-md.md`
+  сжата 19→13 строк: в entry остались ОБА поведенческих правила
+  (transport-not-contract + деградация в vendor-neutral path; egress/mutation
+  guard + read-only reporters), rationale и примеры — в новый topic-док
+  `docs/harness-best-effort.md`. Entry-шаблон 150→144 строки.
+- Реестр инструкций: запись пересмотрена (notes + свежий `review_by`
+  2027-01-10) — первый живой цикл lifecycle-механики v1.73.0.
+- Ретро-отчёт `docs/retros/RETRO-2026-07-10.md` (скан as-is + замеры +
+  таблица кандидатов); кандидат №2 (агентный контракт «не читается заявленный
+  источник инструкций → скажи явно, не продолжай молча») — в бэклог до
+  второго сигнала.
+
 ## [1.73.1] - 2026-07-10
 
 **Hotfix раскатки на Windows-инсталл: sync больше не затирает python-wrapper
