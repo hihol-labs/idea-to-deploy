@@ -157,6 +157,73 @@ def main() -> int:
         check("overlapping workspace args deduped by resolved path", ok,
               r.stdout[:300])
 
+        # 2.5) instruction-registry lifecycle facts (v1.73.0, suitcase audit).
+        # Regular workspaces never carry the block.
+        r = run(str(ws), "--tmp-dir", str(tmp), "--json", cwd=Path(td))
+        try:
+            absent = "instructionRegistry" not in json.loads(r.stdout)
+        except Exception:
+            absent = False
+        check("instructionRegistry absent for non-methodology workspace",
+              absent, r.stdout[:300])
+
+        # fake methodology repo: 3 sections; registry with one healthy entry,
+        # one with a broken enforced_by + overdue version review, one orphaned
+        # prose-only entry; one template section left unregistered.
+        repo = Path(td) / "meth"
+        write(repo / ".claude-plugin" / "plugin.json",
+              json.dumps({"name": "idea-to-deploy", "version": "1.73.0"}))
+        write(repo / "docs" / "templates" / "global-claude-md.md",
+              "# Title\n\n## Core routing rule\ntext\n\n"
+              "## New unregistered section\ntext\n\n## Old enforced rule\ntext\n")
+        write(repo / "hooks" / "real-hook.sh", "#!/bin/sh\n")
+        write(repo / "docs" / "instruction-registry.json", json.dumps({
+            "entries": [
+                {"match": "Core routing rule", "since": "v1.0.0",
+                 "enforced_by": ["hooks/real-hook.sh"],
+                 "review_by": "2999-01-01"},
+                {"match": "Old enforced rule", "since": "v1.2.0",
+                 "enforced_by": ["hooks/missing-hook.sh"],
+                 "review_by": "v1.70"},
+                {"match": "Ghost section", "since": "v1.3.0",
+                 "enforced_by": [], "review_by": "2999-01-01"},
+            ]}))
+        r = run(str(repo), "--tmp-dir", str(tmp), "--json", cwd=Path(td))
+        try:
+            reg = json.loads(r.stdout)["instructionRegistry"]
+            ok = (reg["sectionsTotal"] == 3 and reg["entriesTotal"] == 3
+                  and reg["unregistered"] == ["New unregistered section"]
+                  and reg["staleEntries"] == ["Ghost section"]
+                  and reg["brokenEnforcedBy"] == [
+                      {"section": "Old enforced rule",
+                       "path": "hooks/missing-hook.sh"}]
+                  and [d["section"] for d in reg["reviewDue"]]
+                      == ["Old enforced rule"]
+                  and reg["proseOnly"] == ["Ghost section"])
+        except Exception:
+            ok = False
+        check("instruction registry: unregistered/stale/broken/due/prose-only",
+              ok, r.stdout[:600])
+
+        r = run(str(repo), "--tmp-dir", str(tmp), cwd=Path(td))
+        check("instruction registry rendered in markdown facts",
+              "Реестр инструкций" in r.stdout
+              and "New unregistered section" in r.stdout
+              and "missing-hook.sh" in r.stdout
+              and "просрочен review_by (v1.70)" in r.stdout, r.stdout[-800:])
+
+        # methodology repo without a registry file → honest MISSING fact
+        repo2 = Path(td) / "meth2"
+        write(repo2 / ".claude-plugin" / "plugin.json",
+              json.dumps({"name": "idea-to-deploy", "version": "1.73.0"}))
+        r = run(str(repo2), "--tmp-dir", str(tmp), "--json", cwd=Path(td))
+        try:
+            missing = json.loads(r.stdout)["instructionRegistry"]["registryMissing"] is True
+        except Exception:
+            missing = False
+        check("instruction registry missing → registryMissing fact", missing,
+              r.stdout[:300])
+
         # 3) empty workspace is a clean run, not a crash
         empty = Path(td) / "empty"
         empty.mkdir()

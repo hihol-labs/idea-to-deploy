@@ -199,6 +199,111 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     }
 
 
+def _ver_tuple(s: str) -> tuple:
+    """'1.73.0' / 'v1.70' → (1, 73, 0) / (1, 70). Empty tuple when no digits."""
+    import re
+    nums = re.findall(r"\d+", s or "")
+    return tuple(int(n) for n in nums[:3])
+
+
+def _review_due(review_by: str, cur_ver: tuple, today: str) -> bool:
+    rb = (review_by or "").strip()
+    if not rb:
+        return False
+    if rb[:1].lower() == "v":
+        t = _ver_tuple(rb)
+        return bool(t) and bool(cur_ver) and cur_ver >= t
+    return today >= rb  # ISO dates compare lexicographically
+
+
+def scan_instruction_registry(workspaces: list[Path]) -> dict | None:
+    """Lifecycle facts for the methodology's standing instructions (v1.73.0).
+
+    The suitcase principle: every standing instruction carries a source
+    (since), an enforcement pointer (enforced_by) and an expiry checkpoint
+    (review_by). That metadata lives in docs/instruction-registry.json —
+    OUTSIDE the entry file, so the instructions themselves stay lean — and
+    this scanner keeps registry and template honest against each other:
+
+      unregistered     — a `##` section in docs/templates/global-claude-md.md
+                         with no registry entry (instruction without lifecycle);
+      staleEntries     — registry entries whose section no longer exists;
+      brokenEnforcedBy — enforced_by paths that do not exist in the repo
+                         (the prose claims code enforcement that is gone);
+      reviewDue        — entries whose review_by ('vX.Y' or ISO date) passed —
+                         retro proposal candidates: re-read against the current
+                         code, then refresh or delete (instructions are managed
+                         like dependencies — unused ones get removed);
+      proseOnly        — entries with no enforcing code at all (watch list —
+                         candidates for either a hook or a topic doc).
+
+    Returns None when no workspace is the methodology repo itself — regular
+    projects are never scanned (this is the methodology auditing its own
+    suitcase, same FACTS-only contract as the rest of this script).
+    """
+    import datetime
+    for ws in workspaces:
+        meta = read_json(ws / ".claude-plugin" / "plugin.json")
+        if meta.get("name") != "idea-to-deploy":
+            continue
+        out: dict = {"repo": str(ws)}
+        reg_path = ws / "docs" / "instruction-registry.json"
+        if not reg_path.is_file():
+            out["registryMissing"] = True
+            return out
+        reg = read_json(reg_path)
+        entries = reg.get("entries")
+        if not isinstance(entries, list):
+            out["registryInvalid"] = True
+            return out
+
+        headings: list[str] = []
+        try:
+            tpl = ws / "docs" / "templates" / "global-claude-md.md"
+            for line in tpl.read_text(encoding="utf-8",
+                                      errors="replace").splitlines():
+                if line.startswith("## "):
+                    headings.append(line[3:].strip())
+        except Exception:
+            pass
+
+        cur_ver = _ver_tuple(str(meta.get("version") or ""))
+        today = datetime.date.today().isoformat()
+        matched: set[str] = set()
+        stale: list[str] = []
+        broken: list[dict] = []
+        due: list[dict] = []
+        prose_only: list[str] = []
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            m = str(e.get("match") or "")
+            hit = next((h for h in headings if m and m in h), None)
+            if hit:
+                matched.add(hit)
+            else:
+                stale.append(m)
+            for p in e.get("enforced_by") or []:
+                if not (ws / str(p)).is_file():
+                    broken.append({"section": m, "path": str(p)})
+            if not (e.get("enforced_by") or []):
+                prose_only.append(m)
+            if _review_due(str(e.get("review_by") or ""), cur_ver, today):
+                due.append({"section": m,
+                            "reviewBy": str(e.get("review_by") or "")})
+        out.update({
+            "sectionsTotal": len(headings),
+            "entriesTotal": len(entries),
+            "unregistered": [h for h in headings if h not in matched],
+            "staleEntries": stale,
+            "brokenEnforcedBy": broken,
+            "reviewDue": due,
+            "proseOnly": prose_only,
+        })
+        return out
+    return None
+
+
 def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     projects: list[dict] = []
     seen: set[str] = set()  # resolved .itd-memory paths — overlapping
@@ -236,6 +341,9 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
         "projects": projects,
     }
     report.update(scan_ledgers(tmp_dir))
+    reg = scan_instruction_registry(workspaces)
+    if reg is not None:
+        report["instructionRegistry"] = reg
     return report
 
 
@@ -285,6 +393,36 @@ def render_markdown(r: dict) -> str:
     out.append(f"**Cost-леджеры:** {r['costSessions']} сессий"
                + (f", {r['costTokensTotal']} токенов" if r["costTokensTotal"] else "")
                + (f", ~${r['costUsdEstimate']}" if r["costUsdEstimate"] else ""))
+    reg = r.get("instructionRegistry")
+    if reg:
+        out.append("")
+        if reg.get("registryMissing"):
+            out.append("**Реестр инструкций:** `docs/instruction-registry.json` "
+                       "ОТСУТСТВУЕТ — lifecycle стоячих инструкций не "
+                       "отслеживается (завести реестр).")
+        elif reg.get("registryInvalid"):
+            out.append("**Реестр инструкций:** `docs/instruction-registry.json` "
+                       "не парсится / без `entries` — починить.")
+        else:
+            problems = (len(reg["unregistered"]) + len(reg["staleEntries"])
+                        + len(reg["brokenEnforcedBy"]) + len(reg["reviewDue"]))
+            out.append(f"**Реестр инструкций (lifecycle):** секций "
+                       f"{reg['sectionsTotal']}, записей {reg['entriesTotal']}, "
+                       f"проблем {problems}"
+                       + (f"; prose-only (watch): "
+                          f"{', '.join(clip(s, 40) for s in reg['proseOnly'])}"
+                          if reg["proseOnly"] else ""))
+            for h in reg["unregistered"]:
+                out.append(f"- незарегистрированная секция: {clip(h, 60)}")
+            for s in reg["staleEntries"]:
+                out.append(f"- осиротевшая запись реестра (секции нет): {clip(s, 60)}")
+            for b in reg["brokenEnforcedBy"]:
+                out.append(f"- битый enforced_by: {clip(b['section'], 40)} → "
+                           f"`{b['path']}` (файла нет)")
+            for d in reg["reviewDue"]:
+                out.append(f"- просрочен review_by ({d['reviewBy']}): "
+                           f"{clip(d['section'], 60)} — перечитать против кода, "
+                           f"обновить или удалить")
     out.append("")
     per = [p for p in r["projects"]
            if p["unitsActivated"] or p.get("goalTotal") or p.get("pendingGates")]

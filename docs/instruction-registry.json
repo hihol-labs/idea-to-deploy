@@ -1,0 +1,73 @@
+{
+  "_doc": [
+    "Lifecycle-реестр стоячих инструкций глобального CLAUDE.md-блока",
+    "(docs/templates/global-claude-md.md). У каждой инструкции: источник",
+    "(since — версия появления), исполнитель (enforced_by — код, который",
+    "её enforce'ит; [] = prose-only, watch-list) и срок пересмотра",
+    "(review_by: 'vX.Y' — пересмотреть начиная с этой версии, либо ISO-дата).",
+    "Метаданные живут ЗДЕСЬ, а не в entry-файле — по принципу чемодана entry",
+    "остаётся лёгким. Сканер skills/retro/scripts/itd_retro_scan.py сверяет",
+    "реестр с шаблоном на каждом /retro и выносит ФАКТЫ: незарегистрированные",
+    "секции, осиротевшие записи, битые enforced_by-пути, просроченные",
+    "review_by. Просроченный review_by = кандидат в proposals ретро:",
+    "перечитать секцию против текущего кода — обновить или удалить,",
+    "инструкции управляются как зависимости (неиспользуемое удаляется)."
+  ],
+  "entries": [
+    {
+      "match": "Core routing rule",
+      "since": "≤v1.20 (до введения реестра, точная версия не зафиксирована)",
+      "enforced_by": ["hooks/check-skills.sh", "hooks/check-tool-skill.sh"],
+      "review_by": "2026-10-10"
+    },
+    {
+      "match": "Always",
+      "since": "≤v1.21 (WIP=1 и grounded claims дотегированы v1.50.0)",
+      "enforced_by": [
+        "hooks/check-review-before-commit.sh",
+        "hooks/check-dod-before-commit.sh",
+        "hooks/wip-gate.sh",
+        "hooks/check-commit-completeness.sh"
+      ],
+      "review_by": "2026-10-10"
+    },
+    {
+      "match": "Harness-native features",
+      "since": "v1.50.0",
+      "enforced_by": ["hooks/pii-egress-guard.sh"],
+      "review_by": "2026-10-10",
+      "notes": "egress-guard в коде; сам best-effort invariant — prose-контракт поверх всех хуков"
+    },
+    {
+      "match": "Определение завершения",
+      "since": "v1.51.0",
+      "enforced_by": [
+        "hooks/completion-gate.sh",
+        "hooks/completion-signals.sh",
+        "hooks/completion-stop.sh",
+        "hooks/completion_lib.py"
+      ],
+      "review_by": "2026-10-10",
+      "notes": "полная механика вынесена в docs/completion-gate.md (v1.73.0, дедуп прозы и кода)"
+    },
+    {
+      "match": "Skill decision",
+      "since": "v1.35.0",
+      "enforced_by": ["hooks/check-skills.sh"],
+      "review_by": "2026-10-10"
+    },
+    {
+      "match": "Bypass",
+      "since": "≤v1.20 (SKILL_BYPASS-леджер — v1.23.0)",
+      "enforced_by": ["hooks/check-tool-skill.sh"],
+      "review_by": "2026-10-10"
+    },
+    {
+      "match": "Project profiles & markers",
+      "since": "v1.35.0",
+      "enforced_by": ["hooks/check-skills.sh"],
+      "review_by": "2026-10-10",
+      "notes": "включает memory-backbone (v1.35.0→v1.70.0) и порог 60% → /handoff (v1.70.0, датчик hooks/context-aware.sh)"
+    }
+  ]
+}
