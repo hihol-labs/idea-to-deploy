@@ -136,10 +136,18 @@ def main() -> int:
     if not command:
         return 0
 
+    # v1.84.0 (слабый сигнал №2, FP 2026-07-04: текст «GIT BRANCH -D» в теле
+    # commit -m дал ложное предупреждение): содержимое -m/--message '...'/"..."
+    # — цитируемая проза, не команда; вырезаем ПЕРЕД матчингом. Отображаемый
+    # command не меняется.
+    scan_target = re.sub(
+        r"""(-m|--message)(\s+)(['"])(?:\\.|(?!\3).)*\3""",
+        r"\1\2\3<msg>\3", command, flags=re.S)
+
     # Check all patterns
     warnings = []
     for pattern, description in DESTRUCTIVE_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE):
+        if re.search(pattern, scan_target, re.IGNORECASE):
             warnings.append(description)
 
     if not warnings:

@@ -358,3 +358,35 @@ sh "$SHD/itd_py.sh" path/to/script.py args...   # порядок: $ITD_WIN_PYTHO
 - Гейт: `tests/verify_no_bare_python3.py` (fenced bash/sh-блоки skills/**/*.md).
 - Хуков это не касается — их интерпретатор жёстко прописан sync-to-active
   (`ITD_WIN_PYTHON` harvest из settings.json).
+
+## 13. WSL-мост из Windows — только через itd_wsl.sh (v1.84.0 — retro 2026-07-11 W1)
+
+Inline-команды `wsl -d <distro> -- sh -c '...'` из Git Bash мнутся по дороге:
+MSYS конвертирует ведущие `/пути` (`sh /home/...` → `C:/Program Files/Git/home/...`),
+`$(...)`-подстановки и wildcard'ы дают ложные нули и «No such file» на
+существующих директориях (воспроизведено ×3 за один день). Правило:
+
+```bash
+SHD="skills/_shared"; [ -f "$SHD/itd_wsl.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_wsl.sh" 'cd ~/projects/x && команды с $(...) и wildcard'   # или -f script.sh
+```
+
+Хелпер увозит команду в WSL base64-строкой (MSYS её не трогает) и декодирует
+уже там; exit-код команды сохраняется. Вне Windows-хоста честно отказывает
+(exit 2). Ручной фолбэк прежний: скрипт-файл в репо + `wsl sh -c "sh /абс/путь"`.
+
+## 14. Гейт-статусы грепай точной строкой (v1.84.0 — слабый сигнал №3, урок 2026-07-04)
+
+`grep FINAL` в bash-цепочке НЕ гейтит BLOCKED (подстрока есть в обоих статусах).
+Проверяя вердикт meta_review/гейтов в цепочке — грепай точную строку:
+`grep -q 'FINAL STATUS: PASSED'` (после squash-найденного urока: цепочка с
+`grep FINAL` прошла мимо BLOCKED).
+
+## 15. Границы вместо чекпоинтов (v1.84.0 — дизайн-урок D3, 2026-07-05)
+
+«Add human checkpoints» ≠ harness engineering. Харденя скилл/флоу, сначала
+спроси: «закрывает ли это уже механический харнесс?» Правильная форма — границы
+в САМОМ харнессе (механические гейты, fire на каждом tool-call, skill-agnostic)
+плюс ОДНА жёсткая граница на необратимом крае; НЕ человеческий «да/нет» на
+каждом шаге (пойман пользователем как анти-харнесс в 1-м черновике harden
+/autopilot).

@@ -170,7 +170,7 @@ claude -p \
 - **BMAD** (44K stars) -- agile-фреймворк, нет мета-ревью, нет operations-скиллов
 - **claude-code-skills** (136 скиллов) -- плоская коллекция, без тестирования, без lifecycle
 
-Наша дифференциация -- не количество скиллов (у claude-code-skills их 136 против наших 23). А то, что наши 23 проверяются 25+ автоматическими gates, каждый из которых появился из реального бага. Плюс operations-стек (migrate/migrate-prod/harden/infra), daily-work роутер, стратегический replanning (/strategy), advisory mode (/advisor), и трёхуровневое тестирование.
+Наша дифференциация -- не количество скиллов (у claude-code-skills их 136 против наших 40). А то, что наши 40 проверяются 30+ автоматическими gates, каждый из которых появился из реального бага. Плюс operations-стек (migrate/migrate-prod/harden/infra), daily-work роутер, стратегический replanning (/strategy), advisory mode (/advisor), и трёхуровневое тестирование.
 
 ### Цикл 4: Enforcement и session diagnostics (v1.19.0)
 

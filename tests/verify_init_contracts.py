@@ -202,6 +202,11 @@ def t6_classifier_l2() -> None:
         {"stdout": "= 3 passed ="})
     check("classifier: import WITH invocation stays a test_run signal",
           bool(s4) and s4.get("kind") == "test_run", str(s4))
+    # v1.84.0 (minor ревью #155): aliased-проба `import x as y` — тоже проба
+    s5 = cl.classify_bash('python -c "import pytest as pt" || echo NO_PYTEST',
+                          {"stdout": "ModuleNotFoundError: No module named "
+                                     "'pytest'\nNO_PYTEST"})
+    check("classifier: aliased bare-import probe is NOT a signal", not s5, str(s5))
 
 
 def _preflight_ctx(proj: Path) -> str:

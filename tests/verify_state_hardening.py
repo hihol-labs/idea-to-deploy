@@ -659,6 +659,29 @@ def main() -> int:
     ctx2 = pf.persist_errors_context(perr_proj)
     check("persist-error surfacing is rate-limited", ctx2 == "")
 
+    # ---- v1.84.0 P8: memory-collision guard (session_*.md) -----------------
+    memp = tmp / "memcol" / "memory"
+    memp.mkdir(parents=True)
+    mf = memp / "session_2026-07-11_5.md"
+    mf.write_text("x", encoding="utf-8")
+    sidp8 = f"tP8-{int(time.time() * 1000)}"
+    mctx = sg.memory_collision_context(sidp8, str(mf))
+    check("P8: Write over fresh existing session memo -> warning",
+          bool(mctx) and "ПАМЯТИ" in mctx)
+    check("P8: repeat warning suppressed per (session,file)",
+          sg.memory_collision_context(sidp8, str(mf)) is None)
+    check("P8: bash mv over fresh memo -> warning",
+          bool(sg.bash_memory_collision_context(sidp8 + "b", f"mv /tmp/x {mf}")))
+    old_ts = time.time() - 8 * 3600
+    os.utime(mf, (old_ts, old_ts))
+    check("P8: old memo -> silent",
+          sg.memory_collision_context(sidp8 + "c", str(mf)) is None)
+    check("P8: missing memo -> silent",
+          sg.memory_collision_context(
+              sidp8 + "d", str(memp / "session_2026-07-11_9.md")) is None)
+    check("P8: non-memory path -> silent",
+          sg.memory_collision_context(sidp8 + "e", str(tmp / "notes.md")) is None)
+
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
 
