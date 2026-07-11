@@ -111,6 +111,26 @@ def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str) ->
         print(f"warning: could not append event to {events}: {e}")
 
 
+def has_activation_event(goal_path: Path, unit_id: str) -> bool:
+    """True если в events.jsonl уже есть activation-событие юнита."""
+    events = goal_path.parent / "events.jsonl"
+    try:
+        for line in events.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except Exception:
+                continue
+            if (evt.get("type") == "unit" and evt.get("name") == unit_id
+                    and str(evt.get("decision")).lower() == "activated"):
+                return True
+    except OSError:
+        pass
+    return False
+
+
 def find_unit(goal: dict, unit_id: str | None) -> dict:
     units = goal["units"]
     if unit_id:
@@ -232,6 +252,13 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         unit["evidence"] = evidence
         goal["currentUnitId"] = ""
         save_goal(goal_path, goal)
+        # Инвариант леджера verified ⊆ activated: если activation-событие
+        # потеряно (activated руками/другим путём), бэкфиллим его ДО verified —
+        # иначе VCR-учёт видит юнит verified без активации (retro 2026-07-11 P3,
+        # live: OneOfS U-2..U-5).
+        if not has_activation_event(goal_path, unit["id"]):
+            append_event(goal_path, unit["id"], "activated",
+                         "backfill при verify: activation-событие отсутствовало")
         append_event(goal_path, unit["id"], "verified", evidence)
         print(f"VERIFIED {unit['id']} — {evidence}")
         print(open_units_summary(goal))
