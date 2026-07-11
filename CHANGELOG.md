@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.82.0] - 2026-07-11
+
+**Кросс-платформенный python-резолвер для inline-сниппетов скиллов + RETRO-2026-07-11 (упражнения Harness Engineering)**:
+
+- **`skills/retro/scripts/itd_py.sh`** — запускатель python-скриптов для сниппетов
+  (`sh itd_py.sh script.py …`; выбор: `$ITD_WIN_PYTHON` → python вне WindowsApps →
+  `py -3` → `python3` fail loud; exec с кавычками — пути с пробелами вроде
+  `C:/Program Files/...` безопасны, major-находка ревью #154; без аргументов —
+  диагностика выбора).
+  Live-инцидент 2026-07-11: канонический Step 1 `/retro` (`python3 …`) на
+  Windows Git Bash уходил в WindowsApps-шим и печатал мусор вместо скана.
+  Голый `python3` остаётся в 18 skill-файлах — расширение резолвера на них
+  занесено в бэклог (P2 ретро).
+- **/retro SKILL.md**: сниппеты Step 1/1b через резолвер + Troubleshooting-пункт
+  «на Windows скан печатает мусор».
+- **`docs/retros/RETRO-2026-07-11.md`** — упражнения Harness Engineering:
+  аудит по пятёрке компонентов (итог 4.3/5; слабейшее — инструменты/среда),
+  абляция C0–C3 при фиксированной модели (полный харнес 10/10, ценность
+  харнеса — в хвостах и длинных горизонтах), affordance-анализ OneOfS
+  (Gulf of Execution: нет read-only SQL-канала к прод-БД; Gulf of Evaluation:
+  L2-паттерны не знают класс отчётных шаблонов), предложения P1–P7.
+
+Проверено: WSL → `/usr/bin/python3` (поведение прежнее); Windows → `py -3`,
+скан печатает полный отчёт. Тесты: `run-all` fails:none.
+
 ## [1.81.0] - 2026-07-11
 
 **Follow-up финальной ACID-пересдачи (кандидаты (а)+(б)) — путь к 9.0+**:
