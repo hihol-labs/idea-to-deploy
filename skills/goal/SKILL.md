@@ -64,11 +64,18 @@ metadata:
 
 ```bash
 GT="skills/goal/scripts"; [ -f "$GT/itd_goal_verify.py" ] || GT="$HOME/.claude/skills/goal/scripts"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
 ```
 
-Пока `python3` доступен — статусы юнитов руками НЕ редактируются. Ручной
-фоллбэк (та же семантика: evidence обязателен, событие в events.jsonl,
-fail-closed причины) — только если python3 недоступен; скажи об этом явно.
+Обе строки резолва вставляй в НАЧАЛО каждого shell-вызова с командами ниже
+(шелл-состояние между вызовами не живёт). Запуск python-скриптов — только
+`sh "$SHD/itd_py.sh" …` (НЕ голый `python3`: на Windows Git Bash это
+WindowsApps-шим — live-инцидент 2026-07-11).
+
+Пока python доступен (через `itd_py.sh`) — статусы юнитов руками НЕ
+редактируются. Ручной фоллбэк (та же семантика: evidence обязателен, событие в
+events.jsonl, fail-closed причины) — только если python недоступен совсем;
+скажи об этом явно.
 
 ### Step 0: Resume-check (всегда первым)
 
@@ -100,8 +107,8 @@ fail-closed причины) — только если python3 недоступе
    `units[]`) и провалидируй:
 
 ```bash
-python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/null \
-  || python3 -c "import json;json.load(open('$PROJECT_ROOT/.itd-memory/GOAL.json'))"
+sh "$SHD/itd_py.sh" scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/null \
+  || sh "$SHD/itd_py.sh" -c "import json;json.load(open('$PROJECT_ROOT/.itd-memory/GOAL.json'))"
 ```
 
 (вне репо методологии валидатор недоступен — тогда хотя бы JSON-parse; схему
@@ -112,7 +119,7 @@ python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/n
 Цикл, пока есть `pending`-юниты и пользователь не остановил:
 
 1. **Активируй** следующий юнит через ОТК:
-   `python3 "$GT/itd_goal_verify.py" --activate G-00X` — скрипт сам проверит
+   `sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" --activate G-00X` — скрипт сам проверит
    WIP=1 (откажет, пока другой юнит in_progress), выставит `currentUnitId` и
    запишет событие `activated` (actor: harness). Если ведётся `STATE.json` —
    юнит цели И ЕСТЬ `currentUnit` (unit-механика v1.41: один и тот же юнит,
@@ -121,7 +128,7 @@ python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/n
    (фича → Step 3f: scope → короткий план → код → `/test` → `/review` → коммит
    по правилам репо; баг → `/bugfix`; и т.д.). `/goal` не дублирует конвейер —
    только скоуп юнита на входе и учёт на выходе.
-3. **Верифицируй через ОТК**: `python3 "$GT/itd_goal_verify.py" G-00X` —
+3. **Верифицируй через ОТК**: `sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" G-00X` —
    скрипт исполняет `verificationCommand` и при exit 0 сам переводит юнит в
    `verified` с `evidence` и событием (VCR в `itd_metrics.py` начинает
    считаться по цели автоматически). Агент `verified` руками НЕ ставит.
@@ -133,7 +140,7 @@ python3 scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.json" 2>/dev/n
    `status: skipped` + непустой `skippedReason` (валидатор отвергнет пустой).
 5. Между юнитами — инкрементальный `/session-save` (verified-юнит = значимая
    смена состояния); в его срез вставь вывод
-   `python3 "$GT/itd_goal_report.py"`.
+   `sh "$SHD/itd_py.sh" "$GT/itd_goal_report.py"`.
 
 #### Автономный прогон (headless / AFK / долгий юнит) — anti-early-stop (v1.50.0)
 
@@ -212,8 +219,8 @@ Actions:
 цели, ledger не заводи.
 
 ### GOAL.json разъехался с реальностью
-(юнит verified, а тест уже падает) — `python3 "$GT/itd_goal_verify.py" --recheck
-G-00X`: скрипт перепрогонит команду и при провале сам демотирует юнит в
+(юнит verified, а тест уже падает) — `sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py"
+--recheck G-00X`: скрипт перепрогонит команду и при провале сам демотирует юнит в
 `in_progress` с событием `regressed`. Ledger отражает ПРОВЕРЕННОЕ состояние,
 не желаемое.
 

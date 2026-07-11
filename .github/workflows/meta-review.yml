@@ -116,6 +116,9 @@ jobs:
       - name: Run completion-ledger checks (v1.79.1)
         run: python3 tests/verify_completion_ledger.py
 
+      - name: Run no-bare-python3 gate (skills snippets via itd_py.sh launcher) (v1.83.0)
+        run: python3 tests/verify_no_bare_python3.py
+
       - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
         run: python3 tests/verify_runall_drift.py
 

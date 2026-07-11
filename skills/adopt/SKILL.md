@@ -185,7 +185,7 @@ Closes init-audit gap #2 (2026-07-08): `/adopt` never proved the test harness wo
 
 1. **Detect existing tests** — glob `tests/`, `test/`, `**/*_test.*`, `**/*.test.*`, `**/test_*.py`, `src/**/__tests__/`. If ANY test file exists → skip (report «тесты уже есть — example test не нужен») and go to Step 3.7.
 2. **Pick a ZERO-DEPENDENCY built-in runner** for the detected stack — `/adopt` must not install anything (non-scope):
-   - Python (`pyproject.toml`/`requirements*.txt`) → `tests/test_smoke.py` on stdlib `unittest`; run: `python3 -m unittest discover -s tests -v`. (If `pytest` is ALREADY a declared dependency, prefer `python3 -m pytest tests/ -q`.)
+   - Python (`pyproject.toml`/`requirements*.txt`) → `tests/test_smoke.py` on stdlib `unittest`; run: `python3 -m unittest discover -s tests -v`. (If `pytest` is ALREADY a declared dependency, prefer `python3 -m pytest tests/ -q`.) <!-- win-ok: команда пишется в проект пользователя под ЕГО окружение -->
    - Node ≥ 18 (`package.json`) → `tests/smoke.test.mjs` on built-in `node:test`; run: `node --test tests/`.
    - Go (`go.mod`) → `smoke_test.go` in the main package; run: `go test ./...`.
    - Rust (`Cargo.toml`) → `#[test] fn smoke()` in `tests/smoke.rs`; run: `cargo test`.
@@ -200,8 +200,8 @@ Closes init-audit gap #1: `/adopt` only detected the stack by manifests and neve
 
 1. **Detect commands** (best-effort, confirm with the user when ambiguous):
    - bootstrap: `make setup` (Makefile target exists) / `npm ci` / `pnpm install --frozen-lockfile` / `pip install -e .[dev]` / `poetry install` / `go mod download` / `cargo fetch`.
-   - test: `make test` / `package.json scripts.test` / `python3 -m pytest` (or the Step 3.6 built-in-runner command) / `go test ./...` / `cargo test`.
-2. **Run**: `python3 .itd/itd_init_validate.py --bootstrap "<cmd>" --test "<cmd>"` — it clones the repo into an isolated temp dir and executes both commands there.
+   - test: `make test` / `package.json scripts.test` / `python3 -m pytest` (or the Step 3.6 built-in-runner command) / `go test ./...` / `cargo test`. <!-- win-ok: команды проекта пользователя -->
+2. **Run**: `SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" .itd/itd_init_validate.py --bootstrap "<cmd>" --test "<cmd>"` — it clones the repo into an isolated temp dir and executes both commands there (launcher dodges the Windows Store python shim).
 3. **Advisory for brownfield** — a red result does NOT roll back the adoption. Report the WHY+FIX mark verbatim; a legacy project that cannot bootstrap from a clean clone is exactly what the user needs to see on day one (the validator keeps the failed clone for inspection). Record PASS/FAIL in the sentinel `/session-save`.
 4. Skip silently when the project has no commits yet (validator prints SKIP) or when secrets/external services make an isolated bootstrap impossible — say so explicitly instead of faking green.
 

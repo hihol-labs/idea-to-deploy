@@ -119,7 +119,7 @@ go-ahead, runs (or prints) the documented commands.
 
 ```bash
 claude --version                                  # need ≥ 1.0.33
-python3 --version                                  # need ≥ 3.10 for the engine
+python3 --version                                  # need ≥ 3.10 for the engine (win-ok: probe)
 claude plugin list 2>/dev/null | grep -i claude-seo || echo "claude-seo: NOT installed"
 claude plugin details claude-seo 2>/dev/null       # components, if installed
 ```

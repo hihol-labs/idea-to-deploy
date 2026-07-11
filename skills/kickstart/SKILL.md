@@ -206,14 +206,14 @@ This phase is the **dedicated initialization phase** from the Anthropic long-run
      - `criterion`: the step's acceptance criterion from the plan (binary, verbatim — not a paraphrase)
      - `verificationCommand`: the step's verification command from the plan (`pytest tests/test_auth.py`, `curl …`, `npm test …`). Every plan step already carries one (rubric C9 requires it); if a step genuinely has none, write the closest executable proxy and flag it in the plan as a gap.
      - `status: "pending"`
-   - Validate: `python3 <plugin>/scripts/validate_state.py .itd-memory/GOAL.json` must pass before the checkpoint commit.
+   - Validate: `sh <plugin>/skills/_shared/itd_py.sh <plugin>/scripts/validate_state.py .itd-memory/GOAL.json` must pass before the checkpoint commit (the launcher dodges the Windows Store python shim — never call bare `python3`).
    - From here on, unit statuses are changed ONLY via `skills/goal/scripts/itd_goal_verify.py` (`--activate`, verify with evidence, `--recheck`) — never by hand-editing the JSON. WIP=1 and evidence-gated `verified` now cover kickstarted work automatically.
 
 8. **Initialization Acceptance Checklist** — the exit gate of this phase. Do NOT proceed to Phase 4 until every box is checked. The first two boxes are **executed, not self-asserted** (v1.67.0 — closes the "green in words" gap from the 2026-07-08 init audit):
 
    ```bash
    # after the initialization checkpoint commit (step 6) exists:
-   python3 .itd/itd_init_validate.py \
+   sh <plugin>/skills/_shared/itd_py.sh .itd/itd_init_validate.py \
      --bootstrap "<starter commands.bootstrap>" \
      --test      "<starter commands.test>"
    ```
@@ -229,12 +229,12 @@ This phase is the **dedicated initialization phase** from the Anthropic long-run
 
 ### Phase 4: Implementation
 Follow IMPLEMENTATION_PLAN.md phase by phase. The plan's steps are mirrored as GOAL.json units (Phase 3 step 7.5) — drive each step through the unit ledger so progress is machine-verifiable and resumable:
-1. Activate the unit: `python3 <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N> --activate` (WIP=1 is enforced by the script)
+1. Activate the unit: `sh <plugin>/skills/_shared/itd_py.sh <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N> --activate` (WIP=1 is enforced by the script)
 2. Implement each task from the current step
 3. **After each completed feature** — invoke /test to generate tests for the new code
 4. Run code-review after each significant feature
 5. If a test or review finds issues — fix before moving to the next step
-6. Verify the unit: `python3 <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N>` — it runs the unit's `verificationCommand` and flips the status to `verified` only on real green output (never mark done by judgement)
+6. Verify the unit: `sh <plugin>/skills/_shared/itd_py.sh <plugin>/skills/goal/scripts/itd_goal_verify.py U-<N>` — it runs the unit's `verificationCommand` and flips the status to `verified` only on real green output (never mark done by judgement)
 7. Commit after each passing step: "step-N: description"
 8. Update CLAUDE.md status table (step N ✅)
 9. Update docs if architecture changes — and keep GOAL.json units in sync when the plan itself changes (add/adjust units via the same script-driven flow, not hand edits)

@@ -79,7 +79,7 @@ Also check:
 - Current task list (if any)
 - `.itd-memory/GOAL.json` — активная долгая цель (`/goal`): срез генерирует
   репортёр харнеса, вставь вывод в session-файл как есть (v1.45.0):
-  `GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"; python3 "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json`
+  `GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"; SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json`
 - What was discussed in the conversation (summarize from memory)
 
 ### Step 2: Summarize the session
@@ -185,7 +185,7 @@ Windows-фолбэком: `python3` может быть Store-заглушкой
 класс, что валидация интерпретатора в `sync-to-active.sh`):
 
 ```bash
-python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true
+python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true  # win-ok: цепочка включает py -3
 # → .itd-memory/PROGRESS.md
 ```
 

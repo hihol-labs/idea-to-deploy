@@ -194,7 +194,7 @@ Final step of every `/security-audit` invocation, regardless of status. Write a 
 
 ```bash
 # Dual-write (/tmp + platform temp) — см. v1.42.0 platform symmetry
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 echo "$(date +%s)" | tee "/tmp/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}"
 ```
