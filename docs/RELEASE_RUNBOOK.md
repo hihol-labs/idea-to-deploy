@@ -60,13 +60,6 @@
 Из финальной ACID-пересдачи 2026-07-11 (итог ≈8.9: A9/C9/I9/D8.5; оценщик:
 «9.0+ достижим одним follow-up-PR по (а)+(б), дальше — убывающая отдача»):
 
-- (а) state-guard: `rm` леджера невидим обоим слоям (deny-достойная операция
-  под чужим локом проходит молча — топ-пробел); пачка soft-токенов с FP~0
-  (`perl -i`, `sponge`, `install`, `rsync`, `Copy-Item`/`New-Item`,
-  `python script.py` без `-c`); `git stash`/`git clean` в GIT_REWRITE_RE.
-- (б) heartbeat лока и на shell-каналы (сейчас только Write/Edit — чисто
-  Bash/PowerShell-сессия протухает свой лок за 10 мин, вторая сессия
-  легитимно заберёт single-writer посреди работы первой).
 - Осознанный tail-bound trade-off (документировать при касании): contradiction
   старше 512KB-хвоста events.jsonl пропускается молча (absence→WARNING
   деградирует, contradiction за окном — нет).
@@ -75,4 +68,5 @@
 git-перезапись леджера — hard при явном пути + безусловная soft-ревалидация
 GIT_REWRITE_RE (v1.80.0); POSIX flock → LOCK_NB с bounded-ретраями (v1.80.0);
 bound на events.jsonl в реконсиляции + .gitignore dogfood-артефактов
-(v1.80.1).
+(v1.80.1); rm-класс леджера (hard) + пачка soft-токенов + git stash/clean +
+heartbeat на shell-каналах (v1.81.0 — кандидаты (а)+(б) финальной пересдачи).

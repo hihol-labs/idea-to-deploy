@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.81.0] - 2026-07-11
+
+**Follow-up финальной ACID-пересдачи (кандидаты (а)+(б)) — путь к 9.0+**:
+
+- **(а) Удаление леджера — deny-достойно**: `rm`/`del`/`Remove-Item` с явным
+  путём леджера ИЛИ самого каталога `.itd-memory` — hard-гейт при чужом
+  свежем локе (топ-пробел пересдачи: раньше проходило молча). Плюс дыры
+  soft-детекта с FP~0: `perl -i`, `sponge`, `install`, `rsync`,
+  `Copy-Item`/`New-Item`, запуск скриптов (`python x.py`/`node x.js`),
+  rm-класс; `git stash`/`git clean` — в GIT_REWRITE_RE (безусловная
+  ревалидация). Исчезнувший после rm-класса STATE.json теперь красная
+  пометка (раньше отсутствующий файл молча пропускался; guard по классу
+  команды — проект без STATE.json не шумит).
+- **(б) Heartbeat на shell-каналах**: чисто Bash/PowerShell-сессия больше не
+  протухает свой `.active-session.lock` за 10 минут (вторая сессия могла
+  легитимно забрать single-writer посреди работы первой). Внутренний
+  rate-limit 60с держит IO ~нулевым.
+- Тесты: +7 → verify_state_hardening 72/72 WSL.
+
 ## [1.80.1] - 2026-07-11
 
 **Последняя минорка RUNBOOK-кандидатов** (мандат):
