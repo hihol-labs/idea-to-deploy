@@ -64,6 +64,34 @@ def run_gate(cwd, command="git commit -m x", description=""):
 def main():
     check("hooks/completion-gate.sh exists", GATE.exists())
 
+    # --- v1.86.0: FIX_HINTS — классы из инцидент-корпуса (in-process) --------
+    sys.path.insert(0, str(REPO / "hooks"))
+    import completion_lib as cl
+    hint_cases = [
+        ("UnicodeEncodeError: 'charmap' codec can't encode character",
+         "PYTHONIOENCODING"),
+        ("Prisma P1001: Can't reach database server at localhost:5432, "
+         "operation timed out", "DATABASE_URL"),
+        ('ERROR: duplicate key value violates unique constraint "ux_docs"',
+         "идемпотент"),
+        ("update on table violates foreign key constraint fk_header",
+         "FK-нарушение"),
+        ('ERROR: column "apd.movement_type" does not exist (SQLSTATE 42703)',
+         "information_schema"),
+        ("ERROR: could not determine data type of parameter $3 (42P08)",
+         "::type"),
+        ("FATAL ERROR: JavaScript heap out of memory", "max-old-space-size"),
+        ("Error: read ECONNRESET at TCP.onStreamRead", "таймаут"),
+        ("413 Request Entity Too Large", "client_max_body_size"),
+    ]
+    for text, frag in hint_cases:
+        check("fix_for hints: " + frag, frag in cl.fix_for(text),
+              cl.fix_for(text))
+    check("fix_for: unknown text falls back to generic hint",
+          "корневую причину" in cl.fix_for("что-то пошло не так"))
+    check("fix_for: specific class wins over generic timeout (order pin)",
+          "DATABASE_URL" in cl.fix_for("P1001 connection timed out"))
+
     FAIL_L2 = [{"layer": 1, "outcome": "pass"},
                {"layer": 2, "kind": "test_run", "outcome": "fail", "command": "npm test",
                 "evidence": "1 failed"}]

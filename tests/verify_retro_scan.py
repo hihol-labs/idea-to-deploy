@@ -104,6 +104,30 @@ def main() -> int:
             {"session_start": 2, "total_tokens": 16667, "total_calls": 3,
              "by_tool": {}, "warnings_sent": []}))
 
+        # review-findings ledgers — REAL producer shape (persist_findings()
+        # in hooks/verdict-contract.sh, v1.86.0): project + global tmp
+        write(mem_a / "review-findings.jsonl", "\n".join([
+            json.dumps({"ts": "t1", "project": "alpha", "verdict": "BLOCKED",
+                        "findings": [
+                            {"severity": "critical",
+                             "category": "assumed-producer-shape",
+                             "file": "src/a.ts", "summary": "shape guessed"},
+                            {"severity": "important", "category": None,
+                             "file": "src/b.ts",
+                             "summary": "Missing null check in loader"}]}),
+            json.dumps({"ts": "t2", "project": "alpha",
+                        "verdict": "PASSED_WITH_WARNINGS",
+                        "findings": [
+                            {"severity": "important",
+                             "category": "assumed-producer-shape",
+                             "file": "src/c.ts", "summary": "again"}]}),
+        ]))
+        write(tmp / "claude-review-findings.jsonl", json.dumps(
+            {"ts": "t3", "project": "other", "verdict": "PASSED_WITH_WARNINGS",
+             "findings": [{"severity": "minor", "category": None,
+                           "file": "lib/d.py",
+                           "summary": "missing NULL check in loader path"}]}))
+
         # 1) markdown run
         r = run(str(ws), "--tmp-dir", str(tmp), cwd=Path(td))
         out = r.stdout
@@ -127,6 +151,13 @@ def main() -> int:
               "hardening" in out and "tests" in out and "security" not in
               out.split("Незакрытые гейты")[-1][:200], out[-500:])
         check("VCR<1 project named", "alpha" in out, out[:400])
+        check("review-findings ledger surfaced (reviews/findings/classes)",
+              "Находки /review" in out and "ревью 3" in out
+              and "находок 4" in out, out[-900:])
+        check("explicit category repeated → candidate class ×2",
+              "`assumed-produce" in out and "×2" in out, out[-900:])
+        check("category-less findings grouped by ~fingerprint across ledgers",
+              "`~missing-null-check-loader` ×2" in out, out[-900:])
 
         # 2) --json consistency
         r = run(str(ws), "--tmp-dir", str(tmp), "--json", cwd=Path(td))

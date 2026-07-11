@@ -290,6 +290,7 @@ empty. Schema:
   "findings": [
     { "severity": "critical|important|minor",
       "confidence": "high|medium|low",
+      "category": "kebab-case-defect-class",
       "file": "path/to/file",
       "line": 42,
       "summary": "one-line statement of the defect" }
@@ -297,6 +298,15 @@ empty. Schema:
   "unverified": ["area or claim you could not check"]
 }
 ```
+
+`category` (v1.86.0, optional but strongly encouraged) — короткий kebab-case
+класс дефекта (`assumed-producer-shape`, `missing-null-check`,
+`fk-resolve-order`, `unbounded-query`, …). Харнес складывает findings валидных
+вердиктов в `.itd-memory/review-findings.jsonl` (писатель —
+`verdict-contract.sh`), а `/retro` майнит повторяющиеся категории в
+кандидаты-автопроверки (пункт 4 Harness Engineering: «новый тип ошибки на
+review → автоматическая проверка»). Без category класс восстанавливается
+грубым фингерпринтом по summary — назови класс сам, это точнее.
 
 > **High-velocity report add-ons (Day-5, optional — not new checks).** For fast-moving
 > teams the report may additionally surface a **Bundled Summary + Risk Assessment** (one
