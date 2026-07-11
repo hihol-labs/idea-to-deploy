@@ -354,6 +354,9 @@ def run_rubric(repo: Path) -> Report:
     #   - skills/*/SKILL.md (too many false positives from examples)
     #   - skills/review/references/*.md (rubric docs legitimately mention
     #     historical counts for context)
+    #   - docs/retros/*.md (v1.83.0, retro 2026-07-11 P9, FP ×2: retro reports
+    #     quote experiment facts like «8 агент-прогонов субагентами» — counts of
+    #     RUNS, not the agent roster; same class as CHANGELOG history)
     #
     # Skipped lines:
     #   - Markdown table rows (start with `|`)
@@ -376,7 +379,9 @@ def run_rubric(repo: Path) -> Report:
         ]
         docs_dir = repo / "docs"
         if docs_dir.is_dir():
-            doc_paths.extend(docs_dir.rglob("*.md"))
+            retros_dir = docs_dir / "retros"
+            doc_paths.extend(p for p in docs_dir.rglob("*.md")
+                             if retros_dir not in p.parents)
 
         # Pattern A: "N skill(s)", "N скилл(ов)", "N skill directories", etc.
         # The lookbehind `(?<![-A-Za-z0-9])` admits the number after
