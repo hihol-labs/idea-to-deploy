@@ -142,6 +142,29 @@ def main() -> int:
         check("failing command keeps unit in_progress", r.returncode == 1
               and unit(g, "G-002")["status"] == "in_progress", r.stdout + r.stderr)
 
+        # 6.5) verified ⊆ activated (v1.83.0, retro 2026-07-11 P3): юнит,
+        # активированный МИМО скрипта (потерянное activation-событие), при
+        # verify получает activated-бэкфилл ДО verified — VCR-учёт не видит
+        # verified без активации. Изолированная фикстура: reconciliation-чек
+        # validate_state не должен видеть эти события в основном леджере.
+        proj_bf = Path(td) / "backfill"
+        mem_bf = proj_bf / ".itd-memory"
+        mem_bf.mkdir(parents=True)
+        goal_bf = make_ledger(mem_bf)
+        g_bf = load(goal_bf)
+        unit(g_bf, "G-001")["status"] = "in_progress"   # «ручная» активация без события
+        g_bf["currentUnitId"] = "G-001"
+        goal_bf.write_text(json.dumps(g_bf, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+        r = run(VERIFY, "--goal", rel, "G-001", cwd=proj_bf)
+        evs_bf = [(e.get("decision"), e.get("evidence", ""))
+                  for e in events(mem_bf) if e.get("name") == "G-001"]
+        decisions_bf = [d for d, _ in evs_bf]
+        check("verify backfills missing activation before verified",
+              r.returncode == 0 and decisions_bf == ["activated", "verified"]
+              and "backfill" in evs_bf[0][1],
+              str(evs_bf) + (r.stdout + r.stderr)[:200])
+
         # 7) block is fail-closed and unblocks via --activate
         r = run(VERIFY, "--goal", rel, "--block", "G-002", cwd=proj)
         check("block without reason refused", r.returncode == 1, r.stdout + r.stderr)

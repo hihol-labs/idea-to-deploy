@@ -81,6 +81,25 @@ def main() -> int:
         check("t2: parallel agents do not pool", lb.get("total_calls") == 1 and la2 == la,
               f"B={lb.get('total_calls')} A_before={la} A_after={la2}")
 
+        # t2.5 (v1.83.0, retro 2026-07-11 «Модель»): Task/Agent-вызов кладёт
+        # РЕАЛЬНЫЕ subagent_tokens в by_agent (ключ type(model)) и добавляет их
+        # в total_tokens; не-Agent вызовы by_agent не трогают.
+        run_hook(tmp, {"session_id": "agentC", "tool_name": "Agent",
+                       "tool_input": {"subagent_type": "code-reviewer",
+                                      "model": "sonnet"},
+                       "tool_response": "spawned ok <usage>"
+                                        "<subagent_tokens>187033</subagent_tokens>"
+                                        "</usage>"})
+        lc = ledger(tmp, "agentC")
+        ba = lc.get("by_agent", {}).get("code-reviewer(sonnet)", {})
+        check("t2.5: real subagent tokens attributed per agent(model)",
+              ba.get("calls") == 1 and ba.get("tokens") == 187033
+              # ревью #155: реальные subagent-токены НЕ подмешиваются в
+              # total_tokens (шкала бюджет-гейта остаётся оценочной)
+              and lc.get("total_tokens", 0) < 187033, str(lc)[:200])
+        check("t2.5: non-agent ledgers carry no by_agent",
+              "by_agent" not in ledger(tmp, "agentA"), str(ledger(tmp, "agentA"))[:120])
+
         # t3 (P1 regression, red pre-v1.71.0): a neighbour at 199% of the
         # ceiling must NOT trip the HARD ASK for a fresh agent.
         big = {"session_start": 0, "total_tokens": 3_990_000, "total_calls": 1635,

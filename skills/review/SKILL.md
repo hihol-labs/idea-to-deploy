@@ -12,7 +12,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.18.0
+  version: 1.83.0
   category: quality-assurance
   tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---
@@ -98,7 +98,8 @@ Methodology self-review is active when ANY of:
 
 ```bash
 cd <repo_root>
-python3 tests/meta_review.py --verbose
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" tests/meta_review.py --verbose
 ```
 
 The script implements the full three-tier rubric from `references/meta-review-checklist.md` (same Critical/Important/Nice-to-have structure as project review). Parse its output:
@@ -132,8 +133,9 @@ Fail-closed rule: if you cannot determine spec compliance because evidence is mi
 **Stage A.5: Contract health (v1.67.0 — init-audit gap #3).** When `.itd/` exists, before reading the contracts as gates, verify they are trustworthy sensors — rubric check **I10** (Important tier, see `references/review-checklist.md`):
 
 ```bash
-python3 .itd/check_contract_drift.py            # derived contracts vs CLAUDE.md
-python3 .itd/check_contract_drift.py --filled   # key contracts are not template prose
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" .itd/check_contract_drift.py            # derived contracts vs CLAUDE.md
+sh "$SHD/itd_py.sh" .itd/check_contract_drift.py --filled   # key contracts are not template prose
 ```
 
 - Any `DRIFT` line, or `FORBIDDEN_CHANGES.md` / `SCOPE_LOCK.md` / `VERIFICATION_CONTRACT.json` reported as `TMPL`/`MISS` → mark **I10 fail** (Important warning in the report, gate still passes) and say explicitly which gates are running blind on template prose. Do NOT escalate to BLOCKED — a stale contract is a warning about the sensors, not proof the change is wrong.
@@ -319,7 +321,7 @@ Use the Bash tool:
 ```bash
 # tree:<git-write-tree> = diff-binding (v1.59.0); dual-write /tmp + tempdir =
 # platform symmetry (v1.42.0). Rationale: references/runner-and-recovery.md §5.
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 tree="$(git write-tree 2>/dev/null)"
 if [ -n "$tree" ]; then marker="tree:$tree"; else marker="$(date +%s)"; fi

@@ -7,7 +7,7 @@
 ## §4.6 Cost snapshot — чтение леджера cost-tracker
 
 ```bash
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: fallback в /tmp
 ledger="$(ls -1t /tmp/claude-cost-${CLAUDE_SESSION_ID:-*}.json "$tmpd"/claude-cost-${CLAUDE_SESSION_ID:-*}.json 2>/dev/null | head -1)"
 if [ -n "$ledger" ] && [ -f "$ledger" ]; then
   echo "— Cost snapshot —"; cat "$ledger"
@@ -44,7 +44,7 @@ remote → тихий no-op.
 ## §4.9 Skill-coverage self-audit — сбор входов
 
 ```bash
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: fallback в /tmp
 ledger="$(ls -1t /tmp/claude-skill-ledger-*.jsonl "$tmpd"/claude-skill-ledger-*.jsonl 2>/dev/null | head -1)"
 echo "— SKILL_BYPASS за сессию —"
 if [ -n "$ledger" ]; then echo "записей: $(wc -l < "$ledger")"; tail -n 20 "$ledger"; else echo "нет"; fi

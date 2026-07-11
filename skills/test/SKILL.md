@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.5.0
+  version: 1.83.0
   category: testing
   tags: [unit-tests, integration-tests, edge-cases, tdd]
 ---
@@ -178,7 +178,7 @@ Final step of every `/test` invocation, **after the suite has actually run and p
 
 ```bash
 # Dual-write (/tmp + platform temp) — см. v1.42.0 platform symmetry
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 echo "$(date +%s)" | tee "/tmp/claude-test-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-test-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-test-done-${CLAUDE_SESSION_ID:-$$}"
 ```

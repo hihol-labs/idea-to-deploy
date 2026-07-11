@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.5.0
+  version: 1.83.0
   category: code-quality
   tags: [debugging, bugfix, troubleshooting]
 ---
@@ -50,7 +50,7 @@ After identifying the target file/directory from $ARGUMENTS or the error context
 
 ```bash
 # Write freeze state — limits edits to the bug's directory (dual-write: /tmp + platform temp)
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 echo "/path/to/bug/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" 2>/dev/null || echo "/path/to/bug/directory" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state"
 ```

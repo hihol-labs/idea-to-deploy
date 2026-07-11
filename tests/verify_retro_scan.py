@@ -157,6 +157,31 @@ def main() -> int:
         check("overlapping workspace args deduped by resolved path", ok,
               r.stdout[:300])
 
+        # 2.4) verified без activation (v1.83.0, retro 2026-07-11 P3): VCR не
+        # превышает 1.0 (union-семантика как в itd_metrics), аномалия учёта
+        # репортится отдельным фактом, а не прячется.
+        ws2 = Path(td) / "ws2"
+        write(ws2 / "delta" / ".itd-memory" / "events.jsonl",
+              "\n".join(json.dumps(e) for e in [
+                  {"type": "unit", "name": "U-9", "decision": "verified"},
+                  {"type": "unit", "name": "U-10", "decision": "activated"},
+                  {"type": "unit", "name": "U-10", "decision": "verified"},
+              ]))
+        r = run(str(ws2), "--tmp-dir", str(tmp), "--json", cwd=Path(td))
+        try:
+            data = json.loads(r.stdout)
+            ok = (data["vcrGlobal"] == 1.0 and data["unitsActivated"] == 2
+                  and data["unitsVerified"] == 2
+                  and data["unitsVerifiedNoActivation"] == 1)
+        except Exception:
+            ok = False
+        check("verified-no-activation: VCR capped at 1.0 + anomaly counted",
+              ok, r.stdout[:400])
+        r = run(str(ws2), "--tmp-dir", str(tmp), cwd=Path(td))
+        check("verified-no-activation anomaly rendered in markdown",
+              "1.0" in r.stdout and "без записанного activation" in r.stdout,
+              r.stdout[:500])
+
         # 2.5) instruction-registry lifecycle facts (v1.73.0, suitcase audit).
         # Regular workspaces never carry the block.
         r = run(str(ws), "--tmp-dir", str(tmp), "--json", cwd=Path(td))

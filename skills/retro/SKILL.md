@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.82.0
+  version: 1.83.0
   category: methodology
   tags: [retro, self-improvement, telemetry, vcr, backlog, evidence]
 ---
@@ -48,8 +48,9 @@ metadata:
 
 ```bash
 RT="skills/retro/scripts"; [ -f "$RT/itd_retro_scan.py" ] || RT="$HOME/.claude/skills/retro/scripts"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
 # НЕ голый python3 (на Windows Git Bash это WindowsApps-шим) — через запускатель:
-sh "$RT/itd_py.sh" "$RT/itd_retro_scan.py" <workspace-корни из $ARGUMENTS или .>
+sh "$SHD/itd_py.sh" "$RT/itd_retro_scan.py" <workspace-корни из $ARGUMENTS или .>
 ```
 
 Скрипт собирает: VCR и регрессии из `*/.itd-memory/events.jsonl`, активные
@@ -79,7 +80,8 @@ fallback'ом:
 
 ```bash
 RT="skills/retro/scripts"; [ -f "$RT/itd_ledger_abstentions.py" ] || RT="$HOME/.claude/skills/retro/scripts"
-sh "$RT/itd_py.sh" "$RT/itd_ledger_abstentions.py"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$RT/itd_ledger_abstentions.py"
 ```
 
 Источник — `docs/FABLE5_FEATURE_LEDGER.md`. По каждой абстенции спроси: **не
@@ -179,8 +181,9 @@ Actions: отклонить с формулировкой «улучшает м�
 
 ### На Windows скан печатает мусор («Python» вместо отчёта)
 `python`/`python3` в Git Bash указывают на WindowsApps-шим (Store-заглушка).
-Используй сниппеты Step 1/1b как есть — `itd_py.sh` обходит шим (порядок:
-`$ITD_WIN_PYTHON` → python вне WindowsApps → `py -3`). Live-инцидент 2026-07-11.
+Используй сниппеты Step 1/1b как есть — `skills/_shared/itd_py.sh` обходит шим
+(порядок: `$ITD_WIN_PYTHON` → python вне WindowsApps → `py -3`). Live-инцидент
+2026-07-11.
 
 ### Пользователь просит «сразу и реализуй»
 Реализация — отдельная задача через штатный конвейер (/task → ветка → /review

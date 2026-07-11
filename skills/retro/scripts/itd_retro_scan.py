@@ -83,8 +83,15 @@ def scan_project(mem: Path) -> dict:
     events = [e for e in read_jsonl(mem / "events.jsonl") if e.get("type") == "unit"]
     activated = {e.get("name") for e in events if e.get("decision") == "activated"}
     verified = {e.get("name") for e in events if e.get("decision") == "verified"}
+    # verified-юнит по определению был активен: без объединения теряные
+    # activation-события давали VCR>1 (live: OneOfS 16/13 = 1.231, retro
+    # 2026-07-11 P3). Семантика выровнена с scripts/itd_metrics.py; сама
+    # аномалия учёта не прячется — репортится отдельным счётчиком.
+    no_activation = verified - activated
+    activated |= verified
     p["unitsActivated"] = len(activated)
     p["unitsVerified"] = len(verified)
+    p["unitsVerifiedNoActivation"] = len(no_activation)
     p["vcr"] = round(len(verified) / len(activated), 3) if activated else None
     p["regressions"] = sum(1 for e in events if e.get("decision") == "regressed")
     p["failedVerifications"] = sum(
@@ -159,6 +166,7 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     # days" as under the old day-anchor key — expect a step-change upward
     # after the upgrade; totals stay comparable.
     cost_sessions = 0
+    cost_by_agent: dict = {}
     for path in sorted(tmp_dir.glob("claude-cost-*.json")):
         data = read_json(path)
         if not data:
@@ -169,6 +177,13 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         except (TypeError, ValueError):
             tokens = 0
         cost_tokens += tokens
+        # v1.83.0: per-agent(model) атрибуция реальными subagent-токенами
+        # (пишет cost-tracker для Task/Agent) — связывает model-routing с ценой
+        for akey, av in (data.get("by_agent") or {}).items():
+            try:
+                cost_by_agent[akey] = cost_by_agent.get(akey, 0) + int(av.get("tokens") or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
         if tokens:
             cost_usd += (tokens / 1_000_000) * per_1m
         else:
@@ -196,6 +211,7 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         "costSessions": cost_sessions,
         "costTokensTotal": cost_tokens,
         "costUsdEstimate": round(cost_usd, 2),
+        "costByAgent": dict(sorted(cost_by_agent.items(), key=lambda kv: -kv[1])[:5]),
     }
 
 
@@ -321,11 +337,13 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
 
     activated = sum(p["unitsActivated"] for p in projects)
     verified = sum(p["unitsVerified"] for p in projects)
+    no_activation = sum(p.get("unitsVerifiedNoActivation", 0) for p in projects)
     report = {
         "workspaces": [str(w) for w in workspaces],
         "projectsScanned": len(projects),
         "unitsActivated": activated,
         "unitsVerified": verified,
+        "unitsVerifiedNoActivation": no_activation,
         "vcrGlobal": round(verified / activated, 3) if activated else None,
         "regressions": sum(p["regressions"] for p in projects),
         "failedVerifications": sum(p["failedVerifications"] for p in projects),
@@ -358,6 +376,10 @@ def render_markdown(r: dict) -> str:
                f"({r['unitsVerified']}/{r['unitsActivated']} юнитов), "
                f"регрессий: {r['regressions']}, "
                f"проваленных верификаций: {r['failedVerifications']}")
+    if r.get("unitsVerifiedNoActivation"):
+        out.append(f"**Аномалия учёта:** {r['unitsVerifiedNoActivation']} юнит(ов) "
+                   f"verified без записанного activation-события — писатель "
+                   f"активаций теряет события (сигнал для /retro, не для VCR>1)")
     if r["projectsBelowVcr1"]:
         out.append(f"**Проекты с VCR<1.0:** {', '.join(r['projectsBelowVcr1'])}")
     out.append("")
@@ -393,6 +415,9 @@ def render_markdown(r: dict) -> str:
     out.append(f"**Cost-леджеры:** {r['costSessions']} сессий"
                + (f", {r['costTokensTotal']} токенов" if r["costTokensTotal"] else "")
                + (f", ~${r['costUsdEstimate']}" if r["costUsdEstimate"] else ""))
+    if r.get("costByAgent"):
+        top = ", ".join(f"{k}: {v}" for k, v in r["costByAgent"].items())
+        out.append(f"**Токены субагентов (реальные, топ):** {top}")
     reg = r.get("instructionRegistry")
     if reg:
         out.append("")

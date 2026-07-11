@@ -11,7 +11,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.83.0
   category: code-quality
   tags: [performance, optimization, profiling, bottleneck]
 ---
@@ -59,7 +59,7 @@ After identifying the target file/directory from $ARGUMENTS or profiling results
 
 ```bash
 # Write freeze state — limits edits to the optimization target (dual-write: /tmp + platform temp)
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 echo "/path/to/perf/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" 2>/dev/null || echo "/path/to/perf/directory" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state"
 ```

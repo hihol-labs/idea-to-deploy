@@ -10,7 +10,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: true
   author: HiH-DimaN
-  version: 1.20.1
+  version: 1.83.0
   category: code-quality
   tags: [database, migration, ddl, rollback, safety]
 ---
@@ -164,7 +164,7 @@ Final step of every `/migrate` invocation. Write a session marker so `hooks/chec
 
 ```bash
 # Dual-write (/tmp + platform temp) — см. v1.42.0 platform symmetry
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"
+tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
 mkdir -p /tmp 2>/dev/null || true
 echo "$(date +%s)" | tee "/tmp/claude-migrate-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-migrate-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-migrate-done-${CLAUDE_SESSION_ID:-$$}"
 ```

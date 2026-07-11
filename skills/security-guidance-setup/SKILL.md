@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.83.0
   category: quality-assurance
   tags: [security, shift-left, vulnerability-review, code-review, integration]
 ---
@@ -145,7 +145,7 @@ only with your go-ahead, runs (or prints) the documented command.
 
 ```bash
 claude --version                                              # need ≥ v2.1.144
-python3 --version 2>/dev/null || python --version             # need ≥ 3.8
+python3 --version 2>/dev/null || python --version             # need ≥ 3.8 (win-ok: probe с fallback)
 claude plugin list 2>/dev/null | grep -i security-guidance || echo "security-guidance: NOT installed"
 claude plugin details security-guidance 2>/dev/null           # hooks/components, if installed
 ```

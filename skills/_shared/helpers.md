@@ -337,3 +337,24 @@ user's UI so it is visible now, it does not REPLACE the durable record.
 
 Evidence: в том же замере добавление отказ-инструкции в промпт дало 6/6
 корректных прогонов (0 тихих подмен против 6/21 без неё).
+
+## 12. Python в bash-сниппетах скиллов — только через запускатель (v1.83.0 — retro 2026-07-11 P2)
+
+На Windows Git Bash `python`/`python3` указывают на WindowsApps-шим
+(Store-заглушку): вызов падает с exit 49, а под пайпом молча отдаёт мусор
+(live-инцидент 2026-07-11 — Step 1 `/retro` печатал «Python» вместо скана).
+Правило для ЛЮБОГО python-вызова в ```bash-сниппете скилла:
+
+```bash
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" path/to/script.py args...   # порядок: $ITD_WIN_PYTHON -> python вне WindowsApps -> py -3
+```
+
+- Резолвер-строку вставляй в НАЧАЛО каждого shell-вызова (состояние между
+  tool-вызовами не живёт) — как с `GT=` в /goal.
+- Осознанные исключения помечай маркером `win-ok` на той же строке: цепочки с
+  собственным фолбэком до `py -3`/`/tmp`, probes окружения, команды, которые
+  записываются в проект пользователя под ЕГО окружение.
+- Гейт: `tests/verify_no_bare_python3.py` (fenced bash/sh-блоки skills/**/*.md).
+- Хуков это не касается — их интерпретатор жёстко прописан sync-to-active
+  (`ITD_WIN_PYTHON` harvest из settings.json).

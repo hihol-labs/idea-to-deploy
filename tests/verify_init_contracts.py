@@ -189,6 +189,19 @@ def t6_classifier_l2() -> None:
           bool(s) and s.get("kind") == "test_run" and s.get("layer") == 2, str(s))
     s2 = cl.classify_bash("git commit -m itd_init_validate", {"stdout": ""})
     check("classifier: commit mentioning validator is NOT a signal", not s2, str(s2))
+    # v1.83.0 (retro 2026-07-11 P5): проба окружения — не сигнал слоя.
+    # Live-FP: `python -c "import pytest" || echo NO_PYTEST` c Traceback в выводе
+    # классифицировался как проваленный test_run.
+    s3 = cl.classify_bash(
+        '"C:/Python312/python.exe" -c "import pytest" 2>&1 || echo NO_PYTEST',
+        {"stdout": "Traceback (most recent call last):\n"
+                   "ModuleNotFoundError: No module named 'pytest'\nNO_PYTEST"})
+    check("classifier: bare-import env probe is NOT a signal", not s3, str(s3))
+    s4 = cl.classify_bash(
+        "python3 -c 'import pytest; raise SystemExit(pytest.main([\"-q\"]))'",
+        {"stdout": "= 3 passed ="})
+    check("classifier: import WITH invocation stays a test_run signal",
+          bool(s4) and s4.get("kind") == "test_run", str(s4))
 
 
 def _preflight_ctx(proj: Path) -> str:

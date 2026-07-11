@@ -10,7 +10,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.22.1
+  version: 1.83.0
   category: workflow
   tags: [handoff, context, delegation, recovery, memory]
 ---
@@ -74,7 +74,8 @@ Opus избыточен. Haiku допустим для совсем коротк
 
   ```bash
   GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"
-  python3 "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json
+  SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+  sh "$SHD/itd_py.sh" "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json
   ```
 - Зафиксируй текущий узел/юнит и что именно в процессе.
 
@@ -109,7 +110,7 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 поэтому с фолбэком (v1.71.1):
 
 ```bash
-python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true
+python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true  # win-ok: цепочка включает py -3
 ```
 
 Если ни один интерпретатор не сработал — шаг тихо пропускается (вью derived,
