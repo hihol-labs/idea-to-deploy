@@ -192,26 +192,36 @@ fresh narrow agent scoped to the smallest useful slice, do not stop to ask
 «resume or retry?». This is the shared rule in `skills/_shared/helpers.md` §9,
 not a per-skill judgement call.
 
-### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0, only when `.itd-memory/` exists)
+### Step 3.5: Unit bookkeeping — WIP=1 (v1.41.0; писатель — харнес, v1.85.0; only when `.itd-memory/` exists)
 
 If `$PROJECT_ROOT/.itd-memory/STATE.json` exists, keep the machine-readable
-scope surface honest around the routing. Если `events.jsonl` в `.itd-memory/`
-отсутствует — создай пустой и пиши события в него: пустой лог = слепые VCR и
-/retro (боевая находка retro 2026-07-04: проект с 10+ PR/неделю и нулём
-unit-событий).
+scope surface honest around the routing. Переходами unit-статусов управляет
+скрипт `skills/task/scripts/itd_unit_log.py` — **не пиши JSON в
+STATE.json/events.jsonl руками** (диагноз G-004, retro 2026-07-11: ручная
+запись теряла activation-события — 4 юнита verified без activated, слепой VCR).
+
+Резолв путей (в начале каждого shell-вызова; python — только через запускатель):
+
+```bash
+TT="skills/task/scripts"; [ -f "$TT/itd_unit_log.py" ] || TT="$HOME/.claude/skills/task/scripts"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+```
 
 1. **Before activating** — read `STATE.json.currentUnit`. If its `status` is
    `verifying` / `recovery_required` (unfinished unit) → do NOT silently start
    the new unit. Tell the user: «Текущий unit `<id>` не доведён до verified
    (<status>). WIP=1: сначала доводим его верификацию, или осознанно
    закрываем/переклассифицируем?» Proceed only after an explicit choice.
-2. **On activation** — set `currentUnit` = `{id: U-<next>, goal: <one-line
-   task>, status: "in_progress", startedAt: <now>}` and append to
-   `events.jsonl`: `{"type": "unit", "name": "<id>", "decision": "activated",
-   ...}` (convention in `docs/templates/itd-memory/events.example.jsonl`).
+   (Скрипт продублирует WIP=1 fail-closed — но спросить пользователя обязан ты.)
+2. **On activation** —
+   `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" activate U-<next> --goal "<one-line task>"`
+   — скрипт сам выставит `currentUnit` (атомарно) и запишет событие
+   `activated` (actor: harness).
 3. **On verified completion** (the target skill's verification passed with
-   evidence) — set `status: "verified"`, `completedAt`, and append
-   `{"type": "unit", "name": "<id>", "decision": "verified", "evidence": ...}`.
+   evidence) —
+   `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" verified U-<id> --evidence "<вывод проверки>"`
+   — verified без evidence или без парного activation-события скрипт отклонит
+   (осознанная реконсиляция истории: `backfill-activation U-<id> --note "…"`).
    These events feed `itd_metrics.py` VCR (verified/activated) and the
    `wip-gate.sh` hook.
 
