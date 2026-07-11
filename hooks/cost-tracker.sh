@@ -312,8 +312,11 @@ def _main() -> int:
             by_agent[key]["calls"] += 1
             by_agent[key]["tokens"] += real
             ledger["by_agent"] = by_agent
-            if real:
-                ledger["total_tokens"] += real  # реальные токены субагента поверх оценки
+            # СОЗНАТЕЛЬНО не добавляем real в total_tokens (ревью #155,
+            # important): total_tokens — шкала бюджет-гейта, калиброванная на
+            # оценках; подмешивание реальных subagent-токенов меняло бы порог
+            # ASK задним числом. Реальная цена агентов живёт в by_agent и
+            # агрегируется /retro-сканом отдельно.
         except Exception:
             pass
 

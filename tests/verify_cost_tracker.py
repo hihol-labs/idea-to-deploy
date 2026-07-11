@@ -94,7 +94,9 @@ def main() -> int:
         ba = lc.get("by_agent", {}).get("code-reviewer(sonnet)", {})
         check("t2.5: real subagent tokens attributed per agent(model)",
               ba.get("calls") == 1 and ba.get("tokens") == 187033
-              and lc.get("total_tokens", 0) > 187033, str(lc)[:200])
+              # ревью #155: реальные subagent-токены НЕ подмешиваются в
+              # total_tokens (шкала бюджет-гейта остаётся оценочной)
+              and lc.get("total_tokens", 0) < 187033, str(lc)[:200])
         check("t2.5: non-agent ledgers carry no by_agent",
               "by_agent" not in ledger(tmp, "agentA"), str(ledger(tmp, "agentA"))[:120])
 
