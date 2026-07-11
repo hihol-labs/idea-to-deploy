@@ -134,6 +134,9 @@ jobs:
       - name: Run project-checks slot contract (.itd/checks runner + DoD wiring) (v1.87.0)
         run: python3 tests/verify_project_checks.py
 
+      - name: Run external-review importer contract (findings ledger, dedup, classify) (v1.87.0)
+        run: python3 tests/verify_review_import.py
+
       - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
         run: python3 tests/verify_runall_drift.py
 

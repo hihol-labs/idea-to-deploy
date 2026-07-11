@@ -55,7 +55,7 @@ verify_fable_snippets verify_routing verify_completion_gate \
 verify_completion_ledger verify_harness_map_fixtures verify_runall_drift \
 verify_no_bare_python3 verify_model_policy_hint \
 verify_py_launcher_encoding verify_unit_log verify_goal_verify_shell \
-verify_project_checks"
+verify_project_checks verify_review_import"
 
 for t in $CORE; do run_py "$t"; done
 if [ "$QUICK" = "0" ]; then
