@@ -71,7 +71,14 @@ BASH_MUTATION_RE = re.compile(
     r"\btruncate\b|\bdd\b|Set-Content|Out-File|Add-Content|"
     # v1.78.1: интерпретаторные записи (python -c / py -c / node -e) — soft-
     # детект; co-occurrence с путём леджера уже требуется, цена FP ~0
-    r"\bpython[\w.]*\s[^|;&\n]*-c\b|\bpy\s[^|;&\n]*-c\b|\bnode\s[^|;&\n]*-e\b)")
+    r"\bpython[\w.]*\s[^|;&\n]*-c\b|\bpy\s[^|;&\n]*-c\b|\bnode\s[^|;&\n]*-e\b|"
+    # v1.81.0 (финальная пересдача, кандидат (а)): дыры soft-детекта с FP~0 —
+    # perl -i, sponge, install, rsync, PowerShell Copy-Item/New-Item, запуск
+    # скрипта (python x.py — не только -c), rm/del/Remove-Item (после удаления
+    # леджера перевалидация репортит отсутствие)
+    r"\bperl\s+[^|;&\n]*-i\b|\bsponge\b|\binstall\b|\brsync\b|"
+    r"Copy-Item|New-Item|\brm\b|\bdel\b|Remove-Item|"
+    r"\bpython[\w.]*\s+\S+\.py\b|\bpy\s+\S+\.py\b|\bnode\s+\S+\.js\b)")
 
 # v1.80.0: git-перезапись рабочего дерева (checkout/restore/reset) может
 # откатить леджер БЕЗ упоминания его пути в команде (`git checkout ветка`,
@@ -80,7 +87,16 @@ BASH_MUTATION_RE = re.compile(
 # checkout). После отката леджер валиден по схеме, но ПРОТУХ относительно
 # events.jsonl — ловит реконсиляция в перевалидации. Цена FP ~0: валидация
 # гоняется только если леджеры проекта существуют, и молчит на валидных.
-GIT_REWRITE_RE = re.compile(r"\bgit\b[^|;&\n]*\b(?:checkout|restore|reset)\b")
+# v1.81.0: + stash/clean (перезаписывают/удаляют рабочее дерево так же неявно)
+GIT_REWRITE_RE = re.compile(
+    r"\bgit\b[^|;&\n]*\b(?:checkout|restore|reset|stash|clean)\b")
+
+# v1.81.0 (critical ревью): удаление КАТАЛОГА .itd-memory не содержит токена
+# STATE.json — co-occurrence-гейт его не видел, «vanished»-репорт был мёртв.
+# Отдельный безусловный триггер: глагол удаления + упоминание .itd-memory.
+# (?![\w-]) отсекает .itd-memory-backup и подобные соседние имена.
+DELETION_VERB_RE = re.compile(r"\b(?:rm|del|rd|rmdir|Remove-Item)\b")
+ITD_MEMORY_MENTION_RE = re.compile(r"\.itd-memory(?![\w-])")
 
 # v1.78.0 — pre-write HARD-гейт для Bash-канала: леджер должен быть ЦЕЛЬЮ
 # записи, а не просто упомянут (иначе `git diff .itd-memory/STATE.json >
@@ -107,6 +123,13 @@ LEDGER_WRITE_TARGET_RE = re.compile(
     # (обычное переключение веток — false-deny дороже); их протухание ловит
     # soft-ревалидация + реконсиляция с events.jsonl.
     r"|\bgit\b[^|;&\n]*\b(?:checkout|restore)\b[^|;&\n]*\s['\"]?" + _L +
+    # v1.81.0 (топ-пробел финальной пересдачи): УДАЛЕНИЕ леджера/каталога —
+    # та же deny-достойная операция под чужим локом. Без end-anchor'а
+    # (important ревью: анкер резал flags-after-path `Remove-Item .itd-memory
+    # -Recurse` и хвостовые редиректы `2>/dev/null`; у удаления нет
+    # src/dst-неоднозначности mv/cp, анкер не нужен). (?![\w-]) отсекает
+    # соседние имена вида .itd-memory-backup. + rd/rmdir (cmd.exe-формы).
+    r"|\b(?:rm|del|rd|rmdir|Remove-Item)\b[^|;&\n]*\s['\"]?\S*\.itd-memory(?![\w-])"
     r")")
 
 
@@ -136,7 +159,7 @@ def deny(reason: str) -> int:
     return 2
 
 
-def find_project_memory_dir(cwd: Path) -> Path | None:
+def find_project_memory_dir(cwd: Path, deep: bool = True) -> Path | None:
     """Локатор memory-dir проекта. Копия pre-flight-check.sh
     find_project_memory_dir (та же логика) — хуки самодостаточны by design;
     при изменении раскладки ~/.claude/projects править ОБА места.
@@ -158,6 +181,11 @@ def find_project_memory_dir(cwd: Path) -> Path | None:
         candidate = projects_root / name / "memory"
         if candidate.is_dir():
             return candidate
+    if not deep:
+        # v1.81.0 (important ревью): heartbeat на shell-канале зовётся на
+        # КАЖДЫЙ Bash/PowerShell — suffix-скан ~/.claude/projects там слишком
+        # дорог и best-effort не нужен (прямые кандидаты покрывают onboarded)
+        return None
     parts = cwd_resolved.parts
     for i in range(1, len(parts)):
         raw = "-".join(parts[i:])
@@ -202,10 +230,10 @@ def _current_branch(cwd: Path) -> str:
     return "unknown"
 
 
-def heartbeat_lock(cwd: Path, sid: str) -> None:
+def heartbeat_lock(cwd: Path, sid: str, deep: bool = True) -> None:
     """Освежить .active-session.lock, НЕ трогая чужой свежий лок."""
     try:
-        mem_dir = find_project_memory_dir(cwd)
+        mem_dir = find_project_memory_dir(cwd, deep=deep)
         if mem_dir is None:
             return
         lock = mem_dir / ".active-session.lock"
@@ -339,8 +367,13 @@ def bash_ledger_context(cwd: Path, command: str) -> str | None:
     co_occurrence = bool(LEDGER_PATH_RE.search(command)
                          and BASH_MUTATION_RE.search(command))
     # git-перезапись — безусловно (леджер откатывается и без упоминания
-    # его пути в команде; см. GIT_REWRITE_RE, important ревью v1.80.0)
-    if not co_occurrence and not GIT_REWRITE_RE.search(command):
+    # его пути в команде; см. GIT_REWRITE_RE, important ревью v1.80.0);
+    # v1.81.0 (critical ревью): удаление каталога .itd-memory — тоже
+    # безусловно (токена STATE.json в команде нет, co-occurrence слеп)
+    deletionish = bool(DELETION_VERB_RE.search(command)
+                       and ITD_MEMORY_MENTION_RE.search(command))
+    if not co_occurrence and not deletionish \
+            and not GIT_REWRITE_RE.search(command):
         return None
     mem = cwd / ".itd-memory"
     contexts = []
@@ -353,6 +386,28 @@ def bash_ledger_context(cwd: Path, command: str) -> str | None:
             ctx = validate_ledger(str(ledger))
             if ctx:
                 contexts.append(ctx)
+        elif (ledger.name == "STATE.json" and mem.is_dir()
+              and re.search(r"\brm\b|\bdel\b|\brd\b|\brmdir\b|Remove-Item|"
+                            r"\bmv\b|\bgit\b", command)):
+            # v1.81.0: леджер ИСЧЕЗ после команды класса удаления/переноса —
+            # раньше отсутствующий файл молча пропускался. Guard по классу
+            # команды: проект без STATE.json не должен получать FAILED на
+            # каждый git stash
+            contexts.append(
+                "FAILED: state-леджер отсутствует после мутационной команды "
+                "| WHY: .itd-memory/ существует, а STATE.json в нём нет — "
+                "команда могла удалить/переместить леджер | FIX: восстанови "
+                "из git (git checkout -- .itd-memory/STATE.json) или из "
+                "события session-save, resume следующей сессии сломан.")
+    if not contexts and deletionish and not mem.is_dir():
+        # v1.81.0: снесён САМ каталог .itd-memory (rm -rf .itd-memory) —
+        # ветка выше требует mem.is_dir() и здесь молчала бы
+        contexts.append(
+            "FAILED: каталог .itd-memory исчез после команды удаления "
+            "| WHY: команда явно удаляла .itd-memory, каталога больше нет — "
+            "потеряны STATE/GOAL/events | FIX: восстанови из git или из "
+            "памяти сессии (~/.claude/projects/<проект>/memory), resume "
+            "следующей сессии сломан.")
     if not contexts:
         return None
     return ("Bash-мутация state-леджера детектирована — перевалидация:\n"
@@ -398,6 +453,12 @@ def main() -> int:
 
     # --- PostToolUse ---
     if tool in SHELL_TOOLS:
+        # v1.81.0 (кандидат (б)): heartbeat и на shell-каналах — чисто
+        # Bash/PowerShell-сессия раньше протухала свой лок за 10 мин, и
+        # вторая сессия легитимно забирала single-writer посреди работы.
+        # Внутренний rate-limit (HEARTBEAT_MIN_INTERVAL) держит IO ~нулевым;
+        # deep=False — без suffix-скана ~/.claude/projects (цена на каждый Bash).
+        heartbeat_lock(cwd, sid, deep=False)
         command = str(tool_input.get("command") or "")
         return emit("PostToolUse", bash_ledger_context(cwd, command))
 

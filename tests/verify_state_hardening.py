@@ -227,7 +227,7 @@ def main() -> int:
     # heartbeat: create / refresh own, never clobber a foreign fresh lock
     memdir = tmp / "clmem"
     memdir.mkdir()
-    sg.find_project_memory_dir = lambda cwd: memdir  # type: ignore[assignment]
+    sg.find_project_memory_dir = lambda cwd, deep=True: memdir  # type: ignore[assignment]
     lock = memdir / ".active-session.lock"
 
     sg.heartbeat_lock(tmp, "sess-A")
@@ -457,6 +457,31 @@ def main() -> int:
     res = run_gate(bpay)
     check("git branch switch (no ledger path) is not gated", res.returncode == 0)
 
+    # v1.81.0 (а): deleting the ledger is deny-worthy under a foreign lock
+    bpay["session_id"] = f"rmgate-{os.getpid()}"
+    bpay["tool_input"]["command"] = "rm .itd-memory/STATE.json"
+    res = run_gate(bpay)
+    check("rm of ledger file is denied pre-write",
+          res.returncode == 2 and "deny" in (res.stdout or ""))
+    bpay["tool_input"]["command"] = "rm -rf .itd-memory"
+    res = run_gate(bpay)
+    check("rm -rf of .itd-memory dir is denied pre-write", res.returncode == 2)
+    bpay["tool_input"]["command"] = "rm -rf node_modules dist"
+    res = run_gate(bpay)
+    check("rm of unrelated dirs is not gated", res.returncode == 0)
+    # review v1.81.0 (important): flags-after-path, trailing redirect, cmd.exe
+    bpay["tool_input"]["command"] = "Remove-Item .itd-memory -Recurse -Force"
+    bpay["session_id"] = f"rmgate2-{os.getpid()}"
+    res = run_gate(bpay)
+    check("Remove-Item with flags AFTER path is denied", res.returncode == 2)
+    bpay["tool_input"]["command"] = "rm -rf .itd-memory/ 2>/dev/null"
+    res = run_gate(bpay)
+    check("rm with trailing redirect is denied", res.returncode == 2)
+    bpay["tool_input"]["command"] = "rm -rf tmp/.itd-memory-backup"
+    res = run_gate(bpay)
+    check("neighbour name .itd-memory-backup is NOT gated (lookahead)",
+          res.returncode == 0)
+
     # v1.78.1: PowerShell tool is the same mutation channel
     bpay["tool_name"] = "PowerShell"
     bpay["session_id"] = f"psgate-{os.getpid()}"
@@ -509,6 +534,65 @@ def main() -> int:
                          text=True, timeout=30, env=env)
     check("non-rewriting git (status/log) stays silent",
           res.returncode == 0 and "FAILED" not in (res.stdout or ""))
+
+    # v1.81.0 (а): new soft tokens + git stash + missing-ledger report
+    ipay["tool_input"]["command"] = "perl -i -pe s/a/b/ .itd-memory/STATE.json"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("perl -i on ledger triggers soft re-validation",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+    ipay["tool_input"]["command"] = "git stash"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(ipay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("git stash triggers unconditional soft re-validation",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+    rmmem = tmp / "rmproj" / ".itd-memory"
+    rmmem.mkdir(parents=True)
+    rmpay = dict(ipay); rmpay["cwd"] = str(rmmem.parent)
+    rmpay["tool_input"] = {"command": "rm .itd-memory/STATE.json"}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(rmpay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("vanished ledger after rm-class command is red-marked",
+          res.returncode == 0 and "FAILED" in (res.stdout or "")
+          and "STATE.json" in (res.stdout or ""))
+    # review v1.81.0 (critical): BARE directory deletion — no STATE.json token
+    # in the command — must still be caught by the soft leg
+    rmpay["tool_input"] = {"command": "rm -rf .itd-memory"}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(rmpay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("bare rm of .itd-memory dir (dir still present) is red-marked",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+    gonepay = dict(rmpay); gonepay["cwd"] = str(tmp / "goneproj")
+    (tmp / "goneproj").mkdir()
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(gonepay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("vanished .itd-memory dir after deletion command is red-marked",
+          res.returncode == 0 and "FAILED" in (res.stdout or ""))
+
+    # v1.81.0 (б): shell channel heartbeats the lock too
+    hb_home = tmp / "hbhome"
+    # deep=False у shell-heartbeat сканирует только ПРЯМЫЕ кандидаты —
+    # раскладка строится настоящим munging'ом (каждый не-alnum -> '-')
+    hbmem = hb_home / ".claude" / "projects" / re.sub(
+        r"[^A-Za-z0-9]", "-", str((tmp / "rmproj").resolve())) / "memory"
+    hbmem.mkdir(parents=True)
+    hb_env = dict(os.environ)
+    hb_env["HOME"] = str(hb_home); hb_env["USERPROFILE"] = str(hb_home)
+    hbpay = {"hook_event_name": "PostToolUse", "session_id": "hb-shell",
+             "cwd": str(tmp / "rmproj"), "tool_name": "Bash",
+             "tool_input": {"command": "echo hi"}}
+    subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                   input=json.dumps(hbpay), capture_output=True,
+                   text=True, timeout=30, env=hb_env)
+    hb_lock = hbmem / ".active-session.lock"
+    check("bare shell activity heartbeats the session lock",
+          hb_lock.is_file()
+          and json.loads(hb_lock.read_text(encoding="utf-8")).get("session") == "hb-shell")
 
     # v1.80.0: POSIX flock is non-blocking with bounded retries (symmetric
     # to the msvcrt path) — a held lock returns False fast, never hangs.
