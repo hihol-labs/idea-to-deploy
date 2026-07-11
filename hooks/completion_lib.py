@@ -312,6 +312,12 @@ PASS_TEXT_RE = re.compile(
 )
 
 
+# Проба наличия модуля/пакета в окружении: `<python> -c "import X"` (payload —
+# ровно один голый import, без вызовов и `;`). Такая команда спрашивает «есть ли
+# X?», её падение — ожидаемый ответ, не провал слоя (retro 2026-07-11 P5).
+ENV_PROBE_RE = re.compile(
+    r"""-c\s+(["'])\s*import\s+[A-Za-z_][\w.]*\s*\1""")
+
 # Эхнутый exit-код команды. Раннеры часто маскируют реальный $? пайпом через
 # head/tail, а хостовый tool_response не всегда несёт структурный exit-код.
 # Проектная конвенция — дописывать echo "EXIT: $?" / TSC_EXIT=$? / "exit: N".
@@ -382,6 +388,13 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     # многострочное тело часто случайно матчат L2-паттерны; сбрасываем до
     # классификации, чтобы акт сдачи не считался проверкой.
     if VCS_LEAD_RE.search(command):
+        return None
+    # Проба окружения — не сигнал слоя (retro 2026-07-11 P5, live FP):
+    # `python -c "import pytest" || echo NO_PYTEST` проверяет НАЛИЧИЕ модуля,
+    # её ModuleNotFoundError — ожидаемый ответ «нет», а не провал тестов.
+    # Матчится только голый import в -c (import с вызовами/`;` — реальный
+    # смоук, он сигналом остаётся).
+    if ENV_PROBE_RE.search(command):
         return None
     text, code = _extract_output(tool_response)
     outcome = outcome_from(text, code)
