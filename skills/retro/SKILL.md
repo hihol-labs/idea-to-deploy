@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.47.0
+  version: 1.82.0
   category: methodology
   tags: [retro, self-improvement, telemetry, vcr, backlog, evidence]
 ---
@@ -48,8 +48,8 @@ metadata:
 
 ```bash
 RT="skills/retro/scripts"; [ -f "$RT/itd_retro_scan.py" ] || RT="$HOME/.claude/skills/retro/scripts"
-PY=$(sh "$RT/itd_py.sh")   # НЕ голый python3: на Windows Git Bash это WindowsApps-шим
-$PY "$RT/itd_retro_scan.py" <workspace-корни из $ARGUMENTS или .>
+# НЕ голый python3 (на Windows Git Bash это WindowsApps-шим) — через запускатель:
+sh "$RT/itd_py.sh" "$RT/itd_retro_scan.py" <workspace-корни из $ARGUMENTS или .>
 ```
 
 Скрипт собирает: VCR и регрессии из `*/.itd-memory/events.jsonl`, активные
@@ -79,7 +79,7 @@ fallback'ом:
 
 ```bash
 RT="skills/retro/scripts"; [ -f "$RT/itd_ledger_abstentions.py" ] || RT="$HOME/.claude/skills/retro/scripts"
-PY=$(sh "$RT/itd_py.sh"); $PY "$RT/itd_ledger_abstentions.py"
+sh "$RT/itd_py.sh" "$RT/itd_ledger_abstentions.py"
 ```
 
 Источник — `docs/FABLE5_FEATURE_LEDGER.md`. По каждой абстенции спроси: **не

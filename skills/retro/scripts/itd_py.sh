@@ -1,5 +1,5 @@
 #!/bin/sh
-# itd_py.sh — кросс-платформенный резолвер python-интерпретатора для inline-сниппетов скиллов.
+# itd_py.sh — кросс-платформенный запуск python-скриптов из inline-сниппетов скиллов.
 #
 # Проблема (live-инцидент 2026-07-11): на Windows Git Bash `python`/`python3`
 # указывают на WindowsApps-шим (Store-заглушка) — вызов «выполняется», но
@@ -7,26 +7,50 @@
 # (ITD_WIN_PYTHON в settings.json при sync-to-active), inline-сниппеты
 # скиллов (`python3 script.py ...`) — нет.
 #
-# Печатает пригодную python-команду. Использование в сниппете:
-#   PY=$(sh "$RT/itd_py.sh"); $PY "$RT/script.py" ...
-# Порядок: $ITD_WIN_PYTHON -> python3/python вне WindowsApps -> py -3 -> python3 (fail loud).
+# Использование (запускатель, а не принтер пути — пути с пробелами вроде
+# C:/Program Files/... остаются корректно закавыченными, находка ревью #154):
+#   sh "$RT/itd_py.sh" "$RT/script.py" args...
+# Без аргументов — печатает выбранный интерпретатор (диагностика).
+# Порядок выбора: $ITD_WIN_PYTHON -> python3/python вне WindowsApps -> py -3
+# -> python3 (fail loud).
 set -u
-if [ -n "${ITD_WIN_PYTHON:-}" ] && [ -x "$ITD_WIN_PYTHON" ]; then
-  echo "$ITD_WIN_PYTHON"
+
+pick() {
+  if [ -n "${ITD_WIN_PYTHON:-}" ] && [ -x "$ITD_WIN_PYTHON" ]; then
+    printf '%s\n' "$ITD_WIN_PYTHON"
+    return 0
+  fi
+  for c in python3 python; do
+    p=$(command -v "$c" 2>/dev/null) || continue
+    case "$p" in
+      *WindowsApps*) continue ;;
+    esac
+    printf '%s\n' "$p"
+    return 0
+  done
+  return 1
+}
+
+PYBIN=$(pick) || PYBIN=""
+
+if [ $# -eq 0 ]; then
+  # Диагностический режим: показать, что было бы выбрано.
+  if [ -n "$PYBIN" ]; then
+    printf '%s\n' "$PYBIN"
+  elif command -v py >/dev/null 2>&1; then
+    echo "py -3"
+  else
+    echo "python3"
+  fi
   exit 0
 fi
-for c in python3 python; do
-  p=$(command -v "$c" 2>/dev/null) || continue
-  case "$p" in
-    *WindowsApps*) continue ;;
-  esac
-  echo "$p"
-  exit 0
-done
+
+if [ -n "$PYBIN" ]; then
+  exec "$PYBIN" "$@"
+fi
 if command -v py >/dev/null 2>&1; then
-  echo "py -3"
-  exit 0
+  exec py -3 "$@"
 fi
-# Ничего пригодного: печатаем python3, чтобы вызов упал с внятной ошибкой,
-# а не молча ушёл в шим.
-echo "python3"
+# Ничего пригодного: python3, чтобы вызов упал с внятной ошибкой, а не молча
+# ушёл в шим.
+exec python3 "$@"
