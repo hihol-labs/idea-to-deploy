@@ -15,6 +15,15 @@
 # -> python3 (fail loud).
 set -u
 
+# Кодировка IO (live-провал 2026-07-11, диагностическая петля, итерация 4):
+# консоль Windows — cp1251, и python-скрипт, печатающий символ вне cp1251
+# (например «→» U+2192 в split_json.py), падал с UnicodeEncodeError, хотя
+# интерпретатор был выбран корректно. Запускатель отвечает за среду целиком:
+# форсируем UTF-8 для stdio, уважая значения, явно заданные вызывающим.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 pick() {
   if [ -n "${ITD_WIN_PYTHON:-}" ] && [ -x "$ITD_WIN_PYTHON" ]; then
     printf '%s\n' "$ITD_WIN_PYTHON"

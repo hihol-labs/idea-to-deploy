@@ -122,6 +122,9 @@ jobs:
       - name: Run model-policy hint behavioural test (risk-tier => model at spawn) (v1.83.0)
         run: python3 tests/verify_model_policy_hint.py
 
+      - name: Run py-launcher encoding contract (PYTHONIOENCODING/PYTHONUTF8 in itd_py.sh) (v1.85.0)
+        run: python3 tests/verify_py_launcher_encoding.py
+
       - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
         run: python3 tests/verify_runall_drift.py
 
