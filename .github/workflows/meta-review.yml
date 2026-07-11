@@ -125,6 +125,9 @@ jobs:
       - name: Run py-launcher encoding contract (PYTHONIOENCODING/PYTHONUTF8 in itd_py.sh) (v1.85.0)
         run: python3 tests/verify_py_launcher_encoding.py
 
+      - name: Run unit-log harness writer contract (paired activated/verified, fail-closed) (v1.85.0)
+        run: python3 tests/verify_unit_log.py
+
       - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
         run: python3 tests/verify_runall_drift.py
 
