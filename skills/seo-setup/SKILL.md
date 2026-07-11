@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.83.0
   category: integration
   tags: [seo, geo, schema, core-web-vitals, technical-seo, eeat, integration]
 ---

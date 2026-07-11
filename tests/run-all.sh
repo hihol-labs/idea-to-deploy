@@ -53,7 +53,7 @@ verify_v147_fixes verify_hook_depth verify_narration_final \
 verify_verdict_contract verify_worktree_hook_safety verify_hook_count_words \
 verify_fable_snippets verify_routing verify_completion_gate \
 verify_completion_ledger verify_harness_map_fixtures verify_runall_drift \
-verify_no_bare_python3"
+verify_no_bare_python3 verify_model_policy_hint"
 
 for t in $CORE; do run_py "$t"; done
 if [ "$QUICK" = "0" ]; then

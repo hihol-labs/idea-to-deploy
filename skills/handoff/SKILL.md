@@ -10,7 +10,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.22.1
+  version: 1.83.0
   category: workflow
   tags: [handoff, context, delegation, recovery, memory]
 ---

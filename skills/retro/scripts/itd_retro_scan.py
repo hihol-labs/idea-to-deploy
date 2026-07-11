@@ -166,6 +166,7 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     # days" as under the old day-anchor key — expect a step-change upward
     # after the upgrade; totals stay comparable.
     cost_sessions = 0
+    cost_by_agent: dict = {}
     for path in sorted(tmp_dir.glob("claude-cost-*.json")):
         data = read_json(path)
         if not data:
@@ -176,6 +177,13 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         except (TypeError, ValueError):
             tokens = 0
         cost_tokens += tokens
+        # v1.83.0: per-agent(model) атрибуция реальными subagent-токенами
+        # (пишет cost-tracker для Task/Agent) — связывает model-routing с ценой
+        for akey, av in (data.get("by_agent") or {}).items():
+            try:
+                cost_by_agent[akey] = cost_by_agent.get(akey, 0) + int(av.get("tokens") or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
         if tokens:
             cost_usd += (tokens / 1_000_000) * per_1m
         else:
@@ -203,6 +211,7 @@ def scan_ledgers(tmp_dir: Path) -> dict:
         "costSessions": cost_sessions,
         "costTokensTotal": cost_tokens,
         "costUsdEstimate": round(cost_usd, 2),
+        "costByAgent": dict(sorted(cost_by_agent.items(), key=lambda kv: -kv[1])[:5]),
     }
 
 
@@ -406,6 +415,9 @@ def render_markdown(r: dict) -> str:
     out.append(f"**Cost-леджеры:** {r['costSessions']} сессий"
                + (f", {r['costTokensTotal']} токенов" if r["costTokensTotal"] else "")
                + (f", ~${r['costUsdEstimate']}" if r["costUsdEstimate"] else ""))
+    if r.get("costByAgent"):
+        top = ", ".join(f"{k}: {v}" for k, v in r["costByAgent"].items())
+        out.append(f"**Токены субагентов (реальные, топ):** {top}")
     reg = r.get("instructionRegistry")
     if reg:
         out.append("")

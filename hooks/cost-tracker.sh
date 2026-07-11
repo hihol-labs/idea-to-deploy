@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -289,6 +290,32 @@ def _main() -> int:
     by_tool[tool]["calls"] += 1
     by_tool[tool]["tokens"] += tokens
     ledger["by_tool"] = by_tool
+
+    # v1.83.0 (retro 2026-07-11, компонент «Модель»): атрибуция стоимости
+    # per-agent РЕАЛЬНЫМИ токенами. Task/Agent-результат несёт usage
+    # (`<subagent_tokens>N</subagent_tokens>` или поле subagent_tokens) — это
+    # связывает model-routing решения с фактической ценой; агрегат виден в
+    # /retro-скане. Оценка by_tool при этом не меняется (совместимость).
+    if tool in ("Task", "Agent"):
+        try:
+            ti = payload.get("tool_input") or {}
+            agent_type = str(ti.get("subagent_type") or "general-purpose")
+            model = str(ti.get("model") or "inherit")
+            resp = payload.get("tool_response")
+            resp_text = resp if isinstance(resp, str) else json.dumps(resp or {})
+            m = re.search(r"subagent_tokens[>\"':\s]+(\d+)", resp_text)
+            real = int(m.group(1)) if m else 0
+            by_agent = ledger.get("by_agent", {})
+            key = f"{agent_type}({model})"
+            if key not in by_agent:
+                by_agent[key] = {"calls": 0, "tokens": 0}
+            by_agent[key]["calls"] += 1
+            by_agent[key]["tokens"] += real
+            ledger["by_agent"] = by_agent
+            if real:
+                ledger["total_tokens"] += real  # реальные токены субагента поверх оценки
+        except Exception:
+            pass
 
     total = ledger["total_tokens"]
     cost_usd = (total / 1_000_000) * COST_PER_1M_TOKENS

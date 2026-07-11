@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.5.0
+  version: 1.83.0
   category: project-creation
   tags: [scaffolding, mvp, full-lifecycle, deployment]
 ---

@@ -10,7 +10,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: true
   author: HiH-DimaN
-  version: 1.20.1
+  version: 1.83.0
   category: code-quality
   tags: [database, migration, ddl, rollback, safety]
 ---

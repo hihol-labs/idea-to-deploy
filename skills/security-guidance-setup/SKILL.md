@@ -9,7 +9,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.0.0
+  version: 1.83.0
   category: quality-assurance
   tags: [security, shift-left, vulnerability-review, code-review, integration]
 ---

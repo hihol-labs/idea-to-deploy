@@ -12,7 +12,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.18.0
+  version: 1.83.0
   category: quality-assurance
   tags: [validation, quality-check, review, consistency, solid, code-smells, methodology-review]
 ---

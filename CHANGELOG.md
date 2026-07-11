@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.83.0] - 2026-07-11
+
+**«Дорога к 5/5»: закрытие вычетов аудита Harness Engineering (RETRO-2026-07-11, принято пользователем)**:
+
+- **U1 (Инструменты, P2)**: `itd_py.sh` переехал в `skills/_shared/` и раскатан
+  на ВСЕ bash-сниппеты скиллов с голым `python3` (18 файлов: /goal, /kickstart,
+  /session-save, /handoff, /review, /adopt и др. — на Windows Git Bash они
+  ломались о WindowsApps-шим); осознанные исключения помечены `win-ok`
+  (fallback-цепочки, probes, команды окружения пользователя). Новый positional-
+  гейт `tests/verify_no_bare_python3.py` (fenced bash/sh-блоки skills/**/*.md)
+  + правило в `skills/_shared/helpers.md` §12.
+- **U2 (Обратная связь, P3)**: VCR>1 невозможен — retro-скан выровнен с
+  `itd_metrics.py` (union verified⊆activated), потерянные активации репортятся
+  отдельным фактом «Аномалия учёта» (live: OneOfS 16/13=1.231, юниты U-2..U-5);
+  `itd_goal_verify.py` бэкфиллит отсутствующее activation-событие ДО verified.
+- **U3 (Обратная связь, P5)**: `ENV_PROBE_RE` в `completion_lib.py` — проба
+  окружения (`python -c "import X"`, голый import) не классифицируется как
+  сигнал слоя (live-FP: ModuleNotFoundError пробы pytest = FAILED test_run).
+- **U4 (Обратная связь, P9)**: M-C12 не сканирует `docs/retros/` (FP ×2:
+  «N субагентов» в ретро — счётчик прогонов эксперимента, не ростера агентов).
+- **U5 (Модель)**: 29-й хук `model-policy.sh` (PreToolUse Task|Agent, advisory)
+  — хинт при спавне субагента с моделью СЛАБЕЕ frontmatter (risk-tier ⇒ model,
+  G-003, теперь и в runtime, не только в CI); `cost-tracker.sh` атрибуцирует
+  РЕАЛЬНЫЕ subagent-токены per agent(model) (`by_agent`), retro-скан показывает
+  топ. Taxonomy 10 hard / 19 soft; все счётчики и карта §8.1/§8.2 обновлены.
+- Новые гейты зарегистрированы в `tests/run-all.sh` и meta-review.yml
+  (verify_no_bare_python3, verify_model_policy_hint); verify_cost_tracker,
+  verify_retro_scan, verify_goal_tools, verify_init_contracts расширены
+  кейсами. Локально: `run-all` fails:none.
+
 ## [1.82.0] - 2026-07-11
 
 **Кросс-платформенный python-резолвер для inline-сниппетов скиллов + RETRO-2026-07-11 (упражнения Harness Engineering)**:

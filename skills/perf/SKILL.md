@@ -11,7 +11,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.3.1
+  version: 1.83.0
   category: code-quality
   tags: [performance, optimization, profiling, bottleneck]
 ---

@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.4.0
+  version: 1.83.0
   category: code-quality
   tags: [refactoring, clean-code, readability]
 ---

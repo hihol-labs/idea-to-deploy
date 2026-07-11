@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.11.0
+  version: 1.83.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---

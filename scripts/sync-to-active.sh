@@ -406,6 +406,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/pii-egress-guard.sh", "timeout": 5 }
       ]
+    },
+    {
+      "matcher": "Task|Agent",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/model-policy.sh", "timeout": 5 }
+      ]
     }
   ],
   "PostToolUse": [

@@ -9,7 +9,7 @@ metadata:
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.45.0
+  version: 1.83.0
   category: workflow
   tags: [goal, long-running, units, wip, resume, brownfield, ledger]
 ---

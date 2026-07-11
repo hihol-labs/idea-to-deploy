@@ -119,6 +119,9 @@ jobs:
       - name: Run no-bare-python3 gate (skills snippets via itd_py.sh launcher) (v1.83.0)
         run: python3 tests/verify_no_bare_python3.py
 
+      - name: Run model-policy hint behavioural test (risk-tier => model at spawn) (v1.83.0)
+        run: python3 tests/verify_model_policy_hint.py
+
       - name: Run run-all.sh vs workflows drift-guard (v1.79.1)
         run: python3 tests/verify_runall_drift.py
 
