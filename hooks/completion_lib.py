@@ -525,6 +525,34 @@ FIX_HINTS: list[tuple[re.Pattern, str]] = [
      "не установлена зависимость — выполни npm install / pip install и повтори"),
     (re.compile(r"\berror\s+ts\d+", re.I),
      "ошибка типов TypeScript — проверь сигнатуры/импорты, затем tsc заново"),
+    # v1.86.0 — классы из реального инцидент-корпуса (retro 2026-07-11 +
+    # прод-инциденты OneOfS). Специфичные паттерны стоят ДО generic-хвоста
+    # (5xx/timeout): fix_for берёт первый матч, и «P1001 … timed out» должен
+    # получить подсказку про БД, а не про таймаут.
+    (re.compile(r"unicodeencodeerror|charmap.*codec|cp1251", re.I),
+     "консоль не UTF-8 (Windows cp1251) — выставь PYTHONIOENCODING=utf-8; "
+     "python запускай только через skills/_shared/itd_py.sh"),
+    (re.compile(r"can.?t reach database server|\bP1001\b", re.I),
+     "БД недоступна для клиента — проверь DATABASE_URL и что Postgres/туннель подняты"),
+    (re.compile(r"unique constraint|duplicate key value", re.I),
+     "нарушение уникальности — дубль данных: очисти прошлый прогон или сделай "
+     "запись идемпотентной (upsert / ON CONFLICT)"),
+    (re.compile(r"foreign key constraint|\bP2003\b", re.I),
+     "FK-нарушение — ссылка на несуществующую запись: проверь резолв id и порядок вставки"),
+    (re.compile(r"column .{1,80} does not exist|\b42703\b", re.I),
+     "SQL ссылается на несуществующую колонку — сверь имя с реальной схемой "
+     "(information_schema), а не с предположением"),
+    (re.compile(r"could not determine data type|\b42P08\b", re.I),
+     "NULL-параметр без типа — добавь explicit cast $N::type в биндинг параметров"),
+    (re.compile(r"heap out of memory|allocation failed", re.I),
+     "процессу не хватило памяти — уменьши батч или подними лимит "
+     "(NODE_OPTIONS=--max-old-space-size / pm2 max_memory_restart)"),
+    (re.compile(r"econnreset|epipe|socket hang up", re.I),
+     "соединение оборвано на середине — обычно таймаут прокси/сервера по пути: "
+     "ретрай и проверь таймауты, прежде чем менять код"),
+    (re.compile(r"\b413\b|payload too large|request entity too large", re.I),
+     "тело запроса больше лимита — дроби на части или подними client_max_body_size "
+     "у ближайшего прокси"),
     (re.compile(r"\b5\d\d\b|internal server error", re.I),
      "5xx от сервиса — проверь переменные окружения и конфиг сервиса (env, шаблоны, ключи)"),
     (re.compile(r"\b401\b|\b403\b|unauthorized|forbidden", re.I),

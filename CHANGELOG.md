@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.86.0] - 2026-07-11
+
+**Три quick-win'а по итогам внешней оценки Harness Engineering (4.5/5.0/4.5/4.5 → цель 5): FIX_HINTS из инцидент-корпуса, review-findings ledger + retro-майнинг, P6 pre-wire.**
+
+- **Пункт 3 (FIX_HINTS)**: +9 классов ошибок из реального инцидент-корпуса (retro 2026-07-11 + прод-инциденты OneOfS): cp1251/UnicodeEncodeError → `PYTHONIOENCODING`/`itd_py.sh`; Prisma P1001 (БД недоступна); unique/duplicate key (идемпотентность); FK-нарушение; PG 42703 (несуществующая колонка — сверять с information_schema); 42P08 (NULL-параметр без `::type`); heap out of memory (лимиты/батчи); ECONNRESET/EPIPE (таймауты прокси, не код); 413 (лимит тела запроса). Специфичные классы стоят до generic-хвоста — «P1001 … timed out» получает подсказку про БД, а не про таймаут (order pin в тесте). +11 проверок в `verify_completion_gate.py`.
+- **Пункт 4 (review → автопроверки)**: связка «находка /review → кандидат-автопроверка» замкнута машинно. (1) `verdict-contract.sh` при ВАЛИДНОМ вердикте персистит findings в `.itd-memory/review-findings.jsonl` (fallback — глобальный tmp-леджер; bounded 64K, content-дедуп, best-effort — block/silent-решение хука не меняется); (2) схема вердикта /review — опциональное поле `category` (kebab-case класс дефекта); (3) `itd_retro_scan.py` — новая секция FACTS «Находки /review»: повторяющиеся классы (category, либо `~фингерпринт` по summary) с count ≥2 = кандидаты в автопроверки для PROPOSALS. +5 проверок в `verify_verdict_contract.py`, +3 в `verify_retro_scan.py` (фикстуры зеркалят реального продюсера — урок v1.46.0).
+- **Пункт 1 (P6 pre-wire)**: в OneOfS `.claude/completion/config.json` предзаведён L2-паттерн `sql-ro\.sh` для отчётного класса работ (правка идемпотентна и не даёт ложных сигналов, пока серверного канала нет); серверная часть (`/opt/mgmt/scripts/sql-ro.sh`, роль ai_readonly) по-прежнему ждёт ОК Максима — P6 остаётся открытым до смоука канала.
+
 ## [1.85.0] - 2026-07-11
 
 **Дорога к 4.9-5.0 по пятёрке Harness Engineering (цель harness-layers-4.9, юниты G-001…G-005; независимая перепроверка живыми пробами: 4.4 → 4.92/5)**:

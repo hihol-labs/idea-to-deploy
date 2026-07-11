@@ -50,6 +50,7 @@ import os
 import re
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 MAX_PINGS_DEFAULT = 2
@@ -184,17 +185,87 @@ def _inline_verdict_objects(text: str):
                     break
 
 
-def has_valid_json_verdict(text: str) -> bool:
+def extract_verdict_object(text: str):
+    """First valid verdict object in the message, or None."""
     for m in FENCED_JSON_RE.finditer(text):
         try:
-            if _valid_verdict_object(json.loads(m.group(1).strip())):
-                return True
+            obj = json.loads(m.group(1).strip())
         except Exception:
             continue
+        if _valid_verdict_object(obj):
+            return obj
     for obj in _inline_verdict_objects(text):
         if _valid_verdict_object(obj):
-            return True
-    return False
+            return obj
+    return None
+
+
+def has_valid_json_verdict(text: str) -> bool:
+    return extract_verdict_object(text) is not None
+
+
+# ---------------------------------------------------------------------------
+# v1.86.0 — review-findings ledger (пункт 4 Harness Engineering: находки
+# /review копятся машиночитаемо, /retro майнит повторяющиеся классы в
+# кандидаты-автопроверки). Писатель — харнес (этот хук), не модель: он и так
+# единственная точка, где валидный вердикт уже распарсен.
+# ---------------------------------------------------------------------------
+
+FINDINGS_FILE = "review-findings.jsonl"
+FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
+
+
+def _clip(s, n: int = 200) -> str:
+    s = str(s or "")
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def findings_ledger_path(cwd: str) -> Path:
+    """Проектный .itd-memory, иначе глобальный tmp-леджер (как SKILL_BYPASS)."""
+    if cwd:
+        mem = Path(cwd) / ".itd-memory"
+        if mem.is_dir():
+            return mem / FINDINGS_FILE
+    return Path(tempfile.gettempdir()) / f"claude-{FINDINGS_FILE}"
+
+
+def persist_findings(cwd: str, key: str, obj: dict) -> None:
+    """Append одного вердикта в леджер. Best-effort: никогда не raises и не
+    влияет на block/silent-решение хука. Дедуп — content-sentinel в tmp (тот же
+    финал может доехать до SubagentStop повторно через main-fallback)."""
+    try:
+        findings = [f for f in (obj.get("findings") or []) if isinstance(f, dict)]
+        digest = hashlib.md5(
+            (key + json.dumps(obj, sort_keys=True, ensure_ascii=False))
+            .encode("utf-8", "replace")).hexdigest()[:12]
+        sentinel = Path(tempfile.gettempdir()) / f"claude-review-persist-{digest}"
+        if sentinel.exists():
+            return
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "project": Path(cwd).name if cwd else "",
+            "verdict": str(obj.get("verdict", "")).strip().upper(),
+            "findings": [{
+                "severity": _clip(f.get("severity"), 20),
+                "category": _clip(f.get("category"), 60) or None,
+                "file": _clip(f.get("file"), 160),
+                "summary": _clip(f.get("summary")),
+            } for f in findings],
+        }
+        p = findings_ledger_path(cwd)
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        if p.stat().st_size > FINDINGS_SOFT_BYTES:
+            tail = p.read_text(encoding="utf-8", errors="replace")[-FINDINGS_SOFT_BYTES // 2:]
+            tmp = p.with_suffix(".tmp")
+            tmp.write_text(tail, encoding="utf-8")
+            os.replace(tmp, p)
+        try:
+            sentinel.write_text("1")
+        except Exception:
+            pass
+    except Exception:
+        pass
 
 
 def take_ping_slot(key: str, max_pings: int) -> bool:
@@ -229,8 +300,11 @@ def main() -> int:
     # Only review-verdict messages are in scope.
     if not REVIEW_VERDICT_RE.search(text):
         return 0
-    # A valid JSON verdict block satisfies the contract — stay silent.
-    if has_valid_json_verdict(text):
+    # A valid JSON verdict block satisfies the contract — persist the findings
+    # to the review-findings ledger (retro mining, v1.86.0) and stay silent.
+    obj = extract_verdict_object(text)
+    if obj is not None:
+        persist_findings(str(payload.get("cwd") or ""), key, obj)
         return 0
     if not take_ping_slot(key, env_int("ITD_VERDICT_MAX_PINGS", MAX_PINGS_DEFAULT)):
         return 0

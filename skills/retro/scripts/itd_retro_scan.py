@@ -19,6 +19,9 @@ fatal):
   <workspace>/*/.itd-memory/STATE.json    — pending gates, blockers
   <tmp>/claude-skill-ledger-*.jsonl       — SKILL_BYPASS records (skill, reason)
   <tmp>/claude-cost-*.json                — cost-tracker session ledgers
+  <workspace>/*/.itd-memory/review-findings.jsonl + <tmp>/claude-review-findings.jsonl
+      — findings валидных вердиктов /review (писатель: verdict-contract.sh,
+      v1.86.0) → повторяющиеся классы дефектов = кандидаты в автопроверки
 
 Ships inside the skill (skills/retro/scripts/) so both sync-to-active and the
 plugin install deliver it. Stdlib only.
@@ -34,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -215,9 +219,61 @@ def scan_ledgers(tmp_dir: Path) -> dict:
     }
 
 
+# --- review-findings mining (v1.86.0, пункт 4 Harness Engineering) ----------
+
+_FP_STOP = {"the", "and", "for", "not", "with", "was", "были", "без", "для",
+            "при", "это", "что", "как", "или"}
+
+
+def _finding_class(f: dict) -> str:
+    """Класс дефекта: явная category, иначе грубый фингерпринт по summary
+    (помечен `~` — приближение, не самоназвание)."""
+    cat = str(f.get("category") or "").strip().lower()
+    if cat:
+        return cat
+    toks = re.findall(r"[a-zа-яё0-9_]{3,}", str(f.get("summary") or "").lower())
+    toks = [t for t in toks if t not in _FP_STOP][:4]
+    return ("~" + "-".join(toks)) if toks else "~unclassified"
+
+
+def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
+    """Aggregate review-findings ledgers (per-project + global tmp).
+
+    Record shape mirrors the ACTUAL producer persist_findings() in
+    hooks/verdict-contract.sh — {"ts","project","verdict","findings":[{severity,
+    category,file,summary}]} (producer-first, урок v1.46.0). Returns None when
+    no ledger exists anywhere (section stays absent, как другие источники)."""
+    paths = [m / "review-findings.jsonl" for m in mems]
+    paths.append(tmp_dir / "claude-review-findings.jsonl")
+    paths = [p for p in paths if p.is_file()]
+    if not paths:
+        return None
+    reviews = 0
+    classes: dict[str, dict] = {}
+    total = 0
+    for p in paths:
+        for rec in read_jsonl(p):
+            reviews += 1
+            for f in rec.get("findings") or []:
+                if not isinstance(f, dict):
+                    continue
+                total += 1
+                key = _finding_class(f)
+                c = classes.setdefault(
+                    key, {"class": key, "count": 0, "severities": {}, "examples": []})
+                c["count"] += 1
+                sev = str(f.get("severity") or "?").lower()
+                c["severities"][sev] = c["severities"].get(sev, 0) + 1
+                if len(c["examples"]) < 2:
+                    c["examples"].append(clip(str(f.get("file") or ""), 60))
+    repeats = sorted((c for c in classes.values() if c["count"] >= 2),
+                     key=lambda c: -c["count"])[:10]
+    return {"reviewsLogged": reviews, "findingsTotal": total,
+            "classesTotal": len(classes), "repeatClasses": repeats}
+
+
 def _ver_tuple(s: str) -> tuple:
     """'1.73.0' / 'v1.70' → (1, 73, 0) / (1, 70). Empty tuple when no digits."""
-    import re
     nums = re.findall(r"\d+", s or "")
     return tuple(int(n) for n in nums[:3])
 
@@ -322,6 +378,7 @@ def scan_instruction_registry(workspaces: list[Path]) -> dict | None:
 
 def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     projects: list[dict] = []
+    mems: list[Path] = []
     seen: set[str] = set()  # resolved .itd-memory paths — overlapping
     for ws in workspaces:  # workspace args must not double-count a project
         candidates = []
@@ -333,6 +390,7 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
             if key in seen:
                 continue
             seen.add(key)
+            mems.append(mem)
             projects.append(scan_project(mem))
 
     activated = sum(p["unitsActivated"] for p in projects)
@@ -362,6 +420,9 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     reg = scan_instruction_registry(workspaces)
     if reg is not None:
         report["instructionRegistry"] = reg
+    rf = scan_review_findings(mems, tmp_dir)
+    if rf is not None:
+        report["reviewFindings"] = rf
     return report
 
 
@@ -448,6 +509,22 @@ def render_markdown(r: dict) -> str:
                 out.append(f"- просрочен review_by ({d['reviewBy']}): "
                            f"{clip(d['section'], 60)} — перечитать против кода, "
                            f"обновить или удалить")
+    rf = r.get("reviewFindings")
+    if rf:
+        out.append("")
+        out.append(f"**Находки /review (леджер):** ревью {rf['reviewsLogged']}, "
+                   f"находок {rf['findingsTotal']}, классов {rf['classesTotal']}")
+        if rf["repeatClasses"]:
+            out.append("Повторяющиеся классы — кандидаты в автопроверки "
+                       "(пункт 4: review-находка → hook/тест; `~` = фингерпринт "
+                       "без явной category):")
+            for c in rf["repeatClasses"]:
+                sev = ", ".join(f"{k}×{v}" for k, v in c["severities"].items())
+                ex = "; ".join(e for e in c["examples"] if e)
+                out.append(f"- `{c['class']}` ×{c['count']} ({sev})"
+                           + (f" — напр. {ex}" if ex else ""))
+        else:
+            out.append("Повторяющихся классов нет (все находки уникальны).")
     out.append("")
     per = [p for p in r["projects"]
            if p["unitsActivated"] or p.get("goalTotal") or p.get("pendingGates")]

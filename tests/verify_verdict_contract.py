@@ -95,9 +95,19 @@ def make_layout(final_text: str, layout: str) -> dict:
             "stop_hook_active": False, "hook_event_name": "SubagentStop"}
 
 
+# v1.86.0: все запуски хука по умолчанию изолируются в собственный tempdir —
+# иначе valid-verdict кейсы писали бы review-findings в РЕАЛЬНЫЙ системный
+# /tmp (persist_findings fallback), и retro-скан на живой машине майнил бы
+# фикстурные находки. Один общий каталог на прогон: ping-cap сентинелы
+# должны разделяться между вызовами.
+ISO_TMP = Path(tempfile.mkdtemp(prefix="vc-iso-shared-"))
+TMPDIRS.append(ISO_TMP)
+
+
 def run_hook(payload, extra_env: dict | None = None,
              raw_stdin: str | None = None) -> subprocess.CompletedProcess:
-    env = {**os.environ, "PYTHONUTF8": "1"}
+    env = {**os.environ, "PYTHONUTF8": "1", "TMPDIR": str(ISO_TMP),
+           "TEMP": str(ISO_TMP), "TMP": str(ISO_TMP)}
     env.pop("ITD_VERDICT_CONTRACT", None)
     env.pop("ITD_VERDICT_MAX_PINGS", None)
     if extra_env:
@@ -202,6 +212,61 @@ def main() -> int:
     p2 = run_hook(payload, extra_env={"ITD_VERDICT_MAX_PINGS": "1"})
     check("ITD_VERDICT_MAX_PINGS=1 honored", blocked(p1) and not blocked(p2),
           "1=%s 2=%s" % (blocked(p1), blocked(p2)))
+
+    # --- v1.86.0: review-findings ledger (persist on valid verdict) ---------
+    json_cat = ('```json\n{"verdict": "PASSED_WITH_WARNINGS", "findings": '
+                '[{"severity": "important", "confidence": "high", '
+                '"category": "assumed-producer-shape", '
+                '"file": "hooks/x.sh", "line": 10, "summary": "y"}], '
+                '"unverified": []}\n```')
+    payload = make_layout("Вердикт: PASSED_WITH_WARNINGS.\n\n" + json_cat,
+                          "agent-direct")
+    proj = Path(tempfile.mkdtemp(prefix="vc-proj-"))
+    TMPDIRS.append(proj)
+    (proj / ".itd-memory").mkdir()
+    iso = Path(tempfile.mkdtemp(prefix="vc-iso-"))  # TMPDIR → изоляция дедуп-
+    TMPDIRS.append(iso)                             # сентинелов между кейсами
+    payload["cwd"] = str(proj)
+    p1 = run_hook(payload, extra_env={"TMPDIR": str(iso)})
+    ledger = proj / ".itd-memory" / "review-findings.jsonl"
+    check("valid verdict stays silent AND persists to project ledger",
+          not blocked(p1) and ledger.is_file(),
+          (p1.stdout or "") + (p1.stderr or ""))
+    rec = (json.loads(ledger.read_text(encoding="utf-8").splitlines()[0])
+           if ledger.is_file() else {})
+    check("ledger record mirrors producer shape (verdict/category/file)",
+          rec.get("verdict") == "PASSED_WITH_WARNINGS"
+          and (rec.get("findings") or [{}])[0].get("category")
+          == "assumed-producer-shape"
+          and (rec.get("findings") or [{}])[0].get("file") == "hooks/x.sh",
+          json.dumps(rec, ensure_ascii=False)[:200])
+    p2 = run_hook(payload, extra_env={"TMPDIR": str(iso)})
+    check("same final does not duplicate the ledger record (dedupe sentinel)",
+          not blocked(p2) and ledger.is_file()
+          and len(ledger.read_text(encoding="utf-8").splitlines()) == 1,
+          str(ledger.read_text(encoding="utf-8").count("\n")
+              if ledger.is_file() else -1))
+    # fallback: cwd без .itd-memory → глобальный tmp-леджер
+    payload = make_layout(VERDICT_WITH_JSON, "agent-direct")
+    noitd = Path(tempfile.mkdtemp(prefix="vc-noitd-"))
+    TMPDIRS.append(noitd)
+    iso2 = Path(tempfile.mkdtemp(prefix="vc-iso2-"))
+    TMPDIRS.append(iso2)
+    payload["cwd"] = str(noitd)
+    p3 = run_hook(payload, extra_env={"TMPDIR": str(iso2)})
+    check("without .itd-memory findings go to the global tmp ledger",
+          not blocked(p3)
+          and (iso2 / "claude-review-findings.jsonl").is_file(),
+          (p3.stdout or "") + (p3.stderr or ""))
+    # блок-ветка (невалидный вердикт) леджер НЕ пишет
+    payload = make_layout(VERDICT_NO_JSON_EN, "agent-direct")
+    proj2 = Path(tempfile.mkdtemp(prefix="vc-proj2-"))
+    TMPDIRS.append(proj2)
+    (proj2 / ".itd-memory").mkdir()
+    payload["cwd"] = str(proj2)
+    run_hook(payload)
+    check("blocked (no valid JSON) writes nothing to the ledger",
+          not (proj2 / ".itd-memory" / "review-findings.jsonl").exists())
 
     # --- cleanup ------------------------------------------------------------
     for d in TMPDIRS:
