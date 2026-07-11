@@ -208,6 +208,7 @@ Actions:
 
 ## Rules
 
+- **Субагентский контракт** — промпт любого Agent-запуска начинай с env-преамбулы из `skills/_shared/subagent-contract.md`; сдачу субагента принимай только с evidence либо явной пометкой «НЕ ПРОВЕРЕНО» (там же, секция 2).
 - Match the language of the user's request
 - Be specific with numbers — rough estimates backed by reasoning are better than vague statements
 - Don't overanalyze for small projects (Telegram bot doesn't need a 5-page TAM analysis)

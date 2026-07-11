@@ -358,6 +358,7 @@ Fix: Standardize to one name across all documents.
 
 ## Rules
 
+- **Субагентский контракт** — промпт любого Agent-запуска начинай с env-преамбулы из `skills/_shared/subagent-contract.md`; сдачу субагента принимай только с evidence либо явной пометкой «НЕ ПРОВЕРЕНО» (там же, секция 2).
 1. Бинарная рубрика — каждый check имеет ровно два состояния: pass или fail. Субъективные оценки ("код неплохой", "архитектура нормальная") запрещены
 2. Каждый finding привязан к конкретному месту: `file:line` для кода, `DOCUMENT.md § Section` для документации. Абстрактные замечания без локации невалидны
 3. Не изобретай собственные критерии — используй только checks из `references/review-checklist.md` (или `references/meta-review-checklist.md` для methodology mode). Дополнительные наблюдения выноси в отдельную секцию, не влияющую на gate status

@@ -407,6 +407,7 @@ Architecture is the source of truth. If PRD conflicts with architecture, update 
 
 ## Rules
 
+- **Субагентский контракт** — промпт любого Agent-запуска начинай с env-преамбулы из `skills/_shared/subagent-contract.md`; сдачу субагента принимай только с evidence либо явной пометкой «НЕ ПРОВЕРЕНО» (там же, секция 2).
 - Match the language of the user's request: if the user wrote in Russian, generate Russian docs; if English, English docs; mixed — pick the dominant one and ask if unsure
 - Будь максимально конкретен: имена файлов, таблицы с полями и типами, эндпоинты с параметрами
 - Не пиши абстракций типа "создай компоненты" — пиши конкретные пути
