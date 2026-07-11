@@ -156,6 +156,44 @@ def mark_skill_active() -> None:
         pass
 
 
+def _ceremonial_hint_path() -> str:
+    return os.path.join(
+        tempfile.gettempdir(), f"claude-skill-cerhint-{session_id()}.state"
+    )
+
+
+def maybe_emit_ceremonial_hint() -> None:
+    """v1.84.0 (retro 2026-07-11 P4): одноразовая (per session) подсказка против
+    ceremonial-шума — скан показал 255-265 привычных аннотаций при уже открытом
+    гейте за 2 сессии. Поведение гейта не меняется; hint учит агента не
+    аннотировать то, что и так прошло бы. Hard-gated классы (push / migration /
+    deploy) это НЕ касается — там явный SKILL_BYPASS остаётся единственным
+    in-band escape."""
+    path = _ceremonial_hint_path()
+    if os.path.exists(path):
+        return
+    try:
+        with open(path, "w") as f:
+            f.write(str(time.time()))
+    except Exception:
+        return
+    ctx = (
+        "[SKILL GATE — заметка о трении] Окно скилла уже открыто: эта "
+        "SKILL_BYPASS-аннотация была НЕ обязательна (гейт пропустил бы и без "
+        "неё). Внутри открытого окна аннотируй только hard-gated классы "
+        "(git push / migration / deploy) и реальные новые задачи; привычные "
+        "аннотации на каждый Bash создают ceremonial-шум в метрике трения "
+        "ретро. Напоминание показывается один раз за сессию."
+    )
+    try:
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": ctx,
+        }}))
+    except Exception:
+        pass
+
+
 def skill_active_fresh() -> bool:
     """True if a Skill was invoked within SKILL_ACTIVE_TTL_SECONDS.
 
@@ -407,6 +445,10 @@ def main() -> int:
         log_bypass(payload, ceremonial=ceremonial)
         write_ignore_count(ignore_path, 0)
         mark_skill_active()  # one bypass opens a grace window, not a single call
+        if ceremonial:
+            # v1.84.0 (retro 2026-07-11 P4): научить агента не платить
+            # аннотацией за уже открытый гейт — один hint за сессию
+            maybe_emit_ceremonial_hint()
         return 0
 
     # --- Read-only inspection Bash → not a task entry, skip the gate silently ---

@@ -101,7 +101,7 @@ Check: file exists; for each step in IMPLEMENTATION_PLAN.md, there is a correspo
 
 ### I10. Contract health — .itd/ contracts in sync and actually filled (v1.67.0)
 Check (only when `.itd/` exists — otherwise N/A, not a failure):
-1. `sh "$SHD/itd_py.sh" .itd/check_contract_drift.py` reports no `DRIFT` lines (derived contracts in sync with CLAUDE.md; `SHD` — резолвер `skills/_shared` из /review Stage A.5, никогда не голый `python3`).
+1. `SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" .itd/check_contract_drift.py` reports no `DRIFT` lines (derived contracts in sync with CLAUDE.md; сниппет самодостаточен — резолвер в той же строке, никогда не голый `python3`).
 2. `sh "$SHD/itd_py.sh" .itd/check_contract_drift.py --filled` reports all three key contracts `ok`: `FORBIDDEN_CHANGES.md` and `SCOPE_LOCK.md` carry project-specific content (no "Replace this line with…" placeholders), `VERIFICATION_CONTRACT.json` has ≥ 1 entry in `commands[]`.
 Fallback when the project's `.itd/` copy predates the `--filled` flag: apply the same two checks read-only via Grep. Rationale: a scaffold that is pure template prose is decoration, not a contract — the gates that read it (`/review` Stage A, `/task` tiers, wip-gate) run silently blind.
 

@@ -24,9 +24,10 @@ SKILLS = ROOT / "skills"
 
 FENCE_OPEN_RE = re.compile(r"^```([A-Za-z0-9_-]*)\s*$")
 SHELL_LANGS = {"", "bash", "sh", "shell", "console"}
-# голый интерпретатор: python/python3 как команда (после начала строки, |, ;,
-# &&, ||, $(, ` или пробела), не часть пути/слова
-BARE_RE = re.compile(r"(^|[\s;|&`(])(python3?)(\s|$)")
+# голый интерпретатор: python/python3/python3.11 как команда (после начала
+# строки, |, ;, &&, ||, $(, ` или пробела), не часть пути/слова. Version-pinned
+# варианты включены (minor ревью #155: python3.11 обходил гейт)
+BARE_RE = re.compile(r"(^|[\s;|&`(])(python[23]?(?:\.\d+)?)(\s|$)")
 
 
 def scan_file(md: Path) -> list[str]:
@@ -55,7 +56,10 @@ def scan_file(md: Path) -> list[str]:
             continue
         if stripped.startswith("#"):
             continue
-        if BARE_RE.search(line):
+        # trailing-комментарий — не код (minor ревью #155: строка вида
+        # `cmd  # calls python3 internally` давала бы FP)
+        code_part = line.split(" #", 1)[0]
+        if BARE_RE.search(code_part):
             rel = md.relative_to(ROOT).as_posix()
             hits.append(f"{rel}:{lineno}: {stripped[:110]}")
     return hits

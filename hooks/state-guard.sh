@@ -261,6 +261,62 @@ def heartbeat_lock(cwd: Path, sid: str, deep: bool = True) -> None:
         pass
 
 
+# --- v1.84.0 (retro 2026-07-11 P8): коллизии файлов памяти сессий ------------
+# Live-инцидент: mv поверх существующего session_*.md параллельной сессии затёр
+# её хронику (восстанавливали из JSONL-транскрипта). Прямые записи в memory-дир
+# обходят lockfile-дисциплину /session-save. Soft-guard (warn, не deny —
+# ownership файла памяти неатрибутируем): перезапись СУЩЕСТВУЮЩЕГО и СВЕЖЕГО
+# session-файла подсвечивается один раз per (session, file).
+SESSION_MEM_FILE_RE = re.compile(
+    r"[\\/]memory[\\/]session_\d{4}-\d{2}-\d{2}[^\\/]*\.md$", re.I)
+SESSION_MEM_TOKEN_RE = re.compile(
+    r"((?:[A-Za-z]:)?[^\s'\"|;&<>]*[\\/]memory[\\/]"
+    r"session_\d{4}-\d{2}-\d{2}[^\s'\"|;&<>]*\.md)", re.I)
+BASH_MEM_WRITE_VERB_RE = re.compile(
+    r"\b(mv|cp|tee|dd)\b|>{1,2}|Set-Content|Copy-Item|Move-Item", re.I)
+MEM_FRESH_SECONDS = 6 * 3600
+
+
+def memory_collision_context(sid: str, file_path: str) -> str | None:
+    m = SESSION_MEM_FILE_RE.search(file_path or "")
+    if not m:
+        return None
+    p = Path(file_path)
+    try:
+        if not p.is_file():
+            return None
+        age = time.time() - p.stat().st_mtime
+    except OSError:
+        return None
+    if age > MEM_FRESH_SECONDS:
+        return None
+    safe = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in p.name)[:60]
+    sentinel = Path(tempfile.gettempdir()) / f"claude-memcol-{sid[:40]}-{safe}.state"
+    if sentinel.exists():
+        return None
+    try:
+        sentinel.write_text(str(time.time()), encoding="utf-8")
+    except OSError:
+        pass
+    return (
+        f"ПРЕДУПРЕЖДЕНИЕ О КОЛЛИЗИИ ПАМЯТИ: '{p.name}' уже существует и свежий "
+        f"(<6 ч) — его могла записать ПАРАЛЛЕЛЬНАЯ сессия; перезапись затрёт "
+        f"чужую хронику (live-инцидент 2026-07-11: mv затёр session-файл "
+        f"соседней сессии, восстанавливали из JSONL-транскрипта). Если файл не "
+        f"твой — возьми следующий свободный суффикс (_N+1) или дозаписывай "
+        f"Edit'ом, а не перезаписывай."
+    )
+
+
+def bash_memory_collision_context(sid: str, command: str) -> str | None:
+    if not command or not BASH_MEM_WRITE_VERB_RE.search(command):
+        return None
+    tok = SESSION_MEM_TOKEN_RE.search(command)
+    if not tok:
+        return None
+    return memory_collision_context(sid, tok.group(1))
+
+
 def is_state_ledger(file_path: str) -> bool:
     if not file_path:
         return False
@@ -437,7 +493,9 @@ def main() -> int:
             command = str(tool_input.get("command") or "")
             m = LEDGER_WRITE_TARGET_RE.search(command)
             if not m:
-                return emit("PreToolUse")
+                # v1.84.0 P8: мутация файла памяти сессии (mv/cp/redirect в
+                # memory/session_*.md) — soft-предупреждение о коллизии
+                return emit("PreToolUse", bash_memory_collision_context(sid, command))
             lm = LEDGER_PATH_RE.search(m.group(0))
             pseudo = ".itd-memory/" + (lm.group(1) if lm else "STATE.json")
             action, reason = ledger_gate_decision(cwd, sid, pseudo)
@@ -449,7 +507,14 @@ def main() -> int:
         action, reason = ledger_gate_decision(cwd, sid, file_path)
         if action == "deny":
             return deny(reason)
-        return emit("PreToolUse", reason if action == "warn" else None)
+        ctx = reason if action == "warn" else None
+        if tool == "Write":
+            # v1.84.0 P8: Write поверх свежего чужого session_*.md (Edit не
+            # гейтится — он требует предварительного Read того же содержимого)
+            mem_ctx = memory_collision_context(sid, file_path)
+            if mem_ctx:
+                ctx = (ctx + "\n" + mem_ctx) if ctx else mem_ctx
+        return emit("PreToolUse", ctx)
 
     # --- PostToolUse ---
     if tool in SHELL_TOOLS:

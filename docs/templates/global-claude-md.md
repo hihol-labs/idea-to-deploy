@@ -102,6 +102,12 @@ When several fit, pick the most specific; when none fit, say so in the decision 
 Pure mechanics (file generation, browser ops) and tight back-and-forth wording
 iterations are legitimate `Скилл: не нужен` cases — name the reason, don't pretend.
 
+Внутри УЖЕ открытого grace-окна (Skill вызван / bypass уже дан) повторные
+`SKILL_BYPASS:`-аннотации на каждый Bash НЕ нужны — гейт и так открыт, привычные
+аннотации создают ceremonial-шум в метрике трения (v1.84.0, retro 2026-07-11 P4).
+Аннотируй только hard-gated классы (git push / migration / deploy — их
+единственный in-band escape) и вход в реально новую задачу.
+
 ## Bypass
 
 The only way to skip the methodology for a task is an explicit user instruction

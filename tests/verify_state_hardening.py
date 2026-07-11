@@ -659,6 +659,48 @@ def main() -> int:
     ctx2 = pf.persist_errors_context(perr_proj)
     check("persist-error surfacing is rate-limited", ctx2 == "")
 
+    # ---- v1.84.0 P8: memory-collision guard (session_*.md) -----------------
+    memp = tmp / "memcol" / "memory"
+    memp.mkdir(parents=True)
+    mf = memp / "session_2026-07-11_5.md"
+    mf.write_text("x", encoding="utf-8")
+    sidp8 = f"tP8-{int(time.time() * 1000)}"
+    mctx = sg.memory_collision_context(sidp8, str(mf))
+    check("P8: Write over fresh existing session memo -> warning",
+          bool(mctx) and "ПАМЯТИ" in mctx)
+    check("P8: repeat warning suppressed per (session,file)",
+          sg.memory_collision_context(sidp8, str(mf)) is None)
+    check("P8: bash mv over fresh memo -> warning",
+          bool(sg.bash_memory_collision_context(sidp8 + "b", f"mv /tmp/x {mf}")))
+    old_ts = time.time() - 8 * 3600
+    os.utime(mf, (old_ts, old_ts))
+    check("P8: old memo -> silent",
+          sg.memory_collision_context(sidp8 + "c", str(mf)) is None)
+    check("P8: missing memo -> silent",
+          sg.memory_collision_context(
+              sidp8 + "d", str(memp / "session_2026-07-11_9.md")) is None)
+    check("P8: non-memory path -> silent",
+          sg.memory_collision_context(sidp8 + "e", str(tmp / "notes.md")) is None)
+    # интеграция через main(): Write предупреждает, Edit — нет (minor ревью #156)
+    mf2 = memp / "session_2026-07-11_7.md"
+    mf2.write_text("x", encoding="utf-8")
+    wpay = {"hook_event_name": "PreToolUse", "session_id": f"memw-{os.getpid()}",
+            "cwd": str(tmp), "tool_name": "Write",
+            "tool_input": {"file_path": str(mf2)}}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(wpay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("P8: Write via main() surfaces the collision warning",
+          res.returncode == 0 and "additionalContext" in (res.stdout or ""))
+    epay = dict(wpay)
+    epay["tool_name"] = "Edit"
+    epay["session_id"] = f"meme-{os.getpid()}"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(epay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("P8: Edit over fresh memo is NOT warned (requires prior Read)",
+          res.returncode == 0 and "additionalContext" not in (res.stdout or ""))
+
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
 

@@ -156,6 +156,31 @@ def main():
           not ro(bash("node --test-reporter=tap x.js")))
     check("`node --test-only` is NOT read-only", not ro(bash("node --test-only")))
 
+    # 5. v1.84.0 (retro 2026-07-11 P4): ceremonial bypass -> одноразовый hint
+    clear()
+    hint_sentinel = os.path.join(
+        tempfile.gettempdir(), f"claude-skill-cerhint-{SID}.state")
+    try:
+        os.remove(hint_sentinel)
+    except OSError:
+        pass
+
+    def run_hook_out(tool, tool_input):
+        payload = json.dumps({"tool_name": tool, "tool_input": tool_input})
+        env = dict(os.environ)
+        env["CLAUDE_SESSION_ID"] = SID
+        return subprocess.run(["python3", HOOK], input=payload, cwd=REPO,
+                              capture_output=True, text=True, env=env).stdout
+
+    out1 = run_hook_out("Bash", {"command": "echo hi",
+                                 "description": "SKILL_BYPASS: тест ceremonial"})
+    check("ceremonial bypass emits a one-time friction hint",
+          "additionalContext" in out1 and "SKILL GATE" in out1)
+    out2 = run_hook_out("Bash", {"command": "echo hi",
+                                 "description": "SKILL_BYPASS: тест ceremonial 2"})
+    check("second ceremonial bypass in the same session is silent",
+          "additionalContext" not in out2)
+
     clear()
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0

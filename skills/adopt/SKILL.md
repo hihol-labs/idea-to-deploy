@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.83.0
+  version: 1.84.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -120,6 +120,12 @@ Branch on existing state:
 > instructions across many files (READMEs, ad-hoc prompt docs, multiple `*.cursorrules`
 > / `*.md`), flag it as *instructional fragmentation* in the Step 4 report and suggest
 > consolidating into `CLAUDE.md` — do not auto-merge their content here.
+
+> **Cross-tool alias (v1.84.0, T1).** Если `AGENTS.md` в корне отсутствует —
+> предложи (не навязывай) тонкий алиас-указатель на `CLAUDE.md` («операционный
+> манифест — CLAUDE.md; этот файл — алиас для инструментов, ожидающих
+> AGENTS.md»). Контент НЕ дублировать — только указатель. Если `AGENTS.md` уже
+> существует со своим содержимым — не трогать.
 
 ### Step 2: Write / merge .claude/settings.json
 

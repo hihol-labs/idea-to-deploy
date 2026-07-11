@@ -83,6 +83,35 @@ def main() -> int:
     check("#1 careful warns on combined -fD", "force-deletes" in out, out[:200])
     out = run_hook("careful.sh", bash("git branch -d feat/x"))
     check("#1 careful SILENT on soft git branch -d", "force-deletes" not in out, out[:200])
+    # v1.84.0 (слабый сигнал №2): цитируемая проза в -m '...' — не команда
+    out = run_hook("careful.sh",
+                   bash("git commit -m 'note: never run GIT BRANCH -D here'"))
+    check("#1 careful SILENT on quoted prose inside -m",
+          "force-deletes" not in out, out[:200])
+    out = run_hook("careful.sh",
+                   bash('git commit -m "msg" && git branch -D feat/x'))
+    check("#1 careful still warns on real -D after a -m",
+          "force-deletes" in out, out[:200])
+    # important ревью #156: формы без пробела / с '=' / heredoc-тело коммита
+    out = run_hook("careful.sh",
+                   bash("git commit -m'note: GIT BRANCH -D old' file.txt"))
+    check("#1 careful SILENT on -m'...' (no space)",
+          "force-deletes" not in out, out[:200])
+    out = run_hook("careful.sh",
+                   bash('git commit --message="note: GIT BRANCH -D old"'))
+    check("#1 careful SILENT on --message=... form",
+          "force-deletes" not in out, out[:200])
+    heredoc_cmd = ('git commit -m "$(cat <<\'EOF\'\n'
+                   'Fixed the "quoted" case: do not rm -rf and no DROP TABLE.\n'
+                   'EOF\n)"')
+    out = run_hook("careful.sh", bash(heredoc_cmd))
+    check("#1 careful SILENT on heredoc commit body with inner quotes",
+          "rm -rf" not in out and "DROP TABLE" not in out
+          and "SAFETY WARNING" not in out, out[:200])
+    out = run_hook("careful.sh",
+                   bash("bash <<EOF\nrm -rf /tmp/x\nEOF"))
+    check("#1 careful STILL warns on executable heredoc (bash <<EOF rm -rf)",
+          "SAFETY WARNING" in out, out[:200])
     out = run_hook("careful.sh", bash("GIT branch -d feat/x"))
     check("#1 careful SILENT on uppercase-keyword soft -d",
           "force-deletes" not in out, out[:200])
