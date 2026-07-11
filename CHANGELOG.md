@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.87.0] - 2026-07-11
+
+**Сет-3 упражнений Harness Engineering → 5.0 по всем трём (цель exercise-5s, GX-001…GX-005; повторная проверка живыми пробами: 4.2 → 5.0)**:
+
+- **GX-001 (кросс-компонентные дефекты 3.8 → 5.0)**: ОТК `itd_goal_verify.py` исполняет verificationCommand через `[\"sh\",\"-c\"]` — POSIX-семантика на обеих ОС; тихий false-pass cmd.exe (live-репро: verified с нераскрытым `$HOME` при exit 0) убит; без sh — громкий rc=127, не деградация. Контракт-тест `tests/verify_goal_verify_shell.py` проверяет СЕМАНТИКУ ($VAR раскрыт, одинарные кавычки сняты, ненулевой exit доходит), не только exit-код.
+- **GX-002 (автоматизация арх-правил, слот)**: first-class слот project-level проверок — `skills/_shared/itd_project_checks.sh` (`.itd/checks/*`, диспатч sh/node/py, `ITD_CHANGED_FILES`, agent-oriented вывод), DoD-хук гоняет раннер на staged-файлах при наличии каталога (deny с WHY/FIX, обход штатным SKILL_BYPASS), `docs/project-checks.md`, тест `verify_project_checks.py` (7 контрактов, включая hook-deny/pass).
+- **GX-004 (продвижение review-фидбека 4.5 → 5.0)**: импортёр внешних GitHub-ревью `skills/retro/scripts/itd_review_import.py` → review-findings.jsonl (схема v1.86, verdict=EXTERNAL_REVIEW, dedup по id комментария, эвристический классификатор); шаг 1a-ext в /retro. Live: 7 записей из OneOfS, retro-майнинг сразу поднял новый повторяющийся класс `sql-performance ×4` — петля «партнёрское ревью → леджер → майнинг → кандидат-автопроверка» замкнута end-to-end.
+- Пример model-aware project-проверки (BigInt-сериализация из parsing schema.prisma + `--files`) живёт в целевом проекте (`.itd/checks/`, вне git методологии) — контракт описан в docs/project-checks.md.
+
 ## [1.86.0] - 2026-07-11
 
 **Три quick-win'а по итогам внешней оценки Harness Engineering (4.5/5.0/4.5/4.5 → цель 5): FIX_HINTS из инцидент-корпуса, review-findings ledger + retro-майнинг, P6 pre-wire.**

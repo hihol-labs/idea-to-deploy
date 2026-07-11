@@ -72,6 +72,24 @@ SKILL_BYPASS-леджер и cost-леджеры из tempdir. Вставь вы
 находки code-reviewer по классам, ловли CI (windows-verify), false-positive
 триггеров из живых сессий, замечания пользователя из memory (`session_*.md`).
 
+### Step 1a-ext: Импорт внешних ревью в findings-леджер (опционально, v1.87.0)
+
+Леджер v1.86 питается только собственным /review — повторяющиеся классы из
+GitHub-ревью напарника для майнинга невидимы (боевой пример: конфликт номеров
+миграций жил в ≥2 PR OneOfS и ручном правиле CLAUDE.md, в леджер не попадал).
+Перед майнингом можно подтянуть внешние комментарии (read-only к GitHub,
+запись только в свой .itd-memory):
+
+```bash
+RT="skills/retro/scripts"; [ -f "$RT/itd_review_import.py" ] || RT="$HOME/.claude/skills/retro/scripts"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$RT/itd_review_import.py" --repo owner/name --exclude-author <ты>
+```
+
+Дедуп по id комментария (`review-import.state.json`) — повторный прогон
+безопасен. Категории — грубая эвристика; уточнение классов — работа майнинга
+и человека, не импортёра. Нет gh / сети — шаг пропускается, ретро идёт дальше.
+
 ### Step 1b: Ре-review абстенций реестра фич (только в репо методологии)
 
 Периодически пересматривай `abstain`-строки реестра харнесс-нативных фич — то,

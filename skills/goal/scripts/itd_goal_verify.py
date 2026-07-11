@@ -26,12 +26,19 @@ Guarantees:
 Ships inside the skill (skills/goal/scripts/) so both sync-to-active and the
 plugin install deliver it to ~/.claude/skills/goal/scripts/. Stdlib only.
 
-Trust model: verificationCommand is executed with shell=True. It is TRUSTED,
-user-approved content — the user explicitly approves every unit (incl. its
-command) at /goal Step 1 before the ledger is written; same trust boundary as
-hook commands in .claude/settings.json. If a future caller feeds this tool a
+Trust model: verificationCommand is executed via ["sh", "-c", command]. It is
+TRUSTED, user-approved content — the user explicitly approves every unit (incl.
+its command) at /goal Step 1 before the ledger is written; same trust boundary
+as hook commands in .claude/settings.json. If a future caller feeds this tool a
 ledger from an external/synced source, that assumption no longer holds — add
 sandboxing there, not here.
+
+Shell contract (v1.87.0): verificationCommand is POSIX sh. Раньше стояло
+shell=True — на Windows это cmd.exe, который не снимает одинарные кавычки и не
+раскрывает $VAR; деградировавшая команда могла вернуть exit 0 → ТИХИЙ ложный
+verified (live-репро retro 2026-07-11 сет-3 упр.1: evidence '"HOME=$HOME"'').
+Теперь всегда ["sh","-c",…]; sh недоступен (нет Git Bash) — громкий отказ
+rc=127, НЕ тихая деградация в cmd.exe.
 
 Asymmetry note: verify/--activate/--block resolve a default unit when UNIT_ID
 is omitted (currentUnitId → first in_progress → first pending); --recheck
@@ -52,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -234,15 +242,22 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         die(f"{unit['id']} has an empty verificationCommand (fail-closed)", 1)
 
     print(f"verifying {unit['id']}: {command}")
-    try:
-        # encoding pinned + errors replaced: an arbitrary verificationCommand on
-        # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
-        proc = subprocess.run(command, shell=True, capture_output=True,
-                              encoding="utf-8", errors="replace", timeout=timeout)
-        output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
-        rc = proc.returncode
-    except subprocess.TimeoutExpired:
-        output, rc = f"timeout after {timeout}s", 124
+    sh = shutil.which("sh")
+    if sh is None:
+        # POSIX-контракт (v1.87.0): без sh НЕ деградируем в cmd.exe тихо —
+        # cmd.exe даёт ложные verified (см. Shell contract в шапке).
+        output, rc = ("no POSIX sh on PATH — verificationCommand contract "
+                      "requires sh (Git Bash / WSL); refusing cmd.exe fallback"), 127
+    else:
+        try:
+            # encoding pinned + errors replaced: an arbitrary verificationCommand on
+            # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
+            proc = subprocess.run([sh, "-c", command], capture_output=True,
+                                  encoding="utf-8", errors="replace", timeout=timeout)
+            output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+            rc = proc.returncode
+        except subprocess.TimeoutExpired:
+            output, rc = f"timeout after {timeout}s", 124
 
     evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
 

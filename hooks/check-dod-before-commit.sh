@@ -155,6 +155,57 @@ def required_skills(entries: list) -> dict:
     return req
 
 
+def run_project_checks(entries: list) -> tuple:
+    """First-class слот project-level проверок (v1.87.0, retro сет-3 упр.2).
+
+    Если в корне проекта есть .itd/checks/ — прогнать раннер
+    skills/_shared/itd_project_checks.sh на staged-файлах. Нет каталога /
+    раннера / sh — no-op (opt-in слот, best-effort invariant: исчезнувшая
+    фича деградирует в нейтральный путь, не в ложный "green").
+    Bypass — тот же SKILL_BYPASS в description (проверен выше по main).
+    """
+    if not os.path.isdir(os.path.join(".itd", "checks")):
+        return 0, ""
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(os.path.dirname(here), "skills", "_shared", "itd_project_checks.sh"),
+        os.path.expanduser("~/.claude/skills/_shared/itd_project_checks.sh"),
+    ]
+    runner = next((c for c in candidates if os.path.isfile(c)), None)
+    if runner is None:
+        return 0, ""
+    files = [p for _, p in entries]
+    try:
+        res = subprocess.run(
+            ["sh", runner, "--files"] + files,
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=120,
+        )
+        return res.returncode, (res.stdout or "") + (res.stderr or "")
+    except Exception:
+        return 0, ""  # best-effort: сломанный раннер не блокирует коммит молча-ложно
+
+
+def emit_deny_project_checks(output: str) -> None:
+    msg = (
+        "[DoD GATE] Коммит заблокирован: project-level проверки (.itd/checks/) красные.\n\n"
+        + output.strip()[-1500:]
+        + "\n\nДействия:\n"
+        "  1. Почини по FIX-подсказкам выше и повтори git commit.\n"
+        "  2. Осознанный обход: 'SKILL_BYPASS: <причина>' в description Bash-вызова коммита.\n"
+    )
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": msg,
+        }
+    }
+    sys.stdout.write(json.dumps(out, ensure_ascii=False))
+    sys.stderr.write(msg)
+    sys.exit(2)
+
+
 def emit_deny(missing: dict) -> None:
     lines = "\n".join("  ❌ /%s — %s" % (s, r) for s, r in missing.items())
     msg = (
@@ -203,6 +254,11 @@ def main() -> int:
     missing = {s: r for s, r in req.items() if not sentinel_present(s)}
     if missing:
         emit_deny(missing)
+        return 2  # unreachable
+
+    rc_pc, out_pc = run_project_checks(entries)
+    if rc_pc != 0:
+        emit_deny_project_checks(out_pc)
         return 2  # unreachable
     return 0
 
