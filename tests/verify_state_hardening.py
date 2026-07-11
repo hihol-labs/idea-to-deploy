@@ -681,6 +681,25 @@ def main() -> int:
               sidp8 + "d", str(memp / "session_2026-07-11_9.md")) is None)
     check("P8: non-memory path -> silent",
           sg.memory_collision_context(sidp8 + "e", str(tmp / "notes.md")) is None)
+    # интеграция через main(): Write предупреждает, Edit — нет (minor ревью #156)
+    mf2 = memp / "session_2026-07-11_7.md"
+    mf2.write_text("x", encoding="utf-8")
+    wpay = {"hook_event_name": "PreToolUse", "session_id": f"memw-{os.getpid()}",
+            "cwd": str(tmp), "tool_name": "Write",
+            "tool_input": {"file_path": str(mf2)}}
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(wpay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("P8: Write via main() surfaces the collision warning",
+          res.returncode == 0 and "additionalContext" in (res.stdout or ""))
+    epay = dict(wpay)
+    epay["tool_name"] = "Edit"
+    epay["session_id"] = f"meme-{os.getpid()}"
+    res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
+                         input=json.dumps(epay), capture_output=True,
+                         text=True, timeout=30, env=env)
+    check("P8: Edit over fresh memo is NOT warned (requires prior Read)",
+          res.returncode == 0 and "additionalContext" not in (res.stdout or ""))
 
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
