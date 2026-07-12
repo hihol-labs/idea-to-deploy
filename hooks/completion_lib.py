@@ -559,6 +559,68 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     return sig
 
 
+# ---------------------------------------------------------------------------
+# v1.89.0 (GO-003): наблюдаемость делегирования — пустой финал субагента и
+# зависший фон. Оба — неразличимые состояния сет-4 («субагент вернул результат
+# ↔ умер молча», «фон завис ↔ долго работает»). Детекторы чистые (без сайд-
+# эффектов), сигнал пишет вызывающий хук через append_signal.
+# ---------------------------------------------------------------------------
+
+def agent_result_signal(subagent_type: str, tool_response) -> dict:
+    """Сигнал по завершению субагента: outcome empty|ok|fail (class delegation,
+    layer 0 — учёт, не слой завершения). Пустой финал = известный дефект."""
+    text, code = _extract_output(tool_response)
+    if code not in (None, 0):
+        outcome = "fail"
+    elif not (text or "").strip():
+        outcome = "empty"
+    else:
+        outcome = "ok"
+    return {
+        "ts": now_iso(),
+        "kind": "agent",
+        "layer": 0,
+        "class": "delegation",
+        "command": f"agent:{subagent_type or '?'}",
+        "outcome": outcome,
+        "evidence": (text or "").strip().splitlines()[0][:200] if (text or "").strip() else "пустой финал субагента",
+    }
+
+
+def find_stalls(trace_rows: list, threshold_s: int = 600) -> list:
+    """Зависшие вызовы: pre-строка без парной post-строки того же tool в
+    threshold_s (по ts трейса). Пост-хок детектор для /session-save и отчётов
+    (сет-4: фоновые wsl висели ~22 мин без сигнала). Возвращает [(tool,gap_s)]."""
+    from datetime import datetime
+
+    def ts(r):
+        v = r.get("ts") or ""
+        try:
+            return datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    rows = [r for r in trace_rows if isinstance(r, dict)]
+    last_ts = ts(rows[-1]) if rows and ts(rows[-1]) else None
+    stalls = []
+    open_pre = {}  # tool -> (idx, ts)
+    for i, r in enumerate(rows):
+        tool = r.get("tool")
+        phase = r.get("phase", "pre")
+        t = ts(r)
+        if phase == "pre":
+            open_pre[tool] = (i, t)
+        elif phase == "post" and tool in open_pre:
+            open_pre.pop(tool, None)
+    # оставшиеся открытые pre без post — кандидаты в зависшие
+    for tool, (i, t) in open_pre.items():
+        if t and last_ts:
+            gap = (last_ts - t).total_seconds()
+            if gap >= threshold_s:
+                stalls.append((tool, int(gap)))
+    return stalls
+
+
 _LOCK_FAIL_LOGGED = False  # once-per-process: не спамить errors.log на каждый append
 
 
