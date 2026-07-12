@@ -153,6 +153,15 @@ ok "skills: +$added added, ~$updated updated, =$unchanged unchanged"
 # Step 2/6: Sync hooks
 # -----------------------------------------------------------------------------
 say "Step 2/6: hooks/"
+# --- utility scripts (v1.88.0: OTel-экспортёр — транспорт, не контракт) ------
+mkdir -p "$ACTIVE/scripts"
+for u in itd_otel_export.py; do
+  if [ -f "$REPO_ROOT/scripts/$u" ]; then
+    cp "$REPO_ROOT/scripts/$u" "$ACTIVE/scripts/$u"
+    echo "  script: $u"
+  fi
+done
+
 mkdir -p "$ACTIVE/hooks"
 
 h_added=0
@@ -446,7 +455,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "PowerShell",
       "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/state-guard.sh", "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",        "timeout": 5 }
       ]
     }
   ],

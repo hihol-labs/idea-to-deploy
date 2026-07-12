@@ -1,0 +1,77 @@
+{
+  "description": "Eval-set рубрики /review: посеянные дефекты (recall per категория) + чистые фикстуры (false positives). v1.88.0 GP-004.",
+  "cases": [
+    {
+      "id": "sql-nonsargable",
+      "file": "cases/seed-sql-nonsargable.sql",
+      "category": "sql-performance",
+      "seeded": true
+    },
+    {
+      "id": "n-plus-one",
+      "file": "cases/seed-nplusone.ts",
+      "category": "sql-performance",
+      "seeded": true
+    },
+    {
+      "id": "bigint-serialization",
+      "file": "cases/seed-bigint-serialization.ts",
+      "category": "serialization",
+      "seeded": true
+    },
+    {
+      "id": "migration-numbers",
+      "file": "cases/seed-migration-numbers.txt",
+      "category": "migration-numbers",
+      "seeded": true
+    },
+    {
+      "id": "hardcoded-secret",
+      "file": "cases/seed-hardcoded-secret.ts",
+      "category": "security-secrets",
+      "seeded": true
+    },
+    {
+      "id": "sql-injection",
+      "file": "cases/seed-sql-injection.ts",
+      "category": "security-injection",
+      "seeded": true
+    },
+    {
+      "id": "floating-promise",
+      "file": "cases/seed-floating-promise.ts",
+      "category": "async-correctness",
+      "seeded": true
+    },
+    {
+      "id": "tz-date",
+      "file": "cases/seed-tz-date.ts",
+      "category": "tz-date-conversion",
+      "seeded": true
+    },
+    {
+      "id": "empty-catch",
+      "file": "cases/seed-empty-catch.ts",
+      "category": "error-handling",
+      "seeded": true
+    },
+    {
+      "id": "fk-no-index",
+      "file": "cases/seed-fk-no-index.sql",
+      "category": "sql-performance",
+      "seeded": true
+    },
+    {
+      "id": "clean-api",
+      "file": "cases/clean-api.ts",
+      "category": "clean",
+      "seeded": false
+    },
+    {
+      "id": "clean-migration",
+      "file": "cases/clean-migration.sql",
+      "category": "clean",
+      "seeded": false
+    }
+  ]
+}

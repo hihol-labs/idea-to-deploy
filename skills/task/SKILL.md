@@ -165,6 +165,15 @@ implementation:
    Allowed/Forbidden Change Areas) and open a unit per Step 3.5. Without
    `.itd/` — state the scope in one message (files/modules to touch, what is
    explicitly out of scope).
+1b. **Task Contract (Sprint Contract per-задача, v1.88.0).** До первой
+   правки кода зафиксируй контракт юнита в
+   `.itd-memory/contracts/<unit-id>.md` по шаблону
+   `docs/templates/itd/TASK_CONTRACT.md`: Scope / Verification Standards /
+   Exclusions (Verification = verificationCommand юнита или его
+   эквивалент). Генератор и оценщик согласуют контракт ДО старта: ОТК
+   исполняет Verification, DoD-гейт на git commit даёт advisory-строку,
+   если у активного юнита контракта нет (не блокирует). Один экран, не
+   спецификация. Без `.itd-memory/` — шаг пропускается молча.
 2. **Plan → approve.** For anything beyond ~1 file: a short plan (steps, files,
    verification per step) and explicit user approval before code (global rule
    «Plan before code»). For a large/risky feature offer `/grill-me` on the plan

@@ -229,6 +229,59 @@ def emit_deny(missing: dict) -> None:
     sys.exit(2)
 
 
+def task_contract_advisory(payload: dict) -> str | None:
+    """Sprint Contract per-задача (v1.88.0, GP-003) — ADVISORY, не гейт.
+
+    Если в проекте есть активный юнит (.itd-memory/GOAL.json in_progress или
+    STATE.json currentUnit), а контракта задачи .itd-memory/contracts/<id>.md
+    нет — вернуть однострочное предупреждение (additionalContext). Контракт =
+    Scope / Verification Standards / Exclusions, шаблон
+    docs/templates/itd/TASK_CONTRACT.md. Без .itd-memory/ — молча None
+    (opt-in, ceremonial-шум не растёт: одна строка и только на git commit).
+    """
+    try:
+        root = payload.get("cwd") or os.getcwd()
+        mem = os.path.join(root, ".itd-memory")
+        if not os.path.isdir(mem):
+            return None
+        unit_id = None
+        gp = os.path.join(mem, "GOAL.json")
+        if os.path.isfile(gp):
+            try:
+                with open(gp, encoding="utf-8") as f:
+                    g = json.load(f)
+                for u in g.get("units", []):
+                    if u.get("status") == "in_progress":
+                        unit_id = u.get("id")
+                        break
+            except Exception:
+                pass
+        if not unit_id:
+            sp = os.path.join(mem, "STATE.json")
+            if os.path.isfile(sp):
+                try:
+                    with open(sp, encoding="utf-8") as f:
+                        st = json.load(f)
+                    cu = st.get("currentUnit") or {}
+                    if cu.get("status") in ("in_progress", "active", "verifying"):
+                        unit_id = cu.get("id")
+                except Exception:
+                    pass
+        if not unit_id:
+            return None
+        contract = os.path.join(mem, "contracts", f"{unit_id}.md")
+        if os.path.isfile(contract):
+            return None
+        return (
+            f"[TASK-CONTRACT] У активного юнита {unit_id} нет контракта задачи "
+            f"(.itd-memory/contracts/{unit_id}.md: Scope / Verification Standards / "
+            "Exclusions, шаблон docs/templates/itd/TASK_CONTRACT.md). Advisory — "
+            "коммит не блокируется, но оценщик без контракта судит по общим правилам."
+        )
+    except Exception:
+        return None
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -260,6 +313,15 @@ def main() -> int:
     if rc_pc != 0:
         emit_deny_project_checks(out_pc)
         return 2  # unreachable
+
+    ctx = task_contract_advisory(payload)
+    if ctx:
+        sys.stdout.write(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": ctx,
+            }
+        }, ensure_ascii=False))
     return 0
 
 
