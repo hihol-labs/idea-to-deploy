@@ -1047,20 +1047,33 @@ def run_rubric(repo: Path) -> Report:
         "PreCompact":       {"perm_decision_required": False, "may_block": False},
         "SessionStart":     {"perm_decision_required": False, "may_block": False},
     }
+    # Двухфазные телеметрия-хуки (v1.89.0) легитимно объявляют И Pre-, И
+    # Post-событие (напр. execution-trace.sh: интент + исход). Такой хук
+    # валидируем ПО КАЖДОМУ событию, а не отвергаем как ambiguous.
+    DUAL_PHASE_OK = {("PostToolUse", "PreToolUse")}
     for hook in sorted((repo / "hooks").glob("*.sh")):
         text = hook.read_text(encoding="utf-8")
         events = sorted(set(re.findall(r'"hookEventName"\s*:\s*"([A-Za-z]+)"', text)))
-        if len(events) != 1:
-            # Some hooks (check-skills.sh) emit one event from a helper — allow inference
-            if len(events) == 0 and "UserPromptSubmit" in text:
-                events = ["UserPromptSubmit"]
-            if len(events) != 1:
-                r.crit("M-C10", f"{hook.name}: ambiguous event type ({events})")
-                continue
-        event = events[0]
+        if len(events) == 0 and "UserPromptSubmit" in text:
+            events = ["UserPromptSubmit"]
+        # Двухфазный хук эмитит имя события из переменной (ev = "Post..." if ...),
+        # литерал-regex его не ловит — распознаём по обоим строковым литералам.
+        if len(events) == 0 and '"PreToolUse"' in text and '"PostToolUse"' in text:
+            events = ["PostToolUse", "PreToolUse"]
+        if len(events) != 1 and tuple(events) not in DUAL_PHASE_OK:
+            r.crit("M-C10", f"{hook.name}: ambiguous event type ({events})")
+            continue
+        for event in events:
+            _check_hook_event(r, hook, text, event, events_spec)
+        continue
+
+    return r
+
+
+def _check_hook_event(r, hook, text, event, events_spec) -> None:
         if event not in events_spec:
             r.crit("M-C10", f"{hook.name}: unknown event '{event}'")
-            continue
+            return
         if event == "PreToolUse":
             if re.search(r'(?<!permission)[\'"]decision[\'"]\s*:', text):
                 r.crit("M-C10", f"{hook.name} (PreToolUse): uses root 'decision' instead of hookSpecificOutput.permissionDecision")
@@ -1080,8 +1093,6 @@ def run_rubric(repo: Path) -> Report:
         if event == "UserPromptSubmit":
             if "permissionDecision" in text:
                 r.crit("M-C10", f"{hook.name} (UserPromptSubmit): uses permissionDecision, which is PreToolUse schema")
-
-    return r
 
 
 # --------------------------------------------------------------------------
