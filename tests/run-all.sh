@@ -52,6 +52,7 @@ verify_completion_signals_powershell \
 verify_completion_signal_classes \
 verify_task_contract_advisory \
 verify_review_evalset \
+verify_otel_export \
 verify_platform_tmp_and_new_hooks verify_goal_tools verify_retro_scan \
 verify_v147_fixes verify_hook_depth verify_narration_final \
 verify_verdict_contract verify_worktree_hook_safety verify_hook_count_words \
