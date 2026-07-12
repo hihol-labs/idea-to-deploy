@@ -51,6 +51,7 @@ verify_state_hardening verify_source_read_contract \
 verify_execution_trace_outcome \
 verify_signal_attribution \
 verify_verify_signal_and_watchdog \
+verify_otel_semconv \
 verify_completion_signals_powershell \
 verify_completion_signal_classes \
 verify_task_contract_advisory \

@@ -146,23 +146,33 @@ def build_payload(memory_dir: Path, signals_path: Path | None, session: str | No
                 "status": {"code": 1 if d == "verified" else 2},
             })
 
+    unit_span_by_id = {name: _hex_id(f"unit|{trace_seed}|{name}", 16) for name in units}
     if signals_path:
         for i, s in enumerate(read_jsonl(signals_path)):
-            if session and s.get("session") not in (session, "unknown"):
+            if session and s.get("session") not in (session, "unknown", "otk"):
                 continue
             ts = _nano(s.get("ts") or "")
-            parent = root_id
-            for name, u in units.items():
-                if u["start"] and u["start"] <= ts <= (u["end"] or ts):
-                    parent = _hex_id(f"unit|{trace_seed}|{name}", 16)
-                    break
+            # Атрибуция по ПОЛЮ unit (GO-004) — приоритетно; время — fallback.
+            parent = None
+            if s.get("unit") and s["unit"] in unit_span_by_id:
+                parent = unit_span_by_id[s["unit"]]
+            if parent is None:
+                for name, u in units.items():
+                    if u["start"] and u["start"] <= ts <= (u["end"] or ts):
+                        parent = unit_span_by_id[name]
+                        break
+            if parent is None:
+                parent = root_id
             attrs = [_attr("itd.signal.kind", s.get("kind", "")),
                      _attr("itd.signal.layer", int(s.get("layer", 0))),
                      _attr("itd.signal.class", s.get("class", "")),
                      _attr("itd.signal.outcome", s.get("outcome", "")),
                      _attr("itd.signal.command", s.get("command", ""))]
+            if s.get("unit"):
+                attrs.append(_attr("itd.unit.id", s["unit"]))
             if s.get("anomaly"):
                 attrs.append(_attr("itd.signal.anomaly", s["anomaly"]))
+            attrs.extend(_semconv_signal_attrs(s))  # semconv (GO-004)
             spans.append({
                 "traceId": trace_id,
                 "spanId": _hex_id(f"signal|{trace_seed}|{i}|{s.get('ts','')}", 16),
@@ -177,11 +187,65 @@ def build_payload(memory_dir: Path, signals_path: Path | None, session: str | No
         "resourceSpans": [{
             "resource": {"attributes": [
                 _attr("service.name", SERVICE),
+                _attr("service.version", "1.89.0"),
                 _attr("itd.machine", os.uname().nodename if hasattr(os, "uname") else os.environ.get("COMPUTERNAME", "?")),
             ]},
-            "scopeSpans": [{"scope": {"name": "itd", "version": "1.88.0"}, "spans": spans}],
+            "scopeSpans": [{"scope": {"name": "itd", "version": "1.89.0"}, "spans": spans}],
         }]
     }
+
+
+def _semconv_signal_attrs(s: dict) -> list:
+    """OpenTelemetry semantic conventions для сигнал-span (GO-004).
+
+    process.* для команд, test.case.result.status для тест/verify-слоёв,
+    gen_ai.* для делегирования субагенту (+ usage-токены, если сигнал их несёт).
+    """
+    out = []
+    kind = s.get("kind", "")
+    cmd = s.get("command", "")
+    oc = s.get("outcome", "")
+    if cmd:
+        out.append(_attr("process.command_line", cmd))
+    if oc in ("pass", "ok"):
+        out.append(_attr("process.exit_code", 0))
+    elif oc == "fail":
+        out.append(_attr("process.exit_code", 1))
+    if kind in ("test_run", "verify", "static"):
+        status = "passed" if oc in ("pass", "ok") else ("failed" if oc == "fail" else "skipped")
+        out.append(_attr("test.case.result.status", status))
+    if kind == "agent":
+        out.append(_attr("gen_ai.operation.name", "invoke_agent"))
+        name = cmd.split("agent:", 1)[-1].strip() if "agent:" in cmd else ""
+        if name:
+            out.append(_attr("gen_ai.agent.name", name))
+        for src, semk in (("input_tokens", "gen_ai.usage.input_tokens"),
+                          ("output_tokens", "gen_ai.usage.output_tokens")):
+            v = s.get(src)
+            if isinstance(v, int):
+                out.append(_attr(semk, v))
+    return out
+
+
+def validate_semconv(payload: dict) -> list:
+    """Проверить, что span'ы несут ожидаемые semconv-атрибуты (GO-004)."""
+    errs = []
+    try:
+        spans = payload["resourceSpans"][0]["scopeSpans"][0]["spans"]
+    except Exception:
+        return ["нет spans"]
+    for sp in spans:
+        keys = {a["key"] for a in sp.get("attributes", [])}
+        name = sp.get("name", "")
+        if name.startswith("itd.signal"):
+            if "process.command_line" not in keys:
+                errs.append(f"signal-span без process.command_line: {name}")
+            if "itd.signal agent" in name and "gen_ai.operation.name" not in keys:
+                errs.append(f"agent-signal без gen_ai.operation.name: {name}")
+            if ("itd.signal test_run" in name or "itd.signal verify" in name) \
+               and "test.case.result.status" not in keys:
+                errs.append(f"test/verify-signal без test.case.result.status: {name}")
+    return errs
 
 
 def validate_payload(payload: dict) -> list[str]:
