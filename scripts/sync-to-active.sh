@@ -439,6 +439,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "*",
       "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/execution-trace.sh",   "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh",      "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/risk-score.sh",        "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/stuck-detection.sh",   "timeout": 5 },
