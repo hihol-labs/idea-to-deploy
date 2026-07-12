@@ -52,9 +52,14 @@ def main():
     s = cl.classify_bash("docker compose down", {"stdout": "removed", "exitCode": 0})
     check("cleanup -> resource", s and s.get("class") == "resource", str(s))
 
-    # 4) ресурсная аномалия: OOM в выводе теста -> fail + anomaly
-    s = cl.classify_bash("npm test", {"stdout": "FATAL ERROR: JavaScript heap out of memory", "exitCode": 0})
-    check("OOM в тесте -> outcome fail + anomaly",
+    # 4) ресурсная аномалия — аннотация, НЕ мутация outcome (ревью v1.88.0):
+    # зелёный прогон с упоминанием OOM в логе остаётся pass; реальный OOM
+    # приносит exit != 0 и красен сам по себе.
+    s = cl.classify_bash("npm test", {"stdout": "log: prior run died out of memory; 5 passed", "exitCode": 0})
+    check("OOM-упоминание при exit 0 -> pass + anomaly-аннотация",
+          s and s.get("anomaly") == "memory" and s.get("outcome") == "pass", str(s))
+    s = cl.classify_bash("npm test", {"stdout": "FATAL ERROR: JavaScript heap out of memory", "exitCode": 134})
+    check("реальный OOM (exit 134) -> fail + anomaly",
           s and s.get("anomaly") == "memory" and s.get("outcome") == "fail", str(s))
 
     # 5) неклассифицируемая команда с OOM-выводом -> отдельный resource-сигнал L0

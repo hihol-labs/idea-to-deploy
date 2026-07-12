@@ -10,3 +10,4 @@ __pycache__/
 # dogfood/test-run артефакты (minor ревью v1.78.1)
 .itd-memory/
 tests/fixtures/*/output/
+benchmarks/review-evalset/RESULTS.json

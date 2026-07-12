@@ -483,12 +483,11 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
         else:
             sig["phase"] = "startup"
 
-    # Ресурсная аномалия: OOM-прогон не может считаться pass.
+    # Ресурсная аномалия — АННОТАЦИЯ, не мутация outcome (ревью v1.88.0):
+    # реальный OOM даёт exit != 0 -> fail и так; зелёный прогон, чей вывод лишь
+    # УПОМИНАЕТ «out of memory», не должен становиться ложно-красным слоем.
     if anomaly:
         sig["anomaly"] = "memory"
-        sig["class"] = "resource" if kind == "resource" else sig["class"]
-        if sig["outcome"] == "pass":
-            sig["outcome"] = "fail"
 
     # Полный контекст ошибки (пункт 1 статьи: «не просто сообщение»): команда
     # уже в сигнале, добавляем хвост вывода (stderr/stdout смешаны в text).

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.88.0] - 2026-07-12
+
+**4 практики runtime-наблюдаемости → 5/5 на обеих машинах (цель v1.88.0, GP-001…GP-007; стартовые оценки 4.0/4.0/4.5/2.0, RE-AUDIT-4P: PASS)**:
+
+### Added
+- **PowerShell-канал runtime-сигналов (GP-001)** — `completion-signals.sh` принимает
+  `tool_name: PowerShell` (симметрия со state-guard v1.78.1); `completion_lib`:
+  `Invoke-Pester` → L2, `Invoke-ScriptAnalyzer` → L1, `Invoke-WebRequest`/`irm` на
+  localhost → L3; регистрация под matcher `PowerShell` в **PostToolUse** (не PreToolUse —
+  там нет `tool_response`). Тест: `tests/verify_completion_signals_powershell.py` (8).
+- **Классы сигналов (GP-002)** — поле `class` (verification / lifecycle / data_flow /
+  resource) на каждом сигнале; `phase` startup/ready/shutdown для app_start по маркерам
+  вывода; `RESOURCE_ANOMALY_RE` (OOM / max_memory_restart → `anomaly: memory`, никогда
+  pass; неклассифицируемая команда с OOM-выводом → resource-сигнал L0); `error_tail`
+  на fail — полный контекст ошибки, не только сообщение. Поля аддитивны — verdict-логика
+  не тронута. Тест: `tests/verify_completion_signal_classes.py` (13).
+- **Sprint Contract per-задача (GP-003)** — шаблон `docs/templates/itd/TASK_CONTRACT.md`
+  (Scope / Verification Standards / Exclusions, один экран); `/task` Step 3f-1b: контракт
+  в `.itd-memory/contracts/<unit-id>.md` ДО первой правки кода; DoD-гейт: advisory-строка
+  на `git commit` при активном юните без контракта (НЕ deny — анти-ceremonial, opt-in по
+  `.itd-memory/`). Тест: `tests/verify_task_contract_advisory.py` (6).
+- **Eval-set рубрики /review (GP-004)** — `benchmarks/review-evalset/`: 10 посеянных
+  дефектов (категории из живого review-findings ledger: sql-performance ×3,
+  BigInt-сериализация, migration-numbers, секреты, SQL-инъекция, floating promise,
+  tz-date, empty catch) + 2 чистые фикстуры (false positives);
+  `tests/verify_review_evalset.py` — detection rate, порог ≥80% и 0 FP (exit 1 ниже),
+  `RESULTS.json`; `itd_retro_scan` отдаёт секцию `reviewEvalset`.
+- **OTel-экспортёр (GP-005)** — `scripts/itd_otel_export.py` (stdlib): `events.jsonl` +
+  `signals.jsonl` → OTLP/HTTP JSON; trace = сессия, span = юнит/задача, sub-span = шаг
+  верификации и runtime-сигнал; детерминированные trace/span id (idempotent re-export);
+  офлайн-валидатор; `--out` / `--endpoint`. Смоук: Jaeger 1.57 принял трейс реального
+  леджера (145 spans, HTTP 200). **Инвариант best-effort**: JSONL остаётся каноном,
+  экспортёр — транспорт, ни один гейт на OTLP не завязан. Раскатка: `sync-to-active`
+  копирует в `~/.claude/scripts/`. Тест: `tests/verify_otel_export.py` (13).
+
+---
+
 ## [1.87.0] - 2026-07-11
 
 **Сет-3 упражнений Harness Engineering → 5.0 по всем трём (цель exercise-5s, GX-001…GX-005; повторная проверка живыми пробами: 4.2 → 5.0)**:

@@ -131,7 +131,8 @@ def build_payload(memory_dir: Path, signals_path: Path | None, session: str | No
             "name": f"itd.unit {name}", "kind": 1,
             "startTimeUnixNano": str(start), "endTimeUnixNano": str(end),
             "attributes": [_attr("itd.unit.id", name), _attr("itd.unit.decision", last)],
-            "status": {"code": 1 if last == "verified" else 0},
+            "status": {"code": 1 if last == "verified"
+                       else (0 if last == "in_progress" else 2)},
         })
         for i, (d, at, ev) in enumerate(u["verify"]):
             spans.append({
