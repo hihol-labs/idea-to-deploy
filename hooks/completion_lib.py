@@ -200,6 +200,7 @@ TEST_RE = re.compile(
     r"pytest|py\.test|python\s+-m\s+pytest|unittest|nose2|tox|"
     r"go\s+test|cargo\s+test|mvn\s+(test|verify)|gradle\s+test|"
     r"phpunit|rspec|bundle\s+exec\s+rspec|dotnet\s+test|"
+    r"Invoke-Pester|"
     r"ctest|bats|\S*itd_init_validate(\.py)?)\b",
     re.I,
 )
@@ -212,7 +213,7 @@ STATIC_RE = re.compile(
     r"ruff\b|flake8|pylint|mypy|pyright|black\s+--check|"
     r"cargo\s+(build|check|clippy)|go\s+(build|vet)|gofmt\s+-l|"
     r"mvn\s+compile|gradle\s+(build|compileJava)|"
-    r"rubocop|phpstan|psalm|dotnet\s+build)\b",
+    r"rubocop|phpstan|psalm|dotnet\s+build|Invoke-ScriptAnalyzer)\b",
     re.I,
 )
 
@@ -221,6 +222,7 @@ APP_RE = re.compile(
     r"(^|\s|;|&&|\|\|)("
     r"curl\b[^|]*\b(localhost|127\.0\.0\.1|/health|/healthz|/ready|/api/)|"
     r"wget\b[^|]*\b(localhost|127\.0\.0\.1)|"
+    r"(Invoke-WebRequest|Invoke-RestMethod|iwr|irm)\b[^|]*\b(localhost|127\.0\.0\.1|/health)|"
     r"docker\s+compose\s+up|docker\s+run|"
     r"npm\s+run\s+(start|dev|serve|e2e)|next\s+start|"
     r"playwright\s+test|cypress\s+run|"
@@ -377,7 +379,12 @@ def _project_l2_patterns(cwd: Path | None):
 
 
 def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict | None:
-    """Одна Bash-команда -> один runtime-сигнал (или None, если не релевантно).
+    """Одна Bash/PowerShell-команда -> один runtime-сигнал (или None).
+
+    v1.88.0: применяется и к PowerShell-tool (раннеры npm/pytest/dotnet — те же
+    строки; PS-специфика: Invoke-Pester -> L2, Invoke-ScriptAnalyzer -> L1,
+    Invoke-WebRequest/irm на localhost -> L3). Эхо `EXIT: $LASTEXITCODE`
+    матчится _EXIT_ECHO_RE после подстановки — конвенция общая для обоих шеллов.
 
     cwd (опц.) включает проектные L2-паттерны из .claude/completion/config.json —
     доказательство поведения для проектов без юнит-тестов.

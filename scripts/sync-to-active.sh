@@ -398,6 +398,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "PowerShell",
       "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/completion-signals.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/state-guard.sh", "timeout": 5 }
       ]
     },

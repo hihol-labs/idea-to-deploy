@@ -48,6 +48,7 @@ verify_feature_ledger_completeness verify_feature_ledger_fallbacks \
 verify_retro_abstention_review verify_feature_ledger_adoptions \
 verify_init_contracts verify_cost_tracker verify_review_report_file \
 verify_state_hardening verify_source_read_contract \
+verify_completion_signals_powershell \
 verify_platform_tmp_and_new_hooks verify_goal_tools verify_retro_scan \
 verify_v147_fixes verify_hook_depth verify_narration_final \
 verify_verdict_contract verify_worktree_hook_safety verify_hook_count_words \
