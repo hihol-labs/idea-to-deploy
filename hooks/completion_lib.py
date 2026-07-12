@@ -409,6 +409,58 @@ def _project_l2_patterns(cwd: Path | None):
     return pats
 
 
+# Обёртки шелла: wsl.exe -e sh -c '…', wsl bash -lc "…", sh/bash -c '…'.
+# Классифицировать надо ВНУТРЕННЮЮ команду, иначе `wsl … 'git commit …'`
+# обходит VCS_LEAD_RE (проверяет начало строки) и коммит становится test_run
+# (live-FP сет-4, GO-002). Разворачиваем до нескольких уровней вложенности.
+_WRAP_RE = re.compile(
+    r"""^\s*
+        (?:wsl(?:\.exe)?\s+(?:-e\s+)?)?          # опц. wsl.exe -e
+        (?:sh|bash|dash|zsh)\s+                  # шелл
+        (?:-[a-z]+\s+)*                          # опц. флаги перед -c
+        -[a-z]*c\s+                              # флаг с 'c' (-c / -lc / -xc)
+        (['"])(?P<inner>.*)\1\s*$
+    """, re.X | re.S)
+
+# Пути тест-корпуса/фикстур: их вывод содержит НАМЕРЕННЫЕ маркеры (OOM в eval-set,
+# «FAILED» в фикстуре) — это данные проверки, не runtime-сигнал (live-FP сет-4).
+SUPPRESS_PATH_RE = re.compile(
+    r"(^|[\s/\\'\"])(benchmarks|fixtures?|review-evalset|testdata|__fixtures__)([/\\])",
+    re.I,
+)
+
+
+def unwrap_shell(command: str, depth: int = 3) -> str:
+    """Снять обёртки `wsl … sh -c '<inner>'` -> <inner> (до depth уровней)."""
+    cur = command
+    for _ in range(depth):
+        m = _WRAP_RE.match(cur)
+        if not m:
+            break
+        inner = m.group("inner")
+        if not inner or inner == cur:
+            break
+        cur = inner.strip()
+    return cur
+
+
+def _current_unit(cwd: Path | None) -> str:
+    """currentUnitId активной цели (.itd-memory/GOAL.json) — для атрибуции
+    сигнала к юниту (GO-002). Пусто, если цели нет / не active."""
+    if cwd is None:
+        return ""
+    try:
+        gp = Path(cwd) / ".itd-memory" / "GOAL.json"
+        if not gp.is_file():
+            return ""
+        g = json.loads(gp.read_text(encoding="utf-8"))
+        if g.get("status") != "active":
+            return ""
+        return str(g.get("currentUnitId") or "")
+    except Exception:
+        return ""
+
+
 def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict | None:
     """Одна Bash/PowerShell-команда -> один runtime-сигнал (или None).
 
@@ -417,23 +469,33 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     Invoke-WebRequest/irm на localhost -> L3). Эхо `EXIT: $LASTEXITCODE`
     матчится _EXIT_ECHO_RE после подстановки — конвенция общая для обоих шеллов.
 
+    v1.89.0 (GO-002): снимаем shell-обёртки перед классификацией (wsl/sh -c);
+    подавляем команды над тест-корпусом/фикстурами (их вывод — данные, не
+    сигнал); сигнал несёт `unit` активной цели.
+
     cwd (опц.) включает проектные L2-паттерны из .claude/completion/config.json —
     доказательство поведения для проектов без юнит-тестов.
     """
     if not command:
         return None
+    # Развернуть обёртки: классификация идёт по внутренней команде.
+    effective = unwrap_shell(command)
+    # Тест-корпус/фикстуры — их «FAILED»/«out of memory» это данные проверки.
+    if SUPPRESS_PATH_RE.search(effective):
+        return None
     # VCS/сдача — не runtime-доказательство (см. VCS_LEAD_RE). Коммит и его
     # многострочное тело часто случайно матчат L2-паттерны; сбрасываем до
     # классификации, чтобы акт сдачи не считался проверкой.
-    if VCS_LEAD_RE.search(command):
+    if VCS_LEAD_RE.search(effective):
         return None
     # Проба окружения — не сигнал слоя (retro 2026-07-11 P5, live FP):
     # `python -c "import pytest" || echo NO_PYTEST` проверяет НАЛИЧИЕ модуля,
     # её ModuleNotFoundError — ожидаемый ответ «нет», а не провал тестов.
     # Матчится только голый import в -c (import с вызовами/`;` — реальный
     # смоук, он сигналом остаётся).
-    if ENV_PROBE_RE.search(command):
+    if ENV_PROBE_RE.search(effective):
         return None
+    command = effective  # дальше классифицируем и храним развёрнутую команду
     text, code = _extract_output(tool_response)
     outcome = outcome_from(text, code)
 
@@ -503,6 +565,12 @@ _LOCK_FAIL_LOGGED = False  # once-per-process: не спамить errors.log н
 def append_signal(cwd: Path, session_id: str, sig: dict) -> None:
     sig = dict(sig)
     sig["session"] = str(session_id or "unknown")
+    # Атрибуция сигнала к юниту активной цели (GO-002): экспортёр цепляет
+    # sub-span к span юнита по этому полю, а не по времени (устраняет orphan).
+    if "unit" not in sig:
+        u = _current_unit(cwd)
+        if u:
+            sig["unit"] = u
     p = signals_path(cwd)
     # v1.75.0 (audit fix #2): append+trim are serialized through a DEDICATED
     # lock file. Locking the ledger itself would not survive the trim — the

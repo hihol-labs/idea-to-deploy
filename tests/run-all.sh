@@ -49,6 +49,7 @@ verify_retro_abstention_review verify_feature_ledger_adoptions \
 verify_init_contracts verify_cost_tracker verify_review_report_file \
 verify_state_hardening verify_source_read_contract \
 verify_execution_trace_outcome \
+verify_signal_attribution \
 verify_completion_signals_powershell \
 verify_completion_signal_classes \
 verify_task_contract_advisory \
