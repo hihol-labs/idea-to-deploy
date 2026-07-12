@@ -111,9 +111,9 @@ def main() -> int:
     except Exception:
         return 0  # bad/empty payload — stay silent, never break the session
 
-    post = is_post(payload)
     try:
-        tool = payload.get("tool_name", "")
+        post = is_post(payload) if isinstance(payload, dict) else False
+        tool = payload.get("tool_name", "") if isinstance(payload, dict) else ""
         if not tool:
             raise ValueError
         session_id = str(payload.get("session_id") or "unknown")

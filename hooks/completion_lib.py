@@ -422,10 +422,16 @@ _WRAP_RE = re.compile(
         (['"])(?P<inner>.*)\1\s*$
     """, re.X | re.S)
 
-# Пути тест-корпуса/фикстур: их вывод содержит НАМЕРЕННЫЕ маркеры (OOM в eval-set,
-# «FAILED» в фикстуре) — это данные проверки, не runtime-сигнал (live-FP сет-4).
+# Пути ТЕСТ-КОРПУСА МЕТОДОЛОГИИ: их вывод содержит НАМЕРЕННЫЕ маркеры (OOM в
+# eval-set, «FAILED» в фикстуре) — это данные проверки, не runtime-сигнал
+# (live-FP сет-4). Сужено (ревью v1.89.0): матчим ТОЛЬКО специфичные корпус-пути
+# методологии, а не generic-сегменты `fixtures/`/`testdata/` — иначе глушили бы
+# реальные чужие сьюты (`pytest tests/fixtures/…`, `jest src/__fixtures__/…`).
 SUPPRESS_PATH_RE = re.compile(
-    r"(^|[\s/\\'\"])(benchmarks|fixtures?|review-evalset|testdata|__fixtures__)([/\\])",
+    r"(^|[\s/\\'\"])"
+    r"(benchmarks[/\\]review-evalset|review-evalset"
+    r"|benchmarks[/\\]fixtures|\.itd[/\\]benchmarks)"
+    r"([/\\]|$|['\"\s])",
     re.I,
 )
 
@@ -601,19 +607,23 @@ def find_stalls(trace_rows: list, threshold_s: int = 600) -> list:
             return None
 
     rows = [r for r in trace_rows if isinstance(r, dict)]
-    last_ts = ts(rows[-1]) if rows and ts(rows[-1]) else None
+    # last_ts — самый поздний ВАЛИДНЫЙ ts (не строго из хвоста: последняя строка
+    # может быть повреждена/дозаписываться; ревью v1.89.0 #5).
+    valid_ts = [ts(r) for r in rows if ts(r)]
+    last_ts = max(valid_ts) if valid_ts else None
     stalls = []
-    open_pre = {}  # tool -> (idx, ts)
+    # Ключ (tool, target) — иначе post одного параллельного same-tool вызова
+    # стёр бы открытый pre другого, маскируя реальный stall (ревью v1.89.0 #3).
+    open_pre = {}  # (tool, target) -> (idx, ts)
     for i, r in enumerate(rows):
-        tool = r.get("tool")
+        key = (r.get("tool"), r.get("target", ""))
         phase = r.get("phase", "pre")
         t = ts(r)
         if phase == "pre":
-            open_pre[tool] = (i, t)
-        elif phase == "post" and tool in open_pre:
-            open_pre.pop(tool, None)
-    # оставшиеся открытые pre без post — кандидаты в зависшие
-    for tool, (i, t) in open_pre.items():
+            open_pre[key] = (i, t)
+        elif phase == "post":
+            open_pre.pop(key, None)
+    for (tool, _target), (i, t) in open_pre.items():
         if t and last_ts:
             gap = (last_ts - t).total_seconds()
             if gap >= threshold_s:

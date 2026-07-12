@@ -50,14 +50,21 @@ def main():
                          {"stdout": "3 passed", "exitCode": 0})
     check("тест-в-wsl -> test_run L2 pass", s and s["kind"] == "test_run" and s["outcome"] == "pass", str(s))
 
-    # benchmarks/fixtures suppress -> None
+    # корпус методологии suppress -> None (узкие пути, не generic fixtures/)
     for cmd in [
         "node benchmarks/review-evalset/run.mjs",
-        "cp fixtures/oom-sample.ts /tmp && cat it",
         "python3 tests/../review-evalset/x.py",
+        "cat benchmarks/fixtures/oom-sample.ts",
     ]:
         s = cl.classify_bash(cmd, {"stdout": "FAILED out of memory", "exitCode": 0})
-        check(f"suppress fixtures: {cmd[:30]}", s is None, str(s))
+        check(f"suppress корпус: {cmd[:32]}", s is None, str(s))
+
+    # ЧУЖИЕ тестовые фикстуры/данные НЕ подавляются (ревью v1.89.0 #2):
+    # generic-сегменты fixtures/testdata встречаются в обычных сьютах.
+    s = cl.classify_bash("pytest tests/unit --fixtures-dir=tests/fixtures", {"stdout": "3 passed", "exitCode": 0})
+    check("чужой tests/fixtures НЕ подавлен", s is not None and s["kind"] == "test_run", str(s))
+    s = cl.classify_bash("jest --testPathPattern=src/__fixtures__", {"stdout": "5 passed", "exitCode": 0})
+    check("чужой __fixtures__ НЕ подавлен", s is not None and s["kind"] == "test_run", str(s))
 
     # обычный тест НЕ подавляется
     s = cl.classify_bash("pytest tests/test_api.py", {"stdout": "3 passed", "exitCode": 0})
