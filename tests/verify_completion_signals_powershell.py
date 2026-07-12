@@ -105,7 +105,8 @@ def main():
 
     # 5) регистрация: sync-to-active ставит хук под matcher "PowerShell"
     text = SYNC.read_text(encoding="utf-8")
-    m = re.search(r'"matcher":\s*"PowerShell".*?\]\s*\}', text, re.S)
+    post = text[text.index('"PostToolUse"'):text.index('"Stop"')]
+    m = re.search(r'"matcher":\s*"PowerShell".*?\]\s*\}', post, re.S)
     block = m.group(0) if m else ""
     check("sync-to-active: completion-signals под PowerShell-matcher",
           "completion-signals.sh" in block,
