@@ -253,6 +253,37 @@ CLEANUP_RE = re.compile(
     re.I,
 )
 
+# ---------------------------------------------------------------------------
+# v1.88.0 (GP-002, пункт 1 статьи): классы сигналов поверх слоёв.
+# class — ЧТО наблюдаем (lifecycle / verification / data_flow / resource),
+# layer — какому слою завершения это доказательство. Поля аддитивны:
+# verdict-логика (_layer_status/compute_verdict) читает только layer/outcome,
+# классы — телеметрия для читателей леджера (retro, OTel-экспорт).
+# ---------------------------------------------------------------------------
+
+KIND_CLASS = {
+    "static": "verification",
+    "test_run": "verification",
+    "app_start": "lifecycle",
+    "side_effect": "data_flow",
+    "cleanup": "resource",
+    "resource": "resource",
+}
+
+# Фазы жизненного цикла приложения — маркеры в ВЫВОДЕ запуска (не в команде).
+LIFECYCLE_READY_RE = re.compile(
+    r"(listening on|ready in|server (is )?running|started server|"
+    r"Local:\s+https?://|application startup complete|booted in)", re.I)
+LIFECYCLE_SHUTDOWN_RE = re.compile(
+    r"(shutting down|graceful(ly)? shut|server closed|received SIGTERM)", re.I)
+
+# Аномалии ресурсов: OOM/heap/памятный рестарт — «постоянно растущая память»
+# видна в agent-harness именно этими маркерами в выводе (pm2 max_memory_restart —
+# живой инцидент OneOfS: RSS за лимит -> рестарт -> 502).
+RESOURCE_ANOMALY_RE = re.compile(
+    r"(javascript heap out of memory|out of memory|oomkilled|oom-kill|"
+    r"enomem|memoryerror|max_memory_restart|cannot allocate memory)", re.I)
+
 
 def _extract_output(tool_response) -> tuple[str, int | None]:
     """Достаёт (текст, exit_code|None) из tool_response любого разумного вида."""
@@ -406,6 +437,8 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     text, code = _extract_output(tool_response)
     outcome = outcome_from(text, code)
 
+    anomaly = RESOURCE_ANOMALY_RE.search(text) if text else None
+
     if TEST_RE.search(command) or any(rx.search(command) for rx in _project_l2_patterns(cwd)):
         kind, layer = "test_run", 2
     elif STATIC_RE.search(command):
@@ -416,6 +449,10 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
         kind, layer = "side_effect", 0
     elif CLEANUP_RE.search(command):
         kind, layer = "cleanup", 0
+    elif anomaly:
+        # Команда сама не классифицируется, но вывод несёт ресурсную аномалию
+        # (OOM и т.п.) — фиксируем как resource-сигнал учёта (layer 0).
+        kind, layer = "resource", 0
     else:
         return None
 
@@ -427,14 +464,38 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
             ev = s[:200]
             break
 
-    return {
+    sig = {
         "ts": now_iso(),
         "kind": kind,
         "layer": layer,
+        "class": KIND_CLASS.get(kind, "verification"),
         "command": command[:300],
         "outcome": outcome,
         "evidence": ev,
     }
+
+    # Фаза жизненного цикла приложения — по маркерам вывода запуска.
+    if kind == "app_start":
+        if LIFECYCLE_SHUTDOWN_RE.search(text or ""):
+            sig["phase"] = "shutdown"
+        elif LIFECYCLE_READY_RE.search(text or ""):
+            sig["phase"] = "ready"
+        else:
+            sig["phase"] = "startup"
+
+    # Ресурсная аномалия: OOM-прогон не может считаться pass.
+    if anomaly:
+        sig["anomaly"] = "memory"
+        sig["class"] = "resource" if kind == "resource" else sig["class"]
+        if sig["outcome"] == "pass":
+            sig["outcome"] = "fail"
+
+    # Полный контекст ошибки (пункт 1 статьи: «не просто сообщение»): команда
+    # уже в сигнале, добавляем хвост вывода (stderr/stdout смешаны в text).
+    if sig["outcome"] == "fail" and text:
+        sig["error_tail"] = "\n".join(text.splitlines()[-8:])[:600]
+
+    return sig
 
 
 _LOCK_FAIL_LOGGED = False  # once-per-process: не спамить errors.log на каждый append
