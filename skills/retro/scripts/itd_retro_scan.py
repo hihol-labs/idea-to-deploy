@@ -272,6 +272,20 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
             "classesTotal": len(classes), "repeatClasses": repeats}
 
 
+
+def scan_review_evalset() -> dict | None:
+    """Метрика eval-set рубрики /review (v1.88.0, GP-004): RESULTS.json
+    пишет tests/verify_review_evalset.py в репо методологии. Вне репо
+    методологии файла нет -> None (секция отсутствует, как другие источники)."""
+    p = Path(__file__).resolve().parents[3] / "benchmarks" / "review-evalset" / "RESULTS.json"
+    if not p.is_file():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def _ver_tuple(s: str) -> tuple:
     """'1.73.0' / 'v1.70' → (1, 73, 0) / (1, 70). Empty tuple when no digits."""
     nums = re.findall(r"\d+", s or "")
@@ -421,6 +435,9 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     if reg is not None:
         report["instructionRegistry"] = reg
     rf = scan_review_findings(mems, tmp_dir)
+    ev = scan_review_evalset()
+    if ev:
+        report["reviewEvalset"] = ev
     if rf is not None:
         report["reviewFindings"] = rf
     return report
