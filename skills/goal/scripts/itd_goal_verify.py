@@ -78,6 +78,38 @@ def die(msg: str, code: int = 2) -> None:
     sys.exit(code)
 
 
+def write_verify_signal(goal_path: Path, unit_id: str, rc: int,
+                        command: str, evidence: str) -> None:
+    """Записать runtime-сигнал верификации (v1.89.0, GO-003).
+
+    Раньше ОТК исполнял verificationCommand subprocess-ом мимо PostToolUse —
+    completion-gate этих прогонов НЕ видел (44 verified / 0 сигналов, сет-4:
+    «верифицирован ↔ ничего не проверялось» неразличимы). Теперь каждый прогон
+    оставляет сигнал kind `verify` (L2, class verification) с атрибуцией к юниту.
+    Вендор-нейтрально: пишем JSONL напрямую, без импорта hooks-пакета.
+    Best-effort — сбой записи НИКОГДА не ломает верификацию.
+    """
+    try:
+        project_root = goal_path.resolve().parent.parent
+        d = project_root / ".claude" / "completion"
+        d.mkdir(parents=True, exist_ok=True)
+        sig = {
+            "ts": now_iso(),
+            "kind": "verify",
+            "layer": 2,
+            "class": "verification",
+            "command": ("otk: " + command)[:300],
+            "outcome": "pass" if rc == 0 else "fail",
+            "evidence": evidence[:200],
+            "unit": unit_id,
+            "session": "otk",
+        }
+        with (d / "signals.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(sig, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 def now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -260,6 +292,10 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             output, rc = f"timeout after {timeout}s", 124
 
     evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
+
+    # Runtime-сигнал верификации (GO-003): прогон становится наблюдаемым для
+    # completion-gate независимо от исхода (pass/fail).
+    write_verify_signal(goal_path, unit["id"], rc, command, evidence)
 
     if rc == 0:
         unit["status"] = "verified"

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.89.0] - 2026-07-12
+
+**10 параметров наблюдаемости/качества → 5/5 на обеих машинах (цель v1.89.0, GO-001…GO-007; сет-4 старт 4/2/2/3/3/4/1/4/2/3, RE-AUDIT-OBS: PASS)**:
+
+### Added
+- **Двухфазный execution-tracer (GO-001)** — PostToolUse-фаза дописывает исход
+  (`outcome` ok/fail/empty/unknown + exit/error) для ВСЕХ tool
+  (Bash/PowerShell/Edit/Write/Agent/Skill) парно к PreToolUse-интенту. Закрывает
+  «трейс из намерений, не результатов» (сет-4: 0/228 событий несли исход).
+  Agent пустой финал → `outcome empty`. Тест (10) + run-all.
+- **ОТК-сигнал верификации (GO-003)** — `itd_goal_verify.py` пишет `verify`-сигнал
+  (L2, unit-атрибуция) при каждом прогоне verificationCommand: состояние
+  «верифицирован ↔ ничего не проверялось» стало различимо (было 44 verified / 0
+  сигналов). Плюс `agent_result_signal` (пустой финал субагента) и `find_stalls`
+  (зависший фон по (tool,target)). Тест (6).
+- **Дефолтная deployment-планка /task (GO-005)** — Step 3f несёт deployment-floor
+  (exit-семантика, diff-scoped/no-op, actionable WHY+FIX, тихий успех, zero-dep,
+  самопроба), применяемый БЕЗ явного Sprint Contract. A/B: безконтрактный агент
+  6/6 требований (было 3.5/6). Тест (8).
+
+### Changed
+- **Классификация сигналов (GO-002)** — `unwrap_shell` снимает `wsl/sh -c`-обёртки
+  перед классификацией: commit-в-обёртке больше не `test_run` (live-FP сет-4
+  «commit=test»). `SUPPRESS_PATH_RE` подавляет ТОЛЬКО корпус методологии
+  (`benchmarks/review-evalset`, `.itd/benchmarks`) — чужие `tests/fixtures/` не
+  глушатся. `append_signal` проставляет `sig.unit` из `GOAL.currentUnitId`. Тест (12).
+- **OTel-экспортёр (GO-004)** — сигнал цепляется к span юнита ПО ПОЛЮ `unit`
+  (не по времени; orphan<10% на тест-леджере); semconv-атрибуты
+  `gen_ai.operation.name`/`gen_ai.usage.*`, `process.command_line`/`exit_code`,
+  `test.case.result.status`; `validate_semconv`. Тест (9).
+- **meta_review M-C10** — поддержка двухфазных телеметрия-хуков (Pre+Post),
+  распознавание по обоим строковым литералам события.
+
+---
+
 ## [1.88.0] - 2026-07-12
 
 **4 практики runtime-наблюдаемости → 5/5 на обеих машинах (цель v1.88.0, GP-001…GP-007; стартовые оценки 4.0/4.0/4.5/2.0, RE-AUDIT-4P: PASS)**:

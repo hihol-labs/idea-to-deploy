@@ -126,6 +126,23 @@ def write_sentinel(skill: str) -> None:
             continue
 
 
+def record_agent_signal(payload: dict, agent: str) -> None:
+    """Дописать сигнал завершения субагента в signals.jsonl проекта (GO-003).
+    Best-effort: любая ошибка проглатывается — телеметрия не ломает сессию."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import completion_lib as cl
+        from pathlib import Path
+        cwd = Path((payload or {}).get("cwd") or os.getcwd())
+        resp = (payload or {}).get("tool_response")
+        if resp is None:
+            resp = (payload or {}).get("tool_result")
+        sig = cl.agent_result_signal(agent, resp)
+        cl.append_signal(cwd, str((payload or {}).get("session_id") or "unknown"), sig)
+    except Exception:
+        pass
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -138,6 +155,9 @@ def main() -> int:
     skill = AGENT_TO_SKILL.get(agent)
     if skill:
         write_sentinel(skill)
+    # v1.89.0 (GO-003): сигнал по завершению субагента — пустой финал делает
+    # состояние «субагент вернул результат ↔ умер молча» различимым в леджере.
+    record_agent_signal(payload, agent)
     return 0
 
 

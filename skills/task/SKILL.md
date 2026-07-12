@@ -178,6 +178,24 @@ implementation:
    verification per step) and explicit user approval before code (global rule
    «Plan before code»). For a large/risky feature offer `/grill-me` on the plan
    first.
+2a. **Deployment baseline — дефолтная планка (v1.89.0, GO-005).** Даже БЕЗ
+   явного Task Contract каждая feature-задача применяет этот deployment-floor
+   (замер A/B сет-4: агент без контракта промахивался именно здесь — 3.5/6):
+   - **Exit-семантика**: CLI/скрипт возвращает ненулевой код при найденной
+     проблеме и 0 при чистоте; «нашёл, но exit 0» — дефект.
+   - **Diff-scoped / no-op по умолчанию**: инструмент проверки работает по
+     переданному срезу (`--files`), без аргументов — no-op, а не полный скан
+     живого репо.
+   - **Actionable-вывод**: на нарушении — путь + строка + WHY + FIX-подсказка,
+     не голое «ERROR».
+   - **Тихий успех**: при отсутствии находок — без шум-сводки в stdout.
+   - **Zero-dep, если так задано**: не тянуть пакеты/AST, если задача просила
+     stdlib.
+   - **Самопроба**: прогнать на позитивной И негативной фикстуре, показать
+     фактические exit-коды.
+   Явный Task Contract (шаг 1b) переопределяет/дополняет планку; при его
+   отсутствии планка — и есть контракт по умолчанию.
+
 3. **Implement** — surgical edits inside the declared scope; the normal gates
    stay armed (wip-gate, careful, DoD). **Producer-first rule** (retro
    2026-07-04, класс «assumed producer shape» — 2 Important в одном ревью):
