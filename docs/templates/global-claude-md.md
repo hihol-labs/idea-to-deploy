@@ -70,6 +70,11 @@ background agents, transcript search). Standing rule for ALL of them:
 - Коммит кода при красном слое → **вето** `completion-gate`; нет сигналов за
   сессию → деградация в advisory, а не ложное «all green» (best-effort invariant).
 - Осознанный обход: `COMPLETION_BYPASS: <причина>` в description коммит-вызова.
+- **Явное закрытие сессии:** `/session-save --close` запускает
+  `.itd/itd_hygiene.py close`; session closed только когда verification И clean
+  state зелёные. Красный close сохраняет checkpoint, но оставляет сессию
+  открытой с WHY+FIX. Обычный Stop остаётся soft — конец хода не равен концу
+  сессии.
 
 Полная механика (классификация сигналов, красные пометки WHY+FIX, `FIX_HINTS`,
 `l2_evidence_patterns` для проектов без тестов, env-выключатели) — topic-док

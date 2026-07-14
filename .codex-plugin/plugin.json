@@ -1,0 +1,35 @@
+{
+  "name": "idea-to-deploy",
+  "version": "1.89.0",
+  "description": "Vendor-neutral harness engineering methodology from idea to deployed and hardened product, packaged for Codex.",
+  "author": {
+    "name": "HiH-DimaN",
+    "email": "HiH-DimaN@users.noreply.github.com",
+    "url": "https://github.com/HiH-DimaN"
+  },
+  "homepage": "https://github.com/hihol-labs/idea-to-deploy",
+  "repository": "https://github.com/hihol-labs/idea-to-deploy",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "harness-engineering",
+    "methodology",
+    "project-lifecycle",
+    "ai-coding"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Idea to Deploy",
+    "shortDescription": "Model-neutral engineering harness for Codex.",
+    "longDescription": "Use the Idea to Deploy contracts, skills, lifecycle gates, persistent state, and verification discipline from Codex without forking the methodology core.",
+    "developerName": "HiH-DimaN",
+    "category": "Developer Tools",
+    "capabilities": [
+      "project lifecycle",
+      "verification gates",
+      "persistent task state",
+      "security and deployment"
+    ],
+    "defaultPrompt": "Use Idea to Deploy: read AGENTS.md and .itd contracts, preserve WIP=1, and verify completion with evidence."
+  }
+}

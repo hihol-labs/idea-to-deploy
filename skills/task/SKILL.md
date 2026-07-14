@@ -103,6 +103,24 @@ at zero difference in verified-completion rate. Classify by unit count, not by
 feel: 3+ units, cross-module effects, or any high-risk signal → back to
 after-every-unit regression (see `skills/_shared/helpers.md` §6).
 
+### Step 1c: Read the module-quality queue (when present)
+
+If `.itd/QUALITY.json` exists, read it before fixing scope. Prefer the executable
+view (**`itd_hygiene.py quality`**) so stale or evidence-less grades cannot look
+authoritative:
+
+```bash
+HY=".itd/itd_hygiene.py"; [ -f "$HY" ] || HY="$HOME/.claude/templates/itd/itd_hygiene.py"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" quality --root .
+```
+
+Surface the lowest-grade module and its first priority in the routing context.
+It is the default maintenance priority, not permission to override an explicit
+user task: if the user asked for another module, keep their scope and record the
+lower-grade finding as backlog. Missing `.itd/QUALITY.json` is a soft no-op for
+pre-adoption projects; an invalid/stale ledger is a visible quality warning.
+
 ### Step 2: Determine the task type
 
 If the user's request is ambiguous (e.g., "закрой tech debt с deploy.sh", "надо поработать над auth"), ask ONE routing question:

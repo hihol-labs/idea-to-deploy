@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "methodologyCore": {
+    "skills": "skills/",
+    "contracts": "docs/templates/itd/",
+    "state": "docs/templates/itd-memory/",
+    "hooks": "hooks/",
+    "tests": "tests/"
+  },
+  "hosts": {
+    "claude": {
+      "guidanceFile": "CLAUDE.md",
+      "pluginManifest": ".claude-plugin/plugin.json",
+      "projectConfig": ".claude/settings.json",
+      "pluginRootEnvironment": "CLAUDE_PLUGIN_ROOT",
+      "fileMutationTools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "shellTools": ["Bash", "PowerShell"],
+      "subagentTransport": ["Task", "Agent"]
+    },
+    "codex": {
+      "guidanceFile": "AGENTS.md",
+      "pluginManifest": ".codex-plugin/plugin.json",
+      "projectConfig": ".codex/hooks.json",
+      "pluginRootEnvironment": "PLUGIN_ROOT",
+      "fileMutationTools": ["apply_patch"],
+      "shellTools": ["Bash"],
+      "subagentTransport": ["SubagentStart", "SubagentStop"],
+      "normalizer": "hooks/codex-dispatch.py"
+    }
+  },
+  "parity": {
+    "shared": [
+      "skill discovery",
+      "contract scaffold",
+      "persistent .itd-memory state",
+      "prompt routing",
+      "pre-tool commit and scope gates",
+      "post-tool telemetry and state validation",
+      "stop and subagent verdict gates"
+    ],
+    "hostSpecific": [
+      "installation and trust UX",
+      "tool-name and file-mutation payload normalization",
+      "named subagent spawning transport",
+      "optional host memory mirrors"
+    ]
+  }
+}

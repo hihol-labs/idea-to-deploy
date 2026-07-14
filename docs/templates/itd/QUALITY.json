@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "reviewedAt": "",
+  "maxAgeDays": 30,
+  "gradeScale": {
+    "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
+    "B": "green with contained Important debt",
+    "C": "partial verification or material maintainability/test debt",
+    "D": "failing/unstable with cross-module risk",
+    "F": "unverified or unsafe to change"
+  },
+  "modules": []
+}

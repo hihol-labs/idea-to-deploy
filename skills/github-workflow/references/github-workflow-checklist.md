@@ -3,7 +3,7 @@
 Чеклист для связывания состояния проекта idea-to-deploy с работой в GitHub:
 Issues, Pull Requests, CI (GitHub Actions), релизы, ревью-комментарии.
 
-> **Explicit-invocation скилл** (`disable-model-invocation: true`). Вызывается
+> **Explicit-invocation скилл** (`metadata.explicit_invocation: true`). Вызывается
 > явно через `/github-workflow`, не авто-роутится — потому что несёт
 > `external-write` (мутации в GitHub). Любая запись (push/merge/close/release) —
 > только по явному намерению пользователя.

@@ -1,7 +1,7 @@
 ---
 name: retro
 description: 'Self-proposing improvement cycle for the methodology itself — FACTS from the harness (itd_retro_scan.py aggregates VCR, regressions, active goals, SKILL_BYPASS ledger, cost), PROPOSALS from the model (ranked, every one cites evidence from the scan; anti-Goodhart: external signals only), MERGE stays with the human via the ordinary release pipeline. Never edits the methodology itself; not a gate.'
-argument-hint: optional — workspace root(s) to scan (default: current dir) and/or period note
+argument-hint: 'optional — workspace root(s) to scan (default: current dir) and/or period note'
 license: MIT
 allowed-tools: Read Write Glob Grep Bash
 metadata:
@@ -117,6 +117,42 @@ sh "$SHD/itd_py.sh" "$RT/itd_ledger_abstentions.py"
 ничего не мержит и не мутирует; флип `abstain→adopt` всё равно проходит Step 2 +
 человека. Fallback (vendor-neutral): нет планировщика — запускай `/retro` вручную,
 как и раньше; пропуск пинга теряет напоминание, но не сам механизм.
+
+### Step 1c: Двухрежимная гигиена + абляция harness
+
+Периодическая гигиена — исполняемый контракт, не просьба «не забыть». Runner
+живёт в `.itd/` принятого проекта; в самом репо методологии используй шаблонный
+runner и активные контракты из `docs/`.
+
+**Weekly tracing cleanup** — полный read-only/cleanup scan: manifest-owned
+временные артефакты, freshness/валидность `QUALITY.json`, структурные проверки и
+benchmark drift. Операции cleanup безопасны для повторного запуска.
+
+```bash
+HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"
+[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"; }
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" periodic --mode weekly --root . --contract "$CONTRACT" --record
+```
+
+**Monthly component ablation** — выбрать ОДИН due-кандидат из
+`HARNESS_ABLATION.json`, прогнать тот же фиксированный benchmark сначала в
+baseline, затем с его reversible `disableEnv`, записать метрики и оставить
+`humanDecision: pending`. Runner никогда не удаляет компонент сам: regression →
+`restore`/exit 1; parity → `candidate_for_removal`, после чего человек решает
+удалить, облегчить или оставить.
+
+```bash
+HY=".itd/itd_hygiene.py"; ABL=".itd/HARNESS_ABLATION.json"
+[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; ABL="docs/HARNESS_ABLATION.json"; }
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" periodic --mode monthly --component <id> --root . --ablation-contract "$ABL" --record
+```
+
+Повесь weekly-команду на еженедельный read-only scheduler, monthly-команду — на
+ежемесячный nudge. Scheduled-агент только показывает/записывает evidence; merge,
+удаление компонента и иные мутации по-прежнему проходят человека и обычный
+release pipeline.
 
 ### Step 2: PROPOSALS — интерпретация с обязательным evidence
 

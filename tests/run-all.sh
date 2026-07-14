@@ -39,7 +39,7 @@ run_py() {
 }
 
 # --- быстрый статический костяк (--quick) -----------------------------------
-CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness"
+CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_session_hygiene_quality"
 # --- полный python-набор обоих workflow --------------------------------------
 FULL="verify_dod_gate verify_skill_enforcement verify_agent_review_sentinel \
 verify_review_autoping verify_refute_fleet verify_model_risk_monotonic \

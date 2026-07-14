@@ -4,7 +4,7 @@ description: 'Deploy to production — sync files, build containers, apply migra
 argument-hint: '"web" for web only, "all" for full stack, or specific service name'
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(ssh:*) Bash(tar:*) Bash(docker:*) Bash(curl:*) Bash(git:*)
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: high
   side_effect: production-mutation

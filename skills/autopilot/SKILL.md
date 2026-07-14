@@ -5,7 +5,7 @@ argument-hint: project idea or description (same as /kickstart)
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash Skill
 context: fork
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: high
   side_effect: command-execution

@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+**Модель-нейтральный Codex adapter и жизненный цикл session hygiene/quality
+(повторная оценка практик завершения и очистки: 2,8 → 4,7/5)**:
+
+### Added
+- **Codex host adapter** — `.codex-plugin/plugin.json`, нативная регистрация
+  хуков, `codex-dispatch.py` для нормализации `apply_patch`, host-adapter
+  registry/contract и Codex-specific setup guide. Общие skills, hooks, `.itd/`
+  contracts и `.itd-memory/` state остаются единым методологическим ядром.
+- **Явный session-close contract** — `/session-save --close` запускает
+  `itd_hygiene.py close` и требует одновременно зелёные verification/startup
+  checks, свежий quality ledger, отсутствие debug-маркеров, manifest cleanup и
+  чистый Git. Обычный Stop остаётся мягким сигналом.
+- **Двухрежимная очистка** — безопасная немедленная manifest-cleanup и
+  периодический weekly-runner; операции повторяемы, не удаляют tracked-файлы,
+  отклоняют absolute/escaping paths и не маскируют ошибки.
+- **Quality и ablation ledgers** — `QUALITY.json` ранжирует модули и направляет
+  `/task` к худшему модулю по умолчанию; `HARNESS_ABLATION.json` хранит
+  ежемесячные baseline/disabled эксперименты и решение человека о судьбе
+  компонента. Добавлен воспроизводимый benchmark completion-stop.
+- **Поведенческий proof-suite** — `verify_session_hygiene_quality.py` проверяет
+  fail-closed close, dirty/debug/verification failures, freshness quality,
+  weekly cleanup, monthly ablation и идемпотентность. Отдельный
+  `verify_host_adapters.py` фиксирует parity Claude Code/Codex.
+
+### Changed
+- `/adopt` устанавливает полный набор `.itd`-шаблонов и создаёт консервативные
+  стартовые quality/ablation/session-artifact contracts для обоих host adapters.
+- `/task`, `/session-save` и `/retro` связаны с quality queue, явной границей
+  закрытия, weekly hygiene и monthly ablation; CI запускает новые поведенческие
+  проверки на Linux и Windows.
+- Destructive/external-write skills используют vendor-neutral
+  `metadata.explicit_invocation` и host-native запрет implicit invocation вместо
+  Claude-only frontmatter как источника политики.
+
+### Assessment
+- Чистое состояние как требование завершения: **5,0/5**.
+- Немедленная + периодическая очистка: **4,5/5** — расписание запуска остаётся
+  ответственностью внешнего scheduler/оператора.
+- Активный документ качества: **4,5/5** — freshness и priority автоматизированы,
+  но содержательная оценка модулей намеренно требует evidence человека/агента.
+- Периодическое упрощение harness: **4,5/5** — ablation воспроизводима и
+  журналируется, окончательное удаление компонента остаётся human decision.
+- Идемпотентные операции очистки: **5,0/5**.
+
 ## [1.89.0] - 2026-07-12
 
 **10 параметров наблюдаемости/качества → 5/5 на обеих машинах (цель v1.89.0, GO-001…GO-007; сет-4 старт 4/2/2/3/3/4/1/4/2/3, RE-AUDIT-OBS: PASS)**:

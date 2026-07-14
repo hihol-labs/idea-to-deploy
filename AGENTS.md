@@ -1,12 +1,26 @@
-# AGENTS.md — cross-tool alias
+# Idea to Deploy — agent entry point
 
-Операционный манифест этого репозитория живёт в **[CLAUDE.md](CLAUDE.md)** —
-нативная идиома Claude Code (см. `docs/HARNESS_ENGINEERING_MAP.md` §4.3, T1).
-Этот файл — алиас для инструментов, ожидающих `AGENTS.md` (курс harness
-engineering, другие агентные CLI): читай CLAUDE.md как единственный источник
-правил; машиночитаемый слой контрактов — `.itd/` (когда скаффолжен), долгая
-память — `.itd-memory/` + `~/.claude/projects/<проект>/memory/`.
+This repository is the canonical, model-neutral source of the Idea to Deploy
+engineering harness. Do not treat a vendor-specific configuration file as the
+methodology source of truth.
 
-> v1.84.0 (retro 2026-07-11, T1 из бэклога «Прочее отложенное»). Не дублируй
-> контент сюда — файл намеренно остаётся указателем, чтобы не расходиться с
-> CLAUDE.md.
+When working in this repository:
+
+1. Read the applicable skill in `skills/<name>/SKILL.md` before executing that
+   workflow. Shared rules live in `skills/_shared/`.
+2. Treat `.itd/` contracts and `.itd-memory/` state as authoritative whenever
+   they exist. Preserve WIP=1 and update state from evidence, not narration.
+3. Use the native host adapter only as transport:
+   - Codex: `.codex-plugin/plugin.json`, `hooks/hooks.json`, this `AGENTS.md`.
+   - Claude Code: `.claude-plugin/plugin.json` and the Claude settings produced
+     by `scripts/sync-to-active.sh` or `/adopt`.
+4. Keep shared skills, hooks, contracts, rubrics, and tests vendor-neutral.
+   Host-specific paths, tool names, payload translation, and installation
+   instructions belong in an adapter boundary documented in
+   `docs/HOST_ADAPTER_CONTRACT.md`.
+5. Before claiming completion, run the relevant tests and report the real
+   result. For adapter changes run `python3 tests/verify_host_adapters.py` and
+   `bash tests/run-all.sh --quick` at minimum.
+
+For Codex-specific setup and known transport differences, read
+`docs/CODEX_ADAPTER.md`.

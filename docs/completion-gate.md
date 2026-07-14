@@ -60,6 +60,11 @@ advisory, а не в ложное «all green» (best-effort invariant).
   напоминанием); слои зелёные → пропуск.
 - `completion-stop` (Stop): при грязном по коду дереве и не-зелёном вердикте —
   мягкое напоминание, никогда не блокирует.
+- `/session-save --close`: явная граница завершения сессии. Runner
+  `.itd/itd_hygiene.py close` требует одновременно зелёные verification/startup
+  checks, свежий quality ledger, отсутствие debug-маркеров, manifest-cleanup и
+  чистый `git status`. Это hard exit-код только по явному намерению закрыть
+  сессию; обычный Stop остаётся soft.
 - **Осознанный обход**: `COMPLETION_BYPASS: <причина>` (или `SKILL_BYPASS:`) в
   поле description Bash-вызова коммита. Полное отключение: `ITD_COMPLETION_GATE=0`
   (гейт), `ITD_COMPLETION_STOP=0` (Stop), `ITD_COMPLETION_SIGNALS=0` (сбор).

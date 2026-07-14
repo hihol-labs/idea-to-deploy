@@ -92,6 +92,9 @@ jobs:
       - name: Run init-hardening contracts gate (v1.67.0, init-audit P1-P5)
         run: python3 tests/verify_init_contracts.py
 
+      - name: Run session hygiene, quality ledger, and ablation behavioural proof
+        run: python3 tests/verify_session_hygiene_quality.py
+
       - name: Run cost-tracker ledger isolation + context sensor gate (v1.71.0, retro 2026-07-09)
         run: python3 tests/verify_cost_tracker.py
 

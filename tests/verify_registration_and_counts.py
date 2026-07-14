@@ -44,8 +44,12 @@ def read(rel):
 
 
 # --- actual counts on disk -------------------------------------------------
+# Underscore-prefixed directories are internal libraries. `_shared/SKILL.md`
+# exists so Codex plugin ingestion can validate every directory, but it is not
+# a user-facing workflow and must not inflate published skill counts.
 skills = [d for d in os.listdir(os.path.join(ROOT, "skills"))
-          if os.path.isfile(os.path.join(ROOT, "skills", d, "SKILL.md"))]
+          if not d.startswith("_")
+          and os.path.isfile(os.path.join(ROOT, "skills", d, "SKILL.md"))]
 agents = [f for f in os.listdir(os.path.join(ROOT, "agents")) if f.endswith(".md")]
 hook_files = [f for f in os.listdir(os.path.join(ROOT, "hooks")) if f.endswith(".sh")]
 N_SKILLS, N_AGENTS, N_HOOKS = len(skills), len(agents), len(hook_files)

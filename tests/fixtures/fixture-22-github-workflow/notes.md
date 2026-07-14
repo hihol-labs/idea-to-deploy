@@ -11,7 +11,7 @@ no-hidden-failing-CI rule, the read-git-status-first rule, and the
 `pending` — **deferred**, same bucket as `fixture-15-advisor` (external GitHub
 access + stdout). For now: manual checklist below. The stub satisfies
 `check-skill-completeness.sh`. Note: `/github-workflow` sets
-`disable-model-invocation: true` — it is invoked explicitly, so it is exempt from
+`metadata.explicit_invocation: true` — it is invoked explicitly, so it is exempt from
 the M-C11 trigger-drift check but still ships trigger phrases + a hook reminder
 (same pattern as `/deploy`, `/migrate-prod`).
 

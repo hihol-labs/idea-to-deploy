@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy Database Migration"
+  short_description: "Explicit database migration with backup and rollback."
+policy:
+  allow_implicit_invocation: false

@@ -4,7 +4,7 @@ description: 'Safely apply a database migration — backup, apply, verify, rollb
 argument-hint: migration file path, "next", or SQL statement
 license: MIT
 allowed-tools: Read Glob Grep Bash(psql:*) Bash(sqlite3:*) Bash(mysql:*) Bash(pg_dump:*) Bash(docker:*)
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: high
   side_effect: command-execution

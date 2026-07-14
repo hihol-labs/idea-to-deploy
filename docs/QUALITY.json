@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-07-14",
+  "maxAgeDays": 30,
+  "gradeScale": {
+    "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
+    "B": "green with contained Important debt",
+    "C": "partial verification or material maintainability/test debt",
+    "D": "failing/unstable with cross-module risk",
+    "F": "unverified or unsafe to change"
+  },
+  "modules": [
+    {
+      "id": "routing-and-skill-selection",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-14",
+      "evidence": [
+        "tests/verify_routing.py",
+        "tests/verify_triggers.py"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "completion-and-verification",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-14",
+      "evidence": [
+        "docs/completion-gate.md",
+        "tests/verify_completion_gate.py"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "state-and-continuity",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-14",
+      "evidence": [
+        "tests/verify_state_hardening.py",
+        "skills/session-save/SKILL.md"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "host-adapters",
+      "grade": "B",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-14",
+      "evidence": [
+        "docs/HOST_ADAPTER_CONTRACT.md",
+        "tests/verify_host_adapters.py"
+      ],
+      "priorities": [
+        "Keep adapter parity verified while Codex support settles."
+      ]
+    },
+    {
+      "id": "session-hygiene-and-quality-lifecycle",
+      "grade": "B",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-14",
+      "evidence": [
+        "docs/templates/itd/SESSION_EXIT_CONTRACT.json",
+        "tests/verify_session_hygiene_quality.py"
+      ],
+      "priorities": [
+        "Collect one month of weekly/monthly cycle evidence before promoting to A."
+      ]
+    }
+  ]
+}

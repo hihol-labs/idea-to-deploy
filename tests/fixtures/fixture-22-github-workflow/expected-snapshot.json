@@ -18,7 +18,7 @@
     "must_contain": [
       "/github-workflow",
       ".itd-integrations/github.json",
-      "disable-model-invocation: true",
+      "explicit_invocation: true",
       "git status",
       ".rubric-status",
       "BACKLOG.md",

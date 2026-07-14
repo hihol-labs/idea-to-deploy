@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy Production Deploy"
+  short_description: "Explicit production deployment with confirmation gates."
+policy:
+  allow_implicit_invocation: false

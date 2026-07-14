@@ -4,7 +4,7 @@ description: 'Synchronize idea-to-deploy state with external planning and docume
 argument-hint: target tool, project path, roadmap, plan, backlog, or status sync
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: medium
   side_effect: external-write
@@ -36,7 +36,8 @@ export-only payload.
 внешним инструментом планирования/документации. Подробный чеклист — в
 `references/tool-sync-checklist.md`.
 
-> **Explicit-invocation** (`disable-model-invocation: true`). Вызывается явно
+> **Explicit-invocation** (`metadata.explicit_invocation: true`; Codex policy
+> `allow_implicit_invocation: false`). Вызывается явно
 > через `/tool-sync`. Несёт `external-write` — изменения live-систем выполняются
 > **только по явной просьбе** пользователя; иначе export-only.
 

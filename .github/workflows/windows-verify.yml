@@ -62,6 +62,8 @@ jobs:
         run: python tests/verify_snapshot.py --all
       - name: Registration & count drift-guards
         run: python tests/verify_registration_and_counts.py
+      - name: Session hygiene, quality ledger, and ablation behavioural proof
+        run: python tests/verify_session_hygiene_quality.py
       - name: Skill contract profiles
         run: python scripts/verify_skill_profiles.py
       - name: Routing-accuracy benchmark + exclusivity eval (v1.57.0, D2)
