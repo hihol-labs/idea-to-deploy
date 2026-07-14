@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (практическая переоценка: 2,8 → 4,8/5; после scheduler/scorecard — 4,9/5)**:
 
 ### Added
+- **Opt-in bounded autonomy for `/goal`** — an approved `runPolicy` can seal the
+  verification oracle, cap attempts/wall-clock/host-observed token budgets,
+  require an explicit approach and independent-review evidence, and persist an
+  append-only attempt ledger with typed stop reasons. Resume after exhaustion
+  requires a human reason and a strict increase of exactly the exhausted limit;
+  host-native continuation remains transport and cannot bypass `/task`, `/test`,
+  `/review`, deployment, or external-write gates.
 - **Реальный внешний scheduler** — read-only GitHub Actions cron запускает
   weekly cleanup + objective quality scoring каждый понедельник и monthly
   reversible ablation первого числа месяца; evidence сохраняется Actions

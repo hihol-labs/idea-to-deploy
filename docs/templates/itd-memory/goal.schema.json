@@ -18,6 +18,19 @@
   ],
   "goalStatuses": ["active", "done", "abandoned"],
   "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
+  "runPolicyModes": ["bounded_autonomous"],
+  "runPolicyRequiredFields": [
+    "mode",
+    "maxAttemptsPerUnit",
+    "maxWallClockSecondsPerUnit",
+    "maxTokensPerSession",
+    "freezeVerification",
+    "requireApproach",
+    "requireIndependentReview"
+  ],
+  "attemptKinds": ["verification", "recheck"],
+  "attemptOutcomes": ["verified", "failed", "regressed"],
+  "stopReasons": ["", "verified", "blocked", "budget_exhausted"],
   "goalTemplate": {
     "version": 1,
     "goal": "",
@@ -37,5 +50,23 @@
         "blockedReason": ""
       }
     ]
+  },
+  "boundedRunPolicyTemplate": {
+    "mode": "bounded_autonomous",
+    "maxAttemptsPerUnit": 3,
+    "maxWallClockSecondsPerUnit": 14400,
+    "maxTokensPerSession": 100000,
+    "freezeVerification": true,
+    "requireApproach": true,
+    "requireIndependentReview": true
+  },
+  "boundedUnitRuntimeTemplate": {
+    "attempts": [],
+    "runState": {
+      "approvedAt": "",
+      "startedAt": "",
+      "verificationFingerprint": "",
+      "stopReason": ""
+    }
   }
 }

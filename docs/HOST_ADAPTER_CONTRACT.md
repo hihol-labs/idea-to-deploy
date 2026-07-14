@@ -29,6 +29,31 @@ represent a capability, the adapter must declare the degradation and provide a
 fallback based on shared contracts or structured output. Silent false parity is
 not allowed.
 
+## Native continuation for bounded goals
+
+The shared contract for autonomous delivery is the optional
+`GOAL.json.runPolicy` plus the oracle seal, attempt ledger and typed stop written
+by `skills/goal/scripts/itd_goal_verify.py`. A host-native goal or automation may
+transport continuation, but it must not become the source of truth.
+
+On each continuation the adapter must:
+
+1. read the existing ledger; never recreate or re-decompose it;
+2. resume only `currentUnitId`, otherwise the first pending unit (WIP=1);
+3. preserve the approved attempt, wall-clock and token ceilings;
+4. supply the attempt approach and any required fresh-checker evidence to the
+   harness verifier;
+5. stop on verifier exit `3`, `blocked`, `budget_exhausted`, or human input;
+6. leave push, merge, deploy and other irreversible/external writes behind the
+   ordinary human gate.
+
+Token use is observed by the host/cost-tracker transport. When its ceiling is
+reached, the adapter records it through `--budget-exhausted --budget-kind
+tokens`; it does not merely end a transcript and lose the stop reason. Manual
+`/goal` resume is the mandatory fallback when the native continuation surface is
+absent. Background periodic automations remain read-only reporters; this
+continuation path is only for a user-approved, sealed bounded goal.
+
 ## Parity rule
 
 A change to shared methodology behavior is complete only when:

@@ -15,7 +15,11 @@
       "pluginRootEnvironment": "CLAUDE_PLUGIN_ROOT",
       "fileMutationTools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
       "shellTools": ["Bash", "PowerShell"],
-      "subagentTransport": ["Task", "Agent"]
+      "subagentTransport": ["Task", "Agent"],
+      "goalContinuation": {
+        "preferred": "host-native goal or automation",
+        "fallback": "manual /goal resume from .itd-memory/GOAL.json"
+      }
     },
     "codex": {
       "guidanceFile": "AGENTS.md",
@@ -25,6 +29,10 @@
       "fileMutationTools": ["apply_patch"],
       "shellTools": ["Bash"],
       "subagentTransport": ["SubagentStart", "SubagentStop"],
+      "goalContinuation": {
+        "preferred": "host-native goal or automation",
+        "fallback": "manual /goal resume from .itd-memory/GOAL.json"
+      },
       "normalizer": "hooks/codex-dispatch.py"
     }
   },
@@ -42,7 +50,8 @@
       "installation and trust UX",
       "tool-name and file-mutation payload normalization",
       "named subagent spawning transport",
-      "optional host memory mirrors"
+      "optional host memory mirrors",
+      "native goal/automation continuation transport"
     ]
   }
 }

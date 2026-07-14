@@ -24,6 +24,7 @@ Exit codes: 0 report printed, 2 ledger missing/invalid.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -32,6 +33,11 @@ GOAL_DEFAULT = Path(".itd-memory") / "GOAL.json"
 OPEN_STATUSES = ("pending", "in_progress", "blocked")
 CRIT_MAX = 70
 EVID_MAX = 60
+POLICY_KEYS = (
+    "mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+    "maxTokensPerSession", "freezeVerification", "requireApproach",
+    "requireIndependentReview",
+)
 
 
 def die(msg: str) -> None:
@@ -66,8 +72,45 @@ def load_events(path: Path, max_events: int) -> list[dict]:
     return events[-max_events:]
 
 
+def fingerprint(payload: dict, *, ensure_ascii: bool = True) -> str:
+    raw = json.dumps(payload, ensure_ascii=ensure_ascii, sort_keys=True,
+                     separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+def policy_snapshot(policy: dict) -> dict:
+    return {key: policy.get(key) for key in POLICY_KEYS}
+
+
+def unit_fingerprint(unit: dict) -> str:
+    return fingerprint({
+        "criterion": str(unit.get("criterion") or ""),
+        "verificationCommand": str(unit.get("verificationCommand") or ""),
+    }, ensure_ascii=False)
+
+
+def oracle_is_sealed(policy: dict | None, units: list[dict]) -> bool:
+    """Report sealed only when the same integrity checks as the writer pass."""
+    if policy is None:
+        return False
+    approved = policy.get("sealedPolicy")
+    sealed = str(policy.get("sealedFingerprint") or "")
+    if (not isinstance(approved, dict)
+            or fingerprint(approved) != sealed
+            or approved != policy_snapshot(policy)):
+        return False
+    for unit in units:
+        state = unit.get("runState")
+        if (not isinstance(state, dict)
+                or str(state.get("verificationFingerprint") or "")
+                != unit_fingerprint(unit)):
+            return False
+    return True
+
+
 def build(goal: dict, events: list[dict]) -> dict:
     units = [u for u in (goal.get("units") or []) if isinstance(u, dict)]
+    policy = goal.get("runPolicy") if isinstance(goal.get("runPolicy"), dict) else None
     dist: dict[str, int] = {}
     for u in units:
         dist[u.get("status") or "?"] = dist.get(u.get("status") or "?", 0) + 1
@@ -90,6 +133,10 @@ def build(goal: dict, events: list[dict]) -> dict:
         "nextPending": next_pending,
         "events": events,
         "updatedAt": goal.get("updatedAt") or "",
+        "runPolicy": policy,
+        "oracleSealed": oracle_is_sealed(policy, units),
+        "attemptsUsed": sum(len(u.get("attempts") or []) for u in units
+                            if isinstance(u.get("attempts") or [], list)),
     }
 
 
@@ -103,6 +150,14 @@ def render_markdown(r: dict) -> str:
                f" (0 = цель завершена){'' if r['backpressure'] else ' ✅'}")
     dist = ", ".join(f"{k}: {v}" for k, v in sorted(r["distribution"].items()))
     out.append(f"**Состояния:** {dist}  (updatedAt: {r['updatedAt']})")
+    policy = r.get("runPolicy")
+    if policy:
+        out.append(
+            "**Bounded autonomy:** "
+            f"attempts={r['attemptsUsed']} (max {policy.get('maxAttemptsPerUnit')}/unit), "
+            f"wall={policy.get('maxWallClockSecondsPerUnit')}s/unit, "
+            f"tokens={policy.get('maxTokensPerSession')}/host-session; "
+            f"oracle={'sealed' if r['oracleSealed'] else 'UNSEALED'}")
     out.append("")
     out.append("| Юнит | Статус | Критерий | Evidence |")
     out.append("|---|---|---|---|")
@@ -117,6 +172,9 @@ def render_markdown(r: dict) -> str:
         out.append(f"**Текущий юнит:** `{cur.get('id')}` — {clip(cur.get('criterion'), CRIT_MAX)}")
         out.append(f"**Первое действие принимающей сессии:** прогнать "
                    f"`{cur.get('verificationCommand')}` (должен быть red), затем чинить до green.")
+        if policy:
+            out.append(f"**Попытки текущего юнита:** {len(cur.get('attempts') or [])}; "
+                       f"stopReason: `{(cur.get('runState') or {}).get('stopReason') or '—'}`")
     elif r["nextPending"] is not None:
         np = r["nextPending"]
         out.append(f"**Следующий юнит:** `{np.get('id')}` — {clip(np.get('criterion'), CRIT_MAX)}"
@@ -171,7 +229,9 @@ def main() -> int:
 
     if args.json:
         slim = {k: v for k, v in report.items() if k != "units"}
-        slim["units"] = [{"id": u.get("id"), "status": u.get("status")}
+        slim["units"] = [{"id": u.get("id"), "status": u.get("status"),
+                          "attempts": len(u.get("attempts") or []),
+                          "stopReason": (u.get("runState") or {}).get("stopReason") or ""}
                          for u in report["units"]]
         print(json.dumps(slim, ensure_ascii=False, indent=2))
     else:

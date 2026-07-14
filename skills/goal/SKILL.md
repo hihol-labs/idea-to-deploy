@@ -55,6 +55,10 @@ metadata:
   `in_progress`), `--recheck` (регрессия демотирует verified → in_progress),
   `--block --reason "…"` (fail-closed). Каждый переход — unit-событие в
   `events.jsonl` с `actor: "harness"`.
+  Для opt-in автономного прогона он дополнительно делает `--seal` утверждённого
+  oracle, ведёт `attempts[]`, ограничивает attempts/wall-clock, принимает
+  host-сигнал `--budget-exhausted --budget-kind tokens` и завершает typed stop
+  с exit `3` вместо бесконечного retry.
 - **`itd_goal_report.py`** — репортёр handoff: детерминированное саммари ИЗ
   леджера (прогресс, обратное давление, таблица юнитов, первое действие
   принимающей сессии, хвост событий). `/handoff` и `/session-save` вставляют
@@ -114,6 +118,45 @@ sh "$SHD/itd_py.sh" scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.js
 (вне репо методологии валидатор недоступен — тогда хотя бы JSON-parse; схему
 держи в голове по образцу `GOAL.example.json`).
 
+#### Opt-in: bounded autonomous run envelope
+
+Добавляй `runPolicy` **только** когда пользователь явно просит AFK/headless /
+нативное автопродолжение. Обычный `/goal` остаётся без envelope и работает как
+раньше:
+
+```json
+{
+  "runPolicy": {
+    "mode": "bounded_autonomous",
+    "maxAttemptsPerUnit": 3,
+    "maxWallClockSecondsPerUnit": 14400,
+    "maxTokensPerSession": 100000,
+    "freezeVerification": true,
+    "requireApproach": true,
+    "requireIndependentReview": true
+  }
+}
+```
+
+До первой активации, **после пользовательского approve и записи ledger**, ОТК
+замораживает policy + `criterion` + `verificationCommand` для всех юнитов:
+
+```bash
+sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" --seal
+```
+
+`--activate` откажет без seal. После seal изменение oracle/policy блокирует
+прогон; не «пересиливай» fingerprint. Создай новый утверждённый юнит. Исключение
+только для реально исчерпанного бюджета: человек повышает **именно тот** лимит,
+который исчерпан, после чего `--activate --reason "human approved …"` фиксирует
+reapproval. `maxTokensPerSession` исполняется host/cost-tracker'ом; при его
+срабатывании транспорт обязан материализовать stop:
+
+```bash
+sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" --budget-exhausted G-00X \
+  --budget-kind tokens --reason "host token ceiling reached"
+```
+
 ### Step 2: Ведение — один юнит за раз (WIP=1)
 
 Цикл, пока есть `pending`-юниты и пользователь не остановил:
@@ -134,6 +177,19 @@ sh "$SHD/itd_py.sh" scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.js
    считаться по цели автоматически). Агент `verified` руками НЕ ставит.
    Провал → юнит остаётся `in_progress`, чини в рамках конвейера; **не
    открывай следующий** (и ОТК не даст — WIP=1).
+   Для bounded-run каждая попытка обязана назвать новый подход и, если policy
+   требует, приложить verdict свежего checker'а:
+
+   ```bash
+   sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" G-00X \
+     --approach "заменил polling на event wait" \
+     --review-evidence "fresh code-reviewer: PASSED"
+   ```
+
+   ОТК пишет `{approach, verificationCommand, outcome, evidence,
+   reviewEvidence}` в `attempts[]`. Exit `3` / `stopReason:
+   budget_exhausted` — жёсткий конец текущего autonomous run: не повторяй
+   автоматически и не активируй следующий юнит.
 4. **Blocked — внешний блокер**: `--block G-00X --reason "ждём ключ от
    заказчика"` (fail-closed: без причины откажет); разблокировка —
    `--activate G-00X`. **Skip — только по явному решению пользователя**:
@@ -161,6 +217,19 @@ sh "$SHD/itd_py.sh" scripts/validate_state.py "$PROJECT_ROOT/.itd-memory/GOAL.js
 ловит постфактум (нарратив-финал). Границы не отменяются: необратимые /
 data-sensitive действия по-прежнему требуют человека — автономность
 распространяется только на обратимые шаги внутри скоупа юнита.
+
+**Host-native continuation, не новый runtime.** После approve + `--seal` адаптер
+может привязать текущую цель к нативному goal/automation механизму хоста. Каждый
+re-entry выполняет ровно один WIP-юнит: прочитать `GOAL.json` → продолжить
+`currentUnitId`/первый pending → `/task` → свежий checker → ОТК. Продолжать
+можно только при `in_progress|pending`; `verified`, `blocked` и
+`budget_exhausted` уходят в human triage. Manual fallback — обычное «продолжай
+цель», поэтому исчезновение host-фичи теряет автопробуждение, но не state.
+
+Это разрешение относится к **явно запущенной пользователем bounded goal** и
+только к обратимым изменениям в её scope. Периодические фоновые scheduler'ы
+по-прежнему read-only; push/merge/deploy/денежные и иные необратимые действия
+остаются на human gate.
 
 ### Step 3: Закрытие цели
 
@@ -210,6 +279,8 @@ Actions:
 - [ ] Unit-события (`activated`/`verified`) записаны в `events.jsonl`.
 - [ ] Открыт максимум один юнит (WIP=1); гейты конвейера не обойдены.
 - [ ] Для handoff/session-save использован вывод `itd_goal_report.py`, не пересказ.
+- [ ] Bounded-run: policy + oracle запечатаны `--seal` после approve; каждая
+      попытка имеет approach, checker evidence (если required) и typed stop.
 
 ## Troubleshooting
 
@@ -246,3 +317,7 @@ kickstart → review → test). `/goal` — для brownfield-целей над 
 - **Тонкий слой** — конвейер юнита = штатный `/task`-маршрут, не собственный.
 - **Fail-closed skip** — `skipped` требует `skippedReason`.
 - **Match the user's language** для всего вывода.
+- **Bounded means bounded** — exit 3 / `budget_exhausted` останавливает host
+  continuation; возобновление только после явного повышения исчерпанного лимита.
+- **Oracle immutable** — bounded criterion/verificationCommand фиксируются
+  `--seal`; реализация не меняет собственный экзамен.

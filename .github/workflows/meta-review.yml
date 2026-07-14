@@ -134,6 +134,9 @@ jobs:
       - name: Run goal-verify POSIX shell contract (no cmd.exe false-pass) (v1.87.0)
         run: python3 tests/verify_goal_verify_shell.py
 
+      - name: Run bounded goal autonomy contract (sealed oracle, budgets, attempts)
+        run: python3 tests/verify_goal_bounded_autonomy.py
+
       - name: Run project-checks slot contract (.itd/checks runner + DoD wiring) (v1.87.0)
         run: python3 tests/verify_project_checks.py
 

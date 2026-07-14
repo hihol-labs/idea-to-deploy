@@ -43,5 +43,23 @@ checkout path, then review it with `/hooks`.
   tool paths that do not emit every hook event; `.itd` verification contracts
   and final evidence remain mandatory.
 
+## Bounded goal continuation
+
+For an explicitly approved `/goal` with `runPolicy.mode:
+bounded_autonomous`, Codex's native goal/automation surface may re-enter the
+task. The durable controller is still `.itd-memory/GOAL.json`: seal it first,
+resume one WIP unit, run the ordinary `/task` pipeline, and finish through
+`itd_goal_verify.py` with an approach and fresh-checker evidence when required.
+
+Map the host/session token ceiling to `runPolicy.maxTokensPerSession`. When the
+host reports exhaustion, persist it with `--budget-exhausted --budget-kind
+tokens`; exit `3`, `blocked`, and `budget_exhausted` stop continuation and go to
+human triage. Do not turn a recurring background automation into a code writer:
+only the already user-approved bounded goal may make reversible scoped edits;
+push, merge, deploy and other external writes remain manual.
+
+If native continuation is unavailable, reopening the task and invoking
+`/goal` resumes the same ledger. No Codex-specific state is required.
+
 Run `python3 tests/verify_host_adapters.py` to validate packaging, registration,
 normalization, and declared parity.
