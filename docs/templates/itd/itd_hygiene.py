@@ -30,6 +30,11 @@ QUALITY_FIELDS = (
     "architectureBoundaries", "codeConventions", "reviewedAt", "evidence",
     "priorities",
 )
+QUALITY_DIMENSIONS = (
+    "verification", "agentUnderstandable", "testStability",
+    "architectureBoundaries", "codeConventions",
+)
+GRADE_POINTS = {"F": 0, "D": 1, "C": 2, "B": 3, "A": 4}
 
 
 def load_json(path: Path) -> dict:
@@ -273,6 +278,231 @@ def quality_report(root: Path, ledger_rel: str, max_age_override: int | None = N
     return errors, valid
 
 
+def objective_quality_report(root: Path, scorecard_rel: str,
+                             today: dt.date | None = None) -> tuple[list[str], dict]:
+    errors: list[str] = []
+    scorecard_path = resolve_repo_path(root, scorecard_rel, "scorecard", errors)
+    if errors or scorecard_path is None:
+        return errors, {}
+    try:
+        config = load_json(scorecard_path)
+    except ValueError as exc:
+        return [problem(scorecard_rel, str(exc), "repair the objective scorecard")], {}
+
+    now = today or dt.date.today()
+    ledger_rel = str(config.get("qualityLedger") or "")
+    ledger_errors, ledger_modules = quality_report(root, ledger_rel, today=now)
+    errors.extend(ledger_errors)
+    declared = {str(row.get("id")): str(row.get("grade") or "").upper()
+                for row in ledger_modules}
+
+    thresholds = config.get("gradeThresholds")
+    parsed_thresholds: dict[str, float] = {}
+    if not isinstance(thresholds, dict) or set(thresholds) != GRADES:
+        errors.append(problem("gradeThresholds", "must define exactly A, B, C, D, F",
+                              "configure numeric thresholds for every grade"))
+    else:
+        try:
+            parsed_thresholds = {grade: float(thresholds[grade]) for grade in GRADES}
+        except Exception:
+            errors.append(problem("gradeThresholds", "thresholds must be numeric",
+                                  "use values from 0 to 100"))
+        if parsed_thresholds and not (
+                100 >= parsed_thresholds["A"] > parsed_thresholds["B"]
+                > parsed_thresholds["C"] > parsed_thresholds["D"]
+                > parsed_thresholds["F"] >= 0):
+            errors.append(problem("gradeThresholds", "thresholds are not strictly descending",
+                                  "configure A > B > C > D > F within 0..100"))
+
+    raw_probes = config.get("probes")
+    probe_specs: dict[str, dict] = {}
+    if not isinstance(raw_probes, list) or not raw_probes:
+        errors.append(problem("probes", "no objective probes configured",
+                              "add executable evidence probes"))
+    else:
+        for index, spec in enumerate(raw_probes):
+            label = f"probes[{index}]"
+            if not isinstance(spec, dict):
+                errors.append(problem(label, "probe is not an object", "replace the probe"))
+                continue
+            pid = str(spec.get("id") or "")
+            if not pid or pid in probe_specs:
+                errors.append(problem(label, "probe id is empty or duplicated",
+                                      "use a unique stable id"))
+                continue
+            if not str(spec.get("command") or "").strip():
+                errors.append(problem(pid, "probe command is empty", "configure a command"))
+                continue
+            try:
+                attempts = int(spec.get("attempts") or 1)
+            except Exception:
+                attempts = 0
+            if not 1 <= attempts <= 5:
+                errors.append(problem(pid, "attempts must be within 1..5",
+                                      "use repeated probes only for stability evidence"))
+                continue
+            probe_specs[pid] = spec
+
+    probe_results: dict[str, dict] = {}
+
+    def measure_probe(pid: str) -> dict | None:
+        if pid in probe_results:
+            return probe_results[pid]
+        spec = probe_specs.get(pid)
+        if spec is None:
+            errors.append(problem(pid, "referenced probe does not exist",
+                                  "add it to scorecard.probes"))
+            return None
+        attempts = int(spec.get("attempts") or 1)
+        try:
+            scale = float(spec.get("metricScale") or 1.0)
+        except Exception:
+            scale = 0.0
+        if scale <= 0:
+            errors.append(problem(pid, "metricScale must be positive", "use a value > 0"))
+            return None
+        rows = []
+        scores = []
+        for attempt in range(1, attempts + 1):
+            result = run_command(root, spec)
+            metric = result.get("metric")
+            try:
+                normalized = max(0.0, min(1.0, float(metric) / scale))
+            except Exception:
+                normalized = 0.0
+            if not result.get("ok"):
+                normalized = 0.0
+            scores.append(normalized)
+            rows.append({
+                "attempt": attempt,
+                "ok": bool(result.get("ok")),
+                "returncode": result.get("returncode"),
+                "metric": metric,
+                "score": round(normalized * 100, 2),
+                "error": result.get("error"),
+            })
+        measured = {
+            "id": pid,
+            "score": round((sum(scores) / len(scores)) * 100, 2),
+            "attempts": rows,
+        }
+        probe_results[pid] = measured
+        return measured
+
+    raw_modules = config.get("modules")
+    scored_modules = []
+    if not isinstance(raw_modules, list) or not raw_modules:
+        errors.append(problem("modules", "no scorecard modules configured",
+                              "map quality modules to the five dimensions"))
+    else:
+        seen: set[str] = set()
+        for index, module in enumerate(raw_modules):
+            label = f"modules[{index}]"
+            if not isinstance(module, dict):
+                errors.append(problem(label, "module is not an object", "replace the row"))
+                continue
+            mid = str(module.get("id") or "")
+            if not mid or mid in seen:
+                errors.append(problem(label, "module id is empty or duplicated",
+                                      "use a unique id matching QUALITY.json"))
+                continue
+            seen.add(mid)
+            dimensions = module.get("dimensions")
+            if not isinstance(dimensions, dict) or set(dimensions) != set(QUALITY_DIMENSIONS):
+                errors.append(problem(mid, "scorecard must define exactly five quality dimensions",
+                                      "configure " + ", ".join(QUALITY_DIMENSIONS)))
+                continue
+            dimension_rows = {}
+            total_weight = 0.0
+            weighted_score = 0.0
+            valid_module = True
+            for dimension in QUALITY_DIMENSIONS:
+                rule = dimensions.get(dimension)
+                if not isinstance(rule, dict):
+                    errors.append(problem(f"{mid}.{dimension}", "dimension is not an object",
+                                          "configure weight and probes"))
+                    valid_module = False
+                    continue
+                try:
+                    weight = float(rule.get("weight"))
+                except Exception:
+                    weight = -1.0
+                refs = rule.get("probes")
+                if weight < 0 or not isinstance(refs, list) or not refs:
+                    errors.append(problem(f"{mid}.{dimension}", "invalid weight or empty probes",
+                                          "use a non-negative weight and at least one probe"))
+                    valid_module = False
+                    continue
+                measurements = [measure_probe(str(pid)) for pid in refs]
+                if any(item is None for item in measurements):
+                    valid_module = False
+                    continue
+                score = sum(item["score"] for item in measurements if item) / len(measurements)
+                total_weight += weight
+                weighted_score += score * weight / 100.0
+                dimension_rows[dimension] = {
+                    "weight": weight,
+                    "score": round(score, 2),
+                    "probes": [str(pid) for pid in refs],
+                }
+            if not valid_module:
+                continue
+            if abs(total_weight - 100.0) > 0.001:
+                errors.append(problem(mid, f"dimension weights total {total_weight:g}, not 100",
+                                      "make the five weights sum to 100"))
+                continue
+            score = round(weighted_score, 2)
+            computed = "F"
+            for grade in ("A", "B", "C", "D", "F"):
+                if parsed_thresholds and score >= parsed_thresholds[grade]:
+                    computed = grade
+                    break
+            declared_grade = declared.get(mid)
+            if declared_grade is None:
+                errors.append(problem(mid, "module is absent from the quality ledger",
+                                      "add the same id to QUALITY.json"))
+            overstated = bool(declared_grade in GRADE_POINTS
+                              and GRADE_POINTS[declared_grade] > GRADE_POINTS[computed])
+            try:
+                minimum = float(module.get("minimumScore") or 0.0)
+            except Exception:
+                errors.append(problem(mid, "minimumScore must be numeric",
+                                      "use a value from 0 to 100"))
+                minimum = 0.0
+            below_minimum = score < minimum
+            if below_minimum:
+                errors.append(problem(mid, f"computed score {score:g} is below minimum {minimum:g}",
+                                      "repair failing probes before promotion"))
+            if overstated and config.get("failOnOverstatedGrade") is True:
+                errors.append(problem(mid,
+                                      f"declared grade {declared_grade} exceeds computed {computed}",
+                                      "lower the declared grade or repair the objective evidence"))
+            scored_modules.append({
+                "id": mid,
+                "score": score,
+                "computedGrade": computed,
+                "declaredGrade": declared_grade,
+                "minimumScore": minimum,
+                "belowMinimum": below_minimum,
+                "overstatedGrade": overstated,
+                "dimensions": dimension_rows,
+            })
+
+    scored_modules.sort(key=lambda row: (row.get("score", -1), row.get("id", "")))
+    report = {
+        "version": 1,
+        "kind": "objective-quality-score",
+        "date": now.isoformat(),
+        "scorecard": scorecard_rel,
+        "qualityLedger": ledger_rel,
+        "status": "failed" if errors else "passed",
+        "modules": scored_modules,
+        "probes": probe_results,
+        "errors": list(dict.fromkeys(errors)),
+    }
+    return report["errors"], report
+
+
 def debug_scan(root: Path, config: dict) -> list[str]:
     if config.get("enabled") is False:
         reason = str(config.get("disabledReason") or "").strip()
@@ -406,7 +636,33 @@ def close_session(args: argparse.Namespace) -> int:
 
 def show_quality(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve()
-    errors, modules = quality_report(root, args.quality_path, args.max_age_days)
+    today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
+    if args.scorecard:
+        errors, report = objective_quality_report(root, args.scorecard, today)
+        if not report:
+            report = {
+                "version": 1,
+                "kind": "objective-quality-score",
+                "date": today.isoformat(),
+                "scorecard": args.scorecard,
+                "status": "failed",
+                "modules": [],
+                "probes": {},
+                "errors": errors,
+            }
+        if args.record:
+            atomic_json(record_path(root, "quality-score", today), report)
+        if args.json:
+            print(json.dumps(report or {"status": "failed", "errors": errors},
+                             ensure_ascii=False, indent=2))
+        else:
+            for module in report.get("modules", []):
+                print(f"{module['computedGrade']}  {module['id']}  {module['score']:g}")
+            if errors:
+                print("\n".join(errors), file=sys.stderr)
+        return 1 if errors else 0
+
+    errors, modules = quality_report(root, args.quality_path, args.max_age_days, today)
     if args.json:
         print(json.dumps({"ok": not errors, "modulesWorstFirst": modules,
                           "errors": errors}, ensure_ascii=False, indent=2))
@@ -548,6 +804,9 @@ def build_parser() -> argparse.ArgumentParser:
     quality.add_argument("--root", default=".")
     quality.add_argument("--quality-path", default=".itd/QUALITY.json")
     quality.add_argument("--max-age-days", type=int, default=None)
+    quality.add_argument("--scorecard", default="")
+    quality.add_argument("--today", default="")
+    quality.add_argument("--record", action="store_true")
     quality.add_argument("--json", action="store_true")
     quality.set_defaults(func=show_quality)
 

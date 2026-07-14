@@ -10,9 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 **Модель-нейтральный Codex adapter и жизненный цикл session hygiene/quality
-(повторная оценка практик завершения и очистки: 2,8 → 4,7/5)**:
+(практическая переоценка: 2,8 → 4,8/5; после scheduler/scorecard — 4,9/5)**:
 
 ### Added
+- **Реальный внешний scheduler** — read-only GitHub Actions cron запускает
+  weekly cleanup + objective quality scoring каждый понедельник и monthly
+  reversible ablation первого числа месяца; evidence сохраняется Actions
+  artifact даже при красном результате. Для принятых проектов добавлен
+  opt-in workflow template, который `/adopt` не включает без согласия.
+- **Objective quality scorecard** — пять содержательных измерений получают
+  weighted score из исполняемых probes; stability может требовать повторных
+  попыток, minimum score и завышенная declared grade дают fail-closed, а полный
+  per-attempt evidence пишется в `.itd-memory/hygiene/quality-score-*.json`.
+- **Практический retro-proof** — `RETRO-2026-07-14.md`: пять последовательных
+  session-close прогонов поймали 5/5 классов нарушений; на 10 фиксированных
+  задачах strict harness сохранил final completion 100%, но снизил leaked-task
+  rate с 70% до 0%; ablation `completion-stop` дала 6/6 → 3/6 и решение KEEP.
 - **Codex host adapter** — `.codex-plugin/plugin.json`, нативная регистрация
   хуков, `codex-dispatch.py` для нормализации `apply_patch`, host-adapter
   registry/contract и Codex-specific setup guide. Общие skills, hooks, `.itd/`
@@ -45,13 +58,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Assessment
 - Чистое состояние как требование завершения: **5,0/5**.
-- Немедленная + периодическая очистка: **4,5/5** — расписание запуска остаётся
-  ответственностью внешнего scheduler/оператора.
-- Активный документ качества: **4,5/5** — freshness и priority автоматизированы,
-  но содержательная оценка модулей намеренно требует evidence человека/агента.
-- Периодическое упрощение harness: **4,5/5** — ablation воспроизводима и
-  журналируется, окончательное удаление компонента остаётся human decision.
+- Немедленная + периодическая очистка: **4,9/5** — weekly cron материализован;
+  первый scheduled evidence появится после merge workflow в default branch.
+- Активный документ качества: **4,8/5** — weighted executable probes, stability
+  repeats, minimum score и overstatement gate автоматизированы; выбор смысловых
+  probes и повышение tracked grade намеренно остаются human-reviewed.
+- Периодическое упрощение harness: **4,9/5** — monthly cron и реальная ablation
+  6/6 → 3/6 работают fail-closed; удаление компонента остаётся human decision.
 - Идемпотентные операции очистки: **5,0/5**.
+
+Средняя оценка после полного набора изменений: **4,9/5**.
 
 ## [1.89.0] - 2026-07-12
 

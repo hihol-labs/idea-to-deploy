@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "qualityLedger": "docs/QUALITY.json",
+  "gradeThresholds": {
+    "A": 90,
+    "B": 80,
+    "C": 70,
+    "D": 60,
+    "F": 0
+  },
+  "failOnOverstatedGrade": true,
+  "probes": [
+    {
+      "id": "meta-review",
+      "command": "python3 tests/meta_review.py",
+      "attempts": 1,
+      "timeoutSeconds": 120,
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "routing-behaviour",
+      "command": "python3 tests/verify_routing.py",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "completion-behaviour",
+      "command": "python3 tests/verify_completion_gate.py",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "state-behaviour",
+      "command": "python3 tests/verify_unit_log.py",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "host-adapter-parity",
+      "command": "python3 tests/verify_host_adapters.py",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "session-hygiene-behaviour",
+      "command": "python3 tests/verify_session_hygiene_quality.py",
+      "attempts": 2,
+      "timeoutSeconds": 180,
+      "passFailParser": "exit_code_zero"
+    }
+  ],
+  "modules": [
+    {
+      "id": "routing-and-skill-selection",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["routing-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["routing-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "completion-and-verification",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["completion-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["completion-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "state-and-continuity",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["state-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["state-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "host-adapters",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["host-adapter-parity"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["host-adapter-parity"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["host-adapter-parity"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "session-hygiene-and-quality-lifecycle",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["session-hygiene-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["session-hygiene-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    }
+  ]
+}

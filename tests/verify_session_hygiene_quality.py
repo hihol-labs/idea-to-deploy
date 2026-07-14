@@ -215,6 +215,103 @@ def test_quality() -> None:
               stale.stderr)
 
 
+def test_objective_quality_scorecard() -> None:
+    with tempfile.TemporaryDirectory(prefix="itd-hygiene-scorecard-") as td:
+        repo = init_repo(Path(td))
+        pass_cmd = command("raise SystemExit(0)")
+        fail_cmd = command("raise SystemExit(3)")
+        write_json(repo / ".itd" / "QUALITY_SCORECARD.json", {
+            "version": 1,
+            "qualityLedger": ".itd/QUALITY.json",
+            "gradeThresholds": {"A": 90, "B": 80, "C": 70, "D": 60, "F": 0},
+            "failOnOverstatedGrade": True,
+            "probes": [
+                {"id": "pass", "command": pass_cmd, "attempts": 1,
+                 "timeoutSeconds": 30, "passFailParser": "exit_code_zero"},
+                {"id": "repeat", "command": pass_cmd, "attempts": 2,
+                 "timeoutSeconds": 30, "passFailParser": "exit_code_zero"},
+                {"id": "fail", "command": fail_cmd, "attempts": 1,
+                 "timeoutSeconds": 30, "passFailParser": "exit_code_zero"},
+            ],
+            "modules": [{
+                "id": "app",
+                "minimumScore": 70,
+                "dimensions": {
+                    "verification": {"weight": 20, "probes": ["pass"]},
+                    "agentUnderstandable": {"weight": 20, "probes": ["pass"]},
+                    "testStability": {"weight": 20, "probes": ["repeat"]},
+                    "architectureBoundaries": {"weight": 20, "probes": ["fail"]},
+                    "codeConventions": {"weight": 20, "probes": ["pass"]},
+                },
+            }],
+        })
+        quality = json.loads((repo / ".itd" / "QUALITY.json").read_text())
+        quality["modules"][0]["grade"] = "C"
+        write_json(repo / ".itd" / "QUALITY.json", quality)
+        today = dt.date.today().isoformat()
+        scored = runner(repo, "quality", "--scorecard", ".itd/QUALITY_SCORECARD.json",
+                        "--record", "--today", today, "--json")
+        record_path = repo / ".itd-memory" / "hygiene" / f"quality-score-{today}.json"
+        record = json.loads(record_path.read_text()) if record_path.exists() else {}
+        module = (record.get("modules") or [{}])[0]
+        attempts = ((record.get("probes") or {}).get("repeat") or {}).get("attempts")
+        check("objective scorecard computes weighted grade and records probe evidence",
+              scored.returncode == 0 and module.get("score") == 80.0
+              and module.get("computedGrade") == "B" and attempts and len(attempts) == 2,
+              scored.stdout + scored.stderr)
+
+        quality["modules"][0]["grade"] = "A"
+        write_json(repo / ".itd" / "QUALITY.json", quality)
+        overstated = runner(repo, "quality", "--scorecard", ".itd/QUALITY_SCORECARD.json",
+                            "--record", "--today", today, "--json")
+        try:
+            payload = json.loads(overstated.stdout)
+        except Exception:
+            payload = {}
+        scored_module = (payload.get("modules") or [{}])[0]
+        check("objective scorecard fails an overstated declared grade",
+              overstated.returncode == 1 and scored_module.get("overstatedGrade") is True
+              and "declared grade A exceeds computed B" in " ".join(payload.get("errors") or []),
+              overstated.stdout + overstated.stderr)
+
+        scorecard = json.loads((repo / ".itd" / "QUALITY_SCORECARD.json").read_text())
+        scorecard["probes"][0]["metricScale"] = "not-a-number"
+        write_json(repo / ".itd" / "QUALITY_SCORECARD.json", scorecard)
+        invalid = runner(repo, "quality", "--scorecard", ".itd/QUALITY_SCORECARD.json",
+                         "--record", "--today", today, "--json")
+        try:
+            invalid_payload = json.loads(invalid.stdout)
+        except Exception:
+            invalid_payload = {}
+        check("objective scorecard rejects invalid numeric settings without crashing",
+              invalid.returncode == 1 and "metricScale must be positive" in
+              " ".join(invalid_payload.get("errors") or []) and "Traceback" not in invalid.stderr,
+              invalid.stdout + invalid.stderr)
+
+
+def test_external_scheduler_contract() -> None:
+    workflow = ROOT / ".github" / "workflows" / "hygiene-schedule.yml"
+    text = workflow.read_text(encoding="utf-8") if workflow.exists() else ""
+    checks = {
+        "external scheduler has weekly cron": "17 3 * * 1" in text,
+        "external scheduler has monthly cron": "29 4 1 * *" in text,
+        "external scheduler supports manual dispatch": "workflow_dispatch" in text,
+        "scheduler transport is read-only": "contents: read" in text and "contents: write" not in text,
+        "weekly job runs cleanup and objective scorecard":
+            "periodic --mode weekly" in text and "quality --scorecard" in text,
+        "monthly job runs reversible ablation": "periodic --mode monthly" in text,
+        "scheduler records and uploads evidence even on failure":
+            "--record" in text and "actions/upload-artifact@v4" in text and "if: always()" in text,
+        "active objective scorecard exists": (ROOT / "docs" / "QUALITY_SCORECARD.json").is_file(),
+        "adoptable objective scorecard template exists":
+            (ROOT / "docs" / "templates" / "itd" / "QUALITY_SCORECARD.json").is_file(),
+        "adoptable external scheduler template exists":
+            (ROOT / "docs" / "templates" / "github" / "itd-hygiene.yml").is_file(),
+    }
+    for label, ok in checks.items():
+        check(label, ok)
+
+
 def test_periodic_cycles() -> None:
     with tempfile.TemporaryDirectory(prefix="itd-hygiene-periodic-") as td:
         repo = init_repo(Path(td))
@@ -299,7 +396,8 @@ def test_integration_contract() -> None:
         "/retro carries weekly and monthly cycles": all(
             token in retro for token in ("periodic --mode weekly", "periodic --mode monthly")),
         "/adopt fills new contracts": all(
-            token in adopt for token in ("SESSION_EXIT_CONTRACT.json", "QUALITY.json", "HARNESS_ABLATION.json")),
+            token in adopt for token in ("SESSION_EXIT_CONTRACT.json", "QUALITY.json",
+                                         "QUALITY_SCORECARD.json", "HARNESS_ABLATION.json")),
         "global completion rule names explicit close": "/session-save --close" in global_rules,
         "run-all includes focused gate": "verify_session_hygiene_quality" in run_all,
         "CI includes focused gate": "verify_session_hygiene_quality.py" in ci,
@@ -315,8 +413,10 @@ def main() -> int:
     test_cleanup()
     test_close_conjunction()
     test_quality()
+    test_objective_quality_scorecard()
     test_periodic_cycles()
     test_fixed_component_benchmark()
+    test_external_scheduler_contract()
     test_integration_contract()
     print()
     if FAILURES:

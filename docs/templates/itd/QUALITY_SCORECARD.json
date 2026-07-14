@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "qualityLedger": ".itd/QUALITY.json",
+  "gradeThresholds": {
+    "A": 90,
+    "B": 80,
+    "C": 70,
+    "D": 60,
+    "F": 0
+  },
+  "failOnOverstatedGrade": true,
+  "probes": [],
+  "modules": []
+}

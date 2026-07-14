@@ -149,10 +149,16 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
 sh "$SHD/itd_py.sh" "$HY" periodic --mode monthly --component <id> --root . --ablation-contract "$ABL" --record
 ```
 
-Повесь weekly-команду на еженедельный read-only scheduler, monthly-команду — на
-ежемесячный nudge. Scheduled-агент только показывает/записывает evidence; merge,
-удаление компонента и иные мутации по-прежнему проходят человека и обычный
-release pipeline.
+В репо методологии внешний transport уже материализован как
+`.github/workflows/hygiene-schedule.yml`: cron `17 3 * * 1` запускает weekly
+cleanup + objective `QUALITY_SCORECARD.json`, cron `29 4 1 * *` — monthly
+ablation. Оба job имеют только `contents: read` и выгружают records как Actions
+artifacts даже при красном гейте. Для принятого GitHub-проекта `/adopt` может с
+явного согласия скопировать `docs/templates/github/itd-hygiene.yml`; без согласия
+остаётся ручной vendor-neutral runner. Scheduled transport только
+показывает/записывает evidence; merge, изменение tracked grades, удаление
+компонента и иные мутации по-прежнему проходят человека и обычный release
+pipeline.
 
 ### Step 2: PROPOSALS — интерпретация с обязательным evidence
 
