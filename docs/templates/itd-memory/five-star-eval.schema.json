@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "purpose": "Input contract for skills/goal/scripts/itd_goal_score.py. Five points are binary: quality, efficiency, memory, understanding, and integrity. FIVE_STAR requires all five; thresholds are hard-coded in the evaluator so a run cannot grade itself by weakening its config.",
+  "requiredFields": [
+    "version",
+    "oracle",
+    "pairs",
+    "memory",
+    "quiz",
+    "cognitiveSurrenderCount",
+    "budgets"
+  ],
+  "minimumPairs": 5,
+  "pairRequiredFields": ["id", "riskTier", "order", "manual", "loop"],
+  "armRequiredFields": [
+    "commit",
+    "tree",
+    "promptSha256",
+    "environmentSha256",
+    "startedAt",
+    "wallSeconds",
+    "inputTokens",
+    "findingIds",
+    "infrastructureErrors"
+  ],
+  "fixedThresholds": {
+    "recall": 0.95,
+    "precision": 0.9,
+    "relativeQualityLift": 0.2,
+    "medianTimeRatio": 1.5,
+    "highRiskTimeRatio": 2.0,
+    "medianTokenRatio": 1.5,
+    "repetitionReduction": 0.5,
+    "contextGrowth": 0.1,
+    "checkpointBytes": 4096,
+    "quizImmediate": 0.8,
+    "quizDelayed24h": 0.8,
+    "criticalUnknownCount": 0,
+    "cognitiveSurrenderCount": 0,
+    "extraRoundsAfterDod": 0
+  },
+  "integrityRequirements": [
+    "pair ids exactly cover the frozen oracle task ids",
+    "manual_first and loop_first orders are both represented",
+    "manual and loop commit/tree/prompt/environment digests match per pair",
+    "infrastructureErrors arrays are empty",
+    "memory controlIsolated is true and stateReadViolations is zero",
+    "delayed quiz timestamp is at least 24 hours after the immediate quiz",
+    "budget test evidence path matches its sha256"
+  ]
+}

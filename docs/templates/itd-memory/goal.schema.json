@@ -16,6 +16,8 @@
     "verificationCommand",
     "status"
   ],
+  "unitOptionalFields": ["riskTier"],
+  "riskTiers": ["low", "medium", "high"],
   "goalStatuses": ["active", "done", "abandoned"],
   "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
   "runPolicyModes": ["bounded_autonomous"],
@@ -27,6 +29,11 @@
     "freezeVerification",
     "requireApproach",
     "requireIndependentReview"
+  ],
+  "runPolicyOptionalFields": [
+    "enforceObservedTokens",
+    "verificationStrategy",
+    "maxCheckpointBytes"
   ],
   "attemptKinds": ["verification", "recheck"],
   "attemptOutcomes": ["verified", "failed", "regressed"],
@@ -43,6 +50,7 @@
         "id": "",
         "criterion": "",
         "verificationCommand": "",
+        "riskTier": "medium",
         "status": "pending",
         "verifiedAt": "",
         "evidence": "",
@@ -58,7 +66,10 @@
     "maxTokensPerSession": 100000,
     "freezeVerification": true,
     "requireApproach": true,
-    "requireIndependentReview": true
+    "requireIndependentReview": false,
+    "enforceObservedTokens": true,
+    "verificationStrategy": "adaptive",
+    "maxCheckpointBytes": 4096
   },
   "boundedUnitRuntimeTemplate": {
     "attempts": [],

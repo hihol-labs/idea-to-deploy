@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (практическая переоценка: 2,8 → 4,8/5; после scheduler/scorecard — 4,9/5)**:
 
 ### Added
+- **Evidence-efficient `/goal` 5/5 path** — adaptive checker routing is sealed
+  per unit (`low/medium/high` → machine-only/targeted/full), compact handoff
+  checkpoints are capped at 4 KiB, and `itd_goal_score.py` awards five binary
+  points only from ≥5 parity-matched A/B pairs with frozen-oracle quality,
+  time/token, memory, immediate+24h understanding, and stop-integrity evidence.
+  Thresholds are fixed in code; contaminated controls or missed criticals fail
+  closed with actionable `path + WHY + FIX` output.
 - **Opt-in bounded autonomy for `/goal`** — an approved `runPolicy` can seal the
   verification oracle, cap attempts/wall-clock/host-observed token budgets,
   require an explicit approach and independent-review evidence, and persist an
@@ -54,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `verify_host_adapters.py` фиксирует parity Claude Code/Codex.
 
 ### Changed
+- Bounded token stops now require a numeric host observation meeting the sealed
+  limit; `enforceObservedTokens` can require the meter on every verification.
+  Weekly hygiene timeout is 30 minutes, covering its 24-minute worst-case probe
+  budget instead of timing out structurally at 15 minutes.
 - `/adopt` устанавливает полный набор `.itd`-шаблонов и создаёт консервативные
   стартовые quality/ablation/session-artifact contracts для обоих host adapters.
 - `/task`, `/session-save` и `/retro` связаны с quality queue, явной границей

@@ -321,13 +321,13 @@ def validate_state_file(path: Path) -> tuple[list[str], list[str]]:
 
 
 def _bounded_policy_snapshot(policy: dict) -> dict:
-    return {
-        key: policy.get(key)
-        for key in ("mode", "maxAttemptsPerUnit",
-                    "maxWallClockSecondsPerUnit", "maxTokensPerSession",
-                    "freezeVerification", "requireApproach",
-                    "requireIndependentReview")
-    }
+    base = ("mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+            "maxTokensPerSession", "freezeVerification", "requireApproach",
+            "requireIndependentReview")
+    optional = tuple(
+        key for key in ("enforceObservedTokens", "verificationStrategy",
+                        "maxCheckpointBytes") if key in policy)
+    return {key: policy.get(key) for key in base + optional}
 
 
 def _bounded_snapshot_fingerprint(payload: dict) -> str:
@@ -344,6 +344,8 @@ def _bounded_unit_fingerprint(unit: dict) -> str:
         "criterion": str(unit.get("criterion") or ""),
         "verificationCommand": str(unit.get("verificationCommand") or ""),
     }
+    if "riskTier" in unit:
+        payload["riskTier"] = str(unit.get("riskTier") or "")
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True,
                      separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(raw).hexdigest()
@@ -396,6 +398,18 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
                       "requireIndependentReview"):
             if type(policy.get(field)) is not bool:
                 errors.append(f"{path}: runPolicy.{field} must be boolean")
+        if ("enforceObservedTokens" in policy
+                and type(policy.get("enforceObservedTokens")) is not bool):
+            errors.append(
+                f"{path}: runPolicy.enforceObservedTokens must be boolean")
+        if policy.get("verificationStrategy") not in (None, "adaptive"):
+            errors.append(
+                f"{path}: runPolicy.verificationStrategy must be 'adaptive'")
+        if "maxCheckpointBytes" in policy:
+            size = policy.get("maxCheckpointBytes")
+            if type(size) is not int or not 1024 <= size <= 4096:
+                errors.append(
+                    f"{path}: runPolicy.maxCheckpointBytes must be in 1024..4096")
         if policy.get("freezeVerification") is not True:
             errors.append(f"{path}: bounded run requires freezeVerification=true")
         if policy.get("requireApproach") is not True:
@@ -433,6 +447,19 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
         if unit.get("status") == "blocked" and not str(unit.get("blockedReason") or "").strip():
             errors.append(f"{where}: blocked unit must carry a non-empty blockedReason (fail-closed)")
 
+        risk_tier = str(unit.get("riskTier") or "")
+        adaptive = (isinstance(policy, dict)
+                    and policy.get("verificationStrategy") == "adaptive")
+        risk_tiers = schema.get("riskTiers", ["low", "medium", "high"])
+        if adaptive and risk_tier not in risk_tiers:
+            errors.append(f"{where}: adaptive unit riskTier must be in {risk_tiers}")
+        expected_checker = (
+            "full" if isinstance(policy, dict)
+            and (policy.get("requireIndependentReview")
+                 or (adaptive and risk_tier == "high"))
+            else "targeted" if adaptive and risk_tier == "medium"
+            else "machine_only")
+
         attempts = unit.get("attempts")
         if attempts is not None and not isinstance(attempts, list):
             errors.append(f"{where}: attempts must be an array")
@@ -454,10 +481,21 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
                     errors.append(f"{awhere}: kind '{attempt.get('kind')}' not in {kinds}")
                 if outcomes and attempt.get("outcome") not in outcomes:
                     errors.append(f"{awhere}: outcome '{attempt.get('outcome')}' not in {outcomes}")
-                if (isinstance(policy, dict)
-                        and policy.get("requireIndependentReview")
+                if (expected_checker == "full"
                         and not str(attempt.get("reviewEvidence") or "").strip()):
                     errors.append(f"{awhere}: independent review evidence is required")
+                if (adaptive or "checkerMode" in attempt) \
+                        and attempt.get("checkerMode") != expected_checker:
+                    errors.append(
+                        f"{awhere}: checkerMode must be '{expected_checker}'")
+                if "observedTokens" in attempt:
+                    observed = attempt.get("observedTokens")
+                    if type(observed) is not int or observed < 0:
+                        errors.append(f"{awhere}: observedTokens must be non-negative")
+                if (isinstance(policy, dict)
+                        and policy.get("enforceObservedTokens")
+                        and type(attempt.get("observedTokens")) is not int):
+                    errors.append(f"{awhere}: observed token evidence is required")
             if (isinstance(policy, dict)
                     and type(policy.get("maxAttemptsPerUnit")) is int
                     and len(attempts) > policy["maxAttemptsPerUnit"]):
@@ -496,6 +534,16 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
                             ("attempts", "wall_clock", "tokens")
                             or type(exhausted.get("limit")) is not int):
                         errors.append(f"{where}: budget_exhausted requires exhaustedBudget evidence")
+                    elif "observed" in exhausted:
+                        observed = exhausted.get("observed")
+                        if type(observed) is not int or observed < exhausted["limit"]:
+                            errors.append(
+                                f"{where}: exhaustedBudget.observed must meet its limit")
+                    elif (isinstance(policy, dict)
+                          and policy.get("enforceObservedTokens")
+                          and exhausted.get("kind") == "tokens"):
+                        errors.append(
+                            f"{where}: token budget stop requires observed evidence")
 
     current = str(goal.get("currentUnitId") or "").strip()
     if current and current not in seen_ids:

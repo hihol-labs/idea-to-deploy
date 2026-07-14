@@ -42,7 +42,9 @@ def run(script: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess:
 
 
 def make_goal(root: Path, *, attempts: int = 2, wall: int = 3600,
-              tokens: int = 1000, review: bool = True) -> Path:
+              tokens: int = 1000, review: bool = True,
+              enforce_tokens: bool = False, adaptive: bool = False,
+              risk_tier: str = "medium") -> Path:
     mem = root / ".itd-memory"
     mem.mkdir(parents=True)
     (root / "result.txt").write_text("fail", encoding="utf-8")
@@ -61,6 +63,7 @@ def make_goal(root: Path, *, attempts: int = 2, wall: int = 3600,
             "freezeVerification": True,
             "requireApproach": True,
             "requireIndependentReview": review,
+            "enforceObservedTokens": enforce_tokens,
         },
         "units": [{
             "id": "G-001",
@@ -71,8 +74,12 @@ def make_goal(root: Path, *, attempts: int = 2, wall: int = 3600,
             "evidence": "",
             "skippedReason": "",
             "blockedReason": "",
+            **({"riskTier": risk_tier} if adaptive else {}),
         }],
     }
+    if adaptive:
+        goal["runPolicy"]["verificationStrategy"] = "adaptive"
+        goal["runPolicy"]["maxCheckpointBytes"] = 4096
     path = mem / "GOAL.json"
     path.write_text(json.dumps(goal, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -210,8 +217,22 @@ with tempfile.TemporaryDirectory() as td:
     seal_and_activate(root)
     r = run(VERIFY, "--goal", rel(), "--budget-exhausted", "G-001",
             "--budget-kind", "tokens", "--reason", "host ceiling reached", cwd=root)
+    check("token stop refuses an unproved host assertion",
+          r.returncode == 1 and unit(path)["status"] == "in_progress",
+          r.stdout + r.stderr)
+    r = run(VERIFY, "--goal", rel(), "--budget-exhausted", "G-001",
+            "--budget-kind", "tokens", "--budget-observed", "999",
+            "--reason", "host ceiling reached", cwd=root)
+    check("token stop refuses an observation below the sealed limit",
+          r.returncode == 1 and unit(path)["status"] == "in_progress",
+          r.stdout + r.stderr)
+    r = run(VERIFY, "--goal", rel(), "--budget-exhausted", "G-001",
+            "--budget-kind", "tokens", "--budget-observed", "1000",
+            "--reason", "host ceiling reached", cwd=root)
     check("host token ceiling becomes a typed stop",
-          r.returncode == 3 and unit(path)["runState"]["exhaustedBudget"]["kind"] == "tokens")
+          r.returncode == 3
+          and unit(path)["runState"]["exhaustedBudget"]["kind"] == "tokens"
+          and unit(path)["runState"]["exhaustedBudget"]["observed"] == 1000)
     r = run(VERIFY, "--goal", rel(), "--activate", "G-001",
             "--reason", "same token budget", cwd=root)
     check("token stop cannot resume under the same ceiling", r.returncode == 1)
@@ -232,6 +253,22 @@ with tempfile.TemporaryDirectory() as td:
           r.stdout + r.stderr)
 
 
+# A policy may require cumulative host token evidence on every verification.
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td)
+    path = make_goal(root, tokens=1000, review=False, enforce_tokens=True)
+    seal_and_activate(root)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "missing meter", cwd=root)
+    check("token-enforced verification requires an observation",
+          r.returncode == 1 and not unit(path)["attempts"], r.stdout + r.stderr)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "at ceiling",
+            "--tokens-used", "1000", cwd=root)
+    check("observed token ceiling stops before command execution",
+          r.returncode == 3 and not unit(path)["attempts"]
+          and unit(path)["runState"]["exhaustedBudget"]["observed"] == 1000,
+          r.stdout + r.stderr)
+
+
 # Wall-clock budget stops before executing another command.
 with tempfile.TemporaryDirectory() as td:
     root = Path(td)
@@ -244,6 +281,49 @@ with tempfile.TemporaryDirectory() as td:
     check("wall-clock cap stops without spending an attempt",
           r.returncode == 3 and not unit(path)["attempts"]
           and unit(path)["runState"]["exhaustedBudget"]["kind"] == "wall_clock")
+
+
+# Adaptive checker policy is sealed by risk tier instead of always doubling work.
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td)
+    path = make_goal(root, review=False, adaptive=True, risk_tier="low")
+    (root / "result.txt").write_text("pass", encoding="utf-8")
+    seal_and_activate(root)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "machine gates", cwd=root)
+    check("low-risk adaptive verification needs no full checker",
+          r.returncode == 0 and unit(path)["attempts"][0]["checkerMode"] == "machine_only",
+          r.stdout + r.stderr)
+
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td)
+    path = make_goal(root, review=False, adaptive=True, risk_tier="high")
+    (root / "result.txt").write_text("pass", encoding="utf-8")
+    seal_and_activate(root)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "unsafe shortcut", cwd=root)
+    check("high-risk adaptive verification requires a full checker",
+          r.returncode == 1 and not unit(path)["attempts"], r.stdout + r.stderr)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "checked",
+            "--review-evidence", "independent checker PASSED", cwd=root)
+    check("high-risk adaptive verification records checker mode",
+          r.returncode == 0 and unit(path)["attempts"][0]["checkerMode"] == "full",
+          r.stdout + r.stderr)
+
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td)
+    path = make_goal(root, review=False, adaptive=True, risk_tier="medium")
+    (root / "result.txt").write_text("pass", encoding="utf-8")
+    seal_and_activate(root)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "residual only", cwd=root)
+    check("medium-risk adaptive verification selects targeted checker",
+          r.returncode == 0 and unit(path)["attempts"][0]["checkerMode"] == "targeted",
+          r.stdout + r.stderr)
+    r = run(REPORT, "--goal", rel(), "--compact", cwd=root)
+    check("compact checkpoint carries only bounded handoff fields",
+          r.returncode == 0 and len(r.stdout.encode("utf-8")) <= 4096
+          and all(label in r.stdout for label in
+                  ("Done", "Evidence", "Status", "Open risks", "Next"))
+          and "<details>" not in r.stdout,
+          r.stdout + r.stderr)
 
 
 # Reporter exposes the envelope; malformed opt-in policy fails closed.
@@ -280,6 +360,13 @@ with tempfile.TemporaryDirectory() as td:
     r = run(VALIDATE, str(path), cwd=root)
     check("validator rejects a weakened bounded policy", r.returncode == 1,
           r.stdout + r.stderr)
+
+
+# Scheduled timeout must cover the declared worst-case 24-minute probe budget.
+workflow = (ROOT / ".github" / "workflows" / "hygiene-schedule.yml").read_text(
+    encoding="utf-8")
+check("weekly CI timeout covers the 24-minute probe budget",
+      "weekly:\n" in workflow and "timeout-minutes: 30" in workflow)
 
 
 print(f"\n{passed} passed, {failed} failed")

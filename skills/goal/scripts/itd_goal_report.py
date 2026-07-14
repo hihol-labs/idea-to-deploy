@@ -38,6 +38,9 @@ POLICY_KEYS = (
     "maxTokensPerSession", "freezeVerification", "requireApproach",
     "requireIndependentReview",
 )
+OPTIONAL_POLICY_KEYS = (
+    "enforceObservedTokens", "verificationStrategy", "maxCheckpointBytes",
+)
 
 
 def die(msg: str) -> None:
@@ -79,14 +82,29 @@ def fingerprint(payload: dict, *, ensure_ascii: bool = True) -> str:
 
 
 def policy_snapshot(policy: dict) -> dict:
-    return {key: policy.get(key) for key in POLICY_KEYS}
+    keys = POLICY_KEYS + tuple(key for key in OPTIONAL_POLICY_KEYS if key in policy)
+    return {key: policy.get(key) for key in keys}
 
 
 def unit_fingerprint(unit: dict) -> str:
-    return fingerprint({
+    payload = {
         "criterion": str(unit.get("criterion") or ""),
         "verificationCommand": str(unit.get("verificationCommand") or ""),
-    }, ensure_ascii=False)
+    }
+    if "riskTier" in unit:
+        payload["riskTier"] = str(unit.get("riskTier") or "")
+    return fingerprint(payload, ensure_ascii=False)
+
+
+def checker_mode(policy: dict | None, unit: dict) -> str:
+    if not policy:
+        return "machine_only"
+    if policy.get("requireIndependentReview"):
+        return "full"
+    if policy.get("verificationStrategy") == "adaptive":
+        return {"low": "machine_only", "medium": "targeted",
+                "high": "full"}.get(str(unit.get("riskTier") or ""), "invalid")
+    return "machine_only"
 
 
 def oracle_is_sealed(policy: dict | None, units: list[dict]) -> bool:
@@ -157,6 +175,7 @@ def render_markdown(r: dict) -> str:
             f"attempts={r['attemptsUsed']} (max {policy.get('maxAttemptsPerUnit')}/unit), "
             f"wall={policy.get('maxWallClockSecondsPerUnit')}s/unit, "
             f"tokens={policy.get('maxTokensPerSession')}/host-session; "
+            f"token-meter={'required' if policy.get('enforceObservedTokens') else 'host-stop'}; "
             f"oracle={'sealed' if r['oracleSealed'] else 'UNSEALED'}")
     out.append("")
     out.append("| Юнит | Статус | Критерий | Evidence |")
@@ -175,6 +194,8 @@ def render_markdown(r: dict) -> str:
         if policy:
             out.append(f"**Попытки текущего юнита:** {len(cur.get('attempts') or [])}; "
                        f"stopReason: `{(cur.get('runState') or {}).get('stopReason') or '—'}`")
+            out.append(f"**Verification cost:** risk=`{cur.get('riskTier') or 'legacy'}`, "
+                       f"checker=`{checker_mode(policy, cur)}`")
     elif r["nextPending"] is not None:
         np = r["nextPending"]
         out.append(f"**Следующий юнит:** `{np.get('id')}` — {clip(np.get('criterion'), CRIT_MAX)}"
@@ -200,6 +221,68 @@ def render_markdown(r: dict) -> str:
     return "\n".join(out)
 
 
+def clip_bytes(value: object, limit: int) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", " ").strip()
+    raw = text.encode("utf-8")
+    if len(raw) <= limit:
+        return text
+    return raw[:max(0, limit - 3)].decode("utf-8", errors="ignore") + "…"
+
+
+def render_compact(r: dict) -> str:
+    """Render a bounded delta checkpoint, never the conversation history."""
+    policy = r.get("runPolicy") or {}
+    limit = int(policy.get("maxCheckpointBytes") or 4096)
+    limit = min(4096, max(1024, limit))
+    verified = [u for u in r["units"] if u.get("status") == "verified"][-2:]
+    blocked = [u for u in r["units"] if u.get("status") == "blocked"][:2]
+    current = r.get("currentUnit") or r.get("nextPending")
+    evidence = [f"- {clip_bytes(u.get('id'), 48)}: "
+                f"{clip_bytes(u.get('evidence') or 'verified', 140)}"
+                for u in verified] or ["- none yet"]
+    risks = [f"- {clip_bytes(u.get('id'), 48)}: "
+             f"{clip_bytes(u.get('blockedReason') or 'blocked', 140)}"
+             for u in blocked] or ["- none"]
+    if current:
+        nxt = (f"- {clip_bytes(current.get('id'), 48)} "
+               f"[{checker_mode(policy, current)}]: "
+               f"{clip_bytes(current.get('verificationCommand'), 320)}")
+    else:
+        nxt = "- close goal; no open unit"
+    out = [
+        "# Goal checkpoint",
+        "",
+        "Done",
+        f"- {r['unitsVerified']}/{r['unitsTotal']} units verified",
+        "",
+        "Evidence",
+        *evidence,
+        "",
+        "Status",
+        f"- goal={clip_bytes(r['status'], 40)}; backpressure={r['backpressure']}; "
+        f"current={clip_bytes((r.get('currentUnit') or {}).get('id') or 'none', 48)}",
+        "",
+        "Open risks",
+        *risks,
+        "",
+        "Next",
+        nxt,
+    ]
+    text = "\n".join(out)
+    if len(text.encode("utf-8")) > limit:
+        out = [
+            "# Goal checkpoint", "", "Done",
+            f"- {r['unitsVerified']}/{r['unitsTotal']} units verified", "",
+            "Evidence", "- see GOAL.json", "", "Status",
+            f"- goal={clip_bytes(r['status'], 40)}; backpressure={r['backpressure']}", "",
+            "Open risks", f"- blocked={len(blocked)}", "", "Next", nxt,
+        ]
+        text = "\n".join(out)
+    if len(text.encode("utf-8")) > limit:
+        die(f"compact checkpoint exceeds sealed {limit}-byte limit")
+    return text
+
+
 def main() -> int:
     # Windows consoles default to cp125x — reconfigure so the Russian report
     # never raises UnicodeEncodeError (platform symmetry).
@@ -214,6 +297,8 @@ def main() -> int:
     p.add_argument("--events", type=Path, default=None,
                    help="events.jsonl path (default: next to the ledger)")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--compact", action="store_true",
+                   help="bounded Done/Evidence/Status/Open risks/Next checkpoint")
     p.add_argument("--max-events", type=int, default=5)
     args = p.parse_args()
 
@@ -227,13 +312,19 @@ def main() -> int:
     events_path = args.events or (args.goal.parent / "events.jsonl")
     report = build(goal, load_events(events_path, args.max_events))
 
+    if args.json and args.compact:
+        die("--json and --compact are mutually exclusive")
     if args.json:
         slim = {k: v for k, v in report.items() if k != "units"}
         slim["units"] = [{"id": u.get("id"), "status": u.get("status"),
+                          "riskTier": u.get("riskTier") or "legacy",
+                          "checkerMode": checker_mode(report.get("runPolicy"), u),
                           "attempts": len(u.get("attempts") or []),
                           "stopReason": (u.get("runState") or {}).get("stopReason") or ""}
                          for u in report["units"]]
         print(json.dumps(slim, ensure_ascii=False, indent=2))
+    elif args.compact:
+        print(render_compact(report))
     else:
         print(render_markdown(report))
     return 0

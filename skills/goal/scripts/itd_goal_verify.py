@@ -79,6 +79,15 @@ OPEN_STATUSES = ("pending", "in_progress", "blocked")
 EVIDENCE_MAX = 200
 BOUNDED_MODE = "bounded_autonomous"
 BOUNDED_STOP_EXIT = 3
+POLICY_KEYS = (
+    "mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+    "maxTokensPerSession", "freezeVerification", "requireApproach",
+    "requireIndependentReview",
+)
+OPTIONAL_POLICY_KEYS = (
+    "enforceObservedTokens", "verificationStrategy", "maxCheckpointBytes",
+)
+RISK_TIERS = ("low", "medium", "high")
 
 
 def die(msg: str, code: int = 2) -> None:
@@ -144,6 +153,16 @@ def bounded_policy(goal: dict) -> dict | None:
         die("bounded autonomy requires runPolicy.freezeVerification=true")
     if policy.get("requireApproach") is not True:
         die("bounded autonomy requires runPolicy.requireApproach=true")
+    if ("enforceObservedTokens" in policy
+            and type(policy.get("enforceObservedTokens")) is not bool):
+        die("runPolicy.enforceObservedTokens must be boolean when present")
+    strategy = policy.get("verificationStrategy")
+    if strategy not in (None, "adaptive"):
+        die("runPolicy.verificationStrategy must be 'adaptive' when present")
+    if "maxCheckpointBytes" in policy:
+        size = policy.get("maxCheckpointBytes")
+        if type(size) is not int or not 1024 <= size <= 4096:
+            die("runPolicy.maxCheckpointBytes must be an integer in 1024..4096")
     return policy
 
 
@@ -152,19 +171,16 @@ def verification_fingerprint(unit: dict) -> str:
         "criterion": str(unit.get("criterion") or ""),
         "verificationCommand": str(unit.get("verificationCommand") or ""),
     }
+    if "riskTier" in unit:
+        payload["riskTier"] = str(unit.get("riskTier") or "")
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True,
                      separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
 def policy_snapshot(policy: dict) -> dict:
-    return {
-        key: policy.get(key)
-        for key in ("mode", "maxAttemptsPerUnit",
-                    "maxWallClockSecondsPerUnit", "maxTokensPerSession",
-                    "freezeVerification", "requireApproach",
-                    "requireIndependentReview")
-    }
+    keys = POLICY_KEYS + tuple(key for key in OPTIONAL_POLICY_KEYS if key in policy)
+    return {key: policy.get(key) for key in keys}
 
 
 def snapshot_fingerprint(payload: dict) -> str:
@@ -197,6 +213,19 @@ def budgeted_attempt_count(unit: dict) -> int:
                 if a.get("kind") in ("verification", "recheck")])
 
 
+def checker_mode(policy: dict, unit: dict) -> str:
+    """Return the sealed verification cost for this unit."""
+    if policy.get("requireIndependentReview"):
+        return "full"
+    if policy.get("verificationStrategy") != "adaptive":
+        return "machine_only"
+    risk = str(unit.get("riskTier") or "")
+    if risk not in RISK_TIERS:
+        die(f"{unit.get('id')}: adaptive verification requires riskTier "
+            f"in {RISK_TIERS}")
+    return {"low": "machine_only", "medium": "targeted", "high": "full"}[risk]
+
+
 def parse_iso_epoch(value: str) -> float | None:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
@@ -217,7 +246,7 @@ def set_stop_reason(unit: dict, reason: str) -> None:
 
 def bounded_stop(goal: dict, goal_path: Path, unit: dict,
                  stop_reason: str, detail: str,
-                 budget_kind: str = "") -> int:
+                 budget_kind: str = "", observed: int | None = None) -> int:
     """Persist a typed stop without inventing a new open-unit status."""
     unit["status"] = "blocked"
     unit["blockedReason"] = f"{stop_reason}: {detail}"
@@ -237,6 +266,8 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
             "limit": policy[fields[budget_kind]],
             "at": now_iso(),
         }
+        if observed is not None:
+            state["exhaustedBudget"]["observed"] = observed
     if goal.get("currentUnitId") == unit.get("id"):
         goal["currentUnitId"] = ""
     save_goal(goal_path, goal)
@@ -246,9 +277,11 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
 
 
 def record_attempt(unit: dict, approach: str, command: str, outcome: str,
-                   evidence: str, review_evidence: str, recheck: bool) -> None:
+                   evidence: str, review_evidence: str, recheck: bool,
+                   tokens_used: int | None = None,
+                   checker: str = "machine_only") -> None:
     attempts = unit_attempts(unit)
-    attempts.append({
+    attempt = {
         "number": len(attempts) + 1,
         "at": now_iso(),
         "kind": "recheck" if recheck else "verification",
@@ -257,7 +290,11 @@ def record_attempt(unit: dict, approach: str, command: str, outcome: str,
         "outcome": outcome,
         "evidence": evidence,
         "reviewEvidence": review_evidence.strip(),
-    })
+        "checkerMode": checker,
+    }
+    if tokens_used is not None:
+        attempt["observedTokens"] = tokens_used
+    attempts.append(attempt)
 
 
 def cmd_seal(goal: dict, goal_path: Path) -> int:
@@ -281,6 +318,7 @@ def cmd_seal(goal: dict, goal_path: Path) -> int:
             die("runPolicy changed after approval; do not reseal an edited policy", 1)
 
     for unit in goal["units"]:
+        checker_mode(policy, unit)
         state = unit_run_state(unit)
         current = verification_fingerprint(unit)
         baseline = str(state.get("verificationFingerprint") or "")
@@ -520,8 +558,10 @@ def cmd_block(goal: dict, goal_path: Path, unit: dict, reason: str) -> int:
 
 
 def cmd_budget_exhausted(goal: dict, goal_path: Path, unit: dict,
-                         reason: str, budget_kind: str) -> int:
-    if bounded_policy(goal) is None:
+                         reason: str, budget_kind: str,
+                         budget_observed: int | None) -> int:
+    policy = bounded_policy(goal)
+    if policy is None:
         die("--budget-exhausted requires an opt-in runPolicy", 1)
     if not reason.strip():
         die("--budget-exhausted requires a non-empty --reason", 1)
@@ -531,13 +571,35 @@ def cmd_budget_exhausted(goal: dict, goal_path: Path, unit: dict,
     if unit.get("status") != "in_progress":
         die(f"cannot stop {unit['id']} on budget from status "
             f"'{unit.get('status')}'", 1)
+    fields = {
+        "attempts": "maxAttemptsPerUnit",
+        "wall_clock": "maxWallClockSecondsPerUnit",
+        "tokens": "maxTokensPerSession",
+    }
+    if budget_kind == "attempts":
+        observed = budgeted_attempt_count(unit)
+    elif budget_kind == "wall_clock":
+        elapsed = elapsed_seconds(unit)
+        if elapsed is None:
+            die(f"{unit['id']}: invalid runState.startedAt", 1)
+        observed = int(elapsed)
+    else:
+        if budget_observed is None:
+            die("token budget stop requires --budget-observed from the host meter", 1)
+        observed = budget_observed
+    if observed < 0:
+        die("--budget-observed must be non-negative", 1)
+    limit = policy[fields[budget_kind]]
+    if observed < limit:
+        die(f"{unit['id']}: refusing unproved {budget_kind} exhaustion; "
+            f"observed {observed} < sealed limit {limit}", 1)
     return bounded_stop(goal, goal_path, unit, "budget_exhausted",
-                        reason.strip(), budget_kind)
+                        reason.strip(), budget_kind, observed)
 
 
 def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                recheck: bool, timeout: int, approach: str,
-               review_evidence: str) -> int:
+               review_evidence: str, tokens_used: int | None) -> int:
     if recheck:
         if unit["status"] != "verified":
             die(f"--recheck applies to verified units; {unit['id']} is "
@@ -573,10 +635,20 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             return bounded_stop(
                 goal, goal_path, unit, "blocked",
                 "criterion or verificationCommand changed after approval")
+        if tokens_used is not None and tokens_used < 0:
+            die("--tokens-used must be non-negative", 1)
+        if policy.get("enforceObservedTokens") and tokens_used is None:
+            die(f"{unit['id']}: runPolicy.enforceObservedTokens requires "
+                "--tokens-used from the host meter", 1)
+        if tokens_used is not None and tokens_used >= policy["maxTokensPerSession"]:
+            return bounded_stop(
+                goal, goal_path, unit, "budget_exhausted",
+                f"token limit reached ({tokens_used}/"
+                f"{policy['maxTokensPerSession']})", "tokens", tokens_used)
         if policy["requireApproach"] and not approach.strip():
             die(f"{unit['id']}: bounded verification requires --approach", 1)
-        if (policy["requireIndependentReview"]
-                and not review_evidence.strip()):
+        mode = checker_mode(policy, unit)
+        if mode == "full" and not review_evidence.strip():
             die(f"{unit['id']}: independent checker evidence required "
                 "(--review-evidence)", 1)
         used = budgeted_attempt_count(unit)
@@ -584,7 +656,7 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             return bounded_stop(
                 goal, goal_path, unit, "budget_exhausted",
                 f"attempt limit reached ({used}/{policy['maxAttemptsPerUnit']})",
-                "attempts")
+                "attempts", used)
         elapsed = elapsed_seconds(unit)
         if elapsed is None:
             return bounded_stop(goal, goal_path, unit, "blocked",
@@ -594,7 +666,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             return bounded_stop(
                 goal, goal_path, unit, "budget_exhausted",
                 f"wall-clock limit reached ({int(elapsed)}s/"
-                f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock")
+                f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock",
+                int(elapsed))
         # subprocess accepts a float timeout. Preserve the exact remainder:
         # rounding a sub-second budget up to one second would violate the
         # approved wall-clock ceiling.
@@ -623,7 +696,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
     if policy is not None:
         outcome = "verified" if rc == 0 else ("regressed" if recheck else "failed")
         record_attempt(unit, approach, command, outcome, evidence,
-                       review_evidence, recheck)
+                       review_evidence, recheck, tokens_used,
+                       checker_mode(policy, unit))
 
     # Runtime-сигнал верификации (GO-003): прогон становится наблюдаемым для
     # completion-gate независимо от исхода (pass/fail).
@@ -659,14 +733,15 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                 return bounded_stop(
                     goal, goal_path, unit, "budget_exhausted",
                     f"attempt limit reached ({used}/{policy['maxAttemptsPerUnit']}); "
-                    f"last recheck result {evidence}", "attempts")
+                    f"last recheck result {evidence}", "attempts", used)
             elapsed = elapsed_seconds(unit)
             if (elapsed is not None
                     and elapsed >= policy["maxWallClockSecondsPerUnit"]):
                 return bounded_stop(
                     goal, goal_path, unit, "budget_exhausted",
                     f"wall-clock limit reached after recheck ({int(elapsed)}s/"
-                    f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock")
+                    f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock",
+                    int(elapsed))
         unit["status"] = "in_progress"
         goal["currentUnitId"] = unit["id"]
         save_goal(goal_path, goal)
@@ -682,14 +757,15 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             return bounded_stop(
                 goal, goal_path, unit, "budget_exhausted",
                 f"attempt limit reached ({used}/{policy['maxAttemptsPerUnit']}); "
-                f"last result {evidence}", "attempts")
+                f"last result {evidence}", "attempts", used)
         elapsed = elapsed_seconds(unit)
         if (elapsed is not None
                 and elapsed >= policy["maxWallClockSecondsPerUnit"]):
             return bounded_stop(
                 goal, goal_path, unit, "budget_exhausted",
                 f"wall-clock limit reached after failure ({int(elapsed)}s/"
-                f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock")
+                f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock",
+                int(elapsed))
     append_event(goal_path, unit["id"], "verification_failed", evidence)
     print(f"FAILED {unit['id']} stays in_progress — {evidence}")
     print(decisive_line(output))
@@ -721,6 +797,10 @@ def main() -> int:
     p.add_argument("--budget-kind", default="",
                    choices=("", "attempts", "wall_clock", "tokens"),
                    help="which approved budget was exhausted")
+    p.add_argument("--budget-observed", type=int, default=None,
+                   help="host-observed usage for a typed budget stop")
+    p.add_argument("--tokens-used", type=int, default=None,
+                   help="cumulative host-session tokens observed before verify")
     p.add_argument("--recheck", action="store_true",
                    help="re-run a verified unit; regression demotes it")
     p.add_argument("--timeout", type=int, default=600)
@@ -762,9 +842,9 @@ def main() -> int:
         return cmd_block(goal, args.goal, unit, args.reason)
     if args.budget_exhausted:
         return cmd_budget_exhausted(goal, args.goal, unit, args.reason,
-                                    args.budget_kind)
+                                    args.budget_kind, args.budget_observed)
     return cmd_verify(goal, args.goal, unit, args.recheck, args.timeout,
-                      args.approach, args.review_evidence)
+                      args.approach, args.review_evidence, args.tokens_used)
 
 
 if __name__ == "__main__":

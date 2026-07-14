@@ -34,7 +34,8 @@ jobs:
       (github.event_name == 'schedule' && github.event.schedule == '17 3 * * 1') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'weekly')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The weekly scorecard can spend up to 24 minutes across bounded probes.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
