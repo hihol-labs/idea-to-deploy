@@ -22,7 +22,7 @@ completion boundaries, host-neutral continuity и live-model verification**:
 - **Настоящий ITD live-model benchmark** — изолированный adopted-проект
   вызывает repository-local `$idea-to-deploy:blueprint --full`, сохраняет
   bounded transcript/artifact hashes и принимает PASS только после независимого
-  replayable snapshot oracle; свежий pinned run: `20260715T152007Z-c5ab0157`.
+  replayable snapshot oracle; свежий pinned run: `20260715T160657Z-f0da33ea`.
 - **Host-neutral continuity и полный hard-gate parity** — project-local
   `.itd-memory` восстанавливает unit/evidence/blockers/next action между Claude
   Code и Codex, а все 10 computational hard gates проверяются на обоих host
