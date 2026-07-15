@@ -408,6 +408,21 @@ def test_integration_contract() -> None:
         check(label, ok)
 
 
+def test_methodology_debug_scan_exclusions() -> None:
+    contract = json.loads((ROOT / "docs" / "SESSION_EXIT_CONTRACT.json").read_text(
+        encoding="utf-8"))
+    exclusions = set(contract.get("debugScan", {}).get("excludeGlobs", []))
+    expected = {
+        "skills/browser-check/playwright/run.js",
+        "tests/verify_session_hygiene_quality.py",
+    }
+    check(
+        "methodology close excludes only known non-debug console.log sites",
+        expected.issubset(exclusions),
+        f"missing={sorted(expected - exclusions)}",
+    )
+
+
 def main() -> int:
     check("runner exists", RUNNER.is_file(), str(RUNNER))
     test_cleanup()
@@ -418,6 +433,7 @@ def main() -> int:
     test_fixed_component_benchmark()
     test_external_scheduler_contract()
     test_integration_contract()
+    test_methodology_debug_scan_exclusions()
     print()
     if FAILURES:
         print(f"FAILED: {len(FAILURES)} — " + ", ".join(FAILURES))

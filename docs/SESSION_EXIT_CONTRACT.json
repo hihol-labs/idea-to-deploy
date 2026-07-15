@@ -11,7 +11,12 @@
   "debugScan": {
     "enabled": true,
     "paths": ["hooks", "scripts", "skills", "tests"],
-    "excludeGlobs": ["tests/fixtures/**", "**/*.md"],
+    "excludeGlobs": [
+      "tests/fixtures/**",
+      "**/*.md",
+      "skills/browser-check/playwright/run.js",
+      "tests/verify_session_hygiene_quality.py"
+    ],
     "patterns": ["\\bconsole\\.log\\s*\\(", "\\bdebugger\\b"]
   },
   "periodic": {
