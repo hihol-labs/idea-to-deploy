@@ -109,14 +109,17 @@ Quality rules:
 
 ### Step 3: Write the session memory file
 
-Determine the memory directory for the current project:
+Use the host-neutral, project-local continuity directory:
 
 ```bash
-# The memory directory is at the Claude Code project memory path
-# Usually: ~/.claude/projects/<project-hash>/memory/
+MEM_DIR="$(git rev-parse --show-toplevel)/.itd-memory"
+mkdir -p "$MEM_DIR"
 ```
 
-Find the correct directory by checking which `~/.claude/projects/*/` directory corresponds to the current working directory.
+`.itd-memory/` is canonical on every host. A pre-existing
+`~/.claude/projects/<project-hash>/memory/` directory may be read as a legacy
+fallback or updated as an optional mirror, but a successful save never depends
+on that private path and local state always wins on conflict.
 
 Write the file with frontmatter:
 
@@ -203,7 +206,7 @@ Best-effort: скрипт всегда выходит с кодом 0, при о
 
 ### Step 4: Update MEMORY.md
 
-Add a line to `MEMORY.md` in the same memory directory:
+Add a line to `.itd-memory/MEMORY.md`:
 
 ```markdown
 - [Сессия YYYY-MM-DD](session_YYYY-MM-DD.md) — краткое описание до 150 символов
@@ -327,7 +330,14 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
 sh "$SHD/itd_py.sh" "$HY" close --root . --contract "$CONTRACT"
 ```
 
-Exit 0 means the conjunction is true: configured verification commands passed,
+For a deliberate exception, the user must supply a non-empty reason (for
+example `/session-save --close COMPLETION_BYPASS: emergency rollback`). Pass it
+as `--completion-bypass-reason "emergency rollback"`. The runner writes the
+exception to `.itd-memory/events.jsonl`; if that audit write fails, close stays
+red. Never infer a bypass from urgency or from the agent's own narration.
+
+Exit 0 means the conjunction is true: strict/high-risk runtime evidence passed
+(or a reasoned bypass was durably audited), configured verification commands passed,
 the finite startup probe passed, required state and the quality ledger are
 present/fresh, debug markers are absent in the configured scope, manifest-owned
 temporary artifacts were removed idempotently, and `git status` is clean. Any
@@ -346,7 +356,7 @@ Tell the user:
 Example output:
 ```
 Контекст сессии сохранён:
-  Файл: ~/.claude/projects/.../memory/session_2026-04-09.md
+  Файл: <project>/.itd-memory/session_2026-04-09.md
   Резюме: JWT-аутентификация, Redis для сессий, 8 тестов
   Блокеры: нужен SMTP-сервер
   Следующие шаги: login endpoint, email verification
@@ -416,10 +426,11 @@ Before confirming session save, verify:
 ## Troubleshooting
 
 ### Memory directory not found
-If `~/.claude/projects/` doesn't have a matching directory for the current project:
-1. Create the memory directory manually
-2. Or write to a `session_YYYY-MM-DD.md` file in the project root as a fallback
-3. Inform the user about the fallback location
+If `.itd-memory/` is missing:
+1. Resolve the git root and create `<project>/.itd-memory/`.
+2. Write `session_YYYY-MM-DD.md`, `MEMORY.md`, and `.active-session.lock` there.
+3. If the project root cannot be resolved or written, stop and report the real
+   blocker; do not claim continuity from a host-private or project-root fallback.
 
 ### MEMORY.md conflicts
 If MEMORY.md already has an entry for today's date (from a previous save):

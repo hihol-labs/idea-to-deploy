@@ -67,12 +67,15 @@ background agents, transcript search). Standing rule for ALL of them:
   сборка) → L2 runtime (**тесты реально прогнаны и зелёные — иначе не done**;
   «написать тест» ≠ «прогнать тест») → L3 системное подтверждение (e2e/smoke —
   работать ПРАВИЛЬНО, а не просто «работать»).
-- Коммит кода при красном слое → **вето** `completion-gate`; нет сигналов за
-  сессию → деградация в advisory, а не ложное «all green» (best-effort invariant).
-- Осознанный обход: `COMPLETION_BYPASS: <причина>` в description коммит-вызова.
+- Коммит кода при красном слое → **вето** `completion-gate`; в strict/high-risk
+  режиме отсутствие/неоднозначность runtime evidence тоже veto, а calibrated
+  low-risk no-signal деградирует в advisory.
+- Осознанный обход: `COMPLETION_BYPASS: <причина>` в description коммит-вызова;
+  причина обязательна и записывается в `.itd-memory/events.jsonl`.
 - **Явное закрытие сессии:** `/session-save --close` запускает
-  `.itd/itd_hygiene.py close`; session closed только когда verification И clean
-  state зелёные. Красный close сохраняет checkpoint, но оставляет сессию
+  `.itd/itd_hygiene.py close`; session closed только когда strict runtime
+  evidence (если применимо), verification И clean state зелёные. Красный close
+  сохраняет checkpoint, но оставляет сессию
   открытой с WHY+FIX. Обычный Stop остаётся soft — конец хода не равен концу
   сессии.
 

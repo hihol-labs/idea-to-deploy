@@ -17,18 +17,31 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
 
 PATCH_PATH_RE = re.compile(
-    r"^\*\*\* (?:Add|Update|Delete|Move to) File: (.+?)\s*$", re.MULTILINE
+    r"^\*\*\* (?:(?:Add|Update|Delete) File:|Move to:) (.+?)\s*$", re.MULTILINE
 )
+DEFAULT_SHARED_HOOK_TIMEOUT_SECONDS = 3
+# The strict completion gate may synchronously rerun the project's approved
+# verification contract (bounded internally at 720 seconds).  Keep the Codex
+# transport deadline below the 900-second host registration while leaving
+# 120 seconds for bounded root/scope/baseline work and process overhead.
+SCRIPT_TIMEOUT_SECONDS = {
+    "completion-gate.sh": 840,
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--script", required=True)
     return parser.parse_args()
+
+
+def shared_hook_timeout(script_name: str) -> int:
+    return SCRIPT_TIMEOUT_SECONDS.get(script_name, DEFAULT_SHARED_HOOK_TIMEOUT_SECONDS)
 
 
 def configure_utf8_stdio() -> None:
@@ -47,6 +60,54 @@ def configure_utf8_stdio() -> None:
 def plugin_root() -> Path:
     configured = os.environ.get("PLUGIN_ROOT") or os.environ.get("CLAUDE_PLUGIN_ROOT")
     return Path(configured).resolve() if configured else Path(__file__).resolve().parent.parent
+
+
+def hard_gate_policy(root: Path, script_name: str) -> tuple[dict[str, Any] | None, bool]:
+    """Return a canonical hard-gate entry and whether the policy was readable.
+
+    An unreadable policy is not equivalent to a soft/unregistered hook.  The
+    caller must fail closed because it cannot safely downgrade the selected
+    command while the trust registry is unavailable.
+    """
+    policy_paths = [
+        root / "docs" / "HARNESS_TRUST_POLICY.json",
+        Path(__file__).resolve().parent.parent / "docs" / "HARNESS_TRUST_POLICY.json",
+    ]
+    saw_valid = False
+    for policy_path in dict.fromkeys(policy_paths):
+        try:
+            payload = json.loads(policy_path.read_text(encoding="utf-8"))
+            gates = payload["hardGates"]
+            if not isinstance(gates, list):
+                continue
+            saw_valid = True
+            for gate in gates:
+                if isinstance(gate, dict) and gate.get("script") == script_name:
+                    return gate, True
+        except (OSError, KeyError, TypeError, json.JSONDecodeError):
+            continue
+    return None, saw_valid
+
+
+def transport_failure(root: Path, script_name: str, reason: str) -> int:
+    """Preserve graduated trust when the adapter itself cannot run a hook."""
+    gate, policy_ok = hard_gate_policy(root, script_name)
+    if gate is None and policy_ok:
+        return 0
+    event = str((gate or {}).get("event") or "PreToolUse")
+    message = f"ITD high-risk hook transport failed closed: {script_name}: {reason}"
+    if event == "SubagentStop":
+        output = {"decision": "block", "reason": message}
+    else:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "permissionDecision": "deny",
+                "permissionDecisionReason": message,
+            }
+        }
+    print(json.dumps(output, ensure_ascii=False))
+    return 2
 
 
 def affected_paths(command: str) -> list[str]:
@@ -129,17 +190,19 @@ def merge_json(outputs: list[dict[str, Any]], event: str) -> dict[str, Any] | No
 def main() -> int:
     configure_utf8_stdio()
     args = parse_args()
+    root = plugin_root()
     try:
         payload = json.load(sys.stdin) or {}
     except Exception:
-        return 0
+        return transport_failure(root, args.script, "invalid hook payload")
 
-    root = plugin_root()
     script = (root / "hooks" / args.script).resolve()
     hooks_root = (root / "hooks").resolve()
-    if hooks_root not in script.parents or not script.is_file():
+    if hooks_root not in script.parents:
         print(f"Invalid shared hook path: {args.script}", file=sys.stderr)
         return 2
+    if not script.is_file():
+        return transport_failure(root, args.script, "shared hook file is missing")
 
     env = os.environ.copy()
     env["ITD_HOST"] = "codex"
@@ -152,18 +215,27 @@ def main() -> int:
     json_outputs: list[dict[str, Any]] = []
     stderr_parts: list[str] = []
     worst_code = 0
+    deadline = time.monotonic() + shared_hook_timeout(args.script)
     for normalized in normalized_payloads(payload):
-        proc = subprocess.run(
-            command_for(script),
-            input=json.dumps(normalized, ensure_ascii=False),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            capture_output=True,
-            cwd=str(Path(payload.get("cwd") or os.getcwd())),
-            env=env,
-            timeout=30,
-        )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return transport_failure(root, args.script, "shared hook deadline exhausted")
+        try:
+            proc = subprocess.run(
+                command_for(script),
+                input=json.dumps(normalized, ensure_ascii=False),
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                cwd=str(Path(payload.get("cwd") or os.getcwd())),
+                env=env,
+                timeout=remaining,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return transport_failure(root, args.script, type(exc).__name__)
+        if proc.returncode not in (0, 2):
+            return transport_failure(root, args.script, f"shared hook exited {proc.returncode}")
         worst_code = 2 if proc.returncode == 2 else max(worst_code, proc.returncode)
         if proc.stderr.strip():
             stderr_parts.append(proc.stderr.strip())
@@ -189,10 +261,14 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except subprocess.TimeoutExpired:
-        # Shared hooks are fail-open on infrastructure failure.
-        raise SystemExit(0)
     except SystemExit:
         raise
-    except Exception:
-        raise SystemExit(0)
+    except Exception as exc:
+        configure_utf8_stdio()
+        root = plugin_root()
+        script_name = "unknown"
+        try:
+            script_name = parse_args().script
+        except SystemExit:
+            pass
+        raise SystemExit(transport_failure(root, script_name, type(exc).__name__))

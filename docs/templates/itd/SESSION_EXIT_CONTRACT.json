@@ -2,6 +2,7 @@
   "version": 1,
   "mode": "explicit_close",
   "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
+  "completionPolicy": ".itd/COMPLETION_POLICY.json",
   "requireCleanGit": true,
   "requiredStateFiles": [
     ".itd-memory/STATE.json"

@@ -31,6 +31,6 @@ CLAUDE.md
 #   - More than one /discover invocation (pipeline is linear)
 #
 # Checkpoint files (from /session-save between phases) land in the
-# project memory dir (~/.claude/projects/...), not in the project root.
+# canonical project continuity dir (.itd-memory/), not a host-private path.
 # Expect at least one `.session-save` marker timestamp between phases —
 # validated via notes.md manual check, not via expected-snapshot.json.

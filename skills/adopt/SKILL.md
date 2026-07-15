@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.89.0
+  version: 1.90.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -72,7 +72,9 @@ Before writing anything:
    - `CLAUDE.md` in root → present / absent.
    - If present → contains marker `<!-- idea-to-deploy:begin v1.20 -->` → **already adopted**.
    - `.claude/settings.json` → present / absent; if present, parse JSON and check whether our hook scripts already appear by `command` path.
-   - Memory dir for current project (see `hooks/pre-flight-check.sh` lines 89-127 for resolution logic — `~/.claude/projects/-<dashed-cwd>/memory/`).
+   - Canonical continuity dir: `$PROJECT_ROOT/.itd-memory/`. Also detect a
+     legacy `~/.claude/projects/-<dashed-cwd>/memory/` only for the migration
+     report; its presence never replaces or suppresses local initialization.
 
 4. **Detect plugin dir** (where our hooks live). Try in order:
    - `$CLAUDE_PLUGIN_DIR` env var, if set.
@@ -173,12 +175,12 @@ Branch (apply the same logic independently to `hooks` and to `permissions`):
 
 ### Step 3: Bootstrap memory dir
 
-1. Compute memory dir path using the same logic as `hooks/pre-flight-check.sh` lines 89-127:
-   - `expected = "-" + cwd_resolved.lstrip("/").replace("/", "-")`
-   - `candidate = ~/.claude/projects/<expected>/memory/`
-   - Fallback: suffix-matching against existing `~/.claude/projects/*` dirs.
+1. Set the canonical memory dir to `$PROJECT_ROOT/.itd-memory/` on every host.
+   Do not derive the canonical path from Claude or Codex configuration.
 
-2. `mkdir -p` the memory dir if missing. (Claude Code normally creates the outer `projects/<hash>/` dir itself; we only ensure `/memory/` exists inside it.)
+2. `mkdir -p "$PROJECT_ROOT/.itd-memory"` if missing. If a matching
+   `~/.claude/projects/*/memory/` exists, report it as an optional legacy mirror;
+   never overwrite it during adoption and never choose it over local files.
 
 3. **Invoke `/session-save` via the Skill tool** with a synthesized sentinel context. Pass these 9 fields:
 
@@ -202,7 +204,7 @@ If the user accepted:
 
 1. **Resolve templates dir** — try in order: (a) sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`); (b) `~/.claude/templates/itd/` — `sync-to-active.sh` mirrors the templates there since v1.68.0 (Step 4/6), so sync-based installs carry them too; (c) `docs/templates/itd/` in a methodology repo checkout if one is known. If none exists, warn («шаблоны .itd/ не найдены — обнови установку: `bash scripts/sync-to-active.sh` из репо методологии») and skip to Step 4.
 2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
-3. **Copy every contract template plus the `.py` utilities** from the resolved templates directory into `$PROJECT_ROOT/.itd/`; do not maintain a hand-count. Fill only obvious placeholders (project name, detected stack, verify commands). For `SESSION_EXIT_CONTRACT.json`, fill the detected finite startup probe and real source/debug-scan paths; for `QUALITY.json`, seed detected modules as grade `C`/`partial` with existing-path evidence until a real review promotes them. Fill `QUALITY_SCORECARD.json` from executable project evidence: exactly five weighted dimensions per module, real commands as probes, `attempts: 2` only for stability evidence, and conservative minimum scores. A file-existence check is not a substantive quality probe; if no command exists for a dimension, leave the scorecard visibly incomplete instead of inventing an A. Keep `HARNESS_ABLATION.json.candidates` empty until a reversible kill switch and fixed benchmark are known. Do NOT invent invariants, golden flows, or forbidden changes. Notable artifacts: `DECISIONS.md` is append-only; `itd_progress.py` is a derived glance view; `itd_hygiene.py` implements explicit close, idempotent manifest cleanup, weighted objective quality scoring, and periodic ablation.
+3. **Copy every contract template plus the `.py` utilities** from the resolved templates directory into `$PROJECT_ROOT/.itd/`; do not maintain a hand-count. Fill only obvious placeholders (project name, detected stack, verify commands). For `SESSION_EXIT_CONTRACT.json`, fill the detected finite startup probe and real source/debug-scan paths; keep `COMPLETION_POLICY.json` calibrated unless the user explicitly chooses strict-by-default, because active `riskTier: high` units are already strict. For `QUALITY.json`, seed detected modules as grade `C`/`partial` with existing-path evidence until a real review promotes them. Fill `QUALITY_SCORECARD.json` from executable project evidence: exactly five weighted dimensions per module, real commands as probes, `attempts: 2` only for stability evidence, and conservative minimum scores. A file-existence check is not a substantive quality probe; if no command exists for a dimension, leave the scorecard visibly incomplete instead of inventing an A. Keep `HARNESS_ABLATION.json.candidates` empty until a reversible kill switch and fixed benchmark are known. Do NOT invent invariants, golden flows, or forbidden changes. Notable artifacts: `DECISIONS.md` is append-only; `itd_progress.py` is a derived glance view; `itd_hygiene.py` implements explicit close, idempotent manifest cleanup, weighted objective quality scoring, and periodic ablation.
 4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5), an empty `events.jsonl`, and `session-artifacts.json` as `{"version":1,"artifacts":[]}`. The manifest is durable ownership evidence; never populate it with pre-existing or tracked files.
 
 5. **Offer the external scheduler (explicit opt-in).** If the repository is hosted on GitHub, show the bounded write `.github/workflows/itd-hygiene.yml` from `docs/templates/github/itd-hygiene.yml` and ask before copying it. Never enable recurring external CI silently. The workflow has `contents: read`, runs weekly cleanup + objective scoring and monthly reversible ablation, and uploads `.itd-memory/hygiene/*.json` evidence. Before enabling monthly, require at least one real `HARNESS_ABLATION.json` candidate and set the dispatch/scheduled component deliberately; an empty candidate list stays a loud monthly failure, not a fake pass.
@@ -394,7 +396,7 @@ Claude: [/adopt]
     Git repo:            /home/user/work/shop-api
     Existing CLAUDE.md:  not found
     Existing settings:   .claude/settings.json not found
-    Memory dir:          ~/.claude/projects/-home-user-work-shop-api/memory/ (absent)
+    Memory dir:          /home/user/work/shop-api/.itd-memory/ (absent)
     Plugin hooks dir:    ~/.claude/plugins/idea-to-deploy/hooks/
     Detected stack:      Python + FastAPI (pyproject.toml), PostgreSQL (docker-compose.yml)
     Detected product type: api_service → starter `api-fastapi`, golden-path `api-service-booking`

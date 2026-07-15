@@ -15,11 +15,13 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import fnmatch
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -35,6 +37,13 @@ QUALITY_DIMENSIONS = (
     "architectureBoundaries", "codeConventions",
 )
 GRADE_POINTS = {"F": 0, "D": 1, "C": 2, "B": 3, "A": 4}
+SOURCE_PATHSPECS = tuple(
+    item
+    for ext in ("py", "js", "jsx", "ts", "tsx", "go", "rb", "java", "rs",
+                "php", "c", "cc", "cpp", "cs", "kt", "kts", "swift", "scala",
+                "ex", "exs", "vue", "svelte", "sql")
+    for item in (f":(glob)*.{ext}", f":(glob)**/*.{ext}")
+)
 
 
 def load_json(path: Path) -> dict:
@@ -59,6 +68,313 @@ def atomic_json(path: Path, data: dict) -> None:
 
 def problem(path: str, why: str, fix: str) -> str:
     return f"{path}: WHY: {why} | FIX: {fix}"
+
+
+DEFAULT_COMPLETION_POLICY = {
+    "mode": "calibrated",
+    "defaultRiskTier": "medium",
+    "strictRiskTiers": ["high"],
+    "runtimeSignalLedger": ".claude/completion/signals.jsonl",
+    "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
+    "verificationBaseline": "last-source-commit",
+    "bypassAuditLedger": ".itd-memory/events.jsonl",
+    "runtimeLayers": [2, 3],
+    "runtimeKinds": ["test_run", "app_start"],
+    "signalProducer": "itd-completion-signals",
+    "sessionLockMaxAgeSeconds": 600,
+}
+
+
+def validate_completion_policy(policy: dict) -> str:
+    if policy.get("mode") not in {"calibrated", "strict"}:
+        return "mode must be calibrated|strict"
+    allowed_risks = {"low", "medium", "high"}
+    if policy.get("defaultRiskTier") not in allowed_risks:
+        return "defaultRiskTier must be low|medium|high"
+    tiers = policy.get("strictRiskTiers")
+    if not isinstance(tiers, list) or "high" not in tiers \
+            or any(str(x).lower() not in allowed_risks for x in tiers):
+        return "strictRiskTiers must be a list containing high"
+    layers = policy.get("runtimeLayers")
+    if not isinstance(layers, list) or not layers \
+            or any(type(x) is not int or x not in {2, 3} for x in layers):
+        return "runtimeLayers must be a non-empty list of 2/3"
+    kinds = policy.get("runtimeKinds")
+    if not isinstance(kinds, list) or not kinds \
+            or any(not isinstance(x, str) or not x for x in kinds):
+        return "runtimeKinds must be a non-empty string list"
+    if not isinstance(policy.get("signalProducer"), str) \
+            or not policy.get("signalProducer"):
+        return "signalProducer must be non-empty"
+    if policy.get("verificationBaseline") != "last-source-commit":
+        return "verificationBaseline must be last-source-commit"
+    if policy.get("verificationContract") != ".itd/VERIFICATION_CONTRACT.json":
+        return ("verificationContract must be the canonical "
+                ".itd/VERIFICATION_CONTRACT.json")
+    max_lock_age = policy.get("sessionLockMaxAgeSeconds")
+    if type(max_lock_age) is not int or not 1 <= max_lock_age <= 3600:
+        return "sessionLockMaxAgeSeconds must be an integer within 1..3600"
+    for key in ("runtimeSignalLedger", "bypassAuditLedger", "verificationContract"):
+        value = policy.get(key)
+        if not isinstance(value, str) or not value or Path(value).is_absolute() \
+                or ".." in Path(value).parts:
+            return f"{key} must be a safe project-relative path"
+    return ""
+
+
+def completion_policy(root: Path, contract: dict) -> tuple[dict, list[str]]:
+    policy = dict(DEFAULT_COMPLETION_POLICY)
+    relative = str(contract.get("completionPolicy") or "")
+    if not relative:
+        invalid = validate_completion_policy(policy)
+        return policy, ([problem("completionPolicy", invalid,
+                                 "repair completion policy defaults")] if invalid else [])
+    errors: list[str] = []
+    target = resolve_repo_path(root, relative, "completionPolicy", errors)
+    if target is None:
+        return policy, errors
+    try:
+        policy.update(load_json(target))
+    except ValueError as exc:
+        errors.append(problem(relative, str(exc), "repair COMPLETION_POLICY.json"))
+    invalid = validate_completion_policy(policy)
+    if invalid:
+        errors.append(problem(relative, invalid, "repair COMPLETION_POLICY.json"))
+    close_verifier = str(contract.get("verificationContract") or "")
+    policy_verifier = str(policy.get("verificationContract") or "")
+    if close_verifier and close_verifier != policy_verifier:
+        errors.append(problem(
+            "verificationContract",
+            "SESSION_EXIT_CONTRACT verifier does not match the completion policy verifier",
+            "point both contracts to .itd/VERIFICATION_CONTRACT.json"))
+    return policy, errors
+
+
+def active_risk_tier(root: Path, policy: dict) -> str:
+    def read(path: Path) -> dict:
+        if not path.exists():
+            return {}
+        return load_json(path)
+
+    state = read(root / ".itd-memory" / "STATE.json")
+    current = state.get("currentUnit") or {}
+    if not isinstance(current, dict):
+        raise ValueError("STATE.currentUnit must be an object")
+    if current.get("riskTier"):
+        risk = str(current["riskTier"]).lower()
+        if risk not in {"low", "medium", "high"}:
+            raise ValueError("STATE currentUnit.riskTier is invalid")
+        return risk
+    goal = read(root / ".itd-memory" / "GOAL.json")
+    current_id = str(goal.get("currentUnitId") or "")
+    units = goal.get("units") or []
+    if not isinstance(units, list):
+        raise ValueError("GOAL.units must be a list")
+    for unit in units:
+        if isinstance(unit, dict) and unit.get("id") == current_id:
+            if unit.get("riskTier"):
+                risk = str(unit["riskTier"]).lower()
+                if risk not in {"low", "medium", "high"}:
+                    raise ValueError("GOAL unit riskTier is invalid")
+                return risk
+            break
+    return str(policy.get("defaultRiskTier") or "medium").lower()
+
+
+def strict_completion(policy: dict, risk_tier: str) -> bool:
+    if str(policy.get("mode") or "").lower() == "strict":
+        return True
+    tiers = {str(x).lower() for x in (policy.get("strictRiskTiers") or [])}
+    return risk_tier in tiers
+
+
+def completion_session_id(root: Path, policy: dict | None = None) -> str:
+    for name in ("ITD_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_SESSION_ID"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    try:
+        lock = load_json(root / ".itd-memory" / ".active-session.lock")
+        timestamp = float(lock.get("timestamp"))
+        age = time.time() - timestamp
+        max_age = int((policy or DEFAULT_COMPLETION_POLICY).get(
+            "sessionLockMaxAgeSeconds") or 600)
+        if age < -60 or age > max_age:
+            return ""
+        return str(lock.get("session") or "").strip()
+    except (TypeError, ValueError):
+        return ""
+
+
+def audit_completion_bypass(root: Path, policy: dict, reason: str,
+                            boundary: str) -> str | None:
+    errors: list[str] = []
+    relative = str(policy.get("bypassAuditLedger") or ".itd-memory/events.jsonl")
+    target = resolve_repo_path(root, relative, "bypassAuditLedger", errors)
+    if target is None or errors:
+        return errors[0] if errors else "invalid bypass audit path"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        now = dt.datetime.now(dt.timezone.utc)
+        event = {
+            "id": f"evt-completion-bypass-{int(now.timestamp() * 1_000_000)}",
+            "at": now.isoformat(),
+            "actor": "human-bypass",
+            "type": "completion_bypass",
+            "name": boundary,
+            "decision": "allowed",
+            "session": completion_session_id(root, policy) or "unknown",
+            "reason": reason[:500],
+        }
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        return None
+    except Exception as exc:
+        return str(exc)
+
+
+def verification_baseline_error(root: Path, policy: dict) -> str:
+    relative = Path(str(policy.get("verificationContract") or ""))
+    target = (root / relative).resolve(strict=False)
+    try:
+        target.relative_to(root.resolve())
+    except ValueError:
+        return "verification contract escapes the repository"
+    if not target.is_file():
+        return f"verification contract is missing: {relative.as_posix()}"
+    rel = relative.as_posix()
+    try:
+        last_source = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--", *SOURCE_PATHSPECS],
+            cwd=str(root), capture_output=True, text=True, timeout=20)
+        commit = last_source.stdout.strip() if last_source.returncode == 0 else ""
+        if not commit:
+            return "no source-code checkpoint exists for the verification baseline"
+        head_contract = subprocess.run(
+            ["git", "show", f"HEAD:{rel}"], cwd=str(root), capture_output=True,
+            timeout=20)
+        source_contract = subprocess.run(
+            ["git", "show", f"{commit}:{rel}"], cwd=str(root), capture_output=True,
+            timeout=20)
+        if head_contract.returncode != 0 or source_contract.returncode != 0:
+            return "verification contract is not present in the approved source checkpoint"
+        current = target.read_bytes()
+        if current != head_contract.stdout:
+            return "verification contract differs from HEAD (working change)"
+        if head_contract.stdout != source_contract.stdout:
+            return "verification contract changed after the last source-code checkpoint"
+        hashlib.sha256(current).hexdigest()  # force a complete deterministic read
+        return ""
+    except Exception as exc:
+        return f"verification baseline could not be checked: {exc}"
+
+
+def strict_runtime_completion_errors(root: Path, contract: dict,
+                                     bypass_reason: str = "") -> list[str]:
+    policy, errors = completion_policy(root, contract)
+    if errors:
+        return errors
+    try:
+        risk_tier = active_risk_tier(root, policy)
+    except ValueError as exc:
+        return [problem("completion risk state", str(exc),
+                        "repair STATE/GOAL before explicit close")]
+    if not strict_completion(policy, risk_tier):
+        return []
+    if bypass_reason.strip():
+        audit_error = audit_completion_bypass(
+            root, policy, bypass_reason.strip(), "explicit_close")
+        if audit_error:
+            return [problem("completion bypass", f"audit write failed ({audit_error})",
+                            "repair the audit ledger; bypasses must be durable")]
+        return []
+
+    baseline_error = verification_baseline_error(root, policy)
+    if baseline_error:
+        return [problem(str(policy.get("verificationContract") or "verificationContract"),
+                        baseline_error,
+                        "restore the last source-checkpoint contract or use an audited human bypass")]
+
+    session_id = completion_session_id(root, policy)
+    if not session_id:
+        return [problem("runtime completion", "current session id is ambiguous",
+                        "set ITD_SESSION_ID or write .itd-memory/.active-session.lock")]
+    ledger_errors: list[str] = []
+    ledger_rel = str(policy.get("runtimeSignalLedger")
+                     or ".claude/completion/signals.jsonl")
+    ledger = resolve_repo_path(root, ledger_rel, "runtimeSignalLedger", ledger_errors)
+    if ledger is None or ledger_errors:
+        return ledger_errors
+    if not ledger.is_file():
+        return [problem(ledger_rel, "required runtime signal ledger is missing",
+                        "run the required tests/build/smoke in this session")]
+    rows: list[dict] = []
+    try:
+        for lineno, line in enumerate(
+                ledger.read_text(encoding="utf-8", errors="strict").splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except Exception as exc:
+                return [problem(ledger_rel,
+                                f"runtime ledger line {lineno} is malformed ({exc})",
+                                "repair it and rerun verification")]
+            if not isinstance(row, dict):
+                return [problem(ledger_rel,
+                                f"runtime ledger line {lineno} is not an object",
+                                "repair it and rerun verification")]
+            if str(row.get("session") or "") == session_id:
+                rows.append(row)
+    except Exception as exc:
+        return [problem(ledger_rel, f"runtime ledger unreadable ({exc})",
+                        "repair the ledger and rerun verification")]
+    layers = {int(x) for x in (policy.get("runtimeLayers") or [2, 3])}
+    relevant = []
+    for index, row in enumerate(rows, 1):
+        required = ("ts", "kind", "layer", "command", "outcome", "evidence",
+                    "session", "producer")
+        missing = [key for key in required if key not in row]
+        if missing:
+            return [problem(ledger_rel,
+                            "runtime signal is missing fields: " + ", ".join(missing),
+                            "rerun verification through completion-signals")]
+        try:
+            dt.datetime.fromisoformat(str(row["ts"]).replace("Z", "+00:00"))
+        except Exception:
+            return [problem(ledger_rel, "runtime signal timestamp is invalid",
+                            "rerun verification through completion-signals")]
+        if str(row.get("producer")) != str(policy.get("signalProducer")):
+            return [problem(ledger_rel, "runtime signal producer provenance is invalid",
+                            "rerun verification through completion-signals")]
+        layer = row.get("layer")
+        if type(layer) is not int or layer not in {0, 1, 2, 3}:
+            return [problem(ledger_rel, "runtime signal layer is invalid",
+                            "rerun verification through completion-signals")]
+        if layer in layers:
+            if not str(row.get("command") or "").strip() \
+                    or not str(row.get("evidence") or "").strip():
+                return [problem(ledger_rel,
+                                "runtime command/evidence is empty",
+                                "rerun verification through completion-signals")]
+            if str(row.get("kind") or "") not in set(
+                    policy.get("runtimeKinds") or []):
+                return [problem(ledger_rel, "runtime signal kind is not approved",
+                                "run an approved test or startup probe")]
+            relevant.append(row)
+    if not relevant:
+        return [problem(ledger_rel, "required L2/L3 runtime evidence is missing",
+                        "run the required tests/build/smoke in this session")]
+    outcomes = {str(row.get("outcome") or "").lower() for row in relevant}
+    if not outcomes or "" in outcomes or outcomes - {"pass", "fail"}:
+        return [problem(ledger_rel, "runtime evidence outcome is ambiguous",
+                        "rerun verification so every outcome is pass/fail")]
+    if "fail" in outcomes:
+        return [problem(ledger_rel, "runtime evidence contains a failure",
+                        "fix the failure and rerun verification")]
+    return []
 
 
 def inside(root: Path, path: Path) -> bool:
@@ -558,6 +874,9 @@ def close_session(args: argparse.Namespace) -> int:
         print(problem(args.contract, str(exc), "fill SESSION_EXIT_CONTRACT.json"))
         return 1
 
+    errors.extend(strict_runtime_completion_errors(
+        root, contract, str(args.completion_bypass_reason or "")))
+
     manifest = str(contract.get("cleanupManifest") or "")
     cleanup_errors, _ = cleanup_manifest(root, manifest)
     errors.extend(cleanup_errors)
@@ -793,6 +1112,9 @@ def build_parser() -> argparse.ArgumentParser:
     close = sub.add_parser("close", help="verify explicit session-close contract")
     close.add_argument("--root", default=".")
     close.add_argument("--contract", default=".itd/SESSION_EXIT_CONTRACT.json")
+    close.add_argument(
+        "--completion-bypass-reason", default="",
+        help="explicit human reason; strict completion bypass is durably audited")
     close.set_defaults(func=close_session)
 
     cleanup = sub.add_parser("cleanup", help="idempotently remove manifest-owned artifacts")

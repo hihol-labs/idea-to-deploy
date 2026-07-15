@@ -24,4 +24,4 @@ The user has an existing Python project (FastAPI backend + Vue frontend + Postgr
 
 ## Fixture status
 
-`active` — primary artefact (`CLAUDE.md` in output dir) is file-structured and fits verify_snapshot.py. Memory-dir writes land outside the output dir (`~/.claude/projects/...`) and are validated via notes.md manual checklist, not via `expected-snapshot.json`.
+`active` — primary artefact (`CLAUDE.md` in output dir) is file-structured and fits verify_snapshot.py. Continuity writes land in the output dir's `.itd-memory/` and are validated via notes.md manual checklist, not via `expected-snapshot.json`.

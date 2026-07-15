@@ -46,7 +46,7 @@ Proceed? [yes/no]
 - [ ] JSON remains valid (parse with `python3 -c "import json; json.load(open('.claude/settings.json'))"` — no syntax errors from merge)
 
 ### Step 3 — Memory dir bootstrap
-- [ ] Memory dir created at `~/.claude/projects/-<dashed-cwd>/memory/`
+- [ ] Memory dir created at `<project>/.itd-memory/`
 - [ ] `session_YYYY-MM-DD.md` sentinel written with: project root path, detected stack, adoption note, "no blockers (just bootstrapped)"
 - [ ] `MEMORY.md` created (or updated) with a pointer line to the sentinel session
 - [ ] `.active-session.lock` written with fresh timestamp, pid, branch, project path, note
@@ -129,7 +129,7 @@ User runs `/adopt` in a directory that is not a git repository.
 
 Expected: `✅ fixture-17-adopt: PASSED`.
 
-Note: the memory-dir sentinel file (`session_YYYY-MM-DD.md`, `MEMORY.md`, `.active-session.lock`) lives in `~/.claude/projects/-<dashed-output-path>/memory/` and is validated via `ls -la` of that directory, not through expected-snapshot.json.
+Note: the continuity sentinel (`session_YYYY-MM-DD.md`, `MEMORY.md`, `.active-session.lock`) lives in `<output-path>/.itd-memory/` and is validated via `ls -la` of that directory, not through expected-snapshot.json.
 
 ## Failures (fill in if any)
 

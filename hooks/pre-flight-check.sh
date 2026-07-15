@@ -14,10 +14,10 @@ What it does:
   1. `git log --oneline -10` + `git status --short` in $PWD (if it's a
      git repo) → so the model sees recent commits and dirty files on
      entry.
-  2. Looks at the Claude project memory dir for this project
-     (`~/.claude/projects/<hash>/memory/`), reads MEMORY.md index if
-     present, and reads `.active-session.lock` if fresher than 10
-     minutes — warns that a parallel session is (likely) active.
+  2. Looks at the host-neutral project memory dir (`.itd-memory/`), reads
+     MEMORY.md if present, and reads `.active-session.lock` if fresher than
+     10 minutes — warns that a parallel session is (likely) active. The
+     legacy Claude-private path is an optional read fallback only.
   3. Emits everything as `hookSpecificOutput.additionalContext`.
 
 Does NOT block: always exits 0 with permission allow. Timeout-safe:
@@ -95,26 +95,29 @@ def git_context(cwd: Path) -> str:
     return "\n".join(lines)
 
 
-def find_project_memory_dir(cwd: Path) -> Path | None:
-    """Find the Claude project memory dir for the current cwd.
+def find_local_project_memory_dir(cwd: Path) -> Path | None:
+    """Nearest canonical project-local continuity directory."""
+    cwd_resolved = cwd.resolve()
+    current = cwd_resolved
+    while True:
+        local = current / ".itd-memory"
+        if local.is_dir():
+            return local
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
 
-    Claude Code stores per-project memory at:
-      ~/.claude/projects/<munged-cwd>/memory/
-    where <munged-cwd> replaces EVERY non-alphanumeric character of the
-    resolved cwd with `-` (v1.76.1 — verified against a live Windows install:
-    'C:\\Users\\Дмитрий\\AI\\OneOfS_tmp' → 'C--Users---------AI-OneOfS-tmp';
-    underscores and non-ASCII are munged too, and there is NO leading dash on
-    Windows because the drive letter survives). The pre-v1.76.1 candidate
-    (only '/'→'-' + leading dash) silently missed such paths — memory index,
-    parallel-session warning and the state-guard heartbeat/gate were no-ops
-    on them. Kept as a legacy candidate for old layouts.
-    """
+
+def find_legacy_project_memory_dir(cwd: Path) -> Path | None:
+    """Optional Claude-private narrative-memory fallback for old projects."""
+    cwd_resolved = cwd.resolve()
+
     home = Path.home()
     projects_root = home / ".claude" / "projects"
     if not projects_root.is_dir():
         return None
 
-    cwd_resolved = cwd.resolve()
     munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
     legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
     for name in (munged, legacy):
@@ -141,6 +144,12 @@ def find_project_memory_dir(cwd: Path) -> Path | None:
                     if mem.is_dir():
                         return mem
     return None
+
+
+def find_project_memory_dir(cwd: Path) -> Path | None:
+    """Compatibility resolver: canonical local first, then legacy narrative."""
+    return (find_local_project_memory_dir(cwd)
+            or find_legacy_project_memory_dir(cwd))
 
 
 def memory_index_context(mem_dir: Path) -> str:
@@ -275,7 +284,14 @@ def itd_state_context(cwd: Path) -> str:
     a fresh session RESUMES the goal from the first non-verified unit instead of
     re-deriving the plan. Works even when STATE.json is absent.
     """
-    mem_dir = cwd / ".itd-memory"
+    # State is never sourced from a host-private fallback. Find the nearest
+    # repository-local store so prompts submitted from a subdirectory resume
+    # the same WIP=1 ledger.
+    current = cwd.resolve()
+    mem_dir = current / ".itd-memory"
+    while not mem_dir.is_dir() and current.parent != current:
+        current = current.parent
+        mem_dir = current / ".itd-memory"
 
     def _load(p: Path) -> dict:
         if not p.is_file():
@@ -314,6 +330,17 @@ def itd_state_context(cwd: Path) -> str:
         elif current:
             goal_line += f", текущий `{current}`"
         lines.append(goal_line)
+        verified_units = [u for u in units if u.get("status") == "verified"]
+        if verified_units:
+            last_verified = verified_units[-1]
+            evidence = str(last_verified.get("evidence") or "").strip()
+            if evidence:
+                if len(evidence) > 300:
+                    evidence = evidence[:297] + "..."
+                lines.append(
+                    f"- Последнее verified evidence (`{last_verified.get('id') or '?'}`): "
+                    f"{evidence}"
+                )
         if goal_status == "active" and verified < total:
             lines.append(
                 "- Resume: продолжай с первого не-verified юнита через /goal — "
@@ -801,17 +828,25 @@ def main() -> int:
     if perr:
         sections.append(perr)
 
-    mem_dir = find_project_memory_dir(cwd)
-    if mem_dir:
-        lock = session_lock_context(mem_dir)
+    local_mem = find_local_project_memory_dir(cwd)
+    legacy_mem = find_legacy_project_memory_dir(
+        local_mem.parent if local_mem is not None else cwd)
+    if local_mem:
+        # Locks are control state, never inherited from a host-private mirror.
+        lock = session_lock_context(local_mem)
         if lock:
             sections.append(lock)
-        idx = memory_index_context(mem_dir)
+    index_mem = local_mem if local_mem and (local_mem / "MEMORY.md").is_file() \
+        else legacy_mem
+    if index_mem:
+        idx = memory_index_context(index_mem)
         if idx:
+            if legacy_mem is not None and index_mem == legacy_mem:
+                idx = "[legacy host-memory fallback; migrate via /session-save]\n" + idx
             sections.append(idx)
 
     # Memory staleness detection (Gap #7)
-    staleness = memory_staleness_check(cwd, mem_dir)
+    staleness = memory_staleness_check(cwd, index_mem)
     if staleness:
         sections.append(staleness)
 

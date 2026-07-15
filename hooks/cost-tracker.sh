@@ -60,6 +60,7 @@ import re
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 
 # Legacy Windows console (cp1252/cp866) must not crash the hook when emitting
 # Cyrillic/emoji advisories — same bug class fixed in pre-flight-check v1.68.1.
@@ -204,6 +205,19 @@ def read_ledger(path: str) -> dict:
             "warnings_sent": 0,
             "hard_fired_at_tokens": 0,
             "context_hint_fired": False,
+            "token_counters": {
+                "estimated": {
+                    "value": 0,
+                    "measurement": "estimate",
+                    "provenance": "static_tool_call_table",
+                },
+                "observed": {
+                    "value": 0,
+                    "measurement": "host_observed",
+                    "by_source": {},
+                },
+            },
+            "token_observations": [],
         }
 
 
@@ -223,6 +237,42 @@ def emit(context: str) -> None:
         }
     }
     sys.stdout.write(json.dumps(out, ensure_ascii=False))
+
+
+def _usage_total(usage) -> int:
+    if not isinstance(usage, dict):
+        return 0
+    total = usage.get("total_tokens")
+    if type(total) is int and total >= 0:
+        return total
+    values = []
+    for key in ("input_tokens", "output_tokens"):
+        value = usage.get(key)
+        if type(value) is not int or value < 0:
+            return 0
+        values.append(value)
+    return sum(values) if values else 0
+
+
+def observed_token_usage(payload: dict, tool: str) -> tuple[int, str]:
+    """Return only explicit host counters; estimates never enter this path."""
+    candidates = [("host_payload.usage", payload.get("usage"))]
+    response = payload.get("tool_response")
+    if isinstance(response, dict):
+        candidates.append(("host_tool_response.usage", response.get("usage")))
+    result = payload.get("tool_result")
+    if isinstance(result, dict):
+        candidates.append(("host_tool_result.usage", result.get("usage")))
+    for source, usage in candidates:
+        value = _usage_total(usage)
+        if value > 0:
+            return value, source
+    if tool in ("Task", "Agent"):
+        text = response if isinstance(response, str) else json.dumps(response or {})
+        match = re.search(r"subagent_tokens[>\"':\s]+(\d+)", text)
+        if match and int(match.group(1)) > 0:
+            return int(match.group(1)), "host_tool_response.subagent_tokens"
+    return 0, ""
 
 
 def context_usage_hint(payload: dict, ledger: dict) -> str | None:
@@ -291,6 +341,36 @@ def _main() -> int:
     by_tool[tool]["tokens"] += tokens
     ledger["by_tool"] = by_tool
 
+    counters = ledger.get("token_counters")
+    if not isinstance(counters, dict):
+        counters = {}
+    counters["estimated"] = {
+        "value": ledger["total_tokens"],
+        "measurement": "estimate",
+        "provenance": "static_tool_call_table",
+    }
+    observed = counters.get("observed")
+    if not isinstance(observed, dict):
+        observed = {"value": 0, "measurement": "host_observed", "by_source": {}}
+    real, real_source = observed_token_usage(payload, tool)
+    if real > 0:
+        observed["value"] = int(observed.get("value") or 0) + real
+        by_source = observed.get("by_source") or {}
+        by_source[real_source] = int(by_source.get(real_source) or 0) + real
+        observed["by_source"] = by_source
+        rows = ledger.get("token_observations") or []
+        rows.append({
+            "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "tool": tool,
+            "value": real,
+            "measurement": "host_observed",
+            "provenance": real_source,
+        })
+        ledger["token_observations"] = rows[-100:]
+    counters["observed"] = observed
+    ledger["token_counters"] = counters
+    ledger["total_tokens_kind"] = "estimate"
+
     # v1.83.0 (retro 2026-07-11, компонент «Модель»): атрибуция стоимости
     # per-agent РЕАЛЬНЫМИ токенами. Task/Agent-результат несёт usage
     # (`<subagent_tokens>N</subagent_tokens>` или поле subagent_tokens) — это
@@ -308,7 +388,9 @@ def _main() -> int:
             by_agent = ledger.get("by_agent", {})
             key = f"{agent_type}({model})"
             if key not in by_agent:
-                by_agent[key] = {"calls": 0, "tokens": 0}
+                by_agent[key] = {"calls": 0, "tokens": 0,
+                                 "measurement": "host_observed",
+                                 "provenance": "host_tool_response.subagent_tokens"}
             by_agent[key]["calls"] += 1
             by_agent[key]["tokens"] += real
             ledger["by_agent"] = by_agent

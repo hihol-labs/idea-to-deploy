@@ -7,7 +7,7 @@ metadata:
   side_effect: read-only
   explicit_invocation: true
   author: HiH-DimaN
-  version: 1.89.0
+  version: 1.90.0
   category: internal
   tags: [internal, helpers]
 ---

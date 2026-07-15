@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.89.0](https://img.shields.io/badge/Version-1.89.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.90.0](https://img.shields.io/badge/Version-1.90.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 40 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 40 skills + 10 specialized agents that turn Claude Code into a professional developer with an evidence-gated pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -401,7 +401,7 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **10 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **19 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **10 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
 
-### Hook taxonomy — 10 hard gates vs 18 soft (v1.59.0; state-guard hard since v1.76.0)
+### Hook taxonomy — 10 hard gates vs 19 soft (machine-checked)
 
 | # | Hard gate (can block/deny) | Event | What it stops |
 |---|---|---|---|
@@ -418,7 +418,7 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 
 **Soft (19):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 
-**Hard-gate coverage** — the metric that keeps the 10 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 10/18/28 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` (unit G-003) enforces coverage. **Target: 10/10.**
+**Hard-gate coverage** — the metric that keeps the 10 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 10/19/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 10/10.**
 
 **Recommended — one command:**
 
@@ -452,7 +452,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All 28 hooks fire live — no Claude Code restart needed. The v1.40 `handoff-readiness.sh` Stop-hook is on by default (soft, rate-limited) and is disabled per-machine with `ITD_HANDOFF_READINESS=0`. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The three v1.17.0+ safety guardrails (`careful.sh`, `freeze.sh`, `context-budget.sh`) and the v1.21 `execution-trace.sh` observability hook are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All 29 hooks are registered by the canonical adapters — no Claude Code restart is needed after sync. `handoff-readiness.sh` is soft/rate-limited and can be disabled with `ITD_HANDOFF_READINESS=0`; methodology-only enforcement hooks no-op on unrelated projects. `execution-trace.sh` records paired intent/outcome rows, while `cost-tracker.sh` keeps estimated and host-observed token counters explicitly separate.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 

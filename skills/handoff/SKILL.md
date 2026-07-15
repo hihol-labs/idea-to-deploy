@@ -99,7 +99,9 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 
 ### Step 3: Обнови срез состояния
 
-Обнови `STATE.json` в memory-dir проекта (схема-образец:
+Обнови `.itd-memory/STATE.json` в каноническом project-local memory-dir
+(одинаковом для Claude Code и Codex; приватная память хоста не является
+источником состояния; схема-образец:
 `docs/templates/itd-memory/STATE.json`) — текущий узел, статус, ссылка на
 `HANDOFF.md`. Если ведётся долгая цель (`/goal`) — актуализируй статусы юнитов
 в `.itd-memory/GOAL.json` (схема: `docs/templates/itd-memory/goal.schema.json`),

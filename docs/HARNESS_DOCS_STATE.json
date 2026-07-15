@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-07-15",
+  "maxAgeDays": 30,
+  "pluginVersion": "1.90.0",
+  "inventory": {
+    "skills": 40,
+    "subagents": 10,
+    "hooks": 29,
+    "hardGates": 10,
+    "softHooks": 19
+  },
+  "conformanceContractSha256": "8f0f5d3bb7beff0c20b39ce5405a770de20d21e4cbb67162a8115f116366ef3e",
+  "canonicalMap": "docs/HARNESS_ENGINEERING_MAP.md",
+  "conformanceReport": "docs/HARNESS_CONFORMANCE_REPORT.md",
+  "qualityLedger": "docs/QUALITY.json",
+  "taxonomyDocument": "README.md"
+}

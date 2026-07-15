@@ -29,6 +29,7 @@ def main() -> int:
     codex = load_json(ROOT / ".codex-plugin" / "plugin.json")
     registry = load_json(ROOT / "docs" / "host-adapters.json")
     hook_config = load_json(ROOT / "hooks" / "hooks.json")
+    trust_policy = load_json(ROOT / registry["methodologyCore"]["trustPolicy"])
 
     check(claude["name"] == codex["name"] == "idea-to-deploy", "plugin names diverge", errors)
     check(claude["version"] == codex["version"], "plugin versions diverge", errors)
@@ -64,16 +65,22 @@ def main() -> int:
                     referenced_scripts.add(script)
                     check((ROOT / "hooks" / script).is_file(), f"missing shared hook {script}", errors)
 
-    critical = {
-        "check-tool-skill.sh",
-        "completion-gate.sh",
-        "state-guard.sh",
-        "pii-egress-guard.sh",
-        "handoff-readiness.sh",
-        "narration-final.sh",
-        "verdict-contract.sh",
-    }
-    check(critical <= referenced_scripts, f"critical Codex gates missing: {sorted(critical - referenced_scripts)}", errors)
+    hard_gates = {gate["script"] for gate in trust_policy["hardGates"]}
+    check(hard_gates <= referenced_scripts, f"hard Codex gates missing: {sorted(hard_gates - referenced_scripts)}", errors)
+    mutation_hard_gates = {"check-tool-skill.sh", "check-skill-completeness.sh", "state-guard.sh"}
+    apply_patch_scripts: set[str] = set()
+    for group in events.get("PreToolUse", []):
+        if "apply_patch" not in str(group.get("matcher", "")):
+            continue
+        for hook in group.get("hooks", []):
+            command = hook.get("command", "")
+            if "--script " in command:
+                apply_patch_scripts.add(command.split("--script ", 1)[1].split()[0].strip('"'))
+    check(
+        mutation_hard_gates <= apply_patch_scripts,
+        f"Codex apply_patch matcher misses mutation gates: {sorted(mutation_hard_gates - apply_patch_scripts)}",
+        errors,
+    )
 
     agents_text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     check("[CLAUDE.md](CLAUDE.md)" not in agents_text, "AGENTS.md still points to missing CLAUDE.md", errors)
@@ -97,10 +104,18 @@ def main() -> int:
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    patch = "*** Begin Patch\n*** Update File: .itd-memory/STATE.json\n*** Add File: src/new.py\n*** End Patch"
-    check(module.affected_paths(patch) == [".itd-memory/STATE.json", "src/new.py"], "apply_patch path expansion failed", errors)
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: README.md\n"
+        "*** Move to: .itd-memory/STATE.json\n"
+        "*** Add File: src/new.py\n"
+        "*** Delete File: src/old.py\n"
+        "*** End Patch"
+    )
+    expected_paths = ["README.md", ".itd-memory/STATE.json", "src/new.py", "src/old.py"]
+    check(module.affected_paths(patch) == expected_paths, "apply_patch add/update/delete/move path expansion failed", errors)
     normalized = module.normalized_payloads({"tool_name": "apply_patch", "tool_input": {"command": patch}})
-    check([p["tool_input"]["file_path"] for p in normalized] == [".itd-memory/STATE.json", "src/new.py"], "apply_patch payload normalization failed", errors)
+    check([p["tool_input"]["file_path"] for p in normalized] == expected_paths, "apply_patch payload normalization failed", errors)
 
     probe = {
         "session_id": "codex-adapter-test",
@@ -178,7 +193,7 @@ def main() -> int:
         for error in errors:
             print(f"- {error}")
         return 1
-    print(f"PASS host adapters: {len(referenced_scripts)} shared hook registrations, Claude/Codex hard-gate parity preserved")
+    print(f"PASS host adapters: {len(referenced_scripts)} shared hook registrations, all {len(hard_gates)} hard gates registered for Codex")
     return 0
 
 

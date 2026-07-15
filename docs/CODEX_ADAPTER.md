@@ -11,11 +11,25 @@ Codex while keeping the existing Claude Code adapter intact.
 - Hooks use the native Codex lifecycle events and deny protocol.
 - `.itd/` and `.itd-memory/` remain the canonical project contracts and state.
 
+The continuity rule is shared with Claude Code: `.itd-memory/` also owns
+`session_*.md`, `MEMORY.md`, and `.active-session.lock`. Host-private transcript
+or memory directories are optional compatibility mirrors and never override
+project-local state.
+
 Codex sets `PLUGIN_ROOT` and also supplies `CLAUDE_PLUGIN_ROOT` for compatible
 plugin hooks. `hooks/codex-dispatch.py` handles the remaining transport gap:
 Codex reports file mutations as `apply_patch`, while the shared gates expect
 `Write` or `Edit` with a `file_path`. The dispatcher expands one patch into the
 affected paths and preserves the hook's output and exit status.
+
+`docs/HARNESS_TRUST_POLICY.json` is the shared graduated-trust registry. It
+classifies the ten canonical hard gates as high risk and keeps low-risk probes
+allow/advisory. If the Codex dispatcher cannot parse or execute a registered
+high-risk gate, it emits the gate's native `deny`/`block` decision instead of
+silently downgrading the failure; unregistered telemetry hooks remain
+fail-open. Both bundled and repository-local Codex hook configurations include
+`apply_patch` in the mutation matchers, so normalization is reached in real
+tool traffic rather than only in adapter tests.
 
 ## Enable and trust
 
@@ -61,5 +75,10 @@ push, merge, deploy and other external writes remain manual.
 If native continuation is unavailable, reopening the task and invoking
 `/goal` resumes the same ledger. No Codex-specific state is required.
 
-Run `python3 tests/verify_host_adapters.py` to validate packaging, registration,
-normalization, and declared parity.
+Run `python3 tests/verify_host_adapters.py` to validate packaging,
+registration, and normalization. Run
+`python3 tests/verify_all_hard_gate_host_parity.py` for the behavioural 10/10
+Claude-direct versus Codex-dispatch decision proof. Run
+`python3 tests/verify_host_neutral_memory.py` and
+`python3 tests/verify_fresh_session_resume.py` for local-first continuity and
+cold-session reconstruction proof.

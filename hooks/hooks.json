@@ -12,7 +12,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write",
+        "matcher": "Bash|Edit|Write|apply_patch",
         "hooks": [
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-tool-skill.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-tool-skill.sh", "timeout": 5 }
         ]
@@ -32,24 +32,31 @@
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script cross-review-precommit.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script cross-review-precommit.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script context-budget.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script context-budget.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script careful.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script careful.sh", "timeout": 5 },
-          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script completion-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script completion-gate.sh", "timeout": 5 },
+          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script completion-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script completion-gate.sh", "timeout": 900 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script pii-egress-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script pii-egress-guard.sh", "timeout": 5 }
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|apply_patch",
         "hooks": [
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-skill-completeness.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-skill-completeness.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script wip-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script wip-gate.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script freeze.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script freeze.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 }
         ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script completion-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script completion-gate.sh", "timeout": 900 },
+          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|apply_patch",
         "hooks": [
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 }
         ]
@@ -65,7 +72,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script completion-signals.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script completion-signals.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 }

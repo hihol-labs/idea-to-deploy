@@ -40,11 +40,13 @@ MAX_CI_BUDGET=50.00 bash tests/run-all-fixtures.sh
 
 ### 4. GitHub Actions workflow
 
-`.github/workflows/fixture-smoke.yml` уже подготовлен (disabled by default).
-Для активации:
-1. Добавить `ANTHROPIC_API_KEY` в GitHub Secrets
-2. Убрать `if: false` guard
-3. Push в `release/*` ветку
+`.github/workflows/fixture-smoke.yml` активен по weekly schedule, на
+`release/*` и вручную. Без внешнего credential он даёт `UNVERIFIED`/exit 3,
+загружает диагностику и никогда не считается PASS.
+Для scheduled/manual запуска добавить `ANTHROPIC_API_KEY` или
+`CLAUDE_CODE_OAUTH_TOKEN` в GitHub Secrets. Workflow уже активен; специальный
+guard снимать не требуется. На release-ветке benchmark запускается после
+успешного deterministic floor.
 
 ### 5. Cost reporting
 

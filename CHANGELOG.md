@@ -9,10 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Модель-нейтральный Codex adapter и жизненный цикл session hygiene/quality
-(практическая переоценка: 2,8 → 4,8/5; после scheduler/scorecard — 4,9/5)**:
+## [1.90.0] - 2026-07-15
+
+**Модель-нейтральный Harness Engineering 5/5: Codex adapter, доказуемые
+completion boundaries, host-neutral continuity и live-model verification**:
 
 ### Added
+- **Замороженная H1–H5 рубрика и доказанный итог 5/5** — sealed
+  `HARNESS_CONFORMANCE_CONTRACT.json`, fail-closed evaluator, русскоязычный
+  аналитический отчёт и freshness state не позволяют narrative-документам
+  выставлять себе балл или принимать missing/stale/self-referential evidence.
+- **Настоящий ITD live-model benchmark** — изолированный adopted-проект
+  вызывает repository-local `$idea-to-deploy:blueprint --full`, сохраняет
+  bounded transcript/artifact hashes и принимает PASS только после независимого
+  replayable snapshot oracle; свежий pinned run: `20260715T152007Z-c5ab0157`.
+- **Host-neutral continuity и полный hard-gate parity** — project-local
+  `.itd-memory` восстанавливает unit/evidence/blockers/next action между Claude
+  Code и Codex, а все 10 computational hard gates проверяются на обоих host
+  adapters реальными allow/deny сценариями.
 - **Evidence-efficient `/goal` 5/5 path** — adaptive checker routing is sealed
   per unit (`low/medium/high` → machine-only/targeted/full), compact handoff
   checkpoints are capped at 4 KiB, and `itd_goal_score.py` awards five binary
@@ -61,6 +75,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `verify_host_adapters.py` фиксирует parity Claude Code/Codex.
 
 ### Changed
+- **Strict completion теперь авторизуется исполняемым baseline-verifier** —
+  workspace-writable signal ledger остаётся telemetry, а source commit и
+  explicit close повторно исполняют канонический
+  `.itd/VERIFICATION_CONTRACT.json`, неизменный с последнего source checkpoint.
+  Закрыты staged/committed oracle weakening, split policy/close verifier,
+  `env`/`command`/`sudo` wrappers, source→non-source rename и timeout nesting
+  720/840/900; human bypass остаётся явным и аудитируемым.
+- **Live evidence pinning исключает только собственные generated artifacts** —
+  exact path filtering сохраняет mixed rename и похожие вложенные source paths,
+  поэтому benchmark не инвалидирует себя и не скрывает изменение методологии.
 - Bounded token stops now require a numeric host observation meeting the sealed
   limit; `enforceObservedTokens` can require the meter on every verification.
   Weekly hygiene timeout is 30 minutes, covering its 24-minute worst-case probe

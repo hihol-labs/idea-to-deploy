@@ -98,6 +98,15 @@ jobs:
       - name: Run cost-tracker ledger isolation + context sensor gate (v1.71.0, retro 2026-07-09)
         run: python3 tests/verify_cost_tracker.py
 
+      - name: Verify observed token provenance and estimate separation
+        run: python3 tests/verify_observed_token_telemetry.py
+
+      - name: Measure control coverage and false classifications
+        run: python3 tests/verify_control_quality.py
+
+      - name: Fail closed on Harness documentation/version drift
+        run: python3 tests/verify_harness_docs_freshness.py
+
       - name: Run review report-file + finish-line interruption doc-contract (v1.72.0)
         run: python3 tests/verify_review_report_file.py
 
@@ -112,6 +121,9 @@ jobs:
 
       - name: Run G-003 fixture-proof grid (hard-gate coverage 10/10) (v1.79.1)
         run: python3 tests/verify_harness_map_fixtures.py
+
+      - name: Replay fresh live-model evidence against the independent oracle
+        run: python3 tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30
 
       - name: Run completion-gate behavioural proof (v1.79.1)
         run: python3 tests/verify_completion_gate.py

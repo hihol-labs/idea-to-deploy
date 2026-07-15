@@ -5,7 +5,9 @@
     "contracts": "docs/templates/itd/",
     "state": "docs/templates/itd-memory/",
     "hooks": "hooks/",
-    "tests": "tests/"
+    "tests": "tests/",
+    "trustPolicy": "docs/HARNESS_TRUST_POLICY.json",
+    "canonicalContinuity": ".itd-memory/"
   },
   "hosts": {
     "claude": {

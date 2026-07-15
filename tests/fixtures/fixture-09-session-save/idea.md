@@ -18,7 +18,7 @@
 
 1. Собрать контекст из git log, git branch, git diff --stat, git status
 2. Сформировать файл памяти сессии со всеми 9 обязательными полями (см. references/session-save-checklist.md)
-3. Записать файл в `~/.claude/projects/<project-hash>/memory/session_YYYY-MM-DD.md`
+3. Записать файл в `<project>/.itd-memory/session_YYYY-MM-DD.md`
 4. Обновить (или создать) `MEMORY.md` индекс
 5. Подтвердить пользователю, что контекст сохранён
 

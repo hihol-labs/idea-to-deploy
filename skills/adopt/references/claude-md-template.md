@@ -26,9 +26,9 @@ Before the first action, check repo state and context so you do not duplicate
 work done in parallel Claude sessions:
 
 1. `git log --oneline -10` + `git status --short` — recent commits? uncommitted WIP?
-2. `MEMORY.md` in the project memory dir (usually auto-loaded by `pre-flight-check.sh`;
+2. `.itd-memory/MEMORY.md` (usually auto-loaded by `pre-flight-check.sh`;
    if not, read it explicitly).
-3. `.active-session.lock` in memory dir — a fresh lockfile means a parallel
+3. `.itd-memory/.active-session.lock` — a fresh lockfile means a parallel
    Claude session is running: stop and read `session_*.md` before acting.
 
 **If a recent commit already contains keywords from your task → the task is
@@ -138,4 +138,3 @@ Trigger → skill (apply as a rule, not a hint):
 When several fit, pick the most specific; when none fit, say so in the decision line.
 Pure mechanics (file generation, browser ops) and tight back-and-forth wording
 iterations are legitimate `Скилл: не нужен` cases — name the reason, don't pretend.
-

@@ -265,16 +265,16 @@ These hooks are the answer. After installation, the same prompt — "у меня
 ## Completion Gate (v1.51.0)
 
 Anti-premature-completion subsystem. Judges task completion from an objective
-runtime-signal ledger, not agent confidence. Vendor-neutral contract (JSON in
-`.claude/completion/` + the "Определение завершения" section in the global
-CLAUDE.md); the hooks only transport it and degrade to advisory when no ledger
-exists (best-effort invariant).
+runtime-signal ledger, not agent confidence. The host-neutral policy lives in
+`.itd/COMPLETION_POLICY.json`; hook transport currently records the runtime
+ledger under `.claude/completion/`. Missing transport fails closed only for
+strict/high-risk boundaries and degrades to advisory for calibrated low risk.
 
 | File | Event | Role |
 |---|---|---|
 | `completion_lib.py` | — (library) | signal classification into layers L1 static / L2 tests / L3 e2e, three-layer verdict with blocked-transition, `red_mark`+`FIX_HINTS` |
 | `completion-signals.sh` | PostToolUse · Bash | appends each Bash call to `.claude/completion/signals.jsonl`; returns a WHY+FIX teacher mark on a failed test/build. Soft. |
-| `completion-gate.sh` | PreToolUse · Bash | on a `git commit` touching source: **deny** when a completion layer is FAIL or tests exist-but-unrun; degrade to advisory when no signals; pass when green. **Hard gate.** |
+| `completion-gate.sh` | PreToolUse · Bash/PowerShell | on a `git commit` touching source (including absolute git paths and global options such as `-C`/`--git-dir`): **deny** when a layer fails; in strict/high-risk mode also deny missing/ambiguous runtime evidence or transport failure; calibrated low-risk no-signal stays advisory. **Hard gate.** |
 | `completion-stop.sh` | Stop | reminder when the turn ends with a dirty code tree and a non-green verdict; never blocks. Soft. |
 
 **Ladder (cheap→expensive, blocked transition):** L1 syntax/static → L2 runtime
@@ -285,9 +285,11 @@ green.
 `.claude/completion/config.json` (`l2_evidence_patterns`) — a behaviour-proving
 command (e.g. a register-diff / repost script) counts as `test_run`.
 
-**Toggles:** `ITD_COMPLETION_GATE=0` (veto), `ITD_COMPLETION_STOP=0` (Stop),
+**Toggles:** `ITD_COMPLETION_GATE=0` plus a non-empty
+`ITD_COMPLETION_BYPASS_REASON` (audited veto bypass), `ITD_COMPLETION_STOP=0` (Stop),
 `ITD_COMPLETION_SIGNALS=0` (collection). Conscious bypass of one commit:
-`COMPLETION_BYPASS: <reason>` in the Bash `description` field.
+`COMPLETION_BYPASS: <reason>` in the Bash `description` field; the non-empty
+reason is durably audited in `.itd-memory/events.jsonl`.
 
 Behavioural proof: `tests/verify_completion_gate.py` drives the gate to `deny`.
 

@@ -353,9 +353,7 @@ def main() -> int:
     gate_proj = tmp / "gate"
     (gate_proj / ".itd-memory").mkdir(parents=True)
     fakehome = tmp / "gatehome"
-    parts = gate_proj.resolve().parts
-    memdir2 = fakehome / ".claude" / "projects" / ("-" + "-".join(parts[1:])) / "memory"
-    memdir2.mkdir(parents=True)
+    memdir2 = gate_proj / ".itd-memory"
     genv = dict(os.environ)
     genv["HOME"] = str(fakehome)
     genv["USERPROFILE"] = str(fakehome)
@@ -394,14 +392,9 @@ def main() -> int:
     res = run_gate(gpayload)
     check("gate ignores non-ledger writes", res.returncode == 0)
 
-    # v1.76.1: locator resolves the REAL Claude Code munging (every non-alnum
-    # char of the resolved cwd -> '-'; underscores/non-ASCII included). The
-    # pre-v1.76.1 candidate missed such layouts and the gate was a silent
-    # no-op — caught by the live smoke on a real Windows install.
+    # Host-neutral locator handles underscore/non-ASCII project paths locally.
     uproj = tmp / "und_proj"
-    (uproj / ".itd-memory").mkdir(parents=True)
-    munged_name = re.sub(r"[^A-Za-z0-9]", "-", str(uproj.resolve()))
-    memdir3 = fakehome / ".claude" / "projects" / munged_name / "memory"
+    memdir3 = uproj / ".itd-memory"
     memdir3.mkdir(parents=True)
     (memdir3 / ".active-session.lock").write_text(json.dumps(
         {"timestamp": time.time(), "session": "other-owner", "pid": 1,
@@ -410,7 +403,7 @@ def main() -> int:
                 "cwd": str(uproj), "tool_name": "Write",
                 "tool_input": {"file_path": str(uproj / ".itd-memory" / "STATE.json")}}
     res = run_gate(upayload)
-    check("locator resolves real munged layout (underscore path) -> gate denies",
+    check("local locator handles underscore path -> gate denies",
           res.returncode == 2 and "deny" in (res.stdout or ""))
 
     # v1.78.0: Bash pre-write gate — ledger as WRITE TARGET is denied,
@@ -576,15 +569,14 @@ def main() -> int:
 
     # v1.81.0 (б): shell channel heartbeats the lock too
     hb_home = tmp / "hbhome"
-    # deep=False у shell-heartbeat сканирует только ПРЯМЫЕ кандидаты —
-    # раскладка строится настоящим munging'ом (каждый не-alnum -> '-')
-    hbmem = hb_home / ".claude" / "projects" / re.sub(
-        r"[^A-Za-z0-9]", "-", str((tmp / "rmproj").resolve())) / "memory"
+    # deep=False всё равно обязан найти дешёвый канонический local-first путь.
+    hbproj = tmp / "heartbeat-project"
+    hbmem = hbproj / ".itd-memory"
     hbmem.mkdir(parents=True)
     hb_env = dict(os.environ)
     hb_env["HOME"] = str(hb_home); hb_env["USERPROFILE"] = str(hb_home)
     hbpay = {"hook_event_name": "PostToolUse", "session_id": "hb-shell",
-             "cwd": str(tmp / "rmproj"), "tool_name": "Bash",
+             "cwd": str(hbproj), "tool_name": "Bash",
              "tool_input": {"command": "echo hi"}}
     subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
                    input=json.dumps(hbpay), capture_output=True,
@@ -621,11 +613,17 @@ def main() -> int:
     check("stale foreign owned lock is not gated", res.returncode == 0)
 
     # no memory dir at all -> allow
+    no_mem_proj = tmp / "gate-no-memory"
+    no_mem_proj.mkdir()
+    no_mem_payload = dict(gpayload)
+    no_mem_payload["cwd"] = str(no_mem_proj)
+    no_mem_payload["tool_input"] = {
+        "file_path": str(no_mem_proj / ".itd-memory" / "STATE.json")}
     genv_nomem = dict(genv)
     genv_nomem["HOME"] = str(tmp / "gatehome-empty")
     genv_nomem["USERPROFILE"] = str(tmp / "gatehome-empty")
     res = subprocess.run([sys.executable, str(HOOKS / "state-guard.sh")],
-                         input=json.dumps(gpayload), capture_output=True,
+                         input=json.dumps(no_mem_payload), capture_output=True,
                          text=True, timeout=30, env=genv_nomem)
     check("missing memory dir is not gated", res.returncode == 0)
 
@@ -646,6 +644,32 @@ def main() -> int:
     check("non-mutating Bash near the ledger stays silent",
           res.returncode == 0 and "FAILED" not in (res.stdout or ""))
 
+    # H2: post-shell validation resolves the root ledger from a nested cwd.
+    nested_proj = tmp / "nested-guard"
+    nested_mem = nested_proj / ".itd-memory"
+    nested_cwd = nested_proj / "src" / "deep"
+    nested_mem.mkdir(parents=True)
+    nested_cwd.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=nested_proj, check=True,
+                   capture_output=True, text=True)
+    nested_state = make_valid_state(nested_mem)
+    nested_bad = json.loads(nested_state.read_text(encoding="utf-8"))
+    nested_bad["nextAction"] = ""
+    nested_state.write_text(json.dumps(nested_bad), encoding="utf-8")
+    nested_ctx = sg.bash_ledger_context(
+        nested_cwd, 'printf "{}" > ../../.itd-memory/STATE.json')
+    check("nested cwd validates corrupt root ledger",
+          bool(nested_ctx) and "FAILED" in nested_ctx)
+    nested_state.unlink()
+    nested_ctx = sg.bash_ledger_context(
+        nested_cwd, "rm ../../.itd-memory/STATE.json")
+    check("nested cwd detects deleted root ledger",
+          bool(nested_ctx) and "отсутствует" in nested_ctx)
+    make_valid_state(nested_mem)
+    nested_ctx = sg.bash_ledger_context(
+        nested_cwd, 'printf "{}" > ../../.itd-memory/STATE.json')
+    check("nested cwd stays silent for valid root ledger", nested_ctx is None)
+
     # ---- fix D2: pre-flight consumes persist-error logs -------------------
     pf = load_hook_module("pre-flight-check.sh", "pre_flight_ht")
     perr_proj = tmp / "perr"
@@ -660,7 +684,7 @@ def main() -> int:
     check("persist-error surfacing is rate-limited", ctx2 == "")
 
     # ---- v1.84.0 P8: memory-collision guard (session_*.md) -----------------
-    memp = tmp / "memcol" / "memory"
+    memp = tmp / "memcol" / ".itd-memory"
     memp.mkdir(parents=True)
     mf = memp / "session_2026-07-11_5.md"
     mf.write_text("x", encoding="utf-8")
@@ -672,6 +696,12 @@ def main() -> int:
           sg.memory_collision_context(sidp8, str(mf)) is None)
     check("P8: bash mv over fresh memo -> warning",
           bool(sg.bash_memory_collision_context(sidp8 + "b", f"mv /tmp/x {mf}")))
+    legacy_memp = tmp / "legacy-memcol" / "memory"
+    legacy_memp.mkdir(parents=True)
+    legacy_mf = legacy_memp / "session_2026-07-11.md"
+    legacy_mf.write_text("legacy", encoding="utf-8")
+    check("P8: legacy private memory path remains collision-protected",
+          bool(sg.memory_collision_context(sidp8 + "legacy", str(legacy_mf))))
     old_ts = time.time() - 8 * 3600
     os.utime(mf, (old_ts, old_ts))
     check("P8: old memo -> silent",

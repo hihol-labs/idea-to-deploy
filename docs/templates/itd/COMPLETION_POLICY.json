@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "mode": "calibrated",
+  "defaultRiskTier": "medium",
+  "strictRiskTiers": ["high"],
+  "runtimeSignalLedger": ".claude/completion/signals.jsonl",
+  "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
+  "verificationBaseline": "last-source-commit",
+  "bypassAuditLedger": ".itd-memory/events.jsonl",
+  "runtimeLayers": [2, 3],
+  "runtimeKinds": ["test_run", "app_start"],
+  "signalProducer": "itd-completion-signals",
+  "sessionLockMaxAgeSeconds": 600,
+  "passOutcomes": ["pass"],
+  "failOutcomes": ["fail"],
+  "notes": [
+    "mode=strict makes every source commit and explicit close require runtime evidence.",
+    "mode=calibrated applies the hard rule to active units whose riskTier is listed in strictRiskTiers.",
+    "Host-private hook transport may collect signals, but policy and bypass audit state remain project-local.",
+    "In strict mode the workspace-writable signal ledger is diagnostic only: the completion boundary reruns every executable command from verificationContract before allowing a source commit.",
+    "verificationContract is pinned to the canonical .itd/VERIFICATION_CONTRACT.json path and must match HEAD plus the last source-code checkpoint; changing the oracle after code work requires an explicit audited human bypass.",
+    "SESSION_EXIT_CONTRACT.json must point to the same canonical verifier so strict policy, baseline validation, and explicit close execute one oracle."
+  ]
+}

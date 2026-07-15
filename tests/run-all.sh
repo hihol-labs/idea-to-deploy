@@ -14,8 +14,9 @@
 # (meta-review.yml + windows-verify.yml, их общую python-часть) и держится
 # в синхроне с ними; при добавлении verify-теста в workflow — добавь его и
 # сюда (drift ловится глазами ревью; авто-дрифт-гард — кандидат в backlog).
-# Не покрыто локально: поведенческий fixture-smoke на живой модели (в CI
-# отключён по стоимости, см. .github/workflows/fixture-smoke.yml).
+# Live-модель не вызывается локальным suite повторно: свежий сохранённый прогон
+# replay-проверяет verify_live_model_benchmark; регулярный внешний запуск живёт
+# в .github/workflows/fixture-smoke.yml и не имеет permanent-disable guard.
 # =============================================================================
 set -u
 cd "$(dirname "$0")/.." || exit 1
@@ -29,7 +30,7 @@ QUICK=0
 fails=""
 run_py() {
   local t="$1"
-  [ -f "tests/$t.py" ] || { echo "SKIP $t (no file)"; return 0; }
+  [ -f "tests/$t.py" ] || { echo "FAIL $t (required test file missing)"; fails="$fails $t"; return 0; }
   out=$("$PY" "tests/$t.py" 2>&1); rc=$?
   if [ $rc -ne 0 ]; then
     fails="$fails $t"
@@ -39,7 +40,7 @@ run_py() {
 }
 
 # --- быстрый статический костяк (--quick) -----------------------------------
-CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_session_hygiene_quality"
+CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_session_hygiene_quality verify_live_model_benchmark verify_harness_conformance verify_graduated_trust verify_all_hard_gate_host_parity verify_host_neutral_memory verify_fresh_session_resume verify_strict_completion_policy verify_completion_policy_calibration verify_observed_token_telemetry verify_control_quality verify_harness_docs_freshness"
 # --- полный python-набор обоих workflow --------------------------------------
 FULL="verify_dod_gate verify_skill_enforcement verify_agent_review_sentinel \
 verify_review_autoping verify_refute_fleet verify_model_risk_monotonic \

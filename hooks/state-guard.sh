@@ -159,46 +159,29 @@ def deny(reason: str) -> int:
     return 2
 
 
-def find_project_memory_dir(cwd: Path, deep: bool = True) -> Path | None:
-    """Локатор memory-dir проекта. Копия pre-flight-check.sh
-    find_project_memory_dir (та же логика) — хуки самодостаточны by design;
-    при изменении раскладки ~/.claude/projects править ОБА места.
+def _canonical_local_memory_dir(cwd: Path, allow_missing: bool = False) -> Path | None:
+    """Nearest local store, or the nearest git-root target after deletion."""
+    start = cwd.resolve()
+    current = start
+    git_root: Path | None = None
+    while True:
+        local = current / ".itd-memory"
+        if local.is_dir():
+            return local
+        if git_root is None and (current / ".git").exists():
+            git_root = current
+        if current.parent == current:
+            break
+        current = current.parent
+    if not allow_missing:
+        return None
+    return (git_root or start) / ".itd-memory"
 
-    v1.76.1: реальный munging Claude Code — КАЖДЫЙ не-alnum символ пути → '-'
-    (Windows 'C:\\Users\\Дмитрий\\AI\\OneOfS_tmp' → 'C--Users---------AI-OneOfS-tmp';
-    подчёркивания и не-ASCII тоже заменяются). Прежний кандидат (только '/'→'-')
-    промахивался на таких путях, и heartbeat/гейт молча превращались в no-op —
-    live-смоук v1.76.0 это и поймал.
-    """
-    home = Path.home()
-    projects_root = home / ".claude" / "projects"
-    if not projects_root.is_dir():
-        return None
-    cwd_resolved = cwd.resolve()
-    munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
-    legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
-    for name in (munged, legacy):
-        candidate = projects_root / name / "memory"
-        if candidate.is_dir():
-            return candidate
-    if not deep:
-        # v1.81.0 (important ревью): heartbeat на shell-канале зовётся на
-        # КАЖДЫЙ Bash/PowerShell — suffix-скан ~/.claude/projects там слишком
-        # дорог и best-effort не нужен (прямые кандидаты покрывают onboarded)
-        return None
-    parts = cwd_resolved.parts
-    for i in range(1, len(parts)):
-        raw = "-".join(parts[i:])
-        suffixes = {raw, re.sub(r"[^A-Za-z0-9]", "-", raw)}
-        for entry in projects_root.iterdir():
-            if not entry.is_dir():
-                continue
-            for suffix in suffixes:
-                if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
-                    mem = entry / "memory"
-                    if mem.is_dir():
-                        return mem
-    return None
+
+def find_project_memory_dir(cwd: Path, deep: bool = True) -> Path | None:
+    """Canonical control-state locator; host-private locks are never authoritative."""
+    del deep  # retained for hook-call compatibility
+    return _canonical_local_memory_dir(cwd)
 
 
 def _read_lock(mem_dir: Path) -> dict:
@@ -268,9 +251,10 @@ def heartbeat_lock(cwd: Path, sid: str, deep: bool = True) -> None:
 # ownership файла памяти неатрибутируем): перезапись СУЩЕСТВУЮЩЕГО и СВЕЖЕГО
 # session-файла подсвечивается один раз per (session, file).
 SESSION_MEM_FILE_RE = re.compile(
-    r"[\\/]memory[\\/]session_\d{4}-\d{2}-\d{2}[^\\/]*\.md$", re.I)
+    r"(?:^|[\\/])(?:\.itd-memory|memory)[\\/]"
+    r"session_\d{4}-\d{2}-\d{2}[^\\/]*\.md$", re.I)
 SESSION_MEM_TOKEN_RE = re.compile(
-    r"((?:[A-Za-z]:)?[^\s'\"|;&<>]*[\\/]memory[\\/]"
+    r"((?:[A-Za-z]:)?[^\s'\"|;&<>]*(?:\.itd-memory|memory)[\\/]"
     r"session_\d{4}-\d{2}-\d{2}[^\s'\"|;&<>]*\.md)", re.I)
 BASH_MEM_WRITE_VERB_RE = re.compile(
     r"\b(mv|cp|tee|dd)\b|>{1,2}|Set-Content|Copy-Item|Move-Item", re.I)
@@ -431,7 +415,8 @@ def bash_ledger_context(cwd: Path, command: str) -> str | None:
     if not co_occurrence and not deletionish \
             and not GIT_REWRITE_RE.search(command):
         return None
-    mem = cwd / ".itd-memory"
+    mem = _canonical_local_memory_dir(cwd, allow_missing=True)
+    assert mem is not None
     contexts = []
     try:
         candidates = [mem / "STATE.json"] + sorted(mem.glob("GOAL*.json"))
@@ -453,17 +438,15 @@ def bash_ledger_context(cwd: Path, command: str) -> str | None:
                 "FAILED: state-леджер отсутствует после мутационной команды "
                 "| WHY: .itd-memory/ существует, а STATE.json в нём нет — "
                 "команда могла удалить/переместить леджер | FIX: восстанови "
-                "из git (git checkout -- .itd-memory/STATE.json) или из "
-                "события session-save, resume следующей сессии сломан.")
+                "из git или из session-save; resume следующей сессии сломан.")
     if not contexts and deletionish and not mem.is_dir():
         # v1.81.0: снесён САМ каталог .itd-memory (rm -rf .itd-memory) —
         # ветка выше требует mem.is_dir() и здесь молчала бы
         contexts.append(
             "FAILED: каталог .itd-memory исчез после команды удаления "
             "| WHY: команда явно удаляла .itd-memory, каталога больше нет — "
-            "потеряны STATE/GOAL/events | FIX: восстанови из git или из "
-            "памяти сессии (~/.claude/projects/<проект>/memory), resume "
-            "следующей сессии сломан.")
+            "потеряны STATE/GOAL/events | FIX: восстанови `.itd-memory/` из "
+            "последнего checkpoint/backup; resume следующей сессии сломан.")
     if not contexts:
         return None
     return ("Bash-мутация state-леджера детектирована — перевалидация:\n"
@@ -522,7 +505,8 @@ def main() -> int:
         # Bash/PowerShell-сессия раньше протухала свой лок за 10 мин, и
         # вторая сессия легитимно забирала single-writer посреди работы.
         # Внутренний rate-limit (HEARTBEAT_MIN_INTERVAL) держит IO ~нулевым;
-        # deep=False — без suffix-скана ~/.claude/projects (цена на каждый Bash).
+        # deep=False — без legacy suffix-скана (цена на каждый Bash); локальная
+        # `.itd-memory/` всё равно находится дешёвым проходом по предкам.
         heartbeat_lock(cwd, sid, deep=False)
         command = str(tool_input.get("command") or "")
         return emit("PostToolUse", bash_ledger_context(cwd, command))

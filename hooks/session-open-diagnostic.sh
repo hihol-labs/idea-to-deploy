@@ -14,7 +14,9 @@ first message without consulting prior context.
 After firing once, writes a sentinel file so subsequent prompts in the same
 session skip this hook silently.
 
-Session id: CLAUDE_SESSION_ID → parent pid → "default".
+Session id: CLAUDE_SESSION_ID → parent pid → "default". Continuity is read
+from the repository-local `.itd-memory/`; Claude-private memory is a legacy
+fallback only.
 
 Reads JSON on stdin: {"prompt": "..."}
 """
@@ -61,31 +63,56 @@ def mark_fired() -> None:
         pass
 
 
-def find_project_memory_dir(cwd: Path) -> Path | None:
-    """Find the Claude project memory dir for cwd (same logic as pre-flight-check)."""
+def find_local_project_memory_dir(cwd: Path) -> Path | None:
+    """Nearest canonical project-local continuity directory."""
+    cwd_resolved = cwd.resolve()
+    current = cwd_resolved
+    while True:
+        local = current / ".itd-memory"
+        if local.is_dir():
+            return local
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
+
+
+def find_legacy_project_memory_dir(cwd: Path) -> Path | None:
+    """Optional Claude-private narrative-memory fallback for old projects."""
+    cwd_resolved = cwd.resolve()
+
     home = Path.home()
     projects_root = home / ".claude" / "projects"
     if not projects_root.is_dir():
         return None
 
-    cwd_resolved = cwd.resolve()
-    expected = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
-    candidate = projects_root / expected / "memory"
-    if candidate.is_dir():
-        return candidate
+    munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
+    legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
+    for name in (munged, legacy):
+        candidate = projects_root / name / "memory"
+        if candidate.is_dir():
+            return candidate
 
     # Fallback: suffix match
     parts = cwd_resolved.parts
     for i in range(1, len(parts)):
-        suffix = "-".join(parts[i:])
+        raw = "-".join(parts[i:])
+        suffixes = {raw, re.sub(r"[^A-Za-z0-9]", "-", raw)}
         for entry in projects_root.iterdir():
-            if not entry.is_dir() or not entry.name.startswith("-"):
+            if not entry.is_dir():
                 continue
-            if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
-                mem = entry / "memory"
-                if mem.is_dir():
-                    return mem
+            for suffix in suffixes:
+                if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
+                    mem = entry / "memory"
+                    if mem.is_dir():
+                        return mem
     return None
+
+
+def find_project_memory_dir(cwd: Path) -> Path | None:
+    """Compatibility resolver: canonical local first, then legacy narrative."""
+    return (find_local_project_memory_dir(cwd)
+            or find_legacy_project_memory_dir(cwd))
 
 
 def find_latest_session_file(mem_dir: Path) -> Path | None:
@@ -122,20 +149,32 @@ def build_diagnostic(cwd: Path) -> str | None:
     """Build the diagnostic context string. Returns None if nothing useful found."""
     sections: list[str] = []
 
-    mem_dir = find_project_memory_dir(cwd)
+    local_mem = find_local_project_memory_dir(cwd)
+    legacy_mem = find_legacy_project_memory_dir(
+        local_mem.parent if local_mem is not None else cwd)
+    mem_dir = local_mem or legacy_mem
 
     # --- 1. Last session summary ---
     if mem_dir:
         latest = find_latest_session_file(mem_dir)
+        used_legacy_session = legacy_mem is not None and mem_dir == legacy_mem
+        if latest is None and local_mem is not None and legacy_mem is not None:
+            latest = find_latest_session_file(legacy_mem)
+            used_legacy_session = latest is not None
         if latest:
             content = read_truncated(latest, MAX_SESSION_LINES)
             if content:
                 sections.append(
-                    f"**Последняя сессия** (`{latest.name}`):\n\n{content}"
+                    f"**Последняя сессия{' (legacy host-memory fallback)' if used_legacy_session else ''}** "
+                    f"(`{latest.name}`):\n\n{content}"
                 )
 
         # --- Check NEXT SESSION PLAN in MEMORY.md ---
-        memory_index = mem_dir / "MEMORY.md"
+        index_dir = mem_dir
+        if (not (index_dir / "MEMORY.md").is_file()
+                and local_mem is not None and legacy_mem is not None):
+            index_dir = legacy_mem
+        memory_index = index_dir / "MEMORY.md"
         if memory_index.is_file():
             try:
                 idx_text = memory_index.read_text(encoding="utf-8", errors="replace")
@@ -145,7 +184,7 @@ def build_diagnostic(cwd: Path) -> str | None:
                         # Try to read the referenced file
                         match = re.search(r"\(([^)]+\.md)\)", line)
                         if match:
-                            ref_file = mem_dir / match.group(1)
+                            ref_file = index_dir / match.group(1)
                             if ref_file.is_file():
                                 plan_content = read_truncated(ref_file, MAX_PLAN_LINES)
                                 if plan_content:

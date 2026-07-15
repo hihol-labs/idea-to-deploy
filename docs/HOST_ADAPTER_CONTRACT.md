@@ -14,6 +14,12 @@ criteria, risk policy, skill semantics, or persistent project state.
 
 The machine-readable registry is `docs/host-adapters.json`.
 
+`.itd-memory/` at the project root is the only canonical continuity location:
+STATE, GOAL, events, progress, session checkpoints, MEMORY index, and the
+active-session lock all converge there. A host may maintain a private mirror
+for compatibility, but the mirror cannot be required, cannot override a local
+file, and cannot make missing local state look healthy.
+
 ## Adapter responsibilities
 
 An adapter owns only:
@@ -21,7 +27,7 @@ An adapter owns only:
 - plugin packaging and discovery;
 - the project guidance entry file;
 - hook registration, event and tool-name normalization;
-- host-specific installation, trust, and writable-data locations;
+- host-specific installation, trust, and optional writable-data mirrors;
 - translation from a host's subagent mechanism to the roles in `agents/`.
 
 An adapter must preserve hook exit status and deny decisions. When a host cannot

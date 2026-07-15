@@ -58,10 +58,10 @@ Never modify `~/.codex/hooks.json` or `~/.codex/config.toml` during adoption.
 
 ## State and memory
 
-The project-local `.itd-memory/` directory is canonical on Codex. Initialize it
-through shared Step 3.5. Do not depend on transcript files or a private
-`~/.codex` memory path: those are host implementation details, not methodology
-state.
+The project-local `.itd-memory/` directory is canonical on Codex and Claude
+Code. Initialize it through shared Step 3.5. Do not depend on transcript files
+or a private host memory path: those are host implementation details, not
+methodology state.
 
 ## Final report and self-validation
 
