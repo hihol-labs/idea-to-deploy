@@ -62,7 +62,8 @@
     {
       "script": "pii-egress-guard.sh",
       "event": "PreToolUse",
-      "matcher": "Bash|WebFetch",
+      "nativeApprovalDecision": "ask",
+      "matcher": "*",
       "riskTier": "high",
       "decision": "deny",
       "behavioralTest": "tests/verify_pii_egress.py"

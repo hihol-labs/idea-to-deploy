@@ -95,6 +95,13 @@ signal; final cumulative regression follows the micro-path rule below. Unknown
 risk fails closed to `high`; an unknown signal is surfaced and does not invent
 an unreviewed contour.
 
+The executable daily/release selector is
+`skills/_shared/itd_verification_profiles.py`. Feed it one bounded JSON manifest
+with `--input`: it computes transitive impact closure, selects `targeted` or
+`strict.release`, binds release evidence to the exact candidate SHA-256, and
+validates diagnostic/backlog boundaries. With no input it is a quiet no-op;
+never replace its fail-closed result with a prose guess.
+
 **Cost-awareness (v1.31.0 — New-SDLC port):** for a **high-risk** tier or a heavy
 target (`/kickstart`, `/autopilot`, long `/perf`/`/bugfix` sweeps) note that
 `hooks/cost-tracker.sh` keeps a per-session token/USD ledger and will ASK at the

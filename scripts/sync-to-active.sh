@@ -22,9 +22,9 @@
 #   1. skills/*              → ~/.claude/skills/
 #   2. hooks/*.sh            → ~/.claude/hooks/
 #   3. settings.json hooks   → registers the enforcement/guardrail hooks with
-#      correct matchers: 3 × UserPromptSubmit; PreToolUse (check-tool-skill,
+#      correct matchers: UserPromptSubmit context hooks; PreToolUse (check-tool-skill,
 #      commit/review/dod gates, context-budget, check-skill-completeness,
-#      pii-egress-guard on Bash|WebFetch); PostToolUse (record-agent-skill on
+#      pii-egress-guard on all tools); PostToolUse (record-agent-skill on
 #      Task|Agent, cost-tracker + risk-score on *)
 #
 # What it does NOT touch:
@@ -320,7 +320,7 @@ fi
 
 # Build the desired hooks block as a JSON string
 # Matchers:
-#   UserPromptSubmit → pre-flight-check.sh, check-skills.sh  (order matters:
+#   UserPromptSubmit → pre-flight-check.sh, check-skills.sh (order matters:
 #     pre-flight first so skill-check sees its output)
 #   PreToolUse matcher=Bash|Edit|Write|NotebookEdit|Skill → check-tool-skill.sh
 #     (Skill in matcher = v1.24.0 forward-compat; harmless no-op until the
@@ -418,7 +418,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
       ]
     },
     {
-      "matcher": "Bash|WebFetch",
+      "matcher": "*",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/pii-egress-guard.sh", "timeout": 5 }
       ]

@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 GOAL_DEFAULT = Path(".itd-memory") / "GOAL.json"
-OPEN_STATUSES = ("pending", "in_progress", "blocked")
+OPEN_STATUSES = ("pending", "in_progress", "recovery_required", "blocked")
 CRIT_MAX = 70
 EVID_MAX = 60
 POLICY_KEYS = (
@@ -137,7 +137,8 @@ def build(goal: dict, events: list[dict]) -> dict:
     current = next((u for u in units
                     if u.get("id") == (goal.get("currentUnitId") or "")), None)
     if current is None:
-        current = next((u for u in units if u.get("status") == "in_progress"), None)
+        current = next((u for u in units
+                        if u.get("status") in ("in_progress", "recovery_required")), None)
     next_pending = next((u for u in units if u.get("status") == "pending"), None)
     return {
         "goal": goal.get("goal") or "",
@@ -152,6 +153,8 @@ def build(goal: dict, events: list[dict]) -> dict:
         "events": events,
         "updatedAt": goal.get("updatedAt") or "",
         "runPolicy": policy,
+        "handoffState": (goal.get("handoffState")
+                         if isinstance(goal.get("handoffState"), dict) else None),
         "oracleSealed": oracle_is_sealed(policy, units),
         "attemptsUsed": sum(len(u.get("attempts") or []) for u in units
                             if isinstance(u.get("attempts") or [], list)),
@@ -177,11 +180,16 @@ def render_markdown(r: dict) -> str:
             f"tokens={policy.get('maxTokensPerSession')}/host-session; "
             f"token-meter={'required' if policy.get('enforceObservedTokens') else 'host-stop'}; "
             f"oracle={'sealed' if r['oracleSealed'] else 'UNSEALED'}")
+    handoff = r.get("handoffState") or {}
+    if handoff.get("required") is True:
+        out.append(f"**Verified-unit handoff:** REQUIRED for `{handoff.get('unitId')}`; "
+                   "the next activation is locked until explicit acknowledgement.")
     out.append("")
     out.append("| Юнит | Статус | Критерий | Evidence |")
     out.append("|---|---|---|---|")
     for u in r["units"]:
-        evid = u.get("evidence") or u.get("blockedReason") or u.get("skippedReason") or "—"
+        evid = (u.get("evidence") or u.get("recoveryReason")
+                or u.get("blockedReason") or u.get("skippedReason") or "—")
         out.append(f"| {u.get('id')} | {u.get('status')} "
                    f"| {clip(u.get('criterion'), CRIT_MAX)} | {clip(evid, EVID_MAX)} |")
     out.append("")
@@ -189,8 +197,27 @@ def render_markdown(r: dict) -> str:
     blocked = [u for u in r["units"] if u.get("status") == "blocked"]
     if cur is not None:
         out.append(f"**Текущий юнит:** `{cur.get('id')}` — {clip(cur.get('criterion'), CRIT_MAX)}")
-        out.append(f"**Первое действие принимающей сессии:** прогнать "
-                   f"`{cur.get('verificationCommand')}` (должен быть red), затем чинить до green.")
+        if cur.get("status") == "recovery_required":
+            out.append("**Первое действие принимающей сессии:** показать checkpoint и "
+                       f"возобновить только явно: `itd_goal_verify.py --activate "
+                       f"{cur.get('id')} --reason \"…\"`.")
+        else:
+            out.append(f"**Первое действие принимающей сессии:** прогнать "
+                       f"`{cur.get('verificationCommand')}` (должен быть red), затем чинить до green.")
+        deadline = cur.get("deadlineState") or {}
+        if deadline.get("profile") == "working_deadline":
+            out.append("**Working deadline:** "
+                       f"cycle={deadline.get('cycle')}, "
+                       f"hostElapsed={deadline.get('hostObservedElapsedSeconds')}s, "
+                       f"checkpoint={'yes' if deadline.get('softCheckpointAt') else 'no'}, "
+                       f"stopReason=`{deadline.get('stopReason') or '—'}`")
+            checkpoint = deadline.get("checkpoint") or {}
+            if checkpoint:
+                out.append("**Checkpoint:** "
+                           f"ready={checkpoint.get('ready')}; "
+                           f"blocker={checkpoint.get('blocker')}; "
+                           f"remainder={checkpoint.get('remainder')}; "
+                           f"estimate={checkpoint.get('estimate')}")
         if policy:
             out.append(f"**Попытки текущего юнита:** {len(cur.get('attempts') or [])}; "
                        f"stopReason: `{(cur.get('runState') or {}).get('stopReason') or '—'}`")
@@ -198,8 +225,17 @@ def render_markdown(r: dict) -> str:
                        f"checker=`{checker_mode(policy, cur)}`")
     elif r["nextPending"] is not None:
         np = r["nextPending"]
-        out.append(f"**Следующий юнит:** `{np.get('id')}` — {clip(np.get('criterion'), CRIT_MAX)}"
-                   f" (активировать: `itd_goal_verify.py --activate {np.get('id')}`)")
+        if handoff.get("required") is True:
+            out.append(f"**Следующий юнит заблокирован handoff:** сначала "
+                       f"`itd_goal_verify.py --ack-handoff {handoff.get('unitId')} "
+                       f"--reason \"host/user-turn provenance\"`.")
+        else:
+            out.append(f"**Следующий юнит:** `{np.get('id')}` — {clip(np.get('criterion'), CRIT_MAX)}"
+                       f" (активировать: `itd_goal_verify.py --activate {np.get('id')}`)")
+    elif handoff.get("required") is True:
+        out.append(f"**Goal close заблокирован handoff:** сначала "
+                   f"`itd_goal_verify.py --ack-handoff {handoff.get('unitId')} "
+                   f"--reason \"host/user-turn provenance\"`.")
     elif blocked:
         # blocked units ARE open — the goal is NOT closeable, do not suggest it.
         reasons = "; ".join(f"`{u.get('id')}` — {clip(u.get('blockedReason'), EVID_MAX)}"
@@ -235,18 +271,35 @@ def render_compact(r: dict) -> str:
     limit = int(policy.get("maxCheckpointBytes") or 4096)
     limit = min(4096, max(1024, limit))
     verified = [u for u in r["units"] if u.get("status") == "verified"][-2:]
-    blocked = [u for u in r["units"] if u.get("status") == "blocked"][:2]
+    blocked = [u for u in r["units"]
+               if u.get("status") in ("blocked", "recovery_required")][:2]
     current = r.get("currentUnit") or r.get("nextPending")
     evidence = [f"- {clip_bytes(u.get('id'), 48)}: "
                 f"{clip_bytes(u.get('evidence') or 'verified', 140)}"
                 for u in verified] or ["- none yet"]
-    risks = [f"- {clip_bytes(u.get('id'), 48)}: "
-             f"{clip_bytes(u.get('blockedReason') or 'blocked', 140)}"
-             for u in blocked] or ["- none"]
-    if current:
-        nxt = (f"- {clip_bytes(current.get('id'), 48)} "
-               f"[{checker_mode(policy, current)}]: "
-               f"{clip_bytes(current.get('verificationCommand'), 320)}")
+    def compact_risk(unit: dict) -> str:
+        detail = str(unit.get("recoveryReason") or unit.get("blockedReason") or "blocked")
+        checkpoint = (unit.get("deadlineState") or {}).get("checkpoint") or {}
+        if checkpoint:
+            detail += (f"; ready={checkpoint.get('ready')}; "
+                       f"blocker={checkpoint.get('blocker')}; "
+                       f"remainder={checkpoint.get('remainder')}; "
+                       f"estimate={checkpoint.get('estimate')}")
+        return f"- {clip_bytes(unit.get('id'), 48)}: {clip_bytes(detail, 320)}"
+
+    risks = [compact_risk(u) for u in blocked] or ["- none"]
+    handoff = r.get("handoffState") or {}
+    if handoff.get("required") is True:
+        nxt = (f"- acknowledge handoff for {clip_bytes(handoff.get('unitId'), 48)} "
+               "before activating another unit or closing the goal")
+    elif current:
+        if current.get("status") == "recovery_required":
+            nxt = (f"- resume {clip_bytes(current.get('id'), 48)} only with "
+                   "--activate --reason after checkpoint handoff")
+        else:
+            nxt = (f"- {clip_bytes(current.get('id'), 48)} "
+                   f"[{checker_mode(policy, current)}]: "
+                   f"{clip_bytes(current.get('verificationCommand'), 320)}")
     else:
         nxt = "- close goal; no open unit"
     out = [
@@ -260,7 +313,8 @@ def render_compact(r: dict) -> str:
         "",
         "Status",
         f"- goal={clip_bytes(r['status'], 40)}; backpressure={r['backpressure']}; "
-        f"current={clip_bytes((r.get('currentUnit') or {}).get('id') or 'none', 48)}",
+        f"current={clip_bytes((r.get('currentUnit') or {}).get('id') or 'none', 48)}; "
+        f"handoff={'required' if (r.get('handoffState') or {}).get('required') else 'clear'}",
         "",
         "Open risks",
         *risks,
@@ -320,7 +374,13 @@ def main() -> int:
                           "riskTier": u.get("riskTier") or "legacy",
                           "checkerMode": checker_mode(report.get("runPolicy"), u),
                           "attempts": len(u.get("attempts") or []),
-                          "stopReason": (u.get("runState") or {}).get("stopReason") or ""}
+                          "stopReason": (u.get("runState") or {}).get("stopReason") or "",
+                          "deadlineStopReason": (u.get("deadlineState") or {}).get("stopReason") or "",
+                          "deadlineElapsedSeconds": (u.get("deadlineState") or {}).get(
+                              "hostObservedElapsedSeconds"),
+                          "deadlineCycle": (u.get("deadlineState") or {}).get("cycle"),
+                          "deadlineCheckpoint": (u.get("deadlineState") or {}).get(
+                              "checkpoint") or {}}
                          for u in report["units"]]
         print(json.dumps(slim, ensure_ascii=False, indent=2))
     elif args.compact:

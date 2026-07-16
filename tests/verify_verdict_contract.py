@@ -128,6 +128,41 @@ def blocked(proc: subprocess.CompletedProcess) -> bool:
     return out.get("decision") == "block" and bool(out.get("reason"))
 
 
+def make_review_repo() -> Path:
+    """Git fixture with the exact-context producers required by the cache."""
+    repo = Path(tempfile.mkdtemp(prefix="vc-review-cache-"))
+    TMPDIRS.append(repo)
+
+    def git(*args: str) -> None:
+        proc = subprocess.run(["git", *args], cwd=str(repo), capture_output=True,
+                              text=True, timeout=20)
+        if proc.returncode:
+            raise RuntimeError(proc.stderr)
+
+    git("init", "-q")
+    git("config", "user.email", "verdict@example.test")
+    git("config", "user.name", "Verdict Test")
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    git("add", "base.txt")
+    git("commit", "-qm", "base")
+    for index in range(3):
+        (repo / f"change-{index}.txt").write_text("change\n", encoding="utf-8")
+        git("add", f"change-{index}.txt")
+    (repo / ".itd").mkdir()
+    (repo / ".itd" / "SCOPE_LOCK.md").write_text("# scope\n", encoding="utf-8")
+    (repo / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
+        "{}\n", encoding="utf-8")
+    (repo / ".itd-memory").mkdir()
+    (repo / ".itd-memory" / "GOAL.json").write_text(json.dumps({
+        "version": 1, "goal": "fixture", "status": "active",
+        "currentUnitId": "V-1", "units": [{
+            "id": "V-1", "status": "in_progress", "riskTier": "medium",
+            "criterion": "verdict", "verificationCommand": "true",
+        }],
+    }), encoding="utf-8")
+    return repo
+
+
 # --- fixtures ---------------------------------------------------------------
 JSON_OK = ('```json\n{"verdict": "PASSED_WITH_WARNINGS", "findings": '
            '[{"severity": "important", "confidence": "high", '
@@ -267,6 +302,27 @@ def main() -> int:
     run_hook(payload)
     check("blocked (no valid JSON) writes nothing to the ledger",
           not (proj2 / ".itd-memory" / "review-findings.jsonl").exists())
+
+    # --- PE5-013: untrusted SubagentStop cannot mint exact cache evidence ---
+    review_repo = make_review_repo()
+    passed_text = ('FINAL STATUS: PASSED\n\n```json\n'
+                   '{"verdict":"PASSED","findings":[],"unverified":[]}\n```')
+    payload = make_layout(passed_text, "agent-direct")
+    payload["cwd"] = str(review_repo)
+    passed_proc = run_hook(payload)
+    cache_path = review_repo / ".itd-memory" / "review-cache.json"
+    check("valid arbitrary SubagentStop cannot mint general review cache",
+          not blocked(passed_proc) and not cache_path.exists(),
+          (passed_proc.stdout or "") + (passed_proc.stderr or ""))
+
+    blocked_text = ('FINAL STATUS: BLOCKED\n\n```json\n'
+                    '{"verdict":"BLOCKED","findings":[],"unverified":[]}\n```')
+    payload = make_layout(blocked_text, "agent-direct")
+    payload["cwd"] = str(review_repo)
+    blocked_proc = run_hook(payload)
+    check("review-shaped BLOCKED SubagentStop also cannot mint cache",
+          not blocked(blocked_proc) and not cache_path.exists(),
+          (blocked_proc.stdout or "") + (blocked_proc.stderr or ""))
 
     # --- cleanup ------------------------------------------------------------
     for d in TMPDIRS:

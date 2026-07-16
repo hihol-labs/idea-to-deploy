@@ -35,6 +35,29 @@ represent a capability, the adapter must declare the degradation and provide a
 fallback based on shared contracts or structured output. Silent false parity is
 not allowed.
 
+External-write approval is computed by the shared
+`skills/_shared/itd_external_write_gate.py`, not by host prompts. Every adapter
+must route all PreToolUse traffic through `pii-egress-guard.sh`, preserve its
+native `ask`/`deny` decision, and supply `session_id`, exact tool name, and
+complete structured input. The host's approval UI is the only trusted grant:
+the methodology stores no local approval ledger, and a caller-controlled tool
+flag or file can never mint approval.
+The shared hash binds canonical tool name + exact targets + full payload;
+attachments remain inside that payload. Read-only actions are silent, while a
+missing session/target or changed action fails closed.
+`exactAlreadyAuthorizedActionRequiresRepeatApproval: false` means the host
+executes the same pending invocation after the user accepts its native prompt;
+the adapter must not re-enter the hook and ask twice for that invocation. A
+later duplicate tool call is a new external action, not reusable approval.
+
+Model/effort routing crosses the same PreToolUse adapter boundary through
+`model-policy.sh` for `Task|Agent`. Adapters must preserve both its
+`additionalContext` model hint and its native `ask` decision for an unsafe
+explicit low-effort override. The automatic low route requires an active
+low/medium-risk `working_deadline` unit and a description prefixed
+`[itd:mechanical]`; protected roles and unknown/high risk are never silent.
+Model/effort routing cannot remove any verification contour.
+
 ## Native continuation for bounded goals
 
 The shared contract for autonomous delivery is the optional

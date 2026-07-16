@@ -1,6 +1,6 @@
 # LAUNCH PLAN — idea-to-deploy: New-SDLC / Vibe-Coding enrichment
 
-**Last reviewed:** 2026-06-28
+**Last reviewed:** 2026-07-16
 **Source:** Google whitepaper *The New SDLC With Vibe Coding* (Day 1; Osmani, Saboo,
 Kartakis; 2026). Decision record: [ADR-001](docs/adr/ADR-001-no-own-runtime.md).
 
@@ -96,6 +96,33 @@ semantic gating advisory-only — user-confirmed.
 - **Icebox (ADR-001):** `agents-cli` owned runtime rejected; semantic gating = ASK,
   never a hard inferential gate (retired score-gate lesson).
 - Counts unchanged (38/19); no new skill, no new hook file. ADR-001 Day-5 note.
+
+## Block G — `working_deadline` throughput profile — P0 — 🚧 ACTIVE (PE5-010…PE5-016)
+
+Implement the approved opt-in working-deadline mode without weakening the
+frozen Practical Effectiveness or Harness Conformance oracles:
+
+- **PE5-010 — contract first:** freeze the 30/45-minute boundaries, one-unit
+  handoff, risk-preserving targeted/release semantics, exact review/external
+  action bindings and rollback triggers before runtime changes.
+- **PE5-011 — runtime:** host-observed checkpoint/hard-pause enforcement and
+  typed recovery state; partial work never becomes verified.
+- **PE5-012 — verification cadence:** impact-closed targeted checks for daily
+  work and exact-candidate release evidence; diagnostic failure collection and
+  backlog boundaries.
+- **PE5-013 — review/risk:** successful context-bound cache only; separate
+  general and security risk-budget paydown.
+- **PE5-014 — external writes:** preview and approval bound to exact targets and
+  canonical payload hash.
+- **PE5-015 — model routing:** low effort only for bounded mechanical work;
+  review/security/root-cause/architecture retain their quality floor.
+- **PE5-016 — no-regression:** frozen A/B plus current HE/PE, host-adapter,
+  meta-review, quick and full local evidence.
+
+The profile remains default-off through the contract/runtime rollout. It may
+become a default only after the sealed canary/comparable-unit thresholds pass;
+external adoption evidence remains independent and is never synthesized from
+this internal benchmark.
 
 ## Backlog / next
 

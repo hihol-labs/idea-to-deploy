@@ -167,6 +167,13 @@ or `full` contour cost without a matching signal; unknown risk fails closed to
 high. The frozen paired A/B oracle is
 `tests/verify_proportionality_benchmark.py`.
 
+The host-neutral executable consumer is
+`skills/_shared/itd_verification_profiles.py`. It accepts one explicit JSON
+manifest via `--input` and derives the transitive targeted contour set, exact
+release-candidate evidence binding, diagnostic-cluster completion, or backlog
+eligibility decision. No input is a quiet no-op. A nonzero decision is a real
+gate failure with `why` + `fix`, not permission to fall back to narration.
+
 **Micro-path regression cadence (v1.66.0, retro-2026-07-08 P4).** Within the
 **standard** tier, a task of ≤1–2 units with a small diff scales the *cadence*,
 not the gate: per-unit verification stays mandatory (the unit's own verification

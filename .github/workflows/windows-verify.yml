@@ -32,6 +32,8 @@ jobs:
         run: python tests/verify_platform_tmp_and_new_hooks.py
       - name: Goal harness tools (verifier + reporter) functional tests
         run: python tests/verify_goal_tools.py
+      - name: Frozen working-deadline A/B and no-regression benchmark (PE5-016)
+        run: python tests/verify_work_deadline_benchmark.py
       - name: Bounded goal autonomy contract (sealed oracle, budgets, attempts)
         run: python tests/verify_goal_bounded_autonomy.py
       - name: Bounded goal deterministic five-star evaluator

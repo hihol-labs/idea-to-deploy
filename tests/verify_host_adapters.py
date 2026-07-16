@@ -81,6 +81,45 @@ def main() -> int:
         f"Codex apply_patch matcher misses mutation gates: {sorted(mutation_hard_gates - apply_patch_scripts)}",
         errors,
     )
+    external_engine = ROOT / "skills" / "_shared" / "itd_external_write_gate.py"
+    check(external_engine.is_file(), "host-neutral external-write engine is missing", errors)
+    external_rows = []
+    for group in events.get("PreToolUse", []):
+        commands = " ".join(str(item.get("command") or "")
+                            for item in group.get("hooks", []))
+        if "pii-egress-guard.sh" in commands:
+            external_rows.append(str(group.get("matcher") or "*"))
+    check(any(matcher in {"*", ".*"} for matcher in external_rows),
+          f"Codex external-write gate is not registered for every tool: {external_rows}",
+          errors)
+    model_rows = []
+    for group in events.get("PreToolUse", []):
+        commands = " ".join(str(item.get("command") or "")
+                            for item in group.get("hooks", []))
+        if "model-policy.sh" in commands:
+            model_rows.append(str(group.get("matcher") or ""))
+    check(any("Task" in matcher and "Agent" in matcher for matcher in model_rows),
+          f"Codex model/effort policy is not registered for Task|Agent: {model_rows}",
+          errors)
+
+    for template_path in (
+        ROOT / "skills" / "adopt" / "references" / "project-settings-template.json",
+        ROOT / "skills" / "adopt" / "references" / "codex-project-hooks.json",
+    ):
+        template = load_json(template_path)
+        pre = template.get("hooks", {}).get("PreToolUse", [])
+        registered = any(
+            "Task" in str(group.get("matcher") or "")
+            and "Agent" in str(group.get("matcher") or "")
+            and any("model-policy.sh" in str(hook.get("command") or "")
+                    for hook in group.get("hooks", []))
+            for group in pre
+        )
+        check(registered, f"{template_path.name} misses Task|Agent model-policy", errors)
+    sync_text = (ROOT / "scripts" / "sync-to-active.sh").read_text(encoding="utf-8")
+    check('"matcher": "Task|Agent"' in sync_text
+          and "~/.claude/hooks/model-policy.sh" in sync_text,
+          "sync-to-active.sh misses Task|Agent model-policy", errors)
 
     agents_text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     check("[CLAUDE.md](CLAUDE.md)" not in agents_text, "AGENTS.md still points to missing CLAUDE.md", errors)
@@ -163,6 +202,50 @@ def main() -> int:
         check(direct_decision == codex_decision, "Claude/Codex hard-gate decision payload diverges", errors)
     except (json.JSONDecodeError, KeyError):
         errors.append("Claude/Codex parity probe returned an invalid decision payload")
+
+    with tempfile.TemporaryDirectory(prefix="itd-model-parity-") as model_cwd:
+        memory = Path(model_cwd) / ".itd-memory"
+        memory.mkdir()
+        (memory / "GOAL.json").write_text(json.dumps({
+            "currentUnitId": "T-001",
+            "units": [{
+                "id": "T-001",
+                "status": "in_progress",
+                "riskTier": "medium",
+                "deadlineState": {"profile": "working_deadline"},
+            }],
+        }), encoding="utf-8")
+        model_probe = {
+            "session_id": "codex-model-policy-test",
+            "cwd": model_cwd,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "code-reviewer",
+                "effort": "low",
+                "description": "[itd:mechanical] review tiny diff",
+            },
+        }
+        model_direct = subprocess.run(
+            [sys.executable, str(ROOT / "hooks" / "model-policy.sh")],
+            input=json.dumps(model_probe), text=True, capture_output=True,
+            cwd=model_cwd, env=env, timeout=15,
+        )
+        model_codex = subprocess.run(
+            [sys.executable, str(dispatcher_path), "--script", "model-policy.sh"],
+            input=json.dumps(model_probe), text=True, capture_output=True,
+            cwd=ROOT, env=env, timeout=15,
+        )
+        try:
+            direct_specific = json.loads(model_direct.stdout)["hookSpecificOutput"]
+            codex_specific = json.loads(model_codex.stdout)["hookSpecificOutput"]
+            check(model_direct.returncode == model_codex.returncode == 0,
+                  "Claude/Codex model-policy exit status diverges", errors)
+            check(direct_specific == codex_specific
+                  and direct_specific.get("permissionDecision") == "ask",
+                  "Claude/Codex model-policy ASK payload diverges", errors)
+        except (json.JSONDecodeError, KeyError):
+            errors.append("Claude/Codex model-policy parity returned invalid JSON")
 
     unicode_env = env.copy()
     unicode_env.pop("PYTHONUTF8", None)

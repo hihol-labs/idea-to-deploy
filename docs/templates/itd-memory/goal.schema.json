@@ -16,10 +16,26 @@
     "verificationCommand",
     "status"
   ],
-  "unitOptionalFields": ["riskTier"],
+  "unitOptionalFields": ["riskTier", "deadlineState", "recoveryReason"],
   "riskTiers": ["low", "medium", "high"],
   "goalStatuses": ["active", "done", "abandoned"],
-  "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
+  "unitStatuses": ["pending", "in_progress", "recovery_required", "verified", "skipped", "blocked"],
+  "workProfiles": ["working_deadline"],
+  "deadlineStateRequiredFields": [
+    "profile",
+    "policyId",
+    "policySha256",
+    "cycle",
+    "startedAt",
+    "hostObservedElapsedSeconds",
+    "softCheckpointAt",
+    "checkpoint",
+    "hardPausedAt",
+    "stopReason",
+    "pauses"
+  ],
+  "deadlineCheckpointFields": ["ready", "blocker", "remainder", "estimate"],
+  "deadlineStopReasons": ["", "verified", "blocked", "budget_exhausted"],
   "runPolicyModes": ["bounded_autonomous"],
   "runPolicyRequiredFields": [
     "mode",
@@ -79,5 +95,28 @@
       "verificationFingerprint": "",
       "stopReason": ""
     }
+  },
+  "workingDeadlineUnitRuntimeTemplate": {
+    "recoveryReason": "",
+    "deadlineState": {
+      "profile": "working_deadline",
+      "policyId": "working-deadline-v1",
+      "policySha256": "",
+      "cycle": 1,
+      "startedAt": "",
+      "hostObservedElapsedSeconds": 0,
+      "softCheckpointAt": "",
+      "checkpoint": {},
+      "hardPausedAt": "",
+      "stopReason": "",
+      "pauses": []
+    }
+  },
+  "handoffStateTemplate": {
+    "required": true,
+    "unitId": "",
+    "requiredAt": "",
+    "acknowledgedAt": "",
+    "acknowledgement": ""
   }
 }

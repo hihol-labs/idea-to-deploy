@@ -17,7 +17,10 @@ Asserts:
   2. security-reviewer.model == opus  [highest-risk verify agent at the top tier]
   3. AGENT_EFFORT_TIERS.md model cells for both agents match their frontmatter
   4. MODEL-ROUTING-POLICY.md documents the monotonicity invariant + names the gate
-  5. the gate is wired into a CI workflow ("и в CI" clause)
+  5. protected quality-floor agents retain high effort;
+  6. the frozen working-deadline policy permits low effort only for bounded
+     low/medium mechanical work and never removes evidence contours;
+  7. the gate is wired into a CI workflow ("и в CI" clause)
 
 Self-contained, stdlib only, cross-platform. Run:
   python3 tests/verify_model_risk_monotonic.py
@@ -27,6 +30,7 @@ from __future__ import annotations
 
 import re
 import sys
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +38,7 @@ AGENTS = ROOT / "agents"
 POLICY = ROOT / "docs" / "MODEL-ROUTING-POLICY.md"
 TIERS = ROOT / "docs" / "AGENT_EFFORT_TIERS.md"
 WORKFLOWS = ROOT / ".github" / "workflows"
+DEADLINE_POLICY = ROOT / "skills" / "_shared" / "WORKING_DEADLINE_POLICY.json"
 
 RANK = {"haiku": 1, "sonnet": 2, "opus": 3}
 
@@ -74,6 +79,17 @@ def frontmatter_model(agent: str) -> str | None:
         m = re.match(r"\s*model:\s*([A-Za-z0-9._-]+)", line)
         if m:
             return normalize_tier(m.group(1))
+    return None
+
+
+def frontmatter_effort(agent: str) -> str | None:
+    f = AGENTS / (agent + ".md")
+    if not f.is_file():
+        return None
+    for line in f.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"\s*effort:\s*(low|medium|high)\s*$", line)
+        if m:
+            return m.group(1)
     return None
 
 
@@ -132,7 +148,33 @@ def main() -> int:
           "verify_model_risk_monotonic.py" in pol,
           "policy should point at the CI gate that enforces the invariant")
 
-    # 5. CI wiring
+    # 5. protected roles keep their declared high-effort floor.
+    protected = ("architect", "code-reviewer", "devils-advocate",
+                 "perf-analyzer", "security-reviewer", "test-generator")
+    protected_effort = {agent: frontmatter_effort(agent) for agent in protected}
+    check("protected review/security/root-cause/architecture roles remain high effort",
+          all(value == "high" for value in protected_effort.values()),
+          repr(protected_effort))
+
+    # 6. frozen working-deadline model-routing contract.
+    try:
+        deadline = json.loads(DEADLINE_POLICY.read_text(encoding="utf-8"))
+        routing = deadline["modelRouting"]
+    except (OSError, ValueError, KeyError, TypeError):
+        routing = {}
+    check("low effort allowlist is bounded low/medium mechanical only",
+          set(routing.get("lowEffortAllowedFor") or []) == {
+              "bounded-low-mechanical", "bounded-medium-mechanical"},
+          repr(routing.get("lowEffortAllowedFor")))
+    forbidden = set(routing.get("lowEffortForbiddenFor") or [])
+    check("quality-floor and unknown/high risk are forbidden low-effort routes",
+          {"review", "security", "root-cause", "architecture",
+           "high-risk", "unknown-risk"} <= forbidden, repr(sorted(forbidden)))
+    check("model choice cannot remove an evidence contour",
+          routing.get("modelChoiceMayRemoveEvidenceContour") is False,
+          repr(routing.get("modelChoiceMayRemoveEvidenceContour")))
+
+    # 7. CI wiring
     wired = False
     if WORKFLOWS.is_dir():
         for yml in WORKFLOWS.glob("*.yml"):

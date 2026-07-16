@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "working-deadline-contract-v1",
+  "frozenAt": "2026-07-16T09:42:38Z",
+  "scope": "Internal deterministic contract and mutation benchmark only; never external adoption or observed productivity evidence.",
+  "policyPath": "skills/_shared/WORKING_DEADLINE_POLICY.json",
+  "policySha256": "5f20bf494ec8f0037628f39b06d20a10b8f325f8a8eaed4d31d2b5e76f48f2f1",
+  "inheritedPolicyPath": "skills/_shared/PROPORTIONALITY_POLICY.json",
+  "inheritedPolicySha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+  "requirements": {
+    "softCheckpointSeconds": 1800,
+    "hardPauseSeconds": 2700,
+    "maxVerifiedUnitsPerHandoff": 1,
+    "requiredCaseIds": [
+      "low-targeted-typo",
+      "medium-targeted-bugfix",
+      "medium-targeted-auth-signal",
+      "high-requested-work-profile",
+      "unknown-requested-work-profile",
+      "medium-release-candidate",
+      "high-release-security-candidate"
+    ]
+  },
+  "cases": [
+    {
+      "id": "low-targeted-typo",
+      "requestedProfile": "targeted",
+      "risk": "low",
+      "signals": [],
+      "expectedRoute": "working_deadline.targeted",
+      "expectedContours": ["static"]
+    },
+    {
+      "id": "medium-targeted-bugfix",
+      "requestedProfile": "targeted",
+      "risk": "medium",
+      "signals": [],
+      "expectedRoute": "working_deadline.targeted",
+      "expectedContours": ["static", "targeted"]
+    },
+    {
+      "id": "medium-targeted-auth-signal",
+      "requestedProfile": "targeted",
+      "risk": "medium",
+      "signals": ["auth"],
+      "expectedRoute": "working_deadline.targeted",
+      "expectedContours": ["static", "targeted", "security"]
+    },
+    {
+      "id": "high-requested-work-profile",
+      "requestedProfile": "targeted",
+      "risk": "high",
+      "signals": [],
+      "expectedRoute": "strict.release",
+      "expectedContours": ["static", "targeted", "review", "full"]
+    },
+    {
+      "id": "unknown-requested-work-profile",
+      "requestedProfile": "targeted",
+      "risk": "unknown",
+      "signals": [],
+      "expectedRoute": "strict.release",
+      "expectedContours": ["static", "targeted", "review", "full"]
+    },
+    {
+      "id": "medium-release-candidate",
+      "requestedProfile": "release",
+      "risk": "medium",
+      "signals": [],
+      "candidateSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expectedRoute": "strict.release",
+      "expectedContours": ["static", "targeted", "review", "full"]
+    },
+    {
+      "id": "high-release-security-candidate",
+      "requestedProfile": "release",
+      "risk": "high",
+      "signals": ["security"],
+      "candidateSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expectedRoute": "strict.release",
+      "expectedContours": ["static", "targeted", "review", "full", "security"]
+    }
+  ],
+  "mutationGuards": [
+    "soft-checkpoint-drift",
+    "hard-pause-drift",
+    "multi-unit-handoff",
+    "allow-high-in-work-profile",
+    "drop-required-risk-override",
+    "drop-release-hash-binding",
+    "accept-blocked-review-cache",
+    "general-review-resets-security",
+    "backlog-critical-security",
+    "external-approval-without-payload-binding",
+    "low-effort-review",
+    "backlog-current-diff-eligibility-drift",
+    "low-effort-allowlist-conflict",
+    "rollback-trigger-removal",
+    "inherited-policy-digest-drift",
+    "missing-frozen-case"
+  ]
+}

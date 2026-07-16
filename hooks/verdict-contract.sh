@@ -59,11 +59,14 @@ MAX_PINGS_DEFAULT = 2
 # too common in non-review subagent finals ("all tests passed", "request was
 # blocked by CORS"), so we require a declaration form or the compound token.
 REVIEW_VERDICT_RE = re.compile(
-    r"FINAL\s+STATUS\s*:|(?:Вердикт|Verdict)\s*[:：\-—]|\bPASSED_WITH_WARNINGS\b",
+    r"FINAL\s+STATUS\s*:|(?:Вердикт|Verdict)\s*[:：\-—]|"
+    r"\b(?:PASSED_WITH_WARNINGS|UNVERIFIED)\b",
     re.IGNORECASE,
 )
 
-ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "FAILED"}
+ALLOWED_VERDICTS = {
+    "PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED",
+}
 
 # Fenced ```json … ``` blocks (the canonical transport).
 FENCED_JSON_RE = re.compile(r"```json\s*(.+?)```", re.IGNORECASE | re.DOTALL)
@@ -216,8 +219,6 @@ def has_valid_json_verdict(text: str) -> bool:
 
 FINDINGS_FILE = "review-findings.jsonl"
 FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
-
-
 def _clip(s, n: int = 200) -> str:
     s = str(s or "")
     return s if len(s) <= n else s[: n - 1] + "…"
@@ -307,7 +308,8 @@ def main() -> int:
     # to the review-findings ledger (retro mining, v1.86.0) and stay silent.
     obj = extract_verdict_object(text)
     if obj is not None:
-        persist_findings(str(payload.get("cwd") or ""), key, obj)
+        cwd = str(payload.get("cwd") or "")
+        persist_findings(cwd, key, obj)
         return 0
     if not take_ping_slot(key, env_int("ITD_VERDICT_MAX_PINGS", MAX_PINGS_DEFAULT)):
         return 0

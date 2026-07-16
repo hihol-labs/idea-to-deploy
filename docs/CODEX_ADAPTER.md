@@ -57,6 +57,25 @@ checkout path, then review it with `/hooks`.
   tool paths that do not emit every hook event; `.itd` verification contracts
   and final evidence remain mandatory.
 
+The outbound hard gate is registered for PreToolUse with matcher `.*`.
+Connector and shell payloads reach the host-neutral exact-approval engine
+through `codex-dispatch.py`; an approvable mutation returns native Codex `ask`
+with the complete preview and approval hash intact, while missing exact
+provenance/targets returns `deny`. No local approval record is trusted or
+stored. The Codex host binds confirmation to the exact pending invocation; a
+target, body, attachment, or session change creates a new prompt.
+Once the user accepts that native Codex prompt, Codex executes the same pending
+invocation without calling the methodology gate again. A later duplicate call
+is intentionally a new action (important for non-idempotent sends/comments),
+not a cached local approval.
+
+The Codex hook bundle also routes `Task|Agent` through `model-policy.sh` via
+`codex-dispatch.py`. Codex must preserve the advisory context for a weaker model
+override and the native ASK returned for a low-effort override outside bounded
+low/medium mechanical `working_deadline` work. The adapter does not infer task
+semantics or remove evidence contours; the shared ledger and role frontmatter
+remain authoritative.
+
 ## Bounded goal continuation
 
 For an explicitly approved `/goal` with `runPolicy.mode:

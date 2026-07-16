@@ -63,14 +63,14 @@
       "roleClass": "verify",
       "doneSignals": [
         {
-          "type": "sentinel",
-          "ref": "claude-review-done",
-          "desc": "/review ran this session, bound to the staged tree"
+          "type": "artifact",
+          "ref": ".itd-memory/review-cache.json",
+          "desc": "durable exact-context review record for the current candidate"
         },
         {
           "type": "json_field",
-          "ref": "verdict",
-          "desc": "machine-readable verdict block: PASSED | PASSED_WITH_WARNINGS | BLOCKED"
+          "ref": "records.general.accepted",
+          "desc": "true only for an accepted verdict whose complete context key still matches"
         }
       ]
     },
@@ -93,9 +93,14 @@
       "roleClass": "verify",
       "doneSignals": [
         {
-          "type": "sentinel",
-          "ref": "claude-security-audit-done",
-          "desc": "audit was performed this session (verdict may still be BLOCKED)"
+          "type": "artifact",
+          "ref": ".itd-memory/review-cache.json",
+          "desc": "durable exact-context security-review record for the current candidate"
+        },
+        {
+          "type": "json_field",
+          "ref": "records.security.accepted",
+          "desc": "true only for an accepted security verdict; BLOCKED or UNVERIFIED remains closed"
         }
       ]
     },

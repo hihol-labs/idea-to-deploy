@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "id": "working-deadline-v1",
+  "purpose": "Opt-in work-deadline cadence and handoff policy layered over risk-proportional verification without weakening evidence gates.",
+  "activation": {
+    "profile": "working_deadline",
+    "explicitOptInRequired": true,
+    "defaultEnabled": false,
+    "allowedRiskTiers": ["low", "medium"],
+    "unknownRisk": "escalate-to-high",
+    "highRisk": "exit-to-strict-release",
+    "riskSignalsOverrideUserCriteria": true
+  },
+  "inheritsVerificationPolicy": {
+    "path": "skills/_shared/PROPORTIONALITY_POLICY.json",
+    "sha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+    "relationship": "cadence-overlay-only"
+  },
+  "timebox": {
+    "measurement": "host-observed-unit-elapsed",
+    "softCheckpointSeconds": 1800,
+    "hardPauseSeconds": 2700,
+    "softCheckpointAction": "report-ready-blocker-remainder-estimate",
+    "hardPauseOutcome": "budget_exhausted",
+    "hardPauseState": "recovery_required",
+    "stopBeforeNextExpensiveAttempt": true,
+    "allowCheapInspectionAndCheckpoint": true,
+    "partialCompletionIsVerified": false,
+    "stopAtSafeBoundary": true
+  },
+  "unitCadence": {
+    "maxOpenUnits": 1,
+    "handoffAfterVerifiedUnit": true,
+    "maxVerifiedUnitsPerHandoff": 1,
+    "nextUnitRequiresNewHandoffEntry": true,
+    "boundedAutonomousOverrideRequiresExplicitApproval": true,
+    "unitMustBeIndependentVerticalSlice": true
+  },
+  "verificationProfiles": {
+    "targeted": {
+      "selection": "risk-derived-impact-closure",
+      "requiredCapabilitiesSource": "inheritsVerificationPolicy.riskRoutes",
+      "matchingSignalContoursRequired": true,
+      "transitiveImpactRequired": true,
+      "unknownImpact": "exit-to-strict-release",
+      "userCriteriaMayRemoveRequiredCapability": false
+    },
+    "release": {
+      "baseContours": ["static", "targeted", "review", "full"],
+      "matchingSignalContoursRequired": true,
+      "exactCandidateHashRequired": true,
+      "candidateHashAlgorithm": "sha256",
+      "invalidateOnAnyCandidateChange": true,
+      "windowsWslMatrixOncePerCandidateHash": true,
+      "ciOrNativeEvidenceRequired": true
+    }
+  },
+  "reviewCache": {
+    "keyFields": [
+      "repository",
+      "baseCommit",
+      "reviewedTree",
+      "diffHash",
+      "scopeContractHash",
+      "acceptanceContractHash",
+      "rubricHash",
+      "methodologyVersion",
+      "riskTier"
+    ],
+    "acceptedVerdicts": ["PASSED"],
+    "warningVerdictRequiresDurableWarnings": true,
+    "blockedOrUnverifiedSatisfiesGate": false,
+    "invalidateOnKeyChange": true
+  },
+  "riskBudget": {
+    "resetRequiresSuccessfulBoundVerdict": true,
+    "reviewResets": ["general-change-risk"],
+    "securityReviewResets": ["security-change-risk"],
+    "generalReviewMayResetSecurity": false,
+    "countOnlyPostGateDelta": true
+  },
+  "diagnostics": {
+    "collectIndependentFailuresBeforeFixing": true,
+    "classifyCascadesByRootCause": true,
+    "fixOneCausalClusterAtATime": true,
+    "cheapDiscriminatingCheckAfterRiskyCluster": true,
+    "finalRerun": "original-diagnostic-command",
+    "failedFinalRerunIsVerified": false
+  },
+  "backlog": {
+    "eligible": ["pre-existing", "out-of-scope", "non-blocking", "not-introduced-by-current-diff"],
+    "neverBacklog": [
+      "acceptance-criterion-failure",
+      "required-risk-invariant-failure",
+      "current-diff-regression",
+      "critical-security",
+      "data-loss"
+    ],
+    "captureRequired": true,
+    "fixInCurrentUnit": false
+  },
+  "externalWrites": {
+    "exactPreviewRequired": true,
+    "exactTargetsRequired": true,
+    "fullPayloadRequired": true,
+    "attachmentsIncluded": true,
+    "approvalBinding": "sha256-canonical-tool-name-targets-payload",
+    "sessionProvenanceRequired": true,
+    "invalidateOnPayloadOrTargetChange": true,
+    "readOnlyRequiresWriteApproval": false,
+    "exactAlreadyAuthorizedActionRequiresRepeatApproval": false
+  },
+  "modelRouting": {
+    "lowEffortAllowedFor": ["bounded-low-mechanical", "bounded-medium-mechanical"],
+    "lowEffortForbiddenFor": ["review", "security", "root-cause", "architecture", "high-risk", "unknown-risk"],
+    "modelChoiceMayRemoveEvidenceContour": false,
+    "speedOrCreditMultipliersAreContractual": false
+  },
+  "sessionBoundary": {
+    "afterResult": "return-result-and-cheap-checkpoint",
+    "automaticExplicitClose": false,
+    "explicitCloseRequiresUserIntent": true,
+    "dirtyVerifiedBranchMayHandoff": true
+  },
+  "rollout": {
+    "defaultOn": false,
+    "stage": "contract-only",
+    "minimumCanaryUnits": 10,
+    "minimumComparableUnitsBeforeDefault": 30,
+    "rollbackOn": [
+      "critical-false-completion",
+      "high-risk-bypass",
+      "stale-review-cache-accept",
+      "unapproved-external-write",
+      "material-release-failure-increase"
+    ]
+  }
+}

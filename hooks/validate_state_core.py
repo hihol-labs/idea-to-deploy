@@ -55,8 +55,18 @@ _FALLBACK_STATE_REQUIRED = [
 _FALLBACK_GOAL = {
     "requiredFields": ["goal", "status", "units"],
     "goalStatuses": ["active", "done", "abandoned"],
-    "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
+    "unitStatuses": [
+        "pending", "in_progress", "recovery_required", "verified", "skipped", "blocked",
+    ],
     "unitRequiredFields": ["id", "criterion", "verificationCommand", "status"],
+    "workProfiles": ["working_deadline"],
+    "deadlineStateRequiredFields": [
+        "profile", "policyId", "policySha256", "cycle", "startedAt",
+        "hostObservedElapsedSeconds", "softCheckpointAt", "checkpoint",
+        "hardPausedAt", "stopReason", "pauses",
+    ],
+    "deadlineCheckpointFields": ["ready", "blocker", "remainder", "estimate"],
+    "deadlineStopReasons": ["", "verified", "blocked", "budget_exhausted"],
     "runPolicyModes": ["bounded_autonomous"],
     "runPolicyRequiredFields": [
         "mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
@@ -192,7 +202,7 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
 
     Same semantics as the STATE check (contradiction fails, absence warns),
     applied per unit of the long-goal ledger:
-      - a unit still OPEN in GOAL (pending/in_progress/verifying/blocked)
+      - a unit still OPEN in GOAL (pending/in_progress/recovery_required/verifying/blocked)
         while the log already recorded a terminal decision for it → ERROR;
       - a unit VERIFIED in GOAL with no terminal decision in a non-empty
         log → WARNING (capped at 3 to keep the CLI readable).
@@ -207,7 +217,9 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
     units = goal.get("units")
     if not isinstance(units, list):
         return errors, warnings
-    open_statuses = {"pending", "in_progress", "verifying", "blocked"}
+    open_statuses = {
+        "pending", "in_progress", "recovery_required", "verifying", "blocked",
+    }
     for unit in units:
         if not isinstance(unit, dict):
             continue
@@ -460,6 +472,98 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
             else "targeted" if adaptive and risk_tier == "medium"
             else "machine_only")
 
+        deadline = unit.get("deadlineState")
+        if deadline is not None and not isinstance(deadline, dict):
+            errors.append(f"{where}: deadlineState must be an object")
+            deadline = {}
+        if isinstance(deadline, dict) and deadline:
+            for field in schema.get("deadlineStateRequiredFields", []):
+                if field not in deadline:
+                    errors.append(f"{where}: deadlineState missing '{field}'")
+            work_profiles = schema.get("workProfiles", ["working_deadline"])
+            if deadline.get("profile") not in work_profiles:
+                errors.append(
+                    f"{where}: deadlineState.profile '{deadline.get('profile')}' "
+                    f"not in {work_profiles}")
+            if deadline.get("policyId") != "working-deadline-v1":
+                errors.append(f"{where}: deadlineState.policyId is not canonical")
+            digest = str(deadline.get("policySha256") or "")
+            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                errors.append(f"{where}: deadlineState.policySha256 must be lowercase SHA-256")
+            if risk_tier not in ("low", "medium"):
+                errors.append(
+                    f"{where}: working_deadline requires low|medium risk, got "
+                    f"'{risk_tier or 'unknown'}'")
+            if unit.get("status") == "pending":
+                errors.append(
+                    f"{where}: pending deadlineState cannot replace explicit profile opt-in")
+            cycle = deadline.get("cycle")
+            if type(cycle) is not int or cycle <= 0:
+                errors.append(f"{where}: deadlineState.cycle must be a positive integer")
+            if not str(deadline.get("startedAt") or "").strip():
+                errors.append(f"{where}: deadlineState.startedAt must not be empty")
+            observed = deadline.get("hostObservedElapsedSeconds")
+            if type(observed) is not int or observed < 0:
+                errors.append(
+                    f"{where}: hostObservedElapsedSeconds must be non-negative")
+            checkpoint = deadline.get("checkpoint")
+            if not isinstance(checkpoint, dict):
+                errors.append(f"{where}: deadlineState.checkpoint must be an object")
+                checkpoint = {}
+            checkpoint_at = str(deadline.get("softCheckpointAt") or "").strip()
+            checkpoint_fields = schema.get(
+                "deadlineCheckpointFields", ["ready", "blocker", "remainder", "estimate"])
+            if checkpoint_at:
+                if set(checkpoint) != set(checkpoint_fields):
+                    errors.append(
+                        f"{where}: completed deadline checkpoint must contain exactly "
+                        f"{checkpoint_fields}")
+                for field in checkpoint_fields:
+                    if not str(checkpoint.get(field) or "").strip():
+                        errors.append(
+                            f"{where}: deadline checkpoint '{field}' must not be empty")
+            elif checkpoint:
+                errors.append(
+                    f"{where}: deadline checkpoint payload exists without softCheckpointAt")
+            stops = schema.get(
+                "deadlineStopReasons", ["", "verified", "blocked", "budget_exhausted"])
+            stop = str(deadline.get("stopReason") or "")
+            if stop not in stops:
+                errors.append(f"{where}: deadline stopReason '{stop}' not in {stops}")
+            pauses = deadline.get("pauses")
+            if not isinstance(pauses, list):
+                errors.append(f"{where}: deadlineState.pauses must be an array")
+                pauses = []
+            for j, pause in enumerate(pauses):
+                pwhere = f"{where}.deadlineState.pauses[{j}]"
+                if (not isinstance(pause, dict)
+                        or pause.get("kind") != "wall_clock"
+                        or type(pause.get("limit")) is not int
+                        or type(pause.get("observed")) is not int
+                        or pause.get("observed", -1) < pause.get("limit", 0)):
+                    errors.append(f"{pwhere}: invalid observed wall-clock pause evidence")
+            if unit.get("status") == "recovery_required":
+                if not str(unit.get("recoveryReason") or "").strip():
+                    errors.append(
+                        f"{where}: recovery_required requires non-empty recoveryReason")
+                exhausted = deadline.get("exhaustedBudget")
+                if (stop != "budget_exhausted"
+                        or not str(deadline.get("hardPausedAt") or "").strip()
+                        or not isinstance(exhausted, dict)
+                        or exhausted.get("kind") != "wall_clock"
+                        or type(exhausted.get("limit")) is not int
+                        or type(exhausted.get("observed")) is not int
+                        or exhausted.get("observed", -1) < exhausted.get("limit", 0)):
+                    errors.append(
+                        f"{where}: recovery_required needs typed observed "
+                        "budget_exhausted evidence")
+            if unit.get("status") == "verified" and stop != "verified":
+                errors.append(
+                    f"{where}: verified working_deadline unit requires stopReason=verified")
+            if unit.get("status") == "blocked" and stop != "blocked":
+                errors.append(
+                    f"{where}: blocked working_deadline unit requires stopReason=blocked")
+
         attempts = unit.get("attempts")
         if attempts is not None and not isinstance(attempts, list):
             errors.append(f"{where}: attempts must be an array")
@@ -549,11 +653,52 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
     if current and current not in seen_ids:
         errors.append(f"{path}: currentUnitId '{current}' does not match any unit id")
 
+    active_units = [u for u in units if isinstance(u, dict)
+                    and u.get("status") in ("in_progress", "recovery_required")]
+    if len(active_units) > 1:
+        errors.append(
+            f"{path}: WIP=1 violated by active units "
+            f"{[u.get('id') for u in active_units]}")
+    recovering = [u for u in active_units if u.get("status") == "recovery_required"]
+    if recovering and current != str(recovering[0].get("id") or ""):
+        errors.append(
+            f"{path}: recovery_required unit must remain currentUnitId backpressure")
+
+    handoff = goal.get("handoffState")
+    if handoff is not None:
+        if not isinstance(handoff, dict):
+            errors.append(f"{path}: handoffState must be an object")
+        else:
+            required = handoff.get("required")
+            uid = str(handoff.get("unitId") or "").strip()
+            if type(required) is not bool:
+                errors.append(f"{path}: handoffState.required must be boolean")
+            if uid not in seen_ids:
+                errors.append(f"{path}: handoffState.unitId '{uid}' is unknown")
+            linked = next((u for u in units if isinstance(u, dict)
+                           and str(u.get("id") or "") == uid), None)
+            if linked is not None and linked.get("status") != "verified":
+                errors.append(f"{path}: handoffState must reference a verified unit")
+            if not str(handoff.get("requiredAt") or "").strip():
+                errors.append(f"{path}: handoffState.requiredAt must not be empty")
+            acknowledged_at = str(handoff.get("acknowledgedAt") or "").strip()
+            acknowledgement = str(handoff.get("acknowledgement") or "").strip()
+            if required is True and (acknowledged_at or acknowledgement):
+                errors.append(
+                    f"{path}: required handoff cannot already carry acknowledgement")
+            if required is False and (not acknowledged_at or not acknowledgement):
+                errors.append(
+                    f"{path}: cleared handoff requires acknowledgement provenance")
+
     if goal.get("status") == "done":
         open_units = [u.get("id") for u in units if isinstance(u, dict)
-                      and u.get("status") in ("pending", "in_progress", "blocked")]
+                      and u.get("status") in
+                      ("pending", "in_progress", "recovery_required", "blocked")]
         if open_units:
             errors.append(f"{path}: goal is 'done' but units {open_units} are still open")
+        if isinstance(handoff, dict) and handoff.get("required") is True:
+            errors.append(
+                f"{path}: goal is 'done' before verified-unit handoff acknowledgement")
 
     rec_errors, warnings = reconcile_goal_with_events(path, goal)
     errors.extend(rec_errors)

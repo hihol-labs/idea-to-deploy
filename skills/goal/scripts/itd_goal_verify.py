@@ -12,6 +12,8 @@ State machine it enforces (goal.schema.json unitStatuses):
        ▲                    │  ▲  │
        └────unblock─────────┘  │  └──block <reason>──▶ blocked
                                └──verify(exit≠0): stays in_progress
+    in_progress ──working deadline 45m──▶ recovery_required
+    recovery_required ──activate --reason──▶ in_progress (fresh observed cycle)
     verified ──recheck(exit≠0)──▶ in_progress   (ledger reflects VERIFIED
                                                  reality, not bureaucracy)
 
@@ -53,6 +55,13 @@ Usage:
   itd_goal_verify.py [--goal PATH] --block UNIT_ID --reason "..."
   itd_goal_verify.py [--goal PATH] --budget-exhausted UNIT_ID \
       --budget-kind tokens --reason "host token ceiling reached"
+  itd_goal_verify.py [--goal PATH] --activate UNIT_ID \
+      --work-profile working_deadline
+  itd_goal_verify.py [--goal PATH] --deadline-check UNIT_ID \
+      --elapsed-seconds 1800 --checkpoint-ready "..." \
+      --checkpoint-blocker "..." --checkpoint-remainder "..." \
+      --checkpoint-estimate "..."
+  itd_goal_verify.py [--goal PATH] --ack-handoff UNIT_ID --reason "new user turn"
   itd_goal_verify.py [--goal PATH] --timeout 600
 
 Exit codes: 0 transition applied (or recheck still green), 1 verification
@@ -72,10 +81,12 @@ from datetime import datetime
 from pathlib import Path
 
 GOAL_DEFAULT = Path(".itd-memory") / "GOAL.json"
-UNIT_STATUSES = ("pending", "in_progress", "verified", "skipped", "blocked")
+UNIT_STATUSES = (
+    "pending", "in_progress", "recovery_required", "verified", "skipped", "blocked",
+)
 # A unit in ANY of these states keeps the goal open (backpressure > 0). Must
 # stay identical to OPEN_STATUSES in itd_goal_report.py.
-OPEN_STATUSES = ("pending", "in_progress", "blocked")
+OPEN_STATUSES = ("pending", "in_progress", "recovery_required", "blocked")
 EVIDENCE_MAX = 200
 BOUNDED_MODE = "bounded_autonomous"
 BOUNDED_STOP_EXIT = 3
@@ -88,6 +99,11 @@ OPTIONAL_POLICY_KEYS = (
     "enforceObservedTokens", "verificationStrategy", "maxCheckpointBytes",
 )
 RISK_TIERS = ("low", "medium", "high")
+WORKING_DEADLINE_PROFILE = "working_deadline"
+WORKING_DEADLINE_POLICY_PATH = (
+    Path(__file__).resolve().parents[2] / "_shared" / "WORKING_DEADLINE_POLICY.json"
+)
+CHECKPOINT_FIELDS = ("ready", "blocker", "remainder", "estimate")
 
 
 def die(msg: str, code: int = 2) -> None:
@@ -129,6 +145,116 @@ def write_verify_signal(goal_path: Path, unit_id: str, rc: int,
 
 def now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def load_working_deadline_policy() -> tuple[dict, str]:
+    """Load the canonical cadence policy and reject an unsafe runtime shape."""
+    try:
+        raw = WORKING_DEADLINE_POLICY_PATH.read_bytes()
+        policy = json.loads(raw.decode("utf-8"))
+    except Exception as exc:
+        die(f"working_deadline policy is unavailable: {exc}", 1)
+    activation = policy.get("activation") or {}
+    timebox = policy.get("timebox") or {}
+    cadence = policy.get("unitCadence") or {}
+    if (policy.get("id") != "working-deadline-v1"
+            or activation.get("profile") != WORKING_DEADLINE_PROFILE
+            or activation.get("explicitOptInRequired") is not True
+            or activation.get("defaultEnabled") is not False
+            or activation.get("allowedRiskTiers") != ["low", "medium"]
+            or timebox.get("measurement") != "host-observed-unit-elapsed"
+            or timebox.get("softCheckpointSeconds") != 1800
+            or timebox.get("hardPauseSeconds") != 2700
+            or timebox.get("partialCompletionIsVerified") is not False
+            or cadence.get("maxOpenUnits") != 1
+            or cadence.get("handoffAfterVerifiedUnit") is not True
+            or cadence.get("maxVerifiedUnitsPerHandoff") != 1):
+        die("working_deadline policy is malformed or weakened", 1)
+    return policy, hashlib.sha256(raw).hexdigest()
+
+
+def deadline_state(unit: dict) -> dict | None:
+    state = unit.get("deadlineState")
+    if state is None:
+        return None
+    if not isinstance(state, dict):
+        die(f"{unit.get('id')}: deadlineState must be an object", 1)
+    return state
+
+
+def is_working_deadline_unit(unit: dict) -> bool:
+    state = deadline_state(unit)
+    return bool(state and state.get("profile") == WORKING_DEADLINE_PROFILE)
+
+
+def assert_deadline_policy_binding(unit: dict) -> tuple[dict, dict]:
+    state = deadline_state(unit)
+    if not state or state.get("profile") != WORKING_DEADLINE_PROFILE:
+        die(f"{unit.get('id')}: working_deadline is not active", 1)
+    policy, digest = load_working_deadline_policy()
+    if (state.get("policyId") != policy.get("id")
+            or state.get("policySha256") != digest):
+        die(f"{unit.get('id')}: working_deadline policy changed after activation; "
+            "pause and start a new observed cycle", 1)
+    allowed = set((policy.get("activation") or {}).get("allowedRiskTiers") or [])
+    risk = str(unit.get("riskTier") or "")
+    if risk not in allowed:
+        die(f"{unit.get('id')}: current riskTier '{risk or 'unknown'}' no longer "
+            "permits working_deadline; route to strict release", 1)
+    return state, policy
+
+
+def new_deadline_state(unit: dict) -> dict:
+    policy, digest = load_working_deadline_policy()
+    allowed = set((policy.get("activation") or {}).get("allowedRiskTiers") or [])
+    risk = str(unit.get("riskTier") or "")
+    if risk not in allowed:
+        die(f"{unit.get('id')}: riskTier '{risk or 'unknown'}' cannot enter "
+            "working_deadline; route to strict release", 1)
+    return {
+        "profile": WORKING_DEADLINE_PROFILE,
+        "policyId": policy["id"],
+        "policySha256": digest,
+        "cycle": 1,
+        "startedAt": now_iso(),
+        "hostObservedElapsedSeconds": 0,
+        "softCheckpointAt": "",
+        "checkpoint": {},
+        "hardPausedAt": "",
+        "stopReason": "",
+        "pauses": [],
+    }
+
+
+def reset_deadline_cycle(unit: dict) -> None:
+    state, _ = assert_deadline_policy_binding(unit)
+    state["cycle"] = int(state.get("cycle") or 0) + 1
+    state["startedAt"] = now_iso()
+    state["hostObservedElapsedSeconds"] = 0
+    state["softCheckpointAt"] = ""
+    state["checkpoint"] = {}
+    state["hardPausedAt"] = ""
+    state["stopReason"] = ""
+    state.pop("exhaustedBudget", None)
+
+
+def handoff_state(goal: dict) -> dict | None:
+    state = goal.get("handoffState")
+    if state is None:
+        return None
+    if not isinstance(state, dict):
+        die("handoffState must be an object", 1)
+    return state
+
+
+def require_result_handoff(goal: dict, unit: dict) -> None:
+    goal["handoffState"] = {
+        "required": True,
+        "unitId": unit["id"],
+        "requiredAt": now_iso(),
+        "acknowledgedAt": "",
+        "acknowledgement": "",
+    }
 
 
 def bounded_policy(goal: dict) -> dict | None:
@@ -251,6 +377,11 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
     unit["status"] = "blocked"
     unit["blockedReason"] = f"{stop_reason}: {detail}"
     set_stop_reason(unit, stop_reason)
+    if is_working_deadline_unit(unit):
+        # The deadline and bounded envelopes are orthogonal. A bounded stop
+        # materialises as GOAL.status=blocked, so the deadline sub-state must
+        # agree with that outer state even when the bounded reason is budget.
+        (deadline_state(unit) or {})["stopReason"] = "blocked"
     if stop_reason == "budget_exhausted":
         fields = {
             "attempts": "maxAttemptsPerUnit",
@@ -382,6 +513,137 @@ def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str) ->
         print(f"warning: could not append event to {events}: {e}")
 
 
+def observe_working_deadline(
+        goal: dict, goal_path: Path, unit: dict, elapsed: int | None,
+        checkpoint_ready: str = "", checkpoint_blocker: str = "",
+        checkpoint_remainder: str = "", checkpoint_estimate: str = "") -> int:
+    """Persist a host observation and enforce the 30/45-minute boundaries."""
+    if elapsed is None:
+        die(f"{unit.get('id')}: working_deadline requires --elapsed-seconds "
+            "from the host clock", 1)
+    if elapsed < 0:
+        die("--elapsed-seconds must be non-negative", 1)
+    if unit.get("status") not in ("in_progress", "recovery_required"):
+        die(f"cannot observe deadline for {unit.get('id')} from status "
+            f"'{unit.get('status')}'", 1)
+
+    state, policy = assert_deadline_policy_binding(unit)
+    previous = state.get("hostObservedElapsedSeconds")
+    if type(previous) is not int or previous < 0:
+        die(f"{unit.get('id')}: invalid hostObservedElapsedSeconds", 1)
+    if elapsed < previous:
+        die(f"{unit.get('id')}: non-monotonic host observation "
+            f"{elapsed} < {previous}", 1)
+
+    timebox = policy["timebox"]
+    soft = timebox["softCheckpointSeconds"]
+    hard = timebox["hardPauseSeconds"]
+    values = {
+        "ready": checkpoint_ready.strip(),
+        "blocker": checkpoint_blocker.strip(),
+        "remainder": checkpoint_remainder.strip(),
+        "estimate": checkpoint_estimate.strip(),
+    }
+
+    # A hard pause must still allow the cheap checkpoint promised by policy.
+    # Capturing it never resumes work and always preserves the typed stop.
+    if unit.get("status") == "recovery_required":
+        if not state.get("softCheckpointAt"):
+            missing = [field for field in CHECKPOINT_FIELDS if not values[field]]
+            if missing:
+                die(f"{unit.get('id')}: recovery checkpoint requires ready, "
+                    f"blocker, remainder, estimate; missing {', '.join(missing)}", 1)
+            state["softCheckpointAt"] = now_iso()
+            state["checkpoint"] = values
+            append_event(goal_path, unit["id"], "working_deadline_checkpoint",
+                         "; ".join(f"{key}={values[key]}" for key in CHECKPOINT_FIELDS))
+        state["hostObservedElapsedSeconds"] = elapsed
+        save_goal(goal_path, goal)
+        checkpoint = state.get("checkpoint") or {}
+        print(f"CHECKPOINT {unit['id']} — ready={checkpoint.get('ready')}; "
+              f"blocker={checkpoint.get('blocker')}; "
+              f"remainder={checkpoint.get('remainder')}; "
+              f"estimate={checkpoint.get('estimate')}")
+        print(f"STILL STOPPED {unit['id']} [budget_exhausted/recovery_required]")
+        return BOUNDED_STOP_EXIT
+
+    # Safety wins over reporting completeness: a host that missed the soft
+    # boundary still gets a hard pause instead of another expensive attempt.
+    if elapsed >= hard:
+        if not state.get("softCheckpointAt") and all(values.values()):
+            state["softCheckpointAt"] = now_iso()
+            state["checkpoint"] = values
+        state["hostObservedElapsedSeconds"] = elapsed
+        state["hardPausedAt"] = now_iso()
+        state["stopReason"] = "budget_exhausted"
+        exhausted = {
+            "kind": "wall_clock",
+            "limit": hard,
+            "observed": elapsed,
+            "at": now_iso(),
+        }
+        state["exhaustedBudget"] = exhausted
+        pauses = state.setdefault("pauses", [])
+        if not isinstance(pauses, list):
+            die(f"{unit.get('id')}: deadlineState.pauses must be an array", 1)
+        pauses.append({"cycle": state.get("cycle"), **exhausted})
+        unit["status"] = "recovery_required"
+        unit["recoveryReason"] = (
+            f"budget_exhausted: host-observed working deadline reached "
+            f"({elapsed}/{hard}s)"
+        )
+        # Keep currentUnitId: recovery_required is active backpressure and must
+        # prevent the next unit from opening under WIP=1.
+        goal["currentUnitId"] = unit["id"]
+        save_goal(goal_path, goal)
+        append_event(goal_path, unit["id"], "budget_exhausted",
+                     unit["recoveryReason"])
+        print(f"STOPPED {unit['id']} [budget_exhausted/recovery_required] — "
+              f"host elapsed {elapsed}s reached {hard}s; partial work is not verified")
+        if not state.get("softCheckpointAt"):
+            print("CHECKPOINT REQUIRED — provide ready, blocker, remainder, estimate "
+                  "through --deadline-check before recovery resume")
+        return BOUNDED_STOP_EXIT
+
+    if elapsed >= soft and not state.get("softCheckpointAt"):
+        missing = [field for field in CHECKPOINT_FIELDS if not values[field]]
+        if missing:
+            die(f"{unit.get('id')}: 30-minute checkpoint requires ready, blocker, "
+                f"remainder, estimate; missing {', '.join(missing)}", 1)
+        state["softCheckpointAt"] = now_iso()
+        state["checkpoint"] = values
+        append_event(goal_path, unit["id"], "working_deadline_checkpoint",
+                     "; ".join(f"{key}={values[key]}" for key in CHECKPOINT_FIELDS))
+        print(f"CHECKPOINT {unit['id']} — ready={values['ready']}; "
+              f"blocker={values['blocker']}; remainder={values['remainder']}; "
+              f"estimate={values['estimate']}")
+    else:
+        print(f"DEADLINE OK {unit['id']} — host elapsed {elapsed}s/{hard}s")
+
+    state["hostObservedElapsedSeconds"] = elapsed
+    save_goal(goal_path, goal)
+    return 0
+
+
+def cmd_ack_handoff(goal: dict, goal_path: Path, unit: dict, reason: str) -> int:
+    state = handoff_state(goal)
+    if not state or state.get("required") is not True:
+        die("no verified-unit handoff is awaiting acknowledgement", 1)
+    if state.get("unitId") != unit.get("id"):
+        die(f"handoff belongs to {state.get('unitId')}, not {unit.get('id')}", 1)
+    if unit.get("status") != "verified":
+        die(f"handoff unit {unit.get('id')} is not verified", 1)
+    if not reason.strip():
+        die("--ack-handoff requires --reason with host/user-turn provenance", 1)
+    state["required"] = False
+    state["acknowledgedAt"] = now_iso()
+    state["acknowledgement"] = reason.strip()
+    save_goal(goal_path, goal)
+    append_event(goal_path, unit["id"], "handoff_acknowledged", reason.strip())
+    print(f"HANDOFF ACKNOWLEDGED {unit['id']} — {reason.strip()}")
+    return 0
+
+
 def has_activation_event(goal_path: Path, unit_id: str) -> bool:
     """True если в events.jsonl уже есть activation-событие юнита."""
     events = goal_path.parent / "events.jsonl"
@@ -409,13 +671,13 @@ def find_unit(goal: dict, unit_id: str | None) -> dict:
             if u.get("id") == unit_id:
                 return u
         die(f"unit '{unit_id}' not found in ledger")
-    # default: currentUnitId, else first in_progress, else first pending
+    # default: currentUnitId, else first active unit, else first pending
     cur = goal.get("currentUnitId") or ""
     if cur:
         for u in units:
             if u.get("id") == cur:
                 return u
-    for status in ("in_progress", "pending"):
+    for status in ("in_progress", "recovery_required", "pending"):
         for u in units:
             if u.get("status") == status:
                 return u
@@ -430,8 +692,12 @@ def open_units_summary(goal: dict) -> str:
     closed); saying "no open units" while a unit awaits unblock would invert
     the ledger's meaning.
     """
+    pending_handoff = handoff_state(goal)
+    if pending_handoff and pending_handoff.get("required") is True:
+        return (f"result handoff required for {pending_handoff.get('unitId')} — "
+                "acknowledge it before next activation or goal close")
     actionable = [u for u in goal["units"]
-                  if u.get("status") in ("in_progress", "pending")]
+                  if u.get("status") in ("in_progress", "recovery_required", "pending")]
     blocked = [u for u in goal["units"] if u.get("status") == "blocked"]
     if actionable:
         return f"next unit: {actionable[0].get('id')}"
@@ -450,19 +716,57 @@ def decisive_line(output: str) -> str:
 
 
 def cmd_activate(goal: dict, goal_path: Path, unit: dict,
-                 resume_reason: str = "") -> int:
+                 resume_reason: str = "", work_profile: str = "") -> int:
+    pending_handoff = handoff_state(goal)
+    if pending_handoff and pending_handoff.get("required") is True:
+        die(f"verified unit {pending_handoff.get('unitId')} requires result handoff "
+            "before another activation; use --ack-handoff with host/user-turn provenance", 1)
     if unit["status"] == "in_progress":
+        if work_profile and not is_working_deadline_unit(unit):
+            die(f"{unit['id']}: cannot opt into working_deadline after legacy "
+                "activation; finish/reclassify the unit first", 1)
         print(f"{unit['id']} is already in_progress — nothing to do")
         return 0
-    if unit["status"] not in ("pending", "blocked"):
+    if unit["status"] not in ("pending", "blocked", "recovery_required"):
         die(f"cannot activate {unit['id']} from status '{unit['status']}'", 1)
     busy = [u["id"] for u in goal["units"]
-            if u.get("status") == "in_progress" and u is not unit]
+            if u.get("status") in ("in_progress", "recovery_required") and u is not unit]
     if busy:
-        die(f"WIP=1: unit {busy[0]} is still in_progress — verify, block or skip "
+        die(f"WIP=1: unit {busy[0]} is still active — verify, recover, block or skip "
             "it before activating the next one", 1)
     was_blocked = unit["status"] == "blocked"
+    was_recovery = unit["status"] == "recovery_required"
+
+    if work_profile and work_profile != WORKING_DEADLINE_PROFILE:
+        die(f"unknown work profile '{work_profile}'", 1)
+    if was_recovery:
+        if not is_working_deadline_unit(unit):
+            die(f"{unit['id']}: recovery_required unit lacks deadline state", 1)
+        if not resume_reason.strip():
+            die(f"{unit['id']}: recovery_required resume needs --reason", 1)
+        state = deadline_state(unit) or {}
+        checkpoint = state.get("checkpoint") or {}
+        if (not state.get("softCheckpointAt")
+                or any(not str(checkpoint.get(field) or "").strip()
+                       for field in CHECKPOINT_FIELDS)):
+            die(f"{unit['id']}: capture the complete recovery checkpoint before resume", 1)
+        if work_profile and work_profile != (deadline_state(unit) or {}).get("profile"):
+            die(f"{unit['id']}: cannot change work profile during recovery", 1)
+        reset_deadline_cycle(unit)
+    elif work_profile:
+        if deadline_state(unit) is not None:
+            die(f"{unit['id']}: deadlineState already exists before activation", 1)
+        unit["deadlineState"] = new_deadline_state(unit)
+    elif unit.get("status") == "pending" and deadline_state(unit) is not None:
+        die(f"{unit['id']}: pending deadlineState cannot replace explicit "
+            "--work-profile opt-in", 1)
+    elif was_blocked and is_working_deadline_unit(unit):
+        if not resume_reason.strip():
+            die(f"{unit['id']}: blocked working_deadline resume needs --reason", 1)
+        reset_deadline_cycle(unit)
+
     policy = bounded_policy(goal)
+    bounded_resumed = False
     if policy is not None:
         state = unit_run_state(unit)
         unit_attempts(unit)
@@ -510,6 +814,7 @@ def cmd_activate(goal: dict, goal_path: Path, unit: dict,
             policy["sealedPolicy"] = current_policy
             policy["sealedFingerprint"] = snapshot_fingerprint(current_policy)
             policy["reapprovedAt"] = now_iso()
+            bounded_resumed = True
         elif (approved_policy != policy_snapshot(policy)
               or policy.get("sealedFingerprint") != policy_fingerprint(policy)):
             die("runPolicy is missing its approval seal or changed after approval; "
@@ -529,12 +834,17 @@ def cmd_activate(goal: dict, goal_path: Path, unit: dict,
     unit["status"] = "in_progress"
     if was_blocked:
         unit["blockedReason"] = ""
+    if was_recovery:
+        unit["recoveryReason"] = ""
     goal["currentUnitId"] = unit["id"]
     save_goal(goal_path, goal)
     append_event(goal_path, unit["id"],
                  "activated", unit.get("criterion") or "")
-    if policy is not None and resume_reason.strip():
+    if bounded_resumed:
         append_event(goal_path, unit["id"], "budget_resumed",
+                     resume_reason.strip())
+    if was_recovery:
+        append_event(goal_path, unit["id"], "working_deadline_resumed",
                      resume_reason.strip())
     print(f"activated {unit['id']}: {unit.get('criterion')}")
     return 0
@@ -543,12 +853,14 @@ def cmd_activate(goal: dict, goal_path: Path, unit: dict,
 def cmd_block(goal: dict, goal_path: Path, unit: dict, reason: str) -> int:
     if not reason.strip():
         die("--block requires a non-empty --reason (fail-closed)", 1)
-    if unit["status"] not in ("in_progress", "pending"):
+    if unit["status"] not in ("in_progress", "recovery_required", "pending"):
         die(f"cannot block {unit['id']} from status '{unit['status']}'", 1)
     unit["status"] = "blocked"
     unit["blockedReason"] = reason.strip()
     if bounded_policy(goal) is not None:
         set_stop_reason(unit, "blocked")
+    if is_working_deadline_unit(unit):
+        (deadline_state(unit) or {})["stopReason"] = "blocked"
     if goal.get("currentUnitId") == unit["id"]:
         goal["currentUnitId"] = ""
     save_goal(goal_path, goal)
@@ -599,21 +911,44 @@ def cmd_budget_exhausted(goal: dict, goal_path: Path, unit: dict,
 
 def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                recheck: bool, timeout: int, approach: str,
-               review_evidence: str, tokens_used: int | None) -> int:
+               review_evidence: str, tokens_used: int | None,
+               elapsed_seconds_observed: int | None,
+               checkpoint_ready: str, checkpoint_blocker: str,
+               checkpoint_remainder: str, checkpoint_estimate: str) -> int:
     if recheck:
         if unit["status"] != "verified":
             die(f"--recheck applies to verified units; {unit['id']} is "
                 f"'{unit['status']}'", 1)
+        if is_working_deadline_unit(unit):
+            pending_handoff = handoff_state(goal)
+            if pending_handoff and pending_handoff.get("required") is True:
+                die(f"{unit['id']}: hand off the verified result before another "
+                    "expensive recheck", 1)
+            # Rechecks do not consume a new observed work window, but they
+            # still must fail before the command when their policy binding is stale.
+            assert_deadline_policy_binding(unit)
     elif unit["status"] == "pending":
         die(f"{unit['id']} is pending — activate it first "
             f"(--activate {unit['id']}); verify runs only from in_progress "
             "(gate on passing)", 1)
+    elif unit["status"] == "recovery_required":
+        die(f"cannot verify {unit['id']} while recovery_required; resume it "
+            "through --activate --reason first", 1)
     elif unit["status"] != "in_progress":
         die(f"cannot verify {unit['id']} from status '{unit['status']}'", 1)
 
     command = (unit.get("verificationCommand") or "").strip()
     if not command:
         die(f"{unit['id']} has an empty verificationCommand (fail-closed)", 1)
+
+    if is_working_deadline_unit(unit) and not recheck:
+        deadline_rc = observe_working_deadline(
+            goal, goal_path, unit, elapsed_seconds_observed,
+            checkpoint_ready, checkpoint_blocker,
+            checkpoint_remainder, checkpoint_estimate,
+        )
+        if deadline_rc != 0:
+            return deadline_rc
 
     policy = bounded_policy(goal)
     if policy is not None:
@@ -709,6 +1044,9 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         unit["evidence"] = evidence
         if policy is not None:
             set_stop_reason(unit, "verified")
+        if is_working_deadline_unit(unit):
+            (deadline_state(unit) or {})["stopReason"] = "verified"
+            require_result_handoff(goal, unit)
         goal["currentUnitId"] = ""
         save_goal(goal_path, goal)
         # Инвариант леджера verified ⊆ activated: если activation-событие
@@ -742,6 +1080,11 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                     f"wall-clock limit reached after recheck ({int(elapsed)}s/"
                     f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock",
                     int(elapsed))
+        if is_working_deadline_unit(unit):
+            reset_deadline_cycle(unit)
+            pending_handoff = handoff_state(goal)
+            if pending_handoff and pending_handoff.get("unitId") == unit.get("id"):
+                goal.pop("handoffState", None)
         unit["status"] = "in_progress"
         goal["currentUnitId"] = unit["id"]
         save_goal(goal_path, goal)
@@ -792,6 +1135,10 @@ def main() -> int:
                    help="in_progress/pending -> blocked (requires --reason)")
     p.add_argument("--budget-exhausted", action="store_true",
                    help="typed bounded stop reported by the host budget gate")
+    p.add_argument("--deadline-check", action="store_true",
+                   help="observe/enforce the working_deadline timebox")
+    p.add_argument("--ack-handoff", action="store_true",
+                   help="acknowledge that a verified-unit result was handed off")
     p.add_argument("--reason", default="",
                    help="reason for --block/--budget-exhausted/budget resume")
     p.add_argument("--budget-kind", default="",
@@ -801,6 +1148,14 @@ def main() -> int:
                    help="host-observed usage for a typed budget stop")
     p.add_argument("--tokens-used", type=int, default=None,
                    help="cumulative host-session tokens observed before verify")
+    p.add_argument("--work-profile", default="", choices=("", WORKING_DEADLINE_PROFILE),
+                   help="explicit per-unit daily-work profile (valid with --activate)")
+    p.add_argument("--elapsed-seconds", type=int, default=None,
+                   help="host-observed elapsed unit time for deadline check/verify")
+    p.add_argument("--checkpoint-ready", default="")
+    p.add_argument("--checkpoint-blocker", default="")
+    p.add_argument("--checkpoint-remainder", default="")
+    p.add_argument("--checkpoint-estimate", default="")
     p.add_argument("--recheck", action="store_true",
                    help="re-run a verified unit; regression demotes it")
     p.add_argument("--timeout", type=int, default=600)
@@ -812,10 +1167,13 @@ def main() -> int:
 
     actions = sum(bool(x) for x in
                   (args.seal, args.activate, args.block,
-                   args.budget_exhausted, args.recheck))
+                   args.budget_exhausted, args.deadline_check,
+                   args.ack_handoff, args.recheck))
     if actions > 1:
-        die("--seal, --activate, --block, --budget-exhausted and --recheck are "
-            "mutually exclusive")
+        die("--seal, --activate, --block, --budget-exhausted, --deadline-check, "
+            "--ack-handoff and --recheck are mutually exclusive")
+    if args.work_profile and not args.activate:
+        die("--work-profile is valid only with --activate")
 
     goal = load_goal(args.goal)
     for u in goal["units"]:
@@ -830,21 +1188,32 @@ def main() -> int:
     # was hand-corrupted into >1 in_progress and say so instead of silently
     # working on one of them.
     in_progress = [u.get("id") for u in goal["units"]
-                   if u.get("status") == "in_progress"]
+                   if u.get("status") in ("in_progress", "recovery_required")]
     if len(in_progress) > 1:
         print(f"warning: WIP=1 violated in ledger — {len(in_progress)} units "
               f"in_progress ({', '.join(in_progress)}); fix the ledger "
               "(only one may be open)")
 
     if args.activate:
-        return cmd_activate(goal, args.goal, unit, args.reason)
+        return cmd_activate(goal, args.goal, unit, args.reason, args.work_profile)
     if args.block:
         return cmd_block(goal, args.goal, unit, args.reason)
     if args.budget_exhausted:
         return cmd_budget_exhausted(goal, args.goal, unit, args.reason,
                                     args.budget_kind, args.budget_observed)
+    if args.deadline_check:
+        return observe_working_deadline(
+            goal, args.goal, unit, args.elapsed_seconds,
+            args.checkpoint_ready, args.checkpoint_blocker,
+            args.checkpoint_remainder, args.checkpoint_estimate,
+        )
+    if args.ack_handoff:
+        return cmd_ack_handoff(goal, args.goal, unit, args.reason)
     return cmd_verify(goal, args.goal, unit, args.recheck, args.timeout,
-                      args.approach, args.review_evidence, args.tokens_used)
+                      args.approach, args.review_evidence, args.tokens_used,
+                      args.elapsed_seconds, args.checkpoint_ready,
+                      args.checkpoint_blocker, args.checkpoint_remainder,
+                      args.checkpoint_estimate)
 
 
 if __name__ == "__main__":

@@ -156,6 +156,20 @@ def merge_json(outputs: list[dict[str, Any]], event: str) -> dict[str, Any] | No
         if specific.get("permissionDecision") == "deny" or item.get("decision") == "block":
             return item
 
+    asks = [item for item in outputs
+            if (item.get("hookSpecificOutput") or {}).get("permissionDecision") == "ask"]
+    if asks:
+        reasons = [str((item.get("hookSpecificOutput") or {}).get(
+            "permissionDecisionReason") or "") for item in asks]
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "permissionDecision": "ask",
+                "permissionDecisionReason": "\n".join(
+                    dict.fromkeys(reason for reason in reasons if reason)),
+            }
+        }
+
     contexts: list[str] = []
     messages: list[str] = []
     should_continue = True

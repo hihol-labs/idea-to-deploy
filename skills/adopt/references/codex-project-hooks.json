@@ -32,12 +32,34 @@
         ]
       },
       {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script model-policy.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script model-policy.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Bash|Edit|Write|apply_patch",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-tool-skill.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-tool-skill.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pii-egress-guard.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script pii-egress-guard.sh",
             "timeout": 5
           }
         ]
@@ -68,12 +90,6 @@
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script completion-gate.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script completion-gate.sh",
             "timeout": 900
-          },
-          {
-            "type": "command",
-            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pii-egress-guard.sh",
-            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script pii-egress-guard.sh",
-            "timeout": 5
           },
           {
             "type": "command",
