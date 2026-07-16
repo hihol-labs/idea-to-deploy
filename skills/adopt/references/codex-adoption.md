@@ -23,6 +23,25 @@ apply unchanged.
 Do not write a `CLAUDE.md`, `.claude/settings.json`, or a host-private memory
 mirror in the Codex branch.
 
+For the repeatable mechanical part, use the bundled stdlib-only helper after
+the user approves the shown plan:
+
+```text
+python3 skills/adopt/scripts/itd_adopt.py \
+  --project <git-root> --plugin-root <plugin-root> --plan \
+  --baseline-command <existing-green-command> \
+  --verification-command <first-unit-command> \
+  --unit-id <id> --unit-criterion <checkable-criterion> \
+  --allowed-area <path>
+```
+
+Then rerun the same command with `--apply --approved`. The helper is not an
+approval substitute: it refuses `--apply` without `--approved`, never writes
+product source or user-level configuration, and reports every refusal as
+`WHY` + `FIX`. Use the ordinary manual steps only when the helper is unavailable
+or the user deliberately chooses a non-standard partial adoption; record that
+fallback as operational friction in the final report.
+
 ## Guidance entry
 
 Read `agents-md-template.md`.

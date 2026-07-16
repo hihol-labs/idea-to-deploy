@@ -88,7 +88,15 @@ def scenario(script: str, root: Path, session: str) -> tuple[Path, dict[str, Any
         payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m parity"}}
     elif script == "check-dod-before-commit.sh":
         init_repo(cwd)
-        staged(cwd, "src/new_module.py")
+        # Use a deterministic failing project check instead of relying on the
+        # process-global /tmp skill sentinels.  A real, fresh /test sentinel
+        # from another concurrent session must not make this parity fixture
+        # nondeterministically green.
+        staged(
+            cwd,
+            ".itd/checks/parity.sh",
+            "#!/bin/sh\necho 'WHY: parity probe; FIX: expected deny'\nexit 1\n",
+        )
         payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m parity", "description": ""}}
     elif script == "check-commit-completeness.sh":
         init_repo(cwd, commit_base=True)
@@ -149,6 +157,23 @@ def scenario(script: str, root: Path, session: str) -> tuple[Path, dict[str, Any
             "cwd": str(cwd),
             "tool_name": "Bash",
             "tool_input": {"command": "git commit -m parity", "description": ""},
+        }
+    elif script == "cost-tracker.sh":
+        ledger = Path(env["TMPDIR"]) / f"claude-cost-{session}.json"
+        ledger.write_text(json.dumps({
+            "session_start": 0,
+            "total_tokens": 40_000,
+            "total_calls": 10,
+            "by_tool": {},
+            "warnings_sent": 0,
+            "hard_fired_at_tokens": 0,
+        }), encoding="utf-8")
+        env["ITD_COST_CEILING_TOKENS"] = "50000"
+        payload = {
+            "session_id": session,
+            "cwd": str(cwd),
+            "tool_name": "Agent",
+            "tool_input": {"subagent_type": "parity", "model": "inherit"},
         }
     elif script == "state-guard.sh":
         memory = cwd / ".itd-memory"
@@ -312,7 +337,7 @@ def main() -> int:
         if BLOCK_RE.search(path.read_text(encoding="utf-8", errors="replace"))
     }
     check("trust registry equals the source-derived hard-gate set", gate_names == derived, f"registry={sorted(gate_names)} derived={sorted(derived)}")
-    check("trust registry contains exactly ten hard gates", len(gates) == 10, f"count={len(gates)}")
+    check("trust registry contains exactly eleven hard gates", len(gates) == 11, f"count={len(gates)}")
 
     for host, sources in policy["adapterRegistrationSources"].items():
         for source in sources:

@@ -81,7 +81,7 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     if f"{skills} skills + {agents} specialized agents" not in readme:
         issues.append("README skill/agent claim drift")
-    if "10 hard gates vs 19 soft" not in readme or "10/19/29 split" not in readme:
+    if "11 hard gates vs 18 soft" not in readme or "11/18/29 split" not in readme:
         issues.append("README taxonomy narrative drift")
     for stale in ("All 28 hooks", "10/18/28 split", "Все 8 блокирующих", "16 soft-хуков"):
         if stale in map_text or stale in readme:

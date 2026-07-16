@@ -46,7 +46,9 @@ Select exactly one adapter before Step 0:
   `PLUGIN_ROOT` is present, or `.codex/` is the active project configuration.
   Read and follow `references/codex-adoption.md`. Its host-specific steps
   replace Steps 0-3, 3.8, 4, and the Claude-specific self-validation items
-  below. Then continue with the shared Steps 3.5-3.7 and 5-6.
+  below. Then continue with the shared Steps 3.5-3.7 and 5-6. After approval,
+  prefer its bundled `scripts/itd_adopt.py` for the bounded mechanical writes;
+  the skill still owns discovery, explanation, approval, and final validation.
 - **Claude Code** otherwise. Continue with the existing steps below.
 
 Never create both host configurations merely for symmetry. The methodology

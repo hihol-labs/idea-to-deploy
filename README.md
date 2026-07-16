@@ -399,9 +399,9 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **10 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **19 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **10 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **11 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **18 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **11 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
 
-### Hook taxonomy — 10 hard gates vs 19 soft (machine-checked)
+### Hook taxonomy — 11 hard gates vs 18 soft (machine-checked)
 
 | # | Hard gate (can block/deny) | Event | What it stops |
 |---|---|---|---|
@@ -411,14 +411,15 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 | 4 | `check-skill-completeness.sh` | PreToolUse · Write/Edit | writing a `SKILL.md` without `references/`, fixtures, or trigger phrases |
 | 5 | `check-tool-skill.sh` | PreToolUse · Bash/Edit/Write | a raw mutating tool call after 3 ignored skill decisions (with a skill-active grace window) |
 | 6 | `pii-egress-guard.sh` | PreToolUse · Bash | a command that would egress secrets/PII to a third party |
-| 7 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
-| 8 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
-| 9 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
-| 10 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash/PowerShell** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
+| 7 | `cost-tracker.sh` | PreToolUse · Agent/Task/Bash/PowerShell | the next expensive agent/test/build attempt before its estimate crosses the configured session ceiling; cheap inspection and checkpoint calls stay available |
+| 8 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
+| 9 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
+| 10 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
+| 11 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash/PowerShell** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
 
-**Soft (19):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
+**Soft (18):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 
-**Hard-gate coverage** — the metric that keeps the 10 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 10/19/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 10/10.**
+**Hard-gate coverage** — the metric that keeps the 11 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 11/18/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 11/11.**
 
 **Recommended — one command:**
 

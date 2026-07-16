@@ -84,6 +84,17 @@ Before routing, classify the task's **process-cost tier** so the methodology sca
 
 State the tier in one line when you route ("это standard-задача → /refactor"). When unsure between two tiers, pick the higher one.
 
+The machine-readable source for verification proportionality is
+`skills/_shared/PROPORTIONALITY_POLICY.json` (installed fallback:
+`$HOME/.claude/skills/_shared/PROPORTIONALITY_POLICY.json`). Normalize
+`trivial → low`, `standard → medium`, `high-risk → high`; run only that
+`riskRoutes.<risk>.contours` set plus any matching `signalContours`. Every
+listed `requiredCapabilities` remains mandatory evidence. In particular, the
+low path MUST NOT run `review`, `security`, or `full` without a matching risk
+signal; final cumulative regression follows the micro-path rule below. Unknown
+risk fails closed to `high`; an unknown signal is surfaced and does not invent
+an unreviewed contour.
+
 **Cost-awareness (v1.31.0 — New-SDLC port):** for a **high-risk** tier or a heavy
 target (`/kickstart`, `/autopilot`, long `/perf`/`/bugfix` sweeps) note that
 `hooks/cost-tracker.sh` keeps a per-session token/USD ledger and will ASK at the

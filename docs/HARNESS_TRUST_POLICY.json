@@ -84,6 +84,14 @@
       "behavioralTest": "tests/verify_state_hardening.py"
     },
     {
+      "script": "cost-tracker.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash|PowerShell|Task|Agent",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_cost_gate.py"
+    },
+    {
       "script": "narration-final.sh",
       "event": "SubagentStop",
       "matcher": "*",

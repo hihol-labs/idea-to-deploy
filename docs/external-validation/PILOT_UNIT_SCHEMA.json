@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "artifact": ".itd-pilot/units.jsonl",
+  "purpose": "Pseudonymous local source ledger for paired baseline/follow-up external outcome units",
+  "pseudonymousIdPatterns": {
+    "projectId": "^proj_[a-f0-9]{12}$",
+    "operatorId": "^op_[a-f0-9]{12}$",
+    "comparisonId": "^cmp_[a-f0-9]{12}$"
+  },
+  "metadataFields": [
+    "recordType", "version", "projectId", "operatorId", "repositoryClass",
+    "startedAt", "consent", "synthetic", "fixture", "privacy"
+  ],
+  "unitFields": [
+    "recordType", "phase", "comparisonId", "startedAt", "finishedAt",
+    "verified", "defectEscapes", "falseCompletions", "tokenUnits",
+    "frictionEvents", "criticalRegressions"
+  ],
+  "pairingRule": "Every comparisonId occurs exactly once in baseline and exactly once in followup; both records are verified.",
+  "metricDerivations": {
+    "defectEscapeRate": "sum(defectEscapes) / comparable units",
+    "falseCompletionRate": "sum(falseCompletions) / comparable units",
+    "medianCycleMinutes": "median(finishedAt - startedAt) for the phase",
+    "tokenUnitsPerVerifiedUnit": "sum(tokenUnits) / verified units",
+    "operatorFrictionRate": "units with frictionEvents > 0 / comparable units",
+    "criticalRegressions": "sum(criticalRegressions)"
+  },
+  "privacy": {
+    "localOnly": true,
+    "forbiddenFields": [
+      "name", "email", "repositoryUrl", "repositoryPath", "prompt",
+      "sourceCode", "secret", "customerData"
+    ],
+    "exportOnly": ["aggregates", "sha256 provenance", "pseudonymous IDs"]
+  }
+}

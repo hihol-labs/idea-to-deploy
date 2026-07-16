@@ -57,7 +57,7 @@ def main() -> int:
     recall = tp / max(1, tp + fn)
     checks = [
         ("control-family coverage = 2/2", len(signal_cases) > 0 and len(commit_cases) > 0),
-        ("hard-gate proof coverage = 10/10", len(hard) == 10 and covered == hard),
+        ("hard-gate proof coverage = 11/11", len(hard) == 11 and covered == hard),
         ("false positives = 0", fp == 0),
         ("false negatives = 0", fn == 0),
         ("precision = 1.0", precision == 1.0),

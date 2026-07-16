@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "id": "risk-proportional-verification-v1",
+  "riskAliases": {
+    "trivial": "low",
+    "standard": "medium",
+    "high-risk": "high"
+  },
+  "contours": {
+    "static": {
+      "normalizedTimeUnits": 1,
+      "normalizedTokenUnits": 1,
+      "capabilities": ["syntax"]
+    },
+    "targeted": {
+      "normalizedTimeUnits": 3,
+      "normalizedTokenUnits": 4,
+      "capabilities": ["behavior"]
+    },
+    "review": {
+      "normalizedTimeUnits": 4,
+      "normalizedTokenUnits": 5,
+      "capabilities": ["consistency"]
+    },
+    "security": {
+      "normalizedTimeUnits": 5,
+      "normalizedTokenUnits": 6,
+      "capabilities": ["security"]
+    },
+    "full": {
+      "normalizedTimeUnits": 8,
+      "normalizedTokenUnits": 10,
+      "capabilities": ["integration"]
+    }
+  },
+  "riskRoutes": {
+    "low": {
+      "contours": ["static"],
+      "requiredCapabilities": ["syntax"]
+    },
+    "medium": {
+      "contours": ["static", "targeted"],
+      "requiredCapabilities": ["syntax", "behavior"]
+    },
+    "high": {
+      "contours": ["static", "targeted", "review", "full"],
+      "requiredCapabilities": ["syntax", "behavior", "consistency", "integration"]
+    }
+  },
+  "signalContours": {
+    "auth": "security",
+    "payments": "security",
+    "secrets": "security",
+    "security": "security"
+  },
+  "invariants": {
+    "lowForbiddenContours": ["review", "security", "full"],
+    "alwaysFullContours": ["static", "targeted", "review", "security", "full"],
+    "unknownRisk": "fail-closed",
+    "unknownSignal": "ignore-with-visible-warning"
+  }
+}

@@ -69,6 +69,9 @@ ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "FAILED"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.+?)```", re.IGNORECASE | re.DOTALL)
 
 REASON = (
+    "WHY: финальный review-вердикт не содержит обязательного машиночитаемого "
+    "JSON-контракта.\nFIX: добавь fenced JSON с verdict, findings и unverified "
+    "по схеме ниже.\n\n"
     "Твой финальный вердикт есть в прозе, но без вендор-нейтрального "
     "JSON-блока — контракт вердикта нарушен. Допиши в финальное сообщение "
     "фенсированный блок ```json … ``` с объектом: {\"verdict\": "

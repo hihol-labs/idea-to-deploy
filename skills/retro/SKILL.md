@@ -162,6 +162,21 @@ pipeline.
 
 ### Step 2: PROPOSALS — интерпретация с обязательным evidence
 
+Для повторяемого и машиночитаемого цикла используй bundled runner после
+интерпретации FACTS (он пишет только proposal/experiment artifact, не
+методологию):
+
+```text
+sh skills/_shared/itd_py.sh skills/retro/scripts/itd_learning_loop.py propose \
+  --signals <durable.jsonl> --specs <human-authored-specs.json> --out <artifact.json>
+```
+
+Затем `experiment` исполняет две явно утверждённые argv-команды и фиксирует
+числовую метрику; `decide` требует `--actor-type human` и решение
+`keep|change|rollback`; `verify` fail-closed проверяет evidence и rollback.
+Runner отклоняет self-metrics, одиночные сигналы и повторения из одного
+источника. Обычный human merge/release gate после этого не меняется.
+
 Для каждого кандидата — строго четыре поля:
 
 1. **Сигнал** — цифра или цитата ИЗ Step 1 («триггер X: 7 false positives»,

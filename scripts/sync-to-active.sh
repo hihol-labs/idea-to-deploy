@@ -371,6 +371,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
   ],
   "PreToolUse": [
     {
+      "matcher": "Bash|PowerShell|Task|Agent",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh", "timeout": 5 }
+      ]
+    },
+    {
       "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-tool-skill.sh", "timeout": 5 }

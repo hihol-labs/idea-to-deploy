@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PostToolUse hook — cost/token tracking with a two-stage budget gate
-plus a context-usage sensor for the /handoff 60% rule.
+PreToolUse/PostToolUse hook — cost/token tracking with a pre-attempt boundary,
+two-stage budget feedback, and a context-usage sensor for the /handoff 60% rule.
 
 Tracks tool call counts per skill/task, estimates token usage, and gates on a
 budget ceiling in two stages:
@@ -15,9 +15,10 @@ budget ceiling in two stages:
 
 Inspired by GSD v2 (per-unit cost ledger) and by the omnigent `cost_budget`
 policy (soft ASK / hard limit) — ported as an OUTCOME (don't overspend
-unnoticed), not as omnigent's server-side policy engine. A plugin hook cannot
-literally pause the agent loop, so the HARD stage realizes "limit" as a
-high-priority ASK the model must surface to the user.
+unnoticed), not as omnigent's server-side policy engine. The PostToolUse HARD
+stage surfaces an ASK, while the registered PreToolUse fast check prevents the
+next expensive Agent/Task/test/build attempt from crossing the estimate ceiling.
+Cheap inspection and checkpoint actions remain available.
 
 Writes a ledger file reviewable with `cat /tmp/claude-cost-<session>.json`.
 
@@ -49,7 +50,8 @@ v1.47.0: day-anchor session key + 14-day ledger rotation (retro 2026-07-04 #6).
 v1.71.0: ledger keyed by payload session_id (parallel-agents false ceiling) +
          transcript-size context sensor for the /handoff 60% rule.
 
-Reads JSON on stdin: {"session_id": "...", "transcript_path": "...",
+Reads JSON on stdin: {"hook_event_name": "PreToolUse|PostToolUse",
+"session_id": "...", "transcript_path": "...",
 "tool_name": "...", "tool_input": {...}, "response": "..."}
 """
 from __future__ import annotations
@@ -82,6 +84,18 @@ TOKEN_ESTIMATES = {
     "Skill": 500,
     "default": 500,
 }
+
+# PreToolUse only guards attempts that can materially consume the remaining
+# budget.  Cheap inspection/edit calls stay available for diagnosis, asking
+# the user, and /session-save after a ceiling is reached.
+EXPENSIVE_SHELL_RE = re.compile(
+    r"(?:^|[;&|]\s*|\s)(?:bash\s+)?tests/run-all\.sh\b|"
+    r"\b(?:pytest|py\.test|playwright|vitest|jest)\b|"
+    r"\b(?:npm|pnpm|yarn)\s+(?:run\s+)?test\b|"
+    r"\b(?:go|cargo|mvn|gradle)\s+test\b|"
+    r"\bdocker\s+build\b|\bterraform\s+apply\b",
+    re.I,
+)
 
 # Approximate cost per 1M tokens (input+output blended, Opus)
 COST_PER_1M_TOKENS = 30.0  # USD, rough Opus estimate
@@ -275,6 +289,218 @@ def observed_token_usage(payload: dict, tool: str) -> tuple[int, str]:
     return 0, ""
 
 
+def observed_elapsed_usage(payload: dict) -> tuple[int, str]:
+    """Return only explicit host elapsed counters, normalized to milliseconds."""
+    candidates = [
+        ("host_payload.duration_ms", payload.get("duration_ms")),
+        ("host_payload.elapsed_ms", payload.get("elapsed_ms")),
+    ]
+    for container_name in ("tool_response", "tool_result"):
+        container = payload.get(container_name)
+        if isinstance(container, dict):
+            candidates.extend([
+                (f"host_{container_name}.duration_ms", container.get("duration_ms")),
+                (f"host_{container_name}.elapsed_ms", container.get("elapsed_ms")),
+            ])
+    for source, value in candidates:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if value > 0:
+            return int(value), source
+    return 0, ""
+
+
+def _json_object(path: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as handle:
+            value = json.load(handle)
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
+
+
+def active_unit_id(payload: dict) -> tuple[str, str]:
+    """Resolve the active methodology unit without running a subprocess."""
+    raw = str(payload.get("cwd") or os.getcwd())
+    try:
+        current = os.path.abspath(raw)
+    except Exception:
+        return "unattributed", "missing"
+    roots = [current]
+    parent = os.path.dirname(current)
+    while parent and parent != roots[-1]:
+        roots.append(parent)
+        parent = os.path.dirname(parent)
+    memory = next(
+        (os.path.join(root, ".itd-memory") for root in roots
+         if os.path.isdir(os.path.join(root, ".itd-memory"))),
+        "",
+    )
+    if not memory:
+        return "unattributed", "missing"
+    state = _json_object(os.path.join(memory, "STATE.json"))
+    unit = state.get("currentUnit") or {}
+    if isinstance(unit, dict) and str(unit.get("id") or "").strip():
+        return str(unit["id"]).strip(), ".itd-memory/STATE.json"
+    goal = _json_object(os.path.join(memory, "GOAL.json"))
+    current_id = str(goal.get("currentUnitId") or "").strip()
+    if current_id:
+        return current_id, ".itd-memory/GOAL.json"
+    for candidate in goal.get("units") or []:
+        if isinstance(candidate, dict) and candidate.get("status") == "in_progress":
+            candidate_id = str(candidate.get("id") or "").strip()
+            if candidate_id:
+                return candidate_id, ".itd-memory/GOAL.json:in_progress"
+    return "unattributed", "missing"
+
+
+def attribution_dimensions(payload: dict, sid: str, tool: str) -> tuple[dict, dict]:
+    tool_input = payload.get("tool_input")
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
+    unit, unit_source = active_unit_id(payload)
+    skill = str(
+        payload.get("skill")
+        or payload.get("skill_name")
+        or tool_input.get("skill")
+        or (tool_input.get("name") if tool == "Skill" else "")
+        or os.environ.get("ITD_ACTIVE_SKILL")
+        or "unattributed"
+    ).strip()
+    model = str(
+        payload.get("model")
+        or payload.get("model_name")
+        or tool_input.get("model")
+        or os.environ.get("ITD_MODEL")
+        or "unattributed"
+    ).strip()
+    host = str(
+        os.environ.get("ITD_HOST")
+        or payload.get("host")
+        or "claude"
+    ).strip().lower()
+    dimensions = {
+        "session": sid,
+        "unit": unit,
+        "skill": skill or "unattributed",
+        "model": model or "unattributed",
+        "host": host or "unattributed",
+    }
+    provenance = {
+        "session": "host_payload.session_id" if payload.get("session_id")
+                   else "host_environment_or_anchor",
+        "unit": unit_source,
+        "skill": (
+            "host_payload"
+            if payload.get("skill") or payload.get("skill_name")
+            else "host_tool_input_or_environment"
+        ),
+        "model": (
+            "host_payload"
+            if payload.get("model") or payload.get("model_name")
+            else "host_tool_input_or_environment"
+        ),
+        "host": "adapter_environment" if os.environ.get("ITD_HOST") else "host_payload_or_default",
+    }
+    return dimensions, provenance
+
+
+def record_attributed_observation(
+        ledger: dict, dimensions: dict, dimension_provenance: dict,
+        tokens: int, token_source: str, elapsed_ms: int, elapsed_source: str,
+        tool: str) -> None:
+    """Persist an observed-only event and an aggregate over its dimensions."""
+    if tokens <= 0 and elapsed_ms <= 0:
+        return
+    row = {
+        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tool": tool,
+        **dimensions,
+        "tokens": tokens,
+        "elapsedMs": elapsed_ms,
+        "measurement": "host_observed",
+        "provenance": {
+            "tokens": token_source or "missing",
+            "elapsedMs": elapsed_source or "missing",
+            "dimensions": dimension_provenance,
+        },
+    }
+    rows = ledger.get("observations")
+    rows = rows if isinstance(rows, list) else []
+    rows.append(row)
+    ledger["observations"] = rows[-100:]
+
+    buckets = ledger.get("by_attribution")
+    buckets = buckets if isinstance(buckets, list) else []
+    bucket = next(
+        (candidate for candidate in buckets
+         if isinstance(candidate, dict)
+         and all(candidate.get(key) == value for key, value in dimensions.items())),
+        None,
+    )
+    if bucket is None:
+        bucket = {
+            **dimensions,
+            "tokens": 0,
+            "elapsedMs": 0,
+            "callsWithObservedUsage": 0,
+            "measurement": "host_observed",
+        }
+        buckets.append(bucket)
+    bucket["tokens"] = int(bucket.get("tokens") or 0) + tokens
+    bucket["elapsedMs"] = int(bucket.get("elapsedMs") or 0) + elapsed_ms
+    bucket["callsWithObservedUsage"] = int(bucket.get("callsWithObservedUsage") or 0) + 1
+    ledger["by_attribution"] = buckets[-100:]
+
+
+def expensive_attempt(payload: dict, tool: str) -> bool:
+    if tool in {"Task", "Agent"}:
+        return True
+    if tool not in {"Bash", "PowerShell"}:
+        return False
+    tool_input = payload.get("tool_input")
+    command = str((tool_input if isinstance(tool_input, dict) else {}).get("command") or "")
+    return bool(EXPENSIVE_SHELL_RE.search(command))
+
+
+def preflight_budget(payload: dict) -> int:
+    """Deny the next expensive attempt before it crosses the estimate ceiling."""
+    if BUDGET_CEILING_TOKENS <= 0:
+        return 0
+    tool = str(payload.get("tool_name") or "default")
+    if not expensive_attempt(payload, tool):
+        return 0
+    sid = session_id(payload)
+    lpath = ledger_file(sid)
+    ledger = read_ledger(lpath)
+    total = int(ledger.get("total_tokens") or 0)
+    prospective = TOKEN_ESTIMATES.get(tool, TOKEN_ESTIMATES["default"])
+    if total + prospective < BUDGET_CEILING_TOKENS:
+        return 0
+    reason = (
+        "[COST BUDGET — PRE-ATTEMPT STOP]\n"
+        "WHY: the next estimated expensive attempt would cross the configured token ceiling.\n"
+        "FIX: use cheap inspection/checkpoint paths, or get approval and raise "
+        "ITD_COST_CEILING_TOKENS before retrying.\n\n"
+        f"Expensive {tool} attempt was not started: the estimate would move "
+        f"from {total:,} to {total + prospective:,} tokens and cross the "
+        f"{BUDGET_CEILING_TOKENS:,}-token ceiling.\n\n"
+        "Tell the user what remains and get explicit approval. To continue, "
+        "the operator must raise ITD_COST_CEILING_TOKENS; cheap inspection and "
+        "/session-save remain available. Estimates are not billing data. "
+        f"Ledger: {lpath}"
+    )
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+    sys.stdout.write(json.dumps(output, ensure_ascii=False))
+    sys.stderr.write(reason)
+    return 2
+
+
 def context_usage_hint(payload: dict, ledger: dict) -> str | None:
     """v1.71.0 (retro 2026-07-09 P2): one-time /handoff hint at ~60% of the
     context window, estimated from transcript file size. Best-effort transport
@@ -324,10 +550,14 @@ def _main() -> int:
     if not isinstance(payload, dict):
         payload = {}
 
+    if payload.get("hook_event_name") == "PreToolUse":
+        return preflight_budget(payload)
+
     tool = payload.get("tool_name") or "default"
 
     rotate_old_ledgers()  # at most once a day, best-effort (retro #6)
-    lpath = ledger_file(session_id(payload))
+    sid = session_id(payload)
+    lpath = ledger_file(sid)
     ledger = read_ledger(lpath)
     tokens = TOKEN_ESTIMATES.get(tool, TOKEN_ESTIMATES["default"])
 
@@ -352,24 +582,41 @@ def _main() -> int:
     observed = counters.get("observed")
     if not isinstance(observed, dict):
         observed = {"value": 0, "measurement": "host_observed", "by_source": {}}
-    real, real_source = observed_token_usage(payload, tool)
-    if real > 0:
-        observed["value"] = int(observed.get("value") or 0) + real
+    observed_tokens, token_source = observed_token_usage(payload, tool)
+    dimensions, dimension_provenance = attribution_dimensions(payload, sid, tool)
+    if observed_tokens > 0:
+        observed["value"] = int(observed.get("value") or 0) + observed_tokens
         by_source = observed.get("by_source") or {}
-        by_source[real_source] = int(by_source.get(real_source) or 0) + real
+        by_source[token_source] = int(by_source.get(token_source) or 0) + observed_tokens
         observed["by_source"] = by_source
         rows = ledger.get("token_observations") or []
         rows.append({
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tool": tool,
-            "value": real,
+            "value": observed_tokens,
             "measurement": "host_observed",
-            "provenance": real_source,
+            "provenance": token_source,
+            **dimensions,
         })
         ledger["token_observations"] = rows[-100:]
     counters["observed"] = observed
     ledger["token_counters"] = counters
     ledger["total_tokens_kind"] = "estimate"
+
+    elapsed_ms, elapsed_source = observed_elapsed_usage(payload)
+    elapsed = ledger.get("elapsed_counters")
+    if not isinstance(elapsed, dict):
+        elapsed = {"valueMs": 0, "measurement": "host_observed", "by_source": {}}
+    if elapsed_ms > 0:
+        elapsed["valueMs"] = int(elapsed.get("valueMs") or 0) + elapsed_ms
+        by_source = elapsed.get("by_source") or {}
+        by_source[elapsed_source] = int(by_source.get(elapsed_source) or 0) + elapsed_ms
+        elapsed["by_source"] = by_source
+    ledger["elapsed_counters"] = elapsed
+    record_attributed_observation(
+        ledger, dimensions, dimension_provenance,
+        observed_tokens, token_source, elapsed_ms, elapsed_source, tool,
+    )
 
     # v1.83.0 (retro 2026-07-11, компонент «Модель»): атрибуция стоимости
     # per-agent РЕАЛЬНЫМИ токенами. Task/Agent-результат несёт usage

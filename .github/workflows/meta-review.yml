@@ -107,6 +107,23 @@ jobs:
       - name: Fail closed on Harness documentation/version drift
         run: python3 tests/verify_harness_docs_freshness.py
 
+      - name: Validate the frozen practical-effectiveness audit oracle
+        run: python3 tests/verify_practical_effectiveness.py --axis contract
+
+      - name: Prove cold-start adoption and operational-friction contracts
+        run: |
+          python3 tests/verify_operational_cold_start.py
+          python3 tests/verify_bypass_friction.py
+
+      - name: Prove the evidence-backed human-gated learning loop
+        run: python3 tests/verify_learning_loop.py
+
+      - name: Prove cross-platform runtime and adapter launch parity
+        run: python3 tests/verify_cross_platform_runtime.py
+
+      - name: Prove the privacy-safe external outcome contract
+        run: python3 tests/verify_external_outcome_contract.py
+
       - name: Run review report-file + finish-line interruption doc-contract (v1.72.0)
         run: python3 tests/verify_review_report_file.py
 

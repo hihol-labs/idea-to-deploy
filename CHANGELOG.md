@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 completion boundaries, host-neutral continuity и live-model verification**:
 
 ### Added
+- **Машинный контур практической эффективности по шести осям** — frozen
+  `PRACTICAL_EFFECTIVENESS_CONTRACT.json` и fail-closed evaluator принимают
+  только свежие независимые evidence-команды. Adversarial completion corpus,
+  proportionality/cost attribution, operational cold start, cross-platform
+  runtime и learning-loop fixtures довели пять внутренних осей до
+  воспроизводимого 5/5 без подмены внешнего результата.
+- **Privacy-safe внешний pilot kit** — zero-dependency collectors ведут
+  псевдонимный paired baseline/follow-up ledger локально у оператора,
+  агрегируют только числовые outcomes и SHA-256 provenance и требуют явные
+  consent/independence/accuracy attestations. Реальный
+  `docs/evidence/external-outcomes/INDEX.json` намеренно отсутствует до
+  отдельно одобренного пилота; fixtures и self-report не могут сделать ось
+  зелёной.
+- **Поведенческие benchmark-корпуса практической эффективности** — отдельные
+  sealed-наборы проверяют ложное завершение, proportionality, обходы при
+  cold-start adoption, Windows/WSL parity и human-gated learning loop; corpus
+  hashes не позволяют реализации незаметно ослабить собственный экзамен.
 - **Замороженная H1–H5 рубрика и доказанный итог 5/5** — sealed
   `HARNESS_CONFORMANCE_CONTRACT.json`, fail-closed evaluator, русскоязычный
   аналитический отчёт и freshness state не позволяют narrative-документам
@@ -75,6 +92,16 @@ completion boundaries, host-neutral continuity и live-model verification**:
   `verify_host_adapters.py` фиксирует parity Claude Code/Codex.
 
 ### Changed
+- `cost-tracker.sh` повышен из soft telemetry до двухфазного cost boundary:
+  PostToolUse по-прежнему учитывает observed/estimated usage, а PreToolUse
+  fail-closed запрещает только следующую дорогую попытку, которая пересечёт
+  настроенный ceiling. Дешёвые inspection/checkpoint операции остаются
+  доступными; hard-gate taxonomy теперь 11/18/29 с behavioural parity на
+  Claude Code и Codex.
+- `/task`, `/adopt` и `/retro` получили исполняемые proportionality,
+  cross-platform и feedback-loop контракты; CI запускает соответствующие
+  проверки на Linux и Windows, а learning proposals остаются human-gated и не
+  изменяют методологию автоматически.
 - **Strict completion теперь авторизуется исполняемым baseline-verifier** —
   workspace-writable signal ledger остаётся telemetry, а source commit и
   explicit close повторно исполняют канонический
@@ -98,6 +125,19 @@ completion boundaries, host-neutral continuity и live-model verification**:
   `metadata.explicit_invocation` и host-native запрет implicit invocation вместо
   Claude-only frontmatter как источника политики.
 
+### Fixed
+- Windows cold-start verifier больше не смешивает `cmd.exe`-quoting для
+  adoption/bootstrap команд с POSIX-sh контрактом goal
+  `verificationCommand`; Python под профилем с не-ASCII именем запускается без
+  ручного исправления пути.
+- `check-skill-completeness.sh` нормализует Windows `\` только для
+  contract-path matching, поэтому Write и Codex `apply_patch` снова получают
+  одинаковый deny на неполный `skills/<name>/SKILL.md`.
+- Native Windows runtime probe не принимает доступный через
+  `\\wsl.localhost` foreign `/proc` за доказательство WSL kernel; OS identity
+  проверяется до kernel marker, сохраняя раздельные native/PowerShell/Git Bash
+  launch paths.
+
 ### Assessment
 - Чистое состояние как требование завершения: **5,0/5**.
 - Немедленная + периодическая очистка: **4,9/5** — weekly cron материализован;
@@ -110,6 +150,13 @@ completion boundaries, host-neutral continuity и live-model verification**:
 - Идемпотентные операции очистки: **5,0/5**.
 
 Средняя оценка после полного набора изменений: **4,9/5**.
+
+Отдельная цель практической эффективности закрыта на **7/9 verified units**.
+Внешняя adoption/outcome-валидация и итоговый all-axis evaluator остаются
+**UNVERIFIED**: recruitment приостановлен до нового явного решения человека,
+реальных consented pilot records не собрано. Это не блокирует выпуск tooling,
+но запрещает заявлять внешний или общий practical-effectiveness результат
+5,0/5,0.
 
 ## [1.89.0] - 2026-07-12
 

@@ -40,7 +40,7 @@ run_py() {
 }
 
 # --- быстрый статический костяк (--quick) -----------------------------------
-CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_session_hygiene_quality verify_live_model_benchmark verify_harness_conformance verify_graduated_trust verify_all_hard_gate_host_parity verify_host_neutral_memory verify_fresh_session_resume verify_strict_completion_policy verify_completion_policy_calibration verify_observed_token_telemetry verify_control_quality verify_harness_docs_freshness"
+CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_cross_platform_runtime verify_session_hygiene_quality verify_live_model_benchmark verify_harness_conformance verify_practical_effectiveness verify_operational_cold_start verify_bypass_friction verify_learning_loop verify_external_outcome_contract verify_external_pilot_collection verify_graduated_trust verify_all_hard_gate_host_parity verify_host_neutral_memory verify_fresh_session_resume verify_strict_completion_policy verify_completion_policy_calibration verify_observed_token_telemetry verify_efficiency_attribution verify_proportionality_benchmark verify_control_quality verify_harness_docs_freshness"
 # --- полный python-набор обоих workflow --------------------------------------
 FULL="verify_dod_gate verify_skill_enforcement verify_agent_review_sentinel \
 verify_review_autoping verify_refute_fleet verify_model_risk_monotonic \
@@ -59,7 +59,7 @@ verify_completion_signal_classes \
 verify_task_contract_advisory \
 verify_review_evalset \
 verify_otel_export \
-verify_platform_tmp_and_new_hooks verify_goal_tools verify_goal_bounded_autonomy verify_goal_five_star verify_retro_scan \
+verify_platform_tmp_and_new_hooks verify_goal_tools verify_goal_bounded_autonomy verify_goal_five_star verify_retro_scan verify_completion_adversarial_corpus \
 verify_v147_fixes verify_hook_depth verify_narration_final \
 verify_verdict_contract verify_worktree_hook_safety verify_hook_count_words \
 verify_fable_snippets verify_routing verify_completion_gate \

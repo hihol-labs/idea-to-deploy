@@ -21,6 +21,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell|Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cost-tracker.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cost-tracker.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Bash|Edit|Write|apply_patch",
         "hooks": [
           {

@@ -77,7 +77,7 @@ If native continuation is unavailable, reopening the task and invoking
 
 Run `python3 tests/verify_host_adapters.py` to validate packaging,
 registration, and normalization. Run
-`python3 tests/verify_all_hard_gate_host_parity.py` for the behavioural 10/10
+`python3 tests/verify_all_hard_gate_host_parity.py` for the behavioural 11/11
 Claude-direct versus Codex-dispatch decision proof. Run
 `python3 tests/verify_host_neutral_memory.py` and
 `python3 tests/verify_fresh_session_resume.py` for local-first continuity and

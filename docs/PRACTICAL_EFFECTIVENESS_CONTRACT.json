@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "frozenAt": "2026-07-15T19:12:04Z",
+  "audit": {
+    "source": "user-provided-practical-effectiveness-audit",
+    "reportedTotal": 3.8,
+    "exactWeightedBaseline": 3.79,
+    "weightUnit": "percent",
+    "scoreMaximum": 5.0
+  },
+  "scoreScale": {
+    "maximum": 5.0,
+    "targetPerAxis": 5.0,
+    "passRule": "An axis earns 5.0 only when every independent evidence command exits 0 in the current run. Missing, stale, skipped, self-referential, synthetic external, or failing evidence leaves the axis UNVERIFIED; weighted total 5.0 requires all six axes at 5.0."
+  },
+  "freshness": {
+    "maxOperationalEvidenceAgeDays": 30,
+    "maxExternalOutcomeAgeDays": 90,
+    "externalEvidenceMustPostdateFreeze": true
+  },
+  "externalEvidencePolicy": {
+    "minimumIndependentProjects": 3,
+    "minimumIndependentOperators": 2,
+    "minimumComparableUnits": 30,
+    "minimumObservationDays": 30,
+    "forbidMethodologyRepository": true,
+    "forbidAuthorSelfReportOnly": true,
+    "forbidSyntheticOrFixtureEvidence": true,
+    "requiredProvenanceFields": [
+      "projectId",
+      "operatorId",
+      "repositoryClass",
+      "startedAt",
+      "observedAt",
+      "baseline",
+      "followup",
+      "sourceHashes",
+      "attestation"
+    ]
+  },
+  "changePolicy": {
+    "mode": "new-version-and-human-approval",
+    "rule": "Do not edit axes, weights, baselines, requirements or thresholds in place after freeze. A changed oracle requires a new version, a new digest, explicit human approval and a new goal unit."
+  },
+  "evaluator": {
+    "path": "tests/verify_practical_effectiveness.py",
+    "forbidSelfReference": true,
+    "commandTimeoutSeconds": 900
+  },
+  "axes": [
+    {
+      "id": "defects",
+      "name": "Предотвращение дефектов и ложного завершения",
+      "weight": 30,
+      "baselineScore": 4.5,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "DEF-R1",
+          "criterion": "A frozen adversarial corpus has zero critical false completions, zero high-risk bypasses and detects every seeded completion mutation.",
+          "evidence": [{"kind": "adversarial", "command": "sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "DEF-R2",
+          "criterion": "Low and medium risk completion policy stays calibrated: permitted no-signal work is not converted into a hard false block.",
+          "evidence": [{"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_completion_policy_calibration.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "DEF-R3",
+          "criterion": "Every canonical hard gate produces equivalent allow and deny behaviour through Claude Code and Codex transports.",
+          "evidence": [{"kind": "host-parity", "command": "sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py", "expectedExitCode": 0}]
+        }
+      ]
+    },
+    {
+      "id": "efficiency",
+      "name": "Время, токены и proportionality затрат",
+      "weight": 20,
+      "baselineScore": 3.0,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "EFF-R1",
+          "criterion": "Host-observed elapsed time and tokens are attributed to session, unit, skill, model and host without presenting estimates as observations.",
+          "evidence": [{"kind": "telemetry", "command": "sh skills/_shared/itd_py.sh tests/verify_efficiency_attribution.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "EFF-R2",
+          "criterion": "Frozen paired A/B tasks meet proportionality ceilings for low, medium and high risk while preserving verified quality.",
+          "evidence": [{"kind": "benchmark", "command": "sh skills/_shared/itd_py.sh tests/verify_proportionality_benchmark.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "EFF-R3",
+          "criterion": "Budget ceilings stop excess work before another expensive attempt and the low-risk path does not pay high-risk checker cost.",
+          "evidence": [{"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_cost_gate.py", "expectedExitCode": 0}]
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "name": "Операционная применимость и трение",
+      "weight": 15,
+      "baselineScore": 3.6,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "OPS-R1",
+          "criterion": "A clean external repository completes cold start, adoption and its first verified task without manual path or interpreter repair.",
+          "evidence": [{"kind": "operational", "command": "sh skills/_shared/itd_py.sh tests/verify_operational_cold_start.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "OPS-R2",
+          "criterion": "Read-only and already-authorized work has no skill-enforcement dead end, and every denial includes actionable WHY and FIX guidance.",
+          "evidence": [{"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_bypass_friction.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "OPS-R3",
+          "criterion": "Adoption is idempotent, preserves project-owned files and produces filled executable contracts rather than template prose.",
+          "evidence": [{"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_init_contracts.py", "expectedExitCode": 0}]
+        }
+      ]
+    },
+    {
+      "id": "feedback",
+      "name": "Feedback и самообучение методологии",
+      "weight": 15,
+      "baselineScore": 4.2,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "FDB-R1",
+          "criterion": "A repeated telemetry or review defect class deterministically becomes an evidence-backed proposal, experiment and explicit keep, change or rollback decision.",
+          "evidence": [{"kind": "feedback-loop", "command": "sh skills/_shared/itd_py.sh tests/verify_learning_loop.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "FDB-R2",
+          "criterion": "Retro FACTS are derived from durable events, regressions, review findings, friction and cost rather than model narration.",
+          "evidence": [{"kind": "telemetry", "command": "sh skills/_shared/itd_py.sh tests/verify_retro_scan.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "FDB-R3",
+          "criterion": "Learning promotion remains human-gated and an independent eval-set detects rubric regressions before a methodology change is accepted.",
+          "evidence": [{"kind": "adversarial", "command": "sh skills/_shared/itd_py.sh tests/verify_review_evalset.py", "expectedExitCode": 0}]
+        }
+      ]
+    },
+    {
+      "id": "portability",
+      "name": "Портируемость и сопровождаемость",
+      "weight": 10,
+      "baselineScore": 4.2,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "PRT-R1",
+          "criterion": "Claude Code and Codex packages expose one vendor-neutral skill, hook and contract core with adapter-only transport differences.",
+          "evidence": [{"kind": "host-parity", "command": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "PRT-R2",
+          "criterion": "Focused behavioural probes pass through Windows PowerShell, Git Bash and WSL/Linux launch paths without host-specific manual repair.",
+          "evidence": [{"kind": "host-parity", "command": "sh skills/_shared/itd_py.sh tests/verify_cross_platform_runtime.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "PRT-R3",
+          "criterion": "Portable interpreter rules and documentation/registration drift fail closed in CI.",
+          "evidence": [{"kind": "freshness", "command": "sh skills/_shared/itd_py.sh tests/verify_no_bare_python3.py", "expectedExitCode": 0}]
+        }
+      ]
+    },
+    {
+      "id": "adoption",
+      "name": "Внешняя adoption/outcome-валидация",
+      "weight": 10,
+      "baselineScore": 2.5,
+      "targetScore": 5.0,
+      "requirements": [
+        {
+          "id": "ADP-R1",
+          "criterion": "The opt-in external outcome contract is privacy-safe, validates baseline/follow-up provenance and never treats fixtures or the methodology repository as adoption.",
+          "evidence": [{"kind": "external-contract", "command": "sh skills/_shared/itd_py.sh tests/verify_external_outcome_contract.py", "expectedExitCode": 0}]
+        },
+        {
+          "id": "ADP-R2",
+          "criterion": "Fresh evidence covers at least the frozen minimum independent projects, operators, comparable units and observation duration with no critical regression.",
+          "evidence": [{"kind": "external-outcome", "command": "sh skills/_shared/itd_py.sh tests/verify_external_outcome_evidence.py", "expectedExitCode": 0, "artifact": "docs/evidence/external-outcomes/INDEX.json", "observedAtField": "observedAt", "maxAgeDays": 90, "mustPostdateFreeze": true}]
+        },
+        {
+          "id": "ADP-R3",
+          "criterion": "Independent provenance rejects author-only self-report, duplicate projects/operators, synthetic records and unverifiable source hashes.",
+          "evidence": [{"kind": "external-outcome", "command": "sh skills/_shared/itd_py.sh tests/verify_external_outcome_independence.py", "expectedExitCode": 0, "artifact": "docs/evidence/external-outcomes/INDEX.json", "observedAtField": "observedAt", "maxAgeDays": 90, "mustPostdateFreeze": true}]
+        }
+      ]
+    }
+  ]
+}

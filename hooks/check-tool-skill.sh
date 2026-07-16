@@ -492,6 +492,9 @@ def main() -> int:
         block_msg = (
             f"[SKILL ENFORCEMENT — БЛОКИРОВКА] ⛔ Подряд {ignore_count} "
             "напоминаний о скиллах были проигнорированы. Tool call ЗАБЛОКИРОВАН.\n\n"
+            "WHY: обязательный lifecycle skill не выбран и reasoned bypass не записан.\n"
+            "FIX: вызови подходящий skill либо открой audited grace-окно через "
+            "`SKILL_BYPASS: <причина>` по инструкции ниже.\n\n"
             "Чтобы продолжить, выбери ОДНО из двух:\n"
             "1. Вызови подходящий скилл через инструмент Skill "
             "(/bugfix, /test, /refactor, /doc, /review, /explain, /perf, "

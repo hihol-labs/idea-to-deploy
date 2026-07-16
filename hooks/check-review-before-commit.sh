@@ -154,6 +154,9 @@ def emit_deny(count: int) -> None:
     msg = (
         f"[REVIEW GATE] Коммит заблокирован: {count} файлов в staging, "
         f"но /review не был вызван в этой сессии.\n\n"
+        f"WHY: multi-file staged diff требует свежего независимого review, "
+        f"а session-bound marker отсутствует.\n"
+        f"FIX: запусти /review для текущего diff и затем повтори git commit.\n\n"
         f"Правило: коммитить >2 файлов без /review запрещено (CLAUDE.md).\n\n"
         f"Действия:\n"
         f"  1. Запусти /review для проверки изменений\n"

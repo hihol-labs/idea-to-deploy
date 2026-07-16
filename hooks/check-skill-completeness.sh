@@ -174,6 +174,8 @@ def emit_deny(errors: list[str], skill_name: str) -> None:
     reason = (
         f"[SKILL COMPLETENESS BLOCK] Skill `/{skill_name}` is incomplete "
         f"— found {len(errors)} violation(s):\n\n"
+        f"WHY: the skill references required supporting artifacts that are absent or incomplete.\n"
+        f"FIX: create every artifact listed below, then retry the Write/Edit.\n\n"
         + "\n".join(f"  ❌ {e}" for e in errors)
         + "\n\nThis hook closes the v1.4.0 Potemkin-release incident: "
         "skills cannot be written without their supporting artifacts "
@@ -208,7 +210,11 @@ def main() -> int:
     if not file_path:
         return 0
 
-    m = SKILL_PATH_RE.search(file_path)
+    # Host payloads use native separators.  The contract regex is deliberately
+    # POSIX-shaped, so normalize only for matching and keep the original path
+    # for pathlib/filesystem operations below.
+    match_path = str(file_path).replace("\\", "/")
+    m = SKILL_PATH_RE.search(match_path)
     if not m:
         return 0
 

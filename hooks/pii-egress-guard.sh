@@ -91,6 +91,8 @@ def emit_deny(label: str, tool: str) -> None:
     msg = (
         f"[PII/SECRET EGRESS GUARD] Blocked: a {label} appears in an outbound "
         f"{tool} call.\n\n"
+        f"WHY: the outbound payload contains a credential pattern and has no explicit safe authorization.\n"
+        f"FIX: redact/parameterize the secret or obtain explicit user confirmation before retrying.\n\n"
         f"Sending a live credential off the machine is almost never intended. "
         f"This call was denied.\n"
         f"If this is a false positive or genuinely required, ask the user to "

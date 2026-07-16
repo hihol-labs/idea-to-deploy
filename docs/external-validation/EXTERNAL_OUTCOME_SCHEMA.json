@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "artifact": "docs/evidence/external-outcomes/INDEX.json",
+  "optIn": true,
+  "privacy": {
+    "pseudonymousIdPatterns": {
+      "projectId": "^proj_[a-f0-9]{12}$",
+      "operatorId": "^op_[a-f0-9]{12}$"
+    },
+    "forbiddenFields": [
+      "name", "email", "repositoryUrl", "repositoryPath", "prompt",
+      "sourceCode", "secret", "customerData"
+    ],
+    "forbiddenContent": ["PII", "source code", "secrets", "customer data"]
+  },
+  "requiredRecordFields": [
+    "projectId", "operatorId", "repositoryClass", "startedAt", "observedAt",
+    "comparableUnits", "baseline", "followup", "sourceHashes", "attestation", "privacy"
+  ],
+  "metrics": [
+    "defectEscapeRate", "falseCompletionRate", "medianCycleMinutes",
+    "tokenUnitsPerVerifiedUnit", "operatorFrictionRate", "criticalRegressions"
+  ],
+  "provenance": {
+    "sourceHashFields": ["artifactDigest", "sha256", "verifiedBy", "verifiedAt"],
+    "attestationFields": [
+      "consent", "independentOperator", "authorAffiliated", "accurate", "recordDigest"
+    ]
+  },
+  "decision": {
+    "maximumPrimaryMetricRegressionPercent": 5,
+    "requiredCriticalRegressions": 0,
+    "requiresAtLeastOneMaterialImprovement": true
+  }
+}
