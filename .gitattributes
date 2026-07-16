@@ -4,3 +4,7 @@
 # which previously showed up as a whole-tree "modified" diff (EOL only).
 # `text=auto` lets git auto-detect binary files and leave them untouched.
 * text=auto eol=lf
+
+# Archived live-model output is immutable, content-hashed evidence. Preserve
+# intentional Markdown hard-break spaces instead of rewriting the transcript.
+tests/fixtures/live-model-evidence/runs/**/output/*.md -whitespace
