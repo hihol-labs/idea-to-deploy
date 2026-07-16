@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy Infrastructure"
+  short_description: "Explicit infrastructure generation and mutation workflow."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "external-live-model-evidence",
+  "skill_under_test": "/external-live-model-benchmark",
+  "status": "pending",
+  "description": "Evidence container, not a generation fixture. Validated fail-closed by tests/verify_live_model_benchmark.py and the frozen H4 evaluator. The pending status only excludes this directory from generic fixture discovery."
+}

@@ -4,7 +4,7 @@ description: 'Deploy to production — sync files, build containers, apply migra
 argument-hint: '"web" for web only, "all" for full stack, or specific service name'
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(ssh:*) Bash(tar:*) Bash(docker:*) Bash(curl:*) Bash(git:*)
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: high
   side_effect: production-mutation
@@ -196,7 +196,9 @@ export EXTRA_EXCLUDES=""                     # optional: space-separated extra t
 
 **Option B: `## Deploy config` section in project `CLAUDE.md`** — same variables as above, inside a fenced `sh` block.
 
-**Option C: Memory file** — `~/.claude/projects/<project-hash>/memory/reference_deploy.md` with an `export` block.
+**Option C: Project continuity file** — `.itd-memory/reference_deploy.md` with
+an `export` block. Host-private memory may mirror it, but is never the only
+copy.
 
 If none of the above is present, `/deploy` will **ask the user** for each value and offer to write `scripts/deploy-env.sh` as a template.
 

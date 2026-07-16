@@ -7,6 +7,157 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+## [1.90.0] - 2026-07-15
+
+**Модель-нейтральный Harness Engineering 5/5: Codex adapter, доказуемые
+completion boundaries, host-neutral continuity и live-model verification**:
+
+### Added
+- **Машинный контур практической эффективности по шести осям** — frozen
+  `PRACTICAL_EFFECTIVENESS_CONTRACT.json` и fail-closed evaluator принимают
+  только свежие независимые evidence-команды. Adversarial completion corpus,
+  proportionality/cost attribution, operational cold start, cross-platform
+  runtime и learning-loop fixtures довели пять внутренних осей до
+  воспроизводимого 5/5 без подмены внешнего результата.
+- **Privacy-safe внешний pilot kit** — zero-dependency collectors ведут
+  псевдонимный paired baseline/follow-up ledger локально у оператора,
+  агрегируют только числовые outcomes и SHA-256 provenance и требуют явные
+  consent/independence/accuracy attestations. Реальный
+  `docs/evidence/external-outcomes/INDEX.json` намеренно отсутствует до
+  отдельно одобренного пилота; fixtures и self-report не могут сделать ось
+  зелёной.
+- **Поведенческие benchmark-корпуса практической эффективности** — отдельные
+  sealed-наборы проверяют ложное завершение, proportionality, обходы при
+  cold-start adoption, Windows/WSL parity и human-gated learning loop; corpus
+  hashes не позволяют реализации незаметно ослабить собственный экзамен.
+- **Замороженная H1–H5 рубрика и доказанный итог 5/5** — sealed
+  `HARNESS_CONFORMANCE_CONTRACT.json`, fail-closed evaluator, русскоязычный
+  аналитический отчёт и freshness state не позволяют narrative-документам
+  выставлять себе балл или принимать missing/stale/self-referential evidence.
+- **Настоящий ITD live-model benchmark** — изолированный adopted-проект
+  вызывает repository-local `$idea-to-deploy:blueprint --full`, сохраняет
+  bounded transcript/artifact hashes и принимает PASS только после независимого
+  replayable snapshot oracle; свежий pinned run: `20260715T160657Z-f0da33ea`.
+- **Host-neutral continuity и полный hard-gate parity** — project-local
+  `.itd-memory` восстанавливает unit/evidence/blockers/next action между Claude
+  Code и Codex, а все 10 computational hard gates проверяются на обоих host
+  adapters реальными allow/deny сценариями.
+- **Evidence-efficient `/goal` 5/5 path** — adaptive checker routing is sealed
+  per unit (`low/medium/high` → machine-only/targeted/full), compact handoff
+  checkpoints are capped at 4 KiB, and `itd_goal_score.py` awards five binary
+  points only from ≥5 parity-matched A/B pairs with frozen-oracle quality,
+  time/token, memory, immediate+24h understanding, and stop-integrity evidence.
+  Thresholds are fixed in code; contaminated controls or missed criticals fail
+  closed with actionable `path + WHY + FIX` output.
+- **Opt-in bounded autonomy for `/goal`** — an approved `runPolicy` can seal the
+  verification oracle, cap attempts/wall-clock/host-observed token budgets,
+  require an explicit approach and independent-review evidence, and persist an
+  append-only attempt ledger with typed stop reasons. Resume after exhaustion
+  requires a human reason and a strict increase of exactly the exhausted limit;
+  host-native continuation remains transport and cannot bypass `/task`, `/test`,
+  `/review`, deployment, or external-write gates.
+- **Реальный внешний scheduler** — read-only GitHub Actions cron запускает
+  weekly cleanup + objective quality scoring каждый понедельник и monthly
+  reversible ablation первого числа месяца; evidence сохраняется Actions
+  artifact даже при красном результате. Для принятых проектов добавлен
+  opt-in workflow template, который `/adopt` не включает без согласия.
+- **Objective quality scorecard** — пять содержательных измерений получают
+  weighted score из исполняемых probes; stability может требовать повторных
+  попыток, minimum score и завышенная declared grade дают fail-closed, а полный
+  per-attempt evidence пишется в `.itd-memory/hygiene/quality-score-*.json`.
+- **Практический retro-proof** — `RETRO-2026-07-14.md`: пять последовательных
+  session-close прогонов поймали 5/5 классов нарушений; на 10 фиксированных
+  задачах strict harness сохранил final completion 100%, но снизил leaked-task
+  rate с 70% до 0%; ablation `completion-stop` дала 6/6 → 3/6 и решение KEEP.
+- **Codex host adapter** — `.codex-plugin/plugin.json`, нативная регистрация
+  хуков, `codex-dispatch.py` для нормализации `apply_patch`, host-adapter
+  registry/contract и Codex-specific setup guide. Общие skills, hooks, `.itd/`
+  contracts и `.itd-memory/` state остаются единым методологическим ядром.
+- **Явный session-close contract** — `/session-save --close` запускает
+  `itd_hygiene.py close` и требует одновременно зелёные verification/startup
+  checks, свежий quality ledger, отсутствие debug-маркеров, manifest cleanup и
+  чистый Git. Обычный Stop остаётся мягким сигналом.
+- **Двухрежимная очистка** — безопасная немедленная manifest-cleanup и
+  периодический weekly-runner; операции повторяемы, не удаляют tracked-файлы,
+  отклоняют absolute/escaping paths и не маскируют ошибки.
+- **Quality и ablation ledgers** — `QUALITY.json` ранжирует модули и направляет
+  `/task` к худшему модулю по умолчанию; `HARNESS_ABLATION.json` хранит
+  ежемесячные baseline/disabled эксперименты и решение человека о судьбе
+  компонента. Добавлен воспроизводимый benchmark completion-stop.
+- **Поведенческий proof-suite** — `verify_session_hygiene_quality.py` проверяет
+  fail-closed close, dirty/debug/verification failures, freshness quality,
+  weekly cleanup, monthly ablation и идемпотентность. Отдельный
+  `verify_host_adapters.py` фиксирует parity Claude Code/Codex.
+
+### Changed
+- `cost-tracker.sh` повышен из soft telemetry до двухфазного cost boundary:
+  PostToolUse по-прежнему учитывает observed/estimated usage, а PreToolUse
+  fail-closed запрещает только следующую дорогую попытку, которая пересечёт
+  настроенный ceiling. Дешёвые inspection/checkpoint операции остаются
+  доступными; hard-gate taxonomy теперь 11/18/29 с behavioural parity на
+  Claude Code и Codex.
+- `/task`, `/adopt` и `/retro` получили исполняемые proportionality,
+  cross-platform и feedback-loop контракты; CI запускает соответствующие
+  проверки на Linux и Windows, а learning proposals остаются human-gated и не
+  изменяют методологию автоматически.
+- **Strict completion теперь авторизуется исполняемым baseline-verifier** —
+  workspace-writable signal ledger остаётся telemetry, а source commit и
+  explicit close повторно исполняют канонический
+  `.itd/VERIFICATION_CONTRACT.json`, неизменный с последнего source checkpoint.
+  Закрыты staged/committed oracle weakening, split policy/close verifier,
+  `env`/`command`/`sudo` wrappers, source→non-source rename и timeout nesting
+  720/840/900; human bypass остаётся явным и аудитируемым.
+- **Live evidence pinning исключает только собственные generated artifacts** —
+  exact path filtering сохраняет mixed rename и похожие вложенные source paths,
+  поэтому benchmark не инвалидирует себя и не скрывает изменение методологии.
+- Bounded token stops now require a numeric host observation meeting the sealed
+  limit; `enforceObservedTokens` can require the meter on every verification.
+  Weekly hygiene timeout is 30 minutes, covering its 24-minute worst-case probe
+  budget instead of timing out structurally at 15 minutes.
+- `/adopt` устанавливает полный набор `.itd`-шаблонов и создаёт консервативные
+  стартовые quality/ablation/session-artifact contracts для обоих host adapters.
+- `/task`, `/session-save` и `/retro` связаны с quality queue, явной границей
+  закрытия, weekly hygiene и monthly ablation; CI запускает новые поведенческие
+  проверки на Linux и Windows.
+- Destructive/external-write skills используют vendor-neutral
+  `metadata.explicit_invocation` и host-native запрет implicit invocation вместо
+  Claude-only frontmatter как источника политики.
+
+### Fixed
+- Windows cold-start verifier больше не смешивает `cmd.exe`-quoting для
+  adoption/bootstrap команд с POSIX-sh контрактом goal
+  `verificationCommand`; Python под профилем с не-ASCII именем запускается без
+  ручного исправления пути.
+- `check-skill-completeness.sh` нормализует Windows `\` только для
+  contract-path matching, поэтому Write и Codex `apply_patch` снова получают
+  одинаковый deny на неполный `skills/<name>/SKILL.md`.
+- Native Windows runtime probe не принимает доступный через
+  `\\wsl.localhost` foreign `/proc` за доказательство WSL kernel; OS identity
+  проверяется до kernel marker, сохраняя раздельные native/PowerShell/Git Bash
+  launch paths.
+
+### Assessment
+- Чистое состояние как требование завершения: **5,0/5**.
+- Немедленная + периодическая очистка: **4,9/5** — weekly cron материализован;
+  первый scheduled evidence появится после merge workflow в default branch.
+- Активный документ качества: **4,8/5** — weighted executable probes, stability
+  repeats, minimum score и overstatement gate автоматизированы; выбор смысловых
+  probes и повышение tracked grade намеренно остаются human-reviewed.
+- Периодическое упрощение harness: **4,9/5** — monthly cron и реальная ablation
+  6/6 → 3/6 работают fail-closed; удаление компонента остаётся human decision.
+- Идемпотентные операции очистки: **5,0/5**.
+
+Средняя оценка после полного набора изменений: **4,9/5**.
+
+Отдельная цель практической эффективности закрыта на **7/9 verified units**.
+Внешняя adoption/outcome-валидация и итоговый all-axis evaluator остаются
+**UNVERIFIED**: recruitment приостановлен до нового явного решения человека,
+реальных consented pilot records не собрано. Это не блокирует выпуск tooling,
+но запрещает заявлять внешний или общий practical-effectiveness результат
+5,0/5,0.
+
 ## [1.89.0] - 2026-07-12
 
 **10 параметров наблюдаемости/качества → 5/5 на обеих машинах (цель v1.89.0, GO-001…GO-007; сет-4 старт 4/2/2/3/3/4/1/4/2/3, RE-AUDIT-OBS: PASS)**:

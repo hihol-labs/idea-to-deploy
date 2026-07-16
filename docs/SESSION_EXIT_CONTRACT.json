@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "mode": "explicit_close",
+  "verificationContract": "docs/VERIFICATION_CONTRACT.json",
+  "requireCleanGit": true,
+  "requiredStateFiles": [".itd-memory/STATE.json"],
+  "startupProbeCommand": "bash tests/run-all.sh --quick",
+  "cleanupManifest": ".itd-memory/session-artifacts.json",
+  "qualityLedger": "docs/QUALITY.json",
+  "qualityMaxAgeDays": 30,
+  "debugScan": {
+    "enabled": true,
+    "paths": ["hooks", "scripts", "skills", "tests"],
+    "excludeGlobs": [
+      "tests/fixtures/**",
+      "**/*.md",
+      "skills/browser-check/playwright/run.js",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "patterns": ["\\bconsole\\.log\\s*\\(", "\\bdebugger\\b"]
+  },
+  "periodic": {
+    "weeklyMaxAgeDays": 7,
+    "weeklyCommands": [
+      {"id": "meta-review", "command": "python3 tests/meta_review.py", "timeoutSeconds": 120, "passFailParser": "exit_code_zero"},
+      {"id": "routing-benchmark", "command": "python3 tests/verify_routing.py", "timeoutSeconds": 120, "passFailParser": "exit_code_zero"},
+      {"id": "review-evalset", "command": "python3 tests/verify_review_evalset.py", "timeoutSeconds": 120, "passFailParser": "exit_code_zero"}
+    ],
+    "monthlyAblationMaxAgeDays": 31
+  }
+}

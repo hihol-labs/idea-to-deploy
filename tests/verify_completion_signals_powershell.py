@@ -24,6 +24,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "completion-signals.sh"
 SYNC = REPO / "scripts" / "sync-to-active.sh"
+REGISTRATION_SURFACES = (
+    REPO / "hooks" / "hooks.json",
+    REPO / "skills" / "adopt" / "references" / "project-settings-template.json",
+    REPO / "skills" / "adopt" / "references" / "codex-project-hooks.json",
+)
 
 PASS = FAIL = 0
 
@@ -63,6 +68,30 @@ def signals(cwd):
     return [json.loads(line) for line in f.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def posttool_script_registered(path: Path, tool: str, script: str) -> bool:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for group in (data.get("hooks") or {}).get("PostToolUse", []):
+        tools = {item for item in re.split(r"[|*]", str(group.get("matcher") or "")) if item}
+        if "*" not in str(group.get("matcher") or "") and tool not in tools:
+            continue
+        commands = "\n".join(str(hook.get("command") or "") for hook in group.get("hooks", []))
+        if script in commands:
+            return True
+    return False
+
+
+def completion_gate_timeout_is_bounded(path: Path, tool: str) -> bool:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for group in (data.get("hooks") or {}).get("PreToolUse", []):
+        tools = {item for item in re.split(r"[|*]", str(group.get("matcher") or "")) if item}
+        if tool not in tools:
+            continue
+        for hook in group.get("hooks", []):
+            if "completion-gate.sh" in str(hook.get("command") or ""):
+                return 60 <= int(hook.get("timeout") or 0) <= 900
+    return False
+
+
 def main():
     with tempfile.TemporaryDirectory() as td:
         # 1) PowerShell test runner -> L2 pass
@@ -73,6 +102,9 @@ def main():
         if rows:
             check("ps-npm-test layer 2 / pass",
                   rows[0].get("layer") == 2 and rows[0].get("outcome") == "pass",
+                  json.dumps(rows[0], ensure_ascii=False))
+            check("runtime signal carries harness producer provenance",
+                  rows[0].get("producer") == "itd-completion-signals",
                   json.dumps(rows[0], ensure_ascii=False))
 
         # 2) Invoke-Pester fail -> L2 fail + красная пометка в additionalContext
@@ -111,6 +143,16 @@ def main():
     check("sync-to-active: completion-signals под PowerShell-matcher",
           "completion-signals.sh" in block,
           block[:200] or "matcher PowerShell не найден")
+
+    # 6) Consumer/producer parity must hold on every bundled/adoption surface,
+    # not only the developer's sync-to-active path.
+    for surface in REGISTRATION_SURFACES:
+        for tool in ("Bash", "PowerShell"):
+            check(f"{surface.name}: completion-signals registered for {tool}",
+                  posttool_script_registered(surface, tool, "completion-signals.sh"),
+                  str(surface))
+            check(f"{surface.name}: strict completion timeout supports rerun for {tool}",
+                  completion_gate_timeout_is_bounded(surface, tool), str(surface))
 
     print(f"\n{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0

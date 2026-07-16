@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "defaultRiskTier": "low",
+  "tiers": {
+    "low": {
+      "enforcement": "allow-or-advisory",
+      "transportFailure": "fail-open",
+      "rule": "A low-risk or read-only action must not be denied solely from an inferred risk signal."
+    },
+    "medium": {
+      "enforcement": "ask",
+      "transportFailure": "surface-unverified",
+      "rule": "A reversible but consequential action requires an explicit confirmation path, not a silent deny or allow."
+    },
+    "high": {
+      "enforcement": "deny-or-block",
+      "transportFailure": "fail-closed",
+      "rule": "A canonical hard gate denies the action or blocks completion until its concrete evidence condition is satisfied."
+    }
+  },
+  "hardGates": [
+    {
+      "script": "check-review-before-commit.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_review_sentinel_diffbind.py"
+    },
+    {
+      "script": "check-dod-before-commit.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_dod_gate.py"
+    },
+    {
+      "script": "check-commit-completeness.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_commit_completeness_gate.py"
+    },
+    {
+      "script": "check-skill-completeness.sh",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_skill_completeness_gate.py"
+    },
+    {
+      "script": "check-tool-skill.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_skill_enforcement.py"
+    },
+    {
+      "script": "pii-egress-guard.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash|WebFetch",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_pii_egress.py"
+    },
+    {
+      "script": "completion-gate.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_completion_gate.py"
+    },
+    {
+      "script": "state-guard.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_state_hardening.py"
+    },
+    {
+      "script": "cost-tracker.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash|PowerShell|Task|Agent",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_cost_gate.py"
+    },
+    {
+      "script": "narration-final.sh",
+      "event": "SubagentStop",
+      "matcher": "*",
+      "riskTier": "high",
+      "decision": "block",
+      "behavioralTest": "tests/verify_narration_final.py"
+    },
+    {
+      "script": "verdict-contract.sh",
+      "event": "SubagentStop",
+      "matcher": "*",
+      "riskTier": "high",
+      "decision": "block",
+      "behavioralTest": "tests/verify_verdict_contract.py"
+    }
+  ],
+  "lowRiskCalibration": [
+    {"script": "check-tool-skill.sh", "probe": "read-only git status", "expected": "allow"},
+    {"script": "pii-egress-guard.sh", "probe": "local echo without PII", "expected": "allow"},
+    {"script": "state-guard.sh", "probe": "write outside .itd-memory ledgers", "expected": "allow"},
+    {"script": "completion-gate.sh", "probe": "non-commit shell command", "expected": "allow"}
+  ],
+  "adapterRegistrationSources": {
+    "claude": [
+      "skills/adopt/references/project-settings-template.json",
+      "scripts/sync-to-active.sh"
+    ],
+    "codex": [
+      "hooks/hooks.json",
+      "skills/adopt/references/codex-project-hooks.json"
+    ]
+  }
+}

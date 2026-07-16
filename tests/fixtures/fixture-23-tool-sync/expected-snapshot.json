@@ -17,7 +17,7 @@
     ],
     "must_contain": [
       "/tool-sync",
-      "disable-model-invocation: true",
+      "explicit_invocation: true",
       "LAUNCH_PLAN.md",
       "BACKLOG.md",
       "STATE.json",

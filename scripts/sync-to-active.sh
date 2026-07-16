@@ -371,6 +371,12 @@ DESIRED_HOOKS=$(cat <<'JSON'
   ],
   "PreToolUse": [
     {
+      "matcher": "Bash|PowerShell|Task|Agent",
+      "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/cost-tracker.sh", "timeout": 5 }
+      ]
+    },
+    {
       "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-tool-skill.sh", "timeout": 5 }
@@ -391,7 +397,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/cross-review-precommit.sh",      "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 900 },
         { "type": "command", "command": "~/.claude/hooks/state-guard.sh",                  "timeout": 5 }
       ]
     },
@@ -407,6 +413,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
     {
       "matcher": "PowerShell",
       "hooks": [
+        { "type": "command", "command": "~/.claude/hooks/completion-gate.sh", "timeout": 900 },
         { "type": "command", "command": "~/.claude/hooks/state-guard.sh", "timeout": 5 }
       ]
     },

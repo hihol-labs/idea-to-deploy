@@ -27,7 +27,8 @@
         "hooks/check-review-before-commit.sh",
         "hooks/check-dod-before-commit.sh",
         "hooks/wip-gate.sh",
-        "hooks/check-commit-completeness.sh"
+        "hooks/check-commit-completeness.sh",
+        "docs/templates/itd/itd_hygiene.py"
       ],
       "review_by": "2026-10-10"
     },
@@ -45,7 +46,8 @@
         "hooks/completion-gate.sh",
         "hooks/completion-signals.sh",
         "hooks/completion-stop.sh",
-        "hooks/completion_lib.py"
+        "hooks/completion_lib.py",
+        "docs/templates/itd/itd_hygiene.py"
       ],
       "review_by": "2026-10-10",
       "notes": "полная механика вынесена в docs/completion-gate.md (v1.73.0, дедуп прозы и кода)"

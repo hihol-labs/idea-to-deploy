@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -45,6 +46,18 @@ def pass_through(context: str | None = None) -> int:
         out["hookSpecificOutput"]["additionalContext"] = context
     sys.stdout.write(json.dumps(out, ensure_ascii=False))
     return 0
+
+
+def project_root(cwd: Path) -> Path:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=str(cwd),
+            capture_output=True, text=True, timeout=5)
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip()).resolve()
+    except Exception:
+        pass
+    return cwd.resolve()
 
 
 def main() -> int:
@@ -68,7 +81,7 @@ def main() -> int:
     try:
         tool_input = payload.get("tool_input") or {}
         command = tool_input.get("command") or ""
-        cwd = Path(payload.get("cwd") or os.getcwd())
+        cwd = project_root(Path(payload.get("cwd") or os.getcwd()))
         session_id = str(payload.get("session_id") or "unknown")
         response = payload.get("tool_response")
         if response is None:
@@ -78,6 +91,7 @@ def main() -> int:
         if not sig:
             return pass_through()
 
+        sig["producer"] = "itd-completion-signals"
         cl.append_signal(cwd, session_id, sig)
 
         # Красная пометка ровно в момент сбоя проверяемого слоя (1 или 2).

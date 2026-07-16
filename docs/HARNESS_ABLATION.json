@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "cadenceDays": 31,
+  "lastExperiment": {
+    "date": "2026-07-11",
+    "component": "instructions-feedback-state",
+    "evidence": "docs/retros/RETRO-2026-07-11.md",
+    "decision": "keep instructions and feedback; state result inconclusive"
+  },
+  "candidates": [
+    {
+      "id": "completion-stop",
+      "component": "hooks/completion-stop.sh",
+      "disableEnv": {
+        "ITD_COMPLETION_STOP": "0"
+      },
+      "benchmarkCommands": [
+        {
+          "id": "completion-behaviour",
+          "command": "python3 benchmarks/harness-components/completion-stop.py",
+          "metricParser": "json_number",
+          "metricField": "score",
+          "higherIsBetter": true,
+          "maxRegression": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -92,8 +92,37 @@ jobs:
       - name: Run init-hardening contracts gate (v1.67.0, init-audit P1-P5)
         run: python3 tests/verify_init_contracts.py
 
+      - name: Run session hygiene, quality ledger, and ablation behavioural proof
+        run: python3 tests/verify_session_hygiene_quality.py
+
       - name: Run cost-tracker ledger isolation + context sensor gate (v1.71.0, retro 2026-07-09)
         run: python3 tests/verify_cost_tracker.py
+
+      - name: Verify observed token provenance and estimate separation
+        run: python3 tests/verify_observed_token_telemetry.py
+
+      - name: Measure control coverage and false classifications
+        run: python3 tests/verify_control_quality.py
+
+      - name: Fail closed on Harness documentation/version drift
+        run: python3 tests/verify_harness_docs_freshness.py
+
+      - name: Validate the frozen practical-effectiveness audit oracle
+        run: python3 tests/verify_practical_effectiveness.py --axis contract
+
+      - name: Prove cold-start adoption and operational-friction contracts
+        run: |
+          python3 tests/verify_operational_cold_start.py
+          python3 tests/verify_bypass_friction.py
+
+      - name: Prove the evidence-backed human-gated learning loop
+        run: python3 tests/verify_learning_loop.py
+
+      - name: Prove cross-platform runtime and adapter launch parity
+        run: python3 tests/verify_cross_platform_runtime.py
+
+      - name: Prove the privacy-safe external outcome contract
+        run: python3 tests/verify_external_outcome_contract.py
 
       - name: Run review report-file + finish-line interruption doc-contract (v1.72.0)
         run: python3 tests/verify_review_report_file.py
@@ -109,6 +138,9 @@ jobs:
 
       - name: Run G-003 fixture-proof grid (hard-gate coverage 10/10) (v1.79.1)
         run: python3 tests/verify_harness_map_fixtures.py
+
+      - name: Replay fresh live-model evidence against the independent oracle
+        run: python3 tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30
 
       - name: Run completion-gate behavioural proof (v1.79.1)
         run: python3 tests/verify_completion_gate.py
@@ -130,6 +162,12 @@ jobs:
 
       - name: Run goal-verify POSIX shell contract (no cmd.exe false-pass) (v1.87.0)
         run: python3 tests/verify_goal_verify_shell.py
+
+      - name: Run bounded goal autonomy contract (sealed oracle, budgets, attempts)
+        run: python3 tests/verify_goal_bounded_autonomy.py
+
+      - name: Run bounded goal deterministic five-star evaluator
+        run: python3 tests/verify_goal_five_star.py
 
       - name: Run project-checks slot contract (.itd/checks runner + DoD wiring) (v1.87.0)
         run: python3 tests/verify_project_checks.py

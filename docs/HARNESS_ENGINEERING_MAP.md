@@ -1,9 +1,11 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Дата: 2026-07-02 (обновлено; исходная карта — 2026-06-22)
-> Версия idea-to-deploy: **v1.42.0** (карта H1–H5 составлена по v1.21.0; §3/§4/§8 сверены с v1.37.0–v1.42.0; в v1.40.0 добавлена ось **I** — §4.4; в v1.41.0 — WIP=1/VCR; в v1.42.0 — платформенная tmp-симметрия, feature-конвейер /task, freeze в каноне)
+> Актуальность: **2026-07-15**, idea-to-deploy **v1.90.0**.
+> Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
+
+<!-- harness-docs-state: docs/HARNESS_DOCS_STATE.json -->
 
 ---
 
@@ -19,7 +21,7 @@
 
 Документ намеренно честный: каждый gap помечен явно. Код-кандидаты **не реализуются вне signal-gated процесса** — см. §6 и [`ROADMAP_v1.21.md`](../ROADMAP_v1.21.md).
 
-> **Важно про версию.** Эта карта составлена по **v1.21.0**, где PFO-порт добавил слой контрактов `.itd/` и набор fail-closed гейтов. Это заметно повысило покрытие по сравнению с тем, что было до v1.21.0 (особенно по принципам H2, H3 и шаблону `feature_list.json`).
+> **Важно про версию.** Текущие claims сверяются с `HARNESS_DOCS_STATE.json` и замороженным `HARNESS_CONFORMANCE_CONTRACT.json`; исторические версии ниже описывают происхождение механизмов, но не являются текущим score.
 
 ## 2. Источник
 
@@ -32,7 +34,7 @@
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка — чтением `main` (v1.46.0): **40 skills, 10 subagents, 29 hooks, 2 Quality Gates**, слой контрактов `.itd/` (`docs/templates/itd/`), session-memory, 3 уровня качества (structural / snapshot / behavioural), бинарные rubric'и `/review` · `/security-audit` · `/deps-audit`. С v1.37.0 канонический набор регистрации (`scripts/sync-to-active.sh`) включает always-on хуки само-коррекции и наблюдаемости (`careful`, `stuck-detection`, `crash-recovery`, `execution-trace`, `context-aware`) — ранее они лежали в `~/.claude/hooks/`, но не были зарегистрированы; `freeze` остаётся opt-in. С v1.40.0 в наборе также Stop-хук `handoff-readiness.sh` (ось I, §4.4); с v1.41.0 — `wip-gate.sh` (WIP=1, soft) + VCR-метрика в `itd_metrics.py` + чтение `.itd-memory/STATE.json` в `pre-flight-check.sh`; с v1.49.0 — SubagentStop-хук `narration-final.sh` (механический детектор нарратив-финала субагентов, ≤2 блок-пинга); с v1.51.0 — SubagentStop-хук `verdict-contract.sh` (вендор-нейтральный контракт вердикта ревью: блок при прозаическом вердикте без валидного JSON-блока, ≤2 пинга).
+Проверка текущего состояния: **40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks**, 2 Quality Gates, слой контрактов `.itd/`, host-neutral `.itd-memory/`, deterministic behavioural floor и свежий live-model evidence.
 
 ## 4. Таблица соответствия
 
@@ -40,18 +42,18 @@
 
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
-| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | **Дословно центральный тезис методологии**: 40 skills + 10 agents + 29 hooks + 2 Quality Gates + слой контрактов `.itd/` поверх Claude Code. Codegen — следствие harness'а (ср. `K11`) |
+| **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | 40 public skills + 10 agents + 29 hooks + 2 Quality Gates; vendor-neutral `.itd/`/`.itd-memory/` contracts и host adapters для Claude/Codex. |
 | **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
 
-| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.21.0) | Gap / комментарий |
+| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.90.0) | Evidence / комментарий |
 |---|---|:---:|---|---|
-| **H1** | **Ограничение поведения** — явные правила и границы | ✅ | Per-skill `allowed-tools`; `disable-model-invocation: true` на `/deploy` · `/migrate` · `/migrate-prod` · `/github-workflow` · `/tool-sync`; deny-first + явный user-confirm на деструктивных операциях; read-only скиллы (`/advisor`, `/security-audit`, `/deps-audit`, `/explain`, `/discover`, `/grill-me`, `/market-scan`, `/mcp-docs`); opt-in `careful.sh` / `freeze.sh`; `check-tool-skill.sh`. **+ v1.21.0 `.itd/`:** `PERMISSION_MATRIX.json/.md`, `FORBIDDEN_CHANGES.md`, `SCOPE_LOCK.md`, `TOOL_CAPABILITY_REGISTRY.json`, `EXECUTION_POLICY.json` — границы стали машиночитаемыми | Минор: нет *graduated trust* (= `K1` ◐), но как «явные правила и границы» — покрыто полностью |
+| **H1** | **Ограничение поведения** | ✅ | Graduated trust policy, 11 computational hard gates, explicit invocation, permission/scope contracts и полная Claude/Codex parity. | `verify_graduated_trust.py`, `verify_all_hard_gate_host_parity.py` |
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; статус-таблица `CLAUDE.md` для resume; автосохранение на вехах; `pre-flight-check.sh` (git + `MEMORY.md` в контекст); `session-open-diagnostic.sh`; `crash-recovery.sh`. **+ v1.21.0:** `context-budget.sh` (PreToolUse — мягко тормозит unbounded-дампы в контекст) + `UNIT_CONTEXT_MANIFEST.json` (свежий ограниченный per-node контекст) | Принцип «между сессиями» — полностью. Смежный `K4` (бюджетирование *внутри* сессии) теперь **частично закрыт** `context-budget.sh` (мягкое напоминание, не жёсткая budget-модель) — улучшение vs DESIGN_SPACE §5.2 |
 | **H3** | **Предотвращение преждевременного завершения** — защита от ложного успеха | ✅ | **Сильнейшая ось.** 2 Quality Gate; бинарные rubric'и `BLOCKED/PASSED`; стоп после **3 ошибок подряд**; `check-commit-completeness.sh` + `check-review-before-commit.sh` (hard-block); `stuck-detection.sh`. **+ v1.21.0 fail-closed гейты:** `ACCEPTANCE_CONTRACT.json` («done = traceable proof-checklist, не ощущение агента»; статусы `pending/passed/failed/recovery_required`); `VERIFICATION_CONTRACT.json` (`failClosed`, `RECOVERY_REQUIRED` вместо «passed» при un-run/ambiguous); **двухстадийный `/review`** (Stage A spec-compliance — «красивый код, решающий не ту задачу» → `BLOCKED`); fail-closed `/test` (passed только при реально полученном evidence); `ROOT_CAUSE.md`-гейт в `/bugfix`; `BRANCH_FINISH.md` | — |
-| **H4** | **Верификация через тестирование** — сквозные проверки и саморефлексия | ✅ | `/test` после каждого шага; **3 уровня качества** методологии (structural / snapshot / behavioural); `tests/fixtures/` (25 фикстур) + `run-fixtures.sh`; `meta-review.yml` в CI; `/review` · `/security-audit` · `/deps-audit`; `/harden` (k6 load-tests); `/browser-check` (Playwright runtime). **+ v1.21.0:** TDD evidence-гейт (red→green) в `/test`; fail-closed верификация | — |
-| **H5** | **Наблюдаемость** — отладка и мониторинг во время выполнения | ✅ | **Post-hoc:** `cost-tracker.sh` (per-session usage), `/session-save` (summary), `session-open-diagnostic.sh`, `ITD_REPORT.md`, session-memory. **+ Live (v1.21.x): `execution-trace.sh`** — PreToolUse-хук пишет по строке JSON (`{ts, tool, target}`) на каждый tool-call в `.claude/traces/session-{id}.jsonl` | **Закрыто (= `K15`).** Live execution trace «скилл X прочитал Y, сделал tool-call Z» теперь есть: zero-context (ничего не инжектит), opt-in (как `cost-tracker.sh`), `.claude/` в `.gitignore`, fail-safe |
+| **H4** | **Верификация через тестирование** | ✅ | Deterministic structural/snapshot/behavioural floor плюс weekly/manual live-model benchmark без permanent-disable guard. | Fresh post-freeze transcript/output hashes и независимый replay `verify_snapshot.py`; отсутствие credential = UNVERIFIED, не PASS. |
+| **H5** | **Наблюдаемость** | ✅ | Paired intent/outcome traces; estimated и host-observed token counters разделены с provenance; session/unit attribution. | Control-quality FP/FN metrics и machine-checked docs/version freshness fail closed. |
 
 ### 4.3. Библиотека шаблонов
 
@@ -121,13 +123,13 @@
 | **2 шаблона** | T1, **T2** (через `.itd/`) | — | — |
 | **Ось I (Anthropic, v1.40.0)** | I1–I7 (init-фаза, bootstrap-контракт, env-boot, example-тест, декомпозиция, git-чекпоинт, handoff-readiness) + персистентный goal-ledger (`/goal` + `GOAL.json`, v1.44.0) | — | — |
 
-**Итог:** философия харнес-инженерии воплощена **в полной мере** — `idea-to-deploy` является образцовым примером самой дисциплины. На **v1.21.x**: **все 5 принципов** покрыты полностью (H1–H5; наблюдаемость закрыта live-трейсингом `execution-trace.sh`). Оба шаблона курса покрыты: `AGENTS.md` → `CLAUDE.md` + `.itd/`-манифест; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (fail-closed, строже оригинала).
+**Итог: 5,0/5,0** по замороженному `HARNESS_CONFORMANCE_CONTRACT.json`: по одному баллу за H1–H5 при exit 0 всех независимых evidence-команд. Narrative этой карты не является scorer'ом; обоснование, evidence и границы вывода собраны в [`HARNESS_CONFORMANCE_REPORT.md`](HARNESS_CONFORMANCE_REPORT.md).
 
 **Содержательных остатков по принципам и шаблонам нет.** Остаётся один минорный косметический кандидат (см. §5.4: `AGENTS.md`-алиас для кросс-тул-портируемости); персистентный мульти-фичный ledger закрыт в v1.44.0 (`/goal` + `GOAL.json`, §4.4) — это было улучшение формы, а не пробел принципов. Карта остаётся сигнал-триггер-картой на случай изменений курса или методологии.
 
 **Обновление (v1.32.0–v1.33.0 — порты Day-3/5).** Харнес-инженерия в ITD теперь читается в **два слоя**: (1) *operating* — ITD сам является харнесом над Claude Code (это §4–§5 выше); (2) *output* — методология учит и аудирует построение харнеса *продукта пользователя*. Day-3 (Context Engineering, v1.32.0) и Day-5 (Zero-Trust + SDD, v1.33.0) добавили именно output-слой: дизайн памяти/контекста, eval-петель и zero-trust guardrails врезками в `/blueprint`·`/discover`·`/security-audit`·`/harden`·`/test`·`/review`·`/adopt`. Принцип ADR-001 неизменен: методология *проектирует и проверяет* харнес продукта, но не *является* его рантаймом (semantic gating = ASK, `agents-cli` = icebox).
 
-**Самооценка оси Harness engineering (v1.59.0, Ось 1).** До этой работы ось стояла на самограде ~7.5 с системными дырами: review-sentinel принимал любой свежий/чужой маркер (обходился), 22 ✅ в §4/§8 держались на «шаблон/хук существует» (не на поведении), «27 хука» оверселлил силу (не разведены 8 hard / 16 soft), 691 ceremony-bypass = высокое трение, таблица хуков рассинхронена, наследование хуков в форке — недоказанный caveat. **После Ось 1 (G-001…G-006):** sentinel диф-привязан к `git write-tree` (fail-closed); каждый из 8 hard-гейтов подпёрт behavioural-тестом, реально дёргающим deny/block (`verify_harness_map_fixtures.py`, coverage 8/8); 8 hard / 16 soft разведены с метрикой hard-gate coverage; friction-баги (read-only+bypass grace, dead-end Edit/Write) устранены + метрика bypass/сессия в `/retro`; drift-guard держит таблицу хуков в синхроне с `hooks/` (нашёл и починил реальный дрейф); наследование хуков в `context: fork` доказано зондом (§8.4); adversarial red-team (каждая попытка обхода фейлится) зелён на 2 хостах (Linux + Windows). **Честная оценка: ~9.5/10. Потолок 10 — внешний:** последние 0.5 требуют независимого внешнего red-team и мульти-*ОС*-подтверждения за пределами Win+WSL — это evidence, которое методология не может выдать себе сама (по определению самограда). Оценку не проставляем как «10» именно поэтому.
+**История оценки.** Ранние self-score опирались на наличие файлов и устаревающие счётчики. Текущий контур требует 11/11 behavioural hard-gate coverage, свежий live-model run с независимым oracle, measured FP/FN и freshness guard; любые missing/stale/UNVERIFIED evidence дают ноль соответствующей оси.
 
 ## 7. Следствия для ROADMAP
 
@@ -159,12 +161,12 @@
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
-| **Feedforward** (до действия) | **Блокирующие гейты (`deny`):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `completion-gate` (v1.51.0) · `state-guard` (v1.76.0, c v1.78.0 гейтит и Bash-канал — single-writer гейт state-леджера; его PostToolUse-ноги валидации/heartbeat — soft). **Soft-детекторы (allow + warn/hint):** `careful`* · `freeze`* · `wip-gate`*** (v1.41.0) · `model-policy` (v1.83.0, advisory при спавне субагента с моделью слабее frontmatter) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
-| **Feedback** (после действия) | **Блокирующие стоп-гейты (`block`, SubagentStop):** `narration-final` (v1.49.0) · `verdict-contract` (v1.51.0). **Наблюдаемость / учёт (soft):** `cost-tracker` · `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) · `completion-signals` · `completion-stop` (v1.51.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
+| **Feedforward** (до действия) | **Блокирующие гейты (`deny`):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `completion-gate` (v1.51.0) · `state-guard` (v1.76.0, c v1.78.0 гейтит и Bash-канал — single-writer гейт state-леджера; его PostToolUse-ноги валидации/heartbeat — soft) · `cost-tracker` (PreToolUse-ветка запрещает следующую дорогую попытку у budget ceiling; PostToolUse-учёт остаётся soft). **Soft-детекторы (allow + warn/hint):** `careful`* · `freeze`* · `wip-gate`*** (v1.41.0) · `model-policy` (v1.83.0, advisory при спавне субагента с моделью слабее frontmatter) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedback** (после действия) | **Блокирующие стоп-гейты (`block`, SubagentStop):** `narration-final` (v1.49.0) · `verdict-contract` (v1.51.0). **Наблюдаемость / учёт (soft):** `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) · `completion-signals` · `completion-stop` (v1.51.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
-`*` `careful`/`freeze` — computational-детекторы, но **не блокируют**: оба `exit 0, permissionDecision: allow` (careful предупреждает о деструктивных командах, freeze — о правках замороженных файлов), поэтому в 8 hard-гейтов НЕ входят. `freeze` с v1.42.0 always-on, действует только при активном scope-lock state-файле (его пишут `/bugfix`/`/refactor`/`/perf`); `careful` с v1.37.0 always-on. `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли. `***` `wip-gate` — детект computational, но энфорсмент **soft by design**: «новая задача или фикс текущей» — семантика, по §8.3 это hint, не deny. **10 hard-гейтов = 8 feedforward (`deny`) + 2 feedback SubagentStop (`block`)** — сверяется тестом `verify_hook_table_completeness.py` (G-005).
+`*` `careful`/`freeze` — computational-детекторы, но **не блокируют**: оба `exit 0, permissionDecision: allow` (careful предупреждает о деструктивных командах, freeze — о правках замороженных файлов), поэтому в hard-гейты НЕ входят. `freeze` с v1.42.0 always-on, действует только при активном scope-lock state-файле (его пишут `/bugfix`/`/refactor`/`/perf`); `careful` с v1.37.0 always-on. `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли. `***` `wip-gate` — детект computational, но энфорсмент **soft by design**: «новая задача или фикс текущей» — семантика, по §8.3 это hint, не deny. **11 hard-гейтов = 9 feedforward (`deny`) + 2 feedback SubagentStop (`block`)** — сверяется тестом `verify_hook_table_completeness.py` (G-005).
 
-> **Fixture-proof self-grading (v1.59.0, ось 1 / G-003).** Метки ✅ по H1/H3 (энфорсмент) держатся не на «хук существует», а на **поведенческом доказательстве**: ровно **10 hard-гейтов** (те, что реально `deny`/`block`) — `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract`, `completion-gate`, `state-guard` (v1.76.0) — каждый подпёрт тестом, который **спавнит хук и проверяет реальный exit-2/block** (не doc-grep). Грид `tests/verify_harness_map_fixtures.py` держит **hard-gate coverage = 10/10**: он выводит hard-множество тем же blocking-decision-регэкспом, что и `verify_gate_taxonomy.py`, и падает, если появится новый hard-гейт без проходящего behavioural-теста — гейт не может получить ✅ без доказанного block/deny. Разведение 10 hard / 19 soft — в README (§ «Hook taxonomy»).
+> **Fixture-proof self-grading (v1.59.0, ось 1 / G-003).** Метки ✅ по H1/H3 (энфорсмент) держатся не на «хук существует», а на **поведенческом доказательстве**: ровно **11 hard-гейтов** (те, что реально `deny`/`block`) — `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract`, `completion-gate`, `state-guard`, `cost-tracker` — каждый подпёрт тестом, который **спавнит хук и проверяет реальный exit-2/block** (не doc-grep). Грид `tests/verify_harness_map_fixtures.py` держит **hard-gate coverage = 11/11**: он выводит hard-множество тем же blocking-decision-регэкспом, что и `verify_gate_taxonomy.py`, и падает, если появится новый hard-гейт без проходящего behavioural-теста — гейт не может получить ✅ без доказанного block/deny. Разведение 11 hard / 18 soft — в README (§ «Hook taxonomy»).
 
 ### 8.2. Подробно по хукам
 
@@ -184,7 +186,7 @@
 | `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume |
 | `session-open-diagnostic.sh` | UserPromptSubmit | feedforward | inferential | soft — диагностика состояния на старте сессии |
 | `context-budget.sh` | PreToolUse | feedforward | inferential | soft — мягко рекомендует ограничить unbounded-вывод |
-| `cost-tracker.sh` | PostToolUse | feedback | computational | soft — observability: per-session usage-лог |
+| `cost-tracker.sh` | PreToolUse + PostToolUse | feedforward + feedback | computational | **blocking** — PreToolUse `deny` только следующей дорогой попытки у estimate ceiling; PostToolUse observed/estimated usage ledger остаётся soft |
 | `execution-trace.sh` | PreToolUse | feedback | computational | soft — observability: JSONL-трейс tool-call'ов, zero-context |
 | `stuck-detection.sh` | PostToolUse | feedback | inferential | soft — детект застревания → напоминание сменить подход |
 | `crash-recovery.sh` | PostToolUse | feedback | inferential | soft — recovery-контекст после краша для возобновления |
@@ -197,13 +199,13 @@
 | `narration-final.sh` | SubagentStop | feedback | computational | **blocking** — `block` (≤2 пинга), если субагент завершается нарративом вместо результата/вердикта (v1.49.0) |
 | `verdict-contract.sh` | SubagentStop | feedback | computational | **blocking** — `block` (≤2 пинга), если review-субагент даёт прозаический вердикт без валидного JSON-блока (v1.51.0) |
 | `completion-signals.sh` | PostToolUse (Bash) | feedback | computational | soft — собирает runtime-сигнал (static/test_run/app_start/side_effect/cleanup) в леджер `.claude/completion/`, возвращает красную пометку WHY+FIX при провале (v1.51.0) |
-| `completion-gate.sh` | PreToolUse (Bash) | feedforward | computational | **blocking** — `deny` commit'а с исходным кодом при непройденном/недоказанном слое завершения; деградирует в advisory без сигналов (v1.51.0) |
+| `completion-gate.sh` | PreToolUse (Bash/PowerShell) | feedforward | computational | **blocking** — `deny` commit'а с исходным кодом при непройденном/недоказанном слое завершения; распознаёт абсолютный путь к git и global options (`-C`, `--git-dir`); деградирует в advisory только для калиброванного low/medium risk |
 | `completion-stop.sh` | Stop | feedback | computational | soft — напоминание «завершение не доказано», когда ход закончился с грязным по коду деревом и не-зелёным вердиктом; rate-limited, не блокирует (v1.51.0) |
 
 ### 8.3. Что показывает линза
 
-- **Все 8 блокирующих хуков — computational (никогда не inferential).** Методология **нигде** не вешает жёсткий блок на inferential-суждение модели — ровно принцип PFO «computational для блокирующих инвариантов». По контуру они делятся: **6 feedforward** PreToolUse `deny` (блокируют git-состояние/счётчик/наличие файла/детект PII *до* действия) + **2 feedback** SubagentStop `block` (`narration-final`/`verdict-contract` — детект нарратив-финала / отсутствия JSON-вердикта *после* хода субагента). И те, и другие детерминированы: блокируют по структуре, а не по «мнению» модели.
-- **16 soft-хуков** распределены: 5 формируют контекст (inferential feedforward), 3 — вычислительные feedforward soft (`careful`/`freeze` — детекторы деструктива/заморозки, `exit 0 allow`; `wip-gate`, v1.41.0 — детект детерминирован, но решение «новая ли это задача» семантическое → hint), 6 наблюдают/учитывают (computational feedback, включая `handoff-readiness` с v1.40.0), 2 помогают само-коррекции (inferential feedback). Ни один не претендует на жёсткий блок — их финальный сигнал либо семантический, либо предупредительный.
+- **Все 11 блокирующих хуков — computational.** Девять PreToolUse-гейтов дают deterministic `deny`, два SubagentStop-гейта — deterministic `block`; inferential-суждение не является hard boundary.
+- **18 soft-хуков** формируют контекст, наблюдают outcome/cost/state и дают advisory feedback. Их классификация и README-список выводятся из source и проверяются `verify_gate_taxonomy.py`.
 - **Правило дизайна для будущих хуков (следствие):** новый хук, который должен *блокировать*, обязан быть computational; если проверка по сути требует семантического суждения — она должна быть мягким hint'ом (как `check-skills` или `context-budget`), а не `deny`. Inferential-блок = недетерминированный гейт, что противоречит H1/H3.
 
 ### 8.4. Наследование хуков в `context: fork` (эмпирически, v1.59.0 / G-005)

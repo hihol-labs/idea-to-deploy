@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "purpose": "Frozen internal learning-loop behavior; never external adoption evidence.",
+  "signals": [
+    {"id": "rv-101", "class": "missing-actionable-denial", "type": "review_finding", "project": "pilot-a", "reviewId": "pr-101", "evidence": "review://pilot-a/pr-101#finding-4"},
+    {"id": "rv-202", "class": "missing-actionable-denial", "type": "review_finding", "project": "pilot-b", "reviewId": "pr-202", "evidence": "review://pilot-b/pr-202#finding-2"},
+    {"id": "pf-11", "class": "manual-path-repair", "type": "production_failure", "project": "pilot-a", "session": "run-11", "evidence": "event://pilot-a/run-11/path-repair"},
+    {"id": "pf-37", "class": "manual-path-repair", "type": "production_failure", "project": "pilot-c", "session": "run-37", "evidence": "event://pilot-c/run-37/path-repair"},
+    {"id": "self-1", "class": "raise-vcr", "type": "internal_score", "project": "methodology", "session": "self-1", "evidence": "metric://vcr"},
+    {"id": "self-2", "class": "raise-vcr", "type": "internal_score", "project": "methodology", "session": "self-2", "evidence": "metric://vcr"},
+    {"id": "single-1", "class": "one-off-warning", "type": "false_positive", "project": "pilot-a", "session": "single-1", "evidence": "event://pilot-a/single-1"}
+  ],
+  "experiments": {
+    "missing-actionable-denial": {"baseline": 0.5, "candidate": 1.0, "direction": "higher", "maxRegressionPercent": 0, "expectedDecision": "keep"},
+    "manual-path-repair": {"baseline": 1.0, "candidate": 0.5, "direction": "higher", "maxRegressionPercent": 0, "expectedDecision": "rollback"}
+  },
+  "thresholds": {
+    "minOccurrences": 2,
+    "minDistinctSources": 2,
+    "expectedProposals": 2,
+    "maxAutomaticMethodologyWrites": 0
+  }
+}

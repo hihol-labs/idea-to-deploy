@@ -16,8 +16,28 @@
     "verificationCommand",
     "status"
   ],
+  "unitOptionalFields": ["riskTier"],
+  "riskTiers": ["low", "medium", "high"],
   "goalStatuses": ["active", "done", "abandoned"],
   "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
+  "runPolicyModes": ["bounded_autonomous"],
+  "runPolicyRequiredFields": [
+    "mode",
+    "maxAttemptsPerUnit",
+    "maxWallClockSecondsPerUnit",
+    "maxTokensPerSession",
+    "freezeVerification",
+    "requireApproach",
+    "requireIndependentReview"
+  ],
+  "runPolicyOptionalFields": [
+    "enforceObservedTokens",
+    "verificationStrategy",
+    "maxCheckpointBytes"
+  ],
+  "attemptKinds": ["verification", "recheck"],
+  "attemptOutcomes": ["verified", "failed", "regressed"],
+  "stopReasons": ["", "verified", "blocked", "budget_exhausted"],
   "goalTemplate": {
     "version": 1,
     "goal": "",
@@ -30,6 +50,7 @@
         "id": "",
         "criterion": "",
         "verificationCommand": "",
+        "riskTier": "medium",
         "status": "pending",
         "verifiedAt": "",
         "evidence": "",
@@ -37,5 +58,26 @@
         "blockedReason": ""
       }
     ]
+  },
+  "boundedRunPolicyTemplate": {
+    "mode": "bounded_autonomous",
+    "maxAttemptsPerUnit": 3,
+    "maxWallClockSecondsPerUnit": 14400,
+    "maxTokensPerSession": 100000,
+    "freezeVerification": true,
+    "requireApproach": true,
+    "requireIndependentReview": false,
+    "enforceObservedTokens": true,
+    "verificationStrategy": "adaptive",
+    "maxCheckpointBytes": 4096
+  },
+  "boundedUnitRuntimeTemplate": {
+    "attempts": [],
+    "runState": {
+      "approvedAt": "",
+      "startedAt": "",
+      "verificationFingerprint": "",
+      "stopReason": ""
+    }
   }
 }

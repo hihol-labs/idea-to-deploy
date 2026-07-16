@@ -217,6 +217,8 @@ def emit_deny(errors: list[str]) -> None:
     msg = (
         "[COMMIT COMPLETENESS BLOCK] Коммит остановлен хуком "
         "check-commit-completeness.\n\n"
+        "WHY: supporting artifacts required by Quality Gate 2 are missing or unstaged.\n"
+        "FIX: close every listed gap (or add the documented justified override) and retry git commit.\n\n"
         "Обнаружены незакрытые пункты Quality Gate 2 "
         "(инцидент v1.4.0):\n\n"
         + "\n".join(f"  ❌ {e}" for e in errors)

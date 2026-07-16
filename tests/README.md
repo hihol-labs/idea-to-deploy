@@ -209,10 +209,14 @@ With a Claude Pro/Team subscription, local runs cost **$0 actual** — the `tota
 
 ### CI integration (optional, disabled by default)
 
-`.github/workflows/fixture-smoke.yml` is a ready-to-enable GitHub Actions workflow that runs all active fixtures via the wrapper on every `release/*` branch push. It is **disabled by default** via an `if: false` guard because enabling it requires provisioning `ANTHROPIC_API_KEY` as a repository secret. To activate:
+`.github/workflows/fixture-smoke.yml` runs a representative live fixture weekly,
+on `release/*`, and by manual dispatch. It has no permanent-disable guard.
+`ANTHROPIC_API_KEY` is required in CI: without it the runner writes an
+`UNVERIFIED` report, exits 3, uploads diagnostics, and the job cannot look PASS.
+To provision the external lane:
 
 1. Provision the secret in GitHub Settings → Secrets → Actions.
-2. Edit `.github/workflows/fixture-smoke.yml` and remove the `if: false` guard.
+2. Run the workflow manually once and retain the uploaded evidence artifact.
 3. Push a `release/v1.X.Y` branch to trigger the first run.
 
 Monthly cost estimate at 4 releases/month ≈ $32–$48. A maintainer can also trigger the workflow manually via `workflow_dispatch` for a one-off cost check.

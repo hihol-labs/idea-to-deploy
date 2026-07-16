@@ -15,6 +15,12 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell|Task|Agent",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh", "timeout": 5 }
+        ]
+      },
+      {
         "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-tool-skill.sh", "timeout": 5 }
@@ -27,6 +33,7 @@
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-review-before-commit.sh", "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-dod-before-commit.sh",   "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cross-review-precommit.sh",    "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-gate.sh",          "timeout": 900 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",              "timeout": 5 }
         ]
       },
@@ -42,6 +49,7 @@
       {
         "matcher": "PowerShell",
         "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-gate.sh", "timeout": 900 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
         ]
       },
@@ -68,12 +76,14 @@
       {
         "matcher": "Bash",
         "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-signals.sh", "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
         ]
       },
       {
         "matcher": "PowerShell",
         "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-signals.sh", "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
         ]
       },
@@ -89,6 +99,14 @@
       {
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/handoff-readiness.sh", "timeout": 5 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/narration-final.sh",  "timeout": 10 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/verdict-contract.sh", "timeout": 10 }
         ]
       }
     ]

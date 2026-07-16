@@ -1,0 +1,88 @@
+name: idea-to-deploy-hygiene
+
+# Opt-in external scheduler for an adopted project. Copy to
+# .github/workflows/itd-hygiene.yml only after the repository owner approves
+# recurring CI. It is read-only and uploads evidence instead of committing it.
+"on":
+  schedule:
+    - cron: '17 3 * * 1'
+    - cron: '29 4 1 * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Hygiene cycle to run
+        required: true
+        type: choice
+        options: [weekly, monthly]
+        default: weekly
+      component:
+        description: Monthly ablation candidate id
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: itd-hygiene-${{ github.event_name }}-${{ github.event.schedule || inputs.mode }}
+  cancel-in-progress: false
+
+jobs:
+  weekly:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 3 * * 1') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'weekly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run weekly tracing cleanup
+        run: >-
+          python3 .itd/itd_hygiene.py periodic --mode weekly --root .
+          --contract .itd/SESSION_EXIT_CONTRACT.json --record
+      - name: Compute objective module quality scores
+        if: always()
+        run: >-
+          python3 .itd/itd_hygiene.py quality --scorecard
+          .itd/QUALITY_SCORECARD.json --root . --record --json
+      - name: Upload weekly evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: itd-weekly-hygiene-${{ github.run_id }}
+          path: .itd-memory/hygiene/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+  monthly:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '29 4 1 * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ABLATION_COMPONENT: ${{ inputs.component }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Require an explicit configured ablation candidate
+        run: test -n "$ABLATION_COMPONENT"
+      - name: Run reversible monthly ablation
+        run: >-
+          python3 .itd/itd_hygiene.py periodic --mode monthly
+          --component "$ABLATION_COMPONENT" --root .
+          --contract .itd/SESSION_EXIT_CONTRACT.json
+          --ablation-contract .itd/HARNESS_ABLATION.json --record
+      - name: Upload monthly evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: itd-monthly-ablation-${{ github.run_id }}
+          path: .itd-memory/hygiene/*.json
+          if-no-files-found: error
+          retention-days: 180

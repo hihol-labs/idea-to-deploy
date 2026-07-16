@@ -4,7 +4,7 @@
 планирования и документации: GitHub, Linear, Notion, Google Drive
 (Docs/Sheets/Slides), локальный Obsidian-vault.
 
-> **Explicit-invocation скилл** (`disable-model-invocation: true`). Вызывается
+> **Explicit-invocation скилл** (`metadata.explicit_invocation: true`). Вызывается
 > явно через `/tool-sync`, не авто-роутится — несёт `external-write` (запись во
 > внешние системы). Изменения live-систем — только по явной просьбе пользователя.
 

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy internal helpers"
+  short_description: "Internal helper library; not a user-facing workflow."
+policy:
+  allow_implicit_invocation: false

@@ -2,7 +2,7 @@
 
 `/deploy` is a live-ops deployment skill. It SSH-syncs files, rebuilds Docker images, applies migrations, and verifies healthcheck on a real production host. This fixture documents the expected step-by-step behaviour; it cannot be run automatically in CI without an ephemeral test target.
 
-`/deploy` is flagged `disable-model-invocation: true` in its SKILL.md — it runs only on explicit user request, never auto-triggered.
+`/deploy` is flagged `metadata.explicit_invocation: true`; the Codex adapter also sets `policy.allow_implicit_invocation: false`. It runs only on an explicit user request.
 
 ## Fixture status
 

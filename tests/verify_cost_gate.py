@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "hooks", "cost-tracker.sh")
@@ -45,6 +47,60 @@ def _run(session: str, ledger_state, payload, extra_env=None) -> str:
 
 def _ctx(out: str) -> str:
     return json.loads(out)["hookSpecificOutput"]["additionalContext"] if out else ""
+
+
+def _decision(out: str) -> str:
+    try:
+        return str((json.loads(out).get("hookSpecificOutput") or {}).get(
+            "permissionDecision") or "")
+    except Exception:
+        return ""
+
+
+def _preflight(tmp: str, session: str, ledger_state: dict, tool: str,
+               command: str = "", ceiling: str = "50000"):
+    path = Path(tmp) / f"claude-cost-{session}.json"
+    path.write_text(json.dumps(ledger_state), encoding="utf-8")
+    env = dict(os.environ)
+    env.update({
+        "TMPDIR": tmp,
+        "TEMP": tmp,
+        "TMP": tmp,
+        "CLAUDE_SESSION_ID": session,
+        "ITD_COST_CEILING_TOKENS": ceiling,
+    })
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": session,
+        "tool_name": tool,
+        "tool_input": {"command": command},
+    }
+    result = subprocess.run(
+        [sys.executable, HOOK],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    after = json.loads(path.read_text(encoding="utf-8"))
+    return result, after
+
+
+def _preflight_registered(path: Path) -> bool:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    groups = (payload.get("hooks") or payload).get("PreToolUse") or []
+    for group in groups:
+        matcher = set(str(group.get("matcher") or "").split("|"))
+        commands = " ".join(
+            str(hook.get("command") or "") + " "
+            + str(hook.get("commandWindows") or "")
+            for hook in group.get("hooks") or []
+        )
+        if {"Bash", "PowerShell", "Task", "Agent"} <= matcher \
+                and "cost-tracker.sh" in commands:
+            return True
+    return False
 
 
 def main() -> int:
@@ -96,12 +152,68 @@ def main() -> int:
     if _ctx(out):
         fails.append(f"7. ceiling=0 not silent (disable semantics): {_ctx(out)[:60]!r}")
 
+    base_state = {
+        "session_start": 0,
+        "total_tokens": 40_000,
+        "total_calls": 10,
+        "by_tool": {},
+        "warnings_sent": 0,
+        "hard_fired_at_tokens": 0,
+    }
+    with tempfile.TemporaryDirectory(prefix="itd-cost-preflight-") as tmp:
+        result, after = _preflight(tmp, "pre-agent", base_state, "Agent")
+        if result.returncode != 2 or _decision(result.stdout) != "deny":
+            fails.append(
+                "8. next expensive Agent attempt was not denied before crossing "
+                f"the ceiling: rc={result.returncode} out={result.stdout[:100]!r}"
+            )
+        if after != base_state:
+            fails.append("8b. denied pre-attempt mutated the cost ledger")
+
+        result, after = _preflight(
+            tmp, "pre-cheap", base_state, "Bash", "git status")
+        if result.returncode != 0 or result.stdout.strip():
+            fails.append(
+                "9. cheap low-risk inspection paid the blocking path: "
+                f"rc={result.returncode} out={result.stdout[:100]!r}"
+            )
+        if after != base_state:
+            fails.append("9b. low-risk preflight mutated the cost ledger")
+
+        result, _ = _preflight(
+            tmp, "pre-suite", base_state, "Bash", "bash tests/run-all.sh --quick",
+            ceiling="40500")
+        if result.returncode != 2 or _decision(result.stdout) != "deny":
+            fails.append(
+                "10. expensive full-suite shell attempt crossed the ceiling: "
+                f"rc={result.returncode} out={result.stdout[:100]!r}"
+            )
+
+    root = Path(REPO)
+    registration_paths = [
+        root / "hooks" / "hooks.json",
+        root / "skills" / "adopt" / "references" / "codex-project-hooks.json",
+        root / "skills" / "adopt" / "references" / "project-settings-template.json",
+    ]
+    missing = [str(path.relative_to(root)) for path in registration_paths
+               if not _preflight_registered(path)]
+    sync = (root / "scripts" / "sync-to-active.sh").read_text(encoding="utf-8")
+    sync_block = (
+        '"matcher": "Bash|PowerShell|Task|Agent"' in sync
+        and '"command": "~/.claude/hooks/cost-tracker.sh"' in sync
+    )
+    if missing or not sync_block:
+        fails.append(
+            "11. cost preflight is not registered on every host/install path: "
+            f"missing={missing} sync={sync_block}"
+        )
+
     if fails:
         print("verify_cost_gate: FAILED")
         for f in fails:
             print("  - " + f)
         return 1
-    print("verify_cost_gate: PASSED (7/7)")
+    print("verify_cost_gate: PASSED (11/11; pre-attempt stop + low-risk fast path)")
     return 0
 
 

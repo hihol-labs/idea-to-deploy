@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "purpose": "Frozen internal hard-gate friction contract; never external outcome evidence.",
+  "hardGates": [
+    "check-review-before-commit.sh",
+    "check-dod-before-commit.sh",
+    "check-commit-completeness.sh",
+    "check-skill-completeness.sh",
+    "check-tool-skill.sh",
+    "pii-egress-guard.sh",
+    "completion-gate.sh",
+    "state-guard.sh",
+    "cost-tracker.sh",
+    "narration-final.sh",
+    "verdict-contract.sh"
+  ],
+  "allowScenarios": [
+    "read-only-git-status-on-every-pretool-hard-gate",
+    "reasoned-skill-bypass-opens-audited-grace-window",
+    "mutation-after-active-grace-window"
+  ],
+  "denyContract": {
+    "requiredMarkers": ["WHY:", "FIX:"],
+    "hosts": ["claude", "codex"],
+    "requiredCoverage": 1.0
+  },
+  "thresholds": {
+    "maxFalseBlocks": 0,
+    "maxDeadEnds": 0,
+    "maxUnactionableDenials": 0
+  }
+}

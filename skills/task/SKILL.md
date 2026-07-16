@@ -84,6 +84,17 @@ Before routing, classify the task's **process-cost tier** so the methodology sca
 
 State the tier in one line when you route ("это standard-задача → /refactor"). When unsure between two tiers, pick the higher one.
 
+The machine-readable source for verification proportionality is
+`skills/_shared/PROPORTIONALITY_POLICY.json` (installed fallback:
+`$HOME/.claude/skills/_shared/PROPORTIONALITY_POLICY.json`). Normalize
+`trivial → low`, `standard → medium`, `high-risk → high`; run only that
+`riskRoutes.<risk>.contours` set plus any matching `signalContours`. Every
+listed `requiredCapabilities` remains mandatory evidence. In particular, the
+low path MUST NOT run `review`, `security`, or `full` without a matching risk
+signal; final cumulative regression follows the micro-path rule below. Unknown
+risk fails closed to `high`; an unknown signal is surfaced and does not invent
+an unreviewed contour.
+
 **Cost-awareness (v1.31.0 — New-SDLC port):** for a **high-risk** tier or a heavy
 target (`/kickstart`, `/autopilot`, long `/perf`/`/bugfix` sweeps) note that
 `hooks/cost-tracker.sh` keeps a per-session token/USD ledger and will ASK at the
@@ -102,6 +113,43 @@ after-every-unit regression on a micro-task was ×3.5 wall-clock and ×7 tool ca
 at zero difference in verified-completion rate. Classify by unit count, not by
 feel: 3+ units, cross-module effects, or any high-risk signal → back to
 after-every-unit regression (see `skills/_shared/helpers.md` §6).
+
+### Step 1c: Read the module-quality queue (when present)
+
+If `.itd/QUALITY.json` exists, read it before fixing scope. Prefer the executable
+view (**`itd_hygiene.py quality`**) so stale or evidence-less grades cannot look
+authoritative:
+
+```bash
+HY=".itd/itd_hygiene.py"; [ -f "$HY" ] || HY="$HOME/.claude/templates/itd/itd_hygiene.py"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" quality --root .
+```
+
+Surface the lowest-grade module and its first priority in the routing context.
+It is the default maintenance priority, not permission to override an explicit
+user task: if the user asked for another module, keep their scope and record the
+lower-grade finding as backlog. Missing `.itd/QUALITY.json` is a soft no-op for
+pre-adoption projects; an invalid/stale ledger is a visible quality warning.
+
+When `.itd/QUALITY_SCORECARD.json` exists, prefer the newest local
+`.itd-memory/hygiene/quality-score-*.json` for ordering modules: its
+`computedGrade`, weighted `score`, minimum breach, and `overstatedGrade` are
+executable evidence, while the prose ledger remains the human explanation. Do
+not rerun a potentially expensive scorecard on every routing turn. Refresh it
+only when the user asks for a fresh assessment, the periodic record is due, or
+no record exists and the task is explicitly quality-oriented:
+
+```bash
+HY=".itd/itd_hygiene.py"; [ -f "$HY" ] || HY="$HOME/.claude/templates/itd/itd_hygiene.py"
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" quality --root . --scorecard .itd/QUALITY_SCORECARD.json --record
+```
+
+The scorer never promotes the tracked grade automatically. A computed grade
+below the declared grade or below `minimumScore` is a visible fail-closed
+quality finding; a computed grade above the declaration only shows that the
+human ledger is conservative.
 
 ### Step 2: Determine the task type
 

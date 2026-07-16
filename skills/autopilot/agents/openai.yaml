@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy Autopilot"
+  short_description: "Explicit full local lifecycle pipeline."
+policy:
+  allow_implicit_invocation: false

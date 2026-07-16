@@ -44,7 +44,7 @@
 | # | Принцип | Источник | Статус | Реализация в idea-to-deploy | Gap / комментарий |
 |---|---|---|:---:|---|---|
 | **K1** | Graduated trust spectrum | 13 principles | ◐ | `careful.sh`, `freeze.sh` (opt-in per session); explicit confirmation на `/deploy`, `/migrate-prod` | Нет progressive-trust модели, которая бы «раскрывалась» по мере работы с проектом (7 permission modes из Claude Code) |
-| **K2** | Deny-first with human escalation | 13 principles | ✅ | `disable-model-invocation: true` на destructive skills (v1.20.1); `/deploy` и `/migrate-prod` требуют явного user confirmation | — |
+| **K2** | Deny-first with human escalation | 13 principles | ✅ | `metadata.explicit_invocation: true` + host-native no-implicit policy на destructive skills; `/deploy` и `/migrate-prod` требуют явного user confirmation | — |
 | **K3** | Defense in depth + shared-failure audit | 13 principles + Anti-patterns | ✅ | 13 хуков + 2 Quality Gates + `/review` + `/security-audit` + `check-commit-completeness.sh`. CI layer (GitHub Actions) как 4-й defense tier. | Отдельный shared-failure аудит между хуками ранее не проводился — планируется в fixture-11..17 (см. ROADMAP §D tech-debt) |
 | **K4** | Context-as-scarce-resource / graduated compaction | 13 principles | ❌ | Полагаемся на встроенный 5-слойный compaction Claude Code. `context-aware.sh` бросает рекомендацию `/session-save` после 40 prompts, но не управляет бюджетом. | Gap: нет явной context-budget модели на уровне методологии. Рассматривается как кандидат в v1.21 при появлении user pain signal. |
 | **K5** | Append-only durable state | 13 principles | ◐ | `session_YYYY-MM-DD.md` — append-only per session. `scripts/sync-to-active.sh` делает backup rotation. | `CLAUDE.md` и `MEMORY.md` редактируются деструктивно (in-place). Read-time chain patching из paper не реализован. |
@@ -66,7 +66,7 @@
 
 **Paper говорит:** доверие эволюционирует во времени, а не назначается раз. 7 permission modes из Claude Code (plan → default → acceptEdits → auto → dontAsk → bypassPermissions) — это спектр.
 
-**У нас:** `careful.sh` и `freeze.sh` — бинарные guard'ы, включаются пользователем раз и держатся до отмены. Destructive skills используют `disable-model-invocation: true` (v1.20.1) — это фиксированный deny, не graduated trust.
+**У нас:** `careful.sh` и `freeze.sh` — бинарные guard'ы, включаются пользователем раз и держатся до отмены. Destructive skills используют нейтральный `metadata.explicit_invocation: true` и host-native запрет implicit invocation — это фиксированный deny, не graduated trust.
 
 **Почему не критично:** методология поверх Claude Code, то есть 7 permission modes уже доступны через нижний layer. Дублирование на уровне методологии дало бы conflicting UX. Gap осмысленный, не urgent.
 

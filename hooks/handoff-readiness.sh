@@ -8,7 +8,8 @@ so a fresh agent can pick the project up from repo contents alone. The methodolo
 already recovers context at session START (pre-flight-check, session-open-diagnostic,
 crash-recovery) — this hook closes the other half: it detects, at turn end, that
 the session is drifting toward a dirty death (uncommitted work + stale/absent
-session memory) and softly reminds the user to run /session-save or /handoff.
+project-local session memory) and softly reminds the user to run /session-save
+or /handoff.
 
 Design (HARNESS_ENGINEERING_MAP.md §8.3): the detect is purely computational
 (git state + file mtimes), but "is the user done for the day?" is semantic —
@@ -16,7 +17,7 @@ so this MUST stay a soft hint, never a deny. It emits a systemMessage only.
 
 Fires on the Stop event (end of each assistant turn). Noise control:
   - hints only when BOTH signals hold: dirty git tree AND no fresh session_*.md
-    in the project memory dir (fresher than ITD_HANDOFF_FRESH_MIN, default 120 min);
+    in `.itd-memory/` (fresher than ITD_HANDOFF_FRESH_MIN, default 120 min);
   - rate-limited via a sentinel file: at most one hint per ITD_HANDOFF_RATE_MIN
     (default 45 min) per session;
   - disabled entirely with ITD_HANDOFF_READINESS=0;
@@ -94,29 +95,55 @@ def git_dirty_count(cwd: Path) -> int:
 
 
 def find_project_memory_dir(cwd: Path) -> Path | None:
-    """Same resolution logic as pre-flight-check / session-open-diagnostic."""
+    """Find local canonical continuity, then an optional Claude legacy mirror."""
+    cwd_resolved = cwd.resolve()
+    current = cwd_resolved
+    while True:
+        local = current / ".itd-memory"
+        if local.is_dir():
+            return local
+        if current.parent == current:
+            break
+        current = current.parent
+
     home = Path.home()
     projects_root = home / ".claude" / "projects"
     if not projects_root.is_dir():
         return None
 
-    cwd_resolved = cwd.resolve()
-    expected = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
-    candidate = projects_root / expected / "memory"
-    if candidate.is_dir():
-        return candidate
+    import re
+    munged = re.sub(r"[^A-Za-z0-9]", "-", str(cwd_resolved))
+    legacy = "-" + str(cwd_resolved).lstrip("/").replace("/", "-")
+    for name in (munged, legacy):
+        candidate = projects_root / name / "memory"
+        if candidate.is_dir():
+            return candidate
 
     parts = cwd_resolved.parts
     for i in range(1, len(parts)):
-        suffix = "-".join(parts[i:])
+        raw = "-".join(parts[i:])
+        suffixes = {raw, re.sub(r"[^A-Za-z0-9]", "-", raw)}
         for entry in projects_root.iterdir():
-            if not entry.is_dir() or not entry.name.startswith("-"):
+            if not entry.is_dir():
                 continue
-            if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
-                mem = entry / "memory"
-                if mem.is_dir():
-                    return mem
+            for suffix in suffixes:
+                if entry.name.endswith("-" + suffix) or entry.name == "-" + suffix:
+                    mem = entry / "memory"
+                    if mem.is_dir():
+                        return mem
     return None
+
+
+def find_local_project_memory_dir(cwd: Path) -> Path | None:
+    """Nearest canonical store; private mirrors never satisfy readiness."""
+    current = cwd.resolve()
+    while True:
+        local = current / ".itd-memory"
+        if local.is_dir():
+            return local
+        if current.parent == current:
+            return None
+        current = current.parent
 
 
 def latest_session_age_min(mem_dir: Path | None) -> float | None:
@@ -161,7 +188,7 @@ def main() -> int:
         return 0
 
     fresh_min = env_int("ITD_HANDOFF_FRESH_MIN", FRESH_MIN_DEFAULT)
-    age = latest_session_age_min(find_project_memory_dir(cwd))
+    age = latest_session_age_min(find_local_project_memory_dir(cwd))
     if age is not None and age < fresh_min:
         # a recent /session-save (or /handoff sentinel session file) exists
         return 0

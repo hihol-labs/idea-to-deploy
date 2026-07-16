@@ -2,7 +2,7 @@
 
 `/migrate-prod` produces a migration runbook for moving running production services between hosts. It is **not** the DB-only migration skill (that's `/migrate`). This fixture uses the Beget → Hostland VDS case with a Telegram bot (aiogram) + FastAPI backend (PostgreSQL + Minio) + Cloudflare DNS.
 
-`/migrate-prod` is flagged `disable-model-invocation: true` in its SKILL.md — it **only** runs on explicit user request, never auto-triggered.
+`/migrate-prod` is flagged `metadata.explicit_invocation: true`; the Codex adapter also sets `policy.allow_implicit_invocation: false`. It **only** runs on explicit user request.
 
 ## /migrate-prod — Scenario A: dual-run migration, happy path
 

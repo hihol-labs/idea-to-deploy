@@ -48,15 +48,15 @@ Layers 1–3 give fast local feedback. Layer 4 is the server-side last line of d
 
 ### Budget, observability & session-management hooks (v1.18–v1.30)
 
-Ported *outcomes* of GSD v2 and the omnigent policies — a plugin hook cannot pause
-the loop, so a "limit" is realized as a high-priority ASK/reminder, never a hard
-stop (see ADR-001). `cost-tracker.sh` and `risk-score.sh` are **wired by default in
-the `/adopt` settings template** (`PostToolUse`, matcher `*`); the other three are
-opt-in per project.
+Ported *outcomes* of GSD v2 and the omnigent policies. PostToolUse feedback is
+an ASK/reminder; `cost-tracker.sh` additionally has a narrow PreToolUse hard
+boundary that stops only the next expensive attempt at the configured estimate
+ceiling. `cost-tracker.sh` and `risk-score.sh` are **wired by default in the
+`/adopt` settings template**; the other three are opt-in per project.
 
 | Hook | When it fires | What it does | Blocks? |
 |---|---|---|---|
-| `cost-tracker.sh` *(v1.18.0; budget gate v1.31.0)* | After every tool (PostToolUse, matcher `*`) | Per-session token/USD ledger with a two-stage budget gate: SOFT (≥80% of ceiling) warns via additionalContext (suggests `/session-save`); HARD (≥100%) escalates to an ASK to STOP and get user approval, re-firing every +500k tokens so a runaway loop keeps surfacing. Set `ITD_COST_CEILING_TOKENS` (+ `ITD_COST_PER_1M_USD`) to make the ceiling meaningful. **Wired by default in the `/adopt` template.** | No — soft reminder / high-priority ASK, never a hard stop |
+| `cost-tracker.sh` *(v1.18.0; budget gate v1.31.0)* | Before expensive `Agent`/`Task`/test/build attempts + after every tool | Per-session estimate ledger plus separately provenance-labelled host-observed token/elapsed telemetry attributed to session, unit, skill, model and host. SOFT (≥80%) warns; HARD emits an ASK; the PreToolUse fast check denies the next expensive attempt before it crosses the ceiling while cheap inspection/checkpoint calls stay available. Set `ITD_COST_CEILING_TOKENS` (+ `ITD_COST_PER_1M_USD`) per project. **Wired by default in the `/adopt` template.** | Conditional — only the next expensive attempt is denied at the configured estimate ceiling |
 | `risk-score.sh` *(v1.30.0)* | After every tool (PostToolUse, matcher `*`) | Cumulative "safety budget" for death-by-a-thousand-edits that binary gates miss. Every mutating call adds risk points (×4 on security/data-sensitive paths); when the running score crosses `ITD_RISK_THRESHOLD` (default 12) it injects an escalation to pay the risk down with `/review` (or `/security-audit` when the accrued risk is mostly security). Running either skill resets the budget. **Wired by default in the `/adopt` template.** | No — soft escalation via additionalContext |
 | `crash-recovery.sh` *(v1.69.0)* | After significant tools (PostToolUse), end of turn (Stop) **and** subagent finish (SubagentStop) | Auto-saves a lightweight checkpoint (last N tool calls, cwd, branch + last commit, timestamp) to `claude-checkpoint-<session>.json` on every significant call with `clean_exit: false`; the Stop/SubagentStop registrations flip `clean_exit: true` when a turn or a background subagent ends normally (v1.69.0 — without the SubagentStop leg, subagent checkpoints surfaced as phantom crash banners in the main session). A checkpoint left with `clean_exit: false` = the session died mid-work — `pre-flight-check.sh` surfaces it to the next session in the same project and marks it consumed (v1.67.0 closes the "written but not consumed" gap). v1.75.0 (ACID-audit): the checkpoint is written atomically (tmp + `os.replace`) and a failed persist is logged to `<tmp>/claude-checkpoint-errors.log` instead of being swallowed. | No — pure side-effect telemetry |
 | `state-guard.sh` *(v1.78.1)* | Before Write/Edit/MultiEdit/NotebookEdit **and Bash/PowerShell** (PreToolUse), after them (PostToolUse) | State-ledger guard, three duties: (1) **PreToolUse single-writer gate (HARD, v1.76.0)** — a write to `.itd-memory/STATE.json` / `GOAL*.json` while a FRESH `.active-session.lock` is owned by ANOTHER session is DENIED (`permissionDecision: "deny"`, exit 2) — parallel sessions on one ledger are last-writer-wins (NeuroExpert 2026-04-11); ≤2 denies per session, the next attempt passes with a warning; ownerless legacy locks are never gated (attribution impossible); (2) **post-write validation (soft, v1.75.0)** — an edited ledger is re-validated IMMEDIATELY via `validate_state_core.py` (same invariants as `scripts/validate_state.py`: fail-closed fields, WIP=1 across both ledgers, reconciliation with `events.jsonl` for both STATE and GOAL units) and violations return as a red mark (`additionalContext`, FAILED/WHY/FIX); plus the `.active-session.lock` heartbeat (a fresh foreign lock is never overwritten); (3) **Bash-bypass detection (soft, v1.76.0)** — a Bash command that mutates a ledger (redirects, `sed -i`, `tee`, `jq`, `mv`/`cp`, PowerShell `Set-Content`) triggers re-validation of the project ledgers with the same red mark; (4) **Bash pre-write gate (HARD, v1.78.0)** — the same single-writer deny applies BEFORE a Bash command whose WRITE TARGET is a ledger (target-anchored regex: redirect/`tee`/`sed -i`/`mv`/`cp`/`truncate`/`dd of=`/`Set-Content` into `.itd-memory/STATE.json|GOAL*.json`); mere co-occurrence is never gated (false-deny costs more; the soft leg still revalidates). Disable: `ITD_STATE_GUARD=0`. | **Yes — PreToolUse leg denies (exit 2, ≤2 per session)**; validation/heartbeat/Bash legs are soft |
@@ -265,16 +265,16 @@ These hooks are the answer. After installation, the same prompt — "у меня
 ## Completion Gate (v1.51.0)
 
 Anti-premature-completion subsystem. Judges task completion from an objective
-runtime-signal ledger, not agent confidence. Vendor-neutral contract (JSON in
-`.claude/completion/` + the "Определение завершения" section in the global
-CLAUDE.md); the hooks only transport it and degrade to advisory when no ledger
-exists (best-effort invariant).
+runtime-signal ledger, not agent confidence. The host-neutral policy lives in
+`.itd/COMPLETION_POLICY.json`; hook transport currently records the runtime
+ledger under `.claude/completion/`. Missing transport fails closed only for
+strict/high-risk boundaries and degrades to advisory for calibrated low risk.
 
 | File | Event | Role |
 |---|---|---|
 | `completion_lib.py` | — (library) | signal classification into layers L1 static / L2 tests / L3 e2e, three-layer verdict with blocked-transition, `red_mark`+`FIX_HINTS` |
 | `completion-signals.sh` | PostToolUse · Bash | appends each Bash call to `.claude/completion/signals.jsonl`; returns a WHY+FIX teacher mark on a failed test/build. Soft. |
-| `completion-gate.sh` | PreToolUse · Bash | on a `git commit` touching source: **deny** when a completion layer is FAIL or tests exist-but-unrun; degrade to advisory when no signals; pass when green. **Hard gate.** |
+| `completion-gate.sh` | PreToolUse · Bash/PowerShell | on a `git commit` touching source (including absolute git paths and global options such as `-C`/`--git-dir`): **deny** when a layer fails; in strict/high-risk mode also deny missing/ambiguous runtime evidence or transport failure; calibrated low-risk no-signal stays advisory. **Hard gate.** |
 | `completion-stop.sh` | Stop | reminder when the turn ends with a dirty code tree and a non-green verdict; never blocks. Soft. |
 
 **Ladder (cheap→expensive, blocked transition):** L1 syntax/static → L2 runtime
@@ -285,9 +285,11 @@ green.
 `.claude/completion/config.json` (`l2_evidence_patterns`) — a behaviour-proving
 command (e.g. a register-diff / repost script) counts as `test_run`.
 
-**Toggles:** `ITD_COMPLETION_GATE=0` (veto), `ITD_COMPLETION_STOP=0` (Stop),
+**Toggles:** `ITD_COMPLETION_GATE=0` plus a non-empty
+`ITD_COMPLETION_BYPASS_REASON` (audited veto bypass), `ITD_COMPLETION_STOP=0` (Stop),
 `ITD_COMPLETION_SIGNALS=0` (collection). Conscious bypass of one commit:
-`COMPLETION_BYPASS: <reason>` in the Bash `description` field.
+`COMPLETION_BYPASS: <reason>` in the Bash `description` field; the non-empty
+reason is durably audited in `.itd-memory/events.jsonl`.
 
 Behavioural proof: `tests/verify_completion_gate.py` drives the gate to `deny`.
 

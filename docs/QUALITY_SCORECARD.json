@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "qualityLedger": "docs/QUALITY.json",
+  "gradeThresholds": {
+    "A": 90,
+    "B": 80,
+    "C": 70,
+    "D": 60,
+    "F": 0
+  },
+  "failOnOverstatedGrade": true,
+  "probes": [
+    {
+      "id": "meta-review",
+      "command": "sh skills/_shared/itd_py.sh tests/meta_review.py && printf 'ITD_PROBE_OK: meta-review\\n'",
+      "attempts": 1,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: meta-review"
+    },
+    {
+      "id": "routing-behaviour",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_routing.py && printf 'ITD_PROBE_OK: routing-behaviour\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: routing-behaviour"
+    },
+    {
+      "id": "completion-behaviour",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && printf 'ITD_PROBE_OK: completion-behaviour\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: completion-behaviour"
+    },
+    {
+      "id": "state-behaviour",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_unit_log.py && printf 'ITD_PROBE_OK: state-behaviour\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: state-behaviour"
+    },
+    {
+      "id": "host-adapter-parity",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && printf 'ITD_PROBE_OK: host-adapter-parity\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: host-adapter-parity"
+    },
+    {
+      "id": "session-hygiene-behaviour",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py && printf 'ITD_PROBE_OK: session-hygiene-behaviour\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 180,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: session-hygiene-behaviour"
+    },
+    {
+      "id": "harness-conformance",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_harness_conformance.py --axis all && printf 'ITD_PROBE_OK: harness-conformance\\n'",
+      "attempts": 2,
+      "timeoutSeconds": 900,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: harness-conformance"
+    },
+    {
+      "id": "harness-docs-freshness",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py && printf 'ITD_PROBE_OK: harness-docs-freshness\\n'",
+      "attempts": 1,
+      "timeoutSeconds": 120,
+      "passFailParser": "stdout_contains",
+      "expectedOutput": "ITD_PROBE_OK: harness-docs-freshness"
+    }
+  ],
+  "modules": [
+    {
+      "id": "routing-and-skill-selection",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["routing-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["routing-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "completion-and-verification",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["completion-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["completion-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "state-and-continuity",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["state-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["state-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "host-adapters",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["host-adapter-parity"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["host-adapter-parity"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["host-adapter-parity"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "session-hygiene-and-quality-lifecycle",
+      "minimumScore": 80,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["session-hygiene-behaviour"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["meta-review"]},
+        "testStability": {"weight": 20, "probes": ["session-hygiene-behaviour"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["meta-review"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review"]}
+      }
+    },
+    {
+      "id": "harness-engineering-conformance",
+      "minimumScore": 90,
+      "dimensions": {
+        "verification": {"weight": 30, "probes": ["harness-conformance"]},
+        "agentUnderstandable": {"weight": 15, "probes": ["harness-docs-freshness"]},
+        "testStability": {"weight": 20, "probes": ["harness-conformance"]},
+        "architectureBoundaries": {"weight": 20, "probes": ["host-adapter-parity"]},
+        "codeConventions": {"weight": 15, "probes": ["meta-review", "harness-docs-freshness"]}
+      }
+    }
+  ]
+}

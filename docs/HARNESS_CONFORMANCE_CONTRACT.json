@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "frozenAt": "2026-07-14T22:44:53Z",
+  "sourceFrameworks": [
+    "walkinglabs-h1-h5",
+    "openai-agent-first-harness",
+    "anthropic-long-running-harness"
+  ],
+  "scoreScale": {
+    "maximum": 5,
+    "pointsPerAxis": 1,
+    "passRule": "Each of H1-H5 earns exactly one point only when every independent evidence command exits 0 in the current run. Missing, stale, skipped, self-referential, or failing evidence earns zero for that axis; score 5 requires 5/5."
+  },
+  "freshness": {
+    "maxExternalEvidenceAgeDays": 30,
+    "externalEvidenceMustPostdateFreeze": true
+  },
+  "changePolicy": {
+    "mode": "new-version-and-human-approval",
+    "rule": "Do not edit requirements or thresholds in place after freeze. A changed oracle requires a new version, a new digest, explicit human approval, and a new goal unit."
+  },
+  "evaluator": {
+    "path": "tests/verify_harness_conformance.py",
+    "forbidSelfReference": true,
+    "commandTimeoutSeconds": 900
+  },
+  "axes": [
+    {
+      "id": "H1",
+      "name": "Ограничение поведения",
+      "point": 1,
+      "requirements": [
+        {
+          "id": "H1-R1",
+          "criterion": "Risk-tier graduated trust is machine-readable: high-risk actions fail closed, while low-risk work retains a calibrated non-blocking path.",
+          "evidence": [
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_graduated_trust.py", "expectedExitCode": 0}
+          ]
+        },
+        {
+          "id": "H1-R2",
+          "criterion": "Every canonical hard gate is registered and produces an equivalent deny/block decision through Claude Code and Codex transports.",
+          "evidence": [
+            {"kind": "host-parity", "command": "sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py", "expectedExitCode": 0},
+            {"kind": "adversarial", "command": "sh skills/_shared/itd_py.sh tests/verify_redteam_multihost.py", "expectedExitCode": 0}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Сохранение контекста",
+      "point": 1,
+      "requirements": [
+        {
+          "id": "H2-R1",
+          "criterion": "Project-local .itd-memory is the canonical cross-host continuity source; host-private memory is an optional mirror only.",
+          "evidence": [
+            {"kind": "host-parity", "command": "sh skills/_shared/itd_py.sh tests/verify_host_neutral_memory.py", "expectedExitCode": 0}
+          ]
+        },
+        {
+          "id": "H2-R2",
+          "criterion": "A fresh session reconstructs the same active unit, verified evidence, blockers, and next action from durable state without relying on transcript memory.",
+          "evidence": [
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_fresh_session_resume.py", "expectedExitCode": 0},
+            {"kind": "adversarial", "command": "sh skills/_shared/itd_py.sh tests/verify_state_hardening.py", "expectedExitCode": 0}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H3",
+      "name": "Предотвращение преждевременного завершения",
+      "point": 1,
+      "requirements": [
+        {
+          "id": "H3-R1",
+          "criterion": "Strict/high-risk policy denies source commit and explicit close when required runtime verification evidence is missing, failed, or ambiguous.",
+          "evidence": [
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_strict_completion_policy.py", "expectedExitCode": 0},
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py", "expectedExitCode": 0}
+          ]
+        },
+        {
+          "id": "H3-R2",
+          "criterion": "Human bypass remains explicit and auditable, and the calibrated low-risk no-signal path does not create false hard blocks.",
+          "evidence": [
+            {"kind": "adversarial", "command": "sh skills/_shared/itd_py.sh tests/verify_completion_policy_calibration.py", "expectedExitCode": 0},
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py", "expectedExitCode": 0}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H4",
+      "name": "Верификация через тестирование",
+      "point": 1,
+      "requirements": [
+        {
+          "id": "H4-R1",
+          "criterion": "Deterministic structural and behavioural suites exercise real allow/deny and pass/fail paths rather than documentation presence alone.",
+          "evidence": [
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_harness_map_fixtures.py", "expectedExitCode": 0},
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_review_evalset.py", "expectedExitCode": 0}
+          ]
+        },
+        {
+          "id": "H4-R2",
+          "criterion": "A regular live-model benchmark is runnable without a permanent-disable guard and has fresh post-freeze evidence checked by an independent verdict.",
+          "evidence": [
+            {
+              "kind": "live-model",
+              "command": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+              "expectedExitCode": 0,
+              "artifact": "tests/fixtures/live-model-evidence/latest.json",
+              "observedAtField": "observedAt",
+              "maxAgeDays": 30,
+              "mustPostdateFreeze": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "H5",
+      "name": "Наблюдаемость",
+      "point": 1,
+      "requirements": [
+        {
+          "id": "H5-R1",
+          "criterion": "Execution telemetry records paired intent and outcome plus host-observed token counters with provenance; estimates are never presented as observations.",
+          "evidence": [
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_execution_trace_outcome.py", "expectedExitCode": 0},
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_observed_token_telemetry.py", "expectedExitCode": 0},
+            {"kind": "behavioral", "command": "sh skills/_shared/itd_py.sh tests/verify_signal_attribution.py", "expectedExitCode": 0}
+          ]
+        },
+        {
+          "id": "H5-R2",
+          "criterion": "Control coverage, false classifications, and documentation/version drift are measurable and any stale narrative or taxonomy claim fails closed.",
+          "evidence": [
+            {"kind": "quality", "command": "sh skills/_shared/itd_py.sh tests/verify_control_quality.py", "expectedExitCode": 0},
+            {"kind": "freshness", "command": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py", "expectedExitCode": 0}
+          ]
+        }
+      ]
+    }
+  ]
+}

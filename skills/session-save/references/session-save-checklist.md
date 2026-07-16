@@ -67,7 +67,8 @@ type: project
 
 - Формат: `session_YYYY-MM-DD.md`
 - При нескольких сессиях в день: `session_YYYY-MM-DD_2.md`
-- Расположение: `~/.claude/projects/<project-hash>/memory/`
+- Расположение: `<project>/.itd-memory/` (канон для всех хостов; приватная
+  память хоста — только необязательное legacy-зеркало)
 
 ## Обновление MEMORY.md
 

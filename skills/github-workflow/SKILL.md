@@ -4,7 +4,7 @@ description: 'GitHub Issues, Pull Request, CI, release, and code-review workflow
 argument-hint: issue, pull request, branch, check run, release, or GitHub repo
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(gh:*) Bash(git:*)
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   effort: medium
   side_effect: external-write
@@ -35,7 +35,8 @@ metadata:
 Используй этот скилл, когда состояние idea-to-deploy нужно связать с работой в
 GitHub. Подробный чеклист — в `references/github-workflow-checklist.md`.
 
-> **Explicit-invocation** (`disable-model-invocation: true`). Вызывается явно
+> **Explicit-invocation** (`metadata.explicit_invocation: true`; Codex policy
+> `allow_implicit_invocation: false`). Вызывается явно
 > через `/github-workflow`. Несёт `external-write` — любые мутации в GitHub
 > (push/merge/close/resolve/release) выполняются **только по явному намерению**
 > пользователя.

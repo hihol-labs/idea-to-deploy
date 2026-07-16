@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mode": "explicit_close",
+  "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
+  "completionPolicy": ".itd/COMPLETION_POLICY.json",
+  "requireCleanGit": true,
+  "requiredStateFiles": [
+    ".itd-memory/STATE.json"
+  ],
+  "startupProbeCommand": "",
+  "cleanupManifest": ".itd-memory/session-artifacts.json",
+  "qualityLedger": ".itd/QUALITY.json",
+  "qualityMaxAgeDays": 30,
+  "debugScan": {
+    "enabled": true,
+    "paths": [],
+    "excludeGlobs": [],
+    "patterns": [
+      "\\bconsole\\.log\\s*\\(",
+      "\\bdebugger\\b",
+      "\\bTODO\\b"
+    ]
+  },
+  "periodic": {
+    "weeklyMaxAgeDays": 7,
+    "weeklyCommands": [],
+    "monthlyAblationMaxAgeDays": 31
+  }
+}

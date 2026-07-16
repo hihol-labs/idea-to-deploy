@@ -1,0 +1,88 @@
+name: scheduled-hygiene
+
+# External cadence for the active methodology contracts. The jobs are
+# intentionally read-only: evidence is uploaded as an Actions artifact and a
+# red quality/ablation result fails the run without editing tracked grades.
+"on":
+  schedule:
+    - cron: '17 3 * * 1'
+    - cron: '29 4 1 * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Hygiene cycle to run
+        required: true
+        type: choice
+        options: [weekly, monthly]
+        default: weekly
+      component:
+        description: Monthly ablation candidate id
+        required: false
+        type: string
+        default: completion-stop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-hygiene-${{ github.event_name }}-${{ github.event.schedule || inputs.mode }}
+  cancel-in-progress: false
+
+jobs:
+  weekly:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 3 * * 1') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'weekly')
+    runs-on: ubuntu-latest
+    # The weekly scorecard can spend up to 24 minutes across bounded probes.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run weekly tracing cleanup
+        run: >-
+          python3 docs/templates/itd/itd_hygiene.py periodic --mode weekly
+          --root . --contract docs/SESSION_EXIT_CONTRACT.json --record
+      - name: Compute objective module quality scores
+        if: always()
+        run: >-
+          python3 docs/templates/itd/itd_hygiene.py quality --scorecard
+          docs/QUALITY_SCORECARD.json --root . --record --json
+      - name: Upload weekly evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-hygiene-${{ github.run_id }}
+          path: .itd-memory/hygiene/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+  monthly:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '29 4 1 * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ABLATION_COMPONENT: ${{ inputs.component || 'completion-stop' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run reversible monthly ablation
+        run: >-
+          python3 docs/templates/itd/itd_hygiene.py periodic --mode monthly
+          --component "$ABLATION_COMPONENT" --root .
+          --contract docs/SESSION_EXIT_CONTRACT.json
+          --ablation-contract docs/HARNESS_ABLATION.json --record
+      - name: Upload monthly evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monthly-ablation-${{ github.run_id }}
+          path: .itd-memory/hygiene/*.json
+          if-no-files-found: error
+          retention-days: 180

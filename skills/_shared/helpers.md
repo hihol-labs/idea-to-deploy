@@ -158,6 +158,15 @@ frontmatter (`migrate`, `migrate-prod`, `deploy`, `infra`, `autopilot`). When ro
 to one of those, default to the high-risk path. When in doubt between two tiers, pick
 the higher one — under-processing a risky change is the expensive mistake.
 
+The executable contour contract is `skills/_shared/PROPORTIONALITY_POLICY.json`:
+`trivial/standard/high-risk` normalize to `low/medium/high`, the matching
+`riskRoutes` entry supplies the minimum contours and capabilities, and
+`signalContours` adds domain-specific evidence. Do not replace it with a prose
+guess or an always-full default. Low-risk work must not pay `review`, `security`
+or `full` contour cost without a matching signal; unknown risk fails closed to
+high. The frozen paired A/B oracle is
+`tests/verify_proportionality_benchmark.py`.
+
 **Micro-path regression cadence (v1.66.0, retro-2026-07-08 P4).** Within the
 **standard** tier, a task of ≤1–2 units with a small diff scales the *cadence*,
 not the gate: per-unit verification stays mandatory (the unit's own verification

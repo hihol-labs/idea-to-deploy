@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "id": "completion-adversarial-v1",
+  "frozenAt": "2026-07-15",
+  "decisionSemantics": {
+    "deny": "process exits 2 with permissionDecision=deny",
+    "allow": "process exits 0 without permissionDecision=deny"
+  },
+  "requirements": {
+    "minimumCriticalDenyScenarios": 11,
+    "minimumCalibratedAllowScenarios": 5,
+    "minimumHighRiskBypassScenarios": 3,
+    "minimumSeededMutations": 11,
+    "maxCriticalFalseCompletions": 0,
+    "maxHighRiskBypassFailures": 0,
+    "maxCalibratedFalseBlocks": 0,
+    "maxMissedMutations": 0
+  },
+  "scenarios": [
+    {
+      "id": "high-missing-runtime",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "false-completion",
+      "rationale": "A high-risk source commit cannot complete without runtime evidence."
+    },
+    {
+      "id": "high-failed-runtime",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "false-completion",
+      "rationale": "A failed runtime signal must veto completion even if the verifier currently exits zero."
+    },
+    {
+      "id": "ambiguous-runtime",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "false-completion",
+      "rationale": "Unknown runtime outcomes cannot be interpreted as proof."
+    },
+    {
+      "id": "forged-green-failed-rerun",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "false-completion",
+      "rationale": "Workspace-authored green telemetry cannot override a failing independent rerun."
+    },
+    {
+      "id": "staged-verifier-weakened",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "oracle-integrity",
+      "rationale": "A source change cannot authorize itself by weakening its verification oracle."
+    },
+    {
+      "id": "empty-bypass",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "high-risk-bypass",
+      "rationale": "An explicit bypass without a reason is not an accountable exception."
+    },
+    {
+      "id": "unauditable-bypass",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "high-risk-bypass",
+      "rationale": "A bypass is denied when its durable audit record cannot be written."
+    },
+    {
+      "id": "kill-switch-without-reason",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "high-risk-bypass",
+      "rationale": "The environment kill switch is an audited exception, not a silent disable."
+    },
+    {
+      "id": "malformed-policy",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "fail-closed",
+      "rationale": "Malformed control state must fail closed."
+    },
+    {
+      "id": "untrusted-producer",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "evidence-provenance",
+      "rationale": "Self-authored runtime evidence cannot satisfy the strict boundary."
+    },
+    {
+      "id": "cross-session-pass",
+      "expectedDecision": "deny",
+      "critical": true,
+      "risk": "high",
+      "class": "evidence-provenance",
+      "rationale": "A passing signal from another session cannot authorize this session."
+    },
+    {
+      "id": "high-green",
+      "expectedDecision": "allow",
+      "critical": false,
+      "risk": "high",
+      "class": "calibrated-allow",
+      "rationale": "Valid attributed evidence plus a successful independent rerun authorizes completion."
+    },
+    {
+      "id": "reasoned-bypass",
+      "expectedDecision": "allow",
+      "critical": false,
+      "risk": "high",
+      "class": "calibrated-allow",
+      "rationale": "A reasoned exception remains available and is durably audited."
+    },
+    {
+      "id": "reasoned-kill-switch",
+      "expectedDecision": "allow",
+      "critical": false,
+      "risk": "high",
+      "class": "calibrated-allow",
+      "rationale": "Operator recovery remains possible when a reason is durably audited."
+    },
+    {
+      "id": "strict-docs-only",
+      "expectedDecision": "allow",
+      "critical": false,
+      "risk": "high",
+      "class": "calibrated-allow",
+      "rationale": "A docs-only staged change stays outside the source-completion boundary."
+    },
+    {
+      "id": "low-missing-advisory",
+      "expectedDecision": "allow",
+      "critical": false,
+      "risk": "low",
+      "class": "calibrated-allow",
+      "rationale": "Low-risk work without evidence remains advisory instead of becoming a false block."
+    }
+  ],
+  "mutations": [
+    {
+      "id": "M-STRICT-RISK-DISABLED",
+      "probes": ["high-missing-runtime"],
+      "rationale": "High risk no longer activates strict mode."
+    },
+    {
+      "id": "M-FAILED-RUNTIME-IGNORED",
+      "probes": ["high-failed-runtime"],
+      "rationale": "Both runtime-failure veto points are disabled."
+    },
+    {
+      "id": "M-RERUN-NO-VETO",
+      "probes": ["forged-green-failed-rerun"],
+      "rationale": "A failing independent rerun no longer vetoes completion."
+    },
+    {
+      "id": "M-BASELINE-NO-VETO",
+      "probes": ["staged-verifier-weakened"],
+      "rationale": "A changed verifier is allowed to authorize the staged source."
+    },
+    {
+      "id": "M-EMPTY-BYPASS-ALLOWED",
+      "probes": ["empty-bypass"],
+      "rationale": "An empty bypass reason is silently accepted."
+    },
+    {
+      "id": "M-AUDIT-FAILURE-ALLOWED",
+      "probes": ["unauditable-bypass"],
+      "rationale": "A bypass is accepted even though its audit write failed."
+    },
+    {
+      "id": "M-KILL-SWITCH-NO-REASON",
+      "probes": ["kill-switch-without-reason"],
+      "rationale": "The kill switch silently disables the gate."
+    },
+    {
+      "id": "M-MALFORMED-POLICY-ALLOWED",
+      "probes": ["malformed-policy"],
+      "rationale": "Malformed control state becomes fail-open."
+    },
+    {
+      "id": "M-SIGNAL-SCHEMA-SKIPPED",
+      "probes": ["untrusted-producer"],
+      "rationale": "Strict evidence provenance and schema checks are skipped."
+    },
+    {
+      "id": "M-CROSS-SESSION-ACCEPTED",
+      "probes": ["cross-session-pass"],
+      "rationale": "Signals are accepted without matching the current session."
+    },
+    {
+      "id": "M-DOCS-FALSE-BLOCK",
+      "probes": ["strict-docs-only"],
+      "rationale": "Strict mode blocks a docs-only commit outside the source boundary."
+    }
+  ]
+}

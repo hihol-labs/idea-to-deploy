@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.89.0](https://img.shields.io/badge/Version-1.89.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.90.0](https://img.shields.io/badge/Version-1.90.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -42,7 +42,7 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 40 skills + 10 specialized agents that turn Claude Code into a professional developer with a proven pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. 40 skills + 10 specialized agents that turn Claude Code into a professional developer with an evidence-gated pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -247,7 +247,7 @@ Claude: Step 1/9 — scaffold project, commit
 | `/session-save` | Save session context to project memory — what was done, key decisions, blockers, next steps. Ensures continuity between Claude Code sessions. |
 | `/autopilot` | Auto-pipeline that runs discover → blueprint → kickstart → review → test with minimal human intervention (GSD-inspired). Takes a project idea and produces a full project with all docs, code, tests, and review. |
 | `/handoff` | **New in v1.21.0.** Write a compact `HANDOFF.md` context packet to transfer work to the next session/agent when there is no return path — compaction, delegation, AFK run, or recovery. Distinct from `/session-save` (milestone save). |
-| `/goal` | **New in v1.44.0.** Long-goal mode — decompose a multi-session goal into ordered verifiable units in `.itd-memory/GOAL.json` (user approval required), drive them one at a time through the standard `/task` pipeline (WIP=1, evidence-gated `verified`), and resume across sessions from the first non-verified unit. Brownfield-first; not a gate — never bypasses `/review`, `/test`, or the DoD. |
+| `/goal` | **New in v1.44.0.** Long-goal mode — decompose a multi-session goal into ordered verifiable units in `.itd-memory/GOAL.json` (user approval required), drive them one at a time through the standard `/task` pipeline (WIP=1, evidence-gated `verified`), and resume across sessions from the first non-verified unit. Its bounded envelope now enforces observed token/time/attempt stops, routes checker cost by sealed risk tier, emits ≤4 KB checkpoints, and can grade clean A/B evidence with a deterministic anti-Goodhart 5/5 evaluator. Brownfield-first; never bypasses `/review`, `/test`, or the DoD. |
 | `/retro` | **New in v1.46.0.** Self-proposing improvement cycle for the methodology itself, split FACTS / PROPOSALS / MERGE: `itd_retro_scan.py` deterministically aggregates telemetry (VCR, regressions, active goals, SKILL_BYPASS ledger, cost), the model turns facts into ranked proposals where every one cites evidence (anti-Goodhart: external signals only), and the human merges via the ordinary release pipeline. Never edits the methodology itself; not a gate. |
 
 ### Research (2 skills)
@@ -325,7 +325,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/adopt` | Path to an existing legacy repo (defaults to `cwd`) + optional `skip-chain` flag | `CLAUDE.md` (append-with-marker if exists), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | File writes in project root + project memory dir (never touches `~/.claude/settings.json`); voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency — re-runs are no-ops |
 | `/grill-me` | Plan / design / architecture / decision (text or repo) | None — questions + analysis (stdout); optional artifact only if the user asks | None (read-only by default; no Write/Edit) | ✅ |
 | `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
-| `/goal` | Goal text (empty = resume active goal) | `.itd-memory/GOAL.json` (persistent unit ledger) + unit events in `events.jsonl`; units delivered via the standard `/task` pipeline | Memory-write only; code changes happen inside `/task` under its own gates | ✅ Resume-only — an active ledger is never recreated |
+| `/goal` | Goal text (empty = resume active goal) | `.itd-memory/GOAL.json` (persistent unit ledger) + unit events in `events.jsonl`; optional sealed `runPolicy`, attempt journal, and typed budget stops; units delivered via the standard `/task` pipeline | Memory-write only; code changes happen inside `/task` under its own gates | ✅ Resume-only — an active ledger is never recreated |
 | `/retro` | Workspace root(s) to scan (default cwd) | `docs/retros/RETRO-YYYY-MM-DD.md` (scan output + ranked evidence-cited proposals); backlog candidates for the USER to accept | Memory-write of the report only — never edits skills/hooks/docs (no self-merge) | ✅ New dated report each run; scan is deterministic |
 | `/market-scan` | Idea / problem / segment / competitor / launch question | `MARKET_BRIEF.md` (dated append) + optional `BACKLOG.md`/`LAUNCH_PLAN.md` updates; structured stdout summary | Local doc writes + external read-only research query (`last30days`); no secrets sent | ⚠️ Dated append — re-runs add new evidence |
 | `/mcp-docs` | Library / framework / API / version question | None — structured stdout summary; source + decision recorded in notes | None (read-only; external doc query, no file writes) | ✅ |
@@ -399,9 +399,9 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 > **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **10 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **19 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **10 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
+The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **11 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **18 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **11 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
 
-### Hook taxonomy — 10 hard gates vs 18 soft (v1.59.0; state-guard hard since v1.76.0)
+### Hook taxonomy — 11 hard gates vs 18 soft (machine-checked)
 
 | # | Hard gate (can block/deny) | Event | What it stops |
 |---|---|---|---|
@@ -411,14 +411,15 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 | 4 | `check-skill-completeness.sh` | PreToolUse · Write/Edit | writing a `SKILL.md` without `references/`, fixtures, or trigger phrases |
 | 5 | `check-tool-skill.sh` | PreToolUse · Bash/Edit/Write | a raw mutating tool call after 3 ignored skill decisions (with a skill-active grace window) |
 | 6 | `pii-egress-guard.sh` | PreToolUse · Bash | a command that would egress secrets/PII to a third party |
-| 7 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
-| 8 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
-| 9 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
-| 10 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash/PowerShell** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
+| 7 | `cost-tracker.sh` | PreToolUse · Agent/Task/Bash/PowerShell | the next expensive agent/test/build attempt before its estimate crosses the configured session ceiling; cheap inspection and checkpoint calls stay available |
+| 8 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
+| 9 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
+| 10 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
+| 11 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash/PowerShell** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
 
-**Soft (19):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
+**Soft (18):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 
-**Hard-gate coverage** — the metric that keeps the 10 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 10/18/28 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` (unit G-003) enforces coverage. **Target: 10/10.**
+**Hard-gate coverage** — the metric that keeps the 11 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 11/18/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 11/11.**
 
 **Recommended — one command:**
 
@@ -452,7 +453,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All 28 hooks fire live — no Claude Code restart needed. The v1.40 `handoff-readiness.sh` Stop-hook is on by default (soft, rate-limited) and is disabled per-machine with `ITD_HANDOFF_READINESS=0`. The two v1.5.1 enforcement hooks only fire inside the methodology repo (detected via `.claude-plugin/plugin.json`); they are no-ops on unrelated projects. The three v1.17.0+ safety guardrails (`careful.sh`, `freeze.sh`, `context-budget.sh`) and the v1.21 `execution-trace.sh` observability hook are opt-in per session. The pre-flight hook works on any project with a recognized memory directory; if there's no memory, it injects an empty context block with no warning.
+All 29 hooks are registered by the canonical adapters — no Claude Code restart is needed after sync. `handoff-readiness.sh` is soft/rate-limited and can be disabled with `ITD_HANDOFF_READINESS=0`; methodology-only enforcement hooks no-op on unrelated projects. `execution-trace.sh` records paired intent/outcome rows, while `cost-tracker.sh` keeps estimated and host-observed token counters explicitly separate.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 

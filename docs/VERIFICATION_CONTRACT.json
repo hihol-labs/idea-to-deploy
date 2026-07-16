@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "purpose": "Executable verification contract for explicit methodology-repo session close.",
+  "commands": [
+    {
+      "id": "session-hygiene-quality",
+      "command": "python3 tests/verify_session_hygiene_quality.py",
+      "timeoutSeconds": 180,
+      "expectedOutput": "ALL PASS",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "meta-review",
+      "command": "python3 tests/meta_review.py",
+      "timeoutSeconds": 120,
+      "expectedOutput": "FINAL STATUS: PASSED",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "quick-regression",
+      "command": "bash tests/run-all.sh --quick",
+      "timeoutSeconds": 300,
+      "expectedOutput": "DONE fails:none",
+      "passFailParser": "stdout_contains"
+    }
+  ]
+}

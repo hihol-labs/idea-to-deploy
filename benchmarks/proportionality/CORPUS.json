@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "proportionality-paired-v1",
+  "frozenAt": "2026-07-15",
+  "scope": "Internal deterministic A/B benchmark only; never external adoption or outcome evidence.",
+  "policyPath": "skills/_shared/PROPORTIONALITY_POLICY.json",
+  "policySha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+  "requirements": {
+    "minimumPairsPerRisk": 3,
+    "requiredQualityRate": 1.0,
+    "maxQualityRegressions": 0,
+    "maxAdaptiveTimeRatio": {
+      "low": 0.1,
+      "medium": 0.25,
+      "high": 1.0
+    },
+    "maxAdaptiveTokenRatio": {
+      "low": 0.1,
+      "medium": 0.25,
+      "high": 1.0
+    }
+  },
+  "pairs": [
+    {
+      "id": "low-doc-typo",
+      "risk": "low",
+      "signals": [],
+      "requiredCapabilities": ["syntax"]
+    },
+    {
+      "id": "low-local-rename",
+      "risk": "low",
+      "signals": [],
+      "requiredCapabilities": ["syntax"]
+    },
+    {
+      "id": "low-comment-clarity",
+      "risk": "low",
+      "signals": [],
+      "requiredCapabilities": ["syntax"]
+    },
+    {
+      "id": "medium-isolated-bugfix",
+      "risk": "medium",
+      "signals": [],
+      "requiredCapabilities": ["syntax", "behavior"]
+    },
+    {
+      "id": "medium-single-module-refactor",
+      "risk": "medium",
+      "signals": [],
+      "requiredCapabilities": ["syntax", "behavior"]
+    },
+    {
+      "id": "medium-targeted-test",
+      "risk": "medium",
+      "signals": [],
+      "requiredCapabilities": ["syntax", "behavior"]
+    },
+    {
+      "id": "high-auth-change",
+      "risk": "high",
+      "signals": ["auth"],
+      "requiredCapabilities": ["syntax", "behavior", "consistency", "integration", "security"]
+    },
+    {
+      "id": "high-production-schema",
+      "risk": "high",
+      "signals": [],
+      "requiredCapabilities": ["syntax", "behavior", "consistency", "integration"]
+    },
+    {
+      "id": "high-secret-handling",
+      "risk": "high",
+      "signals": ["secrets"],
+      "requiredCapabilities": ["syntax", "behavior", "consistency", "integration", "security"]
+    }
+  ],
+  "mutationGuards": [
+    "always-full-low",
+    "drop-medium-targeted",
+    "drop-high-full",
+    "ignore-security-signal",
+    "zero-cost-contour",
+    "missing-risk-pair"
+  ]
+}

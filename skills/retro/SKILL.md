@@ -1,7 +1,7 @@
 ---
 name: retro
 description: 'Self-proposing improvement cycle for the methodology itself — FACTS from the harness (itd_retro_scan.py aggregates VCR, regressions, active goals, SKILL_BYPASS ledger, cost), PROPOSALS from the model (ranked, every one cites evidence from the scan; anti-Goodhart: external signals only), MERGE stays with the human via the ordinary release pipeline. Never edits the methodology itself; not a gate.'
-argument-hint: optional — workspace root(s) to scan (default: current dir) and/or period note
+argument-hint: 'optional — workspace root(s) to scan (default: current dir) and/or period note'
 license: MIT
 allowed-tools: Read Write Glob Grep Bash
 metadata:
@@ -118,7 +118,64 @@ sh "$SHD/itd_py.sh" "$RT/itd_ledger_abstentions.py"
 человека. Fallback (vendor-neutral): нет планировщика — запускай `/retro` вручную,
 как и раньше; пропуск пинга теряет напоминание, но не сам механизм.
 
+### Step 1c: Двухрежимная гигиена + абляция harness
+
+Периодическая гигиена — исполняемый контракт, не просьба «не забыть». Runner
+живёт в `.itd/` принятого проекта; в самом репо методологии используй шаблонный
+runner и активные контракты из `docs/`.
+
+**Weekly tracing cleanup** — полный read-only/cleanup scan: manifest-owned
+временные артефакты, freshness/валидность `QUALITY.json`, структурные проверки и
+benchmark drift. Операции cleanup безопасны для повторного запуска.
+
+```bash
+HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"
+[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"; }
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" periodic --mode weekly --root . --contract "$CONTRACT" --record
+```
+
+**Monthly component ablation** — выбрать ОДИН due-кандидат из
+`HARNESS_ABLATION.json`, прогнать тот же фиксированный benchmark сначала в
+baseline, затем с его reversible `disableEnv`, записать метрики и оставить
+`humanDecision: pending`. Runner никогда не удаляет компонент сам: regression →
+`restore`/exit 1; parity → `candidate_for_removal`, после чего человек решает
+удалить, облегчить или оставить.
+
+```bash
+HY=".itd/itd_hygiene.py"; ABL=".itd/HARNESS_ABLATION.json"
+[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; ABL="docs/HARNESS_ABLATION.json"; }
+SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+sh "$SHD/itd_py.sh" "$HY" periodic --mode monthly --component <id> --root . --ablation-contract "$ABL" --record
+```
+
+В репо методологии внешний transport уже материализован как
+`.github/workflows/hygiene-schedule.yml`: cron `17 3 * * 1` запускает weekly
+cleanup + objective `QUALITY_SCORECARD.json`, cron `29 4 1 * *` — monthly
+ablation. Оба job имеют только `contents: read` и выгружают records как Actions
+artifacts даже при красном гейте. Для принятого GitHub-проекта `/adopt` может с
+явного согласия скопировать `docs/templates/github/itd-hygiene.yml`; без согласия
+остаётся ручной vendor-neutral runner. Scheduled transport только
+показывает/записывает evidence; merge, изменение tracked grades, удаление
+компонента и иные мутации по-прежнему проходят человека и обычный release
+pipeline.
+
 ### Step 2: PROPOSALS — интерпретация с обязательным evidence
+
+Для повторяемого и машиночитаемого цикла используй bundled runner после
+интерпретации FACTS (он пишет только proposal/experiment artifact, не
+методологию):
+
+```text
+sh skills/_shared/itd_py.sh skills/retro/scripts/itd_learning_loop.py propose \
+  --signals <durable.jsonl> --specs <human-authored-specs.json> --out <artifact.json>
+```
+
+Затем `experiment` исполняет две явно утверждённые argv-команды и фиксирует
+числовую метрику; `decide` требует `--actor-type human` и решение
+`keep|change|rollback`; `verify` fail-closed проверяет evidence и rollback.
+Runner отклоняет self-metrics, одиночные сигналы и повторения из одного
+источника. Обычный human merge/release gate после этого не меняется.
 
 Для каждого кандидата — строго четыре поля:
 

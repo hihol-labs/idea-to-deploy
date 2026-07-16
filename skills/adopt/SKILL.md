@@ -1,6 +1,6 @@
 ---
 name: adopt
-description: 'Adopt legacy project into idea-to-deploy methodology — add CLAUDE.md, register project-level hooks in .claude/settings.json, bootstrap memory dir. Detects product type and suggests a matching starter/golden-path for the /blueprint chain. Idempotent. No reverse-engineering of plan docs. Voice-chain to /strategy or /blueprint for plan generation.'
+description: 'Adopt a legacy project into the model-neutral idea-to-deploy methodology. Uses AGENTS.md + bundled hooks on Codex or CLAUDE.md + project settings on Claude Code, then bootstraps canonical .itd contracts and state. Idempotent; does not reverse-engineer plan docs.'
 argument-hint: optional — "skip-chain" to disable the final /strategy · /blueprint voice-chain
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Bash(python3:*) Bash(node:*) Bash(go:*) Bash(cargo:*) Bash(make:*) Skill
@@ -9,7 +9,7 @@ metadata:
   side_effect: local-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.84.0
+  version: 1.90.0
   category: methodology
   tags: [adopt, legacy, onboarding, methodology, bootstrap, initialization]
 ---
@@ -38,7 +38,29 @@ Set via `/model sonnet` before invoking this skill if Opus is active.
 
 You are the adoption operator for `idea-to-deploy`. Your job is to **minimally** onboard an existing legacy project into the methodology — without rewriting the user's code, without hallucinating plan documents, and without modifying `~/.claude/settings.json` (user-level).
 
-You produce exactly **three writes**, plus up to three **optional recommended** ones the user may decline — the `.itd/` contract scaffold (Step 3.5), an example test when the project has none (Step 3.6), a runnability check via the init validator (Step 3.7) — plus one voice-chain question. Nothing more.
+### Step -1: Select the host adapter
+
+Select exactly one adapter before Step 0:
+
+- **Codex** when the user invoked this skill from Codex, `CODEX_HOME` or
+  `PLUGIN_ROOT` is present, or `.codex/` is the active project configuration.
+  Read and follow `references/codex-adoption.md`. Its host-specific steps
+  replace Steps 0-3, 3.8, 4, and the Claude-specific self-validation items
+  below. Then continue with the shared Steps 3.5-3.7 and 5-6. After approval,
+  prefer its bundled `scripts/itd_adopt.py` for the bounded mechanical writes;
+  the skill still owns discovery, explanation, approval, and final validation.
+- **Claude Code** otherwise. Continue with the existing steps below.
+
+Never create both host configurations merely for symmetry. The methodology
+core is `.itd/`, `.itd-memory/`, shared skills, and shared verification; host
+entry files and hook registration are adapters.
+
+The Claude branch below produces exactly **three writes**, plus up to three
+**optional recommended** ones the user may decline — the `.itd/` contract
+scaffold (Step 3.5), an example test when the project has none (Step 3.6), a
+runnability check via the init validator (Step 3.7) — plus one voice-chain
+question. The Codex branch uses the bounded write set in
+`references/codex-adoption.md`.
 
 ### Step 0: Safety & discovery
 
@@ -52,7 +74,9 @@ Before writing anything:
    - `CLAUDE.md` in root → present / absent.
    - If present → contains marker `<!-- idea-to-deploy:begin v1.20 -->` → **already adopted**.
    - `.claude/settings.json` → present / absent; if present, parse JSON and check whether our hook scripts already appear by `command` path.
-   - Memory dir for current project (see `hooks/pre-flight-check.sh` lines 89-127 for resolution logic — `~/.claude/projects/-<dashed-cwd>/memory/`).
+   - Canonical continuity dir: `$PROJECT_ROOT/.itd-memory/`. Also detect a
+     legacy `~/.claude/projects/-<dashed-cwd>/memory/` only for the migration
+     report; its presence never replaces or suppresses local initialization.
 
 4. **Detect plugin dir** (where our hooks live). Try in order:
    - `$CLAUDE_PLUGIN_DIR` env var, if set.
@@ -153,12 +177,12 @@ Branch (apply the same logic independently to `hooks` and to `permissions`):
 
 ### Step 3: Bootstrap memory dir
 
-1. Compute memory dir path using the same logic as `hooks/pre-flight-check.sh` lines 89-127:
-   - `expected = "-" + cwd_resolved.lstrip("/").replace("/", "-")`
-   - `candidate = ~/.claude/projects/<expected>/memory/`
-   - Fallback: suffix-matching against existing `~/.claude/projects/*` dirs.
+1. Set the canonical memory dir to `$PROJECT_ROOT/.itd-memory/` on every host.
+   Do not derive the canonical path from Claude or Codex configuration.
 
-2. `mkdir -p` the memory dir if missing. (Claude Code normally creates the outer `projects/<hash>/` dir itself; we only ensure `/memory/` exists inside it.)
+2. `mkdir -p "$PROJECT_ROOT/.itd-memory"` if missing. If a matching
+   `~/.claude/projects/*/memory/` exists, report it as an optional legacy mirror;
+   never overwrite it during adoption and never choose it over local files.
 
 3. **Invoke `/session-save` via the Skill tool** with a synthesized sentinel context. Pass these 9 fields:
 
@@ -182,8 +206,10 @@ If the user accepted:
 
 1. **Resolve templates dir** — try in order: (a) sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`); (b) `~/.claude/templates/itd/` — `sync-to-active.sh` mirrors the templates there since v1.68.0 (Step 4/6), so sync-based installs carry them too; (c) `docs/templates/itd/` in a methodology repo checkout if one is known. If none exists, warn («шаблоны .itd/ не найдены — обнови установку: `bash scripts/sync-to-active.sh` из репо методологии») and skip to Step 4.
 2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
-3. **Copy all 14 contract templates plus the `.py` utilities** (`check_contract_drift.py`, `itd_init_validate.py`, `itd_progress.py`) into `$PROJECT_ROOT/.itd/`, filling only the obvious placeholders (project name, detected stack from Step 0.5, verify commands if a test runner was detected). Do NOT invent invariants, golden flows, or forbidden changes — leave template prose where real knowledge is missing; the user or a later `/blueprint`/`/task` fills them. Заметные среди 14: `DECISIONS.md` (v1.70.0) — append-only журнал решений «какое/почему/когда», который дальше ведёт `/session-save`; `itd_progress.py` (v1.70.0) — генератор derived-вью `.itd-memory/PROGRESS.md` (glance-сводка поверх STATE/GOAL/events; НЕ контракт — гейты продолжают читать JSON).
-4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5) and an empty `events.jsonl`.
+3. **Copy every contract template plus the `.py` utilities** from the resolved templates directory into `$PROJECT_ROOT/.itd/`; do not maintain a hand-count. Fill only obvious placeholders (project name, detected stack, verify commands). For `SESSION_EXIT_CONTRACT.json`, fill the detected finite startup probe and real source/debug-scan paths; keep `COMPLETION_POLICY.json` calibrated unless the user explicitly chooses strict-by-default, because active `riskTier: high` units are already strict. For `QUALITY.json`, seed detected modules as grade `C`/`partial` with existing-path evidence until a real review promotes them. Fill `QUALITY_SCORECARD.json` from executable project evidence: exactly five weighted dimensions per module, real commands as probes, `attempts: 2` only for stability evidence, and conservative minimum scores. A file-existence check is not a substantive quality probe; if no command exists for a dimension, leave the scorecard visibly incomplete instead of inventing an A. Keep `HARNESS_ABLATION.json.candidates` empty until a reversible kill switch and fixed benchmark are known. Do NOT invent invariants, golden flows, or forbidden changes. Notable artifacts: `DECISIONS.md` is append-only; `itd_progress.py` is a derived glance view; `itd_hygiene.py` implements explicit close, idempotent manifest cleanup, weighted objective quality scoring, and periodic ablation.
+4. **Create `.itd-memory/`** with `STATE.json` from `<plugin>/docs/templates/itd-memory/STATE.example.json` reset to this project (`sessionState: "ACTIVE"`, `currentStage: "ADOPTED"`, `intent`: «adoption», empty logs/history, `existingProject.detectedStack` from Step 0.5), an empty `events.jsonl`, and `session-artifacts.json` as `{"version":1,"artifacts":[]}`. The manifest is durable ownership evidence; never populate it with pre-existing or tracked files.
+
+5. **Offer the external scheduler (explicit opt-in).** If the repository is hosted on GitHub, show the bounded write `.github/workflows/itd-hygiene.yml` from `docs/templates/github/itd-hygiene.yml` and ask before copying it. Never enable recurring external CI silently. The workflow has `contents: read`, runs weekly cleanup + objective scoring and monthly reversible ablation, and uploads `.itd-memory/hygiene/*.json` evidence. Before enabling monthly, require at least one real `HARNESS_ABLATION.json` candidate and set the dispatch/scheduled component deliberately; an empty candidate list stays a loud monthly failure, not a fake pass.
 
 ### Step 3.6: Example test — «столб держит вес» for brownfield (optional 5th write, recommended; v1.67.0)
 
@@ -315,6 +341,7 @@ Every write is guarded:
 - `.claude/settings.json` — hook entries are matched by `command` path; duplicates are not added.
 - Memory dir — `/session-save` appends to `MEMORY.md`; sentinel session file is auto-numbered.
 - `.itd/` — scaffold is skipped when the directory already exists (never overwrites filled-in contracts).
+- `.itd-memory/session-artifacts.json` — fixed empty/object shape; cleanup never rewrites it and missing targets are no-ops.
 
 Re-running `/adopt` twice in a row is safe and produces no extra output beyond a confirmation that the project is already adopted.
 
@@ -346,6 +373,9 @@ Before reporting adoption as complete, verify:
 - [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 7 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, cross-review-precommit, check-skill-completeness, pii-egress-guard), all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`), and handoff-readiness in `hooks.Stop`
 - [ ] `$PROJECT_ROOT/.claude/settings.json` carries the recommended `permissions.ask` OS-tool-class guardrails (rm/sudo/chown/dd/mkfs/kill/…) merged without clobbering the user's existing `permissions` (or the user explicitly declined them)
 - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
+- [ ] `.itd/SESSION_EXIT_CONTRACT.json`, `.itd/QUALITY.json`, `.itd/QUALITY_SCORECARD.json`, `.itd/HARNESS_ABLATION.json`, and `.itd/itd_hygiene.py` exist when scaffolding was accepted; detected fields are filled without invented evidence
+- [ ] External `.github/workflows/itd-hygiene.yml` was copied only after explicit opt-in (or the decline/non-GitHub reason was recorded); monthly has a real component candidate before scheduling
+- [ ] `.itd-memory/session-artifacts.json` exists with an empty idempotent manifest and no pre-existing/tracked paths
 - [ ] Example test created **and actually run** with real output shown (or skip reason recorded: tests exist / declined / no built-in runner) — a red run is reported, never hidden
 - [ ] Runnability check ran via `itd_init_validate.py` with its PASS/FAIL recorded in the sentinel session-save (or skip reason recorded: declined / no commits / isolated bootstrap impossible)
 - [ ] CLAUDE.md weight measured; router split done/proposed for a >300-line file (or skip reason: compact / already router / declined). A completed split moved content verbatim, listed deletions explicitly, left the `<!-- itd:claude-router -->` marker, and got explicit user approval BEFORE any write
@@ -368,7 +398,7 @@ Claude: [/adopt]
     Git repo:            /home/user/work/shop-api
     Existing CLAUDE.md:  not found
     Existing settings:   .claude/settings.json not found
-    Memory dir:          ~/.claude/projects/-home-user-work-shop-api/memory/ (absent)
+    Memory dir:          /home/user/work/shop-api/.itd-memory/ (absent)
     Plugin hooks dir:    ~/.claude/plugins/idea-to-deploy/hooks/
     Detected stack:      Python + FastAPI (pyproject.toml), PostgreSQL (docker-compose.yml)
     Detected product type: api_service → starter `api-fastapi`, golden-path `api-service-booking`
@@ -385,7 +415,7 @@ User: yes
   Step 1/4 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
   Step 2/4 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse, 1 Stop)
   Step 3/4 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
-  Step 4/4 — .itd/ scaffold ........ OK (14 contracts + .itd-memory/STATE.json)
+  Step 4/4 — .itd/ scaffold ........ OK (all templates + state/artifact manifest)
 
   Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.
 

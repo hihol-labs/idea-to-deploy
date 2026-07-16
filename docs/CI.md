@@ -28,6 +28,41 @@ Locally, four hooks enforce the methodology's quality gates at commit time. But 
 
 The trigger for adding CI was **3 GitHub stars within 24h of publishing v1.7.0** — a traction signal that flipped the earlier cost/benefit calculation ("wait for first PR") because a first PR became a matter of days, not months. See `CHANGELOG.md [1.8.0]` for the full reasoning.
 
+## Scheduled hygiene and objective quality
+
+The separate workflow `.github/workflows/hygiene-schedule.yml` is the external
+clock for contracts that cannot be made periodic by prose alone:
+
+| Cadence (UTC) | Job | Evidence |
+|---|---|---|
+| Monday 03:17 (`17 3 * * 1`) | manifest cleanup, quality freshness, weekly structural/benchmark checks, objective module scorecard | `weekly-*.json`, `quality-score-*.json` |
+| First day of month 04:29 (`29 4 1 * *`) | reversible baseline/disabled ablation of the configured component | `ablation-*.json` |
+
+Both jobs have only `contents: read`. They never commit a generated grade,
+delete a harness component, open an issue, or merge a change. Records under
+`.itd-memory/hygiene/` are uploaded with `actions/upload-artifact` even when a
+minimum score, overstated declared grade, or ablation regression makes the job
+red. The workflow also supports `workflow_dispatch` for an immediate weekly or
+monthly run.
+
+The objective score is not an LLM opinion. `docs/QUALITY_SCORECARD.json` maps
+each module's five dimensions to executable probes and weights totalling 100.
+Probe results are cached within a run; `attempts: 2` provides repeatability
+evidence for stability dimensions. The runner computes the grade, enforces the
+module minimum, and fails if `QUALITY.json` declares a grade better than the
+computed evidence:
+
+```bash
+python3 docs/templates/itd/itd_hygiene.py quality \
+  --scorecard docs/QUALITY_SCORECARD.json --root . --record --json
+```
+
+GitHub only evaluates scheduled workflows from the default branch, so this
+clock becomes active after the workflow is merged to `main`. An adopted GitHub
+project can opt in by copying `docs/templates/github/itd-hygiene.yml` to
+`.github/workflows/itd-hygiene.yml`; `/adopt` must ask before adding recurring
+external CI and must fill `.itd/QUALITY_SCORECARD.json` with real project probes.
+
 ## Defense-in-depth layers
 
 CI is the outermost of four layers. They are ordered from earliest feedback to latest:
@@ -114,3 +149,5 @@ Typical runtime is under 30 seconds because both scripts are stdlib-only. If it'
 - `tests/meta_review.py` — the rubric runner itself
 - `skills/review/references/meta-review-checklist.md` — the rubric definition
 - `CHANGELOG.md [1.8.0]` — context on why CI was added now
+- `.github/workflows/hygiene-schedule.yml` — weekly/monthly external clock
+- `docs/QUALITY_SCORECARD.json` — active objective module scorecard

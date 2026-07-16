@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy GitHub Workflow"
+  short_description: "Explicit GitHub workflow with external writes."
+policy:
+  allow_implicit_invocation: false

@@ -7,7 +7,7 @@ runtime-signal ledger, and asserts the actual blocking outcome:
   - a failed L2 (tests) signal  -> permissionDecision "deny" + exit 2 (VETO)
   - green L1+L2 signals          -> allow (exit 0, no deny)
   - no signals at all            -> degrade to advisory (exit 0, no deny)
-  - COMPLETION_BYPASS in desc     -> allow (exit 0, no deny)
+  - reasoned COMPLETION_BYPASS    -> allow and append an audit event
 
 This is the coverage proof required by verify_harness_map_fixtures.py so
 completion-gate can be graded a hard gate. Self-contained, stdlib only.
@@ -129,6 +129,9 @@ def main():
         seed(tmp, FAIL_L2)
         out, rc, decision = run_gate(tmp, description="COMPLETION_BYPASS: hotfix")
         check("COMPLETION_BYPASS -> not deny", decision != "deny" and rc == 0)
+        events = Path(tmp) / ".itd-memory" / "events.jsonl"
+        check("COMPLETION_BYPASS -> durable audit event",
+              events.is_file() and "hotfix" in events.read_text(encoding="utf-8"))
 
     print("\n%d passed, %d failed" % (PASS, FAIL))
     return 1 if FAIL else 0

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "purpose": "Frozen internal operational journey; never external outcome evidence.",
+  "scenarios": [
+    {
+      "id": "codex-python-brownfield",
+      "unitId": "U-001",
+      "criterion": "The project exposes a ready() function returning the exact string ready.",
+      "host": "codex",
+      "stack": "python-stdlib",
+      "requires": [
+        "plan-is-read-only",
+        "explicit-approval",
+        "project-owned-guidance-preserved",
+        "filled-contracts",
+        "sealed-first-unit-oracle",
+        "red-green-runtime-evidence",
+        "isolated-clean-clone",
+        "idempotent-rerun"
+      ]
+    }
+  ],
+  "thresholds": {
+    "maxManualRepairs": 0,
+    "maxDeadEnds": 0,
+    "maxFalseBlocks": 0
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "purpose": "Frozen launch-path matrix; CI aggregation proves the full matrix, not one process pretending to be every OS.",
+  "launchPaths": [
+    {"id": "posix-native", "requiredWhen": "os.name == posix", "ciWorkflow": ".github/workflows/meta-review.yml", "runner": "ubuntu-latest"},
+    {"id": "windows-powershell", "requiredWhen": "os.name == nt", "ciWorkflow": ".github/workflows/windows-verify.yml", "runner": "windows-latest"},
+    {"id": "windows-git-bash", "requiredWhen": "os.name == nt", "ciWorkflow": ".github/workflows/windows-verify.yml", "runner": "windows-latest"},
+    {"id": "wsl-linux", "requiredWhen": "Microsoft kernel marker present", "ciWorkflow": "local WSL plus ubuntu-latest equivalent", "runner": "wsl-or-linux"}
+  ],
+  "probeContract": {
+    "requiredStatus": "pass",
+    "maxManualRepairs": 0,
+    "requiredParityFields": ["direct", "codex", "adoptHelp"]
+  },
+  "mutationGuards": [
+    "failed-probe-status-is-red",
+    "manual-repair-is-red",
+    "missing-adapter-field-is-red",
+    "missing-windows-ci-registration-is-red",
+    "missing-linux-ci-registration-is-red"
+  ]
+}

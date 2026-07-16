@@ -32,6 +32,7 @@ malformed JSON is itself reported as an error.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -53,11 +54,18 @@ _FALLBACK_STATE_REQUIRED = [
 ]
 _FALLBACK_GOAL = {
     "requiredFields": ["goal", "status", "units"],
-    "goalStatuses": ["active", "paused", "done", "abandoned"],
-    "unitStatuses": ["pending", "in_progress", "verifying", "verified",
-                     "skipped", "blocked"],
-    "unitRequiredFields": ["id", "title", "acceptanceCriterion",
-                           "verificationCommand", "status"],
+    "goalStatuses": ["active", "done", "abandoned"],
+    "unitStatuses": ["pending", "in_progress", "verified", "skipped", "blocked"],
+    "unitRequiredFields": ["id", "criterion", "verificationCommand", "status"],
+    "runPolicyModes": ["bounded_autonomous"],
+    "runPolicyRequiredFields": [
+        "mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+        "maxTokensPerSession", "freezeVerification", "requireApproach",
+        "requireIndependentReview",
+    ],
+    "attemptKinds": ["verification", "recheck"],
+    "attemptOutcomes": ["verified", "failed", "regressed"],
+    "stopReasons": ["", "verified", "blocked", "budget_exhausted"],
 }
 
 _OBJECT_FIELDS = ("classification", "architecture", "existingProject", "currentUnit",
@@ -312,6 +320,37 @@ def validate_state_file(path: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def _bounded_policy_snapshot(policy: dict) -> dict:
+    base = ("mode", "maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+            "maxTokensPerSession", "freezeVerification", "requireApproach",
+            "requireIndependentReview")
+    optional = tuple(
+        key for key in ("enforceObservedTokens", "verificationStrategy",
+                        "maxCheckpointBytes") if key in policy)
+    return {key: policy.get(key) for key in base + optional}
+
+
+def _bounded_snapshot_fingerprint(payload: dict) -> str:
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+def _bounded_policy_fingerprint(policy: dict) -> str:
+    return _bounded_snapshot_fingerprint(_bounded_policy_snapshot(policy))
+
+
+def _bounded_unit_fingerprint(unit: dict) -> str:
+    payload = {
+        "criterion": str(unit.get("criterion") or ""),
+        "verificationCommand": str(unit.get("verificationCommand") or ""),
+    }
+    if "riskTier" in unit:
+        payload["riskTier"] = str(unit.get("riskTier") or "")
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                     separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
 def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
     """Validate a GOAL.json long-goal unit ledger. Returns (errors, warnings)."""
     errors: list[str] = []
@@ -337,6 +376,55 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
         errors.append(f"{path}: 'units' must be a non-empty list (fail-closed)")
         return errors, []
 
+    policy = goal.get("runPolicy")
+    bounded = policy is not None
+    policy_sealed = False
+    if bounded:
+        if not isinstance(policy, dict):
+            errors.append(f"{path}: runPolicy must be an object")
+            policy = {}
+        for field in schema.get("runPolicyRequiredFields", []):
+            if field not in policy:
+                errors.append(f"{path}: runPolicy missing required field '{field}'")
+        modes = schema.get("runPolicyModes", [])
+        if modes and policy.get("mode") not in modes:
+            errors.append(f"{path}: runPolicy.mode '{policy.get('mode')}' not in {modes}")
+        for field in ("maxAttemptsPerUnit", "maxWallClockSecondsPerUnit",
+                      "maxTokensPerSession"):
+            value = policy.get(field)
+            if type(value) is not int or value <= 0:
+                errors.append(f"{path}: runPolicy.{field} must be a positive integer")
+        for field in ("freezeVerification", "requireApproach",
+                      "requireIndependentReview"):
+            if type(policy.get(field)) is not bool:
+                errors.append(f"{path}: runPolicy.{field} must be boolean")
+        if ("enforceObservedTokens" in policy
+                and type(policy.get("enforceObservedTokens")) is not bool):
+            errors.append(
+                f"{path}: runPolicy.enforceObservedTokens must be boolean")
+        if policy.get("verificationStrategy") not in (None, "adaptive"):
+            errors.append(
+                f"{path}: runPolicy.verificationStrategy must be 'adaptive'")
+        if "maxCheckpointBytes" in policy:
+            size = policy.get("maxCheckpointBytes")
+            if type(size) is not int or not 1024 <= size <= 4096:
+                errors.append(
+                    f"{path}: runPolicy.maxCheckpointBytes must be in 1024..4096")
+        if policy.get("freezeVerification") is not True:
+            errors.append(f"{path}: bounded run requires freezeVerification=true")
+        if policy.get("requireApproach") is not True:
+            errors.append(f"{path}: bounded run requires requireApproach=true")
+        sealed = str(policy.get("sealedFingerprint") or "")
+        policy_sealed = bool(sealed)
+        if sealed:
+            sealed_policy = policy.get("sealedPolicy")
+            if not isinstance(sealed_policy, dict):
+                errors.append(f"{path}: sealed runPolicy requires sealedPolicy snapshot")
+            elif sealed != _bounded_snapshot_fingerprint(sealed_policy):
+                errors.append(f"{path}: sealedPolicy does not match sealedFingerprint")
+            elif sealed_policy != _bounded_policy_snapshot(policy):
+                errors.append(f"{path}: runPolicy changed after approval seal")
+
     unit_statuses = schema.get("unitStatuses", [])
     unit_required = schema.get("unitRequiredFields", [])
     seen_ids: set[str] = set()
@@ -358,6 +446,104 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
             errors.append(f"{where}: skipped unit must carry a non-empty skippedReason (fail-closed)")
         if unit.get("status") == "blocked" and not str(unit.get("blockedReason") or "").strip():
             errors.append(f"{where}: blocked unit must carry a non-empty blockedReason (fail-closed)")
+
+        risk_tier = str(unit.get("riskTier") or "")
+        adaptive = (isinstance(policy, dict)
+                    and policy.get("verificationStrategy") == "adaptive")
+        risk_tiers = schema.get("riskTiers", ["low", "medium", "high"])
+        if adaptive and risk_tier not in risk_tiers:
+            errors.append(f"{where}: adaptive unit riskTier must be in {risk_tiers}")
+        expected_checker = (
+            "full" if isinstance(policy, dict)
+            and (policy.get("requireIndependentReview")
+                 or (adaptive and risk_tier == "high"))
+            else "targeted" if adaptive and risk_tier == "medium"
+            else "machine_only")
+
+        attempts = unit.get("attempts")
+        if attempts is not None and not isinstance(attempts, list):
+            errors.append(f"{where}: attempts must be an array")
+            attempts = []
+        if isinstance(attempts, list):
+            kinds = schema.get("attemptKinds", [])
+            outcomes = schema.get("attemptOutcomes", [])
+            for j, attempt in enumerate(attempts):
+                awhere = f"{where}.attempts[{j}]"
+                if not isinstance(attempt, dict):
+                    errors.append(f"{awhere} must be an object")
+                    continue
+                if attempt.get("number") != j + 1:
+                    errors.append(f"{awhere}: number must be sequential ({j + 1})")
+                for field in ("at", "approach", "verificationCommand", "evidence"):
+                    if not str(attempt.get(field) or "").strip():
+                        errors.append(f"{awhere}: '{field}' must not be empty")
+                if kinds and attempt.get("kind") not in kinds:
+                    errors.append(f"{awhere}: kind '{attempt.get('kind')}' not in {kinds}")
+                if outcomes and attempt.get("outcome") not in outcomes:
+                    errors.append(f"{awhere}: outcome '{attempt.get('outcome')}' not in {outcomes}")
+                if (expected_checker == "full"
+                        and not str(attempt.get("reviewEvidence") or "").strip()):
+                    errors.append(f"{awhere}: independent review evidence is required")
+                if (adaptive or "checkerMode" in attempt) \
+                        and attempt.get("checkerMode") != expected_checker:
+                    errors.append(
+                        f"{awhere}: checkerMode must be '{expected_checker}'")
+                if "observedTokens" in attempt:
+                    observed = attempt.get("observedTokens")
+                    if type(observed) is not int or observed < 0:
+                        errors.append(f"{awhere}: observedTokens must be non-negative")
+                if (isinstance(policy, dict)
+                        and policy.get("enforceObservedTokens")
+                        and type(attempt.get("observedTokens")) is not int):
+                    errors.append(f"{awhere}: observed token evidence is required")
+            if (isinstance(policy, dict)
+                    and type(policy.get("maxAttemptsPerUnit")) is int
+                    and len(attempts) > policy["maxAttemptsPerUnit"]):
+                errors.append(f"{where}: attempt count exceeds approved budget")
+
+        run_state = unit.get("runState")
+        if run_state is not None and not isinstance(run_state, dict):
+            errors.append(f"{where}: runState must be an object")
+            run_state = {}
+        if bounded and policy_sealed:
+            if not isinstance(attempts, list):
+                errors.append(f"{where}: sealed bounded unit requires attempts[]")
+            if not isinstance(run_state, dict):
+                errors.append(f"{where}: sealed bounded unit requires runState")
+            else:
+                fp = str(run_state.get("verificationFingerprint") or "")
+                if not fp:
+                    errors.append(f"{where}: approved verification fingerprint is missing")
+                elif fp != _bounded_unit_fingerprint(unit):
+                    errors.append(f"{where}: criterion/verificationCommand changed after approval")
+                stop = str(run_state.get("stopReason") or "")
+                allowed_stops = schema.get("stopReasons", [])
+                if allowed_stops and stop not in allowed_stops:
+                    errors.append(f"{where}: stopReason '{stop}' not in {allowed_stops}")
+                if unit.get("status") in ("in_progress", "verified") \
+                        and not str(run_state.get("startedAt") or "").strip():
+                    errors.append(f"{where}: active/completed bounded unit lacks startedAt")
+                if unit.get("status") == "verified" and stop != "verified":
+                    errors.append(f"{where}: verified bounded unit requires stopReason=verified")
+                if unit.get("status") == "blocked" and not stop:
+                    errors.append(f"{where}: blocked bounded unit requires typed stopReason")
+                if stop == "budget_exhausted":
+                    exhausted = run_state.get("exhaustedBudget")
+                    if (not isinstance(exhausted, dict)
+                            or exhausted.get("kind") not in
+                            ("attempts", "wall_clock", "tokens")
+                            or type(exhausted.get("limit")) is not int):
+                        errors.append(f"{where}: budget_exhausted requires exhaustedBudget evidence")
+                    elif "observed" in exhausted:
+                        observed = exhausted.get("observed")
+                        if type(observed) is not int or observed < exhausted["limit"]:
+                            errors.append(
+                                f"{where}: exhaustedBudget.observed must meet its limit")
+                    elif (isinstance(policy, dict)
+                          and policy.get("enforceObservedTokens")
+                          and exhausted.get("kind") == "tokens"):
+                        errors.append(
+                            f"{where}: token budget stop requires observed evidence")
 
     current = str(goal.get("currentUnitId") or "").strip()
     if current and current not in seen_ids:

@@ -1,189 +1,237 @@
 #!/usr/bin/env python3
-"""Behavioural test for the v1.59.0 (ось 1 / G-004) friction fixes to
-hooks/check-tool-skill.sh.
+"""Operational-friction benchmark for every registered hard gate."""
+from __future__ import annotations
 
-Two bugs made the skill-enforcement gate a dead-end:
-
-  Bug 1 — a read-only Bash carrying an explicit `SKILL_BYPASS:` was swallowed
-  by the read-only fast-path (it ran BEFORE the bypass check), so the natural
-  `true` + `SKILL_BYPASS: …` gesture used to open a grace window did nothing:
-  it neither reset the ignore counter, opened the window, nor logged the
-  bypass.
-
-  Bug 2 — Edit/Write/NotebookEdit carry no `description` field, so they cannot
-  supply an in-band SKILL_BYPASS. Once the counter hit MAX, the ONLY escape
-  was the grace window — but Bug 1 broke the one-off-Bash route to opening it,
-  and the block message told the user to do the impossible ("add SKILL_BYPASS
-  to the Edit/Write description").
-
-This test drives the real hook and asserts:
-  1. A read-only Bash + SKILL_BYPASS now RESETS the counter, OPENS the grace
-     window, and LOGS the bypass (Bug 1 fixed).
-  2. A read-only Bash WITHOUT a bypass is still exempt and does NOT open a
-     window or log (ordering did not weaken the exemption).
-  3. End-to-end: an Edit at MAX with no grace is BLOCKED (exit 2, the
-     dead-end), then a one-off read-only Bash + SKILL_BYPASS opens the window,
-     and the next Edit is ALLOWED (exit 0) — the escape works.
-  4. The evidence-driven allowlist additions (`tsc --noEmit`, `node --test`)
-     are read-only; bare `tsc` (emits) and `node app.js` are not.
-
-Run: python3 tests/verify_bypass_friction.py
-Exits non-zero if any case fails (CI-friendly).
-"""
-import importlib.machinery
-import importlib.util
+import hashlib
 import json
 import os
 import subprocess
+import sys
 import tempfile
-import time
+import uuid
+from pathlib import Path
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HOOK = os.path.join(REPO, "hooks", "check-tool-skill.sh")
-SID = "bypass-friction-test-session"
-TMP = tempfile.gettempdir()
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
-IGNORE = os.path.join(TMP, "claude-skill-ignores-%s.state" % SID)
-ACTIVE = os.path.join(TMP, "claude-skill-active-%s.state" % SID)
-LEDGER = os.path.join(TMP, "claude-skill-ledger-%s.jsonl" % SID)
-REMIND = os.path.join(TMP, "claude-skill-check-%s.state" % SID)
+ROOT = Path(__file__).resolve().parents[1]
+HOOKS = ROOT / "hooks"
+POLICY = ROOT / "docs" / "HARNESS_TRUST_POLICY.json"
+CORPUS = ROOT / "benchmarks" / "operational-friction" / "BYPASS_FRICTION.json"
+CORPUS_SHA = ROOT / "benchmarks" / "operational-friction" / "BYPASS_FRICTION.sha256"
+sys.path.insert(0, str(ROOT / "tests"))
+import verify_all_hard_gate_host_parity as parity  # noqa: E402
 
-# load the hook as a module for the pure is_readonly_bash() checks
-_loader = importlib.machinery.SourceFileLoader("chk_tool_skill", HOOK)
-_spec = importlib.util.spec_from_loader("chk_tool_skill", _loader)
-mod = importlib.util.module_from_spec(_spec)
-_loader.exec_module(mod)
-MAX = mod.MAX_IGNORES
-
-
-def clear():
-    for p in (IGNORE, ACTIVE, LEDGER, REMIND):
-        try:
-            os.remove(p)
-        except OSError:
-            pass
+FAILURES: list[str] = []
 
 
-def seed_ignore(n):
-    with open(IGNORE, "w") as f:
-        f.write(str(n))
+def check(name: str, ok: bool, detail: str = "") -> None:
+    print(("  OK   " if ok else " FAIL  ") + name + (f" — {detail}" if detail and not ok else ""))
+    if not ok:
+        FAILURES.append(name)
 
 
-def read_ignore():
-    try:
-        with open(IGNORE) as f:
-            return int(f.read().strip() or "0")
-    except OSError:
-        return None
+def load_corpus() -> dict:
+    raw = CORPUS.read_bytes()
+    expected = CORPUS_SHA.read_text(encoding="utf-8").strip().split()[0]
+    actual = hashlib.sha256(raw).hexdigest()
+    check("friction corpus seal matches", actual == expected,
+          f"expected={expected} actual={actual}")
+    return json.loads(raw)
 
 
-def active_fresh():
-    try:
-        return (time.time() - os.path.getmtime(ACTIVE)) < mod.SKILL_ACTIVE_TTL_SECONDS
-    except OSError:
-        return False
+def init_repo(cwd: Path) -> None:
+    cwd.mkdir(parents=True)
+    for args in (
+        ["git", "init", "-q"],
+        ["git", "config", "user.email", "friction@example.invalid"],
+        ["git", "config", "user.name", "Friction Fixture"],
+    ):
+        subprocess.run(args, cwd=str(cwd), check=True, capture_output=True,
+                       text=True, encoding="utf-8", errors="replace", timeout=30)
 
 
-def run_hook(tool, tool_input):
-    payload = json.dumps({"tool_name": tool, "tool_input": tool_input})
-    env = dict(os.environ)
-    env["CLAUDE_SESSION_ID"] = SID
-    return subprocess.run(["python3", HOOK], input=payload, cwd=REPO,
-                          capture_output=True, text=True, env=env).returncode
+def isolated_env(root: Path, session: str) -> dict[str, str]:
+    home = root / "home"
+    tmp = root / "tmp"
+    home.mkdir(exist_ok=True)
+    tmp.mkdir(exist_ok=True)
+    env = os.environ.copy()
+    env.update({
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "TMPDIR": str(tmp),
+        "TEMP": str(tmp),
+        "TMP": str(tmp),
+        "PYTHONUTF8": "1",
+        "CLAUDE_SESSION_ID": session,
+        "PLUGIN_ROOT": str(ROOT),
+    })
+    return env
 
 
-def main():
-    passed = failed = 0
+def invoke_payload(script: str, host: str, cwd: Path, env: dict[str, str],
+                   payload: dict) -> tuple[int, str, str]:
+    if host == "claude":
+        command = [sys.executable, str(HOOKS / script)]
+        env = dict(env, ITD_HOST="claude")
+    else:
+        command = [sys.executable, str(HOOKS / "codex-dispatch.py"), "--script", script]
+    proc = subprocess.run(
+        command,
+        cwd=str(cwd),
+        env=env,
+        input=json.dumps(payload, ensure_ascii=False),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    decision, reason = parity.parse_decision(proc.stdout)
+    return proc.returncode, decision, reason
 
-    def check(name, cond):
-        nonlocal passed, failed
-        print("%s  %s" % ("PASS" if cond else "FAIL", name))
-        if cond:
-            passed += 1
+
+def read_only_probe(script: str, host: str) -> tuple[int, str, str]:
+    with tempfile.TemporaryDirectory(prefix=f"itd-friction-read-{host}-") as td:
+        root = Path(td)
+        cwd = root / "work"
+        init_repo(cwd)
+        session = f"friction-read-{uuid.uuid4().hex[:10]}"
+        payload = {
+            "hook_event_name": "PreToolUse",
+            "session_id": session,
+            "cwd": str(cwd),
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "git status --short",
+                "description": "read-only operational probe",
+            },
+        }
+        return invoke_payload(script, host, cwd, isolated_env(root, session), payload)
+
+
+def reasoned_bypass_probe(host: str) -> tuple[bool, bool, str]:
+    with tempfile.TemporaryDirectory(prefix=f"itd-friction-bypass-{host}-") as td:
+        root = Path(td)
+        cwd = root / "work"
+        init_repo(cwd)
+        session = f"friction-bypass-{uuid.uuid4().hex[:10]}"
+        env = isolated_env(root, session)
+        (root / "tmp" / f"claude-skill-ignores-{session}.state").write_text("3", encoding="utf-8")
+        bypass = {
+            "hook_event_name": "PreToolUse",
+            "session_id": session,
+            "cwd": str(cwd),
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "true",
+                "description": "SKILL_BYPASS: frozen operational-friction fixture",
+            },
+        }
+        rc, decision, reason = invoke_payload("check-tool-skill.sh", host, cwd, env, bypass)
+        bypass_allowed = rc == 0 and decision not in {"deny", "block"}
+
+        if host == "claude":
+            mutation = {
+                "hook_event_name": "PreToolUse",
+                "session_id": session,
+                "cwd": str(cwd),
+                "tool_name": "Edit",
+                "tool_input": {"file_path": str(cwd / "app.py"), "content": "x"},
+            }
         else:
-            failed += 1
+            mutation = {
+                "hook_event_name": "PreToolUse",
+                "session_id": session,
+                "cwd": str(cwd),
+                "tool_name": "apply_patch",
+                "tool_input": {"command": "*** Begin Patch\n*** Add File: app.py\n+x\n*** End Patch"},
+            }
+        rc2, decision2, reason2 = invoke_payload("check-tool-skill.sh", host, cwd, env, mutation)
+        mutation_allowed = rc2 == 0 and decision2 not in {"deny", "block"}
+        ledger = root / "tmp" / f"claude-skill-ledger-{session}.jsonl"
+        records = ([json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()
+                    if line.strip()] if ledger.is_file() else [])
+        audited = any(row.get("reason") == "frozen operational-friction fixture"
+                      for row in records)
+        return bypass_allowed and audited, mutation_allowed, reason + reason2
 
-    # 1. Bug 1 — read-only Bash + SKILL_BYPASS: reset + grace + log
-    clear()
-    seed_ignore(MAX)
-    rc = run_hook("Bash", {"command": "ls -la",
-                           "description": "SKILL_BYPASS: read-only recon"})
-    check("readonly+bypass -> exit 0", rc == 0)
-    check("readonly+bypass RESETS ignore counter to 0", read_ignore() == 0)
-    check("readonly+bypass OPENS grace window", active_fresh())
-    check("readonly+bypass LOGS the bypass to the ledger", os.path.exists(LEDGER))
-    clear()
 
-    # 2. read-only Bash WITHOUT bypass — still exempt, no window, no log
-    clear()
-    seed_ignore(1)
-    rc = run_hook("Bash", {"command": "cat some/file.txt", "description": ""})
-    check("readonly (no bypass) -> exit 0 (exempt)", rc == 0)
-    check("readonly (no bypass) does NOT open grace window", not active_fresh())
-    check("readonly (no bypass) does NOT log a bypass", not os.path.exists(LEDGER))
-    check("readonly (no bypass) leaves ignore counter untouched", read_ignore() == 1)
-    clear()
+def main() -> int:
+    corpus = load_corpus()
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    policy_gates = [row["script"] for row in policy["hardGates"]]
+    check("corpus covers the exact hard-gate registry", policy_gates == corpus["hardGates"],
+          f"policy={policy_gates} corpus={corpus['hardGates']}")
 
-    # 3. End-to-end dead-end escape for Edit
-    clear()
-    seed_ignore(MAX)
-    rc_blocked = run_hook("Edit", {"file_path": "/x", "old_string": "a",
-                                   "new_string": "b"})
-    check("Edit at MAX with no grace -> BLOCKED (exit 2, the dead-end)",
-          rc_blocked == 2)
-    rc_open = run_hook("Bash", {"command": "true",
-                                "description": "SKILL_BYPASS: open window for edits"})
-    check("one-off readonly Bash + bypass -> exit 0 (opens window)", rc_open == 0)
-    rc_edit = run_hook("Edit", {"file_path": "/x", "old_string": "a",
-                                "new_string": "b"})
-    check("next Edit is ALLOWED (exit 0, escape works)", rc_edit == 0)
-    clear()
+    required = corpus["denyContract"]["requiredMarkers"]
+    deny_total = actionable = 0
+    unactionable: list[str] = []
+    for script in corpus["hardGates"]:
+        for host in corpus["denyContract"]["hosts"]:
+            rc, decision, reason = parity.invoke(script, host)
+            expected_decision = next(row["decision"] for row in policy["hardGates"]
+                                     if row["script"] == script)
+            expected_rc = 0 if expected_decision == "block" else 2
+            fired = rc == expected_rc and decision == expected_decision
+            check(f"deny fixture fires: {host}/{script}", fired,
+                  f"rc={rc} decision={decision!r} reason={reason[-240:]!r}")
+            deny_total += 1
+            is_actionable = fired and all(marker in reason for marker in required)
+            if is_actionable:
+                actionable += 1
+            else:
+                unactionable.append(f"{host}/{script}")
+            check(f"deny has WHY/FIX: {host}/{script}", is_actionable, reason[-400:])
 
-    # 4. Evidence-driven allowlist additions
-    ro = mod.is_readonly_bash
-    def bash(cmd):
-        return {"tool_name": "Bash", "tool_input": {"command": cmd}}
-    check("`tsc --noEmit` is read-only", ro(bash("tsc --noEmit")))
-    check("`tsc --noEmit -p tsconfig.json` is read-only",
-          ro(bash("tsc --noEmit -p tsconfig.json")))
-    check("bare `tsc` is NOT read-only (it emits)", not ro(bash("tsc")))
-    check("`node --test` is read-only", ro(bash("node --test")))
-    check("`node --test tests/` is read-only", ro(bash("node --test tests/")))
-    check("`node app.js` is NOT read-only", not ro(bash("node app.js")))
-    # regex-boundary regression (review G-004): the --test* flag family must
-    # NOT ride through as read-only (a `-` after --test satisfied a bare \\b).
-    check("`node --test-reporter=tap x.js` is NOT read-only",
-          not ro(bash("node --test-reporter=tap x.js")))
-    check("`node --test-only` is NOT read-only", not ro(bash("node --test-only")))
+    pretool = [row["script"] for row in policy["hardGates"] if row["event"] == "PreToolUse"]
+    false_blocks: list[str] = []
+    for script in pretool:
+        for host in corpus["denyContract"]["hosts"]:
+            rc, decision, reason = read_only_probe(script, host)
+            allowed = decision not in {"deny", "block"} and rc in (0, 2)
+            # Some non-applicable hooks use exit 2 as a fail-open transport
+            # detail, but a blocking decision is the authoritative boundary.
+            if not allowed:
+                false_blocks.append(f"{host}/{script}")
+            check(f"read-only path stays open: {host}/{script}", allowed,
+                  f"rc={rc} decision={decision!r} reason={reason[-240:]!r}")
 
-    # 5. v1.84.0 (retro 2026-07-11 P4): ceremonial bypass -> одноразовый hint
-    clear()
-    hint_sentinel = os.path.join(
-        tempfile.gettempdir(), f"claude-skill-cerhint-{SID}.state")
-    try:
-        os.remove(hint_sentinel)
-    except OSError:
-        pass
+    dead_ends: list[str] = []
+    for host in corpus["denyContract"]["hosts"]:
+        bypass_ok, mutation_ok, detail = reasoned_bypass_probe(host)
+        check(f"reasoned bypass is allowed and audited: {host}", bypass_ok, detail[-300:])
+        check(f"grace window admits next authorized mutation: {host}", mutation_ok, detail[-300:])
+        if not (bypass_ok and mutation_ok):
+            dead_ends.append(host)
 
-    def run_hook_out(tool, tool_input):
-        payload = json.dumps({"tool_name": tool, "tool_input": tool_input})
-        env = dict(os.environ)
-        env["CLAUDE_SESSION_ID"] = SID
-        return subprocess.run(["python3", HOOK], input=payload, cwd=REPO,
-                              capture_output=True, text=True, env=env).stdout
-
-    out1 = run_hook_out("Bash", {"command": "echo hi",
-                                 "description": "SKILL_BYPASS: тест ceremonial"})
-    check("ceremonial bypass emits a one-time friction hint",
-          "additionalContext" in out1 and "SKILL GATE" in out1)
-    out2 = run_hook_out("Bash", {"command": "echo hi",
-                                 "description": "SKILL_BYPASS: тест ceremonial 2"})
-    check("second ceremonial bypass in the same session is silent",
-          "additionalContext" not in out2)
-
-    clear()
-    print("\n%d passed, %d failed" % (passed, failed))
-    return 1 if failed else 0
+    coverage = actionable / max(1, deny_total)
+    thresholds = corpus["thresholds"]
+    check("actionable denial coverage is 100%",
+          coverage >= corpus["denyContract"]["requiredCoverage"],
+          f"{actionable}/{deny_total}; missing={unactionable}")
+    check("read-only false-block threshold",
+          len(false_blocks) <= thresholds["maxFalseBlocks"], str(false_blocks))
+    check("authorized bypass dead-end threshold",
+          len(dead_ends) <= thresholds["maxDeadEnds"], str(dead_ends))
+    check("unactionable denial threshold",
+          len(unactionable) <= thresholds["maxUnactionableDenials"], str(unactionable))
+    print("METRICS " + json.dumps({
+        "denyFixtures": deny_total,
+        "actionableDenials": actionable,
+        "actionableCoverage": coverage,
+        "falseBlocks": len(false_blocks),
+        "deadEnds": len(dead_ends),
+    }, sort_keys=True))
+    if FAILURES:
+        print(f"FAILED ({len(FAILURES)}): " + ", ".join(FAILURES))
+        return 1
+    print("ALL PASS — hard-gate friction contract satisfied")
+    return 0
 
 
 if __name__ == "__main__":

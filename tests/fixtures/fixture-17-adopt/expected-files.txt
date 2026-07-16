@@ -8,7 +8,7 @@ CLAUDE.md
 .claude/settings.json
 
 # In the Claude Code project memory dir at
-# ~/.claude/projects/-<dashed-cwd>/memory/
+# <project>/.itd-memory/
 # (NOT validated by expected-snapshot.json — lives outside output dir):
 #   - session_YYYY-MM-DD.md          — sentinel session file
 #   - MEMORY.md                      — pointer index (created if absent)

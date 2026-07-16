@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "methodologyCore": {
+    "skills": "skills/",
+    "contracts": "docs/templates/itd/",
+    "state": "docs/templates/itd-memory/",
+    "hooks": "hooks/",
+    "tests": "tests/",
+    "trustPolicy": "docs/HARNESS_TRUST_POLICY.json",
+    "canonicalContinuity": ".itd-memory/"
+  },
+  "hosts": {
+    "claude": {
+      "guidanceFile": "CLAUDE.md",
+      "pluginManifest": ".claude-plugin/plugin.json",
+      "projectConfig": ".claude/settings.json",
+      "pluginRootEnvironment": "CLAUDE_PLUGIN_ROOT",
+      "fileMutationTools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "shellTools": ["Bash", "PowerShell"],
+      "subagentTransport": ["Task", "Agent"],
+      "goalContinuation": {
+        "preferred": "host-native goal or automation",
+        "fallback": "manual /goal resume from .itd-memory/GOAL.json"
+      }
+    },
+    "codex": {
+      "guidanceFile": "AGENTS.md",
+      "pluginManifest": ".codex-plugin/plugin.json",
+      "projectConfig": ".codex/hooks.json",
+      "pluginRootEnvironment": "PLUGIN_ROOT",
+      "fileMutationTools": ["apply_patch"],
+      "shellTools": ["Bash"],
+      "subagentTransport": ["SubagentStart", "SubagentStop"],
+      "goalContinuation": {
+        "preferred": "host-native goal or automation",
+        "fallback": "manual /goal resume from .itd-memory/GOAL.json"
+      },
+      "normalizer": "hooks/codex-dispatch.py"
+    }
+  },
+  "parity": {
+    "shared": [
+      "skill discovery",
+      "contract scaffold",
+      "persistent .itd-memory state",
+      "prompt routing",
+      "pre-tool commit and scope gates",
+      "post-tool telemetry and state validation",
+      "stop and subagent verdict gates"
+    ],
+    "hostSpecific": [
+      "installation and trust UX",
+      "tool-name and file-mutation payload normalization",
+      "named subagent spawning transport",
+      "optional host memory mirrors",
+      "native goal/automation continuation transport"
+    ]
+  }
+}

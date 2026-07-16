@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-07-15",
+  "maxAgeDays": 30,
+  "gradeScale": {
+    "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
+    "B": "green with contained Important debt",
+    "C": "partial verification or material maintainability/test debt",
+    "D": "failing/unstable with cross-module risk",
+    "F": "unverified or unsafe to change"
+  },
+  "modules": [
+    {
+      "id": "routing-and-skill-selection",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "tests/verify_routing.py",
+        "tests/verify_triggers.py"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "completion-and-verification",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "docs/completion-gate.md",
+        "tests/verify_completion_gate.py",
+        "tests/verify_strict_completion_policy.py",
+        "tests/verify_live_model_benchmark.py"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "state-and-continuity",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "tests/verify_state_hardening.py",
+        "tests/verify_host_neutral_memory.py",
+        "tests/verify_fresh_session_resume.py",
+        "skills/session-save/SKILL.md"
+      ],
+      "priorities": []
+    },
+    {
+      "id": "host-adapters",
+      "grade": "B",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "docs/HOST_ADAPTER_CONTRACT.md",
+        "tests/verify_host_adapters.py",
+        "tests/verify_all_hard_gate_host_parity.py"
+      ],
+      "priorities": [
+        "Keep adapter parity verified while Codex support settles."
+      ]
+    },
+    {
+      "id": "session-hygiene-and-quality-lifecycle",
+      "grade": "B",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "docs/templates/itd/SESSION_EXIT_CONTRACT.json",
+        "tests/verify_session_hygiene_quality.py",
+        "tests/verify_observed_token_telemetry.py",
+        "tests/verify_harness_docs_freshness.py"
+      ],
+      "priorities": [
+        "Collect one month of weekly/monthly cycle evidence before promoting to A."
+      ]
+    },
+    {
+      "id": "harness-engineering-conformance",
+      "grade": "A",
+      "verification": "passing",
+      "agentUnderstandable": "yes",
+      "testStability": "stable",
+      "architectureBoundaries": "compliant",
+      "codeConventions": "followed",
+      "reviewedAt": "2026-07-15",
+      "evidence": [
+        "docs/HARNESS_CONFORMANCE_REPORT.md",
+        "docs/HARNESS_CONFORMANCE_CONTRACT.json",
+        "docs/HARNESS_DOCS_STATE.json",
+        "tests/verify_harness_conformance.py",
+        "tests/fixtures/live-model-evidence/latest.json"
+      ],
+      "priorities": [
+        "Renew live-model evidence within 30 days to retain the 5/5 claim."
+      ]
+    }
+  ]
+}
