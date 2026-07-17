@@ -9,6 +9,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.91.0] - 2026-07-16
+
+**Рабочий SLA-профиль: один verified unit за ход, proportional verification
+и exact-context safety gates без снижения Harness Engineering / Practical
+Effectiveness**:
+
+### Added
+- **Default-off `working_deadline` mode** — отдельный 45-минутный профиль для
+  повседневной работы ограничивает ход одним unit, требует bounded scope и
+  2–4 проверяемых критерия, а на 30-й минуте возвращает готовое, blocker,
+  остаток и оценку времени вместо бесконтрольного расширения задачи.
+- **Два verification-профиля** — host-neutral selector выбирает targeted
+  contours для low/medium daily work, но fail-closed переводит high/unknown
+  risk, release candidate и security signals в strict release. Диагностический
+  прогон собирает ошибки пакетом; неблокирующие находки уходят в backlog.
+- **Frozen A/B benchmark рабочего режима** — sealed corpus сравнивает один и
+  тот же набор cases с always-full baseline через реальный selector. Quality
+  определяется покрытием capabilities; candidate hash включает base `HEAD`,
+  binary diff и non-ignored untracked files. Mutation guards запрещают stale
+  binding, high-risk bypass, false completion и synthetic external evidence.
+- **Exact external-write boundary** — внешняя запись требует preview точных
+  targets, полного payload и attachments и возвращает host-native `ask`.
+  Локальный forgeable approval ledger удалён; изменение адресата или payload
+  создаёт новое подтверждение.
+
+### Changed
+- `/goal` хранит deadline/handoff evidence, выдаёт результат после каждого
+  verified unit и не активирует следующий unit до нового пользовательского
+  хода. Schema и state validators сохраняют WIP=1 и проверяют elapsed evidence.
+- `/review` и `/security-audit` записывают verdict только по полному context key:
+  repository, base/tree, binary diff, scope/acceptance contracts,
+  rubric/version и risk tier. `BLOCKED`/`UNVERIFIED` не удовлетворяют gate.
+- Risk budget разделён на general/security buckets; успешный bound verdict
+  сбрасывает только свой bucket и начинает новый post-gate delta window.
+- Model/effort routing разрешает low reasoning только для ограниченной
+  mechanical работы; high/unknown risk и release остаются strict независимо от
+  запрошенного рабочего профиля.
+- Full benchmark зарегистрирован в Linux/Windows CI и full `run-all`; повседневный
+  targeted путь не запускает release matrix после каждого изменения.
+
+### Fixed
+- Security DoD gate больше не принимает поддельный, чужой или устаревший
+  sentinel: он проверяет accepted `records.security` для текущего staged
+  candidate. Изменение staged diff и `BLOCKED` verdict снова закрывают gate.
+- Explicit session id изолирует test/migrate markers между сессиями; legacy
+  fresh fallback сохраняется только для hosts без session id, устраняя
+  order-dependent full-suite false green.
+- Тип и текст subagent больше не могут сами выдать review/security success:
+  status-aware evidence создаёт только явный producer соответствующего
+  workflow после принятия независимого machine-readable verdict.
+- Codex transport сохраняет native `ask` parity, корректно классифицирует
+  реальные `mcp__codex_apps__...`, локальный `mcp__node_repl__...`, compound
+  read-only commands и fail-closed обрабатывает malformed/external payloads
+  без обхода PII/egress boundary.
+
+### Verification
+- PE5-010…PE5-016: **verified**; финальный immutable oracle завершён с
+  `DONE fails:none` (Harness Conformance, пять внутренних Practical
+  Effectiveness axes, host adapters, meta-review, quick и full regression).
+- Frozen A/B: 0 quality regressions, 0 high-risk bypasses, 0 critical false
+  completions; eligible contour calls снизились с 15 до 6.
+- PE5-008/009 остаются **UNVERIFIED** до отдельно одобренного opt-in pilot и
+  реального external outcome evidence. Режим остаётся default-off; этот релиз
+  не заявляет внешний Practical Effectiveness 5,0/5,0.
+
 ## [1.90.0] - 2026-07-15
 
 **Модель-нейтральный Harness Engineering 5/5: Codex adapter, доказуемые

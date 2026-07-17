@@ -17,15 +17,17 @@ import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "hooks", "check-dod-before-commit.sh")
+CACHE = os.path.join(REPO, "skills", "review", "scripts", "itd_review_cache.py")
 SID = "dodgate-test-session"
+FOREIGN_SID = "dodgate-foreign-session"
 
 
 def _sh(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
 
 
-def _sentinel(skill):
-    return os.path.join(tempfile.gettempdir(), "claude-%s-done-%s" % (skill, SID))
+def _sentinel(skill, sid=SID):
+    return os.path.join(tempfile.gettempdir(), "claude-%s-done-%s" % (skill, sid))
 
 
 def set_sentinels(*skills):
@@ -36,10 +38,15 @@ def set_sentinels(*skills):
 
 def clear_sentinels():
     for s in ("test", "migrate", "security-audit"):
-        try:
-            os.remove(_sentinel(s))
-        except OSError:
-            pass
+        for sid in (SID, FOREIGN_SID):
+            try:
+                os.remove(_sentinel(s, sid))
+            except OSError:
+                pass
+    try:
+        os.remove(os.path.join(tempfile.gettempdir(), "claude-risk-%s.json" % SID))
+    except OSError:
+        pass
 
 
 def make_repo():
@@ -47,6 +54,7 @@ def make_repo():
     _sh(["git", "init", "-q"], d)
     _sh(["git", "config", "user.email", "t@t"], d)
     _sh(["git", "config", "user.name", "t"], d)
+    _sh(["git", "commit", "--allow-empty", "-qm", "baseline"], d)
     return d
 
 
@@ -63,18 +71,31 @@ def stage(repo, path, content="x\n"):
     _sh(["git", "add", path], repo)
 
 
-def run_hook(repo, command="git commit -m x", description=""):
+def run_hook(repo, command="git commit -m x", description="", session=SID):
     payload = json.dumps(
         {"tool_name": "Bash",
          "tool_input": {"command": command, "description": description}}
     )
     env = dict(os.environ)
-    env["CLAUDE_SESSION_ID"] = SID
+    if session is None:
+        env.pop("CLAUDE_SESSION_ID", None)
+    else:
+        env["CLAUDE_SESSION_ID"] = session
     p = subprocess.run(
         ["python3", HOOK], input=payload, cwd=repo,
         capture_output=True, text=True, env=env,
     )
     return p.returncode
+
+
+def record_security(repo, verdict="PASSED"):
+    result = subprocess.run(
+        ["python3", CACHE, "record", "--root", repo, "--kind", "security",
+         "--verdict", verdict, "--session", SID],
+        cwd=repo, capture_output=True, text=True,
+    )
+    if verdict == "PASSED" and result.returncode != 0:
+        raise AssertionError(result.stdout + result.stderr)
 
 
 # Each case: (name, builder) where builder(repo) returns expected_exit_code.
@@ -103,15 +124,53 @@ def c_payments_blocks(repo):
     return 2
 
 
-def c_payments_allowed_with_sentinel(repo):
+def c_payments_allowed_with_bound_verdict(repo):
+    clear_sentinels()
+    stage(repo, "src/auth/config.yaml")
+    record_security(repo)
+    return 0
+
+
+def c_forged_same_session_security_marker_blocks(repo):
     clear_sentinels()
     set_sentinels("security-audit")
     stage(repo, "src/auth/config.yaml")
-    return 0
+    return 2
+
+
+def c_foreign_security_sentinel_does_not_unlock(repo):
+    clear_sentinels()
+    with open(_sentinel("security-audit", FOREIGN_SID), "w") as f:
+        f.write(str(int(time.time())))
+    stage(repo, "src/auth/config.yaml")
+    return 2
+
+
+def c_staged_change_invalidates_security_verdict(repo):
+    clear_sentinels()
+    stage(repo, "src/auth/config.yaml")
+    record_security(repo)
+    stage(repo, "src/auth/second.yaml")
+    return 2
+
+
+def c_blocked_security_verdict_does_not_unlock(repo):
+    clear_sentinels()
+    stage(repo, "src/auth/config.yaml")
+    record_security(repo, "BLOCKED")
+    return 2
 
 
 def c_new_source_no_test_blocks(repo):
     clear_sentinels()
+    stage(repo, "src/util.py")
+    return 2
+
+
+def c_foreign_test_sentinel_does_not_unlock(repo):
+    clear_sentinels()
+    with open(_sentinel("test", FOREIGN_SID), "w") as f:
+        f.write(str(int(time.time())))
     stage(repo, "src/util.py")
     return 2
 
@@ -180,11 +239,12 @@ def c_agent_memory_blocks(repo):
     return 2
 
 
-def c_agent_memory_allowed_with_sentinel(repo):
+def c_agent_memory_allowed_with_bound_verdict(repo):
     # new .py also triggers /test (new-source rule); both sentinels clear it
     clear_sentinels()
-    set_sentinels("security-audit", "test")
+    set_sentinels("test")
     stage(repo, "src/agent/agent_memory_store.py")
+    record_security(repo)
     return 0
 
 
@@ -212,10 +272,15 @@ CASES = [
     ("migration with migrate+test -> allow", c_migration_allowed_with_sentinels, "git commit -m x"),
     ("schema.prisma without skills -> BLOCK", c_schema_prisma_blocks, "git commit -m x"),
     ("payments/auth without security-audit -> BLOCK", c_payments_blocks, "git commit -m x"),
-    ("payments/auth with security-audit -> allow", c_payments_allowed_with_sentinel, "git commit -m x"),
+    ("payments/auth with bound security verdict -> allow", c_payments_allowed_with_bound_verdict, "git commit -m x"),
+    ("forged same-session security marker -> BLOCK", c_forged_same_session_security_marker_blocks, "git commit -m x"),
+    ("foreign security-audit marker -> BLOCK", c_foreign_security_sentinel_does_not_unlock, "git commit -m x"),
+    ("staged change invalidates security verdict -> BLOCK", c_staged_change_invalidates_security_verdict, "git commit -m x"),
+    ("BLOCKED security verdict -> BLOCK", c_blocked_security_verdict_does_not_unlock, "git commit -m x"),
     ("authentication dir -> BLOCK (security)", c_authentication_dir_blocks, "git commit -m x"),
     ("author dir -> allow (no false-positive)", c_author_dir_allowed, "git commit -m x"),
     ("new source file no test -> BLOCK", c_new_source_no_test_blocks, "git commit -m x"),
+    ("foreign test marker with explicit session -> BLOCK", c_foreign_test_sentinel_does_not_unlock, "git commit -m x"),
     ("new source file with test -> allow", c_new_source_with_test_allowed, "git commit -m x"),
     ("modified source (not new) no test -> allow", c_modified_source_no_test_allowed, "git commit -m x"),
     ("docs-only change -> allow", c_docs_only_allowed, "git commit -m x"),
@@ -223,7 +288,7 @@ CASES = [
     ("SKILL_BYPASS in description -> allow", c_bypass_marker_allows, "git commit -m x"),
     ("non-commit bash -> no-op allow", c_non_commit_noop, "git status"),
     ("agent memory store no skill -> BLOCK", c_agent_memory_blocks, "git commit -m x"),
-    ("agent memory store with security-audit -> allow", c_agent_memory_allowed_with_sentinel, "git commit -m x"),
+    ("agent memory store with bound security verdict -> allow", c_agent_memory_allowed_with_bound_verdict, "git commit -m x"),
     ("vector store no skill -> BLOCK", c_vector_store_blocks, "git commit -m x"),
     ("system prompt file no skill -> BLOCK", c_system_prompt_blocks, "git commit -m x"),
     ("memory word doc -> allow (no false-positive)", c_memory_word_no_false_positive, "git commit -m x"),
@@ -248,6 +313,23 @@ def main():
                 failed += 1
         finally:
             shutil.rmtree(repo, ignore_errors=True)
+    repo = make_repo()
+    try:
+        clear_sentinels()
+        with open(_sentinel("test", FOREIGN_SID), "w") as f:
+            f.write(str(int(time.time())))
+        stage(repo, "src/util.py")
+        got = run_hook(repo, session=None)
+        ok = got == 0
+        print("%s  %-48s expected=0 got=%d" % (
+            "PASS" if ok else "FAIL",
+            "missing session id keeps legacy fresh fallback", got))
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
     clear_sentinels()
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0

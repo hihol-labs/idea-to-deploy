@@ -17,12 +17,11 @@ This GENERALISES check-review-before-commit.sh (which owns the
 ">2 files -> /review" rule) to the other risk signals. The >2-files rule
 is intentionally NOT duplicated here.
 
-Skill completion is detected via the same sentinel convention /review
-uses: each skill writes /tmp/claude-<skill>-done-<session> at its final
-step (see skills/{test,migrate,security-audit}/SKILL.md). A sentinel
-counts as present if the exact-session file exists OR any fresh one
-(< 15 min) exists, searched in both /tmp and the platform temp dir for
-cross-platform robustness.
+`/test` and `/migrate` completion is detected via per-session sentinels with a
+legacy fresh fallback for hosts that do not preserve a session id.
+`/security-audit` is status-aware and marker-free: the gate asks
+`itd_review_cache.py` for an accepted security verdict whose complete context
+still matches the current staged candidate.
 
 Escape hatch (narrow, logged): include  in the commit
 message. The signal set is deliberately NARROW to avoid alarm fatigue —
@@ -33,6 +32,8 @@ Reads JSON on stdin: {"tool_name": "Bash", "tool_input": {"command": "..."}}
 from __future__ import annotations
 
 import glob
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -40,9 +41,14 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
 GIT_COMMIT_RE = re.compile(r"(^|\s|;|&&|\|\|)git\s+commit(\s|$)")
 SENTINEL_FRESHNESS_SECONDS = 900  # 15 min
+CACHE_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "skills" / "review" / "scripts" / "itd_review_cache.py"
+)
 
 # --- risk-signal patterns (matched against staged file PATHS only) ---
 MIGRATION_RE = re.compile(r"(^|/)migrations?/|\.sql$|schema\.prisma$|(^|/)alembic/", re.I)
@@ -87,8 +93,13 @@ def session_id() -> str:
 
 def sentinel_present(skill: str) -> bool:
     """True if a claude-<skill>-done sentinel exists for this session, or
-    any fresh one (< 15 min). Searches /tmp and the platform temp dir."""
+    for legacy test/migrate signals any fresh one (< 15 min).
+
+    Security is deliberately absent from this compatibility path; its gate
+    reads the exact-context cache directly through security_review_was_done().
+    """
     sid = session_id()
+    explicit_session = bool(os.environ.get("CLAUDE_SESSION_ID"))
     dirs = []
     for d in ("/tmp", tempfile.gettempdir()):
         if d and d not in dirs:
@@ -98,6 +109,8 @@ def sentinel_present(skill: str) -> bool:
         exact = os.path.join(d, "claude-%s-done-%s" % (skill, sid))
         if os.path.exists(exact):
             return True
+        if explicit_session:
+            continue
         for p in glob.glob(os.path.join(d, "claude-%s-done-*" % skill)):
             try:
                 if os.path.getmtime(p) > cutoff:
@@ -105,6 +118,22 @@ def sentinel_present(skill: str) -> bool:
             except OSError:
                 continue
     return False
+
+
+def security_review_was_done() -> bool:
+    """Fail closed unless an accepted security verdict matches this candidate."""
+    try:
+        loader = importlib.machinery.SourceFileLoader(
+            "itd_security_review_cache_gate", str(CACHE_SCRIPT))
+        spec = importlib.util.spec_from_loader(
+            "itd_security_review_cache_gate", loader)
+        if spec is None:
+            return False
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        return bool(module.cache_allows(Path.cwd(), kind="security"))
+    except Exception:
+        return False
 
 
 def staged_entries() -> list:
@@ -304,7 +333,11 @@ def main() -> int:
     if not entries:
         return 0
     req = required_skills(entries)
-    missing = {s: r for s, r in req.items() if not sentinel_present(s)}
+    missing = {
+        skill: reason for skill, reason in req.items()
+        if not (security_review_was_done()
+                if skill == "security-audit" else sentinel_present(skill))
+    }
     if missing:
         emit_deny(missing)
         return 2  # unreachable

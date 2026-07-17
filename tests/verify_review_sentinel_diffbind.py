@@ -1,229 +1,182 @@
 #!/usr/bin/env python3
-"""Behavioural test for the v1.59.0 DIFF-BINDING of the /review gate
-(hooks/check-review-before-commit.sh + its two sentinel writers).
+"""Behavioural commit-gate tests for the exact-context review cache."""
+from __future__ import annotations
 
-Before v1.59.0 the gate unblocked a >2-file `git commit` on ANY fresh
-`claude-review-done-*` sentinel (bare timestamp), so a stale review or a
-sentinel from an unrelated project wildcarded the gate (documented hole,
-PR #56 era). v1.59.0 binds the sentinel to `tree:<git-write-tree>` — the
-SHA of the exact staged content — and the gate accepts it only when it
-equals the tree the pending commit would write.
-
-Asserts (each is a real block/deny exercise, not a doc grep):
-  1. No sentinel, 3 staged  -> DENY (exit 2).
-  2. Foreign/stale tree sentinel (wrong hash), fresh -> DENY.
-  3. Legacy bare-timestamp sentinel, fresh -> DENY (no wildcard anymore).
-  4. Sentinel bound to the current staged tree -> ALLOW (exit 0).
-  5. Staleness: matching sentinel, then stage another file (tree changes)
-     -> the old sentinel no longer matches -> DENY.
-  6. <=2 staged files -> ALLOW regardless (below the review threshold).
-  7. record-agent-skill.sh writes a tree-bound review sentinel for the
-     code-reviewer subagent, and the gate then ALLOWS (end-to-end).
-  8. Both writers are wired to the binding: /review SKILL.md uses
-     `git write-tree` + `tree:`, and record-agent-skill.sh emits `tree:`.
-
-Run: python3 tests/verify_review_sentinel_diffbind.py
-Exits non-zero if any case fails (CI-friendly).
-"""
-import glob
 import json
 import os
+import shutil
 import subprocess
+import sys
 import tempfile
-
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REVIEW_HOOK = os.path.join(REPO, "hooks", "check-review-before-commit.sh")
-REC_HOOK = os.path.join(REPO, "hooks", "record-agent-skill.sh")
-SKILL_MD = os.path.join(REPO, "skills", "review", "SKILL.md")
-SID = "diffbind-test-session"
-
-SENTINEL_DIRS = []
-for _d in ("/tmp", tempfile.gettempdir()):
-    if _d and _d not in SENTINEL_DIRS:
-        SENTINEL_DIRS.append(_d)
+import time
+from pathlib import Path
 
 
-def clear_sentinels():
-    for d in SENTINEL_DIRS:
-        for p in glob.glob(os.path.join(d, "claude-review-done-*")):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
+ROOT = Path(__file__).resolve().parents[1]
+HOOK = ROOT / "hooks" / "check-review-before-commit.sh"
+CACHE = ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
+SKILL = ROOT / "skills" / "review" / "SKILL.md"
+RECORDER = ROOT / "hooks" / "record-agent-skill.sh"
+SID = "exact-review-gate"
+PY = sys.executable
 
 
-def write_sentinel(content):
-    for d in SENTINEL_DIRS:
-        try:
-            with open(os.path.join(d, "claude-review-done-%s" % SID), "w") as f:
-                f.write(content)
-        except OSError:
-            pass
+def run(args: list[str], cwd: Path, *, stdin: str | None = None,
+        env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(args, cwd=str(cwd), input=stdin, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace",
+                          env=env, timeout=30)
 
 
-def _sh(cmd, cwd):
-    subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
+def write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
 
 
-def make_repo(n):
-    d = tempfile.mkdtemp(prefix="diffbind-")
-    _sh(["git", "init", "-q"], d)
-    _sh(["git", "config", "user.email", "t@t"], d)
-    _sh(["git", "config", "user.name", "t"], d)
-    # baseline commit so `git write-tree` reflects real staged deltas
-    with open(os.path.join(d, "base.txt"), "w") as f:
-        f.write("base\n")
-    _sh(["git", "add", "base.txt"], d)
-    _sh(["git", "commit", "-qm", "base"], d)
-    for i in range(n):
-        with open(os.path.join(d, "f%d.txt" % i), "w") as f:
-            f.write("x%d\n" % i)
-        _sh(["git", "add", "f%d.txt" % i], d)
-    return d
+def git(repo: Path, *args: str) -> None:
+    proc = run(["git", *args], repo)
+    if proc.returncode:
+        raise RuntimeError(proc.stderr)
 
 
-def staged_tree(repo):
-    r = subprocess.run(["git", "write-tree"], cwd=repo,
-                       capture_output=True, text=True)
-    return r.stdout.strip()
+def make_repo(staged: int = 3) -> Path:
+    repo = Path(tempfile.mkdtemp(prefix="exact-review-gate-"))
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "gate@example.test")
+    git(repo, "config", "user.name", "Gate Test")
+    write(repo / "base.txt", "base\n")
+    git(repo, "add", "base.txt")
+    git(repo, "commit", "-qm", "base")
+    for index in range(staged):
+        write(repo / f"change-{index}.txt", f"change {index}\n")
+        git(repo, "add", f"change-{index}.txt")
+    write(repo / ".itd" / "SCOPE_LOCK.md", "# scope v1\n")
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps({"criterion": "v1"}))
+    write(repo / ".itd-memory" / "GOAL.json", json.dumps({
+        "version": 1, "goal": "fixture", "status": "active",
+        "currentUnitId": "R-1", "units": [{
+            "id": "R-1", "status": "in_progress", "riskTier": "medium",
+            "criterion": "exact cache", "verificationCommand": "true",
+        }],
+    }))
+    return repo
 
 
-def run_gate(repo):
-    payload = json.dumps(
-        {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"}})
-    env = dict(os.environ)
-    env["CLAUDE_SESSION_ID"] = SID
-    return subprocess.run(["python3", REVIEW_HOOK], input=payload, cwd=repo,
-                          capture_output=True, text=True, env=env).returncode
+def gate(repo: Path) -> subprocess.CompletedProcess:
+    payload = json.dumps({
+        "tool_name": "Bash", "tool_input": {"command": "git commit -m x"},
+    })
+    env = dict(os.environ, CLAUDE_SESSION_ID=SID)
+    return run([PY, str(HOOK)], repo, stdin=payload, env=env)
 
 
-def run_record(repo):
-    payload = json.dumps({"tool_name": "Agent",
-                          "tool_input": {"subagent_type": "code-reviewer"}})
-    env = dict(os.environ)
-    env["CLAUDE_SESSION_ID"] = SID
-    subprocess.run(["python3", REC_HOOK], input=payload, cwd=repo,
-                   capture_output=True, text=True, env=env)
+def record(repo: Path, verdict: str, *extra: str) -> subprocess.CompletedProcess:
+    return run([PY, str(CACHE), "record", "--root", str(repo),
+                "--kind", "general", "--verdict", verdict,
+                "--session", SID, *extra], ROOT)
 
 
-def sentinel_content():
-    for d in SENTINEL_DIRS:
-        p = os.path.join(d, "claude-review-done-%s" % SID)
-        if os.path.exists(p):
-            with open(p) as f:
-                return f.read().strip()
-    return None
+def legacy_marker(content: str) -> Path:
+    path = Path(tempfile.gettempdir()) / f"claude-review-done-{SID}"
+    path.write_text(content, encoding="utf-8")
+    return path
 
 
-def main():
+def main() -> int:
     passed = failed = 0
 
-    def check(name, cond):
+    def check(name: str, condition: bool, detail: str = "") -> None:
         nonlocal passed, failed
-        print("%s  %s" % ("PASS" if cond else "FAIL", name))
-        if cond:
+        print(("PASS" if condition else "FAIL") + "  " + name
+              + ((" — " + detail[:240]) if detail and not condition else ""))
+        if condition:
             passed += 1
         else:
             failed += 1
 
-    import shutil
-    repo = make_repo(3)
+    marker: Path | None = None
+    repo = make_repo()
     try:
-        # 1. no sentinel -> deny
-        clear_sentinels()
-        check("no sentinel, 3 staged -> DENY", run_gate(repo) == 2)
+        denied = gate(repo)
+        check("three staged files without cache are denied", denied.returncode == 2,
+              denied.stdout + denied.stderr)
 
-        # 2. foreign/wrong tree -> deny
-        clear_sentinels()
-        write_sentinel("tree:" + "a" * 40)
-        check("foreign tree sentinel -> DENY", run_gate(repo) == 2)
+        marker = legacy_marker(str(int(time.time())))
+        check("legacy timestamp marker cannot unlock", gate(repo).returncode == 2)
+        marker.write_text("tree:" + "a" * 40, encoding="utf-8")
+        check("legacy tree marker cannot unlock", gate(repo).returncode == 2)
 
-        # 3. legacy bare timestamp -> deny (no wildcard)
-        clear_sentinels()
-        import time
-        write_sentinel(str(int(time.time())))
-        check("legacy bare-timestamp sentinel -> DENY", run_gate(repo) == 2)
+        clean = record(repo, "PASSED")
+        check("PASSED exact-context record succeeds", clean.returncode == 0,
+              clean.stdout + clean.stderr)
+        check("unchanged exact-context cache unlocks", gate(repo).returncode == 0)
 
-        # 4. matching tree -> allow
-        clear_sentinels()
-        write_sentinel("tree:" + staged_tree(repo))
-        check("sentinel bound to current staged tree -> ALLOW", run_gate(repo) == 0)
+        write(repo / "change-2.txt", "changed after review\n")
+        git(repo, "add", "change-2.txt")
+        check("staged diff change invalidates", gate(repo).returncode == 2)
+        record(repo, "PASSED")
 
-        # 5. staleness: stage another file, old sentinel no longer matches
-        with open(os.path.join(repo, "extra.txt"), "w") as f:
-            f.write("more\n")
-        _sh(["git", "add", "extra.txt"], repo)
-        check("staged tree changed after review -> DENY (stale)", run_gate(repo) == 2)
+        write(repo / ".itd" / "SCOPE_LOCK.md", "# scope v2\n")
+        check("scope contract change invalidates", gate(repo).returncode == 2)
+        record(repo, "PASSED")
 
-        # 6. <=2 staged -> allow regardless
-        repo2 = make_repo(2)
-        try:
-            clear_sentinels()
-            check("<=2 staged files -> ALLOW (below threshold)", run_gate2(repo2) == 0)
-        finally:
-            shutil.rmtree(repo2, ignore_errors=True)
+        write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+              json.dumps({"criterion": "v2"}))
+        check("acceptance contract change invalidates", gate(repo).returncode == 2)
+        record(repo, "PASSED")
 
-        # 7. end-to-end: record-agent-skill writes bound sentinel -> allow
-        repo3 = make_repo(3)
-        try:
-            clear_sentinels()
-            before = run_gate3(repo3)
-            run_record(repo3)
-            after = run_gate3(repo3)
-            check("record-agent-skill: gate DENIES before agent", before == 2)
-            check("record-agent-skill: gate ALLOWS after code-reviewer", after == 0)
-            check("record-agent-skill sentinel is tree-bound",
-                  (sentinel_content() or "").startswith("tree:"))
-        finally:
-            shutil.rmtree(repo3, ignore_errors=True)
+        goal_path = repo / ".itd-memory" / "GOAL.json"
+        goal = json.loads(goal_path.read_text(encoding="utf-8"))
+        goal["units"][0]["riskTier"] = "high"
+        write(goal_path, json.dumps(goal))
+        check("risk-tier change invalidates", gate(repo).returncode == 2)
+
+        blocked = record(repo, "BLOCKED")
+        check("BLOCKED record is rejected", blocked.returncode != 0)
+        check("BLOCKED cannot unlock", gate(repo).returncode == 2)
+        unverified = record(repo, "UNVERIFIED")
+        check("UNVERIFIED record is rejected", unverified.returncode != 0)
+        check("UNVERIFIED cannot unlock", gate(repo).returncode == 2)
+        warningless = record(repo, "PASSED_WITH_WARNINGS")
+        check("warning verdict without durable warnings is rejected",
+              warningless.returncode != 0 and gate(repo).returncode == 2)
+        warned = record(repo, "PASSED_WITH_WARNINGS",
+                        "--warning", "change-0.txt: durable warning")
+        check("durable warning verdict is accepted",
+              warned.returncode == 0 and gate(repo).returncode == 0,
+              warned.stdout + warned.stderr)
+
+        payload = json.dumps({"tool_name": "Agent",
+                              "tool_input": {"subagent_type": "code-reviewer"}})
+        record(repo, "BLOCKED")
+        env = dict(os.environ, CLAUDE_SESSION_ID=SID)
+        run([PY, str(RECORDER)], repo, stdin=payload, env=env)
+        check("agent type alone cannot mint a review pass", gate(repo).returncode == 2)
     finally:
         shutil.rmtree(repo, ignore_errors=True)
+        if marker is not None:
+            try:
+                marker.unlink()
+            except FileNotFoundError:
+                pass
 
-    # 8. FAIL-CLOSED on unknown tree (regression guard for the review fix):
-    #    when git can't fingerprint the tree (staged_tree_hash() -> None),
-    #    a fresh FOREIGN tree:-bound sentinel must NOT unblock. Load the hook
-    #    module and stub staged_tree_hash to simulate a git fault.
-    import importlib.util
-    import importlib.machinery
-    # .sh extension: importlib can't infer a loader, so name a SourceFileLoader
-    loader = importlib.machinery.SourceFileLoader("chk_review", REVIEW_HOOK)
-    spec = importlib.util.spec_from_loader("chk_review", loader)
-    mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)
-    clear_sentinels()
-    write_sentinel("tree:" + "a" * 40)  # foreign, fresh, well-formed
-    orig = mod.staged_tree_hash
+    repo2 = make_repo(staged=2)
     try:
-        mod.staged_tree_hash = lambda: None  # simulate git write-tree failure
-        os.environ["CLAUDE_SESSION_ID"] = SID
-        check("git-fault (tree=None) + foreign sentinel -> NOT done (fail-closed)",
-              mod.review_was_done() is False)
+        check("two staged files remain below the review threshold",
+              gate(repo2).returncode == 0)
     finally:
-        mod.staged_tree_hash = orig
-    clear_sentinels()
+        shutil.rmtree(repo2, ignore_errors=True)
 
-    # 9. both writers wired to binding (source assertions)
-    with open(SKILL_MD, encoding="utf-8") as f:
-        skill_src = f.read()
-    check("/review SKILL.md computes git write-tree",
-          "git write-tree" in skill_src and "tree:$tree" in skill_src)
-    with open(REC_HOOK, encoding="utf-8") as f:
-        rec_src = f.read()
-    check("record-agent-skill.sh emits tree-bound review sentinel",
-          "write-tree" in rec_src and 'return "tree:' in rec_src)
+    hook_source = HOOK.read_text(encoding="utf-8")
+    skill_source = SKILL.read_text(encoding="utf-8")
+    check("commit hook delegates to exact cache",
+          "itd_review_cache.py" in hook_source and "cache_allows" in hook_source)
+    check("review skill records the exact verdict producer",
+          "itd_review_cache.py" in skill_source and "--verdict PASSED" in skill_source)
 
-    clear_sentinels()
-    print("\n%d passed, %d failed" % (passed, failed))
+    print(f"\nRESULT: {passed} passed, {failed} failed")
     return 1 if failed else 0
-
-
-# run_gate variants bound to specific repos (cwd differs per case)
-def run_gate2(repo):
-    return run_gate(repo)
-
-
-def run_gate3(repo):
-    return run_gate(repo)
 
 
 if __name__ == "__main__":

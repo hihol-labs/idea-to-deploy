@@ -13,7 +13,7 @@ Then just describe what you want in Claude Code — methodology routes you autom
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.90.0](https://img.shields.io/badge/Version-1.90.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.91.0](https://img.shields.io/badge/Version-1.91.0-purple.svg)](.claude-plugin/plugin.json)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
@@ -410,7 +410,7 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 | 3 | `check-commit-completeness.sh` | PreToolUse · Bash | committing a `SKILL.md` without its supporting artifacts |
 | 4 | `check-skill-completeness.sh` | PreToolUse · Write/Edit | writing a `SKILL.md` without `references/`, fixtures, or trigger phrases |
 | 5 | `check-tool-skill.sh` | PreToolUse · Bash/Edit/Write | a raw mutating tool call after 3 ignored skill decisions (with a skill-active grace window) |
-| 6 | `pii-egress-guard.sh` | PreToolUse · Bash | a command that would egress secrets/PII to a third party |
+| 6 | `pii-egress-guard.sh` | PreToolUse · any tool | an external mutation without an exact session-bound preview and host-native confirmation (`ask`), or egress of live secrets/PII |
 | 7 | `cost-tracker.sh` | PreToolUse · Agent/Task/Bash/PowerShell | the next expensive agent/test/build attempt before its estimate crosses the configured session ceiling; cheap inspection and checkpoint calls stay available |
 | 8 | `narration-final.sh` | SubagentStop | a subagent ending on narration instead of its result/verdict (≤2 block-pings) |
 | 9 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |

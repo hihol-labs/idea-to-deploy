@@ -188,18 +188,27 @@ Present as a table:
 
 This mode is inspired by AI-DLC's Red/Blue Team hat separation. It adds ~5 minutes to the audit but surfaces attack scenarios that checklist-based audits miss.
 
-### Step 6: Mark `/security-audit` as done for this session (v1.23.0)
+### Step 6: Record the exact-context `/security-audit` verdict
 
-Final step of every `/security-audit` invocation, regardless of status. Write a session marker so `hooks/check-dod-before-commit.sh` knows the audit was run — this unblocks a `git commit` the DoD gate flags as security-relevant (paths touching payments, auth, secrets). Writing the marker records "the audit was performed this session"; it does not assert the verdict was clean — a `BLOCKED` audit still writes it, because the gate's job is to ensure the audit *happened*, not to hide its findings.
+Final step of every `/security-audit` invocation. Persist the real verdict
+against the same exact context key used by `/review`. Only an accepted security
+verdict may satisfy the DoD security sentinel and pay down the **security** risk
+bucket. A general review cannot reset this bucket; `BLOCKED` and `UNVERIFIED`
+must leave the gate closed.
 
 ```bash
-# Dual-write (/tmp + platform temp) — см. v1.42.0 platform symmetry
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
-mkdir -p /tmp 2>/dev/null || true
-echo "$(date +%s)" | tee "/tmp/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$(date +%s)" > "$tmpd/claude-security-audit-done-${CLAUDE_SESSION_ID:-$$}"
+RC="skills/review/scripts/itd_review_cache.py"
+[ -f "$RC" ] || RC="$HOME/.claude/idea-to-deploy/skills/review/scripts/itd_review_cache.py"
+SHD="skills/_shared"
+[ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/idea-to-deploy/skills/_shared"
+sh "$SHD/itd_py.sh" "$RC" record --root . --kind security --verdict PASSED
 ```
 
-The marker is session-scoped and lives in `/tmp`, so it auto-expires at reboot and does not leak between sessions. The `Skill` tool does not route through `PreToolUse` hooks, so this in-skill write is the only reliable signal that `/security-audit` ran.
+For `PASSED_WITH_WARNINGS`, pass durable `--warning "path: summary"` values.
+The authenticated workflow caller must perform this write explicitly after it
+accepts the independent audit verdict. `hooks/verdict-contract.sh` validates
+the machine-readable shape but cannot infer a trusted security-audit producer
+from generic SubagentStop text and therefore never writes cache evidence.
 
 ## Quality Gate
 

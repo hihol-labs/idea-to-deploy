@@ -188,14 +188,20 @@ def main() -> int:
     check("freeze inactive without a state file", ctx_of(p) == "",
           p.stdout[:200])
 
-    # --- record-agent-skill: subagent completion writes the gate sentinel ---
+    # --- record-agent-skill: only existence-based test work gets a sentinel ---
     s = sid("ras")
     p = run("record-agent-skill.sh",
             {"tool_name": "Task",
-             "tool_input": {"subagent_type": "code-reviewer", "prompt": "x"}}, s)
-    sent = TMP / f"claude-review-done-{s}"
-    check("record-agent-skill writes review sentinel for code-reviewer",
+             "tool_input": {"subagent_type": "test-generator", "prompt": "x"}}, s)
+    sent = TMP / f"claude-test-done-{s}"
+    check("record-agent-skill writes test sentinel for test-generator",
           p.returncode == 0 and sent.is_file(), str(sent))
+    s_review = sid("rasreview")
+    run("record-agent-skill.sh",
+        {"tool_name": "Task",
+         "tool_input": {"subagent_type": "code-reviewer", "prompt": "x"}}, s_review)
+    check("record-agent-skill cannot mint review success from agent type",
+          not (TMP / f"claude-review-done-{s_review}").is_file())
     s2 = sid("rasneg")
     run("record-agent-skill.sh",
         {"tool_name": "Task",

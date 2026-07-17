@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PreToolUse hook — PII/secret deny-before-egress (omnigent egress-policy port).
+PreToolUse hook — exact external-write approval plus PII/secret egress guard.
 
 Scans the content of OUTBOUND tool calls (Bash egress commands like curl/wget/
 scp/ssh, and WebFetch) for secrets and PII just before the data would leave the
@@ -19,20 +19,32 @@ This ports the OUTCOME of omnigent's egress policy (don't leak data), not its
 server-side policy engine. It complements `careful.sh` (which guards destructive
 commands) by guarding data-leaving-the-box.
 
-Scope: Bash (only when the command is an egress command) and WebFetch. MCP
-egress tools are not matched here (their names vary); native permissions remain
-the backstop for those. Fail-open: any error -> exit 0, allow.
+Scope: every tool. The host-neutral external-write engine classifies connector
+and shell actions; provably read-only/local calls remain silent. External
+mutations require a complete preview and a session-bound exact approval before
+the existing PII scan permits them. High-confidence secrets remain denied even
+after action approval.
 
-Disable per project: ITD_PII_GUARD=0.
+`ITD_PII_GUARD=0` disables only pattern scanning; exact write approval remains
+fail-closed and has no shared kill switch.
 
 Reads JSON on stdin: {"tool_name": "...", "tool_input": {...}}
 """
 from __future__ import annotations
 
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
 import sys
+from pathlib import Path
+
+
+EXTERNAL_GATE_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "skills" / "_shared" / "itd_external_write_gate.py"
+)
 
 # --- high-confidence secrets -> DENY -----------------------------------------
 SECRET_PATTERNS = [
@@ -84,6 +96,11 @@ def gather_content(tool: str, tool_input: dict) -> str | None:
         parts = [str(tool_input.get("url") or ""), str(tool_input.get("prompt") or "")]
         joined = "\n".join(p for p in parts if p)
         return joined or None
+    if re.search(
+            r"(?:^|__|_)(?:mcp|gmail|github|linear|slack|notion|drive|calendar|"
+            r"outlook|teams|sharepoint|box|atlassian|figma)(?:__|_|$)",
+            tool, re.IGNORECASE):
+        return json.dumps(tool_input, ensure_ascii=False, sort_keys=True)
     return None
 
 
@@ -129,32 +146,116 @@ def emit_ask(label: str, tool: str) -> None:
     sys.stdout.write(json.dumps(out, ensure_ascii=False))
 
 
-def main() -> int:
-    if os.environ.get("ITD_PII_GUARD") == "0":
-        return 0
+def load_external_gate():
+    loader = importlib.machinery.SourceFileLoader(
+        "itd_external_write_gate_hook", str(EXTERNAL_GATE_SCRIPT))
+    spec = importlib.util.spec_from_loader("itd_external_write_gate_hook", loader)
+    if spec is None:
+        raise RuntimeError("cannot load external-write gate")
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
 
+
+def external_message(preview: dict, heading: str) -> str:
+    why = str(preview.get("why") or "external write has no exact session-bound approval")
+    fix = str(preview.get("fix") or
+              "Review this exact preview and approve only this pending host prompt.")
+    rendered = json.dumps(preview, ensure_ascii=False, sort_keys=True, indent=2)
+    return (
+        f"[EXTERNAL WRITE GATE] {heading}\n\n"
+        f"WHY: {why}.\n"
+        f"FIX: {fix}\n\n"
+        "Exact preview (targets, full payload, attachments, session provenance):\n"
+        f"{rendered}")
+
+
+def emit_external_deny(preview: dict) -> None:
+    msg = external_message(preview, "Blocked before the external mutation.")
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": msg,
+        }
+    }
+    sys.stdout.write(json.dumps(out, ensure_ascii=False))
+    sys.stderr.write(msg)
+    raise SystemExit(2)
+
+
+def emit_external_ask(preview: dict) -> None:
+    msg = external_message(
+        preview,
+        "Host confirmation is required for this exact pending invocation.")
+    out = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "ask",
+            "permissionDecisionReason": msg,
+        }
+    }
+    sys.stdout.write(json.dumps(out, ensure_ascii=False))
+    raise SystemExit(0)
+
+
+def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except Exception:
-        return 0
+        emit_external_deny({
+            "status": "UNVERIFIED", "approvable": False,
+            "why": "hook transport payload is malformed",
+            "fix": "Restore a valid full PreToolUse payload; do not run the external action.",
+        })
 
     tool = (payload or {}).get("tool_name") or ""
     tool_input = (payload or {}).get("tool_input") or {}
 
     content = gather_content(tool, tool_input)
-    if not content:
+    pii_enabled = os.environ.get("ITD_PII_GUARD") != "0"
+
+    # Secrets are never made safe by approving the surrounding action.
+    if pii_enabled and content:
+        for pattern, label in SECRET_PATTERNS:
+            if pattern.search(content):
+                emit_deny(label, tool)
+
+    try:
+        result = load_external_gate().evaluate(payload, remember=True)
+    except Exception as exc:
+        # The shared engine is load-bearing for an external connector or a
+        # mutating egress command. Local/read-only traffic remains fail-open.
+        externalish = (tool not in {
+            "", "Read", "Glob", "Grep", "Edit", "Write", "MultiEdit",
+            "NotebookEdit", "apply_patch", "Task", "Agent", "Skill",
+        } and tool not in {"WebFetch"})
+        mutating_shell = tool in {"Bash", "PowerShell"} and bool(
+            re.search(r"\bgit\s+push\b|\bcurl\b.*(?:-d|--data|-F|--form|-X\s*(?:POST|PUT|PATCH|DELETE))",
+                      str(tool_input.get("command") or ""), re.IGNORECASE))
+        if externalish or mutating_shell:
+            emit_external_deny({
+                "status": "UNVERIFIED", "approvable": False,
+                "why": f"external-write decision engine failed: {exc}",
+                "fix": "Restore the shared gate and retry; do not perform the external action.",
+                "toolName": tool, "payload": tool_input,
+            })
         return 0
 
-    # Secrets first — DENY (exits 2).
-    for pattern, label in SECRET_PATTERNS:
-        if pattern.search(content):
-            emit_deny(label, tool)
+    if not result.get("allowed"):
+        preview = result.get("preview") or {}
+        if not preview.get("approvable"):
+            emit_external_deny(preview)
+        emit_external_ask(preview)
 
     # Weaker signals / PII — ASK.
-    for pattern, label in PII_PATTERNS:
-        if pattern.search(content):
-            emit_ask(label, tool)
-            return 0
+    # An approved exact write already displayed the complete PII-bearing
+    # payload, so asking again would violate no-repeat approval semantics.
+    if pii_enabled and content and not result.get("approved"):
+        for pattern, label in PII_PATTERNS:
+            if pattern.search(content):
+                emit_ask(label, tool)
+                return 0
 
     return 0
 

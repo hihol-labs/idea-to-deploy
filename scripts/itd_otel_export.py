@@ -187,10 +187,10 @@ def build_payload(memory_dir: Path, signals_path: Path | None, session: str | No
         "resourceSpans": [{
             "resource": {"attributes": [
                 _attr("service.name", SERVICE),
-                _attr("service.version", "1.90.0"),
+                _attr("service.version", "1.91.0"),
                 _attr("itd.machine", os.uname().nodename if hasattr(os, "uname") else os.environ.get("COMPUTERNAME", "?")),
             ]},
-            "scopeSpans": [{"scope": {"name": "itd", "version": "1.90.0"}, "spans": spans}],
+            "scopeSpans": [{"scope": {"name": "itd", "version": "1.91.0"}, "spans": spans}],
         }]
     }
 

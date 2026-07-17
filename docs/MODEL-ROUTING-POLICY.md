@@ -50,6 +50,12 @@ current — see the `claude-api` skill for live ids; do not hardcode an id here.
    actual spend visible, so the policy can be tuned against real numbers rather than
    guessed. (Accounting only — not an observability platform; see ADR-001.)
 
+Speed claims, credit ratios and dated model IDs are **not a methodology contract**.
+Provider behaviour changes independently of this repository. Routing economics are
+accepted only from host-observed telemetry and the frozen A/B comparison for the
+actual candidate; documentation must not turn a temporary public multiplier into a
+stable SLA.
+
 ## Risk-tier ⇒ model monotonicity (invariant, v1.60.0 — Ось 2)
 
 Routing to a cheaper tier is legitimate — but the **higher-risk** a verify agent's
@@ -64,6 +70,23 @@ future cost-cut that quietly drops `security-reviewer` to `sonnet` while
 `AGENT_EFFORT_TIERS.md` to the actual frontmatter, so the *contract* (the docs)
 can no longer invert from the *model* (the frontmatter) — the class of drift this
 invariant exists to kill.
+
+## Low-effort eligibility (PE5-015)
+
+`effort` is a reasoning-budget dial, not permission to remove evidence. Automatic
+low effort is limited to a bounded, mechanical slice of an active
+`working_deadline` unit whose risk is known to be low/medium. A per-call downgrade
+must make the slice visible by starting its `description` with
+`[itd:mechanical]`; the existing `model-policy.sh` hook checks the active ledger.
+
+Review, security, root-cause, architecture, high-risk and unknown-risk work retain
+their declared quality floor. The protected agents (`code-reviewer`,
+`security-reviewer`, `architect`, `devils-advocate`, `perf-analyzer`, and
+`test-generator`) are never silently lowered to `effort=low`. An unsafe explicit
+override produces a host-native ASK with WHY/FIX; keeping the frontmatter default
+is silent. This remains an oversight/policy boundary, not a new hard gate, and the
+user's model/effort choice can never remove a review, security, test, release, or
+other required evidence contour.
 
 ## Non-goals (explicit)
 

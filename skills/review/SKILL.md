@@ -78,8 +78,9 @@ reviewed cwd and reported «nothing to review»). Rule:
    (or prefix commands with `git -C <target>`); when the path is not reachable
    from this fork (другая машина/окружение) — do NOT fall back to cwd:
    **delegate** to the `code-reviewer` agent with the explicit target path in
-   its prompt and relay its verdict as this review's result (the sentinel in
-   Step "mark done" is still written — the review DID happen, by delegation).
+   its prompt and relay its verdict as this review's result. Step 5 records the
+   actual delegated verdict against that target's exact context; delegation
+   alone never mints success evidence.
 3. If no path in args — cwd is the target (default, старое поведение).
 4. Never report «нет изменений» from a directory the user did not ask about:
    name the resolved target in the report header so a mismatch is visible.
@@ -322,24 +323,32 @@ For each Critical failure (and optionally each Important warning), ask:
 
 If user agrees, fix the documents directly. Then re-run only the previously-failing checks to confirm the fix. Do not re-run the entire rubric — that's wasteful.
 
-### Step 5: Mark `/review` as done for this session
+### Step 5: Record the exact-context `/review` verdict
 
-This is the final step of every `/review` invocation, regardless of status. Write a marker file that signals `hooks/check-review-before-commit.sh` that `/review` has been run in this Claude Code session, unblocking subsequent multi-file `git commit` calls.
+This is the final step of every `/review` invocation. Persist the real status
+against the exact repository/base/tree/diff, scope and acceptance contracts,
+rubric/version, and risk tier. Only an accepted verdict for that complete key
+unblocks `hooks/check-review-before-commit.sh` and pays down the **general**
+risk bucket. `BLOCKED` and `UNVERIFIED` are deliberately recorded as rejected
+and overwrite any stale pass for the same checkout.
 
-Use the Bash tool:
+Use the Bash tool, substituting the actual verdict. For
+`PASSED_WITH_WARNINGS`, add one durable `--warning` argument per warning in the
+form `path: summary`; an empty warning list is rejected.
 
 ```bash
-# tree:<git-write-tree> = diff-binding (v1.59.0); dual-write /tmp + tempdir =
-# platform symmetry (v1.42.0). Rationale: references/runner-and-recovery.md §5.
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
-mkdir -p /tmp 2>/dev/null || true
-tree="$(git write-tree 2>/dev/null)"
-if [ -n "$tree" ]; then marker="tree:$tree"; else marker="$(date +%s)"; fi
-echo "$marker" | tee "/tmp/claude-review-done-${CLAUDE_SESSION_ID:-$$}" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}" 2>/dev/null || echo "$marker" > "$tmpd/claude-review-done-${CLAUDE_SESSION_ID:-$$}"
+RC="skills/review/scripts/itd_review_cache.py"
+[ -f "$RC" ] || RC="$HOME/.claude/idea-to-deploy/skills/review/scripts/itd_review_cache.py"
+SHD="skills/_shared"
+[ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/idea-to-deploy/skills/_shared"
+sh "$SHD/itd_py.sh" "$RC" record --root . --kind general --verdict PASSED
 ```
 
-Why in the skill, why dual-write, why tree-hash (and the safe-direction
-timestamp fallback) — `references/runner-and-recovery.md` §5.
+The workflow caller must run this explicit producer only after accepting the
+independent verdict. Generic `SubagentStop` payloads are not authenticated
+workflow provenance, so `hooks/verdict-contract.sh` validates the JSON shape
+and records non-gating findings but never writes cache evidence. Rationale and recovery rules:
+`references/runner-and-recovery.md` §5.
 
 ## Quality Gate
 

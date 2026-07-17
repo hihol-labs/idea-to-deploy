@@ -34,4 +34,14 @@ Rationale for the v1.52.0 changes (the rest were already correct):
 
 ## Per-call override
 
-The frontmatter value is the sensible default, not a hard floor. The Agent tool's `effort` option (and a workflow's `agent(..., {effort})`) takes precedence for a single dispatch — bump a normally-`medium` role to `high` for one unusually hard task, or drop a `high` role to `low` for a trivial one.
+The frontmatter value is the sensible default. A per-call override may always move
+effort upward. Automatic `effort=low` is narrower: it is valid only inside an active
+low/medium-risk `working_deadline` unit for a bounded mechanical slice whose
+description begins `[itd:mechanical]`. Protected review, security, root-cause,
+architecture and gate-producing roles retain `high`; high-risk or unknown-risk work
+fails out of the automatic low route. `hooks/model-policy.sh` emits a host-native ASK
+instead of silently accepting a nonconforming downgrade.
+
+Effort is orthogonal to verification: changing it cannot remove any required
+evidence contour. Speed or credit multipliers are not a methodology contract;
+calibration uses host-observed telemetry and a frozen A/B comparison.

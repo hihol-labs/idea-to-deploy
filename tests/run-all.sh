@@ -40,10 +40,11 @@ run_py() {
 }
 
 # --- быстрый статический костяк (--quick) -----------------------------------
-CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_cross_platform_runtime verify_session_hygiene_quality verify_live_model_benchmark verify_harness_conformance verify_practical_effectiveness verify_operational_cold_start verify_bypass_friction verify_learning_loop verify_external_outcome_contract verify_external_pilot_collection verify_graduated_trust verify_all_hard_gate_host_parity verify_host_neutral_memory verify_fresh_session_resume verify_strict_completion_policy verify_completion_policy_calibration verify_observed_token_telemetry verify_efficiency_attribution verify_proportionality_benchmark verify_control_quality verify_harness_docs_freshness"
+CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_counts verify_hook_table_completeness verify_host_adapters verify_cross_platform_runtime verify_session_hygiene_quality verify_live_model_benchmark verify_harness_conformance verify_practical_effectiveness verify_operational_cold_start verify_bypass_friction verify_learning_loop verify_external_outcome_contract verify_external_pilot_collection verify_graduated_trust verify_all_hard_gate_host_parity verify_host_neutral_memory verify_fresh_session_resume verify_strict_completion_policy verify_completion_policy_calibration verify_observed_token_telemetry verify_efficiency_attribution verify_proportionality_benchmark verify_work_deadline_contract verify_work_deadline_runtime verify_verification_profiles verify_external_write_gate verify_model_risk_monotonic verify_model_policy_hint verify_work_deadline_docs verify_control_quality verify_harness_docs_freshness"
 # --- полный python-набор обоих workflow --------------------------------------
 FULL="verify_dod_gate verify_skill_enforcement verify_agent_review_sentinel \
-verify_review_autoping verify_refute_fleet verify_model_risk_monotonic \
+verify_review_cache verify_review_sentinel_diffbind verify_risk_score \
+verify_review_autoping verify_refute_fleet \
 verify_dod_coverage verify_stall_fallback verify_feature_ledger \
 verify_feature_ledger_completeness verify_feature_ledger_fallbacks \
 verify_retro_abstention_review verify_feature_ledger_adoptions \
@@ -64,9 +65,9 @@ verify_v147_fixes verify_hook_depth verify_narration_final \
 verify_verdict_contract verify_worktree_hook_safety verify_hook_count_words \
 verify_fable_snippets verify_routing verify_completion_gate \
 verify_completion_ledger verify_harness_map_fixtures verify_runall_drift \
-verify_no_bare_python3 verify_model_policy_hint \
+verify_no_bare_python3 \
 verify_py_launcher_encoding verify_unit_log verify_goal_verify_shell \
-verify_project_checks verify_review_import"
+verify_project_checks verify_review_import verify_work_deadline_benchmark"
 
 for t in $CORE; do run_py "$t"; done
 if [ "$QUICK" = "0" ]; then

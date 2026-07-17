@@ -1,6 +1,6 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Актуальность: **2026-07-15**, idea-to-deploy **v1.90.0**.
+> Актуальность: **2026-07-16**, idea-to-deploy **v1.91.0**.
 > Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
@@ -47,7 +47,7 @@
 
 ### 4.2. 5 ключевых принципов
 
-| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.90.0) | Evidence / комментарий |
+| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.91.0) | Evidence / комментарий |
 |---|---|:---:|---|---|
 | **H1** | **Ограничение поведения** | ✅ | Graduated trust policy, 11 computational hard gates, explicit invocation, permission/scope contracts и полная Claude/Codex parity. | `verify_graduated_trust.py`, `verify_all_hard_gate_host_parity.py` |
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; статус-таблица `CLAUDE.md` для resume; автосохранение на вехах; `pre-flight-check.sh` (git + `MEMORY.md` в контекст); `session-open-diagnostic.sh`; `crash-recovery.sh`. **+ v1.21.0:** `context-budget.sh` (PreToolUse — мягко тормозит unbounded-дампы в контекст) + `UNIT_CONTEXT_MANIFEST.json` (свежий ограниченный per-node контекст) | Принцип «между сессиями» — полностью. Смежный `K4` (бюджетирование *внутри* сессии) теперь **частично закрыт** `context-budget.sh` (мягкое напоминание, не жёсткая budget-модель) — улучшение vs DESIGN_SPACE §5.2 |
@@ -161,7 +161,7 @@
 
 | | **Computational** (детерминированный) | **Inferential** (интерпретирует модель) |
 |---|---|---|
-| **Feedforward** (до действия) | **Блокирующие гейты (`deny`):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `completion-gate` (v1.51.0) · `state-guard` (v1.76.0, c v1.78.0 гейтит и Bash-канал — single-writer гейт state-леджера; его PostToolUse-ноги валидации/heartbeat — soft) · `cost-tracker` (PreToolUse-ветка запрещает следующую дорогую попытку у budget ceiling; PostToolUse-учёт остаётся soft). **Soft-детекторы (allow + warn/hint):** `careful`* · `freeze`* · `wip-gate`*** (v1.41.0) · `model-policy` (v1.83.0, advisory при спавне субагента с моделью слабее frontmatter) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
+| **Feedforward** (до действия) | **Блокирующие гейты (`deny`):** `check-tool-skill` · `check-commit-completeness` · `check-review-before-commit` · `check-dod-before-commit` · `check-skill-completeness` · `pii-egress-guard` · `completion-gate` (v1.51.0) · `state-guard` (v1.76.0, c v1.78.0 гейтит и Bash-канал — single-writer гейт state-леджера; его PostToolUse-ноги валидации/heartbeat — soft) · `cost-tracker` (PreToolUse-ветка запрещает следующую дорогую попытку у budget ceiling; PostToolUse-учёт остаётся soft). **Soft-детекторы (allow + warn/hint/ask):** `careful`* · `freeze`* · `wip-gate`*** (v1.41.0) · `model-policy` (v1.91.0: advisory для weaker model; host ASK, но не hard deny, для небезопасного low-effort override) | **Формирование контекста (soft):** `check-skills` · `context-aware` · `pre-flight-check` · `session-open-diagnostic` · `context-budget` |
 | **Feedback** (после действия) | **Блокирующие стоп-гейты (`block`, SubagentStop):** `narration-final` (v1.49.0) · `verdict-contract` (v1.51.0). **Наблюдаемость / учёт (soft):** `execution-trace`** · `record-agent-skill` · `risk-score` · `cross-review-precommit` (fail-open) · `handoff-readiness` (v1.40.0) · `completion-signals` · `completion-stop` (v1.51.0) | **Само-коррекция (soft):** `stuck-detection` · `crash-recovery` |
 
 `*` `careful`/`freeze` — computational-детекторы, но **не блокируют**: оба `exit 0, permissionDecision: allow` (careful предупреждает о деструктивных командах, freeze — о правках замороженных файлов), поэтому в hard-гейты НЕ входят. `freeze` с v1.42.0 always-on, действует только при активном scope-lock state-файле (его пишут `/bugfix`/`/refactor`/`/perf`); `careful` с v1.37.0 always-on. `**` `execution-trace` — тайминг PreToolUse, но роль наблюдательная (пишет JSONL-трейс, zero-context, никогда не блокирует) → отнесён к feedback по роли. `***` `wip-gate` — детект computational, но энфорсмент **soft by design**: «новая задача или фикс текущей» — семантика, по §8.3 это hint, не deny. **11 hard-гейтов = 9 feedforward (`deny`) + 2 feedback SubagentStop (`block`)** — сверяется тестом `verify_hook_table_completeness.py` (G-005).
@@ -179,8 +179,8 @@
 | `check-skill-completeness.sh` | PreToolUse | feedforward | computational | **blocking** — `deny` записи SKILL.md без artefacts (был PostToolUse-баг в v1.5.0 → исправлен в v1.5.1) |
 | `freeze.sh` | PreToolUse | feedforward | computational | soft (opt-in) — предупреждает о правках замороженных файлов; `exit 0, allow` — не блокирует |
 | `careful.sh` | PreToolUse | feedforward | computational | soft (v1.37.0 always-on) — предупреждает о деструктивных командах (`rm -rf`, `DROP TABLE`, `git push --force`); `exit 0, allow` — не блокирует |
-| `pii-egress-guard.sh` | PreToolUse (Bash\|WebFetch) | feedforward | computational | **blocking** — `deny`/`exit 2` при попытке отправить PII/секреты вовне |
-| `model-policy.sh` | PreToolUse (Task\|Agent) | feedforward | computational | advisory — additionalContext-хинт при спавне субагента с моделью слабее frontmatter (risk-tier⇒model, G-003, v1.83.0); не блокирует |
+| `pii-egress-guard.sh` | PreToolUse (`*`) | feedforward | computational | **blocking** — approvable external write возвращает native `ask` с exact preview/hash, и host связывает подтверждение с одним pending invocation без локального approval-ledger; missing provenance/targets или live secret дают `deny`/exit 2; read-only остаётся неблокирующим |
+| `model-policy.sh` | PreToolUse (Task\|Agent) | feedforward | computational | weaker-model override даёт advisory; явный `effort=low` вне bounded low/medium mechanical `working_deadline` требует native ASK. Protected review/security/root-cause/architecture floors и evidence contours не понижаются незаметно; hard deny не добавляется |
 | `check-skills.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит skill-hint; маршрут выбирает модель |
 | `context-aware.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит проектный контекст |
 | `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume |
