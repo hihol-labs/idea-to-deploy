@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "benchmark": "itd-live-fixture-v1",
-  "status": "PASS",
-  "observedAt": "2026-07-18T23:08:27Z",
+  "status": "FAIL",
+  "observedAt": "2026-07-18T22:52:56Z",
   "provider": "openai",
   "fixture": "fixture-03-cli-tool",
   "candidateModelRequested": "provider-default",
-  "reason": "live candidate passed independent snapshot oracle",
+  "reason": "live candidate failed: 2026-07-18T22:52:56.108930Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 403 Forbidden, url: wss://chatgpt.com/backend-api/codex/responses",
   "source": {
     "revision": "414e61032a5728d4878d42bcca3464bdfdeeb8da",
     "workingTreeDirty": true,
@@ -14,23 +14,20 @@
     "methodologyTreeSha256": "sha256:86420c1ce5fd9a4990337c983322fc6324e59b1cd421acb55f5567f39407f990"
   },
   "runner": "tests/run-live-model-benchmark.py",
-  "runId": "20260718T230827Z-b933fe55",
-  "runReport": "tests/fixtures/live-model-evidence/runs/20260718T230827Z-b933fe55/run-report.json",
-  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260718T230827Z-b933fe55",
+  "runId": "20260718T225256Z-fail-8f44671e",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260718T225256Z-fail-8f44671e/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260718T225256Z-fail-8f44671e",
   "candidate": {
     "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
-    "exitCode": 0,
-    "liveResultEvents": 1,
-    "resultSubtype": null,
+    "exitCode": 1,
+    "liveResultEvents": 0,
     "isError": false,
-    "durationMs": null,
-    "totalCostUsd": null,
     "attemptCount": 1,
     "recoveryTriggered": false,
     "attempts": [
       {
         "attempt": 1,
-        "exitCode": 0,
+        "exitCode": 1,
         "timedOut": false,
         "missingBefore": [
           "STRATEGIC_PLAN.md",
@@ -40,55 +37,46 @@
           "CLAUDE_CODE_GUIDE.md",
           "CLAUDE.md"
         ],
-        "missingAfter": [],
-        "liveResultEvents": 1,
+        "missingAfter": [
+          "PRD.md",
+          "IMPLEMENTATION_PLAN.md",
+          "CLAUDE_CODE_GUIDE.md",
+          "CLAUDE.md"
+        ],
+        "liveResultEvents": 0,
         "isError": false,
-        "transcriptBytes": 77597,
-        "transcriptSha256": "sha256:f76af17ae2e09e0913b59a49ad0330deb0d449f49b47446efff5ca92b933fe55"
+        "transcriptBytes": 84726,
+        "transcriptSha256": "sha256:a70f446403b1552b363db987a4e30079648e9e0bec3b5b652c8736098f44671e"
       }
     ],
     "workspaceTransport": "native-temp",
     "approvalPolicy": "never-no-escalation",
-    "transcriptSha256": "sha256:f76af17ae2e09e0913b59a49ad0330deb0d449f49b47446efff5ca92b933fe55",
-    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260718T230827Z-b933fe55/transcript.jsonl.gz",
-    "transcriptGzipSha256": "sha256:336d55e9de0895ebf20a065d7ee31d2a619c36413b8f06e622578290bc65ce78"
+    "transcriptSha256": "sha256:a70f446403b1552b363db987a4e30079648e9e0bec3b5b652c8736098f44671e",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260718T225256Z-fail-8f44671e/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:89e79f711aa57fbae4f3589567c5124f760d1a7d47c6cad33c3bd75cbc8a61d0"
   },
   "harnessInvocation": {
     "mode": "repository-local-adopted-project",
     "skill": "$idea-to-deploy:blueprint",
-    "skillPath": ".itd-plugin/skills/blueprint/SKILL.md",
-    "referencePath": ".itd-plugin/skills/blueprint/references/document-templates.md",
-    "projectGuidance": "AGENTS.md",
-    "projectContracts": ".itd/",
-    "projectHooks": ".codex/hooks.json",
     "transcriptProvesSkillLoad": true,
     "methodologyTreeSha256": "sha256:86420c1ce5fd9a4990337c983322fc6324e59b1cd421acb55f5567f39407f990"
   },
-  "artifacts": {
-    "outputDir": "tests/fixtures/live-model-evidence/runs/20260718T230827Z-b933fe55/output",
-    "requiredFiles": [
+  "failureArtifacts": {
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260718T225256Z-fail-8f44671e/output",
+    "presentFiles": [
       "STRATEGIC_PLAN.md",
-      "PROJECT_ARCHITECTURE.md",
+      "PROJECT_ARCHITECTURE.md"
+    ],
+    "missingRequiredFiles": [
       "PRD.md",
       "IMPLEMENTATION_PLAN.md",
       "CLAUDE_CODE_GUIDE.md",
       "CLAUDE.md"
     ],
     "sha256": {
-      "STRATEGIC_PLAN.md": "sha256:99d6f0abb5aecbac119563653c339cf3405d7d0048b277718f3e11b7025ae29d",
-      "PROJECT_ARCHITECTURE.md": "sha256:c4e7a9d947927cc444eb91604bf86e42cfbe9b3bd78206bed8e4ba6637ce91ed",
-      "PRD.md": "sha256:f2e1355ef8e43ddf33288fa3fa1bccf929d2bd1feb3648567a6b0ff3a6baabf6",
-      "IMPLEMENTATION_PLAN.md": "sha256:8f0927d94473061a6c304cbe19d54c6500d7f255c0a33819c52d86b1bf3df5cc",
-      "CLAUDE_CODE_GUIDE.md": "sha256:4b89fcb6b904051597684de70eefd69c2acd90d818646bf2826cc4945c79cd99",
-      "CLAUDE.md": "sha256:40266e6cde3fa6ab487658abeafd83ad065099f091203d32d64ff0e7b6d7bdd2"
+      "STRATEGIC_PLAN.md": "sha256:808c8135c302d4644ec55c9351e71bd676fdd0ffaf2bc123f20bf42c9257f3b6",
+      "PROJECT_ARCHITECTURE.md": "sha256:ad5f7eb32b33c759d82ceda03be970505fcda0b1941abc99f01bed81ff5eb8b3"
     }
-  },
-  "independentVerdict": {
-    "actor": "deterministic-external-oracle",
-    "oracle": "tests/verify_snapshot.py",
-    "exitCode": 0,
-    "status": "PASS",
-    "candidateSelfReportAccepted": false
   },
   "sourcePins": {
     "benchmarkRunner": "sha256:92c71de52995489af33f80d3d0e0795cd44467073c9273a157f7441b523287fd",

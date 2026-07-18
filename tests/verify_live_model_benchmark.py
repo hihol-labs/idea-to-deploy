@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import datetime as dt
 import gzip
 import hashlib
+import importlib.util
+import io
 import json
+from decimal import Decimal
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +30,16 @@ METHODOLOGY_TREE_ROOTS = (
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
 
 
+def load_live_runner():
+    path = ROOT / "tests" / "run-live-model-benchmark.py"
+    spec = importlib.util.spec_from_file_location("itd_live_model_runner", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load live-model benchmark runner")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def check(name: str, condition: bool, detail: str = "") -> None:
     global passed, failed
     print(f"{'PASS' if condition else 'FAIL'}  {name}" + (f" [{detail[:240]}]" if detail and not condition else ""))
@@ -36,6 +51,19 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 def sha256_file(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def transcript_result_events(raw: bytes, provider: str) -> list[dict]:
+    rows: list[dict] = []
+    terminal_type = "result" if provider == "anthropic" else "turn.completed"
+    for line in raw.decode("utf-8", errors="strict").splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict) and row.get("type") == terminal_type:
+            rows.append(row)
+    return rows
 
 
 def stable_git_status(raw: bytes) -> bytes:
@@ -156,6 +184,8 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
     check("live evidence schema is v1", report.get("schemaVersion") == 1)
     check("only a real PASS can satisfy H4", status_passes(report),
           str(report.get("status")))
+    if not status_passes(report):
+        return
     check("candidate provider is external", report.get("provider") in {"anthropic", "openai"})
     check("candidate command is a live headless model",
           any(marker in str((report.get("candidate") or {}).get("commandFamily"))
@@ -195,6 +225,30 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
     check("live transcript contains a result event",
           type(candidate.get("liveResultEvents")) is int and candidate.get("liveResultEvents", 0) >= 1)
     check("live result is not an error", candidate.get("isError") is False)
+    attempts = candidate.get("attempts") or []
+    attempt_count = candidate.get("attemptCount")
+    check("live candidate attempt count stays within bounded policy",
+          attempt_count in {1, 2} and len(attempts) == attempt_count)
+    check("live candidate recovery flag matches attempt count",
+          candidate.get("recoveryTriggered") is (attempt_count == 2))
+    check("live candidate records its writable workspace transport",
+          candidate.get("workspaceTransport")
+          in {"native-temp", "host-mounted-temp"})
+    check("live candidate used a no-escalation approval policy",
+          candidate.get("approvalPolicy") == "never-no-escalation")
+    check("all recorded live attempts exited zero",
+          bool(attempts)
+          and all(item.get("exitCode") == 0
+                  and type(item.get("liveResultEvents")) is int
+                  and item.get("liveResultEvents", 0) >= 1
+                  and item.get("isError") is False
+                  for item in attempts))
+    check("final live attempt completed the required output set",
+          bool(attempts) and attempts[-1].get("missingAfter") == [])
+    if attempt_count == 2 and len(attempts) == 2:
+        check("recovery continued exactly the first attempt's missing outputs",
+              bool(attempts[0].get("missingAfter"))
+              and attempts[1].get("missingBefore") == attempts[0].get("missingAfter"))
     transcript = inside(evidence_root, str(candidate.get("transcriptArtifact") or ""))
     check("compressed raw transcript is retained", transcript is not None and transcript.is_file())
     if transcript and transcript.is_file():
@@ -204,19 +258,32 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
             raw = gzip.decompress(transcript.read_bytes())
             check("raw transcript hash is pinned",
                   "sha256:" + hashlib.sha256(raw).hexdigest() == candidate.get("transcriptSha256"))
-            rows = []
             provider = str(report.get("provider") or "")
-            terminal_type = "result" if provider == "anthropic" else "turn.completed"
-            for line in raw.decode("utf-8", errors="strict").splitlines():
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(row, dict) and row.get("type") == terminal_type:
-                    rows.append(row)
+            rows = transcript_result_events(raw, provider)
             check("retained transcript proves successful live result",
                   bool(rows) and (provider != "anthropic"
                                   or rows[-1].get("is_error") is not True))
+            cursor = 0
+            segments_valid = bool(attempts)
+            for index, attempt in enumerate(attempts, start=1):
+                length = attempt.get("transcriptBytes")
+                if type(length) is not int or length <= 0 or cursor + length > len(raw):
+                    check(f"attempt {index} transcript boundary is valid", False)
+                    segments_valid = False
+                    break
+                segment = raw[cursor:cursor + length]
+                cursor += length
+                segment_rows = transcript_result_events(segment, provider)
+                check(f"attempt {index} transcript segment hash is pinned",
+                      "sha256:" + hashlib.sha256(segment).hexdigest()
+                      == attempt.get("transcriptSha256"))
+                check(f"attempt {index} transcript proves successful terminal event",
+                      len(segment_rows) == attempt.get("liveResultEvents")
+                      and bool(segment_rows)
+                      and (provider != "anthropic"
+                           or segment_rows[-1].get("is_error") is not True))
+            check("attempt transcript segments exactly cover retained transcript",
+                  segments_valid and cursor == len(raw))
             transcript_text = raw.decode("utf-8", errors="replace")
             check("retained transcript proves actual ITD skill and reference loading",
                   "skills/blueprint/SKILL.md" in transcript_text
@@ -327,7 +394,176 @@ def main() -> int:
     check("workflow uploads evidence even on failure",
           "if: always()" in workflow and "live-model-evidence" in workflow)
     runner = (ROOT / "tests" / "run-live-model-benchmark.py").read_text(encoding="utf-8")
+    runner_module = load_live_runner()
+    max_attempts = getattr(runner_module, "MAX_CANDIDATE_ATTEMPTS", None)
+    check("live candidate recovery is bounded to exactly two attempts",
+          max_attempts == 2)
+    check("mutation: one-shot candidate policy is rejected",
+          max_attempts == 2 and max_attempts != 1)
+    missing_outputs = getattr(runner_module, "missing_required_outputs", None)
+    recovery_decision = getattr(runner_module, "recovery_decision", None)
+    bounded_budget = getattr(runner_module, "bounded_attempt_budget", None)
+    workspace_parent_for = getattr(
+        runner_module, "workspace_temp_parent", None)
+    candidate_path_for = getattr(
+        runner_module, "candidate_workspace_path", None)
+    with tempfile.TemporaryDirectory(prefix="itd-live-verifier-") as tmp:
+        project = Path(tmp)
+        required_for_recovery = [
+            "STRATEGIC_PLAN.md", "PRD.md", "IMPLEMENTATION_PLAN.md",
+        ]
+        (project / "STRATEGIC_PLAN.md").write_text("existing\n", encoding="utf-8")
+        detected = (
+            missing_outputs(project, required_for_recovery)
+            if callable(missing_outputs) else None
+        )
+        check("bounded recovery detects only missing outputs",
+              detected == ["PRD.md", "IMPLEMENTATION_PLAN.md"])
+        first_decision = (
+            recovery_decision(project, required_for_recovery, 1)
+            if callable(recovery_decision) else (None, None)
+        )
+        first_missing, first_prompt = first_decision
+        check("partial first result schedules same-project continuation",
+              first_missing == ["PRD.md", "IMPLEMENTATION_PLAN.md"]
+              and isinstance(first_prompt, str)
+              and "same already-started repository" in first_prompt
+              and "`PRD.md`" in first_prompt
+              and "`IMPLEMENTATION_PLAN.md`" in first_prompt
+              and "`STRATEGIC_PLAN.md`" not in first_prompt)
+        second_decision = (
+            recovery_decision(project, required_for_recovery, 2)
+            if callable(recovery_decision) else (None, "unexpected")
+        )
+        check("bounded recovery cannot schedule a third attempt",
+              second_decision == (["PRD.md", "IMPLEMENTATION_PLAN.md"], None))
+    try:
+        per_attempt = (
+            Decimal(bounded_budget("5.00", 2))
+            if callable(bounded_budget) else Decimal("NaN")
+        )
+        budget_is_bounded = per_attempt > 0 and per_attempt * 2 <= Decimal("5.00")
+    except Exception:
+        budget_is_bounded = False
+    check("Anthropic budget is bounded across candidate attempts",
+          budget_is_bounded)
+    workspace_transport_ok = False
+    try:
+        with tempfile.TemporaryDirectory(prefix="itd-live-host-temp-") as host_tmp:
+            host_root = Path(host_tmp).resolve()
+            windows_parent = (
+                workspace_parent_for(
+                    "openai", "/mnt/c/tools/codex.exe",
+                    configured_root=str(host_root))
+                if callable(workspace_parent_for) else None
+            )
+            native_parent = (
+                workspace_parent_for(
+                    "openai", "/usr/bin/codex", configured_root="")
+                if callable(workspace_parent_for) else host_root
+            )
+            workspace_transport_ok = (
+                windows_parent == host_root and native_parent is None
+            )
+    except Exception:
+        workspace_transport_ok = False
+    check("Windows Codex bridge uses a host-writable temp root",
+          workspace_transport_ok)
+    candidate_path_ok = False
+    try:
+        candidate_path_ok = (
+            callable(candidate_path_for)
+            and candidate_path_for(
+                "openai", "/mnt/c/tools/codex.exe",
+                Path("/mnt/c/tmp/itd-live-model-123/project"))
+            == "C:\\tmp\\itd-live-model-123\\project"
+            and candidate_path_for(
+                "openai", "/usr/bin/codex",
+                Path("/tmp/itd-live-model-123/project"))
+            == "/tmp/itd-live-model-123/project"
+        )
+    except Exception:
+        candidate_path_ok = False
+    check("Windows Codex bridge receives a native Windows -C path",
+          candidate_path_ok)
+    check("runner creates the adopted project under the selected host temp root",
+          "dir=workspace_parent" in runner)
+    check("candidate command uses the translated workspace path",
+          '"-C", candidate_project' in runner)
+    check("headless Codex uses explicit no-escalation workspace-write policy",
+          'executable, "--ask-for-approval", "never",' in runner
+          and '"--sandbox", "workspace-write", "exec",' in runner)
+    check("candidate attempts share one total timeout deadline",
+          "deadline = time.monotonic() + args.timeout_seconds" in runner
+          and "remaining_seconds = deadline - time.monotonic()" in runner)
+    check("runner executes the explicit bounded recovery loop",
+          "for attempt_number in range(1, MAX_CANDIDATE_ATTEMPTS + 1)" in runner)
+    candidate_region = runner[
+        runner.index("        def archive_current("):
+        runner.index("        transcript_hash = sha256_bytes(transcript_raw)")
+    ]
+    candidate_failures_archive = (
+        "def archive_failed_run(" in runner
+        and '"failureArtifacts": {' in runner
+        and "transcript.jsonl.gz" in runner
+        and candidate_region.count("return archive_current(") >= 7
+        and "return fail(" not in candidate_region
+    )
+    check("all real candidate failures retain bounded diagnostic evidence",
+          candidate_failures_archive)
+    mutated_candidate_region = candidate_region.replace(
+        "return archive_current(", "return fail(", 1)
+    check("mutation: minimal real-candidate FAIL bypass is rejected",
+          candidate_failures_archive
+          and "return fail(" in mutated_candidate_region)
     fixture_dir = ROOT / "tests" / "fixtures" / "fixture-03-cli-tool"
+    diagnostic_ok = False
+    try:
+        evidence_parent = ROOT / "tests" / "fixtures" / "live-model-evidence"
+        with tempfile.TemporaryDirectory(
+                dir=evidence_parent, prefix=".diagnostic-selftest-") as evidence_tmp:
+            with tempfile.TemporaryDirectory(prefix="itd-live-failure-output-") as output_tmp:
+                output = Path(output_tmp)
+                (output / "PRD.md").write_text("partial\n", encoding="utf-8")
+                raw = b'{"type":"turn.completed"}\n'
+                attempt = {
+                    "attempt": 1,
+                    "exitCode": 0,
+                    "missingBefore": ["PRD.md", "IMPLEMENTATION_PLAN.md"],
+                    "missingAfter": ["IMPLEMENTATION_PLAN.md"],
+                    "liveResultEvents": 1,
+                    "isError": False,
+                    "transcriptBytes": len(raw),
+                    "transcriptSha256": runner_module.sha256_bytes(raw),
+                }
+                diagnostic_args = argparse.Namespace(
+                    evidence=Path(evidence_tmp) / "latest.json",
+                    resolved_provider="openai",
+                    provider="openai",
+                    fixture="fixture-03-cli-tool",
+                    model="",
+                )
+                with contextlib.redirect_stdout(io.StringIO()):
+                    code = runner_module.archive_failed_run(
+                        diagnostic_args, fixture_dir, output,
+                        ["PRD.md", "IMPLEMENTATION_PLAN.md"], raw, [attempt],
+                        "codex exec test", "synthetic bounded failure")
+                diagnostic = json.loads(
+                    diagnostic_args.evidence.read_text(encoding="utf-8"))
+                transcript_artifact = ROOT / diagnostic["candidate"]["transcriptArtifact"]
+                diagnostic_ok = (
+                    code == 1
+                    and diagnostic.get("status") == "FAIL"
+                    and diagnostic["failureArtifacts"]["presentFiles"] == ["PRD.md"]
+                    and diagnostic["failureArtifacts"]["missingRequiredFiles"]
+                    == ["IMPLEMENTATION_PLAN.md"]
+                    and transcript_artifact.is_file()
+                    and gzip.decompress(transcript_artifact.read_bytes()) == raw
+                )
+    except Exception:
+        diagnostic_ok = False
+    check("synthetic candidate failure is archived and replayable",
+          diagnostic_ok)
     live_prompt = (fixture_dir / "live-prompt.md").read_text(encoding="utf-8")
     snapshot = json.loads((fixture_dir / "expected-snapshot.json").read_text(encoding="utf-8"))
     required_outputs = ((snapshot.get("files") or {}).get("required") or [])

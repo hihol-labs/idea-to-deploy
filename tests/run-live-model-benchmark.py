@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one real headless-model fixture and persist replayable H4 evidence.
+"""Run a bounded real headless-model fixture and persist replayable H4 evidence.
 
 Exit 0 means both the live candidate and the independent snapshot oracle
 passed. Exit 3 means the external model cannot be run (missing CLI/auth); a
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 import gzip
 import hashlib
 import json
@@ -18,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +37,9 @@ METHODOLOGY_TREE_ROOTS = (
     "docs/host-adapters.json",
 )
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
+MAX_CANDIDATE_ATTEMPTS = 2
+
+
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -186,9 +191,9 @@ def required_files(snapshot: dict) -> list[str]:
     return clean
 
 
-def parse_result_events(stream: Path, provider: str) -> list[dict]:
+def parse_result_events_text(text: str, provider: str) -> list[dict]:
     rows: list[dict] = []
-    for line in stream.read_text(encoding="utf-8", errors="strict").splitlines():
+    for line in text.splitlines():
         if not line.strip():
             continue
         try:
@@ -201,6 +206,11 @@ def parse_result_events(stream: Path, provider: str) -> list[dict]:
     return rows
 
 
+def parse_result_events(stream: Path, provider: str) -> list[dict]:
+    return parse_result_events_text(
+        stream.read_text(encoding="utf-8", errors="strict"), provider)
+
+
 def fixture_prompt(fixture_dir: Path) -> str:
     prompt = fixture_dir / "live-prompt.md"
     if not prompt.is_file():
@@ -209,6 +219,106 @@ def fixture_prompt(fixture_dir: Path) -> str:
     if "$idea-to-deploy:blueprint" not in text:
         raise ValueError("live prompt does not explicitly invoke the ITD blueprint skill")
     return text
+
+
+def missing_required_outputs(project: Path, required: list[str]) -> list[str]:
+    """Return required outputs that are not regular files, preserving oracle order."""
+    return [rel for rel in required if not (project / rel).is_file()]
+
+
+def recovery_prompt(missing: list[str]) -> str:
+    if not missing:
+        raise ValueError("recovery requires at least one missing output")
+    rendered = "\n".join(f"- `{rel}`" for rel in missing)
+    return (
+        "Continue `$idea-to-deploy:blueprint --full` in this same already-started "
+        "repository. This is the single bounded recovery turn after a partial "
+        "first pass.\n\n"
+        "Inspect and preserve the valid documents already present. Do not delete "
+        "or recreate existing required outputs. Read and follow "
+        "`.itd-plugin/skills/blueprint/SKILL.md` and its directly required "
+        "`.itd-plugin/skills/blueprint/references/document-templates.md`. "
+        "Create and complete only these missing oracle-required files:\n"
+        f"{rendered}\n\n"
+        "Then verify the complete required set named in the original live prompt. "
+        "Do not substitute README content or a chat summary for any missing file. "
+        "Work autonomously; all blueprint confirmations remain pre-approved."
+    )
+
+
+def recovery_decision(project: Path, required: list[str],
+                      completed_attempts: int) -> tuple[list[str], str | None]:
+    """Return missing outputs and the next prompt, if the attempt bound permits it."""
+    missing = missing_required_outputs(project, required)
+    if not missing or completed_attempts >= MAX_CANDIDATE_ATTEMPTS:
+        return missing, None
+    return missing, recovery_prompt(missing)
+
+
+def bounded_attempt_budget(total_budget: str, attempts: int) -> str:
+    """Split an Anthropic cap so all possible attempts stay within the old total."""
+    if attempts < 1:
+        raise ValueError("attempt count must be positive")
+    try:
+        total = Decimal(total_budget)
+    except InvalidOperation as exc:
+        raise ValueError("budget must be a decimal number") from exc
+    if not total.is_finite() or total <= 0:
+        raise ValueError("budget must be positive and finite")
+    share = (total / Decimal(attempts)).quantize(
+        Decimal("0.01"), rounding=ROUND_DOWN)
+    if share <= 0:
+        raise ValueError("budget is too small for bounded attempts")
+    return format(share, ".2f")
+
+
+def is_windows_bridge_from_wsl(provider: str, executable: str) -> bool:
+    resolved_executable = Path(executable).resolve(strict=False)
+    return (
+        provider == "openai"
+        and os.name == "posix"
+        and resolved_executable.suffix.lower() == ".exe"
+    )
+
+
+def workspace_temp_parent(provider: str, executable: str,
+                          configured_root: str | None = None) -> Path | None:
+    """Select a temp root writable by the candidate host's own sandbox."""
+    configured = (
+        os.environ.get("ITD_LIVE_MODEL_TEMP_ROOT", "")
+        if configured_root is None else configured_root
+    )
+    if configured:
+        candidate = Path(configured).expanduser().resolve()
+        if not candidate.is_dir() or not os.access(candidate, os.W_OK):
+            raise ValueError(
+                f"configured live-model temp root is not writable: {candidate}")
+        return candidate
+
+    if not is_windows_bridge_from_wsl(provider, executable):
+        return None
+    candidate = Path("/mnt/c/tmp").resolve()
+    if not candidate.is_dir() or not os.access(candidate, os.W_OK):
+        raise ValueError(
+            "Windows Codex bridge requires a host-writable temp root; "
+            "create C:\\tmp or set ITD_LIVE_MODEL_TEMP_ROOT")
+    return candidate
+
+
+def candidate_workspace_path(provider: str, executable: str,
+                             project: Path) -> str:
+    """Translate a WSL mount path for a Windows candidate executable."""
+    resolved = project.resolve(strict=False)
+    if not is_windows_bridge_from_wsl(provider, executable):
+        return resolved.as_posix()
+    parts = resolved.parts
+    if (len(parts) < 4 or parts[0] != "/" or parts[1] != "mnt"
+            or len(parts[2]) != 1 or not parts[2].isalpha()):
+        raise ValueError(
+            f"Windows Codex bridge workspace is not a mounted drive path: {resolved}")
+    drive = parts[2].upper()
+    tail = "\\".join(parts[3:])
+    return f"{drive}:\\{tail}"
 
 
 def copy_path(source: Path, target: Path) -> None:
@@ -284,33 +394,35 @@ def resolve_provider(args: argparse.Namespace) -> tuple[str, str] | tuple[None, 
 
 
 def run_candidate(args: argparse.Namespace, executable: str, project: Path,
-                  plugin: Path, prompt: str) -> tuple[subprocess.CompletedProcess[str], str]:
+                  plugin: Path, prompt: str, *, timeout_seconds: float,
+                  attempt_budget: str,
+                  candidate_project: str) -> tuple[subprocess.CompletedProcess[str], str]:
     if args.resolved_provider == "anthropic":
         command = [
             executable, "-p", "--output-format", "stream-json", "--verbose",
             "--no-session-persistence", "--model", args.model or "sonnet",
             "--dangerously-skip-permissions", "--plugin-dir", str(plugin),
-            "--max-budget-usd", args.budget, prompt,
+            "--max-budget-usd", attempt_budget, prompt,
         ]
         completed = subprocess.run(
             command, cwd=project, capture_output=True, text=True,
-            timeout=args.timeout_seconds)
-        (project / ".run.stream.jsonl").write_text(completed.stdout, encoding="utf-8")
+            timeout=timeout_seconds)
         return completed, "claude -p --plugin-dir <current-itd>"
 
     command = [
-        executable, "exec", "--json", "--ephemeral", "--ignore-user-config",
+        executable, "--ask-for-approval", "never",
+        "--sandbox", "workspace-write", "exec",
+        "--json", "--ephemeral", "--ignore-user-config",
         "--config", 'model_reasoning_effort="medium"',
-        "--skip-git-repo-check", "--sandbox", "workspace-write",
-        "--dangerously-bypass-hook-trust", "-C", str(project),
+        "--skip-git-repo-check",
+        "--dangerously-bypass-hook-trust", "-C", candidate_project,
     ]
     if args.model:
         command.extend(["--model", args.model])
     command.append("-")
     completed = subprocess.run(
         command, cwd=project, input=prompt, capture_output=True,
-        text=True, timeout=args.timeout_seconds)
-    (project / ".run.stream.jsonl").write_text(completed.stdout, encoding="utf-8")
+        text=True, timeout=timeout_seconds)
     return completed, "codex exec --json --ephemeral --repository-local-itd"
 
 
@@ -319,6 +431,76 @@ def fail(args: argparse.Namespace, reason: str, *, code: int = 1) -> int:
     atomic_json(args.evidence, base_report(args, status, reason))
     print(f"{status}: {reason}")
     return code
+
+
+def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path,
+                       required: list[str], transcript_raw: bytes,
+                       attempts: list[dict], command_family: str,
+                       reason: str, oracle: dict | None = None) -> int:
+    """Retain bounded diagnostics for a real candidate failure."""
+    transcript_hash = sha256_bytes(transcript_raw)
+    run_id = (
+        utc_now().replace("-", "").replace(":", "")
+        + "-fail-" + transcript_hash[-8:]
+    )
+    evidence_root = args.evidence.parent.resolve()
+    run_dir = evidence_root / "runs" / run_id
+    archive_output = run_dir / "output"
+    archive_output.mkdir(parents=True, exist_ok=False)
+    present_hashes: dict[str, str] = {}
+    for rel in required:
+        source = output / rel
+        if not source.is_file():
+            continue
+        target = archive_output / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        present_hashes[rel] = sha256_file(target)
+    transcript_archive = run_dir / "transcript.jsonl.gz"
+    with gzip.open(transcript_archive, "wb", compresslevel=9) as handle:
+        handle.write(transcript_raw)
+
+    report = base_report(args, "FAIL", reason)
+    report.update({
+        "runId": run_id,
+        "runReport": (run_dir / "run-report.json").relative_to(ROOT).as_posix(),
+        "runArtifactDir": run_dir.relative_to(ROOT).as_posix(),
+        "candidate": {
+            "commandFamily": command_family,
+            "exitCode": attempts[-1].get("exitCode") if attempts else None,
+            "liveResultEvents": sum(
+                item.get("liveResultEvents", 0) for item in attempts),
+            "isError": any(item.get("isError") is True for item in attempts),
+            "attemptCount": len(attempts),
+            "recoveryTriggered": len(attempts) > 1,
+            "attempts": attempts,
+            "workspaceTransport": getattr(
+                args, "workspace_transport", "unknown"),
+            "approvalPolicy": "never-no-escalation",
+            "transcriptSha256": transcript_hash,
+            "transcriptArtifact": transcript_archive.relative_to(ROOT).as_posix(),
+            "transcriptGzipSha256": sha256_file(transcript_archive),
+        },
+        "harnessInvocation": {
+            "mode": "repository-local-adopted-project",
+            "skill": "$idea-to-deploy:blueprint",
+            "transcriptProvesSkillLoad": transcript_proves_harness(transcript_raw),
+            "methodologyTreeSha256": methodology_tree_sha256(),
+        },
+        "failureArtifacts": {
+            "outputDir": archive_output.relative_to(ROOT).as_posix(),
+            "presentFiles": list(present_hashes),
+            "missingRequiredFiles": missing_required_outputs(output, required),
+            "sha256": present_hashes,
+        },
+        "sourcePins": source_pins(fixture_dir, args.resolved_provider),
+    })
+    if oracle is not None:
+        report["independentVerdict"] = oracle
+    atomic_json(run_dir / "run-report.json", report)
+    atomic_json(args.evidence, report)
+    print(f"FAIL: {reason} -> {run_id}")
+    return 1
 
 
 def run(args: argparse.Namespace) -> int:
@@ -339,30 +521,136 @@ def run(args: argparse.Namespace) -> int:
     args.resolved_provider = provider
     try:
         prompt = fixture_prompt(fixture_dir)
+        required = required_files(snapshot)
     except ValueError as exc:
         return fail(args, str(exc))
+    try:
+        attempt_budget = (
+            bounded_attempt_budget(args.budget, MAX_CANDIDATE_ATTEMPTS)
+            if args.resolved_provider == "anthropic" else args.budget
+        )
+        workspace_parent = workspace_temp_parent(
+            args.resolved_provider, executable_or_reason)
+    except ValueError as exc:
+        return fail(args, str(exc))
+    args.workspace_transport = (
+        "host-mounted-temp" if workspace_parent is not None else "native-temp")
 
-    with tempfile.TemporaryDirectory(prefix="itd-live-model-") as tmp:
+    with tempfile.TemporaryDirectory(
+            prefix="itd-live-model-", dir=workspace_parent) as tmp:
         output, plugin = prepare_adopted_project(Path(tmp))
         try:
-            candidate, command_family = run_candidate(
-                args, executable_or_reason, output, plugin, prompt)
-        except subprocess.TimeoutExpired:
-            return fail(args, f"live candidate exceeded {args.timeout_seconds}s timeout")
-        if candidate.returncode != 0:
-            tail = (candidate.stdout + "\n" + candidate.stderr).strip().splitlines()[-1:]
-            return fail(args, "live candidate/oracle failed" + (f": {tail[0]}" if tail else ""))
-
+            candidate_project = candidate_workspace_path(
+                args.resolved_provider, executable_or_reason, output)
+        except ValueError as exc:
+            return fail(args, str(exc))
         stream = output / ".run.stream.jsonl"
-        if not stream.is_file():
-            return fail(args, "live candidate produced no stream transcript")
+        deadline = time.monotonic() + args.timeout_seconds
+        transcript_parts: list[bytes] = []
+        results: list[dict] = []
+        attempts: list[dict] = []
+        candidate: subprocess.CompletedProcess[str] | None = None
+        command_family = (
+            "claude -p --plugin-dir <current-itd>"
+            if args.resolved_provider == "anthropic"
+            else "codex exec --json --ephemeral --repository-local-itd"
+        )
+        attempt_prompt = prompt
+
+        def archive_current(reason: str, oracle: dict | None = None) -> int:
+            return archive_failed_run(
+                args, fixture_dir, output, required, b"".join(transcript_parts),
+                attempts, command_family, reason, oracle)
+
+        for attempt_number in range(1, MAX_CANDIDATE_ATTEMPTS + 1):
+            remaining_seconds = deadline - time.monotonic()
+            if remaining_seconds <= 0:
+                return archive_current(
+                    f"live candidate exceeded shared {args.timeout_seconds}s timeout")
+            missing_before = missing_required_outputs(output, required)
+            try:
+                candidate, command_family = run_candidate(
+                    args, executable_or_reason, output, plugin, attempt_prompt,
+                    timeout_seconds=remaining_seconds,
+                    attempt_budget=attempt_budget,
+                    candidate_project=candidate_project)
+            except subprocess.TimeoutExpired as exc:
+                partial = exc.stdout or b""
+                raw_part = (
+                    partial.encode("utf-8", errors="replace")
+                    if isinstance(partial, str) else bytes(partial)
+                )
+                if raw_part and not raw_part.endswith(b"\n"):
+                    raw_part += b"\n"
+                transcript_parts.append(raw_part)
+                stream.write_bytes(b"".join(transcript_parts))
+                attempt_results = parse_result_events_text(
+                    raw_part.decode("utf-8", errors="replace"),
+                    args.resolved_provider)
+                attempts.append({
+                    "attempt": attempt_number,
+                    "exitCode": None,
+                    "timedOut": True,
+                    "missingBefore": missing_before,
+                    "missingAfter": missing_required_outputs(output, required),
+                    "liveResultEvents": len(attempt_results),
+                    "isError": bool(
+                        attempt_results
+                        and attempt_results[-1].get("is_error")),
+                    "transcriptBytes": len(raw_part),
+                    "transcriptSha256": sha256_bytes(raw_part),
+                })
+                return archive_current(
+                    f"live candidate exceeded shared {args.timeout_seconds}s timeout")
+            raw_part = candidate.stdout.encode("utf-8")
+            if raw_part and not raw_part.endswith(b"\n"):
+                raw_part += b"\n"
+            transcript_parts.append(raw_part)
+            stream.write_bytes(b"".join(transcript_parts))
+            attempt_results = parse_result_events_text(
+                candidate.stdout, args.resolved_provider)
+            missing_after = missing_required_outputs(output, required)
+            attempts.append({
+                "attempt": attempt_number,
+                "exitCode": candidate.returncode,
+                "timedOut": False,
+                "missingBefore": missing_before,
+                "missingAfter": missing_after,
+                "liveResultEvents": len(attempt_results),
+                "isError": bool(
+                    attempt_results and attempt_results[-1].get("is_error")),
+                "transcriptBytes": len(raw_part),
+                "transcriptSha256": sha256_bytes(raw_part),
+            })
+            if candidate.returncode != 0:
+                tail = (candidate.stdout + "\n" + candidate.stderr).strip().splitlines()[-1:]
+                return archive_current(
+                    "live candidate failed"
+                    + (f": {tail[0]}" if tail else ""))
+            if not attempt_results or (
+                    args.resolved_provider == "anthropic"
+                    and attempt_results[-1].get("is_error") is True):
+                return archive_current(
+                    "live transcript has no successful result event")
+            results.extend(attempt_results)
+            _, next_prompt = recovery_decision(
+                output, required, attempt_number)
+            if not missing_after:
+                break
+            if next_prompt is None:
+                reason = (
+                    "bounded recovery exhausted; required outputs are still missing: "
+                    + ", ".join(missing_after)
+                )
+                return archive_current(reason)
+            attempt_prompt = next_prompt
+
+        if candidate is None or not stream.is_file():
+            return archive_current("live candidate produced no stream transcript")
         transcript_raw = stream.read_bytes()
-        results = parse_result_events(stream, args.resolved_provider)
-        if not results or (args.resolved_provider == "anthropic"
-                           and results[-1].get("is_error") is True):
-            return fail(args, "live transcript has no successful result event")
         if not transcript_proves_harness(transcript_raw):
-            return fail(args, "live transcript does not prove ITD blueprint skill/reference loading")
+            return archive_current(
+                "live transcript does not prove ITD blueprint skill/reference loading")
 
         oracle_command = [
             sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
@@ -373,13 +661,22 @@ def run(args: argparse.Namespace) -> int:
         if oracle.returncode != 0:
             detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
             bounded = " | ".join(detail[-4:])[:1200]
-            return fail(args, "independent snapshot oracle rejected live output"
-                        + (f": {bounded}" if bounded else ""))
+            reason = (
+                "independent snapshot oracle rejected live output"
+                + (f": {bounded}" if bounded else "")
+            )
+            return archive_current(reason, {
+                    "actor": "deterministic-external-oracle",
+                    "oracle": "tests/verify_snapshot.py",
+                    "exitCode": oracle.returncode,
+                    "status": "FAIL",
+                    "candidateSelfReportAccepted": False,
+                })
 
-        required = required_files(snapshot)
         for rel in required:
             if not (output / rel).is_file():
-                return fail(args, f"oracle passed but required output is missing: {rel}")
+                return archive_current(
+                    f"oracle passed but required output is missing: {rel}")
 
         transcript_hash = sha256_bytes(transcript_raw)
         run_id = utc_now().replace("-", "").replace(":", "") + "-" + transcript_hash[-8:]
@@ -398,7 +695,20 @@ def run(args: argparse.Namespace) -> int:
             handle.write(transcript_raw)
 
         last = results[-1]
-        report = base_report(args, "PASS", "live candidate passed independent snapshot oracle")
+        durations = [
+            row.get("duration_ms") for row in results
+            if isinstance(row.get("duration_ms"), (int, float))
+        ]
+        costs = [
+            row.get("total_cost_usd") for row in results
+            if isinstance(row.get("total_cost_usd"), (int, float))
+        ]
+        reason = (
+            "live candidate passed independent snapshot oracle after bounded recovery"
+            if len(attempts) > 1
+            else "live candidate passed independent snapshot oracle"
+        )
+        report = base_report(args, "PASS", reason)
         report.update({
             "runId": run_id,
             "runReport": (run_dir / "run-report.json").relative_to(ROOT).as_posix(),
@@ -409,8 +719,13 @@ def run(args: argparse.Namespace) -> int:
                 "liveResultEvents": len(results),
                 "resultSubtype": last.get("subtype"),
                 "isError": bool(last.get("is_error")),
-                "durationMs": last.get("duration_ms"),
-                "totalCostUsd": last.get("total_cost_usd"),
+                "durationMs": sum(durations) if durations else None,
+                "totalCostUsd": sum(costs) if costs else None,
+                "attemptCount": len(attempts),
+                "recoveryTriggered": len(attempts) > 1,
+                "attempts": attempts,
+                "workspaceTransport": args.workspace_transport,
+                "approvalPolicy": "never-no-escalation",
                 "transcriptSha256": transcript_hash,
                 "transcriptArtifact": transcript_archive.relative_to(ROOT).as_posix(),
                 "transcriptGzipSha256": sha256_file(transcript_archive),
