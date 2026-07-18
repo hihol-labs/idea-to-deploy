@@ -1,6 +1,6 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Актуальность: **2026-07-16**, idea-to-deploy **v1.91.0**.
+> Актуальность: **2026-07-18**, idea-to-deploy **v1.91.1**.
 > Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
@@ -13,7 +13,12 @@
 
 Учебник [«Харнес-инженерия»](https://walkinglabs.github.io/learn-harness-engineering/ru/) формализует дисциплину проектирования надёжных систем управления AI-агентами. Его центральный тезис: **задача не в том, чтобы сделать модель умнее, а в том, чтобы построить замкнутую «рабочую систему» (harness) с явными правилами и границами.** Курс выделяет 5 ключевых принципов и библиотеку готовых шаблонов (`AGENTS.md`, `feature_list.json`).
 
-`idea-to-deploy` — это методология (harness) поверх Claude Code. Документ применяет ту же дисциплину честного маппинга, что и [`DESIGN_SPACE.md`](DESIGN_SPACE.md) (карта против «Dive into Claude Code»), и отвечает на три вопроса:
+`idea-to-deploy` — это методология Harness Engineering поверх поддерживаемых
+agentic coding hosts. Каноническое ядро model-neutral на уровне контрактов,
+состояния и verification rules; сейчас validated adapters существуют для
+Claude Code и Codex. Документ не заявляет поддержку произвольного host/model.
+Он применяет ту же дисциплину честного маппинга, что и
+[`DESIGN_SPACE.md`](DESIGN_SPACE.md), и отвечает на три вопроса:
 
 1. **Что из 5 принципов покрыто** (✅).
 2. **Где покрытие частичное** и чего не хватает (◐).
@@ -43,11 +48,11 @@
 | Тезис курса | Статус | Воплощение |
 |---|:---:|---|
 | **«Harness важнее, чем умная модель»** — замкнутая система с явными правилами и границами | ✅ | 40 public skills + 10 agents + 29 hooks + 2 Quality Gates; vendor-neutral `.itd/`/`.itd-memory/` contracts и host adapters для Claude/Codex. |
-| **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = харнес над Claude Code. *Output* (порты Day-3/5): врезки проектируют харнес агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
+| **Харнес-инженерия как output** — методология не только *сама* харнес, но и *учит строить* харнес продукта пользователя | ✅ (v1.32.0–v1.33.0) | **Два слоя.** *Operating*: ITD = единый harness над поддерживаемым coding host через adapter. *Output*: врезки проектируют harness агента пользователя — память/контекст (`/blueprint` Step 1.6, `/security-audit` `MEM-1..7`), eval-петли (`/test`, `/harden` `EVAL-1`), Zero-Trust guardrails (`/harden` `ZT-1`, semantic gating = ASK). ADR-001: учим+аудируем, не движок |
 
 ### 4.2. 5 ключевых принципов
 
-| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.91.0) | Evidence / комментарий |
+| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.91.1) | Evidence / комментарий |
 |---|---|:---:|---|---|
 | **H1** | **Ограничение поведения** | ✅ | Graduated trust policy, 11 computational hard gates, explicit invocation, permission/scope contracts и полная Claude/Codex parity. | `verify_graduated_trust.py`, `verify_all_hard_gate_host_parity.py` |
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; статус-таблица `CLAUDE.md` для resume; автосохранение на вехах; `pre-flight-check.sh` (git + `MEMORY.md` в контекст); `session-open-diagnostic.sh`; `crash-recovery.sh`. **+ v1.21.0:** `context-budget.sh` (PreToolUse — мягко тормозит unbounded-дампы в контекст) + `UNIT_CONTEXT_MANIFEST.json` (свежий ограниченный per-node контекст) | Принцип «между сессиями» — полностью. Смежный `K4` (бюджетирование *внутри* сессии) теперь **частично закрыт** `context-budget.sh` (мягкое напоминание, не жёсткая budget-модель) — улучшение vs DESIGN_SPACE §5.2 |
@@ -59,7 +64,7 @@
 
 | # | Шаблон курса | Статус | Аналог в idea-to-deploy (v1.21.0) | Комментарий |
 |---|---|:---:|---|---|
-| **T1** | **`AGENTS.md`** — операционный манифест/память агента | ✅ | `CLAUDE.md` (нативный эквивалент) + `agents/*.md` (10 субагентов) + **слой `.itd/`** как машиночитаемый операционный манифест: `PROJECT_CONTRACT.md`, `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md` | Расхождение по имени закрыто в v1.84.0: `AGENTS.md`-алиас в корне репо (указатель на CLAUDE.md, кросс-тул-портируемость); `/adopt` предлагает такой же алиас проекту |
+| **T1** | **`AGENTS.md`** — операционный манифест/память агента | ✅ | Host guidance entry: `CLAUDE.md` для Claude Code, `AGENTS.md` для Codex; роли в `agents/*.md`; load-bearing машиночитаемый слой `.itd/` (`PROJECT_CONTRACT.md`, `EXECUTION_POLICY.json`, `PERMISSION_MATRIX.md`, `DATA_POLICY.md`, `FALLBACK_POLICY.md`) | Имена guidance-файлов adapter-specific; канонические state/completion contracts остаются host-neutral |
 | **T2** | **`feature_list.json`** — машиночитаемый реестр «сделано/протестировано» против преждевременного завершения | ✅ | **`ACCEPTANCE_CONTRACT.json`** (v1.21.0): машиночитаемый proof-checklist критериев приёмки, выведенный из запроса пользователя, со схемой (`id/criterion/source/evidence/verificationCommand/status`) и `doneRule` **fail-closed** + **`VERIFICATION_CONTRACT.json`** (исполняемые команды верификации, `failClosed`) | **Намерение курса реализовано и усилено** (fail-closed). Отличие по форме: это per-unit контракт приёмки от запроса, а не персистентный мульти-фичный ledger проекта. Для большинства задач функционально эквивалентно (и строже). **v1.44.0 закрывает и форму**: `/goal` ведёт персистентный мульти-юнитный реестр цели `.itd-memory/GOAL.json` (schema `goal.schema.json`, валидация `validate_state.py`) поверх per-unit контрактов — прогресс долгой цели переживает смерть сессии программно |
 
 ### 4.4. Ось I: Initialization phase & handoff-readiness (первоисточник Anthropic, добавлена v1.40.0)

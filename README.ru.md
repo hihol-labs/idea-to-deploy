@@ -1,26 +1,28 @@
 # idea-to-deploy
 
-> Полная методология жизненного цикла проекта для Claude Code — от идеи до задеплоенного продукта одной командой.
+> Методология Harness Engineering для надёжной агентной разработки с
+> модельно-нейтральным ядром контрактов, состояния и верификации.
 
-**Установка за 30 секунд:**
-
-```bash
-/plugin install hihol-labs/idea-to-deploy
-```
-
-Затем просто опишите задачу в Claude Code — методология сама направит в нужный скилл. [Полный гайд по установке](#быстрый-старт) · [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
+Единое каноническое ядро сейчас упаковано и проверено для **Claude Code** и
+**OpenAI Codex** через host adapters. Другие агентные среды — архитектурная
+точка расширения, а не заявленная поддержка. [Выбрать host](#быстрый-старт) ·
+[Архитектура](#архитектура-и-портируемость) ·
+[End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.91.0](https://img.shields.io/badge/Version-1.91.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.91.1](https://img.shields.io/badge/Version-1.91.1-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
-[![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
+[![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
 
 **[English version (README.md)](README.md)** · **[Changelog](CHANGELOG.md)** · **[Контрибьютинг](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> Этот репозиторий — **плагин для Claude Code** (см. `.claude-plugin/plugin.json`). Установка регистрирует 40 скиллов и 10 субагентов в вашем окружении Claude Code — это не самостоятельный CLI.
+> **Idea to Deploy — название продукта; Harness Engineering — категория
+> методологии.** Репозиторий содержит единое ядро и отдельные пакеты для
+> [Claude Code](.claude-plugin/plugin.json) и
+> [Codex](.codex-plugin/plugin.json). Это не самостоятельный CLI.
 
 ## Демо
 
@@ -29,12 +31,14 @@
 </p>
 
 > Смотрите также [End-to-End пример](#end-to-end-пример) ниже — пошаговый разбор реального запуска.
+> Запись сделана до появления Codex adapter и показывает transport Claude Code;
+> lifecycle и verification contracts у двух host’ов общие.
 
 ---
 
 ## Проблема
 
-Claude Code мощный, но без инструкций работает как строитель без чертежа:
+AI coding agents мощные, но без harness работают как строители без чертежа:
 - Пишет код хаотично, пропускает тесты, не документирует
 - Каждый раз выдаёт разную структуру и качество
 - Может сломать то, что уже работает
@@ -42,7 +46,9 @@ Claude Code мощный, но без инструкций работает ка
 
 ## Решение
 
-**idea-to-deploy** — это методология, а не просто набор инструментов. 40 скиллов + 10 специализированных агентов, которые превращают Claude Code в профессионального разработчика с проверенным конвейером:
+**idea-to-deploy** — это методология, а не просто набор инструментов. Её
+40 скиллов, 10 ролей агентов, 29 хуков, проектные контракты и персистентное
+состояние дают поддерживаемому coding host доказательный конвейер:
 
 ```
 Идея → Вопросы → План → Архитектура → Код → Тесты → Ревью → Деплой
@@ -50,24 +56,49 @@ Claude Code мощный, но без инструкций работает ка
 
 Каждый шаг проверяется. Каждая фича тестируется. Каждое решение документируется. Каждая сессия сохраняется.
 
+## Архитектура и портируемость
+
+```text
+                     Idea to Deploy
+       каноническое ядро методологии Harness Engineering
+    skills · .itd contracts · .itd-memory · hooks · tests
+                           |
+                 host adapter contract
+                  /                     \
+       Claude Code adapter          Codex adapter
+       CLAUDE.md / hooks       AGENTS.md / dispatcher
+```
+
+Host adapters переводят packaging, guidance-файлы, имена tools, hook events и
+transport субагентов. Они не могут форкать критерии завершения, risk policy,
+персистентное состояние или семантику скиллов. См.
+[host adapter contract](docs/HOST_ADAPTER_CONTRACT.md).
+
+| Host | Статус | Guidance entry | Граница evidence |
+|---|---|---|---|
+| Claude Code | Поддерживается | `CLAUDE.md` | Нативные plugin, skills, agents и hooks |
+| OpenAI Codex | Поддерживается | `AGENTS.md` | Нативный пакет + проверенная нормализация hooks/tools |
+| Другие agent hosts | Не проверены | Определяет adapter | Нужны adapter, описанные деградации и parity evidence |
+
+**Что здесь означает «модельно-нейтральное»:** load-bearing контракты,
+состояние, gates и правила evidence не зависят от имени конкретной модели.
+Это **не** означает работу любой модели или host из коробки, одинаковые
+возможности всех host’ов или доказанную эквивалентность model recommendations.
+
 ## Быстрый старт
 
-### Установка
+### Claude Code
 
-**Требования:**
-- [Claude Code](https://claude.com/claude-code) CLI ≥ 2.0 (или расширение для VS Code / JetBrains) с поддержкой плагинов
-- Подписка Claude Pro / Team / Enterprise
-- `git` в `PATH` (используется несколькими скиллами)
+**Требования:** Claude Code CLI ≥ 2.0 (или расширение VS Code / JetBrains) с
+plugin support, подходящая подписка Claude и `git` в `PATH`.
 
-**Установка плагина:**
+Установите Claude Code adapter:
 
 ```bash
 /plugin install hihol-labs/idea-to-deploy
 ```
 
-**Проверка установки:**
-
-После установки скиллы и агенты регистрируются по пути:
+Скиллы и агенты регистрируются по пути:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
@@ -76,7 +107,7 @@ Claude Code мощный, но без инструкций работает ка
   └── hooks/           # опциональные хуки-энфорсеры (не ставятся автоматически)
 ```
 
-Быстрая проверка внутри Claude Code:
+Проверка внутри Claude Code:
 
 ```
 /project
@@ -84,29 +115,41 @@ Claude Code мощный, но без инструкций работает ка
 
 Если появился промпт роутера с вариантами А / Б / В — плагин работает.
 
-**Обновление:**
+Обновление:
 
 ```bash
 /plugin update hihol-labs/idea-to-deploy
 ```
 
-**Удаление:**
+Удаление:
 
 ```bash
 /plugin uninstall hihol-labs/idea-to-deploy
 ```
 
-Заметки о релизах — в [CHANGELOG](CHANGELOG.md).
+### OpenAI Codex
+
+Включите репозиторий через обычный plugin UI Codex и перед доверием проверьте
+встроенные command hooks командой `/hooks`. Codex adapter использует
+`.codex-plugin/plugin.json`, `AGENTS.md` и автоматическое обнаружение
+`hooks/hooks.json`.
+
+Для repository-local checkout вместо установленного пакета следуйте
+[настройке Codex adapter](docs/CODEX_ADAPTER.md#enable-and-trust): там описаны
+fallback `.codex/hooks.json` и известные transport differences.
+
+Для обоих host’ов нужен `git`. Заметки о релизах — в
+[CHANGELOG](CHANGELOG.md).
 
 ### Использование
 
-Просто скажите что хотите:
+В любом поддерживаемом host опишите задачу:
 
 ```
 Хочу создать сервис доставки еды
 ```
 
-Claude Code:
+Активный host adapter:
 1. Спросит какой маршрут предпочитаете (полный цикл / только план / есть документы)
 2. Задаст уточняющие вопросы о проекте
 3. Сгенерирует архитектуру и документацию
@@ -160,22 +203,26 @@ Claude Code:
 
 ```
 Вы:    Хочу Telegram-бота для учёта тренировок в зале
-Claude: [/project] А, Б или В?
+Агент: [/project] А, Б или В?
 Вы:    А
-Claude: [/kickstart] задаёт 6 уточняющих вопросов
+Агент: [/kickstart] задаёт 6 уточняющих вопросов
         (пользователи? авторизация? БД? хостинг? бюджет? срок?)
 Вы:    личное использование, без auth, SQLite, локально, $0, за выходные
-Claude: генерирует STRATEGIC_PLAN, PROJECT_ARCHITECTURE,
+Агент: генерирует STRATEGIC_PLAN, PROJECT_ARCHITECTURE,
         IMPLEMENTATION_PLAN, PRD, README, CLAUDE_CODE_GUIDE, CLAUDE.md
         запускает /review → PASSED_WITH_WARNINGS (2 мелочи)
         показывает план, спрашивает: "Одобряете и начинаем код?"
 Вы:    да
-Claude: Шаг 1/9 — скаффолд проекта, коммит
+Агент: Шаг 1/9 — скаффолд проекта, коммит
         Шаг 2/9 — модели БД + /test
         ...
         Шаг 9/9 — скрипт деплоя + обновление README
         Готово. 42 теста зелёные. Ваш бот готов.
 ```
+
+Имена `CLAUDE.md` и `CLAUDE_CODE_GUIDE.md` в примере — текущие
+legacy-compatible выходы генераторов, а не заявление о Claude-only ядре.
+Host-neutral naming выходных артефактов остаётся отдельной задачей.
 
 **Reference-фикстуры:** воспроизводимые golden-path сценарии, которые использует test runner, лежат в [`tests/fixtures/`](tests/fixtures/). Запуск — [`tests/run-fixtures.sh`](tests/run-fixtures.sh), чтобы увидеть поведение каждого скилла на известном входе.
 
@@ -187,7 +234,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 |-------|----------|
 | `/project` | Маршрутизатор для **создания** нового — задаёт один вопрос и направляет в /kickstart, /blueprint или /guide |
 | `/task` | Маршрутизатор для **работы с существующим кодом** — направляет в нужный daily-work скилл (/bugfix, /refactor, /doc, /test, /perf, /review, …) по типу задачи |
-| `/adopt` | **Новое в v1.20.0.** Адоптация legacy-проекта в методологию — добавляет идемпотентный блок в `CLAUDE.md`, регистрирует project-level хуки в `.claude/settings.json`, бутстрапит memory dir, затем voice-chain в `/strategy` или `/blueprint` для plan-документов. Без reverse-engineering планов. |
+| `/adopt` | Адоптация legacy-проекта через активный host adapter: `CLAUDE.md` + `.claude/settings.json` в Claude Code или `AGENTS.md` + Codex hooks в Codex; затем bootstrap канонических `.itd/` и `.itd-memory/`. Без reverse-engineering планов. |
 | `/discover` | **Новое в v1.17.0.** Фаза product discovery — анализ рынка (TAM/SAM/SOM), исследование конкурентов, пользовательские персоны, приоритизация фич (MoSCoW + RICE). Генерирует `DISCOVERY.md` для `/blueprint`. |
 | `/strategy` | **Новое в v1.19.0.** Стратегический пересмотр существующих проектов — gap-анализ по 5 измерениям, генерация вариантов с devil's advocate, ADR для pivot-решений, обновление LAUNCH_PLAN.md. |
 | `/advisor` | **Новое в v1.19.0.** Советник/консалтинг-режим — только анализ (без изменения кода), многоперспективная оценка через business-analyst + devils-advocate субагентов. |
@@ -242,7 +289,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 | Скилл | Описание |
 |-------|----------|
-| `/session-save` | Сохранение контекста сессии в память проекта — что сделано, ключевые решения, блокеры, следующие шаги. Обеспечивает непрерывность между сессиями Claude Code. |
+| `/session-save` | Сохранение контекста в каноническую project-local память — что сделано, решения, блокеры, следующий шаг. Обеспечивает непрерывность между сессиями поддерживаемых host’ов. |
 | `/autopilot` | Авто-пайплайн: запускает discover → blueprint → kickstart → review → test с минимальным участием человека (вдохновлён GSD). Берёт идею проекта и выдаёт полный проект с документами, кодом, тестами и ревью. |
 | `/handoff` | **Новое в v1.21.0.** Пишет компактный пакет контекста `HANDOFF.md` для передачи работы следующей сессии/агенту, когда обратного пути нет — компакция, делегирование, AFK-прогон или восстановление. Отличается от `/session-save` (сохранение вехи). |
 | `/goal` | **Новое в v1.44.0.** Режим долгой цели — декомпозирует цель на несколько сессий в упорядоченные проверяемые юниты в `.itd-memory/GOAL.json` (с одобрением пользователя), ведёт их по одному через штатный конвейер `/task` (WIP=1, `verified` только с evidence) и возобновляется между сессиями с первого не-verified юнита. Bounded-контур теперь исполняет наблюдаемые token/time/attempt stops, выбирает цену checker по запечатанному risk tier, выдаёт checkpoint ≤4 КБ и оценивает чистые A/B evidence детерминированным anti-Goodhart evaluator 5/5. Brownfield-first; не обходит `/review`, `/test` и DoD. |
@@ -290,7 +337,7 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 ## Контракты скиллов
 
-> **Для пользователей:** в обычной работе **вам не нужно вызывать скиллы вручную**. Опишите задачу обычным языком (*«хочу сделать X»*, *«почини баг»*, *«напиши тесты для этой функции»*) — Claude Code сам направит вас в нужный скилл через [хуки обнаружения скиллов](hooks/README.md) и матчинг триггер-фраз в теле каждого скилла. Скиллы также вызывают друг друга по цепочке — см. секцию [Граф вызовов](#граф-вызовов) ниже. Таблица контрактов существует для отладки, контрибьюций и продвинутых пользователей, которым нужен явный контроль; это **не** «список команд, которые нужно заучивать».
+> **Для пользователей:** обычно **не нужно вызывать скиллы вручную**. Опишите задачу обычным языком — активный host adapter направит её через skill discovery и matching триггер-фраз. Скиллы также вызывают друг друга по цепочке — см. [Граф вызовов](#граф-вызовов). Таблица контрактов нужна для отладки, контрибьюций и явного контроля; это **не** список команд для заучивания.
 
 У каждого скилла есть задокументированный контракт — что он читает, что пишет, какие у него побочные эффекты и безопасно ли запускать его дважды.
 
@@ -314,13 +361,13 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 | `/migrate` | Файл миграции/`next`/сырой SQL | Применённая миграция + файл бэкапа + отчёт с путём отката | Мутация схемы БД, файл бэкапа в /tmp | ⚠️ Отказывается на проде без подтверждения |
 | `/harden` | Сервис/директория/`all` | Отчёт + опциональные сгенерированные артефакты (health route, lifespan, logger, k6 скрипт, runbook) | Только добавление кода с согласия пользователя, без удалений | ⚠️ Генерация артефактов stateful |
 | `/infra` | Preset стека + target (do/aws/hetzner/k8s) | Terraform-модули ИЛИ Helm chart + README с командами деплоя | Новые файлы в `infra/`; не дергает cloud API (со стороны облака — read-only) | ✅ Генерация детерминирована по входу |
-| `/session-save` | Сигнал завершения сессии или явный вызов | `session_YYYY-MM-DD.md` + обновление MEMORY.md | Запись в `~/.claude/projects/` директорию памяти | ✅ Создаёт новый файл каждый раз |
+| `/session-save` | Сигнал завершения сессии или явный вызов | Project-local checkpoint `.itd-memory/session_*.md` + обновление `MEMORY.md` | Записывает каноническое continuity-state в `.itd-memory/`; host-private mirror только опционален | ✅ Создаёт новый checkpoint |
 | `/autopilot` | Идея проекта (текст) | Полный проект: документы + код + тесты + отчёт ревью | Git-коммиты, создание файлов, возможный деплой (запускает цепочку discover → blueprint → kickstart → review → test) | ⚠️ Stateful-пайплайн с несколькими фазами |
 | `/strategy` | Существующий проект + контекст изменений | Обновлённый `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | Запись файлов (только план-документы, не код) | ✅ Создаёт/перезаписывает план-документы |
 | `/migrate-prod` | Source хост + target хост + список сервисов | `MIGRATION_PLAN.md` + выполненные шаги миграции | SSH, Docker, DNS-изменения, дампы БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
 | `/advisor` | Вопрос, сравнение или стратегическое решение | Аналитический отчёт (stdout) — pros/cons/risks | Нет (read-only по дизайну, без Write/Edit) | ✅ |
 | `/deploy` | Имя сервиса (`web`, `all` или конкретный) + git HEAD | Задеплоенные контейнеры + результат healthcheck (stdout) | SSH к целевому хосту, синхронизация файлов, Docker build, рестарт контейнеров, опционально миграции БД — **production impact** | ⚠️ Production-операции, требует подтверждения |
-| `/adopt` | Путь к legacy-репозиторию (по умолчанию `cwd`) + опциональный флаг `skip-chain` | `CLAUDE.md` (append-with-marker если существует), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | Пишет в корень проекта и в memory dir проекта (никогда не трогает `~/.claude/settings.json`); voice-chain вызывает `/strategy` или `/blueprint` | ✅ Идемпотентность через маркер — повторы = no-op |
+| `/adopt` | Путь к существующему репозиторию + `skip-chain` | Host guidance/config (`CLAUDE.md` + `.claude/settings.json` или `AGENTS.md` + Codex hooks), канонические `.itd/`, `.itd-memory/` | Только project-local записи; voice-chain в `/strategy` или `/blueprint` | ✅ Идемпотентность через маркер |
 | `/grill-me` | План / дизайн / архитектура / решение (текст или репо) | Нет — вопросы + анализ (stdout); артефакт только по явной просьбе | Нет (read-only по умолчанию; без Write/Edit) | ✅ |
 | `/handoff` | Состояние проекта + причина передачи (компакция / делегирование / AFK / восстановление) | `HANDOFF.md` (пакет контекста) + обновление `STATE.json` | Memory-write (`HANDOFF.md` в корне + `STATE.json`); без изменений кода | ✅ Перезаписывает пакет при каждом запуске |
 | `/goal` | Текст цели (пусто = resume активной цели) | `.itd-memory/GOAL.json` (персистентный реестр юнитов) + unit-события в `events.jsonl`; опциональные sealed `runPolicy`, журнал попыток и типизированные остановки по бюджету; юниты поставляются через штатный конвейер `/task` | Только memory-write; изменения кода — внутри `/task` под его гейтами | ✅ Resume-only — активный реестр никогда не пересоздаётся |
@@ -393,15 +440,36 @@ Claude: Шаг 1/9 — скаффолд проекта, коммит
 
 **Защита от рекурсии:** ни один скилл не вызывает сам себя напрямую или через цепочку. Максимальная наблюдаемая глубина — 3 (`/project` → `/kickstart` → `/review` или любой другой depth-3 скилл). Если вы видите более глубокую цепочку или цикл — это баг, заведите issue.
 
-## Рекомендуемая настройка: хуки обнаружения скиллов
+## Taxonomy хуков и настройка Claude Code
 
-> **Важно:** хуки — это **опциональный отдельный шаг**. `/plugin install` регистрирует скиллы и агентов, но намеренно **не** пишет в `~/.claude/settings.json` и не ставит глобальные хуки — это остаётся явным решением пользователя. Если пропустить эту секцию, методология всё равно работает; хуки лишь повышают частоту срабатывания скиллов на неоднозначных промптах.
+> **Примечание для Claude Code adapter:** глобальные hooks — **опциональный
+> отдельный шаг**. `/plugin install` регистрирует skills и agents, но не пишет
+> `~/.claude/settings.json`. Codex использует bundled adapter registration;
+> копировать в него эти Claude-пути не нужно.
 
-Методология работает только если Claude реально вызывает скиллы. Совпадения триггеров в `description` необходимы, но недостаточны — под давлением или на неоднозначных промптах Claude может скатиться в ad-hoc tool calls. Папка `hooks/` содержит **28 хуков** — но это число смешивает две разные вещи. **10 из них — жёсткие гейты**, которые реально останавливают действие (`permissionDecision: "deny"` на PreToolUse либо `decision: "block"` на SubagentStop, exit 2); остальные **18 — мягкие** (напоминания, инжект контекста, наблюдаемость, самокоррекция — всегда exit 0, никогда не блокируют). Сила enforcement'а харнеса — это **10 жёстких гейтов, а не 28**. Полная таблица (10 жёстких + 18 мягких) и метрика «hard-gate coverage» — в англоязычном [README.md](README.md); тест `tests/verify_gate_taxonomy.py` держит таблицу в синхроне с `hooks/`.
+Методология эффективна, только если активный host вызывает подходящие skills.
+На неоднозначном промпте агент может скатиться в ad-hoc tools. Папка `hooks/`
+содержит **29 хуков: 11 hard gates и 18 soft hooks**. Сила enforcement —
+это **11 hard gates, а не 29**; полная таблица и метрика 11/11 behavioural
+coverage — в [README.md](README.md), синхронизацию держит
+`tests/verify_gate_taxonomy.py`.
 
-**8 жёстких гейтов:** `check-review-before-commit`, `check-dod-before-commit`, `check-commit-completeness`, `check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`, `narration-final`, `verdict-contract`. **16 мягких:** `careful`, `check-skills`, `context-aware`, `context-budget`, `cost-tracker`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate`.
+**11 hard gates:** `check-review-before-commit`,
+`check-dod-before-commit`, `check-commit-completeness`,
+`check-skill-completeness`, `check-tool-skill`, `pii-egress-guard`,
+`cost-tracker`, `narration-final`, `verdict-contract`,
+`completion-gate`, `state-guard`.
 
-**Рекомендуемый способ — одна команда:**
+**18 soft hooks:** `careful`, `check-skills`, `completion-signals`,
+`completion-stop`, `context-aware`, `context-budget`, `crash-recovery`,
+`cross-review-precommit`, `execution-trace`, `freeze`,
+`handoff-readiness`, `model-policy`, `pre-flight-check`,
+`record-agent-skill`, `risk-score`, `session-open-diagnostic`,
+`stuck-detection`, `wip-gate`.
+
+### Глобальная установка hooks для Claude Code
+
+Рекомендуемый способ — одна команда:
 
 ```bash
 git clone https://github.com/hihol-labs/idea-to-deploy ~/idea-to-deploy-src
@@ -409,6 +477,10 @@ cd ~/idea-to-deploy-src && bash scripts/sync-to-active.sh
 ```
 
 Скрипт копирует все хуки в `~/.claude/hooks/`, патчит `~/.claude/settings.json` для их регистрации и синхронизирует последние определения скиллов/агентов. Идемпотентен — при повторном запуске обновляются только изменённые файлы.
+
+Codex adapter вместо этого обнаруживает bundled `hooks/hooks.json`. Проверьте
+его через `/hooks`; repository-local fallback описан в
+[`docs/CODEX_ADAPTER.md`](docs/CODEX_ADAPTER.md#enable-and-trust).
 
 <details>
 <summary>Ручная установка (если хотите видеть каждый шаг)</summary>
@@ -426,16 +498,17 @@ chmod +x ~/.claude/hooks/*.sh
 
 </details>
 
-Затем добавьте блок `hooks` в `~/.claude/settings.json` (или дайте `sync-to-active.sh` сделать это за вас) — полные инструкции, сниппет settings.json и пайп-тесты в [`hooks/README.md`](hooks/README.md).
-
 После установки:
-- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — запускается перед каждым пользовательским промптом. Загружает `git log`, `git status` и индекс памяти проекта (`MEMORY.md`) в контекст Claude, и предупреждает, если параллельная Claude-сессия касалась проекта в последние 10 минут (через `.active-session.lock`). **Мягкая инжекция контекста — не блокирует.** Предотвращает класс инцидентов v1.13.2, когда две параллельные сессии независимо чинили один и тот же drift.
+- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — запускается перед каждым промптом. Загружает `git log`, `git status` и `MEMORY.md` в контекст активного host и предупреждает о параллельной сессии через `.active-session.lock`. **Мягкая инжекция — не блокирует.**
 - **`check-skills.sh` (UserPromptSubmit)** — сканирует каждый промпт на ~80 русских/английских триггеров и инжектит напоминание `[SKILL HINT]`, если скилл подходит. **Мягкое напоминание — не блокирует.**
-- **`check-tool-skill.sh` (PreToolUse на Bash/Edit/Write/NotebookEdit)** — инжектит напоминание `[SKILL CHECK]` перед сырыми tool calls, rate-limited до одного напоминания в 60 секунд. **Мягкое напоминание — не блокирует.**
+- **`check-tool-skill.sh` (PreToolUse на Bash/Edit/Write/NotebookEdit)** — инжектит `[SKILL CHECK]` перед raw tool calls; после трёх подряд проигнорированных skill decisions даёт deterministic deny. Skill-active grace window и read-only allowlist снижают шум.
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse на Write/Edit/MultiEdit)** — **до** любой правки `skills/*/SKILL.md` внутри методологического репозитория парсит pending tool input и проверяет наличие `references/`, триггеров в промпт-хуке и регрессионного фикстура. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — Write не запустится, файл не попадёт на диск.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse на Bash)** — перед любым `git commit` внутри методологического репозитория парсит staged diff и отказывает в коммите, если staged файл скилла без поддерживающих артефактов. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — коммит не запустится.**
 
-Все хуки (их 27) срабатывают сразу — перезапуск Claude Code не нужен. Два v1.5.1 enforcement-хука активны только внутри методологического репозитория (детект через `.claude-plugin/plugin.json`); на сторонних проектах это no-op. Два v1.17.0 safety-хука (`careful.sh`, `freeze.sh`) и v1.21 observability-хук `execution-trace.sh` активируются по запросу пользователя. Pre-flight хук работает на любом проекте с распознанной директорией памяти; если памяти нет, он инжектит пустой блок контекста без предупреждения.
+Все 29 хуков регистрируются каноническими adapters. `handoff-readiness.sh`
+мягкий и rate-limited; methodology-only hooks делают no-op на чужих проектах.
+`execution-trace.sh` записывает intent/outcome, а `cost-tracker.sh` разделяет
+estimated и host-observed tokens. Reload-поведение остаётся host-specific.
 
 > **Почему это важно:** в ретроспективе продакшен-инцидента 2026-04-07 Claude Code (Opus 4.6) потратил ~2 часа на прямую работу через SSH/sed/curl для починки auth-аутриджа. `/bugfix` был бы правильным инструментом. Его никто не вызвал — ничто не заставило. Эти хуки — ответ. Полный кейс-стади в `hooks/README.md`.
 
@@ -459,6 +532,12 @@ chmod +x ~/.claude/hooks/*.sh
 - 3 подряд фейла → STOP и запрос инструкций у пользователя (никаких бесконечных ретраев)
 
 ## Что генерируется
+
+Shared generators пока сохраняют legacy-compatible имена `CLAUDE.md` и
+`CLAUDE_CODE_GUIDE.md`. Claude Code потребляет их нативно; Codex adoption
+использует `AGENTS.md`, а каноническое состояние завершения и continuity
+лежит в `.itd/` и `.itd-memory/`. Этот naming residue раскрыт явно и не
+выдаётся за полную нейтральность output-layer.
 
 ### Маршрут А (Полный цикл) создаёт:
 
@@ -490,7 +569,9 @@ chmod +x ~/.claude/hooks/*.sh
 **1 документ:**
 - `CLAUDE_CODE_GUIDE.md` — пошаговые промпты на основе вашей существующей документации
 
-Берёт вашу готовую архитектуру, план и требования — и превращает их в готовые промпты. Копируете промпт, вставляете в Claude Code, получаете результат, переходите к следующему шагу. Полный ручной контроль над каждым этапом.
+Берёт готовую архитектуру, план и требования и превращает их в пошаговые
+промпты. Запускайте каждый промпт в активном поддерживаемом host, проверяйте
+результат и переходите дальше.
 
 ## Переключение между маршрутами
 
@@ -509,6 +590,11 @@ chmod +x ~/.claude/hooks/*.sh
 
 
 ## Рекомендуемые модели
+
+> **Граница портируемости:** таблица ниже — текущее отображение для **Claude
+> Code adapter** (Haiku/Sonnet/Opus и `/model`), а не provider-neutral
+> benchmark. Codex использует нативные model/effort controls, сохраняя общие
+> risk-tier и evidence floors. Для других providers эквивалентность не заявлена.
 
 Начиная с v1.3.0, рекомендуемая модель также прописана в теле каждого скилла в секции `## Recommended model`. Таблица ниже — те же данные в сводной форме. `/blueprint` и `/kickstart` автоматически откатываются в Lite-режим на Sonnet и отказываются работать на Haiku.
 
@@ -608,13 +694,19 @@ chmod +x ~/.claude/hooks/*.sh
 ## Траблшутинг / FAQ
 
 **Скилл не вызывается, когда я ожидаю.**
-Claude Code может скатиться в ad-hoc tool calls на неоднозначных промптах. Установите [хуки обнаружения скиллов](#рекомендуемая-настройка-хуки-обнаружения-скиллов) — они инжектят напоминания `[SKILL HINT]` и `[SKILL CHECK]`, что заметно поднимает частоту срабатывания. Можно также вызвать скилл явно: `/bugfix`, `/test` и т.д.
+Agent host может скатиться в ad-hoc tool calls на неоднозначном промпте.
+Проверьте, что adapter и hooks включены; discovery hooks инжектят
+`[SKILL HINT]` и `[SKILL CHECK]`. Скилл можно назвать явно: `/bugfix`,
+`/test` и т.д.
 
-**Как обновить плагин?**
+**Как обновить Claude Code adapter?**
 `/plugin update hihol-labs/idea-to-deploy`. Что изменилось — в [CHANGELOG](CHANGELOG.md).
 
-**Как удалить?**
+**Как удалить Claude Code adapter?**
 `/plugin uninstall hihol-labs/idea-to-deploy`. Хуки в `~/.claude/settings.json` (если вы их ставили) нужно удалить вручную.
+
+Для Codex используйте обычный plugin UI; детали — в
+[Codex adapter](docs/CODEX_ADAPTER.md).
 
 **Конфликты с другими плагинами.**
 Скиллы неймспейсятся по плагину, поэтому два плагина могут сосуществовать даже если оба определяют `/test` — роутер спросит, какой использовать. Хуки — глобальные; если другой плагин тоже вешает UserPromptSubmit-хуки, они выполняются в порядке из `settings.json`.
@@ -622,31 +714,41 @@ Claude Code может скатиться в ad-hoc tool calls на неодно
 **`/review` помечает мой план как BLOCKED, но я не согласен.**
 Смотрите секцию Troubleshooting в самом скилле `/review` (`skills/review/SKILL.md`) — там описано, как переопределить Critical-проверки с явного согласия пользователя.
 
-**Я на Haiku и `/kickstart` отказывается работать.**
+**Я использую Claude Code adapter на Haiku, и `/kickstart` отказывается работать.**
 By design — см. таблицу [Рекомендуемые модели](#рекомендуемые-модели). `/kickstart` и `/blueprint` требуют минимум Sonnet; Haiku подходит для `/project`, `/explain` и read-only скиллов.
 
 **Методология «забыла» мой проект.**
-Каждый скилл читает `CLAUDE.md` в корне проекта для возобновления. Если вы его удалили или переименовали — запустите `/project` снова и скажите «продолжи проект» — он пере-отсканирует и восстановит состояние из существующих файлов.
+Проверьте guidance-файл активного host (`CLAUDE.md` или `AGENTS.md`) и
+канонические `.itd-memory/STATE.json` / `GOAL.json`. Host-private transcript
+memory опциональна и не переопределяет project-local state. Если guidance/config
+нет, повторно запустите `/adopt`.
 
 **Как методология сохраняет контекст между сессиями?**
 Три механизма работают вместе:
-1. **Скилл `/session-save` (новое в v1.10.0)** — сохраняет контекст сессии (что сделано, ключевые решения, блокеры, следующие шаги) в директорию памяти проекта (`~/.claude/projects/.../memory/`). Claude читает это в начале каждой новой сессии.
-2. **Автосохранение по ходу работы** — Claude автоматически сохраняет контекст после значимых этапов (завершённая фича, баг-фикс, архитектурное решение, переход между фазами `/kickstart`), чтобы при резком закрытии терялся минимум контекста.
-3. **Статус-таблица в `CLAUDE.md`** — `/kickstart` отслеживает какие шаги реализации выполнены, позволяя возобновить работу с нужного места.
+1. **Project-local ledger** — `.itd-memory/STATE.json`, optional `GOAL.json`,
+   events, checkpoints и `MEMORY.md` — канонический continuity source.
+2. **`/session-save` и handoff workflows** — сохраняют решения, blockers,
+   evidence и next action на вехах и при закрытии.
+3. **Host guidance** — `CLAUDE.md` или `AGENTS.md` объясняет новой сессии,
+   как восстановить то же локальное состояние.
 
-**Важно:** при резком закрытии VS Code или терминала последний несохранённый фрагмент может потеряться. Автосохранение минимизирует потери, но для лучшего результата скажите «сохрани сессию» / «save session» перед закрытием. Проекты, созданные через `/kickstart` или `/blueprint`, включают правило session-save в генерируемый `CLAUDE.md` автоматически.
+**Важно:** резкое закрытие может потерять последний uncheckpointed фрагмент.
+По возможности скажите «сохрани сессию» перед закрытием.
 
 **Где лежат установленные скиллы?**
-`~/.claude/plugins/idea-to-deploy/skills/`. У каждого скилла есть `SKILL.md`, который можно прочитать, чтобы понять его контракт.
+Claude Code adapter обычно устанавливается в
+`~/.claude/plugins/idea-to-deploy/skills/`; Codex публикует то же
+каноническое дерево `skills/` через свой пакет. Контракт каждого скилла — в
+`SKILL.md`.
 
 **Как idea-to-deploy соотносится с «Dive into Claude Code» (arxiv 2604.14228)?**
 Статья Liu et al. (апрель 2026, [arxiv 2604.14228](https://arxiv.org/pdf/2604.14228)) и репозиторий-компаньон [VILA-Lab/Dive-into-Claude-Code](https://github.com/VILA-Lab/Dive-into-Claude-Code) формализуют 16 архитектурных принципов Claude Code. В [`docs/DESIGN_SPACE.md`](docs/DESIGN_SPACE.md) лежит карта соответствия методологии этим принципам: из 15 применимых 13 покрыты полностью или частично, а 2 (context budgeting и on-disk checkpoint'ы помимо `git`) — осознанные gap'ы. Карта намеренно честная — оба gap'а являются кандидатами в будущий v1.21 при появлении multi-point user signal.
 
 **Как idea-to-deploy соотносится с «Харнес-инженерией» (walkinglabs)?**
-Учебник [Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/ru/) формализует дисциплину: задача не сделать модель умнее, а построить замкнутую рабочую систему (harness) с явными правилами и границами — что и является центральным тезисом этой методологии. В [`docs/HARNESS_ENGINEERING_MAP.md`](docs/HARNESS_ENGINEERING_MAP.md) лежит карта соответствия 5 принципам курса: все 5 покрыты полностью (ограничение поведения, сохранение контекста, предотвращение преждевременного завершения, верификация через тестирование и наблюдаемость — live-трейсинг добавлен opt-in хуком `execution-trace.sh` в v1.21.x). Оба шаблона курса тоже покрыты: `AGENTS.md` → `CLAUDE.md` + слой контрактов `.itd/`; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (машиночитаемые, fail-closed).
+Учебник [Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/ru/) формализует дисциплину: задача не сделать модель умнее, а построить замкнутую рабочую систему с явными правилами и границами — центральный тезис этой методологии. [`docs/HARNESS_ENGINEERING_MAP.md`](docs/HARNESS_ENGINEERING_MAP.md) фиксирует version- и evidence-scoped результат соответствия 5/5. Host guidance отображается в `CLAUDE.md` для Claude Code и `AGENTS.md` для Codex; load-bearing portable layer — `.itd/` + `.itd-memory/`, а не одно из этих имён.
 
 **Что-то сломалось.**
-Заведите issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Приложите версию Claude Code, используемую модель, промпт и описание неожиданного поведения.
+Заведите issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Приложите активный host и версию adapter, model/effort setting, промпт и описание поведения.
 
 ## Контрибьютинг
 
@@ -661,8 +763,9 @@ By design — см. таблицу [Рекомендуемые модели](#р
 
 ## Требования
 
-- Claude Code CLI или расширение VS Code (с поддержкой плагинов)
-- Подписка Claude Pro / Team / Enterprise
+- Один проверенный host: Claude Code с plugin support или OpenAI Codex с
+  plugin/hook support
+- Аккаунт или подписка, необходимые выбранному host
 - `git` в `PATH`
 
 ## Changelog

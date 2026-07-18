@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.91.1] - 2026-07-18
+
+**Честное model-neutral позиционирование Idea to Deploy как реализации Harness
+Engineering без заявления недоказанной универсальности**:
+
+### Changed
+- README на английском и русском теперь различают продукт **Idea to Deploy**,
+  категорию методологии **Harness Engineering**, model-neutral ядро контрактов,
+  состояния и verification rules и host-specific adapter/transport слой.
+- Quick start, архитектура и support matrix описывают два проверенных host-а —
+  Claude Code и OpenAI Codex. Все остальные hosts и providers явно помечены как
+  невалидированные, без обещания одинакового поведения или out-of-box поддержки.
+- Документы contracts, model routing, Harness Engineering map и ADR приведены к
+  той же границе переносимости; остаточные `CLAUDE.md`, `CLAUDE_CODE_GUIDE.md`,
+  Claude model tiers и известные transport degradations раскрыты явно.
+- Версии Claude Code и Codex adapter manifests и публичные badges синхронизированы
+  на v1.91.1. Исполняемая conformance-база v1.91.0 перенесена только потому, что
+  этот patch не меняет runtime, skills, hooks, contracts или adapter behavior.
+
+### Verification
+- Host-adapter parity, documentation freshness, methodology meta-review and the
+  repository quick regression suite are required to pass on the release tree.
+
 ## [1.91.0] - 2026-07-16
 
 **Рабочий SLA-профиль: один verified unit за ход, proportional verification

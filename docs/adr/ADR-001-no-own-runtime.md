@@ -2,8 +2,13 @@
 
 **Date:** 2026-06-28
 **Status:** Accepted
-**Review date:** 2026-09-28 (90 days) — or earlier if Claude Code / Anthropic ship a
-native eval or cost runtime in the harness, which would void part of this rationale.
+**Review date:** 2026-09-28 (90 days) — or earlier if a supported host ships a
+native eval or cost runtime that voids part of this rationale.
+
+> **Portability clarification (2026-07-18):** the no-owned-runtime decision now
+> applies to one model-neutral methodology core transported by validated Claude
+> Code and Codex adapters. Host-specific APIs remain adapter concerns. This ADR
+> does not claim compatibility with arbitrary models or agent hosts.
 
 ## Context
 
@@ -12,13 +17,13 @@ an AI agent executes the phases backed by eval loops, cost/observability, and mo
 routing. Read literally, it pulls toward building an executable layer of our own — an
 `itd` CLI / daemon / state machine / eval-runner / cost-collector / model-router.
 
-idea-to-deploy is a **Claude Code plugin** (`.claude-plugin/plugin.json`): skills +
-agents + hooks, with no standalone CLI. It already sits on a runtime substrate it does
-not own:
+Idea to Deploy has a shared methodology core plus host packages, with no
+standalone CLI. It already sits on runtime substrates it does not own:
 
-- the **Claude Code hook engine** (PreToolUse / PostToolUse / Stop / PreCompact / …);
+- the active host hook/lifecycle engine (currently Claude Code or Codex);
 - **context-mode** (an MCP server + FTS5 store) and its `ctx-stats`;
-- native **allow / deny / ask permissions**;
+- host-native **allow / deny / ask permissions** where available, with declared
+  adapter degradation otherwise;
 - the **`cost-tracker.sh`** ledger (since v1.18.0; hard-ceiling ASK since v1.30.0).
 
 "No runtime" has never meant "no code runs" — hooks are code that runs. It means we do
@@ -30,10 +35,12 @@ blocks / non-deterministic validation; that lesson informs this one.
 
 **We do not build our own runtime.** We delegate execution to the existing substrate:
 
-- lifecycle / gating → the Claude Code hook engine;
+- lifecycle / gating → the active host adapter and lifecycle engine;
 - context volume & cost → context-mode + `cost-tracker.sh` / `context-budget.sh`;
-- model selection → native `/model` + per-agent `model:` frontmatter (a *policy*, see
-  [MODEL-ROUTING-POLICY.md](../MODEL-ROUTING-POLICY.md), not a router);
+- model selection → host-native model/effort controls plus role policy. The
+  current Claude adapter uses `/model` + per-agent `model:` frontmatter; Codex
+  uses its native model/effort transport (see
+  [MODEL-ROUTING-POLICY.md](../MODEL-ROUTING-POLICY.md));
 - eval-suites → artifacts generated **into the user's project**, run by the user's CI.
 
 The real production runtime (observability and guardrails for *deployed* agents) lives
@@ -50,8 +57,9 @@ policy) are врезки / policies on the existing substrate, never engines.
 - **Global eval / acceptance gate** — rejected: false blocks on non-AI work, no
   deterministic validation of LLM output (same failure as the score-gate / debates).
   Eval signal is therefore opt-in/scoped and advisory, not a gate.
-- **Automatic cross-vendor model router** — rejected: opaque, conflicts with explicit
-  `/model`; a policy + per-agent frontmatter gives the same economic effect transparently.
+- **Automatic cross-vendor model router** — rejected: opaque and host-coupled;
+  explicit host controls plus role policy give the economic effect
+  transparently without pretending provider equivalence.
 - **Own observability platform** — rejected: real platforms exist (LangSmith,
   context-mode Insight, OTel); we cannot and need not out-build them.
 
@@ -59,8 +67,10 @@ policy) are врезки / policies on the existing substrate, never engines.
 
 - (+) Zero new executable surface; count cascades do not trigger (skills/hooks
   unchanged); `meta_review.py` Critical stays reachable at 0.
-- (+) Portability: works in any Claude Code install with no external daemon.
-- (−) Capability is bounded by what hooks / prompts / permissions can express — a hook
+- (+) Portability across the currently validated Claude Code and Codex adapters,
+  with no external daemon.
+- (−) Capability is bounded by what each host's hooks, prompts, and permissions
+  can express. A host adapter must declare degradations; a hook
   cannot literally pause the agent loop, so a "limit" is realized as an **ASK**, not a
   hard block (already the pattern in `cost-tracker.sh` v1.30.0).
 - (Risk) Eval / cost signal depends on the user actually running CI and reading the
