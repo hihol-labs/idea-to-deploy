@@ -327,6 +327,23 @@ def main() -> int:
     check("workflow uploads evidence even on failure",
           "if: always()" in workflow and "live-model-evidence" in workflow)
     runner = (ROOT / "tests" / "run-live-model-benchmark.py").read_text(encoding="utf-8")
+    fixture_dir = ROOT / "tests" / "fixtures" / "fixture-03-cli-tool"
+    live_prompt = (fixture_dir / "live-prompt.md").read_text(encoding="utf-8")
+    snapshot = json.loads((fixture_dir / "expected-snapshot.json").read_text(encoding="utf-8"))
+    required_outputs = ((snapshot.get("files") or {}).get("required") or [])
+    prompt_names_all_outputs = (
+        bool(required_outputs)
+        and all(f"`{name}`" in live_prompt for name in required_outputs)
+    )
+    check("live prompt explicitly names every oracle-required output",
+          prompt_names_all_outputs)
+    mutated_prompt = (
+        live_prompt.replace(f"`{required_outputs[0]}`", "", 1)
+        if required_outputs else live_prompt
+    )
+    check("mutation: omitted prompt output fails closed",
+          bool(required_outputs)
+          and not all(f"`{name}`" in mutated_prompt for name in required_outputs))
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

@@ -24,5 +24,18 @@ Constraints and approved decisions:
   tool"** and justify why both constraints are correct here.
 - Include at least three user stories and a 4–10 step implementation plan.
 
+Before ending, verify that all six required files exist in the project root:
+
+- `STRATEGIC_PLAN.md`
+- `PROJECT_ARCHITECTURE.md`
+- `PRD.md`
+- `IMPLEMENTATION_PLAN.md`
+- `CLAUDE_CODE_GUIDE.md`
+- `CLAUDE.md`
+
+If any required file is missing, continue the same `$idea-to-deploy:blueprint
+--full` workflow and create it before reporting completion. Do not substitute a
+README, summary, or chat response for any required file.
+
 At the end, report which Idea to Deploy skill and reference file you actually
 read and followed. Do not claim completion unless the documents exist.
