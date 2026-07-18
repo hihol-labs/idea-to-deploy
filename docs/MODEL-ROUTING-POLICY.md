@@ -12,6 +12,20 @@
 > share — it explains *why* a tier fits a phase, so the choice is transparent rather
 > than hidden inside a router.
 
+## Portability boundary
+
+The load-bearing shared policy is **risk/capability monotonicity**: higher-risk
+review and security work may not be silently routed below its declared floor,
+and model choice may never remove an evidence contour. The concrete
+Opus/Sonnet/Haiku names, `/model` command, and `model:` frontmatter below are
+the current **Claude Code adapter mapping**, not a cross-provider equivalence
+claim.
+
+Codex transports the same risk and effort constraints through its native
+model/effort controls and `model-policy.sh` adapter path. Other providers and
+hosts are unvalidated until an adapter declares its mapping and passes the
+required parity/degradation checks.
+
 ## Why route at all
 
 Token economics is the dominant operating cost (OpEx) of agent-heavy products. The
@@ -41,12 +55,12 @@ current — see the `claude-api` skill for live ids; do not hardcode an id here.
 
 ## How to apply it
 
-1. **Interactive (conductor mode):** set the tier with `/model <tier>` before invoking
+1. **Claude Code interactive mode:** set the tier with `/model <tier>` before invoking
    a phase's skill. Each skill's `## Recommended model` section already names its tier;
    this table is the cross-phase rationale behind those names.
-2. **Orchestrated (subagents):** set `model:` in the subagent's frontmatter / the
+2. **Claude Code orchestrated mode:** set `model:` in the subagent's frontmatter / the
    `Agent(model: …)` call so each delegated step runs at its phase-appropriate tier.
-3. **Cost feedback:** `hooks/cost-tracker.sh` + `/session-save` Step 4.6 make the
+3. **Supported-host cost feedback:** `hooks/cost-tracker.sh` + `/session-save` Step 4.6 make the
    actual spend visible, so the policy can be tuned against real numbers rather than
    guessed. (Accounting only — not an observability platform; see ADR-001.)
 

@@ -23,7 +23,7 @@ Codex reports file mutations as `apply_patch`, while the shared gates expect
 affected paths and preserves the hook's output and exit status.
 
 `docs/HARNESS_TRUST_POLICY.json` is the shared graduated-trust registry. It
-classifies the ten canonical hard gates as high risk and keeps low-risk probes
+classifies the 11 canonical hard gates as high risk and keeps low-risk probes
 allow/advisory. If the Codex dispatcher cannot parse or execute a registered
 high-risk gate, it emits the gate's native `deny`/`block` decision instead of
 silently downgrading the failure; unregistered telemetry hooks remain

@@ -1,17 +1,31 @@
 # Contracts & Gates — the `.itd/` layer
 
-> Plugin-native port of the executable-methodology ideas from **product-factory-os** (PFO, a Codex CLI runtime) into idea-to-deploy **without** building a standalone runtime.
+> Host-adapter-native port of the executable-methodology ideas from
+> **product-factory-os** (PFO, a Codex CLI runtime) into the model-neutral
+> Idea to Deploy core **without** building a standalone runtime.
 
-## Decision: plugin, not runtime
+## Decision: host-owned adapters, not an owned runtime
 
-PFO turned the methodology into an executable runtime: a `pfo` CLI, Python validators, an `install.sh`, and on-disk state. idea-to-deploy is, by design, a **Claude Code plugin** that "does not run as a standalone CLI" (see `README.md`).
+PFO turned the methodology into an executable runtime: a `pfo` CLI, Python
+validators, an `install.sh`, and on-disk state. Idea to Deploy instead has one
+canonical methodology core packaged through supported host adapters. The
+current adapters are Claude Code and Codex; neither turns the repository into a
+standalone CLI.
 
 We audited PFO's improvements against that identity. The result:
 
-- **~19 of PFO's mechanisms are plugin-native** — they are just **templates + hooks + CI scripts**, and idea-to-deploy already has all three substrates (`skills/`, `hooks/`, `tests/` + GitHub Actions).
-- **Only 2 genuinely require a runtime** — the `itd` CLI and `install.sh` workspace installer — and those are the **lowest-ROI** items for a plugin. They are explicitly **out of scope** here. If a runtime is ever wanted, it belongs in a separate optional repo, not in the plugin core.
+- **~19 of PFO's mechanisms are adapter-native** — they are templates, hooks,
+  and CI scripts, and Idea to Deploy already has all three shared substrates
+  (`skills/`, `hooks/`, `tests/` + GitHub Actions).
+- **Only 2 genuinely require an owned runtime** — the `itd` CLI and
+  `install.sh` workspace installer. They remain out of scope. If such a runtime
+  is ever wanted, it belongs in a separate optional package, not in the
+  methodology core.
 
-So idea-to-deploy stays a plugin and absorbs ~90% of PFO's value as **contracts (what must stay true) + gates (what blocks) + evidence (what proves done)**, instead of "we hope the agent followed the instruction".
+So Idea to Deploy stays a host-transported methodology and absorbs ~90% of
+PFO's value as **contracts (what must stay true) + gates (what blocks) +
+evidence (what proves done)**, instead of “we hope the agent followed the
+instruction”.
 
 ## The contract layer
 
@@ -39,7 +53,7 @@ Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machin
 | `.itd-memory/STATE.json`, `events.jsonl`, `LEARNINGS.jsonl` | Structured state, audit log, learnings |
 | `ROOT_CAUSE.md`, `BRANCH_FINISH.md` | Bugfix root-cause record; branch-finish decision |
 
-## Port status — 19 plugin-native mechanisms
+## Port status — 19 host-adapter-native mechanisms
 
 Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in the plugin.
 
@@ -76,19 +90,23 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 
 ## Explicitly out of scope (runtime, low ROI)
 - `itd` standalone CLI (`itd new/adopt/validate/status/resume`) — conflicts with plugin identity.
-- `install.sh` workspace installer — plugins install via `/plugin install`.
+- `install.sh` workspace installer — each adapter uses its host-native install
+  surface (Claude Code plugin commands or Codex plugin/local-hook setup).
 - PFO skills not present in PFO's own `skills/`: there is **no `/seo` and no `/brainstorm`** in PFO (a prior analysis hallucinated them) — not ported.
 - `/skill-create` — already covered by the Anthropic `skill-creator` skill; low marginal value.
 
 ## Known follow-up (doc drift)
 
-**✅ RESOLVED (v1.21.0 docs-sync pass).** All published descriptions now carry the
-current counts — **40 skills + 10 specialized subagents + 19 enforcement hooks**:
+**✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.91.1).** The original pass
+aligned **40 skills + 10 specialized subagents + 19 enforcement hooks**. The
+current live inventory is **40 skills + 10 specialized subagents + 29 hooks
+(11 hard, 18 soft)** and is checked by the documentation freshness and adapter
+parity suites:
 `.claude-plugin/plugin.json` `description` (also lists the new capabilities:
 research, browser smoke-testing, MCP docs, context handoff, external-tool sync,
 Obsidian export, decision stress-testing), `.claude-plugin/marketplace.json`,
-`README.md` / `README.ru.md` (badges + prose + Skill Contracts + Recommended
-Models), and the M-C12-checked promo/draft docs (`marketplace-submissions.md`,
+`README.md` / `README.ru.md` (badges + prose + Skill Contracts + model and
+host-portability boundaries), and the M-C12-checked promo/draft docs (`marketplace-submissions.md`,
 `habr-*`). The M-C12/M-C13/M-C15-checked surfaces are enforced by CI.
 
 **Intentionally left as dated historical snapshots** (not live claims, skipped by
@@ -99,4 +117,7 @@ them would falsify the snapshot. Update them only when the analysis itself is
 redone.
 
 ## Note on enforcement
-Templates are inert until wired. Wave 1 is what makes them bite: idea-to-deploy's hooks (`check-*`, `freeze.sh`, `pre-flight-check.sh`) and CI (`tests/meta_review.py`) are the enforcement substrate. Until a gate hook references a contract, the contract is documentation, not a sensor — Wave 1 closes that gap.
+Templates are inert until wired. Wave 1 is what makes them bite: shared hooks
+(`check-*`, `freeze.sh`, `pre-flight-check.sh`), host adapters, and CI
+(`tests/meta_review.py`) are the enforcement substrate. Until a gate hook
+references a contract, the contract is documentation, not a sensor.

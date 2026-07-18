@@ -96,7 +96,7 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
         "Результат: 5,0/5,0",
         f"v{state.get('pluginVersion')}",
         str(state.get("conformanceContractSha256")),
-        str(live.get("runId")),
+        "tests/fixtures/live-model-evidence/latest.json",
         "16 контрольных случаев",
         "срок 30 дней",
     )

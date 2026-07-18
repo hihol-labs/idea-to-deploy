@@ -1,26 +1,28 @@
 # idea-to-deploy
 
-> Complete project lifecycle methodology for Claude Code — from idea to deployed product in one command.
+> Harness Engineering methodology for reliable agentic software delivery, with a
+> model-neutral contract, state, and verification core.
 
-**Install in 30 seconds:**
-
-```bash
-/plugin install hihol-labs/idea-to-deploy
-```
-
-Then just describe what you want in Claude Code — methodology routes you automatically. [Full install guide](#quick-start) · [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
+One canonical core is currently packaged and validated for **Claude Code** and
+**OpenAI Codex** through host adapters. Other agent hosts are an architectural
+extension point, not a supported claim. [Choose a host](#quick-start) ·
+[Architecture](#architecture-and-portability) ·
+[End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.91.0](https://img.shields.io/badge/Version-1.91.0-purple.svg)](.claude-plugin/plugin.json)
+[![Version: 1.91.1](https://img.shields.io/badge/Version-1.91.1-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
-[![Type: Claude Code Plugin](https://img.shields.io/badge/Type-Claude%20Code%20Plugin-blueviolet.svg)](.claude-plugin/plugin.json)
+[![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
 
 **[Русская версия (README.ru.md)](README.ru.md)** · **[Changelog](CHANGELOG.md)** · **[Contributing](CONTRIBUTING.md)** · **[CI](docs/CI.md)**
 
-> This repository is a **Claude Code plugin** (see `.claude-plugin/plugin.json`). Installing it registers 40 skills and 10 subagents into your Claude Code environment — it does not run as a standalone CLI.
+> **Idea to Deploy is the product name; Harness Engineering is the methodology
+> category.** The repository contains one shared methodology core plus separate
+> [Claude Code](.claude-plugin/plugin.json) and
+> [Codex](.codex-plugin/plugin.json) packages. It does not run as a standalone CLI.
 
 ## Demo
 
@@ -29,12 +31,15 @@ Then just describe what you want in Claude Code — methodology routes you autom
 </p>
 
 > See the [End-to-End Example](#end-to-end-example) below for a detailed walkthrough.
+> The recording predates the Codex adapter and shows the Claude Code transport;
+> the lifecycle and verification contracts are shared.
 
 ---
 
 ## The Problem
 
-Claude Code is powerful, but without instructions it works like a builder without blueprints:
+AI coding agents are powerful, but without a harness they work like builders
+without blueprints:
 - Writes code randomly, skips tests, doesn't document
 - Each time produces different structure and quality
 - Can break what already works
@@ -42,7 +47,9 @@ Claude Code is powerful, but without instructions it works like a builder withou
 
 ## The Solution
 
-**idea-to-deploy** is a methodology, not just a set of tools. 40 skills + 10 specialized agents that turn Claude Code into a professional developer with an evidence-gated pipeline:
+**idea-to-deploy** is a methodology, not just a set of tools. Its
+40 skills + 10 specialized agents, 29 hooks, project contracts, and persistent
+state give a supported coding host an evidence-gated delivery pipeline:
 
 ```
 Idea → Questions → Plan → Architecture → Code → Tests → Review → Deploy
@@ -50,24 +57,50 @@ Idea → Questions → Plan → Architecture → Code → Tests → Review → D
 
 Every step is verified. Every feature is tested. Every decision is documented. Every session is preserved.
 
+## Architecture and portability
+
+```text
+                     Idea to Deploy
+        canonical Harness Engineering methodology core
+    skills · .itd contracts · .itd-memory · hooks · tests
+                           |
+                host adapter contract
+                  /                     \
+       Claude Code adapter          Codex adapter
+       CLAUDE.md / hooks       AGENTS.md / dispatcher
+```
+
+Host adapters translate packaging, guidance files, tool names, hook events, and
+subagent transport. They may not fork completion criteria, risk policy,
+persistent project state, or skill semantics. See the
+[host adapter contract](docs/HOST_ADAPTER_CONTRACT.md).
+
+| Host | Status | Guidance entry | Evidence boundary |
+|---|---|---|---|
+| Claude Code | Supported | `CLAUDE.md` | Native plugin, skills, agents, and hooks |
+| OpenAI Codex | Supported | `AGENTS.md` | Native package plus tested hook/tool normalization |
+| Other agent hosts | Not validated | Adapter-defined | Requires an adapter, declared degradations, and parity evidence |
+
+**What “model-neutral” means here:** the load-bearing contracts, state, gates,
+and evidence rules do not depend on the identity of a particular model.
+It does **not** mean that every model or agent host works out of the box, that
+all hosts expose identical capabilities, or that current model recommendations
+are provider-equivalent.
+
 ## Quick Start
 
-### Installation
+### Claude Code
 
-**Requirements:**
-- [Claude Code](https://claude.com/claude-code) CLI ≥ 2.0 (or the VS Code / JetBrains extension) with plugin support
-- Claude Pro / Team / Enterprise subscription
-- `git` available on `PATH` (used by several skills)
+**Requirements:** Claude Code CLI ≥ 2.0 (or its VS Code / JetBrains extension)
+with plugin support, an eligible Claude subscription, and `git` on `PATH`.
 
-**Install the plugin:**
+Install the Claude Code adapter:
 
 ```bash
 /plugin install hihol-labs/idea-to-deploy
 ```
 
-**Verify the installation:**
-
-After installation, the skills and agents are registered under:
+The skills and agents are then registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
@@ -76,7 +109,7 @@ After installation, the skills and agents are registered under:
   └── hooks/           # optional enforcement hooks (not auto-installed)
 ```
 
-Quick sanity check inside Claude Code:
+Sanity check inside Claude Code:
 
 ```
 /project
@@ -84,29 +117,41 @@ Quick sanity check inside Claude Code:
 
 If the router prompt appears and offers routes A / B / C, the plugin is live.
 
-**Updating:**
+Update:
 
 ```bash
 /plugin update hihol-labs/idea-to-deploy
 ```
 
-**Uninstalling:**
+Uninstall:
 
 ```bash
 /plugin uninstall hihol-labs/idea-to-deploy
 ```
 
-See the [CHANGELOG](CHANGELOG.md) for release notes.
+### OpenAI Codex
+
+Enable this repository through the normal Codex plugin UI and review its
+bundled command hooks with `/hooks` before trusting them. The Codex adapter
+uses `.codex-plugin/plugin.json`, `AGENTS.md`, and automatic
+`hooks/hooks.json` discovery.
+
+For a repository-local checkout instead of an installed package, follow the
+[Codex adapter setup](docs/CODEX_ADAPTER.md#enable-and-trust). It documents the
+local `.codex/hooks.json` fallback and the known transport differences.
+
+On both hosts, `git` is required by lifecycle, review, and continuity
+workflows. See the [CHANGELOG](CHANGELOG.md) for release notes.
 
 ### Usage
 
-Just say what you want:
+In either supported host, describe what you want:
 
 ```
 I want to build a food delivery service
 ```
 
-Claude Code will:
+The active host adapter will:
 1. Ask which route you prefer (full cycle / planning only / have docs)
 2. Ask clarifying questions about your project
 3. Generate architecture and documentation
@@ -160,22 +205,26 @@ A minimal walkthrough of Route A (full cycle):
 
 ```
 You:   I want to build a Telegram bot that tracks my gym workouts
-Claude: [/project] A, B, or C?
+Agent:  [/project] A, B, or C?
 You:   A
-Claude: [/kickstart] asks 6 clarifying questions
+Agent:  [/kickstart] asks 6 clarifying questions
         (users? auth? DB? hosting? budget? deadline?)
 You:   personal use, no auth, SQLite, local, $0, this weekend
-Claude: generates STRATEGIC_PLAN, PROJECT_ARCHITECTURE,
+Agent:  generates STRATEGIC_PLAN, PROJECT_ARCHITECTURE,
         IMPLEMENTATION_PLAN, PRD, README, CLAUDE_CODE_GUIDE, CLAUDE.md
         runs /review → PASSED_WITH_WARNINGS (2 nits)
         shows plan, asks: "Approve and start coding?"
 You:   yes
-Claude: Step 1/9 — scaffold project, commit
+Agent:  Step 1/9 — scaffold project, commit
         Step 2/9 — DB models + /test
         ...
         Step 9/9 — deploy script + README update
         Done. 42 tests passing. Here is your bot.
 ```
+
+The legacy-compatible `CLAUDE.md` and `CLAUDE_CODE_GUIDE.md` names in this
+example are current generator outputs, not a claim that the methodology core is
+Claude-only. Host-neutral output naming remains follow-up work.
 
 **Reference fixtures:** reproducible golden-path scenarios used by the test runner live in [`tests/fixtures/`](tests/fixtures/). Run them with [`tests/run-fixtures.sh`](tests/run-fixtures.sh) to see how each skill behaves on a known input.
 
@@ -189,7 +238,7 @@ Claude: Step 1/9 — scaffold project, commit
 |-------|-------------|
 | `/project` | Smart router for **creating** something — asks one question and routes to /kickstart, /blueprint, or /guide |
 | `/task` | Smart router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) based on the task type |
-| `/adopt` | **New in v1.20.0.** Onboard a legacy project into the methodology — append idempotent `CLAUDE.md` block, register project-level hooks in `.claude/settings.json`, bootstrap memory dir, then voice-chain to `/strategy` or `/blueprint` for plan documents. No reverse-engineering of plan docs. |
+| `/adopt` | Onboard a legacy project through the active host adapter — `CLAUDE.md` + `.claude/settings.json` on Claude Code, or `AGENTS.md` + Codex hooks on Codex — then bootstrap canonical `.itd/` contracts and `.itd-memory/` state. No reverse-engineering of plan docs. |
 | `/discover` | **New in v1.17.0.** Product discovery phase — market analysis (TAM/SAM/SOM), competitor research, user personas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. |
 | `/strategy` | **New in v1.19.0.** Strategic replanning for existing projects — 5-dimension gap analysis, option generation with devil's advocate, ADR for pivot decisions, LAUNCH_PLAN.md updates. |
 | `/advisor` | **New in v1.19.0.** Advisory/consulting mode — analysis-only (no code changes), multi-perspective evaluation via business-analyst + devils-advocate subagents. |
@@ -244,7 +293,7 @@ Claude: Step 1/9 — scaffold project, commit
 
 | Skill | Description |
 |-------|-------------|
-| `/session-save` | Save session context to project memory — what was done, key decisions, blockers, next steps. Ensures continuity between Claude Code sessions. |
+| `/session-save` | Save session context to canonical project-local memory — what was done, key decisions, blockers, next steps. Ensures continuity across supported host sessions. |
 | `/autopilot` | Auto-pipeline that runs discover → blueprint → kickstart → review → test with minimal human intervention (GSD-inspired). Takes a project idea and produces a full project with all docs, code, tests, and review. |
 | `/handoff` | **New in v1.21.0.** Write a compact `HANDOFF.md` context packet to transfer work to the next session/agent when there is no return path — compaction, delegation, AFK run, or recovery. Distinct from `/session-save` (milestone save). |
 | `/goal` | **New in v1.44.0.** Long-goal mode — decompose a multi-session goal into ordered verifiable units in `.itd-memory/GOAL.json` (user approval required), drive them one at a time through the standard `/task` pipeline (WIP=1, evidence-gated `verified`), and resume across sessions from the first non-verified unit. Its bounded envelope now enforces observed token/time/attempt stops, routes checker cost by sealed risk tier, emits ≤4 KB checkpoints, and can grade clean A/B evidence with a deterministic anti-Goodhart 5/5 evaluator. Brownfield-first; never bypasses `/review`, `/test`, or the DoD. |
@@ -292,7 +341,7 @@ Heavy skills run in isolated contexts with specialized agents for better quality
 
 ## Skill Contracts
 
-> **Note for users:** in normal use, you do **not** invoke skills manually. Describe your task in natural language (*"I want to build X"*, *"fix this bug"*, *"add tests for this function"*) and Claude Code will route you to the right skill automatically via [skill discovery hooks](hooks/README.md) and trigger-phrase matching in each skill's body. Skills also invoke each other in chains — see the [Call Graph](#call-graph) section below. The contracts table exists to document behavior for debugging, contributions, and power users who want explicit control; it is **not** a "list of commands you must memorize".
+> **Note for users:** in normal use, you do **not** invoke skills manually. Describe your task in natural language (*"I want to build X"*, *"fix this bug"*, *"add tests for this function"*) and the active host adapter routes it through skill discovery and trigger-phrase matching. Skills also invoke each other in chains — see the [Call Graph](#call-graph) section below. The contracts table exists for debugging, contributions, and explicit control; it is **not** a "list of commands you must memorize".
 
 Each skill has a documented contract — what it reads, what it writes, what side effects it has, and whether it's safe to run twice.
 
@@ -316,13 +365,13 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/migrate` | Migration file/`next`/raw SQL | Migration applied + backup file + report with rollback path | DB schema mutation, backup file written to /tmp | ⚠️ Refuses on prod without confirmation |
 | `/harden` | Service/dir/`all` | Hardening report + optional generated artifacts (health route, lifespan, logger, k6 script, runbook) | Code additions only with user approval; no deletions | ⚠️ Artifact generation is stateful |
 | `/infra` | Stack preset + target (do/aws/hetzner/k8s) | Terraform modules OR Helm chart + README with deploy commands | New files under `infra/`; no cloud API calls (read-only from cloud side) | ✅ Generation is deterministic per input |
-| `/session-save` | Session end signal or explicit invocation | `session_YYYY-MM-DD.md` + MEMORY.md update | Writes to `~/.claude/projects/` memory directory | ✅ Creates new file each time |
+| `/session-save` | Session end signal or explicit invocation | Project-local `.itd-memory/session_*.md` checkpoint + `MEMORY.md` update | Writes canonical continuity under `.itd-memory/`; a host-private mirror is optional compatibility only | ✅ Creates a new checkpoint each time |
 | `/autopilot` | Project idea (text) | Full project: docs + code + tests + review report | Git commits, file scaffolding, possible deploy (runs discover → blueprint → kickstart → review → test chain) | ⚠️ Stateful pipeline with multiple phases |
 | `/strategy` | Existing project + context of what changed | Updated `LAUNCH_PLAN.md` + ADR + `BACKLOG.md` | File writes (plan docs only, no code) | ✅ Creates/overwrites plan docs |
 | `/migrate-prod` | Source host + target host + service list | `MIGRATION_PLAN.md` + executed migration steps | SSH, Docker, DNS changes, DB dumps — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
 | `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
-| `/adopt` | Path to an existing legacy repo (defaults to `cwd`) + optional `skip-chain` flag | `CLAUDE.md` (append-with-marker if exists), `.claude/settings.json` (merge), `MEMORY.md` + sentinel `session_YYYY-MM-DD.md` + `.active-session.lock` | File writes in project root + project memory dir (never touches `~/.claude/settings.json`); voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency — re-runs are no-ops |
+| `/adopt` | Existing repo path (defaults to `cwd`) + optional `skip-chain` | Host guidance/config (`CLAUDE.md` + `.claude/settings.json`, or `AGENTS.md` + Codex hooks), canonical `.itd/`, `.itd-memory/` | Project-local writes only; voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency |
 | `/grill-me` | Plan / design / architecture / decision (text or repo) | None — questions + analysis (stdout); optional artifact only if the user asks | None (read-only by default; no Write/Edit) | ✅ |
 | `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
 | `/goal` | Goal text (empty = resume active goal) | `.itd-memory/GOAL.json` (persistent unit ledger) + unit events in `events.jsonl`; optional sealed `runPolicy`, attempt journal, and typed budget stops; units delivered via the standard `/task` pipeline | Memory-write only; code changes happen inside `/task` under its own gates | ✅ Resume-only — an active ledger is never recreated |
@@ -395,11 +444,20 @@ Skills can invoke each other. This is the maximum depth and the chains:
 
 **Recursion guard:** No skill invokes itself directly or through a chain. Maximum observed depth is 3 (`/project` → `/kickstart` → `/review` or any of the other depth-3 skills). If you observe a deeper chain or loop, file an issue — that's a bug.
 
-## Recommended Setup: Skill Discovery Hooks
+## Hook taxonomy and Claude Code setup
 
-> **Note:** hooks are an **optional, separate step**. `/plugin install` registers the skills and agents but deliberately does **not** write to `~/.claude/settings.json` or install global hooks — that remains an explicit user decision. If you skip this section, the methodology still works; the hooks only raise the invocation rate under ambiguous prompts.
+> **Claude Code adapter note:** global hooks are an **optional, separate step**.
+> `/plugin install` registers skills and agents but deliberately does not write
+> `~/.claude/settings.json`. Codex uses its bundled adapter registration instead;
+> do not copy these Claude paths into Codex.
 
-The methodology is only effective if Claude actually invokes the skills. Trigger word matching in `description` is necessary but not sufficient — under time pressure or with ambiguous prompts, Claude may default to ad-hoc tool calls. The `hooks/` folder contains **29 hooks** — but that number conflates two very different things. **11 are hard gates** that can stop an action (`permissionDecision: "deny"` on PreToolUse, or `decision: "block"` on SubagentStop — exit 2); the other **18 are soft** (reminders, context injection, observability, self-correction — they always exit 0 and never block). The enforcement strength of the harness is the **11 hard gates, not 29**. The taxonomy below makes the split explicit so the count is never read as 29× the blocking power it actually has.
+The methodology is only effective if the active host invokes the skills.
+Trigger matching is necessary but not sufficient: under pressure or on an
+ambiguous prompt an agent may default to ad-hoc tool calls. The `hooks/` folder
+contains **29 hooks** — **11 hard gates** that can stop an action and **18 soft
+hooks** for reminders, context, observability, and self-correction. The
+enforcement strength is the **11 hard gates, not 29**. Put plainly: of the 29,
+11 are hard and 18 are soft.
 
 ### Hook taxonomy — 11 hard gates vs 18 soft (machine-checked)
 
@@ -421,7 +479,9 @@ The methodology is only effective if Claude actually invokes the skills. Trigger
 
 **Hard-gate coverage** — the metric that keeps the 11 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 11/18/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 11/11.**
 
-**Recommended — one command:**
+### Claude Code global hook install
+
+Recommended — one command:
 
 ```bash
 git clone https://github.com/hihol-labs/idea-to-deploy ~/idea-to-deploy-src
@@ -429,6 +489,10 @@ cd ~/idea-to-deploy-src && bash scripts/sync-to-active.sh
 ```
 
 The script copies all hooks into `~/.claude/hooks/`, patches `~/.claude/settings.json` to register them, and syncs the latest skill/agent definitions. It is idempotent — re-running only updates changed files.
+
+The Codex adapter discovers the bundled `hooks/hooks.json` instead. Review it
+with `/hooks`; repository-local fallback setup is documented in
+[`docs/CODEX_ADAPTER.md`](docs/CODEX_ADAPTER.md#enable-and-trust).
 
 <details>
 <summary>Manual install (for users who prefer to see each step)</summary>
@@ -447,13 +511,18 @@ Then add the `hooks` block to your `~/.claude/settings.json` — full settings.j
 </details>
 
 After installation:
-- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — runs before every user prompt. Loads `git log`, `git status`, and the project memory index (`MEMORY.md`) into Claude's context, and warns if a parallel Claude session has touched the project in the last 10 minutes (via `.active-session.lock`). **Soft context injection — never blocks.** Prevents the v1.13.2 inci­dent class where two parallel sessions independently fixed the same drift.
+- **`pre-flight-check.sh` (v1.5.0, UserPromptSubmit)** — runs before every user prompt. Loads `git log`, `git status`, and the project memory index (`MEMORY.md`) into the active host context, and warns if a parallel session has touched the project in the last 10 minutes (via `.active-session.lock`). **Soft context injection — never blocks.** Prevents the v1.13.2 incident class where two parallel sessions independently fixed the same drift.
 - **`check-skills.sh` (UserPromptSubmit)** — scans every prompt for ~80 Russian/English triggers and injects a `[SKILL HINT]` reminder when a skill matches. **Soft reminder — never blocks.**
 - **`check-tool-skill.sh` (PreToolUse on Bash/Edit/Write/NotebookEdit)** — injects a `[SKILL CHECK]` reminder before raw tool calls, rate-limited to one reminder per 60 seconds. **Escalating hard gate (#5 above):** it reminds for the first 2 ignored skill decisions, then on the 3rd consecutive ignore (no Skill call and no `SKILL_BYPASS`) it **denies** the tool call (exit 2). A skill-active grace window and the read-only-Bash allowlist keep routine recon from tripping it.
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All 29 hooks are registered by the canonical adapters — no Claude Code restart is needed after sync. `handoff-readiness.sh` is soft/rate-limited and can be disabled with `ITD_HANDOFF_READINESS=0`; methodology-only enforcement hooks no-op on unrelated projects. `execution-trace.sh` records paired intent/outcome rows, while `cost-tracker.sh` keeps estimated and host-observed token counters explicitly separate.
+All 29 hooks are registered by the canonical adapters. `handoff-readiness.sh`
+is soft/rate-limited and can be disabled with `ITD_HANDOFF_READINESS=0`;
+methodology-only enforcement hooks no-op on unrelated projects.
+`execution-trace.sh` records paired intent/outcome rows, while
+`cost-tracker.sh` keeps estimated and host-observed token counters explicitly
+separate. Registration and reload behavior remain host-specific.
 
 > **Why this matters:** in a 2026-04-07 production-incident retrospective, Claude Code (Opus 4.6) spent ~2 hours doing direct SSH/sed/curl work to fix an auth outage. `/bugfix` would have been the right tool. It was never invoked — nothing forced it. These hooks are the answer. See `hooks/README.md` for the full case study.
 
@@ -477,6 +546,13 @@ After each implementation step:
 - 3 consecutive failures → STOP and ask user for guidance (no infinite retry)
 
 ## What Gets Generated
+
+The shared generators still emit the legacy-compatible `CLAUDE.md` and
+`CLAUDE_CODE_GUIDE.md` filenames listed below. Claude Code consumes them
+natively; Codex adoption uses `AGENTS.md` as its guidance entry while the
+canonical continuity and completion state lives in `.itd-memory/` and
+`.itd/`. This naming residue is disclosed rather than presented as full
+output-layer neutrality.
 
 ### Route A (Full Cycle) produces:
 
@@ -508,7 +584,10 @@ After each implementation step:
 **1 Document:**
 - `CLAUDE_CODE_GUIDE.md` — step-by-step prompts based on your existing documentation
 
-Takes your existing architecture, plan, and requirements — and converts them into ready-to-use prompts. You copy a prompt, paste it into Claude Code, get the result, and move to the next step. Full manual control over every stage.
+Takes your existing architecture, plan, and requirements — and converts them
+into ready-to-use prompts. You run each prompt in the active supported host,
+inspect the result, and move to the next step. Full manual control over every
+stage.
 
 ## Seamless Route Switching
 
@@ -527,6 +606,11 @@ Routes are not dead ends — you can switch between them at any time without los
 
 
 ## Recommended Models
+
+> **Portability boundary:** the table below is the current **Claude Code adapter
+> mapping** (Haiku/Sonnet/Opus and `/model`), not a provider-neutral benchmark.
+> Codex uses its native model/effort controls while preserving the shared
+> risk-tier and evidence floors. No equivalence is claimed for other providers.
 
 As of v1.3.0, the recommended model is also encoded in each skill's body in a `## Recommended model` section. The table below is the same data in summary form. `/blueprint` and `/kickstart` auto-fall-back to Lite mode on Sonnet and refuse on Haiku.
 
@@ -626,13 +710,19 @@ See [CHANGELOG v1.4.0](CHANGELOG.md) for the detailed breakdown.
 ## Troubleshooting / FAQ
 
 **A skill is not being invoked when I expect it to.**
-Claude Code may default to ad-hoc tool calls on ambiguous prompts. Install the [skill discovery hooks](#recommended-setup-skill-discovery-hooks) — they inject `[SKILL HINT]` and `[SKILL CHECK]` reminders that raise the invocation rate significantly. You can also invoke a skill explicitly: `/bugfix`, `/test`, etc.
+An agent host may default to ad-hoc tool calls on ambiguous prompts. Verify that
+the adapter and its hooks are enabled; the discovery hooks inject `[SKILL HINT]`
+and `[SKILL CHECK]` reminders. You can also name a skill explicitly:
+`/bugfix`, `/test`, etc.
 
-**How do I update the plugin?**
+**How do I update the Claude Code adapter?**
 `/plugin update hihol-labs/idea-to-deploy`. Check the [CHANGELOG](CHANGELOG.md) for what changed.
 
-**How do I uninstall?**
+**How do I uninstall the Claude Code adapter?**
 `/plugin uninstall hihol-labs/idea-to-deploy`. Hooks in `~/.claude/settings.json` (if you installed them) must be removed manually.
+
+For Codex enable/update/removal behavior, use the normal Codex plugin UI; see
+[Codex adapter](docs/CODEX_ADAPTER.md).
 
 **Conflicts with other plugins.**
 Skills are namespaced by plugin, so two plugins can coexist even if both define `/test`. The router will ask which one to use. Hooks are global — if another plugin also registers UserPromptSubmit hooks, they run in the order defined in `settings.json`.
@@ -640,31 +730,41 @@ Skills are namespaced by plugin, so two plugins can coexist even if both define 
 **`/review` flags my plan as BLOCKED but I disagree.**
 See the Troubleshooting section in the `/review` skill itself (`skills/review/SKILL.md`) — it documents how to override Critical checks with explicit user consent.
 
-**I'm on Haiku and `/kickstart` refuses to run.**
+**I'm using the Claude Code adapter on Haiku and `/kickstart` refuses to run.**
 By design — see the [Recommended Models](#recommended-models) table. `/kickstart` and `/blueprint` require at least Sonnet; Haiku is fine for `/project`, `/explain`, and read-only skills.
 
 **The methodology "forgot" my project.**
-Each skill reads `CLAUDE.md` at the project root to resume. If you deleted or renamed it, run `/project` again and say "continue the project" — it will re-scan and rebuild state from existing files.
+Check the active host guidance file (`CLAUDE.md` or `AGENTS.md`) and the
+canonical `.itd-memory/STATE.json` / `GOAL.json` state. Host-private
+transcript memory is optional and never overrides project-local state. Re-run
+`/adopt` if the adapter guidance/config is missing.
 
 **How does the methodology preserve context between sessions?**
 Three mechanisms work together:
-1. **`/session-save` skill (new in v1.10.0)** — saves session context (what was done, key decisions, blockers, next steps) to the project's memory directory (`~/.claude/projects/.../memory/`). Claude reads this at the start of each new session.
-2. **Auto-save during work** — Claude automatically saves context after significant milestones (completed feature, bug fix, architectural decision, `/kickstart` phase transition) so that even if the session is abruptly closed, minimal context is lost.
-3. **`CLAUDE.md` status table** — `/kickstart` tracks which implementation steps are completed, allowing resumption from the right step.
+1. **Project-local ledger** — `.itd-memory/STATE.json`, optional `GOAL.json`,
+   events, session checkpoints, and `MEMORY.md` are the canonical continuity
+   source on both supported hosts.
+2. **`/session-save` and handoff workflows** — record decisions, blockers,
+   evidence, and the next action at milestones or session close.
+3. **Host guidance** — `CLAUDE.md` or `AGENTS.md` tells a fresh session how
+   to reconstruct the same local state.
 
-**Important:** if you close VS Code or the terminal abruptly, the last unsaved fragment may be lost. The auto-save mechanism minimizes this, but for best results say "сохрани сессию" / "save session" before closing. Projects created via `/kickstart` or `/blueprint` include the session-save rule in their generated `CLAUDE.md` automatically.
+**Important:** an abruptly closed session can lose the last uncheckpointed
+fragment. Say “save session” before closing when possible.
 
 **Where are my installed skills located?**
-`~/.claude/plugins/idea-to-deploy/skills/`. Each skill has a `SKILL.md` you can read to understand its contract.
+The Claude Code adapter normally installs under
+`~/.claude/plugins/idea-to-deploy/skills/`; Codex exposes the same canonical
+`skills/` tree through its package. Each skill has a `SKILL.md` contract.
 
 **How does idea-to-deploy relate to "Dive into Claude Code" (arxiv 2604.14228)?**
 The April 2026 paper by Liu et al. ([arxiv 2604.14228](https://arxiv.org/pdf/2604.14228)) and its companion repo [VILA-Lab/Dive-into-Claude-Code](https://github.com/VILA-Lab/Dive-into-Claude-Code) formalize 16 architectural principles behind Claude Code itself. We published [`docs/DESIGN_SPACE.md`](docs/DESIGN_SPACE.md) mapping the methodology against those principles: of the 15 applicable ones, 13 are covered in full or partial form, and 2 (context budgeting and on-disk checkpoints beyond `git`) are acknowledged gaps. The map is honest by design — both gap items are candidate scope for a future v1.21 release once multi-point user signal arrives.
 
 **How does idea-to-deploy relate to "Harness Engineering" (walkinglabs)?**
-The [Harness Engineering course](https://walkinglabs.github.io/learn-harness-engineering/ru/) formalizes the discipline: the goal is not to make the model smarter but to build a closed working system (a harness) with explicit rules and boundaries — which is the central thesis of this methodology. We published [`docs/HARNESS_ENGINEERING_MAP.md`](docs/HARNESS_ENGINEERING_MAP.md) mapping the methodology against the course's 5 principles: all 5 are covered in full (constraining behavior, context preservation, preventing premature completion, verification through testing, and observability — live execution tracing landed as the opt-in `execution-trace.sh` hook in v1.21.x). Both course templates are covered too: `AGENTS.md` → `CLAUDE.md` + the `.itd/` contract layer; `feature_list.json` → `ACCEPTANCE_CONTRACT.json` + `VERIFICATION_CONTRACT.json` (machine-readable, fail-closed).
+The [Harness Engineering course](https://walkinglabs.github.io/learn-harness-engineering/ru/) formalizes the discipline: the goal is not to make the model smarter but to build a closed working system with explicit rules and boundaries — the central thesis of this methodology. [`docs/HARNESS_ENGINEERING_MAP.md`](docs/HARNESS_ENGINEERING_MAP.md) records a version- and evidence-scoped 5/5 conformance result. Host guidance maps to `CLAUDE.md` on Claude Code and `AGENTS.md` on Codex; the load-bearing portable layer is `.itd/` + `.itd-memory/`, not either filename.
 
 **Something else is broken.**
-Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Include your Claude Code version, the model in use, the prompt, and the unexpected behavior.
+Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/hihol-labs/idea-to-deploy/issues). Include the active host/adapter version, model or effort setting, prompt, and unexpected behavior.
 
 ## Contributing
 
@@ -679,8 +779,9 @@ All PRs are reviewed against the same binary rubric that `/review` uses on gener
 
 ## Requirements
 
-- Claude Code CLI or VS Code extension (with plugin support)
-- Claude Pro / Team / Enterprise subscription
+- One validated host: Claude Code with plugin support, or OpenAI Codex with
+  plugin/hook support
+- The account/subscription required by the selected host
 - `git` on `PATH`
 
 ## Changelog
