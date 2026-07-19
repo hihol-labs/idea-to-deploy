@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- A sealed internal brownfield-continuation benchmark now starts from a mature,
+  already-adopted project checkpoint and proves that a fresh host session can
+  recover the verified predecessor, exact next unit/action and pending gates
+  from `.itd-memory/`, preserve WIP=1 and existing behaviour, and verify the
+  next unit without re-adoption or manual context reconstruction. This is
+  deterministic operational evidence, not external effectiveness evidence.
+
 ## [1.91.1] - 2026-07-18
 
 **Честное model-neutral позиционирование Idea to Deploy как реализации Harness
