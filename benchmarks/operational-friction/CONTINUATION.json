@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "purpose": "Frozen internal brownfield-continuation journey; never external outcome evidence.",
+  "scenarios": [
+    {
+      "id": "codex-python-warm-continuation",
+      "host": "codex",
+      "stack": "python-stdlib",
+      "precedingUnitId": "U-001",
+      "resumeUnitId": "U-002",
+      "precedingCriterion": "The existing completed_feature() function still returns the exact string v1.",
+      "resumeCriterion": "The project exposes pending_feature() returning the exact string continued.",
+      "requiredContextMarkers": [
+        "U-001",
+        "U-002",
+        "Activate U-002 and implement pending_feature",
+        "U-002 verification is red until pending_feature exists",
+        "codeQualityReview"
+      ],
+      "requires": [
+        "mature-already-adopted-repository",
+        "empty-fresh-host-home",
+        "no-transcript-or-private-memory",
+        "verified-predecessor-evidence",
+        "exact-next-unit-and-action",
+        "wip-one-rejection",
+        "real-red-green-evidence",
+        "project-guidance-and-contract-preservation",
+        "existing-baseline-preservation",
+        "production-goal-verifier"
+      ]
+    }
+  ],
+  "thresholds": {
+    "minRecoveredContextMarkers": 5,
+    "maxManualContextReentry": 0,
+    "maxWrongUnitActivations": 0,
+    "maxReAdoptionWrites": 0,
+    "maxBaselineRegressions": 0
+  }
+}

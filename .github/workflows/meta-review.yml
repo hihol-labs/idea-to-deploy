@@ -113,6 +113,7 @@ jobs:
       - name: Prove cold-start adoption and operational-friction contracts
         run: |
           python3 tests/verify_operational_cold_start.py
+          python3 tests/verify_operational_continuation.py
           python3 tests/verify_bypass_friction.py
 
       - name: Prove the evidence-backed human-gated learning loop
