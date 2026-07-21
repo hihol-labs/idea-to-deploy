@@ -26,6 +26,7 @@
     ".itd/PERMISSION_MATRIX.json",
     ".itd/PERMISSION_MATRIX.md",
     ".itd/TOOL_CAPABILITY_REGISTRY.json",
+    ".itd/VERIFICATION_LOOP_CONTRACT.json",
     "ITD_REPORT.md"
   ],
   "passCriteria": [
@@ -33,6 +34,7 @@
     "Expected output rules match.",
     "Required artifacts exist.",
     "Failures are recorded as recovery, not success."
+    ,"The active unit has an exact-candidate adjudication receipt matching its risk route."
   ],
   "failureMode": "RECOVERY_REQUIRED",
   "failClosed": "If a command is missing, never ran, or its parser is ambiguous, status MUST be RECOVERY_REQUIRED — never passed.",
@@ -71,6 +73,11 @@
           "type": "json_field",
           "ref": "records.general.accepted",
           "desc": "true only for an accepted verdict whose complete context key still matches"
+        },
+        {
+          "type": "json_field",
+          "ref": "records.general.verificationReceipt.outcome",
+          "desc": "PASSED only while the adjudicated Verification Loop chain revalidates"
         }
       ]
     },
@@ -101,6 +108,11 @@
           "type": "json_field",
           "ref": "records.security.accepted",
           "desc": "true only for an accepted security verdict; BLOCKED or UNVERIFIED remains closed"
+        },
+        {
+          "type": "json_field",
+          "ref": "records.security.verificationReceipt.outcome",
+          "desc": "PASSED only while the security adjudication chain revalidates"
         }
       ]
     },

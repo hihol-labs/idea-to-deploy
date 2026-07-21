@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.91.1](https://img.shields.io/badge/Version-1.91.1-purple.svg)](CHANGELOG.md)
+[![Version: 1.92.0](https://img.shields.io/badge/Version-1.92.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -73,6 +73,12 @@ Host adapters переводят packaging, guidance-файлы, имена tool
 transport субагентов. Они не могут форкать критерии завершения, risk policy,
 персистентное состояние или семантику скиллов. См.
 [host adapter contract](docs/HOST_ADAPTER_CONTRACT.md).
+
+Приёмка по умолчанию proof-carrying: low-risk работа использует исполненные
+харнесом machine-evidence, medium добавляет targeted checker в свежей сессии,
+а high/unknown — full checker в свежей сессии и на другой модели или provider.
+`/goal` и review cache принимают только adjudication receipt точного candidate;
+см. [Verification Loop v1](docs/VERIFICATION_LOOP.md).
 
 | Host | Статус | Guidance entry | Граница evidence |
 |---|---|---|---|

@@ -11,6 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from verification_loop_fixture import make_review_receipt
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "hooks" / "check-review-before-commit.sh"
@@ -44,15 +46,16 @@ def make_repo(staged: int = 3) -> Path:
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "gate@example.test")
     git(repo, "config", "user.name", "Gate Test")
+    write(repo / ".gitignore", ".itd-memory/\n")
     write(repo / "base.txt", "base\n")
-    git(repo, "add", "base.txt")
+    write(repo / ".itd" / "SCOPE_LOCK.md", "# scope v1\n")
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps({"criterion": "v1"}))
+    git(repo, "add", "base.txt", ".gitignore", ".itd")
     git(repo, "commit", "-qm", "base")
     for index in range(staged):
         write(repo / f"change-{index}.txt", f"change {index}\n")
         git(repo, "add", f"change-{index}.txt")
-    write(repo / ".itd" / "SCOPE_LOCK.md", "# scope v1\n")
-    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
-          json.dumps({"criterion": "v1"}))
     write(repo / ".itd-memory" / "GOAL.json", json.dumps({
         "version": 1, "goal": "fixture", "status": "active",
         "currentUnitId": "R-1", "units": [{
@@ -72,9 +75,18 @@ def gate(repo: Path) -> subprocess.CompletedProcess:
 
 
 def record(repo: Path, verdict: str, *extra: str) -> subprocess.CompletedProcess:
+    args = list(extra)
+    if verdict in {"PASSED", "PASSED_WITH_WARNINGS"}:
+        git(repo, "add", "-u")
+        goal = json.loads((repo / ".itd-memory" / "GOAL.json").read_text(encoding="utf-8"))
+        unit = goal["units"][0]
+        receipt = make_review_receipt(
+            repo, unit_id=str(unit["id"]), risk_tier=str(unit["riskTier"]),
+            kind="general")
+        args += ("--verification-receipt", str(receipt))
     return run([PY, str(CACHE), "record", "--root", str(repo),
                 "--kind", "general", "--verdict", verdict,
-                "--session", SID, *extra], ROOT)
+                "--session", SID, *args], ROOT)
 
 
 def legacy_marker(content: str) -> Path:

@@ -13,6 +13,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from verification_loop_fixture import make_review_receipt
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
@@ -53,8 +55,9 @@ def make_repo(root: Path, risk: str = "high") -> None:
     sh(["git", "init", "-q"], root)
     sh(["git", "config", "user.email", "review-cache@example.test"], root)
     sh(["git", "config", "user.name", "Review Cache Test"], root)
+    write(root / ".gitignore", ".itd-memory/\n")
     write(root / "base.txt", "baseline\n")
-    sh(["git", "add", "base.txt"], root)
+    sh(["git", "add", "base.txt", ".gitignore"], root)
     sh(["git", "commit", "-qm", "baseline"], root)
     for index in range(3):
         write(root / f"change-{index}.txt", f"change {index}\n")
@@ -62,6 +65,7 @@ def make_repo(root: Path, risk: str = "high") -> None:
     write(root / ".itd" / "SCOPE_LOCK.md", "# exact cache scope\n")
     write(root / ".itd" / "ACCEPTANCE_CONTRACT.json",
           json.dumps({"criterion": "exact context"}))
+    sh(["git", "add", ".itd"], root)
     goal = {
         "version": 1,
         "goal": "review cache fixture",
@@ -85,6 +89,12 @@ if spec is None:
     raise RuntimeError("cannot load review cache module")
 core = importlib.util.module_from_spec(spec)
 loader.exec_module(core)
+
+
+def receipt(repo: Path, kind: str = "general") -> Path:
+    return make_review_receipt(
+        repo, unit_id=core.detected_unit_id(repo),
+        risk_tier=core.detected_risk_tier(repo), kind=kind)
 
 
 # Deployment baseline: no command is a quiet no-op.
@@ -118,8 +128,16 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
           == hashlib.sha256(
               (repo / ".itd/ACCEPTANCE_CONTRACT.json").read_bytes()).hexdigest())
 
+    try:
+        core.record_review(repo, verdict="PASSED", kind="general")
+        plain_rejected = False
+    except core.CacheError:
+        plain_rejected = True
+    check("plain PASSED cannot mint reusable cache evidence", plain_rejected)
+
     accepted, clean = core.record_review(
-        repo, verdict="PASSED", kind="general", session="rc-clean")
+        repo, verdict="PASSED", kind="general", session="rc-clean",
+        verification_receipt=receipt(repo))
     check("clean successful verdict is cacheable", accepted)
     check("unchanged exact context is a cache hit",
           core.cache_allows(repo) is True)
@@ -135,7 +153,8 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
     check("security evidence cannot occupy the general review cache slot",
           core.record_matches(wrong_kind, context) is False)
     accepted, _ = core.record_review(
-        repo, verdict="PASSED", kind="security", session="rc-security")
+        repo, verdict="PASSED", kind="security", session="rc-security",
+        verification_receipt=receipt(repo, "security"))
     check("accepted security verdict unlocks only the security cache slot",
           accepted and core.cache_allows(repo, kind="security")
           and core.cache_allows(repo, kind="general"))
@@ -146,11 +165,14 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
     check("staged candidate change invalidates cache",
           core.cache_allows(repo) is False
           and core.cache_allows(repo, kind="security") is False)
-    core.record_review(repo, verdict="PASSED", kind="general", session="rc-clean")
+    core.record_review(repo, verdict="PASSED", kind="general", session="rc-clean",
+                       verification_receipt=receipt(repo))
     write(repo / ".itd" / "SCOPE_LOCK.md", "# changed scope\n")
     check("scope contract change invalidates cache",
           core.cache_allows(repo) is False)
-    core.record_review(repo, verdict="PASSED", kind="general", session="rc-clean")
+    sh(["git", "add", ".itd/SCOPE_LOCK.md"], repo)
+    core.record_review(repo, verdict="PASSED", kind="general", session="rc-clean",
+                       verification_receipt=receipt(repo))
     write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
           json.dumps({"criterion": "changed"}))
     check("acceptance contract change invalidates cache",
@@ -167,10 +189,13 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         repo, verdict="PASSED_WITH_WARNINGS", kind="general",
         warnings=[], session="rc-warning-empty")
     check("warning verdict without durable warnings fails closed", not accepted)
+    sh(["git", "add", ".itd/ACCEPTANCE_CONTRACT.json"], repo)
+    general_receipt = receipt(repo)
     accepted, _ = core.record_review(
         repo, verdict="PASSED_WITH_WARNINGS", kind="general",
         warnings=[{"summary": "durable warning", "file": "change-0.txt"}],
-        session="rc-warning-bound")
+        session="rc-warning-bound",
+        verification_receipt=general_receipt)
     check("warning verdict is reusable only with durable warnings",
           accepted and core.cache_allows(repo))
 
@@ -195,7 +220,8 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
     state = json.loads(state_path.read_text())
     check("failed review does not reset either risk bucket",
           state["general_score"] == 4.0 and state["security_score"] == 8.0)
-    core.record_review(repo, verdict="PASSED", kind="general", session="rc-risk")
+    core.record_review(repo, verdict="PASSED", kind="general", session="rc-risk",
+                       verification_receipt=general_receipt)
     state = json.loads(state_path.read_text())
     check("general review resets only general risk",
           state["general_score"] == 0.0 and state["security_score"] == 8.0
@@ -205,7 +231,9 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         "risk_score": 12.0, "general_score": 4.0, "security_score": 8.0,
         "last_escalation_score": 12.0, "escalations": 1,
     }))
-    core.record_review(repo, verdict="PASSED", kind="security", session="rc-risk")
+    security_receipt = receipt(repo, "security")
+    core.record_review(repo, verdict="PASSED", kind="security", session="rc-risk",
+                       verification_receipt=security_receipt)
     state = json.loads(state_path.read_text())
     check("security review resets only security risk",
           state["general_score"] == 4.0 and state["security_score"] == 0.0
@@ -215,7 +243,8 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         "risk_score": 25.0, "general_score": 15.0, "security_score": 10.0,
         "last_escalation_score": 12.0, "escalations": 1,
     }))
-    core.record_review(repo, verdict="PASSED", kind="general", session="rc-risk")
+    core.record_review(repo, verdict="PASSED", kind="general", session="rc-risk",
+                       verification_receipt=general_receipt)
     state = json.loads(state_path.read_text())
     check("lagging escalation baseline restarts at the complete residual score",
           state["general_score"] == 0.0 and state["security_score"] == 10.0

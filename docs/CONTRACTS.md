@@ -42,14 +42,15 @@ Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machin
 | `.itd/DATA_POLICY.md` | Real vs synthetic data rules + required evidence |
 | `.itd/FALLBACK_POLICY.md` | Allowed vs forbidden fallbacks (no silent substitution) |
 | `.itd/VERIFICATION_CONTRACT.json` | Executable verify commands; **fail-closed** |
+| `.itd/VERIFICATION_LOOP_CONTRACT.json` | Risk routes, maker/checker trust boundary, exact-candidate adjudication receipts |
 | `.itd/ACCEPTANCE_CONTRACT.json` | "Done" as a proof checklist derived from the user request |
 | `.itd/EXECUTION_POLICY.json` | Command / write / network / approval policy |
 | `.itd/PERMISSION_MATRIX.{json,md}` | Who/what may read, write, execute, publish |
 | `.itd/TOOL_CAPABILITY_REGISTRY.json` | Tool/connector side-effects, auth, risk, fallback |
 | `.itd/LEARNING_PROMOTION_GATE.md` | Gate for promoting session learnings into durable docs |
 | `.itd/DECISIONS.md` | Append-only decision journal («какое/почему/когда»), written by `/session-save`, read by `/handoff` (v1.70.0) |
-| `.itd/itd_progress.py` | Derived-view generator → `.itd-memory/PROGRESS.md` (glance-сводка; best-effort, never a gate — canon stays in STATE/GOAL JSON; v1.70.0). **Utility, NOT counted in the 14 contract templates** — идёт в комплекте с `check_contract_drift.py` / `itd_init_validate.py`; сам `PROGRESS.md` в целевом проекте — кандидат в `.gitignore` (derived, без таймстампа в теле — v1.71.1) |
-| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node (template lives at `docs/templates/UNIT_CONTEXT_MANIFEST.json`; created per unit, NOT part of the 14-file `.itd/` scaffold) |
+| `.itd/itd_progress.py` | Derived-view generator → `.itd-memory/PROGRESS.md` (glance-сводка; best-effort, never a gate — canon stays in STATE/GOAL JSON; v1.70.0). **Utility, NOT counted in the 21 contract templates** — идёт в комплекте с `check_contract_drift.py` / `itd_init_validate.py`; сам `PROGRESS.md` в целевом проекте — кандидат в `.gitignore` (derived, без таймстампа в теле — v1.71.1) |
+| `.itd/UNIT_CONTEXT_MANIFEST.json` | Fresh, bounded context for a single execution node (template lives at `docs/templates/UNIT_CONTEXT_MANIFEST.json`; created per unit, NOT part of the 21-file `.itd/` scaffold) |
 | `.itd-memory/STATE.json`, `events.jsonl`, `LEARNINGS.jsonl` | Structured state, audit log, learnings |
 | `ROOT_CAUSE.md`, `BRANCH_FINISH.md` | Bugfix root-cause record; branch-finish decision |
 
@@ -97,7 +98,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 
 ## Known follow-up (doc drift)
 
-**✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.91.1).** The original pass
+**✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.92.0).** The original pass
 aligned **40 skills + 10 specialized subagents + 19 enforcement hooks**. The
 current live inventory is **40 skills + 10 specialized subagents + 29 hooks
 (11 hard, 18 soft)** and is checked by the documentation freshness and adapter

@@ -17,6 +17,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   next unit without re-adoption or manual context reconstruction. This is
   deterministic operational evidence, not external effectiveness evidence.
 
+## [1.92.0] - 2026-07-21
+
+### Added
+- Risk-tiered proof-carrying **Verification Loop v1**: the harness executes
+  declared machine oracles against the exact staged candidate, binds durable
+  prompt/report/provenance artifacts, and produces revalidated adjudication
+  receipts. Low risk is machine-only, medium uses a targeted fresh-session
+  checker, and high/unknown uses a full fresh-session checker with a different
+  model or provider.
+- A default-on `VERIFICATION_LOOP_CONTRACT.json` for new and adopted projects,
+  ADR-003, the shared producer/policy, adversarial fixtures, and Linux/Windows
+  CI coverage.
+
+### Changed
+- `/task`, `/goal`, `/review`, and `/security-audit` now converge on the same
+  bounded producer → checker → adjudicator protocol. Accepted goal transitions
+  and exact-context review/security cache records require a structured receipt;
+  plaintext `PASSED` cannot unlock a gate or pay down risk.
+- Review prompts and reports live durably under the Git-ignored
+  `.itd-memory/verification-loop/` tree. Any candidate, contract, risk, unit,
+  prompt, report, policy, or receipt-dependency change invalidates reuse.
+- The local threat model is explicit: receipts prove integrity and honest-host
+  process separation, not cryptographic identity against a malicious process
+  with the same OS principal.
+
+### Fixed
+- Goal machine failures and missing checker evidence now consume bounded
+  attempts as `failed`/`unverified` without producing an invalid ledger.
+- State validation reopens and validates the referenced adjudication file,
+  file/self digests, unit, risk, freshness, candidate, and dependency chain
+  instead of accepting a shaped receipt object.
+- Machine oracles reject unstaged/untracked checkout overlays, closing the gap
+  where commands could pass on a working tree different from the staged
+  candidate named in the receipt.
+- Machine oracles now execute in a disposable Git checkout materialized only
+  from the staged tree, so ignored `.env`, dependency, fixture, or build
+  overlays cannot influence a receipt for an unbound candidate.
+- Required non-Git oracle inputs can be declared narrowly with repeatable
+  `--input`; each file/directory snapshot is copied into isolation, hash-bound
+  in the receipt, and revalidated before adjudication or reuse.
+- Machine and checker receipts use collision-resistant names and the same
+  atomic no-overwrite publication as adjudications and attempt ledgers; a
+  repeat or concurrent producer can no longer replace prior evidence.
+
+### Verification
+- Focused behavioural/adversarial suites cover receipt tampering, wrong
+  unit/risk, mutable candidate overlays, independence routing, bounded attempts,
+  goal ledger validation, review cache invalidation, DoD, and risk paydown.
+- Release gates include host-adapter parity, methodology meta-review,
+  `tests/run-all.sh --quick`, and the full local regression suite.
+
 ## [1.91.1] - 2026-07-18
 
 **Честное model-neutral позиционирование Idea to Deploy как реализации Harness

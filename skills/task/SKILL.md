@@ -260,9 +260,16 @@ implementation:
 4. **Verify** — `/test` for new code (fail-closed: evidence required; for
    projects without a test runner use the project's declared verification —
    lint/build/domain checks from `.itd/VERIFICATION_CONTRACT.json` or
-   CLAUDE.md).
-5. **`/review`** before any multi-file commit (mandatory floor), then commit
-   per the project's branch/PR rules; `/session-save` at the block end.
+   CLAUDE.md). Execute the declared commands through the machine producer in
+   `docs/VERIFICATION_LOOP.md`; a narrated command result is not completion.
+5. **`/review` + adjudicate** before any multi-file commit (mandatory floor).
+   Low risk adjudicates the machine receipt alone. Medium adds a targeted
+   fresh-session checker; high/unknown adds a full checker from a fresh session
+   and different model/provider. Mint the unit receipt with claim id equal to
+   the active unit, validate it again with `itd_verification_loop.py check`, and
+   only then mark the unit verified. `/review` separately records its
+   `<unit>:general-review` receipt for the exact-context cache.
+6. Commit per the project's branch/PR rules; `/session-save` at the block end.
 
 Tier note (Step 1b): a feature is **standard** by default; escalate to
 **high-risk** when it touches prod data, schema, auth, payments, or security.
@@ -299,12 +306,13 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
    `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" activate U-<next> --goal "<one-line task>"`
    — скрипт сам выставит `currentUnit` (атомарно) и запишет событие
    `activated` (actor: harness).
-3. **On verified completion** (the target skill's verification passed with
-   evidence) —
+3. **On verified completion** (the target skill's adjudication receipt passed
+   `itd_verification_loop.py check` for this exact unit/risk/candidate) —
    `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" verified U-<id> --evidence "<вывод проверки>"`
    — verified без evidence или без парного activation-события скрипт отклонит
    (осознанная реконсиляция истории: `backfill-activation U-<id> --note "…"`).
-   These events feed `itd_metrics.py` VCR (verified/activated) and the
+   Include the receipt path and digest in `<вывод проверки>`; plain reviewer
+   prose is not evidence. These events feed `itd_metrics.py` VCR (verified/activated) and the
    `wip-gate.sh` hook.
 
 Skip this step entirely when there is no `.itd-memory/` — do not create it

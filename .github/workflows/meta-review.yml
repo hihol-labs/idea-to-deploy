@@ -173,6 +173,9 @@ jobs:
       - name: Run bounded goal autonomy contract (sealed oracle, budgets, attempts)
         run: python3 tests/verify_goal_bounded_autonomy.py
 
+      - name: Run proof-carrying Verification Loop adversarial contract
+        run: python3 tests/verify_verification_loop.py
+
       - name: Run bounded goal deterministic five-star evaluator
         run: python3 tests/verify_goal_five_star.py
 

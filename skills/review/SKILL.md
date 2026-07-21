@@ -58,10 +58,15 @@ autocompact-thrashes to death); dispatch the review instead:
   (the agent reads them itself).
 - Tell the agent the review mode (methodology self-review vs regular project —
   Step 0 detection below; `agents/code-reviewer.md` carries matching logic).
-- **Pass a report-file path** (`claude-review-<slug>.md`, предпочтительно вне
-  git-дерева цели) and require INCREMENTAL writes — file = contract, final
+- **Pass a report-file path** under
+  `.itd-memory/verification-loop/reports/` and a matching immutable prompt
+  under `.itd-memory/verification-loop/prompts/`; require INCREMENTAL writes —
+  file = contract, final
   message = transport. При обрыве/пустом финале: сначала прочитай report-файл,
   потом Step 2.7 re-ping, затем fresh narrow (helpers §9).
+- For pre-Verification-Loop callers, keep the legacy `claude-review-<session>.md`
+  report filename as a compatible fallback; it is transport only and cannot
+  mint an accepted verdict without an adjudication receipt.
 
 Обоснования (fork-thrash механика, история v1.72.0, детали контракта
 report-файла, stall-resilience) — `references/runner-and-recovery.md` §0.
@@ -336,13 +341,25 @@ Use the Bash tool, substituting the actual verdict. For
 `PASSED_WITH_WARNINGS`, add one durable `--warning` argument per warning in the
 form `path: summary`; an empty warning list is rejected.
 
+`PASSED*` is proof-carrying: before recording it, run the shared workflow in
+`docs/VERIFICATION_LOOP.md` with claim id `<active-unit>:general-review`. The
+machine receipt must execute the deterministic review oracle (for this repo,
+`tests/meta_review.py --verbose`); the checker receipt must bind the exact
+prompt, durable report, and real host-observed maker/checker provenance. Use
+`targeted` for medium risk and `full` for high/unknown. Low risk stays
+machine-only. Then pass the resulting adjudication path:
+
 ```bash
 RC="skills/review/scripts/itd_review_cache.py"
 [ -f "$RC" ] || RC="$HOME/.claude/idea-to-deploy/skills/review/scripts/itd_review_cache.py"
 SHD="skills/_shared"
 [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/idea-to-deploy/skills/_shared"
-sh "$SHD/itd_py.sh" "$RC" record --root . --kind general --verdict PASSED
+sh "$SHD/itd_py.sh" "$RC" record --root . --kind general --verdict PASSED \
+  --verification-receipt "$ADJUDICATION_RECEIPT"
 ```
+
+`BLOCKED`/`UNVERIFIED` are recorded without a receipt and remain non-gating.
+Plain verdict text or a generic SubagentStop payload can never mint a cache hit.
 
 The workflow caller must run this explicit producer only after accepting the
 independent verdict. Generic `SubagentStop` payloads are not authenticated

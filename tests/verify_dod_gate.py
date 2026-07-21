@@ -14,6 +14,9 @@ import shutil
 import subprocess
 import tempfile
 import time
+from pathlib import Path
+
+from verification_loop_fixture import make_review_receipt
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "hooks", "check-dod-before-commit.sh")
@@ -54,6 +57,8 @@ def make_repo():
     _sh(["git", "init", "-q"], d)
     _sh(["git", "config", "user.email", "t@t"], d)
     _sh(["git", "config", "user.name", "t"], d)
+    write(d, ".gitignore", ".itd-memory/\n")
+    _sh(["git", "add", ".gitignore"], d)
     _sh(["git", "commit", "--allow-empty", "-qm", "baseline"], d)
     return d
 
@@ -89,9 +94,14 @@ def run_hook(repo, command="git commit -m x", description="", session=SID):
 
 
 def record_security(repo, verdict="PASSED"):
+    receipt_args = []
+    if verdict in ("PASSED", "PASSED_WITH_WARNINGS"):
+        receipt = make_review_receipt(
+            Path(repo), unit_id="review", risk_tier="unknown", kind="security")
+        receipt_args = ["--verification-receipt", str(receipt)]
     result = subprocess.run(
         ["python3", CACHE, "record", "--root", repo, "--kind", "security",
-         "--verdict", verdict, "--session", SID],
+         "--verdict", verdict, "--session", SID, *receipt_args],
         cwd=repo, capture_output=True, text=True,
     )
     if verdict == "PASSED" and result.returncode != 0:

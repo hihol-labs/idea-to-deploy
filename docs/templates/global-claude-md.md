@@ -37,6 +37,11 @@ coding from scratch:
    outcomes faithfully: if tests fail, say so with the output; if a step was
    skipped, say that; when something is done and verified, state it plainly
    without hedging. (Vendor-canonical snippet, Fable 5 era — v1.50.0.)
+8. **Proof-carrying acceptance.** Use `verification-loop-v1` by default:
+   machine evidence for low risk, a targeted fresh-session checker for medium,
+   and a full fresh-session different-model/provider checker for high/unknown.
+   Only an exact-candidate adjudication receipt may satisfy goal/review gates;
+   prose `PASSED` is not evidence.
 
 ## Harness-native features — best-effort invariant (v1.50.0 · enforced-by: hooks/pii-egress-guard.sh)
 

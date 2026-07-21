@@ -152,7 +152,9 @@ def validate_policy(policy: dict, inherited_path: Path = INHERITED_PATH) -> list
             or cache.get("acceptedVerdicts") != ["PASSED"] \
             or cache.get("warningVerdictRequiresDurableWarnings") is not True \
             or cache.get("blockedOrUnverifiedSatisfiesGate") is not False \
-            or cache.get("invalidateOnKeyChange") is not True:
+            or cache.get("invalidateOnKeyChange") is not True \
+            or cache.get("acceptedVerdictRequiresAdjudicatedReceipt") is not True \
+            or cache.get("receiptPolicy") != "verification-loop-v1":
         issues.append("successful context-bound review-cache rule drift")
 
     risk = policy.get("riskBudget") or {}

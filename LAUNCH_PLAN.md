@@ -124,6 +124,27 @@ become a default only after the sealed canary/comparable-unit thresholds pass;
 external adoption evidence remains independent and is never synthesized from
 this internal benchmark.
 
+## Block H — Proof-carrying Verification Loop — P0 — ✅ DONE (v1.92.0)
+
+Decision: [ADR-003](docs/adr/ADR-003-proof-carrying-verification-loop.md).
+
+- Shared `verification-loop-v1` policy and producer bind machine commands,
+  checker prompt/report, risk, unit, contracts, exact candidate and dependency
+  hashes into revalidated adjudication receipts.
+- Risk routing is proportional: low machine-only, medium targeted fresh
+  checker, high/unknown full fresh checker with different model/provider.
+- `/goal`, `/task`, `/review`, `/security-audit`, state validation and commit
+  caches consume the receipt chain; plain verdict strings cannot unlock gates.
+- Adversarial tests cover mutable checkout overlays, stale/tampered/missing
+  artifacts, wrong risk/unit, failed/missing checkers, attempt limits and cache
+  invalidation on both host adapters.
+- New/adopted projects receive `VERIFICATION_LOOP_CONTRACT.json`; active WSL
+  and Windows installs receive the shared policy, producer, skills and template.
+
+Rollout is default-on for acceptance semantics, while the checker cost remains
+risk-proportional. The honest-orchestrator threat boundary is explicit; no
+same-principal cryptographic/model-identity guarantee is claimed.
+
 ## Backlog / next
 
 - **P2 (deferred):** analyze Day 3 (Context Engineering) and Day 5 (Spec-Driven

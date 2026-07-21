@@ -10,6 +10,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from verification_loop_fixture import make_review_receipt
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "hooks" / "risk-score.sh"
@@ -67,13 +69,15 @@ def make_repo() -> Path:
     run_git(repo, "init", "-q")
     run_git(repo, "config", "user.email", "risk@example.test")
     run_git(repo, "config", "user.name", "Risk Test")
+    write(repo / ".gitignore", ".itd-memory/\n")
     write(repo / "base.txt", "base\n")
-    run_git(repo, "add", "base.txt")
+    run_git(repo, "add", "base.txt", ".gitignore")
     run_git(repo, "commit", "-qm", "base")
     write(repo / "change.txt", "candidate\n")
     run_git(repo, "add", "change.txt")
     write(repo / ".itd" / "SCOPE_LOCK.md", "# risk scope\n")
     write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json", "{}\n")
+    run_git(repo, "add", ".itd")
     write(repo / ".itd-memory" / "GOAL.json", json.dumps({
         "version": 1, "goal": "risk fixture", "status": "active",
         "currentUnitId": "R-1", "units": [{
@@ -85,9 +89,19 @@ def make_repo() -> Path:
 
 
 def verdict(repo: Path, session: str, value: str, kind: str) -> int:
+    receipt_args: list[str] = []
+    if value in {"PASSED", "PASSED_WITH_WARNINGS"}:
+        # Each scenario models a separate completed change/review. Give it an
+        # exact candidate of its own so independent scenarios do not consume
+        # one claim's deliberate three-attempt repair budget.
+        write(repo / "change.txt", f"candidate for {session} {kind}\n")
+        run_git(repo, "add", "change.txt")
+        receipt = make_review_receipt(
+            repo, unit_id="R-1", risk_tier="medium", kind=kind)
+        receipt_args = ["--verification-receipt", str(receipt)]
     proc = subprocess.run(
         [PY, str(CACHE), "record", "--root", str(repo), "--session", session,
-         "--kind", kind, "--verdict", value],
+         "--kind", kind, "--verdict", value, *receipt_args],
         cwd=str(ROOT), capture_output=True, text=True, timeout=30,
     )
     return proc.returncode

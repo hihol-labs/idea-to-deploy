@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "enabled": true,
+  "policyId": "verification-loop-v1",
+  "policySource": "skills/_shared/VERIFICATION_LOOP_POLICY.json",
+  "receiptDirectory": ".itd-memory/verification-loop",
+  "declaredMachineInputs": [],
+  "trustModel": {
+    "makerProducesCandidateNotPass": true,
+    "harnessExecutesOracle": true,
+    "verifierUsesExactCandidate": true,
+    "undeclaredIgnoredWorkspaceInputsAreExcluded": true,
+    "semanticCheckerIsRiskTiered": true,
+    "humanOrExternalGateRemainsRequiredWhenInternalEvidenceIsInsufficient": true
+  },
+  "outcomes": ["PASSED", "FAILED", "UNVERIFIED"],
+  "failClosed": "A missing, stale, malformed, wrong-candidate or insufficiently independent receipt is UNVERIFIED and cannot satisfy a completion/review gate."
+}

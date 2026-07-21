@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFY = ROOT / "skills" / "goal" / "scripts" / "itd_goal_verify.py"
 REPORT = ROOT / "skills" / "goal" / "scripts" / "itd_goal_report.py"
 VALIDATE = ROOT / "scripts" / "validate_state.py"
+LOOP = ROOT / "skills" / "_shared" / "itd_verification_loop.py"
 PY = sys.executable
 RESULT_CMD = (
     f'"{PY}" -c "import pathlib,sys; '
@@ -45,6 +46,21 @@ def make_goal(root: Path, *, attempts: int = 2, wall: int = 3600,
               tokens: int = 1000, review: bool = True,
               enforce_tokens: bool = False, adaptive: bool = False,
               risk_tier: str = "medium") -> Path:
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Goal Fixture"],
+                   cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "goal@example.test"],
+                   cwd=root, check=True)
+    (root / ".gitignore").write_text(
+        ".itd-memory/\n.claude/\nresult.txt\n", encoding="utf-8")
+    (root / ".itd").mkdir()
+    (root / ".itd" / "SCOPE_LOCK.md").write_text("# Goal fixture\n", encoding="utf-8")
+    (root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
+        '{"criteria":[{"id":"AC-1","status":"pending"}]}\n',
+        encoding="utf-8")
+    (root / "baseline.txt").write_text("baseline\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=root, check=True)
     mem = root / ".itd-memory"
     mem.mkdir(parents=True)
     (root / "result.txt").write_text("fail", encoding="utf-8")
@@ -103,6 +119,51 @@ def seal_and_activate(root: Path) -> tuple[subprocess.CompletedProcess, subproce
     return sealed, active
 
 
+def last_path(proc: subprocess.CompletedProcess) -> Path:
+    return Path(proc.stdout.strip().splitlines()[-1])
+
+
+def make_verification_receipt(root: Path, risk_tier: str) -> Path:
+    """Produce the same proof chain a real goal run must consume."""
+    base = root / ".itd-memory" / "verification-loop"
+    prompt = base / "prompts" / "G-001.md"
+    report = base / "reports" / "G-001.md"
+    prompt.parent.mkdir(parents=True, exist_ok=True)
+    report.parent.mkdir(parents=True, exist_ok=True)
+    prompt.write_text(
+        "Review the exact candidate independently and return canonical JSON.\n",
+        encoding="utf-8")
+    report.write_text(
+        "# Independent review\n\n```json\n"
+        + json.dumps({"verdict": "PASSED", "findings": [], "unverified": []})
+        + "\n```\n", encoding="utf-8")
+    machine = run(
+        LOOP, "machine", "--root", str(root), "--unit-id", "G-001",
+        "--risk-tier", risk_tier, "--command", "oracle=" + RESULT_CMD,
+        "--input", "result.txt",
+        cwd=root)
+    if machine.returncode != 0:
+        raise AssertionError(machine.stdout + machine.stderr)
+    mode = "targeted" if risk_tier == "medium" else "full"
+    checker = run(
+        LOOP, "checker", "--root", str(root), "--unit-id", "G-001",
+        "--risk-tier", risk_tier, "--mode", mode,
+        "--report", str(report), "--prompt-file", str(prompt),
+        "--maker-provider", "openai", "--maker-model", "gpt-maker",
+        "--maker-session", "maker-session",
+        "--checker-provider", "openai", "--checker-model", "gpt-checker",
+        "--checker-session", "checker-session", cwd=root)
+    if checker.returncode != 0:
+        raise AssertionError(checker.stdout + checker.stderr)
+    adjudication = run(
+        LOOP, "adjudicate", "--root", str(root), "--unit-id", "G-001",
+        "--risk-tier", risk_tier, "--machine", str(last_path(machine)),
+        "--checker", str(last_path(checker)), cwd=root)
+    if adjudication.returncode != 0:
+        raise AssertionError(adjudication.stdout + adjudication.stderr)
+    return last_path(adjudication)
+
+
 # Oracle must be sealed after approval, never inferred during activation.
 with tempfile.TemporaryDirectory() as td:
     root = Path(td)
@@ -131,46 +192,79 @@ with tempfile.TemporaryDirectory() as td:
 # Attempts require an approach/checker, persist failures, and stop at the cap.
 with tempfile.TemporaryDirectory() as td:
     root = Path(td)
-    path = make_goal(root, attempts=2, review=True)
+    path = make_goal(root, attempts=3, review=True)
     seal_and_activate(root)
     r = run(VERIFY, "--goal", rel(), "G-001",
             "--review-evidence", "fresh reviewer PASSED", cwd=root)
     check("bounded attempt requires approach", r.returncode == 1 and not unit(path)["attempts"])
+    (root / "result.txt").write_text("pass", encoding="utf-8")
     r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try A", cwd=root)
     check("policy can require independent checker evidence",
-          r.returncode == 1 and not unit(path)["attempts"])
-    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try A",
-            "--review-evidence", "fresh reviewer PASSED", cwd=root)
+          r.returncode == 1 and len(unit(path)["attempts"]) == 1
+          and unit(path)["attempts"][0]["outcome"] == "unverified")
+    rv = run(VALIDATE, str(path), cwd=root)
+    check("missing-checker attempt leaves a valid ledger",
+          rv.returncode == 0, rv.stdout + rv.stderr)
+    (root / "result.txt").write_text("fail", encoding="utf-8")
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try A", cwd=root)
     u = unit(path)
     check("failed attempt is journaled and remains active",
           r.returncode == 1 and u["status"] == "in_progress"
-          and len(u["attempts"]) == 1 and u["attempts"][0]["approach"] == "try A")
-    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try B",
-            "--review-evidence", "fresh reviewer PASSED", cwd=root)
+          and len(u["attempts"]) == 2 and u["attempts"][1]["approach"] == "try A")
+    rv = run(VALIDATE, str(path), cwd=root)
+    check("machine-red attempt leaves a valid ledger",
+          rv.returncode == 0, rv.stdout + rv.stderr)
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try B", cwd=root)
     u = unit(path)
     check("attempt cap produces typed budget stop",
           r.returncode == 3 and u["status"] == "blocked"
           and u["runState"]["stopReason"] == "budget_exhausted"
           and u["runState"]["exhaustedBudget"]["kind"] == "attempts"
-          and len(u["attempts"]) == 2, r.stdout + r.stderr)
+          and len(u["attempts"]) == 3, r.stdout + r.stderr)
     r = run(VERIFY, "--goal", rel(), "--activate", "G-001",
             "--reason", "retry unchanged", cwd=root)
     check("budget resume refuses unchanged limit", r.returncode == 1, r.stdout + r.stderr)
     data = load(path)
-    data["runPolicy"]["maxAttemptsPerUnit"] = 3
+    data["runPolicy"]["maxAttemptsPerUnit"] = 4
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     (root / "result.txt").write_text("pass", encoding="utf-8")
     r = run(VERIFY, "--goal", rel(), "--activate", "G-001",
             "--reason", "human approved one more attempt", cwd=root)
     check("increased exhausted budget can be explicitly resumed", r.returncode == 0,
           r.stdout + r.stderr)
+    receipt = make_verification_receipt(root, "unknown")
     r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "try C",
-            "--review-evidence", "fresh reviewer PASSED", cwd=root)
+            "--verification-receipt", str(receipt), cwd=root)
     u = unit(path)
     check("resumed attempt can verify with full evidence",
           r.returncode == 0 and u["status"] == "verified"
-          and u["runState"]["stopReason"] == "verified" and len(u["attempts"]) == 3,
+          and u["runState"]["stopReason"] == "verified" and len(u["attempts"]) == 4,
           r.stdout + r.stderr)
+    verified = load(path)
+    rv = run(VALIDATE, str(path), cwd=root)
+    check("verified receipt chain validates from durable state",
+          rv.returncode == 0, rv.stdout + rv.stderr)
+    binding = verified["units"][0]["attempts"][-1]["verificationReceipt"]
+    for label, field, value in (
+            ("missing receipt path", "path", "missing/adjudication.json"),
+            ("forged receipt file hash", "sha256", "0" * 64),
+            ("forged receipt digest", "receiptSha256", "0" * 64)):
+        mutated = json.loads(json.dumps(verified))
+        mutated["units"][0]["attempts"][-1]["verificationReceipt"][field] = value
+        if field == "receiptSha256":
+            mutated["units"][0]["attempts"][-1]["reviewEvidence"] = "adjudicated:" + value
+        path.write_text(json.dumps(mutated, ensure_ascii=False, indent=2), encoding="utf-8")
+        rv = run(VALIDATE, str(path), cwd=root)
+        check(f"state validator rejects {label}", rv.returncode == 1,
+              rv.stdout + rv.stderr)
+    path.write_text(json.dumps(verified, ensure_ascii=False, indent=2), encoding="utf-8")
+    receipt_file = root / binding["path"]
+    receipt_bytes = receipt_file.read_bytes()
+    receipt_file.write_bytes(receipt_bytes + b"\n")
+    rv = run(VALIDATE, str(path), cwd=root)
+    check("state validator rejects a changed receipt file",
+          rv.returncode == 1, rv.stdout + rv.stderr)
+    receipt_file.write_bytes(receipt_bytes)
 
 
 # Rechecks are budgeted executions too.
@@ -301,9 +395,12 @@ with tempfile.TemporaryDirectory() as td:
     seal_and_activate(root)
     r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "unsafe shortcut", cwd=root)
     check("high-risk adaptive verification requires a full checker",
-          r.returncode == 1 and not unit(path)["attempts"], r.stdout + r.stderr)
+          r.returncode == 1 and len(unit(path)["attempts"]) == 1
+          and unit(path)["attempts"][0]["outcome"] == "unverified",
+          r.stdout + r.stderr)
+    receipt = make_verification_receipt(root, "high")
     r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "checked",
-            "--review-evidence", "independent checker PASSED", cwd=root)
+            "--verification-receipt", str(receipt), cwd=root)
     check("high-risk adaptive verification records checker mode",
           r.returncode == 0 and unit(path)["attempts"][0]["checkerMode"] == "full",
           r.stdout + r.stderr)
@@ -313,7 +410,9 @@ with tempfile.TemporaryDirectory() as td:
     path = make_goal(root, review=False, adaptive=True, risk_tier="medium")
     (root / "result.txt").write_text("pass", encoding="utf-8")
     seal_and_activate(root)
-    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "residual only", cwd=root)
+    receipt = make_verification_receipt(root, "medium")
+    r = run(VERIFY, "--goal", rel(), "G-001", "--approach", "residual only",
+            "--verification-receipt", str(receipt), cwd=root)
     check("medium-risk adaptive verification selects targeted checker",
           r.returncode == 0 and unit(path)["attempts"][0]["checkerMode"] == "targeted",
           r.stdout + r.stderr)
