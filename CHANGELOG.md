@@ -60,6 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Machine and checker receipts use collision-resistant names and the same
   atomic no-overwrite publication as adjudications and attempt ledgers; a
   repeat or concurrent producer can no longer replace prior evidence.
+- Full checker validation now rejects missing maker provenance and compares
+  normalized identities, closing absent-identity and whitespace independence
+  bypasses.
+- Machine run receipts use a closed schema with only stdout/stderr SHA-256
+  digests; alternate raw-output fields cannot persist secrets or PII under
+  `.itd-memory/`.
 
 ### Verification
 - Focused behavioural/adversarial suites cover receipt tampering, wrong

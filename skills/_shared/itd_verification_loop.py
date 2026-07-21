@@ -39,6 +39,11 @@ RISK_TIERS = {"low", "medium", "high", "unknown"}
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
 CHECKOUT_PROBE_TIMEOUT_SECONDS = 60
+MACHINE_RUN_FIELDS = frozenset({
+    "id", "command", "commandSha256", "shell", "startedAt", "completedAt",
+    "timeoutSeconds", "executionMode", "executedTree", "exitCode",
+    "stdoutSha256", "stderrSha256",
+})
 
 
 class LoopError(ValueError):
@@ -111,6 +116,7 @@ def load_policy() -> tuple[dict[str, Any], str]:
         "makerNarrationMayMintAcceptedVerdict": False,
         "harnessExecutesVerificationCommands": True,
         "machineExecutionMode": "isolated-staged-tree",
+        "machineOutputRetention": "hashes-only",
         "undeclaredIgnoredInputsEnterMachineOracle": False,
         "immutableReceiptPublicationRequired": True,
         "exactCandidateBindingRequired": True,
@@ -719,6 +725,13 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
                 or run.get("executionMode") != "isolated-staged-tree"
                 or type(run.get("exitCode")) is not int):
             raise LoopError("machine command evidence is malformed", "Rerun the oracle through the harness producer.")
+        unexpected_fields = set(run) - MACHINE_RUN_FIELDS
+        if unexpected_fields:
+            raise LoopError(
+                "machine command evidence contains non-schema fields: "
+                + ", ".join(sorted(unexpected_fields)),
+                "Keep only the closed run schema with stdout/stderr hashes and rerun the producer.",
+            )
         if run.get("executedTree") != receipt.get("candidate", {}).get("reviewedTree"):
             raise LoopError("machine command ran against a different tree",
                             "Rerun with a checkout exactly matching the staged candidate.")
@@ -746,12 +759,20 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
     provenance = receipt.get("provenance") or {}
     maker = provenance.get("maker") or {}
     checker = provenance.get("checker") or {}
-    if not all(str(checker.get(k) or "").strip() for k in ("provider", "model", "session")):
-        raise LoopError("checker identity is incomplete", "Record provider, model and session provenance.")
-    if str(checker.get("session")) == str(maker.get("session") or ""):
+    identity_fields = ("provider", "model", "session")
+    if (not all(isinstance(maker.get(k), str) and maker[k].strip() for k in identity_fields)
+            or not all(isinstance(checker.get(k), str) and checker[k].strip()
+                       for k in identity_fields)):
+        raise LoopError(
+            "maker/checker identity is incomplete",
+            "Record host-observed provider, model and session provenance for both roles.",
+        )
+    maker_identity = {key: maker[key].strip() for key in identity_fields}
+    checker_identity = {key: checker[key].strip() for key in identity_fields}
+    if checker_identity["session"] == maker_identity["session"]:
         raise LoopError("checker reused the maker session", "Use a fresh checker context.")
-    if mode == "full" and (str(checker.get("provider")) == str(maker.get("provider"))
-                           and str(checker.get("model")) == str(maker.get("model"))):
+    if mode == "full" and (checker_identity["provider"] == maker_identity["provider"]
+                           and checker_identity["model"] == maker_identity["model"]):
         raise LoopError("full checker is not model/provider-independent",
                         "Use a different model or provider; otherwise remain UNVERIFIED.")
     artifacts = receipt.get("artifacts") or {}
@@ -864,8 +885,6 @@ def command_machine(args: argparse.Namespace) -> int:
                 "exitCode": rc,
                 "stdoutSha256": sha256_bytes(stdout),
                 "stderrSha256": sha256_bytes(stderr),
-                "stdoutTail": stdout.decode("utf-8", "replace")[-500:],
-                "stderrTail": stderr.decode("utf-8", "replace")[-500:],
             })
         assert_isolated_candidate(execution_repo, executed_tree)
         validate_declared_inputs(execution_repo, input_manifests)
@@ -909,8 +928,12 @@ def command_checker(args: argparse.Namespace) -> int:
     prompt_rel = relative_artifact(repo, Path(args.prompt_file), root / "prompts", "checker prompt")
     report_path, prompt_path = repo / report_rel, repo / prompt_rel
     verdict = parse_report(report_path.read_text(encoding="utf-8", errors="replace"))
-    checker = {"provider": args.checker_provider, "model": args.checker_model, "session": args.checker_session}
-    maker = {"provider": args.maker_provider, "model": args.maker_model, "session": args.maker_session}
+    checker = {"provider": args.checker_provider.strip(),
+               "model": args.checker_model.strip(),
+               "session": args.checker_session.strip()}
+    maker = {"provider": args.maker_provider.strip(),
+             "model": args.maker_model.strip(),
+             "session": args.maker_session.strip()}
     receipt = seal_receipt({
         "version": RECEIPT_VERSION,
         "kind": "checker",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import subprocess
@@ -90,14 +91,16 @@ def machine(root: Path, risk: str, command: str | None = None,
 
 
 def checker(root: Path, risk: str, mode: str, *, same_session: bool = False,
-            same_model: bool = False, report: Path | None = None):
+            same_model: bool = False, missing_maker: bool = False,
+            report: Path | None = None):
     prompt, default_report = artifacts(root)
     return run([
         "checker", "--root", str(root), "--unit-id", "U-loop",
         "--risk-tier", risk, "--mode", mode,
         "--report", str(report or default_report), "--prompt-file", str(prompt),
-        "--maker-provider", "openai", "--maker-model", "gpt-maker",
-        "--maker-session", "maker-session",
+        "--maker-provider", "" if missing_maker else "openai",
+        "--maker-model", "" if missing_maker else "gpt-maker",
+        "--maker-session", "" if missing_maker else "maker-session",
         "--checker-provider", "openai",
         "--checker-model", "gpt-maker" if same_model else "gpt-checker",
         "--checker-session", "maker-session" if same_session else "checker-session",
@@ -144,6 +147,7 @@ check("plain-text checker evidence is forbidden",
       policy["invariants"]["plainTextCheckerEvidenceAccepted"] is False)
 check("policy freezes isolated execution and immutable evidence history",
       policy["invariants"]["machineExecutionMode"] == "isolated-staged-tree"
+      and policy["invariants"]["machineOutputRetention"] == "hashes-only"
       and policy["invariants"]["undeclaredIgnoredInputsEnterMachineOracle"] is False
       and policy["invariants"]["immutableReceiptPublicationRequired"] is True)
 check("threat model does not overclaim same-principal authentication",
@@ -156,6 +160,44 @@ low = fixture()
 low_machine = machine(low, "low")
 check("low-risk machine oracle executes", low_machine.returncode == 0, low_machine.stderr + low_machine.stdout)
 low_machine_path = last_path(low_machine)
+secret_output = machine(
+    low, "low",
+    f'"{sys.executable}" -c "print(bytes([83,69,78,83,73,84,73,86,69,45,79,82,65,67,76,69,45,79,85,84,80,85,84]).decode())"',
+)
+secret_receipt = last_path(secret_output).read_text(encoding="utf-8")
+check("machine receipt retains output hashes without raw sensitive tails",
+      secret_output.returncode == 0
+      and "SENSITIVE-ORACLE-OUTPUT" not in secret_receipt
+      and "stdoutSha256" in secret_receipt
+      and "stdoutTail" not in secret_receipt
+      and "stderrTail" not in secret_receipt,
+      secret_receipt)
+unsafe_receipt = json.loads(secret_receipt)
+unsafe_receipt["runs"][0]["stdoutTail"] = "SENSITIVE-ORACLE-OUTPUT"
+unsafe_receipt.pop("receiptSha256", None)
+unsafe_receipt["receiptSha256"] = hashlib.sha256(json.dumps(
+    unsafe_receipt, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+unsafe_path = last_path(secret_output).with_name("unsafe-machine-tail.json")
+unsafe_path.write_text(json.dumps(unsafe_receipt), encoding="utf-8")
+unsafe_adjudication = adjudicate(low, "low", unsafe_path)
+check("consumer rejects a digest-valid receipt containing raw output tails",
+      unsafe_adjudication.returncode != 0
+      and "non-schema fields" in unsafe_adjudication.stdout,
+      unsafe_adjudication.stdout)
+alternate_tail_receipt = json.loads(secret_receipt)
+alternate_tail_receipt["runs"][0]["outputTail"] = "SENSITIVE-ALTERNATE-FIELD"
+alternate_tail_receipt.pop("receiptSha256", None)
+alternate_tail_receipt["receiptSha256"] = hashlib.sha256(json.dumps(
+    alternate_tail_receipt, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+alternate_tail_path = last_path(secret_output).with_name("unsafe-alternate-tail.json")
+alternate_tail_path.write_text(json.dumps(alternate_tail_receipt), encoding="utf-8")
+alternate_tail_adjudication = adjudicate(low, "low", alternate_tail_path)
+check("closed machine-run schema rejects alternate raw output fields",
+      alternate_tail_adjudication.returncode != 0
+      and "non-schema fields" in alternate_tail_adjudication.stdout,
+      alternate_tail_adjudication.stdout)
 low_machine_bytes = low_machine_path.read_bytes()
 low_machine_repeat = machine(low, "low")
 low_machine_repeat_path = last_path(low_machine_repeat)
@@ -296,10 +338,28 @@ same_model_full = checker(high, "high", "full", same_model=True)
 check("full checker rejects same provider/model pair",
       same_model_full.returncode != 0 and "not model/provider-independent" in same_model_full.stdout,
       same_model_full.stdout)
+missing_maker_full = checker(high, "high", "full", missing_maker=True)
+check("full checker rejects missing maker provenance",
+      missing_maker_full.returncode != 0 and "identity is incomplete" in missing_maker_full.stdout,
+      missing_maker_full.stdout)
 high_checker = checker(high, "high", "full")
 check("full checker receipt binds different model and session",
       high_checker.returncode == 0, high_checker.stdout)
-high_adj = adjudicate(high, "high", last_path(high_machine), last_path(high_checker))
+high_checker_path = last_path(high_checker)
+whitespace_checker_receipt = json.loads(high_checker_path.read_text(encoding="utf-8"))
+whitespace_checker_receipt["provenance"]["checker"]["model"] = " gpt-maker "
+whitespace_checker_receipt.pop("receiptSha256", None)
+whitespace_checker_receipt["receiptSha256"] = hashlib.sha256(json.dumps(
+    whitespace_checker_receipt, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+whitespace_checker_path = high_checker_path.with_name("forged-whitespace-model.json")
+whitespace_checker_path.write_text(json.dumps(whitespace_checker_receipt), encoding="utf-8")
+whitespace_adj = adjudicate(high, "high", last_path(high_machine), whitespace_checker_path)
+check("normalized provenance comparison rejects whitespace independence bypass",
+      whitespace_adj.returncode != 0
+      and "not model/provider-independent" in whitespace_adj.stdout,
+      whitespace_adj.stdout)
+high_adj = adjudicate(high, "high", last_path(high_machine), high_checker_path)
 check("high-risk full evidence adjudicates", high_adj.returncode == 0, high_adj.stdout)
 high_adj_path = last_path(high_adj)
 

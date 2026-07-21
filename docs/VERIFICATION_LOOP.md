@@ -43,7 +43,9 @@ rechecked after the oracle; tracked mutation invalidates the result. A command
 that genuinely needs a non-Git input must declare each minimal path with
 `--input`. The harness snapshots it into the isolated checkout, seals its hash
 in the machine receipt, and revalidates both source and snapshot before the
-receipt can be adjudicated or reused.
+receipt can be adjudicated or reused. Machine run records use a closed schema
+that retains SHA-256 digests of stdout/stderr but never raw output or diagnostic
+tails, so alternate field names cannot turn secrets or PII into durable memory.
 
 ## Canonical producer sequence
 
@@ -55,7 +57,9 @@ can inspect a WSL UNC worktree without weakening the exact-tree comparison.
 Oracle commands use the native shell transport: `cmd.exe /d /c` on Windows
 and `sh -c` on Unix/WSL. Windows UNC worktrees are entered with process-local
 `pushd`; the selected executable and `isolated-staged-tree` execution mode are
-recorded in each run.
+recorded in each run. Maker and checker provider/model/session fields must all
+be present and are compared after normalization; missing or padded provenance
+cannot manufacture apparent independence.
 
 ```bash
 SHD="skills/_shared"

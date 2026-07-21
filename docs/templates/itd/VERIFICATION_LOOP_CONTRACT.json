@@ -8,6 +8,7 @@
   "trustModel": {
     "makerProducesCandidateNotPass": true,
     "harnessExecutesOracle": true,
+    "machineOutputRetention": "hashes-only",
     "verifierUsesExactCandidate": true,
     "undeclaredIgnoredWorkspaceInputsAreExcluded": true,
     "semanticCheckerIsRiskTiered": true,

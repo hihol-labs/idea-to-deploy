@@ -57,6 +57,7 @@
     "makerNarrationMayMintAcceptedVerdict": false,
     "harnessExecutesVerificationCommands": true,
     "machineExecutionMode": "isolated-staged-tree",
+    "machineOutputRetention": "hashes-only",
     "undeclaredIgnoredInputsEnterMachineOracle": false,
     "immutableReceiptPublicationRequired": true,
     "exactCandidateBindingRequired": true,
