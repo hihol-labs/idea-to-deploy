@@ -23,6 +23,7 @@ PRIMARY_METRICS = (
     "tokenUnitsPerVerifiedUnit", "operatorFrictionRate",
 )
 ALL_METRICS = PRIMARY_METRICS + ("criticalRegressions",)
+STORY_EVIDENCE_KINDS = {"paired_baseline_followup", "independent_attestation"}
 FORBIDDEN_KEYS = {
     "name", "email", "repositoryurl", "repositorypath", "path", "prompt",
     "sourcecode", "secret", "customerdata", "customer", "useremail",
@@ -217,6 +218,106 @@ def evaluate(index: dict, contract: dict, schema: dict,
     }
 
 
+def validate_story(story: dict, index: dict, contract: dict, schema: dict,
+                   now: dt.datetime | None = None) -> dict:
+    """Bind a narrative to one record in a currently accepted external cohort."""
+    cohort = evaluate(index, contract, schema, now=now)
+    issues = [f"index: {item}" for item in cohort["issues"]]
+    if not isinstance(story, dict):
+        return {"passed": False, "issues": issues + ["story is not an object"]}
+    required = {
+        "$schema", "version", "storyId", "storyType", "evidenceStatus", "observedAt",
+        "summary", "context", "intervention", "outcomes", "provenance", "privacy",
+        "limitations",
+    }
+    if set(story) != required:
+        issues.append("story fields are not the closed v1 set")
+    context = story.get("context")
+    outcomes = story.get("outcomes")
+    provenance = story.get("provenance")
+    privacy = story.get("privacy")
+    if not all(isinstance(item, dict) for item in (context, outcomes, provenance, privacy)):
+        return {"passed": False, "issues": issues + ["story evidence objects are invalid"]}
+    assert isinstance(context, dict) and isinstance(outcomes, dict)
+    assert isinstance(provenance, dict) and isinstance(privacy, dict)
+    if story.get("$schema") != "./OPERATING_LOOP_STORY.schema.json" or story.get("version") != 1:
+        issues.append("story schema/version binding is invalid")
+    if not re.fullmatch(r"story_[a-f0-9]{12}", str(story.get("storyId"))):
+        issues.append("storyId is not pseudonymous")
+    if set(context) != {"projectId", "operatorId", "repositoryClass", "methodologyOwned"}:
+        issues.append("story context fields are not closed")
+    if set(outcomes) != {"baseline", "followup", "materialChange"}:
+        issues.append("story outcome fields are not closed")
+    if set(provenance) != {"protocol", "indexPath", "recordDigest", "sourceHashes",
+                          "verifiedBy", "evidenceKinds"}:
+        issues.append("story provenance fields are not closed")
+    if set(privacy) != {"consent", "aggregateOnly", "prohibitedFieldsAbsent"}:
+        issues.append("story privacy fields are not closed")
+    intervention = story.get("intervention")
+    if not isinstance(intervention, dict) or set(intervention) != {"recipeIds", "startedAt", "endedAt"}:
+        issues.append("story intervention fields are not closed")
+    if story.get("evidenceStatus") != "VALIDATED_EXTERNAL":
+        issues.append("story remains UNVERIFIED")
+    if story.get("storyType") not in {"success", "failure"}:
+        issues.append("storyType is invalid")
+    project_id = context.get("projectId")
+    records = [row for row in index.get("projects", [])
+               if isinstance(row, dict) and row.get("projectId") == project_id]
+    if len(records) != 1:
+        issues.append("story does not bind exactly one accepted index project")
+        return {"passed": False, "issues": issues, "cohort": cohort}
+    record = records[0]
+    source_verifiers = {item.get("verifiedBy") for item in record.get("sourceHashes", [])
+                        if isinstance(item, dict)}
+    source_sha = sorted(item.get("sha256") for item in record.get("sourceHashes", [])
+                        if isinstance(item, dict))
+    if context != {"projectId": record.get("projectId"),
+                   "operatorId": record.get("operatorId"),
+                   "repositoryClass": record.get("repositoryClass"),
+                   "methodologyOwned": False}:
+        issues.append("story context does not match the accepted external project")
+    if provenance.get("protocol") != "docs/external-validation/PROTOCOL.md" or \
+            provenance.get("indexPath") != "docs/evidence/external-outcomes/INDEX.json":
+        issues.append("story protocol/index binding is invalid")
+    if provenance.get("recordDigest") != (record.get("attestation") or {}).get("recordDigest"):
+        issues.append("story digest does not match the accepted record")
+    if provenance.get("verifiedBy") not in source_verifiers or \
+            provenance.get("verifiedBy") == record.get("operatorId"):
+        issues.append("story does not bind an independent record verifier")
+    if sorted(provenance.get("sourceHashes") or []) != source_sha:
+        issues.append("story source hashes do not match the accepted record")
+    evidence_kinds = provenance.get("evidenceKinds")
+    if not isinstance(evidence_kinds, list) or len(evidence_kinds) != 2 or \
+            set(evidence_kinds) != STORY_EVIDENCE_KINDS:
+        issues.append("story evidence kinds are not paired independent outcomes")
+    if outcomes.get("baseline") != record.get("baseline") or \
+            outcomes.get("followup") != record.get("followup"):
+        issues.append("story before/after outcomes do not match the accepted record")
+    if story.get("observedAt") != record.get("observedAt"):
+        issues.append("story observedAt does not match the accepted record")
+    if privacy != {"consent": True, "aggregateOnly": True,
+                   "prohibitedFieldsAbsent": True}:
+        issues.append("story privacy declaration is not publishable")
+    if forbidden_paths(story):
+        issues.append("story contains prohibited direct-identifier fields")
+    if not isinstance(story.get("limitations"), list):
+        issues.append("story limitations are not an array")
+    before = record.get("baseline") or {}
+    after = record.get("followup") or {}
+    improvements = any(after.get(metric, 0) < before.get(metric, 0) for metric in PRIMARY_METRICS)
+    regressions = any(after.get(metric, 0) > before.get(metric, 0) for metric in PRIMARY_METRICS)
+    material = "mixed" if improvements and regressions else (
+        "improved" if improvements else "regressed" if regressions else "no-material-change")
+    if outcomes.get("materialChange") != material:
+        issues.append("story materialChange does not match the accepted metrics")
+    if story.get("storyType") == "success" and material != "improved":
+        issues.append("success story has no accepted improvement")
+    if story.get("storyType") == "failure" and material == "improved":
+        issues.append("failure story contradicts the accepted metrics")
+    return {"passed": not issues, "issues": issues, "projectId": project_id,
+            "recordDigest": provenance.get("recordDigest"), "cohort": cohort}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate privacy-safe external outcome evidence")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -232,6 +333,11 @@ def main() -> int:
     export.add_argument("--out", type=Path, required=True)
     export.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
     export.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
+    story = sub.add_parser("validate-story")
+    story.add_argument("--index", type=Path, required=True)
+    story.add_argument("--story", type=Path, required=True)
+    story.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    story.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     args = parser.parse_args()
     try:
         if args.command == "digest-record":
@@ -246,6 +352,17 @@ def main() -> int:
         schema = load_json(args.schema)
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         return fail("external outcome input", str(exc), "repair the JSON/schema/contract and retry")
+    if args.command == "validate-story":
+        try:
+            story_value = load_json(args.story)
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            return fail("operating-loop story", str(exc), "repair the story JSON and retry")
+        result = validate_story(story_value, index, contract, schema)
+        if not result["passed"]:
+            return fail("operating-loop story", "; ".join(result["issues"]),
+                        "keep it UNVERIFIED or bind it to an accepted independent index record")
+        print("PASS " + json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
     result = evaluate(index, contract, schema, independence_only=args.command == "independence")
     if not result["passed"]:
         return fail("external outcome evaluation", "; ".join(result["issues"]),

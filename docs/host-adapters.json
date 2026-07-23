@@ -42,6 +42,7 @@
     "shared": [
       "skill discovery",
       "contract scaffold",
+      "risk-tiered adjudication receipts",
       "persistent .itd-memory state",
       "prompt routing",
       "pre-tool commit and scope gates",

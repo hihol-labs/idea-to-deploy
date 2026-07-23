@@ -185,8 +185,9 @@ had to be recovered by a resume ping. The transcript is transport; give the
 deliverable a vendor-neutral home on disk:
 
 1. **At the start of the review**, create the report file: the path the caller
-   passed in the prompt (callers SHOULD pass one, preferably OUTSIDE the review
-   target's git tree — scratchpad/tempdir). No path given → default
+   passed in the prompt (callers SHOULD use
+   `.itd-memory/verification-loop/reports/` so the report can be bound into a
+   receipt without entering the candidate tree). No path given → default
    `claude-review-<YYYYMMDD-HHMMSS>-<4 случайных hex>.md` (seconds + random —
    параллельные/respawned прогоны одной цели не должны перезатирать друг
    друга) в корне review-цели; в этом случае напомни вызывающему в финале:

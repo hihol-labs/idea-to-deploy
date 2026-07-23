@@ -1,6 +1,6 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Актуальность: **2026-07-18**, idea-to-deploy **v1.91.1**.
+> Актуальность: **2026-07-22**, idea-to-deploy **v1.93.0**.
 > Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
@@ -52,11 +52,11 @@ Claude Code и Codex. Документ не заявляет поддержку 
 
 ### 4.2. 5 ключевых принципов
 
-| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.91.1) | Evidence / комментарий |
+| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.93.0) | Evidence / комментарий |
 |---|---|:---:|---|---|
 | **H1** | **Ограничение поведения** | ✅ | Graduated trust policy, 11 computational hard gates, explicit invocation, permission/scope contracts и полная Claude/Codex parity. | `verify_graduated_trust.py`, `verify_all_hard_gate_host_parity.py` |
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; статус-таблица `CLAUDE.md` для resume; автосохранение на вехах; `pre-flight-check.sh` (git + `MEMORY.md` в контекст); `session-open-diagnostic.sh`; `crash-recovery.sh`. **+ v1.21.0:** `context-budget.sh` (PreToolUse — мягко тормозит unbounded-дампы в контекст) + `UNIT_CONTEXT_MANIFEST.json` (свежий ограниченный per-node контекст) | Принцип «между сессиями» — полностью. Смежный `K4` (бюджетирование *внутри* сессии) теперь **частично закрыт** `context-budget.sh` (мягкое напоминание, не жёсткая budget-модель) — улучшение vs DESIGN_SPACE §5.2 |
-| **H3** | **Предотвращение преждевременного завершения** — защита от ложного успеха | ✅ | **Сильнейшая ось.** 2 Quality Gate; бинарные rubric'и `BLOCKED/PASSED`; стоп после **3 ошибок подряд**; `check-commit-completeness.sh` + `check-review-before-commit.sh` (hard-block); `stuck-detection.sh`. **+ v1.21.0 fail-closed гейты:** `ACCEPTANCE_CONTRACT.json` («done = traceable proof-checklist, не ощущение агента»; статусы `pending/passed/failed/recovery_required`); `VERIFICATION_CONTRACT.json` (`failClosed`, `RECOVERY_REQUIRED` вместо «passed» при un-run/ambiguous); **двухстадийный `/review`** (Stage A spec-compliance — «красивый код, решающий не ту задачу» → `BLOCKED`); fail-closed `/test` (passed только при реально полученном evidence); `ROOT_CAUSE.md`-гейт в `/bugfix`; `BRANCH_FINISH.md` | — |
+| **H3** | **Предотвращение преждевременного завершения** — защита от ложного успеха | ✅ | **Сильнейшая ось.** 2 Quality Gate; бинарные rubric'и `BLOCKED/PASSED`; bounded stops; commit/review/DoD hard gates. **v1.93.0:** `verification-loop-v1` связывает exact staged candidate, machine oracle, risk route и fresh checker prompt/report в adjudication receipt; low machine-only, medium targeted, high/unknown full different-model/provider. `/goal`, state validator и review cache заново проверяют dependency chain; plaintext/shaped evidence не проходит. Trust boundary честно ограничен honest host orchestrator. | `verify_verification_loop.py`, `verify_goal_bounded_autonomy.py`, `verify_review_cache.py`, `verify_strict_completion_policy.py` |
 | **H4** | **Верификация через тестирование** | ✅ | Deterministic structural/snapshot/behavioural floor плюс weekly/manual live-model benchmark без permanent-disable guard. | Fresh post-freeze transcript/output hashes и независимый replay `verify_snapshot.py`; отсутствие credential = UNVERIFIED, не PASS. |
 | **H5** | **Наблюдаемость** | ✅ | Paired intent/outcome traces; estimated и host-observed token counters разделены с provenance; session/unit attribution. | Control-quality FP/FN metrics и machine-checked docs/version freshness fail closed. |
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -26,6 +27,7 @@ POLICY_PATH = INSTALL_ROOT / "skills" / "_shared" / "WORKING_DEADLINE_POLICY.jso
 REVIEW_SKILL = INSTALL_ROOT / "skills" / "review" / "SKILL.md"
 STANDARD_RUBRIC = INSTALL_ROOT / "skills" / "review" / "references" / "review-checklist.md"
 META_RUBRIC = INSTALL_ROOT / "skills" / "review" / "references" / "meta-review-checklist.md"
+VERIFICATION_LOOP = INSTALL_ROOT / "skills" / "_shared" / "itd_verification_loop.py"
 KEY_FIELDS = (
     "repository", "baseCommit", "reviewedTree", "diffHash",
     "scopeContractHash", "acceptanceContractHash", "rubricHash",
@@ -68,6 +70,8 @@ def load_policy() -> tuple[dict[str, Any], str]:
             or cache.get("warningVerdictRequiresDurableWarnings") is not True
             or cache.get("blockedOrUnverifiedSatisfiesGate") is not False
             or cache.get("invalidateOnKeyChange") is not True
+            or cache.get("acceptedVerdictRequiresAdjudicatedReceipt") is not True
+            or cache.get("receiptPolicy") != "verification-loop-v1"
             or risk.get("resetRequiresSuccessfulBoundVerdict") is not True
             or risk.get("reviewResets") != ["general-change-risk"]
             or risk.get("securityReviewResets") != ["security-change-risk"]
@@ -171,6 +175,72 @@ def detected_risk_tier(root: Path) -> str:
     return "unknown"
 
 
+def detected_unit_id(root: Path) -> str:
+    """Resolve the active work unit that the review claim must be bound to."""
+    try:
+        goal = json.loads((root / ".itd-memory" / "GOAL.json").read_text(encoding="utf-8"))
+        units = [unit for unit in goal.get("units", []) if isinstance(unit, dict)]
+        current_id = str(goal.get("currentUnitId") or "").strip()
+        if current_id and any(str(unit.get("id") or "") == current_id for unit in units):
+            return current_id
+        active = next((unit for unit in units
+                       if unit.get("status") in {"in_progress", "recovery_required"}), None)
+        if active and str(active.get("id") or "").strip():
+            return str(active["id"]).strip()
+    except Exception:
+        pass
+    try:
+        state = json.loads((root / ".itd-memory" / "STATE.json").read_text(encoding="utf-8"))
+        current = state.get("currentUnit") or {}
+        if str(current.get("id") or "").strip():
+            return str(current["id"]).strip()
+    except Exception:
+        pass
+    return "review"
+
+
+def review_claim_id(root: Path, kind: str) -> str:
+    """Separate general/security claims so one receipt cannot unlock both."""
+    return f"{detected_unit_id(root)}:{kind}-review"
+
+
+def validate_review_receipt(root: Path, receipt_path: Path | str,
+                            risk_tier: str, kind: str) -> dict[str, str]:
+    spec = importlib.util.spec_from_file_location(
+        "itd_review_verification_loop", VERIFICATION_LOOP)
+    if spec is None or spec.loader is None:
+        raise CacheError(
+            "Verification Loop producer is unavailable",
+            "Restore skills/_shared/itd_verification_loop.py before recording review evidence.",
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    path = Path(receipt_path)
+    if not path.is_absolute():
+        path = root / path
+    path = path.resolve()
+    try:
+        relative = path.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise CacheError(
+            "review receipt is outside the target repository",
+            "Use the durable adjudication under .itd-memory/verification-loop.",
+        ) from exc
+    try:
+        receipt = module.validate_adjudication(
+            root, path, risk_tier, review_claim_id(root, kind))
+    except module.LoopError as exc:
+        raise CacheError(
+            f"review receipt is UNVERIFIED: {exc.why}", exc.fix) from exc
+    return {
+        "path": relative,
+        "sha256": sha256_file(path),
+        "receiptSha256": str(receipt.get("receiptSha256") or ""),
+        "outcome": str(receipt.get("outcome") or ""),
+        "claimId": review_claim_id(root, kind),
+    }
+
+
 def build_context(root: Path | str, risk_tier: str | None = None) -> dict[str, str]:
     repo = repository_root(root)
     risk = str(risk_tier or detected_risk_tier(repo)).lower()
@@ -251,10 +321,24 @@ def record_matches(record: dict[str, Any], context: dict[str, str],
         return False
     verdict = str(record.get("verdict") or "").upper()
     warnings = record.get("durableWarnings") or []
-    return (record.get("accepted") is True
+    if not (record.get("accepted") is True
             and record.get("kind") == expected_kind
             and verdict_accepted(verdict, warnings)
-            and record.get("context") == context)
+            and record.get("context") == context):
+        return False
+    try:
+        repo = repository_root(Path(context["repository"]))
+        binding = record.get("verificationReceipt") or {}
+        if (not isinstance(binding, dict)
+                or binding.get("outcome") != "PASSED"
+                or binding.get("claimId") != review_claim_id(repo, expected_kind)):
+            return False
+        current = validate_review_receipt(
+            repo, str(binding.get("path") or ""),
+            context["riskTier"], expected_kind)
+        return current == binding
+    except Exception:
+        return False
 
 
 def risk_state_path(session: str | None = None) -> Path:
@@ -311,7 +395,9 @@ def pay_down_risk(kind: str, session: str | None, gate_id: str) -> None:
 def record_review(root: Path | str, *, verdict: str, kind: str = "general",
                   warnings: list[dict[str, Any]] | None = None,
                   risk_tier: str | None = None,
-                  session: str | None = None) -> tuple[bool, dict[str, Any]]:
+                  session: str | None = None,
+                  verification_receipt: Path | str | None = None,
+                  ) -> tuple[bool, dict[str, Any]]:
     _, policy_digest = load_policy()
     normalized_verdict = str(verdict or "").strip().upper()
     normalized_kind = str(kind or "").strip().lower()
@@ -328,11 +414,21 @@ def record_review(root: Path | str, *, verdict: str, kind: str = "general",
     warning_list = list(warnings or [])
     context = build_context(root, risk_tier)
     accepted = verdict_accepted(normalized_verdict, warning_list)
+    repo = repository_root(root)
+    receipt_binding: dict[str, str] = {}
+    if accepted:
+        if verification_receipt is None or not str(verification_receipt).strip():
+            raise CacheError(
+                "plain review verdict is not trusted without an adjudicated receipt",
+                "Run the Verification Loop for the exact review claim and pass --verification-receipt.",
+            )
+        receipt_binding = validate_review_receipt(
+            repo, verification_receipt, context["riskTier"], normalized_kind)
     recorded_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     gate_material = json.dumps({
         "context": context, "verdict": normalized_verdict,
         "kind": normalized_kind, "warnings": warning_list,
-        "recordedAt": recorded_at,
+        "recordedAt": recorded_at, "verificationReceipt": receipt_binding,
     }, sort_keys=True, ensure_ascii=False).encode("utf-8")
     record = {
         "context": context,
@@ -343,6 +439,7 @@ def record_review(root: Path | str, *, verdict: str, kind: str = "general",
         "recordedAt": recorded_at,
         "gateId": sha256_bytes(gate_material),
         "policySha256": policy_digest,
+        "verificationReceipt": receipt_binding,
     }
     cache = load_cache(root)
     cache["records"][normalized_kind] = record
@@ -397,6 +494,7 @@ def main(argv: list[str] | None = None) -> int:
             cmd.add_argument("--verdict", required=True)
             cmd.add_argument("--warning", action="append", default=[])
             cmd.add_argument("--session")
+            cmd.add_argument("--verification-receipt")
     args = parser.parse_args(args_list)
     try:
         if args.command == "context":
@@ -413,7 +511,8 @@ def main(argv: list[str] | None = None) -> int:
         accepted, record = record_review(
             args.root, verdict=args.verdict, kind=args.kind,
             warnings=warning_args(args.warning), risk_tier=args.risk_tier,
-            session=args.session)
+            session=args.session,
+            verification_receipt=args.verification_receipt)
         if accepted:
             return 0
         return fail(

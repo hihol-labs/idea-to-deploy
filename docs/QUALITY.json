@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewedAt": "2026-07-16",
+  "reviewedAt": "2026-07-21",
   "maxAgeDays": 30,
   "gradeScale": {
     "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
@@ -33,12 +33,13 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-07-21",
       "evidence": [
         "docs/completion-gate.md",
         "tests/verify_completion_gate.py",
         "tests/verify_strict_completion_policy.py",
-        "tests/verify_live_model_benchmark.py"
+        "tests/verify_live_model_benchmark.py",
+        "tests/verify_verification_loop.py"
       ],
       "priorities": []
     },
@@ -104,7 +105,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-07-21",
       "evidence": [
         "docs/HARNESS_CONFORMANCE_REPORT.md",
         "docs/HARNESS_CONFORMANCE_CONTRACT.json",

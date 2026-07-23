@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idea-to-deploy.local/schemas/operating-loop-story-v1.json",
+  "title": "Idea to Deploy operating-loop outcome story",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "version", "storyId", "storyType", "evidenceStatus",
+    "observedAt", "summary", "context", "intervention", "outcomes",
+    "provenance", "privacy", "limitations"
+  ],
+  "properties": {
+    "$schema": {"const": "./OPERATING_LOOP_STORY.schema.json"},
+    "version": {"const": 1},
+    "storyId": {"type": "string", "pattern": "^story_[a-f0-9]{12}$"},
+    "storyType": {"enum": ["success", "failure"]},
+    "evidenceStatus": {"enum": ["UNVERIFIED", "VALIDATED_EXTERNAL"]},
+    "observedAt": {"type": ["string", "null"], "format": "date-time"},
+    "summary": {"type": "string", "maxLength": 1000},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "operatorId", "repositoryClass", "methodologyOwned"],
+      "properties": {
+        "projectId": {"type": ["string", "null"], "pattern": "^proj_[a-f0-9]{12}$"},
+        "operatorId": {"type": ["string", "null"], "pattern": "^op_[a-f0-9]{12}$"},
+        "repositoryClass": {
+          "enum": ["external_private", "external_public", "methodology_owned", "synthetic_fixture", "unassigned"]
+        },
+        "methodologyOwned": {"type": "boolean"}
+      }
+    },
+    "intervention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipeIds", "startedAt", "endedAt"],
+      "properties": {
+        "recipeIds": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}
+        },
+        "startedAt": {"type": ["string", "null"], "format": "date-time"},
+        "endedAt": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "followup", "materialChange"],
+      "properties": {
+        "baseline": {"$ref": "#/$defs/metricsOrNull"},
+        "followup": {"$ref": "#/$defs/metricsOrNull"},
+        "materialChange": {"enum": ["improved", "regressed", "mixed", "no-material-change", "unmeasured"]}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol", "indexPath", "recordDigest", "sourceHashes", "verifiedBy",
+        "evidenceKinds"
+      ],
+      "properties": {
+        "protocol": {"const": "docs/external-validation/PROTOCOL.md"},
+        "indexPath": {"const": "docs/evidence/external-outcomes/INDEX.json"},
+        "recordDigest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "sourceHashes": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        },
+        "verifiedBy": {"type": ["string", "null"], "pattern": "^op_[a-f0-9]{12}$"},
+        "evidenceKinds": {
+          "type": "array", "uniqueItems": true,
+          "items": {
+            "enum": ["paired_baseline_followup", "independent_attestation", "self_report", "stars", "synthetic_fixture"]
+          }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consent", "aggregateOnly", "prohibitedFieldsAbsent"],
+      "properties": {
+        "consent": {"type": "boolean"},
+        "aggregateOnly": {"const": true},
+        "prohibitedFieldsAbsent": {"type": "boolean"}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defectEscapeRate", "falseCompletionRate", "medianCycleMinutes",
+        "tokenUnitsPerVerifiedUnit", "operatorFrictionRate", "criticalRegressions"
+      ],
+      "properties": {
+        "defectEscapeRate": {"type": "number", "minimum": 0},
+        "falseCompletionRate": {"type": "number", "minimum": 0},
+        "medianCycleMinutes": {"type": "number", "minimum": 0},
+        "tokenUnitsPerVerifiedUnit": {"type": "number", "minimum": 0},
+        "operatorFrictionRate": {"type": "number", "minimum": 0},
+        "criticalRegressions": {"type": "integer", "minimum": 0}
+      }
+    },
+    "metricsOrNull": {
+      "oneOf": [{"$ref": "#/$defs/metrics"}, {"type": "null"}]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"evidenceStatus": {"const": "VALIDATED_EXTERNAL"}}, "required": ["evidenceStatus"]},
+      "then": {
+        "properties": {
+          "observedAt": {"type": "string", "format": "date-time"},
+          "context": {
+            "properties": {
+              "projectId": {"type": "string", "pattern": "^proj_[a-f0-9]{12}$"},
+              "operatorId": {"type": "string", "pattern": "^op_[a-f0-9]{12}$"},
+              "repositoryClass": {"enum": ["external_private", "external_public"]},
+              "methodologyOwned": {"const": false}
+            }
+          },
+          "outcomes": {
+            "properties": {
+              "baseline": {"$ref": "#/$defs/metrics"},
+              "followup": {"$ref": "#/$defs/metrics"},
+              "materialChange": {"enum": ["improved", "regressed", "mixed", "no-material-change"]}
+            }
+          },
+          "provenance": {
+            "properties": {
+              "recordDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "sourceHashes": {"minItems": 1},
+              "verifiedBy": {"type": "string", "pattern": "^op_[a-f0-9]{12}$"},
+              "evidenceKinds": {
+                "allOf": [
+                  {"contains": {"const": "paired_baseline_followup"}},
+                  {"contains": {"const": "independent_attestation"}},
+                  {"not": {"contains": {"enum": ["self_report", "stars", "synthetic_fixture"]}}}
+                ]
+              }
+            }
+          },
+          "privacy": {
+            "properties": {
+              "consent": {"const": true},
+              "prohibitedFieldsAbsent": {"const": true}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

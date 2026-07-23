@@ -72,6 +72,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -103,12 +104,52 @@ WORKING_DEADLINE_PROFILE = "working_deadline"
 WORKING_DEADLINE_POLICY_PATH = (
     Path(__file__).resolve().parents[2] / "_shared" / "WORKING_DEADLINE_POLICY.json"
 )
+VERIFICATION_LOOP_PATH = (
+    Path(__file__).resolve().parents[2] / "_shared" / "itd_verification_loop.py"
+)
 CHECKPOINT_FIELDS = ("ready", "blocker", "remainder", "estimate")
+
+
+class VerificationReceiptError(ValueError):
+    pass
 
 
 def die(msg: str, code: int = 2) -> None:
     print(f"ERROR: {msg}")
     sys.exit(code)
+
+
+def validate_verification_receipt(goal_path: Path, receipt_path: str,
+                                  risk_tier: str, unit_id: str) -> dict:
+    """Consume an adjudicated exact-candidate receipt from the shared harness."""
+    spec = importlib.util.spec_from_file_location(
+        "itd_goal_verification_loop", VERIFICATION_LOOP_PATH)
+    if spec is None or spec.loader is None:
+        raise VerificationReceiptError(
+            "Verification Loop producer is unavailable; cannot trust checker evidence")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    project_root = goal_path.resolve().parent.parent
+    path = Path(receipt_path)
+    if not path.is_absolute():
+        path = project_root / path
+    try:
+        receipt = module.validate_adjudication(
+            project_root, path, risk_tier, unit_id)
+    except module.LoopError as exc:
+        raise VerificationReceiptError(
+            f"Verification Loop receipt UNVERIFIED: {exc.why}; FIX: {exc.fix}") from exc
+    try:
+        relative = path.resolve().relative_to(project_root).as_posix()
+    except ValueError as exc:
+        raise VerificationReceiptError(
+            "Verification Loop receipt must stay inside the project") from exc
+    return {
+        "path": relative,
+        "sha256": hashlib.sha256(path.resolve().read_bytes()).hexdigest(),
+        "receiptSha256": str(receipt.get("receiptSha256") or ""),
+        "outcome": str(receipt.get("outcome") or ""),
+    }
 
 
 def write_verify_signal(goal_path: Path, unit_id: str, rc: int,
@@ -408,7 +449,7 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
 
 
 def record_attempt(unit: dict, approach: str, command: str, outcome: str,
-                   evidence: str, review_evidence: str, recheck: bool,
+                   evidence: str, verification_receipt: dict | None, recheck: bool,
                    tokens_used: int | None = None,
                    checker: str = "machine_only") -> None:
     attempts = unit_attempts(unit)
@@ -420,7 +461,12 @@ def record_attempt(unit: dict, approach: str, command: str, outcome: str,
         "verificationCommand": command,
         "outcome": outcome,
         "evidence": evidence,
-        "reviewEvidence": review_evidence.strip(),
+        "reviewEvidence": (
+            "adjudicated:" + str(
+                (verification_receipt or {}).get("receiptSha256") or "")
+            if verification_receipt else ""
+        ),
+        "verificationReceipt": verification_receipt or {},
         "checkerMode": checker,
     }
     if tokens_used is not None:
@@ -911,7 +957,8 @@ def cmd_budget_exhausted(goal: dict, goal_path: Path, unit: dict,
 
 def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                recheck: bool, timeout: int, approach: str,
-               review_evidence: str, tokens_used: int | None,
+               review_evidence: str, verification_receipt_path: str,
+               tokens_used: int | None,
                elapsed_seconds_observed: int | None,
                checkpoint_ready: str, checkpoint_blocker: str,
                checkpoint_remainder: str, checkpoint_estimate: str) -> int:
@@ -951,6 +998,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             return deadline_rc
 
     policy = bounded_policy(goal)
+    verification_receipt: dict | None = None
+    required_checker_mode = "machine_only"
     if policy is not None:
         approved_policy = policy.get("sealedPolicy")
         if (not isinstance(approved_policy, dict)
@@ -982,10 +1031,11 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                 f"{policy['maxTokensPerSession']})", "tokens", tokens_used)
         if policy["requireApproach"] and not approach.strip():
             die(f"{unit['id']}: bounded verification requires --approach", 1)
-        mode = checker_mode(policy, unit)
-        if mode == "full" and not review_evidence.strip():
-            die(f"{unit['id']}: independent checker evidence required "
-                "(--review-evidence)", 1)
+        required_checker_mode = checker_mode(policy, unit)
+        if required_checker_mode in ("targeted", "full"):
+            if review_evidence.strip():
+                die(f"{unit['id']}: plain --review-evidence is not trusted; "
+                    "use --verification-receipt from the harness adjudicator", 1)
         used = budgeted_attempt_count(unit)
         if used >= policy["maxAttemptsPerUnit"]:
             return bounded_stop(
@@ -1029,10 +1079,47 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
     evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
 
     if policy is not None:
+        # A checker is a second-stage gate over a machine-green candidate.  A
+        # machine-red attempt must still be journalled so the bounded repair
+        # loop can learn, spend its attempt budget, and continue.  Requiring a
+        # PASSED adjudication before running the oracle would make failed
+        # attempts unobservable and deadlock the repair loop.
+        checker_error = ""
+        if rc == 0 and required_checker_mode in ("targeted", "full"):
+            if not verification_receipt_path.strip():
+                checker_error = f"{required_checker_mode} checker receipt is missing"
+            else:
+                try:
+                    verification_receipt = validate_verification_receipt(
+                        goal_path, verification_receipt_path,
+                        str(unit.get("riskTier") or "unknown"), str(unit["id"]))
+                except VerificationReceiptError as exc:
+                    checker_error = str(exc)
+        if checker_error:
+            evidence = (evidence + "; checker UNVERIFIED: " + checker_error)[:EVIDENCE_MAX]
+            record_attempt(unit, approach, command, "unverified", evidence,
+                           None, recheck, tokens_used, required_checker_mode)
+            write_verify_signal(goal_path, unit["id"], 1, command, evidence)
+            if recheck:
+                unit["evidence"] = ""
+                unit["verifiedAt"] = ""
+                unit["status"] = "in_progress"
+                goal["currentUnitId"] = unit["id"]
+            set_stop_reason(unit, "")
+            save_goal(goal_path, goal)
+            append_event(goal_path, unit["id"], "verification_unverified", evidence)
+            used = budgeted_attempt_count(unit)
+            if used >= policy["maxAttemptsPerUnit"]:
+                return bounded_stop(
+                    goal, goal_path, unit, "budget_exhausted",
+                    f"attempt limit reached ({used}/{policy['maxAttemptsPerUnit']}); "
+                    f"last result {evidence}", "attempts", used)
+            print(f"UNVERIFIED {unit['id']} stays in_progress — {evidence}")
+            return 1
         outcome = "verified" if rc == 0 else ("regressed" if recheck else "failed")
         record_attempt(unit, approach, command, outcome, evidence,
-                       review_evidence, recheck, tokens_used,
-                       checker_mode(policy, unit))
+                       verification_receipt, recheck, tokens_used,
+                       required_checker_mode)
 
     # Runtime-сигнал верификации (GO-003): прогон становится наблюдаемым для
     # completion-gate независимо от исхода (pass/fail).
@@ -1162,7 +1249,9 @@ def main() -> int:
     p.add_argument("--approach", default="",
                    help="hypothesis/approach recorded for a bounded attempt")
     p.add_argument("--review-evidence", default="",
-                   help="fresh checker verdict/evidence when policy requires it")
+                   help="deprecated plain text; rejected when a checker is required")
+    p.add_argument("--verification-receipt", default="",
+                   help="adjudicated exact-candidate Verification Loop receipt")
     args = p.parse_args()
 
     actions = sum(bool(x) for x in
@@ -1210,7 +1299,8 @@ def main() -> int:
     if args.ack_handoff:
         return cmd_ack_handoff(goal, args.goal, unit, args.reason)
     return cmd_verify(goal, args.goal, unit, args.recheck, args.timeout,
-                      args.approach, args.review_evidence, args.tokens_used,
+                      args.approach, args.review_evidence,
+                      args.verification_receipt, args.tokens_used,
                       args.elapsed_seconds, args.checkpoint_ready,
                       args.checkpoint_blocker, args.checkpoint_remainder,
                       args.checkpoint_estimate)

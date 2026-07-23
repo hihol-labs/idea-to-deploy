@@ -21,6 +21,11 @@ When working in this repository:
 5. Before claiming completion, run the relevant tests and report the real
    result. For adapter changes run `python3 tests/verify_host_adapters.py` and
    `bash tests/run-all.sh --quick` at minimum.
+6. Use the shared Verification Loop for acceptance: low risk is machine-only,
+   medium uses a targeted fresh-session checker, and high/unknown uses a full
+   different-model/provider checker. Only an exact-candidate adjudication
+   receipt may satisfy goal/review gates; local receipts assume an honest host
+   orchestrator and do not claim same-principal cryptographic attestation.
 
 For Codex-specific setup and known transport differences, read
 `docs/CODEX_ADAPTER.md`.

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "id": "operating-loop-v1",
+  "purpose": "Host-neutral policy for recurring engineering observation and explicitly approved actions without an ITD-owned scheduler or a second state plane.",
+  "provenance": {
+    "informedBy": "https://github.com/cobusgreyling/loop-engineering",
+    "reviewedCommit": "782c7945990f04bc466f46c32dcfe3d277425524",
+    "license": "MIT",
+    "adaptation": "Independent ITD contract design; no vendored runtime or copied templates."
+  },
+  "ownership": {
+    "ownedRuntime": false,
+    "scheduler": "host-native",
+    "canonicalProjectState": ".itd-memory/STATE.json",
+    "projectContractSchema": ".itd/OPERATING_LOOP_CONTRACT.schema.json",
+    "runLedger": ".itd-memory/operating-loop-runs.jsonl",
+    "markdownStateAllowed": false,
+    "derivedHumanViewsAllowed": true
+  },
+  "readiness": {
+    "representation": "binary-dimensions",
+    "scalarScore": false,
+    "acceptanceGate": false,
+    "statuses": ["ready", "missing", "degraded"],
+    "dimensions": [
+      "project_guidance",
+      "methodology_contracts",
+      "durable_state",
+      "project_checks",
+      "verification_loop",
+      "supported_host_adapter"
+    ],
+    "invalidInput": "fail-closed",
+    "cleanOutput": "quiet"
+  },
+  "patternPicker": {
+    "existingSkillsOnly": true,
+    "newLifecycleSkillAllowed": false,
+    "unknownJob": "show-supported-jobs-and-stop",
+    "machineRegistry": "skills/_shared/OPERATING_LOOP_RECIPES.json"
+  },
+  "scheduling": {
+    "transport": "host-native",
+    "backgroundMutation": false,
+    "defaultMode": "report",
+    "emptyWatchlist": "early-exit",
+    "externalWrites": "on-demand-exact-host-approval",
+    "pushMergeDeployMoney": "human-gate"
+  },
+  "trust": {
+    "stages": ["observe", "report", "draft", "approved_execute"],
+    "defaultStage": "report",
+    "permanentL3": false,
+    "hostAttestationTrustRoot": "honest-host-adapter",
+    "cryptographicHostIdentityClaim": false,
+    "scheduledMutationAuthority": false,
+    "maxConcurrentMutationUnits": 1,
+    "leaseBindings": ["recipe", "capability", "action", "expiresAt", "hostApproval"],
+    "promotionRequires": [
+      "measured_report_phase",
+      "acceptable_noise",
+      "manual_verification_proven",
+      "bounded_scope",
+      "rollback_or_safe_stop",
+      "human_approval"
+    ],
+    "automaticDowngradeSignals": [
+      "budget_threshold",
+      "attempt_budget",
+      "unknown_risk",
+      "scope_drift",
+      "stale_state",
+      "missing_verification",
+      "expired_lease"
+    ]
+  },
+  "telemetry": {
+    "path": ".itd-memory/operating-loop-runs.jsonl",
+    "format": "jsonl",
+    "appendOnly": true,
+    "recordCommitMarker": "newline",
+    "crashTailRecovery": "truncate-uncommitted-final-fragment",
+    "schema": ".itd/OPERATING_LOOP_RUN.schema.json",
+    "validator": "skills/_shared/itd_operating_loops.py",
+    "tokenMeasurement": "host-observed",
+    "estimatedAsObserved": false,
+    "retentionDays": 90,
+    "requiredOutcomes": ["no-op", "report", "draft", "approved-action", "escalated", "paused", "failed"]
+  },
+  "budgets": {
+    "measurement": "host-observed",
+    "softRatio": 0.8,
+    "softAction": "downgrade-to-report",
+    "hardRatio": 1.0,
+    "hardAction": "pause-and-escalate",
+    "maxAttemptsPerItem": 3,
+    "emptyWatchlistEarlyExit": true
+  },
+  "failureTaxonomy": [
+    "runaway",
+    "state_rot",
+    "verifier_theater",
+    "flake",
+    "overreach",
+    "notification_fatigue",
+    "comprehension_debt",
+    "parallel_collision",
+    "escalation_failure"
+  ],
+  "externalEvidence": {
+    "protocol": "docs/external-validation/PROTOCOL.md",
+    "selfReport": "unverified",
+    "starsOrBadges": "unverified",
+    "syntheticFixture": "unverified",
+    "methodologyOwnedProject": "unverified",
+    "requires": ["independent_operator", "independent_project", "baseline", "followup"]
+  },
+  "invariants": {
+    "verificationLoopPolicy": "skills/_shared/VERIFICATION_LOOP_POLICY.json",
+    "workingDeadlinePolicy": "skills/_shared/WORKING_DEADLINE_POLICY.json",
+    "hostAdapterContract": "docs/HOST_ADAPTER_CONTRACT.md",
+    "noOwnedRuntimeAdr": "docs/adr/ADR-001-no-own-runtime.md",
+    "wip": 1
+  }
+}

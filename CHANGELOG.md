@@ -9,13 +9,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.93.0] - 2026-07-22
+
+**Bounded operating loops inspired by loop-engineering, integrated without a
+second runtime, permanent unattended authority, or synthetic outcome claims.**
+
 ### Added
+- A machine-readable operating-loop policy, opt-in project contract and closed
+  schemas for run evidence and success/failure stories.
+- Binary readiness diagnostics with actionable `WHY`/`FIX`, plus a pattern
+  picker that routes supported jobs to existing lifecycle skills without a
+  scalar gate or new lifecycle engine.
+- Six report-first recipes for state freshness, test regression, dependency
+  health, security posture, review drift, and documentation drift.
+- Cross-platform append-only scheduled telemetry with host-observed duration
+  and tokens, ledger-bound budgets, invocation proof, safe crash-tail recovery,
+  WIP=1, and a closed nine-class failure taxonomy.
+- A privacy-safe story workflow and production `validate-story` command that
+  reruns the frozen external cohort evaluator and binds narratives to accepted
+  operator/verifier provenance, record digest, hashes, metrics, and timestamps.
+- A canonical operating-loop guide covering opt-in setup, recipes, trust,
+  budgets, telemetry, failure handling, and the external evidence boundary.
 - A sealed internal brownfield-continuation benchmark now starts from a mature,
   already-adopted project checkpoint and proves that a fresh host session can
   recover the verified predecessor, exact next unit/action and pending gates
   from `.itd-memory/`, preserve WIP=1 and existing behaviour, and verify the
   next unit without re-adoption or manual context reconstruction. This is
   deterministic operational evidence, not external effectiveness evidence.
+
+### Changed
+- Host-native scheduling is the only transport. Periodic work is observe/report
+  only; drafts and exact external mutations remain on-demand behind existing
+  human approval and Verification Loop gates.
+- Trust is expressed as expiring recipe/capability/action-bound leases over
+  `observe → report → draft → approved_execute`; permanent L3, auto-merge,
+  autonomous push/deploy/spend and owned daemon semantics are forbidden.
+- Claude Code and Codex manifests, public badges, Harness documentation state,
+  map, and conformance report are synchronized at v1.93.0.
+
+### Fixed
+- Telemetry rejects symlink/hardlink escapes, ledger replacement races,
+  malformed committed history, duplicate historical/current run IDs, forged
+  historical host proofs, and partial committed appends without changing an
+  external target.
+- Outcome stories can no longer self-assert external validation from shaped
+  JSON. The production validator requires a passing real index and an exact
+  match to its independent project record; self-report, stars, fixtures, and
+  methodology-owned projects remain `UNVERIFIED`.
+
+### Verification
+- `tests/verify_operating_loops.py` supplies mutation and behavioral guards for
+  contract, onboarding, recipes, operations, and evidence on Linux and Windows.
+- The release candidate additionally requires host-adapter parity, methodology
+  meta-review, quick regression, full regression, and high-risk different-model
+  exact-candidate adjudication.
+
+## [1.92.0] - 2026-07-21
+
+### Added
+- Risk-tiered proof-carrying **Verification Loop v1**: the harness executes
+  declared machine oracles against the exact staged candidate, binds durable
+  prompt/report/provenance artifacts, and produces revalidated adjudication
+  receipts. Low risk is machine-only, medium uses a targeted fresh-session
+  checker, and high/unknown uses a full fresh-session checker with a different
+  model or provider.
+- A default-on `VERIFICATION_LOOP_CONTRACT.json` for new and adopted projects,
+  ADR-003, the shared producer/policy, adversarial fixtures, and Linux/Windows
+  CI coverage.
+
+### Changed
+- `/task`, `/goal`, `/review`, and `/security-audit` now converge on the same
+  bounded producer → checker → adjudicator protocol. Accepted goal transitions
+  and exact-context review/security cache records require a structured receipt;
+  plaintext `PASSED` cannot unlock a gate or pay down risk.
+- Review prompts and reports live durably under the Git-ignored
+  `.itd-memory/verification-loop/` tree. Any candidate, contract, risk, unit,
+  prompt, report, policy, or receipt-dependency change invalidates reuse.
+- The local threat model is explicit: receipts prove integrity and honest-host
+  process separation, not cryptographic identity against a malicious process
+  with the same OS principal.
+
+### Fixed
+- Goal machine failures and missing checker evidence now consume bounded
+  attempts as `failed`/`unverified` without producing an invalid ledger.
+- State validation reopens and validates the referenced adjudication file,
+  file/self digests, unit, risk, freshness, candidate, and dependency chain
+  instead of accepting a shaped receipt object.
+- Machine oracles reject unstaged/untracked checkout overlays, closing the gap
+  where commands could pass on a working tree different from the staged
+  candidate named in the receipt.
+- Machine oracles now execute in a disposable Git checkout materialized only
+  from the staged tree, so ignored `.env`, dependency, fixture, or build
+  overlays cannot influence a receipt for an unbound candidate.
+- Required non-Git oracle inputs can be declared narrowly with repeatable
+  `--input`; each file/directory snapshot is copied into isolation, hash-bound
+  in the receipt, and revalidated before adjudication or reuse.
+- Machine and checker receipts use collision-resistant names and the same
+  atomic no-overwrite publication as adjudications and attempt ledgers; a
+  repeat or concurrent producer can no longer replace prior evidence.
+- Full checker validation now rejects missing maker provenance and compares
+  normalized identities, closing absent-identity and whitespace independence
+  bypasses.
+- Machine run receipts use a closed schema with only stdout/stderr SHA-256
+  digests; alternate raw-output fields cannot persist secrets or PII under
+  `.itd-memory/`.
+
+### Verification
+- Focused behavioural/adversarial suites cover receipt tampering, wrong
+  unit/risk, mutable candidate overlays, independence routing, bounded attempts,
+  goal ledger validation, review cache invalidation, DoD, and risk paydown.
+- Release gates include host-adapter parity, methodology meta-review,
+  `tests/run-all.sh --quick`, and the full local regression suite.
 
 ## [1.91.1] - 2026-07-18
 

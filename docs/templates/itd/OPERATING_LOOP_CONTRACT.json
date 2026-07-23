@@ -1,0 +1,28 @@
+{
+  "$schema": "./OPERATING_LOOP_CONTRACT.schema.json",
+  "version": 1,
+  "policyId": "operating-loop-v1",
+  "enabled": false,
+  "project": "{{PROJECT_NAME}}",
+  "recipes": [],
+  "schedulerBindings": [],
+  "trustLeases": [],
+  "budgets": {
+    "maxObservedTokensPerDay": null,
+    "maxRunsPerDay": null,
+    "maxAttemptsPerItem": 3,
+    "softRatio": 0.8,
+    "hardRatio": 1.0
+  },
+  "telemetry": {
+    "ledger": ".itd-memory/operating-loop-runs.jsonl",
+    "schema": ".itd/OPERATING_LOOP_RUN.schema.json",
+    "retentionDays": 90
+  },
+  "humanInbox": {
+    "target": "",
+    "notifyOnlyWhenActionRequired": true,
+    "maxUnacknowledgedHours": 24
+  },
+  "notes": "Opt in deliberately. Host-native schedules are report-only; exact approved actions run on demand."
+}

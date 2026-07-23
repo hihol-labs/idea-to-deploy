@@ -52,7 +52,12 @@
     "maxCheckpointBytes"
   ],
   "attemptKinds": ["verification", "recheck"],
-  "attemptOutcomes": ["verified", "failed", "regressed"],
+  "attemptOutcomes": ["verified", "failed", "regressed", "unverified"],
+  "checkerEvidence": {
+    "machine_only": "Goal verifier executes verificationCommand directly.",
+    "targeted": "A verified attempt requires verificationReceipt {path, sha256, receiptSha256, outcome=PASSED} from verification-loop-v1; failed/unverified attempts carry no accepted receipt.",
+    "full": "Requires a full independent checker inside the adjudicated verificationReceipt; plain reviewEvidence is invalid."
+  },
   "stopReasons": ["", "verified", "blocked", "budget_exhausted"],
   "goalTemplate": {
     "version": 1,

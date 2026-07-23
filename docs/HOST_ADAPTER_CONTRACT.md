@@ -58,6 +58,16 @@ low/medium-risk `working_deadline` unit and a description prefixed
 `[itd:mechanical]`; protected roles and unknown/high risk are never silent.
 Model/effort routing cannot remove any verification contour.
 
+Verification Loop receipts are shared core artifacts, not adapter verdicts.
+Every adapter must preserve the exact prompt/report files and host-observed
+maker/checker session, model, and provider metadata when invoking
+`skills/_shared/itd_verification_loop.py`. Medium requires a fresh-session
+targeted checker; high/unknown additionally requires a different model or
+provider. If the host cannot establish the required provenance, the outcome is
+`UNVERIFIED`; it must not synthesize identifiers or downgrade the risk route.
+The portable trust root is the honest host orchestrator, not a cryptographic
+model identity claim.
+
 ## Native continuation for bounded goals
 
 The shared contract for autonomous delivery is the optional
@@ -70,8 +80,8 @@ On each continuation the adapter must:
 1. read the existing ledger; never recreate or re-decompose it;
 2. resume only `currentUnitId`, otherwise the first pending unit (WIP=1);
 3. preserve the approved attempt, wall-clock and token ceilings;
-4. supply the attempt approach and any required fresh-checker evidence to the
-   harness verifier;
+4. supply the attempt approach and an exact-candidate adjudication receipt for
+   any required targeted/full checker to the harness verifier;
 5. stop on verifier exit `3`, `blocked`, `budget_exhausted`, or human input;
 6. leave push, merge, deploy and other irreversible/external writes behind the
    ordinary human gate.

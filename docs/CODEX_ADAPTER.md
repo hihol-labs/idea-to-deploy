@@ -83,6 +83,11 @@ bounded_autonomous`, Codex's native goal/automation surface may re-enter the
 task. The durable controller is still `.itd-memory/GOAL.json`: seal it first,
 resume one WIP unit, run the ordinary `/task` pipeline, and finish through
 `itd_goal_verify.py` with an approach and fresh-checker evidence when required.
+That evidence is the adjudication path produced by
+`skills/_shared/itd_verification_loop.py`, not a prose reviewer summary. Codex
+subagents write their exact prompt/report under `.itd-memory/verification-loop/`;
+the parent orchestrator records the real SubagentStart/Stop session and model
+metadata. Missing high/unknown model separation remains `UNVERIFIED`.
 
 Map the host/session token ceiling to `runPolicy.maxTokensPerSession`. When the
 host reports exhaustion, persist it with `--budget-exhausted --budget-kind

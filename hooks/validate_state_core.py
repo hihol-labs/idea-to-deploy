@@ -33,6 +33,7 @@ malformed JSON is itself reported as an error.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -42,6 +43,9 @@ _LIB_DIR = Path(__file__).resolve().parent
 _SCHEMA_DIRS = (
     _LIB_DIR.parent / "docs" / "templates" / "itd-memory",
     _LIB_DIR.parent / "templates" / "itd-memory",
+)
+_VERIFICATION_LOOP_PATH = (
+    _LIB_DIR.parent / "skills" / "_shared" / "itd_verification_loop.py"
 )
 
 # Built-in fallback when no schema file is resolvable (fresh machine, partial
@@ -74,7 +78,7 @@ _FALLBACK_GOAL = {
         "requireIndependentReview",
     ],
     "attemptKinds": ["verification", "recheck"],
-    "attemptOutcomes": ["verified", "failed", "regressed"],
+    "attemptOutcomes": ["verified", "failed", "regressed", "unverified"],
     "stopReasons": ["", "verified", "blocked", "budget_exhausted"],
 }
 
@@ -87,6 +91,33 @@ ACTIVE_UNIT_STATUSES = {"in_progress", "verifying", "recovery_required"}
 
 # Unit-event decisions that mean "this unit is finished" in events.jsonl.
 _TERMINAL_DECISIONS = {"verified", "closed", "skipped", "abandoned"}
+
+
+def _verification_receipt_error(goal_path: Path, receipt: dict,
+                                risk_tier: str, unit_id: str) -> str:
+    """Return an exact adjudication error; shaped ledger fields are not proof."""
+    try:
+        project_root = goal_path.resolve().parent.parent
+        target = (project_root / str(receipt.get("path") or "")).resolve()
+        target.relative_to(project_root)
+        if not target.is_file():
+            return "adjudication receipt file is missing"
+        if hashlib.sha256(target.read_bytes()).hexdigest() != receipt.get("sha256"):
+            return "adjudication receipt file hash does not match the ledger"
+        spec = importlib.util.spec_from_file_location(
+            "itd_state_verification_loop", _VERIFICATION_LOOP_PATH)
+        if spec is None or spec.loader is None:
+            return "Verification Loop validator is unavailable"
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        validated = module.validate_adjudication(
+            project_root, target, risk_tier or "unknown", unit_id)
+        if (str(validated.get("receiptSha256") or "")
+                != str(receipt.get("receiptSha256") or "")):
+            return "adjudication receipt digest does not match the ledger"
+    except Exception as exc:
+        return f"adjudication receipt validation failed: {exc}"
+    return ""
 
 
 def _load_schema(name: str) -> dict | None:
@@ -585,9 +616,31 @@ def validate_goal_file(path: Path) -> tuple[list[str], list[str]]:
                     errors.append(f"{awhere}: kind '{attempt.get('kind')}' not in {kinds}")
                 if outcomes and attempt.get("outcome") not in outcomes:
                     errors.append(f"{awhere}: outcome '{attempt.get('outcome')}' not in {outcomes}")
-                if (expected_checker == "full"
-                        and not str(attempt.get("reviewEvidence") or "").strip()):
-                    errors.append(f"{awhere}: independent review evidence is required")
+                receipt = attempt.get("verificationReceipt")
+                requires_adjudication = (
+                    expected_checker in ("targeted", "full")
+                    and attempt.get("outcome") == "verified")
+                if requires_adjudication:
+                    if (not isinstance(receipt, dict)
+                            or not str(receipt.get("path") or "").strip()
+                            or len(str(receipt.get("sha256") or "")) != 64
+                            or len(str(receipt.get("receiptSha256") or "")) != 64
+                            or receipt.get("outcome") != "PASSED"):
+                        errors.append(
+                            f"{awhere}: adjudicated Verification Loop receipt is required")
+                    else:
+                        receipt_error = _verification_receipt_error(
+                            path, receipt, risk_tier or "unknown", uid)
+                        if receipt_error:
+                            errors.append(f"{awhere}: {receipt_error}")
+                    if (not str(attempt.get("reviewEvidence") or "").startswith("adjudicated:")
+                            or str(attempt.get("reviewEvidence") or "").split(":", 1)[-1]
+                            != str((receipt or {}).get("receiptSha256") or "")):
+                        errors.append(
+                            f"{awhere}: plain review evidence is not trusted")
+                elif receipt not in (None, {}):
+                    errors.append(
+                        f"{awhere}: non-verified attempt must not carry accepted adjudication")
                 if (adaptive or "checkerMode" in attempt) \
                         and attempt.get("checkerMode") != expected_checker:
                     errors.append(

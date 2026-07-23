@@ -192,18 +192,24 @@ sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" --budget-exhausted G-00X \
    Провал → юнит остаётся `in_progress`, чини в рамках конвейера; **не
    открывай следующий** (и ОТК не даст — WIP=1).
    Для bounded-run каждая попытка обязана назвать новый подход, передать
-   host-token meter и приложить checker evidence только когда запечатанный
-   режим юнита равен `full`:
+   host-token meter и приложить adjudicated Verification Loop receipt, когда
+   запечатанный режим юнита равен `targeted` или `full`. Receipt создаётся по
+   `docs/VERIFICATION_LOOP.md` для claim id, равного `G-00X`: machine producer
+   исполняет тот же `verificationCommand`, checker связывает exact prompt/report,
+   а adjudicator проверяет risk route и текущий candidate:
 
    ```bash
    sh "$SHD/itd_py.sh" "$GT/itd_goal_verify.py" G-00X \
      --approach "заменил polling на event wait" \
      --tokens-used 42000 \
-     --review-evidence "fresh code-reviewer: PASSED"
+     --verification-receipt ".itd-memory/verification-loop/receipts/<candidate>/G-00X-adjudication.json"
    ```
 
    ОТК пишет `{approach, verificationCommand, outcome, evidence,
-   observedTokens, checkerMode, reviewEvidence}` в `attempts[]`. Для
+   observedTokens, checkerMode, verificationReceipt}` в `attempts[]`. Красный
+   machine run и отсутствующий/невалидный checker всё равно расходуют попытку
+   как `failed`/`unverified`, но receipt обязателен только для перехода в
+   `verified`. Для
    `machine_only` полный второй анализ запрещён как лишняя стоимость; для
    `targeted` checker читает только непокрытые машиной claims/риски. Exit `3` / `stopReason:
    budget_exhausted` — жёсткий конец текущего autonomous run: не повторяй

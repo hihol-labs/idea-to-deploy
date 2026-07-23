@@ -196,16 +196,23 @@ verdict may satisfy the DoD security sentinel and pay down the **security** risk
 bucket. A general review cannot reset this bucket; `BLOCKED` and `UNVERIFIED`
 must leave the gate closed.
 
+For an accepted verdict, first run `docs/VERIFICATION_LOOP.md` with claim id
+`<active-unit>:security-review`, the exact durable security prompt/report, and
+the real host-observed checker provenance. Use the declared security test/audit
+commands as the machine oracle; high/unknown requires a fresh session plus a
+different model or provider. Then record only the adjudicated receipt:
+
 ```bash
 RC="skills/review/scripts/itd_review_cache.py"
 [ -f "$RC" ] || RC="$HOME/.claude/idea-to-deploy/skills/review/scripts/itd_review_cache.py"
 SHD="skills/_shared"
 [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/idea-to-deploy/skills/_shared"
-sh "$SHD/itd_py.sh" "$RC" record --root . --kind security --verdict PASSED
+sh "$SHD/itd_py.sh" "$RC" record --root . --kind security --verdict PASSED \
+  --verification-receipt "$ADJUDICATION_RECEIPT"
 ```
 
 For `PASSED_WITH_WARNINGS`, pass durable `--warning "path: summary"` values.
-The authenticated workflow caller must perform this write explicitly after it
+The honest host-orchestrator must perform this write explicitly after it
 accepts the independent audit verdict. `hooks/verdict-contract.sh` validates
 the machine-readable shape but cannot infer a trusted security-audit producer
 from generic SubagentStop text and therefore never writes cache evidence.

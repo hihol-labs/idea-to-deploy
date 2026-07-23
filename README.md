@@ -12,7 +12,7 @@ extension point, not a supported claim. [Choose a host](#quick-start) ·
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.91.1](https://img.shields.io/badge/Version-1.91.1-purple.svg)](CHANGELOG.md)
+[![Version: 1.93.0](https://img.shields.io/badge/Version-1.93.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -74,6 +74,20 @@ Host adapters translate packaging, guidance files, tool names, hook events, and
 subagent transport. They may not fork completion criteria, risk policy,
 persistent project state, or skill semantics. See the
 [host adapter contract](docs/HOST_ADAPTER_CONTRACT.md).
+
+Acceptance is proof-carrying by default: low-risk work uses harness-executed
+machine evidence, medium adds a targeted fresh-session checker, and
+high/unknown adds a full checker from a fresh session and different model or
+provider. `/goal` and review caches accept only an exact-candidate adjudication
+receipt; see [Verification Loop v1](docs/VERIFICATION_LOOP.md).
+
+Opt-in [operating loops](docs/OPERATING_LOOPS.md) add binary readiness
+diagnostics, routing to existing skills, report-only host-native schedules,
+temporary capability-bound trust, observed append-only telemetry, deterministic
+failure handling, and provenance-backed outcome stories. They do not add a
+daemon or unattended permanent authority. The closed recipe registry contains
+exactly six report-first loops: state freshness, test regression, dependency
+health, security posture, review drift, and documentation drift.
 
 | Host | Status | Guidance entry | Evidence boundary |
 |---|---|---|---|

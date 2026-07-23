@@ -70,7 +70,9 @@
     "acceptedVerdicts": ["PASSED"],
     "warningVerdictRequiresDurableWarnings": true,
     "blockedOrUnverifiedSatisfiesGate": false,
-    "invalidateOnKeyChange": true
+    "invalidateOnKeyChange": true,
+    "acceptedVerdictRequiresAdjudicatedReceipt": true,
+    "receiptPolicy": "verification-loop-v1"
   },
   "riskBudget": {
     "resetRequiresSuccessfulBoundVerdict": true,

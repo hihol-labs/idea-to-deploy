@@ -85,6 +85,11 @@ The export contains only validated aggregates and digests. Publication or
 sharing is a separate explicit human action. The tool does not contact pilots,
 upload evidence, merge changes or create a passing `INDEX.json`.
 
+Privacy-safe success and failure narratives may be derived only after this
+evaluation workflow. Use `OPERATING_LOOP_STORIES.md` and the two
+`docs/templates/itd/OPERATING_LOOP_*_STORY.json` templates. Story prose never
+upgrades evidence: the indexed record and this evaluator remain authoritative.
+
 ## Evidence boundary
 
 - Tests may construct in-memory examples to refute the evaluator. They are not

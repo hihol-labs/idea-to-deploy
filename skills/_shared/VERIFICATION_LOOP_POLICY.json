@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "id": "verification-loop-v1",
+  "purpose": "Risk-tiered proof-carrying acceptance for maker/checker work. Agents may propose claims and verdicts; only the harness executes oracles and adjudicates exact-candidate receipts.",
+  "defaultEnabled": true,
+  "receiptDirectory": ".itd-memory/verification-loop",
+  "acceptedVerdicts": ["PASSED"],
+  "candidateHashAlgorithm": "sha256",
+  "maxReceiptAgeSeconds": 86400,
+  "maxAttemptsPerCandidate": 3,
+  "threatModel": {
+    "trustRoot": "honest-host-orchestrator",
+    "guarantees": [
+      "exact-candidate-integrity",
+      "machine-command-execution",
+      "ignored-overlay-isolation",
+      "immutable-evidence-history",
+      "fresh-context-checker-routing",
+      "tamper-and-staleness-detection"
+    ],
+    "nonGuarantees": [
+      "malicious-same-os-principal",
+      "compromised-host-orchestrator",
+      "cryptographic-model-identity-attestation"
+    ],
+    "externalClaimsWithoutHostEvidence": "UNVERIFIED"
+  },
+  "riskRoutes": {
+    "low": {
+      "checkerMode": "machine_only",
+      "checkerRequired": false
+    },
+    "medium": {
+      "checkerMode": "targeted",
+      "checkerRequired": true
+    },
+    "high": {
+      "checkerMode": "full",
+      "checkerRequired": true
+    },
+    "unknown": {
+      "checkerMode": "full",
+      "checkerRequired": true
+    }
+  },
+  "independence": {
+    "targeted": {
+      "differentSessionRequired": true,
+      "differentModelOrProviderRequired": false
+    },
+    "full": {
+      "differentSessionRequired": true,
+      "differentModelOrProviderRequired": true
+    }
+  },
+  "invariants": {
+    "makerNarrationMayMintAcceptedVerdict": false,
+    "harnessExecutesVerificationCommands": true,
+    "machineExecutionMode": "isolated-staged-tree",
+    "machineOutputRetention": "hashes-only",
+    "undeclaredIgnoredInputsEnterMachineOracle": false,
+    "immutableReceiptPublicationRequired": true,
+    "exactCandidateBindingRequired": true,
+    "candidateChangeInvalidatesReceipts": true,
+    "plainTextCheckerEvidenceAccepted": false,
+    "majorityVoteIsEvidence": false,
+    "missingRequiredChecker": "UNVERIFIED",
+    "externalOutcomeClaimsRequireExternalEvidence": true,
+    "samePrincipalByzantineResistanceClaimed": false
+  }
+}
