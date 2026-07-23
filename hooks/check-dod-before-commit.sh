@@ -238,7 +238,9 @@ def emit_deny_project_checks(output: str) -> None:
 def emit_deny(missing: dict) -> None:
     lines = "\n".join("  ❌ /%s — %s" % (s, r) for s, r in missing.items())
     msg = (
-        "[DoD GATE] Коммит заблокирован: рисковые изменения без нужного скилла.\n\n"
+        "[DoD GATE] Коммит заблокирован.\n"
+        "WHY: рисковые изменения подготовлены без обязательного скилла.\n"
+        "FIX: запусти перечисленные скиллы и повтори commit.\n\n"
         + lines
         + "\n\nДействия:\n"
         "  1. Запусти нужный скилл (он отметит выполнение), затем повтори git commit.\n"

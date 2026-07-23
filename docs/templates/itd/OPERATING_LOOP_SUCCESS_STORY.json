@@ -1,0 +1,27 @@
+{
+  "$schema": "./OPERATING_LOOP_STORY.schema.json",
+  "version": 1,
+  "storyId": "story_000000000000",
+  "storyType": "success",
+  "evidenceStatus": "UNVERIFIED",
+  "observedAt": null,
+  "summary": "Replace this template text with a privacy-safe outcome summary.",
+  "context": {
+    "projectId": null,
+    "operatorId": null,
+    "repositoryClass": "unassigned",
+    "methodologyOwned": false
+  },
+  "intervention": {"recipeIds": [], "startedAt": null, "endedAt": null},
+  "outcomes": {"baseline": null, "followup": null, "materialChange": "unmeasured"},
+  "provenance": {
+    "protocol": "docs/external-validation/PROTOCOL.md",
+    "indexPath": "docs/evidence/external-outcomes/INDEX.json",
+    "recordDigest": null,
+    "sourceHashes": [],
+    "verifiedBy": null,
+    "evidenceKinds": []
+  },
+  "privacy": {"consent": false, "aggregateOnly": true, "prohibitedFieldsAbsent": false},
+  "limitations": ["A template or author narrative is not external outcome evidence."]
+}

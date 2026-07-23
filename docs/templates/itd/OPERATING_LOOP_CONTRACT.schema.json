@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idea-to-deploy.local/schemas/operating-loop-contract-v1.json",
+  "title": "Idea to Deploy operating-loop project contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "version",
+    "policyId",
+    "enabled",
+    "project",
+    "recipes",
+    "schedulerBindings",
+    "trustLeases",
+    "budgets",
+    "telemetry",
+    "humanInbox",
+    "notes"
+  ],
+  "properties": {
+    "$schema": {"const": "./OPERATING_LOOP_CONTRACT.schema.json"},
+    "version": {"const": 1},
+    "policyId": {"const": "operating-loop-v1"},
+    "enabled": {"type": "boolean"},
+    "project": {"type": "string", "minLength": 1, "maxLength": 200},
+    "recipes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}
+    },
+    "schedulerBindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["recipeId", "host", "binding", "mode"],
+        "properties": {
+          "recipeId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+          "host": {"enum": ["claude-code", "codex", "github-actions"]},
+          "binding": {"type": "string", "minLength": 1, "maxLength": 500},
+          "mode": {"enum": ["observe", "report"]}
+        }
+      }
+    },
+    "trustLeases": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 1,
+      "items": {"$ref": "#/$defs/authorization"}
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxObservedTokensPerDay", "maxRunsPerDay", "maxAttemptsPerItem", "softRatio", "hardRatio"],
+      "properties": {
+        "maxObservedTokensPerDay": {"type": ["integer", "null"], "minimum": 1},
+        "maxRunsPerDay": {"type": ["integer", "null"], "minimum": 1},
+        "maxAttemptsPerItem": {"type": "integer", "minimum": 1, "maximum": 3},
+        "softRatio": {"const": 0.8},
+        "hardRatio": {"const": 1.0}
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ledger", "schema", "retentionDays"],
+      "properties": {
+        "ledger": {"const": ".itd-memory/operating-loop-runs.jsonl"},
+        "schema": {"const": ".itd/OPERATING_LOOP_RUN.schema.json"},
+        "retentionDays": {"type": "integer", "minimum": 1, "maximum": 365}
+      }
+    },
+    "humanInbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "notifyOnlyWhenActionRequired", "maxUnacknowledgedHours"],
+      "properties": {
+        "target": {"type": "string", "maxLength": 500},
+        "notifyOnlyWhenActionRequired": {"const": true},
+        "maxUnacknowledgedHours": {"type": "integer", "minimum": 1, "maximum": 168}
+      }
+    },
+    "notes": {"type": "string", "maxLength": 2000}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["leaseId", "recipeId", "capability", "action", "issuedAt", "expiresAt", "hostApproval"],
+      "properties": {
+        "leaseId": {"type": "string", "minLength": 1, "maxLength": 160},
+        "recipeId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+        "capability": {"type": "string", "minLength": 1, "maxLength": 160},
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool", "targetsSha256", "payloadSha256"],
+          "properties": {
+            "tool": {"type": "string", "minLength": 1, "maxLength": 160},
+            "targetsSha256": {"$ref": "#/$defs/sha256"},
+            "payloadSha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "issuedAt": {"type": "string", "format": "date-time"},
+        "expiresAt": {"type": "string", "format": "date-time"},
+        "hostApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "sessionId", "approvalHash"],
+          "properties": {
+            "host": {"enum": ["claude-code", "codex", "github-actions"]},
+            "sessionId": {"type": "string", "minLength": 1, "maxLength": 200},
+            "approvalHash": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"enabled": {"const": false}}, "required": ["enabled"]},
+      "then": {
+        "properties": {
+          "recipes": {"maxItems": 0},
+          "schedulerBindings": {"maxItems": 0},
+          "trustLeases": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

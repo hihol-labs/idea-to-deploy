@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idea-to-deploy.local/schemas/operating-loop-run-v1.json",
+  "title": "Idea to Deploy operating-loop run event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "runId",
+    "recipeId",
+    "startedAt",
+    "durationMs",
+    "tokenUsage",
+    "itemsInspected",
+    "itemsActionable",
+    "actionsTaken",
+    "escalations",
+    "outcome",
+    "invocation",
+    "preflight"
+  ],
+  "properties": {
+    "version": {"const": 1},
+    "runId": {"type": "string", "minLength": 1, "maxLength": 160},
+    "recipeId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "invocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "host", "sessionId", "attestationHash"],
+      "properties": {
+        "origin": {"enum": ["on-demand", "scheduled"]},
+        "host": {"enum": ["claude-code", "codex", "github-actions"]},
+        "sessionId": {"type": "string", "minLength": 1, "maxLength": 200},
+        "attestationHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "schedulerBinding": {"type": "string", "minLength": 1, "maxLength": 500}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"origin": {"const": "scheduled"}}, "required": ["origin"]},
+          "then": {"required": ["schedulerBinding"]}
+        },
+        {
+          "if": {"properties": {"origin": {"const": "on-demand"}}, "required": ["origin"]},
+          "then": {"not": {"required": ["schedulerBinding"]}}
+        }
+      ]
+    },
+    "startedAt": {"type": "string", "format": "date-time"},
+    "durationMs": {"type": "integer", "minimum": 0},
+    "tokenUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measurement", "value", "source"],
+      "properties": {
+        "measurement": {"const": "host-observed"},
+        "value": {"type": "integer", "minimum": 0},
+        "source": {"type": "string", "minLength": 1, "maxLength": 160}
+      }
+    },
+    "itemsInspected": {"type": "integer", "minimum": 0},
+    "itemsActionable": {"type": "integer", "minimum": 0},
+    "actionsTaken": {"type": "integer", "minimum": 0},
+    "escalations": {"type": "integer", "minimum": 0},
+    "outcome": {
+      "enum": ["no-op", "report", "draft", "approved-action", "escalated", "paused", "failed"]
+    },
+    "trustStage": {"enum": ["observe", "report", "draft", "approved_execute"]},
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["watchlistItems", "observedTokensBefore", "runsBefore", "attempt", "decision", "reason"],
+      "properties": {
+        "watchlistItems": {"type": "integer", "minimum": 0},
+        "observedTokensBefore": {"type": "integer", "minimum": 0},
+        "runsBefore": {"type": "integer", "minimum": 0},
+        "attempt": {"type": "integer", "minimum": 0},
+        "decision": {"enum": ["early-exit", "downgrade", "pause", "continue"]},
+        "reason": {"enum": ["empty-watchlist", "soft-budget", "hard-budget", "within-budget"]}
+      }
+    },
+    "hostProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "host", "sessionId", "attestationHash", "runSha256", "preflightSha256"],
+      "properties": {
+        "valid": {"const": true},
+        "host": {"enum": ["claude-code", "codex", "github-actions"]},
+        "sessionId": {"type": "string", "minLength": 1, "maxLength": 200},
+        "attestationHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "runSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "preflightSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "failureSignals": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "budgetExceeded": {"type": "boolean"},
+        "attemptBudgetExceeded": {"type": "boolean"},
+        "stateStale": {"type": "boolean"},
+        "receiptMissing": {"type": "boolean"},
+        "receiptInvalid": {"type": "boolean"},
+        "nondeterministicCheck": {"type": "boolean"},
+        "scopeDrift": {"type": "boolean"},
+        "unapprovedAction": {"type": "boolean"},
+        "tooManyNoopNotifications": {"type": "boolean"},
+        "unboundedContext": {"type": "boolean"},
+        "lockContended": {"type": "boolean"},
+        "concurrentMutation": {"type": "boolean"},
+        "requiredEscalationUnsent": {"type": "boolean"}
+      }
+    },
+    "failureClasses": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "runaway",
+          "state_rot",
+          "verifier_theater",
+          "flake",
+          "overreach",
+          "notification_fatigue",
+          "comprehension_debt",
+          "parallel_collision",
+          "escalation_failure"
+        ]
+      }
+    },
+    "verificationReceipts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "riskTier"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "maxLength": 500},
+          "riskTier": {"enum": ["low", "medium", "high"]}
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["leaseId", "recipeId", "capability", "action", "issuedAt", "expiresAt", "hostApproval"],
+      "properties": {
+        "leaseId": {"type": "string", "minLength": 1, "maxLength": 160},
+        "recipeId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+        "capability": {"type": "string", "minLength": 1, "maxLength": 160},
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool", "targetsSha256", "payloadSha256"],
+          "properties": {
+            "tool": {"type": "string", "minLength": 1, "maxLength": 160},
+            "targetsSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "payloadSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "issuedAt": {"type": "string", "format": "date-time"},
+        "expiresAt": {"type": "string", "format": "date-time"},
+        "hostApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "sessionId", "approvalHash"],
+          "properties": {
+            "host": {"enum": ["claude-code", "codex", "github-actions"]},
+            "sessionId": {"type": "string", "minLength": 1, "maxLength": 200},
+            "approvalHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
+    "executedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "targetsSha256", "payloadSha256"],
+      "properties": {
+        "tool": {"type": "string", "minLength": 1, "maxLength": 160},
+        "targetsSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "payloadSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "pauseReason": {"type": "string", "maxLength": 1000},
+    "summary": {"type": "string", "maxLength": 2000}
+  },
+  "dependentRequired": {
+    "failureClasses": ["failureSignals"],
+    "failureSignals": ["failureClasses"]
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"outcome": {"const": "approved-action"}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": ["trustStage", "verificationReceipts", "authorization", "executedAction"],
+        "properties": {
+          "trustStage": {"const": "approved_execute"},
+          "invocation": {
+            "properties": {"origin": {"const": "on-demand"}}
+          },
+          "verificationReceipts": {"minItems": 1},
+          "actionsTaken": {"const": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outcome": {"const": "failed"}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": ["failureClasses", "failureSignals"],
+        "properties": {
+          "failureClasses": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outcome": {"not": {"const": "approved-action"}}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": ["hostProof"],
+        "not": {
+          "anyOf": [
+            {"required": ["authorization"]},
+            {"required": ["executedAction"]},
+            {"required": ["verificationReceipts"]}
+          ]
+        },
+        "properties": {"actionsTaken": {"const": 0}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "invocation": {
+            "properties": {"origin": {"const": "scheduled"}},
+            "required": ["origin"]
+          }
+        },
+        "required": ["invocation"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {"required": ["authorization"]},
+            {"required": ["executedAction"]},
+            {"required": ["verificationReceipts"]}
+          ]
+        },
+        "properties": {
+          "outcome": {"enum": ["no-op", "report", "escalated", "paused", "failed"]},
+          "actionsTaken": {"const": 0}
+        }
+      }
+    }
+  ]
+}

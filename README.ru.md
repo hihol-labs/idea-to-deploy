@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.92.0](https://img.shields.io/badge/Version-1.92.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.93.0](https://img.shields.io/badge/Version-1.93.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -79,6 +79,15 @@ transport субагентов. Они не могут форкать крите
 а high/unknown — full checker в свежей сессии и на другой модели или provider.
 `/goal` и review cache принимают только adjudication receipt точного candidate;
 см. [Verification Loop v1](docs/VERIFICATION_LOOP.md).
+
+Опциональные [operating loops](docs/OPERATING_LOOPS.md) добавляют бинарную
+readiness-диагностику, routing на существующие скиллы, report-only расписания
+нативного host’а, временный capability-bound trust, наблюдаемую append-only
+телеметрию, детерминированную обработку сбоев и provenance-backed outcome
+stories. Отдельный daemon и постоянная unattended authority не появляются.
+Закрытый реестр содержит ровно шесть report-first рецептов: state freshness,
+test regression, dependency health, security posture, review drift и
+documentation drift.
 
 | Host | Статус | Guidance entry | Граница evidence |
 |---|---|---|---|

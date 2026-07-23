@@ -88,15 +88,11 @@ def scenario(script: str, root: Path, session: str) -> tuple[Path, dict[str, Any
         payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m parity"}}
     elif script == "check-dod-before-commit.sh":
         init_repo(cwd)
-        # Use a deterministic failing project check instead of relying on the
-        # process-global /tmp skill sentinels.  A real, fresh /test sentinel
-        # from another concurrent session must not make this parity fixture
-        # nondeterministically green.
-        staged(
-            cwd,
-            ".itd/checks/parity.sh",
-            "#!/bin/sh\necho 'WHY: parity probe; FIX: expected deny'\nexit 1\n",
-        )
+        # A new source file without a test deterministically requires /test.
+        # The unique explicit session id prevents reuse of a global sentinel,
+        # and this scenario does not depend on an optional POSIX shell on the
+        # native Windows host.
+        staged(cwd, "src/parity.py", "VALUE = 1\n")
         payload = {"tool_name": "Bash", "tool_input": {"command": "git commit -m parity", "description": ""}}
     elif script == "check-commit-completeness.sh":
         init_repo(cwd, commit_base=True)

@@ -1,8 +1,8 @@
 # Оценка эффективности ITD и соответствия Harness Engineering
 
-> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.92.0**.
+> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.93.0**.
 > Исполняемая evidence-база обновлена на текущем content-pinned tree
-> 2026-07-21. v1.92.0 добавляет proof-carrying Verification Loop поверх
+> 2026-07-22. v1.93.0 добавляет bounded operating loops поверх
 > production contracts, goals и review caches. Оценка действительна только пока проходят
 > замороженный evaluator, freshness-проверки и полный regression suite.
 

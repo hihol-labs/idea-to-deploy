@@ -98,7 +98,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 
 ## Known follow-up (doc drift)
 
-**✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.92.0).** The original pass
+**✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.93.0).** The original pass
 aligned **40 skills + 10 specialized subagents + 19 enforcement hooks**. The
 current live inventory is **40 skills + 10 specialized subagents + 29 hooks
 (11 hard, 18 soft)** and is checked by the documentation freshness and adapter
