@@ -23,6 +23,8 @@ Constraints and approved decisions:
   **"no database — stateless streaming processing; no HTTP API — CLI-only
   tool"** and justify why both constraints are correct here.
 - Include at least three user stories and a 4–10 step implementation plan.
+- In `PRD.md`, place the user stories under the exact second-level heading
+  `## User Stories` so the documented contract is explicit and replayable.
 
 Before ending, verify that all six required files exist in the project root:
 

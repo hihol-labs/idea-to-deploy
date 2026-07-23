@@ -573,6 +573,13 @@ def main() -> int:
     )
     check("live prompt explicitly names every oracle-required output",
           prompt_names_all_outputs)
+    prd_story_heading_directive = (
+        "- In `PRD.md`, place the user stories under the exact second-level heading\n"
+        "  `## User Stories` so the documented contract is explicit and replayable."
+    )
+    prompt_names_prd_story_heading = prd_story_heading_directive in live_prompt
+    check("live prompt explicitly names the oracle-required PRD story heading",
+          prompt_names_prd_story_heading)
     mutated_prompt = (
         live_prompt.replace(f"`{required_outputs[0]}`", "", 1)
         if required_outputs else live_prompt
@@ -580,6 +587,10 @@ def main() -> int:
     check("mutation: omitted prompt output fails closed",
           bool(required_outputs)
           and not all(f"`{name}`" in mutated_prompt for name in required_outputs))
+    mutated_story_prompt = live_prompt.replace(prd_story_heading_directive, "", 1)
+    check("mutation: omitted PRD story heading fails closed",
+          prompt_names_prd_story_heading
+          and prd_story_heading_directive not in mutated_story_prompt)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)
