@@ -117,6 +117,7 @@ Before writing anything:
      - example test:           [create + run (recommended — тестов не найдено) | skip (тесты уже есть)] — «без example test» чтобы пропустить
      - runnability check:      [run init validator (recommended) | skip] — «без проверки запускаемости» чтобы пропустить
      - CLAUDE.md router split: [propose (recommended — файл N строк > 300) | skip (файл компактен / уже роутер)] — «без сплита» чтобы пропустить
+     - derived context index:  [plan `docs/agent-context/*` (recommended) | skip] — «без context index» чтобы пропустить
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
      - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
@@ -263,6 +264,32 @@ entry-файл коротким и роутинговым, но не экспо�
 Для уже-адоптированных проектов шаг доступен через идемпотентный re-run
 `/adopt` (всё остальное будет skip, сплит — предложен).
 
+### Step 3.9: Source-backed conditional context index (optional, recommended)
+
+After the ordinary adoption plan has been approved, run the host-neutral
+generator in two explicit steps:
+
+```text
+python3 skills/adopt/scripts/itd_context_map.py plan --root <project-root>
+python3 skills/adopt/scripts/itd_context_map.py apply --root <project-root> --approved --plan-sha256 <planSha256>
+python3 skills/adopt/scripts/itd_context_map.py validate --root <project-root>
+```
+
+`plan` is read-only and emits `planSha256`. The host workflow must pass that
+digest back through `--plan-sha256`; changed sources invalidate approval.
+`apply` refuses to run without `--approved` and writes
+only `docs/agent-context/`. The generated `index.json` and topic modules are
+derived, non-normative views: every claim is a directly observed project file
+fact with a relative source path, SHA-256, trust class, and applicability
+condition. Do not add domain rules, architecture intent, or plan claims here;
+those need an explicit project-owner decision in `.itd`. A stale hash, symlink,
+out-of-root path, unapproved inference, or edited module makes `validate`
+fail closed. Repeated approved generation must be byte-idempotent.
+
+Use the generator from the enabled plugin root (or current methodology checkout)
+and include its exact writes in the `/adopt` plan. Never create parallel
+`docs/claude` and `docs/agents` context families.
+
 ### Step 4: Report to user
 
 Summarize, with exact absolute paths:
@@ -275,6 +302,7 @@ Adoption complete. Wrote / updated:
   - <ABS>/tests/<example test>               (created + run: PASS/FAIL | skipped — tests exist | skipped — declined | skipped — no built-in runner)
   - runnability check (init validator)       (PASS | FAIL: <why> | skipped — declined | skipped — no commits)
   - CLAUDE.md router split                   (done: entry N строк + M topic-доков | proposed, waiting approval | skipped — compact | skipped — declined)
+  - docs/agent-context/                      (generated + validated | skipped — declined | skipped — no observed sources)
   - <MEMORY>/MEMORY.md                       (indexed)
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
@@ -379,6 +407,7 @@ Before reporting adoption as complete, verify:
 - [ ] Example test created **and actually run** with real output shown (or skip reason recorded: tests exist / declined / no built-in runner) — a red run is reported, never hidden
 - [ ] Runnability check ran via `itd_init_validate.py` with its PASS/FAIL recorded in the sentinel session-save (or skip reason recorded: declined / no commits / isolated bootstrap impossible)
 - [ ] CLAUDE.md weight measured; router split done/proposed for a >300-line file (or skip reason: compact / already router / declined). A completed split moved content verbatim, listed deletions explicitly, left the `<!-- itd:claude-router -->` marker, and got explicit user approval BEFORE any write
+- [ ] Derived context plan was shown before writing; approved generation is byte-idempotent, validates fresh source hashes, and writes only `docs/agent-context/` (or a visible skip reason was recorded)
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir

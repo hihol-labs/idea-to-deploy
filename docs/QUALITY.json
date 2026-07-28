@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewedAt": "2026-07-21",
+  "reviewedAt": "2026-07-27",
   "maxAgeDays": 30,
   "gradeScale": {
     "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
@@ -105,7 +105,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-21",
+      "reviewedAt": "2026-07-27",
       "evidence": [
         "docs/HARNESS_CONFORMANCE_REPORT.md",
         "docs/HARNESS_CONFORMANCE_CONTRACT.json",

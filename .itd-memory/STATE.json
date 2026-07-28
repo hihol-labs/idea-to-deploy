@@ -1,0 +1,201 @@
+{
+  "sessionState": "ACTIVE",
+  "currentStage": "VERIFY",
+  "intent": "Absorb selected Harness Engineering patterns into Idea to Deploy without weakening its evidence guarantees",
+  "classification": {
+    "productType": "engineering_methodology",
+    "domain": "agent_harness",
+    "complexity": "high",
+    "requiredModules": [
+      "goal",
+      "state_validation",
+      "host_adapters",
+      "ci"
+    ],
+    "infrastructure": []
+  },
+  "architecture": {
+    "pattern": "model_neutral_harness",
+    "backend": "Python stdlib scripts",
+    "frontend": "",
+    "database": "JSON ledgers",
+    "auth": "",
+    "deployment": "Codex and Claude Code host adapters"
+  },
+  "existingProject": {
+    "isExistingProject": true,
+    "detectedStack": [
+      "Python",
+      "Bash",
+      "GitHub Actions"
+    ],
+    "availableCommands": [
+      "sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "bash tests/run-all.sh"
+    ],
+    "currentTaskRoute": "task",
+    "lastAnalysisSummary": "Added a sealed verification oracle, bounded budgets, typed stops, attempt evidence, and host-native continuation guidance."
+  },
+  "currentUnit": {
+    "id": "HDX-014",
+    "goal": "Accept one exact release candidate through all absorption phases, host parity, meta-review, quick/full regression, and fresh high-risk reviews",
+    "status": "verified",
+    "startedAt": "2026-07-27T12:01:00Z",
+    "verifiedAt": "2026-07-27T12:49:18Z",
+    "evidence": ".itd-memory/verification-loop/receipts/8eb355586ca79d4c/HDX-014-adjudication-a1.json"
+  },
+  "gateResults": {
+    "acceptanceContract": "passed",
+    "specComplianceReview": "passed",
+    "codeQualityReview": "passed",
+    "tests": "passed",
+    "tddRed": "n/a",
+    "tddGreen": "passed",
+    "rootCause": "n/a",
+    "scopeLock": "passed",
+    "dataAuthenticity": "passed",
+    "goldenFlows": "passed",
+    "fallbackPolicy": "passed",
+    "noSilentSubstitution": "passed",
+    "permissionMatrix": "passed",
+    "verificationContract": "passed",
+    "toolCapabilityRegistry": "passed",
+    "security": "passed",
+    "dependencies": "n/a",
+    "hardening": "passed",
+    "branchFinish": "passed",
+    "learningPromotion": "n/a",
+    "nextStepApproval": "approved",
+    "deploymentReadiness": "passed"
+  },
+  "verificationHistory": [
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "result": "passed",
+      "evidence": "25 passed, 0 failed; mutation refute-pass confirmed the critical guards"
+    },
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "command": "bash tests/run-all.sh",
+      "result": "passed",
+      "evidence": "DONE fails:none"
+    },
+    {
+      "at": "2026-07-14T22:37:32Z",
+      "command": "WSL/Windows parity verification and focused goal regressions",
+      "result": "passed",
+      "evidence": "WSL 35/35 + 7/7 + host adapters PASS; Windows 35/35 + 7/7 + canonical host adapters PASS; 7/7 deployed file hashes equal"
+    },
+    {
+      "at": "2026-07-15T05:35:00Z",
+      "command": "python3 docs/templates/itd/itd_hygiene.py close --root . --contract docs/SESSION_EXIT_CONTRACT.json",
+      "result": "passed",
+      "evidence": "exit 0 and empty stdout on clean detached worktree bce1425"
+    },
+    {
+      "at": "2026-07-21T23:15:10Z",
+      "command": "Verification Loop release, security and independent general review",
+      "result": "passed",
+      "evidence": "Linux 49/49; Windows 49/49; review/goal/DoD/risk 36/42/25/13; host adapters PASS; quick/full DONE fails:none; bound security and general adjudications PASSED"
+    },
+    {
+      "at": "2026-07-21T23:16:54Z",
+      "command": "Install v1.92.0 to WSL and Windows Codex/Claude profiles",
+      "result": "passed",
+      "evidence": "source/cache policy SHA-256 a7933d3a... matched; Claude sync --check had zero drift; Codex plugin list reports installed, enabled 1.92.0 on both hosts"
+    },
+    {
+      "at": "2026-07-26T21:49:52Z",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase diagnostics",
+      "result": "passed",
+      "evidence": "HDX-007 VERIFIED: 31 mutation guards; exact adjudication .itd-memory/verification-loop/receipts/acbba410ebcf05d5/HDX-007-adjudication-a1.json"
+    },
+    {
+      "at": "2026-07-27T05:55:34Z",
+      "command": "HDX-008 exact-candidate Verification Loop",
+      "result": "passed",
+      "evidence": "tree c8227a299c664961441603a9e97d504ddd90fe53; focused 1/15/3 plus cleanup; frozen 34/34; recipes 91; quick fails:none; general/security findings 0; adjudication .itd-memory/verification-loop/receipts/5247045193ab037a/HDX-008-adjudication-a1.json"
+    },
+    {
+      "at": "2026-07-27T08:58:58Z",
+      "command": "HDX-009 real-project Pilot A exact-candidate Verification Loop",
+      "result": "passed",
+      "evidence": "methodology tree 7a250beca585601aa064975e85739a43c4ee0804; external pilot tree 1fac184d7d48509c3c6dde45ca1ffabd55ae11ee; six pilot mutation guards; state 91/91; goal 42/42; isolation 1/15/3; frozen contract 34; quick fails:none; security/general/acceptance findings 0; adjudication .itd-memory/verification-loop/receipts/e4957f6140a4b213/HDX-009-adjudication-a2.json"
+    }
+  ],
+  "decisionLog": [
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "decision": "Keep bounded autonomy opt-in and use host-native continuation only as transport",
+      "why": "Preserves WIP=1 and all human, review, test, deploy, and external-write gates"
+    },
+    {
+      "at": "2026-07-21T23:15:10Z",
+      "decision": "Use exact-candidate proof-carrying adjudication as the default completion authority",
+      "why": "Separates maker, machine oracle and fresh semantic checker while keeping cost proportional to risk and preserving an explicit honest-host trust boundary"
+    }
+  ],
+  "artifacts": [
+    "skills/goal/scripts/itd_goal_verify.py",
+    "skills/goal/scripts/itd_goal_report.py",
+    "hooks/validate_state_core.py",
+    "docs/templates/itd-memory/goal.schema.json",
+    "tests/verify_goal_bounded_autonomy.py",
+    "skills/_shared/itd_verification_loop.py",
+    "skills/_shared/VERIFICATION_LOOP_POLICY.json",
+    "docs/VERIFICATION_LOOP.md",
+    "docs/templates/itd/VERIFICATION_LOOP_CONTRACT.json",
+    "tests/verify_verification_loop.py",
+    "CHANGELOG.md",
+    "docs/diagnostics-pilot/OBSERVATIONS.json",
+    "docs/diagnostics-pilot/LABEL_PACKET.json",
+    "docs/diagnostics-pilot/RESULTS.json",
+    "skills/_shared/itd_diagnostics_pilot.py",
+    "tests/verify_diagnostics_pilot.py",
+    "skills/_shared/itd_fresh_session_worktree.py",
+    "docs/templates/itd/FRESH_SESSION_WORKTREE_CONTRACT.json",
+    "tests/verify_fresh_session_worktree.py",
+    "tests/verify_harness_demo_pilots.py",
+    "docs/harness-demo-pilots/INDEX.json",
+    "docs/semantic-navigation/DEMAND.json",
+    "skills/_shared/itd_semantic_navigation.py",
+    "tests/verify_semantic_navigation.py",
+    "tests/verify_semantic_navigation_demand.py"
+  ],
+  "completedModules": [
+    "goal.bounded_autonomy",
+    "verification_loop.v1",
+    "harness_demo.diagnostics_pilot",
+    "harness_demo.fresh_session_worktree",
+    "harness_demo.real_pilot_a",
+    "harness_demo.real_pilot_b",
+    "harness_demo.real_pilot_c",
+    "harness_demo.semantic_navigation_demand",
+    "harness_demo.semantic_navigation"
+  ],
+  "failedValidations": [],
+  "blockers": [
+    {
+      "id": "HDX-009-real-project-authorization",
+      "status": "resolved",
+      "requires": "User authorized hihol-labs/product-factory-os, HiH-DimaN/jogai, and HiH-DimaN/hihol-landing and delegated bounded task selection; pilots remain serial.",
+      "forbiddenSubstitution": "Do not count fixtures, the idea-to-deploy methodology repository, or unauthorized sibling repositories as pilot evidence."
+    }
+  ],
+  "humanSteering": {
+    "approvalRequired": true,
+    "approvalStatus": "approved",
+    "recommendedNextStep": "No HDX work remains; preserve the accepted tree and receipts. PE5-008/009 require a separately approved real external operator/outcome pilot.",
+    "alternatives": [
+      "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
+    ],
+    "pendingQuestions": []
+  },
+  "eventLog": {
+    "path": ".itd-memory/events.jsonl",
+    "lastEventId": "",
+    "lastEventAt": "2026-07-14T13:39:02Z"
+  },
+  "nextAction": "Return the verified Harness Demo absorption result; do not treat methodology-owned pilots as PE5-008/009 external adoption evidence"
+}

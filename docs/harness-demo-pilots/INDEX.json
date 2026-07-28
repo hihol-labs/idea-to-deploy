@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "claim": "Serial internal real-project pilots; not external adoption evidence",
+  "episodes": [
+    {
+      "episode": "A",
+      "status": "passed",
+      "externalAdoptionEvidence": false,
+      "unitId": "HDX-009-A",
+      "sessionId": "5f697ba4b2154c17abdcd341549cdf5f",
+      "repository": "https://github.com/hihol-labs/product-factory-os.git",
+      "projectRoot": "/home/hihol/projects/itd-pilot-workspaces/A-product-factory-os",
+      "worktreeRoot": "/home/hihol/projects/itd-pilot-workspaces/A-HDX-009-A-worktree",
+      "task": "Make generated repeat-adoption guidance relocatable and guard it with the runtime validator",
+      "allowedPaths": [
+        "scripts/adoption_check.py",
+        "scripts/validate_runtime.py"
+      ],
+      "baseCommit": "12085574c27f20c24d12937569e928ea706f309f",
+      "candidateTree": "1fac184d7d48509c3c6dde45ca1ffabd55ae11ee",
+      "packet": ".itd-session/unit-packet.json",
+      "packetSha256": "dd19737108a8484a31791b2adc8c6b02ebdfac76fa8b5495579add81d6395b0c",
+      "sessionArtifact": ".itd-session/session.json",
+      "sessionArtifactSha256": "7dbb7eee36fcc31e69cce3094fd7a44384e3b999218751afd488ec7d559dcfc9",
+      "parentStateSnapshot": ".itd-session/parent-state-snapshot.json",
+      "parentStateSnapshotSha256": "85b0d16e39dd090120e55b5ef8a8fda5d8504ba6ac8c791a646436d2c4a55801",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/ba86bc1e34414930/HDX-009-A-adjudication-a1.json",
+      "riskTier": "medium",
+      "verification": {
+        "runtime": "OK: 9 starters and 9 golden paths validated",
+        "rootGate": "OK: Product Factory OS production-readiness gate passed; OK: root PFO check passed",
+        "negativePath": "historical absolute generated adoption command rejected"
+      }
+    },
+    {
+      "episode": "B",
+      "status": "passed",
+      "externalAdoptionEvidence": false,
+      "unitId": "HDX-010-B",
+      "sessionId": "1e89a94fb7084ed2b2da6f507e5cf2e3",
+      "repository": "https://github.com/HiH-DimaN/jogai.git",
+      "projectRoot": "/home/hihol/projects/itd-pilot-workspaces/B-jogai",
+      "worktreeRoot": "/home/hihol/projects/itd-pilot-workspaces/B-HDX-010-B-worktree",
+      "task": "Fix money rounding carry and make the half-up rule explicit with a tracked regression recipe",
+      "allowedPaths": [
+        "backend/app/utils/formatters.py",
+        "Justfile"
+      ],
+      "baseCommit": "474878c0e3eea13dc256baa8b25a2c5c8962c461",
+      "candidateTree": "4d3e392497477c1d879b3314e6d685d881cf8660",
+      "packet": ".itd-session/unit-packet.json",
+      "packetSha256": "bb4ab0998319331b87714fb35f9d92f4081a5b2438b93bb0922448f53475f983",
+      "sessionArtifact": ".itd-session/session.json",
+      "sessionArtifactSha256": "d7348f7b712bbd1fb43412b185c0e06a544d3d61cc7fcbe75af7296cfa7e579a",
+      "parentStateSnapshot": ".itd-session/parent-state-snapshot.json",
+      "parentStateSnapshotSha256": "70814ecdd25e51fd1d4da6c450fab4dda081c0600b2a233043699f990a5662ec",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/0aa1383850b73339/HDX-010-B-adjudication-a2.json",
+      "riskTier": "high",
+      "verification": {
+        "formatterBoundaryCases": "OK: 6 exact ROUND_HALF_UP and compatibility assertions passed, including large Decimal precision and negative sub-cent sign; direct just check-formatters unverified because just is unavailable",
+        "broaderGate": "OK: python compileall -q backend/app and git diff --check",
+        "negativePath": "historical source returned MX$999.00 for Decimal('999.999') and was rejected"
+      }
+    },
+    {
+      "episode": "C",
+      "status": "passed",
+      "externalAdoptionEvidence": false,
+      "unitId": "HDX-011-C",
+      "sessionId": "d24f7600aca0996609318bbd109baf60",
+      "repository": "https://github.com/HiH-DimaN/hihol-landing.git",
+      "projectRoot": "/home/hihol/projects/itd-pilot-workspaces/C-hihol-landing",
+      "worktreeRoot": "/home/hihol/projects/itd-pilot-workspaces/C-HDX-011-C-v2-worktree",
+      "task": "Fail closed on direct Yandex Metrika goal emission unless first-party consent is exactly granted",
+      "allowedPaths": [
+        "app/lib/metrika.ts",
+        "tests/compliance-ux.test.mjs"
+      ],
+      "baseCommit": "5a3e3e77e3d0f94d864910e76f4813a9e55a19a4",
+      "candidateTree": "52ca4875e06f03a1dfe2b89b055037a7067322d3",
+      "packet": ".itd-session/unit-packet.json",
+      "packetSha256": "322d754279ebe1147060ef3dc27ba91c19f432a52fdd392409a256223831fb95",
+      "sessionArtifact": ".itd-session/session.json",
+      "sessionArtifactSha256": "5ee380601b70793fdcfd70d1eb66e2a9316ab15c0715756941f5fbf99f78f5f7",
+      "parentStateSnapshot": ".itd-session/parent-state-snapshot.json",
+      "parentStateSnapshotSha256": "3257b03dff4c43aaf39ba306a27385127e9573d8fe4c19a804eab621baf20fb2",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/b845e980bfb14522/HDX-011-C-adjudication-a1.json",
+      "riskTier": "high",
+      "verification": {
+        "consentRegression": "OK: absent and necessary consent emitted zero goals; granted emitted the exact counter, method, goal and payload once",
+        "broaderGate": "OK: production static build/typecheck and all 44 Node contract tests; npm run lint unverified because initial configuration is interactive",
+        "negativePath": "historical source emitted one goal without consent and was rejected"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "authority": "captured-internal-example",
+  "project": {
+    "kind": "adopted-brownfield-fixture",
+    "language": "python",
+    "dependencies": "stdlib-only"
+  },
+  "observed": [
+    {
+      "claim": "Tax rates enter total_with_tax as integer basis points.",
+      "source": "src/invoice.py"
+    },
+    {
+      "claim": "The regression oracle expects 825 basis points to add 825 cents to a 10000-cent subtotal.",
+      "source": "tests/test_invoice.py"
+    }
+  ],
+  "trustBoundary": "Internal reproducibility evidence only; not external adoption or outcome evidence."
+}

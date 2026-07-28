@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "kind": "adjudication",
+  "createdAt": "2026-07-26T19:12:08Z",
+  "unitId": "BF-017",
+  "riskTier": "medium",
+  "candidate": {
+    "repository": "/tmp/itd-hdx005.aV5kBH",
+    "baseCommit": "60ce420edd32faf2704aa0ccf39499543785d9bd",
+    "reviewedTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+    "diffHash": "17134f4f23212acbd216d00b658be95936f05f2cc5da56da1995f61f3e22779c",
+    "scopeContractHash": "missing",
+    "acceptanceContractHash": "missing",
+    "rubricHash": "fa9b81aa27c7f4343bffc7e23bae1d826916b749577004e3762193180311882e",
+    "methodologyVersion": "1.93.0",
+    "riskTier": "medium"
+  },
+  "candidateDigest": "sha256:8c62dfcd1b41cdce75e76db7f3bbabaf22e0cde6776602092bf577ae553645ea",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "adjudicator",
+    "host": "Linux"
+  },
+  "producerRunId": "408ee684ee76abb86e732269e3fff3ce",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "attempt": 1,
+  "attemptLedger": {
+    "entryPath": ".itd-memory/verification-loop/attempts/8c62dfcd1b41cdce75e76db7f3bbabaf22e0cde6776602092bf577ae553645ea/BF-017-medium-40b8dcd6065dd5b9/attempt-1.json",
+    "sequence": 1
+  },
+  "checkerMode": "targeted",
+  "dependencies": {
+    "machine": {
+      "path": ".itd-memory/verification-loop/receipts/8c62dfcd1b41cdce/BF-017-machine-31785b9233ce71bd.json",
+      "sha256": "52040264f616e43ada5b4dc4d60a97590a4d93a2edd1e46e8233b8bdc57caf49"
+    },
+    "checker": {
+      "path": ".itd-memory/verification-loop/receipts/8c62dfcd1b41cdce/BF-017-checker-8bd41a9e87050f85.json",
+      "sha256": "39892d5431c3859bcbe245ce64549e02a5c25510b4ada06ec77cdbbfdcac2dba"
+    }
+  },
+  "outcome": "PASSED",
+  "receiptSha256": "81eec80189a4d33d4c2c47e8c868535dd5ce4de831ca8ba1092a83de99ef8430"
+}

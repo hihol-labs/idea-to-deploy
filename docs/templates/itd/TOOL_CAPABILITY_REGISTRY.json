@@ -58,6 +58,43 @@
       "approvalRequiredFor": ["private_code_or_secret_query"]
     },
     {
+      "id": "semantic-navigation",
+      "type": "provider-neutral-capability",
+      "usedBy": ["task", "review", "test", "explain"],
+      "capabilities": {"read": true, "write": false, "execute": true},
+      "sideEffects": "local-read-only-analysis",
+      "authNeeded": false,
+      "externalDataRisk": "none",
+      "fallbackMode": "plain-text-search",
+      "approvalRequiredFor": [],
+      "demandGate": {
+        "status": "activated",
+        "evidence": "docs/semantic-navigation/DEMAND.json",
+        "evidenceSha256": "a36e33b1d6c107614d1eb5832084325dba128df084f7ab88b86c275d0a9d6872"
+      },
+      "semanticNavigation": {
+        "provider": "skills/_shared/itd_semantic_navigation.py",
+        "languages": ["python", "typescript"],
+        "operations": ["definitions", "references", "outline"],
+        "coverage": {
+          "python": "Python 3 syntax accepted by the running standard-library ast parser",
+          "typescript": "Top-level function, class, interface, type, enum, namespace, const, let, and var declarations plus identifier references"
+        },
+        "confidence": {
+          "python": "high",
+          "typescript": "medium"
+        },
+        "fallback": {
+          "semantic": false,
+          "confidence": "textual",
+          "mode": "root-bounded-literal-search"
+        },
+        "sideEffects": "none",
+        "network": false,
+        "shell": false
+      }
+    },
+    {
       "id": "last30days",
       "type": "research",
       "usedBy": ["market-scan", "discover", "strategy"],

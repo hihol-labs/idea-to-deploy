@@ -97,7 +97,7 @@ semantic gating advisory-only — user-confirmed.
   never a hard inferential gate (retired score-gate lesson).
 - Counts unchanged (38/19); no new skill, no new hook file. ADR-001 Day-5 note.
 
-## Block G — `working_deadline` throughput profile — P0 — 🚧 ACTIVE (PE5-010…PE5-016)
+## Block G — `working_deadline` throughput profile — P0 — ✅ DONE (PE5-010…PE5-016)
 
 Implement the approved opt-in working-deadline mode without weakening the
 frozen Practical Effectiveness or Harness Conformance oracles:
@@ -144,6 +144,68 @@ Decision: [ADR-003](docs/adr/ADR-003-proof-carrying-verification-loop.md).
 Rollout is default-on for acceptance semantics, while the checker cost remains
 risk-proportional. The honest-orchestrator threat boundary is explicit; no
 same-principal cryptographic/model-identity guarantee is claimed.
+
+## Block I — Harness-demo UX absorption — P0/P1/P2 — 🚧 RELEASE ACCEPTANCE (HDX-001…013 verified; HDX-014 active)
+
+Decision: [ADR-004](docs/adr/ADR-004-harness-demo-ux-absorption.md).
+Review date: **2026-08-30**.
+
+**Target:** absorb the legibility, project context, short feedback paths, isolation,
+and structured navigation demonstrated by `coleam00/harness-engineering-demo` without
+adding a lifecycle skill, a second state plane, or an ITD-owned runtime.
+
+- **HDX-001 — contract first (P0):** freeze the six deliverables, negative
+  invariants, measurable thresholds, and mutation guards before behavior changes.
+- **HDX-002 — conditional context (P0):** `/adopt` derives a host-neutral,
+  source-backed context index and conditional topic modules; generated views are
+  freshness-checked and never override `.itd`.
+- **HDX-003 — capture schema/replay (P0):** freeze the captured-run manifest,
+  clean-temp replay, hash bindings, normalization, and tamper guards before the
+  façade is documented.
+- **HDX-004 — PIV-lite façade (P0):** `/task` exposes the existing
+  plan→implement→verify/review path without new public skills or state.
+- **HDX-005 — captured run (P0):** one reproducible example binds ticket, context,
+  tasks, exact receipt, review, and metrics through the implemented façade.
+- **HDX-006 — incremental diagnostic kit (P1):** default-off, project-declared
+  changed-file/package checks provide advisory feedback under latency/cooldown/noise
+  budgets and append host-observed telemetry; they never count as acceptance.
+- **HDX-007 — diagnostic A/B decision (P1):** at least 30 labeled runs compare the
+  same project checks with/without the profile before promotion; otherwise it stays
+  a pilot.
+- **HDX-008 — fresh-session isolation kit (P1):** a host-native recipe runs one
+  unit per fresh session in an isolated worktree and isolated mutable namespace; three
+  later real pilots must use exact-candidate verification, and isolation failure must
+  fail closed.
+- **HDX-009 — real pilot A (P1):** one user-authorized brownfield project root,
+  one serial unit, isolated resources, and an exact-candidate receipt.
+- **HDX-010 — real pilot B (P1):** the same criterion on a second named project;
+  fixtures cannot satisfy it.
+- **HDX-011 — real pilot C + pilot decision (P1):** the same criterion on a third
+  named project, followed by a 3/3 viability and paired-efficiency readout.
+- **HDX-012 — semantic-navigation demand gate (P2):** explicit multi-language
+  demand activates implementation; otherwise `NOT_ACTIVATED` is an honest decision
+  result and the capability remains deferred.
+- **HDX-013 — semantic navigation (conditional P2):** when activated, the existing
+  tool capability registry declares provider-neutral definition/reference/outline
+  semantics, language coverage, confidence, and fallback; no Python-only MCP is
+  bundled.
+- **HDX-014 — release acceptance:** all phase oracles, host-adapter parity,
+  meta-review, quick/full regression, and a current risk-routed Verification Loop
+  receipt pass on the same staged candidate.
+
+Success metrics:
+
+- generated context index: 1/1, with zero unsupported source claims;
+- captured example replay: 1/1 on the pinned candidate;
+- public lifecycle skill count: unchanged;
+- diagnostic median latency ≤2 s for changed-file checks, p95 ≤5 s, false-noise ≤10%
+  over at least 30 human-labeled emissions with a frozen baseline/treatment, and zero
+  use as completion evidence;
+- isolated fresh-session pilots: 3/3, zero shared mutable-resource fallback;
+- semantic-navigation contract: Python and TypeScript provider fixtures plus honest
+  plain-text degradation;
+- current Harness Conformance and Practical Effectiveness internal axes remain green;
+  external adoption remains UNVERIFIED until independent evidence exists.
 
 ## Backlog / next
 

@@ -101,6 +101,21 @@
       "autoMerge": false,
       "wip": 1,
       "output": "documentation-drift-report"
+    },
+    {
+      "id": "fresh-session-worktree",
+      "title": "Fresh-session isolated worktree",
+      "job": "review-change",
+      "skill": "review",
+      "transport": "host-native",
+      "scheduledMode": "report",
+      "initialStage": "draft",
+      "onDemandMaxWithoutLease": "draft",
+      "approvedExecution": "temporary-exact-lease",
+      "irreversibleActions": "human-gate",
+      "autoMerge": false,
+      "wip": 1,
+      "output": "hash-bound-isolated-session"
     }
   ]
 }

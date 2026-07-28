@@ -125,17 +125,24 @@ policy = json.loads(POLICY.read_text(encoding="utf-8"))
 source = SCRIPT.read_text(encoding="utf-8")
 check("checkout probes tolerate native Windows access to WSL UNC worktrees",
       "CHECKOUT_PROBE_TIMEOUT_SECONDS = 60" in source)
-check("machine producer selects a native Windows shell transport",
-      'os.environ.get("COMSPEC", "cmd.exe")' in source
+check("machine producer selects a hash-bound host-owned shell transport",
+      "GetSystemDirectoryW" in source
       and "pushd" in source and "{repo}" in source
-      and "SystemRoot" in source
       and "keeping shell=False" in source
-      and '[sh, "-c", command]' in source)
+      and '[str(shell), "-c", command]' in source
+      and '"shellSha256": shell_digest' in source
+      and 'shutil.which("sh")' not in source
+      and 'os.environ.get("COMSPEC"' not in source)
 check("immutable receipt publication has a Windows UNC-safe no-replace path",
       "os.rename(tmp, path)" in source and "os.link(tmp, path)" in source)
 check("machine oracle is materialized from the staged tree in isolation",
       '"clone", "--shared", "--no-checkout"' in source
       and '"executionMode": "isolated-staged-tree"' in source)
+check("each machine command receives a fresh isolated checkout",
+      "for ident, command in commands:\n            with isolated_candidate(repo, context)" in source)
+check("adjudication bounds and contains dependency JSON before reading",
+      "JSON_INPUT_MAX_BYTES = 4 * 1024 * 1024" in source
+      and "secure_dependency_path(repo, root, args.machine" in source)
 check("all evidence producers use exclusive publication",
       "write_json_atomic" not in source
       and source.count("write_json_exclusive(output, receipt)") == 3)
@@ -160,6 +167,34 @@ low = fixture()
 low_machine = machine(low, "low")
 check("low-risk machine oracle executes", low_machine.returncode == 0, low_machine.stderr + low_machine.stdout)
 low_machine_path = last_path(low_machine)
+low_machine_value = json.loads(low_machine_path.read_text(encoding="utf-8"))
+check("machine receipt binds a trusted absolute shell digest",
+      Path(low_machine_value["runs"][0]["shell"]).is_absolute()
+      and len(low_machine_value["runs"][0]["shellSha256"]) == 64
+      and low_machine_value["runs"][0]["shellSha256"]
+      == hashlib.sha256(Path(low_machine_value["runs"][0]["shell"]).read_bytes()).hexdigest())
+fake_shell_dir = Path(tempfile.mkdtemp(prefix="forged-verification-shell-"))
+fake_shell = fake_shell_dir / ("cmd.exe" if os.name == "nt" else "sh")
+fake_shell.write_text("@exit /b 0\n" if os.name == "nt" else "#!/bin/sh\nexit 0\n",
+                      encoding="utf-8")
+fake_shell.chmod(0o755)
+old_path = os.environ.get("PATH", "")
+old_comspec = os.environ.get("COMSPEC")
+try:
+    os.environ["PATH"] = str(fake_shell_dir) + os.pathsep + old_path
+    os.environ["COMSPEC"] = str(fake_shell)
+    forged_shell = machine(low, "low", "exit /b 9" if os.name == "nt" else "exit 9")
+finally:
+    os.environ["PATH"] = old_path
+    if old_comspec is None:
+        os.environ.pop("COMSPEC", None)
+    else:
+        os.environ["COMSPEC"] = old_comspec
+forged_shell_value = json.loads(last_path(forged_shell).read_text(encoding="utf-8"))
+check("inherited PATH and COMSPEC cannot substitute the verification shell",
+      forged_shell.returncode != 0
+      and forged_shell_value["runs"][0]["exitCode"] == 9
+      and Path(forged_shell_value["runs"][0]["shell"]).resolve() != fake_shell.resolve())
 secret_output = machine(
     low, "low",
     f'"{sys.executable}" -c "print(bytes([83,69,78,83,73,84,73,86,69,45,79,82,65,67,76,69,45,79,85,84,80,85,84]).decode())"',
@@ -198,6 +233,13 @@ check("closed machine-run schema rejects alternate raw output fields",
       alternate_tail_adjudication.returncode != 0
       and "non-schema fields" in alternate_tail_adjudication.stdout,
       alternate_tail_adjudication.stdout)
+oversized_path = low_machine_path.with_name("oversized-machine.json")
+oversized_path.write_bytes(b" " * (4 * 1024 * 1024 + 1))
+oversized_adjudication = adjudicate(low, "low", oversized_path)
+check("oversized dependency JSON is rejected before parsing",
+      oversized_adjudication.returncode != 0
+      and "exceeds the 4194304-byte limit" in oversized_adjudication.stdout,
+      oversized_adjudication.stdout)
 low_machine_bytes = low_machine_path.read_bytes()
 low_machine_repeat = machine(low, "low")
 low_machine_repeat_path = last_path(low_machine_repeat)
@@ -237,6 +279,24 @@ check("ignored source overlay cannot create a false machine PASS",
       and ignored_receipt["runs"][0]["exitCode"] == 9
       and ignored_receipt["runs"][0]["executionMode"] == "isolated-staged-tree",
       ignored_machine.stdout)
+
+# One command must not be able to feed an undeclared overlay to a later
+# command in the same machine receipt.
+cross_command = fixture()
+writer = (f'"{sys.executable}" -c "from pathlib import Path; '
+          "Path('oracle-overlay.tmp').write_text('poison')\"")
+reader = (f'"{sys.executable}" -c "from pathlib import Path; '
+          "raise SystemExit(9 if Path('oracle-overlay.tmp').exists() else 0)\"")
+cross_machine = run([
+    "machine", "--root", str(cross_command), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--command", "writer=" + writer,
+    "--command", "reader=" + reader, "--timeout", "10",
+], cross_command)
+cross_receipt = json.loads(last_path(cross_machine).read_text(encoding="utf-8"))
+check("machine commands cannot share undeclared overlays",
+      cross_machine.returncode == 0
+      and [item["exitCode"] for item in cross_receipt["runs"]] == [0, 0],
+      cross_machine.stdout + cross_machine.stderr)
 
 # A genuinely required non-Git oracle input must be explicit, snapshotted and
 # revalidated instead of reopening the whole ignored workspace.
@@ -440,6 +500,49 @@ spec = importlib.util.spec_from_file_location("verification_loop_under_test", SC
 assert spec and spec.loader
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory(prefix="declared-input-link-") as td:
+    link_root = Path(td)
+    source_root = link_root / "source"
+    isolated = link_root / "isolated"
+    outside = link_root / "outside"
+    (source_root / "nested").mkdir(parents=True)
+    isolated.mkdir()
+    outside.mkdir()
+    (source_root / "nested" / "proof.txt").write_text("sealed\n", encoding="utf-8")
+    try:
+        (isolated / "nested").symlink_to(outside, target_is_directory=True)
+        link_supported = True
+    except OSError:
+        link_supported = False
+    if link_supported:
+        manifest = module.input_snapshot(
+            source_root / "nested" / "proof.txt", "nested/proof.txt")
+        try:
+            module.copy_declared_inputs(source_root, isolated, [manifest])
+            link_rejected = False
+        except module.LoopError:
+            link_rejected = True
+        check("declared input copy rejects a symlinked checkout ancestor",
+              link_rejected and not (outside / "proof.txt").exists())
+        source_link = link_root / "source-link"
+        sealed_root = link_root / "sealed-source"
+        source_link.mkdir()
+        sealed_root.mkdir()
+        (outside / "proof.txt").write_text("outside\n", encoding="utf-8")
+        (source_link / "nested").symlink_to(outside, target_is_directory=True)
+        sealed_destination = module.secure_destination(
+            sealed_root, "nested/proof.txt")
+        try:
+            module.secure_copy_declared_source(
+                source_link, "nested/proof.txt", sealed_destination)
+            source_link_rejected = False
+        except module.LoopError:
+            source_link_rejected = True
+        check("declared input snapshot rejects a symlinked source ancestor",
+              source_link_rejected and not sealed_destination.exists())
+    else:
+        check("declared input copy has a no-follow ancestor guard on this host",
+              "follow_symlinks=False" in SCRIPT.read_text(encoding="utf-8"))
 with tempfile.TemporaryDirectory(prefix="weak-loop-policy-") as td:
     weak_path = Path(td) / "policy.json"
     weak = json.loads(POLICY.read_text(encoding="utf-8"))

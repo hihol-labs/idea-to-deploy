@@ -1,9 +1,11 @@
 # Оценка эффективности ITD и соответствия Harness Engineering
 
-> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.93.0**.
+> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.94.0**.
 > Исполняемая evidence-база обновлена на текущем content-pinned tree
-> 2026-07-22. v1.93.0 добавляет bounded operating loops поверх
-> production contracts, goals и review caches. Оценка действительна только пока проходят
+> 2026-07-27. v1.94.0 добавляет source-backed context maps, captured brownfield
+> runs, PIV-lite routing, default-off incremental diagnostics, hash-bound
+> fresh-session worktrees и demand-gated semantic navigation поверх production
+> contracts, goals и review caches. Оценка действительна только пока проходят
 > замороженный evaluator, freshness-проверки и полный regression suite.
 
 ## Метод оценки
@@ -22,10 +24,10 @@ Narrative-документы не могут выставить себе оце�
 | Ось | Балл | Почему результат обоснован | Проверяемое evidence |
 |---|:---:|---|---|
 | **H1 — ограничение поведения** | **1,0/1,0** | Риск управляет уровнем доверия: high-risk действия закрываются fail-closed, а low-risk путь остаётся неблокирующим. Все 11 computational hard gates зарегистрированы и дают эквивалентное deny/block-поведение через Claude Code и Codex. | `verify_graduated_trust.py`; `verify_all_hard_gate_host_parity.py`; `verify_redteam_multihost.py` |
-| **H2 — сохранение контекста** | **1,0/1,0** | Каноническая память находится в project-local `.itd-memory`, а не в приватном состоянии одного хоста. Новая сессия восстанавливает активный unit, evidence, blockers и next action; adversarial state cases закрываются fail-closed. | `verify_host_neutral_memory.py`; `verify_fresh_session_resume.py`; `verify_state_hardening.py` |
+| **H2 — сохранение контекста** | **1,0/1,0** | Каноническая память находится в project-local `.itd-memory`, а не в приватном состоянии одного хоста. Source-backed context map остаётся derived-only, а hash-bound fresh-session packet сохраняет STATE у parent и выдаёт только exclusive mutable resources; adversarial state cases закрываются fail-closed. | `verify_host_neutral_memory.py`; `verify_fresh_session_resume.py`; `verify_state_hardening.py`; `verify_adopt_context.py`; `verify_fresh_session_worktree.py` |
 | **H3 — защита от преждевременного завершения** | **1,0/1,0** | В strict/high-risk режиме commit исходного кода и explicit close запрещены без валидных runtime signals. `verification-loop-v1` дополнительно требует exact-candidate receipt: low machine-only, medium targeted checker, high/unknown full independent checker; shaped/plain verdict evidence не принимается. | `verify_strict_completion_policy.py`; `verify_completion_gate.py`; `verify_completion_policy_calibration.py`; `verify_verification_loop.py`; `verify_session_hygiene_quality.py` |
-| **H4 — верификация тестированием** | **1,0/1,0** | Structural и behavioural тесты проверяют реальные allow/deny и pass/fail ветви. Дополнительно выполнен настоящий post-freeze live-model benchmark с независимым snapshot oracle; отсутствие credential даёт UNVERIFIED, а не ложный PASS. | `verify_harness_map_fixtures.py`; `verify_review_evalset.py`; `verify_live_model_benchmark.py`; content-pinned `tests/fixtures/live-model-evidence/latest.json` |
-| **H5 — наблюдаемость** | **1,0/1,0** | Trace связывает intent с outcome; estimated и host-observed tokens разведены и имеют provenance. Фиксированный control corpus измеряет FP/FN, а версия, инвентарь, taxonomy и документы проверяются на drift и freshness. | `verify_execution_trace_outcome.py`; `verify_observed_token_telemetry.py`; `verify_signal_attribution.py`; `verify_control_quality.py`; `verify_harness_docs_freshness.py` |
+| **H4 — верификация тестированием** | **1,0/1,0** | Structural и behavioural тесты проверяют реальные allow/deny и pass/fail ветви. Captured-run replay связывает patch и exact Git tree, а demand-gated semantic navigation проходит реальные Python/TypeScript operations. Дополнительно сохранён post-freeze live-model benchmark с независимым snapshot oracle; отсутствие credential даёт UNVERIFIED, а не ложный PASS. | `verify_harness_demo_capture_schema.py`; `verify_semantic_navigation.py`; `verify_harness_map_fixtures.py`; `verify_review_evalset.py`; `verify_live_model_benchmark.py`; content-pinned `tests/fixtures/live-model-evidence/latest.json` |
+| **H5 — наблюдаемость** | **1,0/1,0** | Trace связывает intent с outcome; estimated и host-observed tokens разведены и имеют provenance. Default-off diagnostics pilot добавляет labeled paired telemetry с bounded latency/noise, но не становится acceptance evidence. Версия, инвентарь, taxonomy и документы проверяются на drift и freshness. | `verify_execution_trace_outcome.py`; `verify_observed_token_telemetry.py`; `verify_diagnostics_pilot.py`; `verify_control_quality.py`; `verify_harness_docs_freshness.py` |
 | **Итого** | **5,0/5,0** | Все пять осей обязаны одновременно пройти замороженный fail-closed evaluator. | `python3 tests/verify_harness_conformance.py --axis all` |
 
 ## Анализ эффективности

@@ -147,10 +147,11 @@ def _load_json(path: Path, errors: list[str]) -> dict | None:
 
 
 def _check_single_wip(path: Path, state: dict, errors: list[str]) -> None:
-    """WIP=1 across both state ledgers (STATE.currentUnit vs GOAL.json)."""
+    """WIP=1 across both ledgers, counting a mirrored unit only once."""
     cu = state.get("currentUnit") or {}
     if not isinstance(cu, dict):
         return  # already reported as a type error
+    state_unit = str(cu.get("id", "")).strip()
     state_active = str(cu.get("status", "")).strip() in ACTIVE_UNIT_STATUSES
     goal_path = path.parent / "GOAL.json"
     goal_active, goal_unit = False, ""
@@ -161,10 +162,10 @@ def _check_single_wip(path: Path, state: dict, errors: list[str]) -> None:
             goal_active = str(goal.get("status", "")).strip() != "done" and bool(goal_unit)
         except Exception:
             goal_active = False
-    if state_active and goal_active:
+    if state_active and goal_active and state_unit != goal_unit:
         errors.append(
             f"{path}: WIP=1 violated -- both STATE.currentUnit "
-            f"('{cu.get('id', '')}') and GOAL.json ('{goal_unit}') are active. "
+            f"('{state_unit}') and GOAL.json ('{goal_unit}') are active. "
             f"Finish/close one before activating the other.")
 
 

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "id": "itd-task-piv-lite-v1",
+  "authority": "facade-only-no-independent-completion-authority",
+  "routeOwner": "/task",
+  "appliesTo": "new-feature-in-adopted-brownfield-project",
+  "preconditions": [
+    ".itd/SCOPE_LOCK.md",
+    ".itd-memory/STATE.json"
+  ],
+  "publicLifecycleSkillDelta": 0,
+  "stateAuthority": [
+    ".itd",
+    ".itd-memory"
+  ],
+  "completionAuthority": "verification-loop-v1",
+  "wipLimit": 1,
+  "stages": [
+    {
+      "id": "plan",
+      "label": "Plan",
+      "reuses": [
+        "scope-lock",
+        "task-contract",
+        "bounded-plan",
+        "human-approval"
+      ],
+      "exitGate": "approved-plan"
+    },
+    {
+      "id": "implement",
+      "label": "Implement",
+      "reuses": [
+        "scope-bound-edits",
+        "wip-gate",
+        "producer-first"
+      ],
+      "exitGate": "declared-change-only"
+    },
+    {
+      "id": "validate",
+      "label": "Validate",
+      "reuses": [
+        "/test",
+        "machine-producer",
+        "exact-staged-candidate"
+      ],
+      "exitGate": "machine-receipt-passed"
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "reuses": [
+        "/review",
+        "risk-tier-checker",
+        "adjudication",
+        "receipt-recheck"
+      ],
+      "exitGate": "current-adjudication-receipt-passed"
+    }
+  ],
+  "riskRoutes": {
+    "low": {
+      "checker": "machine-only",
+      "receiptRequired": true
+    },
+    "medium": {
+      "checker": "targeted-fresh-session",
+      "receiptRequired": true
+    },
+    "high": {
+      "checker": "different-provider-full",
+      "receiptRequired": true
+    }
+  },
+  "unknownRisk": {
+    "route": "high",
+    "failClosed": true
+  },
+  "completionGate": {
+    "requires": [
+      "adjudication-receipt",
+      "receipt-recheck",
+      "verified-unit-transition"
+    ],
+    "rejects": [
+      "narrated-pass",
+      "standalone-review",
+      "diagnostic-pass",
+      "sentinel-file"
+    ]
+  },
+  "forbidden": [
+    "new-lifecycle-skill",
+    "parallel-state-ledger",
+    "owned-runtime",
+    "review-bypass",
+    "approval-bypass",
+    "broad-staging"
+  ]
+}

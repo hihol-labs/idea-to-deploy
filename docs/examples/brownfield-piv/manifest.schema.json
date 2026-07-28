@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "id": "itd-captured-brownfield-run-v1",
+  "authority": "schema-only-no-completion-authority",
+  "requiredTopLevel": [
+    "version",
+    "externalAdoptionEvidence",
+    "schema",
+    "bindings",
+    "bindingArtifacts",
+    "artifacts",
+    "replay",
+    "normalization"
+  ],
+  "requiredBindings": [
+    "candidateTree",
+    "ticketSha256",
+    "contextSha256",
+    "taskContractSha256",
+    "patchSha256",
+    "machineReceiptSha256",
+    "checkerReceiptSha256",
+    "adjudicationReceiptSha256",
+    "reviewReportSha256",
+    "metricsSha256"
+  ],
+  "replay": {
+    "execution": "clean-temporary-copy",
+    "executionTrust": "reviewed-project-code-not-a-host-sandbox",
+    "commandTransport": "host-bound-python-argv-shell-false",
+    "environment": "credential-env-filtered-with-disposable-home-and-temp",
+    "filesystemBoundary": "canonical-relative-paths-no-links-or-reparse-points",
+    "beforeInventory": "all-regular-files-equal-baseTrackedPaths",
+    "commandSideEffects": "forbidden-and-checked-after-every-command",
+    "requiresObservedFailureBeforePatch": true,
+    "requiresAllCommandsPassAfterPatch": true,
+    "requiresExactGitTree": true,
+    "broadStagingForbidden": true
+  },
+  "normalization": {
+    "required": true,
+    "volatileFieldsMustBeDeclared": true,
+    "receiptSemanticsRemainCanonical": true
+  }
+}

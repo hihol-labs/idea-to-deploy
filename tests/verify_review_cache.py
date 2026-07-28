@@ -24,7 +24,8 @@ PY = sys.executable
 EXPECTED_KEYS = {
     "repository", "baseCommit", "reviewedTree", "diffHash",
     "scopeContractHash", "acceptanceContractHash", "rubricHash",
-    "methodologyVersion", "riskTier",
+    "methodologyVersion", "parentStateHash", "activeUnitId",
+    "activeUnitRiskTier", "riskTier",
 }
 
 passed = 0
@@ -77,6 +78,12 @@ def make_repo(root: Path, risk: str = "high") -> None:
         }],
     }
     write(root / ".itd-memory" / "GOAL.json", json.dumps(goal))
+    write(root / ".itd-memory" / "STATE.json", json.dumps({
+        "sessionState": "ACTIVE",
+        "currentUnit": {
+            "id": "RC-001", "riskTier": risk, "status": "in_progress",
+        },
+    }))
 
 
 if not SCRIPT.is_file():
@@ -119,6 +126,15 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
           set(context) == EXPECTED_KEYS, json.dumps(context, indent=2))
     check("risk tier comes from the active goal producer",
           context["riskTier"] == "high", str(context))
+    check("active unit identity and canonical parent state are hash-bound",
+          context["activeUnitId"] == "RC-001"
+          and context["activeUnitRiskTier"] == "high"
+          and context["parentStateHash"] == core.parent_state_hash(repo),
+          str(context))
+    candidate_context = core.build_context(repo, bind_parent_state=False)
+    check("code-candidate context excludes mutable parent-state cache keys",
+          not {"parentStateHash", "activeUnitId", "activeUnitRiskTier"}
+          & set(candidate_context))
     check("tree and diff use different exact fingerprints",
           len(context["reviewedTree"]) == 40 and len(context["diffHash"]) == 64)
     check("scope and acceptance contracts are SHA-256 bound",
@@ -140,6 +156,35 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         verification_receipt=receipt(repo))
     check("clean successful verdict is cacheable", accepted)
     check("unchanged exact context is a cache hit",
+          core.cache_allows(repo) is True)
+
+    state_path = repo / ".itd-memory" / "STATE.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["currentUnit"]["status"] = "verified"
+    write(state_path, json.dumps(state))
+    check("parent STATE transition invalidates cached review evidence",
+          core.cache_allows(repo) is False)
+    state["currentUnit"]["status"] = "in_progress"
+    write(state_path, json.dumps(state, indent=2))
+    check("canonical-equivalent parent STATE formatting preserves the binding",
+          core.cache_allows(repo) is True)
+
+    goal_path = repo / ".itd-memory" / "GOAL.json"
+    goal = json.loads(goal_path.read_text(encoding="utf-8"))
+    goal["currentUnitId"] = "RC-002"
+    goal["units"].append({
+        "id": "RC-002", "riskTier": "low", "status": "in_progress",
+        "criterion": "second unit", "verificationCommand": "true",
+    })
+    write(goal_path, json.dumps(goal))
+    changed_unit = core.build_context(repo, "high")
+    check("active unit and its own risk identity invalidate cached evidence",
+          core.cache_allows(repo, "high") is False
+          and changed_unit["activeUnitId"] == "RC-002"
+          and changed_unit["activeUnitRiskTier"] == "low")
+    goal["currentUnitId"] = "RC-001"
+    write(goal_path, json.dumps(goal))
+    check("restored active unit identity restores the exact cache context",
           core.cache_allows(repo) is True)
 
     for key in sorted(EXPECTED_KEYS):
@@ -254,6 +299,29 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         state_path.unlink()
     except FileNotFoundError:
         pass
+
+with tempfile.TemporaryDirectory(prefix="review-cache-linked-memory-") as td:
+    linked_repo = Path(td)
+    make_repo(linked_repo)
+    memory = linked_repo / ".itd-memory"
+    outside_memory = linked_repo / "outside-memory"
+    memory.rename(outside_memory)
+    try:
+        memory.symlink_to(outside_memory, target_is_directory=True)
+        linked_supported = True
+    except OSError:
+        linked_supported = False
+    if linked_supported:
+        try:
+            core.build_context(linked_repo)
+            linked_rejected = False
+        except core.CacheError:
+            linked_rejected = True
+        check("linked .itd-memory cannot control review unit/risk/state binding",
+              linked_rejected)
+    else:
+        check("review-cache parent loader has a reparse/symlink guard",
+              "_is_link_or_reparse(memory)" in SCRIPT.read_text(encoding="utf-8"))
 
 # Frozen policy remains the source, not a self-edited oracle.
 policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))

@@ -156,6 +156,24 @@ def main() -> int:
     errors, warnings = core.validate_path(state_p)
     check("valid STATE without events.jsonl -> no errors", errors == [])
 
+    goal_p = mem / "GOAL.json"
+    goal_p.write_text(json.dumps({
+        "status": "active",
+        "currentUnitId": "U-1",
+    }), encoding="utf-8")
+    errors, warnings = core.validate_path(state_p)
+    check("same active unit mirrored in STATE and GOAL counts as WIP=1",
+          not any("WIP=1" in error for error in errors))
+
+    goal_p.write_text(json.dumps({
+        "status": "active",
+        "currentUnitId": "U-2",
+    }), encoding="utf-8")
+    errors, warnings = core.validate_path(state_p)
+    check("distinct active STATE and GOAL units violate WIP=1",
+          any("WIP=1" in error for error in errors))
+    goal_p.unlink()
+
     events = mem / "events.jsonl"
     events.write_text(
         json.dumps({"type": "unit", "name": "U-1", "decision": "activated"}) + "\n"

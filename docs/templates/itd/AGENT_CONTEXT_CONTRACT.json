@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "outputDirectory": "docs/agent-context",
+  "authority": "derived-non-normative",
+  "trustClasses": ["observed"],
+  "inferredClaimsRequireHumanApproval": true,
+  "sourcePolicy": {
+    "normative": [
+      ".itd/PROJECT_CONTRACT.md",
+      ".itd/SCOPE_LOCK.md",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "manifests": [
+      "pyproject.toml",
+      "package.json",
+      "go.mod",
+      "Cargo.toml",
+      "composer.json",
+      "Gemfile",
+      "pom.xml",
+      "build.gradle",
+      "Dockerfile"
+    ],
+    "sourceRoots": ["src", "app", "lib"],
+    "testRoots": ["tests", "test"]
+  },
+  "modules": [
+    {
+      "path": "contracts.md",
+      "topics": ["normative-contract"],
+      "condition": "Load before interpreting project-specific constraints or allowed changes."
+    },
+    {
+      "path": "project.md",
+      "topics": ["project-manifest", "source-layout"],
+      "condition": "Load when locating project code, manifests, or build metadata."
+    },
+    {
+      "path": "verification.md",
+      "topics": ["test-layout"],
+      "condition": "Load when selecting or changing project verification."
+    }
+  ]
+}
