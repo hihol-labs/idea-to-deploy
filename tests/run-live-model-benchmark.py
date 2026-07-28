@@ -15,10 +15,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -38,6 +40,40 @@ METHODOLOGY_TREE_ROOTS = (
 )
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
 MAX_CANDIDATE_ATTEMPTS = 2
+MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
+CAPTURE_LIMIT_EXIT_CODE = 86
+
+CAPTURE_REDACTIONS = (
+    (re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?"
+        r"-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL),
+     "[REDACTED-PRIVATE-KEY]"),
+    (re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
+     "[REDACTED-AWS-KEY]"),
+    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b"),
+     "[REDACTED-GITHUB-TOKEN]"),
+    (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
+     "[REDACTED-SLACK-TOKEN]"),
+    (re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"),
+     "[REDACTED-GOOGLE-KEY]"),
+    (re.compile(r"\b(?:sk-ant-|sk-)[A-Za-z0-9_-]{20,}\b"),
+     "[REDACTED-API-KEY]"),
+    (re.compile(
+        r"(?i)\b(authorization\s*:\s*bearer\s+)"
+        r"[A-Za-z0-9._-]{20,}"),
+     r"\1[REDACTED]"),
+    (re.compile(
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+     "[REDACTED-EMAIL]"),
+    (re.compile(
+        r"(?i)([\"'](?:password|passwd|api[_-]?key|secret|token)"
+        r"[\"']\s*:\s*[\"'])[^\"']{6,}([\"'])"),
+     r"\1[REDACTED-SECRET]\2"),
+    (re.compile(
+        r"(?i)\b(password|passwd|api[_-]?key|secret|token)"
+        r"\b(\s*[=:]\s*)[^\s\"'&]{6,}"),
+     r"\1\2[REDACTED-SECRET]"),
+)
 
 
 def utc_now() -> str:
@@ -50,6 +86,125 @@ def sha256_bytes(data: bytes) -> str:
 
 def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
+
+
+def sanitize_capture_text(text: str) -> tuple[str, int]:
+    """Redact known secret/PII shapes before provider output is retained."""
+    redactions = 0
+    for pattern, replacement in CAPTURE_REDACTIONS:
+        text, count = pattern.subn(replacement, text)
+        redactions += count
+    return text, redactions
+
+
+def bounded_subprocess(
+        command: list[str], *, cwd: Path, timeout_seconds: float,
+        capture_limit_bytes: int, input_text: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Capture provider output concurrently with a hard aggregate byte ceiling."""
+    if capture_limit_bytes <= 0 or capture_limit_bytes > MAX_TRANSCRIPT_BYTES:
+        raise ValueError("capture limit must be inside the transcript budget")
+    process = subprocess.Popen(
+        command, cwd=cwd,
+        stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert process.stdout is not None and process.stderr is not None
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    total = 0
+    lock = threading.Lock()
+    overflow = threading.Event()
+
+    def drain(label: str, stream) -> None:
+        nonlocal total
+        try:
+            while True:
+                chunk = stream.read(64 * 1024)
+                if not chunk:
+                    return
+                should_kill = False
+                with lock:
+                    remaining = max(0, capture_limit_bytes - total)
+                    accepted = chunk[:remaining]
+                    buffers[label].extend(accepted)
+                    total += len(accepted)
+                    if len(chunk) > remaining:
+                        overflow.set()
+                        should_kill = True
+                if should_kill:
+                    try:
+                        process.kill()
+                    except OSError:
+                        pass
+        finally:
+            stream.close()
+
+    readers = [
+        threading.Thread(
+            target=drain, args=("stdout", process.stdout), daemon=True),
+        threading.Thread(
+            target=drain, args=("stderr", process.stderr), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    if input_text is not None and process.stdin is not None:
+        try:
+            process.stdin.write(input_text.encode("utf-8"))
+            process.stdin.flush()
+        except (BrokenPipeError, OSError):
+            pass
+        finally:
+            process.stdin.close()
+    timed_out = False
+    try:
+        process.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        process.kill()
+        process.wait()
+    for reader in readers:
+        reader.join()
+
+    stdout, stdout_redactions = sanitize_capture_text(
+        bytes(buffers["stdout"]).decode("utf-8", errors="replace"))
+    stderr, stderr_redactions = sanitize_capture_text(
+        bytes(buffers["stderr"]).decode("utf-8", errors="replace"))
+    redaction_count = stdout_redactions + stderr_redactions
+    sanitized_total_bytes = (
+        len(stdout.encode("utf-8")) + len(stderr.encode("utf-8"))
+    )
+    sanitized_overflow = sanitized_total_bytes > capture_limit_bytes
+    if sanitized_overflow:
+        overflow.set()
+    if overflow.is_set():
+        marker = b'{"type":"itd.capture_limit","status":"rejected"}\n'
+        stdout_bytes = marker[:capture_limit_bytes]
+        remaining = capture_limit_bytes - len(stdout_bytes)
+        overflow_kind = (
+            "sanitized provider output" if sanitized_overflow
+            else "provider output"
+        )
+        diagnostic = (
+            f"ITD capture limit exceeded by {overflow_kind} "
+            f"({capture_limit_bytes} bytes); evidence rejected"
+        ).encode("ascii")
+        stdout = stdout_bytes.decode("ascii")
+        stderr = diagnostic[:remaining].decode("ascii")
+    if timed_out:
+        timeout_error = subprocess.TimeoutExpired(
+            command, timeout_seconds, output=stdout, stderr=stderr)
+        timeout_error.itd_redaction_count = redaction_count
+        timeout_error.itd_capture_limit_bytes = capture_limit_bytes
+        timeout_error.itd_capture_limit_exceeded = overflow.is_set()
+        raise timeout_error
+    return_code = process.returncode
+    if overflow.is_set():
+        return_code = CAPTURE_LIMIT_EXIT_CODE
+    completed = subprocess.CompletedProcess(
+        command, return_code, stdout, stderr)
+    completed.itd_redaction_count = redaction_count
+    completed.itd_capture_limit_bytes = capture_limit_bytes
+    completed.itd_capture_limit_exceeded = overflow.is_set()
+    return completed
 
 
 def atomic_json(path: Path, payload: dict) -> None:
@@ -396,7 +551,9 @@ def resolve_provider(args: argparse.Namespace) -> tuple[str, str] | tuple[None, 
 def run_candidate(args: argparse.Namespace, executable: str, project: Path,
                   plugin: Path, prompt: str, *, timeout_seconds: float,
                   attempt_budget: str,
-                  candidate_project: str) -> tuple[subprocess.CompletedProcess[str], str]:
+                  candidate_project: str,
+                  capture_limit_bytes: int
+                  ) -> tuple[subprocess.CompletedProcess[str], str]:
     if args.resolved_provider == "anthropic":
         command = [
             executable, "-p", "--output-format", "stream-json", "--verbose",
@@ -404,9 +561,9 @@ def run_candidate(args: argparse.Namespace, executable: str, project: Path,
             "--dangerously-skip-permissions", "--plugin-dir", str(plugin),
             "--max-budget-usd", attempt_budget, prompt,
         ]
-        completed = subprocess.run(
-            command, cwd=project, capture_output=True, text=True,
-            timeout=timeout_seconds)
+        completed = bounded_subprocess(
+            command, cwd=project, timeout_seconds=timeout_seconds,
+            capture_limit_bytes=capture_limit_bytes)
         return completed, "claude -p --plugin-dir <current-itd>"
 
     command = [
@@ -420,9 +577,9 @@ def run_candidate(args: argparse.Namespace, executable: str, project: Path,
     if args.model:
         command.extend(["--model", args.model])
     command.append("-")
-    completed = subprocess.run(
-        command, cwd=project, input=prompt, capture_output=True,
-        text=True, timeout=timeout_seconds)
+    completed = bounded_subprocess(
+        command, cwd=project, timeout_seconds=timeout_seconds,
+        capture_limit_bytes=capture_limit_bytes, input_text=prompt)
     return completed, "codex exec --json --ephemeral --repository-local-itd"
 
 
@@ -438,6 +595,18 @@ def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path
                        attempts: list[dict], command_family: str,
                        reason: str, oracle: dict | None = None) -> int:
     """Retain bounded diagnostics for a real candidate failure."""
+    transcript_text, archive_redactions = sanitize_capture_text(
+        transcript_raw.decode("utf-8", errors="replace"))
+    transcript_raw = transcript_text.encode("utf-8")
+    if len(transcript_raw) > MAX_TRANSCRIPT_BYTES:
+        transcript_raw = (
+            b'{"type":"itd.capture_limit","status":"rejected"}\n')
+    reason, reason_redactions = sanitize_capture_text(reason)
+    redaction_count = (
+        archive_redactions + reason_redactions
+        + sum(int(item.get("transcriptRedactionCount", 0))
+              for item in attempts)
+    )
     transcript_hash = sha256_bytes(transcript_raw)
     run_id = (
         utc_now().replace("-", "").replace(":", "")
@@ -477,6 +646,10 @@ def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path
             "workspaceTransport": getattr(
                 args, "workspace_transport", "unknown"),
             "approvalPolicy": "never-no-escalation",
+            "captureLimitBytes": MAX_TRANSCRIPT_BYTES,
+            "transcriptBytes": len(transcript_raw),
+            "transcriptSanitized": True,
+            "transcriptRedactionCount": redaction_count,
             "transcriptSha256": transcript_hash,
             "transcriptArtifact": transcript_archive.relative_to(ROOT).as_posix(),
             "transcriptGzipSha256": sha256_file(transcript_archive),
@@ -567,20 +740,29 @@ def run(args: argparse.Namespace) -> int:
             if remaining_seconds <= 0:
                 return archive_current(
                     f"live candidate exceeded shared {args.timeout_seconds}s timeout")
+            remaining_capture_bytes = (
+                MAX_TRANSCRIPT_BYTES
+                - sum(len(part) for part in transcript_parts)
+            )
+            if remaining_capture_bytes <= 0:
+                return archive_current(
+                    "live candidate exhausted the transcript byte budget")
             missing_before = missing_required_outputs(output, required)
             try:
                 candidate, command_family = run_candidate(
                     args, executable_or_reason, output, plugin, attempt_prompt,
                     timeout_seconds=remaining_seconds,
                     attempt_budget=attempt_budget,
-                    candidate_project=candidate_project)
+                    candidate_project=candidate_project,
+                    capture_limit_bytes=remaining_capture_bytes)
             except subprocess.TimeoutExpired as exc:
                 partial = exc.stdout or b""
                 raw_part = (
                     partial.encode("utf-8", errors="replace")
                     if isinstance(partial, str) else bytes(partial)
                 )
-                if raw_part and not raw_part.endswith(b"\n"):
+                if (raw_part and not raw_part.endswith(b"\n")
+                        and len(raw_part) < remaining_capture_bytes):
                     raw_part += b"\n"
                 transcript_parts.append(raw_part)
                 stream.write_bytes(b"".join(transcript_parts))
@@ -597,13 +779,17 @@ def run(args: argparse.Namespace) -> int:
                     "isError": bool(
                         attempt_results
                         and attempt_results[-1].get("is_error")),
+                    "captureLimitBytes": remaining_capture_bytes,
+                    "transcriptRedactionCount": int(
+                        getattr(exc, "itd_redaction_count", 0)),
                     "transcriptBytes": len(raw_part),
                     "transcriptSha256": sha256_bytes(raw_part),
                 })
                 return archive_current(
                     f"live candidate exceeded shared {args.timeout_seconds}s timeout")
             raw_part = candidate.stdout.encode("utf-8")
-            if raw_part and not raw_part.endswith(b"\n"):
+            if (raw_part and not raw_part.endswith(b"\n")
+                    and len(raw_part) < remaining_capture_bytes):
                 raw_part += b"\n"
             transcript_parts.append(raw_part)
             stream.write_bytes(b"".join(transcript_parts))
@@ -619,6 +805,9 @@ def run(args: argparse.Namespace) -> int:
                 "liveResultEvents": len(attempt_results),
                 "isError": bool(
                     attempt_results and attempt_results[-1].get("is_error")),
+                "captureLimitBytes": remaining_capture_bytes,
+                "transcriptRedactionCount": int(
+                    getattr(candidate, "itd_redaction_count", 0)),
                 "transcriptBytes": len(raw_part),
                 "transcriptSha256": sha256_bytes(raw_part),
             })
@@ -726,6 +915,12 @@ def run(args: argparse.Namespace) -> int:
                 "attempts": attempts,
                 "workspaceTransport": args.workspace_transport,
                 "approvalPolicy": "never-no-escalation",
+                "captureLimitBytes": MAX_TRANSCRIPT_BYTES,
+                "transcriptBytes": len(transcript_raw),
+                "transcriptSanitized": True,
+                "transcriptRedactionCount": sum(
+                    int(item.get("transcriptRedactionCount", 0))
+                    for item in attempts),
                 "transcriptSha256": transcript_hash,
                 "transcriptArtifact": transcript_archive.relative_to(ROOT).as_posix(),
                 "transcriptGzipSha256": sha256_file(transcript_archive),

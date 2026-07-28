@@ -22,6 +22,9 @@ Constraints and approved decisions:
 - In `PROJECT_ARCHITECTURE.md`, use the literal decision statement
   **"no database — stateless streaming processing; no HTTP API — CLI-only
   tool"** and justify why both constraints are correct here.
+- In `PROJECT_ARCHITECTURE.md`, place the commands, options, inputs, outputs,
+  and exit-code contract under the exact second-level heading
+  `## CLI Interface`.
 - Include at least three user stories and a 4–10 step implementation plan.
 - In `PRD.md`, place the user stories under the exact second-level heading
   `## User Stories` so the documented contract is explicit and replayable.

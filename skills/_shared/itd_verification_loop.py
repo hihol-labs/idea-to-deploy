@@ -476,6 +476,13 @@ def _copy_open_directory(source_fd: int, destination: Path, label: str) -> None:
 
 def _plain_source_identities(source: Path, repo: Path,
                              relative: str) -> dict[str, tuple[int, ...]]:
+    # Windows may hand tempfile/Git paths back through an 8.3 alias
+    # (C:\Users\RUNNER~1) while Path.resolve() expands a descendant through
+    # the long spelling (C:\Users\runneradmin).  Compare canonical spellings
+    # on both sides; otherwise a real project-local input is falsely rejected
+    # as an escape on the guarded no-dir_fd fallback.
+    repo = repo.resolve()
+    source = source.resolve()
     identities: dict[str, tuple[int, ...]] = {}
     pending = [source]
     while pending:
@@ -484,12 +491,13 @@ def _plain_source_identities(source: Path, repo: Path,
             raise LoopError(f"declared input contains a symlink/reparse point: {relative}",
                             "Materialize it inside real project-local directories.")
         try:
-            current.resolve().relative_to(repo)
+            resolved = current.resolve()
+            resolved.relative_to(repo)
             info = current.lstat()
         except (ValueError, OSError) as exc:
             raise LoopError(f"declared input escapes or changed: {relative}",
                             "Restore a stable project-local input and retry.") from exc
-        identities[current.relative_to(repo).as_posix()] = (
+        identities[resolved.relative_to(repo).as_posix()] = (
             info.st_dev, info.st_ino, info.st_mode, info.st_size,
             info.st_mtime_ns, info.st_ctime_ns)
         if stat.S_ISDIR(info.st_mode):
@@ -503,6 +511,7 @@ def _plain_source_identities(source: Path, repo: Path,
 def _plain_ancestor_identities(repo: Path, parts: tuple[str, ...],
                                relative: str) -> dict[str, tuple[int, ...]]:
     """Bind every source ancestor for runtimes without dir_fd support."""
+    repo = repo.resolve()
     identities: dict[str, tuple[int, ...]] = {}
     current = repo
     for part in parts[:-1]:
@@ -511,7 +520,8 @@ def _plain_ancestor_identities(repo: Path, parts: tuple[str, ...],
             raise LoopError(f"declared input ancestor is linked: {relative}",
                             "Use real project-local source directories.")
         try:
-            current.resolve().relative_to(repo)
+            resolved = current.resolve()
+            resolved.relative_to(repo)
             info = current.lstat()
         except (ValueError, OSError) as exc:
             raise LoopError(f"declared input ancestor escapes or changed: {relative}",
@@ -519,7 +529,7 @@ def _plain_ancestor_identities(repo: Path, parts: tuple[str, ...],
         if not stat.S_ISDIR(info.st_mode):
             raise LoopError(f"declared input ancestor is not a directory: {relative}",
                             "Use real project-local source directories.")
-        identities[current.relative_to(repo).as_posix()] = (
+        identities[resolved.relative_to(repo).as_posix()] = (
             info.st_dev, info.st_ino, info.st_mode, info.st_size,
             info.st_mtime_ns, info.st_ctime_ns)
     return identities
@@ -562,12 +572,13 @@ def secure_copy_declared_source(repo: Path, relative: str, destination: Path) ->
         finally:
             os.close(current_fd)
         return
-    source = repo.joinpath(*parts)
-    before_ancestors = _plain_ancestor_identities(repo, parts, relative)
-    before = _plain_source_identities(source, repo, relative)
+    canonical_repo = repo.resolve()
+    source = canonical_repo.joinpath(*parts)
+    before_ancestors = _plain_ancestor_identities(canonical_repo, parts, relative)
+    before = _plain_source_identities(source, canonical_repo, relative)
     shutil.copytree(source, destination, symlinks=False) if source.is_dir() else shutil.copy2(source, destination)
-    after_ancestors = _plain_ancestor_identities(repo, parts, relative)
-    after = _plain_source_identities(source, repo, relative)
+    after_ancestors = _plain_ancestor_identities(canonical_repo, parts, relative)
+    after = _plain_source_identities(source, canonical_repo, relative)
     if (before_ancestors != after_ancestors or before != after
             or input_snapshot(source, relative) != input_snapshot(destination, relative)):
         raise LoopError(f"declared input changed during guarded fallback copy: {relative}",

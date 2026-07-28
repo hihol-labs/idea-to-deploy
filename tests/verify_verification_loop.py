@@ -543,6 +543,65 @@ with tempfile.TemporaryDirectory(prefix="declared-input-link-") as td:
     else:
         check("declared input copy has a no-follow ancestor guard on this host",
               "follow_symlinks=False" in SCRIPT.read_text(encoding="utf-8"))
+with tempfile.TemporaryDirectory(prefix="declared-input-alias-") as td:
+    alias_root = Path(td)
+    canonical_repo = alias_root / "repo"
+    alias_hop = alias_root / "alias-hop"
+    snapshot_root = alias_root / "snapshot"
+    (canonical_repo / "nested").mkdir(parents=True)
+    alias_hop.mkdir()
+    snapshot_root.mkdir()
+    (canonical_repo / "nested" / "proof.txt").write_text(
+        "sealed\n", encoding="utf-8")
+    # A lexical alias with the same canonical target deterministically models
+    # the Windows 8.3/long-name mismatch that triggered the no-dir_fd fallback
+    # failure on GitHub-hosted runners.
+    aliased_repo = alias_hop / ".." / canonical_repo.name
+    destination = module.secure_destination(
+        snapshot_root, "nested/proof.txt")
+    disabled_dir_fd = {
+        function for function in (os.open, os.stat)
+        if function in os.supports_dir_fd
+    }
+    os.supports_dir_fd.difference_update(disabled_dir_fd)
+    try:
+        try:
+            module.secure_copy_declared_source(
+                aliased_repo, "nested/proof.txt", destination)
+            alias_copy_ok = destination.read_text(encoding="utf-8") == "sealed\n"
+        except (module.LoopError, OSError):
+            alias_copy_ok = False
+        check("guarded fallback canonicalizes equivalent repo spellings",
+              alias_copy_ok)
+
+        outside = alias_root / "outside"
+        outside.mkdir()
+        (outside / "escape.txt").write_text("outside\n", encoding="utf-8")
+        try:
+            (canonical_repo / "linked").symlink_to(
+                outside, target_is_directory=True)
+            fallback_link_supported = True
+        except OSError:
+            fallback_link_supported = False
+        if fallback_link_supported:
+            linked_snapshot = alias_root / "linked-snapshot"
+            linked_snapshot.mkdir()
+            linked_destination = module.secure_destination(
+                linked_snapshot, "linked/escape.txt")
+            try:
+                module.secure_copy_declared_source(
+                    aliased_repo, "linked/escape.txt", linked_destination)
+                fallback_link_rejected = False
+            except module.LoopError:
+                fallback_link_rejected = True
+            check("guarded fallback still rejects a linked source ancestor",
+                  fallback_link_rejected and not linked_destination.exists())
+        else:
+            check("guarded fallback retains the reparse-point rejection",
+                  "_is_link_or_reparse(current)" in
+                  SCRIPT.read_text(encoding="utf-8"))
+    finally:
+        os.supports_dir_fd.update(disabled_dir_fd)
 with tempfile.TemporaryDirectory(prefix="weak-loop-policy-") as td:
     weak_path = Path(td) / "policy.json"
     weak = json.loads(POLICY.read_text(encoding="utf-8"))

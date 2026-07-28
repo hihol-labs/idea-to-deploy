@@ -148,10 +148,22 @@ EXPECTED_CHANGED.update({
     "tests/verify_harness_demo_capture_schema.py",
     "tests/verify_harness_demo_pilots.py",
     "tests/verify_incremental_diagnostics.py",
+    "tests/fixtures/fixture-03-cli-tool/live-prompt.md",
+    "tests/fixtures/live-model-evidence/latest.json",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE_CODE_GUIDE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/IMPLEMENTATION_PLAN.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PRD.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PROJECT_ARCHITECTURE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/STRATEGIC_PLAN.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/run-report.json",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/transcript.jsonl.gz",
+    "tests/run-live-model-benchmark.py",
     "tests/verify_semantic_navigation.py",
     "tests/verify_semantic_navigation_demand.py",
     "tests/verify_state_hardening.py",
     "tests/verify_task_piv_lite.py",
+    "tests/verify_live_model_benchmark.py",
 })
 
 

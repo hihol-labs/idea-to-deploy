@@ -56,6 +56,14 @@ weakening ITD completion authority.**
 - Declared non-Git inputs and authoritative parent memory are opened through
   no-follow descriptor walks where supported; the guarded Windows fallback
   rejects reparse ancestors and verifies stable identities and content hashes.
+- The Windows no-`dir_fd` fallback canonicalizes both the repository boundary
+  and descendants before confinement checks, avoiding false escapes when
+  tempfile/Git mixes 8.3 aliases with long user-profile paths.
+- Live-model stdout and stderr now share an enforced 8 MiB capture ceiling;
+  overflow terminates the provider process, and known secret/PII patterns are
+  redacted before any transcript or failure diagnostic becomes durable.
+  Sanitization expansion is rechecked against the same aggregate ceiling and
+  fails closed to a bounded rejection record.
 - Captured-run replay is restricted to the bundled exact-hash test manifest,
   story export recursively rejects sensitive free text, and JSONL ledgers now
   enforce streaming size, record, and line bounds.
@@ -92,8 +100,16 @@ weakening ITD completion authority.**
 - Adjudication accepts only bounded regular dependency JSON inside the evidence
   root, rejecting symlink/reparse traversal and receipts larger than 4 MiB.
 - Publication scope is evaluated against the current `main` after the v1.92/
-  v1.93 squash merge, so the v1.94 PR binds exactly its 84-file delta instead
+  v1.93 squash merge, so the v1.94 PR binds exactly its 96-file delta instead
   of re-declaring already published predecessor files.
+- The live-model fixture now names the oracle-required `## CLI Interface`
+  heading explicitly and guards against its omission; fresh externally
+  generated output passes the independent snapshot replay on the current
+  methodology tree.
+- Live benchmark regression guards exercise capture overflow, secret/PII
+  sanitization (including expansion past the retained-byte ceiling), bounded
+  gzip replay, and reject mutations that remove the post-sanitization bound or
+  return to direct unbounded subprocess capture.
 
 ## [1.93.0] - 2026-07-22
 
