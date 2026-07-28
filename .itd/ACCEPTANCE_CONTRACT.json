@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "purpose": "Acceptance contract for the immutable v1.94.0 release candidate. Publication and dual-host installation are post-commit effects and are verified separately to avoid a self-referential Git candidate.",
+  "sourceRequest": "Publish the accepted Harness Engineering absorption, deploy it to WSL and Windows, and make the latest ITD methodology the default in every directory.",
+  "createdAt": "2026-07-27",
+  "criteriaSchema": {
+    "requiredFields": [
+      "id",
+      "criterion",
+      "source",
+      "evidence",
+      "verificationCommand",
+      "status"
+    ],
+    "allowedStatus": [
+      "pending",
+      "passed",
+      "failed",
+      "recovery_required"
+    ]
+  },
+  "criteria": [
+    {
+      "id": "RLS-001-AC1",
+      "criterion": "The v1.94.0 manifests, badges, current Harness documentation, dated changelog entry, and current internal pilot evidence are synchronized while all frozen Harness Demo guarantees remain unchanged.",
+      "source": "User release request and frozen Harness Demo absorption contract.",
+      "evidence": "The rolling candidate oracle invokes the self-contained portable Harness Demo proof, including the frozen 34 mutation guards, historical v4 fixture, and all non-host-local behavioral phases.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase candidate",
+      "status": "passed"
+    },
+    {
+      "id": "RLS-001-AC2",
+      "criterion": "Host-adapter parity, meta-review, quick regression, and full regression pass on one exact candidate without vendor-specific methodology drift.",
+      "source": "Project AGENTS.md release requirement.",
+      "evidence": "All four checks are required machine runs in the exact RLS-001 adjudication before commit.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick && bash tests/run-all.sh",
+      "status": "passed"
+    },
+    {
+      "id": "RLS-001-AC3",
+      "criterion": "The release keeps methodology-owned pilots externalAdoptionEvidence:false and leaves PE5-008/009 blocked pending real independent external outcomes.",
+      "source": "Frozen external-evidence boundary.",
+      "evidence": "The sealed portable pilot oracle binds all three exact index rows and their complete receipt/artifact graphs while rejecting any external-adoption claim.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_demo_portable.py",
+      "status": "passed"
+    }
+  ],
+  "postCommitVerification": [
+    {
+      "id": "RLS-PUB-1",
+      "criterion": "The exact accepted commit is pushed and has one open PR to current main whose structured evidence block binds the exact tree, scope, and adjudication receipt.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase publication --branch codex/operating-loops-v1"
+    },
+    {
+      "id": "RLS-DEPLOY-1",
+      "criterion": "The exact published tree is hash-identical in both Codex caches and both Claude active installs, and all four global routers select ITD by default without legacy Product Factory policy.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase deployment --branch codex/operating-loops-v1"
+    }
+  ],
+  "doneRule": "The immutable candidate is accepted only when every criterion is passed and one current exact-candidate Verification Loop adjudication re-runs every named command. The user goal remains active until both post-commit verification commands also pass."
+}

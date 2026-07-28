@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "kind": "machine-verification",
+  "createdAt": "2026-07-26T19:05:11Z",
+  "unitId": "BF-017",
+  "riskTier": "medium",
+  "candidate": {
+    "repository": "/tmp/itd-hdx005.aV5kBH",
+    "baseCommit": "60ce420edd32faf2704aa0ccf39499543785d9bd",
+    "reviewedTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+    "diffHash": "17134f4f23212acbd216d00b658be95936f05f2cc5da56da1995f61f3e22779c",
+    "scopeContractHash": "missing",
+    "acceptanceContractHash": "missing",
+    "rubricHash": "fa9b81aa27c7f4343bffc7e23bae1d826916b749577004e3762193180311882e",
+    "methodologyVersion": "1.93.0",
+    "riskTier": "medium"
+  },
+  "candidateDigest": "sha256:8c62dfcd1b41cdce75e76db7f3bbabaf22e0cde6776602092bf577ae553645ea",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "machine-verifier",
+    "host": "Linux"
+  },
+  "producerRunId": "f9470911a74bac188a7d1ec157e46080",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "declaredInputs": [],
+  "runs": [
+    {
+      "id": "regression",
+      "command": "python3 -B -m unittest discover -s tests -v",
+      "commandSha256": "7a2b70d73cb8c134301511add15040ab80e4f01a35ff7b05ef25780bc23192ae",
+      "shell": "/usr/bin/sh",
+      "startedAt": "2026-07-26T19:05:11Z",
+      "completedAt": "2026-07-26T19:05:11Z",
+      "timeoutSeconds": 600,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+      "exitCode": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "bb96e9373af4273f2a769ffded61391fd3c47aedcaa10d6cc9e26a09a289dd17"
+    }
+  ],
+  "verdict": "PASSED",
+  "receiptSha256": "31785b9233ce71bdd96b6ac5c39f96aee980fed03f5fede4e39c3ecf5bc89c02"
+}

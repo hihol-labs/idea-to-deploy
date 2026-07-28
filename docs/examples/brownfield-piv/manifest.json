@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "externalAdoptionEvidence": false,
+  "schema": {
+    "path": "manifest.schema.json",
+    "sha256": "97218cc0046b42136787949bc6b726d997f52d868e54734dfe549213b1fca946"
+  },
+  "bindings": {
+    "candidateTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+    "ticketSha256": "27539a9d492cf4f6d33bf26c41dda60f46d205bd5a81b31aa36d18b54b0e06ee",
+    "contextSha256": "f4049c8735915300ece645b2cff99b00fcaaec06c8db534a3e19f3c6ba385187",
+    "taskContractSha256": "612a868e3a4ae03431d7e132336ca1b542afd70839c1c4d3cb07be605a254275",
+    "patchSha256": "8cbbec2f97ba9c9f9fbf29532419fd887323c6e257d593a5d0551765e7ea675b",
+    "machineReceiptSha256": "52040264f616e43ada5b4dc4d60a97590a4d93a2edd1e46e8233b8bdc57caf49",
+    "checkerReceiptSha256": "39892d5431c3859bcbe245ce64549e02a5c25510b4ada06ec77cdbbfdcac2dba",
+    "adjudicationReceiptSha256": "a04d97d19bce77ddd3e4bfc501131fb5a048313d2cc15189a108b275106bfc24",
+    "reviewReportSha256": "3e09f9a074fbf1c21f694313fdecf3a2d36c2b5f1b2158a8e95040570bae13e4",
+    "metricsSha256": "1276d12d8b8ec536148e34d6ec185fd13676c46ff919ab2440a3251982a29920"
+  },
+  "bindingArtifacts": {
+    "ticketSha256": "artifacts/ticket.md",
+    "contextSha256": "artifacts/context.json",
+    "taskContractSha256": "artifacts/task-contract.md",
+    "patchSha256": "patch.diff",
+    "machineReceiptSha256": "artifacts/machine.json",
+    "checkerReceiptSha256": "artifacts/checker.json",
+    "adjudicationReceiptSha256": "artifacts/adjudication.json",
+    "reviewReportSha256": "artifacts/review.json",
+    "metricsSha256": "artifacts/metrics.json"
+  },
+  "artifacts": {
+    "manifest.schema.json": "97218cc0046b42136787949bc6b726d997f52d868e54734dfe549213b1fca946",
+    "patch.diff": "8cbbec2f97ba9c9f9fbf29532419fd887323c6e257d593a5d0551765e7ea675b",
+    "before/.gitignore": "9b2c8fc0119a1dd8e2006acaecb6ad30f14a67aa35317b7f2841434e46575609",
+    "before/src/invoice.py": "3c36dd94b5dfcd4e7ea037daa775495be34fa4a69c95d654b394df7d6d6daa66",
+    "before/tests/test_invoice.py": "43bdc91a8ec12b4ef559847e94cfcf162c24e1a606587ce4e6f96235df73bdef",
+    "artifacts/ticket.md": "27539a9d492cf4f6d33bf26c41dda60f46d205bd5a81b31aa36d18b54b0e06ee",
+    "artifacts/context.json": "f4049c8735915300ece645b2cff99b00fcaaec06c8db534a3e19f3c6ba385187",
+    "artifacts/task-contract.md": "612a868e3a4ae03431d7e132336ca1b542afd70839c1c4d3cb07be605a254275",
+    "artifacts/machine.json": "52040264f616e43ada5b4dc4d60a97590a4d93a2edd1e46e8233b8bdc57caf49",
+    "artifacts/checker.json": "39892d5431c3859bcbe245ce64549e02a5c25510b4ada06ec77cdbbfdcac2dba",
+    "artifacts/adjudication.json": "a04d97d19bce77ddd3e4bfc501131fb5a048313d2cc15189a108b275106bfc24",
+    "artifacts/review.json": "3e09f9a074fbf1c21f694313fdecf3a2d36c2b5f1b2158a8e95040570bae13e4",
+    "artifacts/checker-prompt.md": "e4c7bda43e30f7637c2df0533f28e407ded76a305b6cac09705755e299a3b342",
+    "artifacts/metrics.json": "1276d12d8b8ec536148e34d6ec185fd13676c46ff919ab2440a3251982a29920"
+  },
+  "replay": {
+    "beforeDir": "before",
+    "patch": "patch.diff",
+    "baseTrackedPaths": [
+      ".gitignore",
+      "src/invoice.py",
+      "tests/test_invoice.py"
+    ],
+    "trackedPaths": [
+      ".gitignore",
+      "src/invoice.py",
+      "tests/test_invoice.py"
+    ],
+    "commands": [
+      [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ]
+    ]
+  },
+  "normalization": {
+    "volatileFields": [
+      "createdAt",
+      "producerRunId",
+      "candidate.repository",
+      "candidate.baseCommit",
+      "candidate.diffHash",
+      "candidateDigest",
+      "attemptLedger.entryPath"
+    ],
+    "receiptSemantics": "canonical"
+  }
+}

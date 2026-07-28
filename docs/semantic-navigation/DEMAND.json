@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "kind": "semantic-navigation-demand-decision",
+  "evaluatedAt": "2026-07-27",
+  "source": {
+    "path": "docs/harness-demo-pilots/INDEX.json",
+    "sha256": "6ef34345ff540dcd1e48f1b49818e4e62ea923355b55976beb3500921feb98f5",
+    "episodes": [
+      "A",
+      "B",
+      "C"
+    ]
+  },
+  "thresholds": {
+    "minimumVerifiedPilots": 3,
+    "requiredLanguages": [
+      "python",
+      "typescript"
+    ],
+    "minimumTasksPerRequiredLanguage": 1,
+    "requiredOperations": [
+      "definitions",
+      "references",
+      "outline"
+    ]
+  },
+  "observations": [
+    {
+      "episode": "A",
+      "unitId": "HDX-009-A",
+      "language": "python",
+      "symbol": "project_runtime_block",
+      "paths": [
+        "scripts/adoption_check.py",
+        "scripts/validate_runtime.py"
+      ],
+      "candidateTree": "1fac184d7d48509c3c6dde45ca1ffabd55ae11ee",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/ba86bc1e34414930/HDX-009-A-adjudication-a1.json",
+      "operations": [
+        "definitions",
+        "references",
+        "outline"
+      ]
+    },
+    {
+      "episode": "B",
+      "unitId": "HDX-010-B",
+      "language": "python",
+      "symbol": "format_currency",
+      "paths": [
+        "backend/app/utils/formatters.py",
+        "Justfile"
+      ],
+      "candidateTree": "4d3e392497477c1d879b3314e6d685d881cf8660",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/0aa1383850b73339/HDX-010-B-adjudication-a2.json",
+      "operations": [
+        "definitions",
+        "references",
+        "outline"
+      ]
+    },
+    {
+      "episode": "C",
+      "unitId": "HDX-011-C",
+      "language": "typescript",
+      "symbol": "trackGoal",
+      "paths": [
+        "app/lib/metrika.ts",
+        "tests/compliance-ux.test.mjs"
+      ],
+      "candidateTree": "52ca4875e06f03a1dfe2b89b055037a7067322d3",
+      "adjudicationReceipt": ".itd-memory/verification-loop/receipts/b845e980bfb14522/HDX-011-C-adjudication-a1.json",
+      "operations": [
+        "definitions",
+        "references",
+        "outline"
+      ]
+    }
+  ],
+  "aggregate": {
+    "verifiedPilots": 3,
+    "languages": [
+      "python",
+      "typescript"
+    ],
+    "tasksByLanguage": {
+      "python": [
+        "A",
+        "B"
+      ],
+      "typescript": [
+        "C"
+      ]
+    }
+  },
+  "decision": {
+    "status": "activated",
+    "reason": "Three exact-receipt real tasks require definition, reference, and outline navigation across Python and TypeScript.",
+    "implementationUnit": "HDX-013",
+    "externalAdoptionEvidence": false,
+    "completionEvidence": false
+  }
+}

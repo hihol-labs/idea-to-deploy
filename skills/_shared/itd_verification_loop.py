@@ -23,6 +23,7 @@ import platform
 import re
 import secrets
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -39,9 +40,11 @@ RISK_TIERS = {"low", "medium", "high", "unknown"}
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
 CHECKOUT_PROBE_TIMEOUT_SECONDS = 60
+JSON_INPUT_MAX_BYTES = 4 * 1024 * 1024
 MACHINE_RUN_FIELDS = frozenset({
-    "id", "command", "commandSha256", "shell", "startedAt", "completedAt",
-    "timeoutSeconds", "executionMode", "executedTree", "exitCode",
+    "id", "command", "commandSha256", "shell", "shellSha256",
+    "startedAt", "completedAt", "timeoutSeconds", "executionMode",
+    "executedTree", "exitCode",
     "stdoutSha256", "stderrSha256",
 })
 
@@ -71,11 +74,59 @@ def sha256_file(path: Path) -> str:
 
 
 def read_json(path: Path, label: str) -> dict[str, Any]:
+    fd: int | None = None
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        before = path.lstat()
+        if _is_link_or_reparse(path) or not stat.S_ISREG(before.st_mode):
+            raise LoopError(
+                f"{label} is not a regular no-link file: {path}",
+                "Use a bounded regular JSON file inside the Verification Loop evidence root.",
+            )
+        if before.st_size > JSON_INPUT_MAX_BYTES:
+            raise LoopError(
+                f"{label} exceeds the {JSON_INPUT_MAX_BYTES}-byte limit: {path}",
+                "Regenerate a compact machine-readable receipt.",
+            )
+        flags = os.O_RDONLY | int(getattr(os, "O_BINARY", 0))
+        flags |= int(getattr(os, "O_NOFOLLOW", 0))
+        fd = os.open(path, flags)
+        opened = os.fstat(fd)
+        identity = (before.st_dev, before.st_ino)
+        if (not stat.S_ISREG(opened.st_mode)
+                or (opened.st_dev, opened.st_ino) != identity):
+            raise LoopError(
+                f"{label} changed while opening: {path}",
+                "Freeze the receipt and retry adjudication.",
+            )
+        chunks: list[bytes] = []
+        remaining = JSON_INPUT_MAX_BYTES + 1
+        while remaining:
+            chunk = os.read(fd, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(fd)
+        current = path.lstat()
+        if (len(payload) > JSON_INPUT_MAX_BYTES
+                or (after.st_dev, after.st_ino) != identity
+                or (current.st_dev, current.st_ino) != identity
+                or _is_link_or_reparse(path)
+                or current.st_size != len(payload)):
+            raise LoopError(
+                f"{label} changed or exceeded its bound while reading: {path}",
+                "Freeze a regular receipt no larger than 4 MiB and retry.",
+            )
+        value = json.loads(payload.decode("utf-8"))
+    except LoopError:
+        raise
     except Exception as exc:
         raise LoopError(f"{label} is unreadable: {path}: {exc}",
                         f"Repair or regenerate {path} through the Verification Loop producer.") from exc
+    finally:
+        if fd is not None:
+            os.close(fd)
     if not isinstance(value, dict):
         raise LoopError(f"{label} is not a JSON object: {path}",
                         "Use the machine-readable receipt schema, not prose.")
@@ -161,7 +212,11 @@ def candidate_context(root: Path | str, risk_tier: str) -> dict[str, str]:
         raise LoopError(f"invalid risk tier: {risk!r}",
                         "Use low, medium, high or unknown.")
     try:
-        return dict(_review_cache_module().build_context(root, risk))
+        # Review-cache reuse binds mutable parent state separately. Candidate
+        # receipts must not self-invalidate when a successful verification is
+        # durably reconciled into STATE.json.
+        return dict(_review_cache_module().build_context(
+            root, risk, bind_parent_state=False))
     except Exception as exc:
         if isinstance(exc, LoopError):
             raise
@@ -303,40 +358,314 @@ def input_snapshot(path: Path, relative: str) -> dict[str, Any]:
             "fileCount": sum(1 for entry in entries if entry["kind"] == "file")}
 
 
-def declared_inputs(repo: Path, raw_inputs: list[str], policy: dict[str, Any]) -> list[dict[str, Any]]:
-    """Resolve and seal explicit ignored/untracked inputs without broad overlays."""
-    manifests: list[dict[str, Any]] = []
-    seen: list[Path] = []
-    receipt_dir = receipt_root(repo, policy)
-    git_dir = (repo / ".git").resolve()
+def _declared_input_paths(repo: Path, raw_inputs: list[str],
+                          policy: dict[str, Any]) -> list[str]:
+    """Validate lexical paths without following repository-controlled links."""
+    values: list[Path] = []
+    receipt_relative = Path(str(policy["receiptDirectory"]))
     for raw in raw_inputs:
         candidate = Path(raw)
-        candidate = candidate if candidate.is_absolute() else repo / candidate
-        resolved = candidate.resolve()
         try:
-            relative = resolved.relative_to(repo).as_posix()
+            relative_path = (candidate.absolute().relative_to(repo)
+                             if candidate.is_absolute() else candidate)
         except ValueError as exc:
             raise LoopError(f"declared input escapes the repository: {raw}",
                             "Declare a project-local input path.") from exc
-        if resolved == git_dir or git_dir in resolved.parents:
+        if (not relative_path.parts or relative_path.is_absolute()
+                or any(part in {"", ".", ".."} for part in relative_path.parts)):
+            raise LoopError(f"declared input path is not canonical: {raw}",
+                            "Use a normalized project-relative path without dot segments.")
+        relative = relative_path.as_posix()
+        if "\\" in relative or ":" in relative or "\0" in relative:
+            raise LoopError(f"declared input path is not portable: {raw}",
+                            "Use a canonical slash-separated project-relative path.")
+        if relative_path.parts[0] == ".git":
             raise LoopError("the Git database cannot be a declared input",
                             "Declare only the minimal external data needed by the oracle.")
-        if resolved == receipt_dir or receipt_dir in resolved.parents:
+        if relative_path == receipt_relative or receipt_relative in relative_path.parents:
             raise LoopError("Verification Loop evidence cannot be its own machine input",
                             "Keep oracle inputs outside the receipt directory.")
         tracked = subprocess.run(
             ["git", "ls-files", "--error-unmatch", "--", relative], cwd=str(repo),
-            capture_output=True, timeout=CHECKOUT_PROBE_TIMEOUT_SECONDS,
-        )
+            capture_output=True, timeout=CHECKOUT_PROBE_TIMEOUT_SECONDS)
         if tracked.returncode == 0:
             raise LoopError(f"declared input is already tracked in the staged tree: {relative}",
-                            "Remove redundant --input; tracked candidate files are materialized automatically.")
-        if any(resolved == prior or resolved in prior.parents or prior in resolved.parents for prior in seen):
+                            "Remove redundant --input; tracked files are materialized automatically.")
+        if any(relative_path == prior or relative_path in prior.parents
+               or prior in relative_path.parents for prior in values):
             raise LoopError(f"declared inputs overlap: {relative}",
-                            "Declare each external input exactly once without parent/child overlap.")
-        manifests.append(input_snapshot(resolved, relative))
-        seen.append(resolved)
-    return sorted(manifests, key=lambda item: str(item["path"]))
+                            "Declare each input exactly once without parent/child overlap.")
+        values.append(relative_path)
+    return sorted(path.as_posix() for path in values)
+
+
+def _is_link_or_reparse(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    junction_probe = getattr(path, "is_junction", None)
+    try:
+        if callable(junction_probe) and junction_probe():
+            return True
+        attributes = int(getattr(path.lstat(), "st_file_attributes", 0) or 0)
+    except (FileNotFoundError, OSError):
+        return False
+    return bool(attributes & int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)))
+
+
+def _copy_open_file(source_fd: int, destination: Path, expected: os.stat_result,
+                    label: str) -> None:
+    before = os.fstat(source_fd)
+    if (not stat.S_ISREG(before.st_mode)
+            or (before.st_dev, before.st_ino) != (expected.st_dev, expected.st_ino)):
+        raise LoopError(f"declared input changed while opening: {label}",
+                        "Freeze the input and retry the machine oracle.")
+    target_fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        while True:
+            chunk = os.read(source_fd, 1024 * 1024)
+            if not chunk:
+                break
+            offset = 0
+            while offset < len(chunk):
+                offset += os.write(target_fd, chunk[offset:])
+        os.fsync(target_fd)
+    finally:
+        os.close(target_fd)
+    after = os.fstat(source_fd)
+    stable = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if any(getattr(before, field) != getattr(after, field) for field in stable):
+        raise LoopError(f"declared input changed during snapshot: {label}",
+                        "Freeze the input and retry the machine oracle.")
+
+
+def _copy_open_directory(source_fd: int, destination: Path, label: str) -> None:
+    destination.mkdir(mode=0o700)
+    before_names = sorted(os.listdir(source_fd))
+    directory_flags = (os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                       | getattr(os, "O_NOFOLLOW", 0))
+    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    for name in before_names:
+        if not name or name in {".", ".."} or "/" in name or "\\" in name:
+            raise LoopError(f"declared input contains an invalid entry: {label}",
+                            "Use ordinary portable file names.")
+        info = os.stat(name, dir_fd=source_fd, follow_symlinks=False)
+        child_label, target = f"{label}/{name}", destination / name
+        if stat.S_ISLNK(info.st_mode):
+            raise LoopError(f"declared input contains a link: {child_label}",
+                            "Materialize links inside the declared input boundary.")
+        flags = directory_flags if stat.S_ISDIR(info.st_mode) else file_flags
+        child_fd = os.open(name, flags, dir_fd=source_fd)
+        try:
+            opened = os.fstat(child_fd)
+            if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                raise LoopError(f"declared input changed while opening: {child_label}",
+                                "Freeze the input and retry the machine oracle.")
+            if stat.S_ISDIR(info.st_mode):
+                _copy_open_directory(child_fd, target, child_label)
+            elif stat.S_ISREG(info.st_mode):
+                _copy_open_file(child_fd, target, info, child_label)
+            else:
+                raise LoopError(f"declared input contains a special file: {child_label}",
+                                "Use only regular files/directories as oracle inputs.")
+        finally:
+            os.close(child_fd)
+    if sorted(os.listdir(source_fd)) != before_names:
+        raise LoopError(f"declared input directory changed during snapshot: {label}",
+                        "Freeze the input and retry the machine oracle.")
+
+
+def _plain_source_identities(source: Path, repo: Path,
+                             relative: str) -> dict[str, tuple[int, ...]]:
+    # Windows may hand tempfile/Git paths back through an 8.3 alias
+    # (C:\Users\RUNNER~1) while Path.resolve() expands a descendant through
+    # the long spelling (C:\Users\runneradmin).  Compare canonical spellings
+    # on both sides; otherwise a real project-local input is falsely rejected
+    # as an escape on the guarded no-dir_fd fallback.
+    repo = repo.resolve()
+    source = source.resolve()
+    identities: dict[str, tuple[int, ...]] = {}
+    pending = [source]
+    while pending:
+        current = pending.pop()
+        if _is_link_or_reparse(current):
+            raise LoopError(f"declared input contains a symlink/reparse point: {relative}",
+                            "Materialize it inside real project-local directories.")
+        try:
+            resolved = current.resolve()
+            resolved.relative_to(repo)
+            info = current.lstat()
+        except (ValueError, OSError) as exc:
+            raise LoopError(f"declared input escapes or changed: {relative}",
+                            "Restore a stable project-local input and retry.") from exc
+        identities[resolved.relative_to(repo).as_posix()] = (
+            info.st_dev, info.st_ino, info.st_mode, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns)
+        if stat.S_ISDIR(info.st_mode):
+            pending.extend(Path(entry.path) for entry in os.scandir(current))
+        elif not stat.S_ISREG(info.st_mode):
+            raise LoopError(f"declared input contains a special file: {relative}",
+                            "Use only regular files/directories as oracle inputs.")
+    return identities
+
+
+def _plain_ancestor_identities(repo: Path, parts: tuple[str, ...],
+                               relative: str) -> dict[str, tuple[int, ...]]:
+    """Bind every source ancestor for runtimes without dir_fd support."""
+    repo = repo.resolve()
+    identities: dict[str, tuple[int, ...]] = {}
+    current = repo
+    for part in parts[:-1]:
+        current /= part
+        if _is_link_or_reparse(current):
+            raise LoopError(f"declared input ancestor is linked: {relative}",
+                            "Use real project-local source directories.")
+        try:
+            resolved = current.resolve()
+            resolved.relative_to(repo)
+            info = current.lstat()
+        except (ValueError, OSError) as exc:
+            raise LoopError(f"declared input ancestor escapes or changed: {relative}",
+                            "Restore stable project-local source directories.") from exc
+        if not stat.S_ISDIR(info.st_mode):
+            raise LoopError(f"declared input ancestor is not a directory: {relative}",
+                            "Use real project-local source directories.")
+        identities[resolved.relative_to(repo).as_posix()] = (
+            info.st_dev, info.st_ino, info.st_mode, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns)
+    return identities
+
+
+def secure_copy_declared_source(repo: Path, relative: str, destination: Path) -> None:
+    """Copy from pinned no-follow descriptors into a private snapshot."""
+    parts = Path(relative).parts
+    directory_flags = (os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                       | getattr(os, "O_NOFOLLOW", 0))
+    if os.open in os.supports_dir_fd and os.stat in os.supports_dir_fd:
+        current_fd = os.open(repo, directory_flags)
+        try:
+            for part in parts[:-1]:
+                info = os.stat(part, dir_fd=current_fd, follow_symlinks=False)
+                if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                    raise LoopError(f"declared input ancestor is linked: {relative}",
+                                    "Use real project-local source directories.")
+                next_fd = os.open(part, directory_flags, dir_fd=current_fd)
+                os.close(current_fd)
+                current_fd = next_fd
+            info = os.stat(parts[-1], dir_fd=current_fd, follow_symlinks=False)
+            flags = directory_flags if stat.S_ISDIR(info.st_mode) else (
+                os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            source_fd = os.open(parts[-1], flags, dir_fd=current_fd)
+            try:
+                opened = os.fstat(source_fd)
+                if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                    raise LoopError(f"declared input changed while opening: {relative}",
+                                    "Freeze the input and retry the machine oracle.")
+                if stat.S_ISDIR(info.st_mode):
+                    _copy_open_directory(source_fd, destination, relative)
+                elif stat.S_ISREG(info.st_mode):
+                    _copy_open_file(source_fd, destination, info, relative)
+                else:
+                    raise LoopError(f"declared input is linked/special: {relative}",
+                                    "Use a regular file or directory.")
+            finally:
+                os.close(source_fd)
+        finally:
+            os.close(current_fd)
+        return
+    canonical_repo = repo.resolve()
+    source = canonical_repo.joinpath(*parts)
+    before_ancestors = _plain_ancestor_identities(canonical_repo, parts, relative)
+    before = _plain_source_identities(source, canonical_repo, relative)
+    shutil.copytree(source, destination, symlinks=False) if source.is_dir() else shutil.copy2(source, destination)
+    after_ancestors = _plain_ancestor_identities(canonical_repo, parts, relative)
+    after = _plain_source_identities(source, canonical_repo, relative)
+    if (before_ancestors != after_ancestors or before != after
+            or input_snapshot(source, relative) != input_snapshot(destination, relative)):
+        raise LoopError(f"declared input changed during guarded fallback copy: {relative}",
+                        "Freeze the input or track it on this host.")
+
+
+@contextlib.contextmanager
+def sealed_declared_inputs(repo: Path, raw_inputs: list[str], policy: dict[str, Any]):
+    with tempfile.TemporaryDirectory(prefix="itd-declared-inputs-") as raw:
+        snapshot_root = Path(raw)
+        manifests: list[dict[str, Any]] = []
+        for relative in _declared_input_paths(repo, raw_inputs, policy):
+            destination = secure_destination(snapshot_root, relative)
+            secure_copy_declared_source(repo, relative, destination)
+            manifests.append(input_snapshot(destination, relative))
+        yield sorted(manifests, key=lambda item: str(item["path"])), snapshot_root
+
+
+def secure_destination(candidate: Path, relative: str) -> Path:
+    """Create destination parents without following staged-tree symlinks."""
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or not relative_path.parts \
+            or any(part in {"", ".", ".."} for part in relative_path.parts):
+        raise LoopError(
+            f"declared input destination is not a normalized relative path: {relative}",
+            "Regenerate the declared-input manifest through the harness.",
+        )
+    root = candidate.resolve()
+    destination = root.joinpath(*relative_path.parts)
+    parent_parts = relative_path.parts[:-1]
+
+    # POSIX can keep every lookup relative to a no-follow directory handle.
+    # The fallback retains the same fail-closed lstat/containment checks on
+    # hosts whose Python runtime lacks dir_fd support (notably Windows).
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    dir_fd_capable = (os.open in os.supports_dir_fd
+                      and os.mkdir in os.supports_dir_fd
+                      and os.stat in os.supports_dir_fd)
+    if dir_fd_capable:
+        current_fd = os.open(root, flags)
+        try:
+            for part in parent_parts:
+                try:
+                    info = os.stat(part, dir_fd=current_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    os.mkdir(part, mode=0o700, dir_fd=current_fd)
+                    info = os.stat(part, dir_fd=current_fd, follow_symlinks=False)
+                if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                    raise LoopError(
+                        f"declared input destination ancestor is linked or not a directory: {relative}",
+                        "Remove the staged-tree collision; declared inputs may use only real directories.",
+                    )
+                next_fd = os.open(part, flags, dir_fd=current_fd)
+                os.close(current_fd)
+                current_fd = next_fd
+        finally:
+            os.close(current_fd)
+    else:
+        current = root
+        for part in parent_parts:
+            current = current / part
+            try:
+                info = current.lstat()
+            except FileNotFoundError:
+                current.mkdir(mode=0o700)
+                info = current.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                raise LoopError(
+                    f"declared input destination ancestor is linked or not a directory: {relative}",
+                    "Remove the staged-tree collision; declared inputs may use only real directories.",
+                )
+            try:
+                current.resolve().relative_to(root)
+            except ValueError as exc:
+                raise LoopError(
+                    f"declared input destination escapes the isolated checkout: {relative}",
+                    "Regenerate the declared-input manifest through the harness.",
+                ) from exc
+
+    try:
+        destination.parent.resolve().relative_to(root)
+    except ValueError as exc:
+        raise LoopError(
+            f"declared input destination escapes the isolated checkout: {relative}",
+            "Regenerate the declared-input manifest through the harness.",
+        ) from exc
+    return destination
 
 
 def copy_declared_inputs(repo: Path, candidate: Path,
@@ -348,53 +677,78 @@ def copy_declared_inputs(repo: Path, candidate: Path,
         if input_snapshot(source, relative) != manifest:
             raise LoopError(f"declared input changed before snapshot copy: {relative}",
                             "Freeze the input and retry verification.")
-        destination = candidate / relative
+        destination = secure_destination(candidate, relative)
         if destination.exists() or destination.is_symlink():
             raise LoopError(f"declared input collides with the staged tree: {relative}",
                             "Track the file or choose a non-overlapping external input.")
-        destination.parent.mkdir(parents=True, exist_ok=True)
         if source.is_dir():
             shutil.copytree(source, destination, symlinks=False)
         else:
             shutil.copy2(source, destination)
 
 
-def validate_declared_inputs(repo: Path, manifests: Any) -> None:
+def validate_declared_inputs(repo: Path, manifests: Any,
+                             policy: dict[str, Any]) -> None:
     if not isinstance(manifests, list):
         raise LoopError("machine declared-input manifest is malformed",
                         "Regenerate the machine receipt through the harness.")
-    canonical_repo = repo.resolve()
+    paths: list[str] = []
     for manifest in manifests:
         if not isinstance(manifest, dict) or not str(manifest.get("path") or ""):
             raise LoopError("machine declared-input entry is malformed",
                             "Regenerate the machine receipt through the harness.")
-        relative = str(manifest["path"])
-        resolved = (canonical_repo / relative).resolve()
-        try:
-            resolved.relative_to(canonical_repo)
-        except ValueError as exc:
-            raise LoopError("machine declared input escapes the repository",
-                            "Discard the malformed receipt.") from exc
-        if input_snapshot(resolved, relative) != manifest:
-            raise LoopError(f"declared machine input is missing or changed: {relative}",
+        paths.append(str(manifest["path"]))
+    if len(paths) != len(set(paths)):
+        raise LoopError("machine declared-input manifest contains duplicates",
+                        "Regenerate the machine receipt through the harness.")
+    with sealed_declared_inputs(repo, paths, policy) as (current, _snapshot_root):
+        if current != manifests:
+            raise LoopError("declared machine input is missing or changed",
                             "Restore/freeze the exact input or rerun machine verification.")
 
 
-def verification_shell(command: str, repo: Path) -> tuple[list[str] | str, str | None, str] | None:
-    """Return the native host shell transport for an explicit oracle command."""
+def trusted_shell_path() -> Path | None:
+    """Resolve a host-owned shell without trusting PATH/COMSPEC/SystemRoot."""
+    if os.name == "nt":
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(buffer, len(buffer))
+        if not length or length >= len(buffer):
+            return None
+        candidate = Path(buffer.value) / "cmd.exe"
+    else:
+        candidate = Path("/bin/sh")
+    try:
+        resolved = candidate.resolve(strict=True)
+        info = resolved.stat()
+    except OSError:
+        return None
+    if not stat.S_ISREG(info.st_mode):
+        return None
+    if os.name != "nt" and info.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return None
+    return resolved
+
+
+def verification_shell(
+    command: str, repo: Path
+) -> tuple[list[str] | str, str | None, str, str] | None:
+    """Return an absolute hash-bound native shell transport."""
+    shell = trusted_shell_path()
+    if shell is None:
+        return None
+    shell_digest = sha256_file(shell)
     if os.name == "nt":
         # cmd.exe rejects a UNC current directory and silently falls back to
-        # C:\Windows. Start there explicitly, then pushd maps the UNC path for
-        # this short-lived process.
+        # C:\Windows. Start in the trusted system directory, then pushd maps
+        # the UNC path for this short-lived process.
         native = f'pushd "{repo}" && {command}'
-        start = os.environ.get("SystemRoot", r"C:\Windows")
-        comspec = os.environ.get("COMSPEC", "cmd.exe")
+        start = str(shell.parent)
         # A list argv makes Python encode the inner quotes as \"; cmd.exe does
         # not treat backslash as a quote escape. Pass the exact native command
         # line string while keeping shell=False (the default).
-        return (f'"{comspec}" /d /c {native}', start, comspec)
-    sh = shutil.which("sh")
-    return ([sh, "-c", command], str(repo), sh) if sh else None
+        return (f'"{shell}" /d /c {native}', start, str(shell), shell_digest)
+    return ([str(shell), "-c", command], str(repo), str(shell), shell_digest)
 
 
 def seal_receipt(payload: dict[str, Any]) -> dict[str, Any]:
@@ -713,12 +1067,13 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
     validate_common(receipt, kind="machine-verification", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha)
     runs = receipt.get("runs")
-    validate_declared_inputs(repo, receipt.get("declaredInputs"))
+    validate_declared_inputs(repo, receipt.get("declaredInputs"), policy)
     if not isinstance(runs, list) or not runs:
         raise LoopError("machine receipt has no command runs", "Execute at least one declared oracle command.")
     for run in runs:
         if (not isinstance(run, dict) or not str(run.get("command") or "")
                 or not str(run.get("shell") or "")
+                or len(str(run.get("shellSha256") or "")) != 64
                 or len(str(run.get("commandSha256") or "")) != 64
                 or len(str(run.get("stdoutSha256") or "")) != 64
                 or len(str(run.get("stderrSha256") or "")) != 64
@@ -737,6 +1092,17 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
                             "Rerun with a checkout exactly matching the staged candidate.")
         if run["commandSha256"] != sha256_bytes(str(run["command"]).encode("utf-8")):
             raise LoopError("machine command hash is invalid", "Discard the edited receipt and rerun verification.")
+        if run["shell"] == "unavailable":
+            if (run["exitCode"] != 127
+                    or run["shellSha256"] != sha256_bytes(b"")):
+                raise LoopError("unavailable shell evidence is inconsistent",
+                                "Discard the edited receipt and rerun verification.")
+        else:
+            trusted = trusted_shell_path()
+            if (trusted is None or str(trusted) != run["shell"]
+                    or sha256_file(trusted) != run["shellSha256"]):
+                raise LoopError("machine shell identity is stale or untrusted",
+                                "Rerun verification with the current host-owned shell.")
     expected = "PASSED" if all(run["exitCode"] == 0 for run in runs) else "FAILED"
     if receipt.get("verdict") != expected:
         raise LoopError("machine verdict contradicts command exit codes",
@@ -846,7 +1212,6 @@ def command_machine(args: argparse.Namespace) -> int:
     risk = args.risk_tier
     context = candidate_context(repo, risk)
     executed_tree = assert_checkout_matches_candidate(repo, context)
-    input_manifests = declared_inputs(repo, args.input, policy)
     commands: list[tuple[str, str]] = []
     for raw in args.command:
         ident, sep, command = raw.partition("=")
@@ -854,40 +1219,46 @@ def command_machine(args: argparse.Namespace) -> int:
             raise LoopError(f"invalid --command value: {raw!r}", "Use --command id=executable command.")
         commands.append((ident.strip(), command.strip()))
     runs: list[dict[str, Any]] = []
-    with isolated_candidate(repo, context) as execution_repo:
-        copy_declared_inputs(repo, execution_repo, input_manifests)
+    with sealed_declared_inputs(repo, args.input, policy) as (input_manifests, input_root):
         for ident, command in commands:
-            started = now_iso()
-            shell_transport = verification_shell(command, execution_repo)
-            if shell_transport is None:
-                stdout, stderr, rc = b"", b"native verification shell is unavailable", 127
-                shell_name = "unavailable"
-            else:
-                shell_argv, shell_cwd, shell_name = shell_transport
-                try:
-                    proc = subprocess.run(shell_argv, cwd=shell_cwd,
-                                          capture_output=True, timeout=args.timeout)
-                    stdout, stderr, rc = proc.stdout or b"", proc.stderr or b"", proc.returncode
-                except subprocess.TimeoutExpired as exc:
-                    stdout = exc.stdout or b""
-                    stderr = (exc.stderr or b"") + f"\ntimeout after {args.timeout}s".encode()
-                    rc = 124
-            runs.append({
-                "id": ident,
-                "command": command,
-                "commandSha256": sha256_bytes(command.encode("utf-8")),
-                "shell": shell_name,
-                "startedAt": started,
-                "completedAt": now_iso(),
-                "timeoutSeconds": args.timeout,
-                "executionMode": "isolated-staged-tree",
-                "executedTree": executed_tree,
-                "exitCode": rc,
-                "stdoutSha256": sha256_bytes(stdout),
-                "stderrSha256": sha256_bytes(stderr),
-            })
-        assert_isolated_candidate(execution_repo, executed_tree)
-        validate_declared_inputs(execution_repo, input_manifests)
+            with isolated_candidate(repo, context) as execution_repo:
+                copy_declared_inputs(input_root, execution_repo, input_manifests)
+                started = now_iso()
+                shell_transport = verification_shell(command, execution_repo)
+                if shell_transport is None:
+                    stdout, stderr, rc = b"", b"native verification shell is unavailable", 127
+                    shell_name = "unavailable"
+                    shell_digest = sha256_bytes(b"")
+                else:
+                    shell_argv, shell_cwd, shell_name, shell_digest = shell_transport
+                    try:
+                        proc = subprocess.run(shell_argv, cwd=shell_cwd,
+                                              capture_output=True, timeout=args.timeout)
+                        stdout, stderr, rc = proc.stdout or b"", proc.stderr or b"", proc.returncode
+                    except subprocess.TimeoutExpired as exc:
+                        stdout = exc.stdout or b""
+                        stderr = (exc.stderr or b"") + f"\ntimeout after {args.timeout}s".encode()
+                        rc = 124
+                    if sha256_file(Path(shell_name)) != shell_digest:
+                        stderr += b"\ntrusted verification shell changed during execution"
+                        rc = 126
+                runs.append({
+                    "id": ident,
+                    "command": command,
+                    "commandSha256": sha256_bytes(command.encode("utf-8")),
+                    "shell": shell_name,
+                    "shellSha256": shell_digest,
+                    "startedAt": started,
+                    "completedAt": now_iso(),
+                    "timeoutSeconds": args.timeout,
+                    "executionMode": "isolated-staged-tree",
+                    "executedTree": executed_tree,
+                    "exitCode": rc,
+                    "stdoutSha256": sha256_bytes(stdout),
+                    "stderrSha256": sha256_bytes(stderr),
+                })
+                assert_isolated_candidate(execution_repo, executed_tree)
+                validate_declared_inputs(execution_repo, input_manifests, policy)
     verdict = "PASSED" if runs and all(run["exitCode"] == 0 for run in runs) else "FAILED"
     # A verification command must not mutate the candidate it is proving.
     assert_checkout_matches_candidate(repo, context)
@@ -978,13 +1349,50 @@ def dependency(repo: Path, root: Path, path: Path, label: str) -> dict[str, str]
     return {"path": resolved.relative_to(repo).as_posix(), "sha256": sha256_file(resolved)}
 
 
+def secure_dependency_path(repo: Path, root: Path, raw: str, label: str) -> Path:
+    supplied = Path(raw)
+    candidate = Path(os.path.abspath(supplied if supplied.is_absolute() else repo / supplied))
+    boundary = Path(os.path.abspath(root))
+    try:
+        candidate.relative_to(boundary)
+    except ValueError as exc:
+        raise LoopError(
+            f"{label} escapes the Verification Loop evidence root: {candidate}",
+            f"Keep {label} inside {boundary}.",
+        ) from exc
+    cursor = candidate
+    while True:
+        if _is_link_or_reparse(cursor):
+            raise LoopError(
+                f"{label} traverses a symlink or reparse point: {cursor}",
+                "Use a real regular file under the evidence root.",
+            )
+        if cursor == boundary:
+            break
+        cursor = cursor.parent
+    try:
+        info = candidate.lstat()
+    except OSError as exc:
+        raise LoopError(f"{label} is missing: {candidate}",
+                        f"Create {label} before adjudication.") from exc
+    if not stat.S_ISREG(info.st_mode):
+        raise LoopError(f"{label} is not a regular file: {candidate}",
+                        "Use a regular machine-readable receipt.")
+    if info.st_size > JSON_INPUT_MAX_BYTES:
+        raise LoopError(
+            f"{label} exceeds the {JSON_INPUT_MAX_BYTES}-byte limit: {candidate}",
+            "Regenerate a compact receipt before adjudication.",
+        )
+    return candidate
+
+
 def command_adjudicate(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
     risk = args.risk_tier
     context = candidate_context(repo, risk)
     root = receipt_root(repo, policy)
-    machine_path = Path(args.machine).resolve()
+    machine_path = secure_dependency_path(repo, root, args.machine, "machine receipt")
     machine = read_json(machine_path, "machine receipt")
     validate_machine(machine, repo=repo, risk=risk, unit_id=args.unit_id,
                      policy=policy, policy_sha=policy_sha)
@@ -996,7 +1404,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
         if not args.checker:
             raise LoopError("required checker receipt is missing",
                             "Run the risk-tier checker or remain UNVERIFIED.")
-        checker_path = Path(args.checker).resolve()
+        checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
         checker = read_json(checker_path, "checker receipt")
         validate_checker(checker, repo=repo, risk=risk, unit_id=args.unit_id,
                          policy=policy, policy_sha=policy_sha,

@@ -19,6 +19,8 @@ apply unchanged.
      `.codex/hooks.json` fallback;
    - `.itd/` and `.itd-memory/`: scaffold or skip using shared Step 3.5;
    - example test and runnability check: offer the shared optional steps.
+   - derived context index: show the exact read-only
+     `itd_context_map.py plan` result and offer the shared Step 3.9 write.
 
 Do not write a `CLAUDE.md`, `.claude/settings.json`, or a host-private memory
 mirror in the Codex branch.
@@ -41,6 +43,14 @@ product source or user-level configuration, and reports every refusal as
 `WHY` + `FIX`. Use the ordinary manual steps only when the helper is unavailable
 or the user deliberately chooses a non-standard partial adoption; record that
 fallback as operational friction in the final report.
+
+After the helper succeeds, run shared Step 3.9 only when its exact plan was
+included in the same user approval. Use the enabled plugin's
+`skills/adopt/scripts/itd_context_map.py`; `apply` still requires
+`--approved` plus the exact `--plan-sha256` emitted by the shown plan. The
+result is the single host-neutral `docs/agent-context`
+family for both Codex and Claude Code. It must never replace `AGENTS.md`,
+`.itd`, or `.itd-memory`.
 
 ## Guidance entry
 
@@ -92,6 +102,8 @@ Report absolute paths and verify:
 - `.itd/` and `.itd-memory/STATE.json` exist, or a visible skip reason was
   recorded;
 - any example test and runnability check show their real results;
+- `docs/agent-context/index.json` validates with observed-only path/hash-backed
+  claims, or the context-index skip reason is visible;
 - no user-level Codex configuration and no Claude-specific project files were
   written.
 

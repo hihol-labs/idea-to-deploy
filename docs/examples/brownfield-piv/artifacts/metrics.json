@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "unitId": "BF-017",
+  "externalAdoptionEvidence": false,
+  "candidateTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+  "observations": {
+    "declaredCommands": 1,
+    "observedPrePatchFailures": 1,
+    "postPatchFailures": 0,
+    "machineVerdict": "PASSED",
+    "checkerMode": "targeted",
+    "adjudicationOutcome": "PASSED"
+  },
+  "interpretation": "Internal reproducibility telemetry only; no external adoption, productivity, or business-outcome inference."
+}

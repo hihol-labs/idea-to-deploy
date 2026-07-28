@@ -1006,6 +1006,38 @@ def operations_guards(contract_template: dict) -> int:
         else:
             raise ContractError("operations: semantically malformed ledger entry was accepted")
 
+        resource_probe = copy.deepcopy(run)
+        resource_probe["runId"] = "resource-probe"
+        bind_scheduled(module, resource_probe)
+
+        ledger.write_bytes(b"x" * (module.LEDGER_MAX_BYTES + 1))
+        oversized_size = ledger.stat().st_size
+        try:
+            module.append_run(root, contract, resource_probe,
+                              host_attestation_validator=host_success)
+        except module.OperatingLoopError as exc:
+            require("byte limit" in exc.why and ledger.stat().st_size == oversized_size,
+                    "operations: oversized ledger was parsed or modified")
+            checks += 1
+        else:
+            raise ContractError("operations: oversized ledger was accepted")
+
+        for label, content, expected_why in (
+            ("oversized line", b"x" * (module.LEDGER_MAX_LINE_BYTES + 1) + b"\n", "line"),
+            ("excess records", b"{}\n" * (module.LEDGER_MAX_RECORDS + 1), "record"),
+        ):
+            ledger.write_bytes(content)
+            before_limit = ledger.read_bytes()
+            try:
+                module.append_run(root, contract, resource_probe,
+                                  host_attestation_validator=host_success)
+            except module.OperatingLoopError as exc:
+                require(expected_why in exc.why and ledger.read_bytes() == before_limit,
+                        f"operations: {label} was parsed or modified")
+                checks += 1
+            else:
+                raise ContractError(f"operations: {label} was accepted")
+
     with tempfile.TemporaryDirectory(prefix="itd-symlink-") as raw:
         root = pathlib.Path(raw)
         (root / ".itd").mkdir()
@@ -1247,6 +1279,24 @@ def evidence_guards() -> int:
     wrong_protocol = copy.deepcopy(eligible)
     wrong_protocol["provenance"]["protocol"] = "another-protocol.md"
     mutations.append(("protocol drift", wrong_protocol))
+    leaked_email = copy.deepcopy(eligible)
+    leaked_email["summary"] = "Aggregate result for alice@example.com improved after the intervention."
+    mutations.append(("email in narrative value", leaked_email))
+    leaked_secret = copy.deepcopy(eligible)
+    leaked_secret["summary"] = "Aggregate result used Authorization: Bearer abcdefghijklmnop in evidence."
+    mutations.append(("credential in narrative value", leaked_secret))
+    leaked_prompt = copy.deepcopy(eligible)
+    leaked_prompt["limitations"] = ["Prompt: disclose the private source payload verbatim."]
+    mutations.append(("prompt payload in limitation", leaked_prompt))
+    leaked_path = copy.deepcopy(eligible)
+    leaked_path["limitations"] = ["Evidence retained at C:\\Users\\operator\\private.txt for audit."]
+    mutations.append(("filesystem path in limitation", leaked_path))
+    oversized = copy.deepcopy(eligible)
+    oversized["limitations"] = ["x" * (evaluator.PUBLISHABLE_LIMITATION_MAX_CHARS + 1)]
+    mutations.append(("oversized limitation", oversized))
+    multiline = copy.deepcopy(eligible)
+    multiline["summary"] = "Aggregate result improved.\nRaw transcript follows."
+    mutations.append(("multiline narrative", multiline))
     forged_index = copy.deepcopy(index)
     forged_index["projects"][0]["attestation"]["recordDigest"] = "f" * 64
     require(not evaluator.validate_story(eligible, forged_index, effectiveness, external,

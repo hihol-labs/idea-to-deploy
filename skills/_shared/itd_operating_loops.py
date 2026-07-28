@@ -52,6 +52,10 @@ ADJUDICATION_FIELDS = {
     "policySha256", "producer", "producerRunId", "assurance", "attempt", "attemptLedger",
     "checkerMode", "dependencies", "outcome", "receiptSha256",
 }
+LEDGER_MAX_BYTES = 4 * 1024 * 1024
+LEDGER_MAX_RECORDS = 10_000
+LEDGER_MAX_LINE_BYTES = 64 * 1024
+LEDGER_READ_CHUNK_BYTES = 64 * 1024
 
 
 class OperatingLoopError(ValueError):
@@ -713,6 +717,51 @@ def _acquire_ledger_lock(fd: int) -> Callable[[], None]:
         raise OperatingLoopError("telemetry append collided with another writer",
                                  "Classify parallel_collision and retry through the host budget.") from exc
 
+def _read_bounded_ledger(fd: int) -> list[dict[str, Any]]:
+    """Stream a bounded JSONL ledger and discard only an uncommitted crash tail."""
+    size = os.fstat(fd).st_size
+    if size > LEDGER_MAX_BYTES:
+        raise OperatingLoopError(
+            "telemetry ledger exceeds the byte limit",
+            "Rotate/archive validated history before retrying; never parse an unbounded ledger.")
+    os.lseek(fd, 0, os.SEEK_SET)
+    records: list[dict[str, Any]] = []
+    pending = bytearray()
+    committed_size = 0
+    while True:
+        chunk = os.read(fd, LEDGER_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        pending.extend(chunk)
+        while True:
+            newline = pending.find(b"\n")
+            if newline < 0:
+                break
+            if newline > LEDGER_MAX_LINE_BYTES:
+                raise OperatingLoopError(
+                    "telemetry ledger line exceeds the byte limit",
+                    "Repair the oversized/corrupt record from source evidence.")
+            raw_line = bytes(pending[:newline])
+            del pending[:newline + 1]
+            committed_size += newline + 1
+            if not raw_line.strip():
+                continue
+            if len(records) >= LEDGER_MAX_RECORDS:
+                raise OperatingLoopError(
+                    "telemetry ledger exceeds the record limit",
+                    "Rotate/archive validated history before appending another run.")
+            records.append(json.loads(raw_line.decode("utf-8")))
+        if len(pending) > LEDGER_MAX_LINE_BYTES:
+            raise OperatingLoopError(
+                "telemetry ledger line exceeds the byte limit",
+                "Repair the oversized/corrupt record from source evidence.")
+    if pending:
+        os.ftruncate(fd, committed_size)
+        os.fsync(fd)
+    return records
+
+
+
 
 def append_run(root: Path, contract: dict[str, Any], run: dict[str, Any], *,
                now: dt.datetime | None = None,
@@ -765,23 +814,10 @@ def append_run(root: Path, contract: dict[str, Any], run: dict[str, Any], *,
         if memory.is_symlink() or memory.resolve() != memory_real:
             raise OperatingLoopError("telemetry boundary changed after locking",
                                      "Classify parallel_collision and retry safely.")
-        existing: list[dict[str, Any]] = []
         try:
-            os.lseek(fd, 0, os.SEEK_SET)
-            chunks = []
-            while True:
-                chunk = os.read(fd, 65536)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-            raw = b"".join(chunks)
-            if raw and not raw.endswith(b"\n"):
-                committed_size = raw.rfind(b"\n") + 1
-                os.ftruncate(fd, committed_size)
-                os.fsync(fd)
-                raw = raw[:committed_size]
-            existing = [json.loads(line) for line in raw.decode("utf-8").splitlines()
-                        if line.strip()]
+            existing = _read_bounded_ledger(fd)
+        except OperatingLoopError:
+            raise
         except Exception as exc:
             raise OperatingLoopError("telemetry ledger is malformed",
                                      "Classify state_rot and repair the append-only ledger.") from exc
@@ -830,6 +866,18 @@ def append_run(root: Path, contract: dict[str, Any], run: dict[str, Any], *,
                 or opened.st_nlink != 1 or current.st_nlink != 1):
             raise OperatingLoopError("telemetry boundary changed before write",
                                      "Classify parallel_collision and retry safely.")
+        if len(payload) - 1 > LEDGER_MAX_LINE_BYTES:
+            raise OperatingLoopError(
+                "telemetry run exceeds the ledger line limit",
+                "Reduce the bounded report payload before appending it.")
+        if len(existing) >= LEDGER_MAX_RECORDS:
+            raise OperatingLoopError(
+                "telemetry ledger reached the record limit",
+                "Rotate/archive validated history before appending another run.")
+        if os.fstat(fd).st_size + len(payload) > LEDGER_MAX_BYTES:
+            raise OperatingLoopError(
+                "telemetry append would exceed the ledger byte limit",
+                "Rotate/archive validated history before appending another run.")
         start_size = os.fstat(fd).st_size
         try:
             offset = 0

@@ -28,6 +28,7 @@ METHODOLOGY_TREE_ROOTS = (
     "docs/HOST_ADAPTER_CONTRACT.md", "docs/host-adapters.json",
 )
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
+EXPECTED_TRANSCRIPT_LIMIT_BYTES = 8 * 1024 * 1024
 
 
 def load_live_runner():
@@ -50,7 +51,19 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 
 def sha256_file(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def bounded_gzip_read(path: Path, limit_bytes: int) -> bytes:
+    with gzip.open(path, "rb") as handle:
+        raw = handle.read(limit_bytes + 1)
+    if len(raw) > limit_bytes:
+        raise ValueError("retained transcript exceeds the declared byte limit")
+    return raw
 
 
 def transcript_result_events(raw: bytes, provider: str) -> list[dict]:
@@ -236,12 +249,25 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
           in {"native-temp", "host-mounted-temp"})
     check("live candidate used a no-escalation approval policy",
           candidate.get("approvalPolicy") == "never-no-escalation")
+    capture_limit = candidate.get("captureLimitBytes")
+    check("live transcript has an enforced byte ceiling",
+          capture_limit == EXPECTED_TRANSCRIPT_LIMIT_BYTES
+          and type(candidate.get("transcriptBytes")) is int
+          and 0 < candidate.get("transcriptBytes", 0) <= capture_limit)
+    check("live transcript records fail-closed sanitization",
+          candidate.get("transcriptSanitized") is True
+          and type(candidate.get("transcriptRedactionCount")) is int
+          and candidate.get("transcriptRedactionCount", -1) >= 0)
     check("all recorded live attempts exited zero",
           bool(attempts)
           and all(item.get("exitCode") == 0
                   and type(item.get("liveResultEvents")) is int
                   and item.get("liveResultEvents", 0) >= 1
                   and item.get("isError") is False
+                  and type(item.get("captureLimitBytes")) is int
+                  and item.get("captureLimitBytes", 0) > 0
+                  and type(item.get("transcriptRedactionCount")) is int
+                  and item.get("transcriptRedactionCount", -1) >= 0
                   for item in attempts))
     check("final live attempt completed the required output set",
           bool(attempts) and attempts[-1].get("missingAfter") == [])
@@ -250,14 +276,18 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
               bool(attempts[0].get("missingAfter"))
               and attempts[1].get("missingBefore") == attempts[0].get("missingAfter"))
     transcript = inside(evidence_root, str(candidate.get("transcriptArtifact") or ""))
-    check("compressed raw transcript is retained", transcript is not None and transcript.is_file())
+    check("compressed sanitized transcript is retained",
+          transcript is not None and transcript.is_file())
     if transcript and transcript.is_file():
         check("compressed transcript hash is pinned",
               sha256_file(transcript) == candidate.get("transcriptGzipSha256"))
         try:
-            raw = gzip.decompress(transcript.read_bytes())
-            check("raw transcript hash is pinned",
+            raw = bounded_gzip_read(
+                transcript, EXPECTED_TRANSCRIPT_LIMIT_BYTES)
+            check("sanitized transcript hash is pinned",
                   "sha256:" + hashlib.sha256(raw).hexdigest() == candidate.get("transcriptSha256"))
+            check("retained transcript length is pinned",
+                  len(raw) == candidate.get("transcriptBytes"))
             provider = str(report.get("provider") or "")
             rows = transcript_result_events(raw, provider)
             check("retained transcript proves successful live result",
@@ -400,6 +430,65 @@ def main() -> int:
           max_attempts == 2)
     check("mutation: one-shot candidate policy is rejected",
           max_attempts == 2 and max_attempts != 1)
+    max_transcript = getattr(runner_module, "MAX_TRANSCRIPT_BYTES", None)
+    bounded_subprocess = getattr(runner_module, "bounded_subprocess", None)
+    sanitize_capture = getattr(runner_module, "sanitize_capture_text", None)
+    capture_limit_exit = getattr(
+        runner_module, "CAPTURE_LIMIT_EXIT_CODE", None)
+    check("live subprocess capture has a fixed byte ceiling",
+          max_transcript == EXPECTED_TRANSCRIPT_LIMIT_BYTES)
+    bounded_capture_ok = False
+    if callable(bounded_subprocess):
+        with tempfile.TemporaryDirectory(prefix="itd-live-capture-") as capture_tmp:
+            completed = bounded_subprocess(
+                [sys.executable, "-c",
+                 "import sys; sys.stdout.write('X' * 4096)"],
+                cwd=Path(capture_tmp), timeout_seconds=10,
+                capture_limit_bytes=512)
+            bounded_capture_ok = (
+                completed.returncode == capture_limit_exit
+                and (
+                    len(completed.stdout.encode("utf-8"))
+                    + len(completed.stderr.encode("utf-8"))
+                ) <= 512
+                and "capture limit" in completed.stderr.lower()
+            )
+    check("provider output overflow is killed before unbounded accumulation",
+          bounded_capture_ok)
+    sanitized_expansion_ok = False
+    if callable(bounded_subprocess):
+        with tempfile.TemporaryDirectory(
+                prefix="itd-live-sanitized-capture-") as capture_tmp:
+            completed = bounded_subprocess(
+                [sys.executable, "-c",
+                 "import sys; sys.stdout.write('a@b.co ' * 60)"],
+                cwd=Path(capture_tmp), timeout_seconds=10,
+                capture_limit_bytes=512)
+            retained = (
+                completed.stdout.encode("utf-8")
+                + completed.stderr.encode("utf-8")
+            )
+            sanitized_expansion_ok = (
+                completed.returncode == capture_limit_exit
+                and len(retained) <= 512
+                and "a@b.co" not in completed.stdout
+                and "capture limit" in completed.stderr.lower()
+                and getattr(completed, "itd_redaction_count", 0) == 60
+            )
+    check("sanitization expansion fails closed inside the aggregate byte ceiling",
+          sanitized_expansion_ok)
+    sanitization_ok = False
+    if callable(sanitize_capture):
+        fake_email = "alice" + "@example.test"
+        fake_key = "sk-" + "A" * 24
+        sanitized, redactions = sanitize_capture(
+            f"contact={fake_email}\napi_key={fake_key}\n")
+        sanitization_ok = (
+            fake_email not in sanitized and fake_key not in sanitized
+            and "[REDACTED" in sanitized and redactions >= 2
+        )
+    check("durable transcript text redacts secret and PII patterns",
+          sanitization_ok)
     missing_outputs = getattr(runner_module, "missing_required_outputs", None)
     recovery_decision = getattr(runner_module, "recovery_decision", None)
     bounded_budget = getattr(runner_module, "bounded_attempt_budget", None)
@@ -498,6 +587,37 @@ def main() -> int:
           and "remaining_seconds = deadline - time.monotonic()" in runner)
     check("runner executes the explicit bounded recovery loop",
           "for attempt_number in range(1, MAX_CANDIDATE_ATTEMPTS + 1)" in runner)
+    run_candidate_region = runner[
+        runner.index("def run_candidate("):
+        runner.index("\ndef fail(")
+    ]
+    bounded_capture_wired = (
+        "bounded_subprocess(" in run_candidate_region
+        and "capture_output=True" not in run_candidate_region
+        and "capture_limit_bytes=capture_limit_bytes" in run_candidate_region
+    )
+    check("live candidate uses the bounded sanitized capture primitive",
+          bounded_capture_wired)
+    bounded_subprocess_region = runner[
+        runner.index("def bounded_subprocess("):
+        runner.index("\ndef atomic_json(")
+    ]
+    post_sanitize_bound = (
+        "sanitized_total_bytes > capture_limit_bytes"
+        in bounded_subprocess_region
+        and "sanitized provider output" in bounded_subprocess_region
+    )
+    mutated_post_sanitize_bound = bounded_subprocess_region.replace(
+        "sanitized_total_bytes > capture_limit_bytes", "False", 1)
+    check("mutation: removed post-sanitization aggregate bound is rejected",
+          sanitized_expansion_ok and post_sanitize_bound
+          and "sanitized_total_bytes > capture_limit_bytes"
+          not in mutated_post_sanitize_bound)
+    mutated_capture_region = run_candidate_region.replace(
+        "bounded_subprocess(", "subprocess.run(")
+    check("mutation: direct unbounded candidate capture is rejected",
+          bounded_capture_wired
+          and "bounded_subprocess(" not in mutated_capture_region)
     candidate_region = runner[
         runner.index("        def archive_current("):
         runner.index("        transcript_hash = sha256_bytes(transcript_raw)")
@@ -559,6 +679,9 @@ def main() -> int:
                     == ["IMPLEMENTATION_PLAN.md"]
                     and transcript_artifact.is_file()
                     and gzip.decompress(transcript_artifact.read_bytes()) == raw
+                    and diagnostic["candidate"]["captureLimitBytes"]
+                    == EXPECTED_TRANSCRIPT_LIMIT_BYTES
+                    and diagnostic["candidate"]["transcriptSanitized"] is True
                 )
     except Exception:
         diagnostic_ok = False
@@ -580,6 +703,16 @@ def main() -> int:
     prompt_names_prd_story_heading = prd_story_heading_directive in live_prompt
     check("live prompt explicitly names the oracle-required PRD story heading",
           prompt_names_prd_story_heading)
+    architecture_cli_heading_directive = (
+        "- In `PROJECT_ARCHITECTURE.md`, place the commands, options, inputs, outputs,\n"
+        "  and exit-code contract under the exact second-level heading\n"
+        "  `## CLI Interface`."
+    )
+    prompt_names_architecture_cli_heading = (
+        architecture_cli_heading_directive in live_prompt
+    )
+    check("live prompt explicitly names the oracle-required CLI interface heading",
+          prompt_names_architecture_cli_heading)
     mutated_prompt = (
         live_prompt.replace(f"`{required_outputs[0]}`", "", 1)
         if required_outputs else live_prompt
@@ -591,6 +724,11 @@ def main() -> int:
     check("mutation: omitted PRD story heading fails closed",
           prompt_names_prd_story_heading
           and prd_story_heading_directive not in mutated_story_prompt)
+    mutated_architecture_prompt = live_prompt.replace(
+        architecture_cli_heading_directive, "", 1)
+    check("mutation: omitted CLI interface heading fails closed",
+          prompt_names_architecture_cli_heading
+          and architecture_cli_heading_directive not in mutated_architecture_prompt)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

@@ -1,0 +1,7 @@
+diff --git a/src/invoice.py b/src/invoice.py
+index 47400c7..38d7654 100644
+--- a/src/invoice.py
++++ b/src/invoice.py
+@@ -6 +6 @@ def total_with_tax(subtotal_cents: int, tax_basis_points: int) -> int:
+-    return subtotal_cents + (subtotal_cents * tax_basis_points // 100)
++    return subtotal_cents + (subtotal_cents * tax_basis_points // 10_000)

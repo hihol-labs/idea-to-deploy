@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "id": "fresh-session-worktree-v1",
+  "enabledByDefault": false,
+  "providerNeutral": true,
+  "commands": {
+    "packet": "create a closed, hash-bound unit packet from canonical parent state",
+    "prepare": "create a detached linked worktree and read-only session artifacts",
+    "finalize": "bind the session artifact to the exact staged candidate tree"
+  },
+  "packetSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "kind",
+      "unitId",
+      "baseCommit",
+      "allowedPaths",
+      "mutableResources",
+      "sharedMutableResources",
+      "parentState"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "kind": {
+        "const": "fresh-session-unit-packet"
+      },
+      "unitId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "baseCommit": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "allowedPaths": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)(?!.*[\\u0000-\\u001f])[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+        }
+      },
+      "mutableResources": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        }
+      },
+      "sharedMutableResources": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "parentState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "const": ".itd-memory/STATE.json"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "makerSession": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "sessionSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "kind",
+      "unitId",
+      "sessionId",
+      "packetSha256",
+      "parentStateSha256",
+      "stateOwner",
+      "baseCommit",
+      "candidateTree",
+      "worktreeRoot",
+      "worktreeGitDir",
+      "gitCommonDir",
+      "packet",
+      "parentStateSnapshot",
+      "mutableNamespaces",
+      "namespaceManifestSha256",
+      "sharedMutableFallbacks",
+      "completionEvidence",
+      "externalAdoptionEvidence",
+      "fixtureCompatibility",
+      "syntheticParentState",
+      "createdAt"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "kind": {
+        "const": "fresh-session-worktree"
+      },
+      "unitId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "sessionId": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{32}$"
+      },
+      "packetSha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "parentStateSha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "stateOwner": {
+        "const": "parent"
+      },
+      "baseCommit": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "candidateTree": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "worktreeRoot": {
+        "type": "string",
+        "minLength": 1
+      },
+      "worktreeGitDir": {
+        "type": "string",
+        "minLength": 1
+      },
+      "gitCommonDir": {
+        "type": "string",
+        "minLength": 1
+      },
+      "packet": {
+        "type": "string",
+        "minLength": 1
+      },
+      "parentStateSnapshot": {
+        "type": "string",
+        "minLength": 1
+      },
+      "mutableNamespaces": {
+        "type": "object",
+        "minProperties": 1,
+        "propertyNames": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resource",
+            "sessionId",
+            "id",
+            "exclusive",
+            "shared"
+          ],
+          "properties": {
+            "resource": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+            },
+            "sessionId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,63}:[0-9a-f]{32}$"
+            },
+            "exclusive": {
+              "const": true
+            },
+            "shared": {
+              "const": false
+            }
+          }
+        }
+      },
+      "namespaceManifestSha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "sharedMutableFallbacks": {
+        "const": 0
+      },
+      "completionEvidence": {
+        "const": false
+      },
+      "externalAdoptionEvidence": {
+        "const": false
+      },
+      "fixtureCompatibility": {
+        "const": false
+      },
+      "syntheticParentState": {
+        "const": false
+      },
+      "createdAt": {
+        "type": "string",
+        "minLength": 1
+      },
+      "makerSession": {
+        "type": "string",
+        "minLength": 1
+      },
+      "finalizedAt": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "runtimeInvariants": [
+      "Each mutableNamespaces key equals its value.resource.",
+      "Each namespace value.sessionId equals the enclosing sessionId.",
+      "Each namespace value.id equals '<resource>:<sessionId>'.",
+      "The namespace key set exactly equals the packet mutableResources set.",
+      "Every allowed path is lexically and physically contained by the parent repository and has no symlink or reparse component.",
+      "The packet, parent-state snapshot, and successful session artifact are regular read-only files physically contained by the isolated worktree session directory."
+    ]
+  },
+  "failurePolicy": {
+    "mode": "fail-closed",
+    "fallbackWorktree": false,
+    "fallbackNamespace": false,
+    "cleanupPartialWorktree": true,
+    "successfulSessionArtifactOnFailure": false,
+    "worktreePresentOnFailedNewTarget": false,
+    "actionableErrorFields": [
+      "status",
+      "why",
+      "fix"
+    ]
+  }
+}

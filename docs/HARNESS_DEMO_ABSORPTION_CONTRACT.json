@@ -1,0 +1,280 @@
+{
+  "version": 4,
+  "id": "harness-demo-ux-absorption-v4",
+  "frozenAt": "2026-07-27T05:10:09Z",
+  "approvalProvenance": {
+    "kind": "host-observed-user-turn",
+    "threadId": "019f9eb9-6a10-70d0-8500-a8b74d46335a",
+    "observedAt": "2026-07-26T14:18:19Z",
+    "normalizedInstruction": "реализуй: context-модули в /adopt; captured reproducible example run; PIV-lite brownfield façade without new lifecycle skills; incremental diagnostic pilot with telemetry; fresh-session/worktree pilot on three real tasks; semantic-navigation capability when multi-language demand is confirmed.",
+    "instructionSha256": "b4e4d275982a479ccfcf145ad5a228fcb6fa7867a5b4d7b29fc8807e8daeee72"
+  },
+  "repairApprovalProvenance": {
+    "kind": "host-observed-user-turn",
+    "threadId": "019f9eb9-6a10-70d0-8500-a8b74d46335a",
+    "observedAt": "2026-07-26T17:27:10Z",
+    "userInstruction": "одобряю",
+    "instructionSha256": "84e3cee2f4b01373f7d6ffc576db07f64cbba8e01a49e341c5ae2cd2eccd3735",
+    "approvedChange": "versioned repair oracle: exclude reserved underscore-prefixed skill directories from public lifecycle skill enumeration; preserve public baseline 40 and delta 0; issue contract v2 and continue HDX-004",
+    "approvedChangeSha256": "4eaa12962c7c17d648af4342025db411e60da1c758968c36ec8c13fdfc2590ce",
+    "baseCandidateTree": "cfdd5ae845d8efbf1853dfcd81d17fbb7238d9a2",
+    "allowedChangedPaths": [
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json",
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256",
+      "tests/verify_harness_demo_absorption.py"
+    ],
+    "scopeBinding": "verification-loop-v1 exact candidate plus base-tree delta",
+    "acceptedRepairCandidateTree": "e6690162c45d8cf5c5bcebccd83a9aebb8d11bd3",
+    "acceptedRepairSeal": {
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json": "20940c6238b15f9c9cca8118644cd6819272b61cb343099bbed142b7636c4b64",
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256": "654f196fd687d273e2a4a667bc0d92c7cf7d96e1c294b474b15f775828f88a48",
+      "tests/verify_harness_demo_absorption.py": "e991bd09a7a5f0ea2b14de4d4cc4e67b866220f8beaa3ef13a15528ad229e222"
+    }
+  },
+  "successorApprovalProvenance": {
+    "kind": "host-observed-user-turn",
+    "threadId": "019f9eb9-6a10-70d0-8500-a8b74d46335a",
+    "observedAt": "2026-07-26T18:05:26Z",
+    "userInstruction": "Одобряю v3: проверять точный v2 repair на сохранённом tree e6690162…, не требуя от последующих HDX-кандидатов иметь только его три файла; остальные frozen-гарантии сохранить.",
+    "instructionSha256": "c4982a41bf4a014a32edae7db2541123c9974d37c627cfb7a757071d095a81b2",
+    "approvedChange": "contract v3: validate the exact v2 repair historically between cfdd5ae845d8efbf1853dfcd81d17fbb7238d9a2 and e6690162c45d8cf5c5bcebccd83a9aebb8d11bd3, while successor unit deltas remain bound by Scope Lock and exact-candidate Verification Loop",
+    "approvedChangeSha256": "700d37b2a56beb935091931353fc313689023b9cd571ad3f61643e1a85a095e1"
+  },
+  "securityRepairApprovalProvenance": {
+    "kind": "host-observed-user-turn",
+    "threadId": "019f9eb9-6a10-70d0-8500-a8b74d46335a",
+    "observedAt": "2026-07-27T05:10:09Z",
+    "userInstruction": "Одобряю v4 security repair: в sealed isolation fixture заменить four-field legacy packet на полный hash-bound v1 packet с parent STATE и mutableResources; изменить frozen contract, digest и verifier для historical repair; после этого удалить compatibility из production runner; проверять exact v4 repair исторически, не требуя от последующих HDX-кандидатов иметь только эти три frozen-файла; остальные frozen-гарантии сохранить.",
+    "instructionSha256": "bb50c15b289e18c6c9afc8952cd7d39bc1a9293955d2c40490124bcd52ad1e46",
+    "approvedChange": "contract v4 security repair: replace the sealed isolation fixture four-field legacy packet with a full hash-bound v1 packet containing parent STATE and mutableResources; change only the frozen contract, digest, and verifier for the historical repair; remove compatibility from the production runner afterward; validate the exact v4 repair historically without restricting successor HDX candidates to only those three frozen files; preserve all other frozen guarantees",
+    "approvedChangeSha256": "d0afe6de1581d4cd5a69f289da1bb29839c666bc8b4d772bc17660705374c022",
+    "baseCandidateTree": "0d48fdd6893ec90e0712c03917306cde6eb35d27",
+    "allowedChangedPaths": [
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json",
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256",
+      "tests/verify_harness_demo_absorption.py"
+    ],
+    "scopeBinding": "verification-loop-v1 exact historical repair plus successor exact-candidate receipts",
+    "successorDeltaPolicy": "successor HDX candidates are bound by Scope Lock and need not contain only the three historical repair files"
+  },
+  "decision": "docs/adr/ADR-004-harness-demo-ux-absorption.md",
+  "source": {
+    "repository": "https://github.com/coleam00/harness-engineering-demo",
+    "reviewedCommit": "0eef0112daeaf3b5067d39b030ca33e53bf4c61b",
+    "adaptation": "Independent ITD implementation of selected UX and feedback-loop ideas; no vendored runtime or copied implementation."
+  },
+  "changePolicy": {
+    "mode": "new-version-and-human-approval",
+    "rule": "After freeze, requirements and thresholds are immutable. A changed oracle needs a new contract version, digest, goal unit, and explicit project-owner approval."
+  },
+  "invariants": {
+    "wip": 1,
+    "ownedRuntime": false,
+    "newLifecycleSkills": 0,
+    "canonicalState": [".itd", ".itd-memory"],
+    "authoritativeMarkdownState": false,
+    "authoritativeSentinelState": false,
+    "completionAuthority": "verification-loop-v1 exact staged candidate",
+    "isolationFailure": "fail-closed",
+    "internalPilotCountsAsExternalAdoption": false,
+    "bundledLanguageSpecificNavigationServer": false
+  },
+  "thresholds": {
+    "generatedContextIndexes": {"required": 1, "unsupportedClaims": 0},
+    "capturedExampleReplays": {"passed": 1, "required": 1},
+    "publicLifecycleSkills": {
+      "root": "skills",
+      "population": "top-level-directories-containing-SKILL.md",
+      "reservedNamePrefix": "_",
+      "reservedSkillDirectories": ["_shared"],
+      "baseline": 40,
+      "baselineNames": [
+        "adopt",
+        "advisor",
+        "autopilot",
+        "blueprint",
+        "browser-check",
+        "bugfix",
+        "caveman",
+        "context-mode-setup",
+        "cross-review",
+        "deploy",
+        "deps-audit",
+        "discover",
+        "doc",
+        "explain",
+        "github-workflow",
+        "goal",
+        "grill-me",
+        "guide",
+        "handoff",
+        "harden",
+        "infra",
+        "kickstart",
+        "market-scan",
+        "mcp-docs",
+        "migrate",
+        "migrate-prod",
+        "obsidian-export",
+        "perf",
+        "project",
+        "refactor",
+        "retro",
+        "review",
+        "security-audit",
+        "security-guidance-setup",
+        "seo-setup",
+        "session-save",
+        "strategy",
+        "task",
+        "test",
+        "tool-sync"
+      ]
+    },
+    "publicLifecycleSkillDelta": 0,
+    "incrementalDiagnostics": {
+      "defaultOn": false,
+      "acceptanceEvidence": false,
+      "minimumLabeledRuns": 30,
+      "minimumLabeledEmissions": 30,
+      "baseline": "same project checks without incremental diagnostics",
+      "treatment": "same project checks with the opt-in incremental profile",
+      "falseNoiseDefinition": "human-labeled nonactionable diagnostics divided by all emitted diagnostics",
+      "medianLatencyMsMax": 2000,
+      "p95LatencyMsMax": 5000,
+      "falseNoiseRatioMax": 0.1,
+      "measurement": "host-observed"
+    },
+    "freshSessionPilots": {
+      "passed": 3,
+      "required": 3,
+      "minimumMutableResourcesPerPilot": 1,
+      "sessionIdPattern": "^[0-9a-f]{32}$",
+      "namespaceScheme": "resource-plus-exact-session",
+      "sharedMutableFallbacksMax": 0,
+      "exactCandidateReceiptRequired": true
+    },
+    "sealedIsolationFixture": {
+      "packetVersion": 1,
+      "packetKind": "fresh-session-unit-packet",
+      "parentStateOwner": "parent",
+      "parentStateHashRequired": true,
+      "minimumMutableResources": 1,
+      "sharedMutableResources": [],
+      "legacyFourFieldPacketAllowed": false,
+      "completionEvidence": false,
+      "externalAdoptionEvidence": false
+    },
+    "semanticNavigation": {
+      "demandGateRequired": true,
+      "notActivatedIsValidDecision": true,
+      "requiredLanguages": ["python", "typescript"],
+      "operations": ["definitions", "references", "outline"],
+      "plainTextFallbackRequired": true,
+      "coverageDeclarationRequired": true,
+      "confidenceDeclarationRequired": true
+    }
+  },
+  "units": [
+    {"id": "HDX-001", "phase": "contract", "deliverable": "accepted strategy and frozen mutation-tested contract"},
+    {"id": "HDX-002", "phase": "context", "deliverable": "source-backed generated context index in /adopt"},
+    {"id": "HDX-003", "phase": "facade", "deliverable": "captured-run schema and replay oracle"},
+    {"id": "HDX-004", "phase": "facade", "deliverable": "PIV-lite route through existing lifecycle skills"},
+    {"id": "HDX-005", "phase": "facade", "deliverable": "populated reproducible brownfield example"},
+    {"id": "HDX-006", "phase": "diagnostics", "deliverable": "default-off advisory diagnostics kit"},
+    {"id": "HDX-007", "phase": "diagnostics", "deliverable": "30-run labeled A/B diagnostic decision"},
+    {"id": "HDX-008", "phase": "isolation", "deliverable": "fail-closed fresh-session worktree kit"},
+    {"id": "HDX-009", "phase": "isolation", "deliverable": "real project pilot A"},
+    {"id": "HDX-010", "phase": "isolation", "deliverable": "real project pilot B"},
+    {"id": "HDX-011", "phase": "isolation", "deliverable": "real project pilot C and 3/3 decision"},
+    {"id": "HDX-012", "phase": "navigation", "deliverable": "multi-language semantic-navigation demand decision"},
+    {"id": "HDX-013", "phase": "navigation", "deliverable": "conditional provider-neutral semantic navigation or explicit not_activated record"},
+    {"id": "HDX-014", "phase": "all", "deliverable": "exact-candidate release verification"}
+  ],
+  "phases": [
+    {
+      "id": "contract",
+      "unitId": "HDX-001",
+      "criterion": "The approved strategy, immutable thresholds, negative invariants, and mutation guards pass before behavior changes.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase contract"]
+    },
+    {
+      "id": "context",
+      "unitId": "HDX-002",
+      "criterion": "Adoption emits source-backed conditional context views whose freshness is validated and whose authority is derived-only.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase context"]
+    },
+    {
+      "id": "facade",
+      "unitId": "HDX-005",
+      "criterion": "A reproducible captured run and a PIV-lite route reuse the existing lifecycle and completion authority.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase facade"]
+    },
+    {
+      "id": "diagnostics",
+      "unitId": "HDX-007",
+      "criterion": "Default-off incremental diagnostics meet the frozen latency/noise thresholds and remain advisory.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase diagnostics"]
+    },
+    {
+      "id": "isolation",
+      "unitId": "HDX-011",
+      "criterion": "Three fresh-session isolated pilots pass with exact-candidate receipts and no shared mutable fallback.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase isolation"]
+    },
+    {
+      "id": "navigation",
+      "unitId": "HDX-013",
+      "criterion": "A frozen demand gate returns activated or not_activated; only an activated gate requires provider-neutral Python and TypeScript semantic navigation with honest degradation.",
+      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase navigation"]
+    },
+    {
+      "id": "all",
+      "unitId": "HDX-014",
+      "criterion": "Every phase and the existing host, harness, quality, and regression gates pass on one exact release candidate.",
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase all",
+        "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
+        "sh skills/_shared/itd_py.sh tests/meta_review.py",
+        "bash tests/run-all.sh --quick",
+        "bash tests/run-all.sh"
+      ]
+    }
+  ],
+  "mutationGuards": [
+    "owned_runtime",
+    "wip_above_one",
+    "new_lifecycle_skill",
+    "markdown_authority",
+    "sentinel_authority",
+    "non_exact_completion",
+    "isolation_fail_open",
+    "synthetic_external_adoption",
+    "diagnostics_default_on",
+    "diagnostics_as_acceptance",
+    "diagnostic_sample_reduced",
+    "latency_threshold_weakened",
+    "noise_threshold_weakened",
+    "pilot_count_reduced",
+    "empty_mutable_namespace",
+    "substring_session_namespace",
+    "shared_mutable_namespace",
+    "shared_resource_fallback",
+    "single_language_navigation",
+    "missing_plain_text_fallback",
+    "bundled_language_specific_server",
+    "mutable_contract_without_approval",
+    "missing_approval_provenance",
+    "missing_repair_approval",
+    "public_skill_reserved_scope",
+    "public_skill_baseline_drift",
+    "repair_base_tree_drift",
+    "repair_scope_expansion",
+    "missing_successor_approval",
+    "accepted_repair_tree_drift",
+    "accepted_repair_seal_drift",
+    "missing_security_repair_approval",
+    "security_repair_scope_expansion",
+    "legacy_unbound_isolation_fixture"
+  ]
+}

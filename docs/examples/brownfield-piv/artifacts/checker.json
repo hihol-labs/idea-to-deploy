@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "kind": "checker",
+  "createdAt": "2026-07-26T19:05:54Z",
+  "unitId": "BF-017",
+  "riskTier": "medium",
+  "candidate": {
+    "repository": "/tmp/itd-hdx005.aV5kBH",
+    "baseCommit": "60ce420edd32faf2704aa0ccf39499543785d9bd",
+    "reviewedTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+    "diffHash": "17134f4f23212acbd216d00b658be95936f05f2cc5da56da1995f61f3e22779c",
+    "scopeContractHash": "missing",
+    "acceptanceContractHash": "missing",
+    "rubricHash": "fa9b81aa27c7f4343bffc7e23bae1d826916b749577004e3762193180311882e",
+    "methodologyVersion": "1.93.0",
+    "riskTier": "medium"
+  },
+  "candidateDigest": "sha256:8c62dfcd1b41cdce75e76db7f3bbabaf22e0cde6776602092bf577ae553645ea",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "semantic-checker",
+    "host": "Linux"
+  },
+  "producerRunId": "ced21e798720af20dfeb734f2d508138",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "inspectedTree": "1cb2d77d4b4f7ce787a977d14d12078ba211b011",
+  "checkerMode": "targeted",
+  "provenance": {
+    "maker": {
+      "provider": "openai",
+      "model": "gpt-5",
+      "session": "019f9eb96a1070d08500a8b74d46335a"
+    },
+    "checker": {
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "session": "/root/hdx005_fixture_review"
+    }
+  },
+  "artifacts": {
+    "report": {
+      "path": ".itd-memory/verification-loop/reports/BF-017.json",
+      "sha256": "3e09f9a074fbf1c21f694313fdecf3a2d36c2b5f1b2158a8e95040570bae13e4"
+    },
+    "prompt": {
+      "path": ".itd-memory/verification-loop/prompts/BF-017.md",
+      "sha256": "e4c7bda43e30f7637c2df0533f28e407ded76a305b6cac09705755e299a3b342"
+    }
+  },
+  "verdict": "PASSED",
+  "findings": [],
+  "unverified": [],
+  "receiptSha256": "8bd41a9e87050f859bb67645eb6625ed206127d90a4e7b86fcd80b09ee8868b1"
+}

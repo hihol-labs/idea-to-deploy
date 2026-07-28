@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Fail-closed publication and active-install proof for operating loops v1.93.0."""
+"""Fail-closed publication and dual-host active-install proof for v1.94.0."""
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -12,11 +13,50 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.93.0"
+VERSION = "1.94.0"
 DEFAULT_BRANCH = "codex/operating-loops-v1"
+ACCEPTANCE_CONTRACT_SHA256 = "f17567d5cd1a479cec3d66df0d734be43505eabacb706305fb09cf670c03f7ef"
+SCOPE_LOCK_SHA256 = "2286b852a27e8ef7db8cd8a6274670f4b050f3a9a628bca11a9c9811eed20d04"
+EXPECTED_CRITERIA_COMMANDS = {
+    "RLS-001-AC1": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase candidate",
+    "RLS-001-AC2": (
+        "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && "
+        "sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick && "
+        "bash tests/run-all.sh"
+    ),
+    "RLS-001-AC3": "sh skills/_shared/itd_py.sh tests/verify_harness_demo_portable.py",
+}
+EXPECTED_POST_COMMIT_COMMANDS = {
+    "RLS-PUB-1": (
+        "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py "
+        "--phase publication --branch codex/operating-loops-v1"
+    ),
+    "RLS-DEPLOY-1": (
+        "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py "
+        "--phase deployment --branch codex/operating-loops-v1"
+    ),
+}
+EXPECTED_SCOPE_SENTINELS = (
+    "# Scope Lock — v1.94.0 publication and dual-host deployment",
+    "## Current Task",
+    "## Allowed Change Areas Before Freeze",
+    "## Forbidden Change Areas",
+    "## Exact Release Oracle",
+    "No new methodology behavior is allowed.",
+    "repair of an evidence-backed release blocker, followed by a fresh exact candidate and all release checks",
+    "a sealed portable export of the already validated internal pilot evidence graph plus a separate self-contained oracle",
+    "frozen Harness Demo contract, digest, verifier, or historical v4 repair",
+    "must execute the sealed portable Harness Demo proof, all self-contained frozen behavioral phases, the 34 frozen mutation guards, and the historical v4 fixture.",
+    "merge, tag, production application deployment, or any external write outside the requested branch push, pull request, and local methodology installation",
+    "Fresh bound security and general reviews must inspect that same tree.",
+    "Any tracked mutation invalidates pre-mutation evidence.",
+)
 RECIPES = (
     "state freshness",
     "test regression",
@@ -26,83 +66,105 @@ RECIPES = (
     "documentation drift",
 )
 EXPECTED_CHANGED = {
-    ".github/workflows/meta-review.yml",
-    ".github/workflows/windows-verify.yml",
     ".claude-plugin/marketplace.json",
     ".claude-plugin/plugin.json",
     ".codex-plugin/plugin.json",
     "CHANGELOG.md",
-    "AGENTS.md",
     "LAUNCH_PLAN.md",
     "README.md",
     "README.ru.md",
-    "agents/code-reviewer.md",
     "benchmarks/working-deadline/CORPUS.json",
     "benchmarks/working-deadline/CORPUS.sha256",
-    "docs/CODEX_ADAPTER.md",
-    "docs/CONTRACTS.md",
     "docs/HARNESS_CONFORMANCE_REPORT.md",
     "docs/HARNESS_DOCS_STATE.json",
     "docs/HARNESS_ENGINEERING_MAP.md",
-    "docs/HOST_ADAPTER_CONTRACT.md",
-    "docs/OPERATING_LOOPS.md",
     "docs/QUALITY.json",
-    "docs/VERIFICATION_LOOP.md",
-    "docs/adr/ADR-003-proof-carrying-verification-loop.md",
-    "docs/external-validation/OPERATING_LOOP_STORIES.md",
-    "docs/external-validation/PROTOCOL.md",
-    "docs/host-adapters.json",
-    "docs/templates/global-claude-md.md",
-    "docs/templates/itd/OPERATING_LOOP_CONTRACT.json",
-    "docs/templates/itd/OPERATING_LOOP_CONTRACT.schema.json",
-    "docs/templates/itd/OPERATING_LOOP_FAILURE_STORY.json",
-    "docs/templates/itd/OPERATING_LOOP_RUN.schema.json",
-    "docs/templates/itd/OPERATING_LOOP_STORY.schema.json",
-    "docs/templates/itd/OPERATING_LOOP_SUCCESS_STORY.json",
-    "docs/templates/global-codex-agents.md",
-    "docs/templates/itd-memory/goal.schema.json",
-    "docs/templates/itd/VERIFICATION_CONTRACT.json",
-    "docs/templates/itd/VERIFICATION_LOOP_CONTRACT.json",
-    "hooks/check-dod-before-commit.sh",
     "hooks/validate_state_core.py",
     "scripts/itd_external_outcomes.py",
-    "skills/_shared/VERIFICATION_LOOP_POLICY.json",
     "skills/_shared/WORKING_DEADLINE_POLICY.json",
     "skills/_shared/itd_verification_loop.py",
-    "skills/_shared/OPERATING_LOOP_POLICY.json",
     "skills/_shared/OPERATING_LOOP_RECIPES.json",
     "skills/_shared/itd_operating_loops.py",
-    "skills/goal/SKILL.md",
-    "skills/goal/scripts/itd_goal_verify.py",
-    "skills/kickstart/SKILL.md",
-    "skills/review/SKILL.md",
     "skills/review/scripts/itd_review_cache.py",
-    "skills/security-audit/SKILL.md",
     "skills/task/SKILL.md",
-    "tests/run-all.sh",
-    "tests/fixtures/fixture-03-cli-tool/live-prompt.md",
-    "tests/fixtures/live-model-evidence/latest.json",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/CLAUDE.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/CLAUDE_CODE_GUIDE.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/IMPLEMENTATION_PLAN.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/PRD.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/PROJECT_ARCHITECTURE.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/output/STRATEGIC_PLAN.md",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/run-report.json",
-    "tests/fixtures/live-model-evidence/runs/20260723T094526Z-fd911933/transcript.jsonl.gz",
-    "tests/verification_loop_fixture.py",
-    "tests/verify_all_hard_gate_host_parity.py",
-    "tests/verify_dod_gate.py",
-    "tests/verify_goal_bounded_autonomy.py",
-    "tests/verify_live_model_benchmark.py",
     "tests/verify_operating_loops.py",
     "tests/verify_operating_loops_release.py",
     "tests/verify_review_cache.py",
-    "tests/verify_review_sentinel_diffbind.py",
-    "tests/verify_risk_score.py",
     "tests/verify_verification_loop.py",
     "tests/verify_work_deadline_contract.py",
 }
+EXPECTED_CHANGED.update({
+    ".itd-memory/GOAL.json",
+    ".itd-memory/STATE.json",
+    ".itd/ACCEPTANCE_CONTRACT.json",
+    ".itd/SCOPE_LOCK.md",
+    "BACKLOG.md",
+    "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json",
+    "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256",
+    "docs/adr/ADR-004-harness-demo-ux-absorption.md",
+    "docs/diagnostics-pilot/LABEL_PACKET.json",
+    "docs/diagnostics-pilot/OBSERVATIONS.json",
+    "docs/diagnostics-pilot/RESULTS.json",
+    "docs/examples/brownfield-piv/artifacts/adjudication.json",
+    "docs/examples/brownfield-piv/artifacts/checker-prompt.md",
+    "docs/examples/brownfield-piv/artifacts/checker.json",
+    "docs/examples/brownfield-piv/artifacts/context.json",
+    "docs/examples/brownfield-piv/artifacts/machine.json",
+    "docs/examples/brownfield-piv/artifacts/metrics.json",
+    "docs/examples/brownfield-piv/artifacts/review.json",
+    "docs/examples/brownfield-piv/artifacts/task-contract.md",
+    "docs/examples/brownfield-piv/artifacts/ticket.md",
+    "docs/examples/brownfield-piv/before/.gitignore",
+    "docs/examples/brownfield-piv/before/src/invoice.py",
+    "docs/examples/brownfield-piv/before/tests/test_invoice.py",
+    "docs/examples/brownfield-piv/manifest.json",
+    "docs/examples/brownfield-piv/manifest.schema.json",
+    "docs/examples/brownfield-piv/patch.diff",
+    "docs/harness-demo-pilots/INDEX.json",
+    "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json",
+    "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256",
+    "docs/harness-demo-pilots/PORTABLE_EVIDENCE.json",
+    "docs/harness-demo-pilots/PORTABLE_EVIDENCE.sha256",
+    "docs/semantic-navigation/DEMAND.json",
+    "docs/templates/itd/AGENT_CONTEXT_CONTRACT.json",
+    "docs/templates/itd/FRESH_SESSION_WORKTREE_CONTRACT.json",
+    "docs/templates/itd/INCREMENTAL_DIAGNOSTICS_CONTRACT.json",
+    "docs/templates/itd/TOOL_CAPABILITY_REGISTRY.json",
+    "skills/_shared/itd_captured_run.py",
+    "skills/_shared/itd_diagnostics_pilot.py",
+    "skills/_shared/itd_fresh_session_worktree.py",
+    "skills/_shared/itd_incremental_diagnostics.py",
+    "skills/_shared/itd_semantic_navigation.py",
+    "skills/adopt/SKILL.md",
+    "skills/adopt/references/codex-adoption.md",
+    "skills/adopt/scripts/itd_context_map.py",
+    "skills/task/PIV_LITE_ROUTE.json",
+    "skills/task/references/routing-matrix.md",
+    "tests/verify_adopt_context.py",
+    "tests/verify_diagnostics_pilot.py",
+    "tests/verify_fresh_session_worktree.py",
+    "tests/verify_harness_demo_absorption.py",
+    "tests/verify_harness_demo_portable.py",
+    "tests/verify_harness_demo_capture_schema.py",
+    "tests/verify_harness_demo_pilots.py",
+    "tests/verify_incremental_diagnostics.py",
+    "tests/fixtures/fixture-03-cli-tool/live-prompt.md",
+    "tests/fixtures/live-model-evidence/latest.json",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE_CODE_GUIDE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/IMPLEMENTATION_PLAN.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PRD.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PROJECT_ARCHITECTURE.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/STRATEGIC_PLAN.md",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/run-report.json",
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/transcript.jsonl.gz",
+    "tests/run-live-model-benchmark.py",
+    "tests/verify_semantic_navigation.py",
+    "tests/verify_semantic_navigation_demand.py",
+    "tests/verify_state_hardening.py",
+    "tests/verify_task_piv_lite.py",
+    "tests/verify_live_model_benchmark.py",
+})
 
 
 class ReleaseError(RuntimeError):
@@ -143,6 +205,103 @@ def json_file(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
+
+def validate_release_contracts(acceptance: dict, scope: str, *,
+                               acceptance_raw: bytes | None = None,
+                               scope_raw: bytes | None = None,
+                               enforce_hashes: bool = True) -> dict:
+    if enforce_hashes:
+        require(acceptance_raw is not None and scope_raw is not None,
+                "release contract hash inputs are missing")
+        require(sha256_bytes(acceptance_raw) == ACCEPTANCE_CONTRACT_SHA256,
+                "RLS acceptance contract differs from the exact reviewed contract")
+        require(sha256_bytes(scope_raw) == SCOPE_LOCK_SHA256,
+                "RLS scope lock differs from the exact reviewed scope")
+    require(set(acceptance) == {
+        "version", "purpose", "sourceRequest", "createdAt", "criteriaSchema",
+        "criteria", "postCommitVerification", "doneRule",
+    }, "RLS acceptance contract top-level fields are not closed")
+    require(acceptance.get("version") == 1 and acceptance.get("createdAt") == "2026-07-27",
+            "RLS acceptance contract version/date drifted")
+    require(acceptance.get("sourceRequest") == (
+        "Publish the accepted Harness Engineering absorption, deploy it to WSL and Windows, "
+        "and make the latest ITD methodology the default in every directory."
+    ), "RLS source request no longer matches the approved release/deployment goal")
+    schema = acceptance.get("criteriaSchema")
+    require(schema == {
+        "requiredFields": ["id", "criterion", "source", "evidence",
+                           "verificationCommand", "status"],
+        "allowedStatus": ["pending", "passed", "failed", "recovery_required"],
+    }, "RLS criteria schema drifted")
+    criteria = acceptance.get("criteria")
+    require(isinstance(criteria, list)
+            and [item.get("id") for item in criteria if isinstance(item, dict)]
+            == list(EXPECTED_CRITERIA_COMMANDS),
+            "RLS-001 criteria are missing, reordered, or substituted")
+    for item in criteria:
+        require(set(item) == set(schema["requiredFields"]),
+                f"{item.get('id')} fields are not closed")
+        require(item.get("status") == "passed",
+                f"{item.get('id')} is not evidence-backed passed")
+        require(item.get("verificationCommand") == EXPECTED_CRITERIA_COMMANDS[item["id"]],
+                f"{item.get('id')} verification command drifted")
+        require(all(isinstance(item.get(field), str) and item[field].strip()
+                    for field in ("criterion", "source", "evidence")),
+                f"{item.get('id')} narrative contract is empty")
+    post_commit = acceptance.get("postCommitVerification")
+    require(isinstance(post_commit, list)
+            and [item.get("id") for item in post_commit if isinstance(item, dict)]
+            == list(EXPECTED_POST_COMMIT_COMMANDS),
+            "post-commit publication/deployment criteria drifted")
+    for item in post_commit:
+        require(set(item) == {"id", "criterion", "verificationCommand"}
+                and isinstance(item.get("criterion"), str) and item["criterion"].strip()
+                and item.get("verificationCommand") == EXPECTED_POST_COMMIT_COMMANDS[item["id"]],
+                f"{item.get('id')} post-commit contract drifted")
+    require(acceptance.get("doneRule") == (
+        "The immutable candidate is accepted only when every criterion is passed and one current "
+        "exact-candidate Verification Loop adjudication re-runs every named command. The user goal "
+        "remains active until both post-commit verification commands also pass."
+    ), "RLS done rule was weakened")
+    normalized_scope = " ".join(scope.split())
+    for sentinel in EXPECTED_SCOPE_SENTINELS:
+        require(" ".join(sentinel.split()) in normalized_scope,
+                f"RLS scope lock omits immutable constraint: {sentinel}")
+    require(scope.count("## Current Task") == 1
+            and scope.count("## Allowed Change Areas Before Freeze") == 1
+            and scope.count("## Forbidden Change Areas") == 1
+            and scope.count("## Exact Release Oracle") == 1,
+            "RLS scope sections are duplicated or missing")
+    return {"criteria": len(criteria), "postCommitCriteria": len(post_commit)}
+
+
+def release_contract_mutation_guards(acceptance: dict, scope: str) -> int:
+    cases: list[tuple[str, dict, str]] = []
+    status = copy.deepcopy(acceptance)
+    status["criteria"][0]["status"] = "pending"
+    cases.append(("criterion status", status, scope))
+    command = copy.deepcopy(acceptance)
+    command["criteria"][0]["verificationCommand"] = "true"
+    cases.append(("criterion command", command, scope))
+    missing = copy.deepcopy(acceptance)
+    missing["criteria"].pop()
+    cases.append(("missing criterion", missing, scope))
+    schema = copy.deepcopy(acceptance)
+    schema["criteriaSchema"]["allowedStatus"].append("skipped")
+    cases.append(("criteria schema", schema, scope))
+    post = copy.deepcopy(acceptance)
+    post["postCommitVerification"][1]["verificationCommand"] = "true"
+    cases.append(("deployment command", post, scope))
+    cases.append(("scope weakening", copy.deepcopy(acceptance),
+                  scope.replace("No new methodology behavior is allowed.", "")))
+    for label, mutant, mutant_scope in cases:
+        try:
+            validate_release_contracts(mutant, mutant_scope, enforce_hashes=False)
+        except ReleaseError:
+            continue
+        raise ReleaseError(f"release contract mutation survived: {label}")
+    return len(cases)
+
 def candidate_checks() -> dict:
     manifests = (
         json_file(".claude-plugin/plugin.json"),
@@ -150,12 +309,21 @@ def candidate_checks() -> dict:
     )
     marketplace = json_file(".claude-plugin/marketplace.json")
     require(all(item.get("version") == VERSION for item in manifests),
-            "plugin manifests are not synchronized at v1.93.0")
+            f"plugin manifests are not synchronized at v{VERSION}")
     plugins = marketplace.get("plugins", [])
     require(len(plugins) == 1 and plugins[0].get("version") == VERSION,
-            "marketplace version is not synchronized at v1.93.0")
+            f"marketplace version is not synchronized at v{VERSION}")
     require(f"## [{VERSION}]" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
-            "dated v1.93.0 changelog entry is missing")
+            f"dated v{VERSION} changelog entry is missing")
+    acceptance_path = ROOT / ".itd" / "ACCEPTANCE_CONTRACT.json"
+    scope_path = ROOT / ".itd" / "SCOPE_LOCK.md"
+    acceptance_raw = acceptance_path.read_bytes()
+    scope_raw = scope_path.read_bytes()
+    acceptance = json.loads(acceptance_raw.decode("utf-8"))
+    scope = scope_raw.decode("utf-8")
+    release_contracts = validate_release_contracts(
+        acceptance, scope, acceptance_raw=acceptance_raw, scope_raw=scope_raw)
+    contract_guards = release_contract_mutation_guards(acceptance, scope)
     for relative in ("README.md", "README.ru.md", "docs/OPERATING_LOOPS.md", "CHANGELOG.md"):
         text = " ".join((ROOT / relative).read_text(encoding="utf-8").lower().split())
         missing = [recipe for recipe in RECIPES if recipe not in text]
@@ -163,11 +331,101 @@ def candidate_checks() -> dict:
     run_all = (ROOT / "tests/run-all.sh").read_text(encoding="utf-8")
     require("verify_operating_loops_release" in run_all,
             "release verifier is not registered in tests/run-all.sh")
+    demand = json.loads(run(
+        "sh", "skills/_shared/itd_py.sh",
+        "tests/verify_semantic_navigation_demand.py", "--portable",
+        timeout=300,
+    ))
+    require(demand.get("status") == "PASSED"
+            and demand.get("provenanceMode") == "portable",
+            "portable semantic-navigation demand provenance failed")
+    portable = json.loads(run(
+        "sh", "skills/_shared/itd_py.sh",
+        "tests/verify_harness_demo_portable.py",
+        timeout=300,
+    ))
+    require(portable.get("status") == "PASSED"
+            and portable.get("frozenMutationGuards") == 34
+            and portable.get("portableSemanticFiles") == 6,
+            "self-contained portable Harness Demo proof failed")
+    with tempfile.TemporaryDirectory(prefix="itd-v194-no-git-") as raw:
+        archive = Path(raw) / "candidate"
+        shutil.copytree(
+            ROOT,
+            archive,
+            ignore=shutil.ignore_patterns(".git", ".itd-memory", "__pycache__", "*.pyc"),
+        )
+        no_git = subprocess.run(
+            [
+                "sh",
+                "skills/_shared/itd_py.sh",
+                "tests/verify_harness_demo_portable.py",
+            ],
+            cwd=archive,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+        )
+        require(
+            no_git.returncode == 0
+            and json.loads(no_git.stdout).get("historicalRepairFixture") == "PASSED",
+            f"portable Harness Demo proof requires Git history: "
+            f"{no_git.stdout}{no_git.stderr}",
+        )
     missing_files = [relative for relative in sorted(EXPECTED_CHANGED)
                      if not (ROOT / relative).is_file()]
     require(not missing_files,
             f"release candidate is missing declared files: {missing_files}")
-    return {"version": VERSION, "declaredFiles": len(EXPECTED_CHANGED)}
+    return {"version": VERSION, "declaredFiles": len(EXPECTED_CHANGED),
+            "semanticDemand": "PASSED", "releaseContracts": release_contracts,
+            "contractMutationGuards": contract_guards, "portablePilotEvidence": "PASSED"}
+
+
+def github_json(path: str, query: dict[str, str] | None = None) -> object:
+    suffix = "?" + urlencode(query) if query else ""
+    request = Request(
+        f"https://api.github.com/repos/hihol-labs/idea-to-deploy/{path}{suffix}",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "idea-to-deploy-release-verifier",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urlopen(request, timeout=30) as response:
+        require(response.status == 200, f"GitHub API returned {response.status} for {path}")
+        return json.loads(response.read().decode("utf-8"))
+
+
+def matching_adjudication(receipt_sha: str, tree: str) -> str:
+    require(bool(re.fullmatch(r"[0-9a-f]{64}", receipt_sha)),
+            "pull request adjudicationReceiptSha256 is not an exact SHA-256")
+    root = ROOT / ".itd-memory" / "verification-loop" / "receipts"
+    matches: list[Path] = []
+    for path in root.glob("*/RLS-001-adjudication-a*.json"):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (receipt.get("receiptSha256") == receipt_sha
+                and receipt.get("unitId") == "RLS-001"
+                and receipt.get("riskTier") == "high"
+                and receipt.get("outcome") == "PASSED"
+                and (receipt.get("candidate") or {}).get("reviewedTree") == tree):
+            matches.append(path)
+    require(len(matches) == 1,
+            "PR evidence is not backed by exactly one local RLS-001 adjudication receipt")
+    run(
+        "sh", "skills/_shared/itd_py.sh",
+        "skills/_shared/itd_verification_loop.py", "check",
+        "--root", str(ROOT),
+        "--unit-id", "RLS-001",
+        "--risk-tier", "high",
+        "--receipt", str(matches[0]),
+        timeout=120,
+    )
+    return matches[0].relative_to(ROOT).as_posix()
 
 
 def publication_checks(branch: str) -> dict:
@@ -181,22 +439,31 @@ def publication_checks(branch: str) -> dict:
     remote_rows = run("git", "ls-remote", "--heads", "origin", branch).splitlines()
     require(len(remote_rows) == 1 and remote_rows[0].split()[0] == head,
             "origin branch does not resolve to local HEAD")
-    gh = shutil.which("gh") or shutil.which("gh.exe")
-    require(bool(gh), "GitHub CLI is required to verify the pull request")
-    raw = run(str(gh), "pr", "view", branch, "--repo", "hihol-labs/idea-to-deploy",
-              "--json", "state,headRefName,headRefOid,baseRefName,baseRefOid,changedFiles,url,title,body")
-    pr = json.loads(raw)
-    require(pr.get("state") == "OPEN", "release pull request is not open")
-    require(pr.get("headRefName") == branch and pr.get("headRefOid") == head,
+    rows = github_json("pulls", {
+        "state": "open",
+        "head": f"hihol-labs:{branch}",
+        "base": "main",
+        "per_page": "10",
+    })
+    require(isinstance(rows, list) and len(rows) == 1,
+            "expected exactly one open release pull request for the branch")
+    number = rows[0].get("number")
+    require(type(number) is int, "GitHub pull request number is missing")
+    pr = github_json(f"pulls/{number}")
+    require(isinstance(pr, dict) and pr.get("state") == "open",
+            "release pull request is not open")
+    pr_head = pr.get("head") or {}
+    pr_base = pr.get("base") or {}
+    require(pr_head.get("ref") == branch and pr_head.get("sha") == head,
             "pull request is not bound to the published HEAD")
-    require(pr.get("baseRefName") == "main", "pull request base is not main")
-    base = str(pr.get("baseRefOid") or "")
+    require(pr_base.get("ref") == "main", "pull request base is not main")
+    base = str(pr_base.get("sha") or "")
     remote_main = run("git", "ls-remote", "--heads", "origin", "main").splitlines()
     require(len(remote_main) == 1 and remote_main[0].split()[0] == base,
             "pull request base OID is not the current origin/main OID")
     run("git", "cat-file", "-e", f"{base}^{{commit}}")
     changed = set(filter(None, run("git", "diff", "--name-only", base, head).splitlines()))
-    require(changed == EXPECTED_CHANGED and pr.get("changedFiles") == len(EXPECTED_CHANGED),
+    require(changed == EXPECTED_CHANGED and pr.get("changed_files") == len(EXPECTED_CHANGED),
             f"published/PR scope differs: missing={sorted(EXPECTED_CHANGED - changed)} "
             f"extra={sorted(changed - EXPECTED_CHANGED)}")
     body = str(pr.get("body") or "")
@@ -205,20 +472,31 @@ def publication_checks(branch: str) -> dict:
     evidence = json.loads(matches[0])
     expected_evidence = {
         "schemaVersion": 1,
+        "release": VERSION,
         "candidateTree": tree,
-        "unit": "PE5-022",
+        "unit": "RLS-001",
         "adjudication": "PASSED",
         "checks": {
-            "operatingLoops": "PASSED",
+            "harnessDemoAbsorption": "PASSED",
             "hostAdapters": "PASSED",
             "metaReview": "PASSED",
             "quickRegression": "PASSED",
             "fullRegression": "PASSED",
+            "securityReview": "PASSED",
+            "generalReview": "PASSED",
         },
     }
+    receipt_sha = evidence.pop("adjudicationReceiptSha256", "")
     require(evidence == expected_evidence,
             "pull request structured evidence is not exact or candidate-bound")
-    result.update({"branch": branch, "head": head, "tree": tree, "pr": pr.get("url")})
+    receipt = matching_adjudication(str(receipt_sha), tree)
+    result.update({
+        "branch": branch,
+        "head": head,
+        "tree": tree,
+        "pr": pr.get("html_url"),
+        "adjudication": receipt,
+    })
     return result
 
 

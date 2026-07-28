@@ -9,6 +9,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.94.0] - 2026-07-27
+
+**Harness Engineering absorption focused on faster brownfield orientation,
+reproducible work, actionable feedback, isolated fresh sessions, and
+signal-gated semantic navigation—without adding a second lifecycle runtime or
+weakening ITD completion authority.**
+
+### Added
+- `/adopt` can generate one derived, source-backed agent context map with
+  conditional claims, path/hash/trust provenance, freshness validation, and no
+  new authoritative state plane.
+- A schema-validated captured-run format and populated brownfield PIV-lite
+  example bind ticket, context, task contract, patch, machine/checker/
+  adjudication receipts, review, metrics, and exact replayed Git tree.
+- The existing `/task` route now exposes a brownfield
+  Plan → Implement → Validate → Review façade while reusing the current
+  lifecycle skills, WIP=1, risk routes, and Verification Loop authority.
+- A default-off incremental diagnostics pilot executes declared argv without a
+  shell, enforces timeout/cooldown/cache bounds, and records append-only
+  host-observed telemetry. Its paired 30-run labeled A/B corpus remains advisory
+  and cannot satisfy acceptance.
+- A fail-closed fresh-session worktree kit issues a full hash-bound unit packet,
+  keeps canonical STATE with the parent, and allocates exclusive mutable
+  resources. Three user-authorized methodology-owned pilots validate the
+  isolation flow without counting as external adoption evidence.
+- A provider-neutral Python/TypeScript semantic-navigation capability supplies
+  definitions, references, and outline only after a machine-readable
+  multi-language demand gate activates it; every result declares coverage,
+  confidence, and an honest `semantic:false` textual fallback.
+
+### Changed
+- Tool capability registration and adoption/task guidance now surface the
+  context-map, captured-run, diagnostics, isolation, and semantic-navigation
+  paths without creating a new public lifecycle skill.
+- Claude Code, Codex, marketplace manifests, public badges, and current Harness
+  documentation are synchronized at v1.94.0.
+
+### Security
+- Fresh-session preparation rejects repository-root escapes, symlink/reparse
+  traversal, shared mutable fallback, malformed UTF-8, parent STATE drift,
+  resource aliasing, and prepare/finalize TOCTOU changes.
+- The sealed isolation fixture now requires the complete hash-bound v1 packet
+  with parent STATE and `mutableResources`; production compatibility with the
+  legacy four-field packet was removed after the exact historical v4 repair.
+- Declared non-Git inputs and authoritative parent memory are opened through
+  no-follow descriptor walks where supported; the guarded Windows fallback
+  rejects reparse ancestors and verifies stable identities and content hashes.
+- The Windows no-`dir_fd` fallback canonicalizes both the repository boundary
+  and descendants before confinement checks, avoiding false escapes when
+  tempfile/Git mixes 8.3 aliases with long user-profile paths.
+- Live-model stdout and stderr now share an enforced 8 MiB capture ceiling;
+  overflow terminates the provider process, and known secret/PII patterns are
+  redacted before any transcript or failure diagnostic becomes durable.
+  Sanitization expansion is rechecked against the same aggregate ceiling and
+  fails closed to a bounded rejection record.
+- Captured-run replay is restricted to the bundled exact-hash test manifest,
+  story export recursively rejects sensitive free text, and JSONL ledgers now
+  enforce streaming size, record, and line bounds.
+
+### Verification
+- The frozen absorption oracle passes all 34 mutation guards; isolation adds
+  15 prepare-boundary and 3 finalize refutations, and semantic navigation is
+  exercised through 15 boundary guards and 9 exact pilot operations.
+- Release acceptance requires one exact staged candidate to pass Harness Demo
+  absorption, host-adapter parity, methodology meta-review, quick and full
+  regression, plus fresh bound security and general high-risk adjudications.
+- All three pilots remain explicitly `externalAdoptionEvidence:false`;
+  PE5-008/009 remain blocked until real independent operators and outcomes
+  exist.
+- A sealed, hash-bound portable pilot evidence graph makes release acceptance
+  reproducible outside the original WSL worktrees while preserving the frozen
+  34-guard oracle and exact historical v4 repair unchanged.
+- The portable proof now carries a sealed accepted-repair blob fixture and is
+  regression-tested from a byte-materialized tree without `.git`, so archive
+  and active-install verification cannot silently depend on local Git history.
+- Portable evidence reads and Base64 decoding are bounded before allocation,
+  with per-blob and aggregate limits plus oversized fixture/artifact/source
+  rejection guards. Their file boundary also rejects every symlink, Windows
+  junction, or reparse ancestor and detects replacement races.
+- Fresh-session packet, session, and parent-state JSON use the same bounded,
+  descriptor-anchored stable-identity read discipline; adversarial regressions
+  cover oversized inputs and path replacement during a read.
+- The release semantic-navigation demand check now consumes that portable
+  graph; live worktree dereferencing remains historical corroboration only.
+- Machine receipts bind an absolute host-owned shell SHA-256 selected without
+  inherited PATH, COMSPEC, or SystemRoot, and reject shell drift.
+- Multi-command machine oracles use a fresh staged-tree checkout per command,
+  preventing one command from feeding undeclared overlays to the next.
+- Adjudication accepts only bounded regular dependency JSON inside the evidence
+  root, rejecting symlink/reparse traversal and receipts larger than 4 MiB.
+- Publication scope is evaluated against the current `main` after the v1.92/
+  v1.93 squash merge, so the v1.94 PR binds exactly its 96-file delta instead
+  of re-declaring already published predecessor files.
+- The live-model fixture now names the oracle-required `## CLI Interface`
+  heading explicitly and guards against its omission; fresh externally
+  generated output passes the independent snapshot replay on the current
+  methodology tree.
+- Live benchmark regression guards exercise capture overflow, secret/PII
+  sanitization (including expansion past the retained-byte ceiling), bounded
+  gzip replay, and reject mutations that remove the post-sanitization bound or
+  return to direct unbounded subprocess capture.
+
 ## [1.93.0] - 2026-07-22
 
 **Bounded operating loops inspired by loop-engineering, integrated without a

@@ -65,6 +65,9 @@
       "acceptanceContractHash",
       "rubricHash",
       "methodologyVersion",
+      "parentStateHash",
+      "activeUnitId",
+      "activeUnitRiskTier",
       "riskTier"
     ],
     "acceptedVerdicts": ["PASSED"],

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "itd-incremental-diagnostics-v1",
+  "enabled": false,
+  "advisory": true,
+  "completionEvidence": false,
+  "measurement": "host-observed",
+  "timeoutSeconds": 5,
+  "cooldownSeconds": 0,
+  "cacheTtlSeconds": 300,
+  "cachePath": ".itd-memory/diagnostics/cache.json",
+  "telemetryPath": ".itd-memory/diagnostics/telemetry.jsonl",
+  "commands": []
+}

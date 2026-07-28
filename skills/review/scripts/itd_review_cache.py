@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -31,7 +32,8 @@ VERIFICATION_LOOP = INSTALL_ROOT / "skills" / "_shared" / "itd_verification_loop
 KEY_FIELDS = (
     "repository", "baseCommit", "reviewedTree", "diffHash",
     "scopeContractHash", "acceptanceContractHash", "rubricHash",
-    "methodologyVersion", "riskTier",
+    "methodologyVersion", "parentStateHash", "activeUnitId",
+    "activeUnitRiskTier", "riskTier",
 )
 VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED"}
 KINDS = {"general", "security"}
@@ -106,6 +108,100 @@ def repository_root(root: Path | str) -> Path:
     return Path(value).resolve()
 
 
+def _is_link_or_reparse(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    junction_probe = getattr(path, "is_junction", None)
+    try:
+        if callable(junction_probe) and junction_probe():
+            return True
+        attributes = int(getattr(path.lstat(), "st_file_attributes", 0) or 0)
+    except (FileNotFoundError, OSError):
+        return False
+    return bool(attributes & int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)))
+
+
+def _stable_stat(info: os.stat_result) -> tuple[int, ...]:
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns)
+
+
+def secure_memory_json(root: Path, name: str) -> dict[str, Any] | None:
+    """Read parent memory without following a repository-controlled ancestor."""
+    if name not in {"GOAL.json", "STATE.json"}:
+        raise CacheError("unsupported parent-memory file",
+                         "Read only authoritative GOAL.json or STATE.json.")
+    repo = root.resolve()
+    memory = repo / ".itd-memory"
+    path = memory / name
+    if not memory.exists() and not memory.is_symlink():
+        return None
+    if _is_link_or_reparse(memory) or not memory.is_dir():
+        raise CacheError(
+            "parent .itd-memory is linked or not a real directory",
+            "Restore a real project-local .itd-memory directory before review.")
+    if not path.exists() and not path.is_symlink():
+        return None
+    directory_flags = (os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                       | getattr(os, "O_NOFOLLOW", 0))
+    if os.open in os.supports_dir_fd and os.stat in os.supports_dir_fd:
+        repo_fd = os.open(repo, directory_flags)
+        memory_fd = -1
+        file_fd = -1
+        try:
+            info = os.stat(".itd-memory", dir_fd=repo_fd, follow_symlinks=False)
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                raise CacheError("parent .itd-memory is linked",
+                                 "Restore a real project-local memory directory.")
+            memory_fd = os.open(".itd-memory", directory_flags, dir_fd=repo_fd)
+            file_info = os.stat(name, dir_fd=memory_fd, follow_symlinks=False)
+            if stat.S_ISLNK(file_info.st_mode) or not stat.S_ISREG(file_info.st_mode):
+                raise CacheError(f"parent {name} is linked or not a regular file",
+                                 "Restore a regular authoritative memory file.")
+            file_fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                              dir_fd=memory_fd)
+            opened = os.fstat(file_fd)
+            if (opened.st_dev, opened.st_ino) != (file_info.st_dev, file_info.st_ino):
+                raise CacheError(f"parent {name} changed while opening",
+                                 "Freeze authoritative memory and retry review.")
+            with os.fdopen(os.dup(file_fd), "rb") as handle:
+                raw = handle.read(4 * 1024 * 1024 + 1)
+            if len(raw) > 4 * 1024 * 1024 or _stable_stat(os.fstat(file_fd)) != _stable_stat(opened):
+                raise CacheError(f"parent {name} is oversized or changed during read",
+                                 "Repair/freeze authoritative memory and retry.")
+        finally:
+            if file_fd >= 0:
+                os.close(file_fd)
+            if memory_fd >= 0:
+                os.close(memory_fd)
+            os.close(repo_fd)
+    else:
+        before_memory, before_file = memory.lstat(), path.lstat()
+        if _is_link_or_reparse(path) or not stat.S_ISREG(before_file.st_mode):
+            raise CacheError(f"parent {name} is linked or not a regular file",
+                             "Restore a regular authoritative memory file.")
+        try:
+            path.resolve().relative_to(repo)
+            raw = path.read_bytes()
+        except (OSError, ValueError) as exc:
+            raise CacheError(f"parent {name} escapes or is unreadable",
+                             "Restore project-local authoritative memory.") from exc
+        if (_stable_stat(memory.lstat()) != _stable_stat(before_memory)
+                or _stable_stat(path.lstat()) != _stable_stat(before_file)
+                or len(raw) > 4 * 1024 * 1024):
+            raise CacheError(f"parent {name} is oversized or changed during read",
+                             "Repair/freeze authoritative memory and retry.")
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except Exception as exc:
+        raise CacheError(f"parent {name} is invalid JSON: {exc}",
+                         "Repair authoritative memory before review.") from exc
+    if not isinstance(value, dict):
+        raise CacheError(f"parent {name} is not a JSON object",
+                         "Repair authoritative memory before review.")
+    return value
+
+
 def methodology_version() -> str:
     for manifest in (
             INSTALL_ROOT / ".claude-plugin" / "plugin.json",
@@ -151,9 +247,8 @@ def rubric_hash(root: Path) -> str:
 
 
 def detected_risk_tier(root: Path) -> str:
-    goal_path = root / ".itd-memory" / "GOAL.json"
-    try:
-        goal = json.loads(goal_path.read_text(encoding="utf-8"))
+    goal = secure_memory_json(root, "GOAL.json")
+    if goal is not None:
         units = [unit for unit in goal.get("units", []) if isinstance(unit, dict)]
         current_id = str(goal.get("currentUnitId") or "")
         unit = next((item for item in units if item.get("id") == current_id), None)
@@ -163,22 +258,18 @@ def detected_risk_tier(root: Path) -> str:
         risk = str((unit or {}).get("riskTier") or "").lower()
         if risk in RISK_TIERS - {"unknown"}:
             return risk
-    except Exception:
-        pass
-    try:
-        state = json.loads((root / ".itd-memory" / "STATE.json").read_text(encoding="utf-8"))
+    state = secure_memory_json(root, "STATE.json")
+    if state is not None:
         risk = str(((state.get("currentUnit") or {}).get("riskTier")) or "").lower()
         if risk in RISK_TIERS - {"unknown"}:
             return risk
-    except Exception:
-        pass
     return "unknown"
 
 
 def detected_unit_id(root: Path) -> str:
     """Resolve the active work unit that the review claim must be bound to."""
-    try:
-        goal = json.loads((root / ".itd-memory" / "GOAL.json").read_text(encoding="utf-8"))
+    goal = secure_memory_json(root, "GOAL.json")
+    if goal is not None:
         units = [unit for unit in goal.get("units", []) if isinstance(unit, dict)]
         current_id = str(goal.get("currentUnitId") or "").strip()
         if current_id and any(str(unit.get("id") or "") == current_id for unit in units):
@@ -187,21 +278,27 @@ def detected_unit_id(root: Path) -> str:
                        if unit.get("status") in {"in_progress", "recovery_required"}), None)
         if active and str(active.get("id") or "").strip():
             return str(active["id"]).strip()
-    except Exception:
-        pass
-    try:
-        state = json.loads((root / ".itd-memory" / "STATE.json").read_text(encoding="utf-8"))
+    state = secure_memory_json(root, "STATE.json")
+    if state is not None:
         current = state.get("currentUnit") or {}
         if str(current.get("id") or "").strip():
             return str(current["id"]).strip()
-    except Exception:
-        pass
     return "review"
 
 
 def review_claim_id(root: Path, kind: str) -> str:
     """Separate general/security claims so one receipt cannot unlock both."""
     return f"{detected_unit_id(root)}:{kind}-review"
+
+
+def parent_state_hash(root: Path) -> str:
+    """Hash authoritative parent state canonically, without whitespace churn."""
+    value = secure_memory_json(root, "STATE.json")
+    if value is None:
+        return "missing"
+    return sha256_bytes(json.dumps(
+        value, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")).encode("utf-8"))
 
 
 def validate_review_receipt(root: Path, receipt_path: Path | str,
@@ -241,9 +338,12 @@ def validate_review_receipt(root: Path, receipt_path: Path | str,
     }
 
 
-def build_context(root: Path | str, risk_tier: str | None = None) -> dict[str, str]:
+def build_context(root: Path | str, risk_tier: str | None = None,
+                  bind_parent_state: bool = True) -> dict[str, str]:
     repo = repository_root(root)
-    risk = str(risk_tier or detected_risk_tier(repo)).lower()
+    active_risk = detected_risk_tier(repo)
+    active_unit = detected_unit_id(repo)
+    risk = str(risk_tier or active_risk).lower()
     if risk not in RISK_TIERS:
         raise CacheError(
             f"invalid risk tier: {risk!r}",
@@ -260,7 +360,7 @@ def build_context(root: Path | str, risk_tier: str | None = None) -> dict[str, s
     diff = git(repo, "diff", "--cached", "--binary", "--full-index",
                "--no-ext-diff", base, "--", binary=True)
     assert isinstance(diff, bytes)
-    return {
+    context = {
         "repository": repo.as_posix(),
         "baseCommit": base,
         "reviewedTree": tree,
@@ -272,6 +372,13 @@ def build_context(root: Path | str, risk_tier: str | None = None) -> dict[str, s
         "methodologyVersion": methodology_version(),
         "riskTier": risk,
     }
+    if bind_parent_state:
+        context.update({
+            "parentStateHash": parent_state_hash(repo),
+            "activeUnitId": active_unit,
+            "activeUnitRiskTier": active_risk,
+        })
+    return context
 
 
 def cache_path(root: Path | str) -> Path:

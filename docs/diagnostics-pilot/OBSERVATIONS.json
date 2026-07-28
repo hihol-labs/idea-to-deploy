@@ -1,0 +1,919 @@
+{
+  "version": 1,
+  "status": "awaiting-human-labels",
+  "externalAdoptionEvidence": false,
+  "measurement": "host-observed",
+  "baseline": "same project checks without incremental diagnostics",
+  "treatment": "same project checks with the opt-in incremental profile",
+  "startedAt": "2026-07-26T20:47:11+00:00",
+  "completedAt": "2026-07-26T20:47:20+00:00",
+  "environment": {
+    "platform": "Linux",
+    "pythonImplementation": "CPython",
+    "pythonVersion": "3.12.3",
+    "runnerSha256": "c54495b4569cca873db362b585d74c070b733b7330dc7a83da0803eed1a307ed",
+    "probe": "deterministic-known-broken-sentinel-v1"
+  },
+  "labeledRuns": [
+    {
+      "pairId": "pair-001",
+      "arm": "baseline",
+      "latencyMs": 49,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-001",
+      "arm": "treatment",
+      "latencyMs": 138,
+      "runnerDurationMs": 41,
+      "status": "completed",
+      "cacheKey": "358ff99b4456a72fc27d6bcf7c33b83ca50034aeec9cca7f9d1889e1d170e1c5",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-001:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-002",
+      "arm": "baseline",
+      "latencyMs": 41,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-002",
+      "arm": "treatment",
+      "latencyMs": 148,
+      "runnerDurationMs": 45,
+      "status": "completed",
+      "cacheKey": "0770606160f868c3c85dc43788753d17832d9dd106451ab164811a9a9323fd79",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-002:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-003",
+      "arm": "baseline",
+      "latencyMs": 36,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-003",
+      "arm": "treatment",
+      "latencyMs": 142,
+      "runnerDurationMs": 40,
+      "status": "completed",
+      "cacheKey": "b39ee8f0c72ece6e728252aeebdd995a3e7ba93ac3d74cc81160025239ec1c43",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-003:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-004",
+      "arm": "baseline",
+      "latencyMs": 44,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-004",
+      "arm": "treatment",
+      "latencyMs": 164,
+      "runnerDurationMs": 56,
+      "status": "completed",
+      "cacheKey": "ab0cd0e12ebb143ef31a6b4a7339cc47d9534f9ee383d795b7bd0ac942bfbcef",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-004:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-005",
+      "arm": "baseline",
+      "latencyMs": 41,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-005",
+      "arm": "treatment",
+      "latencyMs": 164,
+      "runnerDurationMs": 56,
+      "status": "completed",
+      "cacheKey": "660a0a2bd0342b7b8a7c93028118d0ad5aa82b9fccbd6fa2ed96f6201801f784",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-005:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-006",
+      "arm": "baseline",
+      "latencyMs": 65,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-006",
+      "arm": "treatment",
+      "latencyMs": 165,
+      "runnerDurationMs": 46,
+      "status": "completed",
+      "cacheKey": "91e0e07ee4394e0834e38af723dbd25a5607c6b40467289598c2164caeff9c59",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-006:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-007",
+      "arm": "baseline",
+      "latencyMs": 49,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-007",
+      "arm": "treatment",
+      "latencyMs": 150,
+      "runnerDurationMs": 50,
+      "status": "completed",
+      "cacheKey": "0d746fb1118da1af410f516dc7387417e2957dd1b0a5b6c10a5b659f03d87f18",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-007:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-008",
+      "arm": "baseline",
+      "latencyMs": 41,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-008",
+      "arm": "treatment",
+      "latencyMs": 195,
+      "runnerDurationMs": 71,
+      "status": "completed",
+      "cacheKey": "27add470c8242f4844037bc69786c585837cd0d073a9111ef02e4434bb68dd34",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-008:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-009",
+      "arm": "baseline",
+      "latencyMs": 69,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-009",
+      "arm": "treatment",
+      "latencyMs": 176,
+      "runnerDurationMs": 51,
+      "status": "completed",
+      "cacheKey": "3cd86b40a9958e7c166d1d2cb88ecd499bc4c8392a889c629c1b7844cb8c01cd",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-009:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-010",
+      "arm": "baseline",
+      "latencyMs": 37,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-010",
+      "arm": "treatment",
+      "latencyMs": 157,
+      "runnerDurationMs": 50,
+      "status": "completed",
+      "cacheKey": "9662c08657bbab720a6742d29f30bbbbd50b415a86e4d451219ee147fdd3b447",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-010:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-011",
+      "arm": "baseline",
+      "latencyMs": 53,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-011",
+      "arm": "treatment",
+      "latencyMs": 147,
+      "runnerDurationMs": 43,
+      "status": "completed",
+      "cacheKey": "0b431a7c41790c787912ceb9a8d7e9c1310d96e53a90149b625ef771fd790361",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-011:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-012",
+      "arm": "baseline",
+      "latencyMs": 46,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-012",
+      "arm": "treatment",
+      "latencyMs": 156,
+      "runnerDurationMs": 43,
+      "status": "completed",
+      "cacheKey": "844361e0ac5ed235d0843d0d37214c4f680c072a1924d5d449ffc749ebb2afb3",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-012:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-013",
+      "arm": "baseline",
+      "latencyMs": 38,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-013",
+      "arm": "treatment",
+      "latencyMs": 147,
+      "runnerDurationMs": 45,
+      "status": "completed",
+      "cacheKey": "072a75c1830e36330bfb70e9ad7a4e645c226353f1f3b2e33fd85ccb7e231e5b",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-013:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-014",
+      "arm": "baseline",
+      "latencyMs": 56,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-014",
+      "arm": "treatment",
+      "latencyMs": 179,
+      "runnerDurationMs": 62,
+      "status": "completed",
+      "cacheKey": "de15c4ecc43bdd115fa973694aeaeb4a5580069cd63ae031fd4671c758c234a8",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-014:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-015",
+      "arm": "baseline",
+      "latencyMs": 38,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-015",
+      "arm": "treatment",
+      "latencyMs": 141,
+      "runnerDurationMs": 48,
+      "status": "completed",
+      "cacheKey": "86b2f3efc85d17506e4f8630f67a75ba83c1c1587212e9e9494acd7abe27bc4b",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-015:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-016",
+      "arm": "baseline",
+      "latencyMs": 68,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-016",
+      "arm": "treatment",
+      "latencyMs": 187,
+      "runnerDurationMs": 58,
+      "status": "completed",
+      "cacheKey": "dbd82ff954f616ef11500084f71939a52a3fff5a67082bb7986857d6acf81d40",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-016:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-017",
+      "arm": "baseline",
+      "latencyMs": 49,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-017",
+      "arm": "treatment",
+      "latencyMs": 156,
+      "runnerDurationMs": 42,
+      "status": "completed",
+      "cacheKey": "015f9553eec25beb84f36026b9017fa542154c894e67a2805b11b256dda52eff",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-017:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-018",
+      "arm": "baseline",
+      "latencyMs": 47,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-018",
+      "arm": "treatment",
+      "latencyMs": 142,
+      "runnerDurationMs": 44,
+      "status": "completed",
+      "cacheKey": "c15fc177d6590c456f5b10fe121abb8a86ceb893ad1c08b8a69abe437ea71c3a",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-018:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-019",
+      "arm": "baseline",
+      "latencyMs": 56,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-019",
+      "arm": "treatment",
+      "latencyMs": 177,
+      "runnerDurationMs": 61,
+      "status": "completed",
+      "cacheKey": "13dcc4f37c5840da144685dd423e189e435b38dad97c572e45eefb2189562575",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-019:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-020",
+      "arm": "baseline",
+      "latencyMs": 54,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-020",
+      "arm": "treatment",
+      "latencyMs": 169,
+      "runnerDurationMs": 57,
+      "status": "completed",
+      "cacheKey": "a49c75561d78cc19e5d7ad08b4938d7a49606cf441cfbf8076e42df755703050",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-020:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-021",
+      "arm": "baseline",
+      "latencyMs": 44,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-021",
+      "arm": "treatment",
+      "latencyMs": 140,
+      "runnerDurationMs": 39,
+      "status": "completed",
+      "cacheKey": "b54b83d28b05b38d158ff45b3b0f9b7d7a75fa9da3509365d37cb3c89c28cb8c",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-021:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-022",
+      "arm": "baseline",
+      "latencyMs": 60,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-022",
+      "arm": "treatment",
+      "latencyMs": 117,
+      "runnerDurationMs": 34,
+      "status": "completed",
+      "cacheKey": "05019ce897fb4dcc420b3af9b97a0b5028b4e5630bc385256e27034418afdc44",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-022:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-023",
+      "arm": "baseline",
+      "latencyMs": 35,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-023",
+      "arm": "treatment",
+      "latencyMs": 196,
+      "runnerDurationMs": 63,
+      "status": "completed",
+      "cacheKey": "78ab096977b4557dfa1655a089393e26b341f2b8efda5c45902f1d468ed89fc0",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-023:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-024",
+      "arm": "baseline",
+      "latencyMs": 61,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-024",
+      "arm": "treatment",
+      "latencyMs": 331,
+      "runnerDurationMs": 156,
+      "status": "completed",
+      "cacheKey": "fbed68026d2ffbd15003909fe4124d9a32e5e1258bd0d2663e5aaeb4ad134cec",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-024:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-025",
+      "arm": "baseline",
+      "latencyMs": 112,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-025",
+      "arm": "treatment",
+      "latencyMs": 697,
+      "runnerDurationMs": 175,
+      "status": "completed",
+      "cacheKey": "3fda43b3cad7f7b67c4d8c837d4e10f1641b9ad0464cd25be22537dc742ab7c8",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-025:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-026",
+      "arm": "baseline",
+      "latencyMs": 228,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-026",
+      "arm": "treatment",
+      "latencyMs": 612,
+      "runnerDurationMs": 147,
+      "status": "completed",
+      "cacheKey": "33a94e38d28f6b9d1da96b0d75548c182ec73477dc49ff9b1e8969141591b5e3",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-026:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-027",
+      "arm": "baseline",
+      "latencyMs": 125,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-027",
+      "arm": "treatment",
+      "latencyMs": 814,
+      "runnerDurationMs": 213,
+      "status": "completed",
+      "cacheKey": "2de593d4a689d22adf953d707b6f78cdb7ab5d036f6db717c706d6df1da22e21",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-027:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-028",
+      "arm": "baseline",
+      "latencyMs": 132,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-028",
+      "arm": "treatment",
+      "latencyMs": 503,
+      "runnerDurationMs": 139,
+      "status": "completed",
+      "cacheKey": "6defd11fa3cf9679a9488ea37eb601b3eec2f523ed8a92a2ffdf01d775faa286",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-028:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-029",
+      "arm": "baseline",
+      "latencyMs": 148,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-029",
+      "arm": "treatment",
+      "latencyMs": 627,
+      "runnerDurationMs": 256,
+      "status": "completed",
+      "cacheKey": "734383dc2f42b7a04bf923dfcb4300c7651561958de75a63e6464bd4b6305618",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-029:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    },
+    {
+      "pairId": "pair-030",
+      "arm": "baseline",
+      "latencyMs": 125,
+      "exitCode": 1,
+      "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commandSha256": "c2c6bdb66b723ed8ef276b2c63e18f8964866df9509b491b110fde64fd621a62",
+      "completionEvidence": false
+    },
+    {
+      "pairId": "pair-030",
+      "arm": "treatment",
+      "latencyMs": 402,
+      "runnerDurationMs": 132,
+      "status": "completed",
+      "cacheKey": "3766cca1eba32b5525cc956ffcc0e389179d002489c2c073f1d2ec53ead6a416",
+      "completionEvidence": false,
+      "emissions": [
+        {
+          "id": "pair-030:known-broken-sentinel",
+          "diagnosticId": "known-broken-sentinel",
+          "exitCode": 1,
+          "stdoutSha256": "d52b19b85de89b1a159ff461eb358381d2580393e962490bc0848f9e521b9706",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "proposedLabel": "actionable",
+          "humanLabel": null
+        }
+      ]
+    }
+  ]
+}

@@ -18,7 +18,8 @@
 | 10 | "Настрой Terraform", "Helm chart", "K8s manifests", "provision droplet", "tfstate", "IaC", "secrets manager", "deploy to DigitalOcean" | **`/infra`** | Генерация IaC (Terraform/Helm), **не** shell-скрипты деплоя. |
 | 11 | "Объясни код", "как это работает", "walk me through", "разбери модуль" | **`/explain`** | Диаграммы + пошаговый разбор. |
 | 12 | "Проверь PR", "review", "оцени качество", "check quality", "validate architecture" | **`/review`** | Code-level + architecture-level проверка. |
-| 13 | "Сохрани контекст", "итоги сессии", "заканчиваем работу", "save session" | **`/session-save`** | Пишет `session_YYYY-MM-DD.md` + `.active-session.lock`. |
+| 13 | "Реализуй фичу", "добавь функциональность", "new feature" в существующем проекте | **PIV-lite через `/task` Step 3f** | Существующий Plan → Implement → Validate → Review; не новый lifecycle skill. |
+| 14 | "Сохрани контекст", "итоги сессии", "заканчиваем работу", "save session" | **`/session-save`** | Пишет `session_YYYY-MM-DD.md` + `.active-session.lock`. |
 
 ## Неявные маппинги
 
@@ -40,7 +41,8 @@
 1. `/bugfix` (есть стек/ошибка — конкретный симптом)
 2. `/security-audit`, `/deps-audit` (read-only, не меняют код)
 3. `/migrate` (требует осторожности в prod)
-4. `/perf`, `/refactor`, `/test`, `/doc` (обычная работа)
+4. PIV-lite для новой brownfield-фичи, `/perf`, `/refactor`, `/test`, `/doc`
+   (обычная работа)
 5. `/harden`, `/infra` (infrastructure-level)
 6. `/review` (валидация после работы)
 7. `/session-save` (всегда последний в цепочке)

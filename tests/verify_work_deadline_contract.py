@@ -37,7 +37,8 @@ EXPECTED_GUARDS = {
 REQUIRED_CACHE_KEYS = {
     "repository", "baseCommit", "reviewedTree", "diffHash",
     "scopeContractHash", "acceptanceContractHash", "rubricHash",
-    "methodologyVersion", "riskTier",
+    "methodologyVersion", "parentStateHash", "activeUnitId",
+    "activeUnitRiskTier", "riskTier",
 }
 REQUIRED_BACKLOG_BLOCKERS = {
     "acceptance-criterion-failure", "required-risk-invariant-failure",

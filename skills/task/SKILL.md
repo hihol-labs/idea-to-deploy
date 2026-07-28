@@ -208,13 +208,33 @@ Routing matrix (also in `references/routing-matrix.md`):
 | "Реализуй фичу X", "добавь функциональность", "сделай в проекте новое …" | **feature-конвейер** (Step 3f) |
 | "Я хочу сохранить контекст", "заканчиваем" | `/session-save` |
 
-### Step 3f: Feature pipeline — новая функциональность в brownfield (v1.42.0)
+### Step 3f: PIV-lite façade — новая функциональность в brownfield (v1.94.0)
 
 The daily-work case the matrix used to miss: implementing a NEW feature in an
 existing project is neither `/bugfix` nor `/refactor`, and `/kickstart` is
 forbidden here. For this route `/task` acts as the pipeline conductor — it does
 not write the code "as a router", it walks the standard chain around the
 implementation:
+
+This existing chain is exposed as **PIV-lite: Plan → Implement → Validate →
+Review**. `PIV_LITE_ROUTE.json` is a provider-neutral map of this façade, not a
+new command or lifecycle skill. The labels mean:
+
+- **Plan** — scope lock, task contract, bounded plan, and human approval.
+- **Implement** — surgical, WIP=1, scope-bound edits through the routed skill.
+- **Validate** — the existing `/test` plus exact-candidate machine producer.
+- **Review** — `/review`, the risk-tier checker, adjudication, and receipt
+  recheck.
+
+Only the existing Verification Loop may complete the unit. PIV-lite narration,
+diagnostics, a standalone review, or a sentinel file are never completion
+evidence.
+
+PIV-lite requires an adopted brownfield project with both
+`.itd/SCOPE_LOCK.md` and `.itd-memory/STATE.json`; that is how its unconditional
+WIP=1 claim is enforced. Without these stores, `/task` may still use the legacy
+feature pipeline described below, but it must not label the run PIV-lite or
+claim machine-enforced WIP. Offer `/adopt` before using the façade.
 
 1. **Scope first.** If `.itd/` exists — fill `SCOPE_LOCK.md` (Current Task +
    Allowed/Forbidden Change Areas) and open a unit per Step 3.5. Without
@@ -229,10 +249,11 @@ implementation:
    исполняет Verification, DoD-гейт на git commit даёт advisory-строку,
    если у активного юнита контракта нет (не блокирует). Один экран, не
    спецификация. Без `.itd-memory/` — шаг пропускается молча.
-2. **Plan → approve.** For anything beyond ~1 file: a short plan (steps, files,
-   verification per step) and explicit user approval before code (global rule
-   «Plan before code»). For a large/risky feature offer `/grill-me` on the plan
-   first.
+2. **Plan → approve.** Every PIV-lite feature, including a one-file PIV-lite
+   feature, requires a short plan (steps, files, verification per step) and
+   explicit user approval before code. The trivial direct path outside
+   PIV-lite may still skip this ceremony. For a large/risky feature offer
+   `/grill-me` on the plan first.
 2a. **Deployment baseline — дефолтная планка (v1.89.0, GO-005).** Даже БЕЗ
    явного Task Contract каждая feature-задача применяет этот deployment-floor
    (замер A/B сет-4: агент без контракта промахивался именно здесь — 3.5/6):
@@ -257,12 +278,14 @@ implementation:
    если фича ЧИТАЕТ файл/леджер/формат, который пишет другой код — сначала
    прочитай код продюсера (реальные имена полей/форм), и тесты сей реальными
    образцами продюсера, а не предположенной формой.
-4. **Verify** — `/test` for new code (fail-closed: evidence required; for
+4. **Validate (existing Verify gate)** — `/test` for new code (fail-closed:
+   evidence required; for
    projects without a test runner use the project's declared verification —
    lint/build/domain checks from `.itd/VERIFICATION_CONTRACT.json` or
    CLAUDE.md). Execute the declared commands through the machine producer in
    `docs/VERIFICATION_LOOP.md`; a narrated command result is not completion.
-5. **`/review` + adjudicate** before any multi-file commit (mandatory floor).
+5. **Review — `/review` + adjudicate** before PIV-lite completion or commit,
+   including a one-file PIV-lite feature (mandatory floor).
    Low risk adjudicates the machine receipt alone. Medium adds a targeted
    fresh-session checker; high/unknown adds a full checker from a fresh session
    and different model/provider. Mint the unit receipt with claim id equal to

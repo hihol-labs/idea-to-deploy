@@ -28,6 +28,25 @@ FORBIDDEN_KEYS = {
     "name", "email", "repositoryurl", "repositorypath", "path", "prompt",
     "sourcecode", "secret", "customerdata", "customer", "useremail",
 }
+PUBLISHABLE_SUMMARY_MIN_CHARS = 20
+PUBLISHABLE_SUMMARY_MAX_CHARS = 600
+PUBLISHABLE_LIMITATION_MIN_CHARS = 5
+PUBLISHABLE_LIMITATION_MAX_CHARS = 400
+PUBLISHABLE_LIMITATIONS_MAX_ITEMS = 8
+SENSITIVE_VALUE_PATTERNS = (
+    ("email address", re.compile(r"(?i)(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
+    ("URL", re.compile(r"(?i)(?:https?|ssh|git)://|\bwww\.")),
+    ("filesystem path", re.compile(r"(?i)(?:[a-z]:[\\/]|\\\\|/(?:home|users|tmp|var|etc|mnt)/)")),
+    ("phone-like identifier", re.compile(r"(?<!\w)\+?\d[\d ()-]{8,}\d(?!\w)")),
+    ("credential material", re.compile(
+        r"(?i)\b(?:api[_ -]?key|secret|password|passwd|authorization|bearer|"
+        r"access[_ -]?token|private[_ -]?key)\b\s*[:=]?\s*[a-z0-9_./+=-]{8,}")),
+    ("prompt/source payload", re.compile(
+        r"(?i)\b(?:system\s+|user\s+|assistant\s+)?prompt\s*[:=]|"
+        r"\b(?:source\s+code|customer\s+data|transcript|repository\s+path)\s*[:=]")),
+    ("high-entropy token", re.compile(
+        r"(?=[a-z0-9_+=/-]{40,})(?=[^\s]*\d)[a-z0-9_+=/-]{40,}", re.I)),
+)
 
 
 def fail(what: str, why: str, fix: str, code: int = 1) -> int:
@@ -72,6 +91,55 @@ def forbidden_paths(value: Any, prefix: str = "$") -> list[str]:
         for index, child in enumerate(value):
             found.extend(forbidden_paths(child, f"{prefix}[{index}]"))
     return found
+
+
+def sensitive_value_paths(value: Any, prefix: str = "$") -> list[str]:
+    """Recursively reject likely direct identifiers and payloads in publishable prose."""
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            found.extend(sensitive_value_paths(child, f"{prefix}.{key}"))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(sensitive_value_paths(child, f"{prefix}[{index}]"))
+    elif isinstance(value, str):
+        if any(ord(character) < 32 or ord(character) == 127 for character in value):
+            found.append(f"{prefix} (control/newline)")
+        for label, pattern in SENSITIVE_VALUE_PATTERNS:
+            if pattern.search(value):
+                found.append(f"{prefix} ({label})")
+    else:
+        found.append(f"{prefix} (non-text)")
+    return found
+
+
+def publishable_narrative_issues(story: dict) -> list[str]:
+    issues: list[str] = []
+    summary = story.get("summary")
+    limitations = story.get("limitations")
+    if (not isinstance(summary, str)
+            or summary != summary.strip()
+            or not PUBLISHABLE_SUMMARY_MIN_CHARS <= len(summary) <= PUBLISHABLE_SUMMARY_MAX_CHARS):
+        issues.append(
+            f"story summary must be trimmed publishable prose of "
+            f"{PUBLISHABLE_SUMMARY_MIN_CHARS}..{PUBLISHABLE_SUMMARY_MAX_CHARS} characters")
+    if (not isinstance(limitations, list) or not limitations
+            or len(limitations) > PUBLISHABLE_LIMITATIONS_MAX_ITEMS):
+        issues.append(
+            f"story limitations must contain 1..{PUBLISHABLE_LIMITATIONS_MAX_ITEMS} items")
+    elif any(
+        not isinstance(item, str)
+        or item != item.strip()
+        or not PUBLISHABLE_LIMITATION_MIN_CHARS <= len(item) <= PUBLISHABLE_LIMITATION_MAX_CHARS
+        for item in limitations
+    ):
+        issues.append(
+            f"each story limitation must be trimmed publishable prose of "
+            f"{PUBLISHABLE_LIMITATION_MIN_CHARS}..{PUBLISHABLE_LIMITATION_MAX_CHARS} characters")
+    sensitive = sensitive_value_paths({"summary": summary, "limitations": limitations})
+    if sensitive:
+        issues.append("story prose contains prohibited sensitive values: " + ", ".join(sensitive))
+    return issues
 
 
 def policy_from(contract: dict) -> dict:
@@ -300,8 +368,7 @@ def validate_story(story: dict, index: dict, contract: dict, schema: dict,
         issues.append("story privacy declaration is not publishable")
     if forbidden_paths(story):
         issues.append("story contains prohibited direct-identifier fields")
-    if not isinstance(story.get("limitations"), list):
-        issues.append("story limitations are not an array")
+    issues.extend(publishable_narrative_issues(story))
     before = record.get("baseline") or {}
     after = record.get("followup") or {}
     improvements = any(after.get(metric, 0) < before.get(metric, 0) for metric in PRIMARY_METRICS)
