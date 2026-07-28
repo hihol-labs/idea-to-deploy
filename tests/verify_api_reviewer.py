@@ -11,9 +11,11 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +25,27 @@ SCHEMA = ROOT / "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json"
 PILOT = ROOT / "docs/api-reviewer/SHADOW_PILOT.json"
 WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
 PHASES = ("adapters", "routing", "modes", "egress", "evidence", "pilot")
+
+
+def remove_tree(path: Path) -> None:
+    """Remove Git fixtures despite transient Windows read-only/handle races."""
+    def make_writable_and_retry(func, target, _exc_info) -> None:
+        try:
+            os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+            func(target)
+        except FileNotFoundError:
+            return
+
+    for attempt in range(6):
+        try:
+            shutil.rmtree(path, onerror=make_writable_and_retry)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(0.05 * (2 ** attempt))
 
 
 def shell(argv: list[str], cwd: Path, env: dict[str, str] | None = None,
@@ -266,7 +289,7 @@ def phase_adapters(checks: Checks) -> None:
             "fixture-backed reviews consumed the production budget ledger",
         )
     finally:
-        shutil.rmtree(path)
+        remove_tree(path)
 
 
 def phase_routing(checks: Checks) -> None:
@@ -293,7 +316,7 @@ def phase_routing(checks: Checks) -> None:
         checks.that("openai-responses" in medium["providers"],
                     "fresh same-model medium checker should remain advisory-eligible")
     finally:
-        shutil.rmtree(path)
+        remove_tree(path)
 
 
 def phase_modes(checks: Checks) -> None:
@@ -393,7 +416,7 @@ def phase_modes(checks: Checks) -> None:
             "CI usage reconciliation ledger is not serialized across workflow runs",
         )
     finally:
-        shutil.rmtree(path)
+        remove_tree(path)
 
 
 def phase_egress(checks: Checks) -> None:
@@ -684,9 +707,9 @@ def phase_egress(checks: Checks) -> None:
                 "concurrent reviews bypassed the atomic monthly reservation",
             )
         finally:
-            shutil.rmtree(race_path)
+            remove_tree(race_path)
     finally:
-        shutil.rmtree(path)
+        remove_tree(path)
 
 
 def phase_evidence(checks: Checks) -> None:
@@ -933,7 +956,7 @@ def phase_evidence(checks: Checks) -> None:
             "finding on a deleted base-file line was rejected",
         )
     finally:
-        shutil.rmtree(path)
+        remove_tree(path)
 
 
 def phase_pilot(checks: Checks) -> None:
