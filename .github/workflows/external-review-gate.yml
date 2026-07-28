@@ -286,7 +286,9 @@ jobs:
           adjudication="$(python3 "$vl" adjudicate --root .itd-candidate \
             --unit-id "PR-${{ github.event.client_payload.pull_request }}:external-review" \
             --risk-tier high --machine "$machine" --checker "$checker")"
-          python3 "$vl" check --root .itd-candidate --receipt "$adjudication"
+          python3 "$vl" check --root .itd-candidate \
+            --unit-id "PR-${{ github.event.client_payload.pull_request }}:external-review" \
+            --risk-tier high --receipt "$adjudication"
           echo "adjudication=$adjudication" >> "$GITHUB_OUTPUT"
 
       - name: Upload privacy-safe evidence

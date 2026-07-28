@@ -361,7 +361,8 @@ def phase_modes(checks: Checks) -> None:
                     "CI gate is not default-branch-dispatched with trusted tooling")
         checks.that("test -z \"${OPENAI_API_KEY:-}\"" in workflow
                     and "adjudicate --root .itd-candidate" in workflow
-                    and " check --root .itd-candidate" in workflow,
+                    and " check --root .itd-candidate" in workflow
+                    and '--risk-tier high --receipt "$adjudication"' in workflow,
                     "CI gate does not separate the secret from candidate execution "
                     "or finish through adjudication")
         checks.that("ITD_PROVENANCE_HMAC_KEY" in workflow
