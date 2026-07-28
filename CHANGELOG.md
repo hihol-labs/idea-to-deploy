@@ -91,6 +91,9 @@ weakening ITD completion authority.**
   preventing one command from feeding undeclared overlays to the next.
 - Adjudication accepts only bounded regular dependency JSON inside the evidence
   root, rejecting symlink/reparse traversal and receipts larger than 4 MiB.
+- Publication scope is evaluated against the current `main` after the v1.92/
+  v1.93 squash merge, so the v1.94 PR binds exactly its 84-file delta instead
+  of re-declaring already published predecessor files.
 
 ## [1.93.0] - 2026-07-22
 
