@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "id": "external-review-v1",
+  "defaultEnabled": false,
+  "completionAuthority": "verification-loop-v1",
+  "consent": {
+    "environment": "ITD_EXTERNAL_REVIEW_EGRESS_OK",
+    "compatibleEnvironment": "CROSS_REVIEW_EGRESS_OK",
+    "marker": ".itd-external-review-egress-ok",
+    "compatibleMarker": ".cross-review-egress-ok"
+  },
+  "limits": {
+    "maxFiles": 100,
+    "maxDiffBytes": 55000,
+    "maxRequestBytes": 66500,
+    "maxEstimatedInputTokens": 50000,
+    "maxOutputTokens": 5550,
+    "timeoutSeconds": 120,
+    "maxRetries": 0,
+    "maxCostUsd": 0.5,
+    "monthlyCostUsd": 10.0
+  },
+  "providers": [
+    {
+      "id": "openai-responses",
+      "vendor": "openai",
+      "kind": "responses-api",
+      "automatedEligible": true,
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "endpoint": "https://api.openai.com/v1/responses",
+      "credentialEnvironment": "OPENAI_API_KEY",
+      "inputUsdPerMillion": 5.0,
+      "outputUsdPerMillion": 30.0,
+      "pricingObservedAt": "2026-07-28"
+    },
+    {
+      "id": "codex-cli",
+      "vendor": "openai",
+      "kind": "cli",
+      "automatedEligible": false,
+      "model": "codex-cli-configured",
+      "command": "codex"
+    },
+    {
+      "id": "gemini-cli",
+      "vendor": "google",
+      "kind": "cli",
+      "automatedEligible": false,
+      "model": "gemini-cli-configured",
+      "command": "gemini"
+    }
+  ],
+  "routing": {
+    "preferCrossVendor": true,
+    "allowSameVendorDifferentModel": true,
+    "allowSameModelForMedium": true,
+    "sameModelForHighOrUnknown": false
+  },
+  "retention": {
+    "persistRawRequest": false,
+    "persistRawResponse": false,
+    "persistSanitizedPrompt": true,
+    "persistValidatedReport": true,
+    "persistUsageAndHashes": true
+  }
+}

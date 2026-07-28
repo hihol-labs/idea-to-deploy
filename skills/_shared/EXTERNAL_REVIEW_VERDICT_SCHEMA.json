@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ITD external review verdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "findings", "unverified"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASSED", "PASSED_WITH_WARNINGS", "BLOCKED"]
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "confidence", "category", "file", "line", "summary"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "important", "minor"]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 80
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "unverified": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}

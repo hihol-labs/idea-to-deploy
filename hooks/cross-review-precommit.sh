@@ -5,9 +5,9 @@ commit (idea-to-deploy v1.34.0).
 
 Fires before `git commit`. When the repo has OPTED IN to external egress AND the
 staged diff touches a correctness-critical / sensitive path (migrations, money,
-auth, secrets), it dispatches a BACKGROUND cross-vendor review of the scrubbed
-diff (codex -> gemini) and writes findings to a notes file. It then returns
-IMMEDIATELY with exit 0 — it NEVER blocks the commit.
+auth, secrets), it emits a reminder to run the canonical `/cross-review`
+workflow. It never shells out to a tool-capable CLI: a pre-commit process cannot
+prove a no-tools/no-secret sandbox or trustworthy maker provenance.
 
 This is the "continuous" companion to the on-demand /cross-review skill, and the
 deliberate OPPOSITE of check-dod-before-commit.sh: the DoD gate BLOCKS (deny);
@@ -23,9 +23,8 @@ Design constraints (see docs/adr/ADR-002-cross-review-opt-in-precommit.md):
         (e.g. listed in .git/info/exclude) and never enter a commit or PR —
         nothing lands in the reviewed repo. Committing it is reserved for a
         deliberate team-wide opt-in, not the default.
-  • ASYNC. The external CLI (8-30s, can hang under a flaky VPN) runs in a
-    detached child process (subprocess.Popen, cross-platform POSIX + Windows);
-    the hook itself returns in well under its 5s registration timeout.
+  • NO AUTOMATED CLI EGRESS. Codex/Gemini remain host-native advisory
+    alternatives, invoked explicitly by an isolated host workflow.
   • AUTO-DISABLED in a linked/secondary worktree (the index may hold another
     agent's staged work) — unconditional. Also disabled when the Agent Teams flag
     (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1) is set, UNLESS overridden with
@@ -43,15 +42,13 @@ Fail-open: ANY error path -> exit 0 (allow, never block).
 """
 from __future__ import annotations
 
-import glob
+import importlib.util
 import json
 import os
+from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
-import time
 
 GIT_COMMIT_RE = re.compile(r"(^|[ ;&|])git\s+commit(\s|$)")
 
@@ -64,30 +61,27 @@ MONEY_AUTH_RE = re.compile(
     re.I,
 )
 
-# --- scrub patterns (value, replacement) — same coverage as pii-egress-guard --
-SCRUB_SUBS = [
-    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----.*?"
-                r"-----END (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----", re.S),
-     "[REDACTED-PRIVATE-KEY]"),
-    (re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"), "[REDACTED-AWS-KEY]"),
-    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b"), "[REDACTED-GH-TOKEN]"),
-    (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}"), "[REDACTED-SLACK-TOKEN]"),
-    (re.compile(r"\bAIza[0-9A-Za-z_\-]{35}"), "[REDACTED-GOOGLE-KEY]"),
-    (re.compile(r"\b[rs]k_live_[A-Za-z0-9]{16,}"), "[REDACTED-STRIPE-KEY]"),
-    (re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{20,}"), "[REDACTED-ANTHROPIC-KEY]"),
-    (re.compile(r"\bsk-[A-Za-z0-9]{20,}"), "[REDACTED-KEY]"),
-    (re.compile(r"(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._\-]{20,}"), r"\1[REDACTED]"),
-    (re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"), "[REDACTED-EMAIL]"),
-    (re.compile(r"(?i)(password|passwd|api[_-]?key|secret|token)(\s*[=:]\s*)[^\s\"'&]{6,}"),
-     r"\1\2[REDACTED]"),
-]
-# Belt-and-suspenders: high-confidence secrets that must NOT survive scrub.
-RESIDUAL_SECRET_RE = re.compile(
-    r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{36,}\b|"
-    r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----|"
-    r"\bsk-ant-[A-Za-z0-9_\-]{20,}|\b[rs]k_live_[A-Za-z0-9]{16,}|"
-    r"\bxox[baprs]-[A-Za-z0-9-]{10,}"
-)
+def load_shared_sanitizer():
+    """Load the one canonical sanitizer; missing shared code means no egress."""
+    candidates = [
+        Path(__file__).resolve().parents[1] / "skills/_shared/itd_external_reviewer.py",
+        Path.home() / ".claude/skills/_shared/itd_external_reviewer.py",
+    ]
+    plugin_root = os.environ.get("PLUGIN_ROOT") or os.environ.get("CLAUDE_PLUGIN_ROOT")
+    if plugin_root:
+        candidates.insert(0, Path(plugin_root) / "skills/_shared/itd_external_reviewer.py")
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location("itd_external_reviewer_shared", candidate)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    return None
+
+
+SHARED_SANITIZER = load_shared_sanitizer()
 
 REVIEW_PROMPT_HEAD = (
     "You are an INDEPENDENT second-opinion reviewer. The following diff was "
@@ -108,9 +102,9 @@ def git(args: list) -> str:
 
 
 def scrub(text: str) -> str:
-    for pat, repl in SCRUB_SUBS:
-        text = pat.sub(repl, text)
-    return text
+    if SHARED_SANITIZER is None:
+        return ""
+    return SHARED_SANITIZER.scrub(text)[0]
 
 
 def write_notes_header(notes: str, root: str) -> None:
@@ -141,92 +135,14 @@ def append(notes: str, text: str) -> None:
         pass
 
 
-def _newest(paths):
-    paths = [p for p in paths if os.path.exists(p)]
-    if not paths:
-        return None
-    try:
-        return max(paths, key=os.path.getmtime)
-    except OSError:
-        return paths[0]
-
-
-def resolve_engine(name: str):
-    """Return a full path to the engine binary, or None. Resolution order:
-
-      1. explicit override env  CROSS_REVIEW_<NAME>_BIN  (points at any binary);
-      2. for codex, the newest OpenAI Codex *desktop* bundle — it is newer and
-         network-capable where the standalone CLI can fail (unknown `service_tier`,
-         or a model-refresh timeout behind a fake-ip VPN):
-           - on Windows: %LOCALAPPDATA%\\OpenAI\\Codex\\bin\\<hash>\\codex.exe;
-           - on WSL/Linux: the same Windows binary via /mnt interop
-             (/mnt/<drive>/Users/*/AppData/Local/OpenAI/Codex/bin/*/codex.exe).
-             It runs as a Windows process, so it uses the working Windows network
-             stack — the standalone WSL codex CLI may be broken under the VPN.
-         Picking the newest by mtime survives desktop auto-updates;
-      3. whatever is on PATH (shutil.which).
-
-    Returning a FULL path also fixes the Windows `.CMD` launch problem (a bare
-    name is not launchable by CreateProcess). On a plain Linux box (no Windows
-    mount) the /mnt glob matches nothing and we fall straight through to PATH."""
-    override = os.environ.get("CROSS_REVIEW_%s_BIN" % name.upper())
-    if override and os.path.exists(override):
-        return override
-    if name == "codex":
-        if os.name == "nt":
-            base = os.path.join(
-                os.environ.get("LOCALAPPDATA", ""), "OpenAI", "Codex", "bin")
-            found = _newest(glob.glob(os.path.join(base, "*", "codex.exe")))
-        else:
-            # WSL interop: reach the Windows desktop codex.exe across drive mounts.
-            found = _newest(glob.glob(
-                "/mnt/*/Users/*/AppData/Local/OpenAI/Codex/bin/*/codex.exe"))
-        if found:
-            return found
-    return shutil.which(name)
-
-
-def run_engine(argv: list, promptf: str):
-    """Run an already-resolved engine invocation (argv[0] is a full path).
-    Return (stdout, ok). ok=False on non-zero exit, timeout, or empty output —
-    all treated as 'engine unavailable'."""
-    try:
-        with open(promptf, "r", encoding="utf-8") as f:
-            res = subprocess.run(argv, stdin=f,
-                                 capture_output=True, text=True, timeout=120)
-        out = (res.stdout or "").strip()
-        return out, (res.returncode == 0 and bool(out))
-    except Exception:
-        return "", False
-
-
 def run_worker(promptf: str, notes: str) -> None:
-    """Detached child: detect engine, run it, append findings. Degrade honestly."""
-    codex = resolve_engine("codex")
-    gemini = resolve_engine("gemini")
-
-    if codex:
-        # --skip-git-repo-check: codex exec otherwise refuses outside a dir it
-        # already "trusts", which a fresh clone / CI checkout is not.
-        out, ok = run_engine([codex, "exec", "--skip-git-repo-check", "-"], promptf)
-        if ok:
-            append(notes, "## Findings (engine: codex)\n\n%s\n" % out)
-            _cleanup(promptf)
-            return
-
-    if gemini:
-        out, ok = run_engine([gemini, "-p", "-"], promptf)
-        if ok:
-            append(notes, "## Findings (engine: gemini)\n\n%s\n" % out)
-            _cleanup(promptf)
-            return
-
+    """Compatibility entry point: never launches a tool-capable external CLI."""
     append(
         notes,
         "## External second opinion UNAVAILABLE\n\n"
-        "No external cross-vendor model produced findings (codex/gemini missing,\n"
-        "out of quota, or timed out). The cross-vendor property is NOT present.\n"
-        "For a native red-team pass, run `/cross-review` in-session; either way\n"
+        "Automated Codex/Gemini CLI egress is disabled because this hook cannot\n"
+        "prove a no-tools/no-secret sandbox or complete cost telemetry.\n"
+        "Run `/cross-review` through an isolated host workflow; either way\n"
         "the mandatory `/review` still applies.\n",
     )
     _cleanup(promptf)
@@ -236,30 +152,6 @@ def _cleanup(promptf: str) -> None:
     try:
         os.remove(promptf)
     except OSError:
-        pass
-
-
-def dispatch(promptf: str, notes: str) -> None:
-    """Spawn a fully detached child process to run the (slow) external review;
-    the parent returns immediately. Cross-platform (POSIX + Windows): re-invokes
-    THIS file in `--worker` mode via subprocess.Popen with platform-appropriate
-    detach flags, so a hung CLI never ties to the parent/terminal. (We avoid
-    os.fork, which does not exist on Windows.)"""
-    cmd = [sys.executable, os.path.abspath(__file__), "--worker", promptf, notes]
-    try:
-        devnull = open(os.devnull, "r+b")
-    except OSError:
-        return
-    kwargs = {"stdin": devnull, "stdout": devnull, "stderr": devnull}
-    if os.name == "nt":
-        # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP — no console, survives parent.
-        kwargs["creationflags"] = 0x00000008 | 0x00000200
-    else:
-        kwargs["start_new_session"] = True  # setsid — own session, no controlling tty
-    try:
-        subprocess.Popen(cmd, **kwargs)
-    except Exception:
-        # Fail-open: if we cannot spawn the worker, the commit still proceeds.
         pass
 
 
@@ -310,63 +202,13 @@ def main() -> int:
     paths = staged.splitlines()
     if not any(MIGRATION_RE.search(p) or MONEY_AUTH_RE.search(p) for p in paths):
         return 0
-
-    diff = git(["diff", "--cached"])
-    if not diff:
-        return 0
-    scrubbed = scrub(diff)
-    if not scrubbed:
-        return 0
-
-    notes = os.path.join(
-        tempfile.gettempdir(),
-        "claude-cross-review-%d-%d.md" % (int(time.time()), os.getpid()),
-    )
-
-    # Residual live-credential check — do NOT egress if a secret survived scrub.
-    if RESIDUAL_SECRET_RE.search(scrubbed):
-        write_notes_header(notes, root)
-        append(
-            notes,
-            "## Cross-review SKIPPED — residual credential after scrub\n\n"
-            "A high-confidence secret survived redaction, so the diff was NOT sent\n"
-            "to any external model. Rotate/remove the credential, then run\n"
-            "`/cross-review` manually if you still want a second opinion.\n",
-        )
-        emit_context(
-            "[cross-review] residual secret after scrub -> external review SKIPPED "
-            "(fail-safe). Note: %s" % notes
-        )
-        return 0
-
-    # Write the prompt to a temp file (never via env, which has a size cap a
-    # large diff would blow), then dispatch the detached worker.
-    try:
-        fd, promptf = tempfile.mkstemp(prefix="claude-cross-review-prompt-", suffix=".txt")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(REVIEW_PROMPT_HEAD)
-            f.write(scrubbed)
-    except OSError:
-        return 0
-
-    write_notes_header(notes, root)
-    try:
-        dispatch(promptf, notes)
-    except Exception:
-        # Fail-open: a background-dispatch failure must never block the commit.
-        pass
-
     emit_context(
-        "[cross-review] sensitive staged paths -> dispatched BACKGROUND cross-vendor "
-        "review. Findings will land in: %s (NON-BLOCKING; does NOT satisfy the "
-        "mandatory /review)." % notes
+        "[cross-review] sensitive staged paths detected; automated Codex/Gemini "
+        "CLI egress is disabled. Run the canonical /cross-review workflow for an "
+        "isolated advisory review (NON-BLOCKING; does NOT satisfy /review)."
     )
     return 0
 
 
 if __name__ == "__main__":
-    # Detached background worker entry point (spawned by dispatch()).
-    if len(sys.argv) >= 4 and sys.argv[1] == "--worker":
-        run_worker(sys.argv[2], sys.argv[3])
-        sys.exit(0)
     sys.exit(main())

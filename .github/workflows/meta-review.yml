@@ -175,6 +175,10 @@ jobs:
 
       - name: Run proof-carrying Verification Loop adversarial contract
         run: python3 tests/verify_verification_loop.py
+      - name: Run provider-neutral external reviewer contract
+        run: python3 tests/verify_api_reviewer.py
+      - name: Run external reviewer release contract
+        run: python3 tests/verify_external_reviewer_release.py
 
       - name: Run bounded goal deterministic five-star evaluator
         run: python3 tests/verify_goal_five_star.py

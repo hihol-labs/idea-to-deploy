@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.95.0] - 2026-07-28
+
+### Added
+- A provider-neutral exact-candidate external checker transport adds the OpenAI
+  Responses API while retaining Codex and Gemini CLI alternatives. Routing uses
+  maker provenance and risk; same-vendor evidence is labelled honestly.
+- A protected GitHub external-review gate separates API credentials from
+  candidate execution and accepts only a fresh high-risk Verification Loop
+  adjudication.
+- A deterministic shadow-pilot schema measures availability, latency, observed
+  token/cost use, unique findings, false positives, and review duplication
+  without fabricating live external outcomes.
+
+### Changed
+- `/cross-review` remains local opt-in/advisory but now reports typed
+  `UNAVAILABLE`/`UNVERIFIED` instead of presenting a native self-review as an
+  external fallback.
+- The legacy pre-commit reviewer consumes the one shared sanitizer. Exact
+  candidate, schema, provenance, file/byte/token/time/cost limits, and monthly
+  budget enforcement are centralized in the shared transport.
+
+### Security
+- Oversize, binary, partial, stale, contradictory, residual-secret, missing
+  consent/provenance, and exhausted-budget cases fail closed for acceptance.
+  Raw API bodies and keys are never persisted; candidate code runs only after
+  the API credential leaves the CI environment.
+
 ## [1.94.0] - 2026-07-27
 
 **Harness Engineering absorption focused on faster brownfield orientation,

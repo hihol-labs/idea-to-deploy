@@ -90,6 +90,14 @@ The checker report must end with the canonical JSON verdict block containing
 `verdict`, `findings`, and `unverified`. Any candidate, policy, prompt, report,
 receipt dependency, risk, or unit change invalidates the chain.
 
+An external model is only a checker transport. The provider-neutral adapter in
+`skills/_shared/itd_external_reviewer.py` may prepare a sanitized, bounded
+exact-candidate prompt and validated report, but those artifacts remain
+diagnostic until the ordinary checker producer records host-observed
+maker/checker provenance and the adjudicator accepts them. Local fail-open
+review therefore cannot weaken a required medium/high route. See
+`docs/API_REVIEWER.md` and ADR-003.
+
 ## Repair and terminal states
 
 The harness atomically allocates an append-only attempt ledger for each
