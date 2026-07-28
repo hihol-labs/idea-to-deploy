@@ -68,6 +68,13 @@ provider. If the host cannot establish the required provenance, the outcome is
 The portable trust root is the honest host orchestrator, not a cryptographic
 model identity claim.
 
+Hosts may use `skills/_shared/itd_external_reviewer.py` as a shared checker
+transport. They must supply real maker provenance, preserve its typed
+`UNAVAILABLE`/`UNVERIFIED` states, and pass successful prompt/report metadata
+through the same Verification Loop. An adapter must not relabel same-vendor
+evidence as cross-vendor or treat the external transport as a second completion
+authority.
+
 ## Native continuation for bounded goals
 
 The shared contract for autonomous delivery is the optional

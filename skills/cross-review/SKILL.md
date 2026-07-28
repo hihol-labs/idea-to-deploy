@@ -1,6 +1,6 @@
 ---
 name: cross-review
-description: 'Cross-vendor second-opinion code review — runs an INDEPENDENT external model (OpenAI Codex CLI or Gemini CLI) over the current diff to catch blind spots that a Claude-only review (/review) systematically shares with the code it produced. Use when the user wants a second opinion from a different vendor/model, a cross-review, a cross-vendor review, or to have codex/gemini review the diff. Fail-open and additive: it NEVER replaces or gates /review — the native /review remains the mandatory quality floor; cross-review is a bonus ceiling that gracefully degrades (codex -> gemini -> native Claude red-team self-review) when an external CLI is missing or out of quota. Scrubs secrets/PII out of the diff before sending anything to a third-party CLI.'
+description: 'Independent second-opinion review over an exact staged candidate. Routes by maker provenance and risk across the managed OpenAI Responses API, Codex CLI, and Gemini CLI; labels same-vendor and cross-vendor evidence honestly. Local use is opt-in, advisory, and fail-open. Mandatory acceptance remains owned exclusively by the Verification Loop.'
 argument-hint: diff range (e.g. HEAD~3, main...HEAD), a path, or empty for the working tree
 license: MIT
 allowed-tools: Read, Bash
@@ -16,12 +16,12 @@ metadata:
 
 # Cross-Review (cross-vendor second opinion)
 
-Ported from the omnigent concept "one vendor reviews another vendor's code" — as
-an **outcome** (get an independent second opinion), not as omnigent's
-orchestration server. When Claude both writes and reviews the code (`/review`),
-the reviewer shares the author's blind spots. `/cross-review` sends the diff to a
-**different** model (OpenAI Codex CLI or Google Gemini CLI) and folds its findings
-back into the review notes.
+Ported from the omnigent concept "one reviewer challenges another agent's code"
+as an **outcome**, not as an orchestration server. Correlated maker/checker
+contexts share blind spots, so `/cross-review` routes an exact staged candidate
+to an eligible managed checker and records the real independence class.
+Codex/Gemini CLI remain named host-native alternatives, but generic CLI agents
+are not automated evidence without a verifiable no-tools/no-secret sandbox.
 
 ## Trigger phrases
 
@@ -39,72 +39,67 @@ keep them in sync.
 - gemini review, ревью через gemini
 
 **Do NOT** route a plain "review this" / "проверь PR" here — that is `/review`
-(the mandatory Claude review). `/cross-review` is specifically the *cross-vendor /
+(the mandatory host-neutral review). `/cross-review` is specifically the *independent /
 second-opinion* request and is always additive to `/review`, never a substitute.
 
 ## Recommended model
 
-**sonnet** — Orchestration only: scrub the diff, shell out to an external CLI,
-parse and summarize its findings. No heavy generation. Set via `/model sonnet`.
+**sonnet** — Orchestration only: bind and scrub the diff, call an eligible
+managed adapter, then validate its structured findings. No heavy generation.
 
-## Core principle — fail-open, never a gate
+## Core principle — advisory transport, never a gate
 
-1. **`/review` is the floor.** The mandatory Claude review is unaffected by this
-   skill. `/cross-review` adds an independent opinion on top; it MUST NOT be a
-   commit gate and MUST NOT write the `/tmp/claude-review-done-*` marker (that
-   would let someone skip the real `/review`).
-2. **Graceful degradation chain:** try `codex` → if missing/erroring/out of quota,
-   try `gemini` → if also unavailable, fall back to a **native Claude red-team
-   self-review** of the diff and clearly say the external second opinion was
-   unavailable. The methodology's effectiveness never depends on a third-party
-   CLI being installed or in-quota.
-3. **Quota exhaustion == not installed.** A non-zero exit, auth error, or
-   rate-limit/quota message from the external CLI is treated the same as "CLI not
-   present": note it, degrade, continue. Never block the workflow.
+1. **Verification Loop is the only acceptance authority.** `/cross-review`
+   adds an opinion and may produce checker artifacts, but it never mints
+   completion, a review-cache hit, or the `/tmp/claude-review-done-*` marker.
+2. **Maker/risk-aware routing:** the shared policy selects a cross-vendor
+   checker first where possible, then an eligible different-model same-vendor
+   checker. OpenAI Responses API is the automated adapter; Codex CLI and Gemini
+   CLI remain host-native advisory alternatives but are automated-ineligible
+   until their isolation and telemetry contracts are enforceable.
+3. **Honest degradation:** provider errors, auth/quota exhaustion, invalid
+   output, missing consent, incomplete provenance, or incomplete diff coverage
+   produce typed `UNAVAILABLE`/`UNVERIFIED`. Local use reports that status and
+   continues; it never fabricates a native "external" fallback or a clean pass.
+4. **CI semantics differ only in enforcement:** a protected PR check fails
+   closed when no policy-eligible exact-candidate evidence exists. It does not
+   require one named provider when another eligible checker succeeds.
 
 ## Steps
 
-1. **Resolve the diff.** Use the argument as the range/path; default to the working
-   tree plus staged changes:
+1. **Resolve the exact staged candidate.** API evidence uses the staged index,
+   not an arbitrary working-tree slice:
    ```bash
    # $ARGUMENTS may be "HEAD~3", "main...HEAD", a path, or empty
-   git diff ${ARGUMENTS:-HEAD} 2>/dev/null || git diff
+   git diff --cached --name-only
    ```
    If the diff is empty, tell the user there is nothing to cross-review and stop.
 
-2. **Scrub secrets/PII before egress.** Sending the diff to a third-party CLI is
-   egress. Before sending, redact anything that looks like a secret or PII
-   (API keys, private keys, Bearer tokens, emails, `password=`/`token=` values).
-   The `pii-egress-guard.sh` hook is a backstop, not a substitute — scrub in the
-   skill too. If the diff cannot be safely scrubbed and still contains a live
-   credential, do NOT send it externally; degrade to the native review and say so.
+2. **Use the one shared egress boundary.** Do not duplicate regexes in this
+   skill. `skills/_shared/itd_external_reviewer.py` requires explicit consent,
+   rejects binary/incomplete/oversize candidates without truncation, applies
+   the canonical sanitizer, and enforces file/byte/token/time/cost budgets.
 
-3. **Detect and run an external reviewer.** See `references/cli-adapters.md` for
-   the exact, verified invocations. In short:
+3. **Route and run one eligible reviewer.** Supply host-observed maker
+   provider/model/session and the real risk tier:
    ```bash
-   if command -v codex >/dev/null 2>&1; then ENGINE=codex
-   elif command -v gemini >/dev/null 2>&1; then ENGINE=gemini
-   else ENGINE=none; fi
+   sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py review \
+     --root . --maker-vendor "$MAKER_PROVIDER" --maker-model "$MAKER_MODEL" \
+     --maker-session "$MAKER_SESSION" --risk "$RISK_TIER" --mode local
    ```
    Pipe the scrubbed diff with a focused review prompt (correctness bugs, security,
-   missed edge cases) and capture stdout. Treat any non-zero exit as "unavailable".
+   missed edge cases) and capture stdout. Preserve typed outcomes: exit `2` is
+   validated `FINDINGS`, `3` is `UNAVAILABLE`, and `4` is `UNVERIFIED`.
 
-3a. **Verdict-completeness — auto-re-ping once on a verdict-less return (v1.60.0
-   — Ось 2, agentic engineering).** Whether the reviewer is an external CLI or
-   the native red-team fallback (an Agent-tool `code-reviewer` dispatch), its
-   output must end on a findings/verdict conclusion. If the captured output ends
-   **without one** — a truncated stream, a dangling narration, an empty tail —
-   **auto-re-ping ONCE, caller-side, without asking the user**: re-run the CLI
-   with «выдай вердикт и список находок одним ответом», or resume the subagent
-   per `/review` Step 2.7. Detect by the **ABSENCE of the conclusion marker**,
-   not by pattern-matching whether the prose "looks like" narration. Bounded to
-   one retry; still empty → report «внешний ревьюер не вернул вердикт» and
-   degrade (fail-open) — never silently treat an empty return as clean.
+3a. **Structured verdict only.** Responses API uses strict JSON Schema.
+   CLI alternatives must return the same closed verdict/findings/unverified
+   object. Empty, prose-only, contradictory, unknown-file, or incomplete output
+   is `UNVERIFIED`, not a reason to re-interpret text as green.
 
-4. **Fold findings into review notes.** Summarize the external model's findings,
-   de-duplicate against what Claude already knows, and present a short ranked list
-   (file:line + concrete fix). Always state which engine actually ran (codex /
-   gemini / native fallback) so the second opinion's provenance is explicit.
+4. **Fold findings into review notes.** Present the validated ranked findings
+   and name provider, model, response/session, independence class, exact tree,
+   observed usage/cost, and any earlier provider failures. Never call
+   same-vendor evidence cross-vendor.
 
 5. **Hand back to the gate.** Remind the user that `/cross-review` does not satisfy
    the `/review` gate — run `/review` if it has not run yet.
@@ -113,18 +108,18 @@ parse and summarize its findings. No heavy generation. Set via `/model sonnet`.
 
 | Skill | Reviewer | Role | Gates? |
 |---|---|---|---|
-| `/review` | Claude (this vendor) | Mandatory quality floor | Yes — required before multi-file commit |
-| `/cross-review` | External model (codex/gemini), else Claude red-team | Bonus independent second opinion | No — additive, fail-open |
+| `/review` | Host-selected fresh reviewer | Mandatory quality floor through Verification Loop | Yes |
+| `/cross-review` | Managed API by maker/risk policy; Codex/Gemini host-native alternatives | Advisory second opinion; may supply checker artifacts | No, locally |
+| CI external review | Same shared transport | Exact-candidate checker evidence | Only through Verification Loop adjudication |
 | `/security-guidance-setup` | security-guidance plugin | Continuous shift-left security | No — complements /security-audit |
 
 ## Continuous mode — opt-in pre-commit hook (v1.34.0)
 
 On-demand `/cross-review` is the default and covers ~80% of the value: run it by
 hand before committing in correctness-critical work (`/bugfix`, `/migrate`,
-`/harden`, `/refactor`). For repos that want the second opinion *automatically*,
-there is a companion enforcement hook — `hooks/cross-review-precommit.sh` — that
-fires on `git commit`. It is the same primitive as this skill, wired to a trigger
-instead of a phrase, and it keeps every invariant above:
+`/harden`, `/refactor`). For repos that want a checkpoint reminder,
+`hooks/cross-review-precommit.sh` fires on `git commit`. It never launches a
+generic tool-capable CLI:
 
 - **DEFAULT-OFF.** It does nothing unless you explicitly opt in to external
   egress, via env `CROSS_REVIEW_EGRESS_OK=1` (per-machine) or a
@@ -137,16 +132,14 @@ instead of a phrase, and it keeps every invariant above:
   when you want to see findings *before* committing.
 - **Scoped to sensitive paths only** (migration / money / auth — the same signals
   as the DoD gate), so ordinary commits are never taxed.
-- **Async + non-blocking.** It scrubs the diff, dispatches a *detached background*
-  codex→gemini review, writes findings to a `claude-cross-review-*.md` notes file,
-  and returns immediately. It NEVER blocks the commit and NEVER writes the
-  `/review` sentinel — `/review` remains the mandatory floor.
+- **Non-blocking and no egress.** It emits a reminder to run the canonical
+  isolated `/cross-review` workflow. It NEVER blocks the commit and NEVER writes
+  the `/review` sentinel — `/review` remains the mandatory floor.
 - **Auto-disabled** in a linked/secondary worktree (unconditional — the index may
   hold another agent's staged work). Also disabled under the Agent Teams flag
   (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) **unless** you override with
   `CROSS_REVIEW_ALLOW_AGENT_TEAMS=1` (for machines that run Agent Teams as their
-  default and still want the background review). It also refuses to egress at all
-  if a live credential survives scrubbing.
+  default and still want the reminder).
 - **Hard off-switch:** `ITD_CROSS_REVIEW=0`.
 
 Why opt-in pre-commit and not always-on per-edit/per-turn: see
@@ -158,7 +151,7 @@ non-duplication of the in-vendor `/security-guidance-setup` continuous layer).
 
 Before finishing, verify:
 - [ ] The diff was scrubbed of secrets/PII before any external send (or external send was skipped).
-- [ ] The degradation chain was honored (codex → gemini → native) and the engine that ran is named.
+- [ ] Maker/risk routing was honored and every attempted provider/status is named.
 - [ ] No `/tmp/claude-review-done-*` marker was written (cross-review is not /review).
 - [ ] Findings are concrete (file:line + fix), de-duplicated, and ranked.
 - [ ] The user was reminded that `/review` is still required.
@@ -176,17 +169,16 @@ Actions:
 4. Codex returns 3 findings; summarize ranked with file:line, note "engine: codex".
 5. Remind: "Это второе мнение. Обязательный `/review` всё ещё нужен — запустить?"
 
-### Example 2: Codex out of quota — graceful degrade
+### Example 2: Managed API unavailable — honest degradation
 
 User says: «ревью другой моделью этот PR».
 
 Actions:
 1. Resolve diff for the PR range, scrub it.
-2. `codex exec ...` → exits non-zero with a quota/rate-limit message.
-3. Per the chain, try `gemini` → not installed.
-4. Fall back to a native Claude red-team self-review of the diff; clearly state
-   "Внешнее второе мнение недоступно (codex: лимит; gemini: не установлен) —
-   сделал adversarial self-review Claude. Базовый `/review` это не заменяет."
+2. The policy tries eligible providers in maker/risk order.
+3. Every eligible provider is unavailable.
+4. Return `UNAVAILABLE` with the attempted providers. Local development
+   continues, but no independent evidence or clean verdict is claimed.
 
 ### Example 3: Nothing to review
 
@@ -199,22 +191,24 @@ Actions:
 ## Troubleshooting
 
 ### No external CLI installed
-Expected and supported. The skill degrades to a native red-team self-review and
-says so. Suggest installing `codex` or `gemini` if the user wants a true
-cross-vendor opinion, but never require it.
+Expected and supported. Return typed `UNAVAILABLE` and name the missing
+providers. A normal `/review` may still run, but it must not be presented as
+the missing independent external opinion.
 
 ### External CLI hangs
 Wrap the external call with a timeout (see `references/cli-adapters.md`). On
 timeout, treat as unavailable and degrade.
 
 ### The diff contains a real secret that cannot be scrubbed
-Do NOT send it externally. Degrade to the native review and tell the user to
-rotate/remove the credential.
+Do NOT send it externally. Return `UNVERIFIED`, tell the user to rotate/remove
+the credential, and keep the candidate out of an evidence-gated merge.
 
 ## Rules (hard)
 
-- **Never gate on `/cross-review`.** It is additive; `/review` is the floor.
+- **Never gate on the local `/cross-review`.** Only the CI Verification Loop
+  adjudication may gate acceptance.
 - **Never write the `/tmp/claude-review-done-*` marker** — that belongs to `/review`.
 - **Always scrub before egress.** A third-party CLI is an external service.
 - **Always name the engine that ran.** Provenance of the second opinion matters.
-- **Fail open.** Any external error/quota/timeout → degrade, never block.
+- **Fail open locally, fail closed at acceptance.** Preserve the typed failure;
+  never reinterpret it as success.

@@ -94,6 +94,17 @@ The workflow **runs** automatically once merged to `main`, but to make it **bloc
 6. Enable: **Do not allow bypassing the above settings** (recommended — prevents admins from force-merging without the check)
 7. Click **Create** (or **Save changes**)
 
+For repositories that opt into independent external evidence, also configure
+the protected `itd-external-review` environment, add `OPENAI_API_KEY` plus a
+distinct `ITD_PROVENANCE_HMAC_KEY`, dispatch
+`.github/workflows/external-review-gate.yml` once, and require its
+`ITD external review gate` commit-status context. The workflow loads reviewer tooling from the
+trusted default branch and never executes PR code while the secret is present.
+It accepts only broker-signed maker provenance bound to the current PR head and
+a current high-risk Verification Loop adjudication; provider outage remains
+`UNAVAILABLE`, not PASS. Full setup and maker-provenance rules:
+`docs/API_REVIEWER.md`.
+
 After this, any PR whose meta-review fails will show a red ❌ next to the check and the merge button will be disabled until the failing commits are fixed.
 
 ### Emergency override

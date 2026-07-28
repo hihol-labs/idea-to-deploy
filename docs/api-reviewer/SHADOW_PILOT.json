@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "purpose": "Deterministic shadow-pilot fixture. It validates measurement shape but does not claim a live external outcome.",
+  "runs": [
+    {
+      "status": "PASSED",
+      "latencyMs": 1200,
+      "inputTokens": 1800,
+      "outputTokens": 180,
+      "costUsd": 0.0,
+      "uniqueActionableFindings": 0,
+      "falsePositives": 0,
+      "baseReviewDuplicates": 0,
+      "liveObserved": false
+    },
+    {
+      "status": "FINDINGS",
+      "latencyMs": 1500,
+      "inputTokens": 2200,
+      "outputTokens": 260,
+      "costUsd": 0.0,
+      "uniqueActionableFindings": 1,
+      "falsePositives": 0,
+      "baseReviewDuplicates": 1,
+      "liveObserved": false
+    },
+    {
+      "status": "UNAVAILABLE",
+      "latencyMs": 120000,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "costUsd": 0.0,
+      "uniqueActionableFindings": 0,
+      "falsePositives": 0,
+      "baseReviewDuplicates": 0,
+      "liveObserved": false
+    }
+  ]
+}

@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "Added a sealed verification oracle, bounded budgets, typed stops, attempt evidence, and host-native continuation guidance."
   },
   "currentUnit": {
-    "id": "HDX-014",
-    "goal": "Accept one exact release candidate through all absorption phases, host parity, meta-review, quick/full regression, and fresh high-risk reviews",
+    "id": "API-001",
+    "goal": "Integrate a provider-neutral API reviewer as exact-candidate Verification Loop evidence with risk routing, bounded egress, local advisory mode, and fail-closed CI acceptance",
     "status": "verified",
-    "startedAt": "2026-07-27T12:01:00Z",
-    "verifiedAt": "2026-07-27T12:49:18Z",
-    "evidence": ".itd-memory/verification-loop/receipts/8eb355586ca79d4c/HDX-014-adjudication-a1.json"
+    "startedAt": "2026-07-28T17:09:46Z",
+    "completedAt": "2026-07-28T19:03:28Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
