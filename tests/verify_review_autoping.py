@@ -135,28 +135,26 @@ def main() -> int:
           and (has_all(rv, "best-effort") or has_all(rv, "degrade")),
           "must state the two layers degrade independently")
 
-    # --- /cross-review: symmetric verdict-completeness instruction ------------
-    check("cross-review: symmetric auto-re-ping on verdict-less return",
-          (has_all(cx, "auto-re-ping") or has_all(cx, "re-ping"))
-          and has_all(cx, "caller-side"),
-          "cross-review must carry the same caller-side auto-re-ping")
+    # /cross-review now has a strict provider-neutral schema instead of a
+    # prose-completeness retry. The ordinary /review subagent path still keeps
+    # Step 2.7 above; external transports must fail typed, not ask a model to
+    # repair an untrusted malformed response.
+    check("cross-review: strict structured verdict",
+          has_all(cx, "structured verdict") and has_all(cx, "json schema"),
+          "cross-review must require strict structured output")
 
-    check("cross-review: detect by ABSENCE, not prose pattern-matching",
-          has_all(cx, "absence")
-          and (has_all(cx, "not", "pattern-matching")
-               or has_all(cx, "marker")),
-          "cross-review must detect by absence of the conclusion marker")
+    check("cross-review: empty/prose output is UNVERIFIED",
+          has_all(cx, "empty") and has_all(cx, "prose-only")
+          and has_all(cx, "unverified"),
+          "empty or prose-only external output must remain UNVERIFIED")
 
-    check("cross-review: references /review Step 2.7",
-          has_all(cx, "Step 2.7"),
-          "should point at the /review caller-side step")
+    check("cross-review: canonical verdict fields are explicit",
+          has_all(cx, "verdict/findings/unverified"),
+          "cross-review must name the canonical evidence fields")
 
-    check("cross-review: stays fail-open, never treats empty as clean",
-          has_all(cx, "fail-open")
-          and (has_all(cx, "never silently treat")
-               or has_all(cx, "empty return as clean")
-               or has_all(cx, "empty as clean")),
-          "must not silently treat an empty return as clean")
+    check("cross-review: malformed output never becomes green",
+          has_all(cx, "not a reason") and has_all(cx, "green"),
+          "malformed external output must not be reinterpreted as clean")
 
     # --- CI wiring: the gate itself is run in CI ("и в CI" clause) -----------
     wired = False

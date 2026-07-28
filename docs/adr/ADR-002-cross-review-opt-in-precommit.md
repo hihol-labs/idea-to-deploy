@@ -46,9 +46,9 @@ which are independent of consent.
 
 ## Decision
 
-**Cross-vendor review stays on-demand by default. A continuous variant exists
-only as an opt-in pre-commit hook (`hooks/cross-review-precommit.sh`), never as
-an always-on per-edit (`PostToolUse`) or per-turn (`Stop`) layer.**
+**Superseded in part by ADR-003:** cross-vendor review stays on-demand, while
+the pre-commit hook is now a non-egress reminder. Generic tool-capable CLI
+execution could not provide a verifiable no-tools/no-secret sandbox.
 
 The hook:
 
@@ -63,9 +63,9 @@ The hook:
 - triggers **only on sensitive paths** (migration / money / auth — the same
   signals as the DoD gate, `check-dod-before-commit.sh`), so ordinary commits are
   untaxed.
-- is **async + non-blocking**: it scrubs the diff, dispatches a *detached
-  background* codex→gemini review (or an honest "unavailable" note), and returns
-  immediately. It MUST NOT block the commit and MUST NOT write the
+- is **non-blocking and non-egressing**: it reminds the operator to run the
+  isolated `/cross-review` workflow and returns immediately. It MUST NOT block
+  the commit and MUST NOT write the
   `/tmp/claude-review-done-*` sentinel — `/review` remains the mandatory floor.
 - **auto-disables** unconditionally in a linked/secondary worktree; the bare
   Agent Teams flag also disables it but is overridable with
@@ -80,9 +80,8 @@ the existing Claude Code hook engine; it ships no service and operates nothing.
 ## Consequences
 
 - **Continuous coverage with zero third-party egress** stays owned by
-  `/security-guidance-setup` (in-vendor). Cross-vendor depth is a deliberate
-  ceiling: on-demand `/cross-review` by default, plus an opt-in pre-commit pass on
-  sensitive diffs where the decorrelated second opinion pays for its cost.
+  `/security-guidance-setup` (in-vendor). Cross-vendor depth is on-demand
+  `/cross-review`; pre-commit only marks the checkpoint.
 - The hook count rises 19 → 20 (it is the first **fail-open, non-blocking**
   PreToolUse-on-commit hook — the opposite posture to the DoD gate it sits beside).
 - Latency lands at a natural checkpoint (commit), not inside the iteration loop,

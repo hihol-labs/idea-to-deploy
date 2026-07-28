@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Static release oracle for the v1.95 external-reviewer capability."""
+from __future__ import annotations
+
+import copy
+import json
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+VERSION = "1.95.0"
+REQUIRED_FILES = {
+    ".github/workflows/external-review-gate.yml",
+    "docs/API_REVIEWER.md",
+    "docs/adr/ADR-003-verifiable-external-reviewer.md",
+    "docs/api-reviewer/SHADOW_PILOT.json",
+    "skills/_shared/EXTERNAL_REVIEW_POLICY.json",
+    "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json",
+    "skills/_shared/itd_external_reviewer.py",
+    "tests/verify_api_reviewer.py",
+}
+CRITERIA = {f"API-001-AC{number}" for number in range(1, 8)}
+
+
+def load(path: str) -> dict:
+    return json.loads((ROOT / path).read_text(encoding="utf-8"))
+
+
+def validate_contract(contract: dict, scope: str) -> list[str]:
+    issues: list[str] = []
+    if set(contract) != {
+        "version", "purpose", "sourceRequest", "createdAt", "criteriaSchema",
+        "criteria", "doneRule",
+    }:
+        issues.append("acceptance fields are not closed")
+    rows = contract.get("criteria")
+    if not isinstance(rows, list) or {row.get("id") for row in rows
+                                     if isinstance(row, dict)} != CRITERIA:
+        issues.append("API-001 criteria are incomplete")
+    else:
+        required = set(contract["criteriaSchema"]["requiredFields"])
+        for row in rows:
+            if set(row) != required:
+                issues.append(f"{row.get('id')} fields are not closed")
+            if row.get("status") not in {"pending", "passed"}:
+                issues.append(f"{row.get('id')} has an invalid release status")
+            if not str(row.get("verificationCommand") or "").startswith(
+                    "sh skills/_shared/itd_py.sh "):
+                issues.append(f"{row.get('id')} bypasses the launcher")
+    for marker in (
+        "# Scope Lock — API-001 verifiable external reviewer",
+        "Verification Loop",
+        "same-model same-provider",
+        "UNAVAILABLE",
+        "UNVERIFIED",
+        "silent diff truncation",
+        "branch-protection mutation",
+    ):
+        if marker not in scope:
+            issues.append(f"scope omits: {marker}")
+    return issues
+
+
+def main() -> int:
+    issues: list[str] = []
+    manifests = [
+        load(".claude-plugin/plugin.json"),
+        load(".codex-plugin/plugin.json"),
+        load(".claude-plugin/marketplace.json")["plugins"][0],
+    ]
+    if {row.get("version") for row in manifests} != {VERSION}:
+        issues.append("plugin version drift")
+    if f"## [{VERSION}] - 2026-07-28" not in (
+            ROOT / "CHANGELOG.md").read_text(encoding="utf-8"):
+        issues.append("dated release changelog is absent")
+    for path in REQUIRED_FILES:
+        if not (ROOT / path).is_file():
+            issues.append(f"missing release file: {path}")
+    acceptance = load(".itd/ACCEPTANCE_CONTRACT.json")
+    scope = (ROOT / ".itd/SCOPE_LOCK.md").read_text(encoding="utf-8")
+    issues.extend(validate_contract(acceptance, scope))
+    policy = load("skills/_shared/EXTERNAL_REVIEW_POLICY.json")
+    providers = [row.get("id") for row in policy.get("providers", [])]
+    if providers != ["openai-responses", "codex-cli", "gemini-cli"]:
+        issues.append("provider set/order drift")
+    eligibility = [row.get("automatedEligible") for row in policy.get("providers", [])]
+    if eligibility != [True, False, False]:
+        issues.append("unsafe automated-provider eligibility drift")
+    if policy.get("completionAuthority") != "verification-loop-v1":
+        issues.append("parallel completion authority")
+    if any(policy.get("retention", {}).get(key) is not False for key in (
+            "persistRawRequest", "persistRawResponse")):
+        issues.append("raw provider payload retention enabled")
+    run_all = (ROOT / "tests/run-all.sh").read_text(encoding="utf-8")
+    if ("verify_external_reviewer_release" not in run_all
+            or "verify_operating_loops_release" in run_all.split('CORE="', 1)[1].split('"', 1)[0]):
+        issues.append("current suite still routes through the historical v1.94 release oracle")
+    workflow = (ROOT / ".github/workflows/external-review-gate.yml").read_text(encoding="utf-8")
+    for marker in (
+        "repository_dispatch:",
+        "ITD_PROVENANCE_HMAC_KEY",
+        "hmac.compare_digest",
+        "maker provenance is stale for the PR head",
+        "persist-credentials: false",
+        'test -z "${OPENAI_API_KEY:-}"',
+        "adjudicate --root .itd-candidate",
+        "check --root .itd-candidate",
+    ):
+        if marker not in workflow:
+            issues.append(f"CI gate omits: {marker}")
+
+    mutations = 0
+    for mutation in ("provider", "authority", "scope"):
+        mutant_policy = copy.deepcopy(policy)
+        mutant_contract = copy.deepcopy(acceptance)
+        mutant_scope = scope
+        if mutation == "provider":
+            mutant_policy["providers"].pop()
+        elif mutation == "authority":
+            mutant_policy["completionAuthority"] = "external-reviewer"
+        else:
+            mutant_scope = scope.replace("UNVERIFIED", "")
+        rejected = (
+            [row.get("id") for row in mutant_policy.get("providers", [])]
+            != ["openai-responses", "codex-cli", "gemini-cli"]
+            or mutant_policy.get("completionAuthority") != "verification-loop-v1"
+            or bool(validate_contract(mutant_contract, mutant_scope))
+        )
+        if not rejected:
+            issues.append(f"mutation survived: {mutation}")
+        mutations += 1
+
+    if issues:
+        print("FAIL external reviewer release")
+        for issue in issues:
+            print(f"- {issue}")
+        return 1
+    print(json.dumps({
+        "status": "PASSED", "version": VERSION, "providers": providers,
+        "criteria": len(CRITERIA), "requiredFiles": len(REQUIRED_FILES),
+        "mutationGuards": mutations,
+    }, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

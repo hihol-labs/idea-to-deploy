@@ -98,9 +98,16 @@ def run_powershell_probe() -> tuple[bool, str]:
             "if (-not $py) { exit 127 }; "
             f"& $py.Source -3 '{probe.replace(chr(39), chr(39) * 2)}'"
         )
-    rc, out = run([shell, "-NoProfile", "-NonInteractive", "-Command", command], timeout=180)
+    argv = [shell, "-NoProfile", "-NonInteractive", "-Command", command]
+    rc, out = run(argv, timeout=180)
     report = last_json(out)
-    return rc == 0 and report is not None, out
+    if rc != 0 or report is None:
+        # WSL->Windows process startup can fail transiently while another probe
+        # tears down. One bounded fresh process retry preserves the same oracle;
+        # neither failure is reinterpreted as success.
+        retry_rc, retry_out = run(argv, timeout=180)
+        return retry_rc == 0 and last_json(retry_out) is not None, out + "\n" + retry_out
+    return True, out
 
 
 def git_bash_executable() -> str | None:
@@ -141,9 +148,13 @@ def run_git_bash_probe() -> tuple[bool, str]:
     # native Windows and WSL discovery for one stable Git Bash path.
     if Path(python).name.lower() != "py.exe":
         script = 'py=$(cygpath -u "$1"); probe=$(cygpath -u "$2"); "$py" "$probe"'
-    rc, out = run([bash, "-lc", script, "_", python, probe], timeout=180)
+    argv = [bash, "-lc", script, "_", python, probe]
+    rc, out = run(argv, timeout=180)
     report = last_json(out)
-    return rc == 0 and report is not None, out
+    if rc != 0 or report is None:
+        retry_rc, retry_out = run(argv, timeout=180)
+        return retry_rc == 0 and last_json(retry_out) is not None, out + "\n" + retry_out
+    return True, out
 
 
 def workflow_contract(text: str, runner: str) -> bool:

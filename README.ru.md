@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.94.0](https://img.shields.io/badge/Version-1.94.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.95.0](https://img.shields.io/badge/Version-1.95.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -269,7 +269,7 @@ Host-neutral naming выходных артефактов остаётся от�
 | `/review` | Валидация документации и кода через детерминированную бинарную рубрику (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
 | `/security-guidance-setup` | **Новое в v1.29.0.** Security-компаньон — настраивает и интегрирует официальный [плагин security-guidance](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) от Anthropic (бесплатный, ships default-on). Shift-left, всегда-включённый ревьюер кода от Claude: regex pattern-warnings на каждом Edit/Write, LLM diff-ревью на Stop (находки возвращаются до того как вы увидите ответ) и агентский commit/push-ревью кросс-файловых уязвимостей (IDOR, auth bypass, SSRF). Детектит установку, печатает проверенную CLI-команду, маппит на жизненный цикл. **Комплемент** к `/security-audit` (on-demand аудит), НЕ замена; код upstream не вендорится; гейты не затрагиваются. |
-| `/cross-review` | **Новое в v1.30.0.** Кросс-вендорное второе мнение — прогоняет НЕЗАВИСИМУЮ внешнюю модель (OpenAI Codex CLI или Gemini CLI) по текущему диффу, чтобы поймать слепые зоны, которые Claude-ревью (`/review`) разделяет с кодом, который сам же написал. PII-scrub перед отправкой; fail-open цепочка codex → gemini → нативный red-team review Claude. **Аддитивно** к `/review` (обязательный пол качества), не гейт. Порт концепта cross-vendor review из omnigent. |
+| `/cross-review` | Независимое второе мнение по точному staged candidate. Maker/risk-aware маршрутизация сохраняет Codex и Gemini и добавляет управляемый OpenAI Responses API adapter. Локальный режим — явный opt-in и advisory; `UNAVAILABLE`/`UNVERIFIED` не превращаются в ложный чистый результат. Обязательное evidence принимается только существующим Verification Loop. |
 | `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
 | `/browser-check` | **Новое в v1.21.0.** Локальный browser smoke-тест фронтенд/фуллстек/визуальных флоу через встроенный Playwright-харнесс (fallback: Browser Use / in-app browser) — проверяет первый рендер + критический путь (навигация, формы, состояния). Поломка рендера/флоу → BLOCKED до деплоя. |
 

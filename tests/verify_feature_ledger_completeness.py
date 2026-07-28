@@ -120,7 +120,7 @@ for noun in parsed:
 # source_token (must still be in CHANGELOG) -> ledger keyword (must be in a row)
 CHANGELOG_ADOPTED = {
     "worktree": "worktree",
-    "cross-review": "cross-vendor",
+    "cross-review": "provider-neutral",
     "narration-final": "narration-final",
     "execution-trace": "execution-trace",
     "goal.json": "goal.json",

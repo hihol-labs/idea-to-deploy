@@ -38,7 +38,7 @@ fallback'ом, а не в ширине абсорбции. Абстенция с
 | F-03 | SubagentStop-хук (авто-дожатие нарратив-финала) | adopt | `hooks/narration-final.sh` | Ручной re-ping «выдай итог одним сообщением» |
 | F-04 | Inter-agent messaging / авто-пинг-за-вердиктом (SendMessage) | adopt | `tests/verify_review_autoping.py` | Ручной re-ping вердикта в прозе |
 | F-05 | git worktree isolation (file-only refactor) | adopt | `skills/refactor/references/worktree-isolation.md` | `hooks/freeze.sh` scope-guard |
-| F-06 | Cross-vendor external CLI (Codex / Gemini) | adopt | `docs/adr/ADR-002-cross-review-opt-in-precommit.md` | Native Claude red-team self-review (`skills/cross-review/SKILL.md`) |
+| F-06 | Provider-neutral external checker (OpenAI API / Codex / Gemini) | adopt | `docs/adr/ADR-003-verifiable-external-reviewer.md` | Typed `UNAVAILABLE` locally; required acceptance remains `UNVERIFIED` until Verification Loop gets eligible evidence |
 | F-07 | Execution tracing (PreToolUse jsonl-trace, K15) | adopt | `hooks/execution-trace.sh` | Post-hoc `/session-save` summary + cost-tracker |
 | F-08 | On-disk unit ledger (GOAL.json, append-only) | adopt | `skills/goal/SKILL.md` | `session_*.md` proza-заметки |
 | F-09 | Model routing / per-role effort tiers | adopt | `docs/MODEL-ROUTING-POLICY.md` | Единая дефолт-модель |
@@ -66,7 +66,8 @@ fallback'ом, а не в ширине абсорбции. Абстенция с
   `CHANGELOG.md`, обязан иметь строку здесь. Новый name-drop без строки → FAIL.
 - **G-003 fixture-proof** (`tests/verify_feature_ledger_fallbacks.py`):
   симулирует «фича отсутствует» и ассертит, что включается именно задекларированный
-  здесь fallback (минимум F-05 worktree→freeze, F-06 cross-review→native).
+  здесь fallback (минимум F-05 worktree→freeze, F-06 external reviewer→typed
+  `UNAVAILABLE` without fabricated findings).
 - **G-004 ре-review абстенций** (`/retro`): периодически поднимает `abstain`-строки —
   «не появился ли безопасный юз?».
 

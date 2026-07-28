@@ -1,8 +1,11 @@
 # Оценка эффективности ITD и соответствия Harness Engineering
 
-> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.94.0**.
+> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.95.0**.
 > Исполняемая evidence-база обновлена на текущем content-pinned tree
-> 2026-07-27. v1.94.0 добавляет source-backed context maps, captured brownfield
+> 2026-07-28. v1.95.0 сохраняет доказательства v1.94.0 и добавляет
+> provider-neutral exact-candidate API reviewer, bounded egress, честные
+> independence labels и fail-closed PR adjudication. v1.94.0 добавляет
+> source-backed context maps, captured brownfield
 > runs, PIV-lite routing, default-off incremental diagnostics, hash-bound
 > fresh-session worktrees и demand-gated semantic navigation поверх production
 > contracts, goals и review caches. Оценка действительна только пока проходят

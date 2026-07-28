@@ -1,10 +1,11 @@
 # Cross-review CLI adapters
 
-Verified-shape, adapt-per-version recipes for shelling out to an external review
-model from `/cross-review`. Exact flags vary by CLI version — always prefer the
-non-interactive / "exec" / "-p prompt" mode and capture stdout. Treat any
-non-zero exit, auth error, or quota/rate-limit message as "engine unavailable"
-and move to the next link in the chain (codex → gemini → native Claude review).
+Historical host-native recipes for an interactive operator. Codex CLI and
+Gemini CLI remain named alternatives, but the canonical automated transport
+does not shell out to them: generic agent CLIs do not currently prove a
+no-tools/no-secret sandbox or complete cost telemetry. They therefore cannot
+produce protected evidence. Treat their absence as typed `UNAVAILABLE`; never
+turn it into a native clean verdict.
 
 ## 0. The review prompt
 
@@ -43,10 +44,12 @@ scrub() {
 }
 ```
 
-If a live credential remains after scrubbing, do NOT send the diff externally —
-degrade to the native review and tell the user to rotate the credential.
+The executable flow uses the one sanitizer in
+`skills/_shared/itd_external_reviewer.py`; the snippet below is explanatory,
+not a second implementation. If a live credential remains, do not egress and
+return `UNVERIFIED`.
 
-## 2. Detect the engine
+## 2. Detect the engine (operator diagnostics only)
 
 ```bash
 if command -v codex >/dev/null 2>&1; then ENGINE=codex
@@ -54,10 +57,11 @@ elif command -v gemini >/dev/null 2>&1; then ENGINE=gemini
 else ENGINE=none; fi
 ```
 
-## 3. OpenAI Codex CLI
+## 3. OpenAI Codex CLI (not automated evidence)
 
-Non-interactive "exec" mode reads the prompt and prints to stdout. Wrap in a
-timeout; on non-zero exit, fall through.
+The following legacy shape is retained for manual diagnostics only. Do not run
+it from CI or from `itd_external_reviewer.py`: an injected diff may steer the
+tool-capable agent into local files, environment values, or network actions.
 
 ```bash
 PROMPT="$(build_prompt)"   # section 0 + scrubbed diff
@@ -86,30 +90,29 @@ Two more "unavailable" shapes seen in the wild (both = degrade, don't block):
 - **Cloud handshake timeout** — `timed out waiting for cloud requirements after 15s`
   (network/VPN). No retry loop; fall through the chain.
 
-## 4. Google Gemini CLI
+## 4. Google Gemini CLI (not automated evidence)
 
 ```bash
 if OUT="$(printf '%s' "$PROMPT" | timeout 120 gemini -p - 2>/tmp/gemini.err)"; then
   echo "engine: gemini"; echo "$OUT"
 else
   echo "gemini unavailable (rc=$?, $(tail -1 /tmp/gemini.err 2>/dev/null))" >&2
-  # fall through to native
+  # return typed unavailable after all eligible providers fail
 fi
 ```
 
 If `-p -` (stdin) is unsupported, use `gemini -p "$PROMPT"`.
 
-## 5. Native fallback (always available)
+## 5. No fabricated native fallback
 
-If `ENGINE=none` or both external calls failed, run a Claude red-team self-review
-of the scrubbed diff in-session (a skeptical pass whose job is to REFUTE the
-change), and state explicitly that the external second opinion was unavailable
-and why. The base `/review` gate is still required regardless.
+If all automated-eligible providers fail, return `UNAVAILABLE` with provenance
+for each attempt. A host-native CLI review or `/review` remains useful but is a
+separate advisory review and cannot be relabeled as protected external evidence.
 
 ## Notes
 
 - Never write `/tmp/claude-review-done-*` from this skill — that marker belongs to
   `/review`. Cross-review is additive and must not satisfy the commit gate.
-- Always print which engine actually produced the findings (codex / gemini /
-  native) so the provenance of the second opinion is explicit.
+- Always print which provider/model produced the findings and the honest
+  cross-vendor/same-vendor independence label.
 - Keep the external timeout modest (≈120s) so a hung CLI degrades quickly.

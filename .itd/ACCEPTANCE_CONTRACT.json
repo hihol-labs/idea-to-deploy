@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for the immutable v1.94.0 release candidate. Publication and dual-host installation are post-commit effects and are verified separately to avoid a self-referential Git candidate.",
-  "sourceRequest": "Publish the accepted Harness Engineering absorption, deploy it to WSL and Windows, and make the latest ITD methodology the default in every directory.",
-  "createdAt": "2026-07-27",
+  "purpose": "Acceptance contract for API-001: verifiable provider-neutral external review inside the existing Verification Loop.",
+  "sourceRequest": "Implement recommendations 1-9 so an API reviewer produces verifiable evidence inside the existing ITD architecture.",
+  "createdAt": "2026-07-28",
   "criteriaSchema": {
     "requiredFields": [
       "id",
@@ -12,50 +12,65 @@
       "verificationCommand",
       "status"
     ],
-    "allowedStatus": [
-      "pending",
-      "passed",
-      "failed",
-      "recovery_required"
-    ]
+    "allowedStatus": ["pending", "passed", "failed", "recovery_required"]
   },
   "criteria": [
     {
-      "id": "RLS-001-AC1",
-      "criterion": "The v1.94.0 manifests, badges, current Harness documentation, dated changelog entry, and current internal pilot evidence are synchronized while all frozen Harness Demo guarantees remain unchanged.",
-      "source": "User release request and frozen Harness Demo absorption contract.",
-      "evidence": "The rolling candidate oracle invokes the self-contained portable Harness Demo proof, including the frozen 34 mutation guards, historical v4 fixture, and all non-host-local behavioral phases.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase candidate",
+      "id": "API-001-AC1",
+      "criterion": "One provider-neutral checker interface includes an OpenAI Responses API adapter and preserves Codex/Gemini alternatives without creating a second completion authority.",
+      "source": "Approved recommendations 1-3.",
+      "evidence": "Focused adapter and routing tests plus Verification Loop integration tests.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase adapters",
       "status": "passed"
     },
     {
-      "id": "RLS-001-AC2",
-      "criterion": "Host-adapter parity, meta-review, quick regression, and full regression pass on one exact candidate without vendor-specific methodology drift.",
-      "source": "Project AGENTS.md release requirement.",
-      "evidence": "All four checks are required machine runs in the exact RLS-001 adjudication before commit.",
+      "id": "API-001-AC2",
+      "criterion": "Routing uses maker provenance and risk tier; same-model/same-provider evidence cannot satisfy high/unknown risk and missing eligible evidence is UNVERIFIED.",
+      "source": "Approved recommendations 3-4 and Verification Loop policy.",
+      "evidence": "Positive and mutation routing cases bind host-observed provider/model/session metadata.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase routing",
+      "status": "passed"
+    },
+    {
+      "id": "API-001-AC3",
+      "criterion": "Local review is explicit opt-in advisory/fail-open; CI is provider-neutral and fail-closed on missing exact-candidate evidence, not on one provider outage.",
+      "source": "Approved recommendations 5-7.",
+      "evidence": "Local degradation and CI evidence fixtures distinguish PASSED, FINDINGS, UNAVAILABLE, and UNVERIFIED.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase modes",
+      "status": "passed"
+    },
+    {
+      "id": "API-001-AC4",
+      "criterion": "Egress requires explicit consent and applies one tested sanitizer, file/byte/token/time/cost limits, complete coverage manifests, no raw diff/output retention, and no persisted API key.",
+      "source": "Approved recommendations 4, 8 and existing ADR-002.",
+      "evidence": "Security and budget mutation fixtures fail closed; oversize input is UNVERIFIED rather than silently truncated.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase egress",
+      "status": "passed"
+    },
+    {
+      "id": "API-001-AC5",
+      "criterion": "Structured verdict, exact candidate SHA/tree/diff manifest, policy/model metadata, observed usage/cost, and immutable prompt/report hashes feed existing Verification Loop evidence.",
+      "source": "Approved recommendations 2, 4 and 8.",
+      "evidence": "Schema, stale-candidate, tamper, non-live fixture, and receipt-binding mutation cases.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase evidence",
+      "status": "passed"
+    },
+    {
+      "id": "API-001-AC6",
+      "criterion": "A bounded shadow-pilot report measures availability, latency, observed token/cost use, unique actionable findings, false positives, and base-review duplication without claiming live external results when no authorized call occurred.",
+      "source": "Approved recommendation 9.",
+      "evidence": "Deterministic pilot fixtures and schema validator; live fields remain explicitly UNOBSERVED until an opt-in run.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase pilot",
+      "status": "passed"
+    },
+    {
+      "id": "API-001-AC7",
+      "criterion": "Documentation and host adapters describe the same model-neutral contracts, honest independence labels, operational bypass boundary, and current tested degradation chain.",
+      "source": "Approved recommendations 1-9 and project AGENTS.md.",
+      "evidence": "Host parity, methodology meta-review, quick and full regression pass on the exact candidate.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick && bash tests/run-all.sh",
       "status": "passed"
-    },
-    {
-      "id": "RLS-001-AC3",
-      "criterion": "The release keeps methodology-owned pilots externalAdoptionEvidence:false and leaves PE5-008/009 blocked pending real independent external outcomes.",
-      "source": "Frozen external-evidence boundary.",
-      "evidence": "The sealed portable pilot oracle binds all three exact index rows and their complete receipt/artifact graphs while rejecting any external-adoption claim.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_demo_portable.py",
-      "status": "passed"
     }
   ],
-  "postCommitVerification": [
-    {
-      "id": "RLS-PUB-1",
-      "criterion": "The exact accepted commit is pushed and has one open PR to current main whose structured evidence block binds the exact tree, scope, and adjudication receipt.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase publication --branch codex/operating-loops-v1"
-    },
-    {
-      "id": "RLS-DEPLOY-1",
-      "criterion": "The exact published tree is hash-identical in both Codex caches and both Claude active installs, and all four global routers select ITD by default without legacy Product Factory policy.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase deployment --branch codex/operating-loops-v1"
-    }
-  ],
-  "doneRule": "The immutable candidate is accepted only when every criterion is passed and one current exact-candidate Verification Loop adjudication re-runs every named command. The user goal remains active until both post-commit verification commands also pass."
+  "doneRule": "API-001 is complete only when every criterion is passed and one current high-risk Verification Loop adjudication re-runs all named commands on the exact staged candidate, consumes a policy-eligible independent checker report, and passes receipt revalidation."
 }

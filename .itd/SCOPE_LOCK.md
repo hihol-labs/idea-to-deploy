@@ -1,56 +1,46 @@
-# Scope Lock — v1.94.0 publication and dual-host deployment
+# Scope Lock — API-001 verifiable external reviewer
 
 ## Current Task
 
-Publish the already accepted Harness Demo absorption as idea-to-deploy v1.94.0,
-then install the exact published commit into the WSL and Windows Claude Code and
-Codex profiles. Make the canonical ITD router the global default on both hosts.
-No new methodology behavior is allowed.
+Implement all nine approved API-reviewer recommendations as one high-risk
+PIV-lite unit. The reviewer must be a provider-neutral checker transport inside
+the existing Verification Loop, never a parallel completion authority.
 
-## Allowed Change Areas Before Freeze
+## Allowed Change Areas
 
-- synchronized Claude/Codex/marketplace version manifests and README badges
-- `CHANGELOG.md` and current Harness documentation version/freshness metadata
-- the rolling publication/deployment verifier and its exact PR-scope declaration
-- this scope/acceptance contract plus final goal/state reconciliation
-- repair of an evidence-backed release blocker, followed by a fresh exact
-  candidate and all release checks
-- a sealed portable export of the already validated internal pilot evidence
-  graph plus a separate self-contained oracle; the frozen verifier and live
-  worktree validation remain byte-for-byte historical evidence
-- receipt-only v1.94 evidence refresh for unchanged Pilot A/C candidates
-- the evidence-backed Pilot B repair within its already packet-authorized
-  `Justfile` and `backend/app/utils/formatters.py` paths, plus only the
-  corresponding candidate/session/receipt/verification fields in the pilot
-  index; the independent checker must close both discovered compatibility gaps
+- shared reviewer policy, adapter, schema, sanitizer, routing, telemetry, and
+  exact-candidate receipt integration under `skills/_shared/`
+- `/cross-review` orchestration and documentation needed to consume the shared
+  transport while preserving local advisory/fail-open semantics
+- GitHub Actions and deterministic helpers that enforce valid independent
+  evidence before merge without making one provider a permanent dependency
+- focused fixtures/tests for egress, schema, limits, degradation, provenance,
+  candidate binding, routing, cost budgets, CI behavior, and host parity
+- ADR, Verification Loop, host-adapter, CI, README, changelog, and version
+  metadata needed to describe and release the behavior
+- `.itd/` and `.itd-memory/` task/evidence records for this exact unit
 
 ## Forbidden Change Areas
 
-- frozen Harness Demo contract, digest, verifier, or historical v4 repair
-- Pilot A/C candidate trees; every pilot packet, parent STATE binding, maker
-  identity, mutable-resource namespace, base commit, and allowed-path set
-- Pilot B changes outside its two existing packet-authorized paths, or any
-  pilot index change beyond current exact tree/session/receipt evidence
-- feature expansion, new providers, new lifecycle skills, a second state plane,
-  or an ITD-owned scheduler/runtime
-- weakening or skipping any declared phase, host parity, meta-review, quick,
-  full, security, general-review, or exact-receipt gate
-- treating PE5-008/009 external adoption/outcome as satisfied by these
-  methodology-owned pilots
-- merge, tag, production application deployment, or any external write outside
-  the requested branch push, pull request, and local methodology installation
+- weakening the existing machine oracle, exact staged-tree binding, WIP=1,
+  immutable receipt, risk-route, or maker/checker separation rules
+- treating same-model same-provider review as a high/unknown-risk checker
+- treating API/CLI errors, schema errors, partial coverage, truncation, missing
+  consent, missing provenance, or budget exhaustion as `PASSED`
+- mandatory use of one named provider when another policy-eligible checker can
+  produce valid evidence
+- silent diff truncation, raw secret/diff persistence, API-key persistence, or
+  automatic external egress without explicit repository/organization consent
+- executing pull-request code with repository API secrets
+- a new lifecycle skill, second state plane, owned scheduler, automatic merge,
+  branch-protection mutation, publishing, deployment, or direct cache edits
 
-## Exact Release Oracle
+## Acceptance Boundary
 
-`sh skills/_shared/itd_py.sh tests/verify_operating_loops_release.py --phase candidate`
-must execute the sealed portable Harness Demo proof, all self-contained frozen
-behavioral phases, the 34 frozen mutation guards, and the historical v4 fixture.
-The host-local `verify_harness_demo_absorption.py --phase all` receipt remains
-historical corroboration, but is not the portable release oracle because it
-dereferences ignored absolute pilot worktrees. Host adapters, meta-review,
-quick suite, and full suite must all pass in
-the Verification Loop isolated staged tree. Fresh bound security and general
-reviews must inspect that same tree. Publication must bind the PR to that exact
-tree and adjudication. Deployment must hash-compare both Codex caches and both
-Claude active installs to the same published Git tree and verify all four
-canonical global routers. Any tracked mutation invalidates pre-mutation evidence.
+Local review remains advisory and fail-open with an explicit typed availability
+status (`UNAVAILABLE` for transport failure, `UNVERIFIED` for invalid or
+insufficient evidence). Merge acceptance is fail-closed on the absence of policy-eligible,
+exact-candidate checker evidence, not on the outage of a particular provider.
+The final candidate must pass the focused API-reviewer oracle, host-adapter
+parity, methodology meta-review, quick regression, full regression, and a
+fresh high-risk Verification Loop adjudication.

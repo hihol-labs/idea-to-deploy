@@ -1,6 +1,6 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
-> Актуальность: **2026-07-27**, idea-to-deploy **v1.94.0**.
+> Актуальность: **2026-07-28**, idea-to-deploy **v1.95.0**.
 > Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
@@ -52,7 +52,7 @@ Claude Code и Codex. Документ не заявляет поддержку 
 
 ### 4.2. 5 ключевых принципов
 
-| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.94.0) | Evidence / комментарий |
+| # | Принцип курса | Статус | Реализация в idea-to-deploy (v1.95.0) | Evidence / комментарий |
 |---|---|:---:|---|---|
 | **H1** | **Ограничение поведения** | ✅ | Graduated trust policy, 11 computational hard gates, explicit invocation, permission/scope contracts и полная Claude/Codex parity. | `verify_graduated_trust.py`, `verify_all_hard_gate_host_parity.py` |
 | **H2** | **Сохранение контекста** — между сессиями длинных задач | ✅ | `/session-save` → `session_*.md` + `MEMORY.md`; `pre-flight-check.sh`; `UNIT_CONTEXT_MANIFEST.json`. **v1.94.0:** `/adopt` строит один source-backed derived context map, а fresh-session kit передаёт полный hash-bound packet, оставляя canonical STATE у parent и выдавая exclusive mutable resources. | `verify_adopt_context.py`, `verify_fresh_session_worktree.py`, `verify_host_neutral_memory.py`; generated view не становится authority, shared fallback запрещён. |

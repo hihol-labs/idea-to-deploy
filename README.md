@@ -12,7 +12,7 @@ extension point, not a supported claim. [Choose a host](#quick-start) ·
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.94.0](https://img.shields.io/badge/Version-1.94.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.95.0](https://img.shields.io/badge/Version-1.95.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -272,7 +272,7 @@ Claude-only. Host-neutral output naming remains follow-up work.
 | `/review` | Validates documentation and code quality via deterministic binary rubric (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
 | `/security-audit` | Read-only OWASP-style security audit (auth, secrets, injection, CORS/CSP, deps) with same status enum as `/review` |
 | `/security-guidance-setup` | **New in v1.29.0.** Security companion — sets up & integrates the official [security-guidance plugin](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) by Anthropic (free, ships default-on). A shift-left, always-on reviewer of Claude-generated code: regex pattern warnings on every Edit/Write, an LLM diff review on Stop (findings fed back before you see the turn), and an agentic commit/push reviewer tracing cross-file vulns (IDOR, auth bypass, SSRF). Detects install, prints the verified CLI command, maps it onto the lifecycle. **Complements** `/security-audit` (on-demand audit), does **not** replace it; does not vendor upstream code; gates unaffected. |
-| `/cross-review` | **New in v1.30.0.** Cross-vendor second-opinion review — runs an INDEPENDENT external model (OpenAI Codex CLI or Gemini CLI) over the current diff to catch blind spots a Claude-only `/review` shares with the code it produced. Scrubs secrets/PII before egress; fail-open chain codex → gemini → native Claude red-team review. **Additive** to `/review` (the mandatory floor), never a gate. Ported from the omnigent cross-vendor-review concept. |
+| `/cross-review` | Independent second opinion over the exact staged candidate. Maker/risk-aware routing retains Codex and Gemini and adds a managed OpenAI Responses API adapter. Local use is explicit opt-in and advisory; typed `UNAVAILABLE`/`UNVERIFIED` never become a false clean result. Mandatory evidence is accepted only through the existing Verification Loop. See [`docs/API_REVIEWER.md`](docs/API_REVIEWER.md). |
 | `/grill-me` | **New in v1.21.0.** Interactive read-only stress-test for plans, designs, architecture, and risky decisions — asks one question at a time (with a recommended answer) to surface assumptions, risks, and dependencies. Runs before `/review`, does not replace it. |
 | `/browser-check` | **New in v1.21.0.** Local browser smoke-test for frontend/full-stack/visual flows via a bundled Playwright harness (Browser Use / in-app browser fallback) — checks first render + critical path (navigation, forms, states). Broken render/flow → BLOCKED before deploy. |
 

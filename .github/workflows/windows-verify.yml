@@ -38,6 +38,10 @@ jobs:
         run: python tests/verify_goal_bounded_autonomy.py
       - name: Proof-carrying Verification Loop adversarial contract
         run: python tests/verify_verification_loop.py
+      - name: Provider-neutral external reviewer contract
+        run: python tests/verify_api_reviewer.py
+      - name: External reviewer release contract
+        run: python tests/verify_external_reviewer_release.py
       - name: Bounded goal deterministic five-star evaluator
         run: python tests/verify_goal_five_star.py
       - name: Retro telemetry scanner functional tests
