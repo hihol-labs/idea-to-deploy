@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "purpose": "Executable verification contract for the GPG-001 trust-foundation slice.",
+  "unitId": "GPG-001",
+  "createdAt": "2026-07-30",
+  "commandSchema": {
+    "requiredFields": [
+      "id",
+      "command",
+      "timeoutSeconds",
+      "expectedOutput",
+      "passFailParser"
+    ],
+    "allowedPassFailParsers": [
+      "exit_code_zero",
+      "stdout_contains",
+      "json_field_equals",
+      "manual_evidence"
+    ]
+  },
+  "commands": [
+    {
+      "id": "broker-policy",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py",
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "broker-primitives",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "methodology-meta-review",
+      "command": "sh skills/_shared/itd_py.sh tests/meta_review.py --verbose",
+      "timeoutSeconds": 180,
+      "expectedOutput": "FINAL STATUS: PASSED",
+      "passFailParser": "exit_code_zero"
+    }
+  ],
+  "requiredArtifacts": [
+    ".itd/ACCEPTANCE_CONTRACT.json",
+    ".itd/SCOPE_LOCK.md",
+    ".itd/VERIFICATION_CONTRACT.json",
+    ".itd-memory/STATE.json",
+    "skills/_shared/REVIEW_BROKER_POLICY.json",
+    "skills/_shared/REVIEW_BROKER_POLICY.schema.json",
+    "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
+    "skills/_shared/itd_review_broker_primitives.py",
+    "tests/verify_review_broker_policy.py",
+    "tests/verify_review_broker_primitives.py"
+  ],
+  "passCriteria": [
+    "All required commands exit 0.",
+    "Expected output rules match.",
+    "Required artifacts exist.",
+    "The exact staged candidate passes secret scrubbing without redaction.",
+    "A fresh different-model full checker reports no Critical or Important findings.",
+    "The high-risk GPG-001:general-review adjudication receipt revalidates."
+  ],
+  "failureMode": "RECOVERY_REQUIRED",
+  "failClosed": "A missing command, artifact, checker, receipt, ambiguous parser, redaction, or changed staged tree is RECOVERY_REQUIRED, never success."
+}

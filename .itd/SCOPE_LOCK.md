@@ -1,40 +1,40 @@
-# Scope Lock — HE-001 harness lifecycle and trust
+# Scope Lock — GPG-001 global PR/API gate
 
 ## Current Task
 
-Implement the approved Harness Engineering improvements as one medium-risk
-PIV-lite unit: evidence-earned control provenance and retirement, a bounded
-ablation pilot, MCP/tool prompt-trust inventory, and a common hook-output
-conformance contract.
+Implement and accept the trust-foundation slice of the approved fail-closed
+global review control plane: frozen policy/runtime contracts plus bounded,
+cryptographically verified broker primitives. The executable service, local
+preflight, GitHub deployment, rulesets, doctor, canaries, and release remain
+later GPG-001 slices and are not claimed by this candidate.
 
 ## Allowed Change Areas
 
-- lifecycle/provenance and ablation contracts under `docs/`
-- tool capability/trust templates and their validators
-- `/adopt`, `/security-audit`, and `/retro` instructions needed to consume the
-  contracts without adding a second state plane
-- hook output policy/registry and focused behavioral conformance tests
-- Harness Engineering map, contracts documentation, changelog/version metadata,
-  host-adapter documentation, and test registration required for consistency
-- `.itd/` and `.itd-memory/` task/evidence records for `HE-001`
+- review-broker policy and runtime schemas
+- trust, webhook, provenance, routing, budget, GitHub App authentication, and
+  immutable review-record primitives
+- focused closed-schema and mutation tests for those primitives
+- `.itd/` and `.itd-memory/` task/evidence records for `GPG-001`
 
 ## Forbidden Change Areas
 
-- literal “every mistake becomes a rule” behavior that bypasses ITD's threshold
-  of two independent signals or one production incident
-- automatic MCP/tool installation, trust, update, permission grant, or external
-  write
-- a new runtime, daemon, lifecycle skill, state plane, unbounded Ralph loop, or
-  additional completion authority
-- blanket claims that all hooks/skills have ablation coverage
-- weakening WIP=1, exact-candidate binding, Verification Loop risk routing,
-  maker/checker separation, or human merge/retirement authority
-- adding hooks merely to enforce the new metadata
+- storing API/App private keys in the repository, plugin cache, prompts, logs,
+  receipts, Windows user environment, or WSL shell profiles
+- executing candidate code in any process that can read reviewer credentials
+- allowing CLI/OAuth reviewers, a caller-supplied status, `neutral`, `skipped`,
+  API outage, zero balance, stale SHA/base, oversized input, unknown maker, or
+  missing oracle to satisfy the required cloud gate
+- silently truncating a candidate or accepting a same-name check from an
+  unbound GitHub integration
+- weakening WIP=1, exact-candidate binding, maker/checker separation,
+  App-bound checks, human merge authority, or existing Verification Loop gates
+- editing the installed plugin cache instead of publishing and installing a
+  new ITD release
 
 ## Acceptance Boundary
 
-The feature is accepted only when closed-schema mutation tests prove the new
-metadata cannot be bypassed, selected hooks demonstrate silent success and
-actionable failure, tool/MCP prompt trust fails visibly when unknown, the
-project's adapter/meta/quick regressions pass, and a fresh targeted checker
-accepts the exact staged candidate through the existing Verification Loop.
+This slice is accepted only when the focused policy and primitive mutation
+oracles plus methodology meta-review pass on the exact staged tree, secret
+scrubbing reports no redaction, and a fresh different-model full checker
+returns an empty-finding verdict that the high-risk Verification Loop
+adjudicates. Acceptance of this slice does not complete GPG-001.

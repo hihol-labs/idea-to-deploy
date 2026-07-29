@@ -1142,8 +1142,18 @@ def main() -> int:
         "subjectType": "pull_request",
         "headSha": sha1,
         "baseSha": "c" * 40,
+        "installationId": 73,
         "checkSha": "d" * 40,
         "provenanceReceiptSha256": sha256,
+        "checkPublication": {
+            "id": 101,
+            "appIntegrationId": 2,
+            "name": "ITD external review gate",
+            "headSha": "d" * 40,
+            "externalId": sha256,
+            "status": "completed",
+            "conclusion": "success",
+        },
         "makerClass": "solMaker",
         "checkerReviewerId": "openai-responses-terra",
         "policySha256": sha256,
@@ -1166,6 +1176,28 @@ def main() -> int:
     receipt_validator = runtime_validator(runtime, "brokerReceipt")
     receipt_validator.validate(receipt_fixture)
     check(True, "broker receipt validates")
+    check_publication_validator = runtime_validator(
+        runtime, "checkPublication"
+    )
+    check_publication_validator.validate(receipt_fixture["checkPublication"])
+    Draft202012Validator(runtime).validate(
+        receipt_fixture["checkPublication"]
+    )
+    check(True, "root runtime schema recognizes observed check publication")
+    wrong_passing_conclusion = copy.deepcopy(receipt_fixture)
+    wrong_passing_conclusion["checkPublication"]["conclusion"] = "failure"
+    expect_rejected(
+        receipt_validator,
+        wrong_passing_conclusion,
+        "passing receipt requires a successful observed check conclusion",
+    )
+    forged_check_field = copy.deepcopy(receipt_fixture)
+    forged_check_field["checkPublication"]["publisher"] = "lookalike"
+    expect_rejected(
+        receipt_validator,
+        forged_check_field,
+        "observed check publication fields are closed",
+    )
     redacted_passing_receipt = copy.deepcopy(receipt_fixture)
     redacted_passing_receipt["redactionManifest"] = nonempty_redaction_manifest
     expect_rejected(
@@ -1213,6 +1245,7 @@ def main() -> int:
     del merge_receipt["pullRequest"]
     del merge_receipt["checkSha"]
     del merge_receipt["provenanceReceiptSha256"]
+    merge_receipt["checkPublication"]["headSha"] = merge_receipt["headSha"]
     receipt_validator.validate(merge_receipt)
     check(True, "normalized merge-group broker receipt validates")
     contradictory_merge_receipt = copy.deepcopy(merge_receipt)

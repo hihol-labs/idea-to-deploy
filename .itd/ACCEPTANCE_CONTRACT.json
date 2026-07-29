@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for HE-001: evidence-earned controls, tool/MCP trust inventory, and quiet-success/actionable-failure hook conformance.",
-  "sourceRequest": "Implement the approved P1 provenance lifecycle, P1/P2 MCP and tool trust inventory, and P2 hook-output conformance improvements.",
-  "createdAt": "2026-07-29",
+  "purpose": "Acceptance contract for the GPG-001 trust-foundation slice of the global PR/API review gate.",
+  "sourceRequest": "Implement the approved central GitHub App/broker algorithm while preserving exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
+  "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
       "id",
@@ -12,57 +12,62 @@
       "verificationCommand",
       "status"
     ],
-    "allowedStatus": ["pending", "passed", "failed", "recovery_required"]
+    "allowedStatus": [
+      "pending",
+      "passed",
+      "failed",
+      "recovery_required"
+    ]
   },
   "criteria": [
     {
-      "id": "HE-001-AC1",
-      "criterion": "Load-bearing standing controls carry machine-validated provenance from a production incident, repeated independent signals, or hard external constraint, plus assumption, expected behavior, enforcement, verification, review date, and retirement condition.",
-      "source": "Approved P1 recommendation and Addy Osmani Harness Engineering ratchet principle, adapted to ITD signal thresholds.",
-      "evidence": "Closed-schema registry and mutation tests reject unearned, stale, unverifiable, or non-retirable controls.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_control_lifecycle.py --phase provenance",
+      "id": "GPG-001-AC1",
+      "criterion": "Broker policy and runtime evidence use closed schemas that bind repository, PR, head SHA, base SHA, App installation, candidate, prompt, verdict, settlement, provenance, and external check identity.",
+      "source": "Approved plan items 2, 3, 5, and 6.",
+      "evidence": "Policy/runtime schemas and mutation tests reject missing, additional, mismatched, stale, and caller-substituted fields.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py",
       "status": "passed"
     },
     {
-      "id": "HE-001-AC2",
-      "criterion": "A bounded initial set of load-bearing hooks is covered by reversible ablation metadata without claiming blanket coverage or creating a second state plane.",
-      "source": "Approved P1 bounded-pilot recommendation.",
-      "evidence": "Ablation contract cross-links provenance, disable controls, fixed benchmarks, cost/noise observations, and human retirement authority.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_control_lifecycle.py --phase ablation",
+      "id": "GPG-001-AC2",
+      "criterion": "Webhook input is streaming-bounded, signature-verified over exact bytes, action-bound, and replay-protected by delivery, body, and provenance nonce.",
+      "source": "Approved central GitHub App/broker and fail-closed requirements.",
+      "evidence": "Positive and negative primitive tests cover size, signature, event/action, duplicate-body, conflicting-delivery, and nonce cases.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     },
     {
-      "id": "HE-001-AC3",
-      "criterion": "Tool and MCP entries declare provider provenance, version/digest posture, prompt-text trust, permissions, network and data scope, review status, fallback, and allow/ask/abstain disposition.",
-      "source": "Approved P1/P2 MCP and tool supply-chain recommendation.",
-      "evidence": "Template schema/validator and positive/mutation fixtures; unknown or unreviewed prompt-bearing providers cannot be silently allow-listed.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
+      "id": "GPG-001-AC3",
+      "criterion": "Maker provenance is Ed25519-verified against an authorized repository/key record and routes Sol makers to Terra while routing Terra, Claude, and Gemini makers to Sol; unknown or same-family invalid routes fail closed.",
+      "source": "Approved independent reviewer routing rule.",
+      "evidence": "Generated-key contract tests cover valid signatures, authorization mismatches, replay, and every mandatory reviewer route.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     },
     {
-      "id": "HE-001-AC4",
-      "criterion": "Adoption and AI-agent security review explicitly inspect installed tool/MCP trust inventory without auto-installing, auto-updating, or creating external writes.",
-      "source": "Approved P1/P2 integration recommendation.",
-      "evidence": "Skill contract tests bind the inventory to /adopt and MEM controls in /security-audit.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py --phase integration",
+      "id": "GPG-001-AC4",
+      "criterion": "Budget cost is derived only from primary provider token usage and frozen integer-microusd pricing; overspend, uncertain usage, exhausted budget, and caller-supplied cost cannot produce a successful receipt.",
+      "source": "Approved plan items 3 and 7.",
+      "evidence": "Budget mutation tests cover reservation, exact settlement, rejection of totalTokens/caller cost, overspend accounting, uncertain charges, and monthly exhaustion.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     },
     {
-      "id": "HE-001-AC5",
-      "criterion": "Registered hooks obey a common output contract: clean/no-op success is silent; blocking or advisory failures contain bounded actionable WHY and FIX information with rate-limit/dedup posture.",
-      "source": "Approved P2 quiet-success/actionable-failure recommendation.",
-      "evidence": "Host-neutral contract plus behavioral meta-tests over the selected hook pilot, including positive and negative fixtures.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_output_contract.py",
+      "id": "GPG-001-AC5",
+      "criterion": "A successful broker review can be persisted only when the exact candidate, sanitized diff/redaction manifest, prompt, verdict, settlement, reviewer route, provenance, external ID, and App check cross-bind.",
+      "source": "Approved evidence and stale-PASS invalidation requirements.",
+      "evidence": "Closed runtime-record tests accept one exact record and reject each independently altered binding.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     },
     {
-      "id": "HE-001-AC6",
-      "criterion": "Harness Engineering documentation maps the Addy Osmani source honestly, distinguishes existing coverage from the new deltas, and does not inflate conformance claims.",
-      "source": "Approved documentation recommendation.",
-      "evidence": "Documentation freshness, host-adapter parity, meta-review, and quick regression remain green.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick",
+      "id": "GPG-001-AC6",
+      "criterion": "GitHub App authentication uses the configured client-id issuer, bounded JWT lifetime, live installation equality, and repository-scoped installation tokens.",
+      "source": "Approved central GitHub App security boundary.",
+      "evidence": "Authentication tests inspect JWT claims, installation lookup, requested repository scope, and installation mismatch failure.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     }
   ],
-  "doneRule": "HE-001 is complete only when every criterion is passed and a current medium-risk Verification Loop adjudication re-runs the named oracle on the exact staged candidate, consumes a targeted fresh-session checker report, and passes receipt revalidation."
+  "doneRule": "This contract accepts only the GPG-001 trust-foundation staged slice through a high-risk exact-candidate Verification Loop. It does not complete the global control plane, deploy the GitHub App, enable a ruleset, publish a release, or mark GPG-001 verified."
 }
