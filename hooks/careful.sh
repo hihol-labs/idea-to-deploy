@@ -161,10 +161,11 @@ def main() -> int:
 
     warning_list = "\n".join(f"  - {w}" for w in warnings)
     context = (
-        f"[/careful SAFETY WARNING] Destructive command detected:\n"
+        f"[/careful SAFETY WARNING]\n"
         f"{warning_list}\n\n"
         f"Command: `{command[:200]}{'...' if len(command) > 200 else ''}`\n\n"
-        f"BEFORE executing this command, you MUST:\n"
+        f"WHY: This command can delete, overwrite, or rewrite difficult-to-recover state.\n"
+        f"FIX: Before executing this command, you MUST:\n"
         f"1. Explain to the user WHAT this command does and WHY it's dangerous\n"
         f"2. Ask for EXPLICIT confirmation: 'Эта команда {warnings[0]}. Продолжить?'\n"
         f"3. Only proceed if the user confirms\n\n"

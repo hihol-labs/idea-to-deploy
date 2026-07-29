@@ -37,11 +37,11 @@
     "lastAnalysisSummary": "Added a sealed verification oracle, bounded budgets, typed stops, attempt evidence, and host-native continuation guidance."
   },
   "currentUnit": {
-    "id": "API-001",
-    "goal": "Integrate a provider-neutral API reviewer as exact-candidate Verification Loop evidence with risk routing, bounded egress, local advisory mode, and fail-closed CI acceptance",
+    "id": "HE-001",
+    "goal": "Implement evidence-earned control provenance, MCP/tool trust inventory, and hook output conformance",
     "status": "verified",
-    "startedAt": "2026-07-28T17:09:46Z",
-    "completedAt": "2026-07-28T19:03:28Z"
+    "startedAt": "2026-07-29T07:23:35Z",
+    "completedAt": "2026-07-29T09:30:51Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ITD tool capability and prompt-trust registry",
+  "type": "object",
+  "required": ["version", "purpose", "trustPolicy", "tools"],
+  "properties": {
+    "version": {"const": 2},
+    "purpose": {"type": "string", "minLength": 20},
+    "trustPolicy": {
+      "type": "object",
+      "required": ["promptBearingTypes", "allowedDisposition", "defaultForUnknownPromptBearingProvider", "allowRequires", "rules"],
+      "properties": {
+        "promptBearingTypes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "allowedDisposition": {"type": "array", "items": {"enum": ["allow", "ask", "abstain"]}, "uniqueItems": true},
+        "defaultForUnknownPromptBearingProvider": {"const": "abstain"},
+        "allowRequires": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "rules": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+      },
+      "additionalProperties": false
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "type", "usedBy", "capabilities", "sideEffects", "authNeeded",
+          "externalDataRisk", "fallbackMode", "approvalRequiredFor", "trust"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "type": {"type": "string", "minLength": 1},
+          "usedBy": {"type": "array", "items": {"type": "string"}},
+          "capabilities": {
+            "type": "object",
+            "required": ["read", "write", "execute"],
+            "properties": {
+              "read": {"type": "boolean"},
+              "write": {"type": "boolean"},
+              "execute": {"type": "boolean"}
+            },
+            "additionalProperties": false
+          },
+          "sideEffects": {"type": "string", "minLength": 1},
+          "authNeeded": {"type": "boolean"},
+          "externalDataRisk": {"type": "string", "minLength": 1},
+          "fallbackMode": {"type": "string", "minLength": 1},
+          "approvalRequiredFor": {"type": "array", "items": {"type": "string"}},
+          "trust": {
+            "type": "object",
+            "required": [
+              "provider", "source", "versionPosture", "integrity",
+              "promptTextSurface", "promptTextReviewed", "permissions",
+              "networkScope", "dataScope", "reviewedAt", "disposition",
+              "reviewEvidence"
+            ],
+            "properties": {
+              "provider": {"type": "string", "minLength": 1},
+              "source": {"type": "string", "minLength": 1},
+              "versionPosture": {"type": "string", "minLength": 1},
+              "integrity": {"type": "string", "minLength": 1},
+              "promptTextSurface": {"type": "string", "minLength": 1},
+              "disposition": {"enum": ["allow", "ask", "abstain"]},
+              "promptTextReviewed": {"type": "boolean"},
+              "permissions": {"type": "array", "items": {"type": "string"}},
+              "networkScope": {"type": "string", "minLength": 1},
+              "dataScope": {"type": "string", "minLength": 1},
+              "reviewedAt": {"type": "string", "format": "date"},
+              "reviewEvidence": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          },
+          "demandGate": {
+            "type": "object",
+            "required": ["status", "evidence", "evidenceSha256"],
+            "properties": {
+              "status": {"type": "string"},
+              "evidence": {"type": "string"},
+              "evidenceSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            },
+            "additionalProperties": false
+          },
+          "semanticNavigation": {
+            "type": "object",
+            "required": ["provider", "languages", "operations", "coverage", "confidence", "fallback", "sideEffects", "network", "shell"],
+            "properties": {
+              "provider": {"type": "string"},
+              "languages": {"type": "array", "items": {"type": "string"}},
+              "operations": {"type": "array", "items": {"type": "string"}},
+              "coverage": {
+                "type": "object",
+                "required": ["python", "typescript"],
+                "properties": {"python": {"type": "string"}, "typescript": {"type": "string"}},
+                "additionalProperties": false
+              },
+              "confidence": {
+                "type": "object",
+                "required": ["python", "typescript"],
+                "properties": {"python": {"type": "string"}, "typescript": {"type": "string"}},
+                "additionalProperties": false
+              },
+              "fallback": {
+                "type": "object",
+                "required": ["semantic", "confidence", "mode"],
+                "properties": {
+                  "semantic": {"type": "boolean"},
+                  "confidence": {"type": "string"},
+                  "mode": {"type": "string"}
+                },
+                "additionalProperties": false
+              },
+              "sideEffects": {"type": "string"},
+              "network": {"type": "boolean"},
+              "shell": {"type": "boolean"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

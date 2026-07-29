@@ -58,8 +58,9 @@ The default policy is `skills/_shared/EXTERNAL_REVIEW_POLICY.json`.
 
 - Claude/Gemini-authored candidate: managed OpenAI API is eligible
   cross-vendor evidence.
-- GPT/Codex-authored candidate: the managed OpenAI API is same-vendor evidence;
-  the exact same model remains ineligible for high/unknown risk.
+- GPT/Codex-authored candidate: the managed OpenAI API is same-vendor and
+  potentially same-provider evidence; the exact same model remains ineligible
+  for high/unknown risk.
 - Codex CLI and Gemini CLI remain registered host-native alternatives, but are
   not eligible for automated diff egress or protected evidence until their
   adapter can prove a no-tools/no-secret sandbox and complete cost telemetry.
@@ -129,6 +130,8 @@ accepted. The broker must reject CR/LF in model/provider/session values. Branch
 protection must also require the PR to be up to date with the protected default
 branch so a head-scoped status cannot outlive its reviewed base. A workflow file
 alone does not make the check blocking.
+The workflow never performs branch-protection mutation, merge, or rule
+weakening; those remain explicit administrator actions outside this transport.
 
 CI also restores the newest serialized usage ledger before review and uploads
 the updated ledger with 45-day retention. This ledger is reconciliation and

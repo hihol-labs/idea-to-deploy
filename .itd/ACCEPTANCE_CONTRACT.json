@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for API-001: verifiable provider-neutral external review inside the existing Verification Loop.",
-  "sourceRequest": "Implement recommendations 1-9 so an API reviewer produces verifiable evidence inside the existing ITD architecture.",
-  "createdAt": "2026-07-28",
+  "purpose": "Acceptance contract for HE-001: evidence-earned controls, tool/MCP trust inventory, and quiet-success/actionable-failure hook conformance.",
+  "sourceRequest": "Implement the approved P1 provenance lifecycle, P1/P2 MCP and tool trust inventory, and P2 hook-output conformance improvements.",
+  "createdAt": "2026-07-29",
   "criteriaSchema": {
     "requiredFields": [
       "id",
@@ -16,61 +16,53 @@
   },
   "criteria": [
     {
-      "id": "API-001-AC1",
-      "criterion": "One provider-neutral checker interface includes an OpenAI Responses API adapter and preserves Codex/Gemini alternatives without creating a second completion authority.",
-      "source": "Approved recommendations 1-3.",
-      "evidence": "Focused adapter and routing tests plus Verification Loop integration tests.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase adapters",
+      "id": "HE-001-AC1",
+      "criterion": "Load-bearing standing controls carry machine-validated provenance from a production incident, repeated independent signals, or hard external constraint, plus assumption, expected behavior, enforcement, verification, review date, and retirement condition.",
+      "source": "Approved P1 recommendation and Addy Osmani Harness Engineering ratchet principle, adapted to ITD signal thresholds.",
+      "evidence": "Closed-schema registry and mutation tests reject unearned, stale, unverifiable, or non-retirable controls.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_control_lifecycle.py --phase provenance",
       "status": "passed"
     },
     {
-      "id": "API-001-AC2",
-      "criterion": "Routing uses maker provenance and risk tier; same-model/same-provider evidence cannot satisfy high/unknown risk and missing eligible evidence is UNVERIFIED.",
-      "source": "Approved recommendations 3-4 and Verification Loop policy.",
-      "evidence": "Positive and mutation routing cases bind host-observed provider/model/session metadata.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase routing",
+      "id": "HE-001-AC2",
+      "criterion": "A bounded initial set of load-bearing hooks is covered by reversible ablation metadata without claiming blanket coverage or creating a second state plane.",
+      "source": "Approved P1 bounded-pilot recommendation.",
+      "evidence": "Ablation contract cross-links provenance, disable controls, fixed benchmarks, cost/noise observations, and human retirement authority.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_control_lifecycle.py --phase ablation",
       "status": "passed"
     },
     {
-      "id": "API-001-AC3",
-      "criterion": "Local review is explicit opt-in advisory/fail-open; CI is provider-neutral and fail-closed on missing exact-candidate evidence, not on one provider outage.",
-      "source": "Approved recommendations 5-7.",
-      "evidence": "Local degradation and CI evidence fixtures distinguish PASSED, FINDINGS, UNAVAILABLE, and UNVERIFIED.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase modes",
+      "id": "HE-001-AC3",
+      "criterion": "Tool and MCP entries declare provider provenance, version/digest posture, prompt-text trust, permissions, network and data scope, review status, fallback, and allow/ask/abstain disposition.",
+      "source": "Approved P1/P2 MCP and tool supply-chain recommendation.",
+      "evidence": "Template schema/validator and positive/mutation fixtures; unknown or unreviewed prompt-bearing providers cannot be silently allow-listed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC4",
-      "criterion": "Egress requires explicit consent and applies one tested sanitizer, file/byte/token/time/cost limits, complete coverage manifests, no raw diff/output retention, and no persisted API key.",
-      "source": "Approved recommendations 4, 8 and existing ADR-002.",
-      "evidence": "Security and budget mutation fixtures fail closed; oversize input is UNVERIFIED rather than silently truncated.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase egress",
+      "id": "HE-001-AC4",
+      "criterion": "Adoption and AI-agent security review explicitly inspect installed tool/MCP trust inventory without auto-installing, auto-updating, or creating external writes.",
+      "source": "Approved P1/P2 integration recommendation.",
+      "evidence": "Skill contract tests bind the inventory to /adopt and MEM controls in /security-audit.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py --phase integration",
       "status": "passed"
     },
     {
-      "id": "API-001-AC5",
-      "criterion": "Structured verdict, exact candidate SHA/tree/diff manifest, policy/model metadata, observed usage/cost, and immutable prompt/report hashes feed existing Verification Loop evidence.",
-      "source": "Approved recommendations 2, 4 and 8.",
-      "evidence": "Schema, stale-candidate, tamper, non-live fixture, and receipt-binding mutation cases.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase evidence",
+      "id": "HE-001-AC5",
+      "criterion": "Registered hooks obey a common output contract: clean/no-op success is silent; blocking or advisory failures contain bounded actionable WHY and FIX information with rate-limit/dedup posture.",
+      "source": "Approved P2 quiet-success/actionable-failure recommendation.",
+      "evidence": "Host-neutral contract plus behavioral meta-tests over the selected hook pilot, including positive and negative fixtures.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_output_contract.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC6",
-      "criterion": "A bounded shadow-pilot report measures availability, latency, observed token/cost use, unique actionable findings, false positives, and base-review duplication without claiming live external results when no authorized call occurred.",
-      "source": "Approved recommendation 9.",
-      "evidence": "Deterministic pilot fixtures and schema validator; live fields remain explicitly UNOBSERVED until an opt-in run.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase pilot",
-      "status": "passed"
-    },
-    {
-      "id": "API-001-AC7",
-      "criterion": "Documentation and host adapters describe the same model-neutral contracts, honest independence labels, operational bypass boundary, and current tested degradation chain.",
-      "source": "Approved recommendations 1-9 and project AGENTS.md.",
-      "evidence": "Host parity, methodology meta-review, quick and full regression pass on the exact candidate.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick && bash tests/run-all.sh",
+      "id": "HE-001-AC6",
+      "criterion": "Harness Engineering documentation maps the Addy Osmani source honestly, distinguishes existing coverage from the new deltas, and does not inflate conformance claims.",
+      "source": "Approved documentation recommendation.",
+      "evidence": "Documentation freshness, host-adapter parity, meta-review, and quick regression remain green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick",
       "status": "passed"
     }
   ],
-  "doneRule": "API-001 is complete only when every criterion is passed and one current high-risk Verification Loop adjudication re-runs all named commands on the exact staged candidate, consumes a policy-eligible independent checker report, and passes receipt revalidation."
+  "doneRule": "HE-001 is complete only when every criterion is passed and a current medium-risk Verification Loop adjudication re-runs the named oracle on the exact staged candidate, consumes a targeted fresh-session checker report, and passes receipt revalidation."
 }

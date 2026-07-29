@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- An evidence-earned harness control registry binds five load-bearing controls
+  to production incidents, repeated independent signals, or hard constraints,
+  plus assumptions, verification, review dates, reversible disable controls,
+  and retirement conditions.
+- Tool capability registry v2 adds MCP/tool prompt-supply-chain trust:
+  provider provenance, version posture, permissions, network/data scope,
+  prompt/schema review, fallback, and `allow|ask|abstain`. Unknown
+  prompt-bearing providers default to `abstain`.
+- A host-neutral hook-output contract and behavioral pilot enforce silent
+  clean/no-op results and bounded structured findings with `WHY:`/`FIX:`.
+
+### Changed
+- `/adopt` inventories configured prompt-bearing providers read-only and never
+  auto-installs, updates, authenticates, grants permissions, or marks them
+  trusted. `/security-audit` adds the Critical `MEM-8` supply-chain check.
+- Harness ablation now covers a bounded five-control pilot linked by
+  `controlId`; it does not claim blanket coverage and retirement remains a
+  human decision.
+
 ## [1.95.0] - 2026-07-28
 
 ### Added

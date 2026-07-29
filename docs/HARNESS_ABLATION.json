@@ -10,6 +10,7 @@
   "candidates": [
     {
       "id": "completion-stop",
+      "controlId": "false-completion-stop",
       "component": "hooks/completion-stop.sh",
       "disableEnv": {
         "ITD_COMPLETION_STOP": "0"
@@ -18,6 +19,70 @@
         {
           "id": "completion-behaviour",
           "command": "python3 benchmarks/harness-components/completion-stop.py",
+          "metricParser": "json_number",
+          "metricField": "score",
+          "higherIsBetter": true,
+          "maxRegression": 0.0
+        }
+      ]
+    },
+    {
+      "id": "subagent-verdict-final",
+      "controlId": "subagent-verdict-final",
+      "component": "hooks/narration-final.sh",
+      "disableEnv": {"ITD_NARRATION_FINAL": "0"},
+      "benchmarkCommands": [
+        {
+          "id": "narration-final-behaviour",
+          "command": "python3 benchmarks/harness-components/control-behavior.py --component narration-final",
+          "metricParser": "json_number",
+          "metricField": "score",
+          "higherIsBetter": true,
+          "maxRegression": 0.0
+        }
+      ]
+    },
+    {
+      "id": "subagent-verdict-contract",
+      "controlId": "subagent-verdict-contract",
+      "component": "hooks/verdict-contract.sh",
+      "disableEnv": {"ITD_VERDICT_CONTRACT": "0"},
+      "benchmarkCommands": [
+        {
+          "id": "verdict-contract-behaviour",
+          "command": "python3 benchmarks/harness-components/control-behavior.py --component verdict-contract",
+          "metricParser": "json_number",
+          "metricField": "score",
+          "higherIsBetter": true,
+          "maxRegression": 0.0
+        }
+      ]
+    },
+    {
+      "id": "wip-scope-gate",
+      "controlId": "wip-scope-gate",
+      "component": "hooks/wip-gate.sh",
+      "disableEnv": {"ITD_WIP_GATE": "0"},
+      "benchmarkCommands": [
+        {
+          "id": "wip-scope-behaviour",
+          "command": "python3 benchmarks/harness-components/control-behavior.py --component wip-scope",
+          "metricParser": "json_number",
+          "metricField": "score",
+          "higherIsBetter": true,
+          "maxRegression": 0.0
+        }
+      ]
+    },
+    {
+      "id": "handoff-readiness",
+      "controlId": "handoff-readiness",
+      "component": "hooks/handoff-readiness.sh",
+      "disableEnv": {"ITD_HANDOFF_READINESS": "0"},
+      "benchmarkCommands": [
+        {
+          "id": "handoff-readiness-behaviour",
+          "command": "python3 benchmarks/harness-components/control-behavior.py --component handoff-readiness",
           "metricParser": "json_number",
           "metricField": "score",
           "higherIsBetter": true,

@@ -46,7 +46,7 @@ Per-project, idea-to-deploy scaffolds a `.itd/` directory (project-owned, machin
 | `.itd/ACCEPTANCE_CONTRACT.json` | "Done" as a proof checklist derived from the user request |
 | `.itd/EXECUTION_POLICY.json` | Command / write / network / approval policy |
 | `.itd/PERMISSION_MATRIX.{json,md}` | Who/what may read, write, execute, publish |
-| `.itd/TOOL_CAPABILITY_REGISTRY.json` | Tool/connector side-effects, auth, risk, fallback |
+| `.itd/TOOL_CAPABILITY_REGISTRY.json` | Tool/connector side-effects, auth, risk, fallback, and prompt-trust supply-chain inventory |
 | `.itd/LEARNING_PROMOTION_GATE.md` | Gate for promoting session learnings into durable docs |
 | `.itd/DECISIONS.md` | Append-only decision journal («какое/почему/когда»), written by `/session-save`, read by `/handoff` (v1.70.0) |
 | `.itd/itd_progress.py` | Derived-view generator → `.itd-memory/PROGRESS.md` (glance-сводка; best-effort, never a gate — canon stays in STATE/GOAL JSON; v1.70.0). **Utility, NOT counted in the 21 contract templates** — идёт в комплекте с `check_contract_drift.py` / `itd_init_validate.py`; сам `PROGRESS.md` в целевом проекте — кандидат в `.gitignore` (derived, без таймстампа в теле — v1.71.1) |

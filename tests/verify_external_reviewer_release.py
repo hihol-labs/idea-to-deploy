@@ -14,6 +14,7 @@ REQUIRED_FILES = {
     "docs/API_REVIEWER.md",
     "docs/adr/ADR-003-verifiable-external-reviewer.md",
     "docs/api-reviewer/SHADOW_PILOT.json",
+    "docs/api-reviewer/RELEASE_CONTRACT.json",
     "skills/_shared/EXTERNAL_REVIEW_POLICY.json",
     "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json",
     "skills/_shared/itd_external_reviewer.py",
@@ -29,33 +30,29 @@ def load(path: str) -> dict:
 def validate_contract(contract: dict, scope: str) -> list[str]:
     issues: list[str] = []
     if set(contract) != {
-        "version", "purpose", "sourceRequest", "createdAt", "criteriaSchema",
-        "criteria", "doneRule",
+        "version", "purpose", "criteria", "scopeMarkers", "scopeEvidence",
+        "completionAuthority",
     }:
-        issues.append("acceptance fields are not closed")
+        issues.append("release contract fields are not closed")
     rows = contract.get("criteria")
-    if not isinstance(rows, list) or {row.get("id") for row in rows
-                                     if isinstance(row, dict)} != CRITERIA:
+    if not isinstance(rows, list) or set(rows) != CRITERIA:
         issues.append("API-001 criteria are incomplete")
-    else:
-        required = set(contract["criteriaSchema"]["requiredFields"])
-        for row in rows:
-            if set(row) != required:
-                issues.append(f"{row.get('id')} fields are not closed")
-            if row.get("status") not in {"pending", "passed"}:
-                issues.append(f"{row.get('id')} has an invalid release status")
-            if not str(row.get("verificationCommand") or "").startswith(
-                    "sh skills/_shared/itd_py.sh "):
-                issues.append(f"{row.get('id')} bypasses the launcher")
-    for marker in (
-        "# Scope Lock — API-001 verifiable external reviewer",
+    if contract.get("version") != VERSION:
+        issues.append("release contract version drift")
+    if contract.get("completionAuthority") != "verification-loop-v1":
+        issues.append("release contract completion authority drift")
+    required_markers = {
         "Verification Loop",
-        "same-model same-provider",
+        "same-model",
+        "same-provider",
         "UNAVAILABLE",
         "UNVERIFIED",
-        "silent diff truncation",
+        "silently truncated",
         "branch-protection mutation",
-    ):
+    }
+    if set(contract.get("scopeMarkers") or []) != required_markers:
+        issues.append("release scope marker set drift")
+    for marker in required_markers:
         if marker not in scope:
             issues.append(f"scope omits: {marker}")
     return issues
@@ -76,8 +73,12 @@ def main() -> int:
     for path in REQUIRED_FILES:
         if not (ROOT / path).is_file():
             issues.append(f"missing release file: {path}")
-    acceptance = load(".itd/ACCEPTANCE_CONTRACT.json")
-    scope = (ROOT / ".itd/SCOPE_LOCK.md").read_text(encoding="utf-8")
+    acceptance = load("docs/api-reviewer/RELEASE_CONTRACT.json")
+    scope_paths = acceptance.get("scopeEvidence") or []
+    scope = "\n".join((ROOT / path).read_text(encoding="utf-8")
+                      for path in scope_paths if (ROOT / path).is_file())
+    if len(scope_paths) != 2:
+        issues.append("release scope evidence set drift")
     issues.extend(validate_contract(acceptance, scope))
     policy = load("skills/_shared/EXTERNAL_REVIEW_POLICY.json")
     providers = [row.get("id") for row in policy.get("providers", [])]

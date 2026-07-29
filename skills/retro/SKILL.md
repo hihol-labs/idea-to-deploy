@@ -160,6 +160,15 @@ artifacts даже при красном гейте. Для принятого G
 компонента и иные мутации по-прежнему проходят человека и обычный release
 pipeline.
 
+**Evidence-earned controls (v1.95.x).** Для load-bearing правила или hook
+сначала сверяй `docs/HARNESS_CONTROL_REGISTRY.json`: допустимы один боевой
+инцидент, два независимых сигнала либо жёсткое внешнее ограничение. У записи
+обязательны assumption, expected behavior, enforcement, verification,
+`reviewBy`, reversible disable и `retireWhen`. Одиночный небoевой промах — это
+сигнал для наблюдения, а не автоматическое новое правило. Кандидат без
+provenance или условия удаления отклоняется; ablation-кандидат обязан ссылаться
+на тот же `controlId`. Решение keep/change/retire остаётся у человека.
+
 ### Step 2: PROPOSALS — интерпретация с обязательным evidence
 
 Для повторяемого и машиночитаемого цикла используй bundled runner после
