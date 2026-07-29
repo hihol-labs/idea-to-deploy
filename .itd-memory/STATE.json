@@ -39,6 +39,7 @@
   "currentUnit": {
     "id": "GPG-001",
     "goal": "Implement a fail-closed global PR/API gate control plane for Windows and WSL repositories",
+    "riskTier": "high",
     "status": "in_progress",
     "startedAt": "2026-07-29T09:32:53Z"
   },
