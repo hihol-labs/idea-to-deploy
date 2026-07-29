@@ -11,13 +11,13 @@
   },
   "limits": {
     "maxFiles": 100,
-    "maxDiffBytes": 55000,
-    "maxRequestBytes": 66500,
-    "maxEstimatedInputTokens": 50000,
+    "maxDiffBytes": 80000,
+    "maxRequestBytes": 100000,
+    "maxEstimatedInputTokens": 60000,
     "maxOutputTokens": 5550,
     "timeoutSeconds": 120,
     "maxRetries": 0,
-    "maxCostUsd": 0.5,
+    "maxCostUsd": 0.75,
     "monthlyCostUsd": 10.0
   },
   "providers": [

@@ -175,7 +175,11 @@ def phase_adapters(checks: Checks) -> None:
         * policy["providers"][0]["outputUsdPerMillion"] / 1_000_000
     )
     checks.that(
-        policy["limits"]["maxOutputTokens"] >= 5550
+        policy["limits"]["maxDiffBytes"] == 80000
+        and policy["limits"]["maxRequestBytes"] == 100000
+        and policy["limits"]["maxEstimatedInputTokens"] == 60000
+        and policy["limits"]["maxOutputTokens"] >= 5550
+        and policy["limits"]["maxCostUsd"] == 0.75
         and worst_case_cost <= policy["limits"]["maxCostUsd"],
         "output budget is too small for reasoning or exceeds the per-run ceiling",
     )
