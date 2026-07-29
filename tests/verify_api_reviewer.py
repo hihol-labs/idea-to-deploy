@@ -108,6 +108,11 @@ def finding_verdict() -> dict:
 
 
 def fixture(path: Path, rows: dict) -> Path:
+    rows = dict(rows)
+    if "openai-responses" in rows and "openai-responses-terra" not in rows:
+        rows["openai-responses-terra"] = {
+            "error": "disabled fixture fallback"
+        }
     target = path / "fixtures.json"
     target.write_text(json.dumps(rows), encoding="utf-8")
     return target
@@ -153,8 +158,10 @@ class Checks:
 def phase_adapters(checks: Checks) -> None:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     ids = [row["id"] for row in policy["providers"]]
-    checks.that(ids == ["openai-responses", "codex-cli", "gemini-cli"],
-                "API/Codex/Gemini provider set drifted")
+    checks.that(ids == [
+        "openai-responses", "openai-responses-terra",
+        "codex-cli", "gemini-cli",
+    ], "Sol/Terra API plus Codex/Gemini provider set drifted")
     checks.that(policy["completionAuthority"] == "verification-loop-v1",
                 "external reviewer became a parallel authority")
     checks.that(policy["providers"][0]["credentialEnvironment"] == "OPENAI_API_KEY",
@@ -179,11 +186,13 @@ def phase_adapters(checks: Checks) -> None:
             "ssl.SSLError",
             "OSError",
             "UnicodeError",
+            "minor-only findings may accompany PASSED",
         )),
-        "live transport failures are not fully converted to typed results",
+        "live transport failures or semantic verdict instructions are incomplete",
     )
-    checks.that(policy["providers"][0]["automatedEligible"] is True
-                and all(row["automatedEligible"] is False for row in policy["providers"][1:]),
+    checks.that(
+                all(row["automatedEligible"] is True for row in policy["providers"][:2])
+                and all(row["automatedEligible"] is False for row in policy["providers"][2:]),
                 "tool-capable CLIs must remain registered but ineligible for automated egress")
     path = repo()
     try:
@@ -298,23 +307,58 @@ def phase_routing(checks: Checks) -> None:
         _, anthropic = invoke(
             path, "route", "--maker-vendor", "anthropic",
             "--maker-model", "claude-test", "--risk", "high")
-        checks.that(anthropic["providers"] == ["openai-responses"],
-                    "Claude-authored automated route should use only managed API")
+        checks.that(
+            anthropic["providers"] == [
+                "openai-responses", "openai-responses-terra"
+            ],
+            "Claude-authored route should prefer Sol and retain Terra fallback",
+        )
         _, openai = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol", "--risk", "high")
-        checks.that(openai["providers"] == [],
-                    "GPT-authored high-risk route accepted unsafe CLI or same-model API")
+        checks.that(
+            openai["providers"] == ["openai-responses-terra"],
+            "Sol-authored high-risk route did not select independent Terra",
+        )
         _, snapshot_route = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol-2026-07-15", "--risk", "high")
-        checks.that("openai-responses" not in snapshot_route["providers"],
+        checks.that(
+            snapshot_route["providers"] == ["openai-responses-terra"],
                     "dated snapshot alias bypassed same-model high-risk separation")
+        _, terra_route = invoke(
+            path, "route", "--maker-vendor", "openai",
+            "--maker-model", "gpt-5.6-terra", "--risk", "high")
+        checks.that(
+            terra_route["providers"] == ["openai-responses"],
+            "Terra-authored high-risk route did not select independent Sol",
+        )
         _, medium = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol", "--risk", "medium")
         checks.that("openai-responses" in medium["providers"],
                     "fresh same-model medium checker should remain advisory-eligible")
+
+        terra_fixture = fixture(path, {
+            "openai-responses-terra": {
+                "response": response(
+                    clean_verdict(), model="gpt-5.6-terra"
+                )
+            }
+        })
+        terra_run, terra_payload = invoke(
+            path, "review", "--root", str(path), "--maker-vendor", "openai",
+            "--maker-model", "gpt-5.6-sol", "--maker-session", "maker-sol",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(terra_fixture),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        checks.that(
+            terra_run.returncode == 0
+            and terra_payload["checker"]["providerId"] == "openai-responses-terra"
+            and terra_payload["checker"]["independence"]
+            == "same-vendor-different-model",
+            "Terra did not produce eligible same-vendor/different-model evidence",
+        )
     finally:
         remove_tree(path)
 

@@ -172,14 +172,21 @@ def policy_from(path: Path) -> dict[str, Any]:
             raise ReviewError(
                 "UNVERIFIED", "external-review provider fields are incomplete"
             )
-        if provider.get("kind") == "responses-api" and (
-            provider.get("id") != "openai-responses"
-            or provider.get("endpoint") != "https://api.openai.com/v1/responses"
-        ):
-            raise ReviewError(
-                "UNVERIFIED",
-                "Responses API provider endpoint is outside the credential allowlist",
-            )
+        if provider.get("kind") == "responses-api":
+            allowed_api_models = {
+                "openai-responses": "gpt-5.6-sol",
+                "openai-responses-terra": "gpt-5.6-terra",
+            }
+            if (
+                provider.get("id") not in allowed_api_models
+                or provider.get("model") != allowed_api_models.get(provider.get("id"))
+                or provider.get("endpoint") != "https://api.openai.com/v1/responses"
+            ):
+                raise ReviewError(
+                    "UNVERIFIED",
+                    "Responses API provider/model/endpoint is outside the "
+                    "credential allowlist",
+                )
         if provider.get("kind") == "responses-api":
             if (not isinstance(provider.get("credentialEnvironment"), str)
                     or not provider["credentialEnvironment"]
@@ -479,7 +486,12 @@ def review_prompt(manifest: dict[str, Any], diff: str,
         "spec compliance. Report only concrete file/line findings. Critical "
         "means unsafe or materially incorrect; Important means merge-relevant; "
         "Minor is advisory. Set unverified for any contour you could not check. "
-        "A clean verdict is allowed only when coverage is complete.\n"
+        "Use BLOCKED iff at least one critical finding exists. Use "
+        "PASSED_WITH_WARNINGS iff there is no critical finding and at least "
+        "one important finding or unverified contour exists. Use PASSED when "
+        "there is no critical/important finding and unverified is empty; "
+        "minor-only findings may accompany PASSED. A clean verdict is allowed "
+        "only when coverage is complete.\n"
         f"CANDIDATE_MANIFEST={json.dumps(manifest, ensure_ascii=False, sort_keys=True)}\n"
         f"REQUIRED_JSON_SCHEMA={json.dumps(verdict_schema_for_api(schema or {}), ensure_ascii=False, sort_keys=True)}\n"
         f"UNTRUSTED_DIFF_JSON={json.dumps(diff, ensure_ascii=False)}\n"

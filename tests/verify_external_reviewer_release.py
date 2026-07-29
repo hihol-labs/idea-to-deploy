@@ -82,10 +82,13 @@ def main() -> int:
     issues.extend(validate_contract(acceptance, scope))
     policy = load("skills/_shared/EXTERNAL_REVIEW_POLICY.json")
     providers = [row.get("id") for row in policy.get("providers", [])]
-    if providers != ["openai-responses", "codex-cli", "gemini-cli"]:
+    if providers != [
+        "openai-responses", "openai-responses-terra",
+        "codex-cli", "gemini-cli",
+    ]:
         issues.append("provider set/order drift")
     eligibility = [row.get("automatedEligible") for row in policy.get("providers", [])]
-    if eligibility != [True, False, False]:
+    if eligibility != [True, True, False, False]:
         issues.append("unsafe automated-provider eligibility drift")
     if policy.get("completionAuthority") != "verification-loop-v1":
         issues.append("parallel completion authority")
@@ -123,7 +126,10 @@ def main() -> int:
             mutant_scope = scope.replace("UNVERIFIED", "")
         rejected = (
             [row.get("id") for row in mutant_policy.get("providers", [])]
-            != ["openai-responses", "codex-cli", "gemini-cli"]
+            != [
+                "openai-responses", "openai-responses-terra",
+                "codex-cli", "gemini-cli",
+            ]
             or mutant_policy.get("completionAuthority") != "verification-loop-v1"
             or bool(validate_contract(mutant_contract, mutant_scope))
         )

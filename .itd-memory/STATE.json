@@ -37,11 +37,10 @@
     "lastAnalysisSummary": "Added a sealed verification oracle, bounded budgets, typed stops, attempt evidence, and host-native continuation guidance."
   },
   "currentUnit": {
-    "id": "HE-001",
-    "goal": "Implement evidence-earned control provenance, MCP/tool trust inventory, and hook output conformance",
-    "status": "verified",
-    "startedAt": "2026-07-29T07:23:35Z",
-    "completedAt": "2026-07-29T09:30:51Z"
+    "id": "GPG-001",
+    "goal": "Implement a fail-closed global PR/API gate control plane for Windows and WSL repositories",
+    "status": "in_progress",
+    "startedAt": "2026-07-29T09:32:53Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
