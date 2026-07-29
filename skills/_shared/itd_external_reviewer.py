@@ -103,7 +103,7 @@ def policy_from(path: Path) -> dict[str, Any]:
     policy = read_json(path)
     required = {
         "version", "id", "defaultEnabled", "completionAuthority", "consent",
-        "limits", "providers", "routing", "retention",
+        "httpTransport", "limits", "providers", "routing", "retention",
     }
     if set(policy) != required or policy.get("version") != 1:
         raise ReviewError("UNVERIFIED", "external-review policy fields/version are invalid")
@@ -139,6 +139,22 @@ def policy_from(path: Path) -> dict[str, Any]:
         raise ReviewError(
             "UNVERIFIED", "external-review consent paths or environments are unsafe"
         )
+    transport = policy.get("httpTransport")
+    if (
+        not isinstance(transport, dict)
+        or set(transport) != {
+            "environment", "default", "allowed", "curlMinimumVersion",
+            "maxPreRequestConnectRetries", "credentialExposure",
+        }
+        or transport.get("environment") != "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT"
+        or transport.get("default") != "urllib"
+        or transport.get("allowed") != ["urllib", "curl"]
+        or transport.get("curlMinimumVersion") != "8.3.0"
+        or type(transport.get("maxPreRequestConnectRetries")) is not int
+        or not 0 <= transport["maxPreRequestConnectRetries"] <= 3
+        or transport.get("credentialExposure") != "environment-name-only"
+    ):
+        raise ReviewError("UNVERIFIED", "external-review HTTP transport policy is invalid")
     routing = policy.get("routing")
     if (not isinstance(routing, dict)
             or set(routing) != {
@@ -615,16 +631,35 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
         response = fixture.get("response")
         if not isinstance(response, dict):
             raise ReviewError("UNAVAILABLE", "fixture response is missing")
-        return response, {"attempts": 1, "latencyMs": int(fixture.get("latencyMs", 0))}
+        return response, {
+            "attempts": 1,
+            "latencyMs": int(fixture.get("latencyMs", 0)),
+            "transport": "fixture",
+        }
     key_name = provider["credentialEnvironment"]
-    api_key = os.environ.get(key_name, "")
-    if not api_key:
+    credential_value = os.environ.get(key_name, "")
+    if not credential_value:
         raise ReviewError("UNAVAILABLE", f"{key_name} is not set")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,500}", credential_value):
+        raise ReviewError("UNAVAILABLE", f"{key_name} has an invalid shape")
+    transport_policy = policy["httpTransport"]
+    transport = os.environ.get(
+        transport_policy["environment"], transport_policy["default"]
+    )
+    if transport not in transport_policy["allowed"]:
+        raise ReviewError("UNVERIFIED", f"unsupported HTTP transport: {transport}")
+    if transport == "curl":
+        return call_openai_curl(
+            provider, prompt, schema, policy, key_name
+        )
     limits = policy["limits"]
     request = urlrequest.Request(
         provider["endpoint"],
         data=openai_request_bytes(provider, prompt, schema, policy),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {credential_value}",
+            "Content-Type": "application/json",
+        },
         method="POST",
     )
     attempts = 0
@@ -642,6 +677,7 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
             return response, {
                 "attempts": attempts,
                 "latencyMs": round((time.monotonic() - started) * 1000),
+                "transport": "urllib",
             }
         except (
             urlerror.URLError,
@@ -657,6 +693,140 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
             if attempts > int(limits["maxRetries"]):
                 break
     raise ReviewError("UNAVAILABLE", f"OpenAI Responses API failed after {attempts} attempts: {last_error}")
+
+
+def call_openai_curl(
+    provider: dict[str, Any], prompt: str, schema: dict[str, Any],
+    policy: dict[str, Any], key_name: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Use curl without placing the credential value in argv or request files."""
+    limits = policy["limits"]
+    request_bytes = openai_request_bytes(provider, prompt, schema, policy)
+    environment_names = {
+        "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
+        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+        "http_proxy", "https_proxy", "all_proxy", "no_proxy",
+        "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE", key_name,
+    }
+    child_env = {
+        name: value for name, value in os.environ.items()
+        if name in environment_names
+    }
+    try:
+        version_result = subprocess.run(
+            ["curl", "--disable", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=child_env,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ReviewError("UNAVAILABLE", "curl transport is unavailable") from exc
+    version_match = re.match(
+        rb"curl (\d+)\.(\d+)\.(\d+)", version_result.stdout
+    )
+    if (
+        version_result.returncode != 0
+        or version_match is None
+        or tuple(int(part) for part in version_match.groups()) < (8, 3, 0)
+    ):
+        raise ReviewError("UNAVAILABLE", "curl 8.3.0 or newer is required")
+    command = [
+        "curl",
+        "--disable",
+        "--silent",
+        "--show-error",
+        "--fail-with-body",
+        "--request", "POST",
+        "--max-time", str(int(limits["timeoutSeconds"])),
+        "--max-filesize", str(int(limits["maxDiffBytes"])),
+        "--variable", f"%{key_name}",
+        "--expand-header", f"Authorization: Bearer {{{{{key_name}}}}}",
+        "--header", "Content-Type: application/json",
+        "--data-binary", "@-",
+        str(provider["endpoint"]),
+    ]
+    started = time.monotonic()
+    result = None
+    connect_attempts = 0
+    pre_request_errors = {5, 6, 7, 35}
+    for connect_attempts in range(
+        1, int(policy["httpTransport"]["maxPreRequestConnectRetries"]) + 2
+    ):
+        try:
+            result = run_curl_bounded(
+                command,
+                request_bytes,
+                child_env,
+                int(limits["maxDiffBytes"]),
+                int(limits["timeoutSeconds"]) + 5,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ReviewError(
+                "UNAVAILABLE", f"curl transport failed: {type(exc).__name__}"
+            ) from exc
+        if (
+            result.returncode == 0
+            or result.returncode not in pre_request_errors
+            or connect_attempts
+            > int(policy["httpTransport"]["maxPreRequestConnectRetries"])
+        ):
+            break
+    assert result is not None
+    if result.returncode != 0:
+        raise ReviewError(
+            "UNAVAILABLE", f"curl transport failed with exit {result.returncode}"
+        )
+    try:
+        response = json.loads(result.stdout.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ReviewError("UNVERIFIED", "curl provider response is invalid JSON") from exc
+    if not isinstance(response, dict):
+        raise ReviewError("UNVERIFIED", "curl provider response is not an object")
+    return response, {
+        "attempts": 1,
+        "preRequestConnectAttempts": connect_attempts,
+        "latencyMs": round((time.monotonic() - started) * 1000),
+        "transport": "curl",
+    }
+
+
+def run_curl_bounded(
+    command: list[str], request_bytes: bytes, child_env: dict[str, str],
+    response_limit: int, timeout_seconds: int,
+) -> subprocess.CompletedProcess[bytes]:
+    """Capture at most response_limit+1 bytes while curl is still running."""
+    process = None
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=child_env,
+        )
+        assert process.stdin is not None and process.stdout is not None
+        process.stdin.write(request_bytes)
+        process.stdin.close()
+        raw = process.stdout.read(response_limit + 1)
+        if len(raw) > response_limit:
+            process.kill()
+            process.wait(timeout=5)
+            raise ReviewError(
+                "UNVERIFIED", "curl response exceeds the bounded capture limit"
+            )
+        returncode = process.wait(timeout=timeout_seconds)
+        return subprocess.CompletedProcess(command, returncode, stdout=raw, stderr=b"")
+    except ReviewError:
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        if process is not None and process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+        raise ReviewError(
+            "UNAVAILABLE", f"curl transport failed: {type(exc).__name__}"
+        ) from exc
 
 
 def call_cli(provider: dict[str, Any], prompt: str, fixture: dict[str, Any] | None,

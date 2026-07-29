@@ -9,6 +9,14 @@
     "marker": ".itd-external-review-egress-ok",
     "compatibleMarker": ".cross-review-egress-ok"
   },
+  "httpTransport": {
+    "environment": "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT",
+    "default": "urllib",
+    "allowed": ["urllib", "curl"],
+    "curlMinimumVersion": "8.3.0",
+    "maxPreRequestConnectRetries": 3,
+    "credentialExposure": "environment-name-only"
+  },
   "limits": {
     "maxFiles": 100,
     "maxDiffBytes": 80000,

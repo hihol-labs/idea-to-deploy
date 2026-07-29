@@ -168,6 +168,17 @@ def phase_adapters(checks: Checks) -> None:
                 "OpenAI credential is not environment-only")
     checks.that(policy["providers"][0]["reasoningEffort"] == "medium",
                 "managed reviewer reasoning effort is not explicit")
+    checks.that(
+        policy["httpTransport"] == {
+            "environment": "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT",
+            "default": "urllib",
+            "allowed": ["urllib", "curl"],
+            "curlMinimumVersion": "8.3.0",
+            "maxPreRequestConnectRetries": 3,
+            "credentialExposure": "environment-name-only",
+        },
+        "bounded HTTP transport fallback policy drifted",
+    )
     worst_case_cost = (
         policy["limits"]["maxRequestBytes"]
         * policy["providers"][0]["inputUsdPerMillion"] / 1_000_000
@@ -191,6 +202,8 @@ def phase_adapters(checks: Checks) -> None:
             "OSError",
             "UnicodeError",
             "minor-only findings may accompany PASSED",
+            "--expand-header",
+            "f\"%{key_name}\"",
         )),
         "live transport failures or semantic verdict instructions are incomplete",
     )
@@ -211,6 +224,8 @@ def phase_adapters(checks: Checks) -> None:
                 "allowSameModelForMedium")),
             ("absolute-consent", lambda row: row["consent"].__setitem__(
                 "marker", "/tmp/unrelated-consent")),
+            ("unsafe-transport", lambda row: row["httpTransport"].__setitem__(
+                "credentialExposure", "argv")),
         ):
             mutant = json.loads(POLICY.read_text(encoding="utf-8"))
             mutate(mutant)
