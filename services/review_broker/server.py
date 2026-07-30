@@ -11,6 +11,7 @@ import sqlite3
 import sys
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -40,7 +41,7 @@ def _absolute_path(name: str) -> Path:
     return value.resolve()
 
 
-def _validate_public_keyring(
+def validate_public_keyring(
     value: Any, policy: dict[str, Any]
 ) -> dict[str, dict[str, Any]]:
     if not isinstance(value, dict) or not 1 <= len(value) <= 1024:
@@ -270,7 +271,7 @@ class BrokerRuntime:
         keyring_value = core.decode_strict_json(
             keyring_raw, "provenance public keyring"
         )
-        provenance_keyring = _validate_public_keyring(
+        provenance_keyring = validate_public_keyring(
             keyring_value, policy
         )
         github = core.GitHubApi(api_version=policy["github"]["apiVersion"])
@@ -377,16 +378,112 @@ class BrokerHandler(BaseHTTPRequestHandler):
         return body
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == self.runtime.policy["service"]["healthPath"]:
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == self.runtime.policy["service"]["healthPath"]:
+            if parsed.query or parsed.fragment:
+                self._json(400, {"status": "UNVERIFIED"})
+                return
             self._json(200, {"status": "ok"})
             return
-        if self.path == self.runtime.policy["service"]["readinessPath"]:
+        if parsed.path == self.runtime.policy["service"]["readinessPath"]:
             try:
                 budget = self.runtime.store.budget_status()
             except sqlite3.Error:
                 self._json(503, {"status": "UNAVAILABLE"})
                 return
-            self._json(200, {"status": "ready", "budget": budget})
+            enrollment = None
+            provenance_keys = None
+            if parsed.query:
+                try:
+                    query = urllib.parse.parse_qs(
+                        parsed.query,
+                        keep_blank_values=True,
+                        strict_parsing=True,
+                    )
+                except ValueError:
+                    self._json(400, {"status": "UNVERIFIED"})
+                    return
+                if (
+                    set(query) != {"repository", "appId"}
+                    or any(len(values) != 1 for values in query.values())
+                ):
+                    self._json(400, {"status": "UNVERIFIED"})
+                    return
+                repository = query["repository"][0]
+                try:
+                    app_id = int(query["appId"][0])
+                    enrollment = self.runtime.store.enrollment_status(
+                        repository, app_id
+                    )
+                except (ValueError, core.BrokerError):
+                    self._json(
+                        503,
+                        {
+                            "status": "UNAVAILABLE",
+                            "reason": "repository enrollment is unavailable",
+                        },
+                    )
+                    return
+                provenance_keys = [
+                    dict(record)
+                    for _key_id, record in sorted(
+                        self.runtime.provenance_keyring.items()
+                    )
+                    if record.get("repository") == repository
+                ]
+                if not provenance_keys:
+                    self._json(
+                        503,
+                        {
+                            "status": "UNAVAILABLE",
+                            "reason": (
+                                "repository provenance key is unavailable"
+                            ),
+                        },
+                    )
+                    return
+            monthly = int(
+                self.runtime.policy["budget"]["monthlyMicrousd"]
+            )
+            reservation = int(
+                self.runtime.policy["budget"]["reservationMicrousd"]
+            )
+            committed = (
+                budget["reservedMicrousd"] + budget["spentMicrousd"]
+            )
+            budget.update(
+                {
+                    "monthlyMicrousd": monthly,
+                    "reservationMicrousd": reservation,
+                    "remainingMicrousd": max(0, monthly - committed),
+                    "admissionAvailable": (
+                        committed + reservation <= monthly
+                    ),
+                }
+            )
+            reviewers = [
+                {
+                    "id": reviewer_id,
+                    "vendor": row["vendor"],
+                    "model": row["model"],
+                }
+                for reviewer_id, row in sorted(
+                    self.runtime.policy["routing"]["reviewers"].items()
+                )
+            ]
+            response = {
+                "status": "ready",
+                "policyId": self.runtime.policy["id"],
+                "policySha256": core.sha256_bytes(
+                    core.POLICY_PATH.read_bytes()
+                ),
+                "reviewers": reviewers,
+                "budget": budget,
+            }
+            if enrollment is not None:
+                response["enrollment"] = enrollment
+                response["provenanceKeys"] = provenance_keys
+            self._json(200, response)
             return
         self._json(404, {"status": "not_found"})
 

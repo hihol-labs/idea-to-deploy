@@ -1,0 +1,16 @@
+{$ITD_BROKER_DOMAIN} {
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+
+	reverse_proxy 127.0.0.1:8080 {
+		health_uri /healthz
+		health_timeout 3s
+	}
+}

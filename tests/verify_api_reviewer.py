@@ -23,7 +23,10 @@ REVIEWER = ROOT / "skills/_shared/itd_external_reviewer.py"
 POLICY = ROOT / "skills/_shared/EXTERNAL_REVIEW_POLICY.json"
 SCHEMA = ROOT / "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json"
 PILOT = ROOT / "docs/api-reviewer/SHADOW_PILOT.json"
-WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
+OBSOLETE_WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
+MACHINE_WORKFLOW = ROOT / ".github/workflows/itd-machine-oracle.yml"
+BROKER_POLICY = ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json"
+BROKER_SERVICE = ROOT / "services/review_broker/server.py"
 PHASES = ("adapters", "routing", "modes", "egress", "evidence", "pilot")
 
 
@@ -416,68 +419,51 @@ def phase_modes(checks: Checks) -> None:
             in missing_fixture_payload["reason"],
             "fixture-only run fell through to a live transport",
         )
-        workflow = WORKFLOW.read_text(encoding="utf-8")
-        checks.that("repository_dispatch:" in workflow
-                    and "types: [itd-external-review]" in workflow
-                    and "github.event.client_payload" in workflow
-                    and "persist-credentials: false" in workflow,
-                    "CI gate is not default-branch-dispatched with trusted tooling")
-        checks.that("test -z \"${OPENAI_API_KEY:-}\"" in workflow
-                    and "adjudicate --root .itd-candidate" in workflow
-                    and " check --root .itd-candidate" in workflow
-                    and '--risk-tier high --receipt "$adjudication"' in workflow,
-                    "CI gate does not separate the secret from candidate execution "
-                    "or finish through adjudication")
-        checks.that("ITD_PROVENANCE_HMAC_KEY" in workflow
-                    and "hmac.compare_digest" in workflow
-                    and "INPUT_BASE: ${{ github.event.client_payload.maker_base }}" in workflow
-                    and "json.dumps(" in workflow
-                    and "unsafe maker provenance field" in workflow
-                    and "maker provenance is stale for the PR head" in workflow,
-                    "CI gate lacks signed, exact-head maker provenance")
+        workflow = MACHINE_WORKFLOW.read_text(encoding="utf-8")
+        broker_policy = json.loads(BROKER_POLICY.read_text(encoding="utf-8"))
+        broker_service = BROKER_SERVICE.read_text(encoding="utf-8")
         checks.that(
-            "candidate-oracle:" in workflow
-            and "needs: candidate-oracle" in workflow
-            and "ORACLE_JOB_RESULT:" in workflow
-            and workflow.count("Resolve exact PR refs") == 1
-            and "EXPECTED_HEAD: ${{ needs.candidate-oracle.outputs.head }}" in workflow
-            and "ref: ${{ needs.candidate-oracle.outputs.head }}" in workflow
-            and "merge_base=\"$(git merge-base" in workflow
-            and "BASE_SHA: ${{ needs.candidate-oracle.outputs.merge_base }}" in workflow
-            and "bind the isolated oracle result" in workflow,
-            "oracle/review/status are not bound to one immutable PR head",
+            not OBSOLETE_WORKFLOW.exists()
+            and "repository_dispatch:" not in workflow
+            and "pull_request:" in workflow
+            and "merge_group:" in workflow,
+            "obsolete repository-secret API gate was not retired",
         )
         checks.that(
-            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5" in workflow
+            "scripts/itd_machine_oracle.py" in workflow
+            and "persist-credentials: false" in workflow
+            and "OPENAI_API_KEY: \"\"" in workflow
+            and "ANTHROPIC_API_KEY: \"\"" in workflow
+            and "pull_request_target:" not in workflow,
+            "machine check is not isolated from reviewer credentials",
+        )
+        checks.that(
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+            in workflow
             and "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
             in workflow
-            and "ref: ${{ github.sha }}" in workflow
-            and "actions/checkout@v4" not in workflow
-            and "actions/upload-artifact@v4" not in workflow,
-            "security-sensitive actions/tooling are not pinned immutably",
+            and "actions/checkout@v" not in workflow
+            and "actions/upload-artifact@v" not in workflow,
+            "machine workflow actions are not pinned immutably",
         )
         checks.that(
-            "fork PRs are not eligible for this protected gate" in workflow
-            and "PR base must be the protected default branch" in workflow
-            and "git -c core.hooksPath=/dev/null merge --no-commit --no-ff" in workflow,
-            "fork rejection or prospective merge testing is absent",
+            broker_policy["authority"]["externalReview"]
+            == "github-app-check-run"
+            and broker_policy["authority"]["machineOracle"]
+            == "protected-base-github-actions"
+            and broker_policy["routing"]["automatedCliFallbackAllowed"] is False
+            and broker_policy["candidate"]["executeCandidateCode"] is False,
+            "central broker is not the sole required external-review authority",
         )
         checks.that(
-            'context="ITD external review gate"' in workflow
-            and 'statuses: write' in workflow
-            and 'statuses/$HEAD_SHA' in workflow,
-            "workflow does not publish its result on the verified PR head",
-        )
-        checks.that(
-            "group: itd-external-review-budget" in workflow
-            and "cancel-in-progress: false" in workflow
-            and "Restore the serialized monthly usage ledger" in workflow
-            and "actions/runs/$run_id" in workflow
-            and 'run_path" = */external-review-gate.yml' in workflow
-            and "select(.expired == false)" in workflow
-            and "itd-external-review-budget-${{ github.run_id }}-${{ github.run_attempt }}"
-            in workflow,
-            "CI usage reconciliation ledger is not serialized across workflow runs",
+            broker_policy["provenance"]["algorithm"] == "ed25519"
+            and broker_policy["github"]["externalCheck"]["expectedPublisher"]
+            == "github-app-integration-id"
+            and broker_policy["budget"]["reservation"] == "sqlite-begin-immediate"
+            and 'ITD_OPENAI_API_KEY_FILE' in broker_service
+            and 'OPENAI_API_KEY environment use is forbidden in broker mode'
+            in broker_service,
+            "central gate lacks App, provenance, secret-file, or budget binding",
         )
     finally:
         remove_tree(path)

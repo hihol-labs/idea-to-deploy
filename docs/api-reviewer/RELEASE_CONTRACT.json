@@ -17,7 +17,7 @@
     "UNAVAILABLE",
     "UNVERIFIED",
     "silently truncated",
-    "branch-protection mutation"
+    "administrator mutation of the ruleset"
   ],
   "scopeEvidence": [
     "docs/API_REVIEWER.md",

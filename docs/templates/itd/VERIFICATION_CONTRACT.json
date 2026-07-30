@@ -1,12 +1,13 @@
 {
-  "version": 1,
+  "version": 2,
   "purpose": "Executable verification contract for the active unit.",
   "unitId": "",
   "createdAt": "",
   "commandSchema": {
     "requiredFields": [
       "id",
-      "command",
+      "argv",
+      "trustedVerifierPaths",
       "timeoutSeconds",
       "expectedOutput",
       "passFailParser"
@@ -37,7 +38,14 @@
     ,"The active unit has an exact-candidate adjudication receipt matching its risk route."
   ],
   "failureMode": "RECOVERY_REQUIRED",
-  "failClosed": "If a command is missing, never ran, or its parser is ambiguous, status MUST be RECOVERY_REQUIRED — never passed.",
+  "failClosed": "If argv, a protected-base content-bound trusted verifier, a command result, or its parser is missing or ambiguous, status MUST be RECOVERY_REQUIRED — never passed.",
+  "machineGateTrust": {
+    "contractSource": "target-protected-base-head",
+    "commandExecution": "shell-free-argv",
+    "trustedVerifierPolicy": "Every commands[].trustedVerifierPaths entry must resolve to identical regular Git objects in protected base and candidate before any command may run; each command must invoke a declared directory namespace, not only one file.",
+    "interpreterIsolation": "Python verifiers use -I (or the protected itd_py.sh --itd-isolated mode), and the complete verifier/import namespace directory is content-bound so candidate startup modules such as sitecustomize.py cannot participate.",
+    "rotation": "Change a verifier under a new path first, merge it, then update this contract in a later protected change; a PR may not replace the verifier that attests itself."
+  },
   "skillDoneSignalSchema": {
     "purpose": "Machine-readable Definition-of-Done for the verify/impl skills (v1.60.0 — Ось 2). A skill's DoD must be expressed as >=1 structured done-signal below, not only prose Self-validation — so 'done' is a check, not a vibe. verify_dod_coverage.py enforces coverage of the required set and cross-checks every sentinel ref against the skill that writes it.",
     "allowedDoneSignalTypes": [

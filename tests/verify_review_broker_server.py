@@ -74,6 +74,50 @@ def key_record() -> dict[str, Any]:
     }
 
 
+def enrollment_receipt() -> dict[str, Any]:
+    return {
+        "repository": REPOSITORY,
+        "rulesetId": 101,
+        "rulesetEnforcement": "active",
+        "rulesetTarget": "branch",
+        "defaultBranchRef": "refs/heads/main",
+        "protectedRefPatterns": {
+            "~DEFAULT_BRANCH": True,
+            "refs/heads/release/*": True,
+        },
+        "excludedRefPatterns": {},
+        "requiredPullRequest": True,
+        "requireUpToDate": True,
+        "requiredStatusChecks": {
+            "externalReview": {
+                "name": "ITD external review gate",
+                "expectedPublisher": "github-app-integration-id",
+                "integrationId": APP_ID,
+            },
+            "machineOracle": {
+                "name": "ITD machine oracle",
+                "expectedPublisher": "github-actions",
+                "integrationId": 15368,
+                "authority": "organization-ruleset-workflow",
+                "workflowRepository": "hihol-labs/idea-to-deploy",
+                "workflowRepositoryId": 515151,
+                "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+                "workflowSha": "1" * 40,
+            },
+        },
+        "githubAppClientId": CLIENT_ID,
+        "githubAppSlug": "itd-review-gate",
+        "githubAppOwner": "hihol-labs",
+        "githubAppNodeId": "MDM6QXBwMTIzNDU2",
+        "blockDeletion": True,
+        "blockForcePush": True,
+        "mergeGroupEventsRequired": True,
+        "bypassActors": [],
+        "policyId": "itd-central-review-broker-v1",
+        "observedAt": core.now_iso(),
+    }
+
+
 class FakeBroker:
     def __init__(self) -> None:
         self.calls: list[core.Coordinates] = []
@@ -190,11 +234,13 @@ def running_server():
     store = core.BrokerStore(
         ":memory:", policy=policy, provenance_keyring=keyring
     )
+    enrollment_sha = store.enroll(enrollment_receipt())
     fake = FakeBroker()
     shared_material = b"webhook-fixture-material"
     runtime = server.BrokerRuntime(
         policy, store, fake, shared_material, keyring
     )
+    runtime.enrollment_sha = enrollment_sha
     server.BrokerHandler.runtime = runtime
     httpd = server.BoundedThreadingHTTPServer(
         ("127.0.0.1", 0),
@@ -228,6 +274,28 @@ def http_phase() -> None:
         status, value, _ = request(port, "GET", "/readyz")
         check(status == 200 and value["status"] == "ready", "readiness")
         check("budget" in value, "readiness includes budget")
+        path = (
+            "/readyz?repository=hihol-labs%2Fserver-fixture"
+            f"&appId={APP_ID}"
+        )
+        status, value, _ = request(port, "GET", path)
+        check(
+            status == 200
+            and value["enrollment"]["repository"] == REPOSITORY
+            and value["enrollment"]["appId"] == APP_ID
+            and value["enrollment"]["receiptSha256"]
+            == runtime.enrollment_sha,
+            "readiness binds active repository enrollment",
+        )
+        status, value, _ = request(
+            port,
+            "GET",
+            "/readyz?repository=hihol-labs%2Fserver-fixture&appId=999",
+        )
+        check(
+            status == 503 and value["status"] == "UNAVAILABLE",
+            "wrong App readiness fails closed",
+        )
         status, value, _ = request(port, "GET", "/missing")
         check(status == 404 and value["status"] == "not_found", "GET 404")
 

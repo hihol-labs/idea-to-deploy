@@ -464,17 +464,24 @@ def cleanup_manifest(root: Path, manifest_rel: str) -> tuple[list[str], int]:
 
 
 def run_command(root: Path, spec: dict, extra_env: dict[str, str] | None = None) -> dict:
+    argv = spec.get("argv")
     command = str(spec.get("command") or "").strip()
     cid = str(spec.get("id") or "command")
     timeout = int(spec.get("timeoutSeconds") or 300)
-    if not command:
+    structured = (
+        isinstance(argv, list)
+        and bool(argv)
+        and all(isinstance(item, str) and item for item in argv)
+    )
+    if not structured and not command:
         return {"id": cid, "ok": False, "metric": 0.0,
                 "error": problem(cid, "command is empty", "configure an executable command")}
     env = os.environ.copy()
     if extra_env:
         env.update({str(k): str(v) for k, v in extra_env.items()})
     try:
-        proc = subprocess.run(command, cwd=str(root), shell=True, capture_output=True,
+        proc = subprocess.run(argv if structured else command,
+                              cwd=str(root), shell=not structured, capture_output=True,
                               text=True, encoding="utf-8", errors="replace",
                               timeout=timeout, env=env)
     except subprocess.TimeoutExpired:

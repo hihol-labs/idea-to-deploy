@@ -2,21 +2,29 @@
 
 ## Current Task
 
-Implement and accept the executable broker slice of the approved fail-closed
-global review control plane: exact GitHub candidate acquisition, maker-aware
-API dispatch, budget settlement, App Check Run publication, durable receipt
-orchestration with crash recovery, and bounded HTTP webhook service. Local preflight, GitHub
-deployment/rulesets, doctor, canaries, and release remain later GPG-001 slices
-and are not claimed by this candidate.
+Implement and accept the broker-bootstrap plus local/global gate-control slice
+of the approved fail-closed review control plane: a deployable central broker,
+official GitHub App manifest bootstrap, immutable enrollment operator, tracked
+exact-candidate machine oracle, Ed25519 maker provenance, guarded Draft PR
+creation, canonical GitHub ruleset management, server-check waiting,
+adoption/registry/doctor diagnostics, and the centrally pinned organization
+ruleset workflow for the machine check. Live App/ruleset deployment, negative
+canaries, final
+release publication, and global installation remain later GPG-001 slices and
+are not claimed by this candidate.
 
 ## Allowed Change Areas
 
-- review-broker orchestration and HTTP service
-- complete GitHub candidate acquisition and canonical diff construction
-- maker-aware Responses API dispatch and primary-usage budget settlement
-- exact App Check Run preparation/publication/observation, durable review or
-  typed failure evidence, and interrupted-publication recovery
-- focused orchestration, service, policy, and primitive regression tests
+- global gate registry, canonical ruleset payload/drift checks, and doctor
+- dedicated GitHub App manifest bootstrap and live enrollment observation
+- central broker deployment, readiness, operator, and secret-file boundaries
+- protected-base contract and pinned central machine-oracle workflow transport
+- local Windows/WSL guarded PR creation and direct-main push guard
+- Ed25519 maker-provenance creation/submission with retry-safe local evidence
+- exact-current PR and expected-integration Check Run waiting
+- focused broker, deployment, manifest, local gate, CLI, oracle, hook,
+  workflow, release, host-adapter, and mutation tests
+- adoption, CI, API reviewer, deployment, and operator documentation
 - `.itd/` and `.itd-memory/` task/evidence records for `GPG-001`
 
 ## Forbidden Change Areas
@@ -36,8 +44,9 @@ and are not claimed by this candidate.
 
 ## Acceptance Boundary
 
-This slice is accepted only when the focused orchestration/server suites,
-policy and primitive regressions, and methodology meta-review pass on the exact
-staged tree; secret scrubbing reports no redaction; and a fresh different-model
-full checker returns an empty-finding verdict that the high-risk Verification
-Loop adjudicates. Acceptance of this slice does not complete GPG-001.
+This slice is accepted only when the focused gate/CLI/oracle/hook/workflow
+suites, policy and broker regressions, host-adapter checks, and methodology
+meta-review pass on the exact staged tree; secret scrubbing reports no
+redaction; and a fresh different-model full checker returns an empty-finding
+verdict that the high-risk Verification Loop adjudicates. Acceptance of this
+slice does not complete GPG-001.

@@ -21,6 +21,9 @@ apply unchanged.
    - example test and runnability check: offer the shared optional steps.
    - derived context index: show the exact read-only
      `itd_context_map.py plan` result and offer the shared Step 3.9 write.
+   - GitHub gate: show the exact `itd gate adopt` coordinates from shared
+     Step 3.10, or report that the central enrollment is unavailable and the
+     repository will remain `UNVERIFIED`.
 
 Do not write a `CLAUDE.md`, `.claude/settings.json`, or a host-private memory
 mirror in the Codex branch.
@@ -33,6 +36,7 @@ python3 skills/adopt/scripts/itd_adopt.py \
   --project <git-root> --plugin-root <plugin-root> --plan \
   --baseline-command <existing-green-command> \
   --verification-command <first-unit-command> \
+  --trusted-verifier-path <tracked-test-or-runner-path> \
   --unit-id <id> --unit-criterion <checkable-criterion> \
   --allowed-area <path>
 ```
@@ -44,6 +48,17 @@ product source or user-level configuration, and reports every refusal as
 or the user deliberately chooses a non-standard partial adoption; record that
 fallback as operational friction in the final report.
 
+The verification command must be one shell-free argv invocation (no pipes,
+redirection, `&&`, or command substitution). Repeat
+`--trusted-verifier-path` for the complete tracked directory namespace that
+implements and imports the verifier (plus any launcher outside that tree).
+Before the server-side machine oracle runs, those paths must resolve to
+identical regular Git objects in the protected base and candidate. A single
+verifier file is insufficient because an adjacent startup/import module could
+change its behavior. Python commands are normalized to isolated `-I` mode.
+Rotate a verifier in two merges: add its new namespace first, then update the
+protected contract to trust it.
+
 After the helper succeeds, run shared Step 3.9 only when its exact plan was
 included in the same user approval. Use the enabled plugin's
 `skills/adopt/scripts/itd_context_map.py`; `apply` still requires
@@ -51,6 +66,12 @@ included in the same user approval. Use the enabled plugin's
 result is the single host-neutral `docs/agent-context`
 family for both Codex and Claude Code. It must never replace `AGENTS.md`,
 `.itd`, or `.itd-memory`.
+
+For a GitHub origin, immediately continue with shared Step 3.10. The local
+helper intentionally does not write host-global state; the workflow invokes
+`itd gate adopt` as the separately visible, approved global registry write.
+Do not report Codex adoption as gate-ready until the post-commit
+`itd gate doctor --repository ...` result is `PROTECTED`.
 
 ## Guidance entry
 
@@ -104,6 +125,10 @@ Report absolute paths and verify:
 - any example test and runnability check show their real results;
 - `docs/agent-context/index.json` validates with observed-only path/hash-backed
   claims, or the context-index skip reason is visible;
+- the GitHub checkout has an exact gate-registry entry created only after live
+  App/organization-ruleset/broker validation, including the pinned central
+  workflow repository ID and release SHA, and the post-commit doctor is
+  `PROTECTED`, or the report is explicitly `UNVERIFIED`;
 - no user-level Codex configuration and no Claude-specific project files were
   written.
 

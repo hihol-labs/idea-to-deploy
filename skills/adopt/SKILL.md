@@ -55,6 +55,12 @@ Never create both host configurations merely for symmetry. The methodology
 core is `.itd/`, `.itd-memory/`, shared skills, and shared verification; host
 entry files and hook registration are adapters.
 
+For either adapter, a GitHub-hosted project is not **gate-ready** merely
+because the local scaffold exists. After the approved local writes, run shared
+Step 3.10. It binds the checkout to the central App/broker/ruleset and is the
+only `/adopt` step allowed to update the host-global ITD gate registry. It does
+not modify Claude/Codex user configuration.
+
 The Claude branch below produces exactly **three writes**, plus up to three
 **optional recommended** ones the user may decline — the `.itd/` contract
 scaffold (Step 3.5), an example test when the project has none (Step 3.6), a
@@ -118,6 +124,7 @@ Before writing anything:
      - runnability check:      [run init validator (recommended) | skip] — «без проверки запускаемости» чтобы пропустить
      - CLAUDE.md router split: [propose (recommended — файл N строк > 300) | skip (файл компактен / уже роутер)] — «без сплита» чтобы пропустить
      - derived context index:  [plan `docs/agent-context/*` (recommended) | skip] — «без context index» чтобы пропустить
+     - GitHub merge gate:      [register + live doctor | UNVERIFIED — no GitHub remote] — mandatory for a GitHub remote
      - Plugin hooks dir:       <resolved path>
      - Detected stack:         <stack or "none">
      - Detected product type:  <type → starter `<id>`, golden-path `<id>` | "unknown">
@@ -300,6 +307,68 @@ Use the generator from the enabled plugin root (or current methodology checkout)
 and include its exact writes in the `/adopt` plan. Never create parallel
 `docs/claude` and `docs/agents` context families.
 
+### Step 3.10: Register and prove the central GitHub gate (mandatory for GitHub)
+
+This step implements the global merge boundary; local hooks remain only an
+early UX guard. Detect the canonical GitHub `origin` and obtain the following
+non-secret coordinates from the already-provisioned ITD control plane:
+
+- broker HTTPS URL;
+- dedicated GitHub App integration ID;
+- organization ruleset ID;
+- central ITD workflow repository ID and immutable released commit SHA;
+- active Ed25519 maker-provenance key ID and its host-protected private-key
+  file.
+
+Never guess these values, create a substitute App, copy a provider API key into
+the project, or use a key disclosed in chat. The broker enrollment and public
+key record must already be active. After the local scaffold is written, run:
+
+```text
+itd gate adopt \
+  --root <git-root> \
+  --broker-url <broker-https-url> \
+  --app-id <dedicated-app-integration-id> \
+  --scope organization \
+  --ruleset-id <active-ruleset-id> \
+  --workflow-repository-id <itd-release-repository-id> \
+  --workflow-sha <pinned-itd-release-sha> \
+  --provenance-key-id <active-key-id> \
+  --provenance-key-file <host-protected-private-key-file>
+```
+
+`itd gate adopt` reads the repository identity from the exact Git root and
+performs the live doctor before persisting anything. It requires the installed
+ITD version, canonical App-bound organization ruleset, pinned protected
+machine workflow, active broker enrollment, reviewer routes, budget admission,
+and matching public provenance key. Repository-level protection is
+`UNVERIFIED` because it cannot bind the protected workflow. The default branch
+must already contain the active version-2
+`.itd/VERIFICATION_CONTRACT.json`; each command uses shell-free `argv` and
+declares tracked `trustedVerifierPaths`, including the complete directory
+namespace used by the verifier/import runtime. The server compares those Git
+objects between protected base and candidate before execution; Python uses
+isolated `-I` mode. A single verifier file, local/untracked/PR-only contract,
+legacy shell string, candidate startup module, or self-replaced verifier is
+not protection evidence. Bootstrap the contract through pre-existing
+repository controls or an explicit audited temporary organization-ruleset
+exclusion, restore the canonical ruleset, then rerun this step. Rotate a
+trusted verifier in two merges: add its new namespace, then update the
+contract. Any drift returns
+`UNVERIFIED` and leaves the global registry unchanged.
+
+After the adoption files are committed, run:
+
+```text
+itd gate doctor --repository <owner/repository>
+```
+
+Only `PROTECTED` completes gate adoption. If the App/ruleset/broker has not yet
+been provisioned, local project adoption may remain as a visible fix target,
+but the final report must say `GitHub merge gate: UNVERIFIED`; opening or
+merging through ITD stays fail-closed. A non-GitHub repository records
+`not-applicable` rather than inventing protection.
+
 ### Step 4: Report to user
 
 Summarize, with exact absolute paths:
@@ -313,6 +382,7 @@ Adoption complete. Wrote / updated:
   - runnability check (init validator)       (PASS | FAIL: <why> | skipped — declined | skipped — no commits)
   - CLAUDE.md router split                   (done: entry N строк + M topic-доков | proposed, waiting approval | skipped — compact | skipped — declined)
   - docs/agent-context/                      (generated + validated | skipped — declined | skipped — no observed sources)
+  - global ITD gate registry                 (registered pending commit | PROTECTED | UNVERIFIED | not-applicable)
   - <MEMORY>/MEMORY.md                       (indexed)
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
@@ -388,6 +458,9 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 - **Does NOT** reverse-engineer plan documents (`STRATEGIC_PLAN.md`, `PROJECT_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `PRD.md`) from code. Hallucination risk is too high: a plausible-sounding plan that the user trusts, but that misrepresents KPIs, competitors, or scope, poisons trust in the methodology. Plan generation is delegated to `/strategy` (live reassessment with user input) or `/blueprint` (clarify-first mode) via the voice-chain in Step 5-6.
 - **Does NOT** treat the product-type detection (Step 0.6) as authoritative. It is a heuristic **hint** from manifests/structure, reported to the user and passed to `/blueprint` as a reference starter — never written into `CLAUDE.md` and never a substitute for `/blueprint`'s own clarification.
 - **Does NOT** modify `~/.claude/settings.json` (user-level). Other projects on the same machine stay untouched.
+- **Does NOT** treat a local scaffold as GitHub protection. The one permitted
+  host-global write is the explicit ITD gate-registry entry from Step 3.10,
+  after a successful live doctor; it never changes Claude/Codex settings.
 - **Does NOT** modify project source code. Zero edits in `src/`, `app/`, `lib/`. No new dependencies installed. The single carve-out is the **opt-in** Step 3.6 example test — one new file in the tests dir, on a built-in zero-dependency runner only; if creating it would require installing anything, it is skipped.
 - **Does NOT** perform `git commit` or any git write operation. The user decides when and how to commit the new `CLAUDE.md` and `.claude/settings.json`.
 - **Does NOT** rewrite an existing `CLAUDE.md` that already contains the idea-to-deploy block. Use idempotent append-with-marker pattern only. The single carve-out is the **opt-in** Step 3.8 router split — it reorganizes the file into entry + `docs/claude/*.md` ONLY after the user approves the shown plan (content moved verbatim, deletions listed explicitly).
@@ -418,6 +491,12 @@ Before reporting adoption as complete, verify:
 - [ ] Runnability check ran via `itd_init_validate.py` with its PASS/FAIL recorded in the sentinel session-save (or skip reason recorded: declined / no commits / isolated bootstrap impossible)
 - [ ] CLAUDE.md weight measured; router split done/proposed for a >300-line file (or skip reason: compact / already router / declined). A completed split moved content verbatim, listed deletions explicitly, left the `<!-- itd:claude-router -->` marker, and got explicit user approval BEFORE any write
 - [ ] Derived context plan was shown before writing; approved generation is byte-idempotent, validates fresh source hashes, and writes only `docs/agent-context/` (or a visible skip reason was recorded)
+- [ ] For a GitHub remote, `itd gate adopt` used the exact origin and
+  operator-supplied App/ruleset/broker/key coordinates; no registry entry was
+  written on live drift
+- [ ] After the adoption commit, `itd gate doctor --repository
+  <owner/repository>` returned `PROTECTED`; otherwise the report says
+  `UNVERIFIED` and does not claim merge protection
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir

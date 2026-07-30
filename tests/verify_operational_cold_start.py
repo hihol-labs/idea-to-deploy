@@ -146,6 +146,7 @@ def main() -> int:
             "--plugin-root", str(ROOT),
             "--baseline-command", baseline,
             "--verification-command", unit_command,
+            "--trusted-verifier-path", "tests",
             "--unit-id", scenario["unitId"],
             "--unit-criterion", scenario["criterion"],
             "--allowed-area", "app.py",

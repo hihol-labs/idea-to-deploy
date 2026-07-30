@@ -99,55 +99,71 @@ of source egress; explicit consent remains mandatory.
 
 ## GitHub gate
 
-`.github/workflows/external-review-gate.yml` runs candidate code only in the
-separate `candidate-oracle` job, where reviewer tooling, durable review
-evidence, and the API credential are absent. The protected review job then
-loads tooling from the trusted default branch, checks out the PR candidate
-separately, exposes the API key only to the no-execution review step, and binds
-the GitHub-observed oracle-job result into the high-risk Verification Loop.
-The protected job consumes the immutable head/base/repository outputs resolved
-by `candidate-oracle`; it does not re-resolve mutable PR refs. The reviewed
-change set is staged from the PR merge-base to the exact head, while the oracle
-separately tests the prospective merge with the current base tip. Fork PRs are
-rejected before candidate checkout or execution.
+The required external-review authority is the central GitHub App and review
+broker, not a repository workflow. The App receives signed `pull_request` and
+`merge_group` webhooks, reacquires the complete candidate through GitHub APIs,
+verifies exact head/base/test-merge coordinates and Ed25519 maker provenance,
+routes to a different eligible API model, and publishes the
+`ITD external review gate` Check Run on the exact GitHub test-merge SHA.
+`Codex CLI` and `Gemini CLI` remain advisory transports only.
 
-The gate is triggered by the trusted broker with the
-`itd-external-review` `repository_dispatch` event. Unlike
-`workflow_dispatch`, the caller cannot select a branch/tag version of the gate;
-GitHub runs the workflow definition from the default branch. The payload
-requires the PR number, maker vendor/model/session, current PR head and base
-SHAs, and an
-HMAC-SHA256 signature over the UTF-8 canonical JSON object with sorted keys
-`base`, `head`, `model`, `pr`, `session`, `vendor` and compact separators.
-Configure a protected GitHub
-environment named `itd-external-review`, store `OPENAI_API_KEY` and a distinct
-`ITD_PROVENANCE_HMAC_KEY` there, optionally set
-`ITD_EXTERNAL_REVIEW_ORACLE`, and require the commit-status context
-`ITD external review gate` in branch protection. The workflow publishes this
-status on the verified PR head SHA; the default-branch dispatch run SHA is not
-used as the merge gate. Mutable PR labels and unsigned dispatch strings are not
-accepted. The broker must reject CR/LF in model/provider/session values. Branch
-protection must also require the PR to be up to date with the protected default
-branch so a head-scoped status cannot outlive its reviewed base. A workflow file
-alone does not make the check blocking.
-The workflow never performs branch-protection mutation, merge, or rule
-weakening; those remain explicit administrator actions outside this transport.
+The broker stores its OpenAI service-account key only in its mounted
+secret/KMS boundary. Candidate code is never executed by a process that can
+read that credential. Reservations and settlements use the broker SQLite
+transaction boundary; exhausted budget, API outage, malformed evidence,
+redaction, unknown maker, oversized candidate, or incomplete pagination
+publishes `failure`/`action_required`, never `neutral`, `skipped`, or success.
+The canonical contract is
+`skills/_shared/REVIEW_BROKER_POLICY.json`.
 
-CI also restores the newest serialized usage ledger before review and uploads
-the updated ledger with 45-day retention. This ledger is reconciliation and
-an observed monthly guardrail, not a hard guarantee under runner loss. A global
-non-cancelling concurrency group prevents normal races. Restore accepts only
-non-expired artifacts whose originating run used this workflow file on the
-default branch; artifact names include both run ID and run attempt.
-Paid responses with
-complete usage telemetry are recorded before verdict parsing, including
-incomplete or schema-invalid responses. Before each paid call, the remaining
-monthly budget must cover the policy-bounded worst-case request cost.
+Provision the private App through
+`scripts/itd_github_app_manifest.py`; its official manifest is closed to the
+exact broker webhook, least-privilege permissions, and the
+`pull_request`/`merge_group` events. Registration credentials are written
+outside the repository, and `itd gate enrollment` derives the broker receipt
+from live GitHub App and ruleset metadata rather than operator assertions.
 
-The $0.50 per-request ceiling is strict. A hard distributed monthly ceiling
-requires a provider-side project limit or an external broker with atomic
-reservation/consumption; ITD does not claim that guarantee from Actions
-artifacts.
+`.github/workflows/itd-machine-oracle.yml` is a separate no-reviewer-secret
+ruleset workflow. The organization ruleset pins both its central source
+repository and immutable release SHA. That trusted workflow loads the oracle
+runner from the pinned ITD release, the verification contract from the target
+repository's protected base, and only then materializes and tests the current
+GitHub candidate. A PR therefore cannot replace its own required workflow,
+oracle runner, active contract, or declared verifier with a passing no-op.
+Contract v2 uses shell-free `argv`; every command declares
+`trustedVerifierPaths`, whose regular Git objects must be identical in the
+protected base and candidate before any command runs. At least one invoked
+trusted path must be a directory namespace, so candidate additions beside a
+verifier (including Python `sitecustomize.py`) also change the manifest and
+block execution. Python verifiers additionally run with `-I` through the
+protected launcher. Verifier rotation is a two-merge operation (add a new
+namespace, then trust it), so a verifier never attests the PR that replaces
+it. The oracle runs commands in a disposable exact-tree checkout, so
+ignored/untracked overlays do not become inputs. It emits a SHA-,
+protected-contract-, and verifier-manifest-bound receipt under the job context
+`ITD machine oracle`.
+
+The organization ruleset must require the pinned workflow and the external
+App-bound status check, require the PR to be current with its base, and block
+deletion, force-push, unexpected rules, and bypass actors. A repository-level
+ruleset cannot establish this protected workflow authority and remains
+`UNVERIFIED`. `itd gate doctor --all` validates the installed ITD version,
+workflow repository/SHA, tracked contract, live ruleset, App enrollment
+receipt, broker policy/routes/budget, provenance key, and drift. `itd pr
+create` performs the local preflight, pushes only the exact receipt HEAD,
+creates or reuses a Draft PR, submits signed maker provenance, and waits for
+both server checks.
+
+`/adopt` must finish its GitHub branch with `itd gate adopt`. That command
+derives the repository from the exact origin and writes the host-global
+registry only after the protected default branch already contains a valid
+verification contract and the live ruleset, pinned workflow source, expected
+App source, broker enrollment, budget admission, and provenance key match.
+Only `itd gate doctor --repository <owner/repository>` returning `PROTECTED`
+establishes gate-ready adoption. A first adoption contract must be merged
+through the repository's pre-existing controls or an explicit audited
+temporary organization-ruleset exclusion; local/staged content is never
+treated as protected-base evidence.
 
 Infrastructure outage is distinct from findings:
 
@@ -157,8 +173,10 @@ Infrastructure outage is distinct from findings:
 - `UNVERIFIED`: consent, coverage, schema, provenance, budget, or evidence
   contract failed.
 
-Emergency merge is a GitHub administrative bypass with an audit trail. It never
-creates an ITD PASS receipt.
+The canonical ruleset has no bypass actors. Emergency recovery therefore
+requires an explicit, audited administrator mutation of the ruleset; it never
+creates an ITD PASS receipt and `doctor` reports the drift until protection is
+restored.
 
 ## Shadow metrics
 

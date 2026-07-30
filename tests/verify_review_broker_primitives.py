@@ -150,6 +150,11 @@ def enrollment_receipt(
                 "name": "ITD machine oracle",
                 "expectedPublisher": "github-actions",
                 "integrationId": 15368,
+                "authority": "organization-ruleset-workflow",
+                "workflowRepository": "hihol-labs/idea-to-deploy",
+                "workflowRepositoryId": 515151,
+                "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+                "workflowSha": "1" * 40,
             },
         },
         "githubAppClientId": CLIENT_ID,
@@ -557,8 +562,15 @@ def main() -> int:
     store = primitive.BrokerStore(
         ":memory:", provenance_keyring=sol_keyring
     )
-    store.enroll(enrollment_receipt())
+    active_receipt_sha = store.enroll(enrollment_receipt())
     store.require_enrolled(REPO, APP_ID)
+    enrollment = store.enrollment_status(REPO, APP_ID)
+    check(
+        enrollment["repository"] == REPO
+        and enrollment["appId"] == APP_ID
+        and enrollment["receiptSha256"] == active_receipt_sha,
+        "doctor-visible enrollment is bound to the active receipt",
+    )
     rejects(
         "UNVERIFIED",
         lambda: store.require_enrolled(REPO, APP_ID + 1),

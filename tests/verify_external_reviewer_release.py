@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "1.95.0"
 REQUIRED_FILES = {
-    ".github/workflows/external-review-gate.yml",
+    ".github/workflows/itd-machine-oracle.yml",
     "docs/API_REVIEWER.md",
     "docs/adr/ADR-003-verifiable-external-reviewer.md",
     "docs/api-reviewer/SHADOW_PILOT.json",
@@ -18,6 +18,13 @@ REQUIRED_FILES = {
     "skills/_shared/EXTERNAL_REVIEW_POLICY.json",
     "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json",
     "skills/_shared/itd_external_reviewer.py",
+    "skills/_shared/REVIEW_BROKER_POLICY.json",
+    "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
+    "skills/_shared/itd_review_broker_primitives.py",
+    "skills/_shared/itd_review_broker.py",
+    "services/review_broker/server.py",
+    "scripts/itd.py",
+    "scripts/itd_machine_oracle.py",
     "tests/verify_api_reviewer.py",
 }
 CRITERIA = {f"API-001-AC{number}" for number in range(1, 8)}
@@ -48,7 +55,7 @@ def validate_contract(contract: dict, scope: str) -> list[str]:
         "UNAVAILABLE",
         "UNVERIFIED",
         "silently truncated",
-        "branch-protection mutation",
+        "administrator mutation of the ruleset",
     }
     if set(contract.get("scopeMarkers") or []) != required_markers:
         issues.append("release scope marker set drift")
@@ -99,19 +106,36 @@ def main() -> int:
     if ("verify_external_reviewer_release" not in run_all
             or "verify_operating_loops_release" in run_all.split('CORE="', 1)[1].split('"', 1)[0]):
         issues.append("current suite still routes through the historical v1.94 release oracle")
-    workflow = (ROOT / ".github/workflows/external-review-gate.yml").read_text(encoding="utf-8")
+    workflow = (
+        ROOT / ".github/workflows/itd-machine-oracle.yml"
+    ).read_text(encoding="utf-8")
     for marker in (
-        "repository_dispatch:",
-        "ITD_PROVENANCE_HMAC_KEY",
-        "hmac.compare_digest",
-        "maker provenance is stale for the PR head",
+        "pull_request:",
+        "merge_group:",
+        "name: ITD machine oracle",
         "persist-credentials: false",
-        'test -z "${OPENAI_API_KEY:-}"',
-        "adjudicate --root .itd-candidate",
-        "check --root .itd-candidate",
+        "scripts/itd_machine_oracle.py",
+        'OPENAI_API_KEY: ""',
     ):
         if marker not in workflow:
-            issues.append(f"CI gate omits: {marker}")
+            issues.append(f"machine gate omits: {marker}")
+    if (
+        (ROOT / ".github/workflows/external-review-gate.yml").exists()
+        or "repository_dispatch:" in workflow
+        or "ITD_PROVENANCE_HMAC_KEY" in workflow
+    ):
+        issues.append("obsolete repository-secret API gate remains active")
+    broker_policy = load("skills/_shared/REVIEW_BROKER_POLICY.json")
+    if (
+        broker_policy.get("authority", {}).get("externalReview")
+        != "github-app-check-run"
+        or broker_policy.get("provenance", {}).get("algorithm") != "ed25519"
+        or broker_policy.get("routing", {}).get(
+            "automatedCliFallbackAllowed"
+        )
+        is not False
+    ):
+        issues.append("central App/broker release authority drift")
 
     mutations = 0
     for mutation in ("provider", "authority", "scope"):

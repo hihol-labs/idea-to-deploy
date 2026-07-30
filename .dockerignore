@@ -1,0 +1,10 @@
+*
+!.dockerignore
+!services/
+!services/review_broker/
+!services/review_broker/**
+!skills/
+!skills/_shared/
+!skills/_shared/**
+**/__pycache__/
+**/*.pyc

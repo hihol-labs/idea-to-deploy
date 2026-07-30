@@ -184,10 +184,22 @@ def main() -> int:
                 "name": policy["github"]["machineCheck"]["name"],
                 "expectedPublisher": policy["github"]["machineCheck"]["expectedPublisher"],
                 "integrationId": policy["github"]["machineCheck"]["integrationId"],
+                "authority": "organization-ruleset-workflow",
+                "workflowRepository": "hihol-labs/idea-to-deploy",
+                "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+                "workflowRepositoryIdSource":
+                    "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowRepositoryId",
+                "workflowShaSource":
+                    "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowSha",
             },
         ]
+        and enrollment["repositoryRulesetFallback"] is False
+        and policy["github"]["machineCheck"]["immutableWorkflowShaRequired"]
+        is True
+        and policy["github"]["machineCheck"]["contractSource"]
+        == "target-protected-base-head"
         and enrollment["requirePublisherBinding"] is True,
-        "enrollment binds both exact check names to their publishers",
+        "enrollment binds the App check and protected machine workflow",
     )
     publisher_receipt = enrollment["publisherBindingReceipt"]
     check(
@@ -227,7 +239,7 @@ def main() -> int:
         and publisher_receipt["externalCheckIntegrationIdType"]
         == "positive-integer"
         and publisher_receipt["rulesetExternalIntegrationIdMustEqualReceipt"] is True
-        and publisher_receipt["rulesetMachineIntegrationIdMustEqualReceipt"] is True
+        and publisher_receipt["rulesetMachineWorkflowMustEqualReceipt"] is True
         and publisher_receipt["blockDeletionMustEqualPolicy"] is True
         and publisher_receipt["blockForcePushMustEqualPolicy"] is True
         and publisher_receipt["mergeGroupEventsMustEqualPolicy"] is True
@@ -1280,6 +1292,11 @@ def main() -> int:
                 "name": "ITD machine oracle",
                 "expectedPublisher": "github-actions",
                 "integrationId": 15368,
+                "authority": "organization-ruleset-workflow",
+                "workflowRepository": "hihol-labs/idea-to-deploy",
+                "workflowRepositoryId": 515151,
+                "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+                "workflowSha": "1" * 40,
             },
         },
         "githubAppClientId": "Iv1a2b3c4d5e6f7g8",

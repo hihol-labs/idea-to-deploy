@@ -76,45 +76,119 @@ CI is the outermost of four layers. They are ordered from earliest feedback to l
 
 If a contributor has no local hooks, layers 1–3 are silent and layer 4 is the only gate. If the maintainer has all four layers, the first Write that introduces drift is caught at layer 3, never reaching layer 4.
 
-## Required setup — branch protection
+## Required setup — App-bound ruleset
 
-The workflow **runs** automatically once merged to `main`, but to make it **blocking** (PRs cannot be merged until it passes), you must enable branch protection in the GitHub UI. This cannot be provisioned from code.
+The scalable merge boundary is the canonical organization ruleset,
+not a local hook or a repository-held API key. Provision the dedicated review
+App and broker first. The App must be installed on the repository and must have
+published its check at least once before GitHub can bind that check to the App
+as an expected source.
 
-### Step-by-step
+Create the App through the official manifest flow after the broker has a
+stable HTTPS origin:
 
-1. Open the repo on GitHub: `https://github.com/hihol-labs/idea-to-deploy`
-2. Navigate: **Settings** → **Branches** → **Branch protection rules** → **Add rule** (or edit existing)
-3. Set **Branch name pattern**: `main`
-4. Enable: **Require a pull request before merging**
-   - Optional but recommended: **Require approvals** = 1 (if the project grows beyond solo)
-5. Enable: **Require status checks to pass before merging**
-   - Check: **Require branches to be up to date before merging**
-   - In the "Status checks that are required" search box, type `meta-review` and select `Gate 1 — meta-review rubric`
-     - **Note:** this check will only appear in the search box AFTER the workflow has run at least once. If you don't see it, push a commit to `main`, wait for the workflow to complete, then come back to this page.
-6. Enable: **Do not allow bypassing the above settings** (recommended — prevents admins from force-merging without the check)
-7. Click **Create** (or **Save changes**)
+```bash
+python scripts/itd_github_app_manifest.py \
+  --organization hihol-labs \
+  --broker-url https://review.example.org \
+  --output-dir /secure/itd-review-app \
+  --plan
 
-For repositories that opt into independent external evidence, also configure
-the protected `itd-external-review` environment, add `OPENAI_API_KEY` plus a
-distinct `ITD_PROVENANCE_HMAC_KEY`, dispatch
-`.github/workflows/external-review-gate.yml` once, and require its
-`ITD external review gate` commit-status context. The workflow loads reviewer tooling from the
-trusted default branch and never executes PR code while the secret is present.
-It accepts only broker-signed maker provenance bound to the current PR head and
-a current high-risk Verification Loop adjudication; provider outage remains
-`UNAVAILABLE`, not PASS. Full setup and maker-provenance rules:
-`docs/API_REVIEWER.md`.
+python scripts/itd_github_app_manifest.py \
+  --organization hihol-labs \
+  --broker-url https://review.example.org \
+  --output-dir /secure/itd-review-app \
+  --serve --apply
+```
+
+Install the resulting private App only on controlled repositories. Its manifest
+contains the exact broker webhook, least-privilege permissions, and only
+`pull_request`/`merge_group` events. Keep the generated private key and webhook
+secret in the broker credential boundary.
+
+Preview the exact payload, then apply it with an administrator-authorized
+GitHub CLI session:
+
+```bash
+itd gate ruleset \
+  --repository hihol-labs/idea-to-deploy \
+  --scope organization \
+  --app-id <ITD_APP_INTEGRATION_ID> \
+  --workflow-repository-id <ITD_RELEASE_REPOSITORY_ID> \
+  --workflow-sha <PINNED_ITD_RELEASE_SHA>
+
+itd gate ruleset \
+  --repository hihol-labs/idea-to-deploy \
+  --scope organization \
+  --app-id <ITD_APP_INTEGRATION_ID> \
+  --workflow-repository-id <ITD_RELEASE_REPOSITORY_ID> \
+  --workflow-sha <PINNED_ITD_RELEASE_SHA> \
+  --apply
+```
+
+The canonical ruleset:
+
+- requires a pull request;
+- requires the `ITD machine oracle` ruleset workflow from
+  `hihol-labs/idea-to-deploy` at an immutable release SHA;
+- requires `ITD external review gate` from the dedicated App integration ID;
+- requires checks against the current base;
+- covers the default branch and `release/*`;
+- blocks branch deletion and non-fast-forward pushes;
+- has no bypass actors.
+
+Register each local checkout with its active ruleset/enrollment coordinates and
+Ed25519 maker key, then run:
+
+```bash
+itd gate enrollment \
+  --repository hihol-labs/idea-to-deploy \
+  --scope organization \
+  --ruleset-id <active-ruleset-id> \
+  --app-id <ITD_APP_INTEGRATION_ID> \
+  --app-slug <ITD_APP_SLUG> \
+  --workflow-repository-id <ITD_RELEASE_REPOSITORY_ID> \
+  --workflow-sha <PINNED_ITD_RELEASE_SHA> \
+  --output /secure/idea-to-deploy-enrollment.json \
+  --apply
+
+itd gate adopt \
+  --root <checkout> \
+  --broker-url <broker-https-url> \
+  --app-id <ITD_APP_INTEGRATION_ID> \
+  --scope organization \
+  --ruleset-id <active-ruleset-id> \
+  --workflow-repository-id <ITD_RELEASE_REPOSITORY_ID> \
+  --workflow-sha <PINNED_ITD_RELEASE_SHA> \
+  --provenance-key-id <active-key-id> \
+  --provenance-key-file <host-protected-key-file>
+
+itd gate doctor --all
+```
+
+`PROTECTED` is valid only when the protected-base contract, pinned central
+workflow/runner, contract-v2 shell-free argv, isolated interpreters and
+content-bound verifier namespace directories, installed ITD version, live
+ruleset, broker policy/reviewer routes, active App enrollment receipt, budget
+admission, and local signing key all match. A
+repository-level ruleset is deliberately rejected because GitHub
+only provides ruleset-workflow authority at organization/enterprise scope. API
+outage or exhausted budget may leave development available, but the App check
+fails and merge remains blocked.
+`itd gate adopt` refuses to persist a registry entry when any live control
+differs or when the default branch does not already contain the active
+verification contract. Bootstrap that first contract through the repository's
+existing controls or an explicit audited temporary ruleset exclusion, restore
+the canonical ruleset, and then register the checkout.
 
 After this, any PR whose meta-review fails will show a red ❌ next to the check and the merge button will be disabled until the failing commits are fixed.
 
-### Emergency override
+### Emergency recovery
 
-If you absolutely need to merge without the check (e.g. CI itself is broken and needs fixing), you have two options:
-
-1. **Admin override** — if "Do not allow bypassing" is NOT enabled, admins can merge anyway. GitHub logs this in the audit trail.
-2. **Temporary branch protection removal** — go to Settings → Branches → edit the rule → uncheck "Require status checks" → merge → re-enable.
-
-Either path leaves a trace. Neither is silent. This is intentional: emergency overrides should be obvious, not accidental.
+There is no ordinary or admin bypass actor. An emergency merge requires an
+explicit administrator change to the ruleset, an audit record and immediate
+restoration. The action never creates an ITD PASS receipt, and
+`itd gate doctor --all` reports the protection drift.
 
 ## How to run the same checks locally
 

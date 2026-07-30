@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for the GPG-001 executable broker/service slice of the global PR/API review gate.",
-  "sourceRequest": "Implement the approved central GitHub App/broker algorithm while preserving exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
+  "purpose": "Acceptance contract for the GPG-001 broker bootstrap and local/global gate-control release candidate.",
+  "sourceRequest": "Implement the approved central GitHub App/broker algorithm, enforceable machine/App checks, Windows/WSL preflight, adoption, doctor, and deployable bootstrap while preserving exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -67,7 +67,71 @@
       "evidence": "Policy and primitive regression suites pass unchanged together with orchestration/server suites.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC7",
+      "criterion": "The machine oracle is enforced as an organization ruleset workflow pinned to the central ITD repository and immutable release SHA; it loads its runner from that release and its active version-2 contract from the target protected base, content-binds the complete invoked verifier namespace to identical protected-base and candidate Git objects, isolates Python startup/import resolution, executes only shell-free argv after that trust check, then materializes only the exact Git candidate, rejects ignored or undeclared overlays, verifier or adjacent startup-module self-replacement, mutation, missing artifacts, malformed commands, and oversized or unadopted candidates, and emits a candidate/base/contract/verifier-bound receipt without reviewer secrets.",
+      "source": "Approved plan items 5 and 6.",
+      "evidence": "Machine-oracle, workflow, and ruleset mutations cover protected runner/contract sourcing, immutable workflow repository/SHA binding, exact-tree isolation, legacy shell-string rejection, Python -I enforcement, declared directory-namespace invocation, protected/candidate Git-manifest equality, candidate no-op verifier and candidate-only sitecustomize substitution without execution, schema closure, artifact presence, output parsing, receipt binding, pull_request plus merge_group events, and rejection of repository-scope or unexpected rules.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC8",
+      "criterion": "Windows and WSL global pre-push hooks block protected-branch pushes, unregistered GitHub checkouts, missing maker provenance, and stale or foreign machine receipts while allowing only an explicitly guarded exact-HEAD PR push.",
+      "source": "Approved plan item 8.",
+      "evidence": "Cross-platform hook and installer mutations prove fail-closed behavior, explicit repository binding, no plugin-cache edits, and separate native host installation targets.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_git_gate_hooks.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC9",
+      "criterion": "The global itd CLI creates Draft PRs only through the guarded exact-candidate path, signs maker provenance, waits for current App-owned and machine checks, manages the canonical no-bypass ruleset, registers adoption only after live validation, observes closed enrollment metadata, and inventories controlled repositories in doctor --all.",
+      "source": "Approved plan items 4, 6, 8, and 9.",
+      "evidence": "CLI mutations cover transient check availability, forged integration identity, live ruleset/workflow drift, invalid App permissions/events, registry write ordering, organization inventory, rejection of local-only bootstrap contracts, and protected status.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_cli.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC10",
+      "criterion": "The broker has a reproducible least-privilege deployment package with pinned dependencies, unprivileged read-only execution, bounded loopback exposure, explicit health/readiness, and credential-file isolation.",
+      "source": "Approved plan items 2 and 7.",
+      "evidence": "Deployment tests validate image/runtime boundaries, Compose/systemd/Caddy configuration, private file modes, readiness, and secret-source rejection.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_deployment.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC11",
+      "criterion": "The dedicated private GitHub App can be created through the official manifest flow with the exact HTTPS broker webhook, least-privilege permissions, only pull_request and merge_group events, CSRF-bound loopback conversion, atomic private credential persistence outside the repository, and no retained OAuth client secret.",
+      "source": "Approved plan items 2 and 6.",
+      "evidence": "Manifest tests reject invalid origins, callbacks, organizations, codes, conversion fields, and overwrite attempts while checking the documented GitHub API version and 0600/0700 persistence.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_github_app_manifest.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC12",
+      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain Codex/Gemini CLI only as advisory transports, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or reuse the disclosed OpenAI key.",
+      "source": "Approved plan items 3, 4, and 7.",
+      "evidence": "Release, host-adapter, methodology meta-review, and deployment documentation checks pass with the obsolete repository-held external-review workflow removed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC13",
+      "criterion": "The broker operator adds public provenance keys and exact live enrollment receipts through schema-validated preview/apply commands, uses private atomic files, rejects overwrite or mutation of active enrollment, and never prints credential material.",
+      "source": "Approved plan items 2, 7, and 9.",
+      "evidence": "Operator mutations cover preview, apply, private modes, invalid records, duplicate key IDs, exact App client IDs, immutable enrollment, and status lookup.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_operator.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC14",
+      "criterion": "Codex and Claude host adapters remain transport-only and expose the same vendor-neutral methodology, contracts, hooks, and review authority after the new global gate artifacts are added.",
+      "source": "Approved plan item 4 and the host-adapter contract.",
+      "evidence": "Host-adapter verification passes against the staged methodology source without editing either installed plugin cache.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
+      "status": "passed"
     }
   ],
-  "doneRule": "This contract accepts only the GPG-001 executable broker/service staged slice through a high-risk exact-candidate Verification Loop. It does not complete the global control plane, deploy the GitHub App, enable a ruleset, publish a release, or mark GPG-001 verified."
+  "doneRule": "This contract accepts only the GPG-001 broker-bootstrap and local/global gate-control candidate through a high-risk exact-candidate Verification Loop. It does not claim that the external broker/App/ruleset is already deployed, that private organization repositories are protectable on the current GitHub plan, that a rotated service-account credential exists, or that the final ITD release is published and installed."
 }

@@ -1,27 +1,31 @@
 {
-  "version": 1,
+  "version": 2,
   "purpose": "Executable verification contract for explicit methodology-repo session close.",
   "commands": [
     {
       "id": "session-hygiene-quality",
-      "command": "python3 tests/verify_session_hygiene_quality.py",
+      "argv": ["python3", "-I", "tests/verify_session_hygiene_quality.py"],
+      "trustedVerifierPaths": ["tests"],
       "timeoutSeconds": 180,
       "expectedOutput": "ALL PASS",
       "passFailParser": "stdout_contains"
     },
     {
       "id": "meta-review",
-      "command": "python3 tests/meta_review.py",
+      "argv": ["python3", "-I", "tests/meta_review.py"],
+      "trustedVerifierPaths": ["tests"],
       "timeoutSeconds": 120,
       "expectedOutput": "FINAL STATUS: PASSED",
       "passFailParser": "stdout_contains"
     },
     {
       "id": "quick-regression",
-      "command": "bash tests/run-all.sh --quick",
+      "argv": ["bash", "tests/run-all.sh", "--quick"],
+      "trustedVerifierPaths": ["tests"],
       "timeoutSeconds": 300,
       "expectedOutput": "DONE fails:none",
       "passFailParser": "stdout_contains"
     }
-  ]
+  ],
+  "failClosed": "Commands are shell-free argv and each verifier must be content-bound to protected-base Git objects before server-side execution."
 }

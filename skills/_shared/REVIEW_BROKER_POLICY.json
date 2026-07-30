@@ -93,7 +93,13 @@
     "machineCheck": {
       "name": "ITD machine oracle",
       "expectedPublisher": "github-actions",
-      "integrationId": 15368
+      "integrationId": 15368,
+      "authority": "organization-ruleset-workflow",
+      "workflowRepository": "hihol-labs/idea-to-deploy",
+      "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+      "immutableWorkflowShaRequired": true,
+      "contractSource": "target-protected-base-head",
+      "runnerSource": "pinned-workflow-repository-sha"
     },
     "webhooks": {
       "algorithm": "hmac-sha256",
@@ -722,7 +728,7 @@
     "default": "deny",
     "trackedVerificationContract": ".itd/VERIFICATION_CONTRACT.json",
     "organizationRulesetPreferred": true,
-    "repositoryRulesetFallback": true,
+    "repositoryRulesetFallback": false,
     "requirePullRequest": true,
     "requireUpToDate": true,
     "requiredStatusChecks": [
@@ -734,7 +740,12 @@
       {
         "name": "ITD machine oracle",
         "expectedPublisher": "github-actions",
-        "integrationId": 15368
+        "integrationId": 15368,
+        "authority": "organization-ruleset-workflow",
+        "workflowRepository": "hihol-labs/idea-to-deploy",
+        "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+        "workflowRepositoryIdSource": "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowRepositoryId",
+        "workflowShaSource": "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowSha"
       }
     ],
     "requirePublisherBinding": true,
@@ -776,7 +787,7 @@
       "requireUpToDateMustEqualPolicy": true,
       "externalCheckIntegrationIdType": "positive-integer",
       "rulesetExternalIntegrationIdMustEqualReceipt": true,
-      "rulesetMachineIntegrationIdMustEqualReceipt": true,
+      "rulesetMachineWorkflowMustEqualReceipt": true,
       "blockDeletionMustEqualPolicy": true,
       "blockForcePushMustEqualPolicy": true,
       "mergeGroupEventsMustEqualPolicy": true,

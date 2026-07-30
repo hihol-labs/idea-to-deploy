@@ -1208,6 +1208,37 @@ class BrokerStore:
             raise BrokerError("UNVERIFIED", "repository is not enrolled in broker")
         return int(row["expected_app_id"])
 
+    def enrollment_status(
+        self, repository: str, app_id: int
+    ) -> dict[str, Any]:
+        self.require_enrolled(repository, app_id)
+        with self._lock:
+            row = self.db.execute(
+                """
+                SELECT active_receipt_sha256,enrolled_at
+                FROM repositories
+                WHERE repository=? AND expected_app_id=? AND enabled=1
+                """,
+                (repository, app_id),
+            ).fetchone()
+        if (
+            row is None
+            or not re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(row["active_receipt_sha256"] or ""),
+            )
+            or not isinstance(row["enrolled_at"], str)
+        ):
+            raise BrokerError(
+                "UNVERIFIED", "repository enrollment status is unavailable"
+            )
+        return {
+            "repository": repository,
+            "appId": app_id,
+            "receiptSha256": row["active_receipt_sha256"],
+            "enrolledAt": row["enrolled_at"],
+        }
+
     def put_provenance_and_queue(
         self,
         signed_record: dict[str, Any],
@@ -3033,7 +3064,7 @@ class GitHubAppAuth:
         signer_algorithm: str | None = None,
         policy: dict[str, Any] | None = None,
     ) -> None:
-        if not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", client_id or ""):
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{8,100}", client_id or ""):
             raise BrokerError("UNAVAILABLE", "GitHub App client id is unavailable")
         self.client_id = client_id
         self.private_key_file = private_key_file

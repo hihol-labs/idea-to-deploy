@@ -1,12 +1,13 @@
 {
-  "version": 1,
-  "purpose": "Executable verification contract for the GPG-001 broker/service slice.",
+  "version": 2,
+  "purpose": "Executable verification contract for the GPG-001 local/global gate-control slice.",
   "unitId": "GPG-001",
   "createdAt": "2026-07-30",
   "commandSchema": {
     "requiredFields": [
       "id",
-      "command",
+      "argv",
+      "trustedVerifierPaths",
       "timeoutSeconds",
       "expectedOutput",
       "passFailParser"
@@ -21,38 +22,123 @@
   "commands": [
     {
       "id": "broker-orchestration",
-      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
-      "passFailParser": "exit_code_zero"
+      "passFailParser": "stdout_contains"
     },
-    {
-      "id": "broker-server",
-      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
-      "timeoutSeconds": 180,
-      "expectedOutput": "\"status\": \"PASSED\"",
-      "passFailParser": "exit_code_zero"
-    },
+        {
+            "id": "broker-server",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_server.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 180,
+            "expectedOutput": "\"status\": \"PASSED\"",
+            "passFailParser": "stdout_contains"
+        },
+        {
+            "id": "broker-operator",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_operator.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 120,
+            "expectedOutput": "\"status\": \"PASSED\"",
+            "passFailParser": "stdout_contains"
+        },
+        {
+            "id": "broker-deployment",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_deployment.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 120,
+            "expectedOutput": "\"status\": \"PASSED\"",
+            "passFailParser": "stdout_contains"
+        },
+        {
+            "id": "github-app-manifest",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_github_app_manifest.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 120,
+            "expectedOutput": "\"status\": \"PASSED\"",
+            "passFailParser": "stdout_contains"
+        },
     {
       "id": "broker-policy-regression",
-      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_policy.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
-      "passFailParser": "exit_code_zero"
+      "passFailParser": "stdout_contains"
     },
     {
       "id": "broker-primitives-regression",
-      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_primitives.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
-      "passFailParser": "exit_code_zero"
+      "passFailParser": "stdout_contains"
     },
     {
+      "id": "machine-oracle-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_machine_oracle.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "gate-control-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_control.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "guarded-pr-cli-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_itd_cli.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "global-git-gate-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_git_gate_hooks.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+        {
+            "id": "api-reviewer-migration-regression",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_api_reviewer.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 180,
+            "expectedOutput": "\"status\": \"PASSED\"",
+            "passFailParser": "stdout_contains"
+        },
+        {
+            "id": "external-reviewer-release-regression",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_external_reviewer_release.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 180,
+            "expectedOutput": "PASSED",
+            "passFailParser": "stdout_contains"
+        },
+        {
+            "id": "host-adapter-regression",
+            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_host_adapters.py"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "timeoutSeconds": 180,
+            "expectedOutput": "PASSED",
+            "passFailParser": "stdout_contains"
+        },
+    {
       "id": "methodology-meta-review",
-      "command": "sh skills/_shared/itd_py.sh tests/meta_review.py --verbose",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/meta_review.py", "--verbose"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
       "timeoutSeconds": 180,
       "expectedOutput": "FINAL STATUS: PASSED",
-      "passFailParser": "exit_code_zero"
+      "passFailParser": "stdout_contains"
     }
   ],
   "requiredArtifacts": [
@@ -65,11 +151,31 @@
     "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
     "skills/_shared/itd_review_broker_primitives.py",
     "skills/_shared/itd_review_broker.py",
-    "services/review_broker/server.py",
+        "services/review_broker/server.py",
+        "services/review_broker/operator.py",
+        "services/review_broker/Dockerfile",
+        "services/review_broker/requirements.lock",
+        "services/review_broker/deploy/compose.yaml",
+        "services/review_broker/deploy/systemd/itd-review-broker.service",
+        ".github/workflows/itd-machine-oracle.yml",
+        "scripts/itd.py",
+        "scripts/itd_github_app_manifest.py",
+        "scripts/itd_install_cli.py",
+        "scripts/itd_machine_oracle.py",
+        "scripts/itd_pre_push.py",
+        "scripts/itd_install_git_hooks.py",
+    "skills/_shared/itd_gate_control.py",
+    "tests/verify_machine_oracle.py",
+    "tests/verify_gate_control.py",
+    "tests/verify_itd_cli.py",
+    "tests/verify_git_gate_hooks.py",
     "tests/verify_review_broker_policy.py",
     "tests/verify_review_broker_primitives.py",
     "tests/verify_review_broker.py",
-    "tests/verify_review_broker_server.py"
+        "tests/verify_review_broker_server.py",
+        "tests/verify_review_broker_operator.py",
+        "tests/verify_review_broker_deployment.py",
+        "tests/verify_github_app_manifest.py"
   ],
   "passCriteria": [
     "All required commands exit 0.",
@@ -80,5 +186,12 @@
     "The high-risk GPG-001:general-review adjudication receipt revalidates."
   ],
   "failureMode": "RECOVERY_REQUIRED",
-  "failClosed": "A missing command, artifact, checker, receipt, ambiguous parser, redaction, or changed staged tree is RECOVERY_REQUIRED, never success."
+  "failClosed": "A missing shell-free argv, protected-base content-bound verifier, artifact, checker, receipt, ambiguous parser, redaction, or changed staged tree is RECOVERY_REQUIRED, never success.",
+  "machineGateTrust": {
+    "contractSource": "target-protected-base-head",
+    "commandExecution": "shell-free-argv",
+    "trustedVerifierPolicy": "Every commands[].trustedVerifierPaths entry must resolve to identical regular Git objects in protected base and candidate before any command may run; each command invokes the content-bound tests directory namespace, not only one verifier file.",
+    "interpreterIsolation": "The protected itd_py.sh --itd-isolated mode adds Python -I, while the complete tests namespace is content-bound so candidate startup modules such as sitecustomize.py cannot participate.",
+    "rotation": "Add a verifier under a new path and merge it before changing this protected contract to trust that path; the attesting verifier is never replaced by the PR it evaluates."
+  }
 }
