@@ -5,8 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
+import subprocess
 import sys
+import threading
 from pathlib import Path
 
 
@@ -18,6 +21,17 @@ class InstallError(RuntimeError):
     pass
 
 
+RUNTIME_PROBE = (
+    "import cryptography;"
+    "from cryptography.hazmat.primitives.asymmetric.ed25519 "
+    "import Ed25519PrivateKey;"
+    "Ed25519PrivateKey.generate();"
+    "print(cryptography.__version__)"
+)
+MAX_RUNTIME_PROBE_OUTPUT = 4096
+RUNTIME_PROBE_TIMEOUT_SECONDS = 15
+
+
 def default_target() -> Path:
     if os.name == "nt":
         base = Path(
@@ -25,6 +39,117 @@ def default_target() -> Path:
         )
         return (base / "ITD" / "bin" / "itd.cmd").resolve()
     return (Path.home() / ".local" / "bin" / "itd").resolve()
+
+
+def codex_bundled_python() -> Path:
+    return (
+        Path.home()
+        / ".cache"
+        / "codex-runtimes"
+        / "codex-primary-runtime"
+        / "dependencies"
+        / "python"
+        / "python.exe"
+    ).resolve()
+
+
+def probe_runtime(python: Path) -> str:
+    if not python.is_file():
+        raise InstallError("ITD CLI Python runtime is missing")
+    process: subprocess.Popen[bytes] | None = None
+    output = bytearray()
+    overflow = threading.Event()
+    read_error: list[BaseException] = []
+    try:
+        process = subprocess.Popen(
+            [str(python), "-I", "-c", RUNTIME_PROBE],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        assert process.stdout is not None
+
+        def drain() -> None:
+            try:
+                while True:
+                    chunk = process.stdout.read(512)
+                    if not chunk:
+                        return
+                    remaining = MAX_RUNTIME_PROBE_OUTPUT - len(output)
+                    output.extend(chunk[:remaining])
+                    if len(chunk) > remaining:
+                        overflow.set()
+                        process.kill()
+                        return
+            except (OSError, ValueError) as exc:
+                read_error.append(exc)
+                process.kill()
+
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        try:
+            process.wait(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            process.kill()
+            process.wait()
+            raise InstallError("ITD CLI Python runtime probe timed out") from exc
+        reader.join(timeout=1)
+        if reader.is_alive():
+            process.stdout.close()
+            reader.join(timeout=1)
+            raise InstallError("ITD CLI Python runtime probe pipe did not close")
+        process.stdout.close()
+    except (OSError, subprocess.SubprocessError) as exc:
+        if process is not None and process.poll() is None:
+            process.kill()
+            process.wait()
+        raise InstallError(
+            "ITD CLI Python runtime cannot execute the cryptography probe"
+        ) from exc
+    if read_error:
+        raise InstallError("ITD CLI Python runtime probe output failed")
+    if overflow.is_set():
+        raise InstallError("ITD CLI Python runtime probe output exceeds its bound")
+    try:
+        version = bytes(output).decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        raise InstallError(
+            "ITD CLI Python runtime probe output is not UTF-8"
+        ) from exc
+    if (
+        process is None
+        or process.returncode != 0
+        or not re.fullmatch(r"[0-9A-Za-z.+-]{1,64}", version)
+    ):
+        raise InstallError(
+            "ITD CLI Python runtime lacks a working cryptography dependency"
+        )
+    return version
+
+
+def select_runtime(requested: Path | None) -> tuple[Path, str, str]:
+    if requested is not None:
+        candidate = requested.resolve()
+        return candidate, probe_runtime(candidate), "explicit"
+
+    candidates: list[tuple[Path, str]] = [
+        (Path(sys.executable).resolve(), "current"),
+    ]
+    if os.name == "nt":
+        candidates.append((codex_bundled_python(), "codex-bundled"))
+    seen: set[Path] = set()
+    for candidate, source in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            return candidate, probe_runtime(candidate), source
+        except InstallError:
+            continue
+    raise InstallError(
+        "no compatible ITD CLI Python runtime found; pass --python PATH "
+        "to a runtime with cryptography installed"
+    )
 
 
 def wrapper(python: Path, script: Path) -> bytes:
@@ -100,10 +225,10 @@ def install(
     script: Path = CLI,
 ) -> dict[str, object]:
     target = target.resolve()
-    python = (python or Path(sys.executable)).resolve()
     script = script.resolve()
-    if not python.is_file() or not script.is_file():
-        raise InstallError("ITD CLI runtime or Python executable is missing")
+    if not script.is_file():
+        raise InstallError("ITD CLI script is missing")
+    python, cryptography_version, runtime_source = select_runtime(python)
     expected = wrapper(python, script)
     if target.exists():
         try:
@@ -119,6 +244,8 @@ def install(
         "status": "PREVIEW",
         "command": str(target),
         "python": str(python),
+        "pythonSource": runtime_source,
+        "cryptographyVersion": cryptography_version,
         "script": str(script),
         "pathUpdateRequired": os.name == "nt",
         "pathUpdated": False,
@@ -140,7 +267,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--python",
         type=Path,
-        help="Python runtime that carries the ITD cryptography dependency",
+        help=(
+            "override automatic selection with a Python runtime carrying "
+            "the ITD cryptography dependency"
+        ),
     )
     result.add_argument("--apply", action="store_true")
     result.add_argument("--replace-existing", action="store_true")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -301,12 +302,11 @@ def cli_installer_phase() -> None:
     with tempfile.TemporaryDirectory(prefix="itd-cli-install-") as raw:
         root = Path(raw)
         script = root / "itd.py"
-        python = root / "python"
+        python = Path(sys.executable)
         target = root / "bin" / (
             "itd.cmd" if cli_installer.os.name == "nt" else "itd"
         )
         script.write_text("# fixture\n", encoding="utf-8")
-        python.write_text("", encoding="utf-8")
         preview = cli_installer.install(
             target,
             apply=False,
@@ -349,6 +349,54 @@ def cli_installer_phase() -> None:
             check(True, "CLI installer preserves a foreign command")
         else:
             raise AssertionError("foreign ITD command was overwritten")
+
+        incompatible = root / "python-without-cryptography"
+        incompatible.write_text("", encoding="utf-8")
+        incompatible_target = root / "broken" / "itd"
+        try:
+            cli_installer.install(
+                incompatible_target,
+                apply=True,
+                replace_existing=False,
+                update_path=False,
+                python=incompatible,
+                script=script,
+            )
+        except cli_installer.InstallError:
+            check(
+                not incompatible_target.exists(),
+                "CLI installer rejects an incompatible Python before writing",
+            )
+        else:
+            raise AssertionError(
+                "CLI installer accepted Python without cryptography"
+            )
+
+        probe_cases = [
+            (
+                "import sys;"
+                "sys.stdout.buffer.write("
+                f"b'x'*{cli_installer.MAX_RUNTIME_PROBE_OUTPUT + 1});"
+                "sys.stdout.flush()",
+                "CLI runtime probe rejects output beyond its byte bound",
+            ),
+            (
+                "import sys;"
+                "sys.stdout.buffer.write(bytes([255]));"
+                "sys.stdout.flush()",
+                "CLI runtime probe rejects non-UTF-8 output",
+            ),
+        ]
+        for probe, label in probe_cases:
+            with mock.patch.object(
+                cli_installer, "RUNTIME_PROBE", probe
+            ):
+                try:
+                    cli_installer.probe_runtime(python)
+                except cli_installer.InstallError:
+                    check(True, label)
+                else:
+                    raise AssertionError(label)
 
 
 def workflow_phase() -> None:
