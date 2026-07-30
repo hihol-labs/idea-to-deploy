@@ -124,6 +124,15 @@ read that credential. Reservations and settlements use the broker SQLite
 transaction boundary; exhausted budget, API outage, malformed evidence,
 redaction, unknown maker, over-limit/unsplittable candidate, or incomplete pagination
 publishes `failure`/`action_required`, never `neutral`, `skipped`, or success.
+Candidate blobs remain text-only by default. The sole transparent container
+declared by the frozen policy is `.jsonl.gz`: the broker verifies the complete
+raw Git blob, stream-decompresses exactly one gzip member under the per-blob
+and aggregate limits, requires strict UTF-8 JSONL without NUL, duplicate keys,
+non-standard constants, trailing data, or a second member, and binds both raw
+and logical hashes/byte counts in the candidate manifest. Secret scanning runs
+over the complete logical canonical diff before hierarchical partitioning.
+Every undeclared binary representation remains `UNVERIFIED` without provider
+dispatch.
 The canonical contract is
 `skills/_shared/REVIEW_BROKER_POLICY.json`.
 

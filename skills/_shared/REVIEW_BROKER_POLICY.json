@@ -255,6 +255,10 @@
         ],
         "merge_group": ["components"]
       },
+      "conditionalRequiredFields": {
+        "transparentReviewPresent": ["totalReviewBytes"],
+        "transparentFileRecord": ["baseReview", "headReview"]
+      },
       "fieldTypes": {
         "version": "constant-integer-1",
         "repository": "github-owner-slash-repository",
@@ -269,6 +273,7 @@
         "components": "object-of-closed-components-keyed-by-canonical-pull-request",
         "pagination": "closed-pagination-record",
         "totalDecodedBlobBytes": "nonnegative-integer",
+        "totalReviewBytes": "nonnegative-integer",
         "reviewDiffSha256": "lowercase-hex-sha256",
         "reviewDiffBytes": "nonnegative-integer",
         "sanitizerVersion": "nonempty-string",
@@ -280,8 +285,20 @@
         "headBlobSha",
         "baseBytes",
         "headBytes",
-        "status"
+        "status",
+        "baseReview",
+        "headReview"
       ],
+      "fileFieldTypes": {
+        "previousPath": "safe-relative-path-or-null",
+        "baseBlobSha": "lowercase-hex-sha1-or-null",
+        "headBlobSha": "lowercase-hex-sha1-or-null",
+        "baseBytes": "nonnegative-integer",
+        "headBytes": "nonnegative-integer",
+        "status": "enum-added-modified-removed-renamed",
+        "baseReview": "declared-transparent-review-binding-or-null",
+        "headReview": "declared-transparent-review-binding-or-null"
+      },
       "paginationFields": ["pageCount", "complete"],
       "subjectRepresentations": {
         "pullRequest": {
@@ -313,7 +330,9 @@
         "redactionManifest-binds-all-transformations",
         "clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256",
         "reviewable-candidate-requires-clean-redactionManifest",
-        "reviewDiff-is-the-unmodified-raw-canonical-diff-after-clean-scan",
+        "reviewDiff-is-the-unmodified-canonical-review-input-diff-raw-for-text-logical-for-transparent-after-clean-scan",
+        "declared-transparent-representations-bind-raw-git-bytes-and-logical-review-bytes",
+        "totalReviewBytes-equals-sum-of-raw-text-and-logical-transparent-base-and-head-review-inputs-and-does-not-exceed-maxTotalDecodedBlobBytes",
         "any-redaction-blocks-provider-dispatch-and-success"
       ],
       "completeValue": true
@@ -365,6 +384,32 @@
         "maxCodePoints": 4096
       },
       "incompleteOrMismatchedBlobDisposition": "UNVERIFIED-action_required-no-provider-call"
+    },
+    "transparentReview": {
+      "representations": {
+        "gzip-jsonl-utf8-v1": {
+          "pathSuffix": ".jsonl.gz",
+          "rawSource": "verified-complete-git-blob",
+          "transform": "bounded-stream-single-gzip-member",
+          "maxLogicalBlobBytesSource": "candidate.maxDecodedBlobBytes",
+          "maxAggregateLogicalBytesSource": "candidate.maxTotalDecodedBlobBytes",
+          "utf8Required": true,
+          "nulAllowed": false,
+          "everyJsonlLineMustParse": true,
+          "duplicateJsonKeysAllowed": false,
+          "nonStandardJsonConstantsAllowed": false,
+          "trailingOrAdditionalGzipMembersAllowed": false,
+          "logicalManifestFields": ["encoding", "sha256", "bytes"],
+          "fileBindingFields": ["baseReview", "headReview"],
+          "presentSideBinding": "closed-object-with-logicalManifestFields",
+          "absentSideBinding": "required-null-for-added-base-or-removed-head",
+          "aggregateBindingField": "totalReviewBytes",
+          "aggregateAccounting": "sum-raw-text-bytes-plus-logical-transparent-bytes-for-every-base-and-head-side",
+          "secretScanScope": "complete-canonical-logical-diff-before-partition"
+        }
+      },
+      "invalidOrMismatchedDisposition": "UNVERIFIED-action_required-no-provider-call",
+      "undeclaredBinaryDisposition": "UNVERIFIED-action_required-no-provider-call"
     },
     "sanitization": {
       "selectedVersion": "itd-scrubber-v1",
@@ -460,6 +505,7 @@
         "maxProviderRequestBytes",
         "incompletePagination",
         "binaryContent",
+        "transparentRepresentationFailure",
         "forkPullRequest",
         "redactionsDetected"
       ],

@@ -274,6 +274,18 @@ def main() -> int:
         manifest["subjectRequiredFields"]["pull_request"]
         == ["pullRequest", "checkSha", "provenanceReceiptSha256"]
         and manifest["subjectRequiredFields"]["merge_group"] == ["components"]
+        and manifest["conditionalRequiredFields"]
+        == {
+            "transparentReviewPresent": ["totalReviewBytes"],
+            "transparentFileRecord": ["baseReview", "headReview"],
+        }
+        and manifest["fieldTypes"]["totalReviewBytes"] == "nonnegative-integer"
+        and manifest["fileFields"][-2:] == ["baseReview", "headReview"]
+        and set(manifest["fileFieldTypes"]) == set(manifest["fileFields"])
+        and manifest["fileFieldTypes"]["baseReview"]
+        == "declared-transparent-review-binding-or-null"
+        and manifest["fileFieldTypes"]["headReview"]
+        == "declared-transparent-review-binding-or-null"
         and manifest["subjectRepresentations"]["pullRequest"]["checkSha"]
         == "current-github-test-merge-commit-for-exact-head-and-base"
         and manifest["subjectRepresentations"]["pullRequest"][
@@ -291,6 +303,7 @@ def main() -> int:
         == set(manifest["commonRequiredFields"])
         | set(manifest["subjectRequiredFields"]["pull_request"])
         | set(manifest["subjectRequiredFields"]["merge_group"])
+        | set(manifest["conditionalRequiredFields"]["transparentReviewPresent"])
         and {
             "file-object-keys-are-unique-paths-and-rfc8785-canonicalization-orders-them",
             "component-keys-are-canonical-positive-pull-request-numbers",
@@ -308,7 +321,9 @@ def main() -> int:
             "redactionManifest-binds-all-transformations",
             "clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256",
             "reviewable-candidate-requires-clean-redactionManifest",
-            "reviewDiff-is-the-unmodified-raw-canonical-diff-after-clean-scan",
+            "reviewDiff-is-the-unmodified-canonical-review-input-diff-raw-for-text-logical-for-transparent-after-clean-scan",
+            "declared-transparent-representations-bind-raw-git-bytes-and-logical-review-bytes",
+            "totalReviewBytes-equals-sum-of-raw-text-and-logical-transparent-base-and-head-review-inputs-and-does-not-exceed-maxTotalDecodedBlobBytes",
             "any-redaction-blocks-provider-dispatch-and-success",
         }
         == set(manifest["invariants"]),
@@ -370,6 +385,44 @@ def main() -> int:
         and acquisition["incompleteOrMismatchedBlobDisposition"]
         == "UNVERIFIED-action_required-no-provider-call",
         "candidate diff is rebuilt from complete verified blobs",
+    )
+    check(
+        policy["candidate"]["transparentReview"]
+        == {
+            "representations": {
+                "gzip-jsonl-utf8-v1": {
+                    "pathSuffix": ".jsonl.gz",
+                    "rawSource": "verified-complete-git-blob",
+                    "transform": "bounded-stream-single-gzip-member",
+                    "maxLogicalBlobBytesSource":
+                        "candidate.maxDecodedBlobBytes",
+                    "maxAggregateLogicalBytesSource":
+                        "candidate.maxTotalDecodedBlobBytes",
+                    "utf8Required": True,
+                    "nulAllowed": False,
+                    "everyJsonlLineMustParse": True,
+                    "duplicateJsonKeysAllowed": False,
+                    "nonStandardJsonConstantsAllowed": False,
+                    "trailingOrAdditionalGzipMembersAllowed": False,
+                    "logicalManifestFields": ["encoding", "sha256", "bytes"],
+                    "fileBindingFields": ["baseReview", "headReview"],
+                    "presentSideBinding":
+                        "closed-object-with-logicalManifestFields",
+                    "absentSideBinding":
+                        "required-null-for-added-base-or-removed-head",
+                    "aggregateBindingField": "totalReviewBytes",
+                    "aggregateAccounting":
+                        "sum-raw-text-bytes-plus-logical-transparent-bytes-for-every-base-and-head-side",
+                    "secretScanScope":
+                        "complete-canonical-logical-diff-before-partition",
+                }
+            },
+            "invalidOrMismatchedDisposition":
+                "UNVERIFIED-action_required-no-provider-call",
+            "undeclaredBinaryDisposition":
+                "UNVERIFIED-action_required-no-provider-call",
+        },
+        "only declared bounded transparent representations are reviewable",
     )
     violation = policy["candidate"]["violationDisposition"]
     sanitization = policy["candidate"]["sanitization"]
@@ -447,6 +500,7 @@ def main() -> int:
             "maxProviderRequestBytes",
             "incompletePagination",
             "binaryContent",
+            "transparentRepresentationFailure",
             "forkPullRequest",
             "redactionsDetected",
         }
@@ -839,6 +893,82 @@ def main() -> int:
     manifest_validator = runtime_validator(runtime, "candidateManifest")
     manifest_validator.validate(manifest_fixture)
     check(True, "added-file candidate manifest validates")
+    transparent_manifest = copy.deepcopy(manifest_fixture)
+    transparent_manifest["files"] = {
+        "evidence/transcript.jsonl.gz": {
+            **added_file,
+            "baseReview": None,
+            "headReview": {
+                "encoding": "gzip-jsonl-utf8-v1",
+                "sha256": sha256,
+                "bytes": 48,
+            },
+        }
+    }
+    transparent_manifest["totalReviewBytes"] = 48
+    manifest_validator.validate(transparent_manifest)
+    check(True, "declared transparent representation manifest validates")
+    missing_transparent_total = copy.deepcopy(transparent_manifest)
+    del missing_transparent_total["totalReviewBytes"]
+    expect_rejected(
+        manifest_validator,
+        missing_transparent_total,
+        "transparent candidate requires aggregate review-byte accounting",
+    )
+    text_with_transparent_total = copy.deepcopy(manifest_fixture)
+    text_with_transparent_total["totalReviewBytes"] = 12
+    expect_rejected(
+        manifest_validator,
+        text_with_transparent_total,
+        "text-only candidate cannot claim transparent review-byte accounting",
+    )
+    missing_transparent_binding = copy.deepcopy(manifest_fixture)
+    missing_transparent_binding["files"] = {
+        "evidence/transcript.jsonl.gz": added_file
+    }
+    expect_rejected(
+        manifest_validator,
+        missing_transparent_binding,
+        "declared transparent path requires logical side bindings",
+    )
+    generic_path_with_binding = copy.deepcopy(transparent_manifest)
+    generic_path_with_binding["files"] = {
+        "evidence/transcript.gz": generic_path_with_binding["files"].pop(
+            "evidence/transcript.jsonl.gz"
+        )
+    }
+    expect_rejected(
+        manifest_validator,
+        generic_path_with_binding,
+        "generic paths cannot claim a transparent representation",
+    )
+    malformed_transparent = copy.deepcopy(transparent_manifest)
+    malformed_transparent["files"][
+        "evidence/transcript.jsonl.gz"
+    ]["headReview"]["encoding"] = "generic-binary-v1"
+    expect_rejected(
+        manifest_validator,
+        malformed_transparent,
+        "candidate manifest rejects an undeclared review representation",
+    )
+    incomplete_transparent = copy.deepcopy(transparent_manifest)
+    del incomplete_transparent["files"][
+        "evidence/transcript.jsonl.gz"
+    ]["baseReview"]
+    expect_rejected(
+        manifest_validator,
+        incomplete_transparent,
+        "candidate manifest requires both transparent side bindings",
+    )
+    oversized_transparent = copy.deepcopy(transparent_manifest)
+    oversized_transparent["files"][
+        "evidence/transcript.jsonl.gz"
+    ]["headReview"]["bytes"] = 1048577
+    expect_rejected(
+        manifest_validator,
+        oversized_transparent,
+        "candidate manifest rejects an oversized logical representation",
+    )
     check(
         empty_redaction_manifest["reviewDiffSha256"]
         == manifest_fixture["reviewDiffSha256"],

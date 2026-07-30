@@ -70,7 +70,13 @@ RESIDUAL_CREDENTIAL_RE = re.compile(
     r"(?i)(?<![A-Za-z0-9_])[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)"
     r"\s*[=:]\s*[\"']?(?!\[REDACTED)[^ \t\r\n\"'&]{6,}"
 )
-HIGH_ENTROPY_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{48,}(?![A-Za-z0-9_-])")
+HIGH_ENTROPY_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?!(?:clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256|"
+    r"externalIdPayloadSha256-equals-published-check-run-external-id)"
+    r"(?![A-Za-z0-9_-]))"
+    r"[A-Za-z0-9_-]{48,}(?![A-Za-z0-9_-])"
+)
 
 
 class ReviewError(RuntimeError):

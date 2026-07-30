@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large clean diffs use a complete-diff-scrubbed deterministic hierarchical
   review plan: every bounded unit and a final integration verdict are required
   before success; incomplete coverage never degrades to a partial pass.
+- Explicit `.jsonl.gz` evidence can use a bounded, single-member transparent
+  representation with strict JSONL validation and raw/logical hash binding;
+  undeclared binary content remains fail-closed.
 
 ### Changed
 - `/cross-review` remains local opt-in/advisory but now reports typed

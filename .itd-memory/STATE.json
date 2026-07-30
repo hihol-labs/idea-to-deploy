@@ -160,7 +160,9 @@
     "docs/semantic-navigation/DEMAND.json",
     "skills/_shared/itd_semantic_navigation.py",
     "tests/verify_semantic_navigation.py",
-    "tests/verify_semantic_navigation_demand.py"
+    "tests/verify_semantic_navigation_demand.py",
+    "HANDOFF.md",
+    "ROOT_CAUSE.md"
   ],
   "completedModules": [
     "goal.bounded_autonomy",
@@ -185,7 +187,7 @@
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "No HDX work remains; preserve the accepted tree and receipts. PE5-008/009 require a separately approved real external operator/outcome pilot.",
+    "recommendedNextStep": "Freeze the GPG-001 transparent-review candidate, obtain current machine/checker/adjudication receipts, and keep the failed live-benchmark refresh explicit until an authenticated CLI transport is available.",
     "alternatives": [
       "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
     ],
@@ -196,5 +198,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Return the verified Harness Demo absorption result; do not treat methodology-owned pilots as PE5-008/009 external adoption evidence"
+  "nextAction": "Revalidate the current GPG-001 exact-tree adjudication, then reduce or safely split PR #177 so its full canonical candidate is <=1.2 MB and <=15 units without relaxing fail-closed limits; the latest local reconstruction is UNVERIFIED at 1,287,112 bytes."
 }

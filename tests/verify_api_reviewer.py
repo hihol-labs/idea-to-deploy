@@ -591,6 +591,31 @@ def phase_egress(checks: Checks) -> None:
             and "high-entropy" in high_entropy_payload["reason"],
             "unlabelled high-entropy token crossed the fail-closed boundary",
         )
+        public_policy_identifiers = (
+            "clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256",
+            "externalIdPayloadSha256-equals-published-check-run-external-id",
+        )
+        (path / "app.py").write_text(
+            "def value():\n"
+            f"    policy_ids = {public_policy_identifiers!r}\n"
+            "    return len(policy_ids)\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        policy_id_run, policy_id_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-public-policy-identifiers",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"})
+        policy_id_prompt = Path(
+            policy_id_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            policy_id_run.returncode == 0
+            and all(value in policy_id_prompt for value in public_policy_identifiers),
+            "public frozen-policy identifiers were mistaken for secrets",
+        )
         (path / "app.py").write_text("def value():\n    return 2\n", encoding="utf-8")
         shell(["git", "add", "app.py"], path)
 

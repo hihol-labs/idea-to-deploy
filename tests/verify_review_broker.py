@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
+import gzip
 import importlib.util
 import json
 import sys
@@ -697,6 +698,236 @@ def candidate_phase() -> None:
         "binary blob rejected",
     )
 
+    class TransparentGzipGitHub(FakeGitHub):
+        def request_json(
+            self,
+            method: str,
+            path: str,
+            token: str,
+            data: dict[str, Any] | None = None,
+            limit: int = 4 * 1024 * 1024,
+        ) -> Any:
+            if method == "GET" and "/contents/" in path:
+                check(
+                    token == "installation-token",
+                    "transparent container uses repository-scoped token",
+                )
+                self.calls.append((method, path, copy.deepcopy(data)))
+                return {
+                    "type": "file",
+                    "sha": self.new_sha,
+                    "size": len(self.new),
+                }
+            return super().request_json(
+                method, path, token, data=data, limit=limit
+            )
+
+    transparent = TransparentGzipGitHub()
+    transparent.file_row = {
+        "filename": "evidence/transcript.jsonl.gz",
+        "status": "added",
+        "sha": "",
+    }
+    transparent_jsonl = (
+        b'{"event":"started","ok":true}\n'
+        b'{"event":"completed","ok":true}\n'
+    )
+    transparent.new = gzip.compress(transparent_jsonl, mtime=0)
+    transparent.new_sha = broker._git_blob_sha(transparent.new)
+    transparent.file_row["sha"] = transparent.new_sha
+    transparent_candidate = broker.build_candidate(
+        transparent,
+        "installation-token",
+        coordinates(),
+        policy,
+        check_sha=CHECK_SHA,
+        provenance_receipt_sha256=provenance_sha,
+    )
+    transparent_record = transparent_candidate.manifest["files"][
+        "evidence/transcript.jsonl.gz"
+    ]
+    check(
+        transparent_record["baseReview"] is None
+        and transparent_record["headReview"]
+        == {
+            "encoding": "gzip-jsonl-utf8-v1",
+            "sha256": broker.sha256_bytes(transparent_jsonl),
+            "bytes": len(transparent_jsonl),
+        }
+        and transparent_candidate.manifest["totalReviewBytes"]
+        == len(transparent_jsonl)
+        and "".join(
+            f"+{line}\n"
+            for line in transparent_jsonl.decode("utf-8").splitlines()
+        )
+        in "".join(
+            unit.review_diff
+            for unit in transparent_candidate.review_units
+        ),
+        "bounded transparent JSONL gzip is reviewable and hash-bound",
+    )
+
+    class MixedTransparentGitHub(FakeGitHub):
+        def __init__(self) -> None:
+            super().__init__()
+            self.logical = b'{"event":"mixed","ok":true}\n'
+            self.container = gzip.compress(self.logical, mtime=0)
+            self.container_sha = broker._git_blob_sha(self.container)
+            self.file_rows = [
+                copy.deepcopy(self.file_row),
+                {
+                    "filename": "evidence/transcript.jsonl.gz",
+                    "status": "added",
+                    "sha": self.container_sha,
+                },
+            ]
+            self.blobs = {
+                self.old_sha: self.old,
+                self.new_sha: self.new,
+                self.container_sha: self.container,
+            }
+
+        def request_json(
+            self,
+            method: str,
+            path: str,
+            token: str,
+            data: dict[str, Any] | None = None,
+            limit: int = 4 * 1024 * 1024,
+        ) -> Any:
+            if method == "GET" and "/compare/" in path:
+                return {
+                    "base_commit": {"sha": BASE},
+                    "merge_base_commit": {"sha": self.merge_base_sha},
+                    "ahead_by": 1,
+                    "commits": [{"sha": self.compare_head}],
+                    "files": copy.deepcopy(self.file_rows),
+                }
+            if method == "GET" and "/contents/" in path:
+                encoded_path = path.split("/contents/", 1)[1].split("?", 1)[0]
+                candidate_path = urllib.parse.unquote(encoded_path)
+                ref = urllib.parse.parse_qs(
+                    urllib.parse.urlsplit(path).query
+                )["ref"][0]
+                if candidate_path == "app.py":
+                    raw = self.old if ref == BASE else self.new
+                else:
+                    raw = self.container
+                return {
+                    "type": "file",
+                    "sha": broker._git_blob_sha(raw),
+                    "size": len(raw),
+                }
+            if method == "GET" and "/git/blobs/" in path:
+                sha = path.rsplit("/", 1)[1]
+                raw = self.blobs[sha]
+                return {
+                    "sha": sha,
+                    "size": len(raw),
+                    "encoding": "base64",
+                    "content": base64.b64encode(raw).decode("ascii"),
+                }
+            return super().request_json(
+                method, path, token, data=data, limit=limit
+            )
+
+    mixed = MixedTransparentGitHub()
+    mixed_candidate = broker.build_candidate(
+        mixed,
+        "installation-token",
+        coordinates(),
+        policy,
+        check_sha=CHECK_SHA,
+        provenance_receipt_sha256=provenance_sha,
+    )
+    check(
+        mixed_candidate.manifest["totalReviewBytes"]
+        == len(mixed.old) + len(mixed.new) + len(mixed.logical),
+        "mixed candidate review bound includes raw text and logical gzip bytes",
+    )
+
+    def reject_transparent(raw: bytes, label: str) -> None:
+        rejected = TransparentGzipGitHub()
+        rejected.file_row = {
+            "filename": "evidence/transcript.jsonl.gz",
+            "status": "added",
+            "sha": "",
+        }
+        rejected.new = raw
+        rejected.new_sha = broker._git_blob_sha(raw)
+        rejected.file_row["sha"] = rejected.new_sha
+        expect_error(
+            "UNVERIFIED",
+            lambda: broker.build_candidate(
+                rejected,
+                "installation-token",
+                coordinates(),
+                policy,
+                check_sha=CHECK_SHA,
+                provenance_receipt_sha256=provenance_sha,
+            ),
+            label,
+        )
+
+    reject_transparent(b"not-gzip", "invalid transparent gzip rejected")
+    reject_transparent(
+        gzip.compress(b'{"member":1}\n', mtime=0)
+        + gzip.compress(b'{"member":2}\n', mtime=0),
+        "multiple transparent gzip members rejected",
+    )
+    logical_limit = int(policy["candidate"]["maxDecodedBlobBytes"])
+    reject_transparent(
+        gzip.compress(
+            b'{"payload":"'
+            + (b"x" * logical_limit)
+            + b'"}\n',
+            mtime=0,
+        ),
+        "transparent gzip expansion overflow rejected",
+    )
+    reject_transparent(
+        gzip.compress(b'{"event":"bad-utf8","value":"\xff"}\n', mtime=0),
+        "non-UTF-8 transparent JSONL rejected",
+    )
+    reject_transparent(
+        gzip.compress(b'{"event":}\n', mtime=0),
+        "invalid transparent JSONL rejected",
+    )
+    reject_transparent(
+        gzip.compress(
+            (
+                '{"'
+                + credential_name
+                + '":"'
+                + synthetic_value
+                + '"}\n'
+            ).encode("ascii"),
+            mtime=0,
+        ),
+        "secret-bearing transparent JSONL rejected",
+    )
+    undeclared = TransparentGzipGitHub()
+    undeclared.file_row = {
+        "filename": "evidence/transcript.gz",
+        "status": "added",
+        "sha": "",
+    }
+    undeclared.new = gzip.compress(transparent_jsonl, mtime=0)
+    undeclared.new_sha = broker._git_blob_sha(undeclared.new)
+    undeclared.file_row["sha"] = undeclared.new_sha
+    expect_error(
+        "UNVERIFIED",
+        lambda: broker.build_candidate(
+            undeclared,
+            "installation-token",
+            coordinates(),
+            policy,
+            check_sha=CHECK_SHA,
+            provenance_receipt_sha256=provenance_sha,
+        ),
+        "undeclared gzip binary remains rejected",
+    )
+
     github = FakeGitHub()
     github.new = "".join(
         f"value_{index:05d} = {index}\n" for index in range(7000)
@@ -932,6 +1163,29 @@ def adapter_phase() -> None:
         )
         name = body["text"]["format"]["name"]
         hierarchical_calls.append(name)
+        if name == "itd_hierarchical_unit_review":
+            unit_prompt = body["input"][1]["content"]
+            check(
+                "are not an unverified contour merely because they are "
+                "absent from this unit" in unit_prompt
+                and "Put cross-unit dependencies in the summary" in unit_prompt,
+                "unit prompt reserves unverified for an incomplete current unit",
+            )
+            check(
+                "PASSED_WITH_WARNINGS requires an important finding or "
+                "unverified contour" in unit_prompt
+                and "PASSED permits only minor findings" in unit_prompt,
+                "unit prompt states canonical verdict semantics",
+            )
+        else:
+            integration_prompt = body["input"][1]["content"]
+            check(
+                "Candidate success requires complete unit coverage and a "
+                "PASSED verdict with no finding or unverified contour"
+                in integration_prompt
+                and "PASSED permits only minor findings" in integration_prompt,
+                "integration prompt separates verdict validity from success",
+            )
         verdict_value = (
             {
                 "verdict": "PASSED",

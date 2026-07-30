@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 from pathlib import Path, PurePosixPath
@@ -59,6 +60,9 @@ COMPARE_PAGE_SIZE = 100
 MAX_COMPARE_PAGES = 1000
 MERGE_GROUP_PAGE_SIZE = 100
 SANITIZER_VERSION = "itd-scrubber-v1"
+TRANSPARENT_JSONL_ENCODING = "gzip-jsonl-utf8-v1"
+TRANSPARENT_JSONL_SUFFIX = ".jsonl.gz"
+DECOMPRESSION_CHUNK_BYTES = 64 * 1024
 
 
 def _reviewer_module():
@@ -111,6 +115,118 @@ def _line_count(value: bytes) -> int:
     if "\x00" in text:
         raise BrokerError("UNVERIFIED", "binary candidate blob is forbidden")
     return max(1, len(text.splitlines()))
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant is forbidden: {value}")
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key is forbidden: {key}")
+        result[key] = value
+    return result
+
+
+def _validate_jsonl(value: bytes) -> None:
+    _line_count(value)
+    text = value.decode("utf-8")
+    lines = text.splitlines()
+    if not lines or any(not line.strip() for line in lines):
+        raise BrokerError("UNVERIFIED", "transparent JSONL has an empty record")
+    for line in lines:
+        try:
+            json.loads(
+                line,
+                parse_constant=_reject_json_constant,
+                object_pairs_hook=_reject_duplicate_json_keys,
+            )
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise BrokerError(
+                "UNVERIFIED", "transparent JSONL record is invalid"
+            ) from exc
+
+
+def _decode_transparent_jsonl_gzip(
+    value: bytes,
+    policy: dict[str, Any],
+) -> bytes:
+    limit = int(policy["candidate"]["maxDecodedBlobBytes"])
+    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    logical = bytearray()
+    cursor = 0
+    try:
+        while cursor < len(value):
+            pending = value[cursor:cursor + DECOMPRESSION_CHUNK_BYTES]
+            cursor += len(pending)
+            while pending:
+                piece = decoder.decompress(
+                    pending,
+                    limit - len(logical) + 1,
+                )
+                logical.extend(piece)
+                if len(logical) > limit:
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "transparent JSONL exceeds decompression bound",
+                    )
+                pending = decoder.unconsumed_tail
+                if decoder.eof:
+                    if decoder.unused_data or pending or cursor != len(value):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "transparent JSONL must contain exactly one gzip member",
+                        )
+                    break
+                if not pending:
+                    break
+    except zlib.error as exc:
+        raise BrokerError(
+            "UNVERIFIED", "transparent JSONL gzip stream is invalid"
+        ) from exc
+    if not decoder.eof:
+        raise BrokerError(
+            "UNVERIFIED", "transparent JSONL gzip stream is incomplete"
+        )
+    decoded = bytes(logical)
+    _validate_jsonl(decoded)
+    return decoded
+
+
+def _transparent_jsonl_suffix(policy: dict[str, Any]) -> str:
+    try:
+        representation = policy["candidate"]["transparentReview"][
+            "representations"
+        ][TRANSPARENT_JSONL_ENCODING]
+        suffix = representation["pathSuffix"]
+    except (KeyError, TypeError) as exc:
+        raise BrokerError(
+            "UNVERIFIED", "transparent review policy is unavailable"
+        ) from exc
+    if suffix != TRANSPARENT_JSONL_SUFFIX:
+        raise BrokerError("UNVERIFIED", "transparent review policy has drifted")
+    return suffix
+
+
+def _review_blob(
+    path: str,
+    raw: bytes,
+    policy: dict[str, Any],
+) -> tuple[bytes, dict[str, Any] | None]:
+    suffix = _transparent_jsonl_suffix(policy)
+    if path.endswith(suffix):
+        logical = _decode_transparent_jsonl_gzip(raw, policy)
+        return logical, {
+            "encoding": TRANSPARENT_JSONL_ENCODING,
+            "sha256": sha256_bytes(logical),
+            "bytes": len(logical),
+        }
+    _line_count(raw)
+    return raw, None
 
 
 def _diff_lines(value: bytes) -> list[str]:
@@ -399,7 +515,6 @@ def _decode_blob(
         or _git_blob_sha(raw) != expected_sha
     ):
         raise BrokerError("UNVERIFIED", "candidate blob completeness check failed")
-    _line_count(raw)
     return raw
 
 
@@ -456,6 +571,7 @@ def build_candidate(
     records: dict[str, dict[str, Any]] = {}
     blobs: dict[str, tuple[bytes, bytes]] = {}
     total = 0
+    review_total = 0
     for row in rows:
         path = row.get("filename")
         status = row.get("status")
@@ -475,6 +591,19 @@ def build_candidate(
         head_sha: str | None = None
         old = b""
         new = b""
+        old_review: dict[str, Any] | None = None
+        new_review: dict[str, Any] | None = None
+        old_review_bytes = b""
+        new_review_bytes = b""
+        if (
+            status == "renamed"
+            and str(old_path).endswith(_transparent_jsonl_suffix(policy))
+            != path.endswith(_transparent_jsonl_suffix(policy))
+        ):
+            raise BrokerError(
+                "UNVERIFIED",
+                "rename across transparent representation boundary is unsupported",
+            )
         if status != "added":
             base_sha, old = _fetch_blob(
                 github,
@@ -483,6 +612,9 @@ def build_candidate(
                 str(old_path),
                 coordinates.base_sha,
                 policy,
+            )
+            old_review_bytes, old_review = _review_blob(
+                str(old_path), old, policy
             )
         if status != "removed":
             head_sha, new = _fetch_blob(
@@ -493,6 +625,7 @@ def build_candidate(
                 coordinates.head_sha,
                 policy,
             )
+            new_review_bytes, new_review = _review_blob(path, new, policy)
         listed_sha = str(row.get("sha", "")).lower()
         expected_listed_sha = base_sha if status == "removed" else head_sha
         if listed_sha != expected_listed_sha:
@@ -502,7 +635,13 @@ def build_candidate(
         total += len(old) + len(new)
         if total > int(policy["candidate"]["maxTotalDecodedBlobBytes"]):
             raise BrokerError("UNVERIFIED", "candidate aggregate blob bound exceeded")
-        records[path] = {
+        review_total += len(old_review_bytes) + len(new_review_bytes)
+        if review_total > int(policy["candidate"]["maxTotalDecodedBlobBytes"]):
+            raise BrokerError(
+                "UNVERIFIED",
+                "candidate aggregate review representation bound exceeded",
+            )
+        record = {
             "previousPath": previous,
             "baseBlobSha": base_sha,
             "headBlobSha": head_sha,
@@ -510,7 +649,11 @@ def build_candidate(
             "headBytes": len(new),
             "status": status,
         }
-        blobs[path] = (old, new)
+        if old_review is not None or new_review is not None:
+            record["baseReview"] = old_review
+            record["headReview"] = new_review
+        records[path] = record
+        blobs[path] = (old_review_bytes, new_review_bytes)
     full_diff, line_bounds, file_chunks = _canonical_diff(records, blobs)
     full_bytes = full_diff.encode("utf-8")
     if not full_bytes:
@@ -558,6 +701,11 @@ def build_candidate(
             canonical_json(redaction_manifest)
         ),
     }
+    if any(
+        "baseReview" in record or "headReview" in record
+        for record in records.values()
+    ):
+        manifest["totalReviewBytes"] = review_total
     if coordinates.subject_type == "pull_request":
         if (
             not re.fullmatch(r"[0-9a-f]{40}", check_sha or "")
@@ -949,8 +1097,11 @@ class ReviewerAdapter:
                 "Review only the final bounded candidate for correctness, "
                 "security, error handling, edge cases, tests, and "
                 "specification compliance. Report concrete file/line "
-                "findings. A PASSED verdict requires no critical/important "
-                "finding and no finding or unverified contour.\n"
+                "findings. Canonical verdict semantics: BLOCKED requires a "
+                "critical finding; PASSED_WITH_WARNINGS requires an important "
+                "finding or unverified contour; PASSED permits only minor "
+                "findings and requires no unverified contour. Candidate "
+                "success still requires PASSED with empty findings.\n"
                 f"CANDIDATE_MANIFEST={canonical_json(candidate.manifest).decode('utf-8')}\n"
                 "REDACTION_MANIFEST="
                 f"{canonical_json(candidate.redaction_manifest).decode('utf-8')}\n"
@@ -1008,7 +1159,15 @@ class ReviewerAdapter:
                 "for correctness, security, error handling, edge cases, "
                 "tests, and specification compliance. The summary must name "
                 "changed behavior, interfaces, dependencies, and concrete "
-                "cross-unit risks with file/line coordinates. Do not claim "
+                "cross-unit risks with file/line coordinates. Other units in "
+                "the bound review plan are reviewed separately and are not "
+                "an unverified contour merely because they are absent from "
+                "this unit. Put cross-unit dependencies in the summary; use "
+                "unverified only when this unit itself is incomplete or "
+                "malformed. Canonical verdict semantics: BLOCKED requires a "
+                "critical finding; PASSED_WITH_WARNINGS requires an important "
+                "finding or unverified contour; PASSED permits only minor "
+                "findings and requires no unverified contour. Do not claim "
                 "the whole candidate passed.\n"
                 f"CANDIDATE_BINDING={canonical_json(binding).decode('utf-8')}\n"
                 f"REQUIRED_JSON_SCHEMA={canonical_json(unit_schema).decode('utf-8')}\n"
@@ -1073,8 +1232,12 @@ class ReviewerAdapter:
                 "candidate. Every deterministic diff unit was reviewed. "
                 "Use the bound unit summaries to find cross-unit correctness, "
                 "security, interface, migration, test, and specification "
-                "failures. A PASSED verdict requires complete unit coverage, "
-                "no finding, and no unverified contour.\n"
+                "failures. Candidate success requires complete unit coverage "
+                "and a PASSED verdict with no finding or unverified contour. "
+                "Canonical verdict semantics: BLOCKED requires a critical finding; "
+                "PASSED_WITH_WARNINGS requires an important finding or "
+                "unverified contour; PASSED permits only minor findings and "
+                "requires no unverified contour.\n"
                 f"HIERARCHICAL_REVIEW_EVIDENCE={canonical_json(integration_input).decode('utf-8')}\n"
                 f"REQUIRED_JSON_SCHEMA={canonical_json(base_schema).decode('utf-8')}\n"
             )
