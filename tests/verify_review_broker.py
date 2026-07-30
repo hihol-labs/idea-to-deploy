@@ -521,6 +521,24 @@ class FakeReviewer:
             "unverified": [],
         }
 
+    def planned_provider_calls(
+        self,
+        candidate: broker.Candidate,
+        reviewer_id: str,
+        policy: dict[str, Any],
+    ) -> int:
+        del candidate, reviewer_id, policy
+        return 1
+
+    def reservation_microusd(
+        self,
+        candidate: broker.Candidate,
+        reviewer_id: str,
+        policy: dict[str, Any],
+    ) -> int:
+        del candidate, reviewer_id
+        return int(policy["budget"]["reservationMicrousd"])
+
     def review(
         self,
         candidate: broker.Candidate,
@@ -533,10 +551,11 @@ class FakeReviewer:
         check("THIS FIELD" not in candidate.review_diff, "patch field ignored")
         if self.failure:
             raise broker.BrokerError(self.failure, "synthetic provider outage")
-        request = (
-            broker.canonical_json(candidate.manifest)
-            + b"\n"
-            + candidate.review_diff.encode("utf-8")
+        request = broker.canonical_json(
+            {
+                "candidateManifest": candidate.manifest,
+                "reviewDiff": candidate.review_diff,
+            }
         )
         return {
             "provider": {
@@ -678,6 +697,137 @@ def candidate_phase() -> None:
         "binary blob rejected",
     )
 
+    github = FakeGitHub()
+    github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    github.new_sha = broker._git_blob_sha(github.new)
+    github.file_row["sha"] = github.new_sha
+    hierarchical = broker.build_candidate(
+        github,
+        "installation-token",
+        coordinates(),
+        policy,
+        check_sha=CHECK_SHA,
+        provenance_receipt_sha256=provenance_sha,
+    )
+    plan = broker.decode_strict_json(
+        hierarchical.review_diff.encode("utf-8"),
+        "hierarchical review plan fixture",
+    )
+    reconstructed = "".join(
+        unit.review_diff for unit in hierarchical.review_units
+    )
+    check(
+        len(hierarchical.review_units) > 1
+        and plan["mode"] == "hierarchical"
+        and plan["unitCount"] == len(hierarchical.review_units),
+        "oversized clean diff becomes a bounded hierarchical plan",
+    )
+    check(
+        broker.sha256_bytes(reconstructed.encode("utf-8"))
+        == plan["fullDiffSha256"]
+        and len(reconstructed.encode("utf-8"))
+        == plan["fullDiffBytes"],
+        "hierarchical units reconstruct the complete canonical diff",
+    )
+    check(
+        all(
+            broker.sha256_bytes(unit.review_diff.encode("utf-8"))
+            == unit.manifest["reviewDiffSha256"]
+            and len(unit.review_diff.encode("utf-8"))
+            == unit.manifest["reviewDiffBytes"]
+            <= policy["candidate"]["maxRawDiffBytes"]
+            for unit in hierarchical.review_units
+        ),
+        "every hierarchical unit is exact and within the single-call bound",
+    )
+    check(
+        hierarchical.manifest["reviewDiffSha256"]
+        == broker.sha256_bytes(hierarchical.review_diff.encode("utf-8")),
+        "candidate manifest binds the hierarchical review plan",
+    )
+    broker.validate_runtime_record(
+        "candidateManifest", hierarchical.manifest
+    )
+
+    first_complete_file = "a" * 60000 + "\n"
+    second_complete_file = "b" * 30000 + "\n"
+    complete_plan, complete_units = broker._review_units(
+        first_complete_file + second_complete_file,
+        [
+            ("first.txt", first_complete_file),
+            ("second.txt", second_complete_file),
+        ],
+        policy,
+    )
+    decoded_complete_plan = broker.decode_strict_json(
+        complete_plan.encode("utf-8"),
+        "complete-file-first plan fixture",
+    )
+    check(
+        len(complete_units) == 2
+        and complete_units[0].manifest["paths"] == ["first.txt"]
+        and complete_units[1].manifest["paths"] == ["second.txt"]
+        and decoded_complete_plan["units"][1]["paths"] == ["second.txt"],
+        "a file that fits an empty unit is never split by prior-unit fill",
+    )
+
+    too_large = FakeGitHub()
+    too_large.new = b"bounded_line = 1\n" * 6000
+    too_large.new_sha = broker._git_blob_sha(too_large.new)
+    too_large.file_row["sha"] = too_large.new_sha
+    too_large_policy = copy.deepcopy(policy)
+    too_large_policy["candidate"]["maxHierarchicalRawDiffBytes"] = 90000
+    expect_error(
+        "UNVERIFIED",
+        lambda: broker.build_candidate(
+            too_large,
+            "installation-token",
+            coordinates(),
+            too_large_policy,
+            check_sha=CHECK_SHA,
+            provenance_receipt_sha256=provenance_sha,
+        ),
+        "diff beyond the hierarchical bound is rejected without truncation",
+    )
+
+    hidden_secret = FakeGitHub()
+    hidden_secret.new = github.new + (
+        b'OPENAI_API_KEY="sk-proj-ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"\n'
+    )
+    hidden_secret.new_sha = broker._git_blob_sha(hidden_secret.new)
+    hidden_secret.file_row["sha"] = hidden_secret.new_sha
+    expect_error(
+        "UNVERIFIED",
+        lambda: broker.build_candidate(
+            hidden_secret,
+            "installation-token",
+            coordinates(),
+            policy,
+            check_sha=CHECK_SHA,
+            provenance_receipt_sha256=provenance_sha,
+        ),
+        "secret in a later hierarchical unit blocks every provider call",
+    )
+
+    unsplittable = FakeGitHub()
+    unsplittable.new = b"x" * 90000 + b"\n"
+    unsplittable.new_sha = broker._git_blob_sha(unsplittable.new)
+    unsplittable.file_row["sha"] = unsplittable.new_sha
+    expect_error(
+        "UNVERIFIED",
+        lambda: broker.build_candidate(
+            unsplittable,
+            "installation-token",
+            coordinates(),
+            policy,
+            check_sha=CHECK_SHA,
+            provenance_receipt_sha256=provenance_sha,
+        ),
+        "a single over-bound diff line is never sliced or truncated",
+    )
+
 
 class StaticResponse:
     def __init__(self, value: dict[str, Any]) -> None:
@@ -759,6 +909,168 @@ def adapter_phase() -> None:
         "missing primary usage rejected",
     )
 
+    large_github = FakeGitHub()
+    large_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    large_github.new_sha = broker._git_blob_sha(large_github.new)
+    large_github.file_row["sha"] = large_github.new_sha
+    large_candidate = broker.build_candidate(
+        large_github,
+        "installation-token",
+        coordinates(),
+        policy,
+        check_sha=CHECK_SHA,
+        provenance_receipt_sha256=provenance_sha,
+    )
+    hierarchical_calls: list[str] = []
+
+    def hierarchical_opener(request, timeout: int):
+        check(timeout == 120, "hierarchical provider timeout bounded")
+        body = broker.decode_strict_json(
+            request.data, "hierarchical request fixture"
+        )
+        name = body["text"]["format"]["name"]
+        hierarchical_calls.append(name)
+        verdict_value = (
+            {
+                "verdict": "PASSED",
+                "findings": [],
+                "unverified": [],
+                "summary": (
+                    "This unit changes generated value assignments; no "
+                    "cross-unit interface or dependency risk was found."
+                ),
+            }
+            if name == "itd_hierarchical_unit_review"
+            else {
+                "verdict": "PASSED",
+                "findings": [],
+                "unverified": [],
+            }
+        )
+        return StaticResponse(
+            {
+                "id": f"resp-hierarchical-{len(hierarchical_calls)}",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(verdict_value),
+                            }
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 100, "output_tokens": 10},
+            }
+        )
+
+    hierarchical_adapter = broker.ReviewerAdapter(
+        "x" * 30, opener=hierarchical_opener
+    )
+    hierarchical_result = hierarchical_adapter.review(
+        large_candidate, "openai-responses-terra", policy
+    )
+    request_bundle = broker.decode_strict_json(
+        hierarchical_result["providerRequest"],
+        "hierarchical provider evidence fixture",
+    )
+    expected_calls = len(large_candidate.review_units) + 1
+    check(
+        request_bundle["plannedCalls"] == expected_calls
+        and len(request_bundle["requests"]) == expected_calls
+        and request_bundle["requests"][-1]["kind"] == "integration",
+        "hierarchical evidence covers every unit and integration call",
+    )
+    check(
+        hierarchical_calls
+        == [
+            *(
+                "itd_hierarchical_unit_review"
+                for _ in large_candidate.review_units
+            ),
+            "itd_external_review",
+        ],
+        "integration runs only after every unit review",
+    )
+    check(
+        hierarchical_result["usage"]
+        == {
+            "inputTokens": 100 * expected_calls,
+            "outputTokens": 10 * expected_calls,
+        }
+        and hierarchical_result["verdict"]
+        == {"verdict": "PASSED", "findings": [], "unverified": []},
+        "hierarchical usage and final verdict are complete aggregates",
+    )
+    check(
+        hierarchical_adapter.reservation_microusd(
+            large_candidate, "openai-responses-terra", policy
+        )
+        == expected_calls * 500000,
+        "hierarchical reservation is bound to planned Terra calls",
+    )
+
+    finding_calls = 0
+
+    def finding_opener(_request, **_kwargs):
+        nonlocal finding_calls
+        finding_calls += 1
+        return StaticResponse(
+            {
+                "id": "resp-unit-finding",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(
+                                    {
+                                        "verdict": "PASSED_WITH_WARNINGS",
+                                        "findings": [
+                                            {
+                                                "severity": "important",
+                                                "confidence": "high",
+                                                "category": "correctness",
+                                                "file": "app.py",
+                                                "line": 1,
+                                                "summary":
+                                                    "synthetic unit finding",
+                                            }
+                                        ],
+                                        "unverified": [],
+                                        "summary":
+                                            "The first unit has a blocking issue.",
+                                    }
+                                ),
+                            }
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 100, "output_tokens": 10},
+            }
+        )
+
+    finding_adapter = broker.ReviewerAdapter(
+        "x" * 30, opener=finding_opener
+    )
+    finding_result = finding_adapter.review(
+        large_candidate, "openai-responses-terra", policy
+    )
+    finding_bundle = broker.decode_strict_json(
+        finding_result["providerRequest"],
+        "hierarchical finding evidence fixture",
+    )
+    check(
+        finding_calls == 1
+        and len(finding_bundle["requests"]) == 1
+        and finding_result["verdict"]["findings"],
+        "first blocking unit stops paid calls without claiming full coverage",
+    )
+
 
 def process_phase() -> None:
     orphan_store, orphan_job = running_store()
@@ -813,6 +1125,215 @@ def process_phase() -> None:
     )
     store.finish_job(job_id, True, result)
     store.close()
+
+    hierarchical_store, hierarchical_job = running_store()
+    hierarchical_github = EvidenceOrderGitHub(hierarchical_store)
+    hierarchical_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    hierarchical_github.new_sha = broker._git_blob_sha(
+        hierarchical_github.new
+    )
+    hierarchical_github.file_row["sha"] = hierarchical_github.new_sha
+    hierarchical_api_calls = 0
+
+    def passing_hierarchical_opener(request, timeout: int):
+        nonlocal hierarchical_api_calls
+        hierarchical_api_calls += 1
+        check(timeout == 120, "end-to-end hierarchical timeout bounded")
+        body = broker.decode_strict_json(
+            request.data, "end-to-end hierarchical request"
+        )
+        unit = (
+            body["text"]["format"]["name"]
+            == "itd_hierarchical_unit_review"
+        )
+        verdict = {
+            "verdict": "PASSED",
+            "findings": [],
+            "unverified": [],
+        }
+        if unit:
+            verdict["summary"] = (
+                "This unit changes generated assignments and exposes no "
+                "cross-unit interface or dependency risk."
+            )
+        return StaticResponse(
+            {
+                "id": f"resp-e2e-hier-{hierarchical_api_calls}",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(verdict),
+                            }
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 100, "output_tokens": 10},
+            }
+        )
+
+    hierarchical_runtime = broker.ReviewBroker(
+        broker.load_policy(),
+        hierarchical_store,
+        hierarchical_github,
+        FakeAuth(),
+        broker.ReviewerAdapter(
+            "x" * 30, opener=passing_hierarchical_opener
+        ),
+    )
+    hierarchical_result = hierarchical_runtime.process(coordinates())
+    check(
+        hierarchical_result["status"] == "PASSED"
+        and hierarchical_result["conclusion"] == "success",
+        "hierarchical exact-candidate review passes end to end",
+    )
+    hierarchical_reservation = hierarchical_store.db.execute(
+        """
+        SELECT amount_microusd,status,usage_json
+        FROM reservations_v2
+        """
+    ).fetchone()
+    check(
+        hierarchical_reservation is not None
+        and hierarchical_reservation["status"] == "settled"
+        and hierarchical_reservation["amount_microusd"]
+        == hierarchical_api_calls * 500000,
+        "hierarchical budget reservation binds the planned Terra call count",
+    )
+    hierarchical_preparation = hierarchical_store.db.execute(
+        """
+        SELECT provider_request_sha256,provider_request_bytes,state
+        FROM review_preparations
+        """
+    ).fetchone()
+    check(
+        hierarchical_preparation is not None
+        and hierarchical_preparation["state"] == "finalized"
+        and hierarchical_preparation["provider_request_bytes"] > 0,
+        "hierarchical provider evidence is durable before success",
+    )
+    hierarchical_store.finish_job(
+        hierarchical_job, True, hierarchical_result
+    )
+    hierarchical_store.close()
+
+    class SwappedPromptAdapter(broker.ReviewerAdapter):
+        def review(self, candidate, reviewer_id, broker_policy):
+            result = super().review(
+                candidate, reviewer_id, broker_policy
+            )
+            evidence = broker.decode_strict_json(
+                result["sanitizedPrompt"].encode("utf-8"),
+                "swapped hierarchical prompt fixture",
+            )
+            evidence["prompts"][0], evidence["prompts"][1] = (
+                evidence["prompts"][1],
+                evidence["prompts"][0],
+            )
+            result["sanitizedPrompt"] = broker.canonical_json(
+                evidence
+            ).decode("utf-8")
+            return result
+
+    swapped_store, _ = running_store()
+    swapped_github = EvidenceOrderGitHub(swapped_store)
+    swapped_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    swapped_github.new_sha = broker._git_blob_sha(swapped_github.new)
+    swapped_github.file_row["sha"] = swapped_github.new_sha
+    swapped_result = broker.ReviewBroker(
+        broker.load_policy(),
+        swapped_store,
+        swapped_github,
+        FakeAuth(),
+        SwappedPromptAdapter(
+            "x" * 30, opener=passing_hierarchical_opener
+        ),
+    ).process(coordinates())
+    check(
+        swapped_result["status"] == "UNVERIFIED"
+        and swapped_result["conclusion"] == "action_required",
+        "swapped unit prompts cannot satisfy durable provider evidence",
+    )
+    swapped_store.close()
+
+    outage_store, _ = running_store()
+    outage_github = EvidenceOrderGitHub(outage_store)
+    outage_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    outage_github.new_sha = broker._git_blob_sha(outage_github.new)
+    outage_github.file_row["sha"] = outage_github.new_sha
+    outage_calls = 0
+
+    def partial_outage_opener(_request, **_kwargs):
+        nonlocal outage_calls
+        outage_calls += 1
+        if outage_calls == 2:
+            raise OSError("synthetic hierarchical outage")
+        return StaticResponse(
+            {
+                "id": "resp-before-outage",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(
+                                    {
+                                        "verdict": "PASSED",
+                                        "findings": [],
+                                        "unverified": [],
+                                        "summary":
+                                            "First unit completed cleanly.",
+                                    }
+                                ),
+                            }
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 100, "output_tokens": 10},
+            }
+        )
+
+    outage_result = broker.ReviewBroker(
+        broker.load_policy(),
+        outage_store,
+        outage_github,
+        FakeAuth(),
+        broker.ReviewerAdapter(
+            "x" * 30, opener=partial_outage_opener
+        ),
+    ).process(coordinates())
+    check(
+        outage_result["status"] == "UNAVAILABLE"
+        and outage_result["conclusion"] == "failure",
+        "hierarchical API outage blocks merge",
+    )
+    uncertain = outage_store.db.execute(
+        """
+        SELECT amount_microusd,status,observed_microusd,usage_json
+        FROM reservations_v2
+        """
+    ).fetchone()
+    check(
+        uncertain is not None
+        and uncertain["status"] == "uncertain"
+        and uncertain["amount_microusd"] > uncertain["observed_microusd"]
+        and uncertain["observed_microusd"] == 500400,
+        "partial outage charges observed usage plus one ambiguous call cap",
+    )
+    check(
+        outage_store.budget_status()["reservedMicrousd"] == 0,
+        "hierarchical outage releases the unused reservation remainder",
+    )
+    outage_store.close()
 
     recovery_store, recovery_job = running_store()
     recovery_github = LostSuccessResponseGitHub(recovery_store)

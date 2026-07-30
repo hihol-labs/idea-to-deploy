@@ -79,13 +79,24 @@ changes return `UNVERIFIED`; content is never silently truncated. One canonical
 sanitizer is shared with the legacy pre-commit hook. Redaction is not a legal or
 governance guarantee, so egress stays default-off.
 
-For `gpt-5.6-sol`, the default single-call bounds are 55,000 raw diff bytes,
-66,500 serialized request bytes, and 5,550 output/reasoning tokens. Treating
-each request byte as a possible token keeps the worst-case priced request below
-the $0.50 per-run ceiling without relying on a heuristic tokenizer estimate.
-Paid automatic retries are disabled by default because two worst-case attempts
-would exceed that ceiling; callers may start a new separately reserved run.
-Larger changes must be split into independently bound review units.
+The broker's direct path accepts at most 80,000 canonical diff bytes and
+100,000 serialized request bytes. A clean diff between that limit and
+1,200,000 bytes is partitioned deterministically at complete-file and UTF-8
+line boundaries into at most 15 exact units. The complete diff is scrubbed
+before partitioning; a single over-limit line, a sixteenth unit, any missing
+unit, or any redaction blocks every success path. Unit hashes and byte counts
+form one candidate-bound review plan. A successful hierarchical result requires
+all unit verdicts plus a final integration verdict over their structured
+behavior/interface summaries.
+
+The monthly broker budget remains $10. Direct calls reserve $0.75. In a
+hierarchical Sol-maker review, each Terra call reserves $0.50; Sol reviewer
+calls reserve $0.75. The broker atomically reserves the complete planned
+call-count before dispatch and settles aggregate primary usage. If one API
+result is ambiguous, it charges observed prior usage plus only that call's cap
+and releases the unused remainder. A large candidate whose worst-case
+reservation does not fit the remaining budget returns `UNAVAILABLE`; splitting
+the PR remains the lower-cost alternative.
 
 Raw API request/response bodies are not logged. Durable artifacts contain only
 the sanitized checker prompt, validated verdict, hashes, bounded telemetry, and
@@ -111,7 +122,7 @@ The broker stores its OpenAI service-account key only in its mounted
 secret/KMS boundary. Candidate code is never executed by a process that can
 read that credential. Reservations and settlements use the broker SQLite
 transaction boundary; exhausted budget, API outage, malformed evidence,
-redaction, unknown maker, oversized candidate, or incomplete pagination
+redaction, unknown maker, over-limit/unsplittable candidate, or incomplete pagination
 publishes `failure`/`action_required`, never `neutral`, `skipped`, or success.
 The canonical contract is
 `skills/_shared/REVIEW_BROKER_POLICY.json`.

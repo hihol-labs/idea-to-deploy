@@ -795,6 +795,7 @@ def main() -> int:
         primitive.canonical_json(external_id_payload)
     )
     prompt = "sanitized prompt"
+    provider_request = primitive.canonical_json({"fixture": True})
     exact_receipt = {
         "repository": REPO,
         "subjectType": "pull_request",
@@ -825,8 +826,8 @@ def main() -> int:
         "reviewDiffBytes": 120,
         "sanitizerVersion": "itd-scrubber-v1",
         "redactionManifest": redaction_manifest,
-        "providerRequestSha256": primitive.sha256_bytes(prompt.encode()),
-        "providerRequestBytes": len(prompt.encode()),
+        "providerRequestSha256": primitive.sha256_bytes(provider_request),
+        "providerRequestBytes": len(provider_request),
         "fileCount": 1,
         "paginationComplete": True,
         "verdictSha256": verdict_sha,
@@ -835,7 +836,7 @@ def main() -> int:
         "observedAt": primitive.now_iso(),
     }
     record_args = {
-        "provider_request": prompt.encode("utf-8"),
+        "provider_request": provider_request,
         "candidate_manifest": candidate_manifest,
         "verdict": verdict,
         "budget_settlement": settlement,
@@ -1120,8 +1121,8 @@ def main() -> int:
         "reviewDiffBytes": 140,
         "sanitizerVersion": "itd-scrubber-v1",
         "redactionManifest": redaction_manifest,
-        "providerRequestSha256": primitive.sha256_bytes(prompt.encode()),
-        "providerRequestBytes": len(prompt.encode()),
+        "providerRequestSha256": primitive.sha256_bytes(provider_request),
+        "providerRequestBytes": len(provider_request),
         "fileCount": 1,
         "paginationComplete": True,
         "verdictSha256": verdict_sha,
@@ -1130,7 +1131,7 @@ def main() -> int:
         "observedAt": primitive.now_iso(),
     }
     merge_args = {
-        "provider_request": prompt.encode("utf-8"),
+        "provider_request": provider_request,
         "candidate_manifest": merge_manifest,
         "verdict": verdict,
         "budget_settlement": merge_settlement,
@@ -1163,7 +1164,7 @@ def main() -> int:
                 }
             ),
             CHECK_AUTH,
-            provider_request=prompt.encode("utf-8"),
+            provider_request=provider_request,
             candidate_manifest=merge_manifest,
             verdict=verdict,
             budget_settlement=wrong_route_settlement,
@@ -1210,7 +1211,7 @@ def main() -> int:
                 }
             ),
             CHECK_AUTH,
-            provider_request=prompt.encode("utf-8"),
+            provider_request=provider_request,
             candidate_manifest=forged_merge_manifest,
             verdict=verdict,
             budget_settlement=forged_settlement,

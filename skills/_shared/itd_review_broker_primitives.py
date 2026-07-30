@@ -62,6 +62,9 @@ SAFE_TEXT_RE = re.compile(r"^[^\r\n]{1,200}$")
 DIFF_HEADER_RE = re.compile(r"^diff --git ", re.MULTILINE)
 HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.MULTILINE)
 MAX_JSON_BYTES = 4 * 1024 * 1024
+PROVIDER_SYSTEM_PROMPT = (
+    "Return only the requested strict structured review verdict."
+)
 JCS_SAFE_INTEGER_MAX = (2**53) - 1
 JCS_SAFE_INTEGER_MIN = -JCS_SAFE_INTEGER_MAX
 JCS_SHORT_ESCAPES = {
@@ -282,6 +285,52 @@ def read_json(path: Path, limit: int = MAX_JSON_BYTES) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise BrokerError("UNVERIFIED", f"{path.name} must contain an object")
     return value
+
+
+def canonical_provider_request(
+    provider: dict[str, Any],
+    prompt: str,
+    response_schema: dict[str, Any],
+    schema_name: str,
+    output_cap: int,
+) -> bytes:
+    """Build the exact credential-free Responses API request body."""
+    if (
+        not isinstance(provider, dict)
+        or not isinstance(provider.get("model"), str)
+        or not provider["model"]
+        or not isinstance(prompt, str)
+        or not isinstance(response_schema, dict)
+        or not re.fullmatch(r"[a-z0-9_]{1,64}", schema_name)
+        or type(output_cap) is not int
+        or output_cap <= 0
+    ):
+        raise BrokerError("UNVERIFIED", "provider request binding is invalid")
+    return canonical_json(
+        {
+            "model": provider["model"],
+            "store": False,
+            "input": [
+                {
+                    "role": "system",
+                    "content": PROVIDER_SYSTEM_PROMPT,
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "max_output_tokens": output_cap,
+            "reasoning": {
+                "effort": str(provider.get("reasoningEffort", "medium"))
+            },
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": schema_name,
+                    "strict": True,
+                    "schema": response_schema,
+                }
+            },
+        }
+    )
 
 
 def _exact_keys(value: Any, keys: set[str], label: str) -> dict[str, Any]:
@@ -1655,7 +1704,10 @@ class BrokerStore:
         return result
 
     def reserve(
-        self, reviewer_id: str, candidate_manifest_sha256: str
+        self,
+        reviewer_id: str,
+        candidate_manifest_sha256: str,
+        amount_microusd: int | None = None,
     ) -> str:
         if reviewer_id not in self.policy["routing"]["reviewers"]:
             raise BrokerError("UNAVAILABLE", "reviewer pricing is unavailable")
@@ -1663,7 +1715,32 @@ class BrokerStore:
             raise BrokerError(
                 "UNVERIFIED", "candidate manifest digest is invalid"
             )
-        amount = self.reservation_microusd
+        amount = (
+            self.reservation_microusd
+            if amount_microusd is None
+            else amount_microusd
+        )
+        if type(amount) is not int or amount <= 0:
+            raise BrokerError(
+                "UNVERIFIED", "reviewer reservation amount is invalid"
+            )
+        if amount != self.reservation_microusd:
+            per_call = self.policy["budget"][
+                "hierarchicalCallReservationMicrousd"
+            ].get(reviewer_id)
+            maximum_calls = int(
+                self.policy["budget"]["maxHierarchicalProviderCalls"]
+            )
+            if (
+                type(per_call) is not int
+                or per_call <= 0
+                or amount % per_call != 0
+                or not 2 <= amount // per_call <= maximum_calls
+            ):
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "hierarchical reviewer reservation is invalid",
+                )
         reservation_id = secrets.token_hex(16)
         period = utc_period()
         with self.immediate() as db:
@@ -1709,6 +1786,96 @@ class BrokerStore:
                 ),
             )
         return reservation_id
+
+    def settle_uncertain(
+        self,
+        reservation_id: str,
+        observed_usage: dict[str, int],
+        ambiguous_microusd: int,
+    ) -> None:
+        with self.immediate() as db:
+            row = db.execute(
+                "SELECT * FROM reservations_v2 WHERE reservation_id=?",
+                (reservation_id,),
+            ).fetchone()
+            if row is None or row["status"] != "reserved":
+                raise BrokerError(
+                    "UNVERIFIED", "budget reservation is not active"
+                )
+            if (
+                not isinstance(observed_usage, dict)
+                or set(observed_usage) != {"inputTokens", "outputTokens"}
+                or any(
+                    type(observed_usage[name]) is not int
+                    or observed_usage[name] < 0
+                    for name in ("inputTokens", "outputTokens")
+                )
+            ):
+                raise BrokerError(
+                    "UNVERIFIED", "observed reviewer usage is invalid"
+                )
+            allowed_caps = {
+                int(self.reservation_microusd),
+                *(
+                    int(value)
+                    for value in self.policy["budget"][
+                        "hierarchicalCallReservationMicrousd"
+                    ].values()
+                    if type(value) is int
+                ),
+            }
+            amount = int(row["amount_microusd"])
+            if (
+                type(ambiguous_microusd) is not int
+                or ambiguous_microusd not in allowed_caps
+                or ambiguous_microusd > amount
+            ):
+                raise BrokerError(
+                    "UNVERIFIED", "ambiguous reviewer charge is invalid"
+                )
+            pricing = self.policy["routing"]["reviewers"].get(
+                row["reviewer_id"]
+            )
+            if not isinstance(pricing, dict):
+                raise BrokerError(
+                    "UNAVAILABLE", "frozen reviewer pricing is unavailable"
+                )
+            try:
+                observed_charge = int((
+                    Decimal(observed_usage["inputTokens"])
+                    * Decimal(str(pricing["inputUsdPerMillion"]))
+                    + Decimal(observed_usage["outputTokens"])
+                    * Decimal(str(pricing["outputUsdPerMillion"]))
+                ).to_integral_value(rounding=ROUND_CEILING))
+            except (InvalidOperation, KeyError, TypeError, ValueError) as exc:
+                raise BrokerError(
+                    "UNAVAILABLE", "frozen reviewer pricing is invalid"
+                ) from exc
+            charge = min(amount, observed_charge + ambiguous_microusd)
+            settled_at = now_iso()
+            db.execute(
+                """
+                UPDATE budget_v2
+                SET reserved_microusd=reserved_microusd-?,
+                    spent_microusd=spent_microusd+?
+                WHERE period=?
+                """,
+                (amount, charge, row["period"]),
+            )
+            db.execute(
+                """
+                UPDATE reservations_v2
+                SET status='uncertain',observed_microusd=?,usage_json=?,
+                    settlement_json=NULL,settlement_sha256=NULL,settled_at=?
+                WHERE reservation_id=?
+                """,
+                (
+                    charge,
+                    canonical_json(observed_usage).decode("utf-8"),
+                    settled_at,
+                    reservation_id,
+                ),
+            )
 
     def settle(
         self, reservation_id: str, usage: dict[str, int] | None
@@ -1986,6 +2153,399 @@ class BrokerStore:
         external_id_sha = sha256_bytes(canonical_json(external_id_payload))
         redaction_manifest = receipt["redactionManifest"]
         redaction_sha = sha256_bytes(canonical_json(redaction_manifest))
+        reservation_binding = True
+        if provider_request is not None:
+            request_evidence = decode_strict_json(
+                provider_request, "provider request evidence"
+            )
+            if (
+                isinstance(request_evidence, dict)
+                and request_evidence.get("version") == 1
+                and request_evidence.get("mode") == "hierarchical"
+            ):
+                if set(request_evidence) != {
+                    "version",
+                    "mode",
+                    "plannedCalls",
+                    "requests",
+                }:
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical provider evidence is not closed",
+                    )
+                planned_calls = request_evidence["plannedCalls"]
+                requests = request_evidence["requests"]
+                maximum_calls = int(
+                    self.policy["budget"][
+                        "maxHierarchicalProviderCalls"
+                    ]
+                )
+                if (
+                    type(planned_calls) is not int
+                    or not 2 <= planned_calls <= maximum_calls
+                    or not isinstance(requests, list)
+                    or not requests
+                    or len(requests) > planned_calls
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical provider evidence coverage is invalid",
+                    )
+                seen_units: set[str] = set()
+                for index, item in enumerate(requests):
+                    if (
+                        not isinstance(item, dict)
+                        or set(item)
+                        != {
+                            "kind",
+                            "unitId",
+                            "sha256",
+                            "bytes",
+                            "outputCap",
+                        }
+                        or item["kind"] not in {"unit", "integration"}
+                        or not re.fullmatch(
+                            r"[0-9a-f]{64}", str(item["sha256"])
+                        )
+                        or type(item["bytes"]) is not int
+                        or not 0 < item["bytes"] <= self.policy[
+                            "candidate"
+                        ]["maxProviderRequestBytes"]
+                        or type(item["outputCap"]) is not int
+                        or item["outputCap"] <= 0
+                    ):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical provider request evidence is invalid",
+                        )
+                    if item["kind"] == "unit":
+                        if (
+                            not isinstance(item["unitId"], str)
+                            or not re.fullmatch(
+                                r"unit-[0-9]{3}", item["unitId"]
+                            )
+                            or item["unitId"] in seen_units
+                        ):
+                            raise BrokerError(
+                                "UNVERIFIED",
+                                "hierarchical unit request evidence is invalid",
+                            )
+                        seen_units.add(item["unitId"])
+                    elif (
+                        item["unitId"] is not None
+                        or index != len(requests) - 1
+                    ):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "integration request evidence is invalid",
+                        )
+                if receipt["status"] == "PASSED" and (
+                    len(requests) != planned_calls
+                    or requests[-1]["kind"] != "integration"
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical success lacks complete provider coverage",
+                    )
+                prompt_evidence = decode_strict_json(
+                    sanitized_prompt.encode("utf-8"),
+                    "hierarchical sanitized prompt evidence",
+                )
+                if (
+                    not isinstance(prompt_evidence, dict)
+                    or set(prompt_evidence)
+                    != {
+                        "version",
+                        "mode",
+                        "reviewPlan",
+                        "prompts",
+                        "unitVerdicts",
+                    }
+                    or prompt_evidence["version"] != 1
+                    or prompt_evidence["mode"] != "hierarchical"
+                    or not isinstance(prompt_evidence["reviewPlan"], str)
+                    or not isinstance(prompt_evidence["prompts"], list)
+                    or any(
+                        not isinstance(value, str)
+                        for value in prompt_evidence["prompts"]
+                    )
+                    or not isinstance(
+                        prompt_evidence["unitVerdicts"], list
+                    )
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical prompt evidence is invalid",
+                    )
+                api_base_schema = json.loads(json.dumps(verdict_schema))
+                api_base_schema.pop("$schema", None)
+                api_base_schema.pop("title", None)
+                api_unit_schema = json.loads(json.dumps(api_base_schema))
+                api_unit_schema["properties"]["summary"] = {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000,
+                }
+                api_unit_schema["required"] = [
+                    *api_unit_schema["required"],
+                    "summary",
+                ]
+                reviewer_definition = self.policy["routing"][
+                    "reviewers"
+                ].get(receipt["checkerReviewerId"])
+                if not isinstance(reviewer_definition, dict):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical reviewer definition is unavailable",
+                    )
+                review_plan_bytes = prompt_evidence[
+                    "reviewPlan"
+                ].encode("utf-8")
+                review_plan = decode_strict_json(
+                    review_plan_bytes, "hierarchical review plan"
+                )
+                if (
+                    not isinstance(review_plan, dict)
+                    or set(review_plan)
+                    != {
+                        "version",
+                        "mode",
+                        "algorithm",
+                        "fullDiffSha256",
+                        "fullDiffBytes",
+                        "unitCount",
+                        "units",
+                    }
+                    or review_plan["version"] != 1
+                    or review_plan["mode"] != "hierarchical"
+                    or review_plan["algorithm"]
+                    != "deterministic-complete-file-then-utf8-line-boundary"
+                    or not re.fullmatch(
+                        r"[0-9a-f]{64}",
+                        str(review_plan["fullDiffSha256"]),
+                    )
+                    or type(review_plan["fullDiffBytes"]) is not int
+                    or not (
+                        self.policy["candidate"]["maxRawDiffBytes"]
+                        < review_plan["fullDiffBytes"]
+                        <= self.policy["candidate"][
+                            "maxHierarchicalRawDiffBytes"
+                        ]
+                    )
+                    or type(review_plan["unitCount"]) is not int
+                    or review_plan["unitCount"] + 1 != planned_calls
+                    or not isinstance(review_plan["units"], list)
+                    or len(review_plan["units"])
+                    != review_plan["unitCount"]
+                    or sha256_bytes(review_plan_bytes)
+                    != candidate_manifest["reviewDiffSha256"]
+                    or len(review_plan_bytes)
+                    != candidate_manifest["reviewDiffBytes"]
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical review plan binding is invalid",
+                    )
+                plan_unit_ids: list[str] = []
+                total_unit_bytes = 0
+                for expected_index, unit_record in enumerate(
+                    review_plan["units"], start=1
+                ):
+                    if (
+                        not isinstance(unit_record, dict)
+                        or set(unit_record)
+                        != {
+                            "id",
+                            "index",
+                            "reviewDiffSha256",
+                            "reviewDiffBytes",
+                            "paths",
+                        }
+                        or unit_record["id"]
+                        != f"unit-{expected_index:03d}"
+                        or unit_record["index"] != expected_index
+                        or not re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            str(unit_record["reviewDiffSha256"]),
+                        )
+                        or type(unit_record["reviewDiffBytes"]) is not int
+                        or not 0 < unit_record["reviewDiffBytes"] <= (
+                            self.policy["candidate"]["maxRawDiffBytes"]
+                        )
+                        or not isinstance(unit_record["paths"], list)
+                        or not unit_record["paths"]
+                        or any(
+                            not isinstance(path, str)
+                            or path not in candidate_manifest["files"]
+                            for path in unit_record["paths"]
+                        )
+                    ):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical review unit binding is invalid",
+                        )
+                    plan_unit_ids.append(unit_record["id"])
+                    total_unit_bytes += unit_record["reviewDiffBytes"]
+                request_unit_ids = [
+                    item["unitId"]
+                    for item in requests
+                    if item["kind"] == "unit"
+                ]
+                if (
+                    total_unit_bytes != review_plan["fullDiffBytes"]
+                    or request_unit_ids
+                    != plan_unit_ids[:len(request_unit_ids)]
+                    or len(prompt_evidence["unitVerdicts"])
+                    != len(request_unit_ids)
+                    or len(prompt_evidence["prompts"]) != len(requests)
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical review coverage does not agree",
+                    )
+
+                def prompt_field(
+                    prompt: str, name: str
+                ) -> Any:
+                    prefix = f"{name}="
+                    values = [
+                        line[len(prefix):]
+                        for line in prompt.splitlines()
+                        if line.startswith(prefix)
+                    ]
+                    if len(values) != 1:
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical prompt field coverage is invalid",
+                        )
+                    return decode_strict_json(
+                        values[0].encode("utf-8"),
+                        f"hierarchical prompt {name}",
+                    )
+
+                candidate_binding_sha = sha256_bytes(
+                    canonical_json(candidate_manifest)
+                )
+                plan_by_id = {
+                    unit["id"]: unit for unit in review_plan["units"]
+                }
+                for item, prompt in zip(
+                    requests, prompt_evidence["prompts"], strict=True
+                ):
+                    is_unit = item["kind"] == "unit"
+                    response_schema = (
+                        api_unit_schema if is_unit else api_base_schema
+                    )
+                    schema_name = (
+                        "itd_hierarchical_unit_review"
+                        if is_unit else "itd_external_review"
+                    )
+                    expected_request = canonical_provider_request(
+                        reviewer_definition,
+                        prompt,
+                        response_schema,
+                        schema_name,
+                        item["outputCap"],
+                    )
+                    if (
+                        len(expected_request) != item["bytes"]
+                        or sha256_bytes(expected_request) != item["sha256"]
+                    ):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical request/prompt binding differs",
+                        )
+                    observed_schema = prompt_field(
+                        prompt, "REQUIRED_JSON_SCHEMA"
+                    )
+                    if observed_schema != response_schema:
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical prompt schema differs",
+                        )
+                    if is_unit:
+                        unit_record = plan_by_id.get(item["unitId"])
+                        expected_binding = {
+                            "candidateManifestSha256":
+                                candidate_binding_sha,
+                            "repository":
+                                candidate_manifest["repository"],
+                            "subjectType":
+                                candidate_manifest["subjectType"],
+                            "headSha": candidate_manifest["headSha"],
+                            "baseSha": candidate_manifest["baseSha"],
+                            "reviewPlanSha256":
+                                candidate_manifest["reviewDiffSha256"],
+                            "changedPaths": sorted(
+                                candidate_manifest["files"],
+                                key=lambda value:
+                                    value.encode("utf-16-be"),
+                            ),
+                            "unit": unit_record,
+                        }
+                        unit_diff = prompt_field(
+                            prompt, "UNTRUSTED_DIFF_UNIT_JSON"
+                        )
+                        if (
+                            unit_record is None
+                            or prompt_field(
+                                prompt, "CANDIDATE_BINDING"
+                            ) != expected_binding
+                            or not isinstance(unit_diff, str)
+                            or sha256_bytes(
+                                unit_diff.encode("utf-8")
+                            ) != unit_record["reviewDiffSha256"]
+                            or len(unit_diff.encode("utf-8"))
+                            != unit_record["reviewDiffBytes"]
+                        ):
+                            raise BrokerError(
+                                "UNVERIFIED",
+                                "hierarchical prompt/unit binding differs",
+                            )
+                    else:
+                        expected_integration = {
+                            "candidateManifest": candidate_manifest,
+                            "reviewPlan": review_plan,
+                            "unitVerdicts":
+                                prompt_evidence["unitVerdicts"],
+                        }
+                        if prompt_field(
+                            prompt, "HIERARCHICAL_REVIEW_EVIDENCE"
+                        ) != expected_integration:
+                            raise BrokerError(
+                                "UNVERIFIED",
+                                "hierarchical integration binding differs",
+                            )
+                per_call = self.policy["budget"][
+                    "hierarchicalCallReservationMicrousd"
+                ].get(receipt["checkerReviewerId"])
+                pricing = reviewer_definition
+                call_costs_bounded = (
+                    type(per_call) is int
+                    and isinstance(pricing, dict)
+                    and all(
+                        (
+                            Decimal(item["bytes"])
+                            * Decimal(str(pricing["inputUsdPerMillion"]))
+                            + Decimal(item["outputCap"])
+                            * Decimal(str(pricing["outputUsdPerMillion"]))
+                        )
+                        <= Decimal(per_call)
+                        for item in requests
+                    )
+                )
+                reservation_binding = (
+                    type(per_call) is int
+                    and call_costs_bounded
+                    and budget_settlement["reservationMicrousd"]
+                    == planned_calls * per_call
+                )
+            else:
+                reservation_binding = (
+                    isinstance(request_evidence, dict)
+                    and budget_settlement["reservationMicrousd"]
+                    == self.policy["budget"]["reservationMicrousd"]
+                )
         common_equal = (
             receipt["policySha256"] == policy_sha
             and receipt["candidateManifestSha256"] == candidate_sha
@@ -2022,6 +2582,7 @@ class BrokerStore:
             and budget_settlement["candidateManifestSha256"] == candidate_sha
             and budget_settlement["reviewerId"] == receipt["checkerReviewerId"]
             and budget_settlement["usage"] == receipt["usage"]
+            and reservation_binding
             and external_id_payload["repository"] == receipt["repository"]
             and external_id_payload["subjectType"] == receipt["subjectType"]
             and external_id_payload["headSha"] == receipt["headSha"]

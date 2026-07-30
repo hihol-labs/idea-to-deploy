@@ -417,12 +417,33 @@ def main() -> int:
         "merge-group coordinates have one authoritative check-run SHA",
     )
     check(
+        policy["candidate"]["maxRawDiffBytes"] == 80000
+        and policy["candidate"]["maxHierarchicalRawDiffBytes"] == 1200000
+        and policy["candidate"]["maxReviewUnits"] == 15
+        and policy["candidate"]["hierarchicalReview"]
+        == {
+            "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
+            "partition":
+                "deterministic-complete-file-then-utf8-line-boundary",
+            "fullDiffScrubbedBeforePartition": True,
+            "reviewPlanBoundByCandidateManifest": True,
+            "allUnitsRequiredForSuccess": True,
+            "integrationVerdictRequiredForSuccess": True,
+            "partialOrMissingUnitDisposition":
+                "UNVERIFIED-action_required",
+            "silentUnitTruncationAllowed": False,
+        },
+        "large candidates require complete bounded hierarchical review",
+    )
+    check(
         {
             "maxFiles",
             "maxEncodedBlobResponseBytes",
             "maxDecodedBlobBytes",
             "maxTotalDecodedBlobBytes",
             "maxRawDiffBytes",
+            "maxHierarchicalRawDiffBytes",
+            "maxReviewUnits",
             "maxProviderRequestBytes",
             "incompletePagination",
             "binaryContent",
@@ -651,7 +672,14 @@ def main() -> int:
     budget = policy["budget"]
     check(
         budget["pricingSource"] == "frozen-selected-reviewer-definition"
-        and budget["reservationAmountUsd"] == "maxReviewUsd"
+        and budget["reservationAmountUsd"]
+        == "direct-maxReviewUsd-or-planned-hierarchical-provider-call-count-times-reviewer-cap"
+        and budget["hierarchicalCallReservationMicrousd"]
+        == {
+            "openai-responses": 750000,
+            "openai-responses-terra": 500000,
+        }
+        and budget["maxHierarchicalProviderCalls"] == 16
         and budget["inputTokenUpperBound"] == "utf8-provider-request-bytes"
         and budget["requestMustSetOutputTokenCap"] is True
         and budget["rounding"] == "decimal-round-up-6-places"
@@ -666,11 +694,13 @@ def main() -> int:
         and budget["totalTokensStored"] is False
         and budget["callerSuppliedCostAccepted"] is False
         and budget["admissionPredicate"]
-        == "settled-month-spend-plus-active-reservations-plus-maxReviewUsd-lte-monthlyUsd"
+        == "settled-month-spend-plus-active-reservations-plus-planned-reservation-lte-monthlyUsd"
         and budget["missingOrInvalidPricing"] == "UNAVAILABLE-no-dispatch"
         and budget["nonpositiveOutputTokenCap"] == "UNAVAILABLE-no-dispatch"
         and budget["actualCostAboveReservation"]
-        == "broker-incident-action_required-no-success",
+        == "broker-incident-action_required-no-success"
+        and budget["hierarchicalUncertainCharge"]
+        == "settled-observed-usage-plus-one-ambiguous-provider-call-cap",
         "budget is bounded conservatively before provider dispatch",
     )
     unknown = policy["routing"]["unknownOrMixedMakerDisposition"]
@@ -719,11 +749,14 @@ def main() -> int:
     check(
         policy["evidence"]["receiptInvariants"]
         == [
-            "providerRequest-contains-exact-candidateManifest-reviewDiff-and-clean-redactionManifest",
+            "provider-evidence-binds-direct-exact-request-or-hierarchical-request-bundle",
             "candidateManifestSha256-equals-embedded-manifest-hash",
-            "provider-request-sha256-equals-exact-bytes-sent-to-reviewer",
-            "provider-request-bytes-equals-exact-bytes-sent-to-reviewer",
-            "provider-request-bytes-lte-candidate-maxProviderRequestBytes",
+            "provider-request-sha256-equals-direct-request-or-hierarchical-evidence-bundle",
+            "provider-request-bytes-equals-direct-request-or-hierarchical-evidence-bundle",
+            "every-provider-request-bytes-lte-candidate-maxProviderRequestBytes",
+            "hierarchical-provider-request-evidence-bundle-binds-every-exact-request-hash-byte-count-unit-and-output-cap",
+            "hierarchical-review-plan-binds-the-complete-scrubbed-diff-and-every-deterministic-unit",
+            "hierarchical-success-requires-all-unit-verdicts-and-one-integration-verdict",
             "validatedVerdictSha256-equals-persisted-validated-verdict",
             "redactionManifestSha256-equals-persisted-redactionManifest",
             "successful-receipt-requires-empty-redactionManifest",

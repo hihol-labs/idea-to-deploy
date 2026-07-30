@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `controlId`; it does not claim blanket coverage and retirement remains a
   human decision.
 
-## [1.95.0] - 2026-07-28
+## [1.95.0] - 2026-07-30
 
 ### Added
 - A provider-neutral exact-candidate external checker transport adds the OpenAI
@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A deterministic shadow-pilot schema measures availability, latency, observed
   token/cost use, unique findings, false positives, and review duplication
   without fabricating live external outcomes.
+- A dedicated GitHub App and always-on review broker bind exact GitHub
+  test-merge coordinates, maker provenance, App-owned Check Runs, immutable
+  enrollment, and atomically settled evidence outside candidate execution.
+- Large clean diffs use a complete-diff-scrubbed deterministic hierarchical
+  review plan: every bounded unit and a final integration verdict are required
+  before success; incomplete coverage never degrades to a partial pass.
 
 ### Changed
 - `/cross-review` remains local opt-in/advisory but now reports typed
@@ -55,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consent/provenance, and exhausted-budget cases fail closed for acceptance.
   Raw API bodies and keys are never persisted; candidate code runs only after
   the API credential leaves the CI environment.
+- Hierarchical provider evidence binds every request hash, byte count, unit,
+  output cap, and aggregate usage. An ambiguous call charges observed usage
+  plus one call cap rather than consuming or releasing an unverifiable amount.
 
 ## [1.94.0] - 2026-07-27
 

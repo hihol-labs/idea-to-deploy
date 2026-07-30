@@ -30,9 +30,9 @@
     },
     {
       "id": "GPG-001-AC2",
-      "criterion": "The selected Responses API reviewer is derived from verified maker provenance, receives only the clean bounded final diff, uses a strict structured verdict, and settles only primary token usage against the frozen integer-microusd budget.",
+      "criterion": "The selected Responses API reviewer is derived from verified maker provenance, receives only the clean bounded final diff, uses a strict structured verdict, and settles only primary token usage against the frozen integer-microusd budget. Diffs above the direct-call bound are scrubbed in full, partitioned without truncation into a bounded deterministic review plan, and can pass only after every unit plus an integration verdict agree.",
       "source": "Approved plan items 2, 3, and 7.",
-      "evidence": "Route, request-bound, invalid-output, missing-usage, outage, overspend, exhaustion, and same-identity mutations fail closed without CLI/OAuth substitution.",
+      "evidence": "Route, request-bound, invalid-output, missing-usage, outage, overspend, exhaustion, same-identity, missing-unit, forged-plan, over-limit-line, and partial-integration mutations fail closed without CLI/OAuth substitution; ambiguous hierarchical calls charge observed usage plus one call cap.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },

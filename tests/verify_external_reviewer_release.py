@@ -74,7 +74,7 @@ def main() -> int:
     ]
     if {row.get("version") for row in manifests} != {VERSION}:
         issues.append("plugin version drift")
-    if f"## [{VERSION}] - 2026-07-28" not in (
+    if f"## [{VERSION}] - 2026-07-30" not in (
             ROOT / "CHANGELOG.md").read_text(encoding="utf-8"):
         issues.append("dated release changelog is absent")
     for path in REQUIRED_FILES:
