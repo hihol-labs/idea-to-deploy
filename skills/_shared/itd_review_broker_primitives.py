@@ -800,6 +800,53 @@ class BrokerStore:
               observed_at TEXT NOT NULL,
               UNIQUE(repository,subject_type,pull_request,head_sha,base_sha)
             );
+            CREATE TABLE IF NOT EXISTS review_preparations (
+              preparation_id TEXT PRIMARY KEY,
+              repository TEXT NOT NULL,
+              subject_type TEXT NOT NULL,
+              pull_request INTEGER NOT NULL,
+              head_sha TEXT NOT NULL,
+              base_sha TEXT NOT NULL,
+              installation_id INTEGER NOT NULL,
+              check_run_id INTEGER NOT NULL UNIQUE,
+              check_run_app_id INTEGER NOT NULL,
+              check_run_external_id TEXT NOT NULL UNIQUE,
+              receipt_template_json TEXT NOT NULL,
+              candidate_manifest_json TEXT NOT NULL,
+              verdict_json TEXT NOT NULL,
+              budget_settlement_json TEXT NOT NULL,
+              external_id_payload_json TEXT NOT NULL,
+              sanitized_prompt TEXT NOT NULL,
+              provider_request_sha256 TEXT NOT NULL,
+              provider_request_bytes INTEGER NOT NULL,
+              evidence_sha256 TEXT NOT NULL,
+              state TEXT NOT NULL
+                CHECK(state IN ('prepared','finalized','failed')),
+              prepared_at TEXT NOT NULL,
+              finalized_at TEXT,
+              failure_reason TEXT,
+              UNIQUE(repository,subject_type,pull_request,head_sha,base_sha)
+            );
+            CREATE TABLE IF NOT EXISTS failure_preparations (
+              preparation_id TEXT PRIMARY KEY,
+              repository TEXT NOT NULL,
+              subject_type TEXT NOT NULL,
+              pull_request INTEGER NOT NULL,
+              head_sha TEXT NOT NULL,
+              base_sha TEXT NOT NULL,
+              installation_id INTEGER NOT NULL,
+              check_run_id INTEGER NOT NULL UNIQUE,
+              check_run_app_id INTEGER NOT NULL,
+              check_run_external_id TEXT NOT NULL UNIQUE,
+              payload_json TEXT NOT NULL UNIQUE,
+              review_preparation_id TEXT,
+              state TEXT NOT NULL
+                CHECK(state IN ('prepared','finalized')),
+              prepared_at TEXT NOT NULL,
+              observed_at TEXT,
+              FOREIGN KEY(review_preparation_id)
+                REFERENCES review_preparations(preparation_id)
+            );
             CREATE TABLE IF NOT EXISTS jobs (
               job_id INTEGER PRIMARY KEY AUTOINCREMENT,
               source_id TEXT NOT NULL UNIQUE,
@@ -1134,6 +1181,33 @@ class BrokerStore:
         if row["expected_app_id"] != app_id:
             raise BrokerError("UNVERIFIED", "repository expects a different GitHub App")
 
+    def enrollment_app_id(self, repository: str) -> int:
+        """Return the App integration id bound by the active enrollment receipt."""
+        with self._lock:
+            row = self.db.execute(
+                """
+                SELECT r.expected_app_id,r.enabled,r.active_receipt_sha256,
+                       e.repository AS receipt_repository,
+                       e.expected_app_id AS receipt_app_id
+                FROM repositories AS r
+                LEFT JOIN enrollment_receipts AS e
+                  ON e.receipt_sha256=r.active_receipt_sha256
+                WHERE r.repository=?
+                """,
+                (repository,),
+            ).fetchone()
+        if (
+            row is None
+            or row["enabled"] != 1
+            or row["active_receipt_sha256"] is None
+            or row["receipt_repository"] != repository
+            or row["receipt_app_id"] != row["expected_app_id"]
+            or type(row["expected_app_id"]) is not int
+            or row["expected_app_id"] <= 0
+        ):
+            raise BrokerError("UNVERIFIED", "repository is not enrolled in broker")
+        return int(row["expected_app_id"])
+
     def put_provenance_and_queue(
         self,
         signed_record: dict[str, Any],
@@ -1265,6 +1339,60 @@ class BrokerStore:
                 "no signed GitHub webhook exists for these provenance coordinates",
             )
         return int(row["installation_id"])
+
+    def waiting_merge_groups(
+        self, repository: str
+    ) -> list[Coordinates]:
+        if not REPO_RE.fullmatch(repository or ""):
+            raise BrokerError(
+                "UNVERIFIED", "merge-group repository is invalid"
+            )
+        with self._lock:
+            rows = self.db.execute(
+                """
+                SELECT repository,pull_request,head_sha,base_sha,installation_id
+                FROM jobs
+                WHERE repository=? AND pull_request=0 AND status='waiting'
+                ORDER BY job_id
+                LIMIT 101
+                """,
+                (repository,),
+            ).fetchall()
+        if len(rows) > 100:
+            raise BrokerError(
+                "UNAVAILABLE", "too many waiting merge groups"
+            )
+        return [
+            Coordinates(
+                row["repository"],
+                int(row["pull_request"]),
+                row["head_sha"],
+                row["base_sha"],
+                int(row["installation_id"]),
+            ).validate()
+            for row in rows
+        ]
+
+    def waiting_merge_group_repositories(self) -> list[str]:
+        with self._lock:
+            rows = self.db.execute(
+                """
+                SELECT DISTINCT repository FROM jobs
+                WHERE pull_request=0 AND status='waiting'
+                ORDER BY repository
+                LIMIT 101
+                """
+            ).fetchall()
+        if len(rows) > 100:
+            raise BrokerError(
+                "UNAVAILABLE", "too many repositories have waiting merge groups"
+            )
+        repositories = [str(row["repository"]) for row in rows]
+        if any(not REPO_RE.fullmatch(value) for value in repositories):
+            raise BrokerError(
+                "UNVERIFIED", "waiting merge-group repository is invalid"
+            )
+        return repositories
 
     def claim(self) -> tuple[int, Coordinates] | None:
         with self.immediate() as db:
@@ -1665,19 +1793,76 @@ class BrokerStore:
             "spentMicrousd": int(row["spent_microusd"]) if row else 0,
         }
 
-    def record_review(
+    def prepare_review(
         self,
-        receipt: dict[str, Any],
-        prompt: str,
+        receipt_template: dict[str, Any],
+        sanitized_prompt: str,
         github_api: "GitHubApi",
         installation_token: str,
         *,
+        provider_request: bytes,
+        candidate_manifest: dict[str, Any],
+        verdict: dict[str, Any],
+        budget_settlement: dict[str, Any],
+        external_id_payload: dict[str, Any],
+    ) -> str:
+        """Durably bind complete evidence before the Check Run can pass."""
+        return self._write_review(
+            "prepare",
+            receipt_template,
+            sanitized_prompt,
+            github_api,
+            installation_token,
+            provider_request=provider_request,
+            candidate_manifest=candidate_manifest,
+            verdict=verdict,
+            budget_settlement=budget_settlement,
+            external_id_payload=external_id_payload,
+        )
+
+    def record_review(
+        self,
+        receipt: dict[str, Any],
+        sanitized_prompt: str,
+        github_api: "GitHubApi",
+        installation_token: str,
+        *,
+        provider_request: bytes | None,
         candidate_manifest: dict[str, Any],
         verdict: dict[str, Any],
         budget_settlement: dict[str, Any],
         external_id_payload: dict[str, Any],
     ) -> str:
         """Persist only a closed, cross-bound exact-candidate broker receipt."""
+        return self._write_review(
+            "finalize",
+            receipt,
+            sanitized_prompt,
+            github_api,
+            installation_token,
+            provider_request=provider_request,
+            candidate_manifest=candidate_manifest,
+            verdict=verdict,
+            budget_settlement=budget_settlement,
+            external_id_payload=external_id_payload,
+        )
+
+    def _write_review(
+        self,
+        phase: str,
+        receipt: dict[str, Any],
+        sanitized_prompt: str,
+        github_api: "GitHubApi",
+        installation_token: str,
+        *,
+        provider_request: bytes | None,
+        candidate_manifest: dict[str, Any],
+        verdict: dict[str, Any],
+        budget_settlement: dict[str, Any],
+        external_id_payload: dict[str, Any],
+    ) -> str:
+        if phase not in {"prepare", "finalize"}:
+            raise BrokerError("UNVERIFIED", "review evidence phase is invalid")
         validate_runtime_record("brokerReceipt", receipt)
         validate_runtime_record("candidateManifest", candidate_manifest)
         validate_runtime_record("budgetSettlement", budget_settlement)
@@ -1689,10 +1874,12 @@ class BrokerStore:
             raise BrokerError(
                 "UNVERIFIED", "reviewer verdict violates its closed schema"
             ) from exc
-        if (
-            not isinstance(prompt, str)
-        ):
+        if not isinstance(sanitized_prompt, str):
             raise BrokerError("UNVERIFIED", "review publication evidence is invalid")
+        if phase == "prepare" and not isinstance(provider_request, bytes):
+            raise BrokerError("UNVERIFIED", "provider request evidence is invalid")
+        if provider_request is not None and not isinstance(provider_request, bytes):
+            raise BrokerError("UNVERIFIED", "provider request evidence is invalid")
 
         installation_id = int(receipt["installationId"])
         check_publication = receipt["checkPublication"]
@@ -1727,17 +1914,40 @@ class BrokerStore:
             "status": observed_check.get("status"),
             "conclusion": observed_check.get("conclusion"),
         }
-        try:
-            validate_runtime_record("checkPublication", observed_publication)
-        except BrokerError as exc:
-            raise BrokerError(
-                "UNVERIFIED", "GitHub check publication is incomplete"
-            ) from exc
-        if observed_publication != check_publication:
-            raise BrokerError(
-                "UNVERIFIED", "GitHub check publication differs from receipt"
-            )
-        prompt_bytes = prompt.encode("utf-8")
+        if phase == "prepare":
+            intended_identity = {
+                key: check_publication[key]
+                for key in (
+                    "id",
+                    "appIntegrationId",
+                    "name",
+                    "headSha",
+                    "externalId",
+                )
+            }
+            observed_identity = {
+                key: observed_publication[key] for key in intended_identity
+            }
+            if (
+                observed_identity != intended_identity
+                or observed_publication["status"] != "in_progress"
+                or observed_publication["conclusion"] is not None
+            ):
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "pre-publication Check Run identity is not exact",
+                )
+        else:
+            try:
+                validate_runtime_record("checkPublication", observed_publication)
+            except BrokerError as exc:
+                raise BrokerError(
+                    "UNVERIFIED", "GitHub check publication is incomplete"
+                ) from exc
+            if observed_publication != check_publication:
+                raise BrokerError(
+                    "UNVERIFIED", "GitHub check publication differs from receipt"
+                )
         policy_sha = sha256_bytes(POLICY_PATH.read_bytes())
         candidate_sha = sha256_bytes(canonical_json(candidate_manifest))
         verdict_sha = sha256_bytes(canonical_json(verdict))
@@ -1751,9 +1961,17 @@ class BrokerStore:
             and receipt["verdictSha256"] == verdict_sha
             and receipt["budgetSettlementSha256"] == settlement_sha
             and receipt["externalIdPayloadSha256"] == external_id_sha
-            and receipt["providerRequestSha256"] == sha256_bytes(prompt_bytes)
-            and receipt["providerRequestBytes"] == len(prompt_bytes)
-            and len(prompt_bytes) <= self.policy["candidate"]["maxProviderRequestBytes"]
+            and (
+                provider_request is None
+                or receipt["providerRequestSha256"]
+                == sha256_bytes(provider_request)
+            )
+            and (
+                provider_request is None
+                or receipt["providerRequestBytes"] == len(provider_request)
+            )
+            and receipt["providerRequestBytes"]
+            <= self.policy["candidate"]["maxProviderRequestBytes"]
             and receipt["repository"] == candidate_manifest["repository"]
             and receipt["subjectType"] == candidate_manifest["subjectType"]
             and receipt["headSha"] == candidate_manifest["headSha"]
@@ -1848,11 +2066,15 @@ class BrokerStore:
             ).fetchone()
             if (
                 job is None
-                or job["status"] != "running"
                 or job["installation_id"] != installation_id
+                or (
+                    phase == "prepare"
+                    and job["status"] != "running"
+                )
             ):
                 raise BrokerError(
-                    "UNVERIFIED", "receipt has no matching running candidate"
+                    "UNVERIFIED",
+                    "receipt has no matching candidate in the required phase",
                 )
             enrollment = db.execute(
                 """
@@ -1996,6 +2218,121 @@ class BrokerStore:
                         "UNVERIFIED",
                         "merge-group receipt does not use the mandatory maker route",
                     )
+            receipt_for_preparation = dict(receipt)
+            receipt_for_preparation.pop("observedAt", None)
+            prepared_evidence = {
+                "receiptTemplate": receipt_for_preparation,
+                "candidateManifest": candidate_manifest,
+                "verdict": verdict,
+                "budgetSettlement": budget_settlement,
+                "externalIdPayload": external_id_payload,
+                "sanitizedPromptSha256": sha256_bytes(
+                    sanitized_prompt.encode("utf-8")
+                ),
+                "providerRequestSha256": receipt["providerRequestSha256"],
+                "providerRequestBytes": receipt["providerRequestBytes"],
+            }
+            prepared_evidence_sha = sha256_bytes(
+                canonical_json(prepared_evidence)
+            )
+            preparation_id = prepared_evidence_sha[:32]
+            receipt_template_json = canonical_json(receipt).decode("utf-8")
+            candidate_json = canonical_json(candidate_manifest).decode("utf-8")
+            verdict_json = canonical_json(verdict).decode("utf-8")
+            settlement_json = canonical_json(budget_settlement).decode("utf-8")
+            external_json = canonical_json(external_id_payload).decode("utf-8")
+            if phase == "prepare":
+                try:
+                    db.execute(
+                        """
+                        INSERT INTO review_preparations(
+                          preparation_id,repository,subject_type,pull_request,
+                          head_sha,base_sha,installation_id,check_run_id,
+                          check_run_app_id,check_run_external_id,
+                          receipt_template_json,candidate_manifest_json,
+                          verdict_json,budget_settlement_json,
+                          external_id_payload_json,sanitized_prompt,
+                          provider_request_sha256,provider_request_bytes,
+                          evidence_sha256,state,prepared_at
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        """,
+                        (
+                            preparation_id,
+                            receipt["repository"],
+                            receipt["subjectType"],
+                            pull_request,
+                            receipt["headSha"],
+                            receipt["baseSha"],
+                            installation_id,
+                            check_run_id,
+                            check_publication["appIntegrationId"],
+                            check_publication["externalId"],
+                            receipt_template_json,
+                            candidate_json,
+                            verdict_json,
+                            settlement_json,
+                            external_json,
+                            sanitized_prompt,
+                            receipt["providerRequestSha256"],
+                            receipt["providerRequestBytes"],
+                            prepared_evidence_sha,
+                            "prepared",
+                            now_iso(),
+                        ),
+                    )
+                except sqlite3.IntegrityError as exc:
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "candidate or Check Run already has a preparation",
+                    ) from exc
+                return preparation_id
+
+            preparation = db.execute(
+                """
+                SELECT * FROM review_preparations
+                WHERE check_run_id=? AND repository=? AND subject_type=?
+                  AND pull_request=? AND head_sha=? AND base_sha=?
+                """,
+                (
+                    check_run_id,
+                    receipt["repository"],
+                    receipt["subjectType"],
+                    pull_request,
+                    receipt["headSha"],
+                    receipt["baseSha"],
+                ),
+            ).fetchone()
+            if preparation is None:
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "published Check Run has no durable pre-publication evidence",
+                )
+            stored_template = decode_strict_json(
+                preparation["receipt_template_json"].encode("utf-8"),
+                "stored review receipt template",
+            )
+            stored_without_observed = dict(stored_template)
+            stored_without_observed.pop("observedAt", None)
+            exact_preparation = (
+                preparation["state"] in {"prepared", "finalized"}
+                and stored_without_observed == receipt_for_preparation
+                and preparation["candidate_manifest_json"] == candidate_json
+                and preparation["verdict_json"] == verdict_json
+                and preparation["budget_settlement_json"] == settlement_json
+                and preparation["external_id_payload_json"] == external_json
+                and preparation["sanitized_prompt"] == sanitized_prompt
+                and preparation["provider_request_sha256"]
+                == receipt["providerRequestSha256"]
+                and preparation["provider_request_bytes"]
+                == receipt["providerRequestBytes"]
+                and preparation["evidence_sha256"]
+                == prepared_evidence_sha
+            )
+            if not exact_preparation:
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "final publication differs from durable preparation",
+                )
             evidence = {
                 "receipt": receipt,
                 "candidateManifest": candidate_manifest,
@@ -2005,6 +2342,24 @@ class BrokerStore:
             }
             evidence_sha = sha256_bytes(canonical_json(evidence))
             receipt_id = evidence_sha[:32]
+            if preparation["state"] == "finalized":
+                existing = db.execute(
+                    """
+                    SELECT receipt_id,evidence_sha256 FROM reviews_v3
+                    WHERE check_run_id=?
+                    """,
+                    (check_run_id,),
+                ).fetchone()
+                if (
+                    existing is None
+                    or existing["receipt_id"] != receipt_id
+                    or existing["evidence_sha256"] != evidence_sha
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "finalized preparation has inconsistent evidence",
+                    )
+                return receipt_id
             try:
                 db.execute(
                     """
@@ -2029,11 +2384,11 @@ class BrokerStore:
                         check_publication["appIntegrationId"],
                         check_publication["externalId"],
                         canonical_json(receipt).decode("utf-8"),
-                        canonical_json(candidate_manifest).decode("utf-8"),
-                        canonical_json(verdict).decode("utf-8"),
-                        canonical_json(budget_settlement).decode("utf-8"),
-                        canonical_json(external_id_payload).decode("utf-8"),
-                        prompt,
+                        candidate_json,
+                        verdict_json,
+                        settlement_json,
+                        external_json,
+                        sanitized_prompt,
                         evidence_sha,
                         receipt["observedAt"],
                     ),
@@ -2043,7 +2398,627 @@ class BrokerStore:
                     "UNVERIFIED",
                     "candidate or published check already has immutable evidence",
                 ) from exc
+            changed = db.execute(
+                """
+                UPDATE review_preparations
+                SET state='finalized',finalized_at=?,failure_reason=NULL
+                WHERE preparation_id=? AND state='prepared'
+                """,
+                (now_iso(), preparation["preparation_id"]),
+            ).rowcount
+            if changed != 1:
+                raise BrokerError(
+                    "UNVERIFIED", "review preparation did not finalize atomically"
+                )
         return receipt_id
+
+    def prepare_failure_publication(
+        self,
+        coordinates: Coordinates,
+        check_sha: str,
+        app_integration_id: int,
+        check_run_id: int,
+        external_id: str,
+        status: str,
+        conclusion: str,
+        reason: str,
+        github_api: "GitHubApi",
+        installation_token: str,
+        *,
+        review_preparation_id: str | None = None,
+    ) -> str:
+        """Durably explain a fail-closed terminal Check before its PATCH."""
+        coordinates.validate()
+        if (
+            not re.fullmatch(r"[0-9a-f]{40}", check_sha or "")
+            or type(app_integration_id) is not int
+            or app_integration_id <= 0
+            or type(check_run_id) is not int
+            or check_run_id <= 0
+            or not re.fullmatch(r"[0-9a-f]{64}", external_id or "")
+            or not isinstance(reason, str)
+            or not 1 <= len(reason) <= 1000
+            or (
+                review_preparation_id is not None
+                and not re.fullmatch(
+                    r"[0-9a-f]{32}", review_preparation_id
+                )
+            )
+        ):
+            raise BrokerError(
+                "UNVERIFIED", "failure publication evidence is invalid"
+            )
+        expected_conclusion = (
+            self.policy["github"]["externalCheck"]["unavailableConclusion"]
+            if status == "UNAVAILABLE"
+            else self.policy["github"]["externalCheck"]["unverifiedConclusion"]
+            if status == "UNVERIFIED"
+            else None
+        )
+        if expected_conclusion is None or conclusion != expected_conclusion:
+            raise BrokerError(
+                "UNVERIFIED", "failure publication status/conclusion is invalid"
+            )
+        if not isinstance(github_api, GitHubApi) or not re.fullmatch(
+            r"[^\s]{1,4096}", installation_token or ""
+        ):
+            raise BrokerError(
+                "UNAVAILABLE", "GitHub failure publication observer is unavailable"
+            )
+        observed = github_api.request_json(
+            "GET",
+            f"/repos/{coordinates.repository}/check-runs/{check_run_id}",
+            installation_token,
+        )
+        app = observed.get("app") if isinstance(observed, dict) else None
+        observed_identity = {
+            "id": observed.get("id") if isinstance(observed, dict) else None,
+            "appIntegrationId": (
+                app.get("id") if isinstance(app, dict) else None
+            ),
+            "name": observed.get("name") if isinstance(observed, dict) else None,
+            "headSha": (
+                observed.get("head_sha") if isinstance(observed, dict) else None
+            ),
+            "externalId": (
+                observed.get("external_id")
+                if isinstance(observed, dict) else None
+            ),
+        }
+        intended_identity = {
+            "id": check_run_id,
+            "appIntegrationId": app_integration_id,
+            "name": self.policy["github"]["externalCheck"]["name"],
+            "headSha": check_sha,
+            "externalId": external_id,
+        }
+        observed_status = (
+            observed.get("status") if isinstance(observed, dict) else None
+        )
+        observed_conclusion = (
+            observed.get("conclusion") if isinstance(observed, dict) else None
+        )
+        if (
+            observed_identity != intended_identity
+            or observed_status not in {"in_progress", "completed"}
+            or (
+                observed_status == "in_progress"
+                and observed_conclusion is not None
+            )
+            or (
+                observed_status == "completed"
+                and observed_conclusion
+                not in {"success", "failure", "action_required"}
+            )
+        ):
+            raise BrokerError(
+                "UNVERIFIED",
+                "failure publication source Check Run is not exact",
+            )
+        publication = {
+            **intended_identity,
+            "status": "completed",
+            "conclusion": conclusion,
+        }
+        payload = {
+            "version": 1,
+            "repository": coordinates.repository,
+            "subjectType": coordinates.subject_type,
+            "pullRequest": coordinates.pull_request,
+            "headSha": coordinates.head_sha,
+            "baseSha": coordinates.base_sha,
+            "installationId": coordinates.installation_id,
+            "checkPublication": publication,
+            "failureStatus": status,
+            "failureReasonSha256": sha256_bytes(reason.encode("utf-8")),
+            "reviewPreparationId": review_preparation_id,
+            "preparedAt": now_iso(),
+        }
+        payload_json = canonical_json(payload).decode("utf-8")
+        preparation_id = sha256_bytes(payload_json.encode("utf-8"))[:32]
+        with self.immediate() as db:
+            job = db.execute(
+                """
+                SELECT installation_id FROM jobs
+                WHERE repository=? AND pull_request=? AND head_sha=? AND base_sha=?
+                """,
+                (
+                    coordinates.repository,
+                    coordinates.pull_request,
+                    coordinates.head_sha,
+                    coordinates.base_sha,
+                ),
+            ).fetchone()
+            enrollment = db.execute(
+                """
+                SELECT expected_app_id,enabled,active_receipt_sha256
+                FROM repositories WHERE repository=?
+                """,
+                (coordinates.repository,),
+            ).fetchone()
+            if (
+                job is None
+                or job["installation_id"] != coordinates.installation_id
+                or enrollment is None
+                or enrollment["enabled"] != 1
+                or enrollment["active_receipt_sha256"] is None
+                or enrollment["expected_app_id"] != app_integration_id
+            ):
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "failure publication lacks an enrolled exact candidate",
+                )
+            if review_preparation_id is not None:
+                review_preparation = db.execute(
+                    """
+                    SELECT check_run_id,state FROM review_preparations
+                    WHERE preparation_id=?
+                    """,
+                    (review_preparation_id,),
+                ).fetchone()
+                if (
+                    review_preparation is None
+                    or review_preparation["check_run_id"] != check_run_id
+                    or review_preparation["state"] != "prepared"
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "failure publication review preparation is not exact",
+                    )
+            try:
+                db.execute(
+                    """
+                    INSERT INTO failure_preparations(
+                      preparation_id,repository,subject_type,pull_request,
+                      head_sha,base_sha,installation_id,check_run_id,
+                      check_run_app_id,check_run_external_id,payload_json,
+                      review_preparation_id,state,prepared_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        preparation_id,
+                        coordinates.repository,
+                        coordinates.subject_type,
+                        coordinates.pull_request,
+                        coordinates.head_sha,
+                        coordinates.base_sha,
+                        coordinates.installation_id,
+                        check_run_id,
+                        app_integration_id,
+                        external_id,
+                        payload_json,
+                        review_preparation_id,
+                        "prepared",
+                        payload["preparedAt"],
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "Check Run already has immutable failure evidence",
+                ) from exc
+        return preparation_id
+
+    def authorize_terminal_publication(
+        self,
+        evidence_kind: str,
+        preparation_id: str,
+        check_run_id: int,
+        app_integration_id: int,
+        external_id: str,
+        conclusion: str,
+    ) -> None:
+        """Fail closed unless the exact terminal PATCH already has evidence."""
+        if evidence_kind == "review":
+            with self._lock:
+                row = self.db.execute(
+                    """
+                    SELECT receipt_template_json,state
+                    FROM review_preparations WHERE preparation_id=?
+                    """,
+                    (preparation_id,),
+                ).fetchone()
+            publication = (
+                decode_strict_json(
+                    row["receipt_template_json"].encode("utf-8"),
+                    "stored review receipt template",
+                )["checkPublication"]
+                if row is not None and row["state"] == "prepared"
+                else None
+            )
+        elif evidence_kind == "failure":
+            with self._lock:
+                row = self.db.execute(
+                    """
+                    SELECT payload_json,state FROM failure_preparations
+                    WHERE preparation_id=?
+                    """,
+                    (preparation_id,),
+                ).fetchone()
+            publication = (
+                decode_strict_json(
+                    row["payload_json"].encode("utf-8"),
+                    "stored failure publication",
+                )["checkPublication"]
+                if row is not None and row["state"] == "prepared"
+                else None
+            )
+        else:
+            raise BrokerError(
+                "UNVERIFIED", "terminal publication evidence kind is invalid"
+            )
+        expected = {
+            "id": check_run_id,
+            "appIntegrationId": app_integration_id,
+            "externalId": external_id,
+            "conclusion": conclusion,
+        }
+        if not isinstance(publication, dict) or any(
+            publication.get(key) != value for key, value in expected.items()
+        ):
+            raise BrokerError(
+                "UNVERIFIED",
+                "terminal Check Run PATCH has no exact durable preparation",
+            )
+
+    def record_failure_publication(
+        self,
+        preparation_id: str,
+        github_api: "GitHubApi",
+        installation_token: str,
+    ) -> None:
+        with self._lock:
+            row = self.db.execute(
+                """
+                SELECT * FROM failure_preparations WHERE preparation_id=?
+                """,
+                (preparation_id,),
+            ).fetchone()
+        if row is None:
+            raise BrokerError(
+                "UNVERIFIED", "failure publication preparation is missing"
+            )
+        if row["state"] == "finalized":
+            return
+        payload = decode_strict_json(
+            row["payload_json"].encode("utf-8"),
+            "stored failure publication",
+        )
+        expected = payload["checkPublication"]
+        observed = github_api.request_json(
+            "GET",
+            f"/repos/{payload['repository']}/check-runs/{expected['id']}",
+            installation_token,
+        )
+        app = observed.get("app") if isinstance(observed, dict) else None
+        actual = {
+            "id": observed.get("id") if isinstance(observed, dict) else None,
+            "appIntegrationId": (
+                app.get("id") if isinstance(app, dict) else None
+            ),
+            "name": observed.get("name") if isinstance(observed, dict) else None,
+            "headSha": (
+                observed.get("head_sha") if isinstance(observed, dict) else None
+            ),
+            "externalId": (
+                observed.get("external_id")
+                if isinstance(observed, dict) else None
+            ),
+            "status": (
+                observed.get("status") if isinstance(observed, dict) else None
+            ),
+            "conclusion": (
+                observed.get("conclusion")
+                if isinstance(observed, dict) else None
+            ),
+        }
+        if actual != expected:
+            raise BrokerError(
+                "UNVERIFIED", "failure Check Run final observation differs"
+            )
+        with self.immediate() as db:
+            changed = db.execute(
+                """
+                UPDATE failure_preparations
+                SET state='finalized',observed_at=?
+                WHERE preparation_id=? AND state='prepared'
+                """,
+                (now_iso(), preparation_id),
+            ).rowcount
+            if changed != 1:
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "failure publication did not finalize atomically",
+                )
+            if row["review_preparation_id"] is not None:
+                db.execute(
+                    """
+                    UPDATE review_preparations
+                    SET state='failed',failure_reason=?
+                    WHERE preparation_id=? AND state='prepared'
+                    """,
+                    (
+                        "terminal publication downgraded with durable evidence",
+                        row["review_preparation_id"],
+                    ),
+                )
+
+    def pending_failure_preparations(
+        self, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise BrokerError("UNVERIFIED", "failure recovery limit is invalid")
+        with self._lock:
+            rows = self.db.execute(
+                """
+                SELECT f.*,j.job_id
+                FROM failure_preparations AS f
+                JOIN jobs AS j
+                  ON j.repository=f.repository
+                 AND j.pull_request=f.pull_request
+                 AND j.head_sha=f.head_sha
+                 AND j.base_sha=f.base_sha
+                WHERE f.state='prepared'
+                ORDER BY f.prepared_at,f.preparation_id
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "preparationId": row["preparation_id"],
+                "jobId": int(row["job_id"]),
+                "coordinates": Coordinates(
+                    row["repository"],
+                    int(row["pull_request"]),
+                    row["head_sha"],
+                    row["base_sha"],
+                    int(row["installation_id"]),
+                ).validate(),
+                "payload": decode_strict_json(
+                    row["payload_json"].encode("utf-8"),
+                    "stored failure publication",
+                ),
+            }
+            for row in rows
+        ]
+
+    def pending_review_preparations(
+        self, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Return bounded durable publications that need GitHub reconciliation."""
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise BrokerError("UNVERIFIED", "preparation recovery limit is invalid")
+        with self._lock:
+            rows = self.db.execute(
+                """
+                SELECT p.*,j.job_id
+                FROM review_preparations AS p
+                JOIN jobs AS j
+                  ON j.repository=p.repository
+                 AND j.pull_request=p.pull_request
+                 AND j.head_sha=p.head_sha
+                 AND j.base_sha=p.base_sha
+                WHERE p.state='prepared'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM failure_preparations AS f
+                    WHERE f.review_preparation_id=p.preparation_id
+                  )
+                ORDER BY p.prepared_at,p.preparation_id
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            result.append(
+                {
+                    "preparationId": row["preparation_id"],
+                    "jobId": int(row["job_id"]),
+                    "coordinates": Coordinates(
+                        row["repository"],
+                        int(row["pull_request"]),
+                        row["head_sha"],
+                        row["base_sha"],
+                        int(row["installation_id"]),
+                    ).validate(),
+                    "receiptTemplate": decode_strict_json(
+                        row["receipt_template_json"].encode("utf-8"),
+                        "stored review receipt template",
+                    ),
+                    "candidateManifest": decode_strict_json(
+                        row["candidate_manifest_json"].encode("utf-8"),
+                        "stored candidate manifest",
+                    ),
+                    "verdict": decode_strict_json(
+                        row["verdict_json"].encode("utf-8"),
+                        "stored reviewer verdict",
+                    ),
+                    "budgetSettlement": decode_strict_json(
+                        row["budget_settlement_json"].encode("utf-8"),
+                        "stored budget settlement",
+                    ),
+                    "externalIdPayload": decode_strict_json(
+                        row["external_id_payload_json"].encode("utf-8"),
+                        "stored external-id payload",
+                    ),
+                    "sanitizedPrompt": row["sanitized_prompt"],
+                    "providerRequestSha256": row["provider_request_sha256"],
+                    "providerRequestBytes": int(row["provider_request_bytes"]),
+                }
+            )
+        return result
+
+    def fail_review_preparation(
+        self, preparation_id: str, reason: str
+    ) -> None:
+        if not re.fullmatch(r"[0-9a-f]{32}", preparation_id or ""):
+            raise BrokerError("UNVERIFIED", "review preparation id is invalid")
+        if not isinstance(reason, str) or not 1 <= len(reason) <= 500:
+            raise BrokerError("UNVERIFIED", "review preparation failure is invalid")
+        with self.immediate() as db:
+            row = db.execute(
+                """
+                SELECT state FROM review_preparations
+                WHERE preparation_id=?
+                """,
+                (preparation_id,),
+            ).fetchone()
+            if row is None:
+                raise BrokerError("UNVERIFIED", "review preparation is missing")
+            if row["state"] == "finalized":
+                raise BrokerError(
+                    "UNVERIFIED", "finalized review preparation cannot fail"
+                )
+            if row["state"] == "failed":
+                return
+            db.execute(
+                """
+                UPDATE review_preparations
+                SET state='failed',failure_reason=?
+                WHERE preparation_id=? AND state='prepared'
+                """,
+                (reason, preparation_id),
+            )
+
+    def reconcile_interrupted_jobs(self) -> dict[str, int]:
+        """Recover single-worker jobs left running by a terminated process."""
+        counts = {"requeued": 0, "completed": 0, "failed": 0, "pending": 0}
+        with self.immediate() as db:
+            rows = db.execute(
+                """
+                SELECT j.job_id,
+                       p.state AS review_state,p.receipt_template_json,
+                       f.state AS failure_state,f.payload_json
+                FROM jobs AS j
+                LEFT JOIN review_preparations AS p
+                  ON p.repository=j.repository
+                 AND p.pull_request=j.pull_request
+                 AND p.head_sha=j.head_sha
+                 AND p.base_sha=j.base_sha
+                LEFT JOIN failure_preparations AS f
+                  ON f.repository=j.repository
+                 AND f.pull_request=j.pull_request
+                 AND f.head_sha=j.head_sha
+                 AND f.base_sha=j.base_sha
+                WHERE j.status='running'
+                ORDER BY j.job_id
+                """
+            ).fetchall()
+            for row in rows:
+                failure_state = row["failure_state"]
+                review_state = row["review_state"]
+                if failure_state == "prepared":
+                    counts["pending"] += 1
+                    continue
+                if failure_state == "finalized":
+                    failure = decode_strict_json(
+                        row["payload_json"].encode("utf-8"),
+                        "stored failure publication",
+                    )
+                    result = {
+                        "receiptId": None,
+                        "status": failure["failureStatus"],
+                        "conclusion": failure["checkPublication"]["conclusion"],
+                        "checkRunId": failure["checkPublication"]["id"],
+                    }
+                    db.execute(
+                        """
+                        UPDATE jobs SET status='failed',result_json=?,updated_at=?
+                        WHERE job_id=? AND status='running'
+                        """,
+                        (
+                            json.dumps(
+                                result, ensure_ascii=False, sort_keys=True
+                            ),
+                            now_iso(),
+                            row["job_id"],
+                        ),
+                    )
+                    counts["failed"] += 1
+                    continue
+                if review_state is None:
+                    db.execute(
+                        """
+                        UPDATE jobs SET status='queued',updated_at=?
+                        WHERE job_id=? AND status='running'
+                        """,
+                        (now_iso(), row["job_id"]),
+                    )
+                    counts["requeued"] += 1
+                    continue
+                if review_state == "prepared":
+                    counts["pending"] += 1
+                    continue
+                receipt = decode_strict_json(
+                    row["receipt_template_json"].encode("utf-8"),
+                    "stored review receipt template",
+                )
+                if review_state == "finalized":
+                    review = db.execute(
+                        """
+                        SELECT receipt_id FROM reviews_v3
+                        WHERE check_run_id=?
+                        """,
+                        (receipt["checkPublication"]["id"],),
+                    ).fetchone()
+                    if review is None:
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "finalized preparation has no durable review",
+                        )
+                    result = {
+                        "receiptId": review["receipt_id"],
+                        "status": receipt["status"],
+                        "conclusion": receipt["checkPublication"]["conclusion"],
+                        "checkRunId": receipt["checkPublication"]["id"],
+                    }
+                    next_status = "completed"
+                    counts["completed"] += 1
+                else:
+                    result = {
+                        "receiptId": None,
+                        "status": "UNVERIFIED",
+                        "conclusion": self.policy["github"]["externalCheck"][
+                            "unverifiedConclusion"
+                        ],
+                        "checkRunId": receipt["checkPublication"]["id"],
+                    }
+                    next_status = "failed"
+                    counts["failed"] += 1
+                db.execute(
+                    """
+                    UPDATE jobs SET status=?,result_json=?,updated_at=?
+                    WHERE job_id=? AND status='running'
+                    """,
+                    (
+                        next_status,
+                        json.dumps(result, ensure_ascii=False, sort_keys=True),
+                        now_iso(),
+                        row["job_id"],
+                    ),
+                )
+        return counts
 
 
 def b64url(value: bytes) -> str:
@@ -2072,10 +3047,10 @@ class GitHubAppAuth:
             raise BrokerError(
                 "UNVERIFIED", "injected GitHub App signer is not RS256"
             )
+        if signer is None:
+            self._validate_private_key_file()
 
-    def _sign(self, value: bytes) -> bytes:
-        if self.signer is not None:
-            return self.signer(value)
+    def _validate_private_key_file(self) -> None:
         if not self.private_key_file.is_file():
             raise BrokerError("UNAVAILABLE", "GitHub App private key is unavailable")
         try:
@@ -2102,6 +3077,16 @@ class GitHubAppAuth:
                 raise BrokerError(
                     "UNAVAILABLE", "GitHub App private key is not valid RSA"
                 )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise BrokerError(
+                "UNAVAILABLE", "GitHub App private key validator unavailable"
+            ) from exc
+
+    def _sign(self, value: bytes) -> bytes:
+        if self.signer is not None:
+            return self.signer(value)
+        self._validate_private_key_file()
+        try:
             result = subprocess.run(
                 [
                     "openssl", "dgst", "-sha256", "-sign",

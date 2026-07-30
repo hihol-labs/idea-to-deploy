@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "purpose": "Executable verification contract for the GPG-001 trust-foundation slice.",
+  "purpose": "Executable verification contract for the GPG-001 broker/service slice.",
   "unitId": "GPG-001",
   "createdAt": "2026-07-30",
   "commandSchema": {
@@ -20,16 +20,30 @@
   },
   "commands": [
     {
-      "id": "broker-policy",
+      "id": "broker-orchestration",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "broker-server",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "exit_code_zero"
+    },
+    {
+      "id": "broker-policy-regression",
       "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py",
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "exit_code_zero"
     },
     {
-      "id": "broker-primitives",
+      "id": "broker-primitives-regression",
       "command": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
-      "timeoutSeconds": 120,
+      "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "exit_code_zero"
     },
@@ -50,8 +64,12 @@
     "skills/_shared/REVIEW_BROKER_POLICY.schema.json",
     "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
     "skills/_shared/itd_review_broker_primitives.py",
+    "skills/_shared/itd_review_broker.py",
+    "services/review_broker/server.py",
     "tests/verify_review_broker_policy.py",
-    "tests/verify_review_broker_primitives.py"
+    "tests/verify_review_broker_primitives.py",
+    "tests/verify_review_broker.py",
+    "tests/verify_review_broker_server.py"
   ],
   "passCriteria": [
     "All required commands exit 0.",

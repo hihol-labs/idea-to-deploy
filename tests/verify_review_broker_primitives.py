@@ -823,12 +823,27 @@ def main() -> int:
         "observedAt": primitive.now_iso(),
     }
     record_args = {
+        "provider_request": prompt.encode("utf-8"),
         "candidate_manifest": candidate_manifest,
         "verdict": verdict,
         "budget_settlement": settlement,
         "external_id_payload": external_id_payload,
     }
     exact_observer = CheckObservationApi(exact_receipt["checkPublication"])
+    preparing_publication = copy.deepcopy(exact_receipt["checkPublication"])
+    preparing_publication["status"] = "in_progress"
+    preparing_publication["conclusion"] = None
+    preparation_id = store.prepare_review(
+        exact_receipt,
+        prompt,
+        CheckObservationApi(preparing_publication),
+        CHECK_AUTH,
+        **record_args,
+    )
+    check(
+        len(preparation_id) == 32,
+        "exact review evidence is durable before publication",
+    )
     rejects(
         "UNVERIFIED",
         lambda: store.record_review(
@@ -861,12 +876,12 @@ def main() -> int:
         exact_observer.last_path == f"/repos/{REPO}/check-runs/101",
         "post-publication observation reads the exact GitHub check-run id",
     )
-    rejects(
-        "UNVERIFIED",
-        lambda: store.record_review(
+    check(
+        store.record_review(
             exact_receipt, prompt, exact_observer, CHECK_AUTH, **record_args
-        ),
-        "candidate and published check evidence are immutable and unique",
+        )
+        == receipt_id,
+        "repeated final observation is idempotent",
     )
     forged_receipt = dict(exact_receipt)
     forged_receipt["headSha"] = "c" * 40
@@ -1103,6 +1118,7 @@ def main() -> int:
         "observedAt": primitive.now_iso(),
     }
     merge_args = {
+        "provider_request": prompt.encode("utf-8"),
         "candidate_manifest": merge_manifest,
         "verdict": verdict,
         "budget_settlement": merge_settlement,
@@ -1124,11 +1140,18 @@ def main() -> int:
     )
     rejects(
         "UNVERIFIED",
-        lambda: merge_store.record_review(
+        lambda: merge_store.prepare_review(
             wrong_route_receipt,
             prompt,
-            CheckObservationApi(wrong_route_receipt["checkPublication"]),
+            CheckObservationApi(
+                {
+                    **wrong_route_receipt["checkPublication"],
+                    "status": "in_progress",
+                    "conclusion": None,
+                }
+            ),
             CHECK_AUTH,
+            provider_request=prompt.encode("utf-8"),
             candidate_manifest=merge_manifest,
             verdict=verdict,
             budget_settlement=wrong_route_settlement,
@@ -1164,11 +1187,18 @@ def main() -> int:
     ] = forged_external_sha
     rejects(
         "UNVERIFIED",
-        lambda: merge_store.record_review(
+        lambda: merge_store.prepare_review(
             forged_merge_receipt,
             prompt,
-            CheckObservationApi(forged_merge_receipt["checkPublication"]),
+            CheckObservationApi(
+                {
+                    **forged_merge_receipt["checkPublication"],
+                    "status": "in_progress",
+                    "conclusion": None,
+                }
+            ),
             CHECK_AUTH,
+            provider_request=prompt.encode("utf-8"),
             candidate_manifest=forged_merge_manifest,
             verdict=verdict,
             budget_settlement=forged_settlement,
@@ -1177,16 +1207,29 @@ def main() -> int:
         "merge-group receipt cannot substitute component provenance hashes",
     )
 
+    merge_preparing = {
+        **merge_receipt["checkPublication"],
+        "status": "in_progress",
+        "conclusion": None,
+    }
+    merge_preparation_id = merge_store.prepare_review(
+        merge_receipt,
+        prompt,
+        CheckObservationApi(merge_preparing),
+        CHECK_AUTH,
+        **merge_args,
+    )
+    check(len(merge_preparation_id) == 32, "merge-group evidence prepared")
     merge_receipt_id = merge_store.record_review(
         merge_receipt, prompt, merge_observer, CHECK_AUTH, **merge_args
     )
     check(len(merge_receipt_id) == 32, "exact merge-group receipt recorded")
-    rejects(
-        "UNVERIFIED",
-        lambda: merge_store.record_review(
+    check(
+        merge_store.record_review(
             merge_receipt, prompt, merge_observer, CHECK_AUTH, **merge_args
-        ),
-        "merge-group candidate and check publication are unique",
+        )
+        == merge_receipt_id,
+        "merge-group final observation is idempotent",
     )
     merge_store.finish_job(merge_job[0], True, {"status": "PASSED"})
 

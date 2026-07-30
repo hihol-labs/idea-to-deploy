@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for the GPG-001 trust-foundation slice of the global PR/API review gate.",
+  "purpose": "Acceptance contract for the GPG-001 executable broker/service slice of the global PR/API review gate.",
   "sourceRequest": "Implement the approved central GitHub App/broker algorithm while preserving exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
@@ -22,52 +22,52 @@
   "criteria": [
     {
       "id": "GPG-001-AC1",
-      "criterion": "Broker policy and runtime evidence use closed schemas that bind repository, PR, head SHA, base SHA, App installation, candidate, prompt, verdict, settlement, provenance, and external check identity.",
-      "source": "Approved plan items 2, 3, 5, and 6.",
-      "evidence": "Policy/runtime schemas and mutation tests reject missing, additional, mismatched, stale, and caller-substituted fields.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py",
+      "criterion": "Candidate acquisition uses complete GitHub compare pagination plus bounded full base/head blobs, treats merge_base_commit as an independently validated ancestor rather than the current base, verifies decoded size and Git blob SHA, and emits one deterministic canonical diff without trusting patch fields or truncating; merge-group PR composition is explicitly paginated to a hard bound.",
+      "source": "Approved plan items 2 and 5.",
+      "evidence": "Orchestration mutations accept a valid behind-base PR, reject incomplete commit/component pagination, missing/mismatched/oversized blobs, unsafe paths, binary content, stale coordinates, and over-limit candidates before provider dispatch.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
       "id": "GPG-001-AC2",
-      "criterion": "Webhook input is streaming-bounded, signature-verified over exact bytes, action-bound, and replay-protected by delivery, body, and provenance nonce.",
-      "source": "Approved central GitHub App/broker and fail-closed requirements.",
-      "evidence": "Positive and negative primitive tests cover size, signature, event/action, duplicate-body, conflicting-delivery, and nonce cases.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "criterion": "The selected Responses API reviewer is derived from verified maker provenance, receives only the clean bounded final diff, uses a strict structured verdict, and settles only primary token usage against the frozen integer-microusd budget.",
+      "source": "Approved plan items 2, 3, and 7.",
+      "evidence": "Route, request-bound, invalid-output, missing-usage, outage, overspend, exhaustion, and same-identity mutations fail closed without CLI/OAuth substitution.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
       "id": "GPG-001-AC3",
-      "criterion": "Maker provenance is Ed25519-verified against an authorized repository/key record and routes Sol makers to Terra while routing Terra, Claude, and Gemini makers to Sol; unknown or same-family invalid routes fail closed.",
-      "source": "Approved independent reviewer routing rule.",
-      "evidence": "Generated-key contract tests cover valid signatures, authorization mismatches, replay, and every mandatory reviewer route.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "criterion": "The broker creates the App-owned Check Run on the policy-selected SHA and external ID and requires an exact durable preparation before every terminal PATCH: full cross-bound review evidence for reviewed outcomes or closed typed failure evidence for early fail-closed outcomes. It observes and atomically finalizes each publication; interrupted publications are recoverable without another model call.",
+      "source": "Approved plan items 2 and 6.",
+      "evidence": "Mutations reject stale head/base/check SHA, forged App identity, wrong external ID, missing preparation/observation, non-clean verdict, and unavailable reviewer; every success/action_required/failure PATCH proves matching prior evidence, and lost GitHub responses for success and failure are recovered without repeating provider review.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
       "id": "GPG-001-AC4",
-      "criterion": "Budget cost is derived only from primary provider token usage and frozen integer-microusd pricing; overspend, uncertain usage, exhausted budget, and caller-supplied cost cannot produce a successful receipt.",
-      "source": "Approved plan items 3 and 7.",
-      "evidence": "Budget mutation tests cover reservation, exact settlement, rejection of totalTokens/caller cost, overspend accounting, uncertain charges, and monthly exhaustion.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "criterion": "The HTTP service reads a bounded body, verifies the exact-byte webhook HMAC and signed event/action shape before state change, uses the broker-owned public provenance keyring, and returns explicit fail-closed HTTP outcomes.",
+      "source": "Approved central GitHub App/broker security boundary.",
+      "evidence": "Server tests cover health/readiness, overload, malformed/oversized/signature-mismatched events, replay, clean enqueue, worker failure, and graceful shutdown.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
       "status": "passed"
     },
     {
       "id": "GPG-001-AC5",
-      "criterion": "A successful broker review can be persisted only when the exact candidate, sanitized diff/redaction manifest, prompt, verdict, settlement, reviewer route, provenance, external ID, and App check cross-bind.",
-      "source": "Approved evidence and stale-PASS invalidation requirements.",
-      "evidence": "Closed runtime-record tests accept one exact record and reject each independently altered binding.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "criterion": "Runtime configuration loads reviewer/App/webhook secrets only from bounded permission-checked files, never from repository content or OPENAI_API_KEY, and never exposes credentials to candidate execution.",
+      "source": "Approved plan items 2 and 7.",
+      "evidence": "Environment/bootstrap mutations reject missing, relative, permissive, malformed, oversized, and user-environment secret sources; the broker never checks out or executes candidate code.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
       "status": "passed"
     },
     {
       "id": "GPG-001-AC6",
-      "criterion": "GitHub App authentication uses the configured client-id issuer, bounded JWT lifetime, live installation equality, and repository-scoped installation tokens.",
-      "source": "Approved central GitHub App security boundary.",
-      "evidence": "Authentication tests inspect JWT claims, installation lookup, requested repository scope, and installation mismatch failure.",
+      "criterion": "Accepted trust primitives remain green while the executable layer uses their closed schemas, strict JCS/I-JSON, enrollment, provenance, budget, App authentication, and immutable review APIs without compatibility bypasses.",
+      "source": "GPG-001 accepted trust-foundation dependency.",
+      "evidence": "Policy and primitive regression suites pass unchanged together with orchestration/server suites.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     }
   ],
-  "doneRule": "This contract accepts only the GPG-001 trust-foundation staged slice through a high-risk exact-candidate Verification Loop. It does not complete the global control plane, deploy the GitHub App, enable a ruleset, publish a release, or mark GPG-001 verified."
+  "doneRule": "This contract accepts only the GPG-001 executable broker/service staged slice through a high-risk exact-candidate Verification Loop. It does not complete the global control plane, deploy the GitHub App, enable a ruleset, publish a release, or mark GPG-001 verified."
 }
