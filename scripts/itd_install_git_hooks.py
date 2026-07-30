@@ -14,10 +14,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PRE_PUSH = ROOT / "scripts" / "itd_pre_push.py"
 MAX_GIT_OUTPUT = 32768
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+import itd_install_cli as cli_runtime  # noqa: E402
 
 
 class InstallError(RuntimeError):
     pass
+
+
+def select_runtime(
+    requested: Path | None,
+) -> tuple[Path, str, str]:
+    try:
+        return cli_runtime.select_runtime(requested)
+    except cli_runtime.InstallError as exc:
+        raise InstallError(str(exc)) from exc
 
 
 def default_target() -> Path:
@@ -93,12 +107,12 @@ def install(
     replace_existing: bool,
     python: Path | None = None,
     script: Path = PRE_PUSH,
-) -> dict[str, str]:
+) -> dict[str, object]:
     target = target.resolve()
     script = script.resolve()
-    python = (python or Path(sys.executable)).resolve()
-    if not script.is_file() or not python.is_file():
-        raise InstallError("ITD hook runtime or Python executable is missing")
+    if not script.is_file():
+        raise InstallError("ITD hook script is missing")
+    python, cryptography_version, runtime_source = select_runtime(python)
     current = git_config("--get", "core.hooksPath", check=False)
     current_path = Path(current).expanduser().resolve() if current else None
     if (
@@ -122,11 +136,14 @@ def install(
                 "target pre-push hook differs; use --replace-existing only "
                 "after reviewing the existing hook"
             )
-    result = {
+    result: dict[str, object] = {
         "status": "PREVIEW",
         "target": str(target),
         "prePush": str(hook),
         "previousHooksPath": current,
+        "python": str(python),
+        "pythonSource": runtime_source,
+        "cryptographyVersion": cryptography_version,
     }
     if not apply:
         return result

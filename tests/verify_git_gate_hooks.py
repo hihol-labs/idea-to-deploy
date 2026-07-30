@@ -245,7 +245,15 @@ def installer_phase() -> None:
         script.write_text("# fixture\n", encoding="utf-8")
         python.write_text("", encoding="utf-8")
         target = root / "hooks"
-        with mock.patch.object(installer, "git_config", return_value=""):
+        selected_runtime = (python.resolve(), "test-version", "explicit")
+        with (
+            mock.patch.object(installer, "git_config", return_value=""),
+            mock.patch.object(
+                installer,
+                "select_runtime",
+                return_value=selected_runtime,
+            ),
+        ):
             preview = installer.install(
                 target,
                 apply=False,
@@ -254,7 +262,10 @@ def installer_phase() -> None:
                 script=script,
             )
         check(
-            preview["status"] == "PREVIEW" and not target.exists(),
+            preview["status"] == "PREVIEW"
+            and preview["pythonSource"] == "explicit"
+            and preview["cryptographyVersion"] == "test-version"
+            and not target.exists(),
             "installer preview is read-only",
         )
         configured: list[tuple[str, ...]] = []
@@ -266,7 +277,14 @@ def installer_phase() -> None:
                 return target.as_posix() if len(configured) > 1 else ""
             return ""
 
-        with mock.patch.object(installer, "git_config", side_effect=config):
+        with (
+            mock.patch.object(installer, "git_config", side_effect=config),
+            mock.patch.object(
+                installer,
+                "select_runtime",
+                return_value=selected_runtime,
+            ),
+        ):
             result = installer.install(
                 target,
                 apply=True,
@@ -281,8 +299,38 @@ def installer_phase() -> None:
             and "\"$@\"" in wrapper,
             "installed wrapper is bounded and forwards hook arguments",
         )
-        with mock.patch.object(
-            installer, "git_config", return_value=str(root / "other-hooks")
+        incompatible = root / "python-without-cryptography"
+        incompatible.write_text("", encoding="utf-8")
+        incompatible_target = root / "broken-hooks"
+        with mock.patch.object(installer, "git_config", return_value=""):
+            try:
+                installer.install(
+                    incompatible_target,
+                    apply=True,
+                    replace_existing=False,
+                    python=incompatible,
+                    script=script,
+                )
+            except installer.InstallError:
+                check(
+                    not incompatible_target.exists(),
+                    "hook installer rejects an incompatible Python before writing",
+                )
+            else:
+                raise AssertionError(
+                    "hook installer accepted Python without cryptography"
+                )
+        with (
+            mock.patch.object(
+                installer,
+                "git_config",
+                return_value=str(root / "other-hooks"),
+            ),
+            mock.patch.object(
+                installer,
+                "select_runtime",
+                return_value=selected_runtime,
+            ),
         ):
             try:
                 installer.install(
