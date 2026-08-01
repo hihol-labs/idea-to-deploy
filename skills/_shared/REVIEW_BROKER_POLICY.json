@@ -99,7 +99,7 @@
       "workflowPath": ".github/workflows/itd-machine-oracle.yml",
       "immutableWorkflowShaRequired": true,
       "contractSource": "target-protected-base-head",
-      "runnerSource": "pinned-workflow-repository-sha"
+      "runnerSource": "immutable-self-hosted-image-label-from-pinned-workflow"
     },
     "webhooks": {
       "algorithm": "hmac-sha256",
@@ -107,7 +107,7 @@
       "deliveryHeader": "X-GitHub-Delivery",
       "eventHeader": "X-GitHub-Event",
       "signatureInput": "exact-raw-request-body-bytes",
-      "secretConfig": "ITD_GITHUB_WEBHOOK_SECRET",
+      "secretConfig": "ITD_GITHUB_WEBHOOK_SECRET_FILE",
       "constantTimeComparisonRequired": true,
       "verifyBefore": ["parse", "deduplicate", "enqueue", "publish"],
       "invalidSignatureDisposition": "http-401-no-state-change",
@@ -476,7 +476,7 @@
     "maxTotalDecodedBlobBytes": 16777216,
     "maxRawDiffBytes": 80000,
     "maxHierarchicalRawDiffBytes": 1200000,
-    "maxReviewUnits": 15,
+    "maxReviewUnits": 16,
     "hierarchicalReview": {
       "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
       "partition": "deterministic-complete-file-then-utf8-line-boundary",
@@ -697,10 +697,10 @@
       "openai-responses": 750000,
       "openai-responses-terra": 500000
     },
-    "maxHierarchicalProviderCalls": 16,
+    "maxHierarchicalProviderCalls": 17,
     "inputTokenUpperBound": "utf8-provider-request-bytes",
     "inputCostUpperBound": "input-token-upper-bound-times-input-usd-per-million-divided-by-1000000",
-    "outputTokenCap": "floor((maxReviewUsd-inputCostUpperBound)*1000000/outputUsdPerMillion)",
+    "outputTokenCap": "floor((selected-call-reservation-usd-inputCostUpperBound)*1000000/outputUsdPerMillion)",
     "requestMustSetOutputTokenCap": true,
     "rounding": "decimal-round-up-6-places",
     "currencyUnit": "microusd",

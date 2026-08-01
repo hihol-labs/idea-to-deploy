@@ -105,6 +105,16 @@ class BrokerError(RuntimeError):
         self.reason = reason
 
 
+class DeliveryConflictError(BrokerError):
+    """A webhook delivery ID was bound to a different authenticated body."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "UNVERIFIED",
+            "GitHub delivery id was reused for a different authenticated body",
+        )
+
+
 def _jcs_string(value: str) -> bytes:
     """Serialize a string according to RFC 8785 section 3.2.2.2."""
     serialized = ['"']
@@ -548,8 +558,18 @@ def normalize_webhook(
     repository = payload.get("repository")
     if not isinstance(installation, dict) or not isinstance(repository, dict):
         raise BrokerError("UNVERIFIED", "webhook lacks App installation/repository")
-    full_name = str(repository.get("full_name", "")).strip()
+    full_name_value = repository.get("full_name")
     installation_id = installation.get("id")
+    if (
+        not isinstance(full_name_value, str)
+        or type(installation_id) is not int
+        or installation_id <= 0
+    ):
+        raise BrokerError(
+            "UNVERIFIED",
+            "webhook repository/installation coordinates are noncanonical",
+        )
+    full_name = full_name_value.strip()
     if event == "pull_request":
         pull = payload.get("pull_request")
         if not isinstance(pull, dict):
@@ -562,8 +582,25 @@ def normalize_webhook(
         base_repository = base.get("repo")
         if not isinstance(head_repository, dict) or not isinstance(base_repository, dict):
             raise BrokerError("UNVERIFIED", "pull request repositories are missing")
-        head_full_name = str(head_repository.get("full_name", "")).strip()
-        base_full_name = str(base_repository.get("full_name", "")).strip()
+        number = payload.get("number")
+        head_full_name_value = head_repository.get("full_name")
+        base_full_name_value = base_repository.get("full_name")
+        head_sha = head.get("sha")
+        base_sha = base.get("sha")
+        if (
+            type(number) is not int
+            or number <= 0
+            or not isinstance(head_full_name_value, str)
+            or not isinstance(base_full_name_value, str)
+            or not isinstance(head_sha, str)
+            or not isinstance(base_sha, str)
+        ):
+            raise BrokerError(
+                "UNVERIFIED",
+                "pull request coordinates are noncanonical",
+            )
+        head_full_name = head_full_name_value.strip()
+        base_full_name = base_full_name_value.strip()
         if base_full_name.casefold() != full_name.casefold():
             raise BrokerError("UNVERIFIED", "pull request base repository mismatch")
         if (
@@ -573,20 +610,26 @@ def normalize_webhook(
             raise BrokerError("UNVERIFIED", "fork pull requests are not allowed")
         return Coordinates(
             repository=full_name,
-            pull_request=int(payload.get("number", 0)),
-            head_sha=str(head.get("sha", "")).lower(),
-            base_sha=str(base.get("sha", "")).lower(),
-            installation_id=int(installation_id or 0),
+            pull_request=number,
+            head_sha=head_sha.lower(),
+            base_sha=base_sha.lower(),
+            installation_id=installation_id,
         ).validate()
     group = payload.get("merge_group")
     if not isinstance(group, dict):
         raise BrokerError("UNVERIFIED", "merge_group payload is missing")
+    group_head = group.get("head_sha")
+    group_base = group.get("base_sha")
+    if not isinstance(group_head, str) or not isinstance(group_base, str):
+        raise BrokerError(
+            "UNVERIFIED", "merge group coordinates are noncanonical"
+        )
     return Coordinates(
         repository=full_name,
         pull_request=0,
-        head_sha=str(group.get("head_sha", "")).lower(),
-        base_sha=str(group.get("base_sha", "")).lower(),
-        installation_id=int(installation_id or 0),
+        head_sha=group_head.lower(),
+        base_sha=group_base.lower(),
+        installation_id=installation_id,
     ).validate()
 
 
@@ -693,7 +736,21 @@ class BrokerStore:
         provenance_keyring: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         frozen = load_policy() if policy is None else validate_policy(policy)
+        try:
+            policy_bytes = POLICY_PATH.read_bytes()
+        except OSError as exc:
+            raise BrokerError(
+                "UNAVAILABLE", "frozen broker policy is unavailable"
+            ) from exc
+        on_disk = validate_policy(
+            decode_strict_json(policy_bytes, "frozen broker policy")
+        )
+        if on_disk != frozen:
+            raise BrokerError(
+                "UNVERIFIED", "enforced broker policy differs from its digest"
+            )
         self.policy = frozen
+        self.policy_sha256 = sha256_bytes(policy_bytes)
         self.reservation_microusd = int(
             frozen["budget"]["reservationMicrousd"]
         )
@@ -1000,10 +1057,7 @@ class BrokerStore:
                 (delivery_id,),
             ).fetchone()
             if same_delivery is not None:
-                raise BrokerError(
-                    "UNVERIFIED",
-                    "GitHub delivery id was reused for a different authenticated body",
-                )
+                raise DeliveryConflictError()
             try:
                 db.execute(
                     "INSERT INTO webhook_deliveries VALUES (?,?,?,?)",
@@ -1079,6 +1133,17 @@ class BrokerStore:
                     "UNVERIFIED",
                     "disabled enrollment requires a freshly validated receipt",
                 )
+            historical = db.execute(
+                """
+                SELECT 1 FROM enrollment_receipts WHERE receipt_sha256=?
+                """,
+                (receipt_sha256,),
+            ).fetchone()
+            if historical is not None:
+                raise BrokerError(
+                    "UNVERIFIED",
+                    "superseded enrollment receipt cannot be reactivated",
+                )
             try:
                 db.execute(
                     """
@@ -1096,22 +1161,9 @@ class BrokerStore:
                     ),
                 )
             except sqlite3.IntegrityError as exc:
-                stored = db.execute(
-                    """
-                    SELECT repository,expected_app_id,receipt_json
-                    FROM enrollment_receipts WHERE receipt_sha256=?
-                    """,
-                    (receipt_sha256,),
-                ).fetchone()
-                if (
-                    stored is None
-                    or stored["repository"] != repository
-                    or stored["expected_app_id"] != expected_app_id
-                    or stored["receipt_json"] != serialized
-                ):
-                    raise BrokerError(
-                        "UNVERIFIED", "enrollment receipt identity conflict"
-                    ) from exc
+                raise BrokerError(
+                    "UNVERIFIED", "enrollment receipt identity conflict"
+                ) from exc
             if current is None:
                 db.execute(
                     """
@@ -1929,7 +1981,7 @@ class BrokerStore:
                     "reservationId": reservation_id,
                     "period": row["period"],
                     "reviewerId": row["reviewer_id"],
-                    "policySha256": sha256_bytes(POLICY_PATH.read_bytes()),
+                    "policySha256": self.policy_sha256,
                     "candidateManifestSha256":
                         row["candidate_manifest_sha256"],
                     "usage": usage,
@@ -2136,17 +2188,30 @@ class BrokerStore:
                     "pre-publication Check Run identity is not exact",
                 )
         else:
-            try:
-                validate_runtime_record("checkPublication", observed_publication)
-            except BrokerError as exc:
-                raise BrokerError(
-                    "UNVERIFIED", "GitHub check publication is incomplete"
-                ) from exc
-            if observed_publication != check_publication:
+            intended_identity = {
+                key: check_publication[key]
+                for key in (
+                    "id",
+                    "appIntegrationId",
+                    "name",
+                    "headSha",
+                    "externalId",
+                )
+            }
+            observed_identity = {
+                key: observed_publication[key] for key in intended_identity
+            }
+            publication_is_pending = (
+                observed_identity == intended_identity
+                and observed_publication["status"] == "in_progress"
+                and observed_publication["conclusion"] is None
+            )
+            publication_is_terminal = observed_publication == check_publication
+            if not (publication_is_pending or publication_is_terminal):
                 raise BrokerError(
                     "UNVERIFIED", "GitHub check publication differs from receipt"
                 )
-        policy_sha = sha256_bytes(POLICY_PATH.read_bytes())
+        policy_sha = self.policy_sha256
         candidate_sha = sha256_bytes(canonical_json(candidate_manifest))
         verdict_sha = sha256_bytes(canonical_json(verdict))
         settlement_sha = sha256_bytes(canonical_json(budget_settlement))
@@ -2200,12 +2265,17 @@ class BrokerStore:
                             "kind",
                             "unitId",
                             "sha256",
+                            "verdictSha256",
                             "bytes",
                             "outputCap",
                         }
                         or item["kind"] not in {"unit", "integration"}
                         or not re.fullmatch(
                             r"[0-9a-f]{64}", str(item["sha256"])
+                        )
+                        or not re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            str(item["verdictSha256"]),
                         )
                         or type(item["bytes"]) is not int
                         or not 0 < item["bytes"] <= self.policy[
@@ -2239,13 +2309,13 @@ class BrokerStore:
                             "UNVERIFIED",
                             "integration request evidence is invalid",
                         )
-                if receipt["status"] == "PASSED" and (
+                if (
                     len(requests) != planned_calls
                     or requests[-1]["kind"] != "integration"
                 ):
                     raise BrokerError(
                         "UNVERIFIED",
-                        "hierarchical success lacks complete provider coverage",
+                        "hierarchical evidence lacks complete provider coverage",
                     )
                 prompt_evidence = decode_strict_json(
                     sanitized_prompt.encode("utf-8"),
@@ -2348,6 +2418,7 @@ class BrokerStore:
                     )
                 plan_unit_ids: list[str] = []
                 total_unit_bytes = 0
+                expected_start_byte = 0
                 for expected_index, unit_record in enumerate(
                     review_plan["units"], start=1
                 ):
@@ -2359,7 +2430,10 @@ class BrokerStore:
                             "index",
                             "reviewDiffSha256",
                             "reviewDiffBytes",
+                            "reviewDiffStartByte",
+                            "reviewDiffEndByteExclusive",
                             "paths",
+                            "pathSegments",
                         }
                         or unit_record["id"]
                         != f"unit-{expected_index:03d}"
@@ -2372,12 +2446,40 @@ class BrokerStore:
                         or not 0 < unit_record["reviewDiffBytes"] <= (
                             self.policy["candidate"]["maxRawDiffBytes"]
                         )
+                        or type(
+                            unit_record["reviewDiffStartByte"]
+                        ) is not int
+                        or type(
+                            unit_record["reviewDiffEndByteExclusive"]
+                        ) is not int
+                        or unit_record["reviewDiffStartByte"]
+                        != expected_start_byte
+                        or unit_record["reviewDiffEndByteExclusive"]
+                        != expected_start_byte
+                        + unit_record["reviewDiffBytes"]
                         or not isinstance(unit_record["paths"], list)
                         or not unit_record["paths"]
+                        or len(set(unit_record["paths"]))
+                        != len(unit_record["paths"])
                         or any(
                             not isinstance(path, str)
                             or path not in candidate_manifest["files"]
                             for path in unit_record["paths"]
+                        )
+                        or not isinstance(
+                            unit_record["pathSegments"], dict
+                        )
+                        or set(unit_record["pathSegments"])
+                        != set(unit_record["paths"])
+                        or any(
+                            not isinstance(segment, dict)
+                            or set(segment) != {"index", "count"}
+                            or type(segment["index"]) is not int
+                            or type(segment["count"]) is not int
+                            or not 1 <= segment["index"] <= segment["count"]
+                            for segment in unit_record[
+                                "pathSegments"
+                            ].values()
                         )
                     ):
                         raise BrokerError(
@@ -2386,6 +2488,26 @@ class BrokerStore:
                         )
                     plan_unit_ids.append(unit_record["id"])
                     total_unit_bytes += unit_record["reviewDiffBytes"]
+                    expected_start_byte = unit_record[
+                        "reviewDiffEndByteExclusive"
+                    ]
+                path_totals: dict[str, int] = {}
+                for unit_record in review_plan["units"]:
+                    for path in unit_record["paths"]:
+                        path_totals[path] = path_totals.get(path, 0) + 1
+                path_seen: dict[str, int] = {}
+                for unit_record in review_plan["units"]:
+                    for path in unit_record["paths"]:
+                        ordinal = path_seen.get(path, 0) + 1
+                        path_seen[path] = ordinal
+                        if unit_record["pathSegments"][path] != {
+                            "index": ordinal,
+                            "count": path_totals[path],
+                        }:
+                            raise BrokerError(
+                                "UNVERIFIED",
+                                "hierarchical path segment binding is invalid",
+                            )
                 request_unit_ids = [
                     item["unitId"]
                     for item in requests
@@ -2393,8 +2515,7 @@ class BrokerStore:
                 ]
                 if (
                     total_unit_bytes != review_plan["fullDiffBytes"]
-                    or request_unit_ids
-                    != plan_unit_ids[:len(request_unit_ids)]
+                    or request_unit_ids != plan_unit_ids
                     or len(prompt_evidence["unitVerdicts"])
                     != len(request_unit_ids)
                     or len(prompt_evidence["prompts"]) != len(requests)
@@ -2402,6 +2523,43 @@ class BrokerStore:
                     raise BrokerError(
                         "UNVERIFIED",
                         "hierarchical review coverage does not agree",
+                    )
+                unit_requests = [
+                    item for item in requests if item["kind"] == "unit"
+                ]
+                for unit_verdict, unit_request in zip(
+                    prompt_evidence["unitVerdicts"],
+                    unit_requests,
+                    strict=True,
+                ):
+                    try:
+                        Draft202012Validator(api_unit_schema).validate(
+                            unit_verdict
+                        )
+                    except ValidationError as exc:
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical unit verdict evidence is invalid",
+                        ) from exc
+                    if sha256_bytes(canonical_json(unit_verdict)) != (
+                        unit_request["verdictSha256"]
+                    ):
+                        raise BrokerError(
+                            "UNVERIFIED",
+                            "hierarchical unit verdict binding differs",
+                        )
+                integration_requests = [
+                    item
+                    for item in requests
+                    if item["kind"] == "integration"
+                ]
+                if integration_requests and (
+                    integration_requests[0]["verdictSha256"]
+                    != verdict_sha
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "hierarchical integration verdict binding differs",
                     )
 
                 def prompt_field(
@@ -2480,6 +2638,17 @@ class BrokerStore:
                                 candidate_manifest["files"],
                                 key=lambda value:
                                     value.encode("utf-16-be"),
+                            ),
+                            "pathUnitCounts": (
+                                {
+                                    path: sum(
+                                        path in other["paths"]
+                                        for other in review_plan["units"]
+                                    )
+                                    for path in unit_record["paths"]
+                                }
+                                if unit_record is not None
+                                else {}
                             ),
                             "unit": unit_record,
                         }
@@ -3099,8 +3268,7 @@ class BrokerStore:
             )
             or (
                 observed_status == "completed"
-                and observed_conclusion
-                not in {"success", "failure", "action_required"}
+                and observed_conclusion != conclusion
             )
         ):
             raise BrokerError(
@@ -3225,8 +3393,12 @@ class BrokerStore:
             with self._lock:
                 row = self.db.execute(
                     """
-                    SELECT receipt_template_json,state
-                    FROM review_preparations WHERE preparation_id=?
+                    SELECT p.receipt_template_json,p.state,
+                           EXISTS(
+                             SELECT 1 FROM reviews_v3 AS r
+                             WHERE r.check_run_id=p.check_run_id
+                           ) AS has_final_receipt
+                    FROM review_preparations AS p WHERE p.preparation_id=?
                     """,
                     (preparation_id,),
                 ).fetchone()
@@ -3235,7 +3407,9 @@ class BrokerStore:
                     row["receipt_template_json"].encode("utf-8"),
                     "stored review receipt template",
                 )["checkPublication"]
-                if row is not None and row["state"] == "prepared"
+                if row is not None
+                and row["state"] == "finalized"
+                and row["has_final_receipt"] == 1
                 else None
             )
         elif evidence_kind == "failure":
@@ -3411,7 +3585,8 @@ class BrokerStore:
                  AND j.pull_request=p.pull_request
                  AND j.head_sha=p.head_sha
                  AND j.base_sha=p.base_sha
-                WHERE p.state='prepared'
+                WHERE p.state IN ('prepared','finalized')
+                  AND j.status='running'
                   AND NOT EXISTS (
                     SELECT 1 FROM failure_preparations AS f
                     WHERE f.review_preparation_id=p.preparation_id
@@ -3460,38 +3635,6 @@ class BrokerStore:
                 }
             )
         return result
-
-    def fail_review_preparation(
-        self, preparation_id: str, reason: str
-    ) -> None:
-        if not re.fullmatch(r"[0-9a-f]{32}", preparation_id or ""):
-            raise BrokerError("UNVERIFIED", "review preparation id is invalid")
-        if not isinstance(reason, str) or not 1 <= len(reason) <= 500:
-            raise BrokerError("UNVERIFIED", "review preparation failure is invalid")
-        with self.immediate() as db:
-            row = db.execute(
-                """
-                SELECT state FROM review_preparations
-                WHERE preparation_id=?
-                """,
-                (preparation_id,),
-            ).fetchone()
-            if row is None:
-                raise BrokerError("UNVERIFIED", "review preparation is missing")
-            if row["state"] == "finalized":
-                raise BrokerError(
-                    "UNVERIFIED", "finalized review preparation cannot fail"
-                )
-            if row["state"] == "failed":
-                return
-            db.execute(
-                """
-                UPDATE review_preparations
-                SET state='failed',failure_reason=?
-                WHERE preparation_id=? AND state='prepared'
-                """,
-                (reason, preparation_id),
-            )
 
     def reconcile_interrupted_jobs(self) -> dict[str, int]:
         """Recover single-worker jobs left running by a terminated process."""
@@ -3559,45 +3702,23 @@ class BrokerStore:
                     )
                     counts["requeued"] += 1
                     continue
-                if review_state == "prepared":
+                if review_state in {"prepared", "finalized"}:
                     counts["pending"] += 1
                     continue
                 receipt = decode_strict_json(
                     row["receipt_template_json"].encode("utf-8"),
                     "stored review receipt template",
                 )
-                if review_state == "finalized":
-                    review = db.execute(
-                        """
-                        SELECT receipt_id FROM reviews_v3
-                        WHERE check_run_id=?
-                        """,
-                        (receipt["checkPublication"]["id"],),
-                    ).fetchone()
-                    if review is None:
-                        raise BrokerError(
-                            "UNVERIFIED",
-                            "finalized preparation has no durable review",
-                        )
-                    result = {
-                        "receiptId": review["receipt_id"],
-                        "status": receipt["status"],
-                        "conclusion": receipt["checkPublication"]["conclusion"],
-                        "checkRunId": receipt["checkPublication"]["id"],
-                    }
-                    next_status = "completed"
-                    counts["completed"] += 1
-                else:
-                    result = {
-                        "receiptId": None,
-                        "status": "UNVERIFIED",
-                        "conclusion": self.policy["github"]["externalCheck"][
-                            "unverifiedConclusion"
-                        ],
-                        "checkRunId": receipt["checkPublication"]["id"],
-                    }
-                    next_status = "failed"
-                    counts["failed"] += 1
+                result = {
+                    "receiptId": None,
+                    "status": "UNVERIFIED",
+                    "conclusion": self.policy["github"]["externalCheck"][
+                        "unverifiedConclusion"
+                    ],
+                    "checkRunId": receipt["checkPublication"]["id"],
+                }
+                next_status = "failed"
+                counts["failed"] += 1
                 db.execute(
                     """
                     UPDATE jobs SET status=?,result_json=?,updated_at=?

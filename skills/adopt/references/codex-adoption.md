@@ -36,7 +36,7 @@ python3 skills/adopt/scripts/itd_adopt.py \
   --project <git-root> --plugin-root <plugin-root> --plan \
   --baseline-command <existing-green-command> \
   --verification-command <first-unit-command> \
-  --trusted-verifier-path <tracked-test-or-runner-path> \
+  --trusted-verifier-path <exact-tracked-test-or-runner-file> \
   --unit-id <id> --unit-criterion <checkable-criterion> \
   --allowed-area <path>
 ```
@@ -50,14 +50,16 @@ fallback as operational friction in the final report.
 
 The verification command must be one shell-free argv invocation (no pipes,
 redirection, `&&`, or command substitution). Repeat
-`--trusted-verifier-path` for the complete tracked directory namespace that
-implements and imports the verifier (plus any launcher outside that tree).
+`--trusted-verifier-path` for the exact executable verifier and repeat it for
+every verifier-side file that verifier reads or executes (plus any launcher).
 Before the server-side machine oracle runs, those paths must resolve to
-identical regular Git objects in the protected base and candidate. A single
-verifier file is insufficient because an adjacent startup/import module could
-change its behavior. Python commands are normalized to isolated `-I` mode.
-Rotate a verifier in two merges: add its new namespace first, then update the
-protected contract to trust it.
+identical regular Git objects in the protected base and candidate. Python
+commands are normalized to isolated `-I` mode, excluding the script directory,
+candidate working directory, user site packages, and adjacent candidate
+startup modules from import resolution. Non-isolated exact-file bindings are
+rejected. Rotate a verifier in three merges: add it under a new path, update
+the protected contract to trust that already-protected path, then use it for
+implementation changes.
 
 After the helper succeeds, run shared Step 3.9 only when its exact plan was
 included in the same user approval. Use the enabled plugin's

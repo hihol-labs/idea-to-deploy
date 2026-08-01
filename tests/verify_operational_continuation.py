@@ -350,7 +350,7 @@ def main() -> int:
             "--plugin-root", str(ROOT),
             "--baseline-command", baseline_command,
             "--verification-command", baseline_verify,
-            "--trusted-verifier-path", "tests",
+            "--trusted-verifier-path", "tests/test_baseline.py",
             "--unit-id", scenario["precedingUnitId"],
             "--unit-criterion", scenario["precedingCriterion"],
             "--allowed-area", "app.py",

@@ -39,6 +39,23 @@ Create `services/review_broker/deploy/runtime/` outside Git tracking with
 directories owned by UID/GID `65532`; never reuse a developer API credential.
 The process intentionally refuses `OPENAI_API_KEY` in its environment.
 
+## Systemd host bootstrap
+
+Install the reviewed release under `/opt/itd-review-broker`, then create the
+exact Python runtime referenced by the unit and install only the locked
+artifacts:
+
+```text
+python3 -m venv /opt/itd-review-broker/venv
+/opt/itd-review-broker/venv/bin/python -m pip install \
+  --only-binary=:all: --require-hashes \
+  -r /opt/itd-review-broker/services/review_broker/requirements.lock
+```
+
+Verify the unit file against that release before enabling it. Start the
+service only after the credential files and dedicated GitHub App client ID are
+installed.
+
 ## Dedicated GitHub App bootstrap
 
 Create the private App only after the broker has a stable public HTTPS origin.

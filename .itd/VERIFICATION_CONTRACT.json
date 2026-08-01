@@ -1,8 +1,17 @@
 {
   "version": 2,
-  "purpose": "Executable verification contract for the GPG-001 local/global gate-control slice.",
+  "purpose": "Executable local-regression contract and staged future protected-machine contract for the GPG-001 gate-control bootstrap slice.",
+  "trustedPathSemantics": "Every commands[].argv directly invokes its declared launcher and verifier. Extra declared files such as tests/run-all.sh are read-only inputs inspected by that verifier, not indirectly executed suites; the protected machine gate binds every declared input to the protected base before execution.",
   "unitId": "GPG-001",
   "createdAt": "2026-07-30",
+  "activationState": "staged_bootstrap_not_protected",
+  "bootstrapAcceptance": {
+    "currentCandidate": "This bootstrap candidate introduces or changes commands[].trustedVerifierPaths and therefore cannot use those paths as protected attesting authority for itself.",
+    "protectedMachineGate": "RECOVERY_REQUIRED for this candidate. No command below counts as a protected GitHub machine-oracle attestation until this contract and every trusted verifier path are present as identical regular Git objects in the protected base.",
+    "localMachineEvidence": "The commands below are local regression evidence only for the current exact-candidate Verification Loop. They may contribute to an honest-host local adjudication together with a fresh different-model checker, but they do not assert live branch protection or PROTECTED status.",
+    "anchorSequence": "Merge this reviewed bootstrap slice to establish the contract and verifier anchors; in a separate follow-up, install the staged workflow template without changing those anchors, pin it to the protected release SHA, and require its check before claiming protected-machine enforcement.",
+    "externalCandidatePreparationEvidence": "Before the checker receipt, the honest host records the same tree/base, exact reconstruction, review-diff SHA-256, secretScrub=clean, and redactions=0 in the bound report. Any secret match is UNVERIFIED; candidate commands cannot self-attest egress scrub."
+  },
   "commandSchema": {
     "requiredFields": [
       "id",
@@ -23,7 +32,7 @@
     {
       "id": "broker-orchestration",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker.py"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -31,7 +40,7 @@
         {
             "id": "broker-server",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_server.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker_server.py"],
             "timeoutSeconds": 180,
             "expectedOutput": "\"status\": \"PASSED\"",
             "passFailParser": "stdout_contains"
@@ -39,7 +48,7 @@
         {
             "id": "broker-operator",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_operator.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker_operator.py"],
             "timeoutSeconds": 120,
             "expectedOutput": "\"status\": \"PASSED\"",
             "passFailParser": "stdout_contains"
@@ -47,7 +56,7 @@
         {
             "id": "broker-deployment",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_deployment.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker_deployment.py", "tests/run-all.sh"],
             "timeoutSeconds": 120,
             "expectedOutput": "\"status\": \"PASSED\"",
             "passFailParser": "stdout_contains"
@@ -55,7 +64,7 @@
         {
             "id": "github-app-manifest",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_github_app_manifest.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_github_app_manifest.py"],
             "timeoutSeconds": 120,
             "expectedOutput": "\"status\": \"PASSED\"",
             "passFailParser": "stdout_contains"
@@ -63,7 +72,7 @@
     {
       "id": "broker-policy-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_policy.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker_policy.py"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -71,7 +80,7 @@
     {
       "id": "broker-primitives-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker_primitives.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker_primitives.py"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -79,7 +88,7 @@
     {
       "id": "machine-oracle-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_machine_oracle.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_machine_oracle.py"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -87,7 +96,15 @@
     {
       "id": "gate-control-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_control.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_gate_control.py"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "gate-registry-binding-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_registry_binding.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_gate_registry_binding.py"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -95,7 +112,7 @@
     {
       "id": "guarded-pr-cli-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_itd_cli.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_itd_cli.py"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -103,39 +120,47 @@
     {
       "id": "global-git-gate-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_git_gate_hooks.py"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_git_gate_hooks.py"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
     },
-        {
-            "id": "api-reviewer-migration-regression",
-            "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_api_reviewer.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
-            "timeoutSeconds": 180,
-            "expectedOutput": "\"status\": \"PASSED\"",
-            "passFailParser": "stdout_contains"
-        },
+    {
+      "id": "api-reviewer-migration-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_api_reviewer.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_api_reviewer.py"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "api-reviewer-curl-transport-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_api_reviewer_curl_transport.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_api_reviewer_curl_transport.py"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "",
+      "passFailParser": "exit_code_zero"
+    },
         {
             "id": "external-reviewer-release-regression",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_external_reviewer_release.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_external_reviewer_release.py", "tests/verify_api_reviewer.py", "tests/run-all.sh"],
             "timeoutSeconds": 180,
-            "expectedOutput": "PASSED",
-            "passFailParser": "stdout_contains"
+            "expectedOutput": "",
+            "passFailParser": "exit_code_zero"
         },
         {
             "id": "host-adapter-regression",
             "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_host_adapters.py"],
-            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+            "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_host_adapters.py"],
             "timeoutSeconds": 180,
-            "expectedOutput": "PASSED",
-            "passFailParser": "stdout_contains"
+            "expectedOutput": "",
+            "passFailParser": "exit_code_zero"
         },
     {
       "id": "methodology-meta-review",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/meta_review.py", "--verbose"],
-      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/meta_review.py"],
       "timeoutSeconds": 180,
       "expectedOutput": "FINAL STATUS: PASSED",
       "passFailParser": "stdout_contains"
@@ -157,7 +182,7 @@
         "services/review_broker/requirements.lock",
         "services/review_broker/deploy/compose.yaml",
         "services/review_broker/deploy/systemd/itd-review-broker.service",
-        ".github/workflows/itd-machine-oracle.yml",
+        "docs/templates/github/itd-machine-oracle.yml",
         "scripts/itd.py",
         "scripts/itd_github_app_manifest.py",
         "scripts/itd_install_cli.py",
@@ -181,17 +206,20 @@
     "All required commands exit 0.",
     "Expected output rules match.",
     "Required artifacts exist.",
-    "The exact staged candidate passes secret scrubbing without redaction.",
-    "A fresh different-model full checker reports no Critical or Important findings.",
+    "Bound external candidate-preparation evidence reports exact reconstruction and a clean zero-redaction secret scrub.",
+    "A fresh different-model full checker reports an empty findings list.",
     "The high-risk GPG-001:general-review adjudication receipt revalidates."
   ],
   "failureMode": "RECOVERY_REQUIRED",
-  "failClosed": "A missing shell-free argv, protected-base content-bound verifier, artifact, checker, receipt, ambiguous parser, redaction, or changed staged tree is RECOVERY_REQUIRED, never success.",
+  "failClosed": "A missing shell-free argv, protected-base content-bound verifier, artifact, checker, receipt, ambiguous parser, redaction, changed staged tree, or attempt by this bootstrap candidate to self-attest changed verifier paths is RECOVERY_REQUIRED, never success.",
   "machineGateTrust": {
-    "contractSource": "target-protected-base-head",
+    "activation": "Future protected-machine enforcement only, after the bootstrap anchors are merged and remain unchanged in the activating candidate.",
+    "currentCandidateDisposition": "Ineligible for protected-machine attestation; commands run now are local regression evidence under bootstrapAcceptance.",
+    "contractSource": "target-protected-base-head-after-separate-anchor-merge",
     "commandExecution": "shell-free-argv",
-    "trustedVerifierPolicy": "Every commands[].trustedVerifierPaths entry must resolve to identical regular Git objects in protected base and candidate before any command may run; each command invokes the content-bound tests directory namespace, not only one verifier file.",
-    "interpreterIsolation": "The protected itd_py.sh --itd-isolated mode adds Python -I, while the complete tests namespace is content-bound so candidate startup modules such as sitecustomize.py cannot participate.",
-    "rotation": "Add a verifier under a new path and merge it before changing this protected contract to trust that path; the attesting verifier is never replaced by the PR it evaluates."
+    "trustedVerifierPolicy": "Every commands[].trustedVerifierPaths entry must resolve to identical regular Git objects in protected base and candidate before any command may run; each command binds its exact executable verifier file plus every verifier-side file it reads or executes.",
+    "interpreterIsolation": "The protected itd_py.sh --itd-isolated mode adds Python -I, so the verifier script directory, the candidate working directory, user site packages, and candidate-only startup modules such as sitecustomize.py cannot participate through Python import resolution.",
+    "subjectUnderTestBoundary": "Candidate broker, server, policy, schema, CLI, workflow, hook, document, and adapter paths explicitly loaded or read by a protected verifier are subjects under test, not verifier authority. They may differ from protected base and remain bound by the exact candidate tree and required-artifact hashes. Because -I removes implicit candidate import roots, only explicit loads present in the protected verifier can cross this boundary; any test-side helper used to decide pass/fail belongs in trustedVerifierPaths.",
+    "rotation": "Add a verifier under a new path and merge it, update this protected contract to trust that already-protected path in a second merge, then use it for implementation changes; the attesting verifier is never replaced by the PR it evaluates."
   }
 }

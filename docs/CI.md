@@ -84,6 +84,29 @@ App and broker first. The App must be installed on the repository and must have
 published its check at least once before GitHub can bind that check to the App
 as an expected source.
 
+This path has a billing-plan prerequisite: private organization-wide rulesets
+and required-workflow enforcement need GitHub Team or Enterprise. The current
+`hihol-labs` handoff records GitHub Free, so operators MUST NOT attempt the
+organization activation below until that prerequisite is satisfied. During
+this bootstrap PR, keep both repository branch-protection checks:
+`meta-review / Gate 1 — meta-review rubric` and `ITD external review gate`;
+accept the exact candidate only with its current external Verification Loop
+adjudication receipt. Do not require/advertise the staged machine oracle: it
+stays outside `.github/workflows/` until its verifier anchors are protected.
+
+After this reviewed bootstrap is merged, retain
+`.github/workflows/external-review-gate.yml` as compatibility transport and let
+the broker publish its App-owned check once. Through the branch-protection
+required-status-checks API, add `checks[]` entry
+`{"context":"ITD external review gate","app_id":<ITD_GITHUB_APP_ID>}`
+(the App ID, not its installation ID)
+alongside meta-review; name-only `contexts[]` is forbidden. Read the protection
+back and require that exact pair before enabling merge. Install machine-oracle
+only in the separate anchor-preserving follow-up, without changing protected
+verifiers. A missing pair/check blocks merge. This Free-plan boundary is not
+the canonical organization ruleset, so `itd gate doctor` must not report
+`PROTECTED`; organization rollout remains pending on the plan prerequisite.
+
 Create the App through the official manifest flow after the broker has a
 stable HTTPS origin:
 
@@ -105,6 +128,16 @@ Install the resulting private App only on controlled repositories. Its manifest
 contains the exact broker webhook, least-privilege permissions, and only
 `pull_request`/`merge_group` events. Keep the generated private key and webhook
 secret in the broker credential boundary.
+
+The ruleset commands below are post-bootstrap operations. Do not use `--apply`
+until all of these facts are independently verified: the billing-plan
+prerequisite is satisfied; this bootstrap contract and all verifier anchors are
+already in the protected base; a separate anchor-preserving PR has copied the
+template to `.github/workflows/itd-machine-oracle.yml` without changing those
+anchors; and `<PINNED_ITD_RELEASE_SHA>` is an immutable release commit in
+`<ITD_RELEASE_REPOSITORY_ID>` containing that exact workflow. The App-owned
+check must also have been published once. If any fact is missing or the preview
+differs, do not apply the ruleset and leave merge blocked.
 
 Preview the exact payload, then apply it with an administrator-authorized
 GitHub CLI session:
@@ -137,6 +170,12 @@ The canonical ruleset:
 - blocks branch deletion and non-fast-forward pushes;
 - has no bypass actors.
 
+Before enabling that workflow rule, provision an ephemeral self-hosted runner
+whose immutable image digest is bound to the dedicated
+`itd-machine-oracle-v1` label. Rotate the image as a reviewed control-plane
+change; do not map this gate to mutable GitHub-hosted `*-latest` images or to a
+shared long-lived runner.
+
 Register each local checkout with its active ruleset/enrollment coordinates and
 Ed25519 maker key, then run:
 
@@ -167,8 +206,8 @@ itd gate doctor --all
 ```
 
 `PROTECTED` is valid only when the protected-base contract, pinned central
-workflow/runner, contract-v2 shell-free argv, isolated interpreters and
-content-bound verifier namespace directories, installed ITD version, live
+workflow and immutable runner label, contract-v2 shell-free argv, isolated
+interpreters and exact content-bound verifier-side Git objects, installed ITD version, live
 ruleset, broker policy/reviewer routes, active App enrollment receipt, budget
 admission, and local signing key all match. A
 repository-level ruleset is deliberately rejected because GitHub

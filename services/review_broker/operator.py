@@ -107,11 +107,11 @@ def open_store(
     database: Path,
     keyring: Path,
 ) -> core.BrokerStore:
-    database = database.resolve()
     if not database.is_absolute():
         raise core.BrokerError(
             "UNVERIFIED", "broker database path must be absolute"
         )
+    database = database.resolve()
     policy = core.load_policy()
     keys = load_keyring(keyring, policy)
     database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)

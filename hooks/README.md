@@ -2,15 +2,6 @@
 
 These 29 hooks turn the methodology from "use it if you remember" into "you literally cannot forget". Without them, even Claude itself will skip the methodology under time pressure (verified the hard way during a 2026-04-07 production incident — see [the case study](#case-study) below).
 
-Hook feedback follows the host-neutral
-[`HOOK_OUTPUT_CONTRACT.json`](../docs/HOOK_OUTPUT_CONTRACT.json): clean/no-op
-success is silent; a finding is bounded, structured, and contains actionable
-`WHY:` and `FIX:` guidance. The initial behavioral pilot covers
-`context-budget.sh` and `careful.sh`; it deliberately does not claim that every
-hook has been migrated. Persistent reminders declare rate-limit/dedup posture,
-with an explicit exception when suppressing a distinct destructive call would
-weaken safety.
-
 ## Defense-in-depth overview (v1.19.0)
 
 Quality enforcement now spans **five layers**, from earliest-feedback to latest. Each layer catches something the previous ones missed:

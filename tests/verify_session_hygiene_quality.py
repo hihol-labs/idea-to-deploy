@@ -24,9 +24,10 @@ def check(label: str, ok: bool, detail: str = "") -> None:
         print(f"FAIL  {label}: {detail[:400]}")
 
 
-def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+def run(args: list[str], cwd: Path,
+        env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
+                          encoding="utf-8", errors="replace", env=env)
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess:
@@ -117,8 +118,10 @@ def init_repo(base: Path) -> Path:
     return repo
 
 
-def runner(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return run([sys.executable, str(RUNNER), *args, "--root", str(repo)], repo)
+def runner(repo: Path, *args: str,
+           env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    return run([sys.executable, str(RUNNER), *args, "--root", str(repo)],
+               repo, env)
 
 
 def test_cleanup() -> None:
@@ -191,6 +194,114 @@ def test_close_conjunction() -> None:
         red = runner(repo, "close")
         check("close rejects failed verification",
               red.returncode == 1 and "tests:" in red.stdout, red.stdout)
+
+        verification["version"] = 2
+        verification["commands"][0]["command"] = command("raise SystemExit(0)")
+        verification["commands"][0]["trustedVerifierPaths"] = ["src/app.py"]
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "seed argv bypass")
+        bypass = runner(repo, "close")
+        check("v2 close rejects a legacy shell command without argv",
+              bypass.returncode == 1
+              and "shell-free argv is missing or malformed" in bypass.stdout,
+              bypass.stdout)
+
+        verification["commands"][0]["argv"] = [
+            sys.executable, "-c", "raise SystemExit(0)"
+        ]
+        verification["commands"][0].pop("trustedVerifierPaths")
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "seed missing trust binding")
+        unbound = runner(repo, "close")
+        check("v2 close rejects an unbound verifier argv",
+              unbound.returncode == 1
+              and "trustedVerifierPaths" in unbound.stdout,
+              unbound.stdout)
+
+        verification["commands"][0]["trustedVerifierPaths"] = ["src/app.py"]
+        for label, changes, needle in (
+            ("malformed timeout", {"timeoutSeconds": "invalid"},
+             "timeoutSeconds is invalid"),
+            ("NUL argv", {"timeoutSeconds": 30,
+                          "argv": [sys.executable, "src/app.py\0"]},
+             "argv is missing or malformed"),
+        ):
+            verification["commands"][0].update(changes)
+            write_json(repo / ".itd/VERIFICATION_CONTRACT.json", verification)
+            malformed = runner(repo, "close")
+            check(f"v2 close rejects {label}",
+                  malformed.returncode == 1 and needle in malformed.stdout)
+
+        verification["commands"][0]["argv"] = [
+            sys.executable, "-I", "src/app.py"]
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "seed local v2 verifier")
+        no_base = runner(repo, "close")
+        check("v2 local close validates against clean HEAD without external base",
+              no_base.returncode == 0,
+              no_base.stdout)
+
+        protected_base = git(repo, "rev-parse", "HEAD").stdout.strip()
+        protected_env = os.environ.copy()
+        protected_env["ITD_PROTECTED_BASE_SHA"] = protected_base
+        protected = runner(repo, "close", env=protected_env)
+        check("v2 close accepts a protected-base-identical verifier",
+              protected.returncode == 0, protected.stdout)
+
+        verification["commands"][0]["passFailParser"] = "stdout_contains"
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "mutate contract")
+        mutated_contract = runner(repo, "close", env=protected_env)
+        check("v2 close rejects protected contract mutation",
+              mutated_contract.returncode == 1
+              and "contract differs from protected base" in mutated_contract.stdout)
+        verification["commands"][0]["passFailParser"] = "exit_code_zero"
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "restore contract")
+
+        (repo / "src" / "app.py").write_text("VALUE = 4\n", encoding="utf-8")
+        git(repo, "add", "src/app.py")
+        git(repo, "commit", "-qm", "replace verifier")
+        replaced = runner(repo, "close", env=protected_env)
+        check("v2 close rejects verifier replacement after protected base",
+              replaced.returncode == 1
+              and "differs from protected base" in replaced.stdout,
+              replaced.stdout)
+
+        verification["commands"][0]["argv"] = [
+            "bash", "-c", "printf ALL_PASS", "src/app.py"
+        ]
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", ".itd/VERIFICATION_CONTRACT.json")
+        git(repo, "commit", "-qm", "seed inert trusted argument")
+        inert_base = git(repo, "rev-parse", "HEAD").stdout.strip()
+        protected_env["ITD_PROTECTED_BASE_SHA"] = inert_base
+        inert = runner(repo, "close", env=protected_env)
+        check("v2 close rejects shell code with an inert trusted argument",
+              inert.returncode == 1
+              and "directly invoke a trusted verifier" in inert.stdout,
+              inert.stdout)
+
+        (repo / "src" / "target.py").write_text(
+            "raise SystemExit(0)\n", encoding="utf-8")
+        (repo / "src" / "app.py").unlink()
+        (repo / "src" / "app.py").symlink_to("target.py")
+        verification["commands"][0]["argv"] = [sys.executable, "-I", "src/app.py"]
+        write_json(repo / ".itd" / "VERIFICATION_CONTRACT.json", verification)
+        git(repo, "add", "-A")
+        git(repo, "commit", "-qm", "seed trusted symlink")
+        protected_env["ITD_PROTECTED_BASE_SHA"] = (
+            git(repo, "rev-parse", "HEAD").stdout.strip()
+        )
+        symlink = runner(repo, "close", env=protected_env)
+        check("v2 close rejects a protected-base-identical symlink",
+              symlink.returncode == 1
+              and "not a regular tracked file/tree" in symlink.stdout)
 
 
 def test_quality() -> None:

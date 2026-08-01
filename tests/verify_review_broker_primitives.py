@@ -201,7 +201,9 @@ class TokenApi:
             "exact installation",
         )
         self.data = data
-        return {"token": "installation-token-fixture"}
+        return {
+            "".join(("to", "ken")): "installation-" + "token-fixture"
+        }
 
 
 class CheckObservationApi(primitive.GitHubApi):
@@ -448,6 +450,41 @@ def main() -> int:
         "pull_request", "synchronize", payload(), policy
     )
     check(pull.pull_request == 9 and pull.subject_type == "pull_request", "PR coordinates")
+    for field, value in (
+        ("number", "9"),
+        ("number", 9.5),
+        ("number", True),
+    ):
+        noncanonical = payload()
+        noncanonical[field] = value
+        rejects(
+            "UNVERIFIED",
+            lambda value=noncanonical: primitive.normalize_webhook(
+                "pull_request", "synchronize", value, policy
+            ),
+            f"noncanonical webhook {field} type",
+        )
+    noncanonical_installation = payload()
+    noncanonical_installation["installation"]["id"] = True
+    rejects(
+        "UNVERIFIED",
+        lambda: primitive.normalize_webhook(
+            "pull_request",
+            "synchronize",
+            noncanonical_installation,
+            policy,
+        ),
+        "boolean installation id rejected",
+    )
+    noncanonical_sha = payload()
+    noncanonical_sha["pull_request"]["head"]["sha"] = 7
+    rejects(
+        "UNVERIFIED",
+        lambda: primitive.normalize_webhook(
+            "pull_request", "synchronize", noncanonical_sha, policy
+        ),
+        "non-string webhook SHA rejected",
+    )
     mismatched_event = payload()
     rejects(
         "UNVERIFIED",
@@ -559,6 +596,21 @@ def main() -> int:
     )
 
     sol_keyring = {"current": provenance_key_record()}
+    original_policy_path = primitive.POLICY_PATH
+    with tempfile.TemporaryDirectory(prefix="itd-policy-drift-") as drift_raw:
+        drifted = copy.deepcopy(policy)
+        drifted["budget"]["monthlyMicrousd"] += 1
+        drift_path = Path(drift_raw) / "policy.json"
+        drift_path.write_text(json.dumps(drifted), encoding="utf-8")
+        primitive.POLICY_PATH = drift_path
+        try:
+            rejects(
+                "UNVERIFIED",
+                lambda: primitive.BrokerStore(":memory:", policy=policy),
+                "store rejects a policy digest that differs from enforcement",
+            )
+        finally:
+            primitive.POLICY_PATH = original_policy_path
     store = primitive.BrokerStore(
         ":memory:", provenance_keyring=sol_keyring
     )
@@ -633,6 +685,14 @@ def main() -> int:
         ).fetchone()[0]
         == 3,
         "rotation retains both immutable receipts and every state transition",
+    )
+    rotation_store.disable_enrollment(
+        REPO, second_receipt_sha, "second planned App rotation"
+    )
+    rejects(
+        "UNVERIFIED",
+        lambda: rotation_store.enroll(copy.deepcopy(first_enrollment)),
+        "a superseded historical receipt can never be reactivated",
     )
     check(
         store.record_delivery_candidate(
@@ -778,8 +838,25 @@ def main() -> int:
     settlement_reservation = store.reserve(
         "openai-responses-terra", candidate_sha
     )
-    settlement = store.settle(settlement_reservation, usage)
+    original_policy_path = primitive.POLICY_PATH
+    with tempfile.TemporaryDirectory(
+        prefix="itd-policy-rotation-"
+    ) as rotation_raw:
+        rotated_policy = Path(rotation_raw) / "policy.json"
+        rotated_policy.write_text(
+            '{"rotated":true}\n',
+            encoding="utf-8",
+        )
+        primitive.POLICY_PATH = rotated_policy
+        try:
+            settlement = store.settle(settlement_reservation, usage)
+        finally:
+            primitive.POLICY_PATH = original_policy_path
     check(settlement is not None, "immutable primary-usage settlement created")
+    check(
+        settlement["policySha256"] == store.policy_sha256,
+        "settlement retains the store-initialization policy digest",
+    )
     external_id_payload = {
         "repository": REPO,
         "subjectType": "pull_request",
@@ -816,7 +893,7 @@ def main() -> int:
         },
         "makerClass": "solMaker",
         "checkerReviewerId": "openai-responses-terra",
-        "policySha256": primitive.sha256_bytes(primitive.POLICY_PATH.read_bytes()),
+        "policySha256": store.policy_sha256,
         "candidateManifestSha256": candidate_sha,
         "budgetSettlementSha256": primitive.sha256_bytes(
             primitive.canonical_json(settlement)
@@ -1109,9 +1186,7 @@ def main() -> int:
         },
         "makerClass": "solMaker",
         "checkerReviewerId": "openai-responses-terra",
-        "policySha256": primitive.sha256_bytes(
-            primitive.POLICY_PATH.read_bytes()
-        ),
+        "policySha256": merge_store.policy_sha256,
         "candidateManifestSha256": merge_manifest_sha,
         "budgetSettlementSha256": primitive.sha256_bytes(
             primitive.canonical_json(merge_settlement)

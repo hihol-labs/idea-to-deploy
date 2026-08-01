@@ -10,7 +10,7 @@ creation, canonical GitHub ruleset management, server-check waiting,
 adoption/registry/doctor diagnostics, and the centrally pinned organization
 ruleset workflow for the machine check. The broker also accepts bounded large
 candidates through a complete-diff-scrubbed deterministic hierarchical review:
-at most 15 exact units plus one mandatory integration verdict, with one
+at most 16 exact units plus one mandatory integration verdict, with one
 candidate-bound plan and an atomic worst-case budget reservation. Live
 App/ruleset deployment, negative
 canaries, final

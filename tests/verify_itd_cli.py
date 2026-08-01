@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Regression checks for the global `itd` gate/PR CLI."""
 from __future__ import annotations
 
 import base64
@@ -282,10 +281,11 @@ def check_phase() -> None:
     check(not complete and failure is None, "same-name forged check ignored")
     check(not external_seen, "forged App is not an eligible external check")
 
+    _, _, external_ids = cli.check_state(success, app_id=APP_ID)
     complete, failure, external_seen = cli.check_state(
         success,
         app_id=APP_ID,
-        ignored_external_ids=frozenset({102}),
+        ignored_external_ids=external_ids,
     )
     check(
         not complete and failure is None and not external_seen,
@@ -927,6 +927,19 @@ def remote_phase() -> None:
         arguments[arguments.index("--repo") + 1] == REPOSITORY,
         "PR lookup explicitly binds repository",
     )
+    ready = dict(response, isDraft=False)
+    with (
+        mock.patch.object(cli, "pr_view", return_value=ready),
+        mock.patch.object(cli, "run") as push,
+    ):
+        rejects(
+            "BLOCKED",
+            lambda: cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("."), "openai", "model", "session"
+            ),
+            "ready PR rejected",
+        )
+        check(not push.called, "ready PR rejected before push")
 
 
 def parser_phase() -> None:
@@ -975,6 +988,17 @@ def parser_phase() -> None:
         ]
     )
     check(args.handler is cli.adopt_gate, "gate adopt route")
+    try:
+        cli.positive_int("0")
+    except cli.argparse.ArgumentTypeError:
+        check(True, "zero ruleset id is rejected by the CLI")
+    else:
+        check(False, "zero ruleset id is rejected by the CLI")
+    rejects(
+        "UNVERIFIED",
+        lambda: cli.ruleset_endpoint(REPOSITORY, "organization", 0),
+        "zero ruleset id cannot select the collection endpoint",
+    )
     args = parser.parse_args(
         [
             "gate",

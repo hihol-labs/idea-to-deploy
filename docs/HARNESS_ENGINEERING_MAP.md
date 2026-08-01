@@ -2,7 +2,7 @@
 
 > Актуальность: **2026-07-28**, idea-to-deploy **v1.95.0**.
 > Текущий инвентарь: 40 skills, 10 subagents, 29 hooks, 11 hard gates, 18 soft hooks.
-> Источники: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/), [Agent Harness Engineering (Addy Osmani)](https://addyosmani.com/blog/agent-harness-engineering/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
+> Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
 <!-- harness-docs-state: docs/HARNESS_DOCS_STATE.json -->
@@ -31,7 +31,6 @@ Claude Code и Codex. Документ не заявляет поддержку 
 ## 2. Источник
 
 - **Учебник:** [walkinglabs.github.io/learn-harness-engineering/ru](https://walkinglabs.github.io/learn-harness-engineering/ru/) — 12 лекций (от режимов отказа агентов к практическим решениям), практические проекты, библиотека шаблонов.
-- **Сравнительная статья:** [Addy Osmani, «Agent Harness Engineering»](https://addyosmani.com/blog/agent-harness-engineering/) — earned controls, assumption-driven harness design, prompt/tool trust, quiet-success/actionable-failure feedback и удаление устаревшего scaffolding.
 - Принципы ниже пронумерованы `H1–H5`, шаблоны — `T1–T2`. Нумерация внутренняя.
 
 Документ-сестра: [`DESIGN_SPACE.md`](DESIGN_SPACE.md) (16 принципов «Dive into Claude Code»). Рамки пересекаются; ссылки на `K…` указывают на строки той карты. NB: §4 (K4) в DESIGN_SPACE датирован v1.20.3 и **предшествует** хуку `context-budget.sh` (v1.21.0) — здесь оценка по бюджету контекста актуальнее.
@@ -87,24 +86,6 @@ Claude Code и Codex. Документ не заявляет поддержку 
 **Остаток оси закрыт в v1.44.0:** T2-кандидат «персистентный мульти-фичный реестр, переживающий сессии» активирован по второму сигналу (критерии ROADMAP): `/goal` + `.itd-memory/GOAL.json` — упорядоченный реестр юнитов цели (`id/criterion/verificationCommand/status`, schema `docs/templates/itd-memory/goal.schema.json`, fail-closed валидация в `validate_state.py`), декомпозиция с одобрением пользователя, ведение через штатный конвейер `/task` при WIP=1, unit-события в `events.jsonl` (VCR считается по цели автоматически), resume с первого не-verified юнита; `pre-flight-check.sh` инжектит «Цель: X — N/M юнитов verified» на входе каждой сессии. До v1.44.0 было реализовано per-unit (`ACCEPTANCE_CONTRACT.json`) + VCR (v1.41.0).
 
 **v1.45.0 — «переходами управляет harness, а не агент» (последний принцип feature-lists) тоже закрыт:** `skills/goal/scripts/itd_goal_verify.py` («ОТК») — единственный писатель `verified`: сам исполняет `verificationCommand`, enforc'ит WIP=1 на активации, gate on passing (verify только из in_progress), провал держит юнит, `--recheck` демотирует регрессию, `--block` fail-closed по причине; все переходы — события `actor: "harness"`. `itd_goal_report.py` — репортёр handoff: детерминированное саммари из леджера для `/handoff`/`/session-save` (компонент «автоматический отчёт о смене»). Статус юнита `blocked` добавлен в схему (полный автомат курса: pending/in_progress/blocked/verified + skipped). Функциональное покрытие — `tests/verify_goal_tools.py` (20 проверок, оба интерпретатора + windows-verify CI). Осознанная дельта от курса остаётся одна: «passing необратим» — у нас `--recheck` честно демотирует регрессировавший verified (леджер отражает проверенную реальность).
-
-### 4.5. Ось A: earned controls, tool trust и feedback discipline (Addy Osmani)
-
-Статья Addy не меняет итоговый H1–H5 score: базовые механизмы уже были
-покрыты. Она добавляет полезную линзу жизненного цикла самого harness.
-
-| Элемент | Статус | Воплощение |
-|---|:---:|---|
-| **A1 Evidence-earned control** — правило объяснимо реальным failure/constraint | ✅ bounded pilot | `HARNESS_CONTROL_REGISTRY.json`: один production incident, два независимых сигнала или hard constraint; assumption, expected behavior, enforcement, verification и review date обязательны. Literal «каждый промах → правило» отклонён как overfitting. |
-| **A2 Retirement / pruning** — компонент имеет условие удаления | ✅ bounded pilot | Пять load-bearing controls связаны по `controlId` с reversible `HARNESS_ABLATION.json`; parity делает только candidate-for-removal, решение остаётся человеку. Это не claim полного покрытия 29 hooks. |
-| **A3 MCP/tool prompt trust** — description/schema/resource являются supply-chain input | ✅ | `TOOL_CAPABILITY_REGISTRY.json` v2: provenance, version posture, permissions, network/data scope, prompt surface, review evidence и `allow/ask/abstain`; unknown prompt-bearing provider → `abstain`. `/adopt` только инвентаризирует, ничего не устанавливает и не доверяет автоматически; `/security-audit` проверяет MEM-8. |
-| **A4 Quiet success, actionable failure** | ✅ bounded pilot | `HOOK_OUTPUT_CONTRACT.json` + behavioral oracle: clean/no-op stdout/stderr пусты; finding — один bounded JSON с `WHY:`/`FIX:` и явной noise-control posture. Пилот: `context-budget.sh`, `careful.sh`. |
-
-Контракты проверяет stdlib-only
-`skills/_shared/itd_harness_controls.py`; mutation tests отклоняют unearned
-control, missing retirement, orphan ablation, silent trust default,
-unreviewed `allow`, noisy success и unactionable finding. Динамический JIT
-harness, новый runtime и бесконечный Ralph loop остаются out-of-scope.
 
 ## 5. Детальный разбор
 

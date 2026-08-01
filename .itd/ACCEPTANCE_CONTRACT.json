@@ -70,9 +70,9 @@
     },
     {
       "id": "GPG-001-AC7",
-      "criterion": "The machine oracle is enforced as an organization ruleset workflow pinned to the central ITD repository and immutable release SHA; it loads its runner from that release and its active version-2 contract from the target protected base, content-binds the complete invoked verifier namespace to identical protected-base and candidate Git objects, isolates Python startup/import resolution, executes only shell-free argv after that trust check, then materializes only the exact Git candidate, rejects ignored or undeclared overlays, verifier or adjacent startup-module self-replacement, mutation, missing artifacts, malformed commands, and oversized or unadopted candidates, and emits a candidate/base/contract/verifier-bound receipt without reviewer secrets.",
+      "criterion": "This bootstrap slice stages (but does not activate) the machine-oracle workflow template and server-side ruleset machinery while the legacy gate remains active. After a separate protected-anchor merge, the template is installed and pinned by repository ID, path, and release SHA; it loads the protected runner/v2 contract, binds verifier dependencies, isolates Python, executes shell-free argv over the exact candidate, and emits a bound receipt without reviewer secrets.",
       "source": "Approved plan items 5 and 6.",
-      "evidence": "Machine-oracle, workflow, and ruleset mutations cover protected runner/contract sourcing, immutable workflow repository/SHA binding, exact-tree isolation, legacy shell-string rejection, Python -I enforcement, declared directory-namespace invocation, protected/candidate Git-manifest equality, candidate no-op verifier and candidate-only sitecustomize substitution without execution, schema closure, artifact presence, output parsing, receipt binding, pull_request plus merge_group events, and rejection of repository-scope or unexpected rules.",
+      "evidence": "Oracle/workflow/ruleset mutations cover bootstrap order, pinned source and drift, same-name status rejection, protected contract/verifiers, exact-tree isolation, Python -I, schema/artifact/output/receipt binding, and pull_request plus merge_group.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle.py",
       "status": "passed"
     },
@@ -110,9 +110,9 @@
     },
     {
       "id": "GPG-001-AC12",
-      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain Codex/Gemini CLI only as advisory transports, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or reuse the disclosed OpenAI key.",
+      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain Codex/Gemini CLI only as advisory transports, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or persist or expose a runtime reviewer API key.",
       "source": "Approved plan items 3, 4, and 7.",
-      "evidence": "Release, host-adapter, methodology meta-review, and deployment documentation checks pass with the obsolete repository-held external-review workflow removed.",
+      "evidence": "Release, host-adapter, methodology meta-review, and deployment documentation checks pass with the legacy repository gate retained through trust-anchor bootstrap; removal is a separate post-deployment cutover only after protected doctor and negative canaries pass.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
       "status": "passed"
     },
@@ -133,5 +133,5 @@
       "status": "passed"
     }
   ],
-  "doneRule": "This contract accepts only the GPG-001 broker-bootstrap and local/global gate-control candidate through a high-risk exact-candidate Verification Loop. It does not claim that the external broker/App/ruleset is already deployed, that private organization repositories are protectable on the current GitHub plan, that a rotated service-account credential exists, or that the final ITD release is published and installed."
+  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. This slice remains in_progress until a current high-risk exact-candidate Verification Loop receipt revalidates. It does not claim live broker/App/ruleset deployment, private-org protection, credential rotation, or final release/install."
 }

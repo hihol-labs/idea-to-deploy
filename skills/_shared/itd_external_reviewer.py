@@ -53,22 +53,71 @@ SECRET_PATTERNS = [
     (re.compile(r"(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._-]{12,}"),
      r"\1[REDACTED]"),
     (re.compile(
-        r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))"
-        r"(\s*[=:]\s*)([\"'])(?!\[REDACTED)([^\r\n]*?)(\3)"
-    ), r"\1\2\3[REDACTED]\5"),
+        r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+        r"([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))\1"
+        r"([ \t]*[=:][ \t]*(?:\r?\n[ +\-]?[ \t]*)?)"
+        r"([\"'])(?!\[REDACTED)([^\r\n]+?)(\4)"
+    ), r"\1\2\1\3\4[REDACTED]\6"),
     (re.compile(
-        r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))"
-        r"(\s*[=:]\s*)(?![\"']|\[REDACTED)([^\s#;,]{6,})"
-    ), r"\1\2[REDACTED]"),
+        r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+        r"([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))\1"
+        r"([ \t]*[=:][ \t]*)"
+        r"(?![\"']|\[REDACTED)([^\s#;,]{6,})"
+    ), r"\1\2\1\3[REDACTED]"),
 ]
+SAFE_REFERENCE_PATTERNS = (
+    re.compile(r"\$\{\{\s*secrets\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}"),
+    re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}"),
+    re.compile(
+        r"(?:os\.environ\.get|os\.getenv)\("
+        r"\s*(?:[\"'][A-Za-z_][A-Za-z0-9_]*[\"']|"
+        r"[A-Za-z_][A-Za-z0-9_]*)"
+        r"(?:\s*,\s*[\"'][\"'])?\s*\)"
+    ),
+    re.compile(
+        r"\b[A-Za-z_][A-Za-z0-9_]*\.get\("
+        r"\s*[\"'][A-Za-z_][A-Za-z0-9_]*[\"']"
+        r"(?:\s*,\s*[\"'][\"'])?\s*\)"
+    ),
+    re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\.group\(\s*\d+\s*\)"),
+    re.compile(r"\bargs\.[A-Za-z_][A-Za-z0-9_]*\b"),
+    re.compile(
+        r"(?im)(?<![A-Za-z0-9_])"
+        r"[A-Za-z_][A-Za-z0-9_]*(?:_FILE|_PATH)"
+        r"[ \t]*[=:][ \t]*"
+        r"(?:\./|/|%[A-Za-z]/)(?!/)[A-Za-z0-9._/-]+"
+    ),
+    re.compile(
+        r"(?im)(?<![A-Za-z0-9_])LoadCredential(?:Encrypted)?"
+        r"[ \t]*=[ \t]*[A-Za-z0-9_.-]+:"
+        r"(?:\./|/|%[A-Za-z]/)(?!/)[A-Za-z0-9._/-]+"
+    ),
+    re.compile(
+        r"(?m)^[+ -]*[ \t]*(?:\./|/|%[A-Za-z]/)(?!/)"
+        r"[A-Za-z0-9._/-]+:(?:\./|/|%[A-Za-z]/)(?!/)"
+        r"[A-Za-z0-9._/-]+(?::ro)?$"
+    ),
+    re.compile(r"\bgit@github\.com:"),
+    re.compile(
+        r"(?P<quote>[\"'])-----BEGIN [A-Z ]*PRIVATE KEY-----\\n"
+        r"(?P=quote)"
+    ),
+)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 HIGH_CONFIDENCE_SECRET_RE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|"
     r"\bgh[pousr]_[A-Za-z0-9]{30,}\b|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b"
 )
 RESIDUAL_CREDENTIAL_RE = re.compile(
-    r"(?i)(?<![A-Za-z0-9_])[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)"
-    r"\s*[=:]\s*[\"']?(?!\[REDACTED)[^ \t\r\n\"'&]{6,}"
+    r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+    r"[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)\1"
+    r"[ \t]*[=:][ \t]*"
+    r"(?:"
+    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
+    r"|(?![\"'\r\n]|\[REDACTED)[^ \t\r\n\"'&]{6,}"
+    r"|\r?\n[ +\-]?[ \t]*"
+    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
+    r")"
 )
 HIGH_ENTROPY_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9_-])"
@@ -305,18 +354,47 @@ def consent_granted(root: Path, policy: dict[str, Any]) -> bool:
     )
 
 
+def _mask_safe_references(text: str) -> tuple[str, list[tuple[str, str]]]:
+    references: list[tuple[str, str]] = []
+    masked = text
+    for pattern in SAFE_REFERENCE_PATTERNS:
+        def replace(match: re.Match[str]) -> str:
+            marker = f"[REDACTED-REFERENCE-{len(references):06d}]"
+            references.append((marker, match.group(0)))
+            return marker
+
+        masked = pattern.sub(replace, masked)
+    return masked, references
+
+
 def scrub(text: str) -> tuple[str, int]:
+    masked, references = _mask_safe_references(text)
+
     count = 0
-    clean = text
+    clean = masked
     for pattern, replacement in SECRET_PATTERNS:
         clean, changed = pattern.subn(replacement, clean)
         count += changed
     clean, changed = EMAIL_RE.subn("[REDACTED-EMAIL]", clean)
-    return clean, count + changed
+    count += changed
+    for marker, reference in references:
+        clean = clean.replace(marker, reference, 1)
+    return clean, count
+
+
+def contains_high_confidence_secret(text: str) -> bool:
+    masked, _references = _mask_safe_references(text)
+    return HIGH_CONFIDENCE_SECRET_RE.search(masked) is not None
+
+
+def contains_residual_credential(text: str) -> bool:
+    masked, _references = _mask_safe_references(text)
+    return RESIDUAL_CREDENTIAL_RE.search(masked) is not None
 
 
 def contains_high_entropy_token(text: str) -> bool:
-    for match in HIGH_ENTROPY_TOKEN_RE.finditer(text):
+    masked, _references = _mask_safe_references(text)
+    for match in HIGH_ENTROPY_TOKEN_RE.finditer(masked):
         token = match.group(0)
         if not (
             any(char.islower() for char in token)
@@ -386,9 +464,9 @@ def build_candidate(root: Path, policy: dict[str, Any]) -> tuple[dict[str, Any],
             "staged textual diff is not valid UTF-8",
         ) from exc
     clean, redactions = scrub(diff)
-    if HIGH_CONFIDENCE_SECRET_RE.search(clean):
+    if contains_high_confidence_secret(clean):
         raise ReviewError("UNVERIFIED", "high-confidence secret survived sanitization")
-    if RESIDUAL_CREDENTIAL_RE.search(clean):
+    if contains_residual_credential(clean):
         raise ReviewError("UNVERIFIED", "credential-shaped assignment survived sanitization")
     if contains_high_entropy_token(clean):
         raise ReviewError(
@@ -709,7 +787,7 @@ def call_openai_curl(
     limits = policy["limits"]
     request_bytes = openai_request_bytes(provider, prompt, schema, policy)
     environment_names = {
-        "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
+        "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
         "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
         "http_proxy", "https_proxy", "all_proxy", "no_proxy",
         "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE", key_name,
@@ -718,9 +796,10 @@ def call_openai_curl(
         name: value for name, value in os.environ.items()
         if name in environment_names
     }
+    curl_executable = trusted_curl_executable()
     try:
         version_result = subprocess.run(
-            ["curl", "--disable", "--version"],
+            [curl_executable, "--disable", "--version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=child_env,
@@ -739,7 +818,7 @@ def call_openai_curl(
     ):
         raise ReviewError("UNAVAILABLE", "curl 8.3.0 or newer is required")
     command = [
-        "curl",
+        curl_executable,
         "--disable",
         "--silent",
         "--show-error",
@@ -796,6 +875,39 @@ def call_openai_curl(
         "latencyMs": round((time.monotonic() - started) * 1000),
         "transport": "curl",
     }
+
+
+def trusted_curl_executable() -> str:
+    """Resolve curl from an OS-owned absolute location, never from PATH."""
+    if os.name == "nt":
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(
+            buffer, len(buffer)
+        )
+        if not 0 < length < len(buffer):
+            raise ReviewError(
+                "UNAVAILABLE", "trusted Windows system directory is unavailable"
+            )
+        candidate = Path(buffer.value) / "curl.exe"
+        if candidate.is_file():
+            return str(candidate)
+    else:
+        for approved in (Path("/usr/bin/curl"), Path("/bin/curl")):
+            try:
+                candidate = approved.resolve(strict=True)
+                metadata = candidate.stat()
+            except OSError:
+                continue
+            if (
+                candidate in {Path("/usr/bin/curl"), Path("/bin/curl")}
+                and candidate.is_file()
+                and metadata.st_uid == 0
+                and metadata.st_mode & 0o022 == 0
+            ):
+                return str(candidate)
+    raise ReviewError("UNAVAILABLE", "trusted curl executable is unavailable")
 
 
 def run_curl_bounded(

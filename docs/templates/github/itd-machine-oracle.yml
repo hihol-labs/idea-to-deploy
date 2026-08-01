@@ -1,6 +1,8 @@
 name: ITD machine oracle
 
 on:
+  # Install this template only after its trust anchors exist on the protected
+  # default branch; the retained legacy gate protects that bootstrap merge.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, edited]
   merge_group:
@@ -16,7 +18,10 @@ concurrency:
 jobs:
   machine-oracle:
     name: ITD machine oracle
-    runs-on: ubuntu-latest
+    # Organization policy must bind this label to an ephemeral runner image
+    # whose image digest is reviewed and rotated as a control-plane change.
+    # A mutable GitHub-hosted `*-latest` label is not gate authority.
+    runs-on: [self-hosted, linux, x64, itd-machine-oracle-v1]
     timeout-minutes: 60
     steps:
       - name: Materialize the exact GitHub test candidate
@@ -28,6 +33,10 @@ jobs:
           persist-credentials: false
 
       - name: Materialize the protected-base verification contract
+        # Bootstrap order is fail-closed: install the initial trust-anchor
+        # objects under pre-existing controls, verify them in protected base,
+        # and only then make this pinned workflow a required ruleset check.
+        # There is intentionally no candidate-owned contract fallback.
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
@@ -36,10 +45,22 @@ jobs:
           persist-credentials: false
 
       - name: Materialize the pinned ITD control plane
+        # Security authority is the server-side organization-ruleset
+        # `workflows` rule configured with this path, central repository_id,
+        # and immutable release SHA. GitHub selects that pinned workflow run;
+        # a candidate-owned workflow with the same job/check name cannot
+        # satisfy the Workflows rule. github.workflow_ref/workflow_sha are
+        # runtime coordinates of the already-selected direct workflow source,
+        # not a self-issued allowlist. The live enrollment/doctor separately
+        # require the ruleset's repository_id/path/sha to match the release.
+        # GitHub documents these fields for the defining workflow:
+        # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context
+        # Ruleset WorkflowFileReference includes repository_id/path/sha:
+        # https://docs.github.com/en/rest/orgs/rules
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: hihol-labs/idea-to-deploy
+          ref: ${{ github.workflow_sha }}
           path: control
           fetch-depth: 1
           persist-credentials: false
@@ -50,17 +71,28 @@ jobs:
           EVENT_CHECK_SHA: ${{ github.event.pull_request.merge_commit_sha || github.event.merge_group.head_sha }}
           EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
-          WORKFLOW_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           set -euo pipefail
           case "$EVENT_NAME" in
-            pull_request|merge_group) ;;
+            pull_request)
+              test "$EVENT_BASE_SHA" = "$(git -C candidate rev-parse HEAD^1)"
+              test "$EVENT_HEAD_SHA" = "$(git -C candidate rev-parse HEAD^2)"
+              ;;
+            merge_group)
+              test "$EVENT_CHECK_SHA" = "$EVENT_HEAD_SHA"
+              git -C candidate merge-base --is-ancestor \
+                "$EVENT_BASE_SHA" "$EVENT_CHECK_SHA"
+              ;;
             *) echo "UNVERIFIED: unsupported event $EVENT_NAME" >&2; exit 1 ;;
           esac
           test "$EVENT_CHECK_SHA" = "$(git -C candidate rev-parse HEAD)"
           test "$EVENT_BASE_SHA" = "$(git -C protected-base rev-parse HEAD)"
-          test "$WORKFLOW_REPOSITORY" = "hihol-labs/idea-to-deploy"
+          case "$WORKFLOW_REF" in
+            hihol-labs/idea-to-deploy/.github/workflows/itd-machine-oracle.yml@*) ;;
+            *) echo "UNVERIFIED: unexpected workflow source $WORKFLOW_REF" >&2; exit 1 ;;
+          esac
           test "$WORKFLOW_SHA" = "$(git -C control rev-parse HEAD)"
           test "$EVENT_HEAD_SHA" != "$EVENT_BASE_SHA"
           test -f protected-base/.itd/VERIFICATION_CONTRACT.json
@@ -73,7 +105,7 @@ jobs:
           GEMINI_API_KEY: ""
         run: |
           set -euo pipefail
-          python3 control/scripts/itd_machine_oracle.py \
+          python3 -I control/scripts/itd_machine_oracle.py \
             --root candidate \
             --trusted-contract-root protected-base \
             --contract .itd/VERIFICATION_CONTRACT.json \

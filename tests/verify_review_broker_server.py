@@ -323,6 +323,24 @@ def http_phase() -> None:
 
         status, value, _ = request(port, "POST", "/webhook", body, headers)
         check(status == 202 and value["status"] == "duplicate", "body replay")
+        conflict_payload = pull_payload()
+        conflict_payload["action"] = "edited"
+        conflict_body = core.canonical_json(conflict_payload)
+        status, value, _ = request(
+            port,
+            "POST",
+            "/webhook",
+            conflict_body,
+            webhook_headers(
+                conflict_body,
+                shared_material,
+                delivery="delivery-0001",
+            ),
+        )
+        check(
+            status == 409 and value["status"] == "UNVERIFIED",
+            "delivery id with a different authenticated body is 409",
+        )
         status, value, _ = request(
             port,
             "POST",
@@ -377,19 +395,49 @@ def http_phase() -> None:
         check(status == 202 and value["status"] == "ignored", "unsupported event")
 
         original = runtime.store.budget_status
-        runtime.store.budget_status = mock.Mock(
-            side_effect=server.sqlite3.OperationalError("fixture")
-        )
+        for failure in (
+            server.sqlite3.OperationalError("fixture"),
+            server.core.BrokerError("UNAVAILABLE", "fixture"),
+            OSError("fixture"),
+        ):
+            runtime.store.budget_status = mock.Mock(side_effect=failure)
+            try:
+                status, value, _ = request(port, "GET", "/readyz")
+                check(
+                    status == 503 and value["status"] == "UNAVAILABLE",
+                    "storage readiness failure is normalized",
+                )
+            finally:
+                runtime.store.budget_status = original
+        actual_thread = runtime.worker.thread
+        runtime.worker.thread = mock.Mock()
+        runtime.worker.thread.is_alive.return_value = False
         try:
             status, value, _ = request(port, "GET", "/readyz")
-            check(status == 503 and value["status"] == "UNAVAILABLE", "DB readiness")
+            check(
+                status == 503 and value["status"] == "UNAVAILABLE",
+                "dead worker fails readiness",
+            )
         finally:
-            runtime.store.budget_status = original
+            runtime.worker.thread = actual_thread
 
 
 def worker_failure_phase() -> None:
     with running_server() as (port, runtime, fake, shared_material):
         fake.error = core.BrokerError("UNAVAILABLE", "fixture outage")
+        original_finish = runtime.store.finish_job
+        finish_attempts = 0
+
+        def flaky_finish(*args, **kwargs):
+            nonlocal finish_attempts
+            finish_attempts += 1
+            if finish_attempts == 1:
+                raise server.sqlite3.OperationalError(
+                    "transient finish fixture"
+                )
+            return original_finish(*args, **kwargs)
+
+        runtime.store.finish_job = flaky_finish
         body = core.canonical_json(pull_payload())
         status, value, _ = request(
             port,
@@ -418,6 +466,52 @@ def worker_failure_phase() -> None:
             time.sleep(0.01)
         check(result is not None and result["status"] == "failed", "worker failure stored")
         check(result["result"]["status"] == "UNAVAILABLE", "worker fail closed")
+        check(
+            finish_attempts >= 2 and runtime.worker.thread.is_alive(),
+            "worker retries transient finish failure",
+        )
+
+    retry_store = core.BrokerStore(
+        ":memory:", provenance_keyring={"maker-key": key_record()}
+    )
+    original_reconcile = retry_store.reconcile_interrupted_jobs
+    original_claim = retry_store.claim
+    attempts = 0
+    claim_attempts = 0
+
+    def flaky_reconcile() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise server.sqlite3.OperationalError("transient startup fixture")
+        original_reconcile()
+
+    def flaky_claim():
+        nonlocal claim_attempts
+        claim_attempts += 1
+        if claim_attempts == 1:
+            raise server.sqlite3.OperationalError("transient claim fixture")
+        return original_claim()
+
+    retry_store.reconcile_interrupted_jobs = flaky_reconcile
+    retry_store.claim = flaky_claim
+    retry_worker = server.BrokerWorker(FakeBroker(), retry_store)
+    retry_worker.start()
+    deadline = time.monotonic() + 2
+    while (
+        (attempts < 2 or claim_attempts < 2)
+        and time.monotonic() < deadline
+    ):
+        retry_worker.notify()
+        time.sleep(0.01)
+    check(
+        attempts >= 2
+        and claim_attempts >= 2
+        and retry_worker.thread.is_alive(),
+        "worker retries transient reconciliation and claim failures",
+    )
+    retry_worker.close()
+    retry_store.close()
 
 
 def request_bound_phase() -> None:
@@ -438,6 +532,64 @@ def request_bound_phase() -> None:
     )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
+
+    def raw_response(payload: bytes) -> bytes:
+        connection = socket.create_connection(
+            ("127.0.0.1", httpd.server_address[1]),
+            timeout=3,
+        )
+        try:
+            connection.sendall(payload)
+            try:
+                connection.shutdown(socket.SHUT_WR)
+            except OSError:
+                # A fail-fast parser may already have sent 4xx and closed.
+                pass
+            connection.settimeout(3)
+            chunks: list[bytes] = []
+            while True:
+                part = connection.recv(4096)
+                if not part:
+                    break
+                chunks.append(part)
+            return b"".join(chunks)
+        finally:
+            connection.close()
+
+    transfer_encoded = raw_response(
+        b"POST /provenance HTTP/1.1\r\n"
+        b"Host: localhost\r\n"
+        b"Content-Type: application/json\r\n"
+        b"Content-Length: 2\r\n"
+        b"Transfer-Encoding: chunked\r\n\r\n{}"
+    )
+    check(
+        b" 400 " in transfer_encoded.split(b"\r\n", 1)[0],
+        "Content-Length plus Transfer-Encoding rejected",
+    )
+    duplicate_length = raw_response(
+        b"POST /provenance HTTP/1.1\r\n"
+        b"Host: localhost\r\n"
+        b"Content-Type: application/json\r\n"
+        b"Content-Length: 2\r\n"
+        b"Content-Length: 2\r\n\r\n{}"
+    )
+    check(
+        b" 400 " in duplicate_length.split(b"\r\n", 1)[0],
+        "duplicate Content-Length rejected",
+    )
+    pipelined = raw_response(
+        b"POST /provenance HTTP/1.1\r\n"
+        b"Host: localhost\r\n"
+        b"Content-Type: application/json\r\n"
+        b"Content-Length: 2\r\n\r\n{}"
+        b"GET /healthz HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    )
+    check(
+        pipelined.count(b"HTTP/") == 1,
+        "body request closes before appended bytes can be reused",
+    )
+
     slow = socket.create_connection(
         ("127.0.0.1", httpd.server_address[1]), timeout=3
     )
@@ -468,6 +620,17 @@ def request_bound_phase() -> None:
 
 
 def environment_phase() -> None:
+    numeric_record = key_record()
+    numeric_record["publicKey"] = int("1" * 42 + "0")
+    expect_error(
+        "UNAVAILABLE",
+        lambda: server.validate_public_keyring(
+            {"maker-key": numeric_record}, core.load_policy()
+        ),
+        "non-string public key rejected by keyring validation",
+    )
+
+    ambient_provider_name = "".join(("OPENAI_", "API_KEY"))
     forbidden = {
         "ITD_GITHUB_APP_CLIENT_ID": CLIENT_ID,
         "ITD_GITHUB_APP_PRIVATE_KEY_FILE": "/missing/app.pem",
@@ -475,7 +638,7 @@ def environment_phase() -> None:
         "ITD_PROVENANCE_KEYRING_FILE": "/missing/keyring.json",
         "ITD_OPENAI_API_KEY_FILE": "/missing/openai",
         "ITD_BROKER_DATABASE": "/tmp/itd-broker-fixture.sqlite3",
-        "OPENAI_API_KEY": "forbidden-ambient-value",
+        ambient_provider_name: "forbidden-ambient-value",
     }
     with mock.patch.dict(os.environ, forbidden, clear=True):
         expect_error(

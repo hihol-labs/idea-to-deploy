@@ -472,7 +472,7 @@ def main() -> int:
     check(
         policy["candidate"]["maxRawDiffBytes"] == 80000
         and policy["candidate"]["maxHierarchicalRawDiffBytes"] == 1200000
-        and policy["candidate"]["maxReviewUnits"] == 15
+        and policy["candidate"]["maxReviewUnits"] == 16
         and policy["candidate"]["hierarchicalReview"]
         == {
             "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
@@ -537,7 +537,7 @@ def main() -> int:
     webhooks = policy["github"]["webhooks"]
     check(
         webhooks["signatureInput"] == "exact-raw-request-body-bytes"
-        and webhooks["secretConfig"] == "ITD_GITHUB_WEBHOOK_SECRET"
+        and webhooks["secretConfig"] == "ITD_GITHUB_WEBHOOK_SECRET_FILE"
         and webhooks["eventHeader"] == "X-GitHub-Event"
         and webhooks["constantTimeComparisonRequired"] is True
         and webhooks["verifyBefore"] == ["parse", "deduplicate", "enqueue", "publish"]
@@ -733,7 +733,7 @@ def main() -> int:
             "openai-responses": 750000,
             "openai-responses-terra": 500000,
         }
-        and budget["maxHierarchicalProviderCalls"] == 16
+        and budget["maxHierarchicalProviderCalls"] == 17
         and budget["inputTokenUpperBound"] == "utf8-provider-request-bytes"
         and budget["requestMustSetOutputTokenCap"] is True
         and budget["rounding"] == "decimal-round-up-6-places"
@@ -756,6 +756,10 @@ def main() -> int:
         and budget["hierarchicalUncertainCharge"]
         == "settled-observed-usage-plus-one-ambiguous-provider-call-cap",
         "budget is bounded conservatively before provider dispatch",
+    )
+    check(
+        "selected-call-reservation" in budget["outputTokenCap"],
+        "output cap formula is bound to the selected direct or hierarchical reservation",
     )
     unknown = policy["routing"]["unknownOrMixedMakerDisposition"]
     check(
@@ -908,6 +912,12 @@ def main() -> int:
     transparent_manifest["totalReviewBytes"] = 48
     manifest_validator.validate(transparent_manifest)
     check(True, "declared transparent representation manifest validates")
+    mixed_transparent_manifest = copy.deepcopy(transparent_manifest)
+    mixed_transparent_manifest["files"]["src/new.py"] = added_file
+    mixed_transparent_manifest["totalDecodedBlobBytes"] += 12
+    mixed_transparent_manifest["totalReviewBytes"] += 12
+    manifest_validator.validate(mixed_transparent_manifest)
+    check(True, "mixed text and transparent candidate manifest validates")
     missing_transparent_total = copy.deepcopy(transparent_manifest)
     del missing_transparent_total["totalReviewBytes"]
     expect_rejected(

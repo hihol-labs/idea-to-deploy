@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -42,7 +43,6 @@ SAFE_ENV_NAMES = {
     "LOCALAPPDATA",
     "NUMBER_OF_PROCESSORS",
     "OS",
-    "PATH",
     "PATHEXT",
     "PROGRAMDATA",
     "PROGRAMFILES",
@@ -97,6 +97,15 @@ def sha256_file(path: Path, limit: int = MAX_ARTIFACT_BYTES) -> str:
         raise OracleError("required artifact is unreadable") from exc
 
 
+def has_symlink_component(root: Path, relative: str) -> bool:
+    current = root
+    for component in Path(relative).parts:
+        current /= component
+        if current.is_symlink():
+            return True
+    return False
+
+
 def now_iso() -> str:
     return (
         dt.datetime.now(dt.timezone.utc)
@@ -107,15 +116,37 @@ def now_iso() -> str:
 
 
 def safe_relative(raw: str, label: str) -> str:
-    path = PurePosixPath(raw.replace("\\", "/"))
+    normalized = raw.replace("\\", "/")
+    path = PurePosixPath(normalized)
     if (
         not raw
         or path.is_absolute()
+        or re.match(r"^[A-Za-z]:/", normalized)
         or ".." in path.parts
         or any(part in {"", "."} for part in path.parts)
     ):
         raise OracleError(f"{label} path is unsafe")
     return path.as_posix()
+
+
+def valid_expected_output(parser: Any, expected: Any) -> bool:
+    if parser == "exit_code_zero":
+        return expected == ""
+    if parser in {"stdout_contains", "manual_evidence"}:
+        return (
+            isinstance(expected, str)
+            and bool(expected)
+            and len(expected.encode("utf-8")) <= MAX_ARG_BYTES
+        )
+    if parser == "json_field_equals":
+        return (
+            isinstance(expected, dict)
+            and set(expected) == {"field", "value"}
+            and isinstance(expected["field"], str)
+            and bool(expected["field"])
+            and len(expected["field"].encode("utf-8")) <= MAX_ARG_BYTES
+        )
+    return False
 
 
 def load_contract(path: Path) -> tuple[dict[str, Any], str]:
@@ -176,13 +207,7 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
             or any(not isinstance(item, str) for item in trusted_paths)
             or type(timeout) is not int
             or not 1 <= timeout <= MAX_TIMEOUT_SECONDS
-            or parser
-            not in {
-                "exit_code_zero",
-                "stdout_contains",
-                "json_field_equals",
-                "manual_evidence",
-            }
+            or not valid_expected_output(parser, row["expectedOutput"])
         ):
             raise OracleError("verification command definition is invalid")
         normalized_paths = [
@@ -208,15 +233,62 @@ def sanitized_environment() -> dict[str, str]:
         upper = name.upper()
         if SENSITIVE_NAME_RE.search(upper):
             continue
-        if (
-            upper in SAFE_ENV_NAMES
-            or upper.startswith("GITHUB_")
-            or upper.startswith("RUNNER_")
-        ):
+        if upper in SAFE_ENV_NAMES:
             result[name] = value
+    result["PATH"] = os.pathsep.join(
+        dict.fromkeys(
+            (
+                str(Path(sys.executable).resolve().parent),
+                *trusted_runtime_directories(),
+            )
+        )
+    )
     result["ITD_MACHINE_ORACLE"] = "1"
     result["PYTHONDONTWRITEBYTECODE"] = "1"
     return result
+
+
+def trusted_runtime_directories() -> tuple[str, ...]:
+    if os.name != "nt":
+        candidates = ("/usr/bin", "/bin")
+    else:
+        system_root = Path(os.environ.get("SYSTEMROOT", r"C:\Windows"))
+        program_files = Path(
+            os.environ.get("PROGRAMFILES", r"C:\Program Files")
+        )
+        candidates = (
+            str(system_root / "System32"),
+            str(system_root),
+            str(program_files / "Git" / "usr" / "bin"),
+            str(program_files / "Git" / "bin"),
+            str(program_files / "Git" / "cmd"),
+        )
+    return tuple(dict.fromkeys(str(Path(item).resolve()) for item in candidates))
+
+
+def trusted_executable(raw: str) -> Path:
+    name = Path(raw.replace("\\", "/")).name.casefold()
+    python_runtime = name.startswith("python")
+    if python_runtime:
+        candidate = Path(sys.executable).resolve()
+    else:
+        located = shutil.which(
+            raw,
+            path=os.pathsep.join(trusted_runtime_directories()),
+        )
+        if not located:
+            raise OracleError("trusted verification runtime is unavailable")
+        candidate = Path(located).resolve()
+    trusted_parents = {
+        Path(item).resolve() for item in trusted_runtime_directories()
+    }
+    if (
+        not candidate.is_file()
+        or (not python_runtime and candidate.parent not in trusted_parents)
+        or (os.name != "nt" and not os.access(candidate, os.X_OK))
+    ):
+        raise OracleError("verification runtime is outside trusted roots")
+    return candidate
 
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
@@ -334,9 +406,11 @@ def run_argv(
     max_output_bytes: int,
 ) -> dict[str, Any]:
     started = now_iso()
+    executable = trusted_executable(arguments[0])
+    resolved_arguments = [str(executable), *arguments[1:]]
     try:
         process = subprocess.Popen(
-            arguments,
+            resolved_arguments,
             cwd=str(cwd),
             env=sanitized_environment(),
             shell=False,
@@ -352,12 +426,15 @@ def run_argv(
         )
     except OSError as exc:
         raise OracleError("bounded process could not start") from exc
-    return _capture_process(
+    result = _capture_process(
         process,
         started=started,
         timeout=timeout,
         max_output_bytes=max_output_bytes,
     )
+    result["runtimePath"] = str(executable)
+    result["runtimeSha256"] = sha256_file(executable)
+    return result
 
 
 def json_field(value: Any, path: str) -> Any:
@@ -554,43 +631,106 @@ def verifier_bindings(
         executable = Path(
             row["argv"][0].replace("\\", "/")
         ).name.casefold()
-        if (
-            executable.startswith("python")
-            and "-I" not in row["argv"][1:]
-        ):
+        python_runtime = executable.startswith(("python", "pypy"))
+        python_isolated = (
+            python_runtime
+            and len(row["argv"]) > 1
+            and row["argv"][1] == "-I"
+        )
+        uses_itd_launcher = any(
+            argument.replace("\\", "/").endswith("/itd_py.sh")
+            or argument == "itd_py.sh"
+            for argument in row["argv"]
+        )
+        launcher_isolated = (
+            uses_itd_launcher and "--itd-isolated" in row["argv"]
+        )
+        shells = {"sh", "bash", "dash", "ksh", "zsh"}
+        normalized_argv = [
+            argument.replace("\\", "/").lstrip("./")
+            for argument in row["argv"]
+        ]
+        if uses_itd_launcher:
+            if (
+                executable not in shells
+                or not launcher_isolated
+                or len(normalized_argv) < 4
+                or not (
+                    normalized_argv[1].endswith("/itd_py.sh")
+                    or normalized_argv[1] == "itd_py.sh"
+                )
+                or normalized_argv[2] != "--itd-isolated"
+                or normalized_argv[3].startswith("-")
+            ):
+                raise OracleError(
+                    f"ITD Python launcher invocation is invalid: "
+                    f"{row['id']}"
+                )
+            invoked_paths = [normalized_argv[1], normalized_argv[3]]
+        elif python_runtime and not python_isolated:
             raise OracleError(
                 f"Python verifier is not isolated with -I: {row['id']}"
             )
-        if (
-            any(
-                argument.replace("\\", "/").endswith(
-                    "/itd_py.sh"
+        elif python_runtime:
+            if any(item in {"-c", "-m"} for item in row["argv"][1:]):
+                raise OracleError(
+                    f"Python code/module dispatch is forbidden: {row['id']}"
                 )
-                or argument == "itd_py.sh"
-                for argument in row["argv"]
+            script_index = 2
+            if (
+                len(row["argv"]) > script_index
+                and row["argv"][script_index] == "--"
+            ):
+                script_index += 1
+            elif (
+                len(row["argv"]) > script_index
+                and row["argv"][script_index].startswith("-")
+            ):
+                raise OracleError(
+                    f"Python interpreter options are unsupported: "
+                    f"{row['id']}"
+                )
+            invoked = (
+                normalized_argv[script_index]
+                if len(normalized_argv) > script_index
+                else ""
             )
-            and "--itd-isolated" not in row["argv"]
+            invoked_paths = [invoked]
+        elif executable in shells:
+            invoked = (
+                normalized_argv[1]
+                if len(normalized_argv) > 1
+                and not row["argv"][1].startswith("-")
+                else ""
+            )
+            invoked_paths = [invoked]
+        else:
+            invoked_paths = [normalized_argv[0]]
+        for invoked in invoked_paths:
+            if not invoked or not any(
+                invoked == path
+                or invoked.startswith(path.rstrip("/") + "/")
+                for path in trusted
+            ):
+                raise OracleError(
+                    f"verification dispatcher does not directly invoke a "
+                    f"trusted verifier: {row['id']}"
+                )
+        exact_file_binding = any(
+            protected_by_path[path]["objectKind"] == "blob"
+            for path in trusted
+        )
+        if (
+            exact_file_binding
+            and not python_isolated
+            and not launcher_isolated
         ):
             raise OracleError(
-                f"ITD Python launcher is not isolated: {row['id']}"
+                f"exact-file verifier bindings require isolated Python: "
+                f"{row['id']}"
             )
-        namespace_paths = [
-            path
-            for path in trusted
-            if protected_by_path[path]["objectKind"] == "tree"
-        ]
-        namespace_referenced = False
         for argument in row["argv"]:
             normalized = argument.replace("\\", "/").lstrip("./")
-            dotted = normalized.replace("/", ".")
-            if any(
-                normalized == path
-                or normalized.startswith(path.rstrip("/") + "/")
-                or dotted == path.replace("/", ".")
-                or dotted.startswith(path.replace("/", ".") + ".")
-                for path in namespace_paths
-            ):
-                namespace_referenced = True
             try:
                 relative = safe_relative(
                     argument,
@@ -608,11 +748,6 @@ def verifier_bindings(
                     f"verification argv references undeclared verifier "
                     f"input: {relative}"
                 )
-        if not namespace_referenced:
-            raise OracleError(
-                f"verification command does not invoke a content-bound "
-                f"verifier namespace: {row['id']}"
-            )
     return bindings, failures
 
 
@@ -645,7 +780,7 @@ def isolated_head(root: Path, head: str, tree: str):
             [
                 "git",
                 "clone",
-                "--shared",
+                "--no-local",
                 "--no-checkout",
                 "--quiet",
                 str(root),
@@ -788,6 +923,8 @@ def execute(
                         "outputOverflow": False,
                         "stdoutSha256": None,
                         "stderrSha256": None,
+                        "runtimePath": None,
+                        "runtimeSha256": None,
                         "status": "NOT_RUN_TRUST_FAILURE",
                     }
                 )
@@ -823,6 +960,8 @@ def execute(
                     "outputOverflow": command_result["outputOverflow"],
                     "stdoutSha256": command_result["stdoutSha256"],
                     "stderrSha256": command_result["stderrSha256"],
+                    "runtimePath": command_result["runtimePath"],
+                    "runtimeSha256": command_result["runtimeSha256"],
                     "status": "PASSED" if accepted else "FAILED",
                 }
             )
@@ -831,7 +970,7 @@ def execute(
         for raw in contract.get("requiredArtifacts", []):
             relative = safe_relative(raw, "required artifact")
             artifact = candidate / relative
-            if artifact.is_symlink() or not artifact.is_file():
+            if has_symlink_component(candidate, relative) or not artifact.is_file():
                 missing.append(relative)
             else:
                 artifact_hashes[relative] = sha256_file(artifact)

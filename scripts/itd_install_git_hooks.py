@@ -8,6 +8,7 @@ import os
 import shlex
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 
@@ -23,6 +24,91 @@ import itd_install_cli as cli_runtime  # noqa: E402
 
 class InstallError(RuntimeError):
     pass
+
+
+def run_bounded_process(
+    command: list[str],
+    *,
+    output_limit: int,
+    timeout: float,
+) -> subprocess.CompletedProcess[bytes]:
+    """Run a child while bounding each captured output stream in memory."""
+    if output_limit <= 0 or timeout <= 0:
+        raise InstallError("bounded child process limits are invalid")
+    try:
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise InstallError("global Git configuration is unavailable") from exc
+
+    outputs = {"stdout": bytearray(), "stderr": bytearray()}
+    overflow = threading.Event()
+    reader_errors: list[OSError] = []
+
+    def read_stream(name: str, stream) -> None:
+        try:
+            while True:
+                chunk = stream.read(4096)
+                if not chunk:
+                    return
+                destination = outputs[name]
+                allowance = output_limit + 1 - len(destination)
+                if allowance > 0:
+                    destination.extend(chunk[:allowance])
+                if len(destination) > output_limit:
+                    overflow.set()
+                    try:
+                        process.kill()
+                    except OSError:
+                        pass
+                    return
+        except OSError as exc:
+            reader_errors.append(exc)
+            try:
+                process.kill()
+            except OSError:
+                pass
+
+    assert process.stdout is not None and process.stderr is not None
+    readers = [
+        threading.Thread(
+            target=read_stream,
+            args=(name, stream),
+            name=f"itd-git-{name}",
+            daemon=True,
+        )
+        for name, stream in (
+            ("stdout", process.stdout),
+            ("stderr", process.stderr),
+        )
+    ]
+    for reader in readers:
+        reader.start()
+    timed_out = False
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        process.kill()
+        process.wait()
+    for reader in readers:
+        reader.join()
+
+    if timed_out:
+        raise InstallError("global Git configuration timed out")
+    if overflow.is_set():
+        raise InstallError("global Git configuration output is too large")
+    if reader_errors:
+        raise InstallError("global Git configuration output is unavailable")
+    return subprocess.CompletedProcess(
+        command,
+        process.returncode,
+        bytes(outputs["stdout"]),
+        bytes(outputs["stderr"]),
+    )
 
 
 def select_runtime(
@@ -44,21 +130,11 @@ def default_target() -> Path:
 
 
 def git_config(*arguments: str, check: bool = True) -> str:
-    try:
-        completed = subprocess.run(
-            ["git", "config", "--global", *arguments],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=20,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise InstallError("global Git configuration is unavailable") from exc
-    if (
-        len(completed.stdout) > MAX_GIT_OUTPUT
-        or len(completed.stderr) > MAX_GIT_OUTPUT
-    ):
-        raise InstallError("global Git configuration output is too large")
+    completed = run_bounded_process(
+        ["git", "config", "--global", *arguments],
+        output_limit=MAX_GIT_OUTPUT,
+        timeout=20,
+    )
     if check and completed.returncode != 0:
         reason = completed.stderr.decode("utf-8", errors="replace").strip()
         raise InstallError(
@@ -76,6 +152,11 @@ def wrapper(python: Path, script: Path) -> bytes:
     return (
         "#!/bin/sh\n"
         "set -eu\n"
+        "git_dir=$(git rev-parse --git-dir)\n"
+        "local_hook=$git_dir/hooks/pre-push\n"
+        "if [ -x \"$local_hook\" ] && [ \"$local_hook\" != \"$0\" ]; then\n"
+        "  \"$local_hook\" \"$@\"\n"
+        "fi\n"
         f"exec {python_value} {script_value} \"$@\"\n"
     ).encode("utf-8")
 
@@ -161,6 +242,7 @@ def parser() -> argparse.ArgumentParser:
         description="Install the host-global ITD Git pre-push guard"
     )
     result.add_argument("--target", type=Path, default=default_target())
+    result.add_argument("--python", type=Path)
     result.add_argument("--apply", action="store_true")
     result.add_argument("--replace-existing", action="store_true")
     return result
@@ -173,8 +255,9 @@ def main(argv: list[str] | None = None) -> int:
             args.target,
             apply=args.apply,
             replace_existing=args.replace_existing,
+            python=args.python,
         )
-    except (InstallError, UnicodeError) as exc:
+    except (InstallError, OSError, UnicodeError) as exc:
         print(
             json.dumps(
                 {"status": "BLOCKED", "reason": str(exc)},

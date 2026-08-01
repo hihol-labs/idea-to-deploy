@@ -12,7 +12,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
@@ -22,7 +22,23 @@ MAX_CONVERSION_BYTES = 1024 * 1024
 ORG_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{8,100}$")
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+# Listed as supported at docs.github.com/rest/about-the-rest-api/api-versions.
 GITHUB_API_VERSION = "2026-03-10"
+CALLBACK_CONNECTION_TIMEOUT_SECONDS = 2
+
+
+class BoundedHTTPServer(HTTPServer):
+    def get_request(self):
+        connection, address = super().get_request()
+        try:
+            connection.settimeout(CALLBACK_CONNECTION_TIMEOUT_SECONDS)
+        except OSError:
+            connection.close()
+            raise
+        return connection, address
+
+
+CALLBACK_SERVER_CLASS = BoundedHTTPServer
 
 
 class ManifestError(RuntimeError):
@@ -33,6 +49,25 @@ def organization(value: str) -> str:
     if not isinstance(value, str) or not ORG_RE.fullmatch(value):
         raise ManifestError("GitHub organization is invalid")
     return value
+
+
+def callback_code(raw_query: str, expected_state: str) -> str:
+    try:
+        query = urllib.parse.parse_qs(
+            raw_query,
+            keep_blank_values=True,
+            strict_parsing=True,
+        )
+    except ValueError as exc:
+        raise ManifestError("manifest callback query is malformed") from exc
+    if (
+        set(query) != {"code", "state"}
+        or any(len(values) != 1 for values in query.values())
+        or not secrets.compare_digest(query["state"][0], expected_state)
+        or not query["code"][0]
+    ):
+        raise ManifestError("manifest callback query is invalid")
+    return query["code"][0]
 
 
 def broker_base(value: str) -> str:
@@ -264,6 +299,36 @@ def persist_conversion(
     }
 
 
+def convert_and_persist(
+    code: str,
+    output_dir: Path,
+    *,
+    expected_owner: str | None = None,
+    converter: Callable[[str], dict[str, Any]] = conversion,
+    persister: Callable[
+        [dict[str, Any], Path], dict[str, Any]
+    ] = persist_conversion,
+) -> dict[str, Any]:
+    """Normalize conversion and credential persistence failures for serve()."""
+    try:
+        value = validate_conversion(converter(code))
+        if (
+            expected_owner is not None
+            and value["owner"]["login"].casefold()
+            != organization(expected_owner).casefold()
+        ):
+            raise ManifestError(
+                "converted GitHub App owner differs from requested organization"
+            )
+        return persister(value, output_dir)
+    except ManifestError:
+        raise
+    except OSError as exc:
+        raise ManifestError(
+            "GitHub App credential persistence failed"
+        ) from exc
+
+
 def registration_page(
     action: str,
     app_manifest: dict[str, Any],
@@ -299,7 +364,8 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = args.output_dir.expanduser().resolve()
     state = secrets.token_urlsafe(32)
     completed: dict[str, Any] = {}
-    server = ThreadingHTTPServer(
+    failed: list[ManifestError] = []
+    server = CALLBACK_SERVER_CLASS(
         ("127.0.0.1", 0), BaseHTTPRequestHandler
     )
     port = int(server.server_address[1])
@@ -340,24 +406,19 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
             if parsed.path != "/callback":
                 self.send(404, b"Not found")
                 return
-            query = urllib.parse.parse_qs(
-                parsed.query,
-                keep_blank_values=True,
-                strict_parsing=True,
-            )
-            if (
-                set(query) != {"code", "state"}
-                or any(len(values) != 1 for values in query.values())
-                or not secrets.compare_digest(query["state"][0], state)
-            ):
+            try:
+                code = callback_code(parsed.query, state)
+            except ManifestError:
                 self.send(400, b"Invalid callback")
                 return
             try:
-                result = persist_conversion(
-                    conversion(query["code"][0]),
+                result = convert_and_persist(
+                    code,
                     output_dir,
+                    expected_owner=args.organization,
                 )
-            except ManifestError:
+            except ManifestError as exc:
+                failed.append(exc)
                 self.send(502, b"GitHub App conversion failed")
                 return
             completed.update(result)
@@ -383,10 +444,16 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
             ),
             flush=True,
         )
-        while not completed and time.monotonic() < deadline:
+        while (
+            not completed
+            and not failed
+            and time.monotonic() < deadline
+        ):
             server.handle_request()
     finally:
         server.server_close()
+    if failed:
+        raise failed[0]
     if not completed:
         raise ManifestError(
             "GitHub App manifest flow timed out before conversion"

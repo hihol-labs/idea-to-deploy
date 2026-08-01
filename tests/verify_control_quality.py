@@ -2,6 +2,7 @@
 """Measured control coverage and false-classification regression corpus."""
 from __future__ import annotations
 
+import importlib.util
 import runpy
 from pathlib import Path
 import sys
@@ -49,9 +50,14 @@ def main() -> int:
         fp += int(not expected and actual)
         fn += int(expected and not actual)
 
-    from verify_harness_map_fixtures import GATE_TESTS, derived_hard_gates
-    hard = derived_hard_gates()
-    covered = hard.intersection(GATE_TESTS)
+    helper_path = ROOT / "tests" / "verify_harness_map_fixtures.py"
+    spec = importlib.util.spec_from_file_location("harness_map_fixtures", helper_path)
+    if spec is None or spec.loader is None:
+        raise SystemExit("unable to load bound harness-map verifier")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    hard = helper.derived_hard_gates()
+    covered = hard.intersection(helper.GATE_TESTS)
     total = tp + tn + fp + fn
     precision = tp / max(1, tp + fp)
     recall = tp / max(1, tp + fn)

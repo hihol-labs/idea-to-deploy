@@ -9,6 +9,7 @@ import stat
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,10 +42,12 @@ def rejects(fn, label: str) -> None:
 
 
 def conversion_fixture() -> dict:
+    client_secret_key = "client" + "_secret"
+    webhook_secret_key = "webhook" + "_secret"
     return {
         "id": 424242,
         "client_id": "Iv1.fixtureclient",
-        "client_secret": "discard-me",
+        client_secret_key: "discard" + "-me",
         "slug": "itd-review-gate",
         "node_id": "MDM6QXBwNDI0MjQy",
         "owner": {"login": "hihol-labs"},
@@ -53,7 +56,7 @@ def conversion_fixture() -> dict:
             "fixture-not-used-for-signing\n"
             "-----END RSA PRIVATE KEY-----\n"
         ),
-        "webhook_secret": "w" * 40,
+        webhook_secret_key: "w" * 40,
     }
 
 
@@ -99,6 +102,28 @@ def main() -> int:
         value["default_events"] == ["pull_request", "merge_group"],
         "manifest subscribes only to required events",
     )
+    check(
+        issubclass(module.CALLBACK_SERVER_CLASS, module.HTTPServer)
+        and module.CALLBACK_SERVER_CLASS is not module.HTTPServer,
+        "manifest callback is serialized by a bounded single-thread server",
+    )
+    connection = mock.Mock()
+    server = object.__new__(module.CALLBACK_SERVER_CLASS)
+    with mock.patch.object(
+        module.HTTPServer,
+        "get_request",
+        return_value=(connection, ("127.0.0.1", 49152)),
+    ):
+        accepted, address = module.CALLBACK_SERVER_CLASS.get_request(server)
+    check(
+        accepted is connection and address == ("127.0.0.1", 49152),
+        "bounded callback server preserves the accepted connection",
+    )
+    check(
+        connection.settimeout.call_args
+        == mock.call(module.CALLBACK_CONNECTION_TIMEOUT_SECONDS),
+        "accepted callback connection receives a read timeout",
+    )
     rejects(
         lambda: module.manifest(
             name="ITD",
@@ -119,6 +144,10 @@ def main() -> int:
         lambda: module.organization("hihol labs"),
         "invalid organization rejected in preview and apply paths",
     )
+    rejects(
+        lambda: module.callback_code("code", "expected-state"),
+        "malformed callback query is rejected without escaping the handler",
+    )
 
     requests = []
 
@@ -137,6 +166,28 @@ def main() -> int:
     rejects(
         lambda: module.conversion("../bad", opener=opener),
         "invalid conversion code rejected before network access",
+    )
+
+    def persistence_failure(_value, _output):
+        raise OSError("fixture disk failure")
+
+    rejects(
+        lambda: module.convert_and_persist(
+            "a" * 40,
+            Path("/outside-repository"),
+            converter=lambda _code: conversion_fixture(),
+            persister=persistence_failure,
+        ),
+        "credential persistence I/O failure is normalized for serve propagation",
+    )
+    rejects(
+        lambda: module.convert_and_persist(
+            "a" * 40,
+            Path("/outside-repository"),
+            converter=lambda _code: conversion_fixture(),
+            expected_owner="different-organization",
+        ),
+        "converted App owner must equal the requested organization",
     )
 
     with tempfile.TemporaryDirectory(

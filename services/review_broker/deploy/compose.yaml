@@ -29,7 +29,6 @@ services:
       ITD_BROKER_DATABASE: /var/lib/itd/review-broker.sqlite3
       ITD_BROKER_HOST: 0.0.0.0
       ITD_BROKER_PORT: "8080"
-      OPENAI_API_KEY: ""
     volumes:
       - ./runtime/database:/var/lib/itd
       - ./runtime/secrets/github-app-private-key.pem:/run/secrets/github-app-private-key:ro

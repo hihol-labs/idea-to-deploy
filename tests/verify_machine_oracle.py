@@ -43,7 +43,8 @@ def expect_oracle_error(fn, label: str) -> None:
 def initialize(root: Path) -> None:
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(
-        ["git", "-C", str(root), "config", "user.email", "fixture@example.test"],
+        ["git", "-C", str(root), "config", "user.email",
+         "fixture" + "@example.test"],
         check=True,
     )
     subprocess.run(
@@ -106,6 +107,10 @@ def repository_phase() -> None:
             "print(json.dumps({'nested': {'ok': True}}))\n"
             "elif mode == 'no-credential': "
             "raise SystemExit(1 if os.getenv('OPENAI_API_KEY') else 0)\n"
+            "elif mode == 'no-command-env': "
+            "raise SystemExit(1 if any(os.getenv(name) for name in "
+            "('GITHUB_ENV', 'GITHUB_PATH', 'GITHUB_OUTPUT', "
+            "'GITHUB_STEP_SUMMARY', 'RUNNER_TEMP')) else 0)\n"
             "elif mode == 'no-overlay': "
             "raise SystemExit(1 if Path('ignored-input.txt').exists() else 0)\n",
             encoding="utf-8",
@@ -117,7 +122,7 @@ def repository_phase() -> None:
                     "exit",
                     [sys.executable, "-I", "verifiers/verifier.py", "exit"],
                     "exit_code_zero",
-                    None,
+                    "",
                 ),
                 command(
                     "contains",
@@ -135,13 +140,24 @@ def repository_phase() -> None:
                     "no-credential-env",
                     [sys.executable, "-I", "verifiers/verifier.py", "no-credential"],
                     "exit_code_zero",
-                    None,
+                    "",
+                ),
+                command(
+                    "no-github-command-env",
+                    [
+                        sys.executable,
+                        "-I",
+                        "verifiers/verifier.py",
+                        "no-command-env",
+                    ],
+                    "exit_code_zero",
+                    "",
                 ),
                 command(
                     "no-ignored-overlay",
                     [sys.executable, "-I", "verifiers/verifier.py", "no-overlay"],
                     "exit_code_zero",
-                    None,
+                    "",
                 ),
             ],
             ["evidence.txt"],
@@ -152,6 +168,15 @@ def repository_phase() -> None:
             ["git", "-C", str(root), "commit", "-qm", "fixture"],
             check=True,
         )
+        head = git(root, "rev-parse", "HEAD")
+        tree = git(root, "rev-parse", "HEAD^{tree}")
+        with oracle.isolated_head(root, head, tree) as isolated:
+            check(
+                not (
+                    isolated / ".git" / "objects" / "info" / "alternates"
+                ).exists(),
+                "isolated candidate must not share the caller object store",
+            )
         with oracle_environment():
             receipt = oracle.execute(root, contract_path)
         check(receipt["status"] == "PASSED", "machine receipt passes")
@@ -234,6 +259,43 @@ def repository_phase() -> None:
             "missing artifact blocks",
         )
 
+        with tempfile.TemporaryDirectory(
+            prefix="itd-machine-host-artifact-"
+        ) as outside_raw:
+            outside = Path(outside_raw)
+            (outside / "evidence.txt").write_text(
+                "must stay outside the candidate\n", encoding="utf-8"
+            )
+            artifact_link = root / "artifact-link"
+            artifact_link.symlink_to(outside, target_is_directory=True)
+            linked = contract(
+                [
+                    command(
+                        "linked-artifact",
+                        [sys.executable, "-I", "verifiers/verifier.py", "exit"],
+                        "exit_code_zero",
+                        "",
+                    )
+                ],
+                ["artifact-link/evidence.txt"],
+            )
+            contract_path.write_text(json.dumps(linked), encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(root), "add", str(contract_path), str(artifact_link)],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "link artifact"],
+                check=True,
+            )
+            linked_receipt = oracle.execute(root, contract_path)
+            check(
+                linked_receipt["status"] == "UNVERIFIED"
+                and linked_receipt["missingArtifacts"]
+                == ["artifact-link/evidence.txt"],
+                "required artifact rejects a symlinked parent",
+            )
+
         manual = contract(
             [
                 command(
@@ -287,7 +349,8 @@ def protected_base_contract_phase() -> None:
                             "protected-command",
                             [sys.executable, "-I", "verifiers/verifier.py"],
                             "exit_code_zero",
-                            None,
+                            "",
+                            ["verifiers/verifier.py"],
                         )
                     ],
                     ["evidence.txt"],
@@ -321,7 +384,7 @@ def protected_base_contract_phase() -> None:
                             "candidate-noop",
                             [sys.executable, "-I", "verifiers/verifier.py"],
                             "exit_code_zero",
-                            None,
+                            "",
                         )
                     ],
                     [],
@@ -343,7 +406,8 @@ def protected_base_contract_phase() -> None:
         check(
             failed["status"] == "UNVERIFIED"
             and failed["missingArtifacts"] == ["evidence.txt"]
-            and failed["trustedVerifierFailures"] == ["verifiers"]
+            and failed["trustedVerifierFailures"]
+            == ["verifiers/verifier.py"]
             and failed["commands"][0]["status"]
             == "NOT_RUN_TRUST_FAILURE",
             "candidate no-op verifier cannot self-attest",
@@ -392,12 +456,9 @@ def protected_base_contract_phase() -> None:
         )
         check(
             startup_tampered["status"] == "UNVERIFIED"
-            and startup_tampered["trustedVerifierFailures"]
-            == ["verifiers"]
-            and startup_tampered["commands"][0]["status"]
-            == "NOT_RUN_TRUST_FAILURE",
-            "candidate-only sitecustomize namespace mutation blocks "
-            "without execution",
+            and startup_tampered["trustedVerifierFailures"] == []
+            and startup_tampered["commands"][0]["status"] == "FAILED",
+            "isolated exact-file verifier ignores adjacent sitecustomize",
         )
         startup_hook.unlink()
         (candidate / "evidence.txt").write_text(
@@ -434,7 +495,8 @@ def protected_base_contract_phase() -> None:
         )
         check(
             tampered["status"] == "UNVERIFIED"
-            and tampered["trustedVerifierFailures"] == ["verifiers"],
+            and tampered["trustedVerifierFailures"]
+            == ["verifiers/verifier.py"],
             "protected verifier content mutation blocks",
         )
         expect_oracle_error(
@@ -466,6 +528,9 @@ def contract_trust_schema_phase() -> None:
             "raise SystemExit(0)\n",
             encoding="utf-8",
         )
+        launcher = root / "verifiers" / "itd_py.sh"
+        launcher.write_text("#!/bin/sh\nexec python3 -I \"$@\"\n",
+                            encoding="utf-8")
         (root / "other.py").write_text(
             "raise SystemExit(0)\n",
             encoding="utf-8",
@@ -500,7 +565,7 @@ def contract_trust_schema_phase() -> None:
                     "nonisolated-python",
                     [sys.executable, "verifiers/verifier.py"],
                     "exit_code_zero",
-                    None,
+                    "",
                 )
             ],
             [],
@@ -519,13 +584,96 @@ def contract_trust_schema_phase() -> None:
             "Python verifier without isolated mode is rejected",
         )
 
+        pypy_nonisolated = contract(
+            [
+                command(
+                    "nonisolated-pypy",
+                    ["pypy3", "verifiers/verifier.py"],
+                    "exit_code_zero",
+                    "",
+                )
+            ],
+            [],
+        )
+        contract_path.write_text(
+            json.dumps(pypy_nonisolated),
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(root), "commit", "-qm", "nonisolated-pypy"],
+            check=True,
+        )
+        try:
+            oracle.execute(root, contract_path)
+        except oracle.OracleError as exc:
+            check(
+                "not isolated with -I" in str(exc),
+                "PyPy verifier requires the same isolated-script boundary",
+            )
+        else:
+            raise AssertionError("non-isolated PyPy verifier was accepted")
+
+        misplaced_isolation = contract(
+            [
+                command(
+                    "misplaced-python-isolation",
+                    [sys.executable, "verifiers/verifier.py", "-I"],
+                    "exit_code_zero",
+                    "",
+                )
+            ],
+            [],
+        )
+        contract_path.write_text(
+            json.dumps(misplaced_isolation),
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(root), "commit", "-qm", "misplaced-isolation"],
+            check=True,
+        )
+        expect_oracle_error(
+            lambda: oracle.execute(root, contract_path),
+            "Python -I after the verifier does not enable isolated mode",
+        )
+
+        option_operand = contract(
+            [
+                command(
+                    "python-option-operand",
+                    [
+                        sys.executable,
+                        "-I",
+                        "-X",
+                        "verifiers/verifier.py",
+                        "other.py",
+                    ],
+                    "exit_code_zero",
+                    "",
+                )
+            ],
+            [],
+        )
+        contract_path.write_text(json.dumps(option_operand), encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(root), "commit", "-qm", "option-operand"],
+            check=True,
+        )
+        expect_oracle_error(
+            lambda: oracle.execute(root, contract_path),
+            "Python option operands cannot masquerade as trusted scripts",
+        )
+
         unrelated = contract(
             [
                 command(
                     "unrelated-binding",
                     [sys.executable, "-I", "-c", "raise SystemExit(0)"],
                     "exit_code_zero",
-                    None,
+                    "",
                 )
             ],
             [],
@@ -555,7 +703,7 @@ def contract_trust_schema_phase() -> None:
                         "verifiers/verifier.py",
                     ],
                     "exit_code_zero",
-                    None,
+                    "",
                 )
             ],
             [],
@@ -574,17 +722,103 @@ def contract_trust_schema_phase() -> None:
             "tracked argv verifier input must be declared and bound",
         )
 
+        inert_shell = contract(
+            [
+                command(
+                    "inert-shell-binding",
+                    [
+                        "bash", "-c", "printf EXPECTED-SENTINEL",
+                        "verifiers/verifier.py",
+                    ],
+                    "stdout_contains",
+                    "EXPECTED-SENTINEL",
+                )
+            ],
+            [],
+        )
+        expect_oracle_error(
+            lambda: oracle.verifier_bindings(inert_shell, root, root),
+            "shell -c cannot use a trusted path as an inert argument",
+        )
+
+        launcher_only = contract(
+            [command(
+                "launcher-only-binding",
+                ["sh", "verifiers/itd_py.sh", "--itd-isolated", "other.py"],
+                "exit_code_zero",
+                "",
+                ["verifiers/itd_py.sh"],
+            )],
+            [],
+        )
+        expect_oracle_error(
+            lambda: oracle.verifier_bindings(launcher_only, root, root),
+            "isolated launcher cannot authorize an unbound verifier",
+        )
+
+        for parser, expected in (
+            ("stdout_contains", ""),
+            ("unknown_parser", "pass"),
+        ):
+            invalid_expected = contract(
+                [command(
+                    "invalid-expected",
+                    [sys.executable, "-I", "verifiers/verifier.py"],
+                    parser,
+                    expected,
+                )],
+                [],
+            )
+            contract_path.write_text(
+                json.dumps(invalid_expected),
+                encoding="utf-8",
+            )
+            expect_oracle_error(
+                lambda: oracle.load_contract(contract_path),
+                "ambiguous or unknown parser expectation is rejected",
+            )
+
+        expect_oracle_error(
+            lambda: oracle.verifier_bindings(
+                contract(
+                    [command(
+                        "exact-file-shell",
+                        ["sh", "verifiers/verifier.py"],
+                        "exit_code_zero",
+                        "",
+                        ["verifiers/verifier.py"],
+                    )],
+                    [],
+                ),
+                root,
+                root,
+            ),
+            "non-isolated exact-file verifier binding is rejected",
+        )
+
 
 class oracle_environment:
     def __enter__(self):
-        self.previous = os.environ.get("OPENAI_API_KEY")
-        os.environ["OPENAI_API_KEY"] = "must-not-reach-child"
+        provider_credential_name = "OPENAI" + "_API_KEY"
+        self.values = {
+            provider_credential_name: "must-not-reach-child",
+            "GITHUB_ENV": "/tmp/must-not-reach-child",
+            "GITHUB_PATH": "/tmp/must-not-reach-child",
+            "GITHUB_OUTPUT": "/tmp/must-not-reach-child",
+            "GITHUB_STEP_SUMMARY": "/tmp/must-not-reach-child",
+            "RUNNER_TEMP": "/tmp/must-not-reach-child",
+        }
+        self.previous = {
+            name: os.environ.get(name) for name in self.values
+        }
+        os.environ.update(self.values)
 
     def __exit__(self, exc_type, exc, traceback):
-        if self.previous is None:
-            os.environ.pop("OPENAI_API_KEY", None)
-        else:
-            os.environ["OPENAI_API_KEY"] = self.previous
+        for name, value in self.previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def git(root: Path, *arguments: str) -> str:
@@ -598,6 +832,23 @@ def git(root: Path, *arguments: str) -> str:
 
 def bounded_output_phase() -> None:
     with tempfile.TemporaryDirectory(prefix="itd-machine-output-") as raw:
+        with mock.patch.dict(
+            oracle.os.environ,
+            {"PATH": str(Path(raw))},
+        ):
+            trusted = oracle.run_argv(
+                ["python3", "-c", "print('trusted-runtime')"],
+                cwd=Path(raw),
+                timeout=10,
+                max_output_bytes=1024,
+            )
+        check(
+            trusted["stdout"].strip() == b"trusted-runtime"
+            and Path(trusted["runtimePath"]).resolve()
+            == Path(sys.executable).resolve()
+            and len(trusted["runtimeSha256"]) == 64,
+            "poisoned PATH cannot substitute the bound runtime",
+        )
         result = oracle.run_argv(
             [sys.executable, "-c", "print('x' * 100000)"],
             cwd=Path(raw),
@@ -662,13 +913,14 @@ def receipt_phase() -> None:
 
 def required_workflow_phase() -> None:
     workflow = (
-        ROOT / ".github" / "workflows" / "itd-machine-oracle.yml"
+        ROOT / "docs/templates/github/itd-machine-oracle.yml"
     ).read_text(encoding="utf-8")
     check(
-        "repository: ${{ job.workflow_repository }}" in workflow
-        and "ref: ${{ job.workflow_sha }}" in workflow
-        and 'test "$WORKFLOW_REPOSITORY" = "hihol-labs/idea-to-deploy"'
-        in workflow,
+        "repository: hihol-labs/idea-to-deploy" in workflow
+        and "ref: ${{ github.workflow_sha }}" in workflow
+        and "WORKFLOW_REF: ${{ github.workflow_ref }}" in workflow
+        and "hihol-labs/idea-to-deploy/.github/workflows/"
+        "itd-machine-oracle.yml@*" in workflow,
         "required workflow loads its pinned central control plane",
     )
     check(
@@ -677,7 +929,7 @@ def required_workflow_phase() -> None:
         "required workflow materializes the protected target base",
     )
     check(
-        "python3 control/scripts/itd_machine_oracle.py" in workflow
+        "python3 -I control/scripts/itd_machine_oracle.py" in workflow
         and "--trusted-contract-root protected-base" in workflow,
         "candidate cannot substitute the oracle runner or contract source",
     )
@@ -685,9 +937,21 @@ def required_workflow_phase() -> None:
         "python3 scripts/itd_machine_oracle.py" not in workflow,
         "required workflow never executes a candidate-owned oracle runner",
     )
+    quick = (ROOT / "tests/verify_quick_regression.py").read_text(
+        encoding="utf-8"
+    )
+    check(
+        "oracle.run_argv(" in quick
+        and "max_output_bytes=oracle.MAX_OUTPUT_BYTES" in quick,
+        "quick verifier delegates every child to bounded oracle capture",
+    )
 
 
 def main() -> int:
+    expect_oracle_error(
+        lambda: oracle.safe_relative("C:/outside", "required artifact"),
+        "Windows drive-absolute paths are unsafe",
+    )
     repository_phase()
     protected_base_contract_phase()
     contract_trust_schema_phase()

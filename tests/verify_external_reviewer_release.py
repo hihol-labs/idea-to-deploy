@@ -10,11 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "1.95.0"
 REQUIRED_FILES = {
-    ".github/workflows/itd-machine-oracle.yml",
+    "docs/templates/github/itd-machine-oracle.yml",
     "docs/API_REVIEWER.md",
     "docs/adr/ADR-003-verifiable-external-reviewer.md",
     "docs/api-reviewer/SHADOW_PILOT.json",
-    "docs/api-reviewer/RELEASE_CONTRACT.json",
+    "docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json",
     "skills/_shared/EXTERNAL_REVIEW_POLICY.json",
     "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json",
     "skills/_shared/itd_external_reviewer.py",
@@ -27,7 +27,11 @@ REQUIRED_FILES = {
     "scripts/itd_machine_oracle.py",
     "tests/verify_api_reviewer.py",
 }
-CRITERIA = {f"API-001-AC{number}" for number in range(1, 8)}
+CRITERIA = {f"GPG-001-AC{number}" for number in range(1, 15)}
+SCOPE_EVIDENCE = (
+    "docs/API_REVIEWER.md",
+    "docs/adr/ADR-003-verifiable-external-reviewer.md",
+)
 
 
 def load(path: str) -> dict:
@@ -43,11 +47,13 @@ def validate_contract(contract: dict, scope: str) -> list[str]:
         issues.append("release contract fields are not closed")
     rows = contract.get("criteria")
     if not isinstance(rows, list) or set(rows) != CRITERIA:
-        issues.append("API-001 criteria are incomplete")
+        issues.append("GPG-001 criteria are incomplete")
     if contract.get("version") != VERSION:
         issues.append("release contract version drift")
     if contract.get("completionAuthority") != "verification-loop-v1":
         issues.append("release contract completion authority drift")
+    if contract.get("scopeEvidence") != list(SCOPE_EVIDENCE):
+        issues.append("release scope evidence paths drift")
     required_markers = {
         "Verification Loop",
         "same-model",
@@ -74,19 +80,49 @@ def main() -> int:
     ]
     if {row.get("version") for row in manifests} != {VERSION}:
         issues.append("plugin version drift")
-    if f"## [{VERSION}] - 2026-07-30" not in (
+    if f"target: **{VERSION}** (not published or installed)." not in (
             ROOT / "CHANGELOG.md").read_text(encoding="utf-8"):
-        issues.append("dated release changelog is absent")
+        issues.append("unreleased candidate changelog is absent")
     for path in REQUIRED_FILES:
         if not (ROOT / path).is_file():
             issues.append(f"missing release file: {path}")
-    acceptance = load("docs/api-reviewer/RELEASE_CONTRACT.json")
-    scope_paths = acceptance.get("scopeEvidence") or []
-    scope = "\n".join((ROOT / path).read_text(encoding="utf-8")
-                      for path in scope_paths if (ROOT / path).is_file())
-    if len(scope_paths) != 2:
-        issues.append("release scope evidence set drift")
+    acceptance = load("docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json")
+    scope_paths = list(SCOPE_EVIDENCE)
+    root_resolved = ROOT.resolve()
+    missing_scope = []
+    for path in scope_paths:
+        target = ROOT / path
+        try:
+            resolved = target.resolve(strict=True)
+        except OSError:
+            missing_scope.append(path)
+            continue
+        if (
+            target.is_symlink()
+            or not resolved.is_file()
+            or not resolved.is_relative_to(root_resolved)
+        ):
+            missing_scope.append(path)
+    if missing_scope:
+        issues.extend(
+            f"missing release scope evidence: {path}"
+            for path in missing_scope
+        )
+    scope = "\n".join(
+        (ROOT / path).read_text(encoding="utf-8")
+        for path in scope_paths
+        if path not in missing_scope
+    )
     issues.extend(validate_contract(acceptance, scope))
+    api_guide = (ROOT / "docs/API_REVIEWER.md").read_text(
+        encoding="utf-8"
+    )
+    if (
+        "at most 16 exact units" not in api_guide
+        or "a seventeenth unit" not in api_guide
+        or "a sixteenth unit" in api_guide
+    ):
+        issues.append("hierarchical unit limit documentation is contradictory")
     policy = load("skills/_shared/EXTERNAL_REVIEW_POLICY.json")
     providers = [row.get("id") for row in policy.get("providers", [])]
     if providers != [
@@ -107,24 +143,44 @@ def main() -> int:
             or "verify_operating_loops_release" in run_all.split('CORE="', 1)[1].split('"', 1)[0]):
         issues.append("current suite still routes through the historical v1.94 release oracle")
     workflow = (
-        ROOT / ".github/workflows/itd-machine-oracle.yml"
+        ROOT / "docs/templates/github/itd-machine-oracle.yml"
     ).read_text(encoding="utf-8")
     for marker in (
         "pull_request:",
         "merge_group:",
         "name: ITD machine oracle",
+        "runs-on: [self-hosted, linux, x64, itd-machine-oracle-v1]",
         "persist-credentials: false",
         "scripts/itd_machine_oracle.py",
         'OPENAI_API_KEY: ""',
     ):
         if marker not in workflow:
             issues.append(f"machine gate omits: {marker}")
+    for marker in (
+        'pull_request)',
+        'test "$EVENT_BASE_SHA" = "$(git -C candidate rev-parse HEAD^1)"',
+        'test "$EVENT_HEAD_SHA" = "$(git -C candidate rev-parse HEAD^2)"',
+        'merge_group)',
+        'test "$EVENT_CHECK_SHA" = "$EVENT_HEAD_SHA"',
+        'git -C candidate merge-base --is-ancestor \\',
+        '"$EVENT_BASE_SHA" "$EVENT_CHECK_SHA"',
+    ):
+        if marker not in workflow:
+            issues.append(f"machine gate omits event binding: {marker}")
+    legacy = (
+        ROOT / ".github/workflows/external-review-gate.yml"
+    ).read_text(encoding="utf-8")
     if (
-        (ROOT / ".github/workflows/external-review-gate.yml").exists()
+        "repository_dispatch:" not in legacy
+        or "pull_request_target:" in legacy
         or "repository_dispatch:" in workflow
         or "ITD_PROVENANCE_HMAC_KEY" in workflow
     ):
-        issues.append("obsolete repository-secret API gate remains active")
+        issues.append("legacy gate is not safely staged for App cutover")
+    ci_bootstrap = (ROOT / "docs/CI.md").read_text(
+        encoding="utf-8").split("After this reviewed bootstrap", 1)[0]
+    if "`ITD external review gate`" not in ci_bootstrap:
+        issues.append("bootstrap branch protection omits the legacy gate")
     broker_policy = load("skills/_shared/REVIEW_BROKER_POLICY.json")
     if (
         broker_policy.get("authority", {}).get("externalReview")
@@ -138,7 +194,7 @@ def main() -> int:
         issues.append("central App/broker release authority drift")
 
     mutations = 0
-    for mutation in ("provider", "authority", "scope"):
+    for mutation in ("provider", "authority", "scope", "scope-path"):
         mutant_policy = copy.deepcopy(policy)
         mutant_contract = copy.deepcopy(acceptance)
         mutant_scope = scope
@@ -146,6 +202,8 @@ def main() -> int:
             mutant_policy["providers"].pop()
         elif mutation == "authority":
             mutant_policy["completionAuthority"] = "external-reviewer"
+        elif mutation == "scope-path":
+            mutant_contract["scopeEvidence"][0] = "../outside-scope"
         else:
             mutant_scope = scope.replace("UNVERIFIED", "")
         rejected = (

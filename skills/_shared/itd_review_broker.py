@@ -35,6 +35,7 @@ from itd_review_broker_primitives import (  # noqa: E402
     BrokerError,
     BrokerStore,
     Coordinates,
+    DeliveryConflictError,
     GitHubApi,
     GitHubAppAuth,
     b64url,
@@ -57,12 +58,17 @@ from itd_review_broker_primitives import (  # noqa: E402
 
 RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
 COMPARE_PAGE_SIZE = 100
+# GitHub's compare endpoint exposes the complete changed-file list only on the
+# first page and caps that list at 300 files.  Keep policy strictly below the
+# API cap so a list at the cap can never be mistaken for complete coverage.
+COMPARE_FILES_API_CAP = 300
 MAX_COMPARE_PAGES = 1000
 MERGE_GROUP_PAGE_SIZE = 100
 SANITIZER_VERSION = "itd-scrubber-v1"
 TRANSPARENT_JSONL_ENCODING = "gzip-jsonl-utf8-v1"
 TRANSPARENT_JSONL_SUFFIX = ".jsonl.gz"
 DECOMPRESSION_CHUNK_BYTES = 64 * 1024
+HIERARCHICAL_REQUEST_ENVELOPE_BYTES = 10_000
 
 
 def _reviewer_module():
@@ -304,14 +310,41 @@ def _review_units(
     policy: dict[str, Any],
 ) -> tuple[str, tuple[ReviewUnit, ...]]:
     maximum = int(policy["candidate"]["maxRawDiffBytes"])
+    maximum_provider_content = (
+        int(policy["candidate"]["maxProviderRequestBytes"])
+        - HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+    )
+    if maximum_provider_content <= 0:
+        raise BrokerError(
+            "UNVERIFIED", "provider request envelope leaves no review content"
+        )
+
+    def provider_json_bytes(text: str, layers: int = 1) -> int:
+        encoded = text
+        for _ in range(layers):
+            encoded = json.dumps(encoded, ensure_ascii=False)
+        wrapper_bytes = 2 if layers == 1 else 6
+        return len(encoded.encode("utf-8")) - wrapper_bytes
+
     full_bytes = full_diff.encode("utf-8")
-    if len(full_bytes) <= maximum:
+    if (
+        len(full_bytes) <= maximum
+        and provider_json_bytes(full_diff) <= maximum
+        and provider_json_bytes(full_diff, 2)
+        <= maximum_provider_content
+    ):
         unit_manifest = {
             "id": "unit-001",
             "index": 1,
             "reviewDiffSha256": sha256_bytes(full_bytes),
             "reviewDiffBytes": len(full_bytes),
+            "reviewDiffStartByte": 0,
+            "reviewDiffEndByteExclusive": len(full_bytes),
             "paths": [path for path, _ in file_chunks],
+            "pathSegments": {
+                path: {"index": 1, "count": 1}
+                for path, _ in file_chunks
+            },
         }
         return full_diff, (ReviewUnit(unit_manifest, full_diff),)
 
@@ -347,10 +380,9 @@ def _review_units(
             current_bytes += file_bytes
             continue
 
-        # A file is split only when it cannot fit in an empty unit.  Flush on
-        # both sides so neighbouring complete files are never fragmented just
-        # because a preceding unit happened to be nearly full.
-        flush()
+        # A file is split only when it cannot fit in an empty unit.  Its lines
+        # may fill a prior unit, but the preceding file remains unfragmented.
+        # Keep each final partial unit open so the next file can share it.
         for line in file_lines:
             encoded = line.encode("utf-8")
             if len(encoded) > maximum:
@@ -364,13 +396,78 @@ def _review_units(
                 current_paths.append(path)
             current_lines.append(line)
             current_bytes += len(encoded)
-        flush()
     flush()
+
+    # Raw UTF-8 bytes are not the provider-request footprint: the prompt holds
+    # a JSON string and the provider request serializes that prompt again.
+    # Keep complete files together when both encoded layers fit. Otherwise,
+    # deterministically repack the already-scrubbed diff at UTF-8 line
+    # boundaries. _request still enforces the absolute request ceiling after
+    # the variable candidate binding and schema are added.
+    if any(
+        provider_json_bytes(text) > maximum
+        or provider_json_bytes(text, 2) > maximum_provider_content
+        for _, text in raw_units
+    ):
+        raw_units = []
+        current_paths = []
+        current_lines = []
+        current_bytes = 0
+        current_json_bytes = 0
+        current_provider_json_bytes = 0
+
+        def flush_encoded() -> None:
+            nonlocal current_paths, current_lines
+            nonlocal current_bytes, current_json_bytes
+            nonlocal current_provider_json_bytes
+            if not current_lines:
+                return
+            raw_units.append((current_paths, "".join(current_lines)))
+            current_paths = []
+            current_lines = []
+            current_bytes = 0
+            current_json_bytes = 0
+            current_provider_json_bytes = 0
+
+        for path, file_diff in file_chunks:
+            for line in file_diff.splitlines(keepends=True):
+                raw_bytes = len(line.encode("utf-8"))
+                json_bytes = provider_json_bytes(line)
+                provider_json_size = provider_json_bytes(line, 2)
+                if (
+                    raw_bytes > maximum
+                    or json_bytes > maximum
+                    or provider_json_size > maximum_provider_content
+                ):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "canonical review diff line exceeds unit bound",
+                    )
+                if current_lines and (
+                    current_bytes + raw_bytes > maximum
+                    or current_json_bytes + json_bytes > maximum
+                    or current_provider_json_bytes + provider_json_size
+                    > maximum_provider_content
+                ):
+                    flush_encoded()
+                if path not in current_paths:
+                    current_paths.append(path)
+                current_lines.append(line)
+                current_bytes += raw_bytes
+                current_json_bytes += json_bytes
+                current_provider_json_bytes += provider_json_size
+        flush_encoded()
 
     if (
         not raw_units
         or len(raw_units) > int(policy["candidate"]["maxReviewUnits"])
         or "".join(text for _, text in raw_units) != full_diff
+        or any(
+            len(text.encode("utf-8")) > maximum
+            or provider_json_bytes(text) > maximum
+            or provider_json_bytes(text, 2) > maximum_provider_content
+            for _, text in raw_units
+        )
     ):
         raise BrokerError(
             "UNVERIFIED", "hierarchical review unit coverage is invalid"
@@ -378,17 +475,36 @@ def _review_units(
 
     units: list[ReviewUnit] = []
     unit_manifests: list[dict[str, Any]] = []
+    path_totals: dict[str, int] = {}
+    for paths, _text in raw_units:
+        for path in paths:
+            path_totals[path] = path_totals.get(path, 0) + 1
+    path_seen: dict[str, int] = {}
+    byte_offset = 0
     for index, (paths, text) in enumerate(raw_units, start=1):
         encoded = text.encode("utf-8")
+        path_segments: dict[str, dict[str, int]] = {}
+        for path in paths:
+            ordinal = path_seen.get(path, 0) + 1
+            path_seen[path] = ordinal
+            path_segments[path] = {
+                "index": ordinal,
+                "count": path_totals[path],
+            }
+        end_offset = byte_offset + len(encoded)
         manifest = {
             "id": f"unit-{index:03d}",
             "index": index,
             "reviewDiffSha256": sha256_bytes(encoded),
             "reviewDiffBytes": len(encoded),
+            "reviewDiffStartByte": byte_offset,
+            "reviewDiffEndByteExclusive": end_offset,
             "paths": paths,
+            "pathSegments": path_segments,
         }
         unit_manifests.append(manifest)
         units.append(ReviewUnit(manifest, text))
+        byte_offset = end_offset
     plan = {
         "version": 1,
         "mode": "hierarchical",
@@ -444,9 +560,15 @@ def _compare_files(
         raise BrokerError("UNVERIFIED", "GitHub comparison pagination is excessive")
     files = first.get("files")
     limit = int(policy["candidate"]["maxFiles"])
+    if not 0 < limit < COMPARE_FILES_API_CAP:
+        raise BrokerError(
+            "UNVERIFIED",
+            "candidate file policy cannot prove GitHub compare coverage",
+        )
     if (
         not isinstance(files, list)
         or not files
+        or len(files) >= COMPARE_FILES_API_CAP
         or len(files) > limit
         or any(not isinstance(row, dict) for row in files)
     ):
@@ -663,8 +785,8 @@ def build_candidate(
     if (
         redaction_count
         or clean != full_diff
-        or reviewer.HIGH_CONFIDENCE_SECRET_RE.search(clean)
-        or reviewer.RESIDUAL_CREDENTIAL_RE.search(clean)
+        or reviewer.contains_high_confidence_secret(clean)
+        or reviewer.contains_residual_credential(clean)
         or reviewer.contains_high_entropy_token(clean)
     ):
         raise BrokerError(
@@ -674,6 +796,8 @@ def build_candidate(
     review_diff, review_units = _review_units(
         full_diff, file_chunks, policy
     )
+    # This dispatch representation is either the direct diff or the serialized
+    # hierarchical plan; that plan separately binds fullDiffSha256/fullDiffBytes.
     review_bytes = review_diff.encode("utf-8")
     review_sha = sha256_bytes(review_bytes)
     redaction_manifest = {
@@ -922,7 +1046,9 @@ class ReviewerAdapter:
         }
 
     def _validate_unit(
-        self, value: Any, line_bounds: dict[str, int]
+        self,
+        value: Any,
+        line_bounds: dict[str, int],
     ) -> dict[str, Any]:
         if (
             not isinstance(value, dict)
@@ -1136,6 +1262,10 @@ class ReviewerAdapter:
         final_verdict: dict[str, Any] | None = None
 
         for unit in candidate.review_units:
+            unit_line_bounds = {
+                path: candidate.line_bounds[path]
+                for path in unit.manifest["paths"]
+            }
             binding = {
                 "candidateManifestSha256": sha256_bytes(
                     canonical_json(candidate.manifest)
@@ -1150,6 +1280,13 @@ class ReviewerAdapter:
                     candidate.manifest["files"],
                     key=_utf16_sort_key,
                 ),
+                "pathUnitCounts": {
+                    path: sum(
+                        path in other.manifest["paths"]
+                        for other in candidate.review_units
+                    )
+                    for path in unit.manifest["paths"]
+                },
                 "unit": unit.manifest,
             }
             prompt = (
@@ -1164,7 +1301,19 @@ class ReviewerAdapter:
                 "an unverified contour merely because they are absent from "
                 "this unit. Put cross-unit dependencies in the summary; use "
                 "unverified only when this unit itself is incomplete or "
-                "malformed. Canonical verdict semantics: BLOCKED requires a "
+                "malformed. The unit reviewDiffStartByte and "
+                "reviewDiffEndByteExclusive fields bind this exact contiguous "
+                "slice of the full scrubbed diff. For every path, pathSegments "
+                "states this slice's one-based index and total segment count; "
+                "a count above one proves that the remaining exact adjacent "
+                "segments are separately bound and reviewed. A full-file hunk "
+                "header may therefore span segments and does not declare that "
+                "this one unit contains the whole file. The "
+                "downstream Verification Loop receipt for "
+                "this semantic check is created only after the immutable "
+                "review completes and cannot be embedded in the candidate; "
+                "its absence alone is not an unverified contour. Canonical "
+                "verdict semantics: BLOCKED requires a "
                 "critical finding; PASSED_WITH_WARNINGS requires an important "
                 "finding or unverified contour; PASSED permits only minor "
                 "findings and requires no unverified contour. Do not claim "
@@ -1179,7 +1328,7 @@ class ReviewerAdapter:
                     provider,
                     prompt,
                     broker_policy,
-                    candidate.line_bounds,
+                    unit_line_bounds,
                     call_cap,
                     schema=unit_schema,
                     schema_name="itd_hierarchical_unit_review",
@@ -1202,21 +1351,13 @@ class ReviewerAdapter:
                     "kind": "unit",
                     "unitId": unit.manifest["id"],
                     "sha256": sha256_bytes(observed["providerRequest"]),
+                    "verdictSha256": sha256_bytes(
+                        canonical_json(observed["verdict"])
+                    ),
                     "bytes": len(observed["providerRequest"]),
                     "outputCap": observed["outputCap"],
                 }
             )
-            base_verdict = {
-                key: observed["verdict"][key]
-                for key in ("verdict", "findings", "unverified")
-            }
-            if base_verdict != {
-                "verdict": "PASSED",
-                "findings": [],
-                "unverified": [],
-            }:
-                final_verdict = base_verdict
-                break
 
         if final_verdict is None:
             integration_input = {
@@ -1232,8 +1373,18 @@ class ReviewerAdapter:
                 "candidate. Every deterministic diff unit was reviewed. "
                 "Use the bound unit summaries to find cross-unit correctness, "
                 "security, interface, migration, test, and specification "
-                "failures. Candidate success requires complete unit coverage "
+                "failures. Reconcile every unit finding against all bound "
+                "summaries: preserve substantiated findings, but do not repeat "
+                "a claim contradicted by the candidate evidence. The review "
+                "plan exactly reconstructs the full diff; repeated paths are "
+                "ordered, offset-bound line segments across units and are not "
+                "an unverified contour. Candidate "
+                "success requires complete unit coverage "
                 "and a PASSED verdict with no finding or unverified contour. "
+                "The downstream Verification Loop receipt for this semantic "
+                "check is created only after the immutable review completes; "
+                "its absence inside the candidate is not an unverified "
+                "contour. "
                 "Canonical verdict semantics: BLOCKED requires a critical finding; "
                 "PASSED_WITH_WARNINGS requires an important finding or "
                 "unverified contour; PASSED permits only minor findings and "
@@ -1265,6 +1416,9 @@ class ReviewerAdapter:
                     "kind": "integration",
                     "unitId": None,
                     "sha256": sha256_bytes(integrated["providerRequest"]),
+                    "verdictSha256": sha256_bytes(
+                        canonical_json(integrated["verdict"])
+                    ),
                     "bytes": len(integrated["providerRequest"]),
                     "outputCap": integrated["outputCap"],
                 }
@@ -1774,10 +1928,31 @@ class ReviewBroker:
                         "UNVERIFIED",
                         "recovering Check Run identity differs from preparation",
                     )
-                if (
+                publication_is_pending = (
                     observed["status"] == "in_progress"
                     and observed["conclusion"] is None
-                ):
+                )
+                publication_is_terminal = (
+                    observed["status"] == "completed"
+                    and observed["conclusion"] == publication["conclusion"]
+                )
+                if not (publication_is_pending or publication_is_terminal):
+                    raise BrokerError(
+                        "UNVERIFIED",
+                        "recovering Check Run has an unexpected terminal state",
+                    )
+                receipt_id = self.store.record_review(
+                    receipt,
+                    pending["sanitizedPrompt"],
+                    self.github,
+                    token,
+                    provider_request=None,
+                    candidate_manifest=pending["candidateManifest"],
+                    verdict=pending["verdict"],
+                    budget_settlement=pending["budgetSettlement"],
+                    external_id_payload=pending["externalIdPayload"],
+                )
+                if publication_is_pending:
                     self._complete_check(
                         coordinates,
                         token,
@@ -1791,26 +1966,6 @@ class ReviewBroker:
                         "The broker resumed a publication already backed by "
                         "durable exact-candidate evidence.",
                     )
-                elif not (
-                    observed["status"] == "completed"
-                    and observed["conclusion"] == publication["conclusion"]
-                ):
-                    raise BrokerError(
-                        "UNVERIFIED",
-                        "recovering Check Run has an unexpected terminal state",
-                    )
-                receipt["observedAt"] = now_iso()
-                receipt_id = self.store.record_review(
-                    receipt,
-                    pending["sanitizedPrompt"],
-                    self.github,
-                    token,
-                    provider_request=None,
-                    candidate_manifest=pending["candidateManifest"],
-                    verdict=pending["verdict"],
-                    budget_settlement=pending["budgetSettlement"],
-                    external_id_payload=pending["externalIdPayload"],
-                )
             except BrokerError as exc:
                 if exc.status == "UNAVAILABLE":
                     continue
@@ -2139,30 +2294,6 @@ class ReviewBroker:
                     "checkRunId": check_id,
                 }
             try:
-                self._complete_check(
-                    coordinates,
-                    token,
-                    check_id,
-                    external_id,
-                    app_id,
-                    "review",
-                    preparation_id,
-                    conclusion,
-                    title,
-                    summary,
-                )
-            except Exception:
-                return {
-                    "receiptId": None,
-                    "status": "UNAVAILABLE",
-                    "conclusion": self.policy["github"]["externalCheck"][
-                        "unavailableConclusion"
-                    ],
-                    "checkRunId": check_id,
-                    "recoveryPreparationId": preparation_id,
-                }
-            receipt["observedAt"] = now_iso()
-            try:
                 receipt_id = self.store.record_review(
                     receipt,
                     review["sanitizedPrompt"],
@@ -2197,6 +2328,29 @@ class ReviewBroker:
                         "unverifiedConclusion"
                     ],
                     "checkRunId": check_id,
+                }
+            try:
+                self._complete_check(
+                    coordinates,
+                    token,
+                    check_id,
+                    external_id,
+                    app_id,
+                    "review",
+                    preparation_id,
+                    conclusion,
+                    title,
+                    summary,
+                )
+            except Exception:
+                return {
+                    "receiptId": receipt_id,
+                    "status": "UNAVAILABLE",
+                    "conclusion": self.policy["github"]["externalCheck"][
+                        "unavailableConclusion"
+                    ],
+                    "checkRunId": check_id,
+                    "recoveryPreparationId": preparation_id,
                 }
             return {
                 "receiptId": receipt_id,

@@ -13,6 +13,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -423,7 +424,7 @@ def verification_argv(command: str) -> list[str]:
             "verification command must be one shell-free argv invocation"
         )
     executable = Path(result[0].replace("\\", "/")).name.casefold()
-    if executable.startswith("python") and "-I" not in result[1:]:
+    if executable.startswith(("python", "pypy")) and "-I" not in result[1:]:
         result.insert(1, "-I")
     return result
 
@@ -447,33 +448,42 @@ def normalize_trusted_paths(values: list[str]) -> list[str]:
 
 
 def validate_trusted_paths(root: Path, paths: list[str]) -> str | None:
-    namespace_count = 0
+    """Validate bootstrap HEAD inputs; protected authority is established later."""
     for path in paths:
         rc, output = run(
             [
                 "git",
-                "ls-files",
-                "--stage",
+                "ls-tree",
+                "-r",
+                "--full-tree",
+                "HEAD",
                 "--",
                 path,
             ],
             root,
         )
         rows = [line for line in output.splitlines() if line.strip()]
-        if rc != 0 or not rows:
-            return f"{path} is not tracked in the current project HEAD"
-        for row in rows:
-            mode = row.split(" ", 1)[0]
-            if mode not in {"100644", "100755"}:
-                return f"{path} contains a symlink or non-regular Git object"
         target = root / path
-        if target.is_dir() and not target.is_symlink():
-            namespace_count += 1
-    if namespace_count == 0:
-        return (
-            "at least one trusted verifier path must be a tracked directory "
-            "namespace, not only a file"
-        )
+        if (
+            rc != 0
+            or len(rows) != 1
+            or "\t" not in rows[0]
+            or rows[0].split("\t", 1)[1] != path
+            or not target.is_file()
+            or target.is_symlink()
+        ):
+            return f"{path} is not tracked in the current project HEAD"
+        metadata = rows[0].split("\t", 1)[0].split()
+        if (
+            len(metadata) != 3
+            or metadata[0] not in {"100644", "100755"}
+            or metadata[1] != "blob"
+            or not re.fullmatch(r"[0-9a-f]{40,64}", metadata[2])
+        ):
+            return f"{path} contains a symlink or non-regular Git object"
+        rc, worktree_sha = run(["git", "hash-object", "--", path], root)
+        if rc != 0 or worktree_sha.strip() != metadata[2]:
+            return f"{path} content differs from the current project HEAD"
     return None
 
 
@@ -482,43 +492,146 @@ def validate_verification_argv(
     argv: list[str],
     trusted_paths: list[str],
 ) -> str | None:
-    referenced = False
-    for argument in argv:
+    def references_trusted(argument: str) -> bool:
         normalized = argument.replace("\\", "/").lstrip("./")
         dotted = normalized.replace("/", ".")
-        if any(
+        return any(
             normalized == path
-            or normalized.startswith(path.rstrip("/") + "/")
             or dotted == path.replace("/", ".")
-            or dotted.startswith(path.replace("/", ".") + ".")
+            or (
+                path.endswith(".py")
+                and dotted == path[:-3].replace("/", ".")
+            )
             for path in trusted_paths
-        ):
-            referenced = True
-        candidate = PurePosixPath(argument.replace("\\", "/"))
-        if (
-            candidate.is_absolute()
-            or ".." in candidate.parts
-            or any(part in {"", "."} for part in candidate.parts)
-        ):
-            continue
-        relative = candidate.as_posix()
-        rc, output = run(
-            ["git", "ls-files", "--stage", "--", relative],
-            root,
         )
-        if (
-            rc == 0
-            and output.strip()
-            and not any(
-                relative == path
-                or relative.startswith(path.rstrip("/") + "/")
-                for path in trusted_paths
-            )
-        ):
+
+    launcher = PurePosixPath(
+        argv[0].replace("\\", "/")
+    ).name.casefold()
+    system_launcher = (
+        re.fullmatch(
+            r"(?:python|pypy)(?:\d+(?:\.\d+)*)?(?:\.exe)?",
+            launcher,
+        )
+        is not None
+        or launcher
+        in {
+            "sh",
+            "bash",
+            "dash",
+            "ksh",
+            "zsh",
+            "node",
+            "node.exe",
+            "pwsh",
+            "pwsh.exe",
+            "powershell",
+            "powershell.exe",
+        }
+    )
+    launcher_value = argv[0].replace("\\", "/")
+    launcher_path = PurePosixPath(launcher_value)
+    launcher_is_absolute = (
+        launcher_path.is_absolute()
+        or re.match(r"^[A-Za-z]:/", launcher_value) is not None
+    )
+    if system_launcher and launcher_is_absolute:
+        trusted_launchers: set[Path] = set()
+        discovered = shutil.which(launcher)
+        if discovered:
+            trusted_launchers.add(Path(discovered).resolve())
+        if launcher.startswith(("python", "pypy")):
+            trusted_launchers.add(Path(sys.executable).resolve())
+        if Path(argv[0]).resolve() not in trusted_launchers:
             return (
-                f"verification argv references undeclared tracked input: "
-                f"{relative}"
+                "verification argv absolute interpreter does not resolve "
+                "to the active or PATH-selected system launcher"
             )
+    if not references_trusted(argv[0]) and not system_launcher:
+        return (
+            "verification argv launcher is neither a declared trusted "
+            "executable nor an approved system interpreter"
+        )
+    if (
+        launcher
+        in {"sh", "bash", "dash", "ksh", "zsh"}
+        and "-c" in argv[1:]
+    ) or (
+        launcher.startswith(("python", "pypy"))
+        and any(item in {"-c", "-"} for item in argv[1:])
+    ) or (
+        launcher in {"node", "node.exe"}
+        and any(item in {"-e", "--eval", "-p", "--print"} for item in argv[1:])
+    ) or (
+        launcher
+        in {"pwsh", "pwsh.exe", "powershell", "powershell.exe"}
+        and any(
+            item.casefold() in {"-command", "-encodedcommand"}
+            for item in argv[1:]
+        )
+    ):
+        return "verification argv uses an inline-code interpreter mode"
+
+    referenced = False
+    for argument_index, argument in enumerate(argv):
+        values = [(argument, False)]
+        if argument.startswith("-") and "=" in argument:
+            option_value = argument.split("=", 1)[1]
+            if option_value:
+                values = [(option_value, True)]
+        for value, path_option in values:
+            if references_trusted(value):
+                referenced = True
+            candidate = PurePosixPath(value.replace("\\", "/"))
+            if (
+                candidate.is_absolute()
+                or re.match(r"^[A-Za-z]:/", value.replace("\\", "/"))
+                or ".." in candidate.parts
+                or any(part in {"", "."} for part in candidate.parts)
+            ):
+                if argument_index == 0 and system_launcher:
+                    continue
+                return (
+                    "verification argv contains an unsafe path-bearing "
+                    + ("option value" if path_option else "argument")
+                )
+            relative = candidate.as_posix()
+            rc, output = run(
+                ["git", "ls-files", "--stage", "--", relative],
+                root,
+            )
+            path_like = (
+                "/" in relative
+                or candidate.suffix.casefold()
+                in {
+                    ".py", ".js", ".mjs", ".cjs", ".sh", ".ps1",
+                    ".rb", ".pl", ".json", ".yaml", ".yml", ".toml",
+                    ".ini", ".cfg", ".conf",
+                }
+            )
+            if (
+                argument_index > 0
+                and path_like
+                and not references_trusted(value)
+                and (rc != 0 or not output.strip())
+            ):
+                return (
+                    "verification argv references an undeclared untracked "
+                    f"input: {relative}"
+                )
+            if (
+                rc == 0
+                and output.strip()
+                and not any(
+                    relative == path
+                    or relative.startswith(path.rstrip("/") + "/")
+                    for path in trusted_paths
+                )
+            ):
+                return (
+                    f"verification argv references undeclared tracked input: "
+                    f"{relative}"
+                )
     if not referenced:
         return (
             "verification argv does not invoke a declared trusted verifier"
@@ -541,7 +654,7 @@ def main() -> int:
         action="append",
         required=True,
         help=(
-            "tracked verifier file/tree whose protected-base Git content "
+            "exact tracked verifier file whose protected-base Git content "
             "must match the PR candidate; repeat as needed"
         ),
     )

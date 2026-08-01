@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""ITD global gate CLI: registry, rulesets, doctor and guarded PR creation."""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +9,7 @@ import re
 import secrets
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -37,6 +37,13 @@ SENSITIVE_ENV_RE = re.compile(
     r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH)",
     re.IGNORECASE,
 )
+
+
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
 
 
 class RejectRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -125,26 +132,53 @@ def run(
     timeout: int = 120,
     check: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
+    writer = None
+    errors = []
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             command,
-            cwd=str(cwd) if cwd else None,
-            input=input_bytes,
+            cwd=cwd,
             env=env,
+            stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=timeout,
-            check=False,
+            start_new_session=(os.name != "nt"),
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        if process.stdin:
+            def feed_input() -> None:
+                try:
+                    process.stdin.write(input_bytes)
+                except BrokenPipeError:
+                    pass
+                except OSError as exc:
+                    errors.append(exc)
+                finally:
+                    process.stdin.close()
+
+            writer = threading.Thread(target=feed_input, daemon=True)
+            writer.start()
+        result = machine._capture_process(
+            process,
+            started="",
+            timeout=timeout,
+            max_output_bytes=MAX_COMMAND_OUTPUT,
+        )
+    except (OSError, machine.OracleError) as exc:
         raise gate.GateError(
             "UNAVAILABLE", f"command unavailable: {command[0]}"
         ) from exc
-    if (
-        len(completed.stdout) > MAX_COMMAND_OUTPUT
-        or len(completed.stderr) > MAX_COMMAND_OUTPUT
-    ):
+    if writer is not None:
+        writer.join(10)
+        if writer.is_alive() or errors:
+            raise gate.GateError("UNAVAILABLE", "command input failed")
+    if result["timedOut"]:
+        raise gate.GateError("UNAVAILABLE", f"command unavailable: {command[0]}")
+    if result["outputOverflow"]:
         raise gate.GateError("UNVERIFIED", "command output exceeds its bound")
+    completed = subprocess.CompletedProcess(
+        command, result["exitCode"], result["stdout"], result["stderr"]
+    )
     if check and completed.returncode != 0:
         reason = completed.stderr[:1000].decode("utf-8", errors="replace")
         raise gate.GateError(
@@ -181,11 +215,11 @@ def repository_entry(
     matches = [
         row
         for row in registry["repositories"]
-        if (
-            repository is not None
-            and row["repository"].casefold() == repository.casefold()
+        if Path(row["checkout"]).resolve() == root
+        and (
+            repository is None
+            or row["repository"].casefold() == repository.casefold()
         )
-        or Path(row["checkout"]).resolve() == root
     ]
     if len(matches) != 1:
         raise gate.GateError(
@@ -363,16 +397,28 @@ def ruleset_endpoint(
     scope: str,
     ruleset_id: int | None,
 ) -> str:
+    if not gate.REPO_RE.fullmatch(repository):
+        raise gate.GateError("UNVERIFIED", "repository is invalid")
+    if (
+        ruleset_id is not None
+        and (type(ruleset_id) is not int or ruleset_id <= 0)
+    ):
+        raise gate.GateError(
+            "UNVERIFIED", "ruleset id must be a positive integer"
+        )
     owner, _ = repository.split("/", 1)
     prefix = (
         f"orgs/{owner}/rulesets"
         if scope == "organization"
         else f"repos/{repository}/rulesets"
     )
-    return f"{prefix}/{ruleset_id}" if ruleset_id else prefix
+    return f"{prefix}/{ruleset_id}" if ruleset_id is not None else prefix
 
 
 def apply_ruleset(args: argparse.Namespace) -> dict[str, Any]:
+    endpoint = ruleset_endpoint(
+        args.repository, args.scope, args.ruleset_id
+    )
     repository_name = (
         args.repository.split("/", 1)[1]
         if args.scope == "repository"
@@ -388,15 +434,10 @@ def apply_ruleset(args: argparse.Namespace) -> dict[str, Any]:
     if not args.apply:
         return {
             "status": "PREVIEW",
-            "endpoint": ruleset_endpoint(
-                args.repository, args.scope, args.ruleset_id
-            ),
+            "endpoint": endpoint,
             "payload": payload,
         }
-    method = "PUT" if args.ruleset_id else "POST"
-    endpoint = ruleset_endpoint(
-        args.repository, args.scope, args.ruleset_id
-    )
+    method = "PUT" if args.ruleset_id is not None else "POST"
     result = gate.gh_json(
         ["--method", method, endpoint, "--input", "-"],
         input_value=payload,
@@ -429,7 +470,9 @@ def apply_ruleset(args: argparse.Namespace) -> dict[str, Any]:
 
 def observe_enrollment(args: argparse.Namespace) -> dict[str, Any]:
     repository = args.repository
-    owner, _ = repository.split("/", 1)
+    if not gate.REPO_RE.fullmatch(repository):
+        raise gate.GateError("UNVERIFIED", "repository is invalid")
+    owner, repository_name = repository.split("/", 1)
     live_ruleset = gate.fetch_ruleset(
         repository,
         args.scope,
@@ -442,9 +485,7 @@ def observe_enrollment(args: argparse.Namespace) -> dict[str, Any]:
         workflow_repository_id=args.workflow_repository_id,
         workflow_sha=args.workflow_sha,
         repository_name=(
-            repository.split("/", 1)[1]
-            if args.scope == "repository"
-            else None
+            repository_name if args.scope == "repository" else None
         ),
     )
     if drift:
@@ -521,6 +562,14 @@ def observe_enrollment(args: argparse.Namespace) -> dict[str, Any]:
         raise gate.GateError(
             "UNAVAILABLE", "installed broker policy is unavailable"
         ) from exc
+    if (
+        not isinstance(policy, dict)
+        or not isinstance(policy.get("id"), str)
+        or not policy["id"]
+    ):
+        raise gate.GateError(
+            "UNVERIFIED", "installed broker policy identity is invalid"
+        )
     observed_at = (
         dt.datetime.now(dt.timezone.utc)
         .replace(microsecond=0)
@@ -746,7 +795,7 @@ def machine_preflight(root: Path, head: str) -> Path:
     return target
 
 
-def pr_view(root: Path, repository: str) -> dict[str, Any] | None:
+def pr_view(root, repository):
     value, completed = run_json(
         [
             "gh",
@@ -767,12 +816,26 @@ def pr_view(root: Path, repository: str) -> dict[str, Any] | None:
     return value
 
 
+def draft(value):
+    if (
+        (value.get("state"), value.get("isDraft")) != ("OPEN", True)
+        or type(value.get("number")) is not int
+        or value["number"] <= 0
+        or any(
+            not gate.SHA_RE.fullmatch(str(value.get(key, "")).lower())
+            for key in ("headRefOid", "baseRefOid")
+        )
+    ):
+        raise gate.GateError("BLOCKED", "PR is not an open exact Draft")
+    return value
+
+
 def guarded_push_environment(
-    receipt: Path,
-    maker_vendor: str,
-    maker_model: str,
-    maker_session: str,
-) -> dict[str, str]:
+    receipt,
+    maker_vendor,
+    maker_model,
+    maker_session,
+):
     environment = {
         name: value
         for name, value in os.environ.items()
@@ -787,13 +850,16 @@ def guarded_push_environment(
 
 
 def create_draft_pr(
-    root: Path,
-    repository: str,
-    machine_receipt: Path,
-    maker_vendor: str,
-    maker_model: str,
-    maker_session: str,
-) -> dict[str, Any]:
+    root,
+    repository,
+    machine_receipt,
+    maker_vendor,
+    maker_model,
+    maker_session,
+):
+    value = pr_view(root, repository)
+    if value is not None:
+        draft(value)
     run(
         ["git", "push", "--set-upstream", "origin", "HEAD"],
         cwd=root,
@@ -823,18 +889,7 @@ def create_draft_pr(
         value = pr_view(root, repository)
     if value is None:
         raise gate.GateError("UNAVAILABLE", "Draft PR was not created")
-    if (
-        value.get("state") != "OPEN"
-        or value.get("isDraft") is not True
-        or type(value.get("number")) is not int
-        or value["number"] <= 0
-        or not gate.SHA_RE.fullmatch(str(value.get("headRefOid", "")).lower())
-        or not gate.SHA_RE.fullmatch(str(value.get("baseRefOid", "")).lower())
-    ):
-        raise gate.GateError(
-            "BLOCKED", "existing PR is not an open exact Draft PR"
-        )
-    return value
+    return draft(value)
 
 
 def build_provenance(
@@ -1056,7 +1111,7 @@ def check_state(
     *,
     app_id: int,
     ignored_external_ids: frozenset[int] = frozenset(),
-) -> tuple[bool, str | None, bool]:
+) -> tuple[bool, str | None, frozenset[int]]:
     if (
         not isinstance(value, dict)
         or not isinstance(value.get("check_runs"), list)
@@ -1083,7 +1138,10 @@ def check_state(
         previous = candidates.get(row["name"])
         if previous is None or check_id > previous["id"]:
             candidates[row["name"]] = row
-    external_seen = gate.EXTERNAL_CHECK in candidates
+    external_ids = frozenset(
+        {row["id"] for name, row in candidates.items()
+         if name == gate.EXTERNAL_CHECK}
+    )
     for name, row in candidates.items():
         if row.get("status") == "completed":
             if row.get("conclusion") == "success":
@@ -1091,8 +1149,8 @@ def check_state(
             else:
                 return False, (
                     f"{name} completed as {row.get('conclusion')}"
-                ), external_seen
-    return len(passed) == len(expected), None, external_seen
+                ), external_ids
+    return len(passed) == len(expected), None, external_ids
 
 
 def current_pull_request(
@@ -1303,35 +1361,28 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
     initial_checks = check_runs(
         entry["repository"], current["checkSha"]
     )
-    complete, failure, external_seen = check_state(
+    _, failure, ignored_external_ids = check_state(
         initial_checks, app_id=entry["appId"]
     )
     if failure:
         raise gate.GateError("BLOCKED", failure)
-    accepted: dict[str, Any]
-    provenance_path: Path | None = None
-    if complete:
-        accepted = {"status": "already-passed"}
-    elif external_seen:
-        accepted = {"status": "already-running"}
-    else:
-        provenance, provenance_path = cached_provenance(
-            root,
-            entry,
-            pull_request,
-            args.maker_vendor,
-            args.maker_model,
-            args.maker_session,
-        )
-        accepted = submit_provenance(
-            entry,
-            pull_request,
-            args.maker_vendor,
-            args.maker_model,
-            args.maker_session,
-            payload=provenance,
-        )
-    if not args.no_wait and not complete:
+    provenance, provenance_path = cached_provenance(
+        root,
+        entry,
+        pull_request,
+        args.maker_vendor,
+        args.maker_model,
+        args.maker_session,
+    )
+    accepted = submit_provenance(
+        entry,
+        pull_request,
+        args.maker_vendor,
+        args.maker_model,
+        args.maker_session,
+        payload=provenance,
+    )
+    if not args.no_wait:
         wait_checks(
             entry["repository"],
             pull_request["number"],
@@ -1339,6 +1390,7 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
             str(pull_request["baseRefOid"]).lower(),
             current["checkSha"],
             entry["appId"],
+            ignored_external_ids=ignored_external_ids,
             timeout_seconds=args.timeout,
         )
     return {
@@ -1368,15 +1420,9 @@ def parser() -> argparse.ArgumentParser:
     register.add_argument("--checkout", type=Path, required=True)
     register.add_argument("--broker-url", required=True)
     register.add_argument("--app-id", type=int, required=True)
-    register.add_argument(
-        "--scope",
-        choices=["organization"],
-        required=True,
-    )
-    register.add_argument("--ruleset-id", type=int, required=True)
-    register.add_argument(
-        "--workflow-repository-id", type=int, required=True
-    )
+    register.add_argument("--scope", choices=["organization"], required=True)
+    register.add_argument("--ruleset-id", type=positive_int, required=True)
+    register.add_argument("--workflow-repository-id", type=int, required=True)
     register.add_argument("--workflow-sha", required=True)
     register.add_argument("--provenance-key-id", required=True)
     register.add_argument("--provenance-key-file", type=Path, required=True)
@@ -1387,15 +1433,9 @@ def parser() -> argparse.ArgumentParser:
     adopt.add_argument("--root", type=Path, default=Path.cwd())
     adopt.add_argument("--broker-url", required=True)
     adopt.add_argument("--app-id", type=int, required=True)
-    adopt.add_argument(
-        "--scope",
-        choices=["organization"],
-        required=True,
-    )
-    adopt.add_argument("--ruleset-id", type=int, required=True)
-    adopt.add_argument(
-        "--workflow-repository-id", type=int, required=True
-    )
+    adopt.add_argument("--scope", choices=["organization"], required=True)
+    adopt.add_argument("--ruleset-id", type=positive_int, required=True)
+    adopt.add_argument("--workflow-repository-id", type=int, required=True)
     adopt.add_argument("--workflow-sha", required=True)
     adopt.add_argument("--provenance-key-id", required=True)
     adopt.add_argument("--provenance-key-file", type=Path, required=True)
@@ -1414,32 +1454,20 @@ def parser() -> argparse.ArgumentParser:
     ruleset = gate_sub.add_parser("ruleset")
     ruleset.add_argument("--repository", required=True)
     ruleset.add_argument("--app-id", type=int, required=True)
-    ruleset.add_argument(
-        "--scope",
-        choices=["organization"],
-        required=True,
-    )
-    ruleset.add_argument(
-        "--workflow-repository-id", type=int, required=True
-    )
+    ruleset.add_argument("--scope", choices=["organization"], required=True)
+    ruleset.add_argument("--workflow-repository-id", type=int, required=True)
     ruleset.add_argument("--workflow-sha", required=True)
-    ruleset.add_argument("--ruleset-id", type=int)
+    ruleset.add_argument("--ruleset-id", type=positive_int)
     ruleset.add_argument("--apply", action="store_true")
     ruleset.set_defaults(handler=apply_ruleset)
 
     enrollment = gate_sub.add_parser("enrollment")
     enrollment.add_argument("--repository", required=True)
-    enrollment.add_argument(
-        "--scope",
-        choices=["organization"],
-        required=True,
-    )
-    enrollment.add_argument("--ruleset-id", type=int, required=True)
+    enrollment.add_argument("--scope", choices=["organization"], required=True)
+    enrollment.add_argument("--ruleset-id", type=positive_int, required=True)
     enrollment.add_argument("--app-id", type=int, required=True)
     enrollment.add_argument("--app-slug", required=True)
-    enrollment.add_argument(
-        "--workflow-repository-id", type=int, required=True
-    )
+    enrollment.add_argument("--workflow-repository-id", type=int, required=True)
     enrollment.add_argument("--workflow-sha", required=True)
     enrollment.add_argument("--output", type=Path, required=True)
     enrollment.add_argument("--apply", action="store_true")
@@ -1460,7 +1488,7 @@ def parser() -> argparse.ArgumentParser:
     create.add_argument("--maker-vendor", required=True)
     create.add_argument("--maker-model", required=True)
     create.add_argument("--maker-session", required=True)
-    create.add_argument("--timeout", type=int, default=1200)
+    create.add_argument("--timeout", type=positive_int, default=1200)
     create.add_argument("--no-wait", action="store_true")
     create.add_argument("--registry", type=Path)
     create.set_defaults(handler=pr_create)

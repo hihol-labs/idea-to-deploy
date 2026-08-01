@@ -12,17 +12,16 @@ StateDirectory=itd-review-broker
 StateDirectoryMode=0700
 
 LoadCredentialEncrypted=github-app-private-key:/etc/credstore.encrypted/itd-github-app-private-key
-LoadCredentialEncrypted=github-webhook-secret:/etc/credstore.encrypted/itd-github-webhook-secret
+LoadCredentialEncrypted=github-webhook-signing:/etc/credstore.encrypted/itd-github-webhook-secret
 LoadCredentialEncrypted=provenance-keyring:/etc/credstore.encrypted/itd-provenance-keyring
 LoadCredentialEncrypted=openai-service-account-key:/etc/credstore.encrypted/itd-openai-service-account-key
 
 Environment=PYTHONPATH=/opt/itd-review-broker
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
-Environment=OPENAI_API_KEY=
 Environment=ITD_GITHUB_APP_CLIENT_ID=REPLACE_WITH_REAL_CLIENT_ID
 Environment=ITD_GITHUB_APP_PRIVATE_KEY_FILE=%d/github-app-private-key
-Environment=ITD_GITHUB_WEBHOOK_SECRET_FILE=%d/github-webhook-secret
+Environment=ITD_GITHUB_WEBHOOK_SECRET_FILE=%d/github-webhook-signing
 Environment=ITD_PROVENANCE_KEYRING_FILE=%d/provenance-keyring
 Environment=ITD_OPENAI_API_KEY_FILE=%d/openai-service-account-key
 Environment=ITD_BROKER_DATABASE=%S/itd-review-broker/review-broker.sqlite3

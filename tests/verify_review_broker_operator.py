@@ -142,6 +142,12 @@ def main() -> int:
             loaded["current"]["repository"] == REPOSITORY,
             "keyring reload preserves exact authorization",
         )
+        rejects(
+            lambda: operator.open_store(
+                Path("relative-broker.sqlite3"), keyring
+            ),
+            "operator rejects a relative broker database path",
+        )
 
         changed = key_record()
         changed["authorizedMakerModel"] = "gpt-5.6-terra"

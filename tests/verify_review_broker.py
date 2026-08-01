@@ -8,6 +8,7 @@ import copy
 import gzip
 import importlib.util
 import json
+import re
 import sys
 import urllib.parse
 from pathlib import Path
@@ -408,7 +409,7 @@ class EvidenceOrderGitHub(FakeGitHub):
             review_rows = self.store.db.execute(
                 """
                 SELECT receipt_template_json FROM review_preparations
-                WHERE check_run_id=? AND state='prepared'
+                WHERE check_run_id=? AND state IN ('prepared','finalized')
                 """,
                 (check_id,),
             ).fetchall()
@@ -439,16 +440,18 @@ class EvidenceOrderGitHub(FakeGitHub):
             and isinstance(data, dict)
             and data.get("conclusion") == "success"
         ):
-            prepared = self.store.db.execute(
+            finalized_preparation = self.store.db.execute(
                 """
                 SELECT COUNT(*) FROM review_preparations
-                WHERE state='prepared'
+                WHERE state='finalized'
                 """
             ).fetchone()[0]
             finalized = self.store.db.execute(
                 "SELECT COUNT(*) FROM reviews_v3"
             ).fetchone()[0]
-            self.success_saw_preparation = prepared == 1 and finalized == 0
+            self.success_saw_preparation = (
+                finalized_preparation == 1 and finalized == 1
+            )
         return super().request_json(method, path, token, data, limit)
 
 
@@ -621,6 +624,56 @@ def candidate_phase() -> None:
     check('print("new")' in candidate.review_diff, "full head content diffed")
     check("THIS FIELD" not in candidate.review_diff, "GitHub patch ignored")
     broker.validate_runtime_record("candidateManifest", candidate.manifest)
+    unsafe_file_limit = copy.deepcopy(policy)
+    unsafe_file_limit["candidate"]["maxFiles"] = (
+        broker.COMPARE_FILES_API_CAP
+    )
+    expect_error(
+        "UNVERIFIED",
+        lambda: broker.build_candidate(
+            github,
+            "installation-token",
+            coordinates(),
+            unsafe_file_limit,
+            check_sha=CHECK_SHA,
+            provenance_receipt_sha256=provenance_sha,
+        ),
+        "compare policy must stay below GitHub changed-file cap",
+    )
+
+    safe_references = (
+        'OPENAI_API_KEY=\n'
+        'OPENAI_API_KEY: "${OPENAI_API_KEY}"\n'
+        'api_key = os.environ.get("OPENAI_API_KEY", "")\n'
+        'webhook_secret = args.webhook_secret\n'
+        'LoadCredentialEncrypted=github-webhook-secret:'
+        '/etc/credstore.encrypted/github-webhook-key\n'
+        'ITD_GITHUB_WEBHOOK_SECRET_FILE=%d/github-webhook-signing\n'
+        '      - ./runtime/secrets/webhook:'
+        '/run/secrets/webhook:ro\n'
+        'repository = "git@github.com:hihol-labs/example.git"\n'
+        'private_key_marker = "'
+        '-----BEGIN ' + 'PRIVATE KEY-----\\n"\n'
+    )
+    reviewer = broker._reviewer_module()
+    safe_clean, safe_redactions = reviewer.scrub(safe_references)
+    check(
+        safe_clean == safe_references
+        and safe_redactions == 0
+        and not reviewer.contains_high_confidence_secret(safe_clean)
+        and not reviewer.contains_residual_credential(safe_clean),
+        "declared secret references and quoted key markers are not values",
+    )
+    credential_label = "api" + "_key"
+    attacker_path = (
+        f"{credential_label} = /attacker-controlled-secret-value\n"
+    )
+    attacker_clean, attacker_redactions = reviewer.scrub(attacker_path)
+    check(
+        attacker_redactions == 1
+        and "/attacker-controlled-secret-value" not in attacker_clean,
+        "unscoped slash-prefixed credential values are never safe references",
+    )
 
     github.merge_base_sha = "e" * 40
     behind_base = broker.build_candidate(
@@ -969,9 +1022,31 @@ def candidate_phase() -> None:
             and len(unit.review_diff.encode("utf-8"))
             == unit.manifest["reviewDiffBytes"]
             <= policy["candidate"]["maxRawDiffBytes"]
+            and len(
+                json.dumps(
+                    unit.review_diff,
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            )
+            - 2
+            <= policy["candidate"]["maxRawDiffBytes"]
+            and len(
+                json.dumps(
+                    json.dumps(
+                        unit.review_diff,
+                        ensure_ascii=False,
+                    ),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            )
+            - 6
+            <= (
+                policy["candidate"]["maxProviderRequestBytes"]
+                - broker.HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+            )
             for unit in hierarchical.review_units
         ),
-        "every hierarchical unit is exact and within the single-call bound",
+        "every hierarchical unit is exact and double-JSON bounded",
     )
     check(
         hierarchical.manifest["reviewDiffSha256"]
@@ -1003,6 +1078,92 @@ def candidate_phase() -> None:
         and decoded_complete_plan["units"][1]["paths"] == ["second.txt"],
         "a file that fits an empty unit is never split by prior-unit fill",
     )
+    json_expanded = ("\\" * 100 + "\n") * 700
+    expanded_plan, expanded_units = broker._review_units(
+        json_expanded,
+        [("escaped.txt", json_expanded)],
+        policy,
+    )
+    check(
+        len(json_expanded.encode("utf-8"))
+        < policy["candidate"]["maxRawDiffBytes"]
+        and len(expanded_units) > 1
+        and broker.decode_strict_json(
+            expanded_plan.encode("utf-8"),
+            "encoded direct-review sizing fixture",
+        )["mode"]
+        == "hierarchical",
+        "JSON-expanded direct diff is deterministically split before dispatch",
+    )
+
+    oversized_file = ("x" * 999 + "\n") * 81
+    trailing_complete_file = "y" * 30000 + "\n"
+    packed_plan, packed_units = broker._review_units(
+        oversized_file + trailing_complete_file,
+        [
+            ("oversized.txt", oversized_file),
+            ("trailing.txt", trailing_complete_file),
+        ],
+        policy,
+    )
+    decoded_packed_plan = broker.decode_strict_json(
+        packed_plan.encode("utf-8"),
+        "post-split packing plan fixture",
+    )
+    check(
+        len(packed_units) == 2
+        and packed_units[0].manifest["reviewDiffBytes"] == 79000
+        and packed_units[1].manifest["paths"]
+        == ["oversized.txt", "trailing.txt"]
+        and packed_units[1].manifest["reviewDiffBytes"] == 32001
+        and all(
+            len(
+                json.dumps(
+                    unit.review_diff,
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            )
+            - 2
+            <= policy["candidate"]["maxRawDiffBytes"]
+            and len(
+                json.dumps(
+                    json.dumps(
+                        unit.review_diff,
+                        ensure_ascii=False,
+                    ),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            )
+            - 6
+            <= (
+                policy["candidate"]["maxProviderRequestBytes"]
+                - broker.HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+            )
+            for unit in packed_units
+        )
+        and decoded_packed_plan["unitCount"] == 2,
+        "JSON-expanded split remainder shares the following file safely",
+    )
+
+    adjacent_plan, adjacent_units = broker._review_units(
+        oversized_file + oversized_file,
+        [
+            ("first-oversized.txt", oversized_file),
+            ("second-oversized.txt", oversized_file),
+        ],
+        policy,
+    )
+    decoded_adjacent_plan = broker.decode_strict_json(
+        adjacent_plan.encode("utf-8"),
+        "adjacent oversized files plan fixture",
+    )
+    check(
+        len(adjacent_units) == 3
+        and adjacent_units[1].manifest["paths"]
+        == ["first-oversized.txt", "second-oversized.txt"]
+        and decoded_adjacent_plan["unitCount"] == 3,
+        "adjacent split files share partial-unit capacity",
+    )
 
     too_large = FakeGitHub()
     too_large.new = b"bounded_line = 1\n" * 6000
@@ -1023,16 +1184,19 @@ def candidate_phase() -> None:
         "diff beyond the hierarchical bound is rejected without truncation",
     )
 
-    hidden_secret = FakeGitHub()
-    hidden_secret.new = github.new + (
-        b'OPENAI_API_KEY="sk-proj-ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"\n'
+    sensitive_candidate = FakeGitHub()
+    sensitive_candidate.new = github.new + (
+        b'OPENAI_' + b'API_KEY="' + b'sk-proj-'
+        + b'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"\n'
     )
-    hidden_secret.new_sha = broker._git_blob_sha(hidden_secret.new)
-    hidden_secret.file_row["sha"] = hidden_secret.new_sha
+    sensitive_candidate.new_sha = broker._git_blob_sha(
+        sensitive_candidate.new
+    )
+    sensitive_candidate.file_row["sha"] = sensitive_candidate.new_sha
     expect_error(
         "UNVERIFIED",
         lambda: broker.build_candidate(
-            hidden_secret,
+            sensitive_candidate,
             "installation-token",
             coordinates(),
             policy,
@@ -1111,6 +1275,27 @@ def adapter_phase() -> None:
         return StaticResponse(response)
 
     adapter = broker.ReviewerAdapter("x" * 30, opener=opener)
+    out_of_segment = {
+        "verdict": "BLOCKED",
+        "findings": [{
+            "severity": "critical",
+            "confidence": "high",
+            "category": "unit-scope",
+            "file": "app.py",
+            "line": 1,
+            "summary": "The finding cites a line outside this diff unit.",
+        }],
+        "unverified": [],
+        "summary": "The unit contains a different segment of app.py.",
+    }
+    expect_error(
+        "UNVERIFIED",
+        lambda: adapter._validate_unit(
+            out_of_segment,
+            {"other.py": 2},
+        ),
+        "hierarchical finding cannot cite a path outside its unit",
+    )
     result = adapter.review(
         candidate, "openai-responses-terra", policy
     )
@@ -1154,12 +1339,53 @@ def adapter_phase() -> None:
         check_sha=CHECK_SHA,
         provenance_receipt_sha256=provenance_sha,
     )
+    large_plan = broker.decode_strict_json(
+        large_candidate.review_diff.encode("utf-8"),
+        "large hierarchical review plan",
+    )
+    check(
+        all(
+            set(unit) >= {
+                "reviewDiffStartByte",
+                "reviewDiffEndByteExclusive",
+                "pathSegments",
+            }
+            for unit in large_plan["units"]
+        ),
+        "hierarchical units bind exact offsets and path segment ordinals",
+    )
+    check(
+        large_plan["units"][0]["reviewDiffStartByte"] == 0
+        and all(
+            left["reviewDiffEndByteExclusive"]
+            == right["reviewDiffStartByte"]
+            for left, right in zip(
+                large_plan["units"], large_plan["units"][1:]
+            )
+        )
+        and large_plan["units"][-1]["reviewDiffEndByteExclusive"]
+        == large_plan["fullDiffBytes"],
+        "hierarchical unit byte coverage is contiguous and complete",
+    )
     hierarchical_calls: list[str] = []
 
     def hierarchical_opener(request, timeout: int):
         check(timeout == 120, "hierarchical provider timeout bounded")
+        check(
+            len(request.data)
+            <= policy["candidate"]["maxProviderRequestBytes"],
+            "hierarchical provider request stays within its byte bound",
+        )
         body = broker.decode_strict_json(
             request.data, "hierarchical request fixture"
+        )
+        check(
+            len(request.data) * 2.5
+            + body["max_output_tokens"] * 15.0
+            <= policy["budget"][
+                "hierarchicalCallReservationMicrousd"
+            ]["openai-responses-terra"],
+            "hierarchical output cap is derived from the Terra per-call cap",
         )
         name = body["text"]["format"]["name"]
         hierarchical_calls.append(name)
@@ -1168,7 +1394,9 @@ def adapter_phase() -> None:
             check(
                 "are not an unverified contour merely because they are "
                 "absent from this unit" in unit_prompt
-                and "Put cross-unit dependencies in the summary" in unit_prompt,
+                and "Put cross-unit dependencies in the summary" in unit_prompt
+                and "created only after the immutable review completes"
+                in unit_prompt,
                 "unit prompt reserves unverified for an incomplete current unit",
             )
             check(
@@ -1183,7 +1411,9 @@ def adapter_phase() -> None:
                 "Candidate success requires complete unit coverage and a "
                 "PASSED verdict with no finding or unverified contour"
                 in integration_prompt
-                and "PASSED permits only minor findings" in integration_prompt,
+                and "PASSED permits only minor findings" in integration_prompt
+                and "its absence inside the candidate is not an unverified "
+                "contour" in integration_prompt,
                 "integration prompt separates verdict validity from success",
             )
         verdict_value = (
@@ -1239,6 +1469,16 @@ def adapter_phase() -> None:
         "hierarchical evidence covers every unit and integration call",
     )
     check(
+        all(
+            re.fullmatch(
+                r"[0-9a-f]{64}",
+                item.get("verdictSha256", ""),
+            )
+            for item in request_bundle["requests"]
+        ),
+        "hierarchical evidence binds every returned verdict",
+    )
+    check(
         hierarchical_calls
         == [
             *(
@@ -1269,9 +1509,43 @@ def adapter_phase() -> None:
 
     finding_calls = 0
 
-    def finding_opener(_request, **_kwargs):
+    def finding_opener(request, **_kwargs):
         nonlocal finding_calls
         finding_calls += 1
+        body = broker.decode_strict_json(
+            request.data, "hierarchical finding request"
+        )
+        unit = (
+            body["text"]["format"]["name"]
+            == "itd_hierarchical_unit_review"
+        )
+        finding = unit and finding_calls == 1
+        verdict = {
+            "verdict": (
+                "PASSED_WITH_WARNINGS" if finding else "PASSED"
+            ),
+            "findings": (
+                [
+                    {
+                        "severity": "important",
+                        "confidence": "high",
+                        "category": "correctness",
+                        "file": "app.py",
+                        "line": 1,
+                        "summary": "synthetic unit finding",
+                    }
+                ]
+                if finding
+                else []
+            ),
+            "unverified": [],
+        }
+        if unit:
+            verdict["summary"] = (
+                "The first unit has a blocking issue."
+                if finding
+                else "No issue in this complete unit."
+            )
         return StaticResponse(
             {
                 "id": "resp-unit-finding",
@@ -1281,25 +1555,7 @@ def adapter_phase() -> None:
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": json.dumps(
-                                    {
-                                        "verdict": "PASSED_WITH_WARNINGS",
-                                        "findings": [
-                                            {
-                                                "severity": "important",
-                                                "confidence": "high",
-                                                "category": "correctness",
-                                                "file": "app.py",
-                                                "line": 1,
-                                                "summary":
-                                                    "synthetic unit finding",
-                                            }
-                                        ],
-                                        "unverified": [],
-                                        "summary":
-                                            "The first unit has a blocking issue.",
-                                    }
-                                ),
+                                "text": json.dumps(verdict),
                             }
                         ],
                     }
@@ -1319,10 +1575,12 @@ def adapter_phase() -> None:
         "hierarchical finding evidence fixture",
     )
     check(
-        finding_calls == 1
-        and len(finding_bundle["requests"]) == 1
-        and finding_result["verdict"]["findings"],
-        "first blocking unit stops paid calls without claiming full coverage",
+        finding_calls == expected_calls
+        and len(finding_bundle["requests"]) == expected_calls
+        and finding_bundle["requests"][-1]["kind"] == "integration"
+        and finding_result["verdict"]
+        == {"verdict": "PASSED", "findings": [], "unverified": []},
+        "mandatory integration reconciles a contradicted unit finding",
     )
 
 
@@ -1378,6 +1636,40 @@ def process_phase() -> None:
         "pre-publication evidence atomically finalizes",
     )
     store.finish_job(job_id, True, result)
+    store.close()
+
+    store, _ = running_store()
+    github = EvidenceOrderGitHub(store)
+
+    def fail_final_receipt(*_args, **_kwargs):
+        raise OSError("synthetic final receipt persistence failure")
+
+    store.record_review = fail_final_receipt
+    failed_receipt = broker.ReviewBroker(
+        broker.load_policy(), store, github, FakeAuth(), FakeReviewer()
+    ).process(coordinates())
+    check(
+        failed_receipt["status"] == "UNVERIFIED",
+        "receipt persistence failure is typed fail-closed",
+    )
+    check(
+        github.checks[failed_receipt["checkRunId"]]["conclusion"]
+        == "action_required",
+        "receipt persistence failure cannot leave a successful Check Run",
+    )
+    check(
+        not any(
+            method == "PATCH"
+            and isinstance(data, dict)
+            and data.get("conclusion") == "success"
+            for method, _path, data in github.calls
+        ),
+        "success is never published before final receipt persistence",
+    )
+    check(
+        store.db.execute("SELECT COUNT(*) FROM reviews_v3").fetchone()[0] == 0,
+        "failed final receipt persistence creates no accepted review",
+    )
     store.close()
 
     hierarchical_store, hierarchical_job = running_store()
@@ -1443,7 +1735,8 @@ def process_phase() -> None:
     check(
         hierarchical_result["status"] == "PASSED"
         and hierarchical_result["conclusion"] == "success",
-        "hierarchical exact-candidate review passes end to end",
+        "hierarchical exact-candidate review passes end to end: "
+        f"{hierarchical_result}; calls={hierarchical_github.calls[-2:]}",
     )
     hierarchical_reservation = hierarchical_store.db.execute(
         """
@@ -1515,6 +1808,150 @@ def process_phase() -> None:
         "swapped unit prompts cannot satisfy durable provider evidence",
     )
     swapped_store.close()
+
+    class DroppedUnitEvidenceAdapter(broker.ReviewerAdapter):
+        def review(self, candidate, reviewer_id, broker_policy):
+            result = super().review(
+                candidate, reviewer_id, broker_policy
+            )
+            provider = broker.decode_strict_json(
+                result["providerRequest"],
+                "dropped hierarchical provider fixture",
+            )
+            prompts = broker.decode_strict_json(
+                result["sanitizedPrompt"].encode("utf-8"),
+                "dropped hierarchical prompt fixture",
+            )
+            del provider["requests"][0]
+            del prompts["prompts"][0]
+            del prompts["unitVerdicts"][0]
+            result["providerRequest"] = broker.canonical_json(provider)
+            result["sanitizedPrompt"] = broker.canonical_json(
+                prompts
+            ).decode("utf-8")
+            return result
+
+    dropped_store, _ = running_store()
+    dropped_github = EvidenceOrderGitHub(dropped_store)
+    dropped_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    dropped_github.new_sha = broker._git_blob_sha(dropped_github.new)
+    dropped_github.file_row["sha"] = dropped_github.new_sha
+    dropped_result = broker.ReviewBroker(
+        broker.load_policy(),
+        dropped_store,
+        dropped_github,
+        FakeAuth(),
+        DroppedUnitEvidenceAdapter(
+            "x" * 30, opener=passing_hierarchical_opener
+        ),
+    ).process(coordinates())
+    check(
+        dropped_result["status"] == "UNVERIFIED"
+        and dropped_result["conclusion"] == "action_required",
+        "a strict prefix of hierarchical units cannot satisfy evidence",
+    )
+    dropped_store.close()
+
+    class TamperedSegmentAdapter(broker.ReviewerAdapter):
+        def review(self, candidate, reviewer_id, broker_policy):
+            result = super().review(
+                candidate, reviewer_id, broker_policy
+            )
+            evidence = broker.decode_strict_json(
+                result["sanitizedPrompt"].encode("utf-8"),
+                "tampered segment binding fixture",
+            )
+            plan = broker.decode_strict_json(
+                evidence["reviewPlan"].encode("utf-8"),
+                "tampered segment review plan",
+            )
+            split_unit = next(
+                unit
+                for unit in plan["units"]
+                if any(
+                    segment["count"] > 1
+                    and segment["index"] > 1
+                    for segment in unit["pathSegments"].values()
+                )
+            )
+            split_path = next(
+                path
+                for path, segment in split_unit["pathSegments"].items()
+                if segment["count"] > 1 and segment["index"] > 1
+            )
+            split_unit["pathSegments"][split_path]["index"] = 1
+            evidence["reviewPlan"] = broker.canonical_json(plan).decode(
+                "utf-8"
+            )
+            result["sanitizedPrompt"] = broker.canonical_json(
+                evidence
+            ).decode("utf-8")
+            return result
+
+    segment_store, _ = running_store()
+    segment_github = EvidenceOrderGitHub(segment_store)
+    segment_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    segment_github.new_sha = broker._git_blob_sha(segment_github.new)
+    segment_github.file_row["sha"] = segment_github.new_sha
+    segment_result = broker.ReviewBroker(
+        broker.load_policy(),
+        segment_store,
+        segment_github,
+        FakeAuth(),
+        TamperedSegmentAdapter(
+            "x" * 30, opener=passing_hierarchical_opener
+        ),
+    ).process(coordinates())
+    check(
+        segment_result["status"] == "UNVERIFIED"
+        and segment_result["conclusion"] == "action_required",
+        "tampered path segment ordinal cannot satisfy durable evidence",
+    )
+    segment_store.close()
+
+    class TamperedVerdictAdapter(broker.ReviewerAdapter):
+        def review(self, candidate, reviewer_id, broker_policy):
+            result = super().review(
+                candidate, reviewer_id, broker_policy
+            )
+            evidence = broker.decode_strict_json(
+                result["sanitizedPrompt"].encode("utf-8"),
+                "tampered hierarchical verdict fixture",
+            )
+            evidence["unitVerdicts"][0]["summary"] += " tampered"
+            result["sanitizedPrompt"] = broker.canonical_json(
+                evidence
+            ).decode("utf-8")
+            return result
+
+    tampered_store, _ = running_store()
+    tampered_github = EvidenceOrderGitHub(tampered_store)
+    tampered_github.new = "".join(
+        f"value_{index:05d} = {index}\n" for index in range(7000)
+    ).encode("utf-8")
+    tampered_github.new_sha = broker._git_blob_sha(
+        tampered_github.new
+    )
+    tampered_github.file_row["sha"] = tampered_github.new_sha
+    tampered_result = broker.ReviewBroker(
+        broker.load_policy(),
+        tampered_store,
+        tampered_github,
+        FakeAuth(),
+        TamperedVerdictAdapter(
+            "x" * 30, opener=passing_hierarchical_opener
+        ),
+    ).process(coordinates())
+    check(
+        tampered_result["status"] == "UNVERIFIED"
+        and tampered_result["conclusion"] == "action_required",
+        "tampered unit verdict cannot satisfy durable provider evidence",
+    )
+    tampered_store.close()
 
     outage_store, _ = running_store()
     outage_github = EvidenceOrderGitHub(outage_store)
@@ -1614,8 +2051,8 @@ def process_phase() -> None:
             SELECT state FROM review_preparations
             """
         ).fetchone()["state"]
-        == "prepared",
-        "lost success response preserves recovery record",
+        == "finalized",
+        "lost success response preserves the preauthorized receipt",
     )
     check(
         recovery_store.reconcile_interrupted_jobs()["pending"] == 1,
@@ -1641,7 +2078,11 @@ def process_phase() -> None:
             "SELECT COUNT(*) FROM reviews_v3"
         ).fetchone()[0]
         == 1,
-        "recovery creates the observed final receipt",
+        "recovery keeps the preauthorized final receipt",
+    )
+    check(
+        recovery_runtime.recover_pending_publications() == 0,
+        "completed recovery is not repeated",
     )
     recovery_store.close()
 
@@ -1862,6 +2303,35 @@ def process_phase() -> None:
         "stale-coordinate terminal failure has durable evidence",
     )
     store.close()
+
+    terminal_store, _ = running_store()
+    terminal_github = FakeGitHub()
+    terminal_github.checks[101] = {
+        "id": 101,
+        "appIntegrationId": APP_ID,
+        "name": "ITD external review gate",
+        "headSha": CHECK_SHA,
+        "externalId": "f" * 64,
+        "status": "completed",
+        "conclusion": "success",
+    }
+    expect_error(
+        "UNVERIFIED",
+        lambda: terminal_store.prepare_failure_publication(
+            coordinates(),
+            CHECK_SHA,
+            APP_ID,
+            101,
+            "f" * 64,
+            "UNVERIFIED",
+            "action_required",
+            "synthetic failure after terminal success",
+            terminal_github,
+            "installation-token",
+        ),
+        "completed success Check Run is terminal and immutable",
+    )
+    terminal_store.close()
 
     store, _ = running_store()
     github = EvidenceOrderGitHub(store)

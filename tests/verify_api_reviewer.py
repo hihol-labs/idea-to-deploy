@@ -24,7 +24,7 @@ POLICY = ROOT / "skills/_shared/EXTERNAL_REVIEW_POLICY.json"
 SCHEMA = ROOT / "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json"
 PILOT = ROOT / "docs/api-reviewer/SHADOW_PILOT.json"
 OBSOLETE_WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
-MACHINE_WORKFLOW = ROOT / ".github/workflows/itd-machine-oracle.yml"
+MACHINE_WORKFLOW = ROOT / "docs/templates/github/itd-machine-oracle.yml"
 BROKER_POLICY = ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json"
 BROKER_SERVICE = ROOT / "services/review_broker/server.py"
 PHASES = ("adapters", "routing", "modes", "egress", "evidence", "pilot")
@@ -422,12 +422,14 @@ def phase_modes(checks: Checks) -> None:
         workflow = MACHINE_WORKFLOW.read_text(encoding="utf-8")
         broker_policy = json.loads(BROKER_POLICY.read_text(encoding="utf-8"))
         broker_service = BROKER_SERVICE.read_text(encoding="utf-8")
+        legacy_workflow = OBSOLETE_WORKFLOW.read_text(encoding="utf-8")
         checks.that(
-            not OBSOLETE_WORKFLOW.exists()
+            "repository_dispatch:" in legacy_workflow
+            and "pull_request_target:" not in legacy_workflow
             and "repository_dispatch:" not in workflow
             and "pull_request:" in workflow
             and "merge_group:" in workflow,
-            "obsolete repository-secret API gate was not retired",
+            "legacy gate is not safely retained for two-phase cutover",
         )
         checks.that(
             "scripts/itd_machine_oracle.py" in workflow
@@ -542,6 +544,31 @@ def phase_egress(checks: Checks) -> None:
                     and "<UNTRUSTED_DIFF>\n" not in prefixed_prompt,
                     "untrusted diff still controls a semantic closing delimiter")
 
+        multiline_value = "-".join(
+            ("correct", "horse", "battery", "staple")
+        )
+        (path / "app.py").write_text(
+            '{\n  "password":\n    "'
+            + multiline_value
+            + '"\n}\n',
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, multiline_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-multiline-credential", "--risk", "high",
+            "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"})
+        multiline_prompt = Path(
+            multiline_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            multiline_value not in multiline_prompt
+            and "[REDACTED]" in multiline_prompt,
+            "multiline JSON credential survived sanitization",
+        )
+
         for label, secret_value, marker in (
             (
                 "jwt",
@@ -618,6 +645,53 @@ def phase_egress(checks: Checks) -> None:
         )
         (path / "app.py").write_text("def value():\n    return 2\n", encoding="utf-8")
         shell(["git", "add", "app.py"], path)
+
+        synthetic_value = bytes(
+            (115, 107, 45, 112, 114, 111, 106, 45)
+        ).decode("ascii") + "z" * 40
+        (path / "app.py").write_text(
+            "import os\n"
+            f"value = os.getenv('OPTIONAL_VALUE', '{synthetic_value}')\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, default_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-default-literal", "--risk", "high",
+            "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        default_prompt = Path(
+            default_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            synthetic_value not in default_prompt
+            and "[REDACTED-API-KEY]" in default_prompt,
+            "getenv default literal bypassed sensitive-value scrubbing",
+        )
+
+        (path / "app.py").write_text(
+            "value = "
+            f"\"${{OPTIONAL_VALUE:-{synthetic_value}}}\"\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, shell_default_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-shell-default-literal",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        shell_default_prompt = Path(
+            shell_default_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            synthetic_value not in shell_default_prompt
+            and "[REDACTED-API-KEY]" in shell_default_prompt,
+            "shell expansion default bypassed sensitive-value scrubbing",
+        )
 
         small = json.loads(POLICY.read_text(encoding="utf-8"))
         small["limits"]["maxDiffBytes"] = 10

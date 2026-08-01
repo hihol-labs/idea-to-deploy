@@ -325,24 +325,26 @@ def provenance_payload(value: Any) -> dict[str, Any]:
         "signature",
     }
     row = _exact(value, fields, "maker provenance")
+    string_fields = fields - {"pullRequest"}
     if (
-        not REPO_RE.fullmatch(str(row["repository"]))
+        any(not isinstance(row[name], str) for name in string_fields)
+        or not REPO_RE.fullmatch(row["repository"])
         or type(row["pullRequest"]) is not int
         or row["pullRequest"] <= 0
-        or not SHA_RE.fullmatch(str(row["headSha"]))
-        or not SHA_RE.fullmatch(str(row["baseSha"]))
-        or not PROVENANCE_NONCE_RE.fullmatch(str(row["nonce"]))
-        or not KEY_ID_RE.fullmatch(str(row["keyId"]))
+        or not SHA_RE.fullmatch(row["headSha"])
+        or not SHA_RE.fullmatch(row["baseSha"])
+        or not PROVENANCE_NONCE_RE.fullmatch(row["nonce"])
+        or not KEY_ID_RE.fullmatch(row["keyId"])
         or not re.fullmatch(
             r"[0-9]{4}-[0-9]{2}-[0-9]{2}T"
             r"[0-9]{2}:[0-9]{2}:[0-9]{2}Z",
-            str(row["issuedAt"]),
+            row["issuedAt"],
         )
         or not re.fullmatch(
-            r"[A-Za-z0-9_-]{86}", str(row["signature"])
+            r"[A-Za-z0-9_-]{86}", row["signature"]
         )
         or any(
-            not PROVENANCE_SAFE_TEXT_RE.fullmatch(str(row[name]))
+            not PROVENANCE_SAFE_TEXT_RE.fullmatch(row[name])
             for name in ("makerVendor", "makerModel", "makerSession")
         )
     ):
@@ -834,12 +836,54 @@ def adopted_checkout(path: Path) -> list[str]:
             paths = row.get("trustedVerifierPaths")
             if not isinstance(paths, list):
                 continue
-            has_namespace = any(
-                isinstance(raw, str)
-                and (path / raw).is_dir()
-                and not (path / raw).is_symlink()
-                for raw in paths
-            )
+            has_namespace = False
+            for raw in paths:
+                if not isinstance(raw, str):
+                    continue
+                relative = PurePosixPath(raw.replace("\\", "/"))
+                target = path / relative.as_posix()
+                if (
+                    relative.is_absolute()
+                    or ".." in relative.parts
+                    or not target.is_dir()
+                    or target.is_symlink()
+                ):
+                    continue
+                try:
+                    tracked_namespace = subprocess.run(
+                        [
+                            "git",
+                            "-C",
+                            str(path),
+                            "ls-files",
+                            "--stage",
+                            "--",
+                            relative.as_posix(),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=10,
+                        check=False,
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    continue
+                rows = [
+                    line
+                    for line in tracked_namespace.stdout.splitlines()
+                    if line.strip()
+                ]
+                if (
+                    tracked_namespace.returncode == 0
+                    and rows
+                    and all(
+                        line.split(" ", 1)[0] in {"100644", "100755"}
+                        for line in rows
+                    )
+                ):
+                    has_namespace = True
+                    break
             if not has_namespace:
                 drift.append(
                     f"verification command {index + 1} has no tracked "
@@ -854,7 +898,8 @@ def verification_contract_drift(value: Any) -> list[str]:
     drift: list[str] = []
     if value.get("version") != 2:
         drift.append("verification contract is not fail-closed version 2")
-    if value.get("failClosed") is None:
+    fail_closed = value.get("failClosed")
+    if not isinstance(fail_closed, str) or not fail_closed.strip():
         drift.append("verification contract is not fail-closed")
     commands = value.get("commands")
     if not isinstance(commands, list) or not commands:

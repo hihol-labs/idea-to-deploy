@@ -8,7 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /opt/itd
 
 COPY services/review_broker/requirements.lock /tmp/requirements.lock
-RUN python -m pip install --no-cache-dir -r /tmp/requirements.lock \
+RUN python -m pip install --no-cache-dir --only-binary=:all: \
+        --require-hashes -r /tmp/requirements.lock \
     && rm -f /tmp/requirements.lock
 
 COPY --chown=65532:65532 services /opt/itd/services

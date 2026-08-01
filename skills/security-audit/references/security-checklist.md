@@ -191,17 +191,6 @@ file). Fail if an LLM-produced argument reaches such a tool with no sanitization
 allow-list. Complements `MEM-1`: MEM-1 guards what enters the context, MEM-7 guards what
 leaves it as an action.
 
-### MEM-8: MCP/tool prompt-supply-chain trust (Critical)
-Check: every configured prompt-bearing tool, connector, browser/research provider, and
-MCP server is inventoried in `.itd/TOOL_CAPABILITY_REGISTRY.json` (or an equivalent
-project-owned manifest) with provider/source provenance, version or explicit unpinned
-posture, permissions, network/data scope, prompt/schema surface, review evidence,
-fallback, and `allow|ask|abstain`. Tool descriptions, schemas, MCP resources, web/RAG
-results, and retrieved documents are treated as untrusted data, not system instructions.
-Fail if an unknown or changed provider is silently allowed, if an unreviewed
-prompt-bearing surface has `allow`, or if installation/update/auth/permission grant can
-happen automatically during discovery.
-
 ## Stack-specific gotchas
 
 ### Next.js / React

@@ -121,6 +121,9 @@ def hook_phase() -> None:
         root = Path(raw).resolve()
         receipt_path = root / "receipt.json"
         receipt(receipt_path)
+        hook.MACHINE_EXECUTOR = lambda candidate, contract: json.loads(
+            receipt_path.read_text(encoding="utf-8")
+        )
         managed = registry(root)
         remote = "https://github.com/hihol-labs/example.git"
         guarded = {
@@ -235,9 +238,69 @@ def hook_phase() -> None:
             ),
             "forged receipt blocked",
         )
+        receipt(receipt_path)
+        fresh_passed = json.loads(receipt_path.read_text(encoding="utf-8"))
+        malformed = json.loads(receipt_path.read_text(encoding="utf-8"))
+        malformed["commands"] = ["not-a-command-record"]
+        malformed.pop("receiptSha256")
+        malformed["receiptSha256"] = hashlib.sha256(
+            hook.gate.canonical_json(malformed)
+        ).hexdigest()
+        receipt_path.write_text(json.dumps(malformed), encoding="utf-8")
+        rejects(
+            lambda: hook.load_machine_receipt(receipt_path),
+            "malformed command row fails closed with a typed diagnostic",
+        )
+        receipt(receipt_path)
+        forged = json.loads(receipt_path.read_text(encoding="utf-8"))
+        forged["commands"] = [{"id": "invented", "status": "PASSED"}]
+        forged.pop("receiptSha256")
+        forged["receiptSha256"] = hashlib.sha256(
+            hook.gate.canonical_json(forged)
+        ).hexdigest()
+        receipt_path.write_text(json.dumps(forged), encoding="utf-8")
+        hook.MACHINE_EXECUTOR = lambda candidate, contract: fresh_passed
+        rejects(
+            lambda: hook.enforce(
+                remote,
+                updates("refs/heads/topic"),
+                environment=guarded,
+                registry=managed,
+                root=root,
+            ),
+            "self-hashed command evidence must equal the fresh machine binding",
+        )
 
 
 def installer_phase() -> None:
+    with (
+        mock.patch.object(installer, "install", side_effect=OSError("disk")),
+        mock.patch.object(installer.sys, "stderr") as stderr,
+    ):
+        result = installer.main([])
+        output = "".join(
+            call.args[0] for call in stderr.write.call_args_list
+        )
+    check(
+        result == 1 and '"status": "BLOCKED"' in output,
+        "hook installer normalizes filesystem failures",
+    )
+
+    try:
+        installer.run_bounded_process(
+            [
+                sys.executable,
+                "-c",
+                "import sys;sys.stdout.buffer.write(b'x'*40000)",
+            ],
+            output_limit=installer.MAX_GIT_OUTPUT,
+            timeout=5,
+        )
+    except installer.InstallError:
+        check(True, "hook installer rejects output during bounded capture")
+    else:
+        check(False, "hook installer buffered oversized Git output")
+
     with tempfile.TemporaryDirectory(prefix="itd-hook-install-") as raw:
         root = Path(raw)
         script = root / "itd_pre_push.py"
@@ -246,6 +309,10 @@ def installer_phase() -> None:
         python.write_text("", encoding="utf-8")
         target = root / "hooks"
         selected_runtime = (python.resolve(), "test-version", "explicit")
+        parsed = installer.parser().parse_args(
+            ["--python", str(python)]
+        )
+        check(parsed.python == python, "hook installer accepts --python")
         with (
             mock.patch.object(installer, "git_config", return_value=""),
             mock.patch.object(
@@ -295,9 +362,13 @@ def installer_phase() -> None:
         wrapper = (target / "pre-push").read_text(encoding="utf-8")
         check(result["status"] == "INSTALLED", "installer applies")
         check(
-            wrapper.startswith("#!/bin/sh\nset -eu\nexec ")
+            wrapper.startswith("#!/bin/sh\nset -eu\n")
+            and "git rev-parse --git-dir" in wrapper
+            and "local_hook=$git_dir/hooks/pre-push" in wrapper
+            and "\"$local_hook\" \"$@\"" in wrapper
+            and "\nexec " in wrapper
             and "\"$@\"" in wrapper,
-            "installed wrapper is bounded and forwards hook arguments",
+            "installed wrapper chains repository hooks before ITD",
         )
         incompatible = root / "python-without-cryptography"
         incompatible.write_text("", encoding="utf-8")
@@ -448,7 +519,7 @@ def cli_installer_phase() -> None:
 
 
 def workflow_phase() -> None:
-    workflow_path = ROOT / ".github" / "workflows" / "itd-machine-oracle.yml"
+    workflow_path = ROOT / "docs/templates/github/itd-machine-oracle.yml"
     workflow = workflow_path.read_text(encoding="utf-8")
     required = [
         "pull_request:",
@@ -474,10 +545,8 @@ def workflow_phase() -> None:
         "machine workflow has no reviewer secret or mutable action",
     )
     check(
-        not (
-            ROOT / ".github" / "workflows" / "external-review-gate.yml"
-        ).exists(),
-        "obsolete repository API reviewer workflow removed",
+        (ROOT / ".github/workflows/external-review-gate.yml").is_file(),
+        "legacy API gate retained until protected App cutover",
     )
 
 

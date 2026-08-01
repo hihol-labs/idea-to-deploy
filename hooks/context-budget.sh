@@ -48,11 +48,10 @@ def main() -> int:
     for pattern, label in RISKY:
         if pattern.search(command):
             context = (
-                f"[context-budget]\n"
+                f"[context-budget] This command may dump a large unbounded output "
+                f"({label}).\n"
                 f"Command: `{command[:200]}{'...' if len(command) > 200 else ''}`\n\n"
-                f"WHY: This command may dump a large unbounded output ({label}), "
-                f"which displaces task evidence and degrades long-context reasoning.\n"
-                f"FIX: Summarize the signal (counts / the few relevant lines), "
+                f"Prefer to: summarize the signal (counts / the few relevant lines), "
                 f"bound at the source (`| head -50`, `rg -m 20`, `--max-count`, Read "
                 f"offset/limit), or write the full output to a file and reference the "
                 f"path — instead of pasting it all into context. Soft reminder, not blocking."

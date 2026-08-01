@@ -411,6 +411,202 @@ def is_tracked(root: Path, rel: str) -> bool:
     return git(root, "ls-files", "--error-unmatch", "--", rel).returncode == 0
 
 
+def protected_contract_error(root: Path, protected_base: str,
+                             raw_path: str) -> str:
+    rel = raw_path.replace("\\", "/").strip("/")
+    if (not re.fullmatch(r"[0-9a-fA-F]{40,64}", protected_base)
+            or git(root, "cat-file", "-e",
+                   f"{protected_base}^{{commit}}").returncode != 0
+            or not rel or rel != raw_path.replace("\\", "/")
+            or ".." in Path(rel).parts):
+        return problem(raw_path, "protected contract authority is invalid",
+                       "supply a protected base and safe contract path")
+    tree = git(root, "ls-tree", "-z", protected_base, "--", rel)
+    records = [record for record in tree.stdout.split("\0") if record]
+    regular = (
+        tree.returncode == 0 and len(records) == 1
+        and records[0].partition("\t")[0].split()[:2]
+        in (["100644", "blob"], ["100755", "blob"])
+    )
+    status = git(root, "status", "--porcelain=v1", "--untracked-files=all",
+                 "--ignored=matching", "--", rel)
+    if (not regular
+            or git(root, "cat-file", "-e", f"HEAD:{rel}").returncode != 0
+            or git(root, "diff", "--quiet",
+                   protected_base, "HEAD", "--", rel).returncode != 0
+            or status.returncode != 0 or status.stdout.strip()):
+        return problem(rel, "contract differs from protected base",
+                       "rotate the contract before using it as authority")
+    return ""
+
+
+def v2_verifier_error(root: Path, spec: dict, protected_base: str) -> str:
+    required = {
+        "id", "argv", "trustedVerifierPaths", "timeoutSeconds",
+        "expectedOutput", "passFailParser",
+    }
+    missing = sorted(required - set(spec))
+    if "argv" in missing:
+        return problem(str(spec.get("id") or "command"),
+                       "shell-free argv is missing or malformed",
+                       "configure a non-empty argv string array")
+    if missing:
+        return problem(str(spec.get("id") or "command"),
+                       "v2 command fields are missing: " + ", ".join(missing),
+                       "declare the complete shell-free v2 command")
+    argv = spec.get("argv")
+    paths = spec.get("trustedVerifierPaths")
+    if (not isinstance(argv, list) or not argv
+            or any(not isinstance(item, str) or not item or "\0" in item
+                   for item in argv)):
+        return problem(str(spec.get("id") or "command"),
+                       "shell-free argv is missing or malformed",
+                       "configure a non-empty argv string array")
+    timeout = spec.get("timeoutSeconds")
+    if type(timeout) is not int or not 1 <= timeout <= 3600:
+        return problem(str(spec.get("id") or "command"),
+                       "timeoutSeconds is invalid",
+                       "configure an integer from 1 through 3600")
+    parser = spec.get("passFailParser")
+    expected = spec.get("expectedOutput")
+    expected_valid = (
+        (parser == "exit_code_zero" and expected == "")
+        or (parser in {"stdout_contains", "manual_evidence"}
+            and isinstance(expected, str) and bool(expected)
+            and len(expected.encode("utf-8")) <= 8192)
+        or (parser == "json_field_equals"
+            and isinstance(expected, dict)
+            and set(expected) == {"field", "value"}
+            and isinstance(expected["field"], str)
+            and bool(expected["field"])
+            and len(expected["field"].encode("utf-8")) <= 8192)
+    )
+    if not expected_valid:
+        return problem(str(spec.get("id") or "command"),
+                       "passFailParser or expectedOutput is invalid",
+                       "use a supported parser with an unambiguous expectation")
+    if (not isinstance(paths, list) or not paths
+            or any(not isinstance(item, str) or not item for item in paths)):
+        return problem(str(spec.get("id") or "command"),
+                       "trustedVerifierPaths is missing or malformed",
+                       "declare every test-side pass/fail dependency")
+    if protected_base and (
+            not re.fullmatch(r"[0-9a-fA-F]{40,64}", protected_base)
+            or git(root, "cat-file", "-e",
+                   f"{protected_base}^{{commit}}").returncode != 0
+            or git(root, "merge-base", "--is-ancestor",
+                   protected_base, "HEAD").returncode != 0):
+        return problem("ITD_PROTECTED_BASE_SHA",
+                       "protected-base verifier authority is missing or invalid",
+                       "supply the GitHub-observed protected base commit")
+    normalized_argv = [item.replace("\\", "/") for item in argv]
+    normalized_argv = [
+        item[2:] if item.startswith("./") else item
+        for item in normalized_argv
+    ]
+    executable = Path(normalized_argv[0]).name.casefold()
+    python_runtime = executable.startswith(("python", "pypy"))
+    python_isolated = (
+        python_runtime
+        and len(argv) > 1
+        and argv[1] == "-I"
+    )
+    uses_itd_launcher = any(
+        item.endswith("/itd_py.sh") or item == "itd_py.sh"
+        for item in normalized_argv
+    )
+    launcher_isolated = uses_itd_launcher and "--itd-isolated" in argv
+    shells = {"sh", "bash", "dash", "ksh", "zsh"}
+    if uses_itd_launcher:
+        if (executable not in shells or not launcher_isolated
+                or len(normalized_argv) < 4
+                or not (normalized_argv[1].endswith("/itd_py.sh")
+                        or normalized_argv[1] == "itd_py.sh")
+                or normalized_argv[2] != "--itd-isolated"
+                or normalized_argv[3].startswith("-")):
+            return problem(str(spec.get("id") or "command"),
+                           "ITD Python launcher invocation is invalid",
+                           "use sh itd_py.sh --itd-isolated verifier.py")
+        invoked_paths = [normalized_argv[1], normalized_argv[3]]
+    elif python_runtime:
+        if any(item in {"-c", "-m"} for item in argv[1:]):
+            return problem(str(spec.get("id") or "command"),
+                           "Python code/module dispatch is forbidden",
+                           "invoke the trusted verifier script directly")
+        if not python_isolated:
+            return problem(str(spec.get("id") or "command"),
+                           "Python verifier is not isolated with -I",
+                           "invoke the trusted verifier with Python -I")
+        script_index = 2
+        if len(argv) > script_index and argv[script_index] == "--":
+            script_index += 1
+        elif (len(argv) > script_index
+              and argv[script_index].startswith("-")):
+            return problem(str(spec.get("id") or "command"),
+                           "Python interpreter options are unsupported",
+                           "use Python -I [--] verifier.py")
+        invoked = (normalized_argv[script_index]
+                   if len(argv) > script_index else "")
+        invoked_paths = [invoked]
+    elif executable in shells:
+        invoked = (normalized_argv[1] if len(argv) > 1
+                   and not argv[1].startswith("-") else "")
+        invoked_paths = [invoked]
+    else:
+        invoked_paths = [normalized_argv[0]]
+    normalized_paths = [item.replace("\\", "/").strip("/") for item in paths]
+    for invoked in invoked_paths:
+        safe_invoked = re.fullmatch(
+            r"(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\.{1,2}(?:/|$))"
+            r"[^/]+(?:/[^/]+)*",
+            invoked,
+        )
+        if not safe_invoked or not any(
+                invoked == rel or invoked.startswith(rel + "/")
+                for rel in normalized_paths):
+            return problem(
+                str(spec.get("id") or "command"),
+                "dispatcher does not directly invoke a trusted verifier",
+                "bind both the launcher and verifier script")
+    # A trusted path may deliberately name a tracked directory namespace.
+    # ls-tree -r below rejects symlinks/submodules and binds every descendant;
+    # later status/diff checks keep that complete namespace overlay-free.
+    for raw in paths:
+        rel = raw.replace("\\", "/").strip("/")
+        if not rel or rel != raw.replace("\\", "/") or ".." in Path(rel).parts:
+            return problem(raw, "trusted verifier path is unsafe",
+                           "use a repository-relative tracked path")
+        authority = protected_base or "HEAD"
+        tree = git(root, "ls-tree", "-r", "-z", "--full-tree",
+                   authority, "--", rel)
+        records = [record for record in tree.stdout.split("\0") if record]
+        if (tree.returncode != 0 or not records
+                or any(record.partition("\t")[0].split()[:2]
+                       not in (["100644", "blob"], ["100755", "blob"])
+                       for record in records)):
+            return problem(rel,
+                           "trusted verifier is not a regular tracked file/tree",
+                           "replace symlinks and submodules with tracked files")
+        if (git(root, "cat-file", "-e",
+                f"{authority}:{rel}").returncode != 0
+                or git(root, "cat-file", "-e", f"HEAD:{rel}").returncode != 0
+                or (
+                    protected_base
+                    and git(root, "diff", "--quiet",
+                            protected_base, "HEAD", "--", rel).returncode != 0
+                )):
+            return problem(rel,
+                           "trusted verifier differs from protected base",
+                           "rotate the verifier before using it")
+        status = git(root, "status", "--porcelain=v1",
+                     "--untracked-files=all", "--ignored=matching",
+                     "--", rel)
+        if status.returncode != 0 or status.stdout.strip():
+            return problem(rel, "trusted verifier differs from clean HEAD",
+                           "remove overlays or restore the tracked verifier")
+    return ""
+
+
 def cleanup_manifest(root: Path, manifest_rel: str) -> tuple[list[str], int]:
     errors: list[str] = []
     manifest = resolve_repo_path(root, manifest_rel, "cleanupManifest", errors)
@@ -463,16 +659,28 @@ def cleanup_manifest(root: Path, manifest_rel: str) -> tuple[list[str], int]:
     return errors, removed
 
 
-def run_command(root: Path, spec: dict, extra_env: dict[str, str] | None = None) -> dict:
+def run_command(root: Path, spec: dict, extra_env: dict[str, str] | None = None,
+                require_argv: bool = False) -> dict:
     argv = spec.get("argv")
     command = str(spec.get("command") or "").strip()
     cid = str(spec.get("id") or "command")
-    timeout = int(spec.get("timeoutSeconds") or 300)
+    try:
+        timeout = int(spec.get("timeoutSeconds") or 300)
+    except (TypeError, ValueError):
+        timeout = 0
+    if timeout < 1:
+        return {"id": cid, "ok": False, "metric": 0.0,
+                "error": problem(cid, "timeoutSeconds is invalid",
+                                 "configure a positive integer")}
     structured = (
         isinstance(argv, list)
         and bool(argv)
         and all(isinstance(item, str) and item for item in argv)
     )
+    if require_argv and not structured:
+        return {"id": cid, "ok": False, "metric": 0.0,
+                "error": problem(cid, "shell-free argv is missing or malformed",
+                                 "configure a non-empty argv string array")}
     if not structured and not command:
         return {"id": cid, "ok": False, "metric": 0.0,
                 "error": problem(cid, "command is empty", "configure an executable command")}
@@ -875,11 +1083,19 @@ def debug_scan(root: Path, config: dict) -> list[str]:
 def close_session(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve()
     errors: list[str] = []
+    protected_base = os.environ.get("ITD_PROTECTED_BASE_SHA", "")
     try:
         contract = load_json(root / args.contract)
     except ValueError as exc:
         print(problem(args.contract, str(exc), "fill SESSION_EXIT_CONTRACT.json"))
         return 1
+    if protected_base:
+        trust_error = protected_contract_error(
+            root, protected_base, str(args.contract)
+        )
+        if trust_error:
+            print(trust_error)
+            return 1
 
     errors.extend(strict_runtime_completion_errors(
         root, contract, str(args.completion_bypass_reason or "")))
@@ -902,7 +1118,16 @@ def close_session(args: argparse.Namespace) -> int:
     verification_rel = str(contract.get("verificationContract") or "")
     verification_path = resolve_repo_path(root, verification_rel,
                                           "verificationContract", errors)
+    verification: dict = {}
     commands: list[dict] = []
+    if verification_path is not None:
+        if protected_base:
+            trust_error = protected_contract_error(
+                root, protected_base, verification_rel
+            )
+            if trust_error:
+                errors.append(trust_error)
+                verification_path = None
     if verification_path is not None:
         try:
             verification = load_json(verification_path)
@@ -911,11 +1136,42 @@ def close_session(args: argparse.Namespace) -> int:
                 errors.append(problem(verification_rel, "commands[] is empty",
                                       "configure executable verification commands"))
             else:
-                commands = [c for c in raw_commands if isinstance(c, dict)]
+                for index, raw_command in enumerate(raw_commands):
+                    if not isinstance(raw_command, dict):
+                        errors.append(problem(
+                            f"{verification_rel}:commands[{index}]",
+                            "verification command is not an object",
+                            "configure an executable command object",
+                        ))
+                        continue
+                    commands.append(raw_command)
         except ValueError as exc:
             errors.append(problem(verification_rel, str(exc), "repair the verification contract"))
+    version = verification.get("version")
+    if type(version) is not int or version not in {1, 2}:
+        errors.append(problem(
+            verification_rel,
+            "verification contract version is unsupported",
+            "use integer version 1 or 2",
+        ))
+        commands = []
+    if protected_base and version != 2:
+        errors.append(problem(
+            verification_rel,
+            "protected execution requires verification contract version 2",
+            "migrate to shell-free argv with protected verifier bindings",
+        ))
+        commands = []
+    require_argv = version == 2
     for spec in commands:
-        result = run_command(root, spec)
+        if require_argv:
+            trust_error = v2_verifier_error(
+                root, spec, protected_base
+            )
+            if trust_error:
+                errors.append(trust_error)
+                continue
+        result = run_command(root, spec, require_argv=require_argv)
         if not result["ok"]:
             errors.append(result["error"])
 

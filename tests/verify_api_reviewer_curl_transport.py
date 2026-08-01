@@ -25,7 +25,7 @@ def main() -> int:
     policy = reviewer.policy_from(POLICY)
     schema = reviewer.read_json(SCHEMA)
     provider = policy["providers"][0]
-    secret = "sk-proj-" + "A" * 40
+    fixture_key = "sk-proj-" + "A" * 40
     response = {
         "id": "resp_curl_fixture",
         "output": [
@@ -48,7 +48,11 @@ def main() -> int:
 
     def fake_run(command, **kwargs):
         calls.append((list(command), kwargs.get("input"), dict(kwargs.get("env") or {})))
-        assert command == ["curl", "--disable", "--version"]
+        assert command == [
+            "/trusted/system/curl",
+            "--disable",
+            "--version",
+        ]
         return subprocess.CompletedProcess(
             command, 0, stdout=b"curl 8.5.0 (fixture)\n", stderr=b""
         )
@@ -67,21 +71,30 @@ def main() -> int:
 
     original_run = reviewer.subprocess.run
     original_bounded = reviewer.run_curl_bounded
+    original_resolver = reviewer.trusted_curl_executable
     original_key = os.environ.get("OPENAI_API_KEY")
+    original_path = os.environ.get("PATH")
     try:
         reviewer.subprocess.run = fake_run
         reviewer.run_curl_bounded = fake_bounded
-        os.environ["OPENAI_API_KEY"] = secret
+        reviewer.trusted_curl_executable = lambda: "/trusted/system/curl"
+        os.environ["OPENAI_API_KEY"] = fixture_key
+        os.environ["PATH"] = "/attacker-controlled"
         value, telemetry = reviewer.call_openai_curl(
             provider, "bounded prompt", schema, policy, "OPENAI_API_KEY"
         )
     finally:
         reviewer.subprocess.run = original_run
         reviewer.run_curl_bounded = original_bounded
+        reviewer.trusted_curl_executable = original_resolver
         if original_key is None:
             os.environ.pop("OPENAI_API_KEY", None)
         else:
             os.environ["OPENAI_API_KEY"] = original_key
+        if original_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = original_path
 
     assert value["id"] == "resp_curl_fixture"
     assert telemetry["transport"] == "curl"
@@ -89,13 +102,16 @@ def main() -> int:
     assert telemetry["preRequestConnectAttempts"] == 2
     assert len(calls) == 3
     command, request_body, child_env = calls[2]
-    assert secret not in "\0".join(command)
-    assert command[:2] == ["curl", "--disable"]
-    assert secret not in (request_body or b"").decode("utf-8")
-    assert child_env["OPENAI_API_KEY"] == secret
+    assert fixture_key not in "\0".join(command)
+    assert command[:2] == ["/trusted/system/curl", "--disable"]
+    assert fixture_key not in (request_body or b"").decode("utf-8")
+    assert child_env["OPENAI_API_KEY"] == fixture_key
+    assert "PATH" not in child_env
     assert "--variable" in command and "%OPENAI_API_KEY" in command
     assert "--expand-header" in command
-    assert not any("temp" in item.lower() and secret in item for item in command)
+    assert not any(
+        "temp" in item.lower() and fixture_key in item for item in command
+    )
     bounded = reviewer.run_curl_bounded(
         [
             sys.executable,

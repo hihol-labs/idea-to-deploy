@@ -82,12 +82,27 @@ governance guarantee, so egress stays default-off.
 The broker's direct path accepts at most 80,000 canonical diff bytes and
 100,000 serialized request bytes. A clean diff between that limit and
 1,200,000 bytes is partitioned deterministically at complete-file and UTF-8
-line boundaries into at most 15 exact units. The complete diff is scrubbed
-before partitioning; a single over-limit line, a sixteenth unit, any missing
+line boundaries into at most 16 exact units. The complete diff is scrubbed
+before partitioning; a single over-limit line, a seventeenth unit, any missing
 unit, or any redaction blocks every success path. Unit hashes and byte counts
 form one candidate-bound review plan. A successful hierarchical result requires
 all unit verdicts plus a final integration verdict over their structured
 behavior/interface summaries.
+
+In direct mode, candidate-manifest `reviewDiffSha256`/`reviewDiffBytes` bind the
+canonical diff. In hierarchical mode those same fields bind the compact review
+plan (still capped at 80,000 bytes); the plan independently binds the complete
+diff through `fullDiffSha256`/`fullDiffBytes` up to 1,200,000 bytes and every
+unit hash. Therefore `reviewPlanSha256` intentionally equals the manifest's
+`reviewDiffSha256`; it is not presented as the full-diff hash. Provider packing
+also bounds both JSON-escaping layers before the final absolute 100,000-byte
+request check.
+
+`totalReviewBytes` is present whenever at least one declared `.jsonl.gz`
+transparent representation exists, including mixed text/transparent
+candidates. It counts raw text bytes plus logical decompressed JSONL bytes.
+Candidates with no transparent representation must omit it. Generic binary
+paths remain `UNVERIFIED`.
 
 The monthly broker budget remains $10. Direct calls reserve $0.75. In a
 hierarchical Sol-maker review, each Terra call reserves $0.50; Sol reviewer
@@ -110,6 +125,13 @@ of source egress; explicit consent remains mandatory.
 
 ## GitHub gate
 
+The repository-resident `external-review-gate.yml` remains the active legacy
+guard during bootstrap. Do not disable or remove it until the App/broker and
+pinned organization ruleset are live, `itd gate doctor` reports `PROTECTED`,
+and cutover canaries pass. Its removal is a separate exact-candidate change
+after that evidence exists, so migration never opens an unreviewed merge
+window.
+
 The required external-review authority is the central GitHub App and review
 broker, not a repository workflow. The App receives signed `pull_request` and
 `merge_group` webhooks, reacquires the complete candidate through GitHub APIs,
@@ -117,6 +139,10 @@ verifies exact head/base/test-merge coordinates and Ed25519 maker provenance,
 routes to a different eligible API model, and publishes the
 `ITD external review gate` Check Run on the exact GitHub test-merge SHA.
 `Codex CLI` and `Gemini CLI` remain advisory transports only.
+GitHub's Compare API exposes its changed-file list on the first response and
+caps that list at 300 files; the frozen broker policy keeps `maxFiles` strictly
+below that cap (100), rejects a response at the API cap, and independently
+paginates/binds every compared commit before accepting file coverage.
 
 The broker stores its OpenAI service-account key only in its mounted
 secret/KMS boundary. Candidate code is never executed by a process that can
@@ -143,25 +169,60 @@ exact broker webhook, least-privilege permissions, and the
 outside the repository, and `itd gate enrollment` derives the broker receipt
 from live GitHub App and ruleset metadata rather than operator assertions.
 
-`.github/workflows/itd-machine-oracle.yml` is a separate no-reviewer-secret
-ruleset workflow. The organization ruleset pins both its central source
-repository and immutable release SHA. That trusted workflow loads the oracle
-runner from the pinned ITD release, the verification contract from the target
-repository's protected base, and only then materializes and tests the current
-GitHub candidate. A PR therefore cannot replace its own required workflow,
-oracle runner, active contract, or declared verifier with a passing no-op.
+`docs/templates/github/itd-machine-oracle.yml` is the staged
+no-reviewer-secret ruleset workflow. The bootstrap merge lands its trust
+anchors under the retained legacy gate; only a follow-up copies the template
+to `.github/workflows/itd-machine-oracle.yml` and enables the ruleset. The
+organization ruleset uses GitHub's server-side
+`workflows` rule and pins its workflow-file reference by central
+`repository_id`, path, and immutable release `sha`. The rule requires that
+specific workflow run, not a same-named status context: a candidate copy with
+the same workflow/job/check name cannot satisfy it. For this directly defined
+workflow, `github.workflow_ref` and `github.workflow_sha` expose the source
+coordinates GitHub already selected; the workflow validates the exact central
+repository/path and checks out that SHA. These checks are defense in depth,
+not the source of authority. Enrollment and every live doctor call
+independently reacquire the organization ruleset and require its repository
+ID, path, and SHA to match the registered pinned release. That trusted workflow loads the oracle runner from the pinned
+ITD release, the verification contract from the target repository's protected
+base, and only then materializes and tests the current GitHub candidate. A PR
+therefore cannot replace its own required workflow, oracle runner, active
+contract, or declared verifier with a passing no-op. GitHub documents the
+immutable `WorkflowFileReference` fields in both its GraphQL Actions schema and
+organization rules REST schema.
 Contract v2 uses shell-free `argv`; every command declares
 `trustedVerifierPaths`, whose regular Git objects must be identical in the
-protected base and candidate before any command runs. At least one invoked
-trusted path must be a directory namespace, so candidate additions beside a
-verifier (including Python `sitecustomize.py`) also change the manifest and
-block execution. Python verifiers additionally run with `-I` through the
-protected launcher. Verifier rotation is a two-merge operation (add a new
-namespace, then trust it), so a verifier never attests the PR that replaces
-it. The oracle runs commands in a disposable exact-tree checkout, so
+protected base and candidate before any command runs. Each command binds its
+exact executable verifier plus every verifier-side file it reads or executes,
+without freezing unrelated regression tests. Python verifiers additionally run
+with `-I` through the protected launcher, excluding their script directory,
+the candidate working directory, user site packages, and candidate-only
+startup modules such as `sitecustomize.py` from import resolution. Verifier
+authority is distinct from the subject under test: broker/server/policy/CLI
+modules and static artifacts explicitly loaded or read by a protected verifier
+may change in the candidate, remain bound by the exact candidate tree and
+required-artifact hashes, and must satisfy the protected assertions. A
+test-side helper that participates in deciding pass/fail is verifier authority
+and must instead be declared in `trustedVerifierPaths`; `-I` prevents such a
+helper from entering implicitly through the script directory or working tree.
+Verifier
+rotation is a three-merge operation: add the verifier under a new path, trust
+that already-protected path in the contract, then use it for implementation
+changes. A verifier therefore never attests the PR that replaces it. The
+oracle runs commands in a disposable exact-tree checkout, so
 ignored/untracked overlays do not become inputs. It emits a SHA-,
 protected-contract-, and verifier-manifest-bound receipt under the job context
 `ITD machine oracle`.
+
+The first repository trust anchor is necessarily installed before this
+workflow becomes a required ruleset check. Merge the initial workflow, oracle,
+contract, launcher, and declared verifier files under the repository's
+pre-existing controls (with an explicit audited temporary ruleset exclusion
+only if an organization rule would otherwise require the not-yet-anchored
+workflow), verify that those exact objects are now in the protected base, and
+only then activate the pinned required workflow. Missing protected-base
+contract or verifier objects always remains `UNVERIFIED`; the workflow never
+falls back to candidate-owned trust material.
 
 The organization ruleset must require the pinned workflow and the external
 App-bound status check, require the PR to be current with its base, and block

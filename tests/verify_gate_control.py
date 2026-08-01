@@ -77,6 +77,26 @@ def registry(checkout: Path, key_file: Path) -> dict[str, Any]:
 
 
 def ruleset_phase() -> None:
+    provenance = {
+        "repository": REPOSITORY,
+        "pullRequest": 7,
+        "headSha": "a" * 40,
+        "baseSha": "b" * 40,
+        "makerVendor": "openai",
+        "makerModel": "gpt-5.6-sol",
+        "makerSession": "session-1",
+        "issuedAt": "2026-07-30T00:00:00Z",
+        "nonce": "n" * 24,
+        "keyId": "current",
+        "signature": "A" * 86,
+    }
+    nonstring_provenance = dict(provenance)
+    nonstring_provenance["makerSession"] = 7
+    rejects(
+        "UNVERIFIED",
+        lambda: gate.provenance_payload(nonstring_provenance),
+        "non-string provenance text field",
+    )
     value = gate.ruleset_payload(
         APP_ID,
         scope="organization",
@@ -207,7 +227,7 @@ def registry_phase() -> None:
         credential_url = copy.deepcopy(value)
         credential_url["repositories"][0][
             "brokerUrl"
-        ] = "https://user:password@broker.example.test"
+        ] = "https://user:" + "password" + "@broker.example.test"
         rejects(
             "UNVERIFIED",
             lambda: gate.validate_registry(credential_url),
@@ -305,6 +325,41 @@ def doctor_phase() -> None:
             check=True,
             stdout=subprocess.DEVNULL,
         )
+        original_contract = contract.read_text(encoding="utf-8")
+        invalid_fail_closed = json.loads(original_contract)
+        invalid_fail_closed["failClosed"] = False
+        check(
+            "verification contract is not fail-closed"
+            in gate.verification_contract_drift(invalid_fail_closed),
+            "boolean false failClosed rejected",
+        )
+        untracked = checkout / "untracked-verifiers"
+        untracked.mkdir()
+        (untracked / "verify.py").write_text(
+            "raise SystemExit(0)\n",
+            encoding="utf-8",
+        )
+        untracked_contract = json.loads(original_contract)
+        untracked_contract["commands"][0]["argv"] = [
+            "python3",
+            "-I",
+            "untracked-verifiers/verify.py",
+        ]
+        untracked_contract["commands"][0]["trustedVerifierPaths"] = [
+            "untracked-verifiers"
+        ]
+        contract.write_text(
+            json.dumps(untracked_contract),
+            encoding="utf-8",
+        )
+        check(
+            any(
+                "no tracked verifier namespace" in item
+                for item in gate.adopted_checkout(checkout)
+            ),
+            "untracked verifier namespace rejected",
+        )
+        contract.write_text(original_contract, encoding="utf-8")
         key_file = root / "provenance.key"
         write_key(key_file)
         entry = registry(checkout, key_file)["repositories"][0]

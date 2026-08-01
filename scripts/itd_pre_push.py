@@ -12,15 +12,19 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
 SHARED = ROOT / "skills" / "_shared"
+sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(SHARED))
 
 import itd_gate_control as gate  # noqa: E402
+import itd_machine_oracle as machine  # noqa: E402
 
 
 MAX_STDIN_BYTES = 1024 * 1024
 MAX_RECEIPT_BYTES = 4 * 1024 * 1024
 ZERO_SHA = "0" * 40
+MACHINE_EXECUTOR = machine.execute
 
 
 class PushBlocked(RuntimeError):
@@ -123,12 +127,80 @@ def load_machine_receipt(path: Path) -> dict[str, Any]:
         or not gate.SHA_RE.fullmatch(str(value.get("tree", "")).lower())
         or not isinstance(value.get("commands"), list)
         or not value["commands"]
-        or any(row.get("status") != "PASSED" for row in value["commands"])
+        or any(
+            not isinstance(row, dict) or row.get("status") != "PASSED"
+            for row in value["commands"]
+        )
     ):
         raise PushBlocked(
             "guarded push receipt is stale, malformed, or did not pass"
         )
     return value
+
+
+def execute_fresh_machine_oracle(root: Path) -> dict[str, Any]:
+    try:
+        value = MACHINE_EXECUTOR(
+            root,
+            root / ".itd" / "VERIFICATION_CONTRACT.json",
+        )
+    except (machine.OracleError, OSError, UnicodeError) as exc:
+        raise PushBlocked(
+            "fresh guarded-push machine oracle did not complete"
+        ) from exc
+    if (
+        not isinstance(value, dict)
+        or value.get("version") != 2
+        or value.get("kind") != "itd-machine-oracle"
+        or value.get("status") != "PASSED"
+        or value.get("executionCheckout") != "isolated-exact-head-tree"
+        or not gate.SHA_RE.fullmatch(
+            str(value.get("headSha", "")).lower()
+        )
+        or not gate.SHA_RE.fullmatch(str(value.get("tree", "")).lower())
+    ):
+        raise PushBlocked("fresh guarded-push machine oracle did not pass")
+    return value
+
+
+def machine_evidence_binding(value: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the stable command/trust evidence that a fresh run must match."""
+    commands = value.get("commands")
+    if not isinstance(commands, list) or any(
+        not isinstance(row, dict) for row in commands
+    ):
+        return None
+    command_fields = (
+        "id",
+        "argvSha256",
+        "trustedVerifierPaths",
+        "trustedVerifierManifestSha256",
+        "timeoutSeconds",
+        "passFailParser",
+        "exitCode",
+        "timedOut",
+        "outputOverflow",
+        "runtimeSha256",
+        "status",
+    )
+    return {
+        "contractPath": value.get("contractPath"),
+        "contractSha256": value.get("contractSha256"),
+        "contractSource": value.get("contractSource"),
+        "contractRepository": value.get("contractRepository"),
+        "contractHeadSha": value.get("contractHeadSha"),
+        "contractTree": value.get("contractTree"),
+        "verifierTrust": value.get("verifierTrust"),
+        "trustedVerifierBindings": value.get("trustedVerifierBindings"),
+        "trustedVerifierFailures": value.get("trustedVerifierFailures"),
+        "commands": [
+            {field: row.get(field) for field in command_fields}
+            for row in commands
+        ],
+        "missingArtifacts": value.get("missingArtifacts"),
+        "requiredArtifactSha256": value.get("requiredArtifactSha256"),
+        "executionCheckout": value.get("executionCheckout"),
+    }
 
 
 def enforce(
@@ -207,6 +279,17 @@ def enforce(
     if Path(str(receipt.get("repository", ""))).resolve() != actual_root:
         raise PushBlocked(
             "machine receipt repository differs from the active checkout"
+        )
+    fresh = execute_fresh_machine_oracle(actual_root)
+    if (
+        str(fresh["headSha"]).lower() != expected_head
+        or str(fresh["tree"]).lower()
+        != str(receipt["tree"]).lower()
+        or machine_evidence_binding(fresh)
+        != machine_evidence_binding(receipt)
+    ):
+        raise PushBlocked(
+            "fresh machine oracle differs from the guarded-push receipt"
         )
 
 

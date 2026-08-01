@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import socket
 import sqlite3
@@ -57,6 +58,8 @@ def validate_public_keyring(
             or set(record) != expected
             or record.get("keyId") != key_id
             or record.get("status") not in {"active", "revoked"}
+            or not isinstance(record.get("publicKey"), str)
+            or not record["publicKey"]
             or any(
                 not isinstance(record.get(field), str)
                 or not record[field]
@@ -72,7 +75,7 @@ def validate_public_keyring(
                 "UNAVAILABLE", "provenance public keyring entry is invalid"
             )
         core.b64url_decode(
-            str(record.get("publicKey", "")),
+            record["publicKey"],
             32,
             "provenance public key",
         )
@@ -162,58 +165,95 @@ class BrokerWorker:
         self.stop.set()
         self.wake.set()
         if self.started:
-            self.thread.join(timeout=10)
+            self.thread.join()
+
+    def _wait(self, timeout: float = 5) -> None:
+        self.wake.wait(timeout=timeout)
+        self.wake.clear()
+
+    def _finish_job(
+        self,
+        job_id: int,
+        success: bool,
+        result: dict[str, Any],
+    ) -> bool:
+        for attempt in range(3):
+            try:
+                self.store.finish_job(job_id, success, result)
+                return True
+            except (core.BrokerError, sqlite3.Error, OSError):
+                if attempt < 2:
+                    self._wait(timeout=0.1)
+        return False
 
     def _run(self) -> None:
-        self.store.reconcile_interrupted_jobs()
         while not self.stop.is_set():
             try:
+                self.store.reconcile_interrupted_jobs()
+            except (core.BrokerError, sqlite3.Error, OSError):
+                # Startup storage can be transiently unavailable.  Keep the
+                # worker alive and retry; never acknowledge work through a
+                # permanently dead daemon thread.
+                self._wait()
+                continue
+            break
+        while not self.stop.is_set():
+            try:
+                self.store.reconcile_interrupted_jobs()
                 recovered = self.broker.recover_pending_publications()
-            except core.BrokerError:
-                recovered = 0
+            except (core.BrokerError, sqlite3.Error, OSError):
+                self._wait()
+                continue
             if recovered:
                 continue
-            claimed = self.store.claim()
+            try:
+                claimed = self.store.claim()
+            except (core.BrokerError, sqlite3.Error, OSError):
+                self._wait()
+                continue
             if claimed is None:
                 prepared = 0
                 try:
                     repositories = (
                         self.store.waiting_merge_group_repositories()
                     )
-                except core.BrokerError:
+                except (core.BrokerError, sqlite3.Error, OSError):
                     repositories = []
                 for repository in repositories:
                     try:
                         prepared += self.broker.prepare_waiting_merge_groups(
                             repository
                         )
-                    except core.BrokerError:
+                    except (core.BrokerError, sqlite3.Error, OSError):
                         continue
                 if prepared:
                     continue
-                self.wake.wait(timeout=5)
-                self.wake.clear()
+                self._wait()
                 continue
             job_id, coordinates = claimed
             try:
                 result = self.broker.process(coordinates)
             except core.BrokerError as exc:
-                self.store.finish_job(
-                    job_id,
-                    False,
-                    {"status": exc.status, "reason": exc.reason},
-                )
+                success = False
+                outcome = {"status": exc.status, "reason": exc.reason}
             except Exception:
-                self.store.finish_job(
-                    job_id,
-                    False,
-                    {
-                        "status": "UNAVAILABLE",
-                        "reason": "broker worker failed closed",
-                    },
-                )
+                success = False
+                outcome = {
+                    "status": "UNAVAILABLE",
+                    "reason": "broker worker failed closed",
+                }
             else:
-                self.store.finish_job(job_id, True, result)
+                success = True
+                outcome = result
+            if isinstance(outcome, dict) and outcome.get(
+                "recoveryPreparationId"
+            ):
+                self._wait(timeout=0.1)
+                continue
+            if not self._finish_job(job_id, success, outcome):
+                # The next loop reconciles the still-running job before new
+                # work can be claimed.  Back off so a broken store is bounded.
+                self._wait()
 
 
 class BrokerRuntime:
@@ -347,12 +387,20 @@ class BrokerHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _body(self, limit: int) -> bytes:
-        try:
-            length = int(self.headers.get("Content-Length", ""))
-        except ValueError as exc:
+        transfer_encoding = self.headers.get_all("Transfer-Encoding", [])
+        content_lengths = self.headers.get_all("Content-Length", [])
+        if transfer_encoding or len(content_lengths) != 1:
+            self.close_connection = True
+            raise RequestError(
+                400, "UNVERIFIED", "ambiguous request framing"
+            )
+        raw_length = content_lengths[0].strip()
+        if not re.fullmatch(r"(?:0|[1-9][0-9]*)", raw_length):
+            self.close_connection = True
             raise RequestError(
                 400, "UNVERIFIED", "invalid Content-Length"
-            ) from exc
+            )
+        length = int(raw_length)
         if length <= 0:
             raise RequestError(
                 400, "UNVERIFIED", "request body size is invalid"
@@ -367,6 +415,10 @@ class BrokerHandler(BaseHTTPRequestHandler):
             raise RequestError(
                 415, "UNVERIFIED", "application/json is required"
             )
+        # Body-bearing API requests are single-request connections. This makes
+        # any bytes beyond the one accepted Content-Length non-reusable as a
+        # pipelined request even when an upstream client attempts smuggling.
+        self.close_connection = True
         # Content-Length is the framing boundary. Reading one extra byte can
         # block on a persistent HTTP connection or consume the next pipelined
         # request; the declared length was already checked against the bound.
@@ -386,9 +438,15 @@ class BrokerHandler(BaseHTTPRequestHandler):
             self._json(200, {"status": "ok"})
             return
         if parsed.path == self.runtime.policy["service"]["readinessPath"]:
+            if (
+                not self.runtime.worker.started
+                or not self.runtime.worker.thread.is_alive()
+            ):
+                self._json(503, {"status": "UNAVAILABLE"})
+                return
             try:
                 budget = self.runtime.store.budget_status()
-            except sqlite3.Error:
+            except (core.BrokerError, sqlite3.Error, OSError):
                 self._json(503, {"status": "UNAVAILABLE"})
                 return
             enrollment = None
@@ -556,13 +614,16 @@ class BrokerHandler(BaseHTTPRequestHandler):
         if coordinates is None:
             self._json(202, {"status": "ignored"})
             return
-        recorded = self.runtime.store.record_delivery_candidate(
-            delivery,
-            event,
-            action,
-            core.sha256_bytes(body),
-            coordinates,
-        )
+        try:
+            recorded = self.runtime.store.record_delivery_candidate(
+                delivery,
+                event,
+                action,
+                core.sha256_bytes(body),
+                coordinates,
+            )
+        except core.DeliveryConflictError as exc:
+            raise RequestError(409, exc.status, exc.reason) from exc
         if not recorded:
             self._json(202, {"status": "duplicate"})
             return
