@@ -1,28 +1,29 @@
 ---
 project: /home/hihol/projects/idea-to-deploy
-stage: verification
-from_role: active Codex MEM-8 recovery session
-to_role: fresh independent reviewer or continuing Codex session
-reason: MEM-8 RED-to-GREEN repair is machine-green; exact review pending
+stage: implementation
+from_role: completed Codex MEM-8 recovery session
+to_role: continuing Codex GPG-001 implementation session
+reason: MEM-8 repair committed and accepted; free reviewer producer is next
 branch: codex/harness-lifecycle-trust
-head_commit: 954a3b67c1446a9592e9ef70885d5fa2b096b768
-machine_tested_tree_before_handoff_update: 091db828ba2adfaeb402a764ed24994d819f71ed
+head_commit: 43e65b06aa32731da7b6725a9d0e37de0c42dc43
+accepted_tree: 92fd0590a80d0234d829a13c5f572b28f6c7de4b
 ---
 
 # Handoff — GPG-001
 
 > [!todo] Первое действие
-> Перезаморозить staged tree после этого handoff-update и запустить бесплатный
-> isolated fresh `gpt-5.6-terra` full checker по всему staged diff; затем
-> создать machine/checker/adjudication receipts для
-> `GPG-001:general-review`. Платный API, commit, push и PR update запрещены до
-> receipt с `findings=[]` и `unverified=[]`.
+> Реализовать следующий bounded slice плана: free isolated fresh-model reviewer
+> producer без inherited context, network, secrets или repository mutation;
+> reviewer проверяет exact candidate до создания PR. После PASS создать Draft
+> PR, добавить signed two-phase exact receipt и App-side live-coordinate
+> revalidation mutations. Paid API, push и PR update запрещены до нового exact
+> review/adjudication.
 
 ## Текущее состояние
 
 - Активная единица `GPG-001`, high risk, `in_progress`, WIP=1.
-- Ветка на `954a3b6`; локально на 2 commits впереди origin. Draft PR #177 не
-  обновлён этим accepted bootstrap commit.
+- Ветка на `43e65b0`; MEM-8 repair committed локально. Draft PR #177 не
+  обновлён; push не выполнялся.
 - Коммит содержит broker/App/oracle/bootstrap slice и transparent review
   только для declared bounded `.jsonl.gz`; generic binary остаётся
   `UNVERIFIED`.
@@ -54,9 +55,17 @@ machine_tested_tree_before_handoff_update: 091db828ba2adfaeb402a764ed24994d819f7
   воспроизведён, константа обновлена до фактического SHA tracked `DEMAND.json`,
   semantic-navigation/tool-trust/meta-review снова GREEN; нужен новый exact
   checker с нулевыми findings/unverified и adjudication.
+- Final tree `92fd0590...` прошёл machine oracle, fresh full
+  `gpt-5.6-terra` с `findings=[]`, `unverified=[]` и adjudication `PASSED`;
+  exact tree сохранён commit `43e65b0`. MEM-8 blocker закрыт. Post-commit
+  state/HANDOFF/AC16 reconciliation пока является новым uncommitted overlay и
+  не входит в тот adjudicated commit.
 - Plan из 9 пунктов обновлён: бесплатный isolated fresh-model reviewer —
   primary; paid Responses API — optional fallback только с отдельным согласием
   и бюджетом; App остаётся server-side authority.
+- Единственное изменение исходного 9-point плана — транспорт reviewer:
+  обязательную pre-PR проверку выполняет другая fresh AI model без inherited
+  development context. Gate semantics, exact binding и App authority остаются.
 - Global guarded push сейчас блокируется из-за отсутствующего
   `/home/hihol/.config/itd/gates.json`. Не обходить `--no-verify`.
 

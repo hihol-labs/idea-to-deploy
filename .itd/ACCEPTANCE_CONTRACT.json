@@ -144,9 +144,9 @@
       "id": "GPG-001-AC16",
       "criterion": "The GPG-001 candidate preserves the existing MEM-8 prompt-supply-chain trust boundary: closed tool registry schema and validator, provider/version/prompt-surface evidence, allow/ask/abstain disposition with unknown prompt-bearing providers defaulting fail closed, read-only adoption inventory, security-audit coverage, and mutation tests.",
       "source": "GPG-001 plan zero condition and existing HE-001 trust dependency.",
-      "evidence": "BLOCKED: commit 954a3b6 removed the schema, validator, adoption inventory, MEM-8 audit check, and mutation test. Restore them as a bounded RED-to-GREEN repair before any further GPG-001 implementation or publication.",
+      "evidence": "PASSED in commit 43e65b0 / tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b: targeted tool-trust mutations, nested schema/validator closure, local unreviewed-allow rejection, full adoption no-mutation wording, Linux/Windows CI wiring, semantic-navigation binding, cold-start, meta-review, host adapters, and quick suite passed; fresh gpt-5.6-terra full report had findings=[] and unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
-      "status": "recovery_required"
+      "status": "passed"
     }
   ],
   "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until MEM-8 is restored, the free-primary review route is implemented, and a current high-risk exact-candidate Verification Loop receipt revalidates the candidate. It does not claim live broker/App/ruleset deployment, private-org protection, credential rotation, or final release/install."

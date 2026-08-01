@@ -7,6 +7,9 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import sys
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -16,6 +19,136 @@ MOD = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MOD)
 
 
+def ablation_commands_are_argv_bounded() -> bool:
+    calls: list[tuple[object, dict[str, object]]] = []
+
+    def fake_run(command: object, **kwargs: object) -> SimpleNamespace:
+        calls.append((command, kwargs))
+        return SimpleNamespace(returncode=0, stdout='{"score": 1}\n')
+
+    original_run = MOD.subprocess.run
+    MOD.subprocess.run = fake_run
+    try:
+        malicious = {
+            "candidates": [{
+                "id": "injection-probe",
+                "benchmarkCommands": [{
+                    "command": (
+                        "python3 benchmarks/harness-components/completion-stop.py; "
+                        "printf injected"
+                    )
+                }],
+            }]
+        }
+        injection_issues = MOD.validate_ablation_discrimination(ROOT, malicious)
+        injection_rejected_before_run = bool(injection_issues) and not calls
+
+        traversal = {
+            "candidates": [{
+                "id": "traversal-probe",
+                "benchmarkCommands": [{
+                    "command": "python3 benchmarks/harness-components/../escape.py"
+                }],
+            }]
+        }
+        traversal_issues = MOD.validate_ablation_discrimination(ROOT, traversal)
+        traversal_rejected_before_run = bool(traversal_issues) and not calls
+
+        normalized_traversal = {
+            "candidates": [{
+                "id": "normalized-traversal-probe",
+                "benchmarkCommands": [{
+                    "command": (
+                        "python3 benchmarks/harness-components/../"
+                        "harness-components/completion-stop.py"
+                    )
+                }],
+            }]
+        }
+        normalized_traversal_issues = MOD.validate_ablation_discrimination(
+            ROOT, normalized_traversal)
+        normalized_traversal_rejected = (
+            bool(normalized_traversal_issues) and not calls
+        )
+
+        absolute_path = {
+            "candidates": [{
+                "id": "absolute-path-probe",
+                "benchmarkCommands": [{
+                    "command": (
+                        "python3 "
+                        f"{(ROOT / 'benchmarks/harness-components/completion-stop.py').resolve()}"
+                    )
+                }],
+            }]
+        }
+        absolute_path_issues = MOD.validate_ablation_discrimination(
+            ROOT, absolute_path)
+        absolute_path_rejected = bool(absolute_path_issues) and not calls
+
+        missing_script = {
+            "candidates": [{
+                "id": "missing-script-probe",
+                "benchmarkCommands": [{
+                    "command": "python3 benchmarks/harness-components/missing.py"
+                }],
+            }]
+        }
+        missing_script_issues = MOD.validate_ablation_discrimination(
+            ROOT, missing_script)
+        missing_script_rejected = bool(missing_script_issues) and not calls
+
+        extra_argv = {
+            "candidates": [{
+                "id": "extra-argv-probe",
+                "benchmarkCommands": [{
+                    "command": (
+                        "python3 benchmarks/harness-components/completion-stop.py "
+                        "--unexpected"
+                    )
+                }],
+            }]
+        }
+        extra_argv_issues = MOD.validate_ablation_discrimination(ROOT, extra_argv)
+        extra_argv_rejected = bool(extra_argv_issues) and not calls
+
+        valid = {
+            "candidates": [{
+                "id": "valid-probe",
+                "benchmarkCommands": [{
+                    "command": "python3 benchmarks/harness-components/completion-stop.py"
+                }],
+            }]
+        }
+        MOD.validate_ablation_discrimination(ROOT, valid)
+        valid_calls = calls[:]
+        valid_uses_bounded_argv = len(valid_calls) == 2 and all(
+            command == [
+                sys.executable,
+                "benchmarks/harness-components/completion-stop.py",
+            ]
+            and kwargs.get("shell") is False
+            for command, kwargs in valid_calls
+        )
+        with patch.object(MOD.Path, "is_symlink", return_value=True):
+            symlink_rejected = MOD.benchmark_argv(
+                ROOT,
+                "python3 benchmarks/harness-components/completion-stop.py",
+            ) is None
+        return (
+            injection_rejected_before_run
+            and traversal_rejected_before_run
+            and normalized_traversal_rejected
+            and absolute_path_rejected
+            and missing_script_rejected
+            and extra_argv_rejected
+            and symlink_rejected
+            and valid_uses_bounded_argv
+        )
+    finally:
+        MOD.subprocess.run = original_run
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase", choices=("all", "integration"), default="all")
@@ -23,7 +156,9 @@ def main() -> int:
     registry = json.loads(
         (ROOT / "docs/templates/itd/TOOL_CAPABILITY_REGISTRY.json").read_text())
     checks: list[tuple[str, bool]] = [
-        ("current tool trust inventory passes", not MOD.validate_tool_trust(registry))
+        ("current tool trust inventory passes", not MOD.validate_tool_trust(registry)),
+        ("ablation commands reject shell injection and traversal before argv-only execution",
+         ablation_commands_are_argv_bounded()),
     ]
     mutated = copy.deepcopy(registry)
     target = next(row for row in mutated["tools"] if row["type"] == "mcp")

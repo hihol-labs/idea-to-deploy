@@ -27,6 +27,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,19 @@ class LoopError(ValueError):
 
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+class EvidenceClock:
+    """Emit wall-readable timestamps ordered by a monotonic process clock."""
+
+    def __init__(self) -> None:
+        self._wall_start = dt.datetime.now(dt.timezone.utc)
+        self._monotonic_start = time.monotonic()
+
+    def now_iso(self) -> str:
+        elapsed = max(0.0, time.monotonic() - self._monotonic_start)
+        value = self._wall_start + dt.timedelta(seconds=elapsed)
+        return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def canonical(value: Any) -> bytes:
@@ -1070,6 +1084,8 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
     validate_declared_inputs(repo, receipt.get("declaredInputs"), policy)
     if not isinstance(runs, list) or not runs:
         raise LoopError("machine receipt has no command runs", "Execute at least one declared oracle command.")
+    receipt_created = parse_time(str(receipt.get("createdAt") or ""))
+    previous_completed: dt.datetime | None = None
     for run in runs:
         if (not isinstance(run, dict) or not str(run.get("command") or "")
                 or not str(run.get("shell") or "")
@@ -1087,6 +1103,16 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
                 + ", ".join(sorted(unexpected_fields)),
                 "Keep only the closed run schema with stdout/stderr hashes and rerun the producer.",
             )
+        started = parse_time(str(run.get("startedAt") or ""))
+        completed = parse_time(str(run.get("completedAt") or ""))
+        if (completed < started
+                or (previous_completed is not None and started < previous_completed)
+                or completed > receipt_created):
+            raise LoopError(
+                "machine command chronology is impossible or non-monotonic",
+                "Rerun the oracle with the monotonic evidence clock.",
+            )
+        previous_completed = completed
         if run.get("executedTree") != receipt.get("candidate", {}).get("reviewedTree"):
             raise LoopError("machine command ran against a different tree",
                             "Rerun with a checkout exactly matching the staged candidate.")
@@ -1219,11 +1245,12 @@ def command_machine(args: argparse.Namespace) -> int:
             raise LoopError(f"invalid --command value: {raw!r}", "Use --command id=executable command.")
         commands.append((ident.strip(), command.strip()))
     runs: list[dict[str, Any]] = []
+    evidence_clock = EvidenceClock()
     with sealed_declared_inputs(repo, args.input, policy) as (input_manifests, input_root):
         for ident, command in commands:
             with isolated_candidate(repo, context) as execution_repo:
                 copy_declared_inputs(input_root, execution_repo, input_manifests)
-                started = now_iso()
+                started = evidence_clock.now_iso()
                 shell_transport = verification_shell(command, execution_repo)
                 if shell_transport is None:
                     stdout, stderr, rc = b"", b"native verification shell is unavailable", 127
@@ -1249,7 +1276,7 @@ def command_machine(args: argparse.Namespace) -> int:
                     "shell": shell_name,
                     "shellSha256": shell_digest,
                     "startedAt": started,
-                    "completedAt": now_iso(),
+                    "completedAt": evidence_clock.now_iso(),
                     "timeoutSeconds": args.timeout,
                     "executionMode": "isolated-staged-tree",
                     "executedTree": executed_tree,
@@ -1265,7 +1292,7 @@ def command_machine(args: argparse.Namespace) -> int:
     receipt = seal_receipt({
         "version": RECEIPT_VERSION,
         "kind": "machine-verification",
-        "createdAt": now_iso(),
+        "createdAt": evidence_clock.now_iso(),
         "unitId": args.unit_id,
         "riskTier": risk,
         "candidate": context,

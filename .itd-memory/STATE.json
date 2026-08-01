@@ -45,8 +45,8 @@
   },
   "gateResults": {
     "acceptanceContract": "pending",
-    "specComplianceReview": "blocked",
-    "codeQualityReview": "blocked",
+    "specComplianceReview": "pending",
+    "codeQualityReview": "pending",
     "tests": "passed",
     "tddRed": "n/a",
     "tddGreen": "passed",
@@ -58,8 +58,8 @@
     "noSilentSubstitution": "passed",
     "permissionMatrix": "passed",
     "verificationContract": "passed",
-    "toolCapabilityRegistry": "recovery_required",
-    "security": "blocked",
+    "toolCapabilityRegistry": "passed",
+    "security": "pending",
     "dependencies": "n/a",
     "hardening": "passed",
     "branchFinish": "pending",
@@ -199,6 +199,12 @@
       "command": "Fresh bound re-review of repaired MEM-8 candidate",
       "result": "passed_with_warnings",
       "evidence": "tree 8dbd29fbcda8e150218884345bae1b4f6e1f5b21; all MEM-8 findings refuted, one Important stale semantic-navigation demand SHA confirmed; report .itd-memory/verification-loop/reports/GPG-001-general-review-mem8-8dbd29fb-local-terra.md; warning reproduced and repaired, new exact review required"
+    },
+    {
+      "at": "2026-08-01T18:32:00Z",
+      "command": "Final exact MEM-8 machine, fresh full checker, adjudication, and local commit",
+      "result": "passed",
+      "evidence": "commit 43e65b06aa32731da7b6725a9d0e37de0c42dc43 tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b; targeted 18/18, integration 14/14, semantic-navigation PASS, drift 5/5, cold-start all pass, meta-review PASSED, host adapters PASS, quick DONE fails:none; fresh gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json"
     }
   ],
   "decisionLog": [
@@ -315,7 +321,7 @@
     },
     {
       "id": "GPG-001-MEM-8-regression",
-      "status": "unresolved",
+      "status": "resolved",
       "requires": "Bounded RED-to-GREEN restoration of closed tool trust schema/validator, unknown-provider abstain default, adoption inventory, security MEM-8 check, and mutation tests, followed by a clean exact-candidate bound review.",
       "forbiddenSubstitution": "Do not ignore the finding because the quick suite is green, roll back the accepted broker bootstrap, or continue/commit/push before a successful current review receipt."
     },
@@ -329,7 +335,7 @@
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Re-freeze the staged tree after the handoff update and obtain a free isolated fresh-model full review plus exact adjudication before any further implementation, commit, or push.",
+    "recommendedNextStep": "Implement the next bounded GPG-001 slice: free isolated fresh-model reviewer producer with no inherited context, network, secrets, or repository mutation; freeze and review it before any push.",
     "alternatives": [
       "Keep paid Responses API disabled; consider it only as an explicit availability fallback after separate consent and budget",
       "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
@@ -341,5 +347,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Re-freeze the current MEM-8 recovery candidate and run exact machine plus free fresh-model checker/adjudication for GPG-001:general-review; no further product edits, paid API, commit, or push before an accepted receipt."
+  "nextAction": "Implement and mutation-test the free isolated reviewer producer and signed two-phase exact receipt path; paid API remains disabled and push/PR update waits for a new exact adjudication."
 }

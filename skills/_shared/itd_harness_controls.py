@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 from typing import Any
@@ -78,6 +79,31 @@ def valid_date(value: Any) -> bool:
 
 def local_ref(root: Path, reference: str) -> Path:
     return root / reference.split("#", 1)[0]
+
+
+def benchmark_argv(root: Path, command: str) -> list[str] | None:
+    """Return a confined argv for a declared Python benchmark, never a shell command."""
+    try:
+        declared = shlex.split(command, posix=True)
+    except ValueError:
+        return None
+    if len(declared) != 2 or declared[0] != "python3":
+        return None
+    relative_script = Path(declared[1])
+    if relative_script.is_absolute() or ".." in relative_script.parts:
+        return None
+    cursor = root
+    for part in relative_script.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            return None
+    benchmark_root = (root / "benchmarks/harness-components").resolve()
+    script = (root / relative_script).resolve()
+    if (script.parent != benchmark_root
+            or script.suffix != ".py"
+            or not script.is_file()):
+        return None
+    return [sys.executable, script.relative_to(root).as_posix()]
 
 
 def validate_controls(root: Path, registry: dict[str, Any], ablation: dict[str, Any]) -> list[str]:
@@ -211,8 +237,7 @@ def validate_controls(root: Path, registry: dict[str, Any], ablation: dict[str, 
                 if (not isinstance(spec, dict)
                         or spec.get("metricParser") != "json_number"
                         or spec.get("metricField") != "score"
-                        or not str(spec.get("command") or "").startswith(
-                            "python3 benchmarks/harness-components/")):
+                        or benchmark_argv(root, str(spec.get("command") or "")) is None):
                     issues.append(f"{control_id}: ablation must use a direct behavioral score")
     if len(covered) < 5:
         issues.append("bounded ablation pilot must cover at least five controls")
@@ -229,13 +254,17 @@ def validate_ablation_discrimination(root: Path, ablation: dict[str, Any]) -> li
         disable = {str(k): str(v) for k, v in (row.get("disableEnv") or {}).items()}
         for spec in row.get("benchmarkCommands") or []:
             command = str(spec.get("command") or "")
+            argv = benchmark_argv(root, command)
+            if argv is None:
+                issues.append(f"{control_id}: ablation command is not a confined Python argv")
+                continue
             scores: list[float | None] = []
             for extra_env in ({}, disable):
                 env = dict(os.environ)
                 env.update(extra_env)
                 try:
                     proc = subprocess.run(
-                        command, cwd=str(root), shell=True, capture_output=True,
+                        argv, cwd=str(root), shell=False, capture_output=True,
                         text=True, encoding="utf-8", errors="replace", env=env,
                         timeout=60,
                     )
