@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for the GPG-001 broker bootstrap and local/global gate-control release candidate.",
-  "sourceRequest": "Implement the approved central GitHub App/broker algorithm, enforceable machine/App checks, Windows/WSL preflight, adoption, doctor, and deployable bootstrap while preserving exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
+  "purpose": "Acceptance contract for the GPG-001 transport-neutral review gate, broker bootstrap, and local/global gate-control release candidate.",
+  "sourceRequest": "Implement the approved nine-point GitHub App/broker plan with a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -131,7 +131,23 @@
       "evidence": "Host-adapter verification passes against the staged methodology source without editing either installed plugin cache.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
       "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC15",
+      "criterion": "The primary independent-review route uses an isolated fresh different-model and different-session producer without paid API, network, repository mutation, inherited development context, or reviewer credentials; it emits a signed two-phase exact-candidate receipt that the GitHub App revalidates against live PR and check coordinates before publishing an App-owned Check. Provider API review remains an optional explicitly authorized fallback and is never dispatched automatically when a valid free receipt exists.",
+      "source": "Approved nine-point plan items 2, 3, 6, 7, 8, and 9.",
+      "evidence": "Pending implementation: isolation, same-session/inherited-context rejection, receipt signing, live revalidation, free-primary selection, unavailable-reviewer fail-closed behavior, and no-paid-dispatch mutation tests must pass.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "pending"
+    },
+    {
+      "id": "GPG-001-AC16",
+      "criterion": "The GPG-001 candidate preserves the existing MEM-8 prompt-supply-chain trust boundary: closed tool registry schema and validator, provider/version/prompt-surface evidence, allow/ask/abstain disposition with unknown prompt-bearing providers defaulting fail closed, read-only adoption inventory, security-audit coverage, and mutation tests.",
+      "source": "GPG-001 plan zero condition and existing HE-001 trust dependency.",
+      "evidence": "BLOCKED: commit 954a3b6 removed the schema, validator, adoption inventory, MEM-8 audit check, and mutation test. Restore them as a bounded RED-to-GREEN repair before any further GPG-001 implementation or publication.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
+      "status": "recovery_required"
     }
   ],
-  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. This slice remains in_progress until a current high-risk exact-candidate Verification Loop receipt revalidates. It does not claim live broker/App/ruleset deployment, private-org protection, credential rotation, or final release/install."
+  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until MEM-8 is restored, the free-primary review route is implemented, and a current high-risk exact-candidate Verification Loop receipt revalidates the candidate. It does not claim live broker/App/ruleset deployment, private-org protection, credential rotation, or final release/install."
 }

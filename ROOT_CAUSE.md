@@ -114,6 +114,37 @@ adoption treats config/data option values as declared inputs. The repeated
 Check observation (`id`, App, name, head and external ID), exact job/enrollment
 lookup, immutable preparation, and terminal authorization already enforced.
 
+## MEM-8 regression recovery
+
+Commit `954a3b6` removed the executable prompt-supply-chain trust boundary
+while adding the accepted broker/bootstrap slice: the closed tool-registry
+schema and validator, unknown-provider `abstain` policy, read-only `/adopt`
+inventory, security-audit MEM-8 check, and their targeted mutation sensor were
+deleted together. The bounded quick suite did not execute that deleted sensor,
+so its green result could not prove preservation of the control.
+
+The regression reproduces on a clean `954a3b6` tree by overlaying only the
+parent `tests/verify_tool_trust_inventory.py`: it exits non-zero because
+`skills/_shared/itd_harness_controls.py` is absent. The repair hypothesis is to
+restore those parent trust surfaces without rolling back or weakening the GPG
+bootstrap, retain the targeted test in the suite, and require a new bound
+exact-candidate review before any commit or push.
+
+The first recovery review of tree `b52779bea1a8def593d6a4580733a6cd592a01ff`
+then exposed why a byte-for-byte parent restoration was insufficient: the
+Python validator did not close nested capability metadata, local prompt-bearing
+tools could keep `allow` after `promptTextReviewed=false`, the adoption sensor
+covered only one of five forbidden mutations, and the targeted test was absent
+from both local aggregators and CI. The bounded repair aligns the nested
+validator/schema, applies the unreviewed-allow rule to every declared prompt
+surface, mutation-tests all adoption prohibitions, and wires a stdlib phase
+into Linux/Windows CI plus the full local test in `run-all.sh`.
+The next checker found one pre-existing stale semantic-navigation integrity
+fixture: its hard-coded expected demand hash no longer matched either the
+registry or the tracked `DEMAND.json`. Updating that test constant to the
+independently recomputed tracked-file SHA restores the intended exact binding;
+it does not change the demand artifact or trust disposition.
+
 ## Regression evidence
 
 RED reproduced all four failures. GREEN results on the replacement staged WIP:

@@ -95,6 +95,8 @@ jobs:
         run: python tests/verify_routing.py
       - name: Meta-review rubric
         run: python tests/meta_review.py
+      - name: Prompt-bearing tool trust inventory (stdlib integration phase)
+        run: python tests/verify_tool_trust_inventory.py --phase integration
       - name: Init-hardening contracts gate on legacy encoding (v1.68.1)
         # PYTHONUTF8=0 deliberately: the non-ASCII-path regression only
         # manifests when subprocess text-mode falls back to the locale
