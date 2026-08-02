@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import re
+from datetime import date
 from pathlib import Path
 
 
@@ -36,6 +38,25 @@ SCOPE_EVIDENCE = (
 
 def load(path: str) -> dict:
     return json.loads((ROOT / path).read_text(encoding="utf-8"))
+
+
+def validate_changelog(changelog: str) -> list[str]:
+    issues: list[str] = []
+    release_dates = re.findall(
+        rf"^## \[{re.escape(VERSION)}\] - (\d{{4}}-\d{{2}}-\d{{2}})$",
+        changelog,
+        flags=re.MULTILINE,
+    )
+    if len(release_dates) != 1:
+        issues.append("released changelog entry is absent or duplicated")
+    else:
+        try:
+            date.fromisoformat(release_dates[0])
+        except ValueError:
+            issues.append("released changelog date is invalid")
+    if f"target: **{VERSION}** (not published or installed)." in changelog:
+        issues.append("unreleased candidate changelog marker remains")
+    return issues
 
 
 def validate_contract(contract: dict, scope: str) -> list[str]:
@@ -80,9 +101,8 @@ def main() -> int:
     ]
     if {row.get("version") for row in manifests} != {VERSION}:
         issues.append("plugin version drift")
-    if f"target: **{VERSION}** (not published or installed)." not in (
-            ROOT / "CHANGELOG.md").read_text(encoding="utf-8"):
-        issues.append("unreleased candidate changelog is absent")
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    issues.extend(validate_changelog(changelog))
     for path in REQUIRED_FILES:
         if not (ROOT / path).is_file():
             issues.append(f"missing release file: {path}")
@@ -193,7 +213,17 @@ def main() -> int:
     ):
         issues.append("central App/broker release authority drift")
 
-    mutations = 0
+    invalid_date = re.sub(
+        rf"^## \[{re.escape(VERSION)}\] - \d{{4}}-\d{{2}}-\d{{2}}$",
+        f"## [{VERSION}] - 2026-99-99",
+        changelog,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if not validate_changelog(invalid_date):
+        issues.append("release date mutation survived")
+
+    mutations = 1
     for mutation in ("provider", "authority", "scope", "scope-path"):
         mutant_policy = copy.deepcopy(policy)
         mutant_contract = copy.deepcopy(acceptance)
