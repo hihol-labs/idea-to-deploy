@@ -1,45 +1,28 @@
-# Scope Lock — GPG-001 global PR/API gate
+# Scope Lock — GPG-002 Windows UNC doctor reliability
 
 ## Current Task
 
-Reconcile the completed GPG-001 release with its authoritative plan, state and
-handoff after the implementation and release candidates were independently
-accepted, merged and deployed. This bounded closure slice may update only
-GPG-001 contracts/state/handoff and add durable copies of the already-produced
-exact evidence. It must not change runtime behavior, retroactively strengthen
-the selected `local-submission/local-review` claim, or present an optional App
-profile as live. WIP=1.
+Fix the native-Windows `itd gate doctor` false `UNAVAILABLE` result on WSL UNC
+checkouts without weakening exact-candidate validation. The bounded slice may
+change only the local-adjudication outer timeout policy, its regression test,
+release notes and GPG-002 state/contracts. It also records the authorized local
+Git-config cleanup: the legacy PAT must be invalid before cleanup and all
+credential-bearing GitHub URLs must be removed without persisting the token.
+WIP=1.
 
 ## Allowed Change Areas
 
-- restore the closed tool trust registry schema/validator and MEM-8 mutation
-  coverage without rolling back the accepted GPG bootstrap
-- restore read-only `/adopt` prompt-bearing provider inventory and the
-  security-audit MEM-8 control
-- free fresh-session/different-model reviewer producer and strict isolation
-- signed exact-candidate review receipt and App-side live revalidation
-- free-primary routing with paid provider only behind explicit consent/budget
-- portable role/deployment/protection profile contract
-- bounded profile-doctor inventory and executable
-- canonical `gates.json` v2 profile registry plus explicit profile registration
-- local-review guarded push/PR routing backed by current exact adjudication
-- fail-closed staged-to-single-parent-commit review bridge with no second-commit borrowing
-- legacy v1 registry read/doctor/PR compatibility without silent migration
-- local/App/organization claim routing with non-overclaiming fleet aggregation
-- forged/stale/foreign and profile-incompatibility negative canaries
-- self-hosted and managed GitHub App manifest registration for user or
-  organization owners with profile-valid visibility
-- global gate registry, ruleset payload/drift checks, adoption, and doctor
-- central broker, protected machine oracle, Windows/WSL guarded PR transport
-- focused mutation, security, release, and host-adapter tests and docs
-- `.itd/` and `.itd-memory/` records for `GPG-001`
-- post-release reconciliation of the GPG-001 plan, scope, acceptance status,
-  handoff and durable exact-evidence bundle
+- `skills/_shared/itd_gate_control.py` timeout selection for local adjudication
+- `tests/verify_gate_profile_doctor.py` native-Windows UNC and local-path guards
+- root-cause, acceptance, verification, state, changelog and handoff records
+- standard version/release metadata only in the separate release candidate
+- local `.git/config` branch remote URL sanitation outside the PR
 
 ## Forbidden Change Areas
 
-- rollback/reset of the existing WIP or removal of accepted broker/oracle
-  guarantees as a shortcut to restoring MEM-8
+- changing receipt/path/candidate binding, accepted verdicts or risk routing
+- increasing child Git-probe bounds or making any timeout unbounded
+- applying the longer timeout to ordinary local/native paths
 - storing API/App private keys in repository, plugin cache, prompts, logs,
   receipts, Windows user environment, or WSL shell profiles
 - using the previously exposed OpenAI API key or automatically dispatching a
@@ -57,12 +40,12 @@ profile as live. WIP=1.
 
 ## Acceptance Boundary
 
-GPG-001 closure is accepted only when the selected local-review result is
-stated consistently in the plan, acceptance contract, state and handoff; the
-implementation/release merge coordinates and exact receipt dependencies are
-durable in Git; the current reconciliation candidate passes session hygiene,
-operational continuation, meta-review, host-adapter and quick suites; and a
-fresh independent full checker reports no Critical/Important findings or
-unverified contours before exact adjudication. This slice does not claim live
-App/broker enrollment, `PROTECTED`, credential rotation, or a passing Windows
-doctor for the known UNC-timeout contour.
+GPG-002 is accepted only when RED proves the previous 30-second false timeout;
+the focused test proves exactly 180 seconds for native Windows UNC and 30
+seconds elsewhere; stale/foreign/mismatch canaries, Windows-native execution,
+meta-review, host adapters and quick suites pass; a fresh independent full
+checker and exact adjudication accept the candidate; the clean release is
+installed on Windows/WSL; and a Windows-bound current receipt makes the real
+UNC doctor report `LOCAL_REVIEWED`. Local credential cleanup is complete only
+when GitHub returns 401 for the legacy PAT and a secret-safe config scan finds
+zero credential-bearing GitHub URLs. No `PROTECTED` claim is added.

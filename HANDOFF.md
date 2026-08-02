@@ -1,28 +1,39 @@
 ---
 project: /home/hihol/projects/idea-to-deploy
-stage: handoff
-from_role: release-operator
-to_role: next-session
-reason: post-release continuity
-unit: GPG-001
-status: verified
+stage: build
+from_role: bugfix-maker
+to_role: independent-reviewer
+reason: GPG-002 exact-candidate acceptance
+unit: GPG-002
+status: in_progress
 ---
 
-# GPG-001 handoff — v1.95.0 опубликована и установлена
+# GPG-002 handoff — Windows UNC doctor timeout repair
 
 > [!todo] Первое действие
-> На `main` после merge post-release reconciliation запусти `python3 scripts/itd.py gate doctor --repository hihol-labs/idea-to-deploy` и подтверди `LOCAL_REVIEWED`; не открывай GPG-001 заново без нового явно выбранного follow-up.
+> Заморозь полный staged candidate GPG-002, выполни high-risk machine/full-checker/adjudication и публикуй fix PR только после `PASSED`; затем выпусти и установи patch release.
 
 ## 1. From → To и причина передачи
 
-- From: release/operator session, завершившая review, merge и dual-host rollout.
-- To: следующая рабочая сессия Idea to Deploy.
-- Причина: post-release handoff после завершения high-risk юнита.
+- From: bugfix-maker session, воспроизведшая Windows UNC timeout и выполнившая
+  локальную credential cleanup.
+- To: независимый reviewer, затем release/operator.
+- Причина: exact-candidate acceptance и patch release GPG-002.
 
 ## 2. Текущее состояние
 
 - `GPG-001` завершён для выбранного профиля
   `local-submission` + `local-review`; claim `PROTECTED` не делается.
+- `GPG-002` активен с WIP=1. Root cause: безусловный внешний 30-секундный
+  timeout преждевременно убивал Windows-native committed-head validator на UNC.
+- Минимальный fix даёт только native Windows UNC checkout 180 секунд; обычные
+  пути сохраняют 30 секунд, child bounds и fail-closed проверки не меняются.
+- RED воспроизведён, focused WSL/native-Windows тесты зелёные. Первый exact
+  quick/checker/adjudication прошёл и создал Draft PR #180; CI обнаружил
+  протухший methodology-tree pin live benchmark. Новый keyless WSL Codex run
+  `20260802T195346Z-19f3c0ad` прошёл snapshot oracle и strict replay 95/95.
+  Обновлённый exact review, merge, patch release и installed live doctor ещё
+  обязательны.
 - PR #177 смержен squash-коммитом `234752828d463821814020bebf2cc3dc40399beb`.
 - Release PR #178 смержен squash-коммитом
   `8c2bb1b0689ce68282a3ef10a2edc6143a097f8f`.
@@ -35,8 +46,9 @@ status: verified
 - WSL registry подтвердил `LOCAL_REVIEWED` на release candidate; после
   любого нового exact candidate receipt закономерно устаревает и должен
   быть обновлён после exact review/commit. Временная Windows registry-запись удалена:
-  Windows-native validator на UNC checkout не уложился в фиксированный
-  30-секундный timeout; глобальный Windows pre-push остаётся fail-closed.
+  Windows-native validator на UNC checkout не укладывался в фиксированный
+  30-секундный timeout; GPG-002 исправляет эту границу, но до релиза глобальный
+  Windows pre-push остаётся fail-closed.
 - Основной checkout перед этим handoff был clean на `origin/main`.
 
 ## 3. Финальные решения
@@ -58,7 +70,8 @@ status: verified
 
 - `AGENTS.md`, этот `HANDOFF.md`, [[STATE]].
 - `.itd/GPG-001_NINE_POINT_PLAN.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
-  `.itd/VERIFICATION_CONTRACT.json`, `.itd/GPG-001_COMPLETION_EVIDENCE.json`.
+  `.itd/VERIFICATION_CONTRACT.json`, `.itd/GPG-001_COMPLETION_EVIDENCE.json`,
+  `.itd/GPG-002_ROOT_CAUSE.md`.
 - `skills/_shared/GATE_DEPLOYMENT_PROFILES.json`,
   `docs/RELEASE_RUNBOOK.md`, `docs/CODEX_ADAPTER.md`.
 
@@ -94,11 +107,12 @@ codex plugin list | Select-String idea-to-deploy
 ## 7. Блокеры и риски
 
 > [!warning]
-> Блокеров GPG-001 нет. Опциональный follow-up: сделать timeout Windows-native local-adjudication validator пропорциональным скорости UNC checkout либо документировать native-Windows checkout requirement. До этого Windows registry для данного UNC checkout не регистрировать.
+> Блокеров GPG-002 нет. Не регистрировать постоянную Windows UNC registry до
+> merge/install patch release и нового Windows-bound current receipt.
 
-- В локальном `.git/config` обнаружены legacy branch remote URL с credential
-  material. Значение не использовать и не переносить в артефакты; credential
-  следует отдельно отозвать/ротировать и очистить конфиг с явным разрешением.
+- Legacy PAT в пяти локальных branch remote URL проверен только через безопасные
+  метаданные: GitHub вернул 401. Все пять URL очищены; повторный scan нашёл 0
+  credential-bearing GitHub entries. Значение токена нигде не сохранялось.
 - Долгая цель [[GOAL]] остаётся active: 36/38 verified; PE5-008/009 blocked
   внешним outcome evidence и не закрываются этим релизом.
 
@@ -116,6 +130,14 @@ codex plugin list | Select-String idea-to-deploy
 - GitHub Actions PR #178: meta-review success, windows-verify success.
 - Installed-cache smoke: release oracle 14 criteria / 5 mutation guards PASS;
   host adapters PASS with 28 shared registrations and 11 hard gates.
+- GPG-002 RED: реальный Windows-native doctor завершился `UNAVAILABLE` из-за
+  30-секундного child timeout; elapsed 54.32 seconds overall.
+- GPG-002 GREEN: profile-doctor 25 checks PASS на WSL и native Windows;
+  gate registry 18, CLI 50, hooks 30, Verification Loop 68 и meta-review PASS.
+- GPG-002 CI recovery: live benchmark
+  `20260802T195346Z-19f3c0ad` PASS без API key; strict evidence replay 95/95.
+- Credential cleanup: legacy token GitHub status 401; five exact local config
+  entries sanitized; post-cleanup credential-bearing GitHub entry count 0.
 - Recoverable marketplace-source backups:
   `/home/hihol/.codex/plugin-backups/idea-to-deploy-source-before-1.95.0-20260802`
   and
@@ -123,6 +145,7 @@ codex plugin list | Select-String idea-to-deploy
 
 ## 9. Следующее действие после cold start
 
-После merge reconciliation и проверки `LOCAL_REVIEWED` выбрать новый
-юнит по прямому запросу пользователя. UNC-timeout считать отдельным bugfix,
-а не незавершённой частью GPG-001.
+Завершить exact review GPG-002, guarded PR merge и patch release. После
+dual-host install создать Windows-native current receipt, зарегистрировать
+временный UNC profile и получить реальный `LOCAL_REVIEWED` до закрытия
+юнита.

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Native Windows `itd gate doctor` now gives committed-head validation on UNC
+  checkouts a bounded 180-second cold-start budget while retaining the strict
+  30-second default for local paths. Receipt/path binding, stale evidence and
+  all fail-closed verdicts are unchanged.
+
 ## [1.95.0] - 2026-08-02
 
 ### Added

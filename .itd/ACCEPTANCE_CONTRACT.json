@@ -147,6 +147,14 @@
       "evidence": "PASSED in commit 43e65b0 / tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b: targeted tool-trust mutations, nested schema/validator closure, local unreviewed-allow rejection, full adoption no-mutation wording, Linux/Windows CI wiring, semantic-navigation binding, cold-start, meta-review, host adapters, and quick suite passed; fresh gpt-5.6-terra full report had findings=[] and unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
       "status": "passed"
+    },
+    {
+      "id": "GPG-002-AC1",
+      "criterion": "Native Windows local-adjudication validation on a UNC checkout receives a bounded 180-second outer cold-start budget while ordinary paths retain 30 seconds; receipt/path/candidate binding, child probe limits, stale/foreign failure and all protection claims remain unchanged.",
+      "source": "User-authorized post-v1.95.0 Windows UNC doctor follow-up.",
+      "evidence": "RED reproduced the hard 30-second child termination. Focused WSL and native-Windows regression tests pass; full exact-candidate and post-install live UNC doctor evidence remain required.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
+      "status": "pending"
     }
   ],
   "completion": {
@@ -165,5 +173,11 @@
       "Windows doctor success for a UNC checkout"
     ]
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 is verified for the selected local-submission/local-review profile because the portable profile model and free-primary route passed current high-risk exact-candidate review, PR #177 and release PR #178 passed required GitHub checks and merged, v1.95.0 was installed and smoke-tested on Windows/WSL, and the exact implementation/release evidence dependencies are durable under the paths listed in .itd/GPG-001_COMPLETION_EVIDENCE.json. This does not claim any item in completion.unclaimed; each stronger profile requires a separate authorized unit and its own live evidence."
+  "activeFollowup": {
+    "unitId": "GPG-002",
+    "status": "in_progress",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd/GPG-002_ROOT_CAUSE.md"
+  },
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 remains verified under completion. GPG-002 requires its focused command plus exact high-risk review/adjudication, merge, patch release, dual-host install, and a Windows-bound real UNC doctor result; it never upgrades LOCAL_REVIEWED to PROTECTED."
 }

@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 from contextlib import redirect_stdout
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 
@@ -173,6 +173,47 @@ def main() -> int:
             == "committed-head",
             "local doctor bridges only the exact committed HEAD candidate",
         )
+        unc_timeouts: list[int] = []
+
+        def unc_runner(command, **kwargs):
+            unc_timeouts.append(kwargs["timeout"])
+            return subprocess.CompletedProcess(command, 0, b"", b"")
+
+        for unc_checkout in (
+            PureWindowsPath(r"\\wsl.localhost\Ubuntu-24.04\home\user\project"),
+            PureWindowsPath(
+                r"\\?\UNC\wsl.localhost\Ubuntu-24.04\home\user\project"
+            ),
+        ):
+            unc_timeouts.clear()
+            gate.validate_local_adjudication(
+                unc_checkout, unc_checkout / "review.json",
+                "GPG-001:general-review", "high", runner=unc_runner,
+                platform_name="nt",
+            )
+            check(
+                unc_timeouts == [180],
+                "native Windows UNC doctor receives a bounded cold-start budget",
+            )
+        check(
+            gate.local_adjudication_timeout(
+                Path("/home/user/project"), platform_name="posix"
+            ) == 30,
+            "local checkout adjudication retains the strict default timeout",
+        )
+        for local_windows_path in (
+            PureWindowsPath(r"C:\repo"),
+            PureWindowsPath(r"\\?\C:\repo"),
+            PureWindowsPath(r"\\.\C:\repo"),
+            PureWindowsPath(r"\\server-only"),
+            PureWindowsPath(r"\\?\UNC\server-only"),
+        ):
+            check(
+                gate.local_adjudication_timeout(
+                    local_windows_path, platform_name="nt"
+                ) == 30,
+                "native Windows local/device paths retain the strict timeout",
+            )
 
         def stale(*_args):
             raise gate.GateError("UNVERIFIED", "local adjudication is stale")
