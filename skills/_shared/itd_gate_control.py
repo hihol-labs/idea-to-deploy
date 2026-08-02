@@ -50,6 +50,8 @@ CLAIM_ORDER = {
     "APP_CHECK_ENFORCED": 2,
     "PROTECTED": 3,
 }
+LOCAL_ADJUDICATION_TIMEOUT_SECONDS = 30
+WINDOWS_UNC_ADJUDICATION_TIMEOUT_SECONDS = 180
 
 
 class GateError(RuntimeError):
@@ -1422,6 +1424,32 @@ def doctor_entry(
     }
 
 
+def local_adjudication_timeout(
+    checkout: Path, *, platform_name: str | None = None
+) -> int:
+    """Keep local validation strict while allowing bounded native UNC startup."""
+    host = os.name if platform_name is None else platform_name
+    value = str(checkout).replace("/", "\\")
+    extended_unc_prefix = "\\\\?\\UNC\\"
+    is_extended_unc = value.upper().startswith(extended_unc_prefix.upper())
+    device_path = value.startswith("\\\\?\\") or value.startswith("\\\\.\\")
+    plain_unc_parts = [part for part in value[2:].split("\\") if part]
+    extended_unc_parts = [
+        part for part in value[len(extended_unc_prefix):].split("\\") if part
+    ]
+    is_plain_unc_share = (
+        value.startswith("\\\\")
+        and not device_path
+        and len(plain_unc_parts) >= 2
+    )
+    is_unc_share = is_plain_unc_share or (
+        is_extended_unc and len(extended_unc_parts) >= 2
+    )
+    if host == "nt" and is_unc_share:
+        return WINDOWS_UNC_ADJUDICATION_TIMEOUT_SECONDS
+    return LOCAL_ADJUDICATION_TIMEOUT_SECONDS
+
+
 def validate_local_adjudication(
     checkout: Path,
     receipt: Path,
@@ -1429,6 +1457,7 @@ def validate_local_adjudication(
     risk_tier: str,
     *,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+    platform_name: str | None = None,
 ) -> None:
     if not checkout.is_absolute() or not receipt.is_absolute():
         raise GateError("UNVERIFIED", "local review paths must be absolute")
@@ -1443,7 +1472,10 @@ def validate_local_adjudication(
     try:
         completed = runner(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=30, check=False,
+            timeout=local_adjudication_timeout(
+                checkout, platform_name=platform_name
+            ),
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GateError(

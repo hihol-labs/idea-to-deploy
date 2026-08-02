@@ -1,6 +1,6 @@
 {
   "sessionState": "ACTIVE",
-  "currentStage": "HANDOFF",
+  "currentStage": "BUILD",
   "intent": "Implement GPG-001 as a fail-closed exact-candidate gate with a free isolated fresh-model reviewer as primary transport, while restoring and preserving MEM-8 trust guarantees",
   "classification": {
     "productType": "engineering_methodology",
@@ -34,24 +34,23 @@
       "bash tests/run-all.sh"
     ],
     "currentTaskRoute": "task",
-    "lastAnalysisSummary": "GPG-001 was independently accepted, merged through PR #177, released through PR #178 as v1.95.0, and deployed to WSL/Windows Claude and Codex. The selected claim is LOCAL_REVIEWED, not PROTECTED."
+    "lastAnalysisSummary": "GPG-002 repairs Windows-native standard and extended UNC doctor cold-start timeout selection without weakening exact receipt validation. The invalid legacy PAT was removed from five local branch remotes, and PR CI content pinning was refreshed through a successful keyless live-model benchmark."
   },
   "currentUnit": {
-    "id": "GPG-001",
-    "goal": "Implement a fail-closed global PR/API gate control plane for Windows and WSL repositories",
+    "id": "GPG-002",
+    "goal": "Make Windows-native local-review doctor reliable on WSL UNC checkouts and remove the invalid legacy credential from local Git branch remotes",
     "riskTier": "high",
-    "status": "verified",
-    "startedAt": "2026-07-29T09:32:53Z",
-    "completedAt": "2026-08-02T16:47:51Z"
+    "status": "in_progress",
+    "startedAt": "2026-08-02T17:49:25Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
     "specComplianceReview": "passed",
     "codeQualityReview": "passed",
-    "tests": "passed",
-    "tddRed": "n/a",
+    "tests": "in_progress",
+    "tddRed": "passed",
     "tddGreen": "passed",
-    "rootCause": "n/a",
+    "rootCause": "passed",
     "scopeLock": "passed",
     "dataAuthenticity": "passed",
     "goldenFlows": "passed",
@@ -63,10 +62,10 @@
     "security": "passed",
     "dependencies": "n/a",
     "hardening": "passed",
-    "branchFinish": "passed",
+    "branchFinish": "pending",
     "learningPromotion": "n/a",
     "nextStepApproval": "approved",
-    "deploymentReadiness": "passed"
+    "deploymentReadiness": "pending"
   },
   "verificationHistory": [
     {
@@ -218,6 +217,12 @@
       "command": "GPG-001 release, GitHub merge and dual-host deployment",
       "result": "passed",
       "evidence": "PR #177 merged as 234752828d463821814020bebf2cc3dc40399beb; release PR #178 passed meta-review and windows-verify then merged as 8c2bb1b0689ce68282a3ef10a2edc6143a097f8f; v1.95.0 installed/enabled in WSL and Windows Codex; both Claude sync checks zero drift; installed release and host-adapter smoke passed; durable proof index .itd/GPG-001_COMPLETION_EVIDENCE.json"
+    },
+    {
+      "at": "2026-08-02T17:49:25Z",
+      "command": "GPG-002 Windows-native UNC doctor RED-to-GREEN and local Git credential cleanup",
+      "result": "in_progress",
+      "evidence": "RED reproduced UNAVAILABLE after the hard 30-second child timeout; focused WSL and native-Windows tests pass 25/25 with 180 seconds only for complete standard/extended UNC shares and 30 seconds for local/device/incomplete paths. The legacy PAT returned GitHub 401 and was removed from five local branch remotes; secret-safe rescan found zero credential-bearing entries. Exact quick/checker/adjudication passed before PR #180. CI then exposed the expected stale methodology-tree live-evidence pin; keyless WSL Codex run 20260802T195346Z-19f3c0ad passed the independent snapshot oracle and strict replay 95/95."
     }
   ],
   "decisionLog": [
@@ -285,6 +290,11 @@
       "at": "2026-08-02T16:47:51Z",
       "decision": "Complete GPG-001 under the portable local-submission/local-review profile and keep App-backed PROTECTED as an optional upgrade",
       "why": "The required independent exact-candidate review, guarded PR flow, owner-controlled merge/deploy, release and dual-host installation are proven without granting the reviewer merge/deploy authority or requiring administration on external repositories"
+    },
+    {
+      "at": "2026-08-02T17:49:25Z",
+      "decision": "Increase only the native-Windows UNC outer adjudication budget to 180 seconds and retain the 30-second default elsewhere",
+      "why": "The unconditional outer timeout killed a valid bounded validator during UNC cold-start; platform/path scoping fixes availability without weakening receipt identity, candidate binding, child probe bounds or fail-closed verdicts"
     }
   ],
   "artifacts": [
@@ -317,6 +327,7 @@
     "ROOT_CAUSE.md",
     ".itd/GPG-001_NINE_POINT_PLAN.md",
     ".itd/GPG-001_COMPLETION_EVIDENCE.json",
+    ".itd/GPG-002_ROOT_CAUSE.md",
     ".itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md"
   ],
   "completedModules": [
@@ -354,7 +365,7 @@
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Treat GPG-001 as complete for local-submission/local-review. Start a new explicitly approved unit; the Windows UNC validator timeout is an optional bugfix and App-backed PROTECTED is a separate profile upgrade.",
+    "recommendedNextStep": "Finish GPG-002 exact-candidate verification, merge the focused fix, publish the next patch release, install it on Windows/WSL, and prove a Windows-native UNC doctor result with a Windows-bound current receipt.",
     "alternatives": [
       "Keep paid Responses API disabled; consider it only as an explicit availability fallback after separate consent and budget",
       "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
@@ -366,5 +377,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Run the WSL gate doctor from HANDOFF.md, confirm LOCAL_REVIEWED, then start only the next user-selected WIP=1 unit."
+  "nextAction": "Freeze the PR #180 candidate with refreshed live evidence, repeat high-risk exact machine/checker/adjudication, guarded-update and merge the PR, then publish/install the patch release and prove the real Windows UNC doctor result."
 }
