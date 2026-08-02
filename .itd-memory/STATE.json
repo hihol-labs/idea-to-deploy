@@ -1,6 +1,6 @@
 {
   "sessionState": "ACTIVE",
-  "currentStage": "VERIFY",
+  "currentStage": "DEPLOY",
   "intent": "Implement GPG-001 as a fail-closed exact-candidate gate with a free isolated fresh-model reviewer as primary transport, while restoring and preserving MEM-8 trust guarantees",
   "classification": {
     "productType": "engineering_methodology",
@@ -34,7 +34,7 @@
       "bash tests/run-all.sh"
     ],
     "currentTaskRoute": "task",
-    "lastAnalysisSummary": "Accepted the broker/bootstrap tree with a free fresh-model exact review, amended the nine-point plan to make that route primary, then stopped after a new bound full-diff review and independent refute confirmed that commit 954a3b6 removed MEM-8 prompt-supply-chain enforcement."
+    "lastAnalysisSummary": "Implemented and accepted the free isolated reviewer producer on staged tree e2ab8afb with a clean fresh Terra exact adjudication. Live GitHub App, ruleset, provenance registry and PROTECTED doctor evidence remain outstanding; Draft PR #177 is not updated."
   },
   "currentUnit": {
     "id": "GPG-001",
@@ -44,9 +44,9 @@
     "startedAt": "2026-07-29T09:32:53Z"
   },
   "gateResults": {
-    "acceptanceContract": "pending",
-    "specComplianceReview": "pending",
-    "codeQualityReview": "pending",
+    "acceptanceContract": "passed",
+    "specComplianceReview": "passed",
+    "codeQualityReview": "passed",
     "tests": "passed",
     "tddRed": "n/a",
     "tddGreen": "passed",
@@ -59,7 +59,7 @@
     "permissionMatrix": "passed",
     "verificationContract": "passed",
     "toolCapabilityRegistry": "passed",
-    "security": "pending",
+    "security": "passed",
     "dependencies": "n/a",
     "hardening": "passed",
     "branchFinish": "pending",
@@ -205,6 +205,12 @@
       "command": "Final exact MEM-8 machine, fresh full checker, adjudication, and local commit",
       "result": "passed",
       "evidence": "commit 43e65b06aa32731da7b6725a9d0e37de0c42dc43 tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b; targeted 18/18, integration 14/14, semantic-navigation PASS, drift 5/5, cold-start all pass, meta-review PASSED, host adapters PASS, quick DONE fails:none; fresh gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json"
+    },
+    {
+      "at": "2026-08-01T19:01:02Z",
+      "command": "GPG-001 free isolated reviewer producer TDD, high-risk verification, fresh exact checker and adjudication",
+      "result": "passed",
+      "evidence": "staged tree e2ab8afbe092bc3bb00b7c376ef72411a7bc738c; producer 53, broker 721, server 50, deployment 25; tool trust, cold-start, meta-review, host adapters and quick all pass; fresh openai-codex-subscription gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/1dd8d0697e2f5434/GPG-001-general-review-adjudication-a1.json"
     }
   ],
   "decisionLog": [
@@ -328,14 +334,14 @@
     {
       "id": "GPG-001-live-gate-registry",
       "status": "unresolved",
-      "requires": "Create and validate /home/hihol/.config/itd/gates.json through the authorized live App/ruleset adoption flow after the repair and free-review producer are accepted.",
+      "requires": "Provision a stable HTTPS broker, obtain user-interactive admin:org/App authorization, configure and canary the live GitHub App/ruleset/provenance boundary, then create and validate /home/hihol/.config/itd/gates.json with itd gate doctor --all = PROTECTED.",
       "forbiddenSubstitution": "Do not bypass the guarded pre-push hook with --no-verify or treat a local-only receipt as live App/ruleset enforcement."
     }
   ],
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Implement the next bounded GPG-001 slice: free isolated fresh-model reviewer producer with no inherited context, network, secrets, or repository mutation; freeze and review it before any push.",
+    "recommendedNextStep": "Resolve the complete current index with git write-tree and validate a current GPG-001:general-review adjudication for that exact candidate; once accepted, continue the authorized live App/ruleset/provenance slice until itd gate doctor --all reports PROTECTED.",
     "alternatives": [
       "Keep paid Responses API disabled; consider it only as an explicit availability fallback after separate consent and budget",
       "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
@@ -347,5 +353,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Implement and mutation-test the free isolated reviewer producer and signed two-phase exact receipt path; paid API remains disabled and push/PR update waits for a new exact adjudication."
+  "nextAction": "Read-only resolve the complete staged tree and validate a current exact-candidate GPG-001:general-review adjudication; only after acceptance establish the live HTTPS broker and user-authorized GitHub App/ruleset/provenance boundary until itd gate doctor --all = PROTECTED."
 }

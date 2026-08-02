@@ -84,6 +84,44 @@ def validate_public_keyring(
     return result
 
 
+def validate_free_reviewer_keyring(value: Any) -> dict[str, dict[str, Any]]:
+    free = core._free_reviewer_module()
+    if not isinstance(value, dict) or not 1 <= len(value) <= 64:
+        raise core.BrokerError("UNAVAILABLE", "free reviewer keyring size is invalid")
+    result: dict[str, dict[str, Any]] = {}
+    required = {
+        "publicKey", "repository", "appIntegrationId", "producerId",
+        "reviewerProvider", "reviewerModel",
+    }
+    for key_id, record in value.items():
+        if (
+            not isinstance(key_id, str)
+            or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", key_id)
+            or not isinstance(record, dict)
+            or set(record) != required
+            or not isinstance(record["publicKey"], str)
+            or not isinstance(record["repository"], str)
+            or not re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", record["repository"]
+            )
+            or type(record["appIntegrationId"]) is not int
+            or record["appIntegrationId"] <= 0
+            or record["producerId"] != "itd-free-reviewer-producer-v1"
+            or not isinstance(record["reviewerProvider"], str)
+            or not record["reviewerProvider"].strip()
+            or not isinstance(record["reviewerModel"], str)
+            or not record["reviewerModel"].strip()
+        ):
+            raise core.BrokerError("UNAVAILABLE", "free reviewer keyring is invalid")
+        try:
+            free.b64url_decode(record["publicKey"], 32, "free reviewer public key")
+        except free.FreeReviewError as exc:
+            raise core.BrokerError(exc.status, exc.reason) from exc
+        core.canonical_json(record)
+        result[key_id] = dict(record)
+    return result
+
+
 class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -264,12 +302,18 @@ class BrokerRuntime:
         broker: core.ReviewBroker,
         webhook_material: bytes,
         provenance_keyring: dict[str, dict[str, Any]],
+        free_reviewer_keyring: dict[str, dict[str, Any]],
+        free_app_key_id: str,
+        free_app_private_key: bytes,
     ) -> None:
         self.policy = policy
         self.store = store
         self.broker = broker
         self.webhook_material = webhook_material
         self.provenance_keyring = provenance_keyring
+        self.free_reviewer_keyring = free_reviewer_keyring
+        self.free_app_key_id = free_app_key_id
+        self.free_app_private_key = free_app_private_key
         self.worker = BrokerWorker(broker, store)
 
     @classmethod
@@ -279,7 +323,9 @@ class BrokerRuntime:
             "ITD_GITHUB_APP_PRIVATE_KEY_FILE",
             "ITD_GITHUB_WEBHOOK_SECRET_FILE",
             "ITD_PROVENANCE_KEYRING_FILE",
-            "ITD_OPENAI_API_KEY_FILE",
+            "ITD_FREE_REVIEWER_KEYRING_FILE",
+            "ITD_FREE_REVIEW_APP_SIGNING_KEY_FILE",
+            "ITD_FREE_REVIEW_APP_KEY_ID",
             "ITD_BROKER_DATABASE",
         }
         missing = sorted(name for name in required if not os.environ.get(name))
@@ -314,6 +360,25 @@ class BrokerRuntime:
         provenance_keyring = validate_public_keyring(
             keyring_value, policy
         )
+        free_keyring_raw = core.load_secret_file(
+            _absolute_path("ITD_FREE_REVIEWER_KEYRING_FILE"),
+            "free reviewer public keyring", 65536,
+        )
+        free_keyring_value = core.decode_strict_json(
+            free_keyring_raw, "free reviewer public keyring"
+        )
+        free_reviewer_keyring = validate_free_reviewer_keyring(
+            free_keyring_value
+        )
+        free_app_key_id = os.environ["ITD_FREE_REVIEW_APP_KEY_ID"]
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", free_app_key_id):
+            raise core.BrokerError("UNVERIFIED", "free review App key id is invalid")
+        free_app_private_key = core.load_secret_file(
+            _absolute_path("ITD_FREE_REVIEW_APP_SIGNING_KEY_FILE"),
+            "free review App signing key", 32,
+        )
+        if len(free_app_private_key) != 32:
+            raise core.BrokerError("UNVERIFIED", "free review App signing key is invalid")
         github = core.GitHubApi(api_version=policy["github"]["apiVersion"])
         auth = core.GitHubAppAuth(
             client_id=os.environ["ITD_GITHUB_APP_CLIENT_ID"],
@@ -322,12 +387,21 @@ class BrokerRuntime:
             ),
             policy=policy,
         )
-        reviewer_credential = core.load_secret_file(
-            _absolute_path("ITD_OPENAI_API_KEY_FILE"),
-            "OpenAI API key",
-            4096,
-        ).decode("utf-8")
-        reviewer = core.ReviewerAdapter(reviewer_credential)
+        paid_consent = os.environ.get("ITD_PAID_REVIEW_CONSENT") == "approved"
+        if os.environ.get("ITD_PAID_REVIEW_CONSENT") not in {None, "", "approved"}:
+            raise core.BrokerError("UNVERIFIED", "paid review consent is invalid")
+        reviewer = None
+        if paid_consent:
+            if not os.environ.get("ITD_OPENAI_API_KEY_FILE"):
+                raise core.BrokerError(
+                    "UNAVAILABLE", "consented paid reviewer credential file is missing"
+                )
+            reviewer_credential = core.load_secret_file(
+                _absolute_path("ITD_OPENAI_API_KEY_FILE"),
+                "OpenAI API key",
+                4096,
+            ).decode("utf-8")
+            reviewer = core.ReviewerAdapter(reviewer_credential)
         webhook_material = core.load_secret_file(
             _absolute_path("ITD_GITHUB_WEBHOOK_SECRET_FILE"),
             "GitHub webhook secret",
@@ -338,9 +412,13 @@ class BrokerRuntime:
             policy=policy,
             provenance_keyring=provenance_keyring,
         )
-        broker = core.ReviewBroker(policy, store, github, auth, reviewer)
+        broker = core.ReviewBroker(
+            policy, store, github, auth, reviewer,
+            paid_fallback_consent=paid_consent,
+        )
         return cls(
-            policy, store, broker, webhook_material, provenance_keyring
+            policy, store, broker, webhook_material, provenance_keyring,
+            free_reviewer_keyring, free_app_key_id, free_app_private_key,
         )
 
     def close(self) -> None:
@@ -553,6 +631,9 @@ class BrokerHandler(BaseHTTPRequestHandler):
             if self.path == self.runtime.policy["service"]["provenancePath"]:
                 self._provenance()
                 return
+            if self.path == self.runtime.policy["service"]["freeReviewPath"]:
+                self._free_review()
+                return
             self._json(404, {"status": "not_found"})
         except RequestError as exc:
             self._json(
@@ -698,6 +779,46 @@ class BrokerHandler(BaseHTTPRequestHandler):
                 "baseSha": coordinates.base_sha,
             },
         )
+
+    def _free_review(self) -> None:
+        body = self._body(1024 * 1024)
+        payload = core.decode_strict_json(body, "free review submission")
+        required = {"repository", "pullRequest", "headSha", "baseSha", "phaseOne"}
+        if not isinstance(payload, dict) or set(payload) != required:
+            raise core.BrokerError("UNVERIFIED", "free review submission is not closed")
+        repository = payload["repository"]
+        pull_request = payload["pullRequest"]
+        head_sha = payload["headSha"]
+        base_sha = payload["baseSha"]
+        if (
+            not isinstance(repository, str)
+            or type(pull_request) is not int
+            or not isinstance(head_sha, str)
+            or not isinstance(base_sha, str)
+            or not isinstance(payload["phaseOne"], dict)
+        ):
+            raise core.BrokerError("UNVERIFIED", "free review coordinates are invalid")
+        installation_id = self.runtime.store.latest_installation(
+            repository, pull_request, head_sha, base_sha
+        )
+        coordinates = core.Coordinates(
+            repository, pull_request, head_sha, base_sha, installation_id
+        ).validate()
+        result = self.runtime.broker.bind_free_review(
+            coordinates,
+            phase_one=payload["phaseOne"],
+            producer_keys=self.runtime.free_reviewer_keyring,
+            app_key_id=self.runtime.free_app_key_id,
+            app_private_key=self.runtime.free_app_private_key,
+        )
+        code = 200 if result["status"] == "PASSED" else (
+            503 if result["status"] == "UNAVAILABLE" else 422
+        )
+        self._json(code, {
+            "status": result["status"],
+            "receiptId": result["receiptId"],
+            "checkRunId": result["checkRunId"],
+        })
 
 
 def serve(runtime: BrokerRuntime, host: str, port: int) -> int:

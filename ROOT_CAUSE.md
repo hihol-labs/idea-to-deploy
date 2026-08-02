@@ -165,3 +165,69 @@ the next bounded tree received warnings, not acceptance. Narration was compacted
 never the review input or implementation. A new exact tree and current machine,
 Terra, and adjudication receipts are still required; GPG-001 remains
 `in_progress`.
+
+## GPG-001 credential-boundary and admission-order regression
+
+The free-review producer CLI lacked an enforced protected-release boundary,
+and the broker acquired an installation token before validating the producer's
+signed phase-one receipt. As a result, candidate-controlled producer code could
+run in the same process that reads reviewer subscription auth and the producer
+signing key, while unauthenticated inputs could spend GitHub App authentication
+and outbound-request capacity before proving admission.
+
+The first defect reproduces when
+`skills/_shared/itd_free_reviewer_producer.py` is executed from the same Git
+worktree passed as `--root`: no guard rejects that candidate-owned executable
+before `transport_home()` and `read_provenance_private_key()`. The second
+reproduces with a phase-one envelope carrying an invalid signature:
+`bind_free_review()` calls `_token()` before `_authorized_free_reviewer_keys()`,
+so the fake App authenticator observes an installation-token request even though
+the envelope is rejected.
+
+The bounded repair is to require the credential-bearing producer entry point to
+come from outside the candidate repository's resolved Git top level and to run
+that check before freezing candidate data or reading credentials. The broker
+must resolve only the local enrolled App identity, authenticate and authorize
+the phase-one receipt, and request the installation token only after that
+verification succeeds. Regression tests must prove both fail-closed ordering
+properties and preserve the successful two-phase publication path.
+
+## GPG-001 deployment-profile overfitting
+
+The nine-point plan mixed portable review invariants with one pilot deployment:
+an organization-owned private GitHub App plus an organization workflow ruleset.
+That made an implementation choice look like a methodology requirement and did
+not model users who own and merge their own projects, external repository
+owners, self-hosted installations, or a future managed public App.
+
+The defect is reproduced by the manifest bootstrap accepting only
+`--organization`, always emitting `public: false`, and the plan/documentation
+describing the private organization path as the sole deployment. The trust
+property does not require those choices. It requires only that the exact
+candidate be reviewed independently, that the reviewer App cannot merge or
+deploy, and that any server-side enforcement be installed by the repository
+owner.
+
+The repair keeps the nine ordered stages but separates three dimensions:
+portable roles, deployment profiles (`local-submission`, `self-hosted-app`,
+`managed-app`), and protection profiles. Maker, maintainer, and deployer roles
+may overlap; the independent reviewer must differ from the maker. A self-hosted
+App may be private or public and may be registered by a user or organization;
+a managed App is public. Only the strongest organization-workflow profile may
+claim `PROTECTED`; weaker profiles remain useful without overstating GitHub
+enforcement.
+
+## GPG-001 reviewer-identity canonicalization bypass
+
+The general profile review reproduced a same-model bypass in the free-review
+receipt. `_identity()` rejected whitespace-padded maker fields, but
+`_reviewer_identity()` only checked that `strip()` was non-empty and returned
+the original reviewer strings. The different-model comparison then case-folded
+without trimming, so maker model `gpt-5.6-sol` and reviewer model
+` gpt-5.6-sol ` were treated as different and could be signed.
+
+The repair is to apply the same canonical whitespace invariant to every
+reviewer identity field before phase-one creation or verification. Regression
+tests must cover producer creation, independently re-signed receipt
+verification, and broker admission with a matching padded key authorization;
+all must fail before an App token or GitHub API call.

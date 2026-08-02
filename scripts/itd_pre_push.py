@@ -276,6 +276,7 @@ def enforce(
         raise PushBlocked(
             "registered checkout differs from the active Git repository"
         )
+    require_profile_review(registry, matches[0], actual_root)
     if Path(str(receipt.get("repository", ""))).resolve() != actual_root:
         raise PushBlocked(
             "machine receipt repository differs from the active checkout"
@@ -291,6 +292,28 @@ def enforce(
         raise PushBlocked(
             "fresh machine oracle differs from the guarded-push receipt"
         )
+
+
+def require_profile_review(
+    registry: dict[str, Any], entry: dict[str, Any], root: Path
+) -> None:
+    if registry.get("version") != 2:
+        return
+    if entry.get("protectionProfile") != "local-review":
+        return
+    if Path(str(entry.get("checkout", ""))).resolve() != root.resolve():
+        raise PushBlocked("local-review checkout differs from active repository")
+    try:
+        inspection = gate.profile_doctor_entry(entry)
+    except gate.GateError as exc:
+        raise PushBlocked(
+            f"local independent review is unavailable: {exc.reason}"
+        ) from exc
+    if (
+        inspection.get("status") != "LOCAL_REVIEWED"
+        or inspection.get("drift") != []
+    ):
+        raise PushBlocked("current exact local independent review is not valid")
 
 
 def main(argv: list[str] | None = None) -> int:

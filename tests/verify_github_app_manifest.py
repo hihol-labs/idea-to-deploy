@@ -50,7 +50,7 @@ def conversion_fixture() -> dict:
         client_secret_key: "discard" + "-me",
         "slug": "itd-review-gate",
         "node_id": "MDM6QXBwNDI0MjQy",
-        "owner": {"login": "hihol-labs"},
+        "owner": {"login": "example-owner"},
         "pem": (
             "-----BEGIN RSA PRIVATE KEY-----\n"
             "fixture-not-used-for-signing\n"
@@ -77,6 +77,44 @@ class FakeResponse:
 
 
 def main() -> int:
+    profiles = module.deployment_profiles()
+    check(
+        set(profiles) == {
+            "version", "roles", "reviewerAppPermissions",
+            "deploymentProfiles", "protectionProfiles",
+        },
+        "deployment profile contract fields are not closed",
+    )
+    check(
+        profiles["roles"]["independentReviewer"]["mustDifferFrom"]
+        == ["maker"]
+        and set(profiles["roles"]["maintainer"]["mayOverlapWith"])
+        == {"maker", "deployer"}
+        and set(profiles["roles"]["deployer"]["mayOverlapWith"])
+        == {"maker", "maintainer"},
+        "role separation forbids a legitimate owner/merger/deployer overlap",
+    )
+    check(
+        set(profiles["deploymentProfiles"])
+        == {"local-submission", "self-hosted-app", "managed-app"}
+        and profiles["deploymentProfiles"]["local-submission"]["appRequired"]
+        is False
+        and profiles["deploymentProfiles"]["self-hosted-app"]["visibility"]
+        == ["private", "public"]
+        and profiles["deploymentProfiles"]["managed-app"]["visibility"]
+        == ["public"],
+        "portable deployment profiles are incomplete",
+    )
+    check(
+        profiles["protectionProfiles"]["organization-workflow"]["claim"]
+        == "PROTECTED"
+        and all(
+            row["claim"] != "PROTECTED"
+            for name, row in profiles["protectionProfiles"].items()
+            if name != "organization-workflow"
+        ),
+        "a weaker protection profile can overclaim PROTECTED",
+    )
     value = module.manifest(
         name="ITD Independent Review Gate",
         broker_url="https://review.example.test",
@@ -88,6 +126,25 @@ def main() -> int:
         == "https://review.example.test/webhook",
         "manifest is private and binds the exact broker webhook",
     )
+    public_value = module.manifest(
+        name="ITD Independent Review Gate",
+        broker_url="https://review.example.test",
+        redirect_url="http://127.0.0.1:49152/callback",
+        visibility="public",
+    )
+    check(public_value["public"] is True,
+          "managed/public App visibility is not represented exactly")
+    check(
+        module.resolve_app_visibility("self-hosted-app", None) == "private"
+        and module.resolve_app_visibility("self-hosted-app", "public")
+        == "public"
+        and module.resolve_app_visibility("managed-app", None) == "public",
+        "deployment profile does not resolve App visibility fail-closed",
+    )
+    rejects(
+        lambda: module.resolve_app_visibility("managed-app", "private"),
+        "managed App accepted private visibility",
+    )
     check(
         value["default_permissions"]
         == {
@@ -97,6 +154,14 @@ def main() -> int:
             "pull_requests": "read",
         },
         "manifest permissions are least-privilege exact",
+    )
+    check(
+        profiles["reviewerAppPermissions"] == value["default_permissions"]
+        and not any(
+            value["default_permissions"].get(permission) == "write"
+            for permission in ("contents", "pull_requests", "deployments")
+        ),
+        "reviewer App can mutate code, merge, or deploy",
     )
     check(
         value["default_events"] == ["pull_request", "merge_group"],
@@ -236,8 +301,54 @@ def main() -> int:
             "existing App material cannot be overwritten",
         )
 
+    organization_action = module.registration_action(
+        "example-owner", "organization", "manifest-state"
+    )
+    user_action = module.registration_action(
+        "example-owner", "user", "manifest-state"
+    )
+    check(
+        organization_action.startswith(
+            "https://github.com/organizations/example-owner/settings/apps/new?"
+        )
+        and user_action.startswith("https://github.com/settings/apps/new?")
+        and "manifest-state" in organization_action
+        and "manifest-state" in user_action,
+        "manifest registration is not portable across user/organization owners",
+    )
+    parsed_legacy = module.parser().parse_args([
+        "--organization", "example-owner",
+        "--broker-url", "https://review.example.test",
+        "--output-dir", "/secure/itd-review-app",
+        "--plan",
+    ])
+    check(
+        module.requested_owner(parsed_legacy)
+        == ("example-owner", "organization"),
+        "legacy organization bootstrap no longer maps to self-hosted ownership",
+    )
+    with tempfile.TemporaryDirectory(prefix="itd-app-preview-") as preview_raw:
+        stdout = io.StringIO()
+        with mock.patch.object(module.sys, "stdout", stdout):
+            preview_rc = module.main([
+                "--owner", "example-owner", "--account-type", "user",
+                "--profile", "managed-app",
+                "--broker-url", "https://review.example.test",
+                "--output-dir", str(Path(preview_raw) / "credentials"),
+                "--plan",
+            ])
+        preview = json.loads(stdout.getvalue())
+    check(
+        preview_rc == 0
+        and preview["owner"] == "example-owner"
+        and preview["accountType"] == "user"
+        and preview["profile"] == "managed-app"
+        and preview["visibility"] == "public"
+        and preview["manifest"]["public"] is True,
+        "managed user-owned manifest preview is not profile-bound",
+    )
     page = module.registration_page(
-        "https://github.com/organizations/hihol-labs/settings/apps/new",
+        organization_action,
         value,
     ).decode("utf-8")
     check(

@@ -121,6 +121,7 @@ def enrollment_receipt() -> dict[str, Any]:
 class FakeBroker:
     def __init__(self) -> None:
         self.calls: list[core.Coordinates] = []
+        self.free_calls: list[tuple[core.Coordinates, dict[str, Any]]] = []
         self.error: core.BrokerError | None = None
 
     def process(self, coordinates: core.Coordinates) -> dict[str, Any]:
@@ -138,6 +139,13 @@ class FakeBroker:
         raise core.BrokerError(
             "UNVERIFIED", "merge fixture has no associated pull requests"
         )
+
+    def bind_free_review(self, coordinates: core.Coordinates, **kwargs) -> dict[str, Any]:
+        self.free_calls.append((coordinates, kwargs))
+        return {
+            "status": "PASSED", "receiptId": "r" * 64,
+            "checkRunId": 202,
+        }
 
     def prepare_waiting_merge_groups(self, repository: str) -> int:
         del repository
@@ -238,7 +246,8 @@ def running_server():
     fake = FakeBroker()
     shared_material = b"webhook-fixture-material"
     runtime = server.BrokerRuntime(
-        policy, store, fake, shared_material, keyring
+        policy, store, fake, shared_material, keyring,
+        {"free-key": core.b64url(b"f" * 32)}, "app-free-key", b"a" * 32,
     )
     runtime.enrollment_sha = enrollment_sha
     server.BrokerHandler.runtime = runtime
@@ -308,6 +317,28 @@ def http_phase() -> None:
         )
         time.sleep(0.05)
         check(fake.calls == [], "webhook alone cannot dispatch reviewer")
+        free_submission = core.canonical_json({
+            "repository": REPOSITORY,
+            "pullRequest": 9,
+            "headSha": HEAD,
+            "baseSha": BASE,
+            "phaseOne": {"signed": {}, "signature": "fixture"},
+        })
+        status, value, _ = request(
+            port, "POST", "/free-review", free_submission,
+            {"Content-Type": "application/json"},
+        )
+        check(
+            status == 200 and value["status"] == "PASSED"
+            and len(fake.free_calls) == 1,
+            "signed free receipt has an operational broker route",
+        )
+        check(
+            fake.free_calls[0][1]["producer_keys"]
+            == runtime.free_reviewer_keyring
+            and fake.free_calls[0][1]["app_key_id"] == runtime.free_app_key_id,
+            "free endpoint uses broker-owned verifier and App signer",
+        )
 
         provenance = core.canonical_json(provenance_payload())
         status, value, _ = request(
@@ -525,6 +556,9 @@ def request_bound_phase() -> None:
         FakeBroker(),
         b"webhook-fixture-material",
         keyring,
+        {"free-key": core.b64url(b"f" * 32)},
+        "app-free-key",
+        b"a" * 32,
     )
     server.BrokerHandler.runtime = runtime
     httpd = server.BoundedThreadingHTTPServer(
@@ -654,6 +688,8 @@ def environment_phase() -> None:
         webhook = root / "webhook"
         openai = root / "openai"
         keyring = root / "keyring.json"
+        free_keyring = root / "free-keyring.json"
+        free_signing_key = root / "free-signing.key"
         app.write_bytes(
             generate_private_key(
                 public_exponent=65537, key_size=2048
@@ -668,13 +704,28 @@ def environment_phase() -> None:
         keyring.write_bytes(
             core.canonical_json({"maker-key": key_record()})
         )
-        for path in (app, webhook, openai, keyring):
+        free_key_record = {
+            "publicKey": core.b64url(PUBLIC_KEY),
+            "repository": REPOSITORY,
+            "appIntegrationId": APP_ID,
+            "producerId": "itd-free-reviewer-producer-v1",
+            "reviewerProvider": "openai-codex-subscription",
+            "reviewerModel": "gpt-5.6-terra",
+        }
+        free_keyring.write_bytes(core.canonical_json({
+            "free-key": free_key_record
+        }))
+        free_signing_key.write_bytes(b"a" * 32)
+        for path in (app, webhook, openai, keyring, free_keyring, free_signing_key):
             path.chmod(0o600)
         configured = {
             "ITD_GITHUB_APP_CLIENT_ID": CLIENT_ID,
             "ITD_GITHUB_APP_PRIVATE_KEY_FILE": str(app),
             "ITD_GITHUB_WEBHOOK_SECRET_FILE": str(webhook),
             "ITD_PROVENANCE_KEYRING_FILE": str(keyring),
+            "ITD_FREE_REVIEWER_KEYRING_FILE": str(free_keyring),
+            "ITD_FREE_REVIEW_APP_SIGNING_KEY_FILE": str(free_signing_key),
+            "ITD_FREE_REVIEW_APP_KEY_ID": "app-free-key",
             "ITD_OPENAI_API_KEY_FILE": str(openai),
             "ITD_BROKER_DATABASE": str(root / "broker.sqlite3"),
         }
@@ -687,14 +738,34 @@ def environment_phase() -> None:
                 )
                 check(runtime.provenance_keyring["maker-key"] == key_record(), "public keyring")
                 check(
-                    runtime.broker.reviewer.reviewer_credential == "x" * 30,
-                    "reviewer key file",
+                    runtime.broker.reviewer is None
+                    and runtime.broker.paid_fallback_consent is False,
+                    "default server route has no paid reviewer or consent",
                 )
                 check(runtime.broker.auth.client_id == CLIENT_ID, "App client id")
+                check(
+                    runtime.free_reviewer_keyring
+                    == {"free-key": free_key_record}
+                    and runtime.free_app_private_key == b"a" * 32,
+                    "free reviewer and App receipt keys load from bounded files",
+                )
             finally:
                 runtime.close()
 
-        relative = dict(configured)
+        consented = dict(configured)
+        consented["ITD_PAID_REVIEW_CONSENT"] = "approved"
+        with mock.patch.dict(os.environ, consented, clear=True):
+            runtime = server.BrokerRuntime.from_environment()
+            try:
+                check(
+                    runtime.broker.reviewer.reviewer_credential == "x" * 30
+                    and runtime.broker.paid_fallback_consent is True,
+                    "paid reviewer requires explicit consent and key file",
+                )
+            finally:
+                runtime.close()
+
+        relative = dict(consented)
         relative["ITD_OPENAI_API_KEY_FILE"] = "openai"
         with mock.patch.dict(os.environ, relative, clear=True):
             expect_error(

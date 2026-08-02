@@ -123,6 +123,61 @@ Unlabelled long mixed-character tokens with high measured entropy fail closed
 instead of being sent. This reduces, but cannot eliminate, the governance risk
 of source egress; explicit consent remains mandatory.
 
+## Portable roles and deployment profiles
+
+The methodology separates people/roles from service identities. `maker`,
+`maintainer`, and `deployer` may be the same person. Only the independent
+reviewer must differ from the maker of the exact candidate. The reviewer App
+may read candidate metadata and publish its Check, but cannot merge, change
+repository contents, or deploy. A project owner may still merge and deploy
+with their own account or a separately scoped CI identity after the gate.
+
+`skills/_shared/GATE_DEPLOYMENT_PROFILES.json` defines three deployments:
+
+- `local-submission`: signed independent review before PR; no App or repository
+  administration is required, and GitHub enforcement is not claimed;
+- `self-hosted-app`: the operator registers an App under a user or organization
+  account; it may be private for that owner or public for wider installation;
+- `managed-app`: the service operator owns one public App that repository
+  owners explicitly install on selected repositories.
+
+Protection is a separate choice. `local-review` reports `LOCAL_REVIEWED`;
+`app-check` may report `APP_CHECK_ENFORCED` after the repository owner requires
+the App-owned Check; only the fully observed `organization-workflow` profile
+may report `PROTECTED`. The canonical `itd gate doctor` reads profile-aware
+`gates.json` v2 and reports the weakest verified claim across the selected
+repositories; weaker profiles never borrow the strongest profile's claim.
+Legacy v1 organization-workflow registries remain readable but are never
+silently rewritten as v2.
+
+For `local-submission`, independently adjudicate the exact staged candidate,
+then wrap that unchanged index in exactly one normal single-parent commit.
+Register the adjudication after the commit but before guarded push:
+
+```bash
+itd gate register-profile \
+  --repository <owner/repository> \
+  --checkout <absolute-git-root> \
+  --repository-owner-type <user-or-organization> \
+  --deployment-profile local-submission \
+  --protection-profile local-review \
+  --local-review-receipt-file <absolute-current-adjudication.json> \
+  --local-review-unit-id <unit-id>:general-review \
+  --local-review-risk-tier high
+itd gate doctor --repository <owner/repository>
+```
+
+The doctor must return `LOCAL_REVIEWED`. Its local validator uses Verification
+Loop `--candidate-mode committed-head`, which reconstructs the original review
+context from `HEAD^`, `HEAD^{tree}`, and the exact binary diff. Thus the commit
+does not self-invalidate the review, while an amended tree, merge commit,
+second commit, or foreign parent fails closed. The default staged validator is
+unchanged. `itd pr create` then revalidates this bridge and the exact machine
+preflight before its guarded push, creates or updates the Draft PR, and
+performs no App, broker, ruleset, or status-check call. To refresh evidence
+after commit, run the Verification Loop machine, checker, and adjudicate
+commands with `--candidate-mode committed-head`.
+
 ## GitHub gate
 
 The repository-resident `external-review-gate.yml` remains the active legacy
@@ -132,8 +187,9 @@ and cutover canaries pass. Its removal is a separate exact-candidate change
 after that evidence exists, so migration never opens an unreviewed merge
 window.
 
-The required external-review authority is the central GitHub App and review
-broker, not a repository workflow. The App receives signed `pull_request` and
+In server-enforced profiles, the required external-review publisher authority
+is the selected GitHub App and review broker, not a repository workflow. The
+App receives signed `pull_request` and
 `merge_group` webhooks, reacquires the complete candidate through GitHub APIs,
 verifies exact head/base/test-merge coordinates and Ed25519 maker provenance,
 routes to a different eligible API model, and publishes the
@@ -162,9 +218,10 @@ dispatch.
 The canonical contract is
 `skills/_shared/REVIEW_BROKER_POLICY.json`.
 
-Provision the private App through
-`scripts/itd_github_app_manifest.py`; its official manifest is closed to the
-exact broker webhook, least-privilege permissions, and the
+Provision a self-hosted private/public App or the operator-owned managed public
+App through `scripts/itd_github_app_manifest.py`. Its official manifest is
+closed to the exact broker webhook, review-only least-privilege permissions,
+and the
 `pull_request`/`merge_group` events. Registration credentials are written
 outside the repository, and `itd gate enrollment` derives the broker receipt
 from live GitHub App and ruleset metadata rather than operator assertions.
@@ -224,27 +281,29 @@ only then activate the pinned required workflow. Missing protected-base
 contract or verifier objects always remains `UNVERIFIED`; the workflow never
 falls back to candidate-owned trust material.
 
-The organization ruleset must require the pinned workflow and the external
+For the `organization-workflow` protection profile, the organization ruleset
+must require the pinned workflow and the external
 App-bound status check, require the PR to be current with its base, and block
 deletion, force-push, unexpected rules, and bypass actors. A repository-level
 ruleset cannot establish this protected workflow authority and remains
-`UNVERIFIED`. `itd gate doctor --all` validates the installed ITD version,
+`UNVERIFIED`. For a v2 `organization-workflow` row, `itd gate doctor --all`
+validates this strongest profile's
+installed ITD version,
 workflow repository/SHA, tracked contract, live ruleset, App enrollment
 receipt, broker policy/routes/budget, provenance key, and drift. `itd pr
 create` performs the local preflight, pushes only the exact receipt HEAD,
 creates or reuses a Draft PR, submits signed maker provenance, and waits for
 both server checks.
 
-`/adopt` must finish its GitHub branch with `itd gate adopt`. That command
-derives the repository from the exact origin and writes the host-global
-registry only after the protected default branch already contains a valid
-verification contract and the live ruleset, pinned workflow source, expected
-App source, broker enrollment, budget admission, and provenance key match.
-Only `itd gate doctor --repository <owner/repository>` returning `PROTECTED`
-establishes gate-ready adoption. A first adoption contract must be merged
-through the repository's pre-existing controls or an explicit audited
-temporary organization-ruleset exclusion; local/staged content is never
-treated as protected-base evidence.
+`/adopt` must select one deployment/protection profile explicitly. A local
+submission is registered with `itd gate register-profile` only after its exact
+adoption commit receives a current adjudication; `LOCAL_REVIEWED` establishes
+local review, not GitHub enforcement. App profiles require owner-authorized
+App/ruleset provisioning and profile-valid v2 coordinates. The legacy
+`itd gate adopt` command remains a fail-closed v1 organization-workflow
+bootstrap: it writes only after the protected default branch, live ruleset,
+pinned workflow, App source, broker enrollment, budget, and provenance key
+match. Only a doctor result of `PROTECTED` establishes the strongest claim.
 
 Infrastructure outage is distinct from findings:
 

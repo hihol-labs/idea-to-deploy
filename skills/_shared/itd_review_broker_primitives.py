@@ -906,6 +906,21 @@ class BrokerStore:
               observed_at TEXT NOT NULL,
               UNIQUE(repository,subject_type,pull_request,head_sha,base_sha)
             );
+            CREATE TABLE IF NOT EXISTS free_review_receipts (
+              receipt_id TEXT PRIMARY KEY,
+              repository TEXT NOT NULL,
+              pull_request INTEGER NOT NULL,
+              head_sha TEXT NOT NULL,
+              base_sha TEXT NOT NULL,
+              installation_id INTEGER NOT NULL,
+              check_run_id INTEGER NOT NULL UNIQUE,
+              check_run_app_id INTEGER NOT NULL,
+              check_run_external_id TEXT NOT NULL UNIQUE,
+              payload_json TEXT NOT NULL UNIQUE,
+              state TEXT NOT NULL CHECK(state IN ('prepared','finalized')),
+              observed_at TEXT NOT NULL,
+              UNIQUE(repository,pull_request,head_sha,base_sha)
+            );
             CREATE TABLE IF NOT EXISTS review_preparations (
               preparation_id TEXT PRIMARY KEY,
               repository TEXT NOT NULL,
@@ -3379,6 +3394,182 @@ class BrokerStore:
                 ) from exc
         return preparation_id
 
+    def prepare_free_review(
+        self,
+        payload: dict[str, Any],
+        github_api: "GitHubApi",
+        installation_token: str,
+    ) -> str:
+        """Durably store a broker-verified free receipt before success PATCH."""
+        required = {
+            "version", "kind", "repository", "pullRequest", "headSha",
+            "baseSha", "installationId", "phaseTwoReceipt",
+            "phaseTwoReceiptSha256", "checkPublication", "observedAt",
+        }
+        if not isinstance(payload, dict) or set(payload) != required:
+            raise BrokerError("UNVERIFIED", "free review evidence fields are not closed")
+        publication = payload.get("checkPublication")
+        if (
+            payload.get("version") != 1
+            or payload.get("kind") != "itd-free-review-broker-evidence"
+            or not isinstance(payload.get("phaseTwoReceipt"), dict)
+            or payload.get("phaseTwoReceiptSha256")
+            != sha256_bytes(canonical_json(payload["phaseTwoReceipt"]))
+            or not isinstance(publication, dict)
+            or set(publication) != {
+                "id", "appIntegrationId", "name", "headSha", "externalId",
+                "status", "conclusion",
+            }
+            or publication.get("name")
+            != self.policy["github"]["externalCheck"]["name"]
+            or publication.get("status") != "completed"
+            or publication.get("conclusion")
+            != self.policy["github"]["externalCheck"]["successConclusion"]
+        ):
+            raise BrokerError("UNVERIFIED", "free review evidence is invalid")
+        if not isinstance(github_api, GitHubApi) or not isinstance(
+            installation_token, str
+        ):
+            raise BrokerError("UNAVAILABLE", "free review GitHub observer is unavailable")
+        observed = github_api.request_json(
+            "GET",
+            f"/repos/{payload['repository']}/check-runs/{publication['id']}",
+            installation_token,
+        )
+        app = observed.get("app") if isinstance(observed, dict) else None
+        pending = {
+            "id": observed.get("id") if isinstance(observed, dict) else None,
+            "appIntegrationId": app.get("id") if isinstance(app, dict) else None,
+            "name": observed.get("name") if isinstance(observed, dict) else None,
+            "headSha": observed.get("head_sha") if isinstance(observed, dict) else None,
+            "externalId": observed.get("external_id") if isinstance(observed, dict) else None,
+            "status": observed.get("status") if isinstance(observed, dict) else None,
+            "conclusion": observed.get("conclusion") if isinstance(observed, dict) else None,
+        }
+        expected_pending = dict(publication)
+        expected_pending.update({"status": "in_progress", "conclusion": None})
+        if pending != expected_pending:
+            raise BrokerError("UNVERIFIED", "free review pending Check Run is not exact")
+        encoded = canonical_json(payload).decode("utf-8")
+        receipt_id = sha256_bytes(encoded.encode("utf-8"))
+        try:
+            with self.immediate() as db:
+                db.execute(
+                    """
+                    INSERT INTO free_review_receipts(
+                      receipt_id,repository,pull_request,head_sha,base_sha,
+                      installation_id,check_run_id,check_run_app_id,
+                      check_run_external_id,payload_json,state,observed_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        receipt_id, payload["repository"], payload["pullRequest"],
+                        payload["headSha"], payload["baseSha"],
+                        payload["installationId"], publication["id"],
+                        publication["appIntegrationId"], publication["externalId"],
+                        encoded, "prepared", payload["observedAt"],
+                    ),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise BrokerError("UNVERIFIED", "free review evidence is replayed") from exc
+        return receipt_id
+
+    def finalize_free_review(
+        self, receipt_id: str, github_api: "GitHubApi", installation_token: str,
+    ) -> None:
+        with self._lock:
+            row = self.db.execute(
+                "SELECT payload_json,state FROM free_review_receipts WHERE receipt_id=?",
+                (receipt_id,),
+            ).fetchone()
+        if row is None or row["state"] != "prepared":
+            raise BrokerError("UNVERIFIED", "free review preparation is absent")
+        payload = decode_strict_json(
+            row["payload_json"].encode("utf-8"), "stored free review evidence"
+        )
+        expected = payload["checkPublication"]
+        observed = github_api.request_json(
+            "GET", f"/repos/{payload['repository']}/check-runs/{expected['id']}",
+            installation_token,
+        )
+        app = observed.get("app") if isinstance(observed, dict) else None
+        actual = {
+            "id": observed.get("id") if isinstance(observed, dict) else None,
+            "appIntegrationId": app.get("id") if isinstance(app, dict) else None,
+            "name": observed.get("name") if isinstance(observed, dict) else None,
+            "headSha": observed.get("head_sha") if isinstance(observed, dict) else None,
+            "externalId": observed.get("external_id") if isinstance(observed, dict) else None,
+            "status": observed.get("status") if isinstance(observed, dict) else None,
+            "conclusion": observed.get("conclusion") if isinstance(observed, dict) else None,
+        }
+        if actual != expected:
+            raise BrokerError("UNVERIFIED", "free review final Check Run is not exact")
+        with self.immediate() as db:
+            changed = db.execute(
+                "UPDATE free_review_receipts SET state='finalized',observed_at=? "
+                "WHERE receipt_id=? AND state='prepared'",
+                (now_iso(), receipt_id),
+            ).rowcount
+        if changed != 1:
+            raise BrokerError("UNVERIFIED", "free review finalization raced")
+
+    def free_review_for_coordinates(
+        self, coordinates: Coordinates,
+    ) -> dict[str, Any] | None:
+        coordinates.validate()
+        with self._lock:
+            row = self.db.execute(
+                """
+                SELECT receipt_id,payload_json,state
+                FROM free_review_receipts
+                WHERE repository=? AND pull_request=? AND head_sha=? AND base_sha=?
+                """,
+                (
+                    coordinates.repository, coordinates.pull_request,
+                    coordinates.head_sha, coordinates.base_sha,
+                ),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "receiptId": row["receipt_id"],
+            "coordinates": coordinates,
+            "payload": decode_strict_json(
+                row["payload_json"].encode("utf-8"),
+                "stored free review evidence",
+            ),
+            "state": row["state"],
+        }
+
+    def pending_free_reviews(self, limit: int = 100) -> list[dict[str, Any]]:
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise BrokerError("UNVERIFIED", "free review recovery limit is invalid")
+        with self._lock:
+            rows = self.db.execute(
+                """
+                SELECT * FROM free_review_receipts
+                WHERE state='prepared'
+                ORDER BY observed_at,receipt_id LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "receiptId": row["receipt_id"],
+                "coordinates": Coordinates(
+                    row["repository"], int(row["pull_request"]),
+                    row["head_sha"], row["base_sha"],
+                    int(row["installation_id"]),
+                ).validate(),
+                "payload": decode_strict_json(
+                    row["payload_json"].encode("utf-8"),
+                    "stored free review evidence",
+                ),
+                "state": row["state"],
+            }
+            for row in rows
+        ]
+
     def authorize_terminal_publication(
         self,
         evidence_kind: str,
@@ -3410,6 +3601,21 @@ class BrokerStore:
                 if row is not None
                 and row["state"] == "finalized"
                 and row["has_final_receipt"] == 1
+                else None
+            )
+        elif evidence_kind == "free_review":
+            with self._lock:
+                row = self.db.execute(
+                    "SELECT payload_json,state FROM free_review_receipts "
+                    "WHERE receipt_id=?",
+                    (preparation_id,),
+                ).fetchone()
+            publication = (
+                decode_strict_json(
+                    row["payload_json"].encode("utf-8"),
+                    "stored free review evidence",
+                )["checkPublication"]
+                if row is not None and row["state"] == "prepared"
                 else None
             )
         elif evidence_kind == "failure":

@@ -1,117 +1,116 @@
----
-project: /home/hihol/projects/idea-to-deploy
-stage: implementation
-from_role: completed Codex MEM-8 recovery session
-to_role: continuing Codex GPG-001 implementation session
-reason: MEM-8 repair committed and accepted; free reviewer producer is next
-branch: codex/harness-lifecycle-trust
-head_commit: 43e65b06aa32731da7b6725a9d0e37de0c42dc43
-accepted_tree: 92fd0590a80d0234d829a13c5f572b28f6c7de4b
----
+# GPG-001 handoff — canonical profile registry, final exact acceptance next
 
-# Handoff — GPG-001
+## 1. Current objective
 
-> [!todo] Первое действие
-> Реализовать следующий bounded slice плана: free isolated fresh-model reviewer
-> producer без inherited context, network, secrets или repository mutation;
-> reviewer проверяет exact candidate до создания PR. После PASS создать Draft
-> PR, добавить signed two-phase exact receipt и App-side live-coordinate
-> revalidation mutations. Paid API, push и PR update запрещены до нового exact
-> review/adjudication.
+Continue the existing high-risk `GPG-001` unit with WIP=1. Do not create a new
+goal. The nine ordered stages remain intact, but their architecture is now
+portable: maker/maintainer/deployer may overlap, only the reviewer differs from
+maker, and deployment/protection profiles are selected per project. Paid API,
+external writes, merge, deploy, and release require their own authorization.
 
-## Текущее состояние
+## 2. Exact repository state
 
-- Активная единица `GPG-001`, high risk, `in_progress`, WIP=1.
-- Ветка на `43e65b0`; MEM-8 repair committed локально. Draft PR #177 не
-  обновлён; push не выполнялся.
-- Коммит содержит broker/App/oracle/bootstrap slice и transparent review
-  только для declared bounded `.jsonl.gz`; generic binary остаётся
-  `UNVERIFIED`.
-- Перед коммитом tree `f294c532...` прошёл free fresh `gpt-5.6-terra` full
-  review и exact adjudication. После коммита обязательный новый `/review`
-  сравнил весь parent→HEAD diff и нашёл пропущенную MEM-8 регрессию.
-- Отдельный fresh refute подтвердил finding: удалены closed registry schema,
-  validator, unknown-provider `abstain`, `/adopt` inventory, security MEM-8 и
-  mutation test. `tests/run-all.sh --quick` при этом GREEN — именно поэтому
-  нужно вернуть targeted sensor.
-- RED воспроизведён в чистом `954a3b6`: parent sensor завершился exit 1 из-за
-  отсутствующего `skills/_shared/itd_harness_controls.py`. Recovery overlay
-  восстановил parent schema/validator/test byte-for-byte и registry/adopt/
-  security/contract semantics.
-- На pre-handoff staged tree `091db828...` GREEN: targeted tool-trust 13/13,
-  operational cold-start all pass, meta-review `PASSED`, host adapters PASS,
-  `bash tests/run-all.sh --quick` → `DONE fails:none`.
-- Risk-budget general bucket достиг порога; новые product changes запрещены до
-  успешного bound `/review`. Checker prompt подготовлен в ignored
-  `.itd-memory/verification-loop/prompts/`; после этой tracked handoff-правки
-  tree и имя prompt/report нужно обновить.
-- Fresh review tree `b52779be...` завершился `BLOCKED`: подтвердил nested
-  capability schema/validator mismatch, local unreviewed `allow`, отсутствие
-  sensor в run-all/CI и неполное покрытие `/adopt` no-mutation wording. Все
-  четыре finding закрыты regression-first; targeted all/integration и
-  run-all drift уже GREEN, но новый exact tree ещё не заморожен и не принят.
-- Re-review tree `8dbd29fb...` снял эти findings, но вернул один Important:
-  stale `EXPECTED_DEMAND_SHA` в `verify_semantic_navigation.py`. RED
-  воспроизведён, константа обновлена до фактического SHA tracked `DEMAND.json`,
-  semantic-navigation/tool-trust/meta-review снова GREEN; нужен новый exact
-  checker с нулевыми findings/unverified и adjudication.
-- Final tree `92fd0590...` прошёл machine oracle, fresh full
-  `gpt-5.6-terra` с `findings=[]`, `unverified=[]` и adjudication `PASSED`;
-  exact tree сохранён commit `43e65b0`. MEM-8 blocker закрыт. Post-commit
-  state/HANDOFF/AC16 reconciliation пока является новым uncommitted overlay и
-  не входит в тот adjudicated commit.
-- Plan из 9 пунктов обновлён: бесплатный isolated fresh-model reviewer —
-  primary; paid Responses API — optional fallback только с отдельным согласием
-  и бюджетом; App остаётся server-side authority.
-- Единственное изменение исходного 9-point плана — транспорт reviewer:
-  обязательную pre-PR проверку выполняет другая fresh AI model без inherited
-  development context. Gate semantics, exact binding и App authority остаются.
-- Global guarded push сейчас блокируется из-за отсутствующего
-  `/home/hihol/.config/itd/gates.json`. Не обходить `--no-verify`.
+- Repository: `/home/hihol/projects/idea-to-deploy`
+- Branch: `codex/harness-lifecycle-trust`
+- HEAD: `7d463b64bc7d542adc4e562ec06e1d5f828ea617`
+- Local branch is four commits ahead of origin.
+- The staged candidate contains the broker/free-review implementation,
+  security repairs, portable profile contract, generic App manifest flow,
+  canonical gates.json v2 local-review routing, contracts, tests, and this
+  checkpoint. Resolve its exact tree after this edit; no earlier receipt
+  accepts the self-referential final checkpoint.
+- Draft PR #177 is still open and not updated; remote head is `e0384d6`.
 
-## Авторитетные входы
+## 3. Completed implementation
 
-1. `AGENTS.md`
-2. `HANDOFF.md`
-3. `.itd-memory/STATE.json`
-4. `ROOT_CAUSE.md`
-5. `.itd/SCOPE_LOCK.md`
-6. `.itd/FORBIDDEN_CHANGES.md`
-7. `.itd-memory/session_2026-08-01.md`
-8. `.itd/GPG-001_NINE_POINT_PLAN.md`
-9. `.itd/ACCEPTANCE_CONTRACT.json` AC15/AC16
+- Free producer, signed Ed25519 two-phase receipts, App-side exact live
+  revalidation, durable publication recovery, and free-primary routing are
+  implemented; automatic paid fallback remains forbidden.
+- Candidate-hosted producer code is rejected before subscription auth/signing
+  key access. Invalid/foreign receipts and padded identities are rejected
+  before App installation-token or GitHub API work.
+- `skills/_shared/GATE_DEPLOYMENT_PROFILES.json` defines portable roles,
+  `local-submission`, `self-hosted-app`, `managed-app`, and separate protection
+  claims. Only `organization-workflow` may claim `PROTECTED`.
+- `scripts/itd_github_app_manifest.py` supports user/organization App owners,
+  self-hosted private/public Apps, and managed public Apps. Reviewer App
+  permissions remain Checks write plus Contents/Metadata/PR read; it cannot
+  merge or deploy. A project owner may author, merge, and deploy their own work.
+- Canonical `gates.json` v2 now stores deployment/protection profiles. The
+  canonical doctor reports the weakest verified claim; local guarded push/PR
+  requires the current exact adjudication and performs no App/broker call.
+  Legacy v1 remains readable and is never silently migrated.
+- Verification Loop `committed-head` mode closes the local-review commit gap:
+  a clean single-parent `HEAD` is accepted only when its parent, full tree, and
+  binary diff reproduce the staged review context. The default staged mode is
+  unchanged; a changed tree, merge commit, or second commit fails closed.
 
-Persistent `.itd-memory/GOAL.json` относится к старому Practical
-Effectiveness goal (36/38, PE5-008/009 blocked). Не перезаписывать и не
-смешивать его с GPG-001.
+## 4. Latest bound evidence before this checkpoint
 
-## Команды проверки
+- Manifest/profile 30, producer 57, broker full 730, server 50, deployment 25;
+  release 14 criteria, meta-review, host adapters, and quick suite passed.
+- A fresh general review found and blocked a whitespace same-model bypass; its
+  creation, re-signed verification, and broker admission regressions are GREEN.
+- Pre-checkpoint general adjudication:
+  `.itd-memory/verification-loop/receipts/98b1d51cc1bb7d76/GPG-001-general-review-adjudication-a1.json`.
+- Pre-checkpoint security adjudication:
+  `.itd-memory/verification-loop/receipts/2a54c162a0da2992/GPG-001-security-review-adjudication-a1.json`.
+- Both receipts become stale when this tracked HANDOFF changes. Produce new
+  current receipts before commit, push, or PR update.
+- The first final profile-registry review on tree `83c5c625...` found the
+  self-invalidating staged-review/commit lifecycle and returned `BLOCKED`.
+  The committed-head bridge and its negative canaries are the bounded repair;
+  they still require fresh general/security adjudication on the new tree.
 
-```bash
-git diff --check
-sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py
-sh skills/_shared/itd_py.sh tests/verify_operational_cold_start.py
-sh skills/_shared/itd_py.sh tests/meta_review.py --verbose
-sh skills/_shared/itd_py.sh tests/verify_host_adapters.py
-bash tests/run-all.sh --quick
-```
+## 5. Live boundary
 
-После GREEN заморозить exact staged candidate, выполнить machine oracle,
-fresh different-model checker и adjudication для `GPG-001:general-review`.
-Только receipt с `findings=[]` и `unverified=[]` разблокирует commit.
+- `~/.config/itd/gates.json` is absent; guarded raw push remains blocked. Never
+  use `--no-verify` or another bypass.
+- No live App/ruleset/provenance mutation is implied by local acceptance.
+- `local-submission` needs no repository administration. `self-hosted-app` and
+  `managed-app` require the repository owner to install the App; protection
+  rules require owner/admin action.
+- A concrete maintainer or external repository is a pilot/configuration, not a
+  methodology dependency.
 
-## Последовательность после repair
+## 6. Next exact step
 
-1. Implement/test free isolated reviewer producer: no inherited context,
-   secrets, network or mutation tools; host-observed model/session.
-2. Sign two-phase exact receipt and revalidate live PR/base/head/check SHA in
-   broker before App-owned Check publication.
-3. Add same-session/inherited-context/forged/stale/unavailable canaries and
-   prove no automatic paid dispatch.
-4. Deploy App/ruleset serially, then canaries, release/install and doctor.
+Resolve the final staged tree after the documentation/checkpoint update and
+produce current high-risk machine, fresh general checker, fresh security
+checker, and adjudication receipts. After that, choose and execute a deployment
+profile serially; do not silently assume organization ownership:
 
-> [!warning]
-> GPG-001 не завершена. Не заявлять completion без live App/ruleset/private
-> repo evidence и актуального exact-candidate adjudication receipt. Не
-> использовать ранее раскрытый ключ, не сохранять secrets и не редактировать
-> installed plugin cache.
+1. Establish a stable HTTPS broker target only for an App profile.
+2. For self-hosted, register a private/public user/organization App. For
+   managed, register the operator public App. The repository owner installs it.
+3. Select `local-review`, `app-check`, or `organization-workflow`; run matching
+   negative canaries and never call a weaker profile `PROTECTED`.
+4. For local-review, review the staged candidate, commit exactly that index as
+   one normal single-parent commit, register the receipt, and let doctor verify
+   `--candidate-mode committed-head`; do not add a second commit before push.
+5. Commit/publish only through the guarded flow after separate authorization;
+   Draft PR #177 remains unmodified until then.
+
+## 7. Hard boundaries
+
+- A local receipt is not evidence of live GitHub protection.
+- Do not continue with live mutations, commit, or publish until current
+  exact-candidate general and security adjudications accept the complete index,
+  including this checkpoint. Protection requirements follow the explicitly
+  selected profile; no profile selection authorizes merge/deploy.
+- Do not raw-push, bypass hooks, use paid API, merge, release, edit installed
+  plugin cache, or store secrets in the repository.
+- The full PR base-to-candidate diff exceeds the producer direct bound; do not
+  truncate it. Use the bounded staged-delta/hierarchical Verification Loop.
+
+## 8. Authoritative inputs
+
+Read, in order: `AGENTS.md`, this file, `.itd-memory/STATE.json`,
+`.itd/GPG-001_NINE_POINT_PLAN.md`, `.itd/ACCEPTANCE_CONTRACT.json`
+AC11/AC15/AC16, `skills/_shared/GATE_DEPLOYMENT_PROFILES.json`, and
+`.itd/VERIFICATION_CONTRACT.json`.
+
+## 9. Session transfer
+
+Open the same WSL path in Codex after stopping the old session. Preserve WIP=1
+and revalidate the exact index rather than trusting this narrative.

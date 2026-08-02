@@ -256,12 +256,49 @@ def registry_row(
     }
 
 
+def profile_registry_row(args: argparse.Namespace) -> dict[str, Any]:
+    receipt = args.local_review_receipt_file
+    key_file = args.provenance_key_file
+    return {
+        "repository": args.repository,
+        "checkout": str(args.checkout.resolve()),
+        "repositoryOwnerType": args.repository_owner_type,
+        "deploymentProfile": args.deployment_profile,
+        "protectionProfile": args.protection_profile,
+        "localReviewReceiptFile": (
+            str(receipt.resolve()) if receipt is not None else None
+        ),
+        "localReviewUnitId": args.local_review_unit_id,
+        "localReviewRiskTier": args.local_review_risk_tier,
+        "brokerUrl": (
+            args.broker_url.rstrip("/") if args.broker_url is not None else None
+        ),
+        "appId": args.app_id,
+        "appOwner": args.app_owner,
+        "appOwnerType": args.app_owner_type,
+        "appVisibility": args.app_visibility,
+        "rulesetScope": args.scope,
+        "rulesetId": args.ruleset_id,
+        "machineWorkflowRepositoryId": args.workflow_repository_id,
+        "machineWorkflowSha": args.workflow_sha,
+        "provenanceKeyId": args.provenance_key_id,
+        "provenanceKeyFile": (
+            str(key_file.resolve()) if key_file is not None else None
+        ),
+        "enrollmentReceiptSha256": args.enrollment_receipt_sha256,
+    }
+
+
 def persist_registry_row(
     row: dict[str, Any],
     path: Path,
 ) -> Path:
     if path.exists():
         current = gate.load_registry(path)
+        if current["version"] != 1:
+            raise gate.GateError(
+                "BLOCKED", "legacy registration cannot rewrite a v2 registry"
+            )
     else:
         current = {"version": 1, "repositories": []}
     rows = [
@@ -273,6 +310,26 @@ def persist_registry_row(
     rows.append(row)
     rows.sort(key=lambda value: value["repository"].casefold())
     return save_registry({"version": 1, "repositories": rows}, path)
+
+
+def persist_profile_registry_row(row: dict[str, Any], path: Path) -> Path:
+    if path.exists():
+        current = gate.load_registry(path)
+        if current["version"] != 2:
+            raise gate.GateError(
+                "BLOCKED",
+                "legacy v1 registry requires explicit profile re-registration",
+            )
+    else:
+        current = {"version": 2, "repositories": []}
+    rows = [
+        value for value in current["repositories"]
+        if value["repository"].casefold()
+        != str(row["repository"]).casefold()
+    ]
+    rows.append(row)
+    rows.sort(key=lambda value: value["repository"].casefold())
+    return save_registry({"version": 2, "repositories": rows}, path)
 
 
 def register_entry(args: argparse.Namespace) -> dict[str, Any]:
@@ -293,6 +350,21 @@ def register_entry(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "status": "REGISTERED",
         "repository": args.repository,
+        "registry": str(target),
+    }
+
+
+def register_profile_entry(args: argparse.Namespace) -> dict[str, Any]:
+    path = args.registry.resolve() if args.registry else gate.registry_path()
+    row = gate.validate_profile_registry(
+        {"version": 2, "repositories": [profile_registry_row(args)]}
+    )["repositories"][0]
+    target = persist_profile_registry_row(row, path)
+    return {
+        "status": "REGISTERED",
+        "repository": row["repository"],
+        "deploymentProfile": row["deploymentProfile"],
+        "protectionProfile": row["protectionProfile"],
         "registry": str(target),
     }
 
@@ -690,13 +762,15 @@ def organization_repositories(
 
 def doctor(args: argparse.Namespace) -> dict[str, Any]:
     registry = gate.load_registry(args.registry)
+    profiled = registry["version"] == 2
     selected = [
         row
         for row in registry["repositories"]
-        if args.all or row["repository"] == args.repository
+        if args.all
+        or row["repository"].casefold() == str(args.repository).casefold()
     ]
     rows = [
-        gate.doctor_entry(row)
+        gate.profile_doctor_entry(row) if profiled else gate.doctor_entry(row)
         for row in selected
     ]
     if args.all:
@@ -708,6 +782,10 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
             row["repository"].split("/", 1)[0]
             for row in registry["repositories"]
             if row["rulesetScope"] == "organization"
+            and (
+                not profiled
+                or row["protectionProfile"] == "organization-workflow"
+            )
         }
         for owner in sorted(owners, key=str.casefold):
             for repository in organization_repositories(owner):
@@ -728,8 +806,13 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
         raise gate.GateError("UNVERIFIED", "no registry entries selected")
     rows.sort(key=lambda row: str(row["repository"]).casefold())
     protected = sum(row["status"] == "PROTECTED" for row in rows)
+    status = (
+        gate.aggregate_claim(rows)
+        if profiled
+        else "PROTECTED" if protected == len(rows) else "UNVERIFIED"
+    )
     return {
-        "status": "PROTECTED" if protected == len(rows) else "UNVERIFIED",
+        "status": status,
         "protected": protected,
         "total": len(rows),
         "repositories": rows,
@@ -1329,6 +1412,24 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
         )
     require_registered_origin(root, entry["repository"])
     _, head = ensure_clean_branch(root)
+    local_review = (
+        registry["version"] == 2
+        and entry["protectionProfile"] == "local-review"
+    )
+    if registry["version"] == 2 and entry["protectionProfile"] == "app-check":
+        raise gate.GateError(
+            "UNVERIFIED",
+            "app-check guarded PR transport is not activated in this slice",
+        )
+    if local_review:
+        inspection = gate.profile_doctor_entry(entry)
+        if (
+            inspection.get("status") != "LOCAL_REVIEWED"
+            or inspection.get("drift") != []
+        ):
+            raise gate.GateError(
+                "UNVERIFIED", "current local independent review is not valid"
+            )
     preflight = machine_preflight(root, head)
     pull_request = create_draft_pr(
         root,
@@ -1342,6 +1443,19 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
         raise gate.GateError(
             "UNVERIFIED", "Draft PR head differs from machine-preflight HEAD"
         )
+    if local_review:
+        return {
+            "status": "LOCAL_REVIEWED",
+            "repository": entry["repository"],
+            "pullRequest": pull_request["number"],
+            "url": pull_request["url"],
+            "headSha": head,
+            "baseSha": str(pull_request["baseRefOid"]).lower(),
+            "checkSha": None,
+            "preflightReceipt": str(preflight),
+            "provenanceReceipt": None,
+            "provenance": "NOT_REQUIRED",
+        }
     current = wait_pull_candidate(
         entry["repository"],
         pull_request["number"],
@@ -1428,6 +1542,44 @@ def parser() -> argparse.ArgumentParser:
     register.add_argument("--provenance-key-file", type=Path, required=True)
     register.add_argument("--registry", type=Path)
     register.set_defaults(handler=register_entry)
+
+    profile = gate_sub.add_parser("register-profile")
+    profile.add_argument("--repository", required=True)
+    profile.add_argument("--checkout", type=Path, required=True)
+    profile.add_argument(
+        "--repository-owner-type", choices=["user", "organization"],
+        required=True,
+    )
+    profile.add_argument(
+        "--deployment-profile",
+        choices=["local-submission", "self-hosted-app", "managed-app"],
+        required=True,
+    )
+    profile.add_argument(
+        "--protection-profile",
+        choices=["local-review", "app-check", "organization-workflow"],
+        required=True,
+    )
+    profile.add_argument("--local-review-receipt-file", type=Path)
+    profile.add_argument("--local-review-unit-id")
+    profile.add_argument(
+        "--local-review-risk-tier",
+        choices=["low", "medium", "high", "unknown"],
+    )
+    profile.add_argument("--broker-url")
+    profile.add_argument("--app-id", type=int)
+    profile.add_argument("--app-owner")
+    profile.add_argument("--app-owner-type", choices=["user", "organization"])
+    profile.add_argument("--app-visibility", choices=["private", "public"])
+    profile.add_argument("--scope", choices=["repository", "organization"])
+    profile.add_argument("--ruleset-id", type=positive_int)
+    profile.add_argument("--workflow-repository-id", type=int)
+    profile.add_argument("--workflow-sha")
+    profile.add_argument("--provenance-key-id")
+    profile.add_argument("--provenance-key-file", type=Path)
+    profile.add_argument("--enrollment-receipt-sha256")
+    profile.add_argument("--registry", type=Path)
+    profile.set_defaults(handler=register_profile_entry)
 
     adopt = gate_sub.add_parser("adopt")
     adopt.add_argument("--root", type=Path, default=Path.cwd())

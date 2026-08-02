@@ -9,6 +9,7 @@ import hashlib
 import os
 import re
 import subprocess
+import sys
 import urllib.parse
 import urllib.request
 from ctypes import wintypes
@@ -22,6 +23,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 
 API_VERSION = "2026-03-10"
 RULESET_NAME = "ITD protected branches"
+APP_CHECK_RULESET_NAME = "ITD App-check branches"
 EXTERNAL_CHECK = "ITD external review gate"
 MACHINE_CHECK = "ITD machine oracle"
 GITHUB_ACTIONS_INTEGRATION_ID = 15368
@@ -37,8 +39,17 @@ PROVENANCE_SAFE_TEXT_RE = re.compile(r"^[^\x00-\x1f\x7f]{1,200}$")
 MAX_GH_OUTPUT_BYTES = 4 * 1024 * 1024
 MAX_HTTP_RESPONSE_BYTES = 1024 * 1024
 POLICY_PATH = Path(__file__).with_name("REVIEW_BROKER_POLICY.json")
+PROFILE_PATH = Path(__file__).with_name("GATE_DEPLOYMENT_PROFILES.json")
 INSTALL_ROOT = Path(__file__).resolve().parents[2]
 MIN_GATE_VERSION = (1, 95, 0)
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+OWNER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
+CLAIM_ORDER = {
+    "UNVERIFIED": 0,
+    "LOCAL_REVIEWED": 1,
+    "APP_CHECK_ENFORCED": 2,
+    "PROTECTED": 3,
+}
 
 
 class GateError(RuntimeError):
@@ -109,6 +120,63 @@ def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         raise GateError("UNVERIFIED", f"{label} fields are invalid")
     return value
+
+
+def load_gate_profiles() -> dict[str, Any]:
+    """Load the portable profile contract as the only claim map."""
+    try:
+        value = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise GateError(
+            "UNAVAILABLE", "gate deployment profile contract is unavailable"
+        ) from exc
+    root = _exact(
+        value,
+        {
+            "version", "roles", "reviewerAppPermissions",
+            "deploymentProfiles", "protectionProfiles",
+        },
+        "gate deployment profile contract",
+    )
+    roles = root["roles"]
+    deployments = root["deploymentProfiles"]
+    protections = root["protectionProfiles"]
+    claims = {
+        name: row.get("claim") if isinstance(row, dict) else None
+        for name, row in protections.items()
+    } if isinstance(protections, dict) else {}
+    if (
+        root["version"] != 1
+        or not isinstance(roles, dict)
+        or set(roles)
+        != {"maker", "independentReviewer", "maintainer", "deployer"}
+        or not isinstance(deployments, dict)
+        or set(deployments)
+        != {"local-submission", "self-hosted-app", "managed-app"}
+        or claims
+        != {
+            "local-review": "LOCAL_REVIEWED",
+            "app-check": "APP_CHECK_ENFORCED",
+            "organization-workflow": "PROTECTED",
+        }
+        or root["reviewerAppPermissions"]
+        != {
+            "checks": "write", "contents": "read", "metadata": "read",
+            "pull_requests": "read",
+        }
+        or roles.get("independentReviewer", {}).get("mustDifferFrom")
+        != ["maker"]
+        or deployments.get("local-submission", {}).get("appRequired")
+        is not False
+        or deployments.get("self-hosted-app", {}).get("visibility")
+        != ["private", "public"]
+        or deployments.get("managed-app", {}).get("visibility")
+        != ["public"]
+    ):
+        raise GateError(
+            "UNVERIFIED", "gate deployment profile contract is invalid"
+        )
+    return root
 
 
 def installed_version() -> str:
@@ -371,7 +439,7 @@ def sign_provenance(
     return value
 
 
-def validate_registry(value: Any) -> dict[str, Any]:
+def _validate_legacy_registry(value: Any) -> dict[str, Any]:
     root = _exact(value, {"version", "repositories"}, "gate registry")
     if root["version"] != 1 or not isinstance(root["repositories"], list):
         raise GateError("UNVERIFIED", "gate registry version/list is invalid")
@@ -451,6 +519,142 @@ def load_registry(path: Path | None = None) -> dict[str, Any]:
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise GateError("UNVERIFIED", "gate registry JSON is invalid") from exc
     return validate_registry(value)
+
+
+def validate_profile_registry(value: Any) -> dict[str, Any]:
+    """Validate the canonical profile-aware gates.json v2 inventory."""
+    root = _exact(value, {"version", "repositories"}, "profile registry")
+    if root["version"] != 2 or not isinstance(root["repositories"], list):
+        raise GateError("UNVERIFIED", "profile registry version/list is invalid")
+    profiles = load_gate_profiles()
+    deployments = profiles["deploymentProfiles"]
+    protections = profiles["protectionProfiles"]
+    fields = {
+        "repository", "checkout", "repositoryOwnerType",
+        "deploymentProfile", "protectionProfile",
+        "localReviewReceiptFile", "localReviewUnitId",
+        "localReviewRiskTier", "brokerUrl", "appId", "appOwner",
+        "appOwnerType", "appVisibility", "rulesetScope", "rulesetId",
+        "machineWorkflowRepositoryId", "machineWorkflowSha",
+        "provenanceKeyId", "provenanceKeyFile",
+        "enrollmentReceiptSha256",
+    }
+    local_fields = (
+        "localReviewReceiptFile", "localReviewUnitId", "localReviewRiskTier",
+    )
+    app_fields = (
+        "brokerUrl", "appId", "appOwner", "appOwnerType", "appVisibility",
+        "rulesetScope", "rulesetId", "machineWorkflowRepositoryId",
+        "machineWorkflowSha", "provenanceKeyId", "provenanceKeyFile",
+        "enrollmentReceiptSha256",
+    )
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for raw in root["repositories"]:
+        row = _exact(raw, fields, "profile registry repository")
+        repository = str(row["repository"])
+        checkout = Path(str(row["checkout"]))
+        deployment = row["deploymentProfile"]
+        protection = row["protectionProfile"]
+        identity = repository.casefold()
+        if (
+            not REPO_RE.fullmatch(repository)
+            or identity in seen
+            or not checkout.is_absolute()
+            or row["repositoryOwnerType"] not in {"user", "organization"}
+            or deployment not in deployments
+            or protection not in protections
+        ):
+            raise GateError(
+                "UNVERIFIED", "profile registry identity/profile is invalid"
+            )
+        if protection == "local-review":
+            receipt = Path(str(row["localReviewReceiptFile"]))
+            if (
+                deployment != "local-submission"
+                or not receipt.is_absolute()
+                or not isinstance(row["localReviewUnitId"], str)
+                or not re.fullmatch(
+                    r"[A-Za-z0-9_.:-]{1,200}", row["localReviewUnitId"]
+                )
+                or row["localReviewRiskTier"]
+                not in {"low", "medium", "high", "unknown"}
+                or any(row[name] is not None for name in app_fields)
+            ):
+                raise GateError(
+                    "UNVERIFIED", "local-review profile evidence is invalid"
+                )
+        else:
+            deployment_row = deployments.get(deployment)
+            key_file = Path(str(row["provenanceKeyFile"]))
+            parsed = urllib.parse.urlsplit(str(row["brokerUrl"]))
+            if (
+                any(row[name] is not None for name in local_fields)
+                or deployment not in {"self-hosted-app", "managed-app"}
+                or not isinstance(deployment_row, dict)
+                or deployment_row.get("appRequired") is not True
+                or row["appOwnerType"]
+                not in deployment_row.get("ownerTypes", [])
+                or row["appVisibility"]
+                not in deployment_row.get("visibility", [])
+                or not OWNER_RE.fullmatch(str(row["appOwner"]))
+                or parsed.scheme != "https"
+                or not parsed.netloc
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+                or type(row["appId"]) is not int
+                or row["appId"] <= 0
+                or row["rulesetScope"] not in {"repository", "organization"}
+                or type(row["rulesetId"]) is not int
+                or row["rulesetId"] <= 0
+                or not KEY_ID_RE.fullmatch(str(row["provenanceKeyId"]))
+                or not key_file.is_absolute()
+                or not SHA256_RE.fullmatch(
+                    str(row["enrollmentReceiptSha256"])
+                )
+            ):
+                raise GateError(
+                    "UNVERIFIED", "App profile evidence is invalid"
+                )
+            if protection == "app-check":
+                if (
+                    row["machineWorkflowRepositoryId"] is not None
+                    or row["machineWorkflowSha"] is not None
+                ):
+                    raise GateError(
+                        "UNVERIFIED",
+                        "App-check cannot borrow machine-workflow authority",
+                    )
+            elif protection == "organization-workflow":
+                if (
+                    row["repositoryOwnerType"] != "organization"
+                    or row["rulesetScope"] != "organization"
+                    or type(row["machineWorkflowRepositoryId"]) is not int
+                    or row["machineWorkflowRepositoryId"] <= 0
+                    or not SHA_RE.fullmatch(str(row["machineWorkflowSha"]))
+                ):
+                    raise GateError(
+                        "UNVERIFIED",
+                        "protected workflow requires organization authority",
+                    )
+            else:
+                raise GateError("UNVERIFIED", "App protection profile is invalid")
+        seen.add(identity)
+        rows.append(dict(row))
+    return {"version": 2, "repositories": rows}
+
+
+def validate_registry(value: Any) -> dict[str, Any]:
+    """Dispatch the canonical registry without silently changing its version."""
+    if not isinstance(value, dict) or set(value) != {"version", "repositories"}:
+        raise GateError("UNVERIFIED", "gate registry fields are invalid")
+    if value.get("version") == 1:
+        return _validate_legacy_registry(value)
+    if value.get("version") == 2:
+        return validate_profile_registry(value)
+    raise GateError("UNVERIFIED", "gate registry version is unsupported")
 
 
 def ruleset_payload(
@@ -581,6 +785,106 @@ def validate_live_ruleset(
         drift.append(f"unexpected rule type: {rule_type}")
     for rule_type, expected_rule in expected_by_type.items():
         if actual_by_type.get(rule_type) != expected_rule:
+            drift.append(f"rule differs or is missing: {rule_type}")
+    return drift
+
+
+def app_check_ruleset_payload(
+    app_id: int,
+    *,
+    scope: str,
+    repository_name: str | None = None,
+) -> dict[str, Any]:
+    """Build an App-bound required-check policy with no workflow claim."""
+    if type(app_id) is not int or app_id <= 0:
+        raise GateError("UNVERIFIED", "GitHub App id is invalid")
+    conditions: dict[str, Any] = {
+        "ref_name": {
+            "include": ["~DEFAULT_BRANCH", "refs/heads/release/*"],
+            "exclude": [],
+        }
+    }
+    if scope == "organization":
+        if repository_name is not None:
+            raise GateError(
+                "UNVERIFIED", "organization ruleset cannot target one name here"
+            )
+        conditions["repository_name"] = {
+            "include": ["~ALL"], "exclude": [], "protected": True,
+        }
+    elif scope == "repository":
+        if not OWNER_RE.fullmatch(str(repository_name)):
+            raise GateError("UNVERIFIED", "repository ruleset target is invalid")
+    else:
+        raise GateError("UNVERIFIED", "ruleset scope is invalid")
+    return {
+        "name": APP_CHECK_RULESET_NAME,
+        "target": "branch",
+        "enforcement": "active",
+        "bypass_actors": [],
+        "conditions": conditions,
+        "rules": [
+            {"type": "deletion"},
+            {"type": "non_fast_forward"},
+            {
+                "type": "pull_request",
+                "parameters": {
+                    "allowed_merge_methods": ["merge", "squash", "rebase"],
+                    "dismiss_stale_reviews_on_push": True,
+                    "require_code_owner_review": False,
+                    "require_last_push_approval": False,
+                    "required_approving_review_count": 0,
+                    "required_review_thread_resolution": True,
+                },
+            },
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "do_not_enforce_on_create": False,
+                    "required_status_checks": [
+                        {"context": EXTERNAL_CHECK, "integration_id": app_id}
+                    ],
+                    "strict_required_status_checks_policy": True,
+                },
+            },
+        ],
+    }
+
+
+def validate_live_app_check_ruleset(
+    value: Any,
+    app_id: int,
+    *,
+    scope: str,
+    repository_name: str | None = None,
+) -> list[str]:
+    expected = app_check_ruleset_payload(
+        app_id, scope=scope, repository_name=repository_name
+    )
+    if not isinstance(value, dict):
+        return ["ruleset response is not an object"]
+    drift: list[str] = []
+    for field in ("name", "target", "enforcement", "conditions"):
+        if value.get(field) != expected[field]:
+            drift.append(f"{field} differs from App-check policy")
+    if value.get("bypass_actors") != []:
+        drift.append("bypass_actors is missing or non-empty")
+    raw_rules = value.get("rules")
+    if not isinstance(raw_rules, list):
+        return drift + ["rules are missing"]
+    actual: dict[str, dict[str, Any]] = {}
+    for row in raw_rules:
+        if not isinstance(row, dict) or not isinstance(row.get("type"), str):
+            drift.append("rules contain an invalid entry")
+        elif row["type"] in actual:
+            drift.append(f"duplicate rule type: {row['type']}")
+        else:
+            actual[row["type"]] = row
+    wanted = {row["type"]: row for row in expected["rules"]}
+    for rule_type in sorted(set(actual) - set(wanted)):
+        drift.append(f"unexpected rule type: {rule_type}")
+    for rule_type, expected_rule in wanted.items():
+        if actual.get(rule_type) != expected_rule:
             drift.append(f"rule differs or is missing: {rule_type}")
     return drift
 
@@ -1116,3 +1420,151 @@ def doctor_entry(
         "itdVersion": version,
         "broker": ready,
     }
+
+
+def validate_local_adjudication(
+    checkout: Path,
+    receipt: Path,
+    unit_id: str,
+    risk_tier: str,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+) -> None:
+    if not checkout.is_absolute() or not receipt.is_absolute():
+        raise GateError("UNVERIFIED", "local review paths must be absolute")
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("itd_verification_loop.py")),
+        "check", "--root", str(checkout), "--unit-id", unit_id,
+        "--risk-tier", risk_tier,
+        "--candidate-mode", "committed-head",
+        "--receipt", str(receipt),
+    ]
+    try:
+        completed = runner(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=30, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GateError(
+            "UNAVAILABLE", "local adjudication validator is unavailable"
+        ) from exc
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 65536
+        or len(completed.stderr) > 65536
+    ):
+        raise GateError(
+            "UNVERIFIED", "local adjudication is stale, foreign, or invalid"
+        )
+
+
+def profile_doctor_entry(
+    entry: dict[str, Any],
+    *,
+    gh: Callable[..., Any] = gh_json,
+    readiness: Callable[..., dict[str, Any]] = broker_ready,
+    local_review: Callable[[Path, Path, str, str], None]
+    = validate_local_adjudication,
+    adoption: Callable[[Path], list[str]] = adopted_checkout,
+    version_probe: Callable[[], str] = installed_version,
+    strongest_doctor: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Inspect one validated profile row without elevating its claim."""
+    protection = entry["protectionProfile"]
+    deployment = entry["deploymentProfile"]
+    claim = load_gate_profiles()["protectionProfiles"][protection]["claim"]
+    if protection == "organization-workflow":
+        legacy = {
+            "repository": entry["repository"], "checkout": entry["checkout"],
+            "brokerUrl": entry["brokerUrl"], "appId": entry["appId"],
+            "rulesetScope": entry["rulesetScope"],
+            "rulesetId": entry["rulesetId"],
+            "machineWorkflowRepositoryId": entry["machineWorkflowRepositoryId"],
+            "machineWorkflowSha": entry["machineWorkflowSha"],
+            "provenanceKeyId": entry["provenanceKeyId"],
+            "provenanceKeyFile": entry["provenanceKeyFile"],
+        }
+        inspect = strongest_doctor or doctor_entry
+        result = inspect(legacy, gh=gh, readiness=readiness)
+        drift = list(result.get("drift") or [])
+        enrollment = (result.get("broker") or {}).get("enrollment")
+        if (
+            not isinstance(enrollment, dict)
+            or enrollment.get("receiptSha256")
+            != entry["enrollmentReceiptSha256"]
+        ):
+            drift.append("broker enrollment receipt differs from profile registry")
+        return {
+            **result, "status": claim if not drift else "UNVERIFIED",
+            "drift": drift, "deploymentProfile": deployment,
+            "protectionProfile": protection,
+        }
+
+    checkout = Path(entry["checkout"])
+    drift = adoption(checkout)
+    try:
+        version = version_probe()
+    except GateError as exc:
+        drift.append(f"version: {exc.status}: {exc.reason}")
+        version = None
+    ready = None
+    if protection == "local-review":
+        try:
+            local_review(
+                checkout, Path(entry["localReviewReceiptFile"]),
+                entry["localReviewUnitId"], entry["localReviewRiskTier"],
+            )
+        except GateError as exc:
+            drift.append(f"local review: {exc.status}: {exc.reason}")
+    else:
+        repository_name = (
+            entry["repository"].split("/", 1)[1]
+            if entry["rulesetScope"] == "repository" else None
+        )
+        try:
+            live = fetch_ruleset(
+                entry["repository"], entry["rulesetScope"],
+                entry["rulesetId"], gh=gh,
+            )
+            drift.extend(validate_live_app_check_ruleset(
+                live, entry["appId"], scope=entry["rulesetScope"],
+                repository_name=repository_name,
+            ))
+        except GateError as exc:
+            drift.append(f"ruleset: {exc.status}: {exc.reason}")
+        try:
+            private_key = read_provenance_private_key(
+                Path(entry["provenanceKeyFile"])
+            )
+            public_key = provenance_public_key(private_key)
+            ready = readiness(
+                entry["brokerUrl"], entry["repository"], entry["appId"],
+                entry["provenanceKeyId"], public_key,
+            )
+            enrollment = ready.get("enrollment") if isinstance(ready, dict) else None
+            if (
+                not isinstance(enrollment, dict)
+                or enrollment.get("receiptSha256")
+                != entry["enrollmentReceiptSha256"]
+            ):
+                drift.append(
+                    "broker enrollment receipt differs from profile registry"
+                )
+        except GateError as exc:
+            drift.append(f"broker: {exc.status}: {exc.reason}")
+    return {
+        "repository": entry["repository"],
+        "status": claim if not drift else "UNVERIFIED", "drift": drift,
+        "itdVersion": version, "broker": ready,
+        "deploymentProfile": deployment, "protectionProfile": protection,
+    }
+
+
+def aggregate_claim(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "UNVERIFIED"
+    statuses = [str(row.get("status", "UNVERIFIED")) for row in rows]
+    if any(status not in CLAIM_ORDER for status in statuses):
+        return "UNVERIFIED"
+    return min(statuses, key=lambda status: CLAIM_ORDER[status])

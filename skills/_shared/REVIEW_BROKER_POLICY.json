@@ -596,6 +596,10 @@
     "unknownMaker": "manual-blocking-review"
   },
   "routing": {
+    "primary": "signed-free-review-receipt",
+    "freeReviewPath": "/free-review",
+    "automaticPaidFallbackAllowed": false,
+    "paidFallbackConsentEnvironment": "ITD_PAID_REVIEW_CONSENT=approved",
     "reviewers": {
       "openai-responses": {
         "vendor": "openai",
@@ -787,6 +791,7 @@
     "readinessPath": "/readyz",
     "webhookPath": "/webhook",
     "provenancePath": "/provenance",
+    "freeReviewPath": "/free-review",
     "workerConcurrency": 1,
     "maxJobAttempts": 1,
     "requestReadTimeoutSeconds": 10,

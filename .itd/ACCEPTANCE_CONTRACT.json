@@ -1,7 +1,7 @@
 {
   "version": 1,
   "purpose": "Acceptance contract for the GPG-001 transport-neutral review gate, broker bootstrap, and local/global gate-control release candidate.",
-  "sourceRequest": "Implement the approved nine-point GitHub App/broker plan with a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, and secret-isolation guarantees.",
+  "sourceRequest": "Implement the approved portable nine-point review-gate plan with role separation, local/self-hosted/managed deployment profiles, a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, least-privilege, and secret-isolation guarantees.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -86,9 +86,9 @@
     },
     {
       "id": "GPG-001-AC9",
-      "criterion": "The global itd CLI creates Draft PRs only through the guarded exact-candidate path, signs maker provenance, waits for current App-owned and machine checks, manages the canonical no-bypass ruleset, registers adoption only after live validation, observes closed enrollment metadata, and inventories controlled repositories in doctor --all.",
+      "criterion": "The global itd CLI creates Draft PRs only through the guarded exact-candidate path. The canonical user gates.json is a versioned profile registry: local-review requires a current exact independent adjudication without GitHub App authority and may carry it across only one clean single-parent commit whose parent, tree, and binary diff reproduce the reviewed candidate; a second or foreign commit invalidates the review. App profiles retain signed maker provenance and live App-owned checks, and the canonical doctor reports only the weakest verified claim. Legacy v1 organization-workflow registries remain fail-closed readable but are never silently rewritten as v2. The CLI also manages the canonical no-bypass ruleset, registers App adoption only after live validation, observes closed enrollment metadata, and inventories controlled repositories in doctor --all.",
       "source": "Approved plan items 4, 6, 8, and 9.",
-      "evidence": "CLI mutations cover transient check availability, forged integration identity, live ruleset/workflow drift, invalid App permissions/events, registry write ordering, organization inventory, rejection of local-only bootstrap contracts, and protected status.",
+      "evidence": "CLI/registry/hook mutations cover v2 closed-schema registration, stale/foreign/missing local adjudication, local no-App/no-network routing, guarded exact-HEAD push, weakest-claim doctor aggregation, explicit legacy-v1 compatibility, transient check availability, forged integration identity, live ruleset/workflow drift, invalid App permissions/events, registry write ordering, organization inventory, rejection of local-only bootstrap contracts, and protected status.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_cli.py",
       "status": "passed"
     },
@@ -102,9 +102,9 @@
     },
     {
       "id": "GPG-001-AC11",
-      "criterion": "The dedicated private GitHub App can be created through the official manifest flow with the exact HTTPS broker webhook, least-privilege permissions, only pull_request and merge_group events, CSRF-bound loopback conversion, atomic private credential persistence outside the repository, and no retained OAuth client secret.",
+      "criterion": "The portable profile contract permits maker/maintainer/deployer role overlap while requiring an independent reviewer, distinguishes local-submission, self-hosted-app, and managed-app deployments from protection claims, and allows a dedicated GitHub App to be created for user or organization owners with only profile-valid private/public visibility. Every App uses the exact HTTPS broker webhook, review-only least privilege, only pull_request and merge_group events, CSRF-bound loopback conversion, atomic private credential persistence outside the repository, and no retained OAuth client secret.",
       "source": "Approved plan items 2 and 6.",
-      "evidence": "Manifest tests reject invalid origins, callbacks, organizations, codes, conversion fields, and overwrite attempts while checking the documented GitHub API version and 0600/0700 persistence.",
+      "evidence": "Manifest/profile tests reject invalid origins, callbacks, owners, account types, profile/visibility combinations, codes, conversion fields, write permissions, PROTECTED overclaims, and overwrite attempts while checking the documented GitHub API version and 0600/0700 persistence.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_github_app_manifest.py",
       "status": "passed"
     },
@@ -134,11 +134,11 @@
     },
     {
       "id": "GPG-001-AC15",
-      "criterion": "The primary independent-review route uses an isolated fresh different-model and different-session producer without paid API, network, repository mutation, inherited development context, or reviewer credentials; it emits a signed two-phase exact-candidate receipt that the GitHub App revalidates against live PR and check coordinates before publishing an App-owned Check. Provider API review remains an optional explicitly authorized fallback and is never dispatched automatically when a valid free receipt exists.",
+      "criterion": "The primary independent-review route uses an isolated fresh different-model and different-session producer without paid API, network tools, repository mutation, inherited development context, or model access to reviewer credentials; it emits a signed two-phase exact-candidate receipt that the GitHub App revalidates against live PR and check coordinates before publishing an App-owned Check. Provider API review remains an optional explicitly authorized per-operation route and is never dispatched automatically.",
       "source": "Approved nine-point plan items 2, 3, 6, 7, 8, and 9.",
-      "evidence": "Pending implementation: isolation, same-session/inherited-context rejection, receipt signing, live revalidation, free-primary selection, unavailable-reviewer fail-closed behavior, and no-paid-dispatch mutation tests must pass.",
+      "evidence": "PASSED on implementation tree 45e1e376e8ee056e1763bc382e67891963dc4b2f: producer 53 checks, broker 721 checks, server 50 checks, deployment 25 checks, zero-redaction scrub, tool-trust inventory, cold-start, meta-review, host adapters, and quick suite all passed. Fresh gpt-5.6-terra session 019fbea8-4089-7043-98cd-e261498e6c44 returned findings=[] and unverified=[] with zero tool calls; bound adjudication is .itd-memory/verification-loop/receipts/c7525d99a8d5a1d0/GPG-001-general-review-adjudication-a1.json. Mutations cover untrusted executable/proxy/auth, paid-route consent, same-session/context, target replay, foreign signing scope/maker provenance, PR publication races, interruption recovery, findings, and model unavailability.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": "GPG-001-AC16",
@@ -149,5 +149,5 @@
       "status": "passed"
     }
   ],
-  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until MEM-8 is restored, the free-primary review route is implemented, and a current high-risk exact-candidate Verification Loop receipt revalidates the candidate. It does not claim live broker/App/ruleset deployment, private-org protection, credential rotation, or final release/install."
+  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until the portable profile model, free-primary review route, and current high-risk exact-candidate Verification Loop receipts revalidate the candidate. It does not claim live broker/App/ruleset deployment, any unobserved protection profile, credential rotation, or final release/install."
 }

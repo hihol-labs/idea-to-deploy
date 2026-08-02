@@ -28,11 +28,28 @@ broker = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = broker
 spec.loader.exec_module(broker)
 
+ReviewBrokerUnderTest = broker.ReviewBroker
+
+
+class PaidReviewBroker(ReviewBrokerUnderTest):
+    def process(self, coordinates):
+        return super().process(coordinates, paid_review_requested=True)
+
+
+def paid_test_broker(*args, **kwargs):
+    kwargs["paid_fallback_consent"] = True
+    return PaidReviewBroker(*args, **kwargs)
+
+
+broker.ReviewBroker = paid_test_broker
+
 CHECKS = 0
 REPOSITORY = "hihol-labs/example"
 HEAD = "a" * 40
 BASE = "b" * 40
 CHECK_SHA = "c" * 40
+FREE_PARENT = "e" * 40
+FREE_TREE = "f" * 40
 MERGE_HEAD = "d" * 40
 APP_ID = 424242
 INSTALLATION_ID = 991
@@ -272,6 +289,12 @@ class FakeGitHub(broker.GitHubApi):
                 "sha": self.check_sha,
                 "parents": [{"sha": self.live_base}, {"sha": self.live_head}],
             }
+        if method == "GET" and path.endswith(f"/git/commits/{self.live_head}"):
+            return {
+                "sha": self.live_head,
+                "tree": {"sha": FREE_TREE},
+                "parents": [{"sha": FREE_PARENT}],
+            }
         if (
             method == "GET"
             and f"/commits/{MERGE_HEAD}/pulls?" in path
@@ -352,10 +375,12 @@ class FakeGitHub(broker.GitHubApi):
 class FakeAuth:
     def __init__(self) -> None:
         self.api = None
+        self.calls: list[tuple[int, str, int]] = []
 
     def installation_token(
         self, installation_id: int, repository: str, expected_app_id: int
     ) -> str:
+        self.calls.append((installation_id, repository, expected_app_id))
         check(installation_id == INSTALLATION_ID, "exact installation id")
         check(repository == REPOSITORY, "exact installation repository")
         check(expected_app_id == APP_ID, "enrollment App id used")
@@ -480,6 +505,27 @@ class LostSuccessResponseGitHub(EvidenceOrderGitHub):
             raise broker.BrokerError(
                 "UNAVAILABLE", "synthetic lost GitHub success response"
             )
+        return value
+
+
+class FreeReviewRaceGitHub(FakeGitHub):
+    def __init__(self) -> None:
+        super().__init__()
+        self.pull_reads = 0
+
+    def request_json(
+        self,
+        method: str,
+        path: str,
+        token: str,
+        data: dict[str, Any] | None = None,
+        limit: int = 4 * 1024 * 1024,
+    ) -> Any:
+        value = super().request_json(method, path, token, data, limit)
+        if method == "GET" and path.endswith("/pulls/7"):
+            self.pull_reads += 1
+            if self.pull_reads == 3:
+                self.live_head = "9" * 40
         return value
 
 
@@ -1638,6 +1684,7 @@ def process_phase() -> None:
     store.finish_job(job_id, True, result)
     store.close()
 
+
     store, _ = running_store()
     github = EvidenceOrderGitHub(store)
 
@@ -2464,6 +2511,293 @@ def process_phase() -> None:
     store.close()
 
 
+def free_review_phase() -> None:
+    no_consent_store, _ = running_store()
+    no_consent_github = FakeGitHub()
+    no_consent_reviewer = FakeReviewer()
+    no_consent_result = ReviewBrokerUnderTest(
+        broker.load_policy(), no_consent_store, no_consent_github,
+        FakeAuth(), no_consent_reviewer,
+    ).process(coordinates())
+    check(
+        no_consent_result["status"] == "UNAVAILABLE"
+        and no_consent_reviewer.calls == 0,
+        "normal route cannot automatically dispatch paid review",
+    )
+    no_consent_store.close()
+
+    consent_only_store, _ = running_store()
+    consent_only_reviewer = FakeReviewer()
+    consent_only_result = ReviewBrokerUnderTest(
+        broker.load_policy(), consent_only_store, FakeGitHub(), FakeAuth(),
+        consent_only_reviewer, paid_fallback_consent=True,
+    ).process(coordinates())
+    check(
+        consent_only_result["status"] == "UNAVAILABLE"
+        and consent_only_reviewer.calls == 0,
+        "global paid consent cannot trigger an automatic webhook fallback",
+    )
+    consent_only_store.close()
+
+    free = broker._free_reviewer_module()
+    producer_key = Ed25519PrivateKey.generate()
+    producer_private = producer_key.private_bytes(
+        serialization.Encoding.Raw,
+        serialization.PrivateFormat.Raw,
+        serialization.NoEncryption(),
+    )
+    producer_public = producer_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    producer_keyring = {
+        "producer-key": {
+            "publicKey": free.b64url(producer_public),
+            "repository": REPOSITORY,
+            "appIntegrationId": APP_ID,
+            "producerId": "itd-free-reviewer-producer-v1",
+            "reviewerProvider": "openai-codex-subscription",
+            "reviewerModel": "gpt-5.6-terra",
+        }
+    }
+    app_key = Ed25519PrivateKey.generate()
+    app_private = app_key.private_bytes(
+        serialization.Encoding.Raw,
+        serialization.PrivateFormat.Raw,
+        serialization.NoEncryption(),
+    )
+    app_public = app_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    packet = {
+        "target": {
+            "repository": REPOSITORY,
+            "pullRequest": 7,
+            "expectedHeadSha": HEAD,
+        },
+        "candidate": {
+            "baseCommit": BASE,
+            "parentCommit": FREE_PARENT,
+            "tree": FREE_TREE,
+            "diffSha256": "1" * 64,
+            "diffBytes": 123,
+        },
+        "scope": {"sha256": "2" * 64},
+        "acceptance": {"sha256": "3" * 64},
+        "machineEvidence": {"sha256": "4" * 64},
+    }
+    phase_one = free.phase_one_receipt(
+        packet=packet,
+        prompt="exact candidate review",
+        report={"verdict": "PASSED", "findings": [], "unverified": []},
+        maker={"provider": "openai", "model": "gpt-5.6-sol",
+               "session": "maker-session"},
+        reviewer={"provider": "openai-codex-subscription",
+                  "model": "gpt-5.6-terra", "session": "fresh-session",
+                  "transportExecutableSha256": "5" * 64},
+        isolation=free.required_isolation(),
+        key_id="producer-key", private_key=producer_private,
+    )
+    foreign_maker_phase_one = free.phase_one_receipt(
+        packet=packet,
+        prompt="exact candidate review",
+        report={"verdict": "PASSED", "findings": [], "unverified": []},
+        maker={"provider": "forged-maker", "model": "gpt-5.6-sol",
+               "session": "maker-session"},
+        reviewer={"provider": "openai-codex-subscription",
+                  "model": "gpt-5.6-terra", "session": "fresh-session-2",
+                  "transportExecutableSha256": "5" * 64},
+        isolation=free.required_isolation(),
+        key_id="producer-key", private_key=producer_private,
+    )
+    maker_store, _ = running_store()
+    maker_github = FakeGitHub()
+    maker_auth = FakeAuth()
+    maker_runtime = broker.ReviewBroker(
+        broker.load_policy(), maker_store, maker_github, maker_auth, None
+    )
+    expect_error(
+        "UNVERIFIED",
+        lambda: maker_runtime.bind_free_review(
+            coordinates(), phase_one=foreign_maker_phase_one,
+            producer_keys=producer_keyring, app_key_id="app-receipt-key",
+            app_private_key=app_private,
+        ),
+        "free review maker claim must match signed PR provenance",
+    )
+    check(not maker_github.checks, "foreign maker created a Check Run")
+    check(not maker_auth.calls,
+          "foreign maker spent an App installation-token request")
+    maker_store.close()
+
+    invalid_signature = copy.deepcopy(phase_one)
+    invalid_signature["signature"] = free.b64url(b"\0" * 64)
+    invalid_store, _ = running_store()
+    invalid_github = FakeGitHub()
+    invalid_auth = FakeAuth()
+    invalid_runtime = broker.ReviewBroker(
+        broker.load_policy(), invalid_store, invalid_github, invalid_auth, None
+    )
+    expect_error(
+        "UNVERIFIED",
+        lambda: invalid_runtime.bind_free_review(
+            coordinates(), phase_one=invalid_signature,
+            producer_keys=producer_keyring, app_key_id="app-receipt-key",
+            app_private_key=app_private,
+        ),
+        "invalid free-review signature rejected before App authentication",
+    )
+    check(not invalid_auth.calls,
+          "invalid signature spent an App installation-token request")
+    check(not invalid_github.calls,
+          "invalid signature reached the GitHub API")
+    invalid_store.close()
+
+    padded_signed = copy.deepcopy(phase_one["signed"])
+    padded_signed["reviewer"]["model"] = " gpt-5.6-sol "
+    padded_signed["reviewer"]["session"] = "fresh-padded-model"
+    padded_phase_one = {
+        "signed": padded_signed,
+        "signature": free.b64url(
+            producer_key.sign(free.canonical_bytes(padded_signed))
+        ),
+    }
+    padded_keyring = copy.deepcopy(producer_keyring)
+    padded_keyring["producer-key"]["reviewerModel"] = " gpt-5.6-sol "
+    padded_store, _ = running_store()
+    padded_github = FakeGitHub()
+    padded_auth = FakeAuth()
+    padded_runtime = broker.ReviewBroker(
+        broker.load_policy(), padded_store, padded_github, padded_auth, None
+    )
+    expect_error(
+        "UNVERIFIED",
+        lambda: padded_runtime.bind_free_review(
+            coordinates(), phase_one=padded_phase_one,
+            producer_keys=padded_keyring, app_key_id="app-receipt-key",
+            app_private_key=app_private,
+        ),
+        "padded same-model receipt rejected before App authentication",
+    )
+    check(not padded_auth.calls,
+          "padded same-model receipt spent an App installation-token request")
+    check(not padded_github.calls,
+          "padded same-model receipt reached the GitHub API")
+    padded_store.close()
+
+    store, _ = running_store()
+    github = FakeGitHub()
+    paid_reviewer = FakeReviewer(failure="UNAVAILABLE")
+    valid_auth = FakeAuth()
+    runtime = broker.ReviewBroker(
+        broker.load_policy(), store, github, valid_auth, paid_reviewer
+    )
+    result = runtime.bind_free_review(
+        coordinates(), phase_one=phase_one,
+        producer_keys=producer_keyring,
+        app_key_id="app-receipt-key", app_private_key=app_private,
+    )
+    check(result["status"] == "PASSED", "free receipt reaches broker success")
+    check(len(valid_auth.calls) == 1,
+          "valid free receipt did not acquire exactly one installation token")
+    check(paid_reviewer.calls == 0, "free route never dispatches paid reviewer")
+    publication = github.checks[result["checkRunId"]]
+    check(
+        publication["appIntegrationId"] == APP_ID
+        and publication["conclusion"] == "success",
+        "free route publishes an App-owned successful check",
+    )
+    verified = free.verify_two_phase(
+        result["receipt"],
+        producer_keys={"producer-key": free.b64url(producer_public)},
+        app_keys={"app-receipt-key": free.b64url(app_public)},
+    )
+    check(
+        verified["live"]["checkRunId"] == result["checkRunId"],
+        "free two-phase receipt binds the published check",
+    )
+    row = store.db.execute(
+        "SELECT state FROM free_review_receipts WHERE receipt_id=?",
+        (result["receiptId"],),
+    ).fetchone()
+    check(row is not None and row["state"] == "finalized",
+          "free receipt is durable before and after terminal publication")
+    store.close()
+
+    foreign_store, _ = running_store()
+    foreign_github = FakeGitHub()
+    foreign_auth = FakeAuth()
+    foreign_runtime = broker.ReviewBroker(
+        broker.load_policy(), foreign_store, foreign_github, foreign_auth, None
+    )
+    foreign_keyring = copy.deepcopy(producer_keyring)
+    foreign_keyring["producer-key"]["repository"] = "hihol-labs/foreign"
+    expect_error(
+        "UNVERIFIED",
+        lambda: foreign_runtime.bind_free_review(
+            coordinates(), phase_one=phase_one, producer_keys=foreign_keyring,
+            app_key_id="app-receipt-key", app_private_key=app_private,
+        ),
+        "repository-foreign free reviewer signing key rejected",
+    )
+    check(not foreign_github.checks,
+          "foreign free reviewer key created a Check Run")
+    check(not foreign_auth.calls,
+          "foreign free reviewer key spent an App installation-token request")
+    foreign_store.close()
+
+    recovery_store, _ = running_store()
+    recovery_github = FakeGitHub()
+    recovery_runtime = broker.ReviewBroker(
+        broker.load_policy(), recovery_store, recovery_github, FakeAuth(), None
+    )
+    original_finalize = recovery_store.finalize_free_review
+
+    def interrupted_finalize(*_args, **_kwargs):
+        raise broker.BrokerError("UNAVAILABLE", "synthetic finalize interruption")
+
+    recovery_store.finalize_free_review = interrupted_finalize
+    interrupted = recovery_runtime.bind_free_review(
+        coordinates(), phase_one=phase_one, producer_keys=producer_keyring,
+        app_key_id="app-receipt-key", app_private_key=app_private,
+    )
+    check(interrupted["status"] == "UNVERIFIED",
+          "interrupted free-review finalization did not fail closed")
+    check(len(recovery_github.checks) == 1, "interrupted publication count")
+    recovery_store.finalize_free_review = original_finalize
+    check(recovery_runtime.recover_pending_publications() == 1,
+          "startup recovery did not reconcile prepared free review evidence")
+    recovered = recovery_runtime.bind_free_review(
+        coordinates(), phase_one=phase_one, producer_keys=producer_keyring,
+        app_key_id="app-receipt-key", app_private_key=app_private,
+    )
+    check(
+        recovered["status"] == "PASSED"
+        and recovered["checkRunId"] == interrupted["checkRunId"]
+        and len(recovery_github.checks) == 1,
+        "free-review retry did not recover the durable exact publication",
+    )
+    recovery_store.close()
+
+    race_store, _ = running_store()
+    race_github = FreeReviewRaceGitHub()
+    race_runtime = broker.ReviewBroker(
+        broker.load_policy(), race_store, race_github, FakeAuth(), None
+    )
+    raced = race_runtime.bind_free_review(
+        coordinates(), phase_one=phase_one, producer_keys=producer_keyring,
+        app_key_id="app-receipt-key", app_private_key=app_private,
+    )
+    check(
+        raced["status"] == "UNVERIFIED"
+        and not any(
+            row.get("conclusion") == "success"
+            for row in race_github.checks.values()
+        ),
+        "PR mutation after phase two reached a stale success publication",
+    )
+    race_store.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -2480,6 +2814,7 @@ def main() -> int:
         adapter_phase()
     if args.phase in {"all", "process"}:
         process_phase()
+        free_review_phase()
     print(json.dumps({"checks": CHECKS, "status": "PASSED"}, sort_keys=True))
     return 0
 

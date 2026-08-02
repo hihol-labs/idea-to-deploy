@@ -81,10 +81,12 @@ def artifacts(root: Path, verdict: str = "PASSED") -> tuple[Path, Path]:
 
 
 def machine(root: Path, risk: str, command: str | None = None,
-            inputs: list[str] | None = None):
+            inputs: list[str] | None = None,
+            candidate_mode: str = "staged"):
     oracle = command or f'"{sys.executable}" -c "print(123)"'
     args = ["machine", "--root", str(root), "--unit-id", "U-loop",
-            "--risk-tier", risk, "--command", "oracle=" + oracle,
+            "--risk-tier", risk, "--candidate-mode", candidate_mode,
+            "--command", "oracle=" + oracle,
             "--timeout", "10"]
     for path in inputs or []:
         args += ["--input", path]
@@ -93,11 +95,13 @@ def machine(root: Path, risk: str, command: str | None = None,
 
 def checker(root: Path, risk: str, mode: str, *, same_session: bool = False,
             same_model: bool = False, missing_maker: bool = False,
-            report: Path | None = None):
+            report: Path | None = None,
+            candidate_mode: str = "staged"):
     prompt, default_report = artifacts(root)
     return run([
         "checker", "--root", str(root), "--unit-id", "U-loop",
-        "--risk-tier", risk, "--mode", mode,
+        "--risk-tier", risk, "--candidate-mode", candidate_mode,
+        "--mode", mode,
         "--report", str(report or default_report), "--prompt-file", str(prompt),
         "--maker-provider", "" if missing_maker else "openai",
         "--maker-model", "" if missing_maker else "gpt-maker",
@@ -109,9 +113,11 @@ def checker(root: Path, risk: str, mode: str, *, same_session: bool = False,
 
 
 def adjudicate(root: Path, risk: str, machine_path: Path,
-               checker_path: Path | None = None, attempt: int | None = None):
+               checker_path: Path | None = None, attempt: int | None = None,
+               candidate_mode: str = "staged"):
     args = ["adjudicate", "--root", str(root), "--unit-id", "U-loop",
-            "--risk-tier", risk, "--machine", str(machine_path)]
+            "--risk-tier", risk, "--candidate-mode", candidate_mode,
+            "--machine", str(machine_path)]
     if attempt is not None:
         args += ["--attempt", str(attempt)]
     if checker_path:
@@ -346,6 +352,51 @@ wrong_risk = run(["check", "--root", str(low), "--unit-id", "U-loop",
 check("receipt cannot cross risk routes",
       wrong_risk.returncode != 0 and "risk tier" in wrong_risk.stdout,
       wrong_risk.stdout)
+
+# One normal commit may wrap the exact staged candidate without invalidating
+# its independent review. The committed-head context is the same parent/tree/
+# diff tuple, while the default staged context intentionally remains strict.
+bridge = fixture()
+bridge_machine = machine(bridge, "low")
+bridge_machine_path = last_path(bridge_machine)
+bridge_adjudication = adjudicate(bridge, "low", bridge_machine_path)
+bridge_receipt = last_path(bridge_adjudication)
+bridge_candidate = json.loads(
+    bridge_machine_path.read_text(encoding="utf-8"))["candidate"]
+git(bridge, "commit", "-qm", "wrap reviewed candidate")
+strict_after_commit = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--receipt", str(bridge_receipt),
+], bridge)
+check("default staged check does not weaken after commit",
+      strict_after_commit.returncode != 0
+      and "exact current candidate" in strict_after_commit.stdout,
+      strict_after_commit.stdout)
+committed_check = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "committed-head",
+    "--receipt", str(bridge_receipt),
+], bridge)
+check("single-parent commit preserves the exact reviewed candidate",
+      committed_check.returncode == 0, committed_check.stdout)
+committed_machine = machine(
+    bridge, "low", candidate_mode="committed-head")
+committed_machine_value = json.loads(
+    last_path(committed_machine).read_text(encoding="utf-8"))
+check("committed-head can refresh evidence for the same candidate",
+      committed_machine.returncode == 0
+      and committed_machine_value["candidate"] == bridge_candidate,
+      committed_machine.stdout)
+git(bridge, "commit", "--allow-empty", "-qm", "unreviewed wrapper")
+wrapped_again = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "committed-head",
+    "--receipt", str(bridge_receipt),
+], bridge)
+check("a second commit cannot borrow the earlier candidate review",
+      wrapped_again.returncode != 0
+      and "exact current candidate" in wrapped_again.stdout,
+      wrapped_again.stdout)
 
 # An ignored source overlay must never enter the machine execution checkout.
 ignored_overlay = fixture()

@@ -220,7 +220,11 @@ def repository_root(root: Path | str) -> Path:
                         "Run the Verification Loop inside a valid Git repository.") from exc
 
 
-def candidate_context(root: Path | str, risk_tier: str) -> dict[str, str]:
+def candidate_context(
+    root: Path | str,
+    risk_tier: str,
+    candidate_mode: str = "staged",
+) -> dict[str, str]:
     risk = str(risk_tier or "unknown").lower()
     if risk not in RISK_TIERS:
         raise LoopError(f"invalid risk tier: {risk!r}",
@@ -229,8 +233,39 @@ def candidate_context(root: Path | str, risk_tier: str) -> dict[str, str]:
         # Review-cache reuse binds mutable parent state separately. Candidate
         # receipts must not self-invalidate when a successful verification is
         # durably reconciled into STATE.json.
-        return dict(_review_cache_module().build_context(
+        module = _review_cache_module()
+        context = dict(module.build_context(
             root, risk, bind_parent_state=False))
+        if candidate_mode == "staged":
+            return context
+        if candidate_mode != "committed-head":
+            raise LoopError(
+                f"invalid candidate mode: {candidate_mode!r}",
+                "Use staged or committed-head.",
+            )
+        repo = repository_root(root)
+        parents = str(module.git(repo, "rev-list", "--parents", "-n", "1", "HEAD"))
+        parts = parents.strip().split()
+        if len(parts) != 2:
+            raise LoopError(
+                "committed-head requires one exact single-parent commit",
+                "Review a normal single-parent submission commit or use staged mode before commit.",
+            )
+        head, parent = parts
+        head_tree = str(module.git(repo, "rev-parse", "HEAD^{tree}")).strip()
+        if context.get("baseCommit") != head or context.get("reviewedTree") != head_tree:
+            raise LoopError(
+                "index does not equal the exact committed HEAD tree",
+                "Commit only the reviewed candidate and keep the checkout clean.",
+            )
+        diff = module.git(
+            repo, "diff", "--binary", "--full-index", "--no-ext-diff",
+            parent, head, "--", binary=True,
+        )
+        assert isinstance(diff, bytes)
+        context["baseCommit"] = parent
+        context["diffHash"] = sha256_bytes(diff)
+        return context
     except Exception as exc:
         if isinstance(exc, LoopError):
             raise
@@ -1040,7 +1075,7 @@ def relative_artifact(repo: Path, path: Path, allowed: Path, label: str) -> str:
 
 def validate_common(receipt: dict[str, Any], *, kind: str, repo: Path,
                     risk: str, unit_id: str, policy: dict[str, Any],
-                    policy_sha: str) -> None:
+                    policy_sha: str, candidate_mode: str = "staged") -> None:
     if receipt.get("version") != RECEIPT_VERSION or receipt.get("kind") != kind:
         raise LoopError(f"expected {kind} receipt version {RECEIPT_VERSION}",
                         "Regenerate the receipt through itd_verification_loop.py.")
@@ -1054,7 +1089,7 @@ def validate_common(receipt: dict[str, Any], *, kind: str, repo: Path,
     if str(receipt.get("riskTier") or "") != risk:
         raise LoopError("receipt risk tier does not match adjudication",
                         "Recreate evidence under the current risk route.")
-    current = candidate_context(repo, risk)
+    current = candidate_context(repo, risk, candidate_mode)
     assert_checkout_matches_candidate(repo, current)
     if receipt.get("candidate") != current \
             or receipt.get("candidateDigest") != candidate_digest(current):
@@ -1077,9 +1112,11 @@ def validate_common(receipt: dict[str, Any], *, kind: str, repo: Path,
 
 
 def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
-                     unit_id: str, policy: dict[str, Any], policy_sha: str) -> None:
+                     unit_id: str, policy: dict[str, Any], policy_sha: str,
+                     candidate_mode: str = "staged") -> None:
     validate_common(receipt, kind="machine-verification", repo=repo, risk=risk,
-                    unit_id=unit_id, policy=policy, policy_sha=policy_sha)
+                    unit_id=unit_id, policy=policy, policy_sha=policy_sha,
+                    candidate_mode=candidate_mode)
     runs = receipt.get("runs")
     validate_declared_inputs(repo, receipt.get("declaredInputs"), policy)
     if not isinstance(runs, list) or not runs:
@@ -1137,9 +1174,11 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
 
 def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      unit_id: str, policy: dict[str, Any], policy_sha: str,
-                     required_mode: str) -> None:
+                     required_mode: str,
+                     candidate_mode: str = "staged") -> None:
     validate_common(receipt, kind="checker", repo=repo, risk=risk,
-                    unit_id=unit_id, policy=policy, policy_sha=policy_sha)
+                    unit_id=unit_id, policy=policy, policy_sha=policy_sha,
+                    candidate_mode=candidate_mode)
     mode = str(receipt.get("checkerMode") or "")
     if receipt.get("inspectedTree") != receipt.get("candidate", {}).get("reviewedTree"):
         raise LoopError("checker was not observed on the exact reviewed tree",
@@ -1181,7 +1220,8 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
 
 def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk: str,
                                    unit_id: str, policy: dict[str, Any],
-                                   policy_sha: str) -> None:
+                                   policy_sha: str,
+                                   candidate_mode: str = "staged") -> None:
     dependencies = receipt.get("dependencies") or {}
     machine_ref = dependencies.get("machine") or {}
     machine_path = (repo / str(machine_ref.get("path") or "")).resolve()
@@ -1189,7 +1229,8 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         raise LoopError("machine receipt dependency is missing or changed", "Rerun and re-adjudicate the current candidate.")
     machine = read_json(machine_path, "machine receipt")
     validate_machine(machine, repo=repo, risk=risk, unit_id=unit_id,
-                     policy=policy, policy_sha=policy_sha)
+                     policy=policy, policy_sha=policy_sha,
+                     candidate_mode=candidate_mode)
     if machine.get("verdict") != "PASSED":
         raise LoopError("machine verification failed", "Fix the candidate and rerun the oracle.")
     route = policy["riskRoutes"][risk]
@@ -1203,21 +1244,24 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         checker = read_json(checker_path, "checker receipt")
         validate_checker(checker, repo=repo, risk=risk, unit_id=unit_id,
                          policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"])
+                         required_mode=route["checkerMode"],
+                         candidate_mode=candidate_mode)
     elif checker_ref is not None:
         raise LoopError("low-risk machine-only route contains a checker receipt",
                         "Remove the unnecessary checker cost and adjudicate machine evidence only.")
 
 
 def validate_adjudication(root: Path | str, receipt_path: Path | str,
-                          risk_tier: str, unit_id: str) -> dict[str, Any]:
+                          risk_tier: str, unit_id: str,
+                          candidate_mode: str = "staged") -> dict[str, Any]:
     policy, policy_sha = load_policy()
     repo = repository_root(root)
     risk = str(risk_tier or "unknown").lower()
     resolved_receipt = inside(Path(receipt_path), receipt_root(repo, policy), "adjudication receipt")
     receipt = read_json(resolved_receipt, "adjudication receipt")
     validate_common(receipt, kind="adjudication", repo=repo, risk=risk,
-                    unit_id=unit_id, policy=policy, policy_sha=policy_sha)
+                    unit_id=unit_id, policy=policy, policy_sha=policy_sha,
+                    candidate_mode=candidate_mode)
     if receipt.get("outcome") != "PASSED":
         raise LoopError("adjudication outcome is not PASSED",
                         "Resolve failed/unverified evidence and re-adjudicate.")
@@ -1228,7 +1272,8 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
     validate_attempt_entry(repo, policy, receipt["candidate"], unit_id, risk, policy_sha,
                            attempt, resolved_receipt, receipt)
     validate_adjudication_evidence(receipt, repo=repo, risk=risk, unit_id=unit_id,
-                                   policy=policy, policy_sha=policy_sha)
+                                   policy=policy, policy_sha=policy_sha,
+                                   candidate_mode=candidate_mode)
     return receipt
 
 
@@ -1236,7 +1281,7 @@ def command_machine(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
     risk = args.risk_tier
-    context = candidate_context(repo, risk)
+    context = candidate_context(repo, risk, args.candidate_mode)
     executed_tree = assert_checkout_matches_candidate(repo, context)
     commands: list[tuple[str, str]] = []
     for raw in args.command:
@@ -1319,7 +1364,7 @@ def command_checker(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
     risk = args.risk_tier
-    context = candidate_context(repo, risk)
+    context = candidate_context(repo, risk, args.candidate_mode)
     inspected_tree = assert_checkout_matches_candidate(repo, context)
     root = receipt_root(repo, policy)
     report_rel = relative_artifact(repo, Path(args.report), root / "reports", "checker report")
@@ -1364,7 +1409,8 @@ def command_checker(args: argparse.Namespace) -> int:
     # Validate independence immediately; a non-PASS report remains durable but cannot gate.
     validate_checker(receipt, repo=repo, risk=risk, unit_id=args.unit_id,
                      policy=policy, policy_sha=policy_sha,
-                     required_mode=policy["riskRoutes"][risk]["checkerMode"])
+                     required_mode=policy["riskRoutes"][risk]["checkerMode"],
+                     candidate_mode=args.candidate_mode)
     print(output.as_posix())
     return 0
 
@@ -1417,12 +1463,13 @@ def command_adjudicate(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
     risk = args.risk_tier
-    context = candidate_context(repo, risk)
+    context = candidate_context(repo, risk, args.candidate_mode)
     root = receipt_root(repo, policy)
     machine_path = secure_dependency_path(repo, root, args.machine, "machine receipt")
     machine = read_json(machine_path, "machine receipt")
     validate_machine(machine, repo=repo, risk=risk, unit_id=args.unit_id,
-                     policy=policy, policy_sha=policy_sha)
+                     policy=policy, policy_sha=policy_sha,
+                     candidate_mode=args.candidate_mode)
     if machine.get("verdict") != "PASSED":
         raise LoopError("machine verification failed", "Repair the candidate before semantic review/adjudication.")
     route = policy["riskRoutes"][risk]
@@ -1435,7 +1482,8 @@ def command_adjudicate(args: argparse.Namespace) -> int:
         checker = read_json(checker_path, "checker receipt")
         validate_checker(checker, repo=repo, risk=risk, unit_id=args.unit_id,
                          policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"])
+                         required_mode=route["checkerMode"],
+                         candidate_mode=args.candidate_mode)
         dependencies["checker"] = dependency(repo, root, checker_path, "checker receipt")
     elif args.checker:
         raise LoopError("low-risk machine-only route must not spend a checker",
@@ -1451,7 +1499,9 @@ def command_adjudicate(args: argparse.Namespace) -> int:
             # was linked, but its append-only ledger entry was not yet linked.
             receipt = read_json(output, "orphaned adjudication receipt")
             validate_common(receipt, kind="adjudication", repo=repo, risk=risk,
-                            unit_id=args.unit_id, policy=policy, policy_sha=policy_sha)
+                            unit_id=args.unit_id, policy=policy,
+                            policy_sha=policy_sha,
+                            candidate_mode=args.candidate_mode)
             expected_ledger = {
                 "entryPath": entry_path.relative_to(repo).as_posix(),
                 "sequence": attempt,
@@ -1464,7 +1514,8 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                                 "Preserve the conflicting evidence and escalate for manual recovery.")
             validate_adjudication_evidence(
                 receipt, repo=repo, risk=risk, unit_id=args.unit_id,
-                policy=policy, policy_sha=policy_sha)
+                policy=policy, policy_sha=policy_sha,
+                candidate_mode=args.candidate_mode)
         else:
             receipt = seal_receipt({
                 "version": RECEIPT_VERSION,
@@ -1491,13 +1542,16 @@ def command_adjudicate(args: argparse.Namespace) -> int:
             write_json_exclusive(output, receipt)
         entry = make_attempt_entry(repo, output, receipt)
         write_json_exclusive(entry_path, entry)
-        validate_adjudication(repo, output, risk, args.unit_id)
+        validate_adjudication(
+            repo, output, risk, args.unit_id, args.candidate_mode)
     print(output.as_posix())
     return 0
 
 
 def command_check(args: argparse.Namespace) -> int:
-    validate_adjudication(args.root, args.receipt, args.risk_tier, args.unit_id)
+    validate_adjudication(
+        args.root, args.receipt, args.risk_tier, args.unit_id,
+        args.candidate_mode)
     return 0
 
 
@@ -1514,6 +1568,12 @@ def parser() -> argparse.ArgumentParser:
     common.add_argument("--root", type=Path, default=Path.cwd())
     common.add_argument("--unit-id", required=True)
     common.add_argument("--risk-tier", choices=sorted(RISK_TIERS), required=True)
+    common.add_argument(
+        "--candidate-mode", choices=("staged", "committed-head"),
+        default="staged",
+        help=("staged (default), or committed-head to bind the clean "
+              "single-parent HEAD to its parent using the same exact tree/diff"),
+    )
     machine = sub.add_parser("machine", parents=[common])
     machine.add_argument("--command", action="append", required=True, help="id=command")
     machine.add_argument(

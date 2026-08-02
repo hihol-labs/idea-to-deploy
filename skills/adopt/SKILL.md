@@ -307,11 +307,41 @@ Use the generator from the enabled plugin root (or current methodology checkout)
 and include its exact writes in the `/adopt` plan. Never create parallel
 `docs/claude` and `docs/agents` context families.
 
-### Step 3.10: Register and prove the central GitHub gate (mandatory for GitHub)
+### Step 3.10: Select and prove the GitHub review profile (mandatory for GitHub)
 
-This step implements the global merge boundary; local hooks remain only an
-early UX guard. Detect the canonical GitHub `origin` and obtain the following
-non-secret coordinates from the already-provisioned ITD control plane:
+Choose `local-submission` + `local-review`, `self-hosted-app` + `app-check`, or
+an owner-authorized App profile with `organization-workflow`. Do not infer the
+strongest profile from the repository owner. For local submission, obtain the
+exact independent adjudication while the adoption candidate is staged, commit
+that unchanged index as exactly one normal single-parent commit, then register
+the adjudication before guarded PR push:
+
+```text
+itd gate register-profile \
+  --repository <owner/repository> \
+  --checkout <absolute-git-root> \
+  --repository-owner-type <user-or-organization> \
+  --deployment-profile local-submission \
+  --protection-profile local-review \
+  --local-review-receipt-file <absolute-current-adjudication.json> \
+  --local-review-unit-id <unit-id>:general-review \
+  --local-review-risk-tier high
+itd gate doctor --repository <owner/repository>
+```
+
+The accepted local claim is `LOCAL_REVIEWED`; it requires no repository admin,
+App, broker, or ruleset and never claims server-side merge protection. The
+local doctor uses Verification Loop `--candidate-mode committed-head` to prove
+that the clean `HEAD` has the reviewed base as its only parent and reproduces
+the reviewed tree and binary diff. A changed tree, merge commit, or second
+commit invalidates the receipt and blocks guarded push. If evidence is minted
+after the commit, all Verification Loop producer/adjudication commands must use
+that same committed-head mode.
+
+For an App profile, this step implements a server-enforced boundary; local
+hooks remain only an early UX guard. Detect the canonical GitHub `origin` and
+obtain the following non-secret coordinates from the already-provisioned ITD
+control plane:
 
 - broker HTTPS URL;
 - dedicated GitHub App integration ID;
@@ -365,10 +395,12 @@ After the adoption files are committed, run:
 itd gate doctor --repository <owner/repository>
 ```
 
-Only `PROTECTED` completes gate adoption. If the App/ruleset/broker has not yet
-been provisioned, local project adoption may remain as a visible fix target,
-but the final report must say `GitHub merge gate: UNVERIFIED`; opening or
-merging through ITD stays fail-closed. A non-GitHub repository records
+Accept only the claim selected by the profile: `LOCAL_REVIEWED`,
+`APP_CHECK_ENFORCED`, or `PROTECTED`. If an App profile was selected but its
+App/ruleset/broker has not yet been provisioned, the final report must say
+`GitHub merge gate: UNVERIFIED`; do not silently fall back to local review.
+Local-review reports `GitHub merge gate: not claimed` while still requiring
+the exact pre-PR adjudication. A non-GitHub repository records
 `not-applicable` rather than inventing protection.
 
 ### Step 4: Report to user

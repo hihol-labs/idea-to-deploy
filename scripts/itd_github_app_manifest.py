@@ -18,6 +18,7 @@ from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PROFILE_PATH = ROOT / "skills" / "_shared" / "GATE_DEPLOYMENT_PROFILES.json"
 MAX_CONVERSION_BYTES = 1024 * 1024
 ORG_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{8,100}$")
@@ -47,8 +48,98 @@ class ManifestError(RuntimeError):
 
 def organization(value: str) -> str:
     if not isinstance(value, str) or not ORG_RE.fullmatch(value):
-        raise ManifestError("GitHub organization is invalid")
+        raise ManifestError("GitHub account owner is invalid")
     return value
+
+
+def deployment_profiles() -> dict[str, Any]:
+    """Load and fail closed on the portable role/deployment contract."""
+    try:
+        raw = PROFILE_PATH.read_bytes()
+        value = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ManifestError("gate deployment profile contract is unavailable") from exc
+    required = {
+        "version", "roles", "reviewerAppPermissions",
+        "deploymentProfiles", "protectionProfiles",
+    }
+    roles = value.get("roles") if isinstance(value, dict) else None
+    deployments = value.get("deploymentProfiles") if isinstance(value, dict) else None
+    protections = value.get("protectionProfiles") if isinstance(value, dict) else None
+    permissions = value.get("reviewerAppPermissions") if isinstance(value, dict) else None
+    if (
+        not isinstance(value, dict)
+        or set(value) != required
+        or value.get("version") != 1
+        or not isinstance(roles, dict)
+        or set(roles) != {"maker", "independentReviewer", "maintainer", "deployer"}
+        or not isinstance(deployments, dict)
+        or set(deployments) != {
+            "local-submission", "self-hosted-app", "managed-app"
+        }
+        or not isinstance(protections, dict)
+        or set(protections) != {
+            "local-review", "app-check", "organization-workflow"
+        }
+        or permissions != {
+            "checks": "write", "contents": "read", "metadata": "read",
+            "pull_requests": "read",
+        }
+        or roles.get("independentReviewer", {}).get("mustDifferFrom") != ["maker"]
+        or deployments.get("local-submission", {}).get("appRequired") is not False
+        or deployments.get("self-hosted-app", {}).get("visibility")
+        != ["private", "public"]
+        or deployments.get("managed-app", {}).get("visibility") != ["public"]
+        or protections.get("organization-workflow", {}).get("claim") != "PROTECTED"
+        or any(
+            row.get("claim") == "PROTECTED"
+            for name, row in protections.items()
+            if name != "organization-workflow" and isinstance(row, dict)
+        )
+    ):
+        raise ManifestError("gate deployment profile contract is invalid")
+    return value
+
+
+def resolve_app_visibility(profile: str, requested: str | None) -> str:
+    deployments = deployment_profiles()["deploymentProfiles"]
+    row = deployments.get(profile)
+    if not isinstance(row, dict) or row.get("appRequired") is not True:
+        raise ManifestError("deployment profile does not create a GitHub App")
+    allowed = row.get("visibility")
+    if not isinstance(allowed, list) or not allowed:
+        raise ManifestError("deployment profile has no App visibility")
+    selected = requested or allowed[0]
+    if selected not in allowed:
+        raise ManifestError("GitHub App visibility is invalid for deployment profile")
+    return selected
+
+
+def registration_action(owner: str, owner_type: str, state: str) -> str:
+    owner = organization(owner)
+    if owner_type not in {"user", "organization"}:
+        raise ManifestError("GitHub App owner type is invalid")
+    if not isinstance(state, str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,200}", state):
+        raise ManifestError("GitHub App manifest state is invalid")
+    base = (
+        "https://github.com/organizations/"
+        + urllib.parse.quote(owner, safe="")
+        + "/settings/apps/new"
+        if owner_type == "organization"
+        else "https://github.com/settings/apps/new"
+    )
+    return base + "?" + urllib.parse.urlencode({"state": state})
+
+
+def requested_owner(args: argparse.Namespace) -> tuple[str, str]:
+    legacy = getattr(args, "legacy_organization", None)
+    if legacy is not None:
+        if args.account_type not in {None, "organization"}:
+            raise ManifestError("--organization requires organization account type")
+        return organization(legacy), "organization"
+    if args.account_type is None:
+        raise ManifestError("--owner requires --account-type")
+    return organization(args.owner), args.account_type
 
 
 def callback_code(raw_query: str, expected_state: str) -> str:
@@ -94,6 +185,7 @@ def manifest(
     name: str,
     broker_url: str,
     redirect_url: str,
+    visibility: str = "private",
 ) -> dict[str, Any]:
     if (
         not isinstance(name, str)
@@ -102,6 +194,9 @@ def manifest(
     ):
         raise ManifestError("GitHub App name is invalid")
     base = broker_base(broker_url)
+    if visibility not in {"private", "public"}:
+        raise ManifestError("GitHub App visibility is invalid")
+    permissions = deployment_profiles()["reviewerAppPermissions"]
     callback = urllib.parse.urlsplit(redirect_url)
     if (
         callback.scheme != "http"
@@ -124,13 +219,8 @@ def manifest(
         "description": (
             "Fail-closed independent API review gate for Idea to Deploy."
         ),
-        "public": False,
-        "default_permissions": {
-            "checks": "write",
-            "contents": "read",
-            "metadata": "read",
-            "pull_requests": "read",
-        },
+        "public": visibility == "public",
+        "default_permissions": dict(permissions),
         "default_events": ["pull_request", "merge_group"],
         "request_oauth_on_install": False,
         "setup_on_update": False,
@@ -358,7 +448,8 @@ def registration_page(
 def serve(args: argparse.Namespace) -> dict[str, Any]:
     if not args.apply:
         raise ManifestError("--serve requires explicit --apply")
-    organization(args.organization)
+    owner, owner_type = requested_owner(args)
+    visibility = resolve_app_visibility(args.profile, args.visibility)
     if not 30 <= args.timeout <= 3600:
         raise ManifestError("manifest timeout must be between 30 and 3600 seconds")
     output_dir = args.output_dir.expanduser().resolve()
@@ -374,13 +465,9 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
         name=args.name,
         broker_url=args.broker_url,
         redirect_url=callback_url,
+        visibility=visibility,
     )
-    action = (
-        "https://github.com/organizations/"
-        + urllib.parse.quote(args.organization, safe="")
-        + "/settings/apps/new?"
-        + urllib.parse.urlencode({"state": state})
-    )
+    action = registration_action(owner, owner_type, state)
     page = registration_page(action, app_manifest)
 
     class Handler(BaseHTTPRequestHandler):
@@ -415,7 +502,7 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
                 result = convert_and_persist(
                     code,
                     output_dir,
-                    expected_owner=args.organization,
+                    expected_owner=owner,
                 )
             except ManifestError as exc:
                 failed.append(exc)
@@ -436,7 +523,10 @@ def serve(args: argparse.Namespace) -> dict[str, Any]:
                 {
                     "status": "WAITING_FOR_BROWSER",
                     "url": f"http://127.0.0.1:{port}/",
-                    "organization": args.organization,
+                    "owner": owner,
+                    "accountType": owner_type,
+                    "profile": args.profile,
+                    "visibility": visibility,
                     "brokerUrl": broker_base(args.broker_url),
                 },
                 ensure_ascii=False,
@@ -465,7 +555,16 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description="Create the dedicated ITD GitHub App"
     )
-    result.add_argument("--organization", required=True)
+    owner = result.add_mutually_exclusive_group(required=True)
+    owner.add_argument("--owner")
+    owner.add_argument("--organization", dest="legacy_organization")
+    result.add_argument("--account-type", choices=["user", "organization"])
+    result.add_argument(
+        "--profile",
+        choices=["self-hosted-app", "managed-app"],
+        default="self-hosted-app",
+    )
+    result.add_argument("--visibility", choices=["private", "public"])
     result.add_argument("--broker-url", required=True)
     result.add_argument(
         "--name", default="ITD Independent Review Gate"
@@ -482,7 +581,8 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        organization(args.organization)
+        owner, owner_type = requested_owner(args)
+        visibility = resolve_app_visibility(args.profile, args.visibility)
         if args.serve:
             value = serve(args)
         else:
@@ -490,11 +590,15 @@ def main(argv: list[str] | None = None) -> int:
                 raise ManifestError("--apply is valid only with --serve")
             value = {
                 "status": "PREVIEW",
-                "organization": args.organization,
+                "owner": owner,
+                "accountType": owner_type,
+                "profile": args.profile,
+                "visibility": visibility,
                 "manifest": manifest(
                     name=args.name,
                     broker_url=args.broker_url,
                     redirect_url="http://127.0.0.1:49152/callback",
+                    visibility=visibility,
                 ),
                 "outputDir": str(
                     args.output_dir.expanduser().resolve()

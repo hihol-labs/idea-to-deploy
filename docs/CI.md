@@ -176,8 +176,39 @@ whose immutable image digest is bound to the dedicated
 change; do not map this gate to mutable GitHub-hosted `*-latest` images or to a
 shared long-lived runner.
 
-Register each local checkout with its active ruleset/enrollment coordinates and
-Ed25519 maker key, then run:
+For a local-submission profile, no App, ruleset, broker, or administrator grant
+is required. Freeze and independently adjudicate the staged candidate, then
+commit exactly that index as one normal single-parent commit. Do not amend the
+tree or add another commit. Register the adjudication and run the canonical
+doctor:
+
+```bash
+itd gate register-profile \
+  --repository <owner/repository> \
+  --checkout <absolute-git-root> \
+  --repository-owner-type <user-or-organization> \
+  --deployment-profile local-submission \
+  --protection-profile local-review \
+  --local-review-receipt-file <absolute-current-adjudication.json> \
+  --local-review-unit-id <unit-id>:general-review \
+  --local-review-risk-tier high
+
+itd gate doctor --repository <owner/repository>
+```
+
+The expected claim is `LOCAL_REVIEWED`, never `PROTECTED`. The doctor and
+guarded transport use Verification Loop `--candidate-mode committed-head`: the
+clean `HEAD` must have exactly one parent equal to the reviewed `baseCommit`,
+the same full tree, and the same binary diff. The default staged check remains
+strict. A guarded `itd pr create` revalidates this bridge and the exact machine
+preflight before push and does not contact an App or broker on this route. An
+amended tree, merge commit, or second commit requires a new adjudication and
+registry update. Evidence may also be refreshed after the commit by running
+the machine, checker, and adjudicate commands with
+`--candidate-mode committed-head`.
+
+For the strongest organization-workflow profile, register each checkout with
+its active ruleset/enrollment coordinates and Ed25519 maker key, then run:
 
 ```bash
 itd gate enrollment \

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "roles": {
+    "maker": {
+      "may": ["author_candidate"],
+      "mustDifferFrom": [],
+      "mayOverlapWith": ["maintainer", "deployer"]
+    },
+    "independentReviewer": {
+      "may": ["review_exact_candidate", "publish_verdict"],
+      "mustDifferFrom": ["maker"],
+      "mayOverlapWith": []
+    },
+    "maintainer": {
+      "may": ["approve", "merge"],
+      "mustDifferFrom": [],
+      "mayOverlapWith": ["maker", "deployer"]
+    },
+    "deployer": {
+      "may": ["deploy"],
+      "mustDifferFrom": [],
+      "mayOverlapWith": ["maker", "maintainer"]
+    }
+  },
+  "reviewerAppPermissions": {
+    "checks": "write",
+    "contents": "read",
+    "metadata": "read",
+    "pull_requests": "read"
+  },
+  "deploymentProfiles": {
+    "local-submission": {
+      "appRequired": false,
+      "visibility": [],
+      "ownerTypes": [],
+      "serverEnforcement": false
+    },
+    "self-hosted-app": {
+      "appRequired": true,
+      "visibility": ["private", "public"],
+      "ownerTypes": ["user", "organization"],
+      "serverEnforcement": true
+    },
+    "managed-app": {
+      "appRequired": true,
+      "visibility": ["public"],
+      "ownerTypes": ["user", "organization"],
+      "serverEnforcement": true
+    }
+  },
+  "protectionProfiles": {
+    "local-review": {
+      "repositoryOwnerActionRequired": false,
+      "requiredChecks": [],
+      "claim": "LOCAL_REVIEWED"
+    },
+    "app-check": {
+      "repositoryOwnerActionRequired": true,
+      "requiredChecks": ["ITD external review gate"],
+      "claim": "APP_CHECK_ENFORCED"
+    },
+    "organization-workflow": {
+      "repositoryOwnerActionRequired": true,
+      "requiredChecks": ["ITD external review gate", "ITD machine oracle"],
+      "claim": "PROTECTED"
+    }
+  }
+}

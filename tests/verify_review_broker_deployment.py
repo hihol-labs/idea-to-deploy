@@ -223,8 +223,12 @@ def main() -> int:
                 "/run/secrets/github-webhook-secret",
             "ITD_PROVENANCE_KEYRING_FILE":
                 "/run/secrets/provenance-keyring",
-            "ITD_OPENAI_API_KEY_FILE":
-                "/run/secrets/openai-service-account-key",
+            "ITD_FREE_REVIEWER_KEYRING_FILE":
+                "/run/secrets/free-reviewer-keyring",
+            "ITD_FREE_REVIEW_APP_SIGNING_KEY_FILE":
+                "/run/secrets/free-review-app-signing-key",
+            "ITD_FREE_REVIEW_APP_KEY_ID":
+                '"${ITD_FREE_REVIEW_APP_KEY_ID:?set the App receipt key id}"',
             "ITD_BROKER_DATABASE":
                 "/var/lib/itd/review-broker.sqlite3",
             "ITD_BROKER_HOST": "0.0.0.0",
@@ -245,8 +249,12 @@ def main() -> int:
                 "/run/secrets/provenance-keyring:ro"
             ),
             (
-                "./runtime/secrets/openai-service-account-key:"
-                "/run/secrets/openai-service-account-key:ro"
+                "./runtime/secrets/free-reviewer-keyring.json:"
+                "/run/secrets/free-reviewer-keyring:ro"
+            ),
+            (
+                "./runtime/secrets/free-review-app-signing-key:"
+                "/run/secrets/free-review-app-signing-key:ro"
             ),
         ],
     }
@@ -328,7 +336,8 @@ def main() -> int:
         "deployment never declares an ambient OpenAI credential channel",
     )
     check(
-        unit.count("LoadCredentialEncrypted=") == 4
+        unit.count("LoadCredentialEncrypted=") == 5
+        and "openai-service-account-key" not in unit
         and "User=itd-review" in unit
         and "ProtectSystem=strict" in unit
         and "NoNewPrivileges=true" in unit,

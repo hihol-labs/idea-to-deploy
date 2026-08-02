@@ -30,6 +30,14 @@
   },
   "commands": [
     {
+      "id": "free-reviewer-producer",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_free_reviewer_producer.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_free_reviewer_producer.py"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
       "id": "broker-orchestration",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_review_broker.py"],
       "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_review_broker.py"],
@@ -97,6 +105,30 @@
       "id": "gate-control-regression",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_control.py"],
       "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_gate_control.py"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "verification-loop-commit-bridge-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_verification_loop.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_verification_loop.py"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "passed, 0 failed",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "gate-profile-doctor-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_profile_doctor.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_gate_profile_doctor.py"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "gate-registry-profiles-regression",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_gate_registry_profiles.py"],
+      "trustedVerifierPaths": ["skills/_shared/itd_py.sh", "tests/verify_gate_registry_profiles.py"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",
       "passFailParser": "stdout_contains"
@@ -174,8 +206,10 @@
     "skills/_shared/REVIEW_BROKER_POLICY.json",
     "skills/_shared/REVIEW_BROKER_POLICY.schema.json",
     "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
+    "skills/_shared/GATE_DEPLOYMENT_PROFILES.json",
     "skills/_shared/itd_review_broker_primitives.py",
     "skills/_shared/itd_review_broker.py",
+    "skills/_shared/itd_free_reviewer_producer.py",
         "services/review_broker/server.py",
         "services/review_broker/operator.py",
         "services/review_broker/Dockerfile",
@@ -184,6 +218,7 @@
         "services/review_broker/deploy/systemd/itd-review-broker.service",
         "docs/templates/github/itd-machine-oracle.yml",
         "scripts/itd.py",
+        "scripts/itd_gate_profile_doctor.py",
         "scripts/itd_github_app_manifest.py",
         "scripts/itd_install_cli.py",
         "scripts/itd_machine_oracle.py",
@@ -192,11 +227,13 @@
     "skills/_shared/itd_gate_control.py",
     "tests/verify_machine_oracle.py",
     "tests/verify_gate_control.py",
+    "tests/verify_gate_profile_doctor.py",
     "tests/verify_itd_cli.py",
     "tests/verify_git_gate_hooks.py",
     "tests/verify_review_broker_policy.py",
     "tests/verify_review_broker_primitives.py",
     "tests/verify_review_broker.py",
+    "tests/verify_free_reviewer_producer.py",
         "tests/verify_review_broker_server.py",
         "tests/verify_review_broker_operator.py",
         "tests/verify_review_broker_deployment.py",

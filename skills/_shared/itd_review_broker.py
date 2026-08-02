@@ -56,6 +56,8 @@ from itd_review_broker_primitives import (  # noqa: E402
     verify_webhook_signature,
 )
 
+FREE_REVIEWER_PATH = SHARED_DIR / "itd_free_reviewer_producer.py"
+
 RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
 COMPARE_PAGE_SIZE = 100
 # GitHub's compare endpoint exposes the complete changed-file list only on the
@@ -77,6 +79,17 @@ def _reviewer_module():
     )
     if spec is None or spec.loader is None:
         raise BrokerError("UNAVAILABLE", "external reviewer adapter is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _free_reviewer_module():
+    spec = importlib.util.spec_from_file_location(
+        "itd_broker_free_reviewer", FREE_REVIEWER_PATH
+    )
+    if spec is None or spec.loader is None:
+        raise BrokerError("UNAVAILABLE", "free reviewer producer is unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -1469,8 +1482,9 @@ class ReviewBroker:
         store: BrokerStore,
         github: GitHubApi,
         auth: GitHubAppAuth,
-        reviewer: ReviewerAdapter,
+        reviewer: ReviewerAdapter | None,
         sleeper: Callable[[float], None] = time.sleep,
+        paid_fallback_consent: bool = False,
     ) -> None:
         self.policy = validate_policy(policy)
         self.store = store
@@ -1478,11 +1492,16 @@ class ReviewBroker:
         self.auth = auth
         self.reviewer = reviewer
         self.sleeper = sleeper
+        self.paid_fallback_consent = paid_fallback_consent is True
         self.auth.api = github
 
-    def _token(self, coordinates: Coordinates) -> tuple[str, int]:
+    def _enrolled_app_id(self, coordinates: Coordinates) -> int:
         app_id = self.store.enrollment_app_id(coordinates.repository)
         self.store.require_enrolled(coordinates.repository, app_id)
+        return app_id
+
+    def _token(self, coordinates: Coordinates) -> tuple[str, int]:
+        app_id = self._enrolled_app_id(coordinates)
         return (
             self.auth.installation_token(
                 coordinates.installation_id,
@@ -1898,6 +1917,13 @@ class ReviewBroker:
     def recover_pending_publications(self) -> int:
         """Reconcile durable pre-publication evidence after interruption."""
         recovered = 0
+        for pending in self.store.pending_free_reviews():
+            try:
+                token, app_id = self._token(pending["coordinates"])
+                self._resume_free_review(pending, token, app_id)
+            except Exception:
+                continue
+            recovered += 1
         for pending in self.store.pending_review_preparations():
             coordinates = pending["coordinates"]
             receipt = dict(pending["receiptTemplate"])
@@ -2073,7 +2099,329 @@ class ReviewBroker:
             recovered += 1
         return recovered
 
-    def process(self, coordinates: Coordinates) -> dict[str, Any]:
+    def _authorized_free_reviewer_keys(
+        self,
+        phase_one: dict[str, Any],
+        producer_keys: dict[str, Any],
+        coordinates: Coordinates,
+        app_id: int,
+    ) -> dict[str, str]:
+        free = _free_reviewer_module()
+        signed = phase_one.get("signed") if isinstance(phase_one, dict) else None
+        key_id = signed.get("keyId") if isinstance(signed, dict) else None
+        record = producer_keys.get(key_id) if isinstance(key_id, str) else None
+        required = {
+            "publicKey", "repository", "appIntegrationId", "producerId",
+            "reviewerProvider", "reviewerModel",
+        }
+        if not isinstance(record, dict) or set(record) != required:
+            raise BrokerError("UNVERIFIED", "free reviewer key authorization is absent")
+        reviewer = signed.get("reviewer") if isinstance(signed, dict) else None
+        if (
+            not isinstance(record["publicKey"], str)
+            or record["repository"] != coordinates.repository
+            or record["appIntegrationId"] != app_id
+            or not isinstance(reviewer, dict)
+            or signed.get("producerId") != record["producerId"]
+            or reviewer.get("provider") != record["reviewerProvider"]
+            or reviewer.get("model") != record["reviewerModel"]
+        ):
+            raise BrokerError(
+                "UNVERIFIED", "free reviewer key is foreign to this enrollment"
+            )
+        scoped = {key_id: record["publicKey"]}
+        try:
+            verified = free.verify_phase_one(phase_one, scoped)
+        except free.FreeReviewError as exc:
+            raise BrokerError(exc.status, exc.reason) from exc
+        maker = self.store.get_provenance(coordinates)
+        claimed_maker = verified["maker"]
+        if claimed_maker != {
+            "provider": maker["vendor"],
+            "model": maker["model"],
+            "session": maker["session"],
+        }:
+            raise BrokerError(
+                "UNVERIFIED", "free review maker differs from signed PR provenance"
+            )
+        return scoped
+
+    def _revalidate_free_publication(
+        self,
+        coordinates: Coordinates,
+        payload: dict[str, Any],
+        token: str,
+        app_id: int,
+    ) -> None:
+        phase_two = payload.get("phaseTwoReceipt")
+        phase_two_signed = (
+            phase_two.get("signed") if isinstance(phase_two, dict) else None
+        )
+        phase_one = (
+            phase_two_signed.get("phaseOne")
+            if isinstance(phase_two_signed, dict) else None
+        )
+        phase_one_signed = (
+            phase_one.get("signed") if isinstance(phase_one, dict) else None
+        )
+        candidate = (
+            phase_one_signed.get("candidate")
+            if isinstance(phase_one_signed, dict) else None
+        )
+        live = (
+            phase_two_signed.get("live")
+            if isinstance(phase_two_signed, dict) else None
+        )
+        publication = payload.get("checkPublication")
+        if not all(isinstance(row, dict) for row in (candidate, live, publication)):
+            raise BrokerError("UNVERIFIED", "stored free review binding is malformed")
+        _, check_sha = self._live_pr(coordinates, token)
+        repository = urllib.parse.quote(coordinates.repository, safe="/")
+        head = self.github.request_json(
+            "GET",
+            f"/repos/{repository}/git/commits/{coordinates.head_sha}",
+            token,
+        )
+        tree = head.get("tree") if isinstance(head, dict) else None
+        parents = head.get("parents") if isinstance(head, dict) else None
+        parent_shas = (
+            [row.get("sha") for row in parents]
+            if isinstance(parents, list)
+            and all(isinstance(row, dict) for row in parents)
+            else []
+        )
+        if (
+            check_sha != live.get("checkSha")
+            or live.get("repository") != coordinates.repository
+            or live.get("pullRequest") != coordinates.pull_request
+            or live.get("headSha") != coordinates.head_sha
+            or live.get("baseSha") != coordinates.base_sha
+            or not isinstance(head, dict)
+            or head.get("sha") != coordinates.head_sha
+            or not isinstance(tree, dict)
+            or tree.get("sha") != candidate.get("tree")
+            or parent_shas != [candidate.get("parentCommit")]
+        ):
+            raise BrokerError("UNVERIFIED", "free review candidate changed before publish")
+        observed = self._observe_check(
+            coordinates, token, int(publication["id"])
+        )
+        expected_check = {
+            "id": publication["id"],
+            "appIntegrationId": app_id,
+            "name": publication["name"],
+            "headSha": publication["headSha"],
+            "externalId": publication["externalId"],
+            "status": "in_progress",
+            "conclusion": None,
+        }
+        if observed != expected_check:
+            raise BrokerError("UNVERIFIED", "free review Check changed before publish")
+        _, final_check_sha = self._live_pr(coordinates, token)
+        if final_check_sha != check_sha:
+            raise BrokerError("UNVERIFIED", "free review PR changed before publish")
+
+    def _resume_free_review(
+        self,
+        pending: dict[str, Any],
+        token: str,
+        app_id: int,
+    ) -> dict[str, Any]:
+        coordinates = pending["coordinates"]
+        payload = pending["payload"]
+        publication = payload["checkPublication"]
+        observed = self._observe_check(coordinates, token, publication["id"])
+        identity_fields = (
+            "id", "appIntegrationId", "name", "headSha", "externalId",
+        )
+        if (
+            app_id != publication["appIntegrationId"]
+            or {field: observed.get(field) for field in identity_fields}
+            != {field: publication.get(field) for field in identity_fields}
+        ):
+            raise BrokerError(
+                "UNVERIFIED", "recovering free review Check Run identity differs"
+            )
+        is_pending = (
+            observed["status"] == "in_progress"
+            and observed["conclusion"] is None
+        )
+        is_success = (
+            observed["status"] == "completed"
+            and observed["conclusion"] == publication["conclusion"]
+        )
+        if not (is_pending or is_success):
+            raise BrokerError(
+                "UNVERIFIED", "recovering free review has an unexpected state"
+            )
+        if pending["state"] == "finalized" and not is_success:
+            raise BrokerError(
+                "UNVERIFIED", "finalized free review is not terminal on GitHub"
+            )
+        if is_pending:
+            self._revalidate_free_publication(
+                coordinates, payload, token, app_id
+            )
+            self._complete_check(
+                coordinates, token, publication["id"], publication["externalId"],
+                app_id, "free_review", pending["receiptId"],
+                publication["conclusion"], "ITD free review recovered",
+                "The broker resumed a success backed by durable exact evidence.",
+            )
+        if pending["state"] == "prepared":
+            self.store.finalize_free_review(
+                pending["receiptId"], self.github, token
+            )
+        return {
+            "receiptId": pending["receiptId"],
+            "receipt": payload["phaseTwoReceipt"],
+            "status": "PASSED",
+            "conclusion": publication["conclusion"],
+            "checkRunId": publication["id"],
+        }
+
+    def bind_free_review(
+        self,
+        coordinates: Coordinates,
+        *,
+        phase_one: dict[str, Any],
+        producer_keys: dict[str, Any],
+        app_key_id: str,
+        app_private_key: bytes,
+    ) -> dict[str, Any]:
+        """Bind a clean free phase one to live GitHub and publish App success."""
+        coordinates.validate()
+        if coordinates.subject_type != "pull_request":
+            raise BrokerError("UNVERIFIED", "free review binding requires a pull request")
+        free = _free_reviewer_module()
+        app_id = self._enrolled_app_id(coordinates)
+        scoped_keys = self._authorized_free_reviewer_keys(
+            phase_one, producer_keys, coordinates, app_id
+        )
+        token = self.auth.installation_token(
+            coordinates.installation_id,
+            coordinates.repository,
+            app_id,
+        )
+        existing = self.store.free_review_for_coordinates(coordinates)
+        if existing is not None:
+            stored_phase_one = existing["payload"].get("phaseTwoReceipt", {}).get(
+                "signed", {}
+            ).get("phaseOne")
+            if stored_phase_one != phase_one:
+                raise BrokerError(
+                    "UNVERIFIED", "free review coordinate already binds another receipt"
+                )
+            return self._resume_free_review(existing, token, app_id)
+        _, check_sha = self._live_pr(coordinates, token)
+        external_id = free.sha256_bytes(free.canonical_bytes(phase_one))
+        check_id = self._create_check(
+            coordinates,
+            token,
+            check_sha,
+            external_id,
+            "ITD free review is binding",
+            "The GitHub App is revalidating an exact signed free review receipt.",
+        )
+        observed_at = now_iso()
+        try:
+            receipt = free.github_app_phase_two_receipt(
+                phase_one=phase_one,
+                producer_keys=scoped_keys,
+                repository=coordinates.repository,
+                pull_request=coordinates.pull_request,
+                expected_head_sha=coordinates.head_sha,
+                check_run_id=check_id,
+                expected_app_id=app_id,
+                fetch_json=lambda path: self.github.request_json(
+                    "GET", path, token
+                ),
+                key_id=app_key_id,
+                private_key=app_private_key,
+                observed_at=observed_at,
+            )
+        except free.FreeReviewError as exc:
+            self._publish_failure_on_check(
+                coordinates, token, app_id, check_sha, check_id, external_id,
+                exc.status, exc.reason,
+            )
+            return {
+                "receiptId": None,
+                "receipt": None,
+                "status": exc.status,
+                "conclusion": self.policy["github"]["externalCheck"][
+                    "unavailableConclusion" if exc.status == "UNAVAILABLE"
+                    else "unverifiedConclusion"
+                ],
+                "checkRunId": check_id,
+            }
+        conclusion = self.policy["github"]["externalCheck"]["successConclusion"]
+        evidence = {
+            "version": 1,
+            "kind": "itd-free-review-broker-evidence",
+            "repository": coordinates.repository,
+            "pullRequest": coordinates.pull_request,
+            "headSha": coordinates.head_sha,
+            "baseSha": coordinates.base_sha,
+            "installationId": coordinates.installation_id,
+            "phaseTwoReceipt": receipt,
+            "phaseTwoReceiptSha256": sha256_bytes(canonical_json(receipt)),
+            "checkPublication": {
+                "id": check_id,
+                "appIntegrationId": app_id,
+                "name": self.policy["github"]["externalCheck"]["name"],
+                "headSha": check_sha,
+                "externalId": external_id,
+                "status": "completed",
+                "conclusion": conclusion,
+            },
+            "observedAt": observed_at,
+        }
+        try:
+            receipt_id = self.store.prepare_free_review(
+                evidence, self.github, token
+            )
+            self._revalidate_free_publication(
+                coordinates, evidence, token, app_id
+            )
+            self._complete_check(
+                coordinates, token, check_id, external_id, app_id,
+                "free_review", receipt_id, conclusion,
+                "ITD free review passed",
+                f"Exact free review bound to {coordinates.head_sha[:12]}.",
+            )
+            self.store.finalize_free_review(receipt_id, self.github, token)
+        except Exception:
+            current = self._observe_check(coordinates, token, check_id)
+            if current["status"] == "in_progress":
+                try:
+                    self._publish_failure_on_check(
+                        coordinates, token, app_id, check_sha, check_id,
+                        external_id, "UNVERIFIED",
+                        "free review evidence could not be durably published",
+                    )
+                except Exception:
+                    pass
+            return {
+                "receiptId": None,
+                "receipt": receipt,
+                "status": "UNVERIFIED",
+                "conclusion": self.policy["github"]["externalCheck"][
+                    "unverifiedConclusion"
+                ],
+                "checkRunId": check_id,
+            }
+        return {
+            "receiptId": receipt_id,
+            "receipt": receipt,
+            "status": "PASSED",
+            "conclusion": conclusion,
+            "checkRunId": check_id,
+        }
+
+    def process(
+        self, coordinates: Coordinates, *, paid_review_requested: bool = False
+    ) -> dict[str, Any]:
         coordinates.validate()
         token, app_id = self._token(coordinates)
         check_sha = coordinates.head_sha
@@ -2127,6 +2475,20 @@ class ReviewBroker:
                 maker["model"],
                 self.policy,
             )
+            if not paid_review_requested:
+                raise BrokerError(
+                    "UNAVAILABLE",
+                    "a signed free review receipt is required; paid review "
+                    "was not explicitly requested for this operation",
+                )
+            if not self.paid_fallback_consent:
+                raise BrokerError(
+                    "UNAVAILABLE",
+                    "a signed free review receipt is required; paid fallback "
+                    "has no explicit consent",
+                )
+            if self.reviewer is None:
+                raise BrokerError("UNAVAILABLE", "consented paid reviewer is unavailable")
             candidate = build_candidate(
                 self.github,
                 token,
