@@ -12,14 +12,18 @@ external writes, merge, deploy, and release require their own authorization.
 
 - Repository: `/home/hihol/projects/idea-to-deploy`
 - Branch: `codex/harness-lifecycle-trust`
-- HEAD: `7d463b64bc7d542adc4e562ec06e1d5f828ea617`
-- Local branch is four commits ahead of origin.
+- HEAD: `4a8097613ed2400159c03512fba137382f36ff3f`
+- Local branch is five commits ahead of origin before the namespace repair.
 - The staged candidate contains the broker/free-review implementation,
   security repairs, portable profile contract, generic App manifest flow,
   canonical gates.json v2 local-review routing, contracts, tests, and this
   checkpoint. Resolve its exact tree after this edit; no earlier receipt
   accepts the self-referential final checkpoint.
 - Draft PR #177 is still open and not updated; remote head is `e0384d6`.
+- The first guarded publication attempt created the real local v2 registry but
+  doctor correctly exposed that all 21 verification commands omitted their
+  tracked `tests/` namespace directory. The staged repair declares that
+  directory and adds a project-contract canary; no push occurred.
 
 ## 3. Completed implementation
 
@@ -64,8 +68,11 @@ external writes, merge, deploy, and release require their own authorization.
 
 ## 5. Live boundary
 
-- `~/.config/itd/gates.json` is absent; guarded raw push remains blocked. Never
-  use `--no-verify` or another bypass.
+- `~/.config/itd/gates.json` now contains the explicit
+  `local-submission`/`local-review` profile for this checkout. Its old receipt
+  must be replaced after the namespace-repair candidate is reviewed and
+  committed; guarded push remains blocked until doctor returns
+  `LOCAL_REVIEWED`. Never use `--no-verify` or another bypass.
 - No live App/ruleset/provenance mutation is implied by local acceptance.
 - `local-submission` needs no repository administration. `self-hosted-app` and
   `managed-app` require the repository owner to install the App; protection
@@ -75,10 +82,10 @@ external writes, merge, deploy, and release require their own authorization.
 
 ## 6. Next exact step
 
-Resolve the final staged tree after the documentation/checkpoint update and
-produce current high-risk machine, fresh general checker, fresh security
-checker, and adjudication receipts. After that, choose and execute a deployment
-profile serially; do not silently assume organization ownership:
+Review the small verification-namespace repair, commit exactly its staged tree,
+replace the registry receipt, and require doctor to return `LOCAL_REVIEWED`.
+Only then guarded-push the existing branch to update Draft PR #177. The chosen
+deployment profile is already explicit; do not silently strengthen it:
 
 1. Establish a stable HTTPS broker target only for an App profile.
 2. For self-hosted, register a private/public user/organization App. For

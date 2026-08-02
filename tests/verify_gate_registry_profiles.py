@@ -117,6 +117,10 @@ def push_updates() -> bytes:
 
 
 def main() -> int:
+    check(
+        gate.adopted_checkout(ROOT) == [],
+        "canonical project verification contract is local-profile ready",
+    )
     with tempfile.TemporaryDirectory(prefix="itd-registry-profiles-") as raw:
         root = Path(raw).resolve()
         (root / "signing.key").write_bytes(bytes(range(32)))
