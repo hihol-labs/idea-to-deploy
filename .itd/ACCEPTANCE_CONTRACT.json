@@ -149,5 +149,21 @@
       "status": "passed"
     }
   ],
-  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until the portable profile model, free-primary review route, and current high-risk exact-candidate Verification Loop receipts revalidate the candidate. It does not claim live broker/App/ruleset deployment, any unobserved protection profile, credential rotation, or final release/install."
+  "completion": {
+    "status": "verified",
+    "selectedDeploymentProfile": "local-submission",
+    "selectedProtectionProfile": "local-review",
+    "implementationMerge": "234752828d463821814020bebf2cc3dc40399beb",
+    "releaseMerge": "8c2bb1b0689ce68282a3ef10a2edc6143a097f8f",
+    "releaseVersion": "1.95.0",
+    "durableEvidence": ".itd/GPG-001_COMPLETION_EVIDENCE.json",
+    "unclaimed": [
+      "live App/broker enrollment",
+      "organization-workflow",
+      "PROTECTED",
+      "credential rotation",
+      "Windows doctor success for a UNC checkout"
+    ]
+  },
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 is verified for the selected local-submission/local-review profile because the portable profile model and free-primary route passed current high-risk exact-candidate review, PR #177 and release PR #178 passed required GitHub checks and merged, v1.95.0 was installed and smoke-tested on Windows/WSL, and the exact implementation/release evidence dependencies are durable under the paths listed in .itd/GPG-001_COMPLETION_EVIDENCE.json. This does not claim any item in completion.unclaimed; each stronger profile requires a separate authorized unit and its own live evidence."
 }

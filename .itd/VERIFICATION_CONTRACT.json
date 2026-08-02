@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "purpose": "Executable local-regression contract and staged future protected-machine contract for the GPG-001 gate-control bootstrap slice.",
+  "purpose": "Executable local-regression contract for the released GPG-001 local-review profile and staged future protected-machine contract for optional stronger profiles.",
   "trustedPathSemantics": "Every commands[].argv directly invokes its declared launcher and verifier. Extra declared files such as tests/run-all.sh are read-only inputs inspected by that verifier, not indirectly executed suites; the protected machine gate binds every declared input to the protected base before execution.",
   "unitId": "GPG-001",
   "createdAt": "2026-07-30",
-  "activationState": "staged_bootstrap_not_protected",
+  "activationState": "local_reviewed_release_installed_not_protected",
   "bootstrapAcceptance": {
-    "currentCandidate": "This bootstrap candidate introduces or changes commands[].trustedVerifierPaths and therefore cannot use those paths as protected attesting authority for itself.",
-    "protectedMachineGate": "RECOVERY_REQUIRED for this candidate. No command below counts as a protected GitHub machine-oracle attestation until this contract and every trusted verifier path are present as identical regular Git objects in the protected base.",
-    "localMachineEvidence": "The commands below are local regression evidence only for the current exact-candidate Verification Loop. They may contribute to an honest-host local adjudication together with a fresh different-model checker, but they do not assert live branch protection or PROTECTED status.",
-    "anchorSequence": "Merge this reviewed bootstrap slice to establish the contract and verifier anchors; in a separate follow-up, install the staged workflow template without changing those anchors, pin it to the protected release SHA, and require its check before claiming protected-machine enforcement.",
+    "currentCandidate": "The GPG-001 implementation and verifier anchors were merged through PR #177 and released through PR #178. The selected deployed profile is local-submission/local-review; current reconciliation changes are documentation and durable evidence only.",
+    "protectedMachineGate": "Not activated and not required for the selected local-review claim. Any future PROTECTED claim remains RECOVERY_REQUIRED until this contract and every trusted verifier path are identical regular Git objects in the protected base and the live workflow/ruleset canaries pass.",
+    "localMachineEvidence": "The commands below are local regression evidence for an exact-candidate Verification Loop. Together with a fresh different-model checker they may support an honest-host LOCAL_REVIEWED adjudication, but they do not assert live App authority, branch protection or PROTECTED status.",
+    "anchorSequence": "The reviewed bootstrap and release are complete. A separate optional profile-upgrade unit may install and pin the protected workflow/ruleset to a protected release SHA without changing its attesting anchors before claiming protected-machine enforcement.",
     "externalCandidatePreparationEvidence": "Before the checker receipt, the honest host records the same tree/base, exact reconstruction, review-diff SHA-256, secretScrub=clean, and redactions=0 in the bound report. Any secret match is UNVERIFIED; candidate commands cannot self-attest egress scrub."
   },
   "commandSchema": {
@@ -235,9 +235,16 @@
     "tests/verify_review_broker.py",
     "tests/verify_free_reviewer_producer.py",
         "tests/verify_review_broker_server.py",
-        "tests/verify_review_broker_operator.py",
-        "tests/verify_review_broker_deployment.py",
-        "tests/verify_github_app_manifest.py"
+    "tests/verify_review_broker_operator.py",
+    "tests/verify_review_broker_deployment.py",
+        "tests/verify_github_app_manifest.py",
+    ".itd/GPG-001_COMPLETION_EVIDENCE.json",
+    ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-machine-12fd738043afe851.json",
+    ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-checker-d3d4438d2080871b.json",
+    ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-adjudication-a1.json",
+    ".itd-memory/verification-loop/GPG-001-release-1.95.0-machine.json",
+    ".itd-memory/verification-loop/GPG-001-release-1.95.0-checker.json",
+    ".itd-memory/verification-loop/GPG-001-release-1.95.0-adjudication.json"
   ],
   "passCriteria": [
     "All required commands exit 0.",

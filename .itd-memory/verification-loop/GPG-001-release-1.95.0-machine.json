@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "kind": "machine-verification",
+  "createdAt": "2026-08-02T16:01:40Z",
+  "unitId": "GPG-001-release-1.95.0",
+  "riskTier": "high",
+  "candidate": {
+    "repository": "/home/hihol/projects/idea-to-deploy",
+    "baseCommit": "234752828d463821814020bebf2cc3dc40399beb",
+    "reviewedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+    "diffHash": "46e4e30acd3fb99d41c002dbe59d2751a5a4f410dbabc2dd4424197aeb23f57b",
+    "scopeContractHash": "6668c2c4dfb614c76a82ca327a5adbc8a5354c0c3eccab1e8c6643f0ab81931d",
+    "acceptanceContractHash": "35be35243d85a14af243a808fd3111d0e1eea0881082788cd4aa681cd31f0c40",
+    "rubricHash": "ce02c310087c6b457ce121672c73b3aea602c0a301a745460546f5ba5c94ced8",
+    "methodologyVersion": "1.95.0",
+    "riskTier": "high"
+  },
+  "candidateDigest": "sha256:fbdb9c557bf1462063326d2eb66a3df693cc3e2f62ad95184d6d664200384d30",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "machine-verifier",
+    "host": "Linux"
+  },
+  "producerRunId": "ff13192573ba5a5722984b071c06fb97",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "declaredInputs": [],
+  "runs": [
+    {
+      "id": "release",
+      "command": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_external_reviewer_release.py",
+      "commandSha256": "749ff75a328568c7e4618f0644a3f5cb827e31bf2c54c9fcdc796c11a4cfdbf0",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T15:57:44Z",
+      "completedAt": "2026-08-02T15:57:44Z",
+      "timeoutSeconds": 900,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+      "exitCode": 0,
+      "stdoutSha256": "121d5d0fa47e27c59b26bc1992ba27743b14ffd58975abfd2b766ec96950ae19",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "host-adapters",
+      "command": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_host_adapters.py",
+      "commandSha256": "4f29b56ee40d7b80cb6386922f60a1c906244eca06bdaa33adfaaec2e1a049a6",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T15:57:45Z",
+      "completedAt": "2026-08-02T15:57:46Z",
+      "timeoutSeconds": 900,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+      "exitCode": 0,
+      "stdoutSha256": "b77144dd0985c31fa430fc9d1b1da832d5f969d2c72f21929e3ecef34593b607",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "meta-review",
+      "command": "sh skills/_shared/itd_py.sh --itd-isolated tests/meta_review.py --verbose",
+      "commandSha256": "62f717468b8e7efb478fd424c0688ed35f0572a7775cf4e50b795c638a236c04",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T15:57:47Z",
+      "completedAt": "2026-08-02T15:57:48Z",
+      "timeoutSeconds": 900,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+      "exitCode": 0,
+      "stdoutSha256": "26d677b7b47eba1a4c4841b6dcef470775c932fa2107757b82b3a40295d12d63",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "quick",
+      "command": "bash tests/run-all.sh --quick",
+      "commandSha256": "8bc5dc7ec0fba5b41830a12e6fe3518ddd547a6c3e478be5136d6d2b994bc4fa",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T15:57:50Z",
+      "completedAt": "2026-08-02T16:01:40Z",
+      "timeoutSeconds": 900,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+      "exitCode": 0,
+      "stdoutSha256": "6a839152f70783008873fd499f2bff35b2b91208e39ef7bdf708d4c2862a9a11",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verdict": "PASSED",
+  "receiptSha256": "53dbde4efb1bc80ba64ba30e3d4267f697b0a00bc281f566d0492e88d2d32e23"
+}

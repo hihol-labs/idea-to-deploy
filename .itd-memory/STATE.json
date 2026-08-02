@@ -1,6 +1,6 @@
 {
   "sessionState": "ACTIVE",
-  "currentStage": "DEPLOY",
+  "currentStage": "HANDOFF",
   "intent": "Implement GPG-001 as a fail-closed exact-candidate gate with a free isolated fresh-model reviewer as primary transport, while restoring and preserving MEM-8 trust guarantees",
   "classification": {
     "productType": "engineering_methodology",
@@ -34,14 +34,15 @@
       "bash tests/run-all.sh"
     ],
     "currentTaskRoute": "task",
-    "lastAnalysisSummary": "Implemented and accepted the free isolated reviewer producer on staged tree e2ab8afb with a clean fresh Terra exact adjudication. Live GitHub App, ruleset, provenance registry and PROTECTED doctor evidence remain outstanding; Draft PR #177 is not updated."
+    "lastAnalysisSummary": "GPG-001 was independently accepted, merged through PR #177, released through PR #178 as v1.95.0, and deployed to WSL/Windows Claude and Codex. The selected claim is LOCAL_REVIEWED, not PROTECTED."
   },
   "currentUnit": {
     "id": "GPG-001",
     "goal": "Implement a fail-closed global PR/API gate control plane for Windows and WSL repositories",
     "riskTier": "high",
-    "status": "in_progress",
-    "startedAt": "2026-07-29T09:32:53Z"
+    "status": "verified",
+    "startedAt": "2026-07-29T09:32:53Z",
+    "completedAt": "2026-08-02T16:47:51Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -62,7 +63,7 @@
     "security": "passed",
     "dependencies": "n/a",
     "hardening": "passed",
-    "branchFinish": "pending",
+    "branchFinish": "passed",
     "learningPromotion": "n/a",
     "nextStepApproval": "approved",
     "deploymentReadiness": "passed"
@@ -211,6 +212,12 @@
       "command": "GPG-001 free isolated reviewer producer TDD, high-risk verification, fresh exact checker and adjudication",
       "result": "passed",
       "evidence": "staged tree e2ab8afbe092bc3bb00b7c376ef72411a7bc738c; producer 53, broker 721, server 50, deployment 25; tool trust, cold-start, meta-review, host adapters and quick all pass; fresh openai-codex-subscription gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/1dd8d0697e2f5434/GPG-001-general-review-adjudication-a1.json"
+    },
+    {
+      "at": "2026-08-02T16:47:51Z",
+      "command": "GPG-001 release, GitHub merge and dual-host deployment",
+      "result": "passed",
+      "evidence": "PR #177 merged as 234752828d463821814020bebf2cc3dc40399beb; release PR #178 passed meta-review and windows-verify then merged as 8c2bb1b0689ce68282a3ef10a2edc6143a097f8f; v1.95.0 installed/enabled in WSL and Windows Codex; both Claude sync checks zero drift; installed release and host-adapter smoke passed; durable proof index .itd/GPG-001_COMPLETION_EVIDENCE.json"
     }
   ],
   "decisionLog": [
@@ -273,6 +280,11 @@
       "at": "2026-08-01T15:55:00Z",
       "decision": "Stop GPG-001 implementation and restore MEM-8 before any further commit, push, or Draft PR update",
       "why": "A fresh full-diff review and independent refute confirmed that commit 954a3b6 deleted the enforceable prompt-bearing tool trust registry, validator, adoption inventory, audit check and mutation sensor without replacement"
+    },
+    {
+      "at": "2026-08-02T16:47:51Z",
+      "decision": "Complete GPG-001 under the portable local-submission/local-review profile and keep App-backed PROTECTED as an optional upgrade",
+      "why": "The required independent exact-candidate review, guarded PR flow, owner-controlled merge/deploy, release and dual-host installation are proven without granting the reviewer merge/deploy authority or requiring administration on external repositories"
     }
   ],
   "artifacts": [
@@ -304,6 +316,7 @@
     "HANDOFF.md",
     "ROOT_CAUSE.md",
     ".itd/GPG-001_NINE_POINT_PLAN.md",
+    ".itd/GPG-001_COMPLETION_EVIDENCE.json",
     ".itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md"
   ],
   "completedModules": [
@@ -333,15 +346,15 @@
     },
     {
       "id": "GPG-001-live-gate-registry",
-      "status": "unresolved",
-      "requires": "Provision a stable HTTPS broker, obtain user-interactive admin:org/App authorization, configure and canary the live GitHub App/ruleset/provenance boundary, then create and validate /home/hihol/.config/itd/gates.json with itd gate doctor --all = PROTECTED.",
-      "forbiddenSubstitution": "Do not bypass the guarded pre-push hook with --no-verify or treat a local-only receipt as live App/ruleset enforcement."
+      "status": "resolved",
+      "requires": "User selected the portable local-submission/local-review profile. The WSL registry validates as LOCAL_REVIEWED; live App/broker enrollment is an optional stronger profile and is not required for this claim.",
+      "forbiddenSubstitution": "Do not bypass the guarded pre-push hook with --no-verify, call LOCAL_REVIEWED protected, or claim App/ruleset enforcement without live enrollment evidence."
     }
   ],
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Resolve the complete current index with git write-tree and validate a current GPG-001:general-review adjudication for that exact candidate; once accepted, continue the authorized live App/ruleset/provenance slice until itd gate doctor --all reports PROTECTED.",
+    "recommendedNextStep": "Treat GPG-001 as complete for local-submission/local-review. Start a new explicitly approved unit; the Windows UNC validator timeout is an optional bugfix and App-backed PROTECTED is a separate profile upgrade.",
     "alternatives": [
       "Keep paid Responses API disabled; consider it only as an explicit availability fallback after separate consent and budget",
       "Implement and validate a native Kimi Code adapter on a separate branch before claiming Kimi support or parity"
@@ -353,5 +366,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Read-only resolve the complete staged tree and validate a current exact-candidate GPG-001:general-review adjudication; only after acceptance establish the live HTTPS broker and user-authorized GitHub App/ruleset/provenance boundary until itd gate doctor --all = PROTECTED."
+  "nextAction": "Run the WSL gate doctor from HANDOFF.md, confirm LOCAL_REVIEWED, then start only the next user-selected WIP=1 unit."
 }

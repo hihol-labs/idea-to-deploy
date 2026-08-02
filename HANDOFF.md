@@ -1,123 +1,128 @@
-# GPG-001 handoff — canonical profile registry, final exact acceptance next
+---
+project: /home/hihol/projects/idea-to-deploy
+stage: handoff
+from_role: release-operator
+to_role: next-session
+reason: post-release continuity
+unit: GPG-001
+status: verified
+---
 
-## 1. Current objective
+# GPG-001 handoff — v1.95.0 опубликована и установлена
 
-Continue the existing high-risk `GPG-001` unit with WIP=1. Do not create a new
-goal. The nine ordered stages remain intact, but their architecture is now
-portable: maker/maintainer/deployer may overlap, only the reviewer differs from
-maker, and deployment/protection profiles are selected per project. Paid API,
-external writes, merge, deploy, and release require their own authorization.
+> [!todo] Первое действие
+> На `main` после merge post-release reconciliation запусти `python3 scripts/itd.py gate doctor --repository hihol-labs/idea-to-deploy` и подтверди `LOCAL_REVIEWED`; не открывай GPG-001 заново без нового явно выбранного follow-up.
 
-## 2. Exact repository state
+## 1. From → To и причина передачи
 
-- Repository: `/home/hihol/projects/idea-to-deploy`
-- Branch: `codex/harness-lifecycle-trust`
-- HEAD: `4a8097613ed2400159c03512fba137382f36ff3f`
-- Local branch is five commits ahead of origin before the namespace repair.
-- The staged candidate contains the broker/free-review implementation,
-  security repairs, portable profile contract, generic App manifest flow,
-  canonical gates.json v2 local-review routing, contracts, tests, and this
-  checkpoint. Resolve its exact tree after this edit; no earlier receipt
-  accepts the self-referential final checkpoint.
-- Draft PR #177 is still open and not updated; remote head is `e0384d6`.
-- The first guarded publication attempt created the real local v2 registry but
-  doctor correctly exposed that all 21 verification commands omitted their
-  tracked `tests/` namespace directory. The staged repair declares that
-  directory and adds a project-contract canary; no push occurred.
+- From: release/operator session, завершившая review, merge и dual-host rollout.
+- To: следующая рабочая сессия Idea to Deploy.
+- Причина: post-release handoff после завершения high-risk юнита.
 
-## 3. Completed implementation
+## 2. Текущее состояние
 
-- Free producer, signed Ed25519 two-phase receipts, App-side exact live
-  revalidation, durable publication recovery, and free-primary routing are
-  implemented; automatic paid fallback remains forbidden.
-- Candidate-hosted producer code is rejected before subscription auth/signing
-  key access. Invalid/foreign receipts and padded identities are rejected
-  before App installation-token or GitHub API work.
-- `skills/_shared/GATE_DEPLOYMENT_PROFILES.json` defines portable roles,
-  `local-submission`, `self-hosted-app`, `managed-app`, and separate protection
-  claims. Only `organization-workflow` may claim `PROTECTED`.
-- `scripts/itd_github_app_manifest.py` supports user/organization App owners,
-  self-hosted private/public Apps, and managed public Apps. Reviewer App
-  permissions remain Checks write plus Contents/Metadata/PR read; it cannot
-  merge or deploy. A project owner may author, merge, and deploy their own work.
-- Canonical `gates.json` v2 now stores deployment/protection profiles. The
-  canonical doctor reports the weakest verified claim; local guarded push/PR
-  requires the current exact adjudication and performs no App/broker call.
-  Legacy v1 remains readable and is never silently migrated.
-- Verification Loop `committed-head` mode closes the local-review commit gap:
-  a clean single-parent `HEAD` is accepted only when its parent, full tree, and
-  binary diff reproduce the staged review context. The default staged mode is
-  unchanged; a changed tree, merge commit, or second commit fails closed.
+- `GPG-001` завершён для выбранного профиля
+  `local-submission` + `local-review`; claim `PROTECTED` не делается.
+- PR #177 смержен squash-коммитом `234752828d463821814020bebf2cc3dc40399beb`.
+- Release PR #178 смержен squash-коммитом
+  `8c2bb1b0689ce68282a3ef10a2edc6143a097f8f`.
+- В `CHANGELOG.md` опубликована версия 1.95.0 от 2026-08-02. GitHub tag и
+  GitHub Release не создавались: текущий `docs/RELEASE_RUNBOOK.md` их не
+  требует.
+- WSL и Windows Claude sync показывают zero drift. WSL и Windows Codex
+  показывают `idea-to-deploy@personal` installed/enabled 1.95.0; пять
+  load-bearing файлов byte-identical источнику релиза.
+- WSL registry подтвердил `LOCAL_REVIEWED` на release candidate; после
+  любого нового exact candidate receipt закономерно устаревает и должен
+  быть обновлён после exact review/commit. Временная Windows registry-запись удалена:
+  Windows-native validator на UNC checkout не уложился в фиксированный
+  30-секундный timeout; глобальный Windows pre-push остаётся fail-closed.
+- Основной checkout перед этим handoff был clean на `origin/main`.
 
-## 4. Latest bound evidence before this checkpoint
+## 3. Финальные решения
 
-- Manifest/profile 30, producer 57, broker full 730, server 50, deployment 25;
-  release 14 criteria, meta-review, host adapters, and quick suite passed.
-- A fresh general review found and blocked a whitespace same-model bypass; its
-  creation, re-signed verification, and broker admission regressions are GREEN.
-- Pre-checkpoint general adjudication:
-  `.itd-memory/verification-loop/receipts/98b1d51cc1bb7d76/GPG-001-general-review-adjudication-a1.json`.
-- Pre-checkpoint security adjudication:
-  `.itd-memory/verification-loop/receipts/2a54c162a0da2992/GPG-001-security-review-adjudication-a1.json`.
-- Both receipts become stale when this tracked HANDOFF changes. Produce new
-  current receipts before commit, push, or PR update.
-- The first final profile-registry review on tree `83c5c625...` found the
-  self-invalidating staged-review/commit lifecycle and returned `BLOCKED`.
-  The committed-head bridge and its negative canaries are the bounded repair;
-  they still require fresh general/security adjudication on the new tree.
+- Независимым остаётся reviewer; maker, maintainer и deployer могут совпадать.
+- Базовый переносимый профиль — `local-submission/local-review`. Он не требует
+  GitHub App и административных прав на чужой репозиторий.
+- App-owned check и `PROTECTED` — отдельное opt-in усиление, а не условие
+  завершения базовой методологии.
+- Merge/deploy выполняет владелец целевого проекта; reviewer не получает этих
+  прав.
+- Ruleset `main` сохраняет pull-request/deletion/non-fast-forward/thread
+  protections и требует `Gate 1 — meta-review rubric`; недоступный
+  `ITD external review gate` удалён по явному подтверждению пользователя.
+- Установленные Codex cache вручную не редактируются: релиз развёрнут через
+  personal marketplace source и `codex plugin add`, создав cache `1.95.0`.
 
-## 5. Live boundary
+## 4. Требуемые входы
 
-- `~/.config/itd/gates.json` now contains the explicit
-  `local-submission`/`local-review` profile for this checkout. Its old receipt
-  must be replaced after the namespace-repair candidate is reviewed and
-  committed; guarded push remains blocked until doctor returns
-  `LOCAL_REVIEWED`. Never use `--no-verify` or another bypass.
-- No live App/ruleset/provenance mutation is implied by local acceptance.
-- `local-submission` needs no repository administration. `self-hosted-app` and
-  `managed-app` require the repository owner to install the App; protection
-  rules require owner/admin action.
-- A concrete maintainer or external repository is a pilot/configuration, not a
-  methodology dependency.
+- `AGENTS.md`, этот `HANDOFF.md`, [[STATE]].
+- `.itd/GPG-001_NINE_POINT_PLAN.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd/VERIFICATION_CONTRACT.json`, `.itd/GPG-001_COMPLETION_EVIDENCE.json`.
+- `skills/_shared/GATE_DEPLOYMENT_PROFILES.json`,
+  `docs/RELEASE_RUNBOOK.md`, `docs/CODEX_ADAPTER.md`.
 
-## 6. Next exact step
+## 5. Зоны записи и запреты
 
-Review the small verification-namespace repair, commit exactly its staged tree,
-replace the registry receipt, and require doctor to return `LOCAL_REVIEWED`.
-Only then guarded-push the existing branch to update Draft PR #177. The chosen
-deployment profile is already explicit; do not silently strengthen it:
+- Следующую работу начинать новым WIP=1 юнитом или явно одобренным follow-up.
+- Не выдавать `LOCAL_REVIEWED` за `PROTECTED`.
+- Не возвращать stale required check `ITD external review gate`, пока реально
+  не развёрнут и не enrolled App/broker.
+- Не редактировать `~/.codex/plugins/cache/**` напрямую и не хранить ключи,
+  токены или приватные App credentials в репозитории.
+- При release сначала merge/publish exact candidate, затем устанавливать из
+  merge SHA.
 
-1. Establish a stable HTTPS broker target only for an App profile.
-2. For self-hosted, register a private/public user/organization App. For
-   managed, register the operator public App. The repository owner installs it.
-3. Select `local-review`, `app-check`, or `organization-workflow`; run matching
-   negative canaries and never call a weaker profile `PROTECTED`.
-4. For local-review, review the staged candidate, commit exactly that index as
-   one normal single-parent commit, register the receipt, and let doctor verify
-   `--candidate-mode committed-head`; do not add a second commit before push.
-5. Commit/publish only through the guarded flow after separate authorization;
-   Draft PR #177 remains unmodified until then.
+## 6. Команды проверки
 
-## 7. Hard boundaries
+```bash
+git status --short --branch
+git log -3 --oneline --decorate
+python3 scripts/itd.py gate doctor --repository hihol-labs/idea-to-deploy
+bash tests/run-all.sh --quick
+bash scripts/sync-to-active.sh --check
+CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude bash scripts/sync-to-active.sh --check
+codex plugin list | grep idea-to-deploy
+```
 
-- A local receipt is not evidence of live GitHub protection.
-- Do not continue with live mutations, commit, or publish until current
-  exact-candidate general and security adjudications accept the complete index,
-  including this checkpoint. Protection requirements follow the explicitly
-  selected profile; no profile selection authorizes merge/deploy.
-- Do not raw-push, bypass hooks, use paid API, merge, release, edit installed
-  plugin cache, or store secrets in the repository.
-- The full PR base-to-candidate diff exceeds the producer direct bound; do not
-  truncate it. Use the bounded staged-delta/hierarchical Verification Loop.
+На Windows дополнительно:
 
-## 8. Authoritative inputs
+```powershell
+codex plugin list | Select-String idea-to-deploy
+```
 
-Read, in order: `AGENTS.md`, this file, `.itd-memory/STATE.json`,
-`.itd/GPG-001_NINE_POINT_PLAN.md`, `.itd/ACCEPTANCE_CONTRACT.json`
-AC11/AC15/AC16, `skills/_shared/GATE_DEPLOYMENT_PROFILES.json`, and
-`.itd/VERIFICATION_CONTRACT.json`.
+## 7. Блокеры и риски
 
-## 9. Session transfer
+> [!warning]
+> Блокеров GPG-001 нет. Опциональный follow-up: сделать timeout Windows-native local-adjudication validator пропорциональным скорости UNC checkout либо документировать native-Windows checkout requirement. До этого Windows registry для данного UNC checkout не регистрировать.
 
-Open the same WSL path in Codex after stopping the old session. Preserve WIP=1
-and revalidate the exact index rather than trusting this narrative.
+- В локальном `.git/config` обнаружены legacy branch remote URL с credential
+  material. Значение не использовать и не переносить в артефакты; credential
+  следует отдельно отозвать/ротировать и очистить конфиг с явным разрешением.
+- Долгая цель [[GOAL]] остаётся active: 36/38 verified; PE5-008/009 blocked
+  внешним outcome evidence и не закрываются этим релизом.
+
+## 8. Evidence
+
+- Release staged tree: `aee9ee16c45974d0d822675d4912ed27f5505c45`.
+- Independent fresh-model review: `PASSED`, findings 0, unverified 0.
+- Clone-durable evidence index: `.itd/GPG-001_COMPLETION_EVIDENCE.json`.
+- Tracked implementation adjudication:
+  `.itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-adjudication-a1.json`.
+- Tracked release adjudication:
+  `.itd-memory/verification-loop/GPG-001-release-1.95.0-adjudication.json`;
+  canonical receipt SHA-256
+  `97fff7101de985ccf3a4bb23b85e6daa54ce039619d2c2ba84e9665897127cb2`.
+- GitHub Actions PR #178: meta-review success, windows-verify success.
+- Installed-cache smoke: release oracle 14 criteria / 5 mutation guards PASS;
+  host adapters PASS with 28 shared registrations and 11 hard gates.
+- Recoverable marketplace-source backups:
+  `/home/hihol/.codex/plugin-backups/idea-to-deploy-source-before-1.95.0-20260802`
+  and
+  `C:\Users\Дмитрий\.codex\plugin-backups\idea-to-deploy-source-before-1.95.0-20260802`.
+
+## 9. Следующее действие после cold start
+
+После merge reconciliation и проверки `LOCAL_REVIEWED` выбрать новый
+юнит по прямому запросу пользователя. UNC-timeout считать отдельным bugfix,
+а не незавершённой частью GPG-001.
