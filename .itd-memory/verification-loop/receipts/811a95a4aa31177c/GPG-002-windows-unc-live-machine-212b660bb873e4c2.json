@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "kind": "machine-verification",
+  "createdAt": "2026-08-02T22:36:59Z",
+  "unitId": "GPG-002-windows-unc-live",
+  "riskTier": "high",
+  "candidate": {
+    "repository": "//wsl.localhost/Ubuntu-24.04/home/hihol/projects/idea-to-deploy",
+    "baseCommit": "ed33169e8cc48f6a5da314586548ee0c5e2389cd",
+    "reviewedTree": "fd4bdb7c59a776787831babbcbf53ad74b9cde2d",
+    "diffHash": "cdf33127f4cbf51d2a94f39b3bf328fe34ba660937b72efc473bf1753f02385a",
+    "scopeContractHash": "30f4c75afc6bb511c18c3547f42fd6d41ec42585e16e65cffbfdb5a86935deb6",
+    "acceptanceContractHash": "a35deaf2e7ba8d572330385d11c8f2e3cb157c046bfb13fccb491bda4848fbfc",
+    "rubricHash": "ce02c310087c6b457ce121672c73b3aea602c0a301a745460546f5ba5c94ced8",
+    "methodologyVersion": "1.95.1",
+    "riskTier": "high"
+  },
+  "candidateDigest": "sha256:811a95a4aa31177c182254d7a12852d2a9e1f4a5acf4223f93d577557c3e6599",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "machine-verifier",
+    "host": "Windows"
+  },
+  "producerRunId": "06da61ee6d5aa0b3f02beefcc61fe711",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "declaredInputs": [],
+  "runs": [
+    {
+      "id": "doctor",
+      "command": "C:\\Users\\Дмитрий\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe tests\\verify_gate_profile_doctor.py",
+      "commandSha256": "dff803acfe4dc825cda2890e3786fbb1e11004243cf9dbc865ec3093fb6d16ac",
+      "shell": "C:\\Windows\\System32\\cmd.exe",
+      "shellSha256": "8dd1ebb0b969370c70a5ee7f7ee347949aa7046aa5e1a33fcd7b1e9415b21fc3",
+      "startedAt": "2026-08-02T22:36:46Z",
+      "completedAt": "2026-08-02T22:36:47Z",
+      "timeoutSeconds": 600,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "fd4bdb7c59a776787831babbcbf53ad74b9cde2d",
+      "exitCode": 0,
+      "stdoutSha256": "2f30a3e6b2fe033815d3572d60dd704afdc62b12cd0a1cc89dda7e73e4c63294",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "profiles",
+      "command": "C:\\Users\\Дмитрий\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe tests\\verify_gate_registry_profiles.py",
+      "commandSha256": "ea9fce39e484c59dc21a0e3662426a3c62c48506add4695831d2a4621427f9d1",
+      "shell": "C:\\Windows\\System32\\cmd.exe",
+      "shellSha256": "8dd1ebb0b969370c70a5ee7f7ee347949aa7046aa5e1a33fcd7b1e9415b21fc3",
+      "startedAt": "2026-08-02T22:36:51Z",
+      "completedAt": "2026-08-02T22:36:54Z",
+      "timeoutSeconds": 600,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "fd4bdb7c59a776787831babbcbf53ad74b9cde2d",
+      "exitCode": 0,
+      "stdoutSha256": "e37be3cf9de2e3a4c63d13edb8a7f9efdc253cb191f15664171d15ee700e4ef5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verdict": "PASSED",
+  "receiptSha256": "212b660bb873e4c2bf8f33363118145f886a4d6e5a2a3292d54fa4b8d8413cb4"
+}

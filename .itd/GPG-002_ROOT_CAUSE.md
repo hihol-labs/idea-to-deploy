@@ -39,3 +39,18 @@ Windows UNC must receive exactly 180 seconds, while a normal POSIX checkout
 must retain 30 seconds. Standard and extended UNC shares receive 180 seconds;
 native drive, device/extended-local and incomplete UNC paths retain 30 seconds.
 Existing stale/foreign receipt canaries must stay green.
+
+## Verified outcome
+
+- Focused WSL and native-Windows tests pass 25/25; profile registry tests pass
+  18/18.
+- The implementation merged in PR #180 as `ed33169e8cc48f6a5da314586548ee0c5e2389cd`.
+- Patch release 1.95.1 merged in PR #181 as
+  `1422c94d28f7a6821f0038a766437b7618cc22f1` and was installed on both
+  WSL and Windows Codex/Claude hosts.
+- A Windows-native high-risk machine/checker/adjudication chain bound to the
+  UNC repository path passed. The installed native doctor returned
+  `LOCAL_REVIEWED` with `drift=[]`, `protected=0`, version 1.95.1, and elapsed
+  time 32.57 seconds.
+- Clone-durable evidence is indexed by
+  `.itd/GPG-002_COMPLETION_EVIDENCE.json`.

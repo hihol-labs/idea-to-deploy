@@ -8,3 +8,9 @@
 # Archived live-model output is immutable, content-hashed evidence. Preserve
 # intentional Markdown hard-break spaces instead of rewriting the transcript.
 tests/fixtures/live-model-evidence/runs/**/output/*.md -whitespace
+
+# Windows-native Verification Loop receipts bind dependency file hashes to
+# their original CRLF bytes. Keep this exact completion-evidence set binary so
+# Git checkout filters cannot invalidate the adjudication dependency chain.
+.itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-*.json -text -eol -whitespace
+.itd-memory/verification-loop/prompts/GPG-002-windows-unc-live-terra.md -whitespace
