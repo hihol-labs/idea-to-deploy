@@ -17,7 +17,7 @@ PROVIDER = ROOT / "skills" / "_shared" / "itd_semantic_navigation.py"
 REGISTRY = ROOT / "docs" / "templates" / "itd" / "TOOL_CAPABILITY_REGISTRY.json"
 DEMAND = ROOT / "docs" / "semantic-navigation" / "DEMAND.json"
 PILOT_INDEX = ROOT / "docs" / "harness-demo-pilots" / "INDEX.json"
-EXPECTED_DEMAND_SHA = "bae187f61809d876bfc4eacf9c65c35548183b27b0b65cf212eb34d18ac77a5d"
+EXPECTED_DEMAND_SHA = "a36e33b1d6c107614d1eb5832084325dba128df084f7ab88b86c275d0a9d6872"
 
 
 class Failure(RuntimeError):

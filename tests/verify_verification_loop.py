@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import datetime as dt
 import hashlib
 import json
 import os
@@ -80,10 +81,12 @@ def artifacts(root: Path, verdict: str = "PASSED") -> tuple[Path, Path]:
 
 
 def machine(root: Path, risk: str, command: str | None = None,
-            inputs: list[str] | None = None):
+            inputs: list[str] | None = None,
+            candidate_mode: str = "staged"):
     oracle = command or f'"{sys.executable}" -c "print(123)"'
     args = ["machine", "--root", str(root), "--unit-id", "U-loop",
-            "--risk-tier", risk, "--command", "oracle=" + oracle,
+            "--risk-tier", risk, "--candidate-mode", candidate_mode,
+            "--command", "oracle=" + oracle,
             "--timeout", "10"]
     for path in inputs or []:
         args += ["--input", path]
@@ -92,11 +95,13 @@ def machine(root: Path, risk: str, command: str | None = None,
 
 def checker(root: Path, risk: str, mode: str, *, same_session: bool = False,
             same_model: bool = False, missing_maker: bool = False,
-            report: Path | None = None):
+            report: Path | None = None,
+            candidate_mode: str = "staged"):
     prompt, default_report = artifacts(root)
     return run([
         "checker", "--root", str(root), "--unit-id", "U-loop",
-        "--risk-tier", risk, "--mode", mode,
+        "--risk-tier", risk, "--candidate-mode", candidate_mode,
+        "--mode", mode,
         "--report", str(report or default_report), "--prompt-file", str(prompt),
         "--maker-provider", "" if missing_maker else "openai",
         "--maker-model", "" if missing_maker else "gpt-maker",
@@ -108,9 +113,11 @@ def checker(root: Path, risk: str, mode: str, *, same_session: bool = False,
 
 
 def adjudicate(root: Path, risk: str, machine_path: Path,
-               checker_path: Path | None = None, attempt: int | None = None):
+               checker_path: Path | None = None, attempt: int | None = None,
+               candidate_mode: str = "staged"):
     args = ["adjudicate", "--root", str(root), "--unit-id", "U-loop",
-            "--risk-tier", risk, "--machine", str(machine_path)]
+            "--risk-tier", risk, "--candidate-mode", candidate_mode,
+            "--machine", str(machine_path)]
     if attempt is not None:
         args += ["--attempt", str(attempt)]
     if checker_path:
@@ -173,6 +180,87 @@ check("machine receipt binds a trusted absolute shell digest",
       and len(low_machine_value["runs"][0]["shellSha256"]) == 64
       and low_machine_value["runs"][0]["shellSha256"]
       == hashlib.sha256(Path(low_machine_value["runs"][0]["shell"]).read_bytes()).hexdigest())
+impossible_chronology = json.loads(low_machine_path.read_text(encoding="utf-8"))
+impossible_chronology["runs"][0]["startedAt"] = "2026-08-01T16:24:16Z"
+impossible_chronology["runs"][0]["completedAt"] = "2026-08-01T16:24:13Z"
+impossible_chronology.pop("receiptSha256", None)
+impossible_chronology["receiptSha256"] = hashlib.sha256(json.dumps(
+    impossible_chronology, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+impossible_chronology_path = low_machine_path.with_name("impossible-chronology.json")
+impossible_chronology_path.write_text(
+    json.dumps(impossible_chronology), encoding="utf-8")
+impossible_chronology_adjudication = adjudicate(
+    low, "low", impossible_chronology_path)
+check("consumer rejects impossible machine-run chronology",
+      impossible_chronology_adjudication.returncode != 0
+      and "chronology" in impossible_chronology_adjudication.stdout,
+      impossible_chronology_adjudication.stdout)
+missing_chronology = json.loads(low_machine_path.read_text(encoding="utf-8"))
+del missing_chronology["runs"][0]["startedAt"]
+missing_chronology.pop("receiptSha256", None)
+missing_chronology["receiptSha256"] = hashlib.sha256(json.dumps(
+    missing_chronology, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+missing_chronology_path = low_machine_path.with_name("missing-chronology.json")
+missing_chronology_path.write_text(json.dumps(missing_chronology), encoding="utf-8")
+missing_chronology_adjudication = adjudicate(low, "low", missing_chronology_path)
+check("consumer rejects missing machine-run chronology",
+      missing_chronology_adjudication.returncode != 0
+      and "timestamp is invalid" in missing_chronology_adjudication.stdout,
+      missing_chronology_adjudication.stdout)
+invalid_chronology = json.loads(low_machine_path.read_text(encoding="utf-8"))
+invalid_chronology["runs"][0]["completedAt"] = "not-a-timestamp"
+invalid_chronology.pop("receiptSha256", None)
+invalid_chronology["receiptSha256"] = hashlib.sha256(json.dumps(
+    invalid_chronology, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+invalid_chronology_path = low_machine_path.with_name("invalid-chronology.json")
+invalid_chronology_path.write_text(json.dumps(invalid_chronology), encoding="utf-8")
+invalid_chronology_adjudication = adjudicate(low, "low", invalid_chronology_path)
+check("consumer rejects unparseable machine-run chronology",
+      invalid_chronology_adjudication.returncode != 0
+      and "timestamp is invalid" in invalid_chronology_adjudication.stdout,
+      invalid_chronology_adjudication.stdout)
+cross_run_chronology = json.loads(low_machine_path.read_text(encoding="utf-8"))
+earlier_run = dict(cross_run_chronology["runs"][0])
+earlier_run["id"] = "chronology-replay"
+earlier_run["startedAt"] = "2000-01-01T00:00:00Z"
+earlier_run["completedAt"] = "2000-01-01T00:00:01Z"
+cross_run_chronology["runs"].append(earlier_run)
+cross_run_chronology.pop("receiptSha256", None)
+cross_run_chronology["receiptSha256"] = hashlib.sha256(json.dumps(
+    cross_run_chronology, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+cross_run_chronology_path = low_machine_path.with_name("cross-run-chronology.json")
+cross_run_chronology_path.write_text(
+    json.dumps(cross_run_chronology), encoding="utf-8")
+cross_run_chronology_adjudication = adjudicate(
+    low, "low", cross_run_chronology_path)
+check("consumer rejects cross-run non-monotonic chronology",
+      cross_run_chronology_adjudication.returncode != 0
+      and "chronology" in cross_run_chronology_adjudication.stdout,
+      cross_run_chronology_adjudication.stdout)
+post_receipt_chronology = json.loads(low_machine_path.read_text(encoding="utf-8"))
+receipt_created = dt.datetime.fromisoformat(
+    post_receipt_chronology["createdAt"].replace("Z", "+00:00"))
+post_receipt_chronology["runs"][0]["startedAt"] = (
+    receipt_created.isoformat().replace("+00:00", "Z"))
+post_receipt_chronology["runs"][0]["completedAt"] = (
+    (receipt_created + dt.timedelta(seconds=1)).isoformat().replace("+00:00", "Z"))
+post_receipt_chronology.pop("receiptSha256", None)
+post_receipt_chronology["receiptSha256"] = hashlib.sha256(json.dumps(
+    post_receipt_chronology, ensure_ascii=False, sort_keys=True,
+    separators=(",", ":")).encode("utf-8")).hexdigest()
+post_receipt_chronology_path = low_machine_path.with_name("post-receipt-chronology.json")
+post_receipt_chronology_path.write_text(
+    json.dumps(post_receipt_chronology), encoding="utf-8")
+post_receipt_chronology_adjudication = adjudicate(
+    low, "low", post_receipt_chronology_path)
+check("consumer rejects a run completed after receipt creation",
+      post_receipt_chronology_adjudication.returncode != 0
+      and "chronology" in post_receipt_chronology_adjudication.stdout,
+      post_receipt_chronology_adjudication.stdout)
 fake_shell_dir = Path(tempfile.mkdtemp(prefix="forged-verification-shell-"))
 fake_shell = fake_shell_dir / ("cmd.exe" if os.name == "nt" else "sh")
 fake_shell.write_text("@exit /b 0\n" if os.name == "nt" else "#!/bin/sh\nexit 0\n",
@@ -264,6 +352,51 @@ wrong_risk = run(["check", "--root", str(low), "--unit-id", "U-loop",
 check("receipt cannot cross risk routes",
       wrong_risk.returncode != 0 and "risk tier" in wrong_risk.stdout,
       wrong_risk.stdout)
+
+# One normal commit may wrap the exact staged candidate without invalidating
+# its independent review. The committed-head context is the same parent/tree/
+# diff tuple, while the default staged context intentionally remains strict.
+bridge = fixture()
+bridge_machine = machine(bridge, "low")
+bridge_machine_path = last_path(bridge_machine)
+bridge_adjudication = adjudicate(bridge, "low", bridge_machine_path)
+bridge_receipt = last_path(bridge_adjudication)
+bridge_candidate = json.loads(
+    bridge_machine_path.read_text(encoding="utf-8"))["candidate"]
+git(bridge, "commit", "-qm", "wrap reviewed candidate")
+strict_after_commit = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--receipt", str(bridge_receipt),
+], bridge)
+check("default staged check does not weaken after commit",
+      strict_after_commit.returncode != 0
+      and "exact current candidate" in strict_after_commit.stdout,
+      strict_after_commit.stdout)
+committed_check = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "committed-head",
+    "--receipt", str(bridge_receipt),
+], bridge)
+check("single-parent commit preserves the exact reviewed candidate",
+      committed_check.returncode == 0, committed_check.stdout)
+committed_machine = machine(
+    bridge, "low", candidate_mode="committed-head")
+committed_machine_value = json.loads(
+    last_path(committed_machine).read_text(encoding="utf-8"))
+check("committed-head can refresh evidence for the same candidate",
+      committed_machine.returncode == 0
+      and committed_machine_value["candidate"] == bridge_candidate,
+      committed_machine.stdout)
+git(bridge, "commit", "--allow-empty", "-qm", "unreviewed wrapper")
+wrapped_again = run([
+    "check", "--root", str(bridge), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "committed-head",
+    "--receipt", str(bridge_receipt),
+], bridge)
+check("a second commit cannot borrow the earlier candidate review",
+      wrapped_again.returncode != 0
+      and "exact current candidate" in wrapped_again.stdout,
+      wrapped_again.stdout)
 
 # An ignored source overlay must never enter the machine execution checkout.
 ignored_overlay = fixture()

@@ -7,6 +7,7 @@ and isolated-clone init validator against a temporary repository.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shlex
@@ -23,6 +24,14 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parents[1]
 ADOPT = ROOT / "skills" / "adopt" / "scripts" / "itd_adopt.py"
+ADOPT_SPEC = importlib.util.spec_from_file_location(
+    "itd_adopt_cold_start_test",
+    ADOPT,
+)
+assert ADOPT_SPEC and ADOPT_SPEC.loader
+ADOPT_MODULE = importlib.util.module_from_spec(ADOPT_SPEC)
+sys.modules[ADOPT_SPEC.name] = ADOPT_MODULE
+ADOPT_SPEC.loader.exec_module(ADOPT_MODULE)
 GOAL_VERIFY = ROOT / "skills" / "goal" / "scripts" / "itd_goal_verify.py"
 VALIDATE_STATE = ROOT / "scripts" / "validate_state.py"
 CORPUS = ROOT / "benchmarks" / "operational-friction" / "COLD_START.json"
@@ -137,6 +146,141 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="itd-external-cold-start-") as td:
         project = Path(td) / "external-project"
         original_agents = init_project(project)
+        check(
+            "adopt rejects env verification wrapper",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                ["env", PY, "tests/test_first_task.py"],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        check(
+            "adopt rejects make verification wrapper",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                ["make", "tests/test_first_task.py"],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        check(
+            "adopt accepts explicit interpreter and trusted verifier",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [PY, "-m", "unittest", "tests.test_first_task", "-v"],
+                ["tests/test_first_task.py"],
+            )
+            is None,
+        )
+        check(
+            "adopt rejects attacker-controlled absolute interpreter",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [
+                    "/tmp/attacker/python",
+                    "-I",
+                    "tests/test_first_task.py",
+                ],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        check(
+            "adopt injects isolation for PyPy verifiers",
+            ADOPT_MODULE.verification_argv(
+                "pypy3 tests/test_first_task.py"
+            )
+            == ["pypy3", "-I", "tests/test_first_task.py"],
+        )
+        check(
+            "adopt rejects undeclared tracked path in option value",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [
+                    PY,
+                    "-m",
+                    "unittest",
+                    "tests.test_first_task",
+                    "--config=tests/test_smoke.py",
+                ],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        check(
+            "adopt rejects unsafe bare interpreter loader path",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [
+                    "node",
+                    "--require",
+                    "/tmp/untrusted-loader.js",
+                    "tests/test_first_task.py",
+                ],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        trusted_test = project / "tests/test_first_task.py"
+        trusted_original = trusted_test.read_text(encoding="utf-8")
+        trusted_test.write_text(
+            trusted_original + "\n# uncommitted verifier drift\n",
+            encoding="utf-8",
+        )
+        check(
+            "adopt rejects trusted verifier worktree drift from HEAD",
+            ADOPT_MODULE.validate_trusted_paths(
+                project, ["tests/test_first_task.py"]
+            )
+            is not None,
+        )
+        git(project, "add", "tests/test_first_task.py")
+        untracked_verifier = project / "untracked-verifier.py"
+        untracked_verifier.write_text(
+            "raise SystemExit(0)\n", encoding="utf-8"
+        )
+        check(
+            "adopt rejects an untracked direct verifier operand",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [
+                    PY,
+                    "-I",
+                    "untracked-verifier.py",
+                    "tests/test_first_task.py",
+                ],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        untracked_verifier.unlink()
+        untracked_config = project / "untracked.yml"
+        untracked_config.write_text("unsafe: input\n", encoding="utf-8")
+        check(
+            "adopt rejects an untracked path-bearing option value",
+            ADOPT_MODULE.validate_verification_argv(
+                project,
+                [
+                    PY,
+                    "-I",
+                    "tests/test_first_task.py",
+                    "--config=untracked.yml",
+                ],
+                ["tests/test_first_task.py"],
+            )
+            is not None,
+        )
+        untracked_config.unlink()
+        check(
+            "adopt rejects trusted verifier index drift from HEAD",
+            ADOPT_MODULE.validate_trusted_paths(
+                project, ["tests/test_first_task.py"]
+            )
+            is not None,
+        )
+        trusted_test.write_text(trusted_original, encoding="utf-8")
+        git(project, "add", "tests/test_first_task.py")
         baseline = native_shell_join(PY, "-m", "unittest", "tests.test_smoke", "-v")
         unit_command = verification_shell_join(
             PY, "-m", "unittest", "tests.test_first_task", "-v")
@@ -146,6 +290,7 @@ def main() -> int:
             "--plugin-root", str(ROOT),
             "--baseline-command", baseline,
             "--verification-command", unit_command,
+            "--trusted-verifier-path", "tests/test_first_task.py",
             "--unit-id", scenario["unitId"],
             "--unit-criterion", scenario["criterion"],
             "--allowed-area", "app.py",

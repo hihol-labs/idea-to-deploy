@@ -13,10 +13,12 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 MARKER = "<!-- idea-to-deploy:begin codex-v1 -->"
@@ -24,6 +26,18 @@ FAIL_CLOSED = (
     "Not supplied during adoption; fail closed and ask the project owner "
     "before relying on this field."
 )
+SHELL_CONTROL_TOKENS = {
+    "&",
+    "&&",
+    "|",
+    "||",
+    ";",
+    "<",
+    ">",
+    ">>",
+    "2>",
+    "2>&1",
+}
 
 
 def emit_failure(what: str, why: str, fix: str) -> int:
@@ -137,6 +151,8 @@ def plan(root: Path, plugin_root: Path, args: argparse.Namespace) -> dict:
         "allowedAreas": args.allowed_area,
         "baselineCommand": args.baseline_command,
         "verificationCommand": args.verification_command,
+        "verificationArgv": args.verification_argv,
+        "trustedVerifierPaths": args.trusted_verifier_path,
         "productSourceWrites": [],
         "userLevelWrites": [],
     }
@@ -219,15 +235,15 @@ def scaffold_contracts(root: Path, plugin_root: Path, args: argparse.Namespace,
         "createdAt": today,
         "commands": [{
             "id": "first-unit",
-            "command": args.verification_command,
+            "argv": args.verification_argv,
+            "trustedVerifierPaths": args.trusted_verifier_path,
             "timeoutSeconds": args.timeout,
             "expectedOutput": "",
             "passFailParser": "exit_code_zero",
         }],
         "requiredArtifacts": [
             "AGENTS.md",
-            ".itd-memory/STATE.json",
-            f".itd-memory/contracts/{args.unit_id}.md",
+            ".itd/VERIFICATION_CONTRACT.json",
         ],
     })
     verification_path.write_text(json.dumps(verification, ensure_ascii=False, indent=2) + "\n",
@@ -386,11 +402,241 @@ def validate_args(args: argparse.Namespace) -> str | None:
     required = {
         "--baseline-command": args.baseline_command,
         "--verification-command": args.verification_command,
+        "--trusted-verifier-path": args.trusted_verifier_path,
         "--unit-criterion": args.unit_criterion,
         "--allowed-area": args.allowed_area,
     }
     missing = [name for name, value in required.items() if not value]
     return ", ".join(missing) if missing else None
+
+
+def verification_argv(command: str) -> list[str]:
+    try:
+        result = shlex.split(command, posix=True)
+    except ValueError as exc:
+        raise ValueError("verification command quoting is invalid") from exc
+    if (
+        not result
+        or any(token in SHELL_CONTROL_TOKENS for token in result)
+        or any("\x00" in token for token in result)
+    ):
+        raise ValueError(
+            "verification command must be one shell-free argv invocation"
+        )
+    executable = Path(result[0].replace("\\", "/")).name.casefold()
+    if executable.startswith(("python", "pypy")) and "-I" not in result[1:]:
+        result.insert(1, "-I")
+    return result
+
+
+def normalize_trusted_paths(values: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for value in values:
+        path = PurePosixPath(value.replace("\\", "/"))
+        if (
+            not value
+            or path.is_absolute()
+            or ".." in path.parts
+            or any(part in {"", "."} for part in path.parts)
+        ):
+            raise ValueError("trusted verifier path is unsafe")
+        relative = path.as_posix()
+        if relative in normalized:
+            raise ValueError("trusted verifier path is duplicated")
+        normalized.append(relative)
+    return normalized
+
+
+def validate_trusted_paths(root: Path, paths: list[str]) -> str | None:
+    """Validate bootstrap HEAD inputs; protected authority is established later."""
+    for path in paths:
+        rc, output = run(
+            [
+                "git",
+                "ls-tree",
+                "-r",
+                "--full-tree",
+                "HEAD",
+                "--",
+                path,
+            ],
+            root,
+        )
+        rows = [line for line in output.splitlines() if line.strip()]
+        target = root / path
+        if (
+            rc != 0
+            or len(rows) != 1
+            or "\t" not in rows[0]
+            or rows[0].split("\t", 1)[1] != path
+            or not target.is_file()
+            or target.is_symlink()
+        ):
+            return f"{path} is not tracked in the current project HEAD"
+        metadata = rows[0].split("\t", 1)[0].split()
+        if (
+            len(metadata) != 3
+            or metadata[0] not in {"100644", "100755"}
+            or metadata[1] != "blob"
+            or not re.fullmatch(r"[0-9a-f]{40,64}", metadata[2])
+        ):
+            return f"{path} contains a symlink or non-regular Git object"
+        rc, worktree_sha = run(["git", "hash-object", "--", path], root)
+        if rc != 0 or worktree_sha.strip() != metadata[2]:
+            return f"{path} content differs from the current project HEAD"
+    return None
+
+
+def validate_verification_argv(
+    root: Path,
+    argv: list[str],
+    trusted_paths: list[str],
+) -> str | None:
+    def references_trusted(argument: str) -> bool:
+        normalized = argument.replace("\\", "/").lstrip("./")
+        dotted = normalized.replace("/", ".")
+        return any(
+            normalized == path
+            or dotted == path.replace("/", ".")
+            or (
+                path.endswith(".py")
+                and dotted == path[:-3].replace("/", ".")
+            )
+            for path in trusted_paths
+        )
+
+    launcher = PurePosixPath(
+        argv[0].replace("\\", "/")
+    ).name.casefold()
+    system_launcher = (
+        re.fullmatch(
+            r"(?:python|pypy)(?:\d+(?:\.\d+)*)?(?:\.exe)?",
+            launcher,
+        )
+        is not None
+        or launcher
+        in {
+            "sh",
+            "bash",
+            "dash",
+            "ksh",
+            "zsh",
+            "node",
+            "node.exe",
+            "pwsh",
+            "pwsh.exe",
+            "powershell",
+            "powershell.exe",
+        }
+    )
+    launcher_value = argv[0].replace("\\", "/")
+    launcher_path = PurePosixPath(launcher_value)
+    launcher_is_absolute = (
+        launcher_path.is_absolute()
+        or re.match(r"^[A-Za-z]:/", launcher_value) is not None
+    )
+    if system_launcher and launcher_is_absolute:
+        trusted_launchers: set[Path] = set()
+        discovered = shutil.which(launcher)
+        if discovered:
+            trusted_launchers.add(Path(discovered).resolve())
+        if launcher.startswith(("python", "pypy")):
+            trusted_launchers.add(Path(sys.executable).resolve())
+        if Path(argv[0]).resolve() not in trusted_launchers:
+            return (
+                "verification argv absolute interpreter does not resolve "
+                "to the active or PATH-selected system launcher"
+            )
+    if not references_trusted(argv[0]) and not system_launcher:
+        return (
+            "verification argv launcher is neither a declared trusted "
+            "executable nor an approved system interpreter"
+        )
+    if (
+        launcher
+        in {"sh", "bash", "dash", "ksh", "zsh"}
+        and "-c" in argv[1:]
+    ) or (
+        launcher.startswith(("python", "pypy"))
+        and any(item in {"-c", "-"} for item in argv[1:])
+    ) or (
+        launcher in {"node", "node.exe"}
+        and any(item in {"-e", "--eval", "-p", "--print"} for item in argv[1:])
+    ) or (
+        launcher
+        in {"pwsh", "pwsh.exe", "powershell", "powershell.exe"}
+        and any(
+            item.casefold() in {"-command", "-encodedcommand"}
+            for item in argv[1:]
+        )
+    ):
+        return "verification argv uses an inline-code interpreter mode"
+
+    referenced = False
+    for argument_index, argument in enumerate(argv):
+        values = [(argument, False)]
+        if argument.startswith("-") and "=" in argument:
+            option_value = argument.split("=", 1)[1]
+            if option_value:
+                values = [(option_value, True)]
+        for value, path_option in values:
+            if references_trusted(value):
+                referenced = True
+            candidate = PurePosixPath(value.replace("\\", "/"))
+            if (
+                candidate.is_absolute()
+                or re.match(r"^[A-Za-z]:/", value.replace("\\", "/"))
+                or ".." in candidate.parts
+                or any(part in {"", "."} for part in candidate.parts)
+            ):
+                if argument_index == 0 and system_launcher:
+                    continue
+                return (
+                    "verification argv contains an unsafe path-bearing "
+                    + ("option value" if path_option else "argument")
+                )
+            relative = candidate.as_posix()
+            rc, output = run(
+                ["git", "ls-files", "--stage", "--", relative],
+                root,
+            )
+            path_like = (
+                "/" in relative
+                or candidate.suffix.casefold()
+                in {
+                    ".py", ".js", ".mjs", ".cjs", ".sh", ".ps1",
+                    ".rb", ".pl", ".json", ".yaml", ".yml", ".toml",
+                    ".ini", ".cfg", ".conf",
+                }
+            )
+            if (
+                argument_index > 0
+                and path_like
+                and not references_trusted(value)
+                and (rc != 0 or not output.strip())
+            ):
+                return (
+                    "verification argv references an undeclared untracked "
+                    f"input: {relative}"
+                )
+            if (
+                rc == 0
+                and output.strip()
+                and not any(
+                    relative == path
+                    or relative.startswith(path.rstrip("/") + "/")
+                    for path in trusted_paths
+                )
+            ):
+                return (
+                    f"verification argv references undeclared tracked input: "
+                    f"{relative}"
+                )
+    if not referenced:
+        return (
+            "verification argv does not invoke a declared trusted verifier"
+        )
+    return None
 
 
 def main() -> int:
@@ -403,6 +649,15 @@ def main() -> int:
     parser.add_argument("--approved", action="store_true", help="assert that the shown plan was approved")
     parser.add_argument("--baseline-command", required=True)
     parser.add_argument("--verification-command", required=True)
+    parser.add_argument(
+        "--trusted-verifier-path",
+        action="append",
+        required=True,
+        help=(
+            "exact tracked verifier file whose protected-base Git content "
+            "must match the PR candidate; repeat as needed"
+        ),
+    )
     parser.add_argument("--unit-id", default="U-001")
     parser.add_argument("--unit-criterion", required=True)
     parser.add_argument("--allowed-area", action="append", required=True)
@@ -433,6 +688,41 @@ def main() -> int:
     if missing_args:
         return emit_failure("adoption contract", f"missing explicit values: {missing_args}",
                             "supply the baseline, first-unit oracle, criterion, and allowed areas")
+    try:
+        args.verification_argv = verification_argv(
+            args.verification_command
+        )
+        args.trusted_verifier_path = normalize_trusted_paths(
+            args.trusted_verifier_path
+        )
+    except ValueError as exc:
+        return emit_failure(
+            "machine oracle",
+            str(exc),
+            "use one argv command and explicit tracked relative verifier paths",
+        )
+    trusted_path_error = validate_trusted_paths(
+        root,
+        args.trusted_verifier_path,
+    )
+    if trusted_path_error:
+        return emit_failure(
+            "machine oracle",
+            trusted_path_error,
+            "commit regular verifier files first, then rerun adoption",
+        )
+    argv_trust_error = validate_verification_argv(
+        root,
+        args.verification_argv,
+        args.trusted_verifier_path,
+    )
+    if argv_trust_error:
+        return emit_failure(
+            "machine oracle",
+            argv_trust_error,
+            "invoke the tracked verifier path directly and declare every "
+            "tracked argv input",
+        )
 
     bounded_plan = plan(root, plugin_root, args)
     print("ADOPT PLAN " + json.dumps(bounded_plan, ensure_ascii=False, sort_keys=True))

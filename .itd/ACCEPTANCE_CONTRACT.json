@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for API-001: verifiable provider-neutral external review inside the existing Verification Loop.",
-  "sourceRequest": "Implement recommendations 1-9 so an API reviewer produces verifiable evidence inside the existing ITD architecture.",
-  "createdAt": "2026-07-28",
+  "purpose": "Acceptance contract for the GPG-001 transport-neutral review gate, broker bootstrap, and local/global gate-control release candidate.",
+  "sourceRequest": "Implement the approved portable nine-point review-gate plan with role separation, local/self-hosted/managed deployment profiles, a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, least-privilege, and secret-isolation guarantees.",
+  "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
       "id",
@@ -12,65 +12,142 @@
       "verificationCommand",
       "status"
     ],
-    "allowedStatus": ["pending", "passed", "failed", "recovery_required"]
+    "allowedStatus": [
+      "pending",
+      "passed",
+      "failed",
+      "recovery_required"
+    ]
   },
   "criteria": [
     {
-      "id": "API-001-AC1",
-      "criterion": "One provider-neutral checker interface includes an OpenAI Responses API adapter and preserves Codex/Gemini alternatives without creating a second completion authority.",
-      "source": "Approved recommendations 1-3.",
-      "evidence": "Focused adapter and routing tests plus Verification Loop integration tests.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase adapters",
+      "id": "GPG-001-AC1",
+      "criterion": "Candidate acquisition uses complete GitHub compare pagination plus bounded full base/head blobs, treats merge_base_commit as an independently validated ancestor rather than the current base, verifies decoded size and Git blob SHA, and emits one deterministic canonical diff without trusting patch fields or truncating; merge-group PR composition is explicitly paginated to a hard bound.",
+      "source": "Approved plan items 2 and 5.",
+      "evidence": "Orchestration mutations accept a valid behind-base PR, reject incomplete commit/component pagination, missing/mismatched/oversized blobs, unsafe paths, binary content, stale coordinates, and over-limit candidates before provider dispatch.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC2",
-      "criterion": "Routing uses maker provenance and risk tier; same-model/same-provider evidence cannot satisfy high/unknown risk and missing eligible evidence is UNVERIFIED.",
-      "source": "Approved recommendations 3-4 and Verification Loop policy.",
-      "evidence": "Positive and mutation routing cases bind host-observed provider/model/session metadata.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase routing",
+      "id": "GPG-001-AC2",
+      "criterion": "The selected Responses API reviewer is derived from verified maker provenance, receives only the clean bounded final diff, uses a strict structured verdict, and settles only primary token usage against the frozen integer-microusd budget. Diffs above the direct-call bound are scrubbed in full, partitioned without truncation into a bounded deterministic review plan, and can pass only after every unit plus an integration verdict agree.",
+      "source": "Approved plan items 2, 3, and 7.",
+      "evidence": "Route, request-bound, invalid-output, missing-usage, outage, overspend, exhaustion, same-identity, missing-unit, forged-plan, over-limit-line, and partial-integration mutations fail closed without CLI/OAuth substitution; ambiguous hierarchical calls charge observed usage plus one call cap.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC3",
-      "criterion": "Local review is explicit opt-in advisory/fail-open; CI is provider-neutral and fail-closed on missing exact-candidate evidence, not on one provider outage.",
-      "source": "Approved recommendations 5-7.",
-      "evidence": "Local degradation and CI evidence fixtures distinguish PASSED, FINDINGS, UNAVAILABLE, and UNVERIFIED.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase modes",
+      "id": "GPG-001-AC3",
+      "criterion": "The broker creates the App-owned Check Run on the policy-selected SHA and external ID and requires an exact durable preparation before every terminal PATCH: full cross-bound review evidence for reviewed outcomes or closed typed failure evidence for early fail-closed outcomes. It observes and atomically finalizes each publication; interrupted publications are recoverable without another model call.",
+      "source": "Approved plan items 2 and 6.",
+      "evidence": "Mutations reject stale head/base/check SHA, forged App identity, wrong external ID, missing preparation/observation, non-clean verdict, and unavailable reviewer; every success/action_required/failure PATCH proves matching prior evidence, and lost GitHub responses for success and failure are recovered without repeating provider review.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC4",
-      "criterion": "Egress requires explicit consent and applies one tested sanitizer, file/byte/token/time/cost limits, complete coverage manifests, no raw diff/output retention, and no persisted API key.",
-      "source": "Approved recommendations 4, 8 and existing ADR-002.",
-      "evidence": "Security and budget mutation fixtures fail closed; oversize input is UNVERIFIED rather than silently truncated.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase egress",
+      "id": "GPG-001-AC4",
+      "criterion": "The HTTP service reads a bounded body, verifies the exact-byte webhook HMAC and signed event/action shape before state change, uses the broker-owned public provenance keyring, and returns explicit fail-closed HTTP outcomes.",
+      "source": "Approved central GitHub App/broker security boundary.",
+      "evidence": "Server tests cover health/readiness, overload, malformed/oversized/signature-mismatched events, replay, clean enqueue, worker failure, and graceful shutdown.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC5",
-      "criterion": "Structured verdict, exact candidate SHA/tree/diff manifest, policy/model metadata, observed usage/cost, and immutable prompt/report hashes feed existing Verification Loop evidence.",
-      "source": "Approved recommendations 2, 4 and 8.",
-      "evidence": "Schema, stale-candidate, tamper, non-live fixture, and receipt-binding mutation cases.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase evidence",
+      "id": "GPG-001-AC5",
+      "criterion": "Runtime configuration loads reviewer/App/webhook secrets only from bounded permission-checked files, never from repository content or OPENAI_API_KEY, and never exposes credentials to candidate execution.",
+      "source": "Approved plan items 2 and 7.",
+      "evidence": "Environment/bootstrap mutations reject missing, relative, permissive, malformed, oversized, and user-environment secret sources; the broker never checks out or executes candidate code.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_server.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC6",
-      "criterion": "A bounded shadow-pilot report measures availability, latency, observed token/cost use, unique actionable findings, false positives, and base-review duplication without claiming live external results when no authorized call occurred.",
-      "source": "Approved recommendation 9.",
-      "evidence": "Deterministic pilot fixtures and schema validator; live fields remain explicitly UNOBSERVED until an opt-in run.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py --phase pilot",
+      "id": "GPG-001-AC6",
+      "criterion": "Accepted trust primitives remain green while the executable layer uses their closed schemas, strict JCS/I-JSON, enrollment, provenance, budget, App authentication, and immutable review APIs without compatibility bypasses.",
+      "source": "GPG-001 accepted trust-foundation dependency.",
+      "evidence": "Policy and primitive regression suites pass unchanged together with orchestration/server suites.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
       "status": "passed"
     },
     {
-      "id": "API-001-AC7",
-      "criterion": "Documentation and host adapters describe the same model-neutral contracts, honest independence labels, operational bypass boundary, and current tested degradation chain.",
-      "source": "Approved recommendations 1-9 and project AGENTS.md.",
-      "evidence": "Host parity, methodology meta-review, quick and full regression pass on the exact candidate.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick && bash tests/run-all.sh",
+      "id": "GPG-001-AC7",
+      "criterion": "This bootstrap slice stages (but does not activate) the machine-oracle workflow template and server-side ruleset machinery while the legacy gate remains active. After a separate protected-anchor merge, the template is installed and pinned by repository ID, path, and release SHA; it loads the protected runner/v2 contract, binds verifier dependencies, isolates Python, executes shell-free argv over the exact candidate, and emits a bound receipt without reviewer secrets.",
+      "source": "Approved plan items 5 and 6.",
+      "evidence": "Oracle/workflow/ruleset mutations cover bootstrap order, pinned source and drift, same-name status rejection, protected contract/verifiers, exact-tree isolation, Python -I, schema/artifact/output/receipt binding, and pull_request plus merge_group.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC8",
+      "criterion": "Windows and WSL global pre-push hooks block protected-branch pushes, unregistered GitHub checkouts, missing maker provenance, and stale or foreign machine receipts while allowing only an explicitly guarded exact-HEAD PR push.",
+      "source": "Approved plan item 8.",
+      "evidence": "Cross-platform hook and installer mutations prove fail-closed behavior, explicit repository binding, no plugin-cache edits, and separate native host installation targets.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_git_gate_hooks.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC9",
+      "criterion": "The global itd CLI creates Draft PRs only through the guarded exact-candidate path. The canonical user gates.json is a versioned profile registry: local-review requires a current exact independent adjudication without GitHub App authority and may carry it across only one clean single-parent commit whose parent, tree, and binary diff reproduce the reviewed candidate; a second or foreign commit invalidates the review. App profiles retain signed maker provenance and live App-owned checks, and the canonical doctor reports only the weakest verified claim. Legacy v1 organization-workflow registries remain fail-closed readable but are never silently rewritten as v2. The CLI also manages the canonical no-bypass ruleset, registers App adoption only after live validation, observes closed enrollment metadata, and inventories controlled repositories in doctor --all.",
+      "source": "Approved plan items 4, 6, 8, and 9.",
+      "evidence": "CLI/registry/hook mutations cover v2 closed-schema registration, stale/foreign/missing local adjudication, local no-App/no-network routing, guarded exact-HEAD push, weakest-claim doctor aggregation, explicit legacy-v1 compatibility, transient check availability, forged integration identity, live ruleset/workflow drift, invalid App permissions/events, registry write ordering, organization inventory, rejection of local-only bootstrap contracts, and protected status.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_cli.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC10",
+      "criterion": "The broker has a reproducible least-privilege deployment package with pinned dependencies, unprivileged read-only execution, bounded loopback exposure, explicit health/readiness, and credential-file isolation.",
+      "source": "Approved plan items 2 and 7.",
+      "evidence": "Deployment tests validate image/runtime boundaries, Compose/systemd/Caddy configuration, private file modes, readiness, and secret-source rejection.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_deployment.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC11",
+      "criterion": "The portable profile contract permits maker/maintainer/deployer role overlap while requiring an independent reviewer, distinguishes local-submission, self-hosted-app, and managed-app deployments from protection claims, and allows a dedicated GitHub App to be created for user or organization owners with only profile-valid private/public visibility. Every App uses the exact HTTPS broker webhook, review-only least privilege, only pull_request and merge_group events, CSRF-bound loopback conversion, atomic private credential persistence outside the repository, and no retained OAuth client secret.",
+      "source": "Approved plan items 2 and 6.",
+      "evidence": "Manifest/profile tests reject invalid origins, callbacks, owners, account types, profile/visibility combinations, codes, conversion fields, write permissions, PROTECTED overclaims, and overwrite attempts while checking the documented GitHub API version and 0600/0700 persistence.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_github_app_manifest.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC12",
+      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain Codex/Gemini CLI only as advisory transports, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or persist or expose a runtime reviewer API key.",
+      "source": "Approved plan items 3, 4, and 7.",
+      "evidence": "Release, host-adapter, methodology meta-review, and deployment documentation checks pass with the legacy repository gate retained through trust-anchor bootstrap; removal is a separate post-deployment cutover only after protected doctor and negative canaries pass.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC13",
+      "criterion": "The broker operator adds public provenance keys and exact live enrollment receipts through schema-validated preview/apply commands, uses private atomic files, rejects overwrite or mutation of active enrollment, and never prints credential material.",
+      "source": "Approved plan items 2, 7, and 9.",
+      "evidence": "Operator mutations cover preview, apply, private modes, invalid records, duplicate key IDs, exact App client IDs, immutable enrollment, and status lookup.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker_operator.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC14",
+      "criterion": "Codex and Claude host adapters remain transport-only and expose the same vendor-neutral methodology, contracts, hooks, and review authority after the new global gate artifacts are added.",
+      "source": "Approved plan item 4 and the host-adapter contract.",
+      "evidence": "Host-adapter verification passes against the staged methodology source without editing either installed plugin cache.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC15",
+      "criterion": "The primary independent-review route uses an isolated fresh different-model and different-session producer without paid API, network tools, repository mutation, inherited development context, or model access to reviewer credentials; it emits a signed two-phase exact-candidate receipt that the GitHub App revalidates against live PR and check coordinates before publishing an App-owned Check. Provider API review remains an optional explicitly authorized per-operation route and is never dispatched automatically.",
+      "source": "Approved nine-point plan items 2, 3, 6, 7, 8, and 9.",
+      "evidence": "PASSED on implementation tree 45e1e376e8ee056e1763bc382e67891963dc4b2f: producer 53 checks, broker 721 checks, server 50 checks, deployment 25 checks, zero-redaction scrub, tool-trust inventory, cold-start, meta-review, host adapters, and quick suite all passed. Fresh gpt-5.6-terra session 019fbea8-4089-7043-98cd-e261498e6c44 returned findings=[] and unverified=[] with zero tool calls; bound adjudication is .itd-memory/verification-loop/receipts/c7525d99a8d5a1d0/GPG-001-general-review-adjudication-a1.json. Mutations cover untrusted executable/proxy/auth, paid-route consent, same-session/context, target replay, foreign signing scope/maker provenance, PR publication races, interruption recovery, findings, and model unavailability.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-001-AC16",
+      "criterion": "The GPG-001 candidate preserves the existing MEM-8 prompt-supply-chain trust boundary: closed tool registry schema and validator, provider/version/prompt-surface evidence, allow/ask/abstain disposition with unknown prompt-bearing providers defaulting fail closed, read-only adoption inventory, security-audit coverage, and mutation tests.",
+      "source": "GPG-001 plan zero condition and existing HE-001 trust dependency.",
+      "evidence": "PASSED in commit 43e65b0 / tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b: targeted tool-trust mutations, nested schema/validator closure, local unreviewed-allow rejection, full adoption no-mutation wording, Linux/Windows CI wiring, semantic-navigation binding, cold-start, meta-review, host adapters, and quick suite passed; fresh gpt-5.6-terra full report had findings=[] and unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tool_trust_inventory.py",
       "status": "passed"
     }
   ],
-  "doneRule": "API-001 is complete only when every criterion is passed and one current high-risk Verification Loop adjudication re-runs all named commands on the exact staged candidate, consumes a policy-eligible independent checker report, and passes receipt revalidation."
+  "doneRule": "A criterion status of passed means its verification command passed, not that the candidate is accepted. GPG-001 remains in_progress until the portable profile model, free-primary review route, and current high-risk exact-candidate Verification Loop receipts revalidate the candidate. It does not claim live broker/App/ruleset deployment, any unobserved protection profile, credential rotation, or final release/install."
 }

@@ -260,8 +260,25 @@ def run_rubric(repo: Path) -> Report:
         r.crit("M-C5", f"README.ru.md badge does not match plugin.json version {plugin_ver}")
 
     # --- M-C6: CHANGELOG entry for current version ---
-    if f"[{plugin_ver}]" not in changelog:
-        r.crit("M-C6", f"CHANGELOG.md has no [{plugin_ver}] entry")
+    unreleased = re.search(
+        r"(?ms)^## \[Unreleased\]\s*\n(.*?)(?=^## \[|\Z)", changelog
+    )
+    candidate_marker = (
+        f"Release candidate target: **{plugin_ver}** "
+        "(not published or installed)."
+    )
+    has_release_entry = re.search(
+        rf"(?m)^## \[{re.escape(plugin_ver)}\](?:\s|$)", changelog
+    )
+    has_explicit_candidate = (
+        unreleased is not None and candidate_marker in unreleased.group(1)
+    )
+    if not has_release_entry and not has_explicit_candidate:
+        r.crit(
+            "M-C6",
+            f"CHANGELOG.md has neither [{plugin_ver}] nor an exact "
+            "Unreleased release-candidate marker",
+        )
 
     # --- M-C7: badge counts match reality ---
     skills_badge = re.search(r"Skills-(\d+)-green", readme_en)

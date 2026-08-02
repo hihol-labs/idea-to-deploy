@@ -44,6 +44,9 @@ jobs:
       - name: Run meta-review rubric (verbose)
         run: python3 tests/meta_review.py --verbose
 
+      - name: Enforce prompt-bearing tool trust inventory (stdlib integration phase)
+        run: python3 tests/verify_tool_trust_inventory.py --phase integration
+
       - name: Run trigger drift verifier (standalone check)
         run: python3 tests/verify_triggers.py
 

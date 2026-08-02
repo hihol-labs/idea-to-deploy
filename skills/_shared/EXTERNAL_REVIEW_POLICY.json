@@ -9,15 +9,23 @@
     "marker": ".itd-external-review-egress-ok",
     "compatibleMarker": ".cross-review-egress-ok"
   },
+  "httpTransport": {
+    "environment": "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT",
+    "default": "urllib",
+    "allowed": ["urllib", "curl"],
+    "curlMinimumVersion": "8.3.0",
+    "maxPreRequestConnectRetries": 3,
+    "credentialExposure": "environment-name-only"
+  },
   "limits": {
     "maxFiles": 100,
-    "maxDiffBytes": 55000,
-    "maxRequestBytes": 66500,
-    "maxEstimatedInputTokens": 50000,
+    "maxDiffBytes": 80000,
+    "maxRequestBytes": 100000,
+    "maxEstimatedInputTokens": 60000,
     "maxOutputTokens": 5550,
     "timeoutSeconds": 120,
     "maxRetries": 0,
-    "maxCostUsd": 0.5,
+    "maxCostUsd": 0.75,
     "monthlyCostUsd": 10.0
   },
   "providers": [
@@ -33,6 +41,19 @@
       "inputUsdPerMillion": 5.0,
       "outputUsdPerMillion": 30.0,
       "pricingObservedAt": "2026-07-28"
+    },
+    {
+      "id": "openai-responses-terra",
+      "vendor": "openai",
+      "kind": "responses-api",
+      "automatedEligible": true,
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "medium",
+      "endpoint": "https://api.openai.com/v1/responses",
+      "credentialEnvironment": "OPENAI_API_KEY",
+      "inputUsdPerMillion": 2.5,
+      "outputUsdPerMillion": 15.0,
+      "pricingObservedAt": "2026-07-29"
     },
     {
       "id": "codex-cli",

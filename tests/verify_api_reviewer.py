@@ -23,7 +23,10 @@ REVIEWER = ROOT / "skills/_shared/itd_external_reviewer.py"
 POLICY = ROOT / "skills/_shared/EXTERNAL_REVIEW_POLICY.json"
 SCHEMA = ROOT / "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json"
 PILOT = ROOT / "docs/api-reviewer/SHADOW_PILOT.json"
-WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
+OBSOLETE_WORKFLOW = ROOT / ".github/workflows/external-review-gate.yml"
+MACHINE_WORKFLOW = ROOT / "docs/templates/github/itd-machine-oracle.yml"
+BROKER_POLICY = ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json"
+BROKER_SERVICE = ROOT / "services/review_broker/server.py"
 PHASES = ("adapters", "routing", "modes", "egress", "evidence", "pilot")
 
 
@@ -108,6 +111,11 @@ def finding_verdict() -> dict:
 
 
 def fixture(path: Path, rows: dict) -> Path:
+    rows = dict(rows)
+    if "openai-responses" in rows and "openai-responses-terra" not in rows:
+        rows["openai-responses-terra"] = {
+            "error": "disabled fixture fallback"
+        }
     target = path / "fixtures.json"
     target.write_text(json.dumps(rows), encoding="utf-8")
     return target
@@ -153,14 +161,27 @@ class Checks:
 def phase_adapters(checks: Checks) -> None:
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
     ids = [row["id"] for row in policy["providers"]]
-    checks.that(ids == ["openai-responses", "codex-cli", "gemini-cli"],
-                "API/Codex/Gemini provider set drifted")
+    checks.that(ids == [
+        "openai-responses", "openai-responses-terra",
+        "codex-cli", "gemini-cli",
+    ], "Sol/Terra API plus Codex/Gemini provider set drifted")
     checks.that(policy["completionAuthority"] == "verification-loop-v1",
                 "external reviewer became a parallel authority")
     checks.that(policy["providers"][0]["credentialEnvironment"] == "OPENAI_API_KEY",
                 "OpenAI credential is not environment-only")
     checks.that(policy["providers"][0]["reasoningEffort"] == "medium",
                 "managed reviewer reasoning effort is not explicit")
+    checks.that(
+        policy["httpTransport"] == {
+            "environment": "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT",
+            "default": "urllib",
+            "allowed": ["urllib", "curl"],
+            "curlMinimumVersion": "8.3.0",
+            "maxPreRequestConnectRetries": 3,
+            "credentialExposure": "environment-name-only",
+        },
+        "bounded HTTP transport fallback policy drifted",
+    )
     worst_case_cost = (
         policy["limits"]["maxRequestBytes"]
         * policy["providers"][0]["inputUsdPerMillion"] / 1_000_000
@@ -168,7 +189,11 @@ def phase_adapters(checks: Checks) -> None:
         * policy["providers"][0]["outputUsdPerMillion"] / 1_000_000
     )
     checks.that(
-        policy["limits"]["maxOutputTokens"] >= 5550
+        policy["limits"]["maxDiffBytes"] == 80000
+        and policy["limits"]["maxRequestBytes"] == 100000
+        and policy["limits"]["maxEstimatedInputTokens"] == 60000
+        and policy["limits"]["maxOutputTokens"] >= 5550
+        and policy["limits"]["maxCostUsd"] == 0.75
         and worst_case_cost <= policy["limits"]["maxCostUsd"],
         "output budget is too small for reasoning or exceeds the per-run ceiling",
     )
@@ -179,11 +204,15 @@ def phase_adapters(checks: Checks) -> None:
             "ssl.SSLError",
             "OSError",
             "UnicodeError",
+            "minor-only findings may accompany PASSED",
+            "--expand-header",
+            "f\"%{key_name}\"",
         )),
-        "live transport failures are not fully converted to typed results",
+        "live transport failures or semantic verdict instructions are incomplete",
     )
-    checks.that(policy["providers"][0]["automatedEligible"] is True
-                and all(row["automatedEligible"] is False for row in policy["providers"][1:]),
+    checks.that(
+                all(row["automatedEligible"] is True for row in policy["providers"][:2])
+                and all(row["automatedEligible"] is False for row in policy["providers"][2:]),
                 "tool-capable CLIs must remain registered but ineligible for automated egress")
     path = repo()
     try:
@@ -198,6 +227,8 @@ def phase_adapters(checks: Checks) -> None:
                 "allowSameModelForMedium")),
             ("absolute-consent", lambda row: row["consent"].__setitem__(
                 "marker", "/tmp/unrelated-consent")),
+            ("unsafe-transport", lambda row: row["httpTransport"].__setitem__(
+                "credentialExposure", "argv")),
         ):
             mutant = json.loads(POLICY.read_text(encoding="utf-8"))
             mutate(mutant)
@@ -298,23 +329,58 @@ def phase_routing(checks: Checks) -> None:
         _, anthropic = invoke(
             path, "route", "--maker-vendor", "anthropic",
             "--maker-model", "claude-test", "--risk", "high")
-        checks.that(anthropic["providers"] == ["openai-responses"],
-                    "Claude-authored automated route should use only managed API")
+        checks.that(
+            anthropic["providers"] == [
+                "openai-responses", "openai-responses-terra"
+            ],
+            "Claude-authored route should prefer Sol and retain Terra fallback",
+        )
         _, openai = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol", "--risk", "high")
-        checks.that(openai["providers"] == [],
-                    "GPT-authored high-risk route accepted unsafe CLI or same-model API")
+        checks.that(
+            openai["providers"] == ["openai-responses-terra"],
+            "Sol-authored high-risk route did not select independent Terra",
+        )
         _, snapshot_route = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol-2026-07-15", "--risk", "high")
-        checks.that("openai-responses" not in snapshot_route["providers"],
+        checks.that(
+            snapshot_route["providers"] == ["openai-responses-terra"],
                     "dated snapshot alias bypassed same-model high-risk separation")
+        _, terra_route = invoke(
+            path, "route", "--maker-vendor", "openai",
+            "--maker-model", "gpt-5.6-terra", "--risk", "high")
+        checks.that(
+            terra_route["providers"] == ["openai-responses"],
+            "Terra-authored high-risk route did not select independent Sol",
+        )
         _, medium = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol", "--risk", "medium")
         checks.that("openai-responses" in medium["providers"],
                     "fresh same-model medium checker should remain advisory-eligible")
+
+        terra_fixture = fixture(path, {
+            "openai-responses-terra": {
+                "response": response(
+                    clean_verdict(), model="gpt-5.6-terra"
+                )
+            }
+        })
+        terra_run, terra_payload = invoke(
+            path, "review", "--root", str(path), "--maker-vendor", "openai",
+            "--maker-model", "gpt-5.6-sol", "--maker-session", "maker-sol",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(terra_fixture),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        checks.that(
+            terra_run.returncode == 0
+            and terra_payload["checker"]["providerId"] == "openai-responses-terra"
+            and terra_payload["checker"]["independence"]
+            == "same-vendor-different-model",
+            "Terra did not produce eligible same-vendor/different-model evidence",
+        )
     finally:
         remove_tree(path)
 
@@ -353,68 +419,53 @@ def phase_modes(checks: Checks) -> None:
             in missing_fixture_payload["reason"],
             "fixture-only run fell through to a live transport",
         )
-        workflow = WORKFLOW.read_text(encoding="utf-8")
-        checks.that("repository_dispatch:" in workflow
-                    and "types: [itd-external-review]" in workflow
-                    and "github.event.client_payload" in workflow
-                    and "persist-credentials: false" in workflow,
-                    "CI gate is not default-branch-dispatched with trusted tooling")
-        checks.that("test -z \"${OPENAI_API_KEY:-}\"" in workflow
-                    and "adjudicate --root .itd-candidate" in workflow
-                    and " check --root .itd-candidate" in workflow
-                    and '--risk-tier high --receipt "$adjudication"' in workflow,
-                    "CI gate does not separate the secret from candidate execution "
-                    "or finish through adjudication")
-        checks.that("ITD_PROVENANCE_HMAC_KEY" in workflow
-                    and "hmac.compare_digest" in workflow
-                    and "INPUT_BASE: ${{ github.event.client_payload.maker_base }}" in workflow
-                    and "json.dumps(" in workflow
-                    and "unsafe maker provenance field" in workflow
-                    and "maker provenance is stale for the PR head" in workflow,
-                    "CI gate lacks signed, exact-head maker provenance")
+        workflow = MACHINE_WORKFLOW.read_text(encoding="utf-8")
+        broker_policy = json.loads(BROKER_POLICY.read_text(encoding="utf-8"))
+        broker_service = BROKER_SERVICE.read_text(encoding="utf-8")
+        legacy_workflow = OBSOLETE_WORKFLOW.read_text(encoding="utf-8")
         checks.that(
-            "candidate-oracle:" in workflow
-            and "needs: candidate-oracle" in workflow
-            and "ORACLE_JOB_RESULT:" in workflow
-            and workflow.count("Resolve exact PR refs") == 1
-            and "EXPECTED_HEAD: ${{ needs.candidate-oracle.outputs.head }}" in workflow
-            and "ref: ${{ needs.candidate-oracle.outputs.head }}" in workflow
-            and "merge_base=\"$(git merge-base" in workflow
-            and "BASE_SHA: ${{ needs.candidate-oracle.outputs.merge_base }}" in workflow
-            and "bind the isolated oracle result" in workflow,
-            "oracle/review/status are not bound to one immutable PR head",
+            "repository_dispatch:" in legacy_workflow
+            and "pull_request_target:" not in legacy_workflow
+            and "repository_dispatch:" not in workflow
+            and "pull_request:" in workflow
+            and "merge_group:" in workflow,
+            "legacy gate is not safely retained for two-phase cutover",
         )
         checks.that(
-            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5" in workflow
+            "scripts/itd_machine_oracle.py" in workflow
+            and "persist-credentials: false" in workflow
+            and "OPENAI_API_KEY: \"\"" in workflow
+            and "ANTHROPIC_API_KEY: \"\"" in workflow
+            and "pull_request_target:" not in workflow,
+            "machine check is not isolated from reviewer credentials",
+        )
+        checks.that(
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+            in workflow
             and "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
             in workflow
-            and "ref: ${{ github.sha }}" in workflow
-            and "actions/checkout@v4" not in workflow
-            and "actions/upload-artifact@v4" not in workflow,
-            "security-sensitive actions/tooling are not pinned immutably",
+            and "actions/checkout@v" not in workflow
+            and "actions/upload-artifact@v" not in workflow,
+            "machine workflow actions are not pinned immutably",
         )
         checks.that(
-            "fork PRs are not eligible for this protected gate" in workflow
-            and "PR base must be the protected default branch" in workflow
-            and "git -c core.hooksPath=/dev/null merge --no-commit --no-ff" in workflow,
-            "fork rejection or prospective merge testing is absent",
+            broker_policy["authority"]["externalReview"]
+            == "github-app-check-run"
+            and broker_policy["authority"]["machineOracle"]
+            == "protected-base-github-actions"
+            and broker_policy["routing"]["automatedCliFallbackAllowed"] is False
+            and broker_policy["candidate"]["executeCandidateCode"] is False,
+            "central broker is not the sole required external-review authority",
         )
         checks.that(
-            'context="ITD external review gate"' in workflow
-            and 'statuses: write' in workflow
-            and 'statuses/$HEAD_SHA' in workflow,
-            "workflow does not publish its result on the verified PR head",
-        )
-        checks.that(
-            "group: itd-external-review-budget" in workflow
-            and "cancel-in-progress: false" in workflow
-            and "Restore the serialized monthly usage ledger" in workflow
-            and "actions/runs/$run_id" in workflow
-            and 'run_path" = */external-review-gate.yml' in workflow
-            and "select(.expired == false)" in workflow
-            and "itd-external-review-budget-${{ github.run_id }}-${{ github.run_attempt }}"
-            in workflow,
-            "CI usage reconciliation ledger is not serialized across workflow runs",
+            broker_policy["provenance"]["algorithm"] == "ed25519"
+            and broker_policy["github"]["externalCheck"]["expectedPublisher"]
+            == "github-app-integration-id"
+            and broker_policy["budget"]["reservation"] == "sqlite-begin-immediate"
+            and 'ITD_OPENAI_API_KEY_FILE' in broker_service
+            and 'OPENAI_API_KEY environment use is forbidden in broker mode'
+            in broker_service,
+            "central gate lacks App, provenance, secret-file, or budget binding",
         )
     finally:
         remove_tree(path)
@@ -493,6 +544,31 @@ def phase_egress(checks: Checks) -> None:
                     and "<UNTRUSTED_DIFF>\n" not in prefixed_prompt,
                     "untrusted diff still controls a semantic closing delimiter")
 
+        multiline_value = "-".join(
+            ("correct", "horse", "battery", "staple")
+        )
+        (path / "app.py").write_text(
+            '{\n  "password":\n    "'
+            + multiline_value
+            + '"\n}\n',
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, multiline_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-multiline-credential", "--risk", "high",
+            "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"})
+        multiline_prompt = Path(
+            multiline_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            multiline_value not in multiline_prompt
+            and "[REDACTED]" in multiline_prompt,
+            "multiline JSON credential survived sanitization",
+        )
+
         for label, secret_value, marker in (
             (
                 "jwt",
@@ -542,8 +618,80 @@ def phase_egress(checks: Checks) -> None:
             and "high-entropy" in high_entropy_payload["reason"],
             "unlabelled high-entropy token crossed the fail-closed boundary",
         )
+        public_policy_identifiers = (
+            "clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256",
+            "externalIdPayloadSha256-equals-published-check-run-external-id",
+        )
+        (path / "app.py").write_text(
+            "def value():\n"
+            f"    policy_ids = {public_policy_identifiers!r}\n"
+            "    return len(policy_ids)\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        policy_id_run, policy_id_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-public-policy-identifiers",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"})
+        policy_id_prompt = Path(
+            policy_id_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            policy_id_run.returncode == 0
+            and all(value in policy_id_prompt for value in public_policy_identifiers),
+            "public frozen-policy identifiers were mistaken for secrets",
+        )
         (path / "app.py").write_text("def value():\n    return 2\n", encoding="utf-8")
         shell(["git", "add", "app.py"], path)
+
+        synthetic_value = bytes(
+            (115, 107, 45, 112, 114, 111, 106, 45)
+        ).decode("ascii") + "z" * 40
+        (path / "app.py").write_text(
+            "import os\n"
+            f"value = os.getenv('OPTIONAL_VALUE', '{synthetic_value}')\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, default_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-default-literal", "--risk", "high",
+            "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        default_prompt = Path(
+            default_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            synthetic_value not in default_prompt
+            and "[REDACTED-API-KEY]" in default_prompt,
+            "getenv default literal bypassed sensitive-value scrubbing",
+        )
+
+        (path / "app.py").write_text(
+            "value = "
+            f"\"${{OPTIONAL_VALUE:-{synthetic_value}}}\"\n",
+            encoding="utf-8",
+        )
+        shell(["git", "add", "app.py"], path)
+        _, shell_default_payload = invoke(
+            path, "review", "--root", str(path),
+            "--maker-vendor", "anthropic", "--maker-model", "claude-test",
+            "--maker-session", "maker-shell-default-literal",
+            "--risk", "high", "--mode", "ci", "--fixtures", str(fixtures),
+            env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
+        )
+        shell_default_prompt = Path(
+            shell_default_payload["artifacts"]["prompt"]
+        ).read_text(encoding="utf-8")
+        checks.that(
+            synthetic_value not in shell_default_prompt
+            and "[REDACTED-API-KEY]" in shell_default_prompt,
+            "shell expansion default bypassed sensitive-value scrubbing",
+        )
 
         small = json.loads(POLICY.read_text(encoding="utf-8"))
         small["limits"]["maxDiffBytes"] = 10

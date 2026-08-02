@@ -1,0 +1,40 @@
+services:
+  review-broker:
+    build:
+      context: ../../..
+      dockerfile: services/review_broker/Dockerfile
+    image: itd-review-broker:local
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 1.0
+    stop_grace_period: 30s
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      ITD_GITHUB_APP_CLIENT_ID: "${ITD_GITHUB_APP_CLIENT_ID:?set the App client id}"
+      ITD_GITHUB_APP_PRIVATE_KEY_FILE: /run/secrets/github-app-private-key
+      ITD_GITHUB_WEBHOOK_SECRET_FILE: /run/secrets/github-webhook-secret
+      ITD_PROVENANCE_KEYRING_FILE: /run/secrets/provenance-keyring
+      ITD_FREE_REVIEWER_KEYRING_FILE: /run/secrets/free-reviewer-keyring
+      ITD_FREE_REVIEW_APP_SIGNING_KEY_FILE: /run/secrets/free-review-app-signing-key
+      ITD_FREE_REVIEW_APP_KEY_ID: "${ITD_FREE_REVIEW_APP_KEY_ID:?set the App receipt key id}"
+      ITD_BROKER_DATABASE: /var/lib/itd/review-broker.sqlite3
+      ITD_BROKER_HOST: 0.0.0.0
+      ITD_BROKER_PORT: "8080"
+    volumes:
+      - ./runtime/database:/var/lib/itd
+      - ./runtime/secrets/github-app-private-key.pem:/run/secrets/github-app-private-key:ro
+      - ./runtime/secrets/github-webhook-secret:/run/secrets/github-webhook-secret:ro
+      - ./runtime/secrets/provenance-keyring.json:/run/secrets/provenance-keyring:ro
+      - ./runtime/secrets/free-reviewer-keyring.json:/run/secrets/free-reviewer-keyring:ro
+      - ./runtime/secrets/free-review-app-signing-key:/run/secrets/free-review-app-signing-key:ro

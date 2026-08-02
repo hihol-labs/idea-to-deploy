@@ -181,7 +181,7 @@ def selftest() -> int:
         ("SCOPE_LOCK.md", "## Current Task\n- Починить init-валидатор.", "filled"),
         ("FORBIDDEN_CHANGES.md", "", "empty"),
         ("VERIFICATION_CONTRACT.json", '{"commands": []}', "template"),
-        ("VERIFICATION_CONTRACT.json", '{"commands": [{"id": "t", "command": "make test"}]}', "filled"),
+        ("VERIFICATION_CONTRACT.json", '{"version": 2, "commands": [{"id": "t", "argv": ["make", "test"], "trustedVerifierPaths": ["Makefile"]}]}', "filled"),
         ("VERIFICATION_CONTRACT.json", "{broken", "template"),
     ]
     for name, text, exp in filled_cases:

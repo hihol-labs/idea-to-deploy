@@ -1,0 +1,34 @@
+{
+  "version": "1.95.0",
+  "purpose": "Acceptance surface for the planned external-reviewer release candidate. Publication promotes it to the immutable release-owned contract; it must not depend on mutable current-unit .itd contracts.",
+  "criteria": [
+    "GPG-001-AC1",
+    "GPG-001-AC2",
+    "GPG-001-AC3",
+    "GPG-001-AC4",
+    "GPG-001-AC5",
+    "GPG-001-AC6",
+    "GPG-001-AC7",
+    "GPG-001-AC8",
+    "GPG-001-AC9",
+    "GPG-001-AC10",
+    "GPG-001-AC11",
+    "GPG-001-AC12",
+    "GPG-001-AC13",
+    "GPG-001-AC14"
+  ],
+  "scopeMarkers": [
+    "Verification Loop",
+    "same-model",
+    "same-provider",
+    "UNAVAILABLE",
+    "UNVERIFIED",
+    "silently truncated",
+    "administrator mutation of the ruleset"
+  ],
+  "scopeEvidence": [
+    "docs/API_REVIEWER.md",
+    "docs/adr/ADR-003-verifiable-external-reviewer.md"
+  ],
+  "completionAuthority": "verification-loop-v1"
+}

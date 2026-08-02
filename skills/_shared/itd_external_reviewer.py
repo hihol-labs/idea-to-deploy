@@ -53,24 +53,79 @@ SECRET_PATTERNS = [
     (re.compile(r"(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._-]{12,}"),
      r"\1[REDACTED]"),
     (re.compile(
-        r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))"
-        r"(\s*[=:]\s*)([\"'])(?!\[REDACTED)([^\r\n]*?)(\3)"
-    ), r"\1\2\3[REDACTED]\5"),
+        r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+        r"([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))\1"
+        r"([ \t]*[=:][ \t]*(?:\r?\n[ +\-]?[ \t]*)?)"
+        r"([\"'])(?!\[REDACTED)([^\r\n]+?)(\4)"
+    ), r"\1\2\1\3\4[REDACTED]\6"),
     (re.compile(
-        r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))"
-        r"(\s*[=:]\s*)(?![\"']|\[REDACTED)([^\s#;,]{6,})"
-    ), r"\1\2[REDACTED]"),
+        r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+        r"([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))\1"
+        r"([ \t]*[=:][ \t]*)"
+        r"(?![\"']|\[REDACTED)([^\s#;,]{6,})"
+    ), r"\1\2\1\3[REDACTED]"),
 ]
+SAFE_REFERENCE_PATTERNS = (
+    re.compile(r"\$\{\{\s*secrets\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}"),
+    re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}"),
+    re.compile(
+        r"(?:os\.environ\.get|os\.getenv)\("
+        r"\s*(?:[\"'][A-Za-z_][A-Za-z0-9_]*[\"']|"
+        r"[A-Za-z_][A-Za-z0-9_]*)"
+        r"(?:\s*,\s*[\"'][\"'])?\s*\)"
+    ),
+    re.compile(
+        r"\b[A-Za-z_][A-Za-z0-9_]*\.get\("
+        r"\s*[\"'][A-Za-z_][A-Za-z0-9_]*[\"']"
+        r"(?:\s*,\s*[\"'][\"'])?\s*\)"
+    ),
+    re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\.group\(\s*\d+\s*\)"),
+    re.compile(r"\bargs\.[A-Za-z_][A-Za-z0-9_]*\b"),
+    re.compile(
+        r"(?im)(?<![A-Za-z0-9_])"
+        r"[A-Za-z_][A-Za-z0-9_]*(?:_FILE|_PATH)"
+        r"[ \t]*[=:][ \t]*"
+        r"(?:\./|/|%[A-Za-z]/)(?!/)[A-Za-z0-9._/-]+"
+    ),
+    re.compile(
+        r"(?im)(?<![A-Za-z0-9_])LoadCredential(?:Encrypted)?"
+        r"[ \t]*=[ \t]*[A-Za-z0-9_.-]+:"
+        r"(?:\./|/|%[A-Za-z]/)(?!/)[A-Za-z0-9._/-]+"
+    ),
+    re.compile(
+        r"(?m)^[+ -]*[ \t]*(?:\./|/|%[A-Za-z]/)(?!/)"
+        r"[A-Za-z0-9._/-]+:(?:\./|/|%[A-Za-z]/)(?!/)"
+        r"[A-Za-z0-9._/-]+(?::ro)?$"
+    ),
+    re.compile(r"\bgit@github\.com:"),
+    re.compile(
+        r"(?P<quote>[\"'])-----BEGIN [A-Z ]*PRIVATE KEY-----\\n"
+        r"(?P=quote)"
+    ),
+)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 HIGH_CONFIDENCE_SECRET_RE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|"
     r"\bgh[pousr]_[A-Za-z0-9]{30,}\b|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b"
 )
 RESIDUAL_CREDENTIAL_RE = re.compile(
-    r"(?i)(?<![A-Za-z0-9_])[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)"
-    r"\s*[=:]\s*[\"']?(?!\[REDACTED)[^ \t\r\n\"'&]{6,}"
+    r"(?i)(?<![A-Za-z0-9_])([\"']?)"
+    r"[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)\1"
+    r"[ \t]*[=:][ \t]*"
+    r"(?:"
+    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
+    r"|(?![\"'\r\n]|\[REDACTED)[^ \t\r\n\"'&]{6,}"
+    r"|\r?\n[ +\-]?[ \t]*"
+    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
+    r")"
 )
-HIGH_ENTROPY_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{48,}(?![A-Za-z0-9_-])")
+HIGH_ENTROPY_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?!(?:clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256|"
+    r"externalIdPayloadSha256-equals-published-check-run-external-id)"
+    r"(?![A-Za-z0-9_-]))"
+    r"[A-Za-z0-9_-]{48,}(?![A-Za-z0-9_-])"
+)
 
 
 class ReviewError(RuntimeError):
@@ -103,7 +158,7 @@ def policy_from(path: Path) -> dict[str, Any]:
     policy = read_json(path)
     required = {
         "version", "id", "defaultEnabled", "completionAuthority", "consent",
-        "limits", "providers", "routing", "retention",
+        "httpTransport", "limits", "providers", "routing", "retention",
     }
     if set(policy) != required or policy.get("version") != 1:
         raise ReviewError("UNVERIFIED", "external-review policy fields/version are invalid")
@@ -139,6 +194,22 @@ def policy_from(path: Path) -> dict[str, Any]:
         raise ReviewError(
             "UNVERIFIED", "external-review consent paths or environments are unsafe"
         )
+    transport = policy.get("httpTransport")
+    if (
+        not isinstance(transport, dict)
+        or set(transport) != {
+            "environment", "default", "allowed", "curlMinimumVersion",
+            "maxPreRequestConnectRetries", "credentialExposure",
+        }
+        or transport.get("environment") != "ITD_EXTERNAL_REVIEW_HTTP_TRANSPORT"
+        or transport.get("default") != "urllib"
+        or transport.get("allowed") != ["urllib", "curl"]
+        or transport.get("curlMinimumVersion") != "8.3.0"
+        or type(transport.get("maxPreRequestConnectRetries")) is not int
+        or not 0 <= transport["maxPreRequestConnectRetries"] <= 3
+        or transport.get("credentialExposure") != "environment-name-only"
+    ):
+        raise ReviewError("UNVERIFIED", "external-review HTTP transport policy is invalid")
     routing = policy.get("routing")
     if (not isinstance(routing, dict)
             or set(routing) != {
@@ -172,14 +243,21 @@ def policy_from(path: Path) -> dict[str, Any]:
             raise ReviewError(
                 "UNVERIFIED", "external-review provider fields are incomplete"
             )
-        if provider.get("kind") == "responses-api" and (
-            provider.get("id") != "openai-responses"
-            or provider.get("endpoint") != "https://api.openai.com/v1/responses"
-        ):
-            raise ReviewError(
-                "UNVERIFIED",
-                "Responses API provider endpoint is outside the credential allowlist",
-            )
+        if provider.get("kind") == "responses-api":
+            allowed_api_models = {
+                "openai-responses": "gpt-5.6-sol",
+                "openai-responses-terra": "gpt-5.6-terra",
+            }
+            if (
+                provider.get("id") not in allowed_api_models
+                or provider.get("model") != allowed_api_models.get(provider.get("id"))
+                or provider.get("endpoint") != "https://api.openai.com/v1/responses"
+            ):
+                raise ReviewError(
+                    "UNVERIFIED",
+                    "Responses API provider/model/endpoint is outside the "
+                    "credential allowlist",
+                )
         if provider.get("kind") == "responses-api":
             if (not isinstance(provider.get("credentialEnvironment"), str)
                     or not provider["credentialEnvironment"]
@@ -276,18 +354,47 @@ def consent_granted(root: Path, policy: dict[str, Any]) -> bool:
     )
 
 
+def _mask_safe_references(text: str) -> tuple[str, list[tuple[str, str]]]:
+    references: list[tuple[str, str]] = []
+    masked = text
+    for pattern in SAFE_REFERENCE_PATTERNS:
+        def replace(match: re.Match[str]) -> str:
+            marker = f"[REDACTED-REFERENCE-{len(references):06d}]"
+            references.append((marker, match.group(0)))
+            return marker
+
+        masked = pattern.sub(replace, masked)
+    return masked, references
+
+
 def scrub(text: str) -> tuple[str, int]:
+    masked, references = _mask_safe_references(text)
+
     count = 0
-    clean = text
+    clean = masked
     for pattern, replacement in SECRET_PATTERNS:
         clean, changed = pattern.subn(replacement, clean)
         count += changed
     clean, changed = EMAIL_RE.subn("[REDACTED-EMAIL]", clean)
-    return clean, count + changed
+    count += changed
+    for marker, reference in references:
+        clean = clean.replace(marker, reference, 1)
+    return clean, count
+
+
+def contains_high_confidence_secret(text: str) -> bool:
+    masked, _references = _mask_safe_references(text)
+    return HIGH_CONFIDENCE_SECRET_RE.search(masked) is not None
+
+
+def contains_residual_credential(text: str) -> bool:
+    masked, _references = _mask_safe_references(text)
+    return RESIDUAL_CREDENTIAL_RE.search(masked) is not None
 
 
 def contains_high_entropy_token(text: str) -> bool:
-    for match in HIGH_ENTROPY_TOKEN_RE.finditer(text):
+    masked, _references = _mask_safe_references(text)
+    for match in HIGH_ENTROPY_TOKEN_RE.finditer(masked):
         token = match.group(0)
         if not (
             any(char.islower() for char in token)
@@ -357,9 +464,9 @@ def build_candidate(root: Path, policy: dict[str, Any]) -> tuple[dict[str, Any],
             "staged textual diff is not valid UTF-8",
         ) from exc
     clean, redactions = scrub(diff)
-    if HIGH_CONFIDENCE_SECRET_RE.search(clean):
+    if contains_high_confidence_secret(clean):
         raise ReviewError("UNVERIFIED", "high-confidence secret survived sanitization")
-    if RESIDUAL_CREDENTIAL_RE.search(clean):
+    if contains_residual_credential(clean):
         raise ReviewError("UNVERIFIED", "credential-shaped assignment survived sanitization")
     if contains_high_entropy_token(clean):
         raise ReviewError(
@@ -479,7 +586,12 @@ def review_prompt(manifest: dict[str, Any], diff: str,
         "spec compliance. Report only concrete file/line findings. Critical "
         "means unsafe or materially incorrect; Important means merge-relevant; "
         "Minor is advisory. Set unverified for any contour you could not check. "
-        "A clean verdict is allowed only when coverage is complete.\n"
+        "Use BLOCKED iff at least one critical finding exists. Use "
+        "PASSED_WITH_WARNINGS iff there is no critical finding and at least "
+        "one important finding or unverified contour exists. Use PASSED when "
+        "there is no critical/important finding and unverified is empty; "
+        "minor-only findings may accompany PASSED. A clean verdict is allowed "
+        "only when coverage is complete.\n"
         f"CANDIDATE_MANIFEST={json.dumps(manifest, ensure_ascii=False, sort_keys=True)}\n"
         f"REQUIRED_JSON_SCHEMA={json.dumps(verdict_schema_for_api(schema or {}), ensure_ascii=False, sort_keys=True)}\n"
         f"UNTRUSTED_DIFF_JSON={json.dumps(diff, ensure_ascii=False)}\n"
@@ -603,16 +715,35 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
         response = fixture.get("response")
         if not isinstance(response, dict):
             raise ReviewError("UNAVAILABLE", "fixture response is missing")
-        return response, {"attempts": 1, "latencyMs": int(fixture.get("latencyMs", 0))}
+        return response, {
+            "attempts": 1,
+            "latencyMs": int(fixture.get("latencyMs", 0)),
+            "transport": "fixture",
+        }
     key_name = provider["credentialEnvironment"]
-    api_key = os.environ.get(key_name, "")
-    if not api_key:
+    credential_value = os.environ.get(key_name, "")
+    if not credential_value:
         raise ReviewError("UNAVAILABLE", f"{key_name} is not set")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,500}", credential_value):
+        raise ReviewError("UNAVAILABLE", f"{key_name} has an invalid shape")
+    transport_policy = policy["httpTransport"]
+    transport = os.environ.get(
+        transport_policy["environment"], transport_policy["default"]
+    )
+    if transport not in transport_policy["allowed"]:
+        raise ReviewError("UNVERIFIED", f"unsupported HTTP transport: {transport}")
+    if transport == "curl":
+        return call_openai_curl(
+            provider, prompt, schema, policy, key_name
+        )
     limits = policy["limits"]
     request = urlrequest.Request(
         provider["endpoint"],
         data=openai_request_bytes(provider, prompt, schema, policy),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {credential_value}",
+            "Content-Type": "application/json",
+        },
         method="POST",
     )
     attempts = 0
@@ -630,6 +761,7 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
             return response, {
                 "attempts": attempts,
                 "latencyMs": round((time.monotonic() - started) * 1000),
+                "transport": "urllib",
             }
         except (
             urlerror.URLError,
@@ -645,6 +777,174 @@ def call_openai(provider: dict[str, Any], prompt: str, schema: dict[str, Any],
             if attempts > int(limits["maxRetries"]):
                 break
     raise ReviewError("UNAVAILABLE", f"OpenAI Responses API failed after {attempts} attempts: {last_error}")
+
+
+def call_openai_curl(
+    provider: dict[str, Any], prompt: str, schema: dict[str, Any],
+    policy: dict[str, Any], key_name: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Use curl without placing the credential value in argv or request files."""
+    limits = policy["limits"]
+    request_bytes = openai_request_bytes(provider, prompt, schema, policy)
+    environment_names = {
+        "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
+        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+        "http_proxy", "https_proxy", "all_proxy", "no_proxy",
+        "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE", key_name,
+    }
+    child_env = {
+        name: value for name, value in os.environ.items()
+        if name in environment_names
+    }
+    curl_executable = trusted_curl_executable()
+    try:
+        version_result = subprocess.run(
+            [curl_executable, "--disable", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=child_env,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ReviewError("UNAVAILABLE", "curl transport is unavailable") from exc
+    version_match = re.match(
+        rb"curl (\d+)\.(\d+)\.(\d+)", version_result.stdout
+    )
+    if (
+        version_result.returncode != 0
+        or version_match is None
+        or tuple(int(part) for part in version_match.groups()) < (8, 3, 0)
+    ):
+        raise ReviewError("UNAVAILABLE", "curl 8.3.0 or newer is required")
+    command = [
+        curl_executable,
+        "--disable",
+        "--silent",
+        "--show-error",
+        "--fail-with-body",
+        "--request", "POST",
+        "--max-time", str(int(limits["timeoutSeconds"])),
+        "--max-filesize", str(int(limits["maxDiffBytes"])),
+        "--variable", f"%{key_name}",
+        "--expand-header", f"Authorization: Bearer {{{{{key_name}}}}}",
+        "--header", "Content-Type: application/json",
+        "--data-binary", "@-",
+        str(provider["endpoint"]),
+    ]
+    started = time.monotonic()
+    result = None
+    connect_attempts = 0
+    pre_request_errors = {5, 6, 7, 35}
+    for connect_attempts in range(
+        1, int(policy["httpTransport"]["maxPreRequestConnectRetries"]) + 2
+    ):
+        try:
+            result = run_curl_bounded(
+                command,
+                request_bytes,
+                child_env,
+                int(limits["maxDiffBytes"]),
+                int(limits["timeoutSeconds"]) + 5,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ReviewError(
+                "UNAVAILABLE", f"curl transport failed: {type(exc).__name__}"
+            ) from exc
+        if (
+            result.returncode == 0
+            or result.returncode not in pre_request_errors
+            or connect_attempts
+            > int(policy["httpTransport"]["maxPreRequestConnectRetries"])
+        ):
+            break
+    assert result is not None
+    if result.returncode != 0:
+        raise ReviewError(
+            "UNAVAILABLE", f"curl transport failed with exit {result.returncode}"
+        )
+    try:
+        response = json.loads(result.stdout.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ReviewError("UNVERIFIED", "curl provider response is invalid JSON") from exc
+    if not isinstance(response, dict):
+        raise ReviewError("UNVERIFIED", "curl provider response is not an object")
+    return response, {
+        "attempts": 1,
+        "preRequestConnectAttempts": connect_attempts,
+        "latencyMs": round((time.monotonic() - started) * 1000),
+        "transport": "curl",
+    }
+
+
+def trusted_curl_executable() -> str:
+    """Resolve curl from an OS-owned absolute location, never from PATH."""
+    if os.name == "nt":
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(
+            buffer, len(buffer)
+        )
+        if not 0 < length < len(buffer):
+            raise ReviewError(
+                "UNAVAILABLE", "trusted Windows system directory is unavailable"
+            )
+        candidate = Path(buffer.value) / "curl.exe"
+        if candidate.is_file():
+            return str(candidate)
+    else:
+        for approved in (Path("/usr/bin/curl"), Path("/bin/curl")):
+            try:
+                candidate = approved.resolve(strict=True)
+                metadata = candidate.stat()
+            except OSError:
+                continue
+            if (
+                candidate in {Path("/usr/bin/curl"), Path("/bin/curl")}
+                and candidate.is_file()
+                and metadata.st_uid == 0
+                and metadata.st_mode & 0o022 == 0
+            ):
+                return str(candidate)
+    raise ReviewError("UNAVAILABLE", "trusted curl executable is unavailable")
+
+
+def run_curl_bounded(
+    command: list[str], request_bytes: bytes, child_env: dict[str, str],
+    response_limit: int, timeout_seconds: int,
+) -> subprocess.CompletedProcess[bytes]:
+    """Capture at most response_limit+1 bytes while curl is still running."""
+    process = None
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=child_env,
+        )
+        assert process.stdin is not None and process.stdout is not None
+        process.stdin.write(request_bytes)
+        process.stdin.close()
+        raw = process.stdout.read(response_limit + 1)
+        if len(raw) > response_limit:
+            process.kill()
+            process.wait(timeout=5)
+            raise ReviewError(
+                "UNVERIFIED", "curl response exceeds the bounded capture limit"
+            )
+        returncode = process.wait(timeout=timeout_seconds)
+        return subprocess.CompletedProcess(command, returncode, stdout=raw, stderr=b"")
+    except ReviewError:
+        raise
+    except (OSError, subprocess.SubprocessError) as exc:
+        if process is not None and process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+        raise ReviewError(
+            "UNAVAILABLE", f"curl transport failed: {type(exc).__name__}"
+        ) from exc
 
 
 def call_cli(provider: dict[str, Any], prompt: str, fixture: dict[str, Any] | None,

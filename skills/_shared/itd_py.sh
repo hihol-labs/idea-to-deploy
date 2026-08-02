@@ -10,6 +10,7 @@
 # Использование (запускатель, а не принтер пути — пути с пробелами вроде
 # C:/Program Files/... остаются корректно закавыченными, находка ревью #154):
 #   sh "$RT/itd_py.sh" "$RT/script.py" args...
+#   sh "$RT/itd_py.sh" --itd-isolated "$RT/script.py" args...
 # Без аргументов — печатает выбранный интерпретатор (диагностика).
 # Порядок выбора: $ITD_WIN_PYTHON -> python3/python вне WindowsApps -> py -3
 # -> python3 (fail loud).
@@ -41,6 +42,11 @@ pick() {
 }
 
 PYBIN=$(pick) || PYBIN=""
+ISOLATED=0
+if [ "${1:-}" = "--itd-isolated" ]; then
+  ISOLATED=1
+  shift
+fi
 
 if [ $# -eq 0 ]; then
   # Диагностический режим: показать, что было бы выбрано.
@@ -55,11 +61,20 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ -n "$PYBIN" ]; then
+  if [ "$ISOLATED" -eq 1 ]; then
+    exec "$PYBIN" -I "$@"
+  fi
   exec "$PYBIN" "$@"
 fi
 if command -v py >/dev/null 2>&1; then
+  if [ "$ISOLATED" -eq 1 ]; then
+    exec py -3 -I "$@"
+  fi
   exec py -3 "$@"
 fi
 # Ничего пригодного: python3, чтобы вызов упал с внятной ошибкой, а не молча
 # ушёл в шим.
+if [ "$ISOLATED" -eq 1 ]; then
+  exec python3 -I "$@"
+fi
 exec python3 "$@"

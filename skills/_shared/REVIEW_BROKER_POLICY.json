@@ -1,0 +1,879 @@
+{
+  "version": 1,
+  "id": "itd-central-review-broker-v1",
+  "runtimeSchemas": {
+    "candidateManifest": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/candidateManifest",
+    "redactionManifest": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/redactionManifest",
+    "externalIdPayload": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/externalIdPayload",
+    "provenanceRecord": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/provenanceRecord",
+    "budgetSettlement": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/budgetSettlement",
+    "brokerReceipt": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/brokerReceipt",
+    "enrollmentReceipt": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/enrollmentReceipt",
+    "reviewerVerdict": "EXTERNAL_REVIEW_VERDICT_SCHEMA.json"
+  },
+  "authority": {
+    "externalReview": "github-app-check-run",
+    "machineOracle": "protected-base-github-actions",
+    "localHooks": "preflight-only",
+    "completion": "verification-loop-v1"
+  },
+  "github": {
+    "apiVersion": "2026-03-10",
+    "apiVersionSupportSource": "https://docs.github.com/en/rest/about-the-rest-api/api-versions",
+    "apiVersionLastVerified": "2026-07-29",
+    "externalCheck": {
+      "name": "ITD external review gate",
+      "expectedPublisher": "github-app-integration-id",
+      "publisherBinding": {
+        "source": "repository-enrollment-receipt",
+      "field": "requiredStatusChecks.externalReview.integrationId",
+        "type": "positive-integer",
+        "mustEqualRulesetIntegrationId": true,
+        "mustEqualObservedCheckRunAppId": true,
+        "immutableWhileEnrollmentActive": true,
+        "environmentOverrideAllowed": false
+      },
+      "candidateBinding": {
+        "checkRunHeadShaSource": {
+          "pull_request": "candidate-manifest-checkSha",
+          "merge_group": "candidate-manifest-headSha"
+        },
+        "externalId": {
+          "algorithm": "sha256",
+          "canonicalization": "rfc8785-json-canonicalization-scheme",
+          "payloadSchema": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/externalIdPayload",
+          "commonFields": [
+            "repository",
+            "subjectType",
+            "headSha",
+            "baseSha",
+            "candidateManifestSha256",
+            "verdictSha256"
+          ],
+          "subjectFields": {
+            "pull_request": [
+              "pullRequest",
+              "checkSha",
+              "provenanceReceiptSha256"
+            ],
+            "merge_group": [
+              "pullRequests"
+            ]
+          },
+          "pullRequestFieldsSource": "candidate-manifest",
+          "mergeGroupPullRequestsSource": "closed-object-with-component-keys-and-true-values",
+          "candidateManifestSha256Source": "persisted-candidate-manifest",
+          "verdictSha256Source": "persisted-validated-verdict",
+          "publishedValue": "lowercase-hex-sha256-of-rfc8785-payload",
+          "receiptField": "externalIdPayloadSha256",
+          "publishedValueMustEqualReceiptField": true
+        },
+        "pullRequestCoordinatesMustEqualManifest": true,
+        "mergeGroupHeadBaseAndPullRequestsMustEqualManifest": true,
+        "rejectCoordinateDriftBeforePublish": true
+      },
+      "successPredicate": {
+        "validatedVerdict": "PASSED",
+        "findings": [],
+        "unverified": [],
+        "candidateAcquisitionComplete": true,
+        "candidatePolicyChecksPassed": true,
+      "provenanceVerified": true,
+      "makerRouteEligible": true,
+      "redactionManifestEmpty": true,
+        "exactCoordinatesRevalidatedBeforePublish": true,
+        "allConditionsRequired": true,
+        "consumerOverrideAllowed": false
+      },
+      "successConclusion": "success",
+      "unavailableConclusion": "failure",
+      "unverifiedConclusion": "action_required",
+      "forbiddenConclusions": ["neutral", "skipped"]
+    },
+    "machineCheck": {
+      "name": "ITD machine oracle",
+      "expectedPublisher": "github-actions",
+      "integrationId": 15368,
+      "authority": "organization-ruleset-workflow",
+      "workflowRepository": "hihol-labs/idea-to-deploy",
+      "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+      "immutableWorkflowShaRequired": true,
+      "contractSource": "target-protected-base-head",
+      "runnerSource": "immutable-self-hosted-image-label-from-pinned-workflow"
+    },
+    "webhooks": {
+      "algorithm": "hmac-sha256",
+      "header": "X-Hub-Signature-256",
+      "deliveryHeader": "X-GitHub-Delivery",
+      "eventHeader": "X-GitHub-Event",
+      "signatureInput": "exact-raw-request-body-bytes",
+      "secretConfig": "ITD_GITHUB_WEBHOOK_SECRET_FILE",
+      "constantTimeComparisonRequired": true,
+      "verifyBefore": ["parse", "deduplicate", "enqueue", "publish"],
+      "invalidSignatureDisposition": "http-401-no-state-change",
+      "eventBinding": {
+        "eventHeaderRequired": true,
+        "eventTypeDerivedFromSignedPayloadShape": true,
+        "headerMustEqualDerivedEventType": true,
+        "actionField": "action",
+        "payloadShapes": {
+          "pull_request": {
+            "requiredTopLevelFields": [
+              "action",
+              "number",
+              "pull_request",
+              "repository"
+            ],
+            "forbiddenTopLevelFields": [
+              "merge_group"
+            ]
+          },
+          "merge_group": {
+            "requiredTopLevelFields": [
+              "action",
+              "merge_group",
+              "repository"
+            ],
+            "forbiddenTopLevelFields": [
+              "pull_request",
+              "number"
+            ]
+          }
+        },
+        "actionMustBeAcceptedForDerivedEventType": true,
+        "validateBefore": [
+          "deduplicate",
+          "enqueue",
+          "publish"
+        ],
+        "unsupportedEventDisposition": "http-202-no-state-change",
+        "shapeOrActionMismatchDisposition": "http-400-no-state-change"
+      },
+      "accepted": {
+            "pull_request": [
+              "opened",
+              "synchronize",
+              "reopened",
+              "ready_for_review",
+              "edited"
+            ],
+        "merge_group": ["checks_requested"]
+      },
+      "maxBodyBytes": 2097152,
+      "bodyLimitEnforcement": {
+        "byteAccounting": "exact-raw-request-body-bytes",
+        "readMode": "bounded-stream",
+        "bufferLimitSource": "maxBodyBytes",
+        "oversizeDetection": "reject-before-buffering-first-byte-over-maxBodyBytes",
+        "enforceBefore": [
+          "buffer-unbounded-body",
+          "parse",
+          "hmac",
+          "deduplicate",
+          "enqueue",
+          "publish"
+        ],
+        "oversizeDisposition": "http-413-close-no-state-change",
+        "oversizeBodyPersistence": "forbidden"
+      },
+      "replayProtection": true,
+      "deduplication": {
+        "primaryKey": "sha256-exact-authenticated-raw-body-bytes",
+        "secondaryKey": "X-GitHub-Delivery",
+        "bodyDigestComputedAfterHmacVerification": true,
+        "recordFields": [
+          "bodySha256",
+          "deliveryId",
+          "derivedEventType"
+        ],
+        "store": "sqlite",
+        "transaction": "begin-immediate-insert-two-unique-keys",
+        "retention": "permanent",
+        "sameBodyAnyDeliveryIdDisposition": "ack-no-enqueue-no-publish",
+        "sameDeliveryDifferentBodyDisposition": "http-409-no-enqueue-no-publish"
+      }
+    },
+    "appAuthentication": {
+      "jwtAlgorithm": "RS256",
+      "jwtRequiredClaims": [
+        "iss",
+        "iat",
+        "exp"
+      ],
+      "jwtIssuerSource": "repository-enrollment-receipt.githubAppClientId",
+      "jwtIssuerMustEqualEnrollment": true,
+      "jwtMaximumLifetimeSeconds": 600,
+      "jwtIssuedAtBackdateSeconds": 60,
+      "jwtClockSkewSeconds": 60,
+      "jwtClaimsValidatedBeforeTokenRequest": true,
+      "privateKeyCustody": "broker-kms-or-mounted-secret-file",
+      "privateKeyInRepositoryOrUserEnvironmentAllowed": false,
+      "installationTokenTtlSeconds": 3600,
+      "installationIdSource": "verified-webhook-payload-and-live-installation",
+      "installationIdRevalidatedBeforeTokenRequest": true,
+      "installationTokenRepositoryScopeRequired": true,
+      "permissions": {
+        "checks": "write",
+        "contents": "read",
+        "pull_requests": "read"
+      },
+      "personalAccessTokenAllowed": false
+    }
+  },
+  "candidate": {
+    "coordinateFields": [
+      "repository",
+      "pullRequest",
+      "headSha",
+      "baseSha",
+      "checkSha"
+    ],
+    "manifest": {
+      "version": 1,
+      "canonicalization": "rfc8785-json-canonicalization-scheme",
+      "hashAlgorithm": "sha256",
+      "commonRequiredFields": [
+        "version",
+        "repository",
+        "subjectType",
+        "headSha",
+        "baseSha",
+        "source",
+        "files",
+        "pagination",
+        "totalDecodedBlobBytes",
+        "reviewDiffSha256",
+        "reviewDiffBytes",
+        "sanitizerVersion",
+        "redactionManifestSha256"
+      ],
+      "subjectRequiredFields": {
+        "pull_request": [
+          "pullRequest",
+          "checkSha",
+          "provenanceReceiptSha256"
+        ],
+        "merge_group": ["components"]
+      },
+      "conditionalRequiredFields": {
+        "transparentReviewPresent": ["totalReviewBytes"],
+        "transparentFileRecord": ["baseReview", "headReview"]
+      },
+      "fieldTypes": {
+        "version": "constant-integer-1",
+        "repository": "github-owner-slash-repository",
+        "subjectType": "enum-pull_request-or-merge_group",
+        "pullRequest": "positive-integer-or-null",
+        "headSha": "lowercase-hex-sha1",
+        "baseSha": "lowercase-hex-sha1",
+        "checkSha": "lowercase-hex-sha1",
+        "provenanceReceiptSha256": "lowercase-hex-sha256-or-null",
+        "source": "github-api-complete-file-list-plus-full-blobs",
+        "files": "object-of-closed-file-records-keyed-by-path",
+        "components": "object-of-closed-components-keyed-by-canonical-pull-request",
+        "pagination": "closed-pagination-record",
+        "totalDecodedBlobBytes": "nonnegative-integer",
+        "totalReviewBytes": "nonnegative-integer",
+        "reviewDiffSha256": "lowercase-hex-sha256",
+        "reviewDiffBytes": "nonnegative-integer",
+        "sanitizerVersion": "nonempty-string",
+        "redactionManifestSha256": "lowercase-hex-sha256"
+      },
+      "fileFields": [
+        "previousPath",
+        "baseBlobSha",
+        "headBlobSha",
+        "baseBytes",
+        "headBytes",
+        "status",
+        "baseReview",
+        "headReview"
+      ],
+      "fileFieldTypes": {
+        "previousPath": "safe-relative-path-or-null",
+        "baseBlobSha": "lowercase-hex-sha1-or-null",
+        "headBlobSha": "lowercase-hex-sha1-or-null",
+        "baseBytes": "nonnegative-integer",
+        "headBytes": "nonnegative-integer",
+        "status": "enum-added-modified-removed-renamed",
+        "baseReview": "declared-transparent-review-binding-or-null",
+        "headReview": "declared-transparent-review-binding-or-null"
+      },
+      "paginationFields": ["pageCount", "complete"],
+      "subjectRepresentations": {
+        "pullRequest": {
+          "subjectType": "pull_request",
+          "pullRequest": "positive-integer",
+          "checkSha": "current-github-test-merge-commit-for-exact-head-and-base",
+          "provenanceReceiptSha256": "current-verified-exact-pr-provenance-receipt"
+        },
+        "mergeGroup": {
+          "subjectType": "merge_group",
+          "components": "nonempty-object-keyed-by-canonical-pull-request-number",
+          "checkRunSha": "derived-from-headSha"
+        }
+      },
+      "invariants": [
+        "file-object-keys-are-unique-paths-and-rfc8785-canonicalization-orders-them",
+        "component-keys-are-canonical-positive-pull-request-numbers",
+        "external-pullRequests-object-keys-equal-component-keys-and-values-are-true",
+        "pull-request-checkSha-is-current-test-merge-commit-with-base-and-head-parents",
+        "merge-group-checkRunSha-is-derived-from-headSha",
+        "pull-request-provenance-receipt-binds-repository-pullRequest-headSha-baseSha-and-is-revalidated-before-review-and-publish",
+        "pull-request-compare-request-base-equals-baseSha-and-head-equals-headSha",
+        "merge-group-compare-request-base-equals-baseSha-and-head-equals-headSha",
+        "every-file-content-is-full-blob-with-decoded-size-and-git-blob-sha-verified",
+        "totalDecodedBlobBytes-equals-sum-of-every-baseBytes-and-headBytes-and-does-not-exceed-maxTotalDecodedBlobBytes",
+        "reviewDiff-is-itd-canonical-unified-diff-v1-over-all-manifest-files",
+        "reviewDiff-covers-every-manifest-file-exactly-once-in-path-order",
+        "sanitizerVersion-is-pinned-and-allowlisted",
+        "redactionManifest-binds-all-transformations",
+        "clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256",
+        "reviewable-candidate-requires-clean-redactionManifest",
+        "reviewDiff-is-the-unmodified-canonical-review-input-diff-raw-for-text-logical-for-transparent-after-clean-scan",
+        "declared-transparent-representations-bind-raw-git-bytes-and-logical-review-bytes",
+        "totalReviewBytes-equals-sum-of-raw-text-and-logical-transparent-base-and-head-review-inputs-and-does-not-exceed-maxTotalDecodedBlobBytes",
+        "any-redaction-blocks-provider-dispatch-and-success"
+      ],
+      "completeValue": true
+    },
+    "acquisition": {
+      "changedFileList": "github-compare-json-complete-pagination",
+      "githubPatchFieldsTrusted": false,
+      "fileContent": "github-git-blob-api-base64",
+      "blobCompletenessChecks": [
+        "decoded-byte-length-equals-api-size",
+        "git-blob-sha1-over-decoded-bytes-equals-api-sha",
+        "base-and-head-blob-coordinates-match-manifest"
+      ],
+      "blobResourceLimits": {
+        "encodedResponseReadMode": "bounded-stream",
+        "maxEncodedResponseBodyBytesPerBlobSource": "candidate.maxEncodedBlobResponseBytes",
+        "encodedOversizeDetection": "reject-before-buffering-first-byte-over-limit",
+        "maxDecodedBytesPerBlobSource": "candidate.maxDecodedBlobBytes",
+        "decodedOversizeDetection": "reject-before-full-decode-hash-or-diff",
+        "maxAggregateDecodedBytesSource": "candidate.maxTotalDecodedBlobBytes",
+        "aggregateAccounting": "sum-every-baseBytes-and-headBytes-including-zero-sides",
+        "limitEnforcementBefore": [
+          "full-response-buffer",
+          "blob-hash",
+          "canonical-diff",
+          "provider-request"
+        ],
+        "violationDisposition": "UNVERIFIED-action_required-no-provider-call"
+      },
+      "canonicalDiffAlgorithm": "itd-canonical-unified-diff-v1",
+      "coverageChecks": [
+        "all-paginated-files-have-required-base-and-head-blobs",
+        "each-manifest-file-emitted-exactly-once",
+        "emission-order-is-rfc8785-canonical-file-key-order",
+        "emitted-file-count-equals-files-object-property-count"
+      ],
+      "pathSafety": {
+        "profile": "git-posix-relative-path-v1",
+        "appliesTo": [
+          "files-object-keys",
+          "fileRecord.previousPath"
+        ],
+        "rejectAbsolute": true,
+        "rejectWindowsDrivePrefix": true,
+        "rejectBackslash": true,
+        "rejectEmptyOrDotSegments": true,
+        "rejectDotDotSegments": true,
+        "rejectControlCharacters": true,
+        "maxCodePoints": 4096
+      },
+      "incompleteOrMismatchedBlobDisposition": "UNVERIFIED-action_required-no-provider-call"
+    },
+    "transparentReview": {
+      "representations": {
+        "gzip-jsonl-utf8-v1": {
+          "pathSuffix": ".jsonl.gz",
+          "rawSource": "verified-complete-git-blob",
+          "transform": "bounded-stream-single-gzip-member",
+          "maxLogicalBlobBytesSource": "candidate.maxDecodedBlobBytes",
+          "maxAggregateLogicalBytesSource": "candidate.maxTotalDecodedBlobBytes",
+          "utf8Required": true,
+          "nulAllowed": false,
+          "everyJsonlLineMustParse": true,
+          "duplicateJsonKeysAllowed": false,
+          "nonStandardJsonConstantsAllowed": false,
+          "trailingOrAdditionalGzipMembersAllowed": false,
+          "logicalManifestFields": ["encoding", "sha256", "bytes"],
+          "fileBindingFields": ["baseReview", "headReview"],
+          "presentSideBinding": "closed-object-with-logicalManifestFields",
+          "absentSideBinding": "required-null-for-added-base-or-removed-head",
+          "aggregateBindingField": "totalReviewBytes",
+          "aggregateAccounting": "sum-raw-text-bytes-plus-logical-transparent-bytes-for-every-base-and-head-side",
+          "secretScanScope": "complete-canonical-logical-diff-before-partition"
+        }
+      },
+      "invalidOrMismatchedDisposition": "UNVERIFIED-action_required-no-provider-call",
+      "undeclaredBinaryDisposition": "UNVERIFIED-action_required-no-provider-call"
+    },
+    "sanitization": {
+      "selectedVersion": "itd-scrubber-v1",
+      "allowedVersions": [
+        "itd-scrubber-v1"
+      ],
+      "allowedRuleIds": [
+        "private-key",
+        "aws-access-key",
+        "github-token",
+        "slack-token",
+        "google-api-key",
+        "stripe-live-key",
+        "anthropic-api-key",
+        "generic-api-key",
+        "jwt",
+        "email",
+        "credential-url",
+        "credential-assignment"
+      ],
+      "redactionManifestSchema": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/redactionManifest",
+      "redactionManifestPersisted": true,
+      "providerRequestIncludesRedactionManifest": true,
+      "reviewableCandidateRequiresCleanManifest": true,
+      "cleanManifestBinding": {
+        "field": "reviewDiffSha256",
+        "mustEqualCandidateManifestField": "reviewDiffSha256",
+        "mustEqualBrokerReceiptField": "reviewDiffSha256",
+        "verifyBefore": [
+          "provider-dispatch",
+          "check-publication"
+        ],
+        "mismatchDisposition": "UNVERIFIED-action_required-no-provider-call"
+      },
+      "nonmatchingBytesMustBeIdentical": true,
+      "diffHeadersAndLineStructureMustBeIdentical": true,
+      "redactionRecordsSortedAndNonoverlapping": true,
+      "originalSecretBytesPersisted": false,
+      "anyRedactionDisposition": {
+        "providerCallAllowed": false,
+        "status": "UNVERIFIED",
+        "externalCheckConclusion": "action_required",
+        "successAllowed": false,
+        "resolution": "remove-sensitive-content-and-build-a-fresh-candidate"
+      }
+    },
+    "mergeGroupCoordinates": {
+      "fields": [
+        "repository",
+        "pullRequests",
+        "headSha",
+        "baseSha"
+      ],
+      "checkRunHeadShaSource": "headSha",
+      "compositionSource": "github-api-associated-pulls",
+      "candidateSource": "github-api-complete-file-list-plus-full-blobs",
+      "makerAggregation": "all-exact-pr-provenance",
+      "mixedOrUnknownMaker": "manual-blocking-review"
+    },
+    "source": "github-api-complete-file-list-plus-full-blobs",
+    "maxFiles": 100,
+    "maxEncodedBlobResponseBytes": 1500000,
+    "maxDecodedBlobBytes": 1048576,
+    "maxTotalDecodedBlobBytes": 16777216,
+    "maxRawDiffBytes": 80000,
+    "maxHierarchicalRawDiffBytes": 1200000,
+    "maxReviewUnits": 16,
+    "hierarchicalReview": {
+      "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
+      "partition": "deterministic-complete-file-then-utf8-line-boundary",
+      "fullDiffScrubbedBeforePartition": true,
+      "reviewPlanBoundByCandidateManifest": true,
+      "allUnitsRequiredForSuccess": true,
+      "integrationVerdictRequiredForSuccess": true,
+      "partialOrMissingUnitDisposition": "UNVERIFIED-action_required",
+      "silentUnitTruncationAllowed": false
+    },
+    "maxProviderRequestBytes": 100000,
+    "requireCompletePagination": true,
+    "allowBinary": false,
+    "allowForkPullRequests": false,
+    "allowSilentTruncation": false,
+    "executeCandidateCode": false,
+    "violationDisposition": {
+      "appliesTo": [
+        "maxFiles",
+        "maxEncodedBlobResponseBytes",
+        "maxDecodedBlobBytes",
+        "maxTotalDecodedBlobBytes",
+        "maxRawDiffBytes",
+        "maxHierarchicalRawDiffBytes",
+        "maxReviewUnits",
+        "maxProviderRequestBytes",
+        "incompletePagination",
+        "binaryContent",
+        "transparentRepresentationFailure",
+        "forkPullRequest",
+        "redactionsDetected"
+      ],
+      "providerCallAllowed": false,
+      "externalCheckConclusion": "action_required",
+      "status": "UNVERIFIED",
+      "partialReviewAllowed": false,
+      "successAllowed": false
+    }
+  },
+  "provenance": {
+    "version": 1,
+    "algorithm": "ed25519",
+    "requiredFields": [
+      "repository",
+      "pullRequest",
+      "headSha",
+      "baseSha",
+      "makerVendor",
+      "makerModel",
+      "makerSession",
+      "issuedAt",
+      "nonce",
+      "keyId",
+      "signature"
+    ],
+    "signedPayloadFields": [
+      "repository",
+      "pullRequest",
+      "headSha",
+      "baseSha",
+      "makerVendor",
+      "makerModel",
+      "makerSession",
+      "issuedAt",
+      "nonce",
+      "keyId"
+    ],
+    "canonicalization": "rfc8785-json-canonicalization-scheme",
+    "signatureEncoding": "base64url-without-padding",
+    "issuedAtFormat": "rfc3339-utc-seconds-Z-no-fraction",
+    "clockComparison": "absolute-parsed-utc-instant-skew",
+    "verificationKeyStore": "broker-public-key-registry",
+    "issuerPrivateKeyCustody": "maker-principal-os-credential-store-or-kms",
+    "brokerPrivateKeyAccessAllowed": false,
+    "keyBindingFields": [
+      "repository",
+      "keyId",
+      "makerVendor",
+      "makerModel"
+    ],
+    "keyRegistryRecordFields": [
+      "repository",
+      "keyId",
+      "authorizedMakerVendor",
+      "authorizedMakerModel",
+      "publicKey",
+      "issuerPrincipal",
+      "status"
+    ],
+    "acceptedKeyStatus": "active",
+    "makerFieldsMustEqualKeyAuthorization": true,
+    "crossRepositoryKeysAllowed": false,
+    "maxClockSkewSeconds": 300,
+    "replayProtection": true,
+    "nonceDeduplication": {
+      "keyFields": ["repository", "keyId", "nonce"],
+      "store": "sqlite",
+      "transaction": "begin-immediate-insert-unique",
+      "retention": "permanent",
+      "duplicateDisposition": "reject-no-enqueue-no-route"
+    },
+    "mergeGroupComposition": {
+      "associationSource": "github-api-associated-pulls",
+      "componentFields": [
+        "pullRequestHeadSha",
+        "pullRequestBaseSha",
+        "provenanceReceiptSha256"
+      ],
+      "componentIdentity": "canonical-positive-pull-request-number-object-key",
+      "associatedPullRequestOrder": "numeric-ascending-component-keys",
+      "oneComponentPerAssociatedPullRequest": true,
+      "eachProvenanceMustVerifyAgainstCurrentPullRequestCoordinates": true,
+      "allComponentsBoundIntoCandidateManifest": true,
+      "mergeGroupHeadBaseAndPullRequestsRevalidatedBeforeReviewAndPublish": true,
+      "missingMixedOrUnknownDisposition": "manual-blocking-review"
+    },
+    "unknownMaker": "manual-blocking-review"
+  },
+  "routing": {
+    "primary": "signed-free-review-receipt",
+    "freeReviewPath": "/free-review",
+    "automaticPaidFallbackAllowed": false,
+    "paidFallbackConsentEnvironment": "ITD_PAID_REVIEW_CONSENT=approved",
+    "reviewers": {
+      "openai-responses": {
+        "vendor": "openai",
+        "api": "responses",
+        "model": "gpt-5.6-sol",
+        "modelPin": "exact",
+        "inputUsdPerMillion": 5.0,
+        "outputUsdPerMillion": 30.0,
+        "pricingObservedAt": "2026-07-28"
+      },
+      "openai-responses-terra": {
+        "vendor": "openai",
+        "api": "responses",
+        "model": "gpt-5.6-terra",
+        "modelPin": "exact",
+        "inputUsdPerMillion": 2.5,
+        "outputUsdPerMillion": 15.0,
+        "pricingObservedAt": "2026-07-29"
+      }
+    },
+    "classification": {
+      "sourceFields": ["makerVendor", "makerModel"],
+      "inputTrust": "verified-provenance-with-key-authorized-maker-only",
+      "normalization": "unicode-casefold-trim-v1",
+      "firstMatchOrder": [
+        "solMaker",
+        "terraMaker",
+        "claudeMaker",
+        "geminiMaker",
+        "otherKnownMaker",
+        "unknownMaker"
+      ],
+      "rules": {
+        "solMaker": {
+          "vendorEquals": "openai",
+          "modelEquals": "gpt-5.6-sol"
+        },
+        "terraMaker": {
+          "vendorEquals": "openai",
+          "modelEquals": "gpt-5.6-terra"
+        },
+        "claudeMaker": {
+          "vendorEquals": "anthropic",
+          "modelPrefix": "claude-"
+        },
+        "geminiMaker": {
+          "vendorEquals": "google",
+          "modelPrefix": "gemini-"
+        },
+        "otherKnownMaker": {
+          "vendorIn": ["openai", "anthropic", "google"],
+          "unmatchedAuthenticatedModel": true
+        },
+        "unknownMaker": {
+          "otherwise": true
+        }
+      },
+      "consumerOverrideAllowed": false
+    },
+    "solMaker": ["openai-responses-terra"],
+    "terraMaker": ["openai-responses"],
+    "claudeMaker": ["openai-responses"],
+    "geminiMaker": ["openai-responses"],
+    "otherKnownMaker": ["openai-responses"],
+    "unknownMaker": [],
+    "unknownOrMixedMakerDisposition": {
+      "states": [
+        "missing-provenance",
+        "unknown-maker",
+        "mixed-merge-group-makers",
+        "invalid-key-authorization"
+      ],
+      "makerRouteEligible": false,
+      "automaticProviderCallAllowed": false,
+      "status": "UNVERIFIED",
+      "externalCheckConclusion": "action_required",
+      "manualOutcomeCanPublishSuccess": false,
+      "resolution": "repair-provenance-and-run-fresh-exact-api-review"
+    },
+    "selectionConstraints": {
+      "checkerIdentitySource": "selected-reviewer-definition",
+      "makerIdentitySource": "verified-provenance-key-authorization",
+      "identityFields": ["vendor", "model"],
+      "normalizedExactIdentityMustDiffer": true,
+      "noEligibleDifferentIdentity": "UNAVAILABLE",
+      "consumerOverrideAllowed": false
+    },
+    "automatedCliFallbackAllowed": false,
+    "sameModelHighRiskAllowed": false
+  },
+  "budget": {
+    "reservation": "sqlite-begin-immediate",
+    "period": "calendar-month-utc",
+    "maxReviewUsd": 0.75,
+    "monthlyUsd": 10.0,
+    "pricingSource": "frozen-selected-reviewer-definition",
+    "reservationAmountUsd": "direct-maxReviewUsd-or-planned-hierarchical-provider-call-count-times-reviewer-cap",
+    "hierarchicalCallReservationMicrousd": {
+      "openai-responses": 750000,
+      "openai-responses-terra": 500000
+    },
+    "maxHierarchicalProviderCalls": 17,
+    "inputTokenUpperBound": "utf8-provider-request-bytes",
+    "inputCostUpperBound": "input-token-upper-bound-times-input-usd-per-million-divided-by-1000000",
+    "outputTokenCap": "floor((selected-call-reservation-usd-inputCostUpperBound)*1000000/outputUsdPerMillion)",
+    "requestMustSetOutputTokenCap": true,
+    "rounding": "decimal-round-up-6-places",
+    "currencyUnit": "microusd",
+    "reservationMicrousd": 750000,
+    "monthlyMicrousd": 10000000,
+    "settlementSchema": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/budgetSettlement",
+    "authoritativeSpendSource": "immutable-budget-settlements",
+    "settledCostFormula": "ceil(inputTokens*inputUsdPerMillion+outputTokens*outputUsdPerMillion)",
+    "totalTokensStored": false,
+    "callerSuppliedCostAccepted": false,
+    "admissionPredicate": "settled-month-spend-plus-active-reservations-plus-planned-reservation-lte-monthlyUsd",
+    "missingOrInvalidPricing": "UNAVAILABLE-no-dispatch",
+    "nonpositiveOutputTokenCap": "UNAVAILABLE-no-dispatch",
+    "actualCostAboveReservation": "broker-incident-action_required-no-success",
+    "hierarchicalUncertainCharge": "settled-observed-usage-plus-one-ambiguous-provider-call-cap",
+    "onExhaustion": "UNAVAILABLE",
+    "retryChargesNeedNewReservation": true
+  },
+  "evidence": {
+    "store": "sqlite",
+    "rawWebhookPersisted": false,
+    "rawDiffPersisted": false,
+    "rawProviderRequestPersisted": false,
+    "rawProviderResponsePersisted": false,
+    "sanitizedPromptPersisted": true,
+    "redactionManifestPersisted": true,
+    "candidateManifestPersisted": true,
+    "validatedVerdictPersisted": true,
+    "usageAndCostEvidencePersisted": true,
+    "costEvidenceSource": "budget-settlement-derived-from-primary-usage-and-frozen-policy",
+    "receiptInvariants": [
+      "provider-evidence-binds-direct-exact-request-or-hierarchical-request-bundle",
+      "candidateManifestSha256-equals-embedded-manifest-hash",
+      "provider-request-sha256-equals-direct-request-or-hierarchical-evidence-bundle",
+      "provider-request-bytes-equals-direct-request-or-hierarchical-evidence-bundle",
+      "every-provider-request-bytes-lte-candidate-maxProviderRequestBytes",
+      "hierarchical-provider-request-evidence-bundle-binds-every-exact-request-hash-byte-count-unit-and-output-cap",
+      "hierarchical-review-plan-binds-the-complete-scrubbed-diff-and-every-deterministic-unit",
+      "hierarchical-success-requires-all-unit-verdicts-and-one-integration-verdict",
+      "validatedVerdictSha256-equals-persisted-validated-verdict",
+      "redactionManifestSha256-equals-persisted-redactionManifest",
+      "successful-receipt-requires-empty-redactionManifest",
+      "externalIdPayloadSha256-equals-published-check-run-external-id",
+      "budgetSettlementSha256-equals-immutable-settlement",
+      "budgetSettlement-binds-policy-reviewer-candidate-and-primary-usage",
+      "settled-cost-is-derived-not-caller-supplied"
+    ],
+    "receiptCommonFields": [
+      "repository",
+      "subjectType",
+      "headSha",
+      "baseSha",
+      "makerClass",
+      "checkerReviewerId",
+      "policySha256",
+      "candidateManifestSha256",
+      "budgetSettlementSha256",
+      "externalIdPayloadSha256",
+      "reviewDiffSha256",
+      "reviewDiffBytes",
+      "sanitizerVersion",
+      "redactionManifest",
+      "providerRequestSha256",
+      "providerRequestBytes",
+      "fileCount",
+      "paginationComplete",
+      "verdictSha256",
+      "usage",
+      "status",
+      "observedAt"
+    ],
+    "receiptSubjectFields": {
+      "pull_request": [
+        "pullRequest",
+        "checkSha",
+        "provenanceReceiptSha256"
+      ],
+      "merge_group": []
+    }
+  },
+  "service": {
+    "database": "sqlite",
+    "healthPath": "/healthz",
+    "readinessPath": "/readyz",
+    "webhookPath": "/webhook",
+    "provenancePath": "/provenance",
+    "freeReviewPath": "/free-review",
+    "workerConcurrency": 1,
+    "maxJobAttempts": 1,
+    "requestReadTimeoutSeconds": 10,
+    "maxRequestHandlers": 32,
+    "candidateProcessExecutionAllowed": false
+  },
+  "repositoryEnrollment": {
+    "default": "deny",
+    "trackedVerificationContract": ".itd/VERIFICATION_CONTRACT.json",
+    "organizationRulesetPreferred": true,
+    "repositoryRulesetFallback": false,
+    "requirePullRequest": true,
+    "requireUpToDate": true,
+    "requiredStatusChecks": [
+      {
+        "name": "ITD external review gate",
+        "expectedPublisher": "github-app-integration-id",
+        "integrationIdSource": "publisherBindingReceipt.requiredStatusChecks.externalReview.integrationId"
+      },
+      {
+        "name": "ITD machine oracle",
+        "expectedPublisher": "github-actions",
+        "integrationId": 15368,
+        "authority": "organization-ruleset-workflow",
+        "workflowRepository": "hihol-labs/idea-to-deploy",
+        "workflowPath": ".github/workflows/itd-machine-oracle.yml",
+        "workflowRepositoryIdSource": "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowRepositoryId",
+        "workflowShaSource": "publisherBindingReceipt.requiredStatusChecks.machineOracle.workflowSha"
+      }
+    ],
+    "requirePublisherBinding": true,
+    "publisherBindingReceipt": {
+      "store": "broker-database-and-live-github-ruleset",
+      "requiredFields": [
+        "repository",
+        "rulesetId",
+        "rulesetEnforcement",
+        "rulesetTarget",
+        "defaultBranchRef",
+        "protectedRefPatterns",
+        "excludedRefPatterns",
+        "requiredPullRequest",
+        "requireUpToDate",
+        "requiredStatusChecks",
+        "githubAppClientId",
+        "githubAppSlug",
+        "githubAppOwner",
+        "githubAppNodeId",
+        "blockDeletion",
+        "blockForcePush",
+        "mergeGroupEventsRequired",
+        "bypassActors",
+        "policyId",
+        "observedAt"
+      ],
+      "policyId": "itd-central-review-broker-v1",
+      "liveRulesetSnapshotRequired": true,
+      "rulesetEnforcementMustBeActive": true,
+      "rulesetTargetMustBeBranch": true,
+      "protectedRefPatternRepresentation": "canonical-object-set-keys-with-true-values",
+      "protectedRefPatternsMustContain": [
+        "~DEFAULT_BRANCH",
+        "refs/heads/release/*"
+      ],
+      "excludedRefPatternsMustEqual": [],
+      "requiredPullRequestMustEqualPolicy": true,
+      "requireUpToDateMustEqualPolicy": true,
+      "externalCheckIntegrationIdType": "positive-integer",
+      "rulesetExternalIntegrationIdMustEqualReceipt": true,
+      "rulesetMachineWorkflowMustEqualReceipt": true,
+      "blockDeletionMustEqualPolicy": true,
+      "blockForcePushMustEqualPolicy": true,
+      "mergeGroupEventsMustEqualPolicy": true,
+      "rulesetBypassActorsMustEqual": [],
+      "activeReceiptMutable": false,
+      "rotation": "disable-merge-reenroll-and-revalidate-before-enable",
+      "driftDisposition": "disable-merge-and-reenroll"
+    },
+    "blockDeletion": true,
+  "blockForcePush": true,
+  "adminBypassAllowed": false,
+  "anyBypassActorAllowed": false,
+  "mergeGroupRequired": true
+  }
+}
