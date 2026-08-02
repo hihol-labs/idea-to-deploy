@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Release candidate target: **1.95.0** (not published or installed).
+## [1.95.0] - 2026-08-02
 
 ### Added
 - A provider-neutral exact-candidate external checker transport adds the OpenAI
