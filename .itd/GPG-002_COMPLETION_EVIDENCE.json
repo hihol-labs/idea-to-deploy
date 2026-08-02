@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "kind": "gpg002-completion-evidence",
+  "createdAt": "2026-08-02T22:45:00Z",
+  "unitId": "GPG-002",
+  "outcome": "VERIFIED",
+  "selectedProfile": {
+    "deployment": "local-submission",
+    "protection": "local-review",
+    "reportedClaim": "LOCAL_REVIEWED",
+    "protected": false
+  },
+  "repository": "hihol-labs/idea-to-deploy",
+  "credentialCleanup": {
+    "legacyCredentialStatus": "GitHub HTTP 401 before removal",
+    "sanitizedLocalBranchRemotes": 5,
+    "credentialBearingGithubUrlsAfterCleanup": 0,
+    "credentialValuePersisted": false
+  },
+  "implementation": {
+    "pullRequest": "https://github.com/hihol-labs/idea-to-deploy/pull/180",
+    "baseCommit": "0b45a729dd0c352dc23279574f7a3909aa388044",
+    "headCommit": "f6a3465026d11572b8615aaec91c6d5957a1e66d",
+    "reviewedTree": "710a567582129f91d0340d3d464096e66cf1e11c",
+    "mergeCommit": "ed33169e8cc48f6a5da314586548ee0c5e2389cd",
+    "mergeTree": "710a567582129f91d0340d3d464096e66cf1e11c",
+    "githubChecks": [
+      {
+        "checkRunId": 91544642520,
+        "name": "windows-verify",
+        "conclusion": "success"
+      },
+      {
+        "checkRunId": 91544642255,
+        "name": "Gate 1 — meta-review rubric",
+        "conclusion": "success"
+      }
+    ],
+    "exactEvidence": {
+      "candidateDigest": "sha256:32447fe945de35f646f3065b06e5c6062c0936514ad5a156bb6dcf98f0b3ad56",
+      "canonicalReceiptSha256": "394f61e6a902d9a57edb1b9a89b8fa1351d1cccfcd84ad541e1b7b41f457aa69",
+      "files": [
+        {
+          "path": ".itd-memory/verification-loop/GPG-002-fix-final-machine.json",
+          "sha256": "7ec6074b9d7fbc8dac7ff05a3d0f1055479dce7fbc1d4e714afc6785cb1bb468"
+        },
+        {
+          "path": ".itd-memory/verification-loop/GPG-002-fix-final-checker.json",
+          "sha256": "4b0297e153cc10207d8c78547df26ab064065adb6ddd7fafe6233ee0eb9435e5"
+        },
+        {
+          "path": ".itd-memory/verification-loop/GPG-002-fix-final-adjudication.json",
+          "sha256": "a060f8789a0777cac5006d35f7cec8c10385635f31833fa3964641b0b80f2c3a"
+        }
+      ]
+    }
+  },
+  "release": {
+    "version": "1.95.1",
+    "pullRequest": "https://github.com/hihol-labs/idea-to-deploy/pull/181",
+    "baseCommit": "ed33169e8cc48f6a5da314586548ee0c5e2389cd",
+    "headCommit": "f45c65bec0d1b19ef95d43353d9b8227c8a8f6bf",
+    "reviewedTree": "fd4bdb7c59a776787831babbcbf53ad74b9cde2d",
+    "mergeCommit": "1422c94d28f7a6821f0038a766437b7618cc22f1",
+    "mergeTree": "fd4bdb7c59a776787831babbcbf53ad74b9cde2d",
+    "githubChecks": [
+      {
+        "checkRunId": 91555110521,
+        "name": "Gate 1 — meta-review rubric",
+        "conclusion": "success"
+      },
+      {
+        "checkRunId": 91555110500,
+        "name": "windows-verify",
+        "conclusion": "success"
+      }
+    ],
+    "liveEvidence": {
+      "runId": "20260802T215518Z-a3bff95a",
+      "transport": "keyless Codex CLI with ChatGPT authentication",
+      "strictReplay": "95 passed, 0 failed",
+      "metaReview": "PASSED"
+    }
+  },
+  "deploymentObservations": {
+    "sourceCommit": "1422c94d28f7a6821f0038a766437b7618cc22f1",
+    "codex": {
+      "wsl": {
+        "installedVersion": "1.95.1",
+        "status": "installed, enabled",
+        "cachePath": "/home/hihol/.codex/plugins/cache/personal/idea-to-deploy/1.95.1"
+      },
+      "windows": {
+        "installedVersion": "1.95.1",
+        "status": "installed, enabled",
+        "cachePath": "C:\\Users\\Дмитрий\\.codex\\plugins\\cache\\personal\\idea-to-deploy\\1.95.1"
+      }
+    },
+    "claude": {
+      "wslSyncCheck": "zero drift from clean merge archive",
+      "windowsSyncCheck": "zero drift from clean merge archive"
+    },
+    "loadBearingSha256": {
+      ".codex-plugin/plugin.json": "3f9ed1190f9867ce91c9cd5344f255becb2f3747a65d94051a739295d3743a86",
+      "skills/_shared/itd_gate_control.py": "e1f64897de13a522dcb0663f04bf15cc49e5fc7b6a52eb1e8625a7b4cf68d5ff",
+      "skills/_shared/itd_verification_loop.py": "a29c1a47e5ed6d634bb4d9cdc0d06a480a4a6c86c1a7a59d48bda954cc8bd6ad",
+      "skills/_shared/itd_free_reviewer_producer.py": "537ea83739750a01c0ad4ffa366901d2388b5741d942c1f67c2cfe235257bc7d",
+      "skills/cross-review/SKILL.md": "d428599d7e57ae700ece09b65a0fbc1ae21ffb1e67782813cad750db0ce92cca"
+    }
+  },
+  "windowsUncDoctor": {
+    "checkout": "\\\\wsl.localhost\\Ubuntu-24.04\\home\\hihol\\projects\\idea-to-deploy",
+    "status": "LOCAL_REVIEWED",
+    "protected": false,
+    "drift": [],
+    "elapsedSeconds": 32.57,
+    "installedVersion": "1.95.1",
+    "candidateDigest": "sha256:811a95a4aa31177c182254d7a12852d2a9e1f4a5acf4223f93d577557c3e6599",
+    "canonicalReceiptSha256": "0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09",
+    "files": [
+      {
+        "path": ".itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-machine-212b660bb873e4c2.json",
+        "sha256": "dd90c949752386f384a23f8d0aa30c3a42710c64af5c083e21ac7f3c7fe9f57c"
+      },
+      {
+        "path": ".itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-checker-ee5f565223ab85cd.json",
+        "sha256": "42b9fc8e56bf034d5371e3389c89ad10c0da24b93a58eef1da9a48da7bef9706"
+      },
+      {
+        "path": ".itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-adjudication-a1.json",
+        "sha256": "32604bff2674fad58690809e609bff8d72744e89e0e113fb900a35ad830d6266"
+      },
+      {
+        "path": ".itd-memory/verification-loop/prompts/GPG-002-windows-unc-live-terra.md",
+        "sha256": "ff36362a458466e545e7ad03097689f59715489bb95841c7a63df399b3f3b874"
+      },
+      {
+        "path": ".itd-memory/verification-loop/reports/GPG-002-windows-unc-live-terra.json",
+        "sha256": "fab04fa5f376e679dde07714d203773820751166a55a98f301a125e19654b3a6"
+      }
+    ]
+  },
+  "knownLimitations": [
+    "The selected profile is LOCAL_REVIEWED and does not claim App-backed PROTECTED enforcement.",
+    "GitHub tag and GitHub Release were not created because docs/RELEASE_RUNBOOK.md does not require them."
+  ],
+  "trustBoundary": "Receipts and hashes are clone-durable integrity-and-process evidence rooted in the honest host orchestrator; they do not provide same-principal Byzantine resistance. The Windows doctor observation proves the installed native host can validate the exact UNC-bound receipt within the bounded timeout."
+}

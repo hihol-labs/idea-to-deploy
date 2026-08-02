@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "kind": "machine-verification",
+  "createdAt": "2026-08-02T20:11:40Z",
+  "unitId": "GPG-002-fix-final",
+  "riskTier": "high",
+  "candidate": {
+    "repository": "/home/hihol/projects/idea-to-deploy",
+    "baseCommit": "0b45a729dd0c352dc23279574f7a3909aa388044",
+    "reviewedTree": "710a567582129f91d0340d3d464096e66cf1e11c",
+    "diffHash": "ea93ad52cef9cb9d4aa3760528c7120cac44cb2fcb9a401f6c3cd49fbfa4ab45",
+    "scopeContractHash": "30f4c75afc6bb511c18c3547f42fd6d41ec42585e16e65cffbfdb5a86935deb6",
+    "acceptanceContractHash": "a35deaf2e7ba8d572330385d11c8f2e3cb157c046bfb13fccb491bda4848fbfc",
+    "rubricHash": "ce02c310087c6b457ce121672c73b3aea602c0a301a745460546f5ba5c94ced8",
+    "methodologyVersion": "1.95.0",
+    "riskTier": "high"
+  },
+  "candidateDigest": "sha256:32447fe945de35f646f3065b06e5c6062c0936514ad5a156bb6dcf98f0b3ad56",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "machine-verifier",
+    "host": "Linux"
+  },
+  "producerRunId": "9d0c3ca7774fddea4d0a8655205e27a4",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "declaredInputs": [],
+  "runs": [
+    {
+      "id": "quick",
+      "command": "bash tests/run-all.sh --quick",
+      "commandSha256": "8bc5dc7ec0fba5b41830a12e6fe3518ddd547a6c3e478be5136d6d2b994bc4fa",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T20:05:46Z",
+      "completedAt": "2026-08-02T20:11:39Z",
+      "timeoutSeconds": 1200,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "710a567582129f91d0340d3d464096e66cf1e11c",
+      "exitCode": 0,
+      "stdoutSha256": "6a839152f70783008873fd499f2bff35b2b91208e39ef7bdf708d4c2862a9a11",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "live-evidence",
+      "command": "python3 tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "commandSha256": "79ddd5a700a392aa9298e71838deab6023a37bc162068080a56d85f5c0240071",
+      "shell": "/usr/bin/dash",
+      "shellSha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "startedAt": "2026-08-02T20:11:39Z",
+      "completedAt": "2026-08-02T20:11:40Z",
+      "timeoutSeconds": 1200,
+      "executionMode": "isolated-staged-tree",
+      "executedTree": "710a567582129f91d0340d3d464096e66cf1e11c",
+      "exitCode": 0,
+      "stdoutSha256": "3ce68461ad759a6f7188a85b31c18c068e5d40e5e3b0322a1c9557f3caa58b25",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verdict": "PASSED",
+  "receiptSha256": "f736c345452cc5c748361141768dfa2bc3d1678ff1946077b3b9fb7956d0d337"
+}

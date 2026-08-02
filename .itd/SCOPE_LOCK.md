@@ -49,3 +49,14 @@ installed on Windows/WSL; and a Windows-bound current receipt makes the real
 UNC doctor report `LOCAL_REVIEWED`. Local credential cleanup is complete only
 when GitHub returns 401 for the legacy PAT and a secret-safe config scan finds
 zero credential-bearing GitHub URLs. No `PROTECTED` claim is added.
+
+## Completion
+
+GPG-002 satisfied this boundary on 2026-08-02. PR #180 and release PR #181
+merged with both required GitHub checks green; version 1.95.1 is installed on
+both hosts; and the real Windows-native UNC doctor returned `LOCAL_REVIEWED`
+in 32.57 seconds from a current Windows-bound adjudication receipt. The local
+credential cleanup also completed with the legacy credential returning 401
+before removal and zero credential-bearing GitHub URLs afterward. The next
+unit must open a new scope lock and may not reinterpret this result as
+`PROTECTED`.

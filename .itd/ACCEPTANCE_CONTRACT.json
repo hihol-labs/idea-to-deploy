@@ -152,9 +152,9 @@
       "id": "GPG-002-AC1",
       "criterion": "Native Windows local-adjudication validation on a UNC checkout receives a bounded 180-second outer cold-start budget while ordinary paths retain 30 seconds; receipt/path/candidate binding, child probe limits, stale/foreign failure and all protection claims remain unchanged.",
       "source": "User-authorized post-v1.95.0 Windows UNC doctor follow-up.",
-      "evidence": "RED reproduced the hard 30-second child termination. Focused WSL and native-Windows regression tests pass; full exact-candidate and post-install live UNC doctor evidence remain required.",
+      "evidence": "PASSED. RED reproduced the hard 30-second child termination. Standard/extended Windows UNC receive 180 seconds while local, device and incomplete paths retain 30 seconds; focused WSL/native-Windows tests pass 25/25. PR #180 merged as ed33169e8cc48f6a5da314586548ee0c5e2389cd; v1.95.1 release PR #181 merged as 1422c94d28f7a6821f0038a766437b7618cc22f1 and is installed on WSL/Windows Codex and Claude with zero clean-archive drift. Windows-bound high-risk receipt 0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09 made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds with drift=[] and protected=0. Durable index: .itd/GPG-002_COMPLETION_EVIDENCE.json.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "completion": {
@@ -169,13 +169,12 @@
       "live App/broker enrollment",
       "organization-workflow",
       "PROTECTED",
-      "credential rotation",
-      "Windows doctor success for a UNC checkout"
+      "credential rotation"
     ]
   },
   "activeFollowup": {
     "unitId": "GPG-002",
-    "status": "in_progress",
+    "status": "completed",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/GPG-002_ROOT_CAUSE.md"
   },
