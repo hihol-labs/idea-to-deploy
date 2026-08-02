@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "kind": "checker",
+  "createdAt": "2026-08-02T16:03:35Z",
+  "unitId": "GPG-001-release-1.95.0",
+  "riskTier": "high",
+  "candidate": {
+    "repository": "/home/hihol/projects/idea-to-deploy",
+    "baseCommit": "234752828d463821814020bebf2cc3dc40399beb",
+    "reviewedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+    "diffHash": "46e4e30acd3fb99d41c002dbe59d2751a5a4f410dbabc2dd4424197aeb23f57b",
+    "scopeContractHash": "6668c2c4dfb614c76a82ca327a5adbc8a5354c0c3eccab1e8c6643f0ab81931d",
+    "acceptanceContractHash": "35be35243d85a14af243a808fd3111d0e1eea0881082788cd4aa681cd31f0c40",
+    "rubricHash": "ce02c310087c6b457ce121672c73b3aea602c0a301a745460546f5ba5c94ced8",
+    "methodologyVersion": "1.95.0",
+    "riskTier": "high"
+  },
+  "candidateDigest": "sha256:fbdb9c557bf1462063326d2eb66a3df693cc3e2f62ad95184d6d664200384d30",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "semantic-checker",
+    "host": "Linux"
+  },
+  "producerRunId": "7a3f5a58c191c7ce974b8a0965ee18db",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "inspectedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+  "checkerMode": "full",
+  "provenance": {
+    "maker": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "session": "019fbd6e-c803-7f62-8b2d-290eb5f20c84"
+    },
+    "checker": {
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "session": "release_195_independent_review"
+    }
+  },
+  "artifacts": {
+    "report": {
+      "path": ".itd-memory/verification-loop/reports/GPG-001-release-1.95.0-terra.json",
+      "sha256": "fab04fa5f376e679dde07714d203773820751166a55a98f301a125e19654b3a6"
+    },
+    "prompt": {
+      "path": ".itd-memory/verification-loop/prompts/GPG-001-release-1.95.0-terra.md",
+      "sha256": "3e1ddb752a3d30254bf619bd98fae84c96fe15c87d07b17658dafd26092c49c9"
+    }
+  },
+  "verdict": "PASSED",
+  "findings": [],
+  "unverified": [],
+  "receiptSha256": "ebdab8a629c042e01f59388831ddbdc6f3421fd1c603e491d7cd782024698267"
+}

@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "kind": "gpg001-completion-evidence",
+  "createdAt": "2026-08-02T16:47:51Z",
+  "unitId": "GPG-001",
+  "outcome": "VERIFIED",
+  "selectedProfile": {
+    "deployment": "local-submission",
+    "protection": "local-review",
+    "reportedClaim": "LOCAL_REVIEWED",
+    "protected": false
+  },
+  "repository": "hihol-labs/idea-to-deploy",
+  "implementation": {
+    "pullRequest": "https://github.com/hihol-labs/idea-to-deploy/pull/177",
+    "baseCommit": "c52eca984ae61ce474fa1151a894bde2382e064d",
+    "headCommit": "b909e0402ae3ac0e6a453675c5296e38d4448906",
+    "headTree": "6e8cb5b387a749a06c66f3fcdbc4e02c9ee4fc68",
+    "mergeCommit": "234752828d463821814020bebf2cc3dc40399beb",
+    "mergeTree": "6e8cb5b387a749a06c66f3fcdbc4e02c9ee4fc68",
+    "githubActions": [
+      {
+        "runId": 30752003653,
+        "name": "windows-verify",
+        "conclusion": "success"
+      },
+      {
+        "runId": 30752003660,
+        "name": "meta-review",
+        "conclusion": "success"
+      }
+    ],
+    "exactEvidence": {
+      "candidateDigest": "sha256:360a8d71643b981a4c228e4e28086140706e0208e650cc20dbb195e4f1ad9361",
+      "canonicalReceiptSha256": "db37f5d92852901e13c26d91b4fd11a11058b6836a0abeca0433bad587f96ec6",
+      "files": [
+        {
+          "path": ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-machine-12fd738043afe851.json",
+          "sha256": "f9562525ce432b9461da2b39e180b96ff08520382057befb2d81d991196be046"
+        },
+        {
+          "path": ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-checker-d3d4438d2080871b.json",
+          "sha256": "4c7d95ebe2c1737366665d406ddc37b9271ee03fecb19ca1410fbe7e99871966"
+        },
+        {
+          "path": ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-adjudication-a1.json",
+          "sha256": "57c111c7fd74a20296acba5a4063fe803bcf56b6e4fe37cb1a35cd9214bb9296"
+        },
+        {
+          "path": ".itd-memory/verification-loop/reports/GPG-001-general-review-6e8cb5b-live-evidence-terra.md",
+          "sha256": "e07e71eb0ef3b78e91006b180e22b2a1c55723c0e801b703e14b3b55fab4943e"
+        },
+        {
+          "path": ".itd-memory/verification-loop/prompts/GPG-001-general-review-6e8cb5b-live-evidence.md",
+          "sha256": "e1d2034bfab64915b7627f5eb20a76ef06aea6531c27f0b5d36da6bd705cdb14"
+        }
+      ]
+    }
+  },
+  "release": {
+    "version": "1.95.0",
+    "pullRequest": "https://github.com/hihol-labs/idea-to-deploy/pull/178",
+    "baseCommit": "234752828d463821814020bebf2cc3dc40399beb",
+    "headCommit": "989c6dfba51232a4bf158d73effbc5d1a42a8ee1",
+    "reviewedTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+    "mergeCommit": "8c2bb1b0689ce68282a3ef10a2edc6143a097f8f",
+    "mergeTree": "aee9ee16c45974d0d822675d4912ed27f5505c45",
+    "githubActions": [
+      {
+        "runId": 30756261646,
+        "name": "meta-review",
+        "conclusion": "success"
+      },
+      {
+        "runId": 30756261647,
+        "name": "windows-verify",
+        "conclusion": "success"
+      }
+    ],
+    "exactEvidence": {
+      "candidateDigest": "sha256:fbdb9c557bf1462063326d2eb66a3df693cc3e2f62ad95184d6d664200384d30",
+      "canonicalReceiptSha256": "97fff7101de985ccf3a4bb23b85e6daa54ce039619d2c2ba84e9665897127cb2",
+      "files": [
+        {
+          "path": ".itd-memory/verification-loop/GPG-001-release-1.95.0-machine.json",
+          "sha256": "0ec36c921cc7742cae243c1958d8b2e95b3a0326ab699b5250fe21bc13f4750d"
+        },
+        {
+          "path": ".itd-memory/verification-loop/GPG-001-release-1.95.0-checker.json",
+          "sha256": "cd8b7fd164d4d841277f08c0607814bd45c43fdbc58543645c4665a1c1673e14"
+        },
+        {
+          "path": ".itd-memory/verification-loop/GPG-001-release-1.95.0-adjudication.json",
+          "sha256": "558b0c2a070c1f625089ef2c51d5a5ac3de2240735bf1e9b2057aea0ec8170fa"
+        },
+        {
+          "path": ".itd-memory/verification-loop/reports/GPG-001-release-1.95.0-terra.json",
+          "sha256": "fab04fa5f376e679dde07714d203773820751166a55a98f301a125e19654b3a6"
+        },
+        {
+          "path": ".itd-memory/verification-loop/prompts/GPG-001-release-1.95.0-terra.md",
+          "sha256": "3e1ddb752a3d30254bf619bd98fae84c96fe15c87d07b17658dafd26092c49c9"
+        }
+      ]
+    }
+  },
+  "deploymentObservations": {
+    "sourceCommit": "8c2bb1b0689ce68282a3ef10a2edc6143a097f8f",
+    "codex": {
+      "wsl": {
+        "installedVersion": "1.95.0",
+        "status": "installed, enabled",
+        "cachePath": "/home/hihol/.codex/plugins/cache/personal/idea-to-deploy/1.95.0"
+      },
+      "windows": {
+        "installedVersion": "1.95.0",
+        "status": "installed, enabled",
+        "cachePath": "C:\\Users\\Дмитрий\\.codex\\plugins\\cache\\personal\\idea-to-deploy\\1.95.0"
+      }
+    },
+    "claude": {
+      "wslSyncCheck": "zero drift",
+      "windowsSyncCheck": "zero drift"
+    },
+    "loadBearingSha256": {
+      ".codex-plugin/plugin.json": "be2f3add47842629337c8bb6bd68e1e28f9647354abb4a9b6ba3f0b5e98cdc64",
+      "hooks/hooks.json": "ebe1c7e7b5eee39bf6d439662904e034688871a57f20b518f4d12a14297e06f2",
+      "skills/_shared/itd_verification_loop.py": "a29c1a47e5ed6d634bb4d9cdc0d06a480a4a6c86c1a7a59d48bda954cc8bd6ad",
+      "scripts/itd.py": "9c27936d274d47bd25f9aefb708dcc04ca21f5d428b554182921ce628e45deeb",
+      "tests/verify_external_reviewer_release.py": "cb497e832b39c83130725a1fbc8db8dba1af4d5d5f9216c1f89851b5dcbb93da"
+    }
+  },
+  "knownLimitations": [
+    "No live App/broker enrollment or PROTECTED claim was made.",
+    "The Windows-native local-adjudication validator timed out on the UNC checkout; its temporary registry entry was removed and the global pre-push remains fail-closed.",
+    "GitHub tag and GitHub Release were not created because docs/RELEASE_RUNBOOK.md does not require them."
+  ],
+  "trustBoundary": "The tracked receipts and hashes are clone-durable integrity-and-process evidence rooted in the honest host orchestrator; they do not provide same-principal Byzantine resistance. GitHub run conclusions are externally re-checkable coordinates. Installed-cache and Claude-sync entries are bounded deployment observations with source/cache hash equality, not remote attestation."
+}

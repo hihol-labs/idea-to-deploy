@@ -2,16 +2,13 @@
 
 ## Current Task
 
-Preserve the accepted broker/free-review/profile-doctor slice while migrating
-the canonical user-level `gates.json` contract to a versioned profile registry.
-The bounded slice must make `local-review` a real guarded-push/PR path backed by
-the exact current adjudication, preserve that candidate across exactly one
-single-parent commit through a parent/tree/diff-bound committed-HEAD mode,
-route the canonical `itd gate doctor` through profile claims, and retain
-fail-closed read compatibility for legacy v1 organization-workflow registries.
-WIP=1. Creating the user registry, live
-App/ruleset mutation, release, installation, commit, push, merge, and deploy
-remain outside this slice.
+Reconcile the completed GPG-001 release with its authoritative plan, state and
+handoff after the implementation and release candidates were independently
+accepted, merged and deployed. This bounded closure slice may update only
+GPG-001 contracts/state/handoff and add durable copies of the already-produced
+exact evidence. It must not change runtime behavior, retroactively strengthen
+the selected `local-submission/local-review` claim, or present an optional App
+profile as live. WIP=1.
 
 ## Allowed Change Areas
 
@@ -36,6 +33,8 @@ remain outside this slice.
 - central broker, protected machine oracle, Windows/WSL guarded PR transport
 - focused mutation, security, release, and host-adapter tests and docs
 - `.itd/` and `.itd-memory/` records for `GPG-001`
+- post-release reconciliation of the GPG-001 plan, scope, acceptance status,
+  handoff and durable exact-evidence bundle
 
 ## Forbidden Change Areas
 
@@ -58,11 +57,12 @@ remain outside this slice.
 
 ## Acceptance Boundary
 
-The registry integration is accepted only when legacy v1 and profile v2
-fixtures, canonical doctor, guarded pre-push, local Draft-PR routing, affected
-security, meta-review, host-adapter, and quick suites pass on one exact
-candidate; stale/foreign/missing local adjudication remains blocked; secret
-scrub is clean; and fresh different-model general/security reviews return no
-Critical/Important findings or unverified contours and are adjudicated. This
-slice neither writes the real user registry nor claims live enforcement or
-completion of GPG-001.
+GPG-001 closure is accepted only when the selected local-review result is
+stated consistently in the plan, acceptance contract, state and handoff; the
+implementation/release merge coordinates and exact receipt dependencies are
+durable in Git; the current reconciliation candidate passes session hygiene,
+operational continuation, meta-review, host-adapter and quick suites; and a
+fresh independent full checker reports no Critical/Important findings or
+unverified contours before exact adjudication. This slice does not claim live
+App/broker enrollment, `PROTECTED`, credential rotation, or a passing Windows
+doctor for the known UNC-timeout contour.

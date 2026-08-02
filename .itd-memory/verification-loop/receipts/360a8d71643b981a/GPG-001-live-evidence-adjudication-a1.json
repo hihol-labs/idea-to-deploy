@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "kind": "adjudication",
+  "createdAt": "2026-08-02T14:16:44Z",
+  "unitId": "GPG-001-live-evidence",
+  "riskTier": "high",
+  "candidate": {
+    "repository": "/home/hihol/projects/idea-to-deploy",
+    "baseCommit": "8a29a4b291478cabf3ab4e34ccf3f4127ad4057a",
+    "reviewedTree": "6e8cb5b387a749a06c66f3fcdbc4e02c9ee4fc68",
+    "diffHash": "2afa731338df257a1617796b68201a55a56df742a1b30c36855c99c23071bbaa",
+    "scopeContractHash": "6668c2c4dfb614c76a82ca327a5adbc8a5354c0c3eccab1e8c6643f0ab81931d",
+    "acceptanceContractHash": "35be35243d85a14af243a808fd3111d0e1eea0881082788cd4aa681cd31f0c40",
+    "rubricHash": "ce02c310087c6b457ce121672c73b3aea602c0a301a745460546f5ba5c94ced8",
+    "methodologyVersion": "1.95.0",
+    "riskTier": "high"
+  },
+  "candidateDigest": "sha256:360a8d71643b981a4c228e4e28086140706e0208e650cc20dbb195e4f1ad9361",
+  "policySha256": "a7933d3a4867fe5d0eb8a56d61292a9e61ad8096d73987666cace2c9c0d7d5e4",
+  "producer": {
+    "id": "itd-verification-loop",
+    "role": "adjudicator",
+    "host": "Linux"
+  },
+  "producerRunId": "8462bd5efaaca9fcac805060334c5e59",
+  "assurance": {
+    "class": "integrity-and-process",
+    "trustRoot": "honest-host-orchestrator",
+    "samePrincipalByzantineResistance": false
+  },
+  "attempt": 1,
+  "attemptLedger": {
+    "entryPath": ".itd-memory/verification-loop/attempts/360a8d71643b981a4c228e4e28086140706e0208e650cc20dbb195e4f1ad9361/GPG-001-live-evidence-high-64ff2412e0dd617c/attempt-1.json",
+    "sequence": 1
+  },
+  "checkerMode": "full",
+  "dependencies": {
+    "machine": {
+      "path": ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-machine-12fd738043afe851.json",
+      "sha256": "f9562525ce432b9461da2b39e180b96ff08520382057befb2d81d991196be046"
+    },
+    "checker": {
+      "path": ".itd-memory/verification-loop/receipts/360a8d71643b981a/GPG-001-live-evidence-checker-d3d4438d2080871b.json",
+      "sha256": "4c7d95ebe2c1737366665d406ddc37b9271ee03fecb19ca1410fbe7e99871966"
+    }
+  },
+  "outcome": "PASSED",
+  "receiptSha256": "db37f5d92852901e13c26d91b4fd11a11058b6836a0abeca0433bad587f96ec6"
+}
