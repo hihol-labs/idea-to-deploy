@@ -86,8 +86,8 @@ if HOOK.is_file():
     mod.run_worker(pf.name, notes_absent)
     absent_txt = Path(notes_absent).read_text(encoding="utf-8") if Path(notes_absent).exists() else ""
 
-    check("engine-absent -> honest UNAVAILABLE degrade note",
-          "UNAVAILABLE" in absent_txt and "disabled" in absent_txt.lower(),
+    check("checkpoint -> honest UNAVAILABLE evidence note",
+          "UNAVAILABLE" in absent_txt and "cannot mint" in absent_txt.lower(),
           absent_txt[:80])
     check("engine-absent -> points to explicit on-demand retry",
           "/cross-review" in absent_txt, absent_txt[:80])

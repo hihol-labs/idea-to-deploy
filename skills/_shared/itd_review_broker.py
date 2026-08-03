@@ -2112,19 +2112,44 @@ class ReviewBroker:
         record = producer_keys.get(key_id) if isinstance(key_id, str) else None
         required = {
             "publicKey", "repository", "appIntegrationId", "producerId",
-            "reviewerProvider", "reviewerModel",
+            "reviewerModels",
         }
         if not isinstance(record, dict) or set(record) != required:
             raise BrokerError("UNVERIFIED", "free reviewer key authorization is absent")
         reviewer = signed.get("reviewer") if isinstance(signed, dict) else None
+        reviewer_models = record.get("reviewerModels")
+        allowed_providers = set(free.MANDATORY_REVIEW_ROUTE)
+        if (
+            not isinstance(reviewer_models, dict)
+            or set(reviewer_models) != allowed_providers
+            or any(
+                not isinstance(models, list)
+                or not models
+                or any(
+                    not isinstance(model, str)
+                    or not model.strip()
+                    or model != model.strip()
+                    for model in models
+                )
+                or len(models) != len(set(models))
+                for models in reviewer_models.values()
+            )
+        ):
+            raise BrokerError(
+                "UNVERIFIED", "mandatory reviewer model authorization is malformed"
+            )
+        reviewer_provider = (
+            reviewer.get("provider") if isinstance(reviewer, dict) else None
+        )
+        reviewer_model = reviewer.get("model") if isinstance(reviewer, dict) else None
         if (
             not isinstance(record["publicKey"], str)
             or record["repository"] != coordinates.repository
             or record["appIntegrationId"] != app_id
             or not isinstance(reviewer, dict)
             or signed.get("producerId") != record["producerId"]
-            or reviewer.get("provider") != record["reviewerProvider"]
-            or reviewer.get("model") != record["reviewerModel"]
+            or reviewer_provider not in reviewer_models
+            or reviewer_model not in reviewer_models[reviewer_provider]
         ):
             raise BrokerError(
                 "UNVERIFIED", "free reviewer key is foreign to this enrollment"
@@ -2132,8 +2157,15 @@ class ReviewBroker:
         scoped = {key_id: record["publicKey"]}
         try:
             verified = free.verify_phase_one(phase_one, scoped)
+            verified_attempts = free.verify_attempt_ledger(
+                verified.get("attempts"), verified["reviewer"]["provider"]
+            )
         except free.FreeReviewError as exc:
             raise BrokerError(exc.status, exc.reason) from exc
+        if verified_attempts != verified["attempts"]:
+            raise BrokerError(
+                "UNVERIFIED", "free reviewer attempt authorization is malformed"
+            )
         maker = self.store.get_provenance(coordinates)
         claimed_maker = verified["maker"]
         if claimed_maker != {

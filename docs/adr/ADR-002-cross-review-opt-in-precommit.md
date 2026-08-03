@@ -1,7 +1,7 @@
 # ADR-002: cross-vendor review is opt-in at pre-commit, never always-on
 
 **Date:** 2026-06-29
-**Status:** Accepted
+**Status:** Superseded by ADR-004
 **Review date:** 2026-09-29 (90 days) — or earlier if Claude Code ships a native
 multi-vendor review surface, or if a repo owner's data-egress posture changes.
 

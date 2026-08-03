@@ -91,7 +91,7 @@ def validate_free_reviewer_keyring(value: Any) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     required = {
         "publicKey", "repository", "appIntegrationId", "producerId",
-        "reviewerProvider", "reviewerModel",
+        "reviewerModels",
     }
     for key_id, record in value.items():
         if (
@@ -107,10 +107,20 @@ def validate_free_reviewer_keyring(value: Any) -> dict[str, dict[str, Any]]:
             or type(record["appIntegrationId"]) is not int
             or record["appIntegrationId"] <= 0
             or record["producerId"] != "itd-free-reviewer-producer-v1"
-            or not isinstance(record["reviewerProvider"], str)
-            or not record["reviewerProvider"].strip()
-            or not isinstance(record["reviewerModel"], str)
-            or not record["reviewerModel"].strip()
+            or not isinstance(record["reviewerModels"], dict)
+            or set(record["reviewerModels"]) != set(free.MANDATORY_REVIEW_ROUTE)
+            or any(
+                not isinstance(models, list)
+                or not models
+                or any(
+                    not isinstance(model, str)
+                    or not model.strip()
+                    or model != model.strip()
+                    for model in models
+                )
+                or len(models) != len(set(models))
+                for models in record["reviewerModels"].values()
+            )
         ):
             raise core.BrokerError("UNAVAILABLE", "free reviewer keyring is invalid")
         try:

@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `/review`, `/cross-review`, and Verification Loop now share one mandatory
+  keyless independent-review route: fresh different OpenAI subscription model,
+  Anthropic subscription, then Gemini user OAuth. Only typed `UNAVAILABLE`
+  advances; no provider API key or caller publication bypass exists.
+
+### Security
+- Free-review phase-one receipts now sign the complete ordered provider-attempt
+  prefix. Producer and broker reject missing, skipped, reordered, mistyped, or
+  reviewer-mismatched route evidence before PR authorization. The closed
+  receipt schema is version 2; version-1 receipts must be regenerated.
+- Guarded local publication now requires Verification Loop checker evidence to
+  bind that signed phase-one receipt, its producer keyring, exact prompt/report,
+  candidate, provenance, and machine receipt. Generic checker adjudications and
+  reports missing any closed verdict field are rejected before push.
+- Initial local review can bind a repository before a PR/head exists using
+  closed null coordinates; existing PR/App evidence still requires the exact
+  positive PR number and head SHA.
+- Native Windows route validation reconciles long Unicode and 8.3 spellings
+  only by filesystem identity while retaining symlink/reparse rejection, so
+  exact producer evidence remains usable from Windows and WSL UNC checkouts.
+- Subscription transports accept either an exact content-pinned HTTP proxy or
+  a hash-bound complete absence of proxy variables; partial or changed proxy
+  configuration remains `UNVERIFIED`.
+- Structurally valid `BLOCKED`/`UNVERIFIED` reviewer output now persists its
+  byte-exact prompt, findings, reviewer provenance, and route attempts for
+  repair while still refusing to mint a passing phase-one receipt.
+- Mandatory-route consumption reconstructs the signed base-to-candidate diff
+  after proving base ancestry and compares both digest and byte count, closing
+  foreign-base exact-range substitution.
+- Reviewer model provenance now comes only from pinned transport runtime
+  telemetry: Codex's single isolated rollout, Claude `modelUsage`, or Gemini's
+  init event. Missing telemetry is `UNAVAILABLE`; ambiguous or mismatched
+  telemetry is terminal `UNVERIFIED`.
+
 ## [1.95.1] - 2026-08-02
 
 ### Fixed

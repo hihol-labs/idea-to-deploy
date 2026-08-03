@@ -1,7 +1,7 @@
 {
   "sessionState": "ACTIVE",
-  "currentStage": "IDLE",
-  "intent": "Maintain the portable fail-closed exact-candidate review methodology while preserving independent-review, MEM-8, WIP=1 and dual-host guarantees",
+  "currentStage": "BUILD",
+  "intent": "Implement one mandatory keyless pre-PR independent-review route while preserving exact-candidate, MEM-8, WIP=1 and dual-host guarantees",
   "classification": {
     "productType": "engineering_methodology",
     "domain": "agent_harness",
@@ -34,20 +34,19 @@
       "bash tests/run-all.sh"
     ],
     "currentTaskRoute": "task",
-    "lastAnalysisSummary": "GPG-002 is complete: PR #180 and release PR #181 merged, v1.95.1 is installed on WSL/Windows, and a Windows-bound current receipt made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds. The invalid legacy credential was removed from five local branch remotes after returning 401."
+    "lastAnalysisSummary": "GPG-003 GREEN after independent-review repairs: one producer enforces OpenAI -> Anthropic -> Gemini, signs the complete ordered attempt prefix, and persists exact prompt/report artifacts. Verification Loop binds phase-one/keyring/prompt/report/candidate/provenance/machine evidence, while local publication explicitly rejects generic checker adjudications. Native Windows also reconciles Unicode/8.3 evidence paths by filesystem identity without allowing reparse traversal. Exact revalidation remains required."
   },
   "currentUnit": {
-    "id": "GPG-002",
-    "goal": "Make Windows-native local-review doctor reliable on WSL UNC checkouts and remove the invalid legacy credential from local Git branch remotes",
+    "id": "GPG-003",
+    "goal": "Unify /review, /cross-review and Verification Loop behind one mandatory keyless OpenAI-to-Anthropic-to-Gemini pre-PR reviewer route with no bypass",
     "riskTier": "high",
-    "status": "completed",
-    "startedAt": "2026-08-02T17:49:25Z",
-    "completedAt": "2026-08-02T22:45:00Z"
+    "status": "in_progress",
+    "startedAt": "2026-08-02T23:25:00Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
-    "specComplianceReview": "passed",
-    "codeQualityReview": "passed",
+    "specComplianceReview": "pending",
+    "codeQualityReview": "pending",
     "tests": "passed",
     "tddRed": "passed",
     "tddGreen": "passed",
@@ -60,13 +59,13 @@
     "permissionMatrix": "passed",
     "verificationContract": "passed",
     "toolCapabilityRegistry": "passed",
-    "security": "passed",
+    "security": "pending",
     "dependencies": "n/a",
-    "hardening": "passed",
-    "branchFinish": "passed",
+    "hardening": "pending",
+    "branchFinish": "pending",
     "learningPromotion": "n/a",
     "nextStepApproval": "approved",
-    "deploymentReadiness": "passed"
+    "deploymentReadiness": "pending"
   },
   "verificationHistory": [
     {
@@ -224,6 +223,102 @@
       "command": "GPG-002 Windows-native UNC doctor implementation, release, dual-host deployment and live validation",
       "result": "passed",
       "evidence": "RED reproduced UNAVAILABLE after the hard 30-second child timeout; focused WSL/native-Windows tests pass 25/25 with 180 seconds only for complete standard/extended UNC shares. PR #180 merged as ed33169e8cc48f6a5da314586548ee0c5e2389cd; release PR #181 merged as 1422c94d28f7a6821f0038a766437b7618cc22f1 with meta-review/windows-verify success. Keyless run 20260802T215518Z-a3bff95a replays 95/95. Codex/Claude 1.95.1 dual-host install is zero-drift from the clean archive. Windows-bound adjudication 0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09 made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds. Legacy credential returned 401 before removal; five branch remotes were sanitized and the final credential-bearing URL count is 0."
+    },
+    {
+      "at": "2026-08-03T00:10:00Z",
+      "command": "GPG-003 mandatory keyless route TDD and dual-host transport verification",
+      "result": "passed",
+      "evidence": "RED failed on absent route; GREEN WSL/native-Windows oracle 62/62, free producer 57/57, broker 736, server 50, cross-review hook 10/10, feature fallbacks 12/12, meta-review PASSED, host hard-gate parity 94/94, fixture 15/15 and quick DONE fails:none. Live ChatGPT-subscription smoke passed in WSL and native Windows with fresh sessions and no API keys; Claude revoked OAuth was typed UNAVAILABLE; Gemini 442-file/97,900,289-byte bundle bound successfully and its pinned WSL/native-Windows CLI contract advertises every invoked isolation/provenance flag."
+    },
+    {
+      "at": "2026-08-03T00:45:00Z",
+      "command": "First exact GPG-003 fresh Terra checker and bounded Gemini transport repair",
+      "result": "blocked",
+      "evidence": "Checker blocked tree 9d351b68afc7731215eb04ac01e01e4d6595d225 on a claimed Gemini flag incompatibility. Installed Gemini 0.49.0 source/help and real WSL/native-Windows full-bundle smokes prove --policy, --skip-trust and --session-id are supported; producer nevertheless gained a fail-closed pinned-CLI argument smoke. Eight false-positive credential fixture literals were replaced with explicit redaction markers; the rebuilt staged diff has redactions=0, residualCredential=false, highConfidence=false and highEntropy=false. A new exact machine receipt and fresh checker remain required."
+    },
+    {
+      "at": "2026-08-03T01:08:00Z",
+      "command": "Second exact GPG-003 fresh Terra checker and fail-closed CLI classification repair",
+      "result": "blocked",
+      "evidence": "After one procedural UNVERIFIED caused by a short-index diff hash, a new prompt fixed the canonical --full-index command. The next fresh checker confirmed one Important defect: every post-launch non-zero CLI exit was classified UNAVAILABLE and could advance the route. The repair now permits UNAVAILABLE only for positive closed auth/quota/network/status/timeout evidence; unknown exits, argument/protocol failures, oversized output and unclassified launch errors are terminal UNVERIFIED. Standard npm Claude native-payload discovery was also closed for Windows/WSL parity. Focused oracle 67/67 and producer 57/57 pass; a new exact machine receipt and fresh checker remain required."
+    },
+    {
+      "at": "2026-08-03T01:35:00Z",
+      "command": "PR #183 CI repair and guarded amended-Draft updater regression",
+      "result": "passed",
+      "evidence": "The first pushed candidate failed only because verify_review_autoping.py retained a stale cross-review section anchor; the repaired strict structured-verdict slice passes 12/12 and meta-review reports 0 Critical/Important. The guarded source CLI now uses an exact observed remote SHA force-with-lease for an amended matching Draft branch and skips push when already current; WSL CLI mutations pass 55 checks and native Windows passes 53. Because the candidate changed, its earlier exact receipts are superseded and a new committed-head machine/checker/adjudication cycle remains required."
+    },
+    {
+      "at": "2026-08-03T02:30:00Z",
+      "command": "Live guarded Draft update timeout reproduction and bounded repair",
+      "result": "blocked",
+      "evidence": "Exact tree 78a336826fe89e45447ebbfb07b78f73dff58526 passed a 9-command machine receipt, clean zero-redaction scrub, fresh gpt-5.6-terra full review with findings=[]/unverified=[], adjudication and LOCAL_REVIEWED doctor. The live source CLI then completed its machine preflight but killed git push at the separate fixed 300-second bound while pre-push reran the full contract; PR #183 remained at d46ba3b. The repair carries the existing CLI timeout into the guarded push with a closed 300..3600-second bound; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T02:45:00Z",
+      "command": "Live guarded Draft retry and PR-lookup classification repair",
+      "result": "blocked",
+      "evidence": "Exact timeout-repaired tree a5cd76d6ab71ac51570ccfa768a7efd1200bc6e9 passed 9-command machine, zero-redaction scrub, fresh Terra full review, adjudication and LOCAL_REVIEWED doctor. A transient nonzero gh pr view result was then misclassified as no PR, selecting an ordinary non-fast-forward push; the hook rejected its empty update stream and PR #183 remained d46ba3b. The repair permits Draft creation only for the exact no-PR diagnostic and makes all other lookup errors UNAVAILABLE or malformed output UNVERIFIED; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T03:05:00Z",
+      "command": "Installed gh PR lookup contract reproduction and explicit branch binding repair",
+      "result": "blocked",
+      "evidence": "Exact tree c21ea42b05abe6c2f0c8633a195d25ec01fa80cb passed machine, scrub, fresh Terra review, adjudication and LOCAL_REVIEWED doctor. A read-only installed-gh call proved that `gh pr view --repo` requires an explicit branch argument; the new fail-closed classifier stopped its usage error before push and PR #183 remained d46ba3b. The lookup now validates and supplies the current symbolic branch together with the repository; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T03:25:00Z",
+      "command": "Fresh exact branch-bound Terra review and no-PR diagnostic identity repair",
+      "result": "blocked",
+      "evidence": "Tree 453991ac077018f71d88a6348b2a9aa025502323 passed machine 9/9 and a clean zero-redaction scrub, but fresh Terra review confirmed one Important finding: branch-agnostic, stripped no-PR stderr could select the new-PR path for a substituted branch. The repair binds the diagnostic to the validated current branch, rejects quoted branches and surrounding whitespace, and permits only no terminator, LF or CRLF. A new exact cycle is required."
+    },
+    {
+      "at": "2026-08-03T03:50:00Z",
+      "command": "Guarded PR #183 update and GitHub CI feature-ledger diagnosis",
+      "result": "blocked",
+      "evidence": "Exact tree ccb41e237017f69b734c71a4a215855a8e4b78eb passed machine 9/9, clean scrub, fresh Terra review and adjudication. Guarded source CLI updated PR #183 to 2f79f53c881e2e3300a632fba27a0d859d1844bc; REST read-back matched despite a transient stale GraphQL post-write response. Both CI jobs then failed on the same reproducible drift guard: CHANGELOG cross-review was grounded but F-06 lacked the expected provider-neutral ledger keyword. The row now names the checker provider-neutral; exact revalidation is required before another guarded update."
+    },
+    {
+      "at": "2026-08-03T04:10:00Z",
+      "command": "Fresh exact Terra review of the CI-repaired GPG-003 candidate",
+      "result": "blocked",
+      "evidence": "Fresh gpt-5.6-terra review of tree fb272dcb00aaac04eecefa7057089964f0e0d5cf found one Important evidence-integrity defect: the phase-one signature bound only the terminal reviewer while the preceding routed attempts remained outside the signed payload. Publication stopped before push."
+    },
+    {
+      "at": "2026-08-03T04:28:00Z",
+      "command": "Signed attempt-ledger repair and dual-host focused verification",
+      "result": "passed",
+      "evidence": "Phase-one receipt v2 now signs the exact OpenAI-to-Anthropic-to-Gemini prefix; producer and broker independently reject missing, skipped, reordered, mistyped and reviewer-mismatched ledgers. WSL producer 65/65, broker 742/742, mandatory route 67/67, server 50/50, CLI 62/62, meta-review 0 findings, host adapters PASS, feature ledger 24/24 and quick DONE fails:none. Native Windows producer 65/65, mandatory route 67/67, CLI 60/60, host adapters and feature ledger pass. A new exact committed-head machine/checker/adjudication cycle remains required."
+    },
+    {
+      "at": "2026-08-03T04:50:00Z",
+      "command": "Fresh exact Terra review of signed attempt-ledger candidate",
+      "result": "blocked",
+      "evidence": "Fresh gpt-5.6-terra review blocked tree 321f2935797c8ba129785592ac1b8278bab20164 on two reproduced defects: Verification Loop/local publication could accept a generic checker without signed route evidence and parse_report defaulted a missing unverified field; the broker deployment guide still documented the obsolete reviewerProvider/reviewerModel key schema."
+    },
+    {
+      "at": "2026-08-03T05:00:00Z",
+      "command": "Mandatory route-to-publication bridge repair",
+      "result": "passed",
+      "evidence": "Verification Loop 76/76 proves generic publication denial, signed repository-bound phase-one/prompt/report/keyring/candidate/provenance/machine/base-range binding, foreign-repository/machine/base denial and closed report fields. Local doctor 27/27 requires --require-mandatory-route plus the selected repository. Producer 69/69, broker 742/742, server 50/50 and mandatory oracle 78/78 pass; initial pre-PR null coordinates are viable and deploy README uses the required three-provider reviewerModels map. Exact committed-head machine and fresh different-model review must be rerun on the amended commit."
+    },
+    {
+      "at": "2026-08-03T05:45:00Z",
+      "command": "Dual-host mandatory-route bridge verification",
+      "result": "passed",
+      "evidence": "WSL producer 71/71, mandatory route 82/82, Verification Loop 76/76, local doctor 27/27, broker 742/742, server 50/50, CLI 62/62, auto-ping 12/12, feature ledger 14/14, meta-review 0 findings, host adapters PASS and quick DONE fails:none. Native Windows producer 71/71, mandatory route 82/82, Verification Loop 75/75 applicable scenarios and local doctor 27/27 pass. Windows long-Unicode/8.3 evidence aliases are reconciled only by filesystem identity while symlink/reparse paths remain rejected; exact pinned-proxy and hash-bound direct subscription transports are closed configurations. Structurally valid negative reviews persist actionable diagnostics but cannot mint phase one; foreign signed bases cannot skip exact diff-range reconstruction; model provenance is accepted only from pinned runtime telemetry."
+    },
+    {
+      "at": "2026-08-03T06:20:00Z",
+      "command": "Real keyless Terra producer review of exact tree 02e9f6a56e4423af1c4b45be8194a222df9bce79",
+      "result": "blocked",
+      "evidence": "The OpenAI subscription route ran without API key or development context and returned one high-confidence integrity finding: a signed foreign baseCommit could skip exact diff comparison while borrowing the same parent/tree/machine candidate. The first negative result also exposed discarded findings, so valid BLOCKED/UNVERIFIED reports now persist diagnostic prompt/report/provenance without minting phase one. Publication remained stopped."
+    },
+    {
+      "at": "2026-08-03T06:55:00Z",
+      "command": "Real keyless Terra producer review of exact tree d1430c292963cc7f7a9db046c2d457f50c5447db",
+      "result": "blocked",
+      "evidence": "Fresh Terra returned one high-confidence provenance finding: OpenAI/Claude/Gemini adapters copied the caller-requested model into signed reviewer identity instead of consuming runtime model telemetry. The repair binds the single temporary Codex rollout session/model, Claude modelUsage, or Gemini init model; missing telemetry is UNAVAILABLE and ambiguity/mismatch is UNVERIFIED. Publication remained stopped."
     }
   ],
   "decisionLog": [
@@ -301,6 +396,51 @@
       "at": "2026-08-02T22:45:00Z",
       "decision": "Complete GPG-002 only after a merged patch release, dual-host zero-drift deployment and a Windows-bound real UNC doctor result",
       "why": "The Windows-native adjudication took 92.5 seconds and the installed doctor completed in 32.57 seconds as LOCAL_REVIEWED, proving the scoped 180-second outer budget fixes availability without changing the selected protection claim"
+    },
+    {
+      "at": "2026-08-03T00:10:00Z",
+      "decision": "Use one mandatory keyless pre-PR producer ordered OpenAI, Anthropic, Gemini and preserve paid API only as a separately requested operator facility",
+      "why": "This removes the parallel-session API-key substitution, keeps the independent reviewer outside development context, permits only typed UNAVAILABLE failover, and preserves Verification Loop as the sole acceptance authority on WSL and Windows"
+    },
+    {
+      "at": "2026-08-03T00:45:00Z",
+      "decision": "Keep the supported Gemini isolation flags and add a pinned-bundle CLI contract smoke instead of weakening the fallback",
+      "why": "Gemini 0.49.0 source and real WSL/native-Windows help both advertise the disputed flags; enforcing that evidence in the producer turns future version drift into terminal UNVERIFIED before any review call"
+    },
+    {
+      "at": "2026-08-03T01:08:00Z",
+      "decision": "Require positive transport evidence before classifying any post-launch CLI failure as UNAVAILABLE",
+      "why": "Unknown non-zero exits can represent unsupported arguments or adapter/protocol defects; treating them as availability would silently bypass a broken earlier reviewer instead of stopping fail closed"
+    },
+    {
+      "at": "2026-08-03T01:35:00Z",
+      "decision": "Permit the guarded PR CLI to update only its matching existing Draft through an observed-SHA force-with-lease",
+      "why": "A reviewed single-commit amend must replace the previously observed Draft head without bypassing the receipt, maker, registry or pre-push gates; exact lease binding prevents overwriting an independently changed remote branch, and skipping an already-current push avoids an empty pre-push stream"
+    },
+    {
+      "at": "2026-08-03T02:30:00Z",
+      "decision": "Use the existing bounded PR command timeout for the guarded push instead of a fixed 300-second child limit",
+      "why": "The pre-push hook must finish the full fresh machine oracle; carrying a 300..3600-second positive budget fixes availability while preserving every hook, receipt, lease and exact-candidate check"
+    },
+    {
+      "at": "2026-08-03T02:45:00Z",
+      "decision": "Distinguish an exact no-PR diagnostic from every GitHub PR lookup failure before selecting push mode",
+      "why": "Network, auth or GraphQL failure cannot safely authorize the new-PR path; failing closed preserves the existing-Draft lease and prevents an ambiguous ordinary push"
+    },
+    {
+      "at": "2026-08-03T03:05:00Z",
+      "decision": "Bind both the current symbolic branch and repository in every gh PR lookup",
+      "why": "The installed GitHub CLI requires a branch when --repo is present; explicit validated coordinates make existing-Draft discovery deterministic and keep usage errors terminal"
+    },
+    {
+      "at": "2026-08-03T03:25:00Z",
+      "decision": "Bind the accepted no-PR diagnostic to the exact validated current branch without whitespace normalization",
+      "why": "A same-shape message naming another branch is not evidence that the active branch lacks a PR; exact coordinate and newline-policy binding prevents a substituted response from selecting the ordinary push path"
+    },
+    {
+      "at": "2026-08-03T03:50:00Z",
+      "decision": "Ground the mandatory keyless checker as provider-neutral in the canonical feature-ledger row",
+      "why": "The CI completeness guard maps the adopted cross-review frontier to that exact architectural property; adding it to F-06 restores Linux/Windows ledger coverage without changing behavior"
     }
   ],
   "artifacts": [
@@ -375,7 +515,7 @@
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Open a new WIP=1 GPG-003 unit that unifies pre-PR independent review behind one mandatory keyless workflow: fresh different OpenAI model/session first, Anthropic second, Gemini third, fail closed if all are unavailable, with WSL and Windows parity.",
+    "recommendedNextStep": "Implement RED-to-GREEN GPG-003 routing and contract tests for one mandatory keyless workflow: fresh different OpenAI model/session first, Anthropic second, Gemini third, fail closed if all are unavailable, with WSL and Windows parity.",
     "alternatives": [
       "Keep paid Responses API outside the default workflow and require a separately named, explicitly authorized operation if it remains available at all",
       "Keep App-backed PROTECTED enforcement as a separate opt-in profile rather than coupling it to mandatory independent review"
@@ -387,5 +527,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Create the GPG-002 reconciliation PR from the clone-durable completion packet; after it merges, open GPG-003 as the only active WIP unit for unified mandatory keyless independent review."
+  "nextAction": "Amend the mandatory route-to-publication bridge repair into the single GPG-003 commit, rerun exact committed-head machine plus the real keyless producer/checker/adjudication flow and a fresh different-model audit, then update Draft PR #183 through the guarded source CLI over SSH and wait for both CI jobs."
 }

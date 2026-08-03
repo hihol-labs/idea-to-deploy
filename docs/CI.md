@@ -206,6 +206,10 @@ amended tree, merge commit, or second commit requires a new adjudication and
 registry update. Evidence may also be refreshed after the commit by running
 the machine, checker, and adjudicate commands with
 `--candidate-mode committed-head`.
+In both cases the checker must bind the shared producer's signed phase-one v2
+receipt and trusted producer keyring. The doctor adds
+`--require-mandatory-route`; a generic fresh-session checker/adjudication is
+not publication evidence.
 
 For the strongest organization-workflow profile, register each checkout with
 its active ruleset/enrollment coordinates and Ed25519 maker key, then run:
