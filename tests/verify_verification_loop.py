@@ -2,6 +2,7 @@
 """Behavioural/adversarial oracle for Verification Loop v1."""
 from __future__ import annotations
 
+import base64
 import importlib.util
 import datetime as dt
 import hashlib
@@ -12,10 +13,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "_shared" / "itd_verification_loop.py"
 POLICY = ROOT / "skills" / "_shared" / "VERIFICATION_LOOP_POLICY.json"
+FREE_PRODUCER = ROOT / "skills" / "_shared" / "itd_free_reviewer_producer.py"
 PASSED = 0
 FAILED = 0
 
@@ -54,6 +59,7 @@ def fixture() -> Path:
     (root / ".itd" / "SCOPE_LOCK.md").write_text("# Scope\n", encoding="utf-8")
     (root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
         '{"criteria":[{"id":"AC-1","status":"pending"}]}\n', encoding="utf-8")
+    git(root, "commit", "--allow-empty", "-qm", "seed")
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     git(root, "add", ".")
     git(root, "commit", "-qm", "baseline")
@@ -72,12 +78,104 @@ def artifacts(root: Path, verdict: str = "PASSED") -> tuple[Path, Path]:
     report = base / "reports" / "U-loop.md"
     prompt.parent.mkdir(parents=True, exist_ok=True)
     report.parent.mkdir(parents=True, exist_ok=True)
-    prompt.write_text("Review exact candidate; do not inherit maker reasoning.\n", encoding="utf-8")
-    report.write_text(
+    # Match the producer's byte-exact cross-platform artifact writer.  Native
+    # Windows text mode would otherwise rewrite LF to CRLF after phase one had
+    # signed the normalized prompt string.
+    prompt.write_bytes(
+        b"Review exact candidate; do not inherit maker reasoning.\n"
+    )
+    report.write_bytes((
         "# Review\n\n```json\n" + json.dumps({
             "verdict": verdict, "findings": [], "unverified": []
-        }) + "\n```\n", encoding="utf-8")
+        }) + "\n```\n"
+    ).encode("utf-8"))
     return prompt, report
+
+
+def load_free_producer():
+    spec = importlib.util.spec_from_file_location(
+        "itd_verification_loop_free_fixture", FREE_PRODUCER
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def mandatory_checker(
+    root: Path, risk: str, mode: str, machine_path: Path,
+    *, expected_head: str = "a" * 40, phase_base: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    free = load_free_producer()
+    prompt, report = artifacts(root)
+    clean_report = {"verdict": "PASSED", "findings": [], "unverified": []}
+    machine_value = json.loads(machine_path.read_text(encoding="utf-8"))
+    context = machine_value["candidate"]
+    diff = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--full-index",
+         "--no-ext-diff", context["baseCommit"], "--"],
+        cwd=root, check=True, capture_output=True,
+    ).stdout
+    packet = {
+        "target": {
+            "repository": "hihol-labs/verification-loop-fixture",
+            "pullRequest": 7,
+            "expectedHeadSha": expected_head,
+        },
+        "candidate": {
+            "baseCommit": phase_base or context["baseCommit"],
+            "parentCommit": context["baseCommit"],
+            "tree": context["reviewedTree"],
+            "diffSha256": hashlib.sha256(diff).hexdigest(),
+            "diffBytes": len(diff),
+        },
+        "scope": {"sha256": context["scopeContractHash"]},
+        "acceptance": {"sha256": context["acceptanceContractHash"]},
+        "machineEvidence": {"sha256": hashlib.sha256(machine_path.read_bytes()).hexdigest()},
+    }
+    private_key = Ed25519PrivateKey.generate()
+    private = private_key.private_bytes(
+        serialization.Encoding.Raw,
+        serialization.PrivateFormat.Raw,
+        serialization.NoEncryption(),
+    )
+    public = private_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    phase_one = free.phase_one_receipt(
+        packet=packet, prompt=prompt.read_text(encoding="utf-8"),
+        report=clean_report,
+        maker={"provider": "openai", "model": "gpt-maker",
+               "session": "maker-session"},
+        reviewer={"provider": "openai-subscription", "model": "gpt-checker",
+                  "session": "checker-session",
+                  "transportExecutableSha256": "5" * 64},
+        attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
+        isolation=free.required_isolation(), key_id="fixture-producer",
+        private_key=private,
+    )
+    evidence = root / ".itd-memory" / "verification-loop"
+    phase_identity = (phase_base or "current")[:12]
+    phase_path = evidence / "receipts" / f"phase-one-route-{phase_identity}.json"
+    keyring_path = evidence / "keys" / f"producer-keyring-{phase_identity}.json"
+    phase_path.parent.mkdir(parents=True, exist_ok=True)
+    keyring_path.parent.mkdir(parents=True, exist_ok=True)
+    phase_path.write_text(json.dumps(phase_one), encoding="utf-8")
+    keyring_path.write_text(json.dumps({
+        "fixture-producer": base64.urlsafe_b64encode(public).rstrip(b"=").decode("ascii")
+    }), encoding="utf-8")
+    return run([
+        "checker", "--root", str(root), "--unit-id", "U-loop",
+        "--risk-tier", risk, "--mode", mode,
+        "--report", str(report), "--prompt-file", str(prompt),
+        "--maker-provider", "openai", "--maker-model", "gpt-maker",
+        "--maker-session", "maker-session",
+        "--checker-provider", "openai-subscription",
+        "--checker-model", "gpt-checker",
+        "--checker-session", "checker-session",
+        "--phase-one-receipt", str(phase_path),
+        "--producer-keyring", str(keyring_path),
+    ], root)
 
 
 def machine(root: Path, risk: str, command: str | None = None,
@@ -483,6 +581,15 @@ plain = checker(medium, "medium", "targeted", report=plain_report)
 check("plain PASSED string cannot mint checker evidence",
       plain.returncode != 0 and "no valid verdict" in plain.stdout, plain.stdout)
 
+open_report = report.with_name("U-loop-open-schema.json")
+open_report.write_text(json.dumps({
+    "verdict": "PASSED", "findings": []
+}), encoding="utf-8")
+open_schema = checker(medium, "medium", "targeted", report=open_report)
+check("checker report cannot default a missing unverified field",
+      open_schema.returncode != 0 and "no valid verdict" in open_schema.stdout,
+      open_schema.stdout)
+
 same_session = checker(medium, "medium", "targeted", same_session=True)
 check("checker must use a fresh session",
       same_session.returncode != 0 and "reused the maker session" in same_session.stdout,
@@ -555,6 +662,69 @@ check("normalized provenance comparison rejects whitespace independence bypass",
 high_adj = adjudicate(high, "high", last_path(high_machine), high_checker_path)
 check("high-risk full evidence adjudicates", high_adj.returncode == 0, high_adj.stdout)
 high_adj_path = last_path(high_adj)
+generic_publication = run([
+    "check", "--root", str(high), "--unit-id", "U-loop",
+    "--risk-tier", "high", "--require-mandatory-route",
+    "--expected-repository", "hihol-labs/verification-loop-fixture",
+    "--receipt", str(high_adj_path),
+], high)
+check("generic checker cannot satisfy mandatory publication review",
+      generic_publication.returncode != 0
+      and "mandatory keyless route evidence is missing" in generic_publication.stdout,
+      generic_publication.stdout)
+
+route_root = fixture()
+route_machine = machine(route_root, "high")
+route_machine_path = last_path(route_machine)
+route_checker = mandatory_checker(
+    route_root, "high", "full", route_machine_path
+)
+check("signed phase-one route can mint a bound checker",
+      route_checker.returncode == 0, route_checker.stdout)
+route_checker_path = last_path(route_checker)
+foreign_phase_base = subprocess.run(
+    ["git", "rev-parse", "HEAD^"], cwd=route_root, check=True,
+    text=True, capture_output=True,
+).stdout.strip()
+foreign_phase = mandatory_checker(
+    route_root, "high", "full", route_machine_path,
+    phase_base=foreign_phase_base,
+)
+check("signed route cannot substitute a foreign base diff",
+      foreign_phase.returncode != 0
+      and "diff binding is foreign" in foreign_phase.stdout,
+      foreign_phase.stdout)
+foreign_machine = machine(route_root, "high")
+foreign_machine_adj = adjudicate(
+    route_root, "high", last_path(foreign_machine), route_checker_path
+)
+check("route-bound checker cannot borrow another machine receipt",
+      foreign_machine_adj.returncode != 0
+      and "binds another machine receipt" in foreign_machine_adj.stdout,
+      foreign_machine_adj.stdout)
+route_adj = adjudicate(
+    route_root, "high", route_machine_path, route_checker_path
+)
+check("route-bound high-risk evidence adjudicates",
+      route_adj.returncode == 0, route_adj.stdout)
+route_publication = run([
+    "check", "--root", str(route_root), "--unit-id", "U-loop",
+    "--risk-tier", "high", "--require-mandatory-route",
+    "--expected-repository", "hihol-labs/verification-loop-fixture",
+    "--receipt", str(last_path(route_adj)),
+], route_root)
+check("mandatory publication check accepts only route-bound adjudication",
+      route_publication.returncode == 0, route_publication.stdout)
+foreign_repository_publication = run([
+    "check", "--root", str(route_root), "--unit-id", "U-loop",
+    "--risk-tier", "high", "--require-mandatory-route",
+    "--expected-repository", "foreign-owner/foreign-repository",
+    "--receipt", str(last_path(route_adj)),
+], route_root)
+check("mandatory route cannot cross repository identities",
+      foreign_repository_publication.returncode != 0
+      and "names another repository" in foreign_repository_publication.stdout,
+      foreign_repository_publication.stdout)
 
 # Editing the durable report breaks the dependency chain even if receipt JSON is unchanged.
 _, high_report = artifacts(high)

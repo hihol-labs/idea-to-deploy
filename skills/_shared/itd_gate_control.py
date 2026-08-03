@@ -1455,6 +1455,7 @@ def validate_local_adjudication(
     receipt: Path,
     unit_id: str,
     risk_tier: str,
+    repository: str,
     *,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
     platform_name: str | None = None,
@@ -1467,6 +1468,8 @@ def validate_local_adjudication(
         "check", "--root", str(checkout), "--unit-id", unit_id,
         "--risk-tier", risk_tier,
         "--candidate-mode", "committed-head",
+        "--require-mandatory-route",
+        "--expected-repository", repository,
         "--receipt", str(receipt),
     ]
     try:
@@ -1496,7 +1499,7 @@ def profile_doctor_entry(
     *,
     gh: Callable[..., Any] = gh_json,
     readiness: Callable[..., dict[str, Any]] = broker_ready,
-    local_review: Callable[[Path, Path, str, str], None]
+    local_review: Callable[[Path, Path, str, str, str], None]
     = validate_local_adjudication,
     adoption: Callable[[Path], list[str]] = adopted_checkout,
     version_probe: Callable[[], str] = installed_version,
@@ -1546,6 +1549,7 @@ def profile_doctor_entry(
             local_review(
                 checkout, Path(entry["localReviewReceiptFile"]),
                 entry["localReviewUnitId"], entry["localReviewRiskTier"],
+                entry["repository"],
             )
         except GateError as exc:
             drift.append(f"local review: {exc.status}: {exc.reason}")

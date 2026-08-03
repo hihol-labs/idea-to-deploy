@@ -499,11 +499,13 @@ TRIGGERS = [
         r"review\s+by\s+another\s+(model|llm)|независимое\s+ревью\s+другой|"
         r"ревью\s+другой\s+модель\w*|кросс[\s-]?вендор\w*\s+ревью|"
         r"second\s+opinion\s+on\s+the\s+code|второе\s+мнение\s+по\s+коду|"
-        r"codex\s+review|ревью\s+через\s+codex|gemini\s+review|ревью\s+через\s+gemini)",
-        "🔔 Триггер 'cross-review / второе мнение другой моделью' → используй /cross-review "
-        "(независимое второе мнение по диффу от внешней модели — OpenAI Codex CLI или Gemini CLI; "
-        "PII-scrub перед отправкой; fail-open цепочка codex→gemini→нативный red-team review Claude; "
-        "АДДИТИВНО к /review, не заменяет и не является гейтом). Вызови Skill ПЕРВЫМ.",
+        r"codex\s+review|ревью\s+через\s+codex|claude\s+review|ревью\s+через\s+claude|"
+        r"gemini\s+review|ревью\s+через\s+gemini)",
+        "🔔 Триггер 'cross-review / независимое ревью другой моделью' → используй /cross-review "
+        "(обязательный exact-candidate pre-PR gate: единый keyless producer, маршрут "
+        "OpenAI→Anthropic→Gemini; только typed UNAVAILABLE переводит к следующему; "
+        "BLOCKED/UNVERIFIED останавливают; caller bypass отсутствует; итог принимает Verification Loop). "
+        "Вызови Skill ПЕРВЫМ.",
     ),
     (
         # (?<![а-яё]) отсекает «сопоставь/составь/приставлю…» — триггер только

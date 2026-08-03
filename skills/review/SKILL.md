@@ -32,6 +32,34 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 
 You are a quality validator for project documentation and code. Your job is to find gaps, inconsistencies, and missing pieces BEFORE implementation begins.
 
+## Mandatory independent pre-PR route
+
+For every medium/high-risk candidate that is going to be published as a PR,
+`/review`, `/cross-review`, and the Verification Loop use the same producer:
+`skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless order is
+`OpenAI -> Anthropic -> Gemini`: first a fresh different OpenAI model/session,
+then Anthropic subscription auth, then Gemini user auth. Only a typed
+`UNAVAILABLE` result advances to the next provider. `BLOCKED` and `UNVERIFIED`
+stop the gate, and exhaustion remains `UNAVAILABLE`.
+
+The signed phase-one receipt must contain the exact attempt prefix: every
+preceding provider is `UNAVAILABLE`, and the terminal `PASSED` provider equals
+the signed reviewer. Missing or malformed route evidence is `UNVERIFIED`, and
+the broker must reject it before authorization.
+
+For PR publication, pass the producer-emitted prompt/report plus
+`--phase-one-receipt` and its trusted `--producer-keyring` to Verification Loop
+`checker`. The local gate revalidates the final adjudication with
+`--require-mandatory-route`; a generic checker receipt is diagnostic only and
+cannot satisfy guarded publication. Never default a missing verdict field.
+
+This route has no caller bypass. A user acknowledgement, a local self-review,
+or a request to publish anyway cannot replace its exact-candidate receipt.
+The default route uses installed user/subscription authentication and must not
+request a provider API key. The Verification Loop adjudication receipt remains
+the sole acceptance authority; the shared producer supplies its independent
+checker evidence rather than creating a parallel gate.
+
 ## Recommended model
 
 **opus** — Cross-document validation requires holding all 6 documents in working memory simultaneously and checking ~25 rubric items. Opus is recommended; the code-reviewer subagent fork is also Sonnet-capable.

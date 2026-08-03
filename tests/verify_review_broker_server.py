@@ -709,8 +709,11 @@ def environment_phase() -> None:
             "repository": REPOSITORY,
             "appIntegrationId": APP_ID,
             "producerId": "itd-free-reviewer-producer-v1",
-            "reviewerProvider": "openai-codex-subscription",
-            "reviewerModel": "gpt-5.6-terra",
+            "reviewerModels": {
+                "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
+                "anthropic-subscription": ["opus"],
+                "gemini-user": ["gemini-2.5-pro"],
+            },
         }
         free_keyring.write_bytes(core.canonical_json({
             "free-key": free_key_record

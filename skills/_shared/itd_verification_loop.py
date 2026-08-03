@@ -34,6 +34,7 @@ from typing import Any
 
 INSTALL_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = Path(__file__).with_name("VERIFICATION_LOOP_POLICY.json")
+FREE_REVIEWER_PATH = Path(__file__).with_name("itd_free_reviewer_producer.py")
 REVIEW_CACHE_PATH = INSTALL_ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 RECEIPT_VERSION = 1
 ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED"}
@@ -857,9 +858,25 @@ def receipt_root(repo: Path, policy: dict[str, Any]) -> Path:
 
 def inside(path: Path, parent: Path, label: str) -> Path:
     resolved = path.resolve()
+    resolved_parent = parent.resolve()
     try:
-        resolved.relative_to(parent.resolve())
+        resolved.relative_to(resolved_parent)
     except ValueError as exc:
+        # Native Windows can expose the same directory through both its long
+        # Unicode name and an 8.3 alias (for example ``Dmitry`` versus
+        # ``AACE~1``).  Path.relative_to() is lexical, so that harmless alias
+        # must be reconciled by filesystem identity without weakening the
+        # containment check.  Rebuild the accepted path under the trusted
+        # parent spelling so later relative-path bindings stay deterministic.
+        if os.name == "nt":
+            candidates = (resolved, *resolved.parents)
+            for candidate in candidates:
+                try:
+                    if candidate.exists() and candidate.samefile(resolved_parent):
+                        suffix = resolved.relative_to(candidate)
+                        return resolved_parent / suffix
+                except OSError:
+                    continue
         raise LoopError(f"{label} escapes {parent}",
                         f"Place {label} under the durable Verification Loop directory.") from exc
     return resolved
@@ -1055,12 +1072,15 @@ def parse_report(text: str) -> dict[str, Any]:
     except Exception:
         pass
     for value in reversed(objects):
+        if set(value) != {"verdict", "findings", "unverified"}:
+            continue
         verdict = str(value.get("verdict") or "").upper()
-        if verdict in ALLOWED_VERDICTS and isinstance(value.get("findings"), list):
-            if "unverified" not in value:
-                value["unverified"] = []
-            if isinstance(value.get("unverified"), list):
-                return value
+        if (
+            verdict in ALLOWED_VERDICTS
+            and isinstance(value.get("findings"), list)
+            and isinstance(value.get("unverified"), list)
+        ):
+            return value
     raise LoopError("checker report has no valid verdict/findings/unverified JSON block",
                     "Finish the review report with the canonical vendor-neutral verdict block.")
 
@@ -1175,7 +1195,9 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
 def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      unit_id: str, policy: dict[str, Any], policy_sha: str,
                      required_mode: str,
-                     candidate_mode: str = "staged") -> None:
+                     candidate_mode: str = "staged",
+                     require_mandatory_route: bool = False,
+                     expected_repository: str | None = None) -> dict[str, Any] | None:
     validate_common(receipt, kind="checker", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
                     candidate_mode=candidate_mode)
@@ -1213,15 +1235,35 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
         if not path.is_file() or sha256_file(path) != item.get("sha256"):
             raise LoopError(f"checker {name} artifact is missing or changed",
                             "Preserve the exact durable checker inputs and regenerate the receipt.")
+    mandatory_route = receipt.get("mandatoryRoute")
+    if require_mandatory_route and not isinstance(mandatory_route, dict):
+        raise LoopError(
+            "mandatory keyless route evidence is missing",
+            "Run the shared OpenAI-to-Anthropic-to-Gemini producer and bind its signed phase-one receipt.",
+        )
+    verified_route = None
+    if mandatory_route is not None:
+        verified_route = validate_mandatory_route_evidence(
+            mandatory_route, repo=repo, policy=policy,
+            context=receipt["candidate"], maker=maker_identity,
+            checker=checker_identity,
+            report_path=(repo / artifacts["report"]["path"]).resolve(),
+            prompt_path=(repo / artifacts["prompt"]["path"]).resolve(),
+            candidate_mode=candidate_mode,
+            expected_repository=expected_repository,
+        )
     if receipt.get("verdict") not in policy["acceptedVerdicts"]:
         raise LoopError(f"checker verdict is {receipt.get('verdict')}, not accepted",
                         "Resolve findings and run a fresh checker; do not downgrade the verdict.")
+    return verified_route
 
 
 def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk: str,
                                    unit_id: str, policy: dict[str, Any],
                                    policy_sha: str,
-                                   candidate_mode: str = "staged") -> None:
+                                   candidate_mode: str = "staged",
+                                   require_mandatory_route: bool = False,
+                                   expected_repository: str | None = None) -> None:
     dependencies = receipt.get("dependencies") or {}
     machine_ref = dependencies.get("machine") or {}
     machine_path = (repo / str(machine_ref.get("path") or "")).resolve()
@@ -1242,10 +1284,15 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         if not checker_path.is_file() or sha256_file(checker_path) != checker_ref.get("sha256"):
             raise LoopError("checker receipt dependency is missing or changed", "Run a fresh checker and re-adjudicate.")
         checker = read_json(checker_path, "checker receipt")
-        validate_checker(checker, repo=repo, risk=risk, unit_id=unit_id,
-                         policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"],
-                         candidate_mode=candidate_mode)
+        verified_route = validate_checker(
+            checker, repo=repo, risk=risk, unit_id=unit_id,
+            policy=policy, policy_sha=policy_sha,
+            required_mode=route["checkerMode"],
+            candidate_mode=candidate_mode,
+            require_mandatory_route=require_mandatory_route,
+            expected_repository=expected_repository,
+        )
+        validate_route_machine_binding(verified_route, machine_path)
     elif checker_ref is not None:
         raise LoopError("low-risk machine-only route contains a checker receipt",
                         "Remove the unnecessary checker cost and adjudicate machine evidence only.")
@@ -1253,7 +1300,9 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
 
 def validate_adjudication(root: Path | str, receipt_path: Path | str,
                           risk_tier: str, unit_id: str,
-                          candidate_mode: str = "staged") -> dict[str, Any]:
+                          candidate_mode: str = "staged",
+                          require_mandatory_route: bool = False,
+                          expected_repository: str | None = None) -> dict[str, Any]:
     policy, policy_sha = load_policy()
     repo = repository_root(root)
     risk = str(risk_tier or "unknown").lower()
@@ -1273,7 +1322,9 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                            attempt, resolved_receipt, receipt)
     validate_adjudication_evidence(receipt, repo=repo, risk=risk, unit_id=unit_id,
                                    policy=policy, policy_sha=policy_sha,
-                                   candidate_mode=candidate_mode)
+                                   candidate_mode=candidate_mode,
+                                   require_mandatory_route=require_mandatory_route,
+                                   expected_repository=expected_repository)
     return receipt
 
 
@@ -1377,7 +1428,27 @@ def command_checker(args: argparse.Namespace) -> int:
     maker = {"provider": args.maker_provider.strip(),
              "model": args.maker_model.strip(),
              "session": args.maker_session.strip()}
-    receipt = seal_receipt({
+    if bool(args.phase_one_receipt) != bool(args.producer_keyring):
+        raise LoopError(
+            "mandatory route receipt/keyring pair is incomplete",
+            "Provide both --phase-one-receipt and --producer-keyring, or neither for non-publication diagnostics.",
+        )
+    mandatory_route = None
+    if args.phase_one_receipt:
+        phase_path = secure_dependency_path(
+            repo, root, args.phase_one_receipt, "phase-one route receipt"
+        )
+        keyring_path = secure_dependency_path(
+            repo, root, args.producer_keyring, "phase-one producer keyring"
+        )
+        mandatory_route = {
+            "kind": "itd-mandatory-keyless-route-v1",
+            "phaseOne": dependency(repo, root, phase_path, "phase-one route receipt"),
+            "producerKeyring": dependency(
+                repo, root, keyring_path, "phase-one producer keyring"
+            ),
+        }
+    payload = {
         "version": RECEIPT_VERSION,
         "kind": "checker",
         "createdAt": now_iso(),
@@ -1400,7 +1471,10 @@ def command_checker(args: argparse.Namespace) -> int:
         "verdict": str(verdict["verdict"]).upper(),
         "findings": verdict["findings"],
         "unverified": verdict["unverified"],
-    })
+    }
+    if mandatory_route is not None:
+        payload["mandatoryRoute"] = mandatory_route
+    receipt = seal_receipt(payload)
     output = (Path(args.output).resolve() if args.output else
               default_path(repo, policy, args.unit_id, "checker", context,
                            identity=receipt["receiptSha256"][:16]))
@@ -1429,10 +1503,32 @@ def secure_dependency_path(repo: Path, root: Path, raw: str, label: str) -> Path
     try:
         candidate.relative_to(boundary)
     except ValueError as exc:
-        raise LoopError(
-            f"{label} escapes the Verification Loop evidence root: {candidate}",
-            f"Keep {label} inside {boundary}.",
-        ) from exc
+        matched_boundary: Path | None = None
+        if os.name == "nt":
+            cursor = candidate
+            while True:
+                if _is_link_or_reparse(cursor):
+                    raise LoopError(
+                        f"{label} traverses a symlink or reparse point: {cursor}",
+                        "Use a real regular file under the evidence root.",
+                    ) from exc
+                try:
+                    if cursor.exists() and cursor.samefile(boundary):
+                        matched_boundary = cursor
+                        break
+                except OSError:
+                    pass
+                if cursor.parent == cursor:
+                    break
+                cursor = cursor.parent
+        if matched_boundary is None:
+            raise LoopError(
+                f"{label} escapes the Verification Loop evidence root: {candidate}",
+                f"Keep {label} inside {boundary}.",
+            ) from exc
+        # Preserve the trusted boundary spelling after proving that the 8.3
+        # alias denotes the exact same directory by filesystem identity.
+        candidate = boundary / candidate.relative_to(matched_boundary)
     cursor = candidate
     while True:
         if _is_link_or_reparse(cursor):
@@ -1459,6 +1555,193 @@ def secure_dependency_path(repo: Path, root: Path, raw: str, label: str) -> Path
     return candidate
 
 
+def _free_reviewer_module():
+    spec = importlib.util.spec_from_file_location(
+        "itd_loop_free_reviewer", FREE_REVIEWER_PATH
+    )
+    if spec is None or spec.loader is None:
+        raise LoopError(
+            "mandatory keyless producer is unavailable",
+            "Restore the shared itd_free_reviewer_producer.py module.",
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _phase_one_public_keys(value: dict[str, Any]) -> dict[str, str]:
+    if not value or any(
+        not isinstance(key, str)
+        or not key
+        or not isinstance(public_key, str)
+        or not public_key
+        for key, public_key in value.items()
+    ):
+        raise LoopError(
+            "phase-one producer keyring is malformed",
+            "Use a closed non-empty key-id to raw Ed25519 public-key map.",
+        )
+    return dict(value)
+
+
+def validate_mandatory_route_evidence(
+    route: object, *, repo: Path, policy: dict[str, Any],
+    context: dict[str, Any], maker: dict[str, str], checker: dict[str, str],
+    report_path: Path, prompt_path: Path, candidate_mode: str,
+    expected_repository: str | None,
+) -> dict[str, Any]:
+    if (
+        not isinstance(route, dict)
+        or set(route) != {"kind", "phaseOne", "producerKeyring"}
+        or route.get("kind") != "itd-mandatory-keyless-route-v1"
+    ):
+        raise LoopError(
+            "mandatory route reference is malformed",
+            "Regenerate the checker from one signed phase-one route receipt.",
+        )
+    root = receipt_root(repo, policy)
+    resolved: dict[str, Path] = {}
+    for field, label in (
+        ("phaseOne", "phase-one route receipt"),
+        ("producerKeyring", "phase-one producer keyring"),
+    ):
+        reference = route[field]
+        if not isinstance(reference, dict) or set(reference) != {"path", "sha256"}:
+            raise LoopError(
+                f"{label} reference is malformed",
+                "Keep the closed path/SHA-256 dependency reference.",
+            )
+        path = secure_dependency_path(repo, root, reference["path"], label)
+        if sha256_file(path) != reference["sha256"]:
+            raise LoopError(
+                f"{label} is missing or changed",
+                "Restore the exact route artifact and regenerate the checker.",
+            )
+        resolved[field] = path
+    free = _free_reviewer_module()
+    phase_one = read_json(resolved["phaseOne"], "phase-one route receipt")
+    keys = _phase_one_public_keys(
+        read_json(resolved["producerKeyring"], "phase-one producer keyring")
+    )
+    try:
+        signed = free.verify_phase_one(phase_one, keys)
+    except free.FreeReviewError as exc:
+        raise LoopError(
+            f"mandatory route receipt is {exc.status}: {exc.reason}",
+            "Run the shared keyless producer again; do not substitute generic checker narration.",
+        ) from exc
+    if (
+        expected_repository is not None
+        and signed["target"]["repository"] != expected_repository
+    ):
+        raise LoopError(
+            "mandatory route target names another repository",
+            "Bind phase one to the exact repository selected for guarded publication.",
+        )
+    phase_candidate = signed["candidate"]
+    if (
+        phase_candidate["parentCommit"] != context.get("baseCommit")
+        or phase_candidate["tree"] != context.get("reviewedTree")
+        or signed["inputBindings"]["scopeSha256"]
+        != context.get("scopeContractHash")
+        or signed["inputBindings"]["acceptanceSha256"]
+        != context.get("acceptanceContractHash")
+    ):
+        raise LoopError(
+            "mandatory route receipt belongs to another candidate",
+            "Regenerate route evidence for the exact machine/checker candidate.",
+        )
+    try:
+        ancestry = subprocess.run(
+            ["git", "merge-base", "--is-ancestor",
+             phase_candidate["baseCommit"], phase_candidate["parentCommit"]],
+            cwd=repo, capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise LoopError(
+            "mandatory route ancestry could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        ) from exc
+    if ancestry.returncode != 0:
+        raise LoopError(
+            "mandatory route base is not an ancestor of its parent",
+            "Review one exact candidate range rooted in its real Git ancestry.",
+        )
+    diff_arguments = [
+        "git", "diff", "--binary", "--full-index", "--no-ext-diff",
+    ]
+    if candidate_mode == "staged":
+        diff_arguments.append("--cached")
+    diff_arguments.append(phase_candidate["baseCommit"])
+    if candidate_mode == "committed-head":
+        diff_arguments.append("HEAD")
+    diff_arguments.append("--")
+    try:
+        exact_diff = subprocess.run(
+            diff_arguments, cwd=repo, capture_output=True, timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise LoopError(
+            "mandatory route diff could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        ) from exc
+    if exact_diff.returncode != 0:
+        raise LoopError(
+            "mandatory route diff could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        )
+    if (
+        phase_candidate["diffSha256"] != sha256_bytes(exact_diff.stdout)
+        or phase_candidate["diffBytes"] != len(exact_diff.stdout)
+    ):
+        raise LoopError(
+            "mandatory route diff binding is foreign",
+            "Review the exact base-to-candidate diff that will be submitted.",
+        )
+    if candidate_mode == "committed-head":
+        head = str(_review_cache_module().git(repo, "rev-parse", "HEAD")).strip()
+        expected_head = signed["target"]["expectedHeadSha"]
+        if expected_head is not None and expected_head != head:
+            raise LoopError(
+                "mandatory route target does not name the committed HEAD",
+                "Bind phase one to the exact submission commit before guarded publication.",
+            )
+    report = parse_report(report_path.read_text(encoding="utf-8", errors="replace"))
+    if (
+        signed["report"] != report
+        or signed["reportSha256"] != sha256_bytes(free.canonical_bytes(report))
+        or signed["promptSha256"] != sha256_file(prompt_path)
+    ):
+        raise LoopError(
+            "mandatory route prompt/report artifacts are foreign",
+            "Use the exact artifacts emitted by the signed producer run.",
+        )
+    if (
+        signed["maker"] != maker
+        or any(signed["reviewer"].get(field) != checker[field]
+               for field in ("provider", "model", "session"))
+    ):
+        raise LoopError(
+            "mandatory route provenance differs from checker provenance",
+            "Copy only host-observed maker/reviewer identity from phase one.",
+        )
+    return signed
+
+
+def validate_route_machine_binding(
+    verified_route: dict[str, Any] | None, machine_path: Path
+) -> None:
+    if (
+        verified_route is not None
+        and verified_route["inputBindings"]["machineReceiptSha256"]
+        != sha256_file(machine_path)
+    ):
+        raise LoopError(
+            "mandatory route receipt binds another machine receipt",
+            "Run the keyless reviewer only after the exact machine oracle passes.",
+        )
+
+
 def command_adjudicate(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
@@ -1480,10 +1763,13 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                             "Run the risk-tier checker or remain UNVERIFIED.")
         checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
         checker = read_json(checker_path, "checker receipt")
-        validate_checker(checker, repo=repo, risk=risk, unit_id=args.unit_id,
-                         policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"],
-                         candidate_mode=args.candidate_mode)
+        verified_route = validate_checker(
+            checker, repo=repo, risk=risk, unit_id=args.unit_id,
+            policy=policy, policy_sha=policy_sha,
+            required_mode=route["checkerMode"],
+            candidate_mode=args.candidate_mode,
+        )
+        validate_route_machine_binding(verified_route, machine_path)
         dependencies["checker"] = dependency(repo, root, checker_path, "checker receipt")
     elif args.checker:
         raise LoopError("low-risk machine-only route must not spend a checker",
@@ -1549,9 +1835,16 @@ def command_adjudicate(args: argparse.Namespace) -> int:
 
 
 def command_check(args: argparse.Namespace) -> int:
+    if args.require_mandatory_route and not args.expected_repository:
+        raise LoopError(
+            "mandatory publication repository is missing",
+            "Provide --expected-repository with --require-mandatory-route.",
+        )
     validate_adjudication(
         args.root, args.receipt, args.risk_tier, args.unit_id,
-        args.candidate_mode)
+        args.candidate_mode,
+        require_mandatory_route=args.require_mandatory_route,
+        expected_repository=args.expected_repository)
     return 0
 
 
@@ -1591,6 +1884,8 @@ def parser() -> argparse.ArgumentParser:
     checker.add_argument("--checker-provider", required=True)
     checker.add_argument("--checker-model", required=True)
     checker.add_argument("--checker-session", required=True)
+    checker.add_argument("--phase-one-receipt")
+    checker.add_argument("--producer-keyring")
     checker.add_argument("--output")
     adjudicate = sub.add_parser("adjudicate", parents=[common])
     adjudicate.add_argument("--machine", required=True)
@@ -1601,6 +1896,8 @@ def parser() -> argparse.ArgumentParser:
     adjudicate.add_argument("--output")
     check = sub.add_parser("check", parents=[common])
     check.add_argument("--receipt", required=True)
+    check.add_argument("--require-mandatory-route", action="store_true")
+    check.add_argument("--expected-repository")
     return p
 
 

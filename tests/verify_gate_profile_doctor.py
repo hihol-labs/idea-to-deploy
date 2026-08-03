@@ -164,6 +164,7 @@ def main() -> int:
 
         gate.validate_local_adjudication(
             root, root / "review.json", "GPG-001:general-review", "high",
+            REPOSITORY,
             runner=committed_runner,
         )
         check(
@@ -172,6 +173,15 @@ def main() -> int:
             and commands[0][commands[0].index("--candidate-mode") + 1]
             == "committed-head",
             "local doctor bridges only the exact committed HEAD candidate",
+        )
+        check(
+            "--require-mandatory-route" in commands[0],
+            "local doctor rejects generic checker/adjudication publication evidence",
+        )
+        check(
+            commands[0][commands[0].index("--expected-repository") + 1]
+            == REPOSITORY,
+            "local doctor binds mandatory route evidence to the selected repository",
         )
         unc_timeouts: list[int] = []
 
@@ -188,7 +198,8 @@ def main() -> int:
             unc_timeouts.clear()
             gate.validate_local_adjudication(
                 unc_checkout, unc_checkout / "review.json",
-                "GPG-001:general-review", "high", runner=unc_runner,
+                "GPG-001:general-review", "high", REPOSITORY,
+                runner=unc_runner,
                 platform_name="nt",
             )
             check(

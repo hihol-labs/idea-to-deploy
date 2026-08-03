@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "purpose": "Acceptance contract for the GPG-001 transport-neutral review gate, broker bootstrap, and local/global gate-control release candidate.",
-  "sourceRequest": "Implement the approved portable nine-point review-gate plan with role separation, local/self-hosted/managed deployment profiles, a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, least-privilege, and secret-isolation guarantees.",
+  "purpose": "Acceptance contract for the portable review gate and GPG-003 unified mandatory keyless independent-review workflow.",
+  "sourceRequest": "Preserve the approved nine-point plan while replacing conflicting review paths with one mandatory pre-PR workflow: fresh different OpenAI model/session first, Anthropic second, Gemini third, fail closed when unavailable, no OPENAI_API_KEY default and no caller bypass, with Windows/WSL parity.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -155,6 +155,54 @@
       "evidence": "PASSED. RED reproduced the hard 30-second child termination. Standard/extended Windows UNC receive 180 seconds while local, device and incomplete paths retain 30 seconds; focused WSL/native-Windows tests pass 25/25. PR #180 merged as ed33169e8cc48f6a5da314586548ee0c5e2389cd; v1.95.1 release PR #181 merged as 1422c94d28f7a6821f0038a766437b7618cc22f1 and is installed on WSL/Windows Codex and Claude with zero clean-archive drift. Windows-bound high-risk receipt 0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09 made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds with drift=[] and protected=0. Durable index: .itd/GPG-002_COMPLETION_EVIDENCE.json.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
       "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC1",
+      "criterion": "One shared mandatory pre-PR producer is authoritative for /review, /cross-review and Verification Loop; no parallel advisory path may satisfy or bypass it.",
+      "source": "User-authorized GPG-003 clarification after a parallel session substituted missing OPENAI_API_KEY with local review consent.",
+      "evidence": "PASSED focused contract oracle: 82 checks prove /review, /cross-review and Verification Loop name itd_free_reviewer_producer.py, one fixed route, viable null coordinates before initial PR creation, actionable negative-report persistence, runtime-observed model provenance, and no caller bypass. Verification Loop 76/76 proves a generic checker cannot satisfy mandatory publication and a signed foreign-base diff cannot borrow the candidate, while repository-bound phase-one/prompt/report/keyring/machine evidence does; local doctor 27/27 requires the route and selected repository before guarded push. Guarded-CLI mutations additionally prove that an amended existing Draft uses an observed-SHA force-with-lease under the same receipt/maker environment, while an already current Draft performs no push. The actual pre-push timeout regression is closed by carrying the existing CLI budget through a bounded 300..3600-second range. PR lookup binds the exact current branch/repository and only its exact no-PR diagnostic permits Draft creation.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC2",
+      "criterion": "The shared producer tries exactly: fresh different OpenAI model/session with ChatGPT subscription auth, then Anthropic subscription auth, then Gemini user auth. The default route contains no provider API-key requirement and never automatically dispatches a paid API request.",
+      "source": "User-selected ordered independent-review route.",
+      "evidence": "PASSED 82 route/auth/provenance/bridge checks on WSL and native Windows. Live OpenAI subscription smoke passed on both hosts with fresh session provenance and paidApiCalls=0; Terra makers auto-select Sol, but only a matching model observed in the pinned runtime rollout may be signed. Standard npm Claude native-payload discovery passes, and native Windows resolves the installed claude.exe behind its wrapper; Claude reached the subscription endpoint and returned typed UNAVAILABLE for revoked OAuth. The same 442-file Gemini bundle digest is valid on both hosts, and the pinned CLI help smoke advertises every invoked policy, plan, sandbox, trust, stream-output and fresh-session argument before review.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC3",
+      "criterion": "Only typed transport UNAVAILABLE may advance to the next provider. Findings, unverified contours, malformed output, tool use, same model/session, inherited context, missing exact coverage, stale evidence, or all routes unavailable block PR publication with no caller/user/force bypass.",
+      "source": "Fail-closed independent-review invariant from the nine-point plan.",
+      "evidence": "PASSED mutations for primary stop, ordered fallthrough, all-unavailable, BLOCKED/UNVERIFIED terminal behavior, same-model rejection, missing/mismatched runtime model telemetry, caller off-switch rejection and a signed closed attempt ledger. The 71-check producer suite rejects missing, skipped, mistyped, non-passing-terminal and foreign-terminal re-signed ledgers plus legacy receipt version 1; the 742-check broker suite rejects a re-signed broken ledger before App authentication or GitHub access. A positively identified auth/status or absent model-telemetry failure is UNAVAILABLE; an unknown non-zero post-launch CLI defect or mismatched model is UNVERIFIED and proves no fallback call occurs.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC4",
+      "criterion": "Every provider receives only the scrubbed self-contained exact-candidate packet in a fresh non-persistent session with no repository, mutation, shell, network-tool, inherited-history, model-visible credential or arbitrary environment access; successful output uses one closed verdict/findings/unverified schema and records real provider/model/session provenance.",
+      "source": "Existing free-producer isolation boundary extended without weakening.",
+      "evidence": "PASSED: producer suite 71 checks plus GPG-003 oracle 82 checks cover closed auth homes, API-key stripping, exact pinned-proxy or hash-bound direct transport, standard native Codex/Claude discovery, no-tools flags, runtime-observed model/session provenance, complete Gemini bundle/runtime pinning, fail-closed pinned-CLI argument smoke, signed ordered route attempts, viable initial pre-PR coordinates, persisted exact positive and negative prompt/report artifacts, closed non-zero failure classification, documented JSONL session/tool telemetry and one closed report schema. Verification Loop 76/76 rejects a missing verdict field and foreign repository/route/machine/base-range evidence.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC5",
+      "criterion": "The same route, typed outcomes and evidence semantics work in WSL and native Windows; host adapters document only transport differences and cannot change order or acceptance authority.",
+      "source": "User-required Windows and WSL operation plus host-adapter parity contract.",
+      "evidence": "PASSED same 82-check oracle under WSL Python and native Windows Python; producer 71/71 and gate doctor 27/27 pass on both hosts. Verification Loop passes all 76 WSL scenarios and all 75 applicable native-Windows scenarios, including filesystem-identity reconciliation for Unicode/8.3 evidence paths without weakening symlink/reparse rejection and foreign-base diff denial. Live OpenAI keyless transport works through an exact pinned proxy or hash-bound direct connection and signs only runtime-observed model provenance; pinned Gemini CLI argument smoke passed on both hosts; native Windows resolves the installed standard npm Claude payload by content digest; host adapters report 28 shared registrations and all 11 Codex hard gates. Post-install proof remains part of the separate release completion boundary.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_host_adapters.py",
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC6",
+      "criterion": "Paid Responses API review, if retained, is a separately named operation requiring separate explicit consent and budget; it is not part of the mandatory default fallback chain and cannot be selected by missing subscription auth or provider outage.",
+      "source": "User rejection of API-key substitution and existing decision log.",
+      "evidence": "PASSED: mandatory producer contains no paid endpoint or provider-key surface; external reviewer release test passes 14 criteria and five mutation guards while API_REVIEWER.md names it optional paid operator infrastructure only.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_external_reviewer_release.py",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -173,10 +221,10 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GPG-002",
-    "status": "completed",
+    "unitId": "GPG-003",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd/GPG-002_ROOT_CAUSE.md"
+    "rootCause": ".itd/GPG-003_ROOT_CAUSE.md"
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 remains verified under completion. GPG-002 requires its focused command plus exact high-risk review/adjudication, merge, patch release, dual-host install, and a Windows-bound real UNC doctor result; it never upgrades LOCAL_REVIEWED to PROTECTED."
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED."
 }

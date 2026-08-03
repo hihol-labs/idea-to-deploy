@@ -186,6 +186,20 @@ def main() -> int:
         check(packet["candidate"]["diffBytes"] > 0, "exact diff is absent")
         check(packet["machineEvidence"]["outcome"] == "PASSED",
               "non-passing machine evidence was accepted")
+        pre_pr_packet = producer.freeze_packet(
+            root=repo, base_commit=base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=scope,
+            acceptance_file=acceptance, machine_receipt=machine,
+        )
+        check(
+            pre_pr_packet["target"] == {
+                "repository": "hihol-labs/idea-to-deploy",
+                "pullRequest": None,
+                "expectedHeadSha": None,
+            },
+            "initial pre-PR route requires impossible existing PR coordinates",
+        )
 
         prompt = producer.review_prompt(packet)
         check("return 'reviewed'" in prompt, "candidate diff is absent from prompt")
@@ -215,9 +229,10 @@ def main() -> int:
             "code_mode_host", "workspace_dependencies", "hooks", "goals",
         }.issubset(disabled), "Codex isolation omits an enabled tool surface")
         check(all(value in argv for value in (
-            "--ephemeral", "--ignore-user-config", "--ignore-rules",
+            "--ignore-user-config", "--ignore-rules",
             "--sandbox", "read-only", "--skip-git-repo-check",
-        )), "Codex session/sandbox isolation flags are incomplete")
+        )) and "--ephemeral" not in argv,
+              "Codex observable fresh-session/sandbox flags are incomplete")
         check("resume" not in argv, "producer can inherit an old Codex session")
         check("api.openai.com" not in " ".join(argv), "paid API route is present")
         finding_schema = producer.VERDICT_SCHEMA["properties"]["findings"].get("items")
@@ -273,8 +288,25 @@ def main() -> int:
                 command[command.index("--output-last-message") + 1]
             )
             report_path.write_text(json.dumps(clean_verdict()), encoding="utf-8")
+            rollout = (
+                Path(kwargs["env"]["CODEX_HOME"])
+                / "sessions" / "2026" / "08" / "03" / "rollout-fixture.jsonl"
+            )
+            rollout.parent.mkdir(parents=True)
+            rollout_events = [{
+                "type": "session_meta", "payload": {"id": "fresh-clean"},
+            }]
+            if event_model is not None:
+                rollout_events.append({
+                    "type": "turn_context", "payload": {"model": event_model},
+                })
+            rollout.write_bytes(b"\n".join(
+                json.dumps(event).encode() for event in rollout_events
+            ) + b"\n")
             events = b"\n".join((
-                json.dumps({"type": "thread.started", "thread_id": "fresh-clean"}).encode(),
+                json.dumps({
+                    "type": "thread.started", "thread_id": "fresh-clean",
+                }).encode(),
                 json.dumps({"type": "item.completed", "item": {
                     "type": event_item_type, "text": "done",
                 }}).encode(),
@@ -282,13 +314,16 @@ def main() -> int:
             return subprocess.CompletedProcess(command, 0, events, b"")
 
         producer.subprocess.run = fake_codex_run
-        observed_report, observed_session = producer.run_codex_review(
+        event_model = "subscription-model"
+        observed_report, observed_session, observed_model = producer.run_codex_review(
             "bounded prompt", executable=str(trusted_binary),
             model="subscription-model", source_env=transport_source,
             expected_executable_sha256=trusted_binary_sha,
             expected_proxy_sha256=trusted_proxy_sha,
         )
-        check(observed_report == clean_verdict() and observed_session == "fresh-clean",
+        check(observed_report == clean_verdict()
+              and observed_session == "fresh-clean"
+              and observed_model == "subscription-model",
               "zero-tool reviewer event stream was not accepted")
         check(
             observed_transport_env.get("HTTP_PROXY")
@@ -297,6 +332,37 @@ def main() -> int:
             == transport_source["HTTPS_PROXY"],
             "content-pinned transport proxy was not applied",
         )
+        event_model = None
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNAVAILABLE",
+                "missing OpenAI model telemetry was not unavailable",
+            )
+        else:
+            raise AssertionError("missing OpenAI model telemetry was accepted")
+        event_model = "maker-model"
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "mismatched OpenAI model telemetry was not terminal",
+            )
+        else:
+            raise AssertionError("mismatched OpenAI model telemetry was accepted")
+        event_model = "subscription-model"
         event_item_type = "command_execution"
         try:
             producer.run_codex_review(
@@ -338,6 +404,37 @@ def main() -> int:
         else:
             raise AssertionError("caller-controlled proxy bypassed the content pin")
         checks += 1
+
+        direct_source = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(fixture / "direct-home"),
+            "CODEX_HOME": str(review_codex_home),
+        }
+        direct_pin = producer.sha256_bytes(b"\n")
+        check(
+            producer.trusted_proxy_environment(direct_source, direct_pin) == {},
+            "pinned direct subscription transport was not accepted",
+        )
+        try:
+            producer.trusted_proxy_environment(direct_source, "f" * 64)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "changed direct-transport pin was not fail-closed",
+            )
+        else:
+            raise AssertionError("unbound direct subscription transport was accepted")
+        partial_proxy_source = dict(direct_source)
+        partial_proxy_source["HTTP_PROXY"] = "http://proxy.invalid:8080"
+        try:
+            producer.trusted_proxy_environment(partial_proxy_source, direct_pin)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "partial transport proxy was not fail-closed",
+            )
+        else:
+            raise AssertionError("partial transport proxy was accepted")
 
         hostile_env = {
             "PATH": os.environ.get("PATH", ""),
@@ -425,9 +522,10 @@ def main() -> int:
             report=clean_verdict(),
             maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                    "session": "maker-session-current"},
-            reviewer={"provider": "openai-codex", "model": "gpt-5.6-terra",
+            reviewer={"provider": "openai-subscription", "model": "gpt-5.6-terra",
                       "session": "fresh-thread-123",
                       "transportExecutableSha256": "5" * 64},
+            attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
             isolation=producer.required_isolation(),
             key_id="free-reviewer-2026-08",
             private_key=producer_private,
@@ -443,6 +541,102 @@ def main() -> int:
               "phase-one receipt lost the exact PR target")
         check(verified_one["producerId"] == "itd-free-reviewer-producer-v1",
               "phase-one receipt lacks a scoped producer identity")
+        check(
+            verified_one["attempts"]
+            == [{"provider": "openai-subscription", "status": "PASSED"}],
+            "phase-one receipt lost the signed attempt ledger",
+        )
+
+        fallback_attempts = [
+            {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+            {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
+            {"provider": "gemini-user", "status": "PASSED"},
+        ]
+        fallback_phase_one = producer.phase_one_receipt(
+            packet=packet, prompt=prompt, report=clean_verdict(),
+            maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
+                   "session": "maker-session-current"},
+            reviewer={"provider": "gemini-user", "model": "gemini-2.5-pro",
+                      "session": "fresh-gemini-thread",
+                      "transportExecutableSha256": "6" * 64},
+            attempts=fallback_attempts,
+            isolation=producer.required_isolation(),
+            key_id="free-reviewer-2026-08", private_key=producer_private,
+            issued_at=issued,
+        )
+        check(
+            producer.verify_phase_one(
+                fallback_phase_one,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )["attempts"] == fallback_attempts,
+            "valid full fallback ledger did not verify",
+        )
+
+        ledger_mutations = (
+            ("missing ledger", None),
+            ("skipped provider", [
+                {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+                {"provider": "gemini-user", "status": "PASSED"},
+            ]),
+            ("non-unavailable predecessor", [
+                {"provider": "openai-subscription", "status": "PASSED"},
+                {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
+                {"provider": "gemini-user", "status": "PASSED"},
+            ]),
+            ("non-passing terminal", [
+                {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+                {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
+                {"provider": "gemini-user", "status": "UNAVAILABLE"},
+            ]),
+            ("foreign terminal", [
+                {"provider": "openai-subscription", "status": "PASSED"},
+            ]),
+        )
+        for label, attempts in ledger_mutations:
+            altered_signed = copy.deepcopy(fallback_phase_one["signed"])
+            if attempts is None:
+                altered_signed.pop("attempts")
+            else:
+                altered_signed["attempts"] = attempts
+            altered_receipt = {
+                "signed": altered_signed,
+                "signature": producer.b64url(
+                    Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                        producer.canonical_bytes(altered_signed)
+                    )
+                ),
+            }
+            try:
+                producer.verify_phase_one(
+                    altered_receipt,
+                    {"free-reviewer-2026-08": public_key(producer_private)},
+                )
+            except producer.FreeReviewError:
+                pass
+            else:
+                raise AssertionError(f"{label} verified as a closed route")
+            checks += 1
+
+        legacy_signed = copy.deepcopy(fallback_phase_one["signed"])
+        legacy_signed["version"] = 1
+        legacy_receipt = {
+            "signed": legacy_signed,
+            "signature": producer.b64url(
+                Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                    producer.canonical_bytes(legacy_signed)
+                )
+            ),
+        }
+        try:
+            producer.verify_phase_one(
+                legacy_receipt,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError:
+            pass
+        else:
+            raise AssertionError("legacy phase-one version verified as version 2")
+        checks += 1
 
         live = {
             "source": "github-app-api-revalidation-v1",
@@ -531,10 +725,13 @@ def main() -> int:
                     packet=packet, prompt=prompt, report=report,
                     maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                            "session": "maker-session-current"},
-                    reviewer={"provider": "openai-codex",
+                    reviewer={"provider": "openai-subscription",
                               "model": "gpt-5.6-terra",
                               "session": reviewer_session,
                               "transportExecutableSha256": "5" * 64},
+                    attempts=[{
+                        "provider": "openai-subscription", "status": "PASSED",
+                    }],
                     isolation=isolation, key_id="free-reviewer-2026-08",
                     private_key=producer_private, issued_at=issued,
                 )
@@ -549,10 +746,13 @@ def main() -> int:
                 packet=packet, prompt=prompt, report=clean_verdict(),
                 maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                        "session": "maker-session-current"},
-                reviewer={"provider": "openai-codex",
+                reviewer={"provider": "openai-subscription",
                           "model": " gpt-5.6-sol ",
                           "session": "fresh-padded-model",
                           "transportExecutableSha256": "5" * 64},
+                attempts=[{
+                    "provider": "openai-subscription", "status": "PASSED",
+                }],
                 isolation=producer.required_isolation(),
                 key_id="free-reviewer-2026-08",
                 private_key=producer_private, issued_at=issued,

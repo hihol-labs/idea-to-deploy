@@ -33,6 +33,59 @@ Missing checker evidence is `UNVERIFIED`, never implicit success. Majority
 vote is not evidence. One checker is sufficient only when it closes a named
 semantic contour that machine oracles cannot decide.
 
+### Mandatory keyless pre-PR checker
+
+Medium/high-risk PR publication uses one shared checker producer:
+`skills/_shared/itd_free_reviewer_producer.py`. Its fixed route is
+`OpenAI -> Anthropic -> Gemini`: a fresh different OpenAI model/session first,
+then an Anthropic subscription session, then a Gemini user-auth session. Only
+typed `UNAVAILABLE` advances the route. `BLOCKED`, `UNVERIFIED`, malformed
+provenance, same-model/session evidence, or tool use stops the gate. If every
+provider is unavailable, publication remains unavailable.
+
+Transport absence is positive evidence, not a catch-all for CLI failure.
+Missing validated auth/transport, an allowlisted auth/quota/network/status
+failure, or a bounded process timeout may produce `UNAVAILABLE`. Unknown
+non-zero exits, argument/protocol defects and oversized failure output are
+terminal `UNVERIFIED` and cannot advance to another provider.
+
+The phase-one v2 signature binds the exact attempt prefix. Every provider before
+the terminal reviewer must be `UNAVAILABLE`, the terminal entry must be
+`PASSED`, and its provider must equal the signed reviewer. The producer and
+broker both reject missing, skipped, reordered, duplicated, mistyped, or
+foreign route entries before publication evidence can be authorized.
+The shared producer persists that receipt plus its exact prompt and canonical
+report. The checker binds all three together with the producer public-key
+keyring. A generic checker remains available for non-publication diagnostics,
+but `local-submission` validation invokes `check --require-mandatory-route` and
+therefore rejects any generic adjudication before guarded PR publication.
+Structurally valid negative output persists the exact prompt, report, reviewer,
+and attempt prefix for repair, but it never creates a phase-one receipt.
+Before initial PR creation, the signed target binds the canonical repository
+with `pullRequest=null` and `expectedHeadSha=null`; the unchanged commit bridge
+then proves the reviewed parent/tree/diff. Existing-PR/App flows require the
+positive PR number and exact head SHA. Local publication also compares the
+signed repository with the selected gate registry entry.
+The consumer proves signed `baseCommit` is an ancestor of `parentCommit`, then
+reconstructs the complete binary base-to-staged/committed diff and compares
+both its SHA-256 and byte count. A signed foreign base cannot skip exact-range
+binding or borrow the machine/checker candidate.
+
+There is no caller bypass. `/review` and `/cross-review` are two entry points to
+this same producer, not separate evidence authorities. The default route uses
+installed user/subscription authentication, does not require provider API
+keys, and does not dispatch a paid API request. The resulting exact-candidate
+checker evidence is accepted only through normal Verification Loop
+adjudication.
+
+Reviewer model identity is never copied from the caller's requested argument.
+The producer reads one pinned transport runtime source: the single rollout in
+an otherwise empty temporary Codex home, Claude's one `modelUsage` entry, or
+Gemini's init event. It requires the observed model to match the requested
+approved model/alias. Missing telemetry is `UNAVAILABLE`; multiple or changed
+models are `UNVERIFIED`. The temporary Codex rollout exists only long enough to
+read session/model provenance and is deleted with the isolated auth home.
+
 The clean-checkout invariant is rechecked before machine execution, when
 checker evidence is minted, during adjudication, and whenever an accepted
 receipt is consumed. The machine oracle itself runs in a disposable local Git
@@ -79,24 +132,28 @@ CHECKER_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" checker --root . \
   --prompt-file "$PROMPT_FILE" --report "$REPORT_FILE" \
   --maker-provider "$MAKER_PROVIDER" --maker-model "$MAKER_MODEL" \
   --maker-session "$MAKER_SESSION" --checker-provider "$CHECKER_PROVIDER" \
-  --checker-model "$CHECKER_MODEL" --checker-session "$CHECKER_SESSION")
+  --checker-model "$CHECKER_MODEL" --checker-session "$CHECKER_SESSION" \
+  --phase-one-receipt "$PHASE_ONE_RECEIPT" \
+  --producer-keyring "$PRODUCER_KEYRING")
 
 ADJUDICATION_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" adjudicate --root . \
   --unit-id "$CLAIM_ID" --risk-tier "$RISK_TIER" \
   --machine "$MACHINE_RECEIPT" --checker "$CHECKER_RECEIPT")
 ```
 
-The checker report must end with the canonical JSON verdict block containing
-`verdict`, `findings`, and `unverified`. Any candidate, policy, prompt, report,
-receipt dependency, risk, or unit change invalidates the chain.
+The checker report must end with the closed canonical JSON verdict block
+containing exactly `verdict`, `findings`, and `unverified`; no missing field is
+defaulted. For publication, `PHASE_ONE_RECEIPT`, `PROMPT_FILE`, and
+`REPORT_FILE` are the three outputs of the shared keyless producer and the
+keyring maps its key ID to the trusted Ed25519 public key. Any candidate,
+policy, prompt, report, signed route, machine receipt, risk, or unit change
+invalidates the chain.
 
-An external model is only a checker transport. The provider-neutral adapter in
-`skills/_shared/itd_external_reviewer.py` may prepare a sanitized, bounded
-exact-candidate prompt and validated report, but those artifacts remain
-diagnostic until the ordinary checker producer records host-observed
-maker/checker provenance and the adjudicator accepts them. Local fail-open
-review therefore cannot weaken a required medium/high route. See
-`docs/API_REVIEWER.md` and ADR-003.
+An external model is only a checker transport. The canonical keyless producer
+above prepares and validates the exact-candidate review and records
+host-observed maker/checker provenance. Any separately operated paid API
+adapter is optional infrastructure and cannot replace, weaken, or mint the
+mandatory route's evidence. See `docs/API_REVIEWER.md` and ADR-003.
 
 ## Repair and terminal states
 

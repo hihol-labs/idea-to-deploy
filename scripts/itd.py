@@ -879,20 +879,44 @@ def machine_preflight(root: Path, head: str) -> Path:
 
 
 def pr_view(root, repository):
+    branch = git(root, "symbolic-ref", "--short", "HEAD")
+    if (
+        not branch
+        or len(branch) > 255
+        or "\n" in branch
+        or "\r" in branch
+        or "\0" in branch
+        or '"' in branch
+    ):
+        raise gate.GateError("UNVERIFIED", "current Git branch is invalid")
     value, completed = run_json(
         [
             "gh",
             "pr",
             "view",
+            branch,
             "--repo",
             repository,
             "--json",
-            "number,headRefOid,baseRefOid,url,isDraft,state",
+            "number,headRefName,headRefOid,baseRefOid,url,isDraft,state",
         ],
         cwd=root,
         check=False,
     )
     if completed.returncode != 0:
+        try:
+            stderr = completed.stderr.decode("utf-8")
+        except UnicodeError as exc:
+            raise gate.GateError(
+                "UNVERIFIED", "GitHub PR lookup error is not UTF-8"
+            ) from exc
+        expected = f'no pull requests found for branch "{branch}"'
+        if completed.stdout or stderr not in {
+            expected,
+            expected + "\n",
+            expected + "\r\n",
+        }:
+            raise gate.GateError("UNAVAILABLE", "GitHub PR lookup failed")
         return None
     if not isinstance(value, dict):
         raise gate.GateError("UNVERIFIED", "GitHub PR response is invalid")
@@ -904,6 +928,8 @@ def draft(value):
         (value.get("state"), value.get("isDraft")) != ("OPEN", True)
         or type(value.get("number")) is not int
         or value["number"] <= 0
+        or not isinstance(value.get("headRefName"), str)
+        or not value["headRefName"]
         or any(
             not gate.SHA_RE.fullmatch(str(value.get(key, "")).lower())
             for key in ("headRefOid", "baseRefOid")
@@ -932,6 +958,12 @@ def guarded_push_environment(
     return environment
 
 
+def guarded_push_timeout(value: int) -> int:
+    if type(value) is not int or value <= 0:
+        raise gate.GateError("UNVERIFIED", "guarded push timeout is invalid")
+    return min(max(value, 300), 3600)
+
+
 def create_draft_pr(
     root,
     repository,
@@ -939,21 +971,43 @@ def create_draft_pr(
     maker_vendor,
     maker_model,
     maker_session,
+    push_timeout_seconds=1200,
 ):
     value = pr_view(root, repository)
+    push_command = ["git", "push", "--set-upstream", "origin", "HEAD"]
     if value is not None:
-        draft(value)
-    run(
-        ["git", "push", "--set-upstream", "origin", "HEAD"],
-        cwd=root,
-        env=guarded_push_environment(
-            machine_receipt,
-            maker_vendor,
-            maker_model,
-            maker_session,
-        ),
-        timeout=300,
-    )
+        current = draft(value)
+        branch = git(root, "symbolic-ref", "--short", "HEAD")
+        if current["headRefName"] != branch:
+            raise gate.GateError(
+                "BLOCKED", "existing Draft PR belongs to another branch"
+            )
+        local_head = git(root, "rev-parse", "HEAD").lower()
+        remote_head = str(current["headRefOid"]).lower()
+        if local_head != remote_head:
+            remote_ref = f"refs/heads/{branch}"
+            push_command = [
+                "git",
+                "push",
+                f"--force-with-lease={remote_ref}:{remote_head}",
+                "--set-upstream",
+                "origin",
+                f"HEAD:{remote_ref}",
+            ]
+        else:
+            push_command = []
+    if push_command:
+        run(
+            push_command,
+            cwd=root,
+            env=guarded_push_environment(
+                machine_receipt,
+                maker_vendor,
+                maker_model,
+                maker_session,
+            ),
+            timeout=guarded_push_timeout(push_timeout_seconds),
+        )
     value = pr_view(root, repository)
     if value is None:
         run(
@@ -1438,6 +1492,7 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
         args.maker_vendor,
         args.maker_model,
         args.maker_session,
+        args.timeout,
     )
     if str(pull_request["headRefOid"]).lower() != head:
         raise gate.GateError(

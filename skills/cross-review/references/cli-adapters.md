@@ -1,118 +1,62 @@
-# Cross-review CLI adapters
+# Mandatory keyless reviewer transports
 
-Historical host-native recipes for an interactive operator. Codex CLI and
-Gemini CLI remain named alternatives, but the canonical automated transport
-does not shell out to them: generic agent CLIs do not currently prove a
-no-tools/no-secret sandbox or complete cost telemetry. They therefore cannot
-produce protected evidence. Treat their absence as typed `UNAVAILABLE`; never
-turn it into a native clean verdict.
+This reference describes the host adapters used only through
+`skills/_shared/itd_free_reviewer_producer.py`. They are transports, not
+independent policy implementations.
 
-## 0. The review prompt
+## Fixed route
 
-Keep it focused so the external model returns actionable findings, not prose:
+`OpenAI -> Anthropic -> Gemini`
 
-```
-You are an INDEPENDENT second-opinion reviewer. The following diff was written
-and already self-reviewed by a different AI. Find what that reviewer likely
-MISSED: correctness bugs, security issues, missed edge cases, broken error
-handling. Return a short ranked list: file:line + the concrete problem + a fix.
-Be concise. If you find nothing real, say so.
---- DIFF (secrets/PII already redacted) ---
-<scrubbed diff here>
-```
+The producer tries an isolated OpenAI subscription session first, an isolated
+Anthropic subscription session second, and an isolated Gemini user-auth
+session last. Only typed `UNAVAILABLE` advances. `BLOCKED` and `UNVERIFIED`
+stop. Exhaustion remains `UNAVAILABLE`. There is no caller bypass.
+After a CLI starts, only closed auth, quota, network/status, or timeout signals
+may be classified `UNAVAILABLE`; unknown non-zero exits, unsupported arguments,
+oversized error output, and malformed protocol failures are `UNVERIFIED`.
 
-## 1. Scrub secrets/PII BEFORE egress
+## Common contract
 
-A third-party CLI is an external service. Redact before sending. Minimal sed pass
-(extend as needed; the `pii-egress-guard.sh` hook is the backstop, not a
-substitute):
+- freeze and scrub the exact candidate before any provider call;
+- resolve and SHA-256-pin the active host's executable or launcher/runtime;
+- copy only validated user/subscription auth into a private temporary profile;
+- remove provider API keys and unrelated environment variables;
+- start a fresh non-persistent session with no inherited development context;
+- disable tools, repository access, user rules, slash commands, MCP servers,
+  and repository mutation;
+- require the closed JSON verdict schema and observed session provenance;
+- reject tool events, malformed output, and same maker/reviewer identity.
 
-```bash
-scrub() {
-  sed -E \
-    -e '/-----BEGIN [A-Z ]*PRIVATE KEY-----/,/-----END [A-Z ]*PRIVATE KEY-----/ s/.*/[REDACTED-PRIVATE-KEY]/' \
-    -e 's/\b(AKIA|ASIA)[0-9A-Z]{16}\b/[REDACTED-AWS-KEY]/g' \
-    -e 's/\bgh[pousr]_[A-Za-z0-9]{36,}\b/[REDACTED-GH-TOKEN]/g' \
-    -e 's/\bxox[baprs]-[A-Za-z0-9-]{10,}/[REDACTED-SLACK-TOKEN]/g' \
-    -e 's/\bAIza[0-9A-Za-z_-]{35}/[REDACTED-GOOGLE-KEY]/g' \
-    -e 's/\b[rs]k_live_[A-Za-z0-9]{16,}/[REDACTED-STRIPE-KEY]/g' \
-    -e 's/\bsk-ant-[A-Za-z0-9_-]{20,}/[REDACTED-ANTHROPIC-KEY]/g' \
-    -e 's/\bsk-[A-Za-z0-9]{20,}/[REDACTED-KEY]/g' \
-    -e 's/(authorization:\s*bearer\s+)[A-Za-z0-9._-]{20,}/\1[REDACTED]/Ig' \
-    -e 's/\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/[REDACTED-EMAIL]/g' \
-    -e 's/(password|passwd|api[_-]?key|secret|token)(\s*[=:]\s*)[^ "'"'"'&]{6,}/\1\2[REDACTED]/Ig'
-}
-```
+## OpenAI subscription adapter
 
-The executable flow uses the one sanitizer in
-`skills/_shared/itd_external_reviewer.py`; the snippet below is explanatory,
-not a second implementation. If a live credential remains, do not egress and
-return `UNVERIFIED`.
+The Codex adapter uses ChatGPT subscription auth from a closed `auth.json`
+schema, `codex exec --ephemeral`, ignored user config/rules, read-only sandbox,
+no inherited environment, disabled tool features, strict output schema, and
+event telemetry. It does not use a provider API key or paid API endpoint.
 
-## 2. Detect the engine (operator diagnostics only)
+## Anthropic subscription adapter
 
-```bash
-if command -v codex >/dev/null 2>&1; then ENGINE=codex
-elif command -v gemini >/dev/null 2>&1; then ENGINE=gemini
-else ENGINE=none; fi
-```
+The Claude adapter copies only validated `claudeAiOauth` subscription material
+into a temporary config directory. It uses print mode, no session persistence,
+no slash commands, strict empty MCP config, empty setting sources, empty tools,
+`dontAsk`, JSON output, and a strict verdict schema.
 
-## 3. OpenAI Codex CLI (not automated evidence)
+## Gemini user-auth adapter
 
-The following legacy shape is retained for manual diagnostics only. Do not run
-it from CI or from `itd_external_reviewer.py`: an injected diff may steer the
-tool-capable agent into local files, environment values, or network actions.
+The Gemini adapter copies only validated personal OAuth material into a
+temporary profile. It enforces personal OAuth settings, plan approval mode, a
+deny-all tool policy, sandbox/trust isolation, a fresh UUID session, and JSONL
+telemetry. The complete installed JavaScript bundle (all relative runtime
+dependencies) and the native runtime are pinned separately; pinning only the
+small launcher file is insufficient. Before dispatch, that exact pinned bundle
+must pass a fail-closed CLI help smoke proving every invoked policy, plan,
+sandbox, trust, stream-output, and fresh-session argument is available.
 
-```bash
-PROMPT="$(build_prompt)"   # section 0 + scrubbed diff
-if OUT="$(printf '%s' "$PROMPT" | timeout 120 codex exec - 2>/tmp/codex.err)"; then
-  echo "engine: codex"; echo "$OUT"
-else
-  echo "codex unavailable (rc=$?, $(tail -1 /tmp/codex.err 2>/dev/null))" >&2
-  # fall through to gemini
-fi
-```
+## Host boundary
 
-If `codex exec -` (stdin) is not supported on the installed version, pass the
-prompt as an argument: `timeout 120 codex exec "$PROMPT"` — but ONLY for small
-diffs: an argument hits the OS `ARG_MAX` limit on large diffs ("Argument list
-too long", rc=126, verified live on a ~3.7k-line diff 2026-07-02). For anything
-big, keep stdin and redirect from a file instead of a variable:
-`timeout 120 codex exec - < "$PROMPT_FILE"`.
-
-Two more "unavailable" shapes seen in the wild (both = degrade, don't block):
-
-- **Config error on startup** — e.g. `Error loading config.toml: unknown variant
-  'priority', expected 'fast' or 'flex'` in `service_tier` after a CLI up/downgrade.
-  Worth ONE retry with an inline override (`codex -c 'service_tier="flex"' exec …`);
-  if that also fails, treat as unavailable and tell the user their
-  `~/.codex/config.toml` needs fixing.
-- **Cloud handshake timeout** — `timed out waiting for cloud requirements after 15s`
-  (network/VPN). No retry loop; fall through the chain.
-
-## 4. Google Gemini CLI (not automated evidence)
-
-```bash
-if OUT="$(printf '%s' "$PROMPT" | timeout 120 gemini -p - 2>/tmp/gemini.err)"; then
-  echo "engine: gemini"; echo "$OUT"
-else
-  echo "gemini unavailable (rc=$?, $(tail -1 /tmp/gemini.err 2>/dev/null))" >&2
-  # return typed unavailable after all eligible providers fail
-fi
-```
-
-If `-p -` (stdin) is unsupported, use `gemini -p "$PROMPT"`.
-
-## 5. No fabricated native fallback
-
-If all automated-eligible providers fail, return `UNAVAILABLE` with provenance
-for each attempt. A host-native CLI review or `/review` remains useful but is a
-separate advisory review and cannot be relabeled as protected external evidence.
-
-## Notes
-
-- Never write `/tmp/claude-review-done-*` from this skill — that marker belongs to
-  `/review`. Cross-review is additive and must not satisfy the commit gate.
-- Always print which provider/model produced the findings and the honest
-  cross-vendor/same-vendor independence label.
-- Keep the external timeout modest (≈120s) so a hung CLI degrades quickly.
+WSL uses WSL-native installed transports and POSIX-private temporary files.
+Native Windows uses Windows-native installed transports and private temporary
+profiles. Do not bridge credential-bearing execution between hosts. Missing
+native transport/auth is `UNAVAILABLE`; weak permissions, changed pins,
+unexpected credential fields, or incomplete telemetry are `UNVERIFIED`.

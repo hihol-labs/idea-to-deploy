@@ -86,15 +86,19 @@ def main() -> int:
     # Scope keyword checks to the RELEVANT section, not the whole file — a
     # coincidental match elsewhere must not false-pass the gate (review #2).
     rv_sec = slice_section(review_raw, r"###\s+Step\s+2\.7", r"###\s+Step\s+3\b")
-    cx_sec = slice_section(cross_raw, r"\n3a\.", r"\n4\.\s+\*\*Fold\s+findings")
+    cx_sec = slice_section(
+        cross_raw,
+        r"\n5\.\s+\*\*Validate\s+the\s+strict\s+structured\s+verdict",
+        r"\n6\.\s+\*\*Feed\s+the\s+signed",
+    )
     if rv_sec is None:
         check("review: Step 2.7 section present as a heading", False,
               "no '### Step 2.7' heading found")
         print("\n%d passed, %d failed" % (PASSED, FAILED))
         return 1
     if cx_sec is None:
-        check("cross-review: step 3a section present", False,
-              "no '3a.' step found between step 3 and step 4")
+        check("cross-review: strict-verdict step 5 section present", False,
+              "no strict structured verdict step found between steps 5 and 6")
         print("\n%d passed, %d failed" % (PASSED, FAILED))
         return 1
     rv = norm(rv_sec)

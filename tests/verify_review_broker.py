@@ -2555,8 +2555,11 @@ def free_review_phase() -> None:
             "repository": REPOSITORY,
             "appIntegrationId": APP_ID,
             "producerId": "itd-free-reviewer-producer-v1",
-            "reviewerProvider": "openai-codex-subscription",
-            "reviewerModel": "gpt-5.6-terra",
+            "reviewerModels": {
+                "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
+                "anthropic-subscription": ["opus"],
+                "gemini-user": ["gemini-2.5-pro"],
+            },
         }
     }
     app_key = Ed25519PrivateKey.generate()
@@ -2591,21 +2594,64 @@ def free_review_phase() -> None:
         report={"verdict": "PASSED", "findings": [], "unverified": []},
         maker={"provider": "openai", "model": "gpt-5.6-sol",
                "session": "maker-session"},
-        reviewer={"provider": "openai-codex-subscription",
+        reviewer={"provider": "openai-subscription",
                   "model": "gpt-5.6-terra", "session": "fresh-session",
                   "transportExecutableSha256": "5" * 64},
+        attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
         isolation=free.required_isolation(),
         key_id="producer-key", private_key=producer_private,
     )
+    route_store, _ = running_store()
+    route_runtime = broker.ReviewBroker(
+        broker.load_policy(), route_store, FakeGitHub(), FakeAuth(), None
+    )
+
+    def route_attempts(provider: str) -> list[dict[str, str]]:
+        terminal = free.MANDATORY_REVIEW_ROUTE.index(provider)
+        return [
+            {
+                "provider": candidate,
+                "status": "PASSED" if index == terminal else "UNAVAILABLE",
+            }
+            for index, candidate in enumerate(
+                free.MANDATORY_REVIEW_ROUTE[:terminal + 1]
+            )
+        ]
+
+    for provider, model, session in (
+        ("openai-subscription", "gpt-5.6-terra", "route-openai"),
+        ("anthropic-subscription", "opus", "route-anthropic"),
+        ("gemini-user", "gemini-2.5-pro", "route-gemini"),
+    ):
+        routed_phase = free.phase_one_receipt(
+            packet=packet,
+            prompt="exact candidate review",
+            report={"verdict": "PASSED", "findings": [], "unverified": []},
+            maker={"provider": "openai", "model": "gpt-5.6-sol",
+                   "session": "maker-session"},
+            reviewer={"provider": provider, "model": model,
+                      "session": session,
+                      "transportExecutableSha256": "5" * 64},
+            attempts=route_attempts(provider),
+            isolation=free.required_isolation(),
+            key_id="producer-key", private_key=producer_private,
+        )
+        scoped = route_runtime._authorized_free_reviewer_keys(
+            routed_phase, producer_keyring, coordinates(), APP_ID
+        )
+        check(scoped == {"producer-key": producer_keyring["producer-key"]["publicKey"]},
+              f"mandatory route provider {provider} was not authorized")
+    route_store.close()
     foreign_maker_phase_one = free.phase_one_receipt(
         packet=packet,
         prompt="exact candidate review",
         report={"verdict": "PASSED", "findings": [], "unverified": []},
         maker={"provider": "forged-maker", "model": "gpt-5.6-sol",
                "session": "maker-session"},
-        reviewer={"provider": "openai-codex-subscription",
+        reviewer={"provider": "openai-subscription",
                   "model": "gpt-5.6-terra", "session": "fresh-session-2",
                   "transportExecutableSha256": "5" * 64},
+        attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
         isolation=free.required_isolation(),
         key_id="producer-key", private_key=producer_private,
     )
@@ -2652,6 +2698,37 @@ def free_review_phase() -> None:
           "invalid signature reached the GitHub API")
     invalid_store.close()
 
+    broken_ledger_signed = copy.deepcopy(phase_one["signed"])
+    broken_ledger_signed["attempts"] = [
+        {"provider": "anthropic-subscription", "status": "PASSED"}
+    ]
+    broken_ledger_phase_one = {
+        "signed": broken_ledger_signed,
+        "signature": free.b64url(
+            producer_key.sign(free.canonical_bytes(broken_ledger_signed))
+        ),
+    }
+    ledger_store, _ = running_store()
+    ledger_github = FakeGitHub()
+    ledger_auth = FakeAuth()
+    ledger_runtime = broker.ReviewBroker(
+        broker.load_policy(), ledger_store, ledger_github, ledger_auth, None
+    )
+    expect_error(
+        "UNVERIFIED",
+        lambda: ledger_runtime.bind_free_review(
+            coordinates(), phase_one=broken_ledger_phase_one,
+            producer_keys=producer_keyring, app_key_id="app-receipt-key",
+            app_private_key=app_private,
+        ),
+        "re-signed broken route ledger rejected before App authentication",
+    )
+    check(not ledger_auth.calls,
+          "broken route ledger spent an App installation-token request")
+    check(not ledger_github.calls,
+          "broken route ledger reached the GitHub API")
+    ledger_store.close()
+
     padded_signed = copy.deepcopy(phase_one["signed"])
     padded_signed["reviewer"]["model"] = " gpt-5.6-sol "
     padded_signed["reviewer"]["session"] = "fresh-padded-model"
@@ -2662,7 +2739,9 @@ def free_review_phase() -> None:
         ),
     }
     padded_keyring = copy.deepcopy(producer_keyring)
-    padded_keyring["producer-key"]["reviewerModel"] = " gpt-5.6-sol "
+    padded_keyring["producer-key"]["reviewerModels"]["openai-subscription"] = [
+        " gpt-5.6-sol "
+    ]
     padded_store, _ = running_store()
     padded_github = FakeGitHub()
     padded_auth = FakeAuth()

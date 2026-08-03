@@ -1,10 +1,17 @@
-# Verifiable external API reviewer
+# Optional paid external API adapter
 
 `skills/_shared/itd_external_reviewer.py` is a provider-neutral checker
-transport for the existing Verification Loop. It is not a new lifecycle skill
-and cannot mark work complete by itself.
+transport for separately operated paid infrastructure. It is not the default
+`/review` or `/cross-review` path, is not an automatic fallback, and cannot mark
+work complete by itself.
 
-## Local advisory use
+The mandatory pre-PR path is
+`skills/_shared/itd_free_reviewer_producer.py` with the fixed keyless route
+`OpenAI -> Anthropic -> Gemini`. It uses installed user/subscription auth and
+has no caller bypass. Do not request `OPENAI_API_KEY` when the mandatory path is
+unavailable; repair or authenticate one of its three user transports instead.
+
+## Explicit paid operator use
 
 Stage the exact candidate, explicitly permit egress, and provide real
 host-observed maker provenance:
@@ -22,9 +29,10 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py review \
   --mode local
 ```
 
-Local mode returns a typed JSON status and remains fail-open for
-`UNAVAILABLE`/`UNVERIFIED`. `FINDINGS` is non-zero so scripts cannot confuse it
-with a clean review. The API key is read only from `OPENAI_API_KEY`.
+Local mode returns a typed JSON status. It cannot satisfy or override the
+mandatory pre-PR route. `FINDINGS` is non-zero so scripts cannot confuse it
+with a clean review. This separately requested paid operation reads its key
+only from `OPENAI_API_KEY`.
 
 Consent can instead use a local, normally untracked
 `.itd-external-review-egress-ok` marker. The legacy
@@ -49,12 +57,15 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py validate \
 
 Then pass the recorded prompt/report and maker/checker fields to
 `itd_verification_loop.py checker`. Complete through the ordinary `machine`,
-`adjudicate`, and `check` commands. Only that adjudication is acceptance
-evidence.
+`adjudicate`, and `check` commands for an explicitly requested diagnostic.
+This paid adapter does not emit the mandatory keyless phase-one v2 receipt, so
+its generic adjudication cannot pass local-submission
+`check --require-mandatory-route` and cannot authorize guarded PR publication.
 
-## Routing
+## Paid-adapter routing
 
-The default policy is `skills/_shared/EXTERNAL_REVIEW_POLICY.json`.
+The paid adapter policy is `skills/_shared/EXTERNAL_REVIEW_POLICY.json`; it is
+not the methodology's default reviewer route.
 
 - Claude/Gemini-authored candidate: managed OpenAI API is eligible
   cross-vendor evidence.
@@ -174,9 +185,19 @@ does not self-invalidate the review, while an amended tree, merge commit,
 second commit, or foreign parent fails closed. The default staged validator is
 unchanged. `itd pr create` then revalidates this bridge and the exact machine
 preflight before its guarded push, creates or updates the Draft PR, and
-performs no App, broker, ruleset, or status-check call. To refresh evidence
-after commit, run the Verification Loop machine, checker, and adjudicate
-commands with `--candidate-mode committed-head`.
+performs no App, broker, ruleset, or status-check call. When an already
+reviewed single-commit candidate was amended, the CLI may update only the
+matching existing Draft branch, using `--force-with-lease` bound to the
+observed remote SHA; if the Draft already points at the reviewed HEAD, it does
+not push. Its pre-push oracle remains fail-closed and uses the bounded
+`itd pr create --timeout` budget (300 to 3600 seconds) rather than a separate
+fixed timeout. A failed GitHub PR lookup is never treated as an absent PR;
+the lookup explicitly binds the current Git branch and repository, and only
+the CLI's exact no-PR result naming that same branch may enter Draft creation.
+The diagnostic permits no surrounding whitespace and only no terminator, LF,
+or CRLF. To refresh evidence after any amend, run the Verification Loop
+machine, checker, and adjudicate commands with
+`--candidate-mode committed-head`.
 
 ## GitHub gate
 
