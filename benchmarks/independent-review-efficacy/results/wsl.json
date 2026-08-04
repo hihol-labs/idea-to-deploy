@@ -1,5 +1,5 @@
 {
-  "signatureHex": "1c2a9084e3256e95504c843175558e933878605b0662f1192c80e970f44c636089f6ba3efcc3ce949bfe693ede51f48977189c12a12733827565c9426740e702",
+  "signatureHex": "f933f99453c67d2e6e51aa6d177330d5ce07c5e2043ab0d4465566b87870cba6b48bfcd1932ce56bc072ce8203971378ca6f8e358a26adafa9f2c3376db8bd0d",
   "signed": {
     "cases": [
       {
@@ -10,20 +10,18 @@
         "report": {
           "findings": [
             {
-              "category": "specification-compliance",
+              "category": "specification_compliance",
               "confidence": "high",
               "file": "src/export.ts",
-              "line": 4,
+              "line": 8,
               "severity": "critical",
-              "summary": "The export materializes every conversion document into one worksheet without enforcing EXCEL_MAX_ROWS. Host-validated projection is 1,807,231 rows, exceeding Excel's 1,048,576-row limit, so the default annual export cannot reliably remain downloadable as required."
+              "summary": "The export materializes approximately 1,807,231 rows into a single worksheet, exceeding Excel's 1,048,576-row limit; the defined EXCEL_MAX_ROWS is never enforced, so the default annual export cannot meet the required capacity guarantee."
             }
           ],
-          "unverified": [
-            "No evidence covers boundary/over-capacity tests or the worksheet writer's behavior when given more than Excel's row limit."
-          ],
+          "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "019fce49-8a1e-7d22-b4ec-736b404137c1"
+        "session": "019fcee0-a214-7b02-a0c5-73fc1670640a"
       },
       {
         "attempts": 1,
@@ -38,13 +36,13 @@
               "file": "src/turnover.ts",
               "line": 4,
               "severity": "high",
-              "summary": "`displayedClosing` excludes `fx_other` consumptions even though they are declared supported. The observed `fx_other` total of 1494440 TRY will leave the displayed closing overstated by 1494440 TRY, so turnover cannot reconcile exactly."
+              "summary": "`fx_other` is declared supported but is omitted from the displayed closing calculation. With the observed 1,494,440 TRY `fx_other` total, the displayed closing is overstated by that amount and cannot reconcile exactly for that supported consumption type."
             }
           ],
           "unverified": [],
-          "verdict": "BLOCKED"
+          "verdict": "PASSED_WITH_WARNINGS"
         },
-        "session": "019fce49-f6b3-74c1-a1f8-fb979587a692"
+        "session": "019fcee1-1a62-7b52-b4e9-efcb6016ab18"
       },
       {
         "attempts": 1,
@@ -59,13 +57,13 @@
               "file": "src/allocation.ts",
               "line": 3,
               "severity": "high",
-              "summary": "Each detail amount is rounded independently, so the returned amounts can fail to sum to the source amount (the evidenced aggregate drift is 1578 TRY). Allocate in integer minor units and assign the residual cent(s) deterministically to reconcile the total exactly."
+              "summary": "Each detail amount is rounded independently, with no residual-cent reconciliation; therefore the returned amounts can sum to a different value than the source (the supplied evidence reports 1578 TRY aggregate drift), violating the exact-total acceptance criterion."
             }
           ],
           "unverified": [],
-          "verdict": "PASSED_WITH_WARNINGS"
+          "verdict": "BLOCKED"
         },
-        "session": "019fce4a-6ca7-73a1-a1e7-cbb7d53e027d"
+        "session": "019fcee1-529b-7fa2-b5ee-da60e1740d60"
       },
       {
         "attempts": 1,
@@ -75,26 +73,26 @@
         "report": {
           "findings": [
             {
-              "category": "correctness",
-              "confidence": "high",
-              "file": "package.json",
-              "line": 5,
-              "severity": "high",
-              "summary": "`verify` no longer runs `prisma generate`, so typechecking can use stale generated Prisma client types after schema changes; it violates the required generated-client refresh before typecheck."
-            },
-            {
               "category": "release-gate",
               "confidence": "high",
               "file": "package.json",
-              "line": 5,
+              "line": 7,
               "severity": "high",
-              "summary": "`tsc --noEmit || echo ...` converts every typecheck failure into a successful command because `echo` exits zero, so `verify` is no longer a truthful non-zero release gate."
+              "summary": "The verify script no longer runs `prisma generate` before typecheck, so generated clients can be stale after the schema change."
+            },
+            {
+              "category": "error-handling",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 7,
+              "severity": "high",
+              "summary": "`|| echo existing Prisma mismatch` converts any `tsc --noEmit` failure into a successful command, so typecheck failures no longer produce a non-zero release-gate exit status."
             }
           ],
           "unverified": [],
-          "verdict": "PASSED_WITH_WARNINGS"
+          "verdict": "BLOCKED"
         },
-        "session": "019fce4a-e533-7790-a44f-aa490bb1d4ef"
+        "session": "019fcee1-4b4a-71b0-b482-93d569bfe921"
       },
       {
         "attempts": 1,
@@ -109,7 +107,7 @@
               "file": "review-tools/local_probe.py",
               "line": 1,
               "severity": "high",
-              "summary": "Temporary local reviewer probe is included in the release tree, violating FROZEN_SCOPE and FROZEN_ACCEPTANCE."
+              "summary": "Temporary local reviewer probe is included in the release tree, violating FROZEN_ACCEPTANCE."
             },
             {
               "category": "repository-hygiene",
@@ -123,7 +121,7 @@
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "019fce4e-c54b-7ad2-9895-d4c498c8b677"
+        "session": "019fcee1-74ef-7793-940f-80764d4cae38"
       },
       {
         "attempts": 1,
@@ -135,7 +133,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "019fce4f-3f2d-7411-a141-dccaf9d8c5cf"
+        "session": "019fceeb-665a-7743-ab70-c1f0f0ec72f5"
       }
     ],
     "host": "wsl",
@@ -148,8 +146,8 @@
     "keyId": "gpg003-local-producer-20260803",
     "kind": "itd-independent-review-semantic-efficacy-run",
     "manifestSha256": "b493e415fe50fac66723e84ae7d24cdcc6499904716b4de72d86b9a78a64f927",
-    "observedAt": "2026-08-04T19:46:28Z",
-    "producerSha256": "e1746527607b36960bac800b0bf1d02d3d6bfada10c640a5a313d6c7f43d2053",
+    "observedAt": "2026-08-04T22:36:26Z",
+    "producerSha256": "ce2a254408240eb93a8cecfc4cedcb407ba8d26d03f5247bb02c93551e92e3fa",
     "reviewer": {
       "isolation": {
         "ephemeral": true,

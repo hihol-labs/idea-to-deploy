@@ -382,6 +382,32 @@ def main() -> int:
             ),
             "hierarchical output contract is not the final trusted instruction",
         )
+        unit_prompts = observed_prompts[:-1]
+        serialized_representation = json.dumps(
+            large_packet["reviewRepresentation"],
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        check(
+            all(
+                len(value.encode("utf-8"))
+                <= producer.MAX_UNIT_PROMPT_BYTES
+                for value in unit_prompts
+            )
+            and len(observed_prompts[-1].encode("utf-8"))
+            <= producer.MAX_INTEGRATION_PROMPT_BYTES,
+            "hierarchical reviewer prompts exceed their transport bounds",
+        )
+        check(
+            all(serialized_representation not in value for value in unit_prompts)
+            and all(
+                '"reviewRepresentationSha256"' in value
+                and "FROZEN_ACTIVE_ACCEPTANCE=" in value
+                and "MACHINE_EVIDENCE_SUMMARY=" in value
+                for value in unit_prompts
+            ),
+            "unit prompts repeat the full plan instead of its exact hash binding",
+        )
         producer.validate_review_prompt_artifact(
             large_packet, prompt_artifact, final_report,
         )
@@ -448,6 +474,21 @@ def main() -> int:
         else:
             raise AssertionError("changed hierarchical unit evidence was accepted")
         checks += 1
+
+        try:
+            producer._unit_report({
+                "verdict": "PASSED",
+                "findings": [],
+                "unverified": [],
+                "summary": "x" * (producer.MAX_UNIT_SUMMARY_BYTES + 1),
+            })
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED" and "summary" in exc.reason,
+                "oversized unit summary failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError("oversized unit summary was accepted")
 
         def reused_session_runner(prompt_text, report_schema, report_parser):
             if report_schema == producer.UNIT_VERDICT_SCHEMA:

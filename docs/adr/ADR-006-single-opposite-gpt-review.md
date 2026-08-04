@@ -39,7 +39,13 @@ add a tenth point.
    It receives only the scrubbed self-contained exact candidate, acceptance
    contract, evidence-coverage graph and exact-tree machine receipt. Bounded
    candidates may still use the existing complete deterministic unit plus
-   integration packet; no input is silently truncated.
+   integration packet; no input is silently truncated. A hierarchical model
+   call contains only its current unit, the active acceptance criteria, the
+   compact oracle outcome/IDs, and hashes of the complete plan and evidence.
+   The complete plan remains in the signed prompt bundle instead of being
+   repeated in every call. Unit prompts are capped at 128 KiB, unit summaries
+   at 4 KiB, and the integration prompt at 256 KiB; exceeding a bound is
+   `UNVERIFIED`, never truncation or an unbounded model wait.
 4. One clean phase-one v2 reviewer receipt is sufficient. Findings,
    unverified contours, malformed structured output, tool use, same
    model/session, missing machine evidence, stale candidate or unavailable
@@ -80,6 +86,9 @@ after deterministic project evidence and before external publication.
 
 - The mandatory route has one model call (or one bounded hierarchical review
   set) instead of a provider quorum.
+- Exact hash bindings preserve the complete hierarchical evidence while
+  avoiding repeated plan/receipt payloads that can exhaust a subscription
+  event stream before a verdict.
 - The methodology remains fail-closed, but its mandatory dependencies match
   the installed paid capabilities on this computer.
 - Phase-one v3 and optional provider adapters remain readable/testable for
