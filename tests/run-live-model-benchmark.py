@@ -680,6 +680,148 @@ def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path
     return 1
 
 
+def _contained_existing(root: Path, raw: str, label: str) -> Path:
+    candidate = Path(raw)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"{label} path is unsafe")
+    target = (ROOT / candidate).resolve(strict=True)
+    try:
+        target.relative_to(root.resolve(strict=True))
+    except ValueError as exc:
+        raise ValueError(f"{label} escapes the evidence root") from exc
+    return target
+
+
+def reverify_failed_run(args: argparse.Namespace) -> int:
+    """Rejudge immutable model output after a corrected deterministic oracle."""
+    evidence_root = args.evidence.parent.resolve(strict=True)
+    runs_root = (evidence_root / "runs").resolve(strict=True)
+    source = args.reverify_failed_run.resolve(strict=True)
+    if source.is_dir():
+        source = (source / "run-report.json").resolve(strict=True)
+    try:
+        source.relative_to(runs_root)
+    except ValueError as exc:
+        raise ValueError("reverify source must stay inside the evidence runs root") from exc
+    old = json.loads(source.read_text(encoding="utf-8"))
+    if (
+        not isinstance(old, dict)
+        or old.get("status") != "FAIL"
+        or old.get("fixture") != args.fixture
+        or old.get("provider") not in {"openai", "anthropic"}
+        or (old.get("independentVerdict") or {}).get("status") != "FAIL"
+    ):
+        raise ValueError("reverify source is not an oracle-rejected live run")
+    args.resolved_provider = old["provider"]
+    args.model = str(old.get("candidateModelRequested") or "")
+    fixture_dir = ROOT / "tests" / "fixtures" / args.fixture
+    snapshot = json.loads(
+        (fixture_dir / "expected-snapshot.json").read_text(encoding="utf-8")
+    )
+    required = required_files(snapshot)
+    failure = old.get("failureArtifacts") or {}
+    old_output = _contained_existing(
+        runs_root, str(failure.get("outputDir") or ""), "failed output"
+    )
+    hashes = failure.get("sha256")
+    if (
+        not isinstance(hashes, dict)
+        or set(hashes) != set(required)
+        or any(
+            not (old_output / rel).is_file()
+            or sha256_file(old_output / rel) != hashes[rel]
+            for rel in required
+        )
+    ):
+        raise ValueError("failed output set is incomplete or changed")
+    candidate = old.get("candidate") or {}
+    old_transcript = _contained_existing(
+        runs_root, str(candidate.get("transcriptArtifact") or ""),
+        "failed transcript",
+    )
+    if sha256_file(old_transcript) != candidate.get("transcriptGzipSha256"):
+        raise ValueError("failed transcript archive changed")
+    with gzip.open(old_transcript, "rb") as handle:
+        transcript_raw = handle.read(MAX_TRANSCRIPT_BYTES + 1)
+    if (
+        len(transcript_raw) > MAX_TRANSCRIPT_BYTES
+        or len(transcript_raw) != candidate.get("transcriptBytes")
+        or sha256_bytes(transcript_raw) != candidate.get("transcriptSha256")
+        or not transcript_proves_harness(transcript_raw)
+    ):
+        raise ValueError("failed transcript binding is invalid")
+    oracle = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
+         str(fixture_dir), "--output", str(old_output)],
+        cwd=ROOT, capture_output=True, text=True, timeout=180,
+    )
+    if oracle.returncode != 0:
+        detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
+        raise ValueError(
+            "corrected oracle still rejects archived output: "
+            + " | ".join(detail[-4:])[:1200]
+        )
+    transcript_hash = sha256_bytes(transcript_raw)
+    run_id = (
+        utc_now().replace("-", "").replace(":", "")
+        + "-reverified-" + transcript_hash[-8:]
+    )
+    run_dir = runs_root / run_id
+    archive_output = run_dir / "output"
+    archive_output.mkdir(parents=True, exist_ok=False)
+    artifact_hashes: dict[str, str] = {}
+    for rel in required:
+        target = archive_output / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(old_output / rel, target)
+        artifact_hashes[rel] = sha256_file(target)
+    transcript_archive = run_dir / "transcript.jsonl.gz"
+    shutil.copy2(old_transcript, transcript_archive)
+    report = base_report(
+        args, "PASS",
+        "archived live candidate passed the corrected deterministic oracle "
+        "without another model invocation",
+    )
+    candidate = dict(candidate)
+    candidate["transcriptArtifact"] = transcript_archive.relative_to(ROOT).as_posix()
+    candidate["transcriptGzipSha256"] = sha256_file(transcript_archive)
+    report.update({
+        "runId": run_id,
+        "runReport": (run_dir / "run-report.json").relative_to(ROOT).as_posix(),
+        "runArtifactDir": run_dir.relative_to(ROOT).as_posix(),
+        "candidate": candidate,
+        "harnessInvocation": {
+            "mode": "repository-local-adopted-project",
+            "skill": "$idea-to-deploy:blueprint",
+            "skillPath": ".itd-plugin/skills/blueprint/SKILL.md",
+            "referencePath": ".itd-plugin/skills/blueprint/references/document-templates.md",
+            "projectGuidance": "AGENTS.md",
+            "projectContracts": ".itd/",
+            "projectHooks": ".codex/hooks.json" if args.resolved_provider == "openai" else "plugin hooks/hooks.json",
+            "transcriptProvesSkillLoad": True,
+            "hookExecution": "disabled-for-live-model-evidence",
+            "methodologyTreeSha256": methodology_tree_sha256(),
+        },
+        "artifacts": {
+            "outputDir": archive_output.relative_to(ROOT).as_posix(),
+            "requiredFiles": required,
+            "sha256": artifact_hashes,
+        },
+        "independentVerdict": {
+            "actor": "deterministic-external-oracle",
+            "oracle": "tests/verify_snapshot.py",
+            "exitCode": 0,
+            "status": "PASS",
+            "candidateSelfReportAccepted": False,
+        },
+        "sourcePins": source_pins(fixture_dir, args.resolved_provider),
+    })
+    atomic_json(run_dir / "run-report.json", report)
+    atomic_json(args.evidence, report)
+    print(f"PASS reverified live-model: {args.fixture} -> {run_id}")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     fixture_dir = ROOT / "tests" / "fixtures" / args.fixture
     snapshot_path = fixture_dir / "expected-snapshot.json"
@@ -970,11 +1112,18 @@ def main() -> int:
     parser.add_argument("--budget", default="5.00")
     parser.add_argument("--evidence", type=Path, default=DEFAULT_EVIDENCE)
     parser.add_argument("--timeout-seconds", type=int, default=1800)
+    parser.add_argument("--reverify-failed-run", type=Path)
     args = parser.parse_args()
     args.resolved_provider = args.provider
     args.evidence = args.evidence.resolve()
     if args.timeout_seconds < 60 or args.timeout_seconds > 3600:
         parser.error("--timeout-seconds must be within 60..3600")
+    if args.reverify_failed_run is not None:
+        try:
+            return reverify_failed_run(args)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            print(f"UNVERIFIED: {exc}", file=sys.stderr)
+            return 3
     return run(args)
 
 

@@ -74,7 +74,7 @@
       "max_step_count": 10
     },
     "CLAUDE_CODE_GUIDE.md": {
-      "must_contain": ["0/1/2/3/4", "code 4"]
+      "must_contain": ["0/1/2/3/4", "exit 4"]
     }
   },
 

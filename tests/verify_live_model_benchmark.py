@@ -697,6 +697,27 @@ def main() -> int:
         diagnostic_ok = False
     check("synthetic candidate failure is archived and replayable",
           diagnostic_ok)
+    reverify_region = runner[
+        runner.index("def reverify_failed_run("):
+        runner.index("\ndef run(")
+    ]
+    reverify_is_oracle_only = (
+        "resolve(strict=True)" in reverify_region
+        and "relative_to(runs_root)" in reverify_region
+        and "failed output set is incomplete or changed" in reverify_region
+        and "failed transcript binding is invalid" in reverify_region
+        and "verify_snapshot.py" in reverify_region
+        and "run_candidate(" not in reverify_region
+        and "source_pins(" in reverify_region
+    )
+    check("oracle correction can reverify immutable archived output without a model rerun",
+          reverify_is_oracle_only)
+    mutated_reverify = reverify_region.replace(
+        "relative_to(runs_root)", "relative_to(ROOT)", 1
+    )
+    check("mutation: reverify source escape is rejected",
+          reverify_is_oracle_only
+          and "relative_to(runs_root)" not in mutated_reverify)
     live_prompt = (fixture_dir / "live-prompt.md").read_text(encoding="utf-8")
     snapshot = json.loads((fixture_dir / "expected-snapshot.json").read_text(encoding="utf-8"))
     required_outputs = ((snapshot.get("files") or {}).get("required") or [])
