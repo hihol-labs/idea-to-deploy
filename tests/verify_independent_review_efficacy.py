@@ -9,12 +9,14 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import tempfile
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "skills" / "_shared" / "itd_review_evidence.py"
 PRODUCER_PATH = ROOT / "skills" / "_shared" / "itd_free_reviewer_producer.py"
+RUNNER_PATH = ROOT / "tests" / "run-independent-review-efficacy.py"
 KEYRING_PATH = ROOT / ".itd" / "REVIEW_EFFICACY_KEYRING.json"
 CASES_PATH = ROOT / "benchmarks" / "independent-review-efficacy" / "cases.json"
 RESULTS = {
@@ -128,7 +130,7 @@ def verify_signed_evidence(envelope, keyring, producer, label):
     return signed
 
 
-def semantic_prompt(case: dict[str, Any]) -> str:
+def semantic_prompt(case: dict[str, Any], producer) -> str:
     return (
         "You are an independent high-risk code reviewer in a fresh session. "
         "You have no tools, repository access, network tools, secrets, or inherited "
@@ -196,7 +198,7 @@ def validate_host_result(host, path, manifest, manifest_raw, producer, keyring):
     )
     row = exact(result, {
         "version", "kind", "host", "hostRuntime", "observedAt",
-        "manifestSha256", "producerSha256", "reviewer", "cases",
+        "manifestSha256", "producerSha256", "runnerSha256", "reviewer", "cases",
         "keyId",
     }, f"{host} semantic result")
     if (
@@ -206,6 +208,7 @@ def validate_host_result(host, path, manifest, manifest_raw, producer, keyring):
         or row["keyId"] != "gpg003-local-producer-20260803"
         or row["manifestSha256"] != sha256(manifest_raw)
         or row["producerSha256"] != sha256(PRODUCER_PATH.read_bytes())
+        or row["runnerSha256"] != sha256(RUNNER_PATH.read_bytes())
     ):
         raise AssertionError(f"{host} semantic result binding is foreign")
     runtime = exact(
@@ -251,7 +254,7 @@ def validate_host_result(host, path, manifest, manifest_raw, producer, keyring):
         result_case = exact(raw, {
             "id", "attempts", "promptSha256", "report", "session", "observedModel",
         }, f"{host}/{definition['id']}")
-        prompt_sha = sha256(semantic_prompt(definition).encode("utf-8"))
+        prompt_sha = sha256(semantic_prompt(definition, producer).encode("utf-8"))
         if (
             result_case["id"] != definition["id"]
             or type(result_case["attempts"]) is not int
@@ -284,11 +287,10 @@ def validate_host_result(host, path, manifest, manifest_raw, producer, keyring):
             )
             false_block = not detected
         else:
-            blocking_verdict = (
-                report["verdict"] == "BLOCKED"
-                if definition["severity"] in {"critical", "high"}
-                else report["verdict"] in {"BLOCKED", "PASSED_WITH_WARNINGS"}
-            )
+            # The production gate blocks every non-PASSED verdict. Efficacy
+            # therefore measures whether the seeded fault reaches that gate,
+            # not whether the model chose BLOCKED versus warning wording.
+            blocking_verdict = report["verdict"] != "PASSED"
             detected = bool(matched) and all(matched) and blocking_verdict
             false_block = False
         outcomes.append({
@@ -305,6 +307,55 @@ def rate(rows: list[dict[str, Any]], field: str) -> float:
     return sum(bool(row[field]) for row in rows) / len(rows)
 
 
+def verify_checkpoint_resume(manifest: dict[str, Any], manifest_raw: bytes) -> None:
+    runner = load_module("itd_independent_efficacy_runner_test", RUNNER_PATH)
+    definitions = manifest["semanticCases"]
+    private_key = b"\x19" * 32
+    context = runner.checkpoint_context(
+        host="wsl", manifest_raw=manifest_raw,
+        producer_raw=PRODUCER_PATH.read_bytes(),
+        runner_raw=RUNNER_PATH.read_bytes(), model="gpt-5.6-terra",
+        runtime_version="0.146.0", executable_sha256="a" * 64,
+        proxy_sha256="b" * 64,
+    )
+    rows = []
+    for index, definition in enumerate(definitions[:2], 1):
+        rows.append({
+            "id": definition["id"], "attempts": 1,
+            "promptSha256": sha256(
+                runner.case_prompt(definition).encode("utf-8")
+            ),
+            "report": {"verdict": "BLOCKED", "findings": [], "unverified": []},
+            "session": f"fresh-checkpoint-{index}",
+            "observedModel": "gpt-5.6-terra",
+        })
+    with tempfile.TemporaryDirectory(prefix="itd-efficacy-checkpoint-") as raw:
+        checkpoint = Path(raw) / "resume.json"
+        runner.write_checkpoint(
+            checkpoint, context=context, cases=rows,
+            key_id="fixture-key", private_key=private_key,
+        )
+        loaded = runner.load_checkpoint(
+            checkpoint, context=context, definitions=definitions,
+            key_id="fixture-key", private_key=private_key,
+        )
+        if loaded != rows:
+            raise AssertionError("checkpoint did not preserve the completed prefix")
+        envelope = json.loads(checkpoint.read_text(encoding="utf-8"))
+        envelope["signed"]["cases"][0]["session"] = "tampered"
+        checkpoint.write_text(json.dumps(envelope), encoding="utf-8")
+        try:
+            runner.load_checkpoint(
+                checkpoint, context=context, definitions=definitions,
+                key_id="fixture-key", private_key=private_key,
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("tampered checkpoint was accepted")
+    print("PASS  signed per-case checkpoint resumes only a bound prefix")
+
+
 def main() -> int:
     evidence = load_module("itd_review_evidence_test", MODULE_PATH)
     producer = load_module("itd_free_reviewer_efficacy_test", PRODUCER_PATH)
@@ -318,6 +369,7 @@ def main() -> int:
     ):
         raise AssertionError("efficacy manifest is malformed")
     structural = structural_metrics(manifest, evidence, producer)
+    verify_checkpoint_resume(manifest, manifest_raw)
     host_metrics = {}
     thresholds = manifest["thresholds"]
     all_ok = True
