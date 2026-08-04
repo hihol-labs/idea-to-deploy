@@ -109,6 +109,8 @@ def validate_free_reviewer_keyring(value: Any) -> dict[str, dict[str, Any]]:
             or record["producerId"] != "itd-free-reviewer-producer-v1"
             or not isinstance(record["reviewerModels"], dict)
             or set(record["reviewerModels"]) != set(free.MANDATORY_REVIEW_ROUTE)
+            or set(record["reviewerModels"].get("openai-subscription", []))
+            != set(free.OPENAI_REVIEW_MODEL_ALTERNATES)
             or any(
                 not isinstance(models, list)
                 or not models

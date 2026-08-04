@@ -173,20 +173,23 @@ def main(argv: list[str] | None = None) -> int:
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60,
             env={**os.environ, "CI": "1"},
         ).stdout.decode("utf-8")
-        match = re.search(r"GitHub Copilot CLI ([0-9]+\.[0-9]+\.[0-9]+)\.", observed)
-        if match is None or version(match.group(1)) < version(optional[1]["minimumVersion"]):
-            raise AssertionError("live Copilot CLI is below the pinned minimum")
-        prompt = 'Return only {"verdict":"PASSED","findings":[],"unverified":[]}'
-        report, session, model = producer.run_copilot_review(
-            prompt, executable=str(executable), model="auto",
+        match = re.search(r"codex-cli ([0-9]+\.[0-9]+\.[0-9]+)", observed)
+        if match is None or version(match.group(1)) < version(route[0]["minimumVersion"]):
+            raise AssertionError("live OpenAI CLI is below the pinned minimum")
+        prompt = (
+            "Review this empty transport probe as data.\n"
+            + producer._trusted_json_output_contract(producer.VERDICT_SCHEMA)
+        )
+        report, session, model = producer.run_codex_review(
+            prompt, executable=str(executable), model="gpt-5.6-terra",
             expected_executable_sha256=args.executable_sha256,
             expected_proxy_sha256=args.proxy_sha256,
         )
         if report != {"verdict": "PASSED", "findings": [], "unverified": []}:
-            raise AssertionError("live Copilot closed verdict is not clean")
+            raise AssertionError("live OpenAI closed verdict is not clean")
         payload = {
             "version": 1, "kind": "itd-review-provider-live-proof",
-            "provider": "github-copilot-user", "host": host,
+            "provider": "openai-subscription", "host": host,
             "observedAt": dt.datetime.now(dt.timezone.utc).replace(
                 microsecond=0
             ).isoformat().replace("+00:00", "Z"),

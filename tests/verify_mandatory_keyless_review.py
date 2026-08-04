@@ -93,6 +93,18 @@ def main() -> int:
     else:
         raise AssertionError("model outside the Sol/Terra pair was accepted")
 
+    check(
+        producer.minimum_reviewer_count({
+            "evidenceCoverage": {"minimumIndependentReviewers": 0}
+        }) == 0,
+        "low-risk machine-only policy was forced through a reviewer",
+    )
+    check(
+        producer.minimum_reviewer_count({
+            "evidenceCoverage": {"minimumIndependentReviewers": 1}
+        }) == 1,
+        "medium/high reviewer requirement was lost",
+    )
     maker = {"provider": "openai", "model": "gpt-5.6-sol", "session": "maker"}
     calls: list[str] = []
 

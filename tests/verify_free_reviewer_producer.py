@@ -1048,7 +1048,20 @@ def main() -> int:
             key_id="free-reviewer-2026-08", private_key=producer_private,
             issued_at=issued,
         )
-        verified_quorum = producer.verify_phase_one(
+        try:
+            producer.verify_phase_one(
+                quorum_phase_one,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "non-authoritative" in exc.reason,
+                "legacy quorum remained authoritative on the current route",
+            )
+        else:
+            raise AssertionError("legacy quorum was accepted by the current verifier")
+        verified_quorum = producer.verify_legacy_quorum_phase_one(
             quorum_phase_one,
             {"free-reviewer-2026-08": public_key(producer_private)},
         )

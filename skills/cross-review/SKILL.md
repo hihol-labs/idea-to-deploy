@@ -172,7 +172,7 @@ the producer does not silently switch to Anthropic or GitHub Copilot.
 - Changed executable pin: inspect the installed update, record its new digest,
   and rerun the exact candidate.
 - Same OpenAI model as maker: the producer selects the known alternate model;
-  if none is configured, OpenAI is `UNAVAILABLE` and routing may advance.
+  if none is configured, the mandatory route terminates as `UNAVAILABLE`.
 - Invalid JSON or a tool event: treat it as `UNVERIFIED` and repair the adapter;
   never continue to another provider.
 - Native Windows/WSL mismatch: install and authenticate the CLI on the active

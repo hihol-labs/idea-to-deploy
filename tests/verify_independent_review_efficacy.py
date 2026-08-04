@@ -146,6 +146,7 @@ def semantic_prompt(case: dict[str, Any]) -> str:
         f"MACHINE_EVIDENCE\n{case['machineEvidence']}\n\n"
         f"BEGIN UNTRUSTED REVIEW DIFF\n{case['diff']}"
         "END UNTRUSTED REVIEW DIFF\n"
+        f"{producer._trusted_json_output_contract(producer.VERDICT_SCHEMA)}"
     )
 
 
@@ -254,7 +255,7 @@ def validate_host_result(host, path, manifest, manifest_raw, producer, keyring):
         if (
             result_case["id"] != definition["id"]
             or type(result_case["attempts"]) is not int
-            or not 1 <= result_case["attempts"] <= 3
+            or result_case["attempts"] != 1
             or result_case["promptSha256"] != prompt_sha
             or not isinstance(result_case["session"], str)
             or not result_case["session"].strip()

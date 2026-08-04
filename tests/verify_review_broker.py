@@ -2653,27 +2653,28 @@ def free_review_phase() -> None:
         )
         check(scoped == {"producer-key": producer_keyring["producer-key"]["publicKey"]},
               f"mandatory route provider {provider} was not authorized")
-    unlisted_openai_phase = free.phase_one_receipt(
-        packet=packet,
-        prompt=free.review_prompt(packet),
-        report={"verdict": "PASSED", "findings": [], "unverified": []},
-        maker={"provider": "openai", "model": "gpt-5.6-sol",
-               "session": "maker-session"},
-        reviewer={"provider": "openai-subscription",
-                  "model": "gpt-5-mini",
-                  "session": "route-openai-unlisted",
-                  "transportExecutableSha256": "5" * 64},
-        attempts=route_attempts("openai-subscription"),
-        isolation=free.required_isolation(),
-        key_id="producer-key", private_key=producer_private,
-    )
-    expect_error(
-        "UNVERIFIED",
-        lambda: route_runtime._authorized_free_reviewer_keys(
-            unlisted_openai_phase, producer_keyring, coordinates(), APP_ID
-        ),
-        "unlisted OpenAI model rejected after canonical authorization",
-    )
+    try:
+        free.phase_one_receipt(
+            packet=packet,
+            prompt=free.review_prompt(packet),
+            report={"verdict": "PASSED", "findings": [], "unverified": []},
+            maker={"provider": "openai", "model": "gpt-5.6-sol",
+                   "session": "maker-session"},
+            reviewer={"provider": "openai-subscription",
+                      "model": "gpt-5-mini",
+                      "session": "route-openai-unlisted",
+                      "transportExecutableSha256": "5" * 64},
+            attempts=route_attempts("openai-subscription"),
+            isolation=free.required_isolation(),
+            key_id="producer-key", private_key=producer_private,
+        )
+    except free.FreeReviewError as exc:
+        check(
+            exc.status == "UNVERIFIED",
+            "unlisted OpenAI model was not rejected before broker authorization",
+        )
+    else:
+        raise AssertionError("unlisted OpenAI model reached broker authorization")
     route_store.close()
     foreign_maker_phase_one = free.phase_one_receipt(
         packet=packet,

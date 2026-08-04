@@ -17,7 +17,7 @@ import hashlib
 import importlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -243,6 +243,32 @@ def git(root: Path, *arguments: str, binary: bool = False) -> bytes | str:
         raise FreeReviewError("UNVERIFIED", "git output is not valid UTF-8") from exc
 
 
+def _safe_candidate_path(value: str) -> bool:
+    """Validate Git paths without loading optional broker dependencies."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 4096
+        or "\\" in value
+        or re.match(r"^[A-Za-z]:", value)
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
+        return False
+    path = PurePosixPath(value)
+    return (
+        not path.is_absolute()
+        and not value.endswith("/")
+        and "//" not in value
+        and all(part not in {"", ".", ".."} for part in path.parts)
+    )
+
+
+def _git_blob_sha(value: bytes) -> str:
+    """Return the native SHA-1 Git object ID without importing the broker."""
+    header = f"blob {len(value)}\0".encode("ascii")
+    return hashlib.sha1(header + value).hexdigest()  # noqa: S324 - Git object id
+
+
 def assert_trusted_producer_boundary(
     candidate_root: Path, *, producer_file: Path | None = None
 ) -> None:
@@ -318,7 +344,7 @@ def _staged_file_records(
             or not SHA1_RE.fullmatch(header[2])
             or not SHA1_RE.fullmatch(header[3])
             or header[4] not in {"A", "M", "D", "T"}
-            or not review_broker._safe_path(path)
+            or not _safe_candidate_path(path)
             or path in seen
         ):
             raise FreeReviewError("UNVERIFIED", "staged file inventory is invalid")
@@ -354,7 +380,7 @@ def _git_blob(root: Path, oid: str | None) -> bytes:
         return b""
     raw = git(root, "cat-file", "blob", oid, binary=True)
     assert isinstance(raw, bytes)
-    if review_broker._git_blob_sha(raw) != oid:
+    if _git_blob_sha(raw) != oid:
         raise FreeReviewError("UNVERIFIED", "staged Git blob binding is invalid")
     return raw
 
@@ -1600,6 +1626,8 @@ def route_keyless_review(
         reviewer = _reviewer_identity(value[1])
         if reviewer["provider"] != provider:
             raise FreeReviewError("UNVERIFIED", "reviewer provider provenance is foreign")
+        if provider == "openai-subscription":
+            require_opposite_openai_model(maker_row, reviewer)
         if not independent_identities(maker_row, reviewer):
             raise FreeReviewError(
                 "UNVERIFIED", "reviewer is not model/session independent"
@@ -2329,6 +2357,24 @@ def independent_identities(
     )
 
 
+def require_opposite_openai_model(
+    maker: dict[str, str], reviewer: dict[str, str]
+) -> None:
+    """Require the host-observed reviewer to be the exact Sol/Terra alternate."""
+    alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker["model"].casefold())
+    if alternate is None:
+        raise FreeReviewError(
+            "UNAVAILABLE", "maker is not a supported Sol/Terra model"
+        )
+    if (
+        reviewer["provider"] != "openai-subscription"
+        or reviewer["model"].casefold() != alternate.casefold()
+    ):
+        raise FreeReviewError(
+            "UNVERIFIED", "reviewer is not the exact opposite Sol/Terra model"
+        )
+
+
 def _reviewer_identity(value: object) -> dict[str, str]:
     row = exact_dict(
         value,
@@ -2460,6 +2506,8 @@ def phase_one_receipt(
     reviewer_row = _reviewer_identity(reviewer)
     if not independent_identities(maker_row, reviewer_row):
         raise FreeReviewError("UNVERIFIED", "reviewer is not model/session independent")
+    if reviewers is None:
+        require_opposite_openai_model(maker_row, reviewer_row)
     if isolation != required_isolation():
         raise FreeReviewError("UNVERIFIED", "reviewer isolation is not enforceable")
     reviewer_rows: list[dict[str, str]] | None = None
@@ -2504,7 +2552,8 @@ def phase_one_receipt(
 
 
 def verify_phase_one(
-    receipt: object, producer_keys: dict[str, str]
+    receipt: object, producer_keys: dict[str, str], *,
+    allow_legacy_quorum: bool = False,
 ) -> dict[str, Any]:
     signed = _verify_envelope(receipt, producer_keys, "phase-one receipt")
     version = signed.get("version")
@@ -2513,6 +2562,11 @@ def verify_phase_one(
         "inputBindings", "promptSha256", "report", "reportSha256", "maker",
         "reviewer", "attempts", "isolation", "issuedAt", "keyId",
     }
+    if version == 3 and not allow_legacy_quorum:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "legacy quorum receipt is non-authoritative for the mandatory route",
+        )
     if version == 3:
         fields.add("reviewers")
     exact_dict(signed, fields, "phase-one signed payload")
@@ -2539,6 +2593,7 @@ def verify_phase_one(
     if not independent_identities(maker, reviewer):
         raise FreeReviewError("UNVERIFIED", "phase-one independence is invalid")
     if version == 2:
+        require_opposite_openai_model(maker, reviewer)
         verify_attempt_ledger(signed["attempts"], reviewer["provider"])
     else:
         reviewers = [_reviewer_identity(value) for value in signed["reviewers"]]
@@ -2555,6 +2610,18 @@ def verify_phase_one(
         or signed["reportSha256"] != sha256_bytes(canonical_bytes(report))
     ):
         raise FreeReviewError("UNVERIFIED", "phase-one prompt/report binding is invalid")
+    return signed
+
+
+def verify_legacy_quorum_phase_one(
+    receipt: object, producer_keys: dict[str, str]
+) -> dict[str, Any]:
+    """Inspect a historical v3 quorum receipt without authorizing current use."""
+    signed = verify_phase_one(
+        receipt, producer_keys, allow_legacy_quorum=True
+    )
+    if signed["version"] != 3:
+        raise FreeReviewError("UNVERIFIED", "receipt is not a legacy quorum receipt")
     return signed
 
 
@@ -3775,6 +3842,19 @@ def parser() -> argparse.ArgumentParser:
     return top
 
 
+def minimum_reviewer_count(packet: dict[str, Any]) -> int:
+    """Preserve low-risk zero while bounding the one-reviewer active route."""
+    coverage = packet.get("evidenceCoverage")
+    minimum = 1
+    if isinstance(coverage, dict):
+        minimum = coverage.get("minimumIndependentReviewers", 1)
+    if type(minimum) is not int or minimum not in {0, 1}:
+        raise FreeReviewError(
+            "UNVERIFIED", "active route reviewer count must be zero or one"
+        )
+    return minimum
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
@@ -3813,15 +3893,20 @@ def main(argv: list[str] | None = None) -> int:
                 def runner(
                     review_value: str, schema: dict[str, Any], parser_value: Any,
                 ) -> tuple[dict[str, Any], str, str]:
+                    nonlocal selected_prompt_artifact
+                    # Bind a negative diagnostic to the exact direct, unit, or
+                    # integration call even when the transport raises before
+                    # run_packet_review can assemble its final bundle.
+                    selected_prompt_artifact = review_value
                     return run_codex_review(
                         review_value, executable=args.codex, model=reviewer_model,
                         expected_executable_sha256=args.codex_sha256,
                         expected_proxy_sha256=args.proxy_sha256,
                         report_schema=schema, report_parser=parser_value,
                     )
-                report, session, observed_model, selected_prompt_artifact = (
-                    run_packet_review(packet, runner)
-                )
+                review_result = run_packet_review(packet, runner)
+                selected_prompt_artifact = review_result[3]
+                report, session, observed_model = review_result[:3]
                 selected_prompt_artifacts["openai-subscription"] = (
                     selected_prompt_artifact
                 )
@@ -3841,6 +3926,8 @@ def main(argv: list[str] | None = None) -> int:
                 def runner(
                     review_value: str, schema: dict[str, Any], parser_value: Any,
                 ) -> tuple[dict[str, Any], str, str]:
+                    nonlocal selected_prompt_artifact
+                    selected_prompt_artifact = review_value
                     return run_claude_review(
                         review_value, executable=args.claude, model=args.claude_model,
                         expected_executable_sha256=args.claude_sha256,
@@ -3872,6 +3959,8 @@ def main(argv: list[str] | None = None) -> int:
                 def runner(
                     review_value: str, schema: dict[str, Any], parser_value: Any,
                 ) -> tuple[dict[str, Any], str, str]:
+                    nonlocal selected_prompt_artifact
+                    selected_prompt_artifact = review_value
                     return run_copilot_review(
                         review_value, executable=args.copilot,
                         model=args.copilot_model,
@@ -3893,12 +3982,13 @@ def main(argv: list[str] | None = None) -> int:
                 }
 
             try:
-                coverage = packet.get("evidenceCoverage")
-                minimum_reviewers = 1
-                if isinstance(coverage, dict):
-                    minimum_reviewers = max(
-                        1, int(coverage.get("minimumIndependentReviewers", 1))
-                    )
+                minimum_reviewers = minimum_reviewer_count(packet)
+                if minimum_reviewers == 0:
+                    print(json.dumps({
+                        "status": "NOT_REQUIRED",
+                        "reason": "low-risk candidate is machine-only",
+                    }, sort_keys=True))
+                    return 0
                 routed = route_keyless_review(
                     prompt,
                     maker=maker,

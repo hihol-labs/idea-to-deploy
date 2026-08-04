@@ -70,6 +70,7 @@ def case_prompt(case: dict[str, Any]) -> str:
         f"MACHINE_EVIDENCE\n{case['machineEvidence']}\n\n"
         f"BEGIN UNTRUSTED REVIEW DIFF\n{case['diff']}"
         "END UNTRUSTED REVIEW DIFF\n"
+        f"{producer._trusted_json_output_contract(producer.VERDICT_SCHEMA)}"
     )
 
 

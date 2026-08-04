@@ -117,10 +117,9 @@ def load_loop_module():
 def mandatory_checker(
     root: Path, risk: str, mode: str, machine_path: Path,
     *, expected_head: str = "a" * 40, phase_base: str | None = None,
-    quorum: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     free = load_free_producer()
-    phase_identity = (phase_base or "current")[:12] + ("-quorum" if quorum else "")
+    phase_identity = (phase_base or "current")[:12]
     prompt, report = artifacts(
         root, artifact_id=f"U-loop-route-{phase_identity}"
     )
@@ -170,28 +169,11 @@ def mandatory_checker(
     }
     prompt_value = free.review_prompt(packet)
     primary_reviewer = {
-        "provider": "openai-subscription", "model": "gpt-checker",
+        "provider": "openai-subscription", "model": "gpt-5.6-terra",
         "session": "checker-session", "transportExecutableSha256": "5" * 64,
     }
     reviewers = None
     attempts = [{"provider": "openai-subscription", "status": "PASSED"}]
-    if quorum:
-        reviewers = [primary_reviewer, {
-            "provider": "anthropic-subscription", "model": "claude-opus",
-            "session": "checker-session-two",
-            "transportExecutableSha256": "6" * 64,
-        }]
-        prompt_value = free.quorum_prompt_artifact(
-            packet,
-            [{"reviewer": value, "report": clean_report} for value in reviewers],
-            {
-                "openai-subscription": free.review_prompt(packet),
-                "anthropic-subscription": free.review_prompt(packet),
-            },
-        )
-        attempts.append({
-            "provider": "anthropic-subscription", "status": "PASSED",
-        })
     prompt.write_bytes(prompt_value.encode("utf-8"))
     private_key = Ed25519PrivateKey.generate()
     private = private_key.private_bytes(
@@ -205,7 +187,7 @@ def mandatory_checker(
     phase_one = free.phase_one_receipt(
         packet=packet, prompt=prompt_value,
         report=clean_report,
-        maker={"provider": "openai", "model": "gpt-maker",
+        maker={"provider": "openai", "model": "gpt-5.6-sol",
                "session": "maker-session"},
         reviewer=primary_reviewer, reviewers=reviewers, attempts=attempts,
         isolation=free.required_isolation(), key_id="fixture-producer",
@@ -224,10 +206,10 @@ def mandatory_checker(
         "checker", "--root", str(root), "--unit-id", "U-loop",
         "--risk-tier", risk, "--mode", mode,
         "--report", str(report), "--prompt-file", str(prompt),
-        "--maker-provider", "openai", "--maker-model", "gpt-maker",
+        "--maker-provider", "openai", "--maker-model", "gpt-5.6-sol",
         "--maker-session", "maker-session",
         "--checker-provider", "openai-subscription",
-        "--checker-model", "gpt-checker",
+        "--checker-model", "gpt-5.6-terra",
         "--checker-session", "checker-session",
         "--phase-one-receipt", str(phase_path),
         "--producer-keyring", str(keyring_path),
@@ -744,7 +726,7 @@ route_root = fixture()
 route_machine = machine(route_root, "high")
 route_machine_path = last_path(route_machine)
 route_checker = mandatory_checker(
-    route_root, "high", "full", route_machine_path, quorum=True
+    route_root, "high", "full", route_machine_path
 )
 check("signed phase-one route can mint a bound checker",
       route_checker.returncode == 0, route_checker.stdout)

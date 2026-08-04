@@ -25,15 +25,14 @@ free OpenAI reviewer.
 
 ## Minimal durable correction
 
-Make the existing keyless producer the single mandatory pre-PR workflow and
-extend it with ordered subscription-auth transports: fresh different OpenAI
-model/session, Anthropic, then official GitHub Copilot user auth in free
-`auto` mode. Only typed transport unavailability may
-advance the route. Findings, unverified output and identity/isolation failures
-stop fail-closed. All three skills/contracts consume the same producer outcome;
-paid API review remains separately named and never an automatic fallback. Each
-pinned fallback transport must also prove that its installed CLI advertises the
-exact invoked isolation and provenance arguments before it can review.
+Make the existing keyless producer the single mandatory pre-PR workflow for
+medium/high/unknown risk: exactly one fresh opposite OpenAI model/session,
+`Sol -> Terra` or `Terra -> Sol`. `BLOCKED`, `UNVERIFIED`, and `UNAVAILABLE`
+all stop publication. Anthropic, GitHub Copilot, and Antigravity remain optional
+manually selected tools and are never automatic fallbacks or quorum members.
+Low-risk work remains machine-only. All three skills/contracts consume the same
+producer outcome; paid API review remains separately named and is never an
+automatic fallback.
 
 ## Trust boundary
 
@@ -61,9 +60,10 @@ canonical report, trusted producer keyring, candidate, provenance, and machine
 receipt into checker evidence. Generic checker receipts remain useful for
 non-publication diagnostics, but local-submission validation explicitly
 requires the mandatory route and fails closed before guarded push. The same
-repair closes the verdict object instead of defaulting a missing `unverified`
-field and corrects the deployed broker keyring example to its actual
-three-provider `reviewerModels` schema.
+historical repair closed the verdict object instead of defaulting a missing
+`unverified` field and corrected the then-deployed broker keyring example to
+its then-current three-provider `reviewerModels` schema. ADR-006 supersedes
+that route with the single opposite-GPT model pair.
 
 Native Windows parity then exposed one final representation defect: the same
 temporary evidence root could be returned under both its long Unicode user

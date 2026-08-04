@@ -18,7 +18,8 @@
       "/cross-review",
       "/review",
       "itd_free_reviewer_producer.py",
-      "Sol -> Terra / Terra -> Sol",
+      "Sol -> Terra",
+      "Terra -> Sol",
       "UNAVAILABLE",
       "no caller bypass",
       "Verification Loop"

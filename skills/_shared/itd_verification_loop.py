@@ -1241,7 +1241,7 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
     if require_mandatory_route and not isinstance(mandatory_route, dict):
         raise LoopError(
             "mandatory keyless route evidence is missing",
-            "Run the shared OpenAI-to-Anthropic-to-Gemini producer and bind its signed phase-one receipt.",
+            "Run the shared fresh opposite-GPT producer and bind its signed phase-one receipt.",
         )
     verified_route = None
     if mandatory_route is not None:
