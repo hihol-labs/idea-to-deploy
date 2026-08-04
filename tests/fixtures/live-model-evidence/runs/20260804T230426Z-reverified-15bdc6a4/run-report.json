@@ -4,21 +4,21 @@
   "evidencePurpose": "workflow-output-quality",
   "independentReviewEvidence": false,
   "status": "PASS",
-  "observedAt": "2026-08-04T22:59:24Z",
+  "observedAt": "2026-08-04T23:04:26Z",
   "provider": "openai",
   "fixture": "fixture-03-cli-tool",
   "candidateModelRequested": "gpt-5.6-sol",
   "reason": "archived live candidate passed the corrected deterministic oracle without another model invocation",
   "source": {
-    "revision": "a1f33d88a1c21e79225bd43da61a4fdefe6b2e35",
-    "workingTreeDirty": true,
-    "workingTreeStatusSha256": "sha256:cc0276b1d9710b015459eda1ccded2306feec436a016df74d3aadfc72b63f246",
+    "revision": "11fad62bdee82c2b2de137a7b38f69854055b290",
+    "workingTreeDirty": false,
+    "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "methodologyTreeSha256": "sha256:65c802c959f348ee69fa2012b71ada53b84eeae5b7422efac6a98ef3fe93ae0e"
   },
   "runner": "tests/run-live-model-benchmark.py",
-  "runId": "20260804T225924Z-reverified-15bdc6a4",
-  "runReport": "tests/fixtures/live-model-evidence/runs/20260804T225924Z-reverified-15bdc6a4/run-report.json",
-  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260804T225924Z-reverified-15bdc6a4",
+  "runId": "20260804T230426Z-reverified-15bdc6a4",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260804T230426Z-reverified-15bdc6a4/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260804T230426Z-reverified-15bdc6a4",
   "candidate": {
     "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
     "exitCode": 0,
@@ -56,7 +56,7 @@
     "transcriptSanitized": true,
     "transcriptRedactionCount": 0,
     "transcriptSha256": "sha256:4413fb859dd96781ab507726de64d0291970befef1c4fcc656e612e115bdc6a4",
-    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260804T225924Z-reverified-15bdc6a4/transcript.jsonl.gz",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260804T230426Z-reverified-15bdc6a4/transcript.jsonl.gz",
     "transcriptGzipSha256": "sha256:c43e31cb8915715c27a8a0663ed22f250e15cc62a22d577fff6e90634cff6891"
   },
   "harnessInvocation": {
@@ -72,7 +72,7 @@
     "methodologyTreeSha256": "sha256:65c802c959f348ee69fa2012b71ada53b84eeae5b7422efac6a98ef3fe93ae0e"
   },
   "artifacts": {
-    "outputDir": "tests/fixtures/live-model-evidence/runs/20260804T225924Z-reverified-15bdc6a4/output",
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260804T230426Z-reverified-15bdc6a4/output",
     "requiredFiles": [
       "STRATEGIC_PLAN.md",
       "PROJECT_ARCHITECTURE.md",
