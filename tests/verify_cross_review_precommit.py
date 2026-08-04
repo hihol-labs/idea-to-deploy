@@ -71,7 +71,7 @@ def run_hook(repo, command="git commit -m x", env_overrides=None):
         capture_output=True, text=True, env=env,
     )
     shutil.rmtree(env["TMPDIR"], ignore_errors=True)
-    acted = "canonical OpenAI -> Anthropic -> GitHub Copilot" in (p.stdout or "")
+    acted = "canonical Sol -> Terra / Terra -> Sol" in (p.stdout or "")
     return p.returncode, (REMIND if acted else SKIP), p.stdout
 
 

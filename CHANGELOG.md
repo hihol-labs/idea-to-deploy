@@ -11,12 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `/review`, `/cross-review`, and Verification Loop now share one mandatory
-  keyless independent-review route: fresh different OpenAI subscription model,
-  Anthropic subscription, then official GitHub Copilot user auth in free
-  `auto` mode. The legacy Gemini CLI individual backend retired on 2026-06-18,
-  Antigravity is location-ineligible for the current account, and GitHub Models
-  retired on 2026-07-30; none remains a mandatory route. Only typed `UNAVAILABLE`
-  advances; no provider API key or caller publication bypass exists.
+  fresh opposite-GPT route: Sol maker to Terra reviewer, or Terra maker to Sol
+  reviewer, in a new context with no inherited development history. Anthropic,
+  GitHub Copilot, Antigravity and paid API transports are separately invoked
+  optional facilities, not fallbacks or quorum prerequisites. No provider API
+  key or caller publication bypass exists.
 - Keyless reviews above the direct diff bound now reuse the broker's frozen
   complete-file/UTF-8-line plan, require every bound unit plus a final
   integration review, and sign the complete prompt/report bundle. This keeps
@@ -25,10 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evidence-first review now maps every active acceptance criterion and generic
   impact class to exact-tree machine oracle IDs. Missing, failed, duplicate,
   foreign-tree, or uncovered evidence is `UNVERIFIED` before model dispatch.
-- High/unknown risk now requires two clean independent provider/model/session
-  reports. Phase-one v3 seals the reviewer quorum and per-reviewer prompt/report
-  bundle; deterministic host union preserves every unit, integration, and
-  reviewer finding.
+- Medium/high/unknown risk now requires one clean fresh opposite-GPT report.
+  Phase-one v2 seals its exact prompt/report and attempt evidence;
+  deterministic host adjudication preserves every machine, unit, integration,
+  and reviewer finding.
 - A frozen independent-review efficacy pack gates release at 100% critical/high
   and missing-evidence detection, 100% unit-finding retention, at least 90%
   medium detection, at most 10% clean-control false blocks, and WSL/Windows

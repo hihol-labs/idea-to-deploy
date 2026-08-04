@@ -54,8 +54,9 @@ independent-review evidence от допустимого изолированно
 чего публикует App-owned Check Run. Валидный бесплатный receipt не должен
 автоматически запускать платный provider.
 Broker проверяет закрытый evidence-coverage graph и полный host union. Для
-high/unknown phase-one v3 содержит минимум два независимых reviewer identity;
-ни один последующий clean verdict не удаляет предыдущие findings.
+medium/high/unknown достаточно одной phase-one v2 identity свежего reviewer,
+строго противоположного maker в паре Sol/Terra; никакой clean verdict не удаляет
+machine evidence, findings или unverified contours.
 
 ## 3. Независимый reviewer без обязательного платного API
 
@@ -67,17 +68,17 @@ host-observed model/session provenance. Receipt двухфазный: снача
 base/head/tree/diff/prompt/report, затем App после live revalidation добавляет
 PR/check SHA и публикует результат.
 
-Generic CLI/OAuth reviewer остаётся advisory, пока нет enforceable sandbox,
-identity/session telemetry и signer. Paid Responses API — только optional
-availability fallback после отдельного явного согласия и бюджета; никогда не
-запускается автоматически. Недоступность бесплатного reviewer даёт
-`UNAVAILABLE` и блокирует merge.
+Anthropic, GitHub Copilot, Antigravity и paid Responses API остаются только
+отдельно вызываемыми optional transports. Они не являются автоматическим
+fallback, quorum или prerequisite выбранного `LOCAL_REVIEWED` route.
+Недоступность обязательного opposite-GPT reviewer даёт `UNAVAILABLE` и
+блокирует публикацию данного candidate, но не другие проекты.
 
 Evidence-first предшествует мнению модели: каждый активный acceptance criterion
 связан с exact-tree oracle IDs и generic impact classes. Isolated machine oracle
 служит read-only explorer, а sealed host adjudicator объединяет unit,
-integration и reviewer evidence. Для high/unknown нужны два независимых чистых
-reviewer report; missing evidence всегда `UNVERIFIED`.
+integration и reviewer evidence. Для medium/high/unknown нужен один чистый
+fresh opposite-GPT report; missing evidence всегда `UNVERIFIED`.
 
 ## 4. Release и установка ITD
 
@@ -152,7 +153,7 @@ sanitised generic fixture. Метрики обязаны совпасть на W
 действующей. Уточнение GPG-003 пока не закрыто. Для его закрытия нужны:
 
 1. evidence-first coverage для всех активных критериев;
-2. non-erasable host union и high/unknown reviewer quorum;
+2. non-erasable host adjudication и один fresh opposite-GPT reviewer;
 3. frozen efficacy thresholds на WSL и native Windows;
 4. свежий exact-candidate machine receipt и route-bound adjudication;
 5. Ready PR #183, зелёный CI и merge;

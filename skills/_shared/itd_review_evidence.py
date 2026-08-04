@@ -68,10 +68,10 @@ def evidence_first_policy(acceptance: dict[str, Any]) -> dict[str, Any] | None:
     if any(value not in IMPACT_CLASSES for value in impacts):
         raise ReviewEvidenceError("required impact class is unknown")
     minimum = policy["minimumIndependentReviewers"]
-    if policy["riskTier"] in {"high", "unknown"} and minimum < 2:
-        raise ReviewEvidenceError("high/unknown review requires two reviewers")
-    if policy["riskTier"] == "medium" and minimum < 1:
-        raise ReviewEvidenceError("medium review requires an independent reviewer")
+    if policy["riskTier"] in {"medium", "high", "unknown"} and minimum < 1:
+        raise ReviewEvidenceError(
+            "medium/high/unknown review requires an independent reviewer"
+        )
     return dict(policy)
 
 

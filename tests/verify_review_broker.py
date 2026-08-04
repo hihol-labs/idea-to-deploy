@@ -2557,8 +2557,6 @@ def free_review_phase() -> None:
             "producerId": "itd-free-reviewer-producer-v1",
             "reviewerModels": {
                 "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
-                "anthropic-subscription": ["opus"],
-                "github-copilot-user": ["claude-haiku-4.5", "gpt-5-mini"],
             },
         }
     }
@@ -2636,10 +2634,6 @@ def free_review_phase() -> None:
 
     for provider, model, session in (
         ("openai-subscription", "gpt-5.6-terra", "route-openai"),
-        ("anthropic-subscription", "opus", "route-anthropic"),
-        ("anthropic-subscription", "claude-opus-4-6",
-         "route-anthropic-runtime"),
-        ("github-copilot-user", "gpt-5-mini", "route-copilot"),
     ):
         routed_phase = free.phase_one_receipt(
             packet=packet,
@@ -2659,26 +2653,26 @@ def free_review_phase() -> None:
         )
         check(scoped == {"producer-key": producer_keyring["producer-key"]["publicKey"]},
               f"mandatory route provider {provider} was not authorized")
-    unlisted_anthropic_phase = free.phase_one_receipt(
+    unlisted_openai_phase = free.phase_one_receipt(
         packet=packet,
         prompt=free.review_prompt(packet),
         report={"verdict": "PASSED", "findings": [], "unverified": []},
         maker={"provider": "openai", "model": "gpt-5.6-sol",
                "session": "maker-session"},
-        reviewer={"provider": "anthropic-subscription",
-                  "model": "claude-sonnet-4-6",
-                  "session": "route-anthropic-unlisted",
+        reviewer={"provider": "openai-subscription",
+                  "model": "gpt-5-mini",
+                  "session": "route-openai-unlisted",
                   "transportExecutableSha256": "5" * 64},
-        attempts=route_attempts("anthropic-subscription"),
+        attempts=route_attempts("openai-subscription"),
         isolation=free.required_isolation(),
         key_id="producer-key", private_key=producer_private,
     )
     expect_error(
         "UNVERIFIED",
         lambda: route_runtime._authorized_free_reviewer_keys(
-            unlisted_anthropic_phase, producer_keyring, coordinates(), APP_ID
+            unlisted_openai_phase, producer_keyring, coordinates(), APP_ID
         ),
-        "unlisted Anthropic family rejected after canonical authorization",
+        "unlisted OpenAI model rejected after canonical authorization",
     )
     route_store.close()
     foreign_maker_phase_one = free.phase_one_receipt(

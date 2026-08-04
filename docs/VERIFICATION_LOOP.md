@@ -27,22 +27,22 @@ not presented as a security boundary against the machine owner.
 |---|---|---|
 | low | required | forbidden as unnecessary cost |
 | medium | required | targeted, fresh session |
-| high / unknown | required | full, at least two fresh independent provider/model/session reports |
+| high / unknown | required | full, one fresh opposite-GPT model/session report |
 
-Missing checker evidence is `UNVERIFIED`, never implicit success. Reviewer
-quorum is not a vote: every report must be clean and the host preserves the
-union of all negative evidence. One checker is sufficient only for medium risk.
+Missing checker evidence is `UNVERIFIED`, never implicit success. One checker
+is sufficient for medium/high/unknown risk; the host preserves machine, unit,
+integration and reviewer negative evidence.
 
 ### Mandatory keyless pre-PR checker
 
 Medium/high-risk PR publication uses one shared checker producer:
 `skills/_shared/itd_free_reviewer_producer.py`. Its fixed route is
-`OpenAI -> Anthropic -> GitHub Copilot`: a fresh different OpenAI model/session
-first, then an Anthropic subscription session, then an official GitHub Copilot
-user-auth session in free `auto` mode. Only
-typed `UNAVAILABLE` advances the route. `BLOCKED`, `UNVERIFIED`, malformed
+`Sol -> Terra` and `Terra -> Sol`: exactly one fresh opposite OpenAI
+model/session. `BLOCKED`, `UNVERIFIED`, `UNAVAILABLE`, malformed
 provenance, same-model/session evidence, or tool use stops the gate. If every
-provider is unavailable, publication remains unavailable.
+reviewer is unavailable, publication of that candidate remains unavailable.
+Anthropic, GitHub Copilot, Antigravity and paid API adapters are optional
+separately invoked facilities, not automatic fallbacks or quorum members.
 
 An evidence-first policy runs before transport selection. Every active
 acceptance criterion maps generic impact classes to one or more exact-tree
@@ -72,15 +72,11 @@ integration answer cannot erase a unit blocker. Missing, reordered, changed,
 mixed-model, session-reused, incomplete, or oversized bundle evidence is
 `UNVERIFIED`; no unit may be truncated or silently skipped.
 
-The phase-one v2 signature binds the exact single-reviewer attempt prefix used
-by the earlier policy. Evidence-first high/unknown review uses phase-one v3:
-the ordered route continues after the first clean pass until at least two
-independent providers pass. Typed `UNAVAILABLE` may be interleaved; any
-`BLOCKED` or `UNVERIFIED` is terminal. The signature binds the exact attempt
-prefix, all reviewer identities and a canonical per-reviewer prompt/report
-bundle. The producer and broker reject under-quorum, missing, skipped,
-reordered, duplicated, mistyped, unauthorized-model or foreign entries before
-publication evidence can be authorized.
+The phase-one v2 signature binds the exact single-reviewer attempt prefix, the
+fresh opposite-GPT identity and canonical prompt/report artifact. The producer
+and broker reject missing, skipped, duplicated, mistyped, unauthorized-model
+or foreign entries before publication evidence can be authorized. Phase-one
+v3 remains readable compatibility evidence but is not required by this route.
 The shared producer persists that receipt plus its exact direct prompt or
 hierarchical prompt bundle and canonical integration report. The checker binds
 all three together with the producer public-key

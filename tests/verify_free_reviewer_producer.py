@@ -1162,32 +1162,6 @@ def main() -> int:
         else:
             raise AssertionError("caller-mutated prompt produced a signed receipt")
 
-        fallback_attempts = [
-            {"provider": "openai-subscription", "status": "UNAVAILABLE"},
-            {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
-            {"provider": "github-copilot-user", "status": "PASSED"},
-        ]
-        fallback_phase_one = producer.phase_one_receipt(
-            packet=packet, prompt=prompt, report=clean_verdict(),
-            maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
-                   "session": "maker-session-current"},
-            reviewer={"provider": "github-copilot-user",
-                      "model": "gpt-5-mini",
-                      "session": "fresh-copilot-thread",
-                      "transportExecutableSha256": "6" * 64},
-            attempts=fallback_attempts,
-            isolation=producer.required_isolation(),
-            key_id="free-reviewer-2026-08", private_key=producer_private,
-            issued_at=issued,
-        )
-        check(
-            producer.verify_phase_one(
-                fallback_phase_one,
-                {"free-reviewer-2026-08": public_key(producer_private)},
-            )["attempts"] == fallback_attempts,
-            "valid full fallback ledger did not verify",
-        )
-
         ledger_mutations = (
             ("missing ledger", None),
             ("skipped provider", [
@@ -1205,11 +1179,11 @@ def main() -> int:
                 {"provider": "github-copilot-user", "status": "UNAVAILABLE"},
             ]),
             ("foreign terminal", [
-                {"provider": "openai-subscription", "status": "PASSED"},
+                {"provider": "github-copilot-user", "status": "PASSED"},
             ]),
         )
         for label, attempts in ledger_mutations:
-            altered_signed = copy.deepcopy(fallback_phase_one["signed"])
+            altered_signed = copy.deepcopy(phase_one["signed"])
             if attempts is None:
                 altered_signed.pop("attempts")
             else:
@@ -1233,7 +1207,7 @@ def main() -> int:
                 raise AssertionError(f"{label} verified as a closed route")
             checks += 1
 
-        legacy_signed = copy.deepcopy(fallback_phase_one["signed"])
+        legacy_signed = copy.deepcopy(phase_one["signed"])
         legacy_signed["version"] = 1
         legacy_receipt = {
             "signed": legacy_signed,

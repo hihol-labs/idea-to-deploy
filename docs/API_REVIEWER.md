@@ -7,9 +7,9 @@ work complete by itself.
 
 The mandatory pre-PR path is
 `skills/_shared/itd_free_reviewer_producer.py` with the fixed keyless route
-`OpenAI -> Anthropic -> GitHub Copilot`. It uses installed user/subscription auth and
+`Sol -> Terra` and `Terra -> Sol`. It uses installed OpenAI subscription auth and
 has no caller bypass. Do not request `OPENAI_API_KEY` when the mandatory path is
-unavailable; repair or authenticate one of its three user transports instead.
+unavailable; repair or authenticate the host-native OpenAI transport instead.
 Its only transparent binary representation is the broker-defined `.jsonl.gz`
 contract: exact raw Git bytes remain candidate-bound while strict logical JSONL
 is reviewed. This does not enable generic binary review.

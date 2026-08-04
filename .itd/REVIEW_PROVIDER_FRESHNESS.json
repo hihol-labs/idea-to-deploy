@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "checkedAt": "2026-08-04",
   "maxAgeDays": 30,
   "mandatoryRoute": [
@@ -12,7 +12,9 @@
         "benchmarks/independent-review-efficacy/results/wsl.json",
         "benchmarks/independent-review-efficacy/results/windows.json"
       ]
-    },
+    }
+  ],
+  "optionalTransports": [
     {
       "id": "anthropic-subscription",
       "officialSource": "https://docs.anthropic.com/en/docs/claude-code/overview",
@@ -55,5 +57,5 @@
     "wsl",
     "windows"
   ],
-  "doneRule": "Every route entry has a current official source and minimum runtime. Available transports require host-derived, signed, fresh WSL and Windows proof. A deliberately unconfigured subscription may remain only as typed UNAVAILABLE and cannot satisfy quorum."
+  "doneRule": "The one-entry mandatory OpenAI route has a current official source, minimum runtime and host-derived signed fresh WSL/Windows proof. Optional transports are inventory only and cannot satisfy or block mandatory acceptance."
 }

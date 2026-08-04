@@ -269,7 +269,7 @@ Host-neutral naming выходных артефактов остаётся от�
 | `/review` | Валидирует документацию/код по детерминированной рубрике и использует единый обязательный route-bound producer всякий раз, когда риск-маршрут Verification Loop требует независимого checker (medium/high/unknown; low остаётся явным machine-only маршрутом). Caller не может понизить выбранный маршрут (BLOCKED / PASSED_WITH_WARNINGS / PASSED). |
 | `/security-audit` | Read-only аудит безопасности в стиле OWASP (auth, секреты, инъекции, CORS/CSP, зависимости) с тем же enum статусов, что и у `/review` |
 | `/security-guidance-setup` | **Новое в v1.29.0.** Security-компаньон — настраивает и интегрирует официальный [плагин security-guidance](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) от Anthropic (бесплатный, ships default-on). Shift-left, всегда-включённый ревьюер кода от Claude: regex pattern-warnings на каждом Edit/Write, LLM diff-ревью на Stop (находки возвращаются до того как вы увидите ответ) и агентский commit/push-ревью кросс-файловых уязвимостей (IDOR, auth bypass, SSRF). Детектит установку, печатает проверенную CLI-команду, маппит на жизненный цикл. **Комплемент** к `/security-audit` (on-demand аудит), НЕ замена; код upstream не вендорится; гейты не затрагиваются. |
-| `/cross-review` | Обязательная независимая проверка точного staged candidate перед PR. Единый бесплатный маршрут `OpenAI -> Anthropic -> GitHub Copilot` запускается через `itd_free_reviewer_producer.py`; только `UNAVAILABLE` переводит к следующему провайдеру как fallback, а clean pass может продолжить маршрут лишь до заполнения quorum для high/unknown. Caller bypass отсутствует, итог принимает Verification Loop; отдельный платный adapter не является fallback этого маршрута. |
+| `/cross-review` | Обязательная независимая проверка точного staged candidate перед PR. Через `itd_free_reviewer_producer.py` запускается ровно один fresh opposite-GPT reviewer: `Sol -> Terra` или `Terra -> Sol`, без автоматического fallback и quorum. Caller bypass отсутствует, итог принимает evidence-first Verification Loop; Anthropic, Copilot, Antigravity и paid adapters остаются optional. |
 | `/grill-me` | **Новое в v1.21.0.** Интерактивный read-only стресс-тест планов, дизайнов, архитектуры и рискованных решений — задаёт по одному вопросу (с рекомендуемым ответом), чтобы вытащить допущения, риски и зависимости. Запускается до `/review`, не заменяет его. |
 | `/browser-check` | **Новое в v1.21.0.** Локальный browser smoke-тест фронтенд/фуллстек/визуальных флоу через встроенный Playwright-харнесс (fallback: Browser Use / in-app browser) — проверяет первый рендер + критический путь (навигация, формы, состояния). Поломка рендера/флоу → BLOCKED до деплоя. |
 
@@ -660,7 +660,7 @@ Shared generators пока сохраняют legacy-compatible имена `CLAU
 | `/context-mode-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команд, без генерации |
 | `/seo-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команд + карта жизненного цикла, без генерации |
 | `/security-guidance-setup` | Haiku | Sonnet | Оркестратор/мост — детект install + печать команды + карта жизненного цикла, без генерации |
-| `/cross-review` | Host orchestrator | Другая модель | Оркестрация единого маршрута OpenAI → Anthropic → GitHub Copilot без контекста разработки |
+| `/cross-review` | Host orchestrator | Opposite GPT | Один fresh маршрут Sol → Terra / Terra → Sol без контекста разработки |
 
 ## Для кого
 

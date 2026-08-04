@@ -1,7 +1,7 @@
 # ADR-005: Evidence-first deep independent review
 
 **Date:** 2026-08-03
-**Status:** Accepted
+**Status:** Accepted, quorum requirement amended by ADR-006
 **Review date:** 2026-09-15
 
 ## Context

@@ -49,7 +49,7 @@ def baseline():
                 "mode": "evidence-first",
                 "riskTier": "high",
                 "requiredImpactClasses": ["bounded-output", "reconciliation"],
-                "minimumIndependentReviewers": 2,
+                "minimumIndependentReviewers": 1,
                 "explorer": "isolated-machine-oracle",
                 "adjudicator": "sealed-host-union",
             },
@@ -78,8 +78,8 @@ def mutate(name, acceptance, machine):
         run["executedTree"] = "b" * 40
     elif name == "missing-impact":
         criterion["reviewEvidence"]["impactClasses"] = ["bounded-output"]
-    elif name == "under-quorum":
-        policy["minimumIndependentReviewers"] = 1
+    elif name == "missing-reviewer":
+        policy["minimumIndependentReviewers"] = 0
     elif name == "missing-oracle":
         criterion["reviewEvidence"]["oracleIds"] = ["absent-oracle"]
     elif name == "unpassed-criterion":

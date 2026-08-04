@@ -113,7 +113,7 @@ def run_worker(promptf: str, notes: str) -> None:
         notes,
         "## Mandatory independent review UNAVAILABLE in this hook\n\n"
         "This checkpoint cannot mint review evidence. Run `/review` or\n"
-        "`/cross-review`; both use the isolated OpenAI -> Anthropic -> GitHub Copilot\n"
+        "`/cross-review`; both use one isolated Sol -> Terra / Terra -> Sol\n"
         "producer and require Verification Loop adjudication.\n",
     )
     _cleanup(promptf)
@@ -152,7 +152,7 @@ def main() -> int:
     emit_context(
         "[independent-review] sensitive staged paths detected. Before PR "
         "publication run /review or /cross-review; both must use the canonical "
-        "OpenAI -> Anthropic -> GitHub Copilot keyless producer and Verification Loop "
+        "Sol -> Terra / Terra -> Sol keyless producer and Verification Loop "
         "adjudication. This reminder is not review evidence."
     )
     return 0

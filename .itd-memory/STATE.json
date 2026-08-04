@@ -1,7 +1,7 @@
 {
   "sessionState": "ACTIVE",
-  "currentStage": "BUILD",
-  "intent": "Implement one mandatory keyless pre-PR independent-review route while preserving exact-candidate, MEM-8, WIP=1 and dual-host guarantees",
+  "currentStage": "VERIFY",
+  "intent": "Implement one mandatory fresh opposite-GPT pre-PR review while preserving evidence-first exact-candidate, MEM-8, WIP=1, nine-point and dual-host guarantees",
   "classification": {
     "productType": "engineering_methodology",
     "domain": "agent_harness",
@@ -34,11 +34,11 @@
       "bash tests/run-all.sh"
     ],
     "currentTaskRoute": "task",
-    "lastAnalysisSummary": "GPG-003 pre-freeze methodology acceptance includes the bounded portable local-review repair from 7e80b5b: an intentionally unadopted product checkout uses its exact adjudication and exact HEAD, while App/legacy profiles retain adoption and machine preflight. The mandatory review route remains OpenAI -> Anthropic -> GitHub Copilot Free/auto. Current dual-host efficacy/freshness and focused suites pass; refreshed live benchmark, exact-candidate review/adjudication, PR/release and dual-host rollout remain required."
+    "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
     "id": "GPG-003",
-    "goal": "Unify /review, /cross-review and Verification Loop behind one mandatory keyless OpenAI-to-Anthropic-to-GitHub-Copilot pre-PR reviewer route with no bypass",
+    "goal": "Unify /review, /cross-review and Verification Loop behind one mandatory fresh opposite-GPT Sol/Terra pre-PR reviewer with no bypass",
     "riskTier": "high",
     "status": "in_progress",
     "startedAt": "2026-08-02T23:25:00Z"
@@ -337,6 +337,12 @@
       "command": "Safe-hook live benchmark for evidence-first GPG-003",
       "result": "passed",
       "evidence": "Fresh WSL-native OpenAI Codex run 20260803T193850Z-184b6adb passed all six required artifacts and the independent snapshot oracle on implementation commit 5fdbc30. Replay reports 95/95 with workingTreeDirty=false, hookPolicy=disabled, hookExecution=disabled-for-live-model-evidence, zero transcript redactions, complete source pins, and no dangerously-bypass-hook-trust. The two superseded unsafe evidence directories are removed from the candidate and remain recoverable from Git history."
+    },
+    {
+      "at": "2026-08-04T16:25:00Z",
+      "command": "ADR-006 single opposite-GPT implementation and dual-host pre-freeze validation",
+      "result": "passed",
+      "evidence": "Mandatory route 81/81 on WSL and native Windows reports route=[openai-subscription]; producer 105/105 on both hosts; Verification Loop 78/78, broker 741/741, server 50/50, doctor 28/28, optional Copilot adapter 49/49, host adapters, feature-ledger completeness, meta-review and quick suite DONE fails:none passed. Fresh signed Terra efficacy envelopes on WSL and Windows report critical/high detection 100%, medium detection 100%, clean false blocks 0%, missing-evidence detection 100% and finding retention 100%. Exact committed-candidate machine/review/adjudication remains pending."
     }
   ],
   "decisionLog": [
@@ -464,6 +470,11 @@
       "at": "2026-08-03T19:45:00Z",
       "decision": "Adopt evidence-first coverage, non-erasable host union and a two-reviewer quorum for high/unknown risk inside the existing nine-point plan",
       "why": "Exact-candidate provenance cannot compensate for missing scale/business-invariant evidence or one model's blind spots; ADR-005 makes coverage and reviewer efficacy executable release gates without granting reviewers unsafe production access"
+    },
+    {
+      "at": "2026-08-04T18:00:00Z",
+      "decision": "Amend GPG-003 to one fresh opposite-GPT reviewer while retaining evidence-first machine oracles and all nine plan points",
+      "why": "A41/A42 showed the provider quorum made publication depend on unavailable subscriptions and Copilot transport formatting, while the PR #1326 false clean result was caused by missing scale/business-invariant evidence rather than reviewer count; ADR-006 preserves exact-candidate adjudication without blocking product work"
     }
   ],
   "artifacts": [
@@ -542,7 +553,7 @@
   "humanSteering": {
     "approvalRequired": true,
     "approvalStatus": "approved",
-    "recommendedNextStep": "Complete exact GPG-003 acceptance for one mandatory keyless workflow: fresh different OpenAI model/session first, Anthropic second, GitHub Copilot Free/auto third, fail closed if quorum cannot be satisfied, with WSL and Windows parity.",
+    "recommendedNextStep": "Complete exact GPG-003 acceptance for one fresh opposite-GPT workflow: Sol maker to Terra or Terra maker to Sol, fail closed if that reviewer cannot be verified, with WSL and Windows parity.",
     "alternatives": [
       "Keep paid Responses API outside the default workflow and require a separately named, explicitly authorized operation if it remains available at all",
       "Keep App-backed PROTECTED enforcement as a separate opt-in profile rather than coupling it to mandatory independent review"
@@ -554,5 +565,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Freeze the post-live exact candidate, run the complete GPG-003 machine contract and mandatory two-reviewer keyless route, adjudicate it, then update Draft PR #183 through the guarded source CLI and wait for green CI before merge/release/dual-host rollout evidence."
+  "nextAction": "Finish the ADR-006 implementation and focused/full tests, freeze the new exact candidate, run the complete GPG-003 machine contract and one fresh opposite-GPT route, adjudicate it, then update Draft PR #183 and complete green CI, merge, patch release and dual-host rollout evidence."
 }

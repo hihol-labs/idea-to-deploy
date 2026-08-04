@@ -504,8 +504,8 @@ TRIGGERS = [
         r"antigravity\s+review|ревью\s+через\s+antigravity|"
         r"copilot\s+review|ревью\s+через\s+copilot)",
         "🔔 Триггер 'cross-review / независимое ревью другой моделью' → используй /cross-review "
-        "(обязательный exact-candidate pre-PR gate: единый keyless producer, маршрут "
-        "OpenAI→Anthropic→GitHub Copilot; только typed UNAVAILABLE переводит к следующему; "
+        "(обязательный evidence-bound pre-PR gate: один fresh opposite-GPT producer, "
+        "Sol→Terra или Terra→Sol; автоматического provider fallback/quorum нет; "
         "BLOCKED/UNVERIFIED останавливают; caller bypass отсутствует; итог принимает Verification Loop). "
         "Вызови Skill ПЕРВЫМ.",
     ),

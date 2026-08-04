@@ -13,7 +13,7 @@
     {"id": "critical-failed-oracle", "severity": "critical", "mutation": "failed-oracle"},
     {"id": "high-foreign-tree", "severity": "high", "mutation": "foreign-tree"},
     {"id": "high-missing-impact", "severity": "high", "mutation": "missing-impact"},
-    {"id": "high-under-quorum", "severity": "high", "mutation": "under-quorum"},
+    {"id": "high-missing-reviewer", "severity": "high", "mutation": "missing-reviewer"},
     {"id": "high-missing-oracle", "severity": "high", "mutation": "missing-oracle"},
     {"id": "medium-unpassed-criterion", "severity": "medium", "mutation": "unpassed-criterion"},
     {"id": "medium-unknown-impact", "severity": "medium", "mutation": "unknown-impact"},

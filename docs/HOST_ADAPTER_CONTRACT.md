@@ -70,9 +70,9 @@ model identity claim.
 
 Before PR publication, hosts must use
 `skills/_shared/itd_free_reviewer_producer.py` as the one mandatory independent
-checker producer. They preserve `OpenAI -> Anthropic -> GitHub Copilot`, advance only
-on typed `UNAVAILABLE`, use the active host's native user/subscription
-transports, and expose no caller bypass. Native Windows must not borrow WSL
+checker producer. They preserve `Sol -> Terra` and `Terra -> Sol`, run exactly
+one fresh opposite-GPT reviewer through the active host's native subscription
+transport, and expose no caller bypass. Native Windows must not borrow WSL
 credentials or executables, and WSL must not invoke Windows credential-bearing
 transports. Successful evidence still passes through the same Verification
 Loop; an adapter cannot create another completion authority.

@@ -711,8 +711,6 @@ def environment_phase() -> None:
             "producerId": "itd-free-reviewer-producer-v1",
             "reviewerModels": {
                 "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
-                "anthropic-subscription": ["opus"],
-                "github-copilot-user": ["claude-haiku-4.5", "gpt-5-mini"],
             },
         }
         free_keyring.write_bytes(core.canonical_json({

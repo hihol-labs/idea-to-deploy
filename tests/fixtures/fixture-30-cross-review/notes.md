@@ -7,7 +7,7 @@ pre-PR route used by `/review`. It must not implement another router.
 
 - Freeze and scrub the exact staged candidate.
 - Use `skills/_shared/itd_free_reviewer_producer.py`.
-- Preserve `OpenAI -> Anthropic -> GitHub Copilot`.
+- Preserve `Sol -> Terra` and `Terra -> Sol` with no automatic fallback.
 - Advance only on typed `UNAVAILABLE`; stop on `BLOCKED` or `UNVERIFIED`.
 - Use installed user/subscription authentication and remove provider API keys.
 - Require a fresh reviewer model/session and record actual provenance.

@@ -90,10 +90,9 @@ the parent orchestrator records the real SubagentStart/Stop session and model
 metadata. Missing high/unknown model separation remains `UNVERIFIED`.
 
 For PR preparation, `/review` and `/cross-review` use the same
-`itd_free_reviewer_producer.py` route: `OpenAI -> Anthropic -> GitHub Copilot`. Codex
-starts a fresh different OpenAI model/session first; only typed `UNAVAILABLE`
-may advance to an isolated Claude subscription session and then an isolated
-GitHub Copilot user-auth session in free `auto` mode. There is no caller bypass and no provider API key in
+`itd_free_reviewer_producer.py` route: `Sol -> Terra` and `Terra -> Sol`. Codex
+starts exactly one fresh opposite OpenAI model/session. Anthropic, GitHub
+Copilot and other adapters are not automatic fallbacks. There is no caller bypass and no provider API key in
 the default route. WSL uses WSL-native transports/auth; native Windows uses
 Windows-native transports/auth. Cross-host credential execution is forbidden.
 

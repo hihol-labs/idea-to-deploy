@@ -3,7 +3,7 @@
   "fixture_type": "orchestrator-stdout",
   "skill_under_test": "/cross-review",
   "status": "contract",
-  "description": "Cross-review is the explicit entry point to the one mandatory keyless independent pre-PR producer. It freezes the exact candidate, preserves the OpenAI -> Anthropic -> GitHub Copilot route, advances only on typed UNAVAILABLE, and accepts success only through Verification Loop adjudication.",
+  "description": "Cross-review is the explicit entry point to the one mandatory fresh opposite-GPT pre-PR producer. It freezes the exact candidate, preserves Sol -> Terra and Terra -> Sol, has no automatic provider fallback, and accepts success only through evidence-first Verification Loop adjudication.",
   "skill_contract": {
     "skill": "cross-review",
     "required_sections": [
@@ -18,7 +18,7 @@
       "/cross-review",
       "/review",
       "itd_free_reviewer_producer.py",
-      "OpenAI -> Anthropic -> GitHub Copilot",
+      "Sol -> Terra / Terra -> Sol",
       "UNAVAILABLE",
       "no caller bypass",
       "Verification Loop"

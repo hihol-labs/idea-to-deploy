@@ -6,14 +6,12 @@ independent policy implementations.
 
 ## Fixed route
 
-`OpenAI -> Anthropic -> GitHub Copilot`
+`Sol -> Terra` and `Terra -> Sol`
 
-The producer tries an isolated OpenAI subscription session first, an isolated
-Anthropic subscription session second, and an isolated GitHub Copilot user-auth
-session in free `auto` mode last. Typed `UNAVAILABLE` advances as fallback; a
-clean pass may advance only while the explicit risk-required quorum is unmet.
-`BLOCKED` and `UNVERIFIED` stop. Exhaustion remains `UNAVAILABLE`. There is no
-caller bypass or vote shopping.
+The producer runs exactly one isolated OpenAI subscription session with the
+opposite Sol/Terra model. `UNAVAILABLE`, `BLOCKED` and `UNVERIFIED` stop; there
+is no automatic provider fallback, caller bypass or vote shopping. Anthropic
+and GitHub Copilot adapters below are optional separately invoked transports.
 After a CLI starts, only closed auth, quota, network/status, or timeout signals
 may be classified `UNAVAILABLE`; unknown non-zero exits, unsupported arguments,
 oversized error output, and malformed protocol failures are `UNVERIFIED`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate all mandatory reviewer transports and signed dual-host live proof."""
+"""Validate the mandatory opposite-GPT transport and dual-host live proof."""
 from __future__ import annotations
 
 import argparse
@@ -107,10 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     record = json.loads(RECORD.read_text(encoding="utf-8"))
     keys = json.loads(KEYRING.read_text(encoding="utf-8"))
     exact(record, {
-        "version", "checkedAt", "maxAgeDays", "mandatoryRoute",
+        "version", "checkedAt", "maxAgeDays", "mandatoryRoute", "optionalTransports",
         "legacyProvider", "rejectedCandidates", "requiredLiveHosts", "doneRule",
     }, "provider freshness record")
-    if record["version"] != 3:
+    if record["version"] != 4:
         raise AssertionError("provider freshness record version drifted")
     checked = dt.date.fromisoformat(record["checkedAt"])
     age = (dt.datetime.now(dt.timezone.utc).date() - checked).days
@@ -138,10 +138,25 @@ def main(argv: list[str] | None = None) -> int:
             "https://docs.github.com/",
         )):
             raise AssertionError("mandatory provider lacks an official source")
-    if route[1]["status"] != "unavailable-no-paid-subscription":
+    optional = record["optionalTransports"]
+    if (
+        not isinstance(optional, list)
+        or [row.get("id") for row in optional]
+        != ["anthropic-subscription", "github-copilot-user"]
+    ):
+        raise AssertionError("optional reviewer inventory drifted")
+    for row in optional:
+        expected = {
+            "id", "officialSource", "minimumVersion", "status",
+            "requiredEvidence" if row.get("status") == "available"
+            else "unavailabilityEvidence",
+        }
+        exact(row, expected, f"{row.get('id')} optional freshness row")
+        version(row["minimumVersion"])
+    if optional[0]["status"] != "unavailable-no-paid-subscription":
         raise AssertionError("unconfigured Anthropic route is not typed unavailable")
-    if route[0]["status"] != "available" or route[2]["status"] != "available":
-        raise AssertionError("selected quorum transports are not available")
+    if route[0]["status"] != "available":
+        raise AssertionError("mandatory OpenAI transport is not available")
 
     if args.live:
         if any(value is None for value in (
@@ -159,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             env={**os.environ, "CI": "1"},
         ).stdout.decode("utf-8")
         match = re.search(r"GitHub Copilot CLI ([0-9]+\.[0-9]+\.[0-9]+)\.", observed)
-        if match is None or version(match.group(1)) < version(route[2]["minimumVersion"]):
+        if match is None or version(match.group(1)) < version(optional[1]["minimumVersion"]):
             raise AssertionError("live Copilot CLI is below the pinned minimum")
         prompt = 'Return only {"verdict":"PASSED","findings":[],"unverified":[]}'
         report, session, model = producer.run_copilot_review(
@@ -207,32 +222,6 @@ def main(argv: list[str] | None = None) -> int:
         if not sessions or any(not value or value in observed_sessions for value in sessions):
             raise AssertionError("OpenAI live sessions are missing or reused")
         observed_sessions.update(sessions)
-
-    copilot_sessions: set[str] = set()
-    for host, relative in zip(record["requiredLiveHosts"], route[2]["requiredEvidence"]):
-        proof = signed(ROOT / relative, producer, keys, f"Copilot {host} live proof")
-        exact(proof, {
-            "version", "kind", "provider", "host", "observedAt",
-            "runtimeVersion", "observedModel", "session",
-            "transportExecutableSha256", "proxySha256", "paidApiCalls",
-            "isolation", "status", "keyId",
-        }, f"Copilot {host} live payload")
-        if (
-            proof["version"] != 1
-            or proof["kind"] != "itd-review-provider-live-proof"
-            or proof["provider"] != "github-copilot-user"
-            or proof["keyId"] != "gpg003-local-producer-20260803"
-            or proof["host"] != host
-            or proof["status"] != "PASSED"
-            or proof["paidApiCalls"] != 0
-            or proof["observedModel"] not in producer.COPILOT_ALLOWED_AUTO_MODELS
-            or version(proof["runtimeVersion"]) < version(route[2]["minimumVersion"])
-            or proof["session"] in copilot_sessions
-            or proof["isolation"] != producer.required_isolation()
-        ):
-            raise AssertionError(f"Copilot {host} live proof is invalid")
-        fresh(proof["observedAt"], record["maxAgeDays"])
-        copilot_sessions.add(proof["session"])
 
     print(json.dumps({
         "status": "PASSED", "checkedAt": record["checkedAt"],

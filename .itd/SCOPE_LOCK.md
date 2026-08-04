@@ -3,11 +3,10 @@
 ## Current Task
 
 Replace the conflicting review surfaces with one mandatory pre-PR independent
-review workflow. The authoritative producer must try an isolated fresh
-different OpenAI model/session through ChatGPT subscription auth first, then
-Anthropic subscription auth, then official GitHub Copilot user auth in free
-`auto` mode. The route
-must never require
+review workflow. The authoritative producer must run exactly one isolated
+fresh opposite OpenAI model/session through ChatGPT subscription auth:
+Sol maker to Terra reviewer, or Terra maker to Sol reviewer. The route must
+never require
 `OPENAI_API_KEY`, silently dispatch a paid API request, inherit development
 context, or accept caller consent as a bypass. If every route is unavailable or
 unverified, PR publication remains blocked. WIP=1.
@@ -47,12 +46,12 @@ low risk is machine-only, while medium/high/unknown require the checker route.
   tool use, stale candidate or prose to count as PASS
 - exposing subscription/OAuth material, reviewer environment, repository files,
   network tools or mutation tools to the reviewing model
-- changing the order OpenAI fresh model -> Anthropic -> GitHub Copilot
+- selecting any mandatory reviewer outside the closed Sol/Terra opposite pair
 - restoring the retired Gemini CLI/GitHub Models backends or the
   location-ineligible Antigravity account route as mandatory, or treating
   their retirement/ineligibility as reviewer evidence
-- falling back after a valid reviewer returns findings or an unverified contour;
-  only typed transport `UNAVAILABLE` may advance to the next provider
+- automatically falling back to Anthropic, GitHub Copilot, Antigravity or a
+  paid API; these transports remain separately invoked optional facilities
 - weakening exact staged/committed-head binding, WIP=1, MEM-8, maker/checker
   separation, human merge/deploy authority, secret scrub or receipt validation
 - claiming App-backed `PROTECTED` enforcement for the portable local-review
@@ -65,7 +64,7 @@ low risk is machine-only, while medium/high/unknown require the checker route.
 ## Acceptance Boundary
 
 GPG-003 is accepted only when RED reproduces the old paid/advisory split; the
-shared producer deterministically enforces the ordered keyless route and one
+shared producer deterministically enforces the fresh opposite-GPT route and one
 closed verdict schema; `/review`, `/cross-review` and Verification Loop name it
 as the sole mandatory pre-PR reviewer; all-unavailable is fail-closed with no
 bypass; paid API remains only a separately named, separately authorized

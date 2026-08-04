@@ -53,11 +53,7 @@ def main() -> int:
         if not condition:
             raise AssertionError(message)
 
-    expected_route = (
-        "openai-subscription",
-        "anthropic-subscription",
-        "github-copilot-user",
-    )
+    expected_route = ("openai-subscription",)
     check(
         producer.MANDATORY_REVIEW_ROUTE == expected_route,
         "mandatory provider order drifted",
@@ -82,6 +78,20 @@ def main() -> int:
         ) == "gpt-5.6-sol",
         "Terra maker was not routed to a different OpenAI model",
     )
+    check(
+        producer.select_openai_reviewer_model(
+            "gpt-5.6-sol", "gpt-5.6-sol"
+        ) == "gpt-5.6-terra",
+        "Sol maker was not routed to Terra",
+    )
+    try:
+        producer.select_openai_reviewer_model(
+            "gpt-5.6-sol", "gpt-5-mini"
+        )
+    except producer.FreeReviewError as exc:
+        check(exc.status == "UNVERIFIED", "foreign GPT model did not fail closed")
+    else:
+        raise AssertionError("model outside the Sol/Terra pair was accepted")
 
     maker = {"provider": "openai", "model": "gpt-5.6-sol", "session": "maker"}
     calls: list[str] = []
@@ -100,10 +110,6 @@ def main() -> int:
 
     adapters = {
         "openai-subscription": success("openai-subscription", "gpt-5.6-terra"),
-        "anthropic-subscription": success("anthropic-subscription", "claude-opus"),
-        "github-copilot-user": success(
-            "github-copilot-user", "gpt-5-mini"
-        ),
     }
     result = producer.route_keyless_review(
         "exact prompt", maker=maker, adapters=adapters
@@ -116,73 +122,16 @@ def main() -> int:
     ], "primary attempt ledger is not closed")
 
     calls.clear()
-    deep = producer.route_keyless_review(
-        "exact prompt", maker=maker, adapters=adapters,
-        minimum_reviewers=2,
-    )
-    check(
-        calls == ["openai-subscription", "anthropic-subscription"],
-        "high-risk quorum did not run two independent providers",
-    )
-    check(
-        [row["provider"] for row in deep["reviewers"]]
-        == ["openai-subscription", "anthropic-subscription"],
-        "high-risk reviewer union lost provenance",
-    )
-    check(deep["report"] == clean_report(), "clean reviewer union did not pass")
-
-    calls.clear()
-    second_blocker = dict(adapters)
-    second_blocker["anthropic-subscription"] = lambda _prompt: ({
-        "verdict": "BLOCKED",
-        "findings": [{
-            "severity": "high", "confidence": "high",
-            "category": "correctness", "file": "service.py", "line": 1,
-            "summary": "Second reviewer found a blocker.",
-        }],
-        "unverified": [],
-    }, reviewer("anthropic-subscription", "claude-opus", "fresh-blocker"))
-    try:
-        producer.route_keyless_review(
-            "exact prompt", maker=maker, adapters=second_blocker,
-            minimum_reviewers=2,
-        )
-    except producer.FreeReviewError as exc:
-        check(exc.status == "BLOCKED", "second reviewer blocker was not terminal")
-    else:
-        raise AssertionError("second reviewer blocker was erased by the first pass")
-
-    calls.clear()
     adapters["openai-subscription"] = unavailable("openai-subscription")
-    result = producer.route_keyless_review(
-        "exact prompt", maker=maker, adapters=adapters
-    )
-    check(calls == ["openai-subscription", "anthropic-subscription"],
-          "Anthropic was not the first fallback")
-    check(result["reviewer"]["provider"] == "anthropic-subscription",
-          "Anthropic fallback provenance was lost")
-
-    calls.clear()
-    adapters["anthropic-subscription"] = unavailable("anthropic-subscription")
-    result = producer.route_keyless_review(
-        "exact prompt", maker=maker, adapters=adapters
-    )
-    check(calls == list(expected_route),
-          "GitHub Copilot was not the last fallback")
-    check(result["reviewer"]["provider"] == "github-copilot-user",
-          "GitHub Copilot fallback provenance was lost")
-
-    calls.clear()
-    adapters["github-copilot-user"] = unavailable("github-copilot-user")
     try:
         producer.route_keyless_review("exact prompt", maker=maker, adapters=adapters)
     except producer.FreeReviewError as exc:
-        check(exc.status == "UNAVAILABLE", "all-unavailable status drifted")
+        check(exc.status == "UNAVAILABLE", "reviewer-unavailable status drifted")
         check(all(name in exc.reason for name in expected_route),
-              "all-unavailable reason omits attempted providers")
+              "unavailable reason omits the mandatory provider")
     else:
-        raise AssertionError("all-unavailable route returned success")
-    check(calls == list(expected_route), "all-unavailable route order drifted")
+        raise AssertionError("unavailable mandatory reviewer returned success")
+    check(calls == list(expected_route), "mandatory route call drifted")
 
     for terminal_status in ("BLOCKED", "UNVERIFIED"):
         calls.clear()
@@ -275,35 +224,6 @@ def main() -> int:
         raise AssertionError("same-model reviewer was accepted")
     check(calls == ["openai-subscription"],
           "same-model identity failure incorrectly advanced the route")
-
-    alias_maker = {
-        "provider": "anthropic", "model": "opus", "session": "maker-alias",
-    }
-    alias_adapters = {
-        "openai-subscription": unavailable("openai-subscription"),
-        "anthropic-subscription": success(
-            "anthropic-subscription", "claude-opus-4-6"
-        ),
-        "github-copilot-user": success(
-            "github-copilot-user", "gpt-5-mini"
-        ),
-    }
-    calls.clear()
-    try:
-        producer.route_keyless_review(
-            "exact prompt", maker=alias_maker, adapters=alias_adapters
-        )
-    except producer.FreeReviewError as exc:
-        check(
-            exc.status == "UNVERIFIED",
-            "Anthropic same-family alias was not terminal",
-        )
-    else:
-        raise AssertionError("Anthropic alias bypassed same-model rejection")
-    check(
-        calls == ["openai-subscription", "anthropic-subscription"],
-        "Anthropic alias identity failure advanced to GitHub Copilot",
-    )
 
     claude = producer.claude_command(
         executable="claude", model="opus", schema_json="{}"
@@ -689,7 +609,7 @@ def main() -> int:
     loop_text = LOOP_DOC.read_text(encoding="utf-8")
     for label, text in (("review", review_text), ("cross-review", cross_text),
                         ("Verification Loop", loop_text)):
-        check("OpenAI -> Anthropic -> GitHub Copilot" in text,
+        check("Sol -> Terra" in text and "Terra -> Sol" in text,
               f"{label} does not name the mandatory route")
         check("itd_free_reviewer_producer.py" in text,
               f"{label} does not name the shared producer")

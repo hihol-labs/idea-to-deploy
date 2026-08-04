@@ -72,11 +72,11 @@ def main() -> int:
         if not condition:
             raise AssertionError(message)
 
-    check(producer.MANDATORY_REVIEW_ROUTE == (
-        "openai-subscription",
-        "anthropic-subscription",
-        "github-copilot-user",
-    ), "unavailable Google route remains mandatory")
+    check(
+        producer.MANDATORY_REVIEW_ROUTE == ("openai-subscription",)
+        and "github-copilot-user" not in producer.MANDATORY_REVIEW_ROUTE,
+        "Copilot optional adapter became mandatory",
+    )
     check(producer.COPILOT_ALLOWED_AUTO_MODELS == (
         "claude-haiku-4.5", "gpt-5-mini",
     ), "Copilot Free observed-model allowlist drifted")

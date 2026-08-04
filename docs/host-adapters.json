@@ -8,7 +8,8 @@
     "tests": "tests/",
     "trustPolicy": "docs/HARNESS_TRUST_POLICY.json",
     "mandatoryIndependentReviewer": "skills/_shared/itd_free_reviewer_producer.py",
-    "mandatoryIndependentReviewerRoute": ["openai-subscription", "anthropic-subscription", "github-copilot-user"],
+    "mandatoryIndependentReviewerRoute": ["openai-subscription"],
+    "optionalIndependentReviewerTransports": ["anthropic-subscription", "github-copilot-user", "antigravity-user", "paid-api"],
     "externalCheckerPolicy": "skills/_shared/EXTERNAL_REVIEW_POLICY.json",
     "externalCheckerTransport": "skills/_shared/itd_external_reviewer.py",
     "canonicalContinuity": ".itd-memory/"
@@ -47,7 +48,7 @@
       "skill discovery",
       "contract scaffold",
       "risk-tiered adjudication receipts",
-      "mandatory keyless OpenAI -> Anthropic -> GitHub Copilot pre-PR review",
+      "mandatory fresh opposite-GPT Sol -> Terra / Terra -> Sol pre-PR review",
       "provider-neutral exact-candidate external checker transport",
       "persistent .itd-memory state",
       "prompt routing",

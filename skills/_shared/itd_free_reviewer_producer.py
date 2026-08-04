@@ -72,6 +72,9 @@ MAX_LIVE_AGE_SECONDS = 300
 PRODUCER_ID = "itd-free-reviewer-producer-v1"
 MANDATORY_REVIEW_ROUTE = (
     "openai-subscription",
+)
+LEGACY_QUORUM_ROUTE = (
+    "openai-subscription",
     "anthropic-subscription",
     "github-copilot-user",
 )
@@ -1506,24 +1509,24 @@ def verify_quorum_attempt_ledger(
     """Validate one route prefix containing the required independent passes."""
     if (
         type(minimum_reviewers) is not int
-        or not 2 <= minimum_reviewers <= len(MANDATORY_REVIEW_ROUTE)
+        or not 2 <= minimum_reviewers <= len(LEGACY_QUORUM_ROUTE)
         or not isinstance(reviewers, list)
         or len(reviewers) < minimum_reviewers
-        or len(reviewers) > len(MANDATORY_REVIEW_ROUTE)
+        or len(reviewers) > len(LEGACY_QUORUM_ROUTE)
     ):
         raise FreeReviewError("UNVERIFIED", "review quorum is malformed")
     reviewer_rows = [_reviewer_identity(row) for row in reviewers]
     reviewer_providers = [row["provider"] for row in reviewer_rows]
     if (
         len(set(reviewer_providers)) != len(reviewer_providers)
-        or any(provider not in MANDATORY_REVIEW_ROUTE
+        or any(provider not in LEGACY_QUORUM_ROUTE
                for provider in reviewer_providers)
     ):
         raise FreeReviewError("UNVERIFIED", "review quorum is not provider-independent")
     if (
         not isinstance(value, list)
         or not value
-        or len(value) > len(MANDATORY_REVIEW_ROUTE)
+        or len(value) > len(LEGACY_QUORUM_ROUTE)
     ):
         raise FreeReviewError("UNVERIFIED", "review quorum attempt ledger is malformed")
     clean: list[dict[str, str]] = []
@@ -1533,7 +1536,7 @@ def verify_quorum_attempt_ledger(
             raw, {"provider", "status"}, f"review attempt {index + 1}"
         )
         if (
-            attempt["provider"] != MANDATORY_REVIEW_ROUTE[index]
+            attempt["provider"] != LEGACY_QUORUM_ROUTE[index]
             or attempt["status"] not in {"PASSED", "UNAVAILABLE"}
         ):
             raise FreeReviewError(
@@ -1556,7 +1559,7 @@ def route_keyless_review(
     adapters: dict[str, Any],
     minimum_reviewers: int = 1,
 ) -> dict[str, Any]:
-    """Run the one mandatory route; only typed UNAVAILABLE may fall through."""
+    """Run the mandatory fresh opposite-GPT route."""
     maker_row = _identity(maker, "maker identity")
     if not isinstance(prompt, str) or not prompt:
         raise FreeReviewError("UNVERIFIED", "review prompt is absent")
@@ -1566,7 +1569,7 @@ def route_keyless_review(
         type(minimum_reviewers) is not int
         or not 1 <= minimum_reviewers <= len(MANDATORY_REVIEW_ROUTE)
     ):
-        raise FreeReviewError("UNVERIFIED", "minimum reviewer quorum is invalid")
+        raise FreeReviewError("UNVERIFIED", "mandatory reviewer count is invalid")
     attempts: list[dict[str, str]] = []
     unavailable: list[str] = []
     passed_reviews: list[dict[str, Any]] = []
@@ -1633,25 +1636,27 @@ def route_keyless_review(
             }
     raise FreeReviewError(
         "UNAVAILABLE",
-        "mandatory independent reviewer quorum is unavailable: "
+        "mandatory independent reviewer is unavailable: "
         + "; ".join(unavailable),
     )
 
 
 def select_openai_reviewer_model(maker_model: str, configured_model: str) -> str:
-    """Select a known different OpenAI model without caller-side bypasses."""
+    """Select the exact opposite Sol/Terra model without caller bypasses."""
     if not isinstance(maker_model, str) or not isinstance(configured_model, str):
         raise FreeReviewError("UNVERIFIED", "OpenAI model selection is malformed")
     maker = maker_model.strip()
     configured = configured_model.strip()
     if not maker or not configured:
         raise FreeReviewError("UNAVAILABLE", "OpenAI reviewer model is absent")
-    if maker.casefold() != configured.casefold():
-        return configured
     alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker.casefold())
     if not alternate:
         raise FreeReviewError(
-            "UNAVAILABLE", "no configured different OpenAI subscription model"
+            "UNAVAILABLE", "maker is not a supported Sol/Terra model"
+        )
+    if configured.casefold() not in {maker.casefold(), alternate.casefold()}:
+        raise FreeReviewError(
+            "UNVERIFIED", "configured reviewer is outside the Sol/Terra pair"
         )
     return alternate
 
@@ -3899,8 +3904,6 @@ def main(argv: list[str] | None = None) -> int:
                     maker=maker,
                     adapters={
                         "openai-subscription": openai_adapter,
-                        "anthropic-subscription": anthropic_adapter,
-                        "github-copilot-user": copilot_adapter,
                     },
                     minimum_reviewers=minimum_reviewers,
                 )

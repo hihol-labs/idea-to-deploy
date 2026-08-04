@@ -36,19 +36,16 @@ You are a quality validator for project documentation and code. Your job is to f
 
 For every medium/high/unknown-risk candidate that is going to be published as a PR,
 `/review`, `/cross-review`, and the Verification Loop use the same producer:
-`skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless order is
-`OpenAI -> Anthropic -> GitHub Copilot`: first a fresh different OpenAI model/session,
-then Anthropic subscription auth, then GitHub Copilot user auth in free `auto` mode. Only a typed
-`UNAVAILABLE` result advances to the next provider. `BLOCKED` and `UNVERIFIED`
-stop the gate, and exhaustion remains `UNAVAILABLE`. For high/unknown risk, a
-clean `PASSED` continues only to fill the explicit two-reviewer quorum; this is
-not provider fallback and never permits seeking a favorable vote.
+`skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless route is
+`Sol -> Terra` and `Terra -> Sol`: exactly one fresh opposite OpenAI
+model/session reviews the evidence-bound candidate. `BLOCKED`, `UNVERIFIED`
+and `UNAVAILABLE` stop the gate. Anthropic, GitHub Copilot, Antigravity and
+paid API adapters are optional separately invoked facilities, not automatic
+fallbacks or quorum members.
 
-The signed phase-one receipt must contain the exact attempt prefix. The earlier
-single-reviewer policy uses v2; evidence-first high/unknown review uses v3 and
-binds at least two clean independent provider/model/session identities plus
-every per-reviewer prompt/report. Missing or malformed route/quorum evidence is
-`UNVERIFIED`, and the broker must reject it before authorization.
+The signed phase-one v2 receipt contains the exact attempt prefix and one fresh
+opposite-GPT identity plus its prompt/report. Missing or malformed route
+evidence is `UNVERIFIED`, and the broker must reject it before authorization.
 
 For PR publication, pass the producer-emitted prompt/report plus
 `--phase-one-receipt` and its trusted `--producer-keyring` to Verification Loop
@@ -66,8 +63,8 @@ checker evidence rather than creating a parallel gate.
 When `activeFollowup.reviewPolicy.mode=evidence-first`, validate the closed
 criterion → impact class → exact-tree oracle matrix before semantic review.
 Missing coverage is `UNVERIFIED`, even when ordinary tests are green. For
-high/unknown risk require two clean independent provider/model/session reports;
-combine every unit, integration and reviewer finding by host union. A clean
+medium/high/unknown risk require one clean fresh opposite-GPT report; combine
+every unit, integration and reviewer finding by host adjudication. A clean
 later response can never erase earlier negative evidence.
 
 ## Recommended model

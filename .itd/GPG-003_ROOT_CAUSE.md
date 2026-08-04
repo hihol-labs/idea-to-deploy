@@ -45,16 +45,12 @@ host-observed provenance; they do not claim cryptographic model identity or
 same-principal Byzantine resistance.
 
 The phase-one receipt binds the complete closed attempt ledger into its signed
-payload. The ledger must be the exact prefix of
-`OpenAI -> Anthropic -> GitHub Copilot`.
-Under the single-reviewer policy, every preceding entry is typed `UNAVAILABLE`
-and the final entry is `PASSED`. Under quorum policy, `PASSED` may advance only
-while the risk-required clean quorum is still unmet; typed `UNAVAILABLE` remains
-the only provider fallback, and `BLOCKED`/`UNVERIFIED` always stop. Missing,
-reordered, skipped, duplicated, foreign, under-quorum or differently typed
-entries are `UNVERIFIED`. The broker independently revalidates the selected
-ledger state machine before it may request App authentication or authorize
-publication evidence.
+payload. The mandatory ledger contains exactly one `openai-subscription` entry.
+It is `PASSED` only for a fresh opposite Sol/Terra identity; `UNAVAILABLE`,
+`BLOCKED` and `UNVERIFIED` stop publication without an automatic fallback.
+Missing, duplicated, foreign or differently typed entries are `UNVERIFIED`.
+The broker independently revalidates the selected ledger state machine before
+it may request App authentication or authorize publication evidence.
 
 The first route-ledger repair review exposed a second orchestration gap:
 Verification Loop could mint a generic checker receipt from an independently
@@ -298,8 +294,9 @@ availability and review-efficacy defect.
 ADR-005 therefore strengthens the existing nine points with evidence-first
 coverage and measured deep review. Active criteria declare generic impact
 classes and exact-tree oracle IDs; absent or failed coverage is `UNVERIFIED`
-before model dispatch. High/unknown risk requires two independent clean
-provider/model/session reports in phase-one v3. The host unions all findings.
+before model dispatch. ADR-006 later removes the mandatory quorum: medium,
+high and unknown risk require one fresh opposite-GPT report in phase-one v2.
+The host still preserves all machine, unit, integration and reviewer findings.
 The frozen efficacy pack uses deterministic mutations only for evidence/union
 mechanics; blocker recall and false-block calibration come from real no-tools
 Terra reports over candidates whose expected faults are hidden from the model.
@@ -308,7 +305,7 @@ fresh WSL and native-Windows results. GPG-003 remains open until exact
 adjudication, merge/release and dual-host installed proof are recorded in
 completion evidence.
 
-The first quorum replay of that candidate (A37) exercised the real Copilot
+The historical first quorum replay of that candidate (A37) exercised Copilot
 fallback and stopped correctly because one assistant message was not strict
 JSON. The parser was not at fault and remains closed: Markdown fences, prose
 and partial extraction are never promoted to evidence. The prompt boundary was
@@ -338,3 +335,12 @@ Public evidence signatures use lowercase fixed-width hex rather than base64url:
 the Ed25519 payload and verification are unchanged, while the generic
 high-entropy credential scrub can continue to reject every mixed-case token
 without a dangerous field-name allowlist.
+
+The bounded A41 and A42 cycles later repeated the same terminal Copilot
+structured-output failure. That evidence showed the mandatory provider chain
+and quorum were an availability defect, not additional protection against the
+earlier missing-oracle incident. ADR-006 therefore selects one fresh opposite
+GPT reviewer and leaves Anthropic, Copilot, Antigravity and paid API transports
+optional. Exact-candidate machine evidence, strict output, re-review after any
+amendment, route-bound adjudication, dual-host rollout and 9/9 completion
+evidence remain unchanged.

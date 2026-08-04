@@ -1,7 +1,7 @@
 # ADR-004: one mandatory keyless independent pre-PR review route
 
 **Date:** 2026-08-03
-**Status:** Accepted
+**Status:** Accepted, mandatory route amended by ADR-006
 **Supersedes:** ADR-002 and ADR-003 for `/review`, `/cross-review`, and default
 pre-PR routing. ADR-003 remains applicable only to separately configured paid
 operator infrastructure.

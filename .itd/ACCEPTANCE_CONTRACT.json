@@ -1,7 +1,7 @@
 {
   "version": 2,
   "purpose": "Acceptance contract for the portable review gate and GPG-003 unified mandatory keyless independent-review workflow.",
-  "sourceRequest": "Preserve the approved nine-point plan while replacing conflicting review paths with one mandatory pre-PR workflow: fresh different OpenAI model/session first, Anthropic second, and an externally fresh official keyless user transport third, fail closed when unavailable, no provider API-key default and no caller bypass, with Windows/WSL parity. On 2026-08-04 live evidence rejected Antigravity for the current account location and the already-retired GitHub Models service; GitHub Copilot Free/auto then passed stdin-only zero-tool dual-host probes within its included premium-request quota.",
+  "sourceRequest": "Preserve the approved nine-point plan and evidence-first exact-candidate machine oracle while simplifying the mandatory pre-PR semantic check to one fresh opposite GPT session: Sol maker to Terra reviewer, Terra maker to Sol reviewer. Anthropic, GitHub Copilot, Antigravity and paid API transports remain optional and cannot block unrelated projects.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -172,9 +172,9 @@
     },
     {
       "id": "GPG-003-AC2",
-      "criterion": "The shared producer tries exactly: fresh different OpenAI model/session with ChatGPT subscription auth, then Anthropic subscription auth, then official GitHub Copilot user auth in free auto mode. The default route contains no provider API-key requirement, bounds each Copilot call to 0..1 included premium request, and never enables or automatically dispatches paid overage or a paid API request.",
+      "criterion": "The shared producer runs exactly one fresh opposite-GPT session through ChatGPT subscription auth: Sol maker selects Terra and Terra maker selects Sol. The default route contains no provider API-key requirement and never automatically dispatches Anthropic, GitHub Copilot, Antigravity, paid overage or a paid API request.",
       "source": "User-selected ordered independent-review route.",
-      "evidence": "PASSED on 2026-08-04: 49 Copilot adapter, 89 mandatory-route and 106 producer checks cover the exact route, pinned binary, stdin-only packet, free auto mode, 30-credit session bound, closed 0..1 included premium-request per-call quota, no-tool/no-MCP/no-instructions/no-remote profile, runtime session/model telemetry, zero file changes, malformed output and tool-attempt rejection. Every direct, unit and integration prompt ends in a trusted RFC 8259 closed-output contract after all untrusted material; Markdown-wrapped or prose-prefixed JSON remains terminal UNVERIFIED. Fresh live user-auth probes passed on both hosts with runtime 1.0.78 and observed gpt-5-mini.",
+      "evidence": "Mandatory-route and producer mutations require the one-entry OpenAI subscription route, exact Sol/Terra alternation, fresh runtime session/model telemetry, no tools or inherited context, strict structured output and no provider fallback. Optional adapter regression suites remain separate compatibility evidence and cannot satisfy the selected route.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
       "reviewEvidence": {
         "claim": "The keyless provider route preserves isolation, compatibility and paid-dispatch denial.",
@@ -185,9 +185,9 @@
     },
     {
       "id": "GPG-003-AC3",
-      "criterion": "Only typed transport UNAVAILABLE may advance to the next provider. Findings, unverified contours, malformed output, tool use, same model/session, inherited context, missing exact coverage, stale evidence, or all routes unavailable block PR publication with no caller/user/force bypass.",
+      "criterion": "Findings, unverified contours, malformed output, tool use, same model/session, inherited context, missing exact coverage, stale evidence, unknown maker model or mandatory reviewer UNAVAILABLE block PR publication with no caller/user/force bypass and no automatic provider fallback.",
       "source": "Fail-closed independent-review invariant from the nine-point plan.",
-      "evidence": "PASSED mutations for primary stop, ordered fallthrough, all-unavailable, BLOCKED/UNVERIFIED terminal behavior, exact and aliased same-model rejection, missing/mismatched runtime model telemetry, caller off-switch rejection and a signed closed attempt ledger. The 106-check producer suite rejects missing, skipped, mistyped, non-passing-terminal and foreign-terminal re-signed ledgers, empty non-PASSED verdicts, Anthropic alias-family bypasses during minting and verification, legacy receipt version 1, incomplete/mutated hierarchical bundles, session reuse and mixed-model unit evidence while retaining bounded provenance for a Codex rollout larger than the prompt cap; the 744-check broker suite rejects a re-signed broken ledger before App authentication or GitHub access, authorizes runtime `claude-opus-*` telemetry against the `opus` family, and rejects an unlisted Anthropic family. Positively identified auth/status, TLS-handshake disconnect, request timeout or absent model-telemetry failures are UNAVAILABLE; an unknown non-zero post-launch CLI defect or mismatched model is UNVERIFIED and proves no fallback call occurs.",
+      "evidence": "Mutations cover one mandatory call, BLOCKED/UNVERIFIED/UNAVAILABLE terminal behavior, exact opposite-model selection, same-model rejection, missing/mismatched runtime telemetry, caller off-switch rejection and a signed closed one-entry attempt ledger. Existing optional adapter and phase-one v3 compatibility tests remain non-authoritative for the selected route.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
       "reviewEvidence": {
         "claim": "Typed failures, findings and evidence gaps remain terminal across producer, consumer and broker.",
@@ -239,7 +239,7 @@
       "id": "GPG-003-AC7",
       "criterion": "Every active acceptance criterion carries a closed evidence-first mapping from generic impact classes to exact-tree machine oracle IDs; missing, failed, duplicate, foreign-tree or uncovered evidence is UNVERIFIED before any model can return PASSED.",
       "source": "User-approved methodology-wide independent-review effectiveness correction on 2026-08-03.",
-      "evidence": "The frozen structural canaries pass 12/12 missing, failed, duplicate, foreign-tree, under-quorum and uncovered-evidence mutations against the same coverage module embedded in the producer packet; the semantic corpus is measured separately from these deterministic mechanics.",
+      "evidence": "The frozen structural canaries cover missing, failed, duplicate, foreign-tree, missing-reviewer and uncovered-evidence mutations against the same coverage module embedded in the producer packet; the semantic corpus is measured separately from these deterministic mechanics.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py",
       "reviewEvidence": {
         "claim": "Evidence coverage is closed, exact-tree bound and measured before semantic review.",
@@ -250,9 +250,9 @@
     },
     {
       "id": "GPG-003-AC8",
-      "criterion": "High and unknown risk require clean reports from at least two independent provider/model/session identities. Their findings and unverified contours are combined by deterministic host union; one clean reviewer or integration response cannot erase another reviewer's blocker.",
-      "source": "User-approved mandatory deep-review quorum and the A29 Terra aggregation finding.",
-      "evidence": "Producer, route, broker and Verification Loop mutations cover two-provider execution, under-quorum denial, second-reviewer blockers, signed phase-one v3 reviewer lists, enrollment authorization and route-bound adjudication.",
+      "criterion": "Medium, high and unknown risk require one clean fresh opposite-GPT provider/model/session identity after exact-tree machine evidence. The host preserves every machine, unit, integration and reviewer finding or unverified contour; a clean integration response cannot erase an earlier blocker.",
+      "source": "ADR-006 user-approved single opposite-GPT route and the A29 aggregation finding.",
+      "evidence": "Producer, route, broker and Verification Loop mutations cover single-reviewer phase-one v2, missing-reviewer denial, unit/integration finding retention, opposite-model identity, enrollment authorization and route-bound adjudication.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
       "reviewEvidence": {
         "claim": "The signed receipt, prompt bundle and adjudication preserve the complete reviewer union.",
@@ -276,9 +276,9 @@
     },
     {
       "id": "GPG-003-AC10",
-      "criterion": "Every mandatory external reviewer transport has a current official service/migration source, a freshness record no older than 30 days and a pinned minimum runtime version. Available quorum transports require signed, host-derived live model proof on WSL and native Windows before release acceptance; a deliberately unconfigured subscription may remain only as typed UNAVAILABLE and cannot satisfy quorum. Unit protocol tests alone cannot prove provider availability.",
+      "criterion": "The mandatory OpenAI subscription reviewer transport has a current official source, a freshness record no older than 30 days and a pinned minimum runtime version. It requires host-derived live opposite-model proof on WSL and native Windows before release acceptance. Optional transports cannot satisfy or block the selected route; unit protocol tests alone cannot prove mandatory availability.",
       "source": "2026-08-04 methodology correction after the legacy Gemini CLI individual backend retired while its local adapter oracle remained green.",
-      "evidence": "PASSED on 2026-08-04: record v3 covers the full OpenAI -> Anthropic -> Copilot route with official sources and minimum runtimes, plus legacy Gemini retirement, Antigravity location ineligibility and GitHub Models retirement. Signed host-derived WSL/Windows OpenAI Terra efficacy envelopes and Copilot Free/auto live envelopes validate current runtime/model/session/executable/proxy provenance. Anthropic is explicitly typed unavailable because the user has no paid Claude subscription and therefore cannot satisfy the two-reviewer quorum.",
+      "evidence": "The freshness record and dual-host live evidence bind the installed OpenAI subscription runtime plus Sol/Terra model/session provenance. Anthropic, Copilot, Antigravity and retired backends remain documented as optional, unavailable or retired without entering mandatory acceptance.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_provider_freshness.py",
       "reviewEvidence": {
         "claim": "Mandatory provider availability is externally fresh rather than inferred from adapter unit tests.",
@@ -325,7 +325,7 @@
       "mode": "evidence-first",
       "riskTier": "high",
       "requiredImpactClasses": ["bounded-output", "compatibility", "correctness", "error-handling", "generated-artifact-freshness", "host-parity", "numerical-stability", "performance", "reconciliation", "repository-hygiene", "scale", "security"],
-      "minimumIndependentReviewers": 2,
+      "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     }
