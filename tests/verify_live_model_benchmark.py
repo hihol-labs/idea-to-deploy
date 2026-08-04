@@ -195,6 +195,11 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
         check("live evidence is valid JSON", False, str(exc))
         return
     check("live evidence schema is v1", report.get("schemaVersion") == 1)
+    check(
+        "live workflow evidence is not mislabeled as reviewer isolation evidence",
+        report.get("evidencePurpose") == "workflow-output-quality"
+        and report.get("independentReviewEvidence") is False,
+    )
     check("only a real PASS can satisfy H4", status_passes(report),
           str(report.get("status")))
     if not status_passes(report):
@@ -317,7 +322,8 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
             transcript_text = raw.decode("utf-8", errors="replace")
             check("retained transcript proves actual ITD skill and reference loading",
                   "skills/blueprint/SKILL.md" in transcript_text
-                  and "skills/blueprint/references/document-templates.md" in transcript_text)
+                  and "skills/blueprint/references/document-templates.md" in transcript_text
+                  and "--dangerously-bypass-hook-trust" not in transcript_text)
         except Exception as exc:
             check("retained transcript is readable", False, str(exc))
 
@@ -338,6 +344,8 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
           and invocation.get("projectGuidance") == "AGENTS.md"
           and invocation.get("projectContracts") == ".itd/"
           and invocation.get("transcriptProvesSkillLoad") is True
+          and invocation.get("hookExecution") ==
+          "disabled-for-live-model-evidence"
           and invocation.get("methodologyTreeSha256") == current_tree)
 
     artifacts = report.get("artifacts") or {}
@@ -581,7 +589,9 @@ def main() -> int:
           '"-C", candidate_project' in runner)
     check("headless Codex uses explicit no-escalation workspace-write policy",
           'executable, "--ask-for-approval", "never",' in runner
-          and '"--sandbox", "workspace-write", "exec",' in runner)
+          and '"--sandbox", "workspace-write", "exec",' in runner
+          and '"--disable", "hooks",' in runner
+          and "--dangerously-bypass-hook-trust" not in runner)
     check("candidate attempts share one total timeout deadline",
           "deadline = time.monotonic() + args.timeout_seconds" in runner
           and "remaining_seconds = deadline - time.monotonic()" in runner)

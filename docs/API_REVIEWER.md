@@ -1,10 +1,20 @@
-# Verifiable external API reviewer
+# Optional paid external API adapter
 
 `skills/_shared/itd_external_reviewer.py` is a provider-neutral checker
-transport for the existing Verification Loop. It is not a new lifecycle skill
-and cannot mark work complete by itself.
+transport for separately operated paid infrastructure. It is not the default
+`/review` or `/cross-review` path, is not an automatic fallback, and cannot mark
+work complete by itself.
 
-## Local advisory use
+The mandatory pre-PR path is
+`skills/_shared/itd_free_reviewer_producer.py` with the fixed keyless route
+`OpenAI -> Anthropic -> GitHub Copilot`. It uses installed user/subscription auth and
+has no caller bypass. Do not request `OPENAI_API_KEY` when the mandatory path is
+unavailable; repair or authenticate one of its three user transports instead.
+Its only transparent binary representation is the broker-defined `.jsonl.gz`
+contract: exact raw Git bytes remain candidate-bound while strict logical JSONL
+is reviewed. This does not enable generic binary review.
+
+## Explicit paid operator use
 
 Stage the exact candidate, explicitly permit egress, and provide real
 host-observed maker provenance:
@@ -22,9 +32,10 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py review \
   --mode local
 ```
 
-Local mode returns a typed JSON status and remains fail-open for
-`UNAVAILABLE`/`UNVERIFIED`. `FINDINGS` is non-zero so scripts cannot confuse it
-with a clean review. The API key is read only from `OPENAI_API_KEY`.
+Local mode returns a typed JSON status. It cannot satisfy or override the
+mandatory pre-PR route. `FINDINGS` is non-zero so scripts cannot confuse it
+with a clean review. This separately requested paid operation reads its key
+only from `OPENAI_API_KEY`.
 
 Consent can instead use a local, normally untracked
 `.itd-external-review-egress-ok` marker. The legacy
@@ -49,19 +60,22 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py validate \
 
 Then pass the recorded prompt/report and maker/checker fields to
 `itd_verification_loop.py checker`. Complete through the ordinary `machine`,
-`adjudicate`, and `check` commands. Only that adjudication is acceptance
-evidence.
+`adjudicate`, and `check` commands for an explicitly requested diagnostic.
+This paid adapter does not emit the mandatory keyless phase-one v2 receipt, so
+its generic adjudication cannot pass local-submission
+`check --require-mandatory-route` and cannot authorize guarded PR publication.
 
-## Routing
+## Paid-adapter routing
 
-The default policy is `skills/_shared/EXTERNAL_REVIEW_POLICY.json`.
+The paid adapter policy is `skills/_shared/EXTERNAL_REVIEW_POLICY.json`; it is
+not the methodology's default reviewer route.
 
 - Claude/Gemini-authored candidate: managed OpenAI API is eligible
   cross-vendor evidence.
 - GPT/Codex-authored candidate: the managed OpenAI API is same-vendor and
   potentially same-provider evidence; the exact same model remains ineligible
   for high/unknown risk.
-- Codex CLI and Gemini CLI remain registered host-native alternatives, but are
+- Codex CLI and GitHub Copilot CLI remain registered host-native alternatives, but are
   not eligible for automated diff egress or protected evidence until their
   adapter can prove a no-tools/no-secret sandbox and complete cost telemetry.
 
@@ -163,7 +177,8 @@ itd gate register-profile \
   --protection-profile local-review \
   --local-review-receipt-file <absolute-current-adjudication.json> \
   --local-review-unit-id <unit-id>:general-review \
-  --local-review-risk-tier high
+  --local-review-risk-tier high \
+  --local-review-producer-keyring-sha256 <trusted-keyring-sha256>
 itd gate doctor --repository <owner/repository>
 ```
 
@@ -171,12 +186,27 @@ The doctor must return `LOCAL_REVIEWED`. Its local validator uses Verification
 Loop `--candidate-mode committed-head`, which reconstructs the original review
 context from `HEAD^`, `HEAD^{tree}`, and the exact binary diff. Thus the commit
 does not self-invalidate the review, while an amended tree, merge commit,
-second commit, or foreign parent fails closed. The default staged validator is
-unchanged. `itd pr create` then revalidates this bridge and the exact machine
-preflight before its guarded push, creates or updates the Draft PR, and
-performs no App, broker, ruleset, or status-check call. To refresh evidence
-after commit, run the Verification Loop machine, checker, and adjudicate
-commands with `--candidate-mode committed-head`.
+second commit, or foreign parent fails closed. This portable profile does not
+require an adoption verification contract: `itd pr create` revalidates the
+exact adjudication and guarded push binds the current reviewed `HEAD`, rather
+than running the adoption-contract machine preflight. App-backed profiles
+retain that preflight. The local route creates or updates the Draft PR and
+performs no App, broker, ruleset, or status-check call. When an already
+reviewed single-commit candidate was amended, the CLI may update only the
+matching existing Draft branch, using `--force-with-lease` bound to the
+observed remote SHA; if the Draft already points at the reviewed HEAD, it does
+not push. Its pre-push oracle remains fail-closed and uses the bounded
+`itd pr create --timeout` budget (300 to 3600 seconds) rather than a separate
+fixed timeout. A failed GitHub PR lookup is never treated as an absent PR;
+the lookup explicitly binds the current Git branch and repository, and only
+the CLI's exact no-PR result naming that same branch may enter Draft creation.
+The diagnostic permits no surrounding whitespace and only no terminator, LF,
+or CRLF. The host-owned profile registry also pins the authorized producer
+keyring hash. The installed validator, not candidate code, verifies phase one
+and rejects a candidate-supplied replacement key even when its receipt is
+otherwise valid. To refresh evidence after any amend, run the Verification Loop
+machine, checker, and adjudicate commands with
+`--candidate-mode committed-head`.
 
 ## GitHub gate
 
@@ -194,7 +224,7 @@ App receives signed `pull_request` and
 verifies exact head/base/test-merge coordinates and Ed25519 maker provenance,
 routes to a different eligible API model, and publishes the
 `ITD external review gate` Check Run on the exact GitHub test-merge SHA.
-`Codex CLI` and `Gemini CLI` remain advisory transports only.
+`Codex CLI` and `GitHub Copilot CLI` remain advisory transports only.
 GitHub's Compare API exposes its changed-file list on the first response and
 caps that list at 300 files; the frozen broker policy keeps `maxFiles` strictly
 below that cap (100), rejects a response at the API cap, and independently

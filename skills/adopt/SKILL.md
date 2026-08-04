@@ -337,6 +337,9 @@ the reviewed tree and binary diff. A changed tree, merge commit, or second
 commit invalidates the receipt and blocks guarded push. If evidence is minted
 after the commit, all Verification Loop producer/adjudication commands must use
 that same committed-head mode.
+The checker must also bind the shared keyless producer's phase-one v2 receipt
+and trusted producer keyring. Local doctor validation requires that mandatory
+route, so a generic checker receipt cannot authorize publication.
 
 For an App profile, this step implements a server-enforced boundary; local
 hooks remain only an early UX guard. Detect the canonical GitHub `origin` and

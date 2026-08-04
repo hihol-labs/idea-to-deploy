@@ -911,6 +911,7 @@ def remote_phase() -> None:
 
     response = {
         "number": 9,
+        "headRefName": "topic",
         "headRefOid": HEAD,
         "baseRefOid": BASE,
         "url": "https://github.com/hihol-labs/example/pull/9",
@@ -918,15 +919,95 @@ def remote_phase() -> None:
         "state": "OPEN",
     }
     completed = type("Completed", (), {"returncode": 0})()
-    with mock.patch.object(
-        cli, "run_json", return_value=(response, completed)
-    ) as runner:
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(
+            cli, "run_json", return_value=(response, completed)
+        ) as runner,
+    ):
         cli.pr_view(Path("."), REPOSITORY)
     arguments = runner.call_args.args[0]
     check(
-        arguments[arguments.index("--repo") + 1] == REPOSITORY,
-        "PR lookup explicitly binds repository",
+        arguments[2] == "view"
+        and arguments[3] == "topic"
+        and arguments[arguments.index("--repo") + 1] == REPOSITORY,
+        "PR lookup explicitly binds branch and repository",
     )
+    missing = type(
+        "Completed", (), {
+            "returncode": 1,
+            "stdout": b"",
+            "stderr": b'no pull requests found for branch "topic"\n',
+        }
+    )()
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(cli, "run_json", return_value=(None, missing)),
+    ):
+        check(
+            cli.pr_view(Path("."), REPOSITORY) is None,
+            "exact no-PR result permits Draft creation",
+        )
+    for label, stderr in (
+        (
+            "different branch",
+            b'no pull requests found for branch "other"\n',
+        ),
+        (
+            "surrounding whitespace",
+            b' no pull requests found for branch "topic"\n',
+        ),
+    ):
+        substituted = type(
+            "Completed", (), {
+                "returncode": 1,
+                "stdout": b"",
+                "stderr": stderr,
+            }
+        )()
+        with (
+            mock.patch.object(cli, "git", return_value="topic"),
+            mock.patch.object(
+                cli, "run_json", return_value=(None, substituted)
+            ),
+        ):
+            rejects(
+                "UNAVAILABLE",
+                lambda: cli.pr_view(Path("."), REPOSITORY),
+                f"{label} cannot become absent PR",
+            )
+    unavailable = type(
+        "Completed", (), {
+            "returncode": 1,
+            "stdout": b"",
+            "stderr": b"TLS handshake timeout\n",
+        }
+    )()
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(cli, "run_json", return_value=(None, unavailable)),
+    ):
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.pr_view(Path("."), REPOSITORY),
+            "failed PR lookup never becomes absent PR",
+        )
+    malformed = type(
+        "Completed", (), {
+            "returncode": 1,
+            "stdout": b"",
+            "stderr": b"\xff",
+        }
+    )()
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(cli, "run_json", return_value=(None, malformed)),
+    ):
+        rejects(
+            "UNVERIFIED",
+            lambda: cli.pr_view(Path("."), REPOSITORY),
+            "malformed PR lookup error fails closed",
+        )
     ready = dict(response, isDraft=False)
     with (
         mock.patch.object(cli, "pr_view", return_value=ready),
@@ -940,6 +1021,56 @@ def remote_phase() -> None:
             "ready PR rejected",
         )
         check(not push.called, "ready PR rejected before push")
+
+    updated_head = "e" * 40
+    updated_response = dict(response, headRefOid=updated_head)
+    with (
+        mock.patch.object(
+            cli, "pr_view", side_effect=[response, updated_response]
+        ),
+        mock.patch.object(
+            cli, "git", side_effect=["topic", updated_head]
+        ),
+        mock.patch.object(cli, "run") as push,
+    ):
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session", 600,
+        )
+        command = push.call_args.args[0]
+        check(value == updated_response, "updated Draft PR returned")
+        check(
+            "--force-with-lease=refs/heads/topic:" + HEAD in command
+            and "HEAD:refs/heads/topic" in command,
+            "existing Draft update uses exact force-with-lease",
+        )
+        check(
+            push.call_args.kwargs["env"]["ITD_GUARDED_PR_PUSH"] == "1",
+            "Draft update retains guarded push environment",
+        )
+        check(
+            push.call_args.kwargs["timeout"] == 600,
+            "Draft update carries the bounded CLI timeout through pre-push",
+        )
+
+    check(
+        cli.guarded_push_timeout(1200) == 1200
+        and cli.guarded_push_timeout(30) == 300
+        and cli.guarded_push_timeout(9999) == 3600,
+        "guarded push timeout is bounded",
+    )
+
+    with (
+        mock.patch.object(cli, "pr_view", side_effect=[response, response]),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "run") as push,
+    ):
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session",
+        )
+        check(value == response, "unchanged Draft PR returned")
+        check(not push.called, "up-to-date Draft skips empty-stream push")
 
 
 def parser_phase() -> None:

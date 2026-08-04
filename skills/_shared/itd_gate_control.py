@@ -535,7 +535,8 @@ def validate_profile_registry(value: Any) -> dict[str, Any]:
         "repository", "checkout", "repositoryOwnerType",
         "deploymentProfile", "protectionProfile",
         "localReviewReceiptFile", "localReviewUnitId",
-        "localReviewRiskTier", "brokerUrl", "appId", "appOwner",
+        "localReviewRiskTier", "localReviewProducerKeyringSha256",
+        "brokerUrl", "appId", "appOwner",
         "appOwnerType", "appVisibility", "rulesetScope", "rulesetId",
         "machineWorkflowRepositoryId", "machineWorkflowSha",
         "provenanceKeyId", "provenanceKeyFile",
@@ -543,6 +544,7 @@ def validate_profile_registry(value: Any) -> dict[str, Any]:
     }
     local_fields = (
         "localReviewReceiptFile", "localReviewUnitId", "localReviewRiskTier",
+        "localReviewProducerKeyringSha256",
     )
     app_fields = (
         "brokerUrl", "appId", "appOwner", "appOwnerType", "appVisibility",
@@ -581,6 +583,9 @@ def validate_profile_registry(value: Any) -> dict[str, Any]:
                 )
                 or row["localReviewRiskTier"]
                 not in {"low", "medium", "high", "unknown"}
+                or not SHA256_RE.fullmatch(
+                    str(row["localReviewProducerKeyringSha256"])
+                )
                 or any(row[name] is not None for name in app_fields)
             ):
                 raise GateError(
@@ -1455,11 +1460,17 @@ def validate_local_adjudication(
     receipt: Path,
     unit_id: str,
     risk_tier: str,
+    repository: str,
+    producer_keyring_sha256: str,
     *,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
     platform_name: str | None = None,
 ) -> None:
-    if not checkout.is_absolute() or not receipt.is_absolute():
+    if (
+        not checkout.is_absolute()
+        or not receipt.is_absolute()
+        or not SHA256_RE.fullmatch(producer_keyring_sha256)
+    ):
         raise GateError("UNVERIFIED", "local review paths must be absolute")
     command = [
         sys.executable,
@@ -1467,6 +1478,9 @@ def validate_local_adjudication(
         "check", "--root", str(checkout), "--unit-id", unit_id,
         "--risk-tier", risk_tier,
         "--candidate-mode", "committed-head",
+        "--require-mandatory-route",
+        "--expected-repository", repository,
+        "--expected-producer-keyring-sha256", producer_keyring_sha256,
         "--receipt", str(receipt),
     ]
     try:
@@ -1496,7 +1510,7 @@ def profile_doctor_entry(
     *,
     gh: Callable[..., Any] = gh_json,
     readiness: Callable[..., dict[str, Any]] = broker_ready,
-    local_review: Callable[[Path, Path, str, str], None]
+    local_review: Callable[[Path, Path, str, str, str, str], None]
     = validate_local_adjudication,
     adoption: Callable[[Path], list[str]] = adopted_checkout,
     version_probe: Callable[[], str] = installed_version,
@@ -1534,7 +1548,10 @@ def profile_doctor_entry(
         }
 
     checkout = Path(entry["checkout"])
-    drift = adoption(checkout)
+    # A portable local-review profile proves its exact candidate through the
+    # bound independent adjudication below. It deliberately does not claim an
+    # adopted/project-contract control plane; App-backed profiles still do.
+    drift = [] if protection == "local-review" else adoption(checkout)
     try:
         version = version_probe()
     except GateError as exc:
@@ -1546,6 +1563,8 @@ def profile_doctor_entry(
             local_review(
                 checkout, Path(entry["localReviewReceiptFile"]),
                 entry["localReviewUnitId"], entry["localReviewRiskTier"],
+                entry["repository"],
+                entry["localReviewProducerKeyringSha256"],
             )
         except GateError as exc:
             drift.append(f"local review: {exc.status}: {exc.reason}")

@@ -1,7 +1,9 @@
 # GPG-001 — согласованный план из 9 пунктов
 
-Статус: `verified` для выбранного профиля
-`local-submission` + `local-review`, WIP=1 закрыт 2026-08-02.
+Статус базового GPG-001: `verified` для выбранного профиля
+`local-submission` + `local-review`. После выявленного false-pass review
+уточнённый план 9/9 открыт как WIP=1 `GPG-003` и остаётся `in_progress` до
+completion evidence и подтверждённого dual-host rollout.
 Статус опирается на exact-candidate receipts, GitHub checks, merge и
 release/install evidence из `.itd/GPG-001_COMPLETION_EVIDENCE.json`; он не
 является заявлением `PROTECTED`.
@@ -38,6 +40,8 @@ general/security reviews пройдены до merge PR #177.
 repository identity, visibility, default/protected branches, adoption state,
 deployment/protection profile и ожидаемые checks. Неизвестный или
 незарегистрированный repo блокируется fail-closed в server-enforced профилях.
+Inventory также хранит активный risk tier, обязательные generic impact classes
+и capability/evidence profile; неизвестный impact считается непокрытым.
 
 ## 2. Независимая authority и GitHub App/broker
 
@@ -49,6 +53,9 @@ independent-review evidence от допустимого изолированно
 перепроверяет live base/head/test-merge SHA, exact tree/diff и signer, после
 чего публикует App-owned Check Run. Валидный бесплатный receipt не должен
 автоматически запускать платный provider.
+Broker проверяет закрытый evidence-coverage graph и полный host union. Для
+high/unknown phase-one v3 содержит минимум два независимых reviewer identity;
+ни один последующий clean verdict не удаляет предыдущие findings.
 
 ## 3. Независимый reviewer без обязательного платного API
 
@@ -66,12 +73,21 @@ availability fallback после отдельного явного соглас�
 запускается автоматически. Недоступность бесплатного reviewer даёт
 `UNAVAILABLE` и блокирует merge.
 
+Evidence-first предшествует мнению модели: каждый активный acceptance criterion
+связан с exact-tree oracle IDs и generic impact classes. Isolated machine oracle
+служит read-only explorer, а sealed host adjudicator объединяет unit,
+integration и reviewer evidence. Для high/unknown нужны два независимых чистых
+reviewer report; missing evidence всегда `UNVERIFIED`.
+
 ## 4. Release и установка ITD
 
 Выпустить следующую версию ITD только после принятия кандидата. В release
 включить free-review producer/adapter, broker-side receipt validation,
 Windows/WSL parity и документацию. Установленный plugin cache не редактировать:
 только publish + штатная установка новой версии.
+Release дополнительно блокируется, если frozen efficacy corpus не достигает
+100% critical/high и missing-evidence detection, 100% finding retention, 90%
+medium detection, ≤10% clean false blocks и dual-host parity.
 
 ## 5. Machine oracle и bounded diff
 
@@ -80,6 +96,10 @@ Machine oracle выполняется из protected pinned source на exact ca
 не более 16 review units с обязательной integration проверкой, без truncation.
 Только явно объявленный bounded single-member `.jsonl.gz` допускает
 transparent logical review; любой generic binary остаётся `UNVERIFIED`.
+Machine contract должен содержать impact-driven domain oracles: bounded output,
+reconciliation, numerical stability, generated-artifact freshness, scale,
+performance и другие объявленные классы. Hash успешного общего test suite не
+заменяет отсутствующий oracle конкретного риска.
 
 ## 6. Ruleset и merge gate
 
@@ -90,6 +110,8 @@ transparent logical review; любой generic binary остаётся `UNVERIFI
 same-name check, stale receipt, admin prose или standalone `PASSED` не
 удовлетворяют server gate. Merge и deploy выполняют maintainer/deployer
 конкретного проекта; эти роли могут совпадать с maker.
+Merge также требует `evidence gaps=[]`, clean checkout/generation/typecheck по
+контракту, repository hygiene, Ready (не Draft) и текущие live coordinates.
 
 ## 7. Secrets и стоимость
 
@@ -98,6 +120,9 @@ Primary free route не требует OpenAI API key. Ранее раскрыт
 явно включён, credential принадлежит broker/KMS/service account boundary,
 доступен только credential-free worker boundary и ограничен отдельным
 consent/budget. Candidate code никогда не исполняется рядом с secrets.
+Reviewer не получает произвольный shell/production access. Исследование идёт
+через allowlisted read-only machine oracles в disposable exact checkout;
+внешние данные предварительно sanitised и hash-bound.
 
 ## 8. Windows/WSL preflight и Draft PR
 
@@ -105,6 +130,9 @@ consent/budget. Candidate code никогда не исполняется ряд
 repo, stale/foreign receipts и обход guarded Draft PR flow. Перед PR локально
 готовится бесплатный independent receipt; после PR broker перепривязывает его
 к live coordinates. Hooks улучшают UX, но не являются security boundary.
+Preflight проверяет freshness generated artifacts, clean regeneration/typecheck,
+отсутствие внутренних review-файлов в candidate и безопасное отключение hooks
+в live-model harness без trust bypass.
 
 ## 9. Doctor, canaries и rollout
 
@@ -114,10 +142,24 @@ receipt freshness и не завышает protection claim. Negative canaries �
 receipt, inherited-context/same-session reviewer, generic binary, reviewer
 unavailable, missing oracle и unbound integration identity. Затем — serial
 adoption, release/install и live evidence выбранных профилей при WIP=1.
+Canaries дополнительно измеряют blocker recall, missing-evidence detection,
+finding retention и false-block rate; каждый escaped blocker становится
+sanitised generic fixture. Метрики обязаны совпасть на WSL и Windows.
 
 ## Текущая граница
 
-Все девять пунктов реализованы для базового переносимого профиля:
+Базовая реализация девяти пунктов, выпущенная GPG-001/GPG-002, остаётся
+действующей. Уточнение GPG-003 пока не закрыто. Для его закрытия нужны:
+
+1. evidence-first coverage для всех активных критериев;
+2. non-erasable host union и high/unknown reviewer quorum;
+3. frozen efficacy thresholds на WSL и native Windows;
+4. свежий exact-candidate machine receipt и route-bound adjudication;
+5. Ready PR #183, зелёный CI и merge;
+6. patch release, штатная установка и проверка на обоих hosts;
+7. `.itd/GPG-003_COMPLETION_EVIDENCE.json`, связывающий все эти факты.
+
+Исторически подтверждённая базовая граница:
 
 1. profile registry и fail-closed inventory выпущены;
 2. transport-neutral broker/App authority реализованы и протестированы;

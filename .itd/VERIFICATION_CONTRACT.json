@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "purpose": "Executable regression and exact-candidate acceptance contract for GPG-002 Windows UNC local-review doctor reliability, preserving the released GPG-001 trust boundary.",
+  "purpose": "Executable regression and exact-candidate acceptance contract for GPG-003 unified mandatory keyless independent review, preserving GPG-001/GPG-002 trust boundaries.",
   "trustedPathSemantics": "Every commands[].argv directly invokes its declared launcher and verifier. Extra declared files such as tests/run-all.sh are read-only inputs inspected by that verifier, not indirectly executed suites; the protected machine gate binds every declared input to the protected base before execution.",
-  "unitId": "GPG-002",
+  "unitId": "GPG-003",
   "createdAt": "2026-07-30",
-  "activationState": "local_reviewed_release_installed_not_protected",
+  "activationState": "gpg003_unified_keyless_review_in_progress",
   "bootstrapAcceptance": {
-    "currentCandidate": "The candidate changes only the outer local-adjudication timeout selection for native Windows UNC checkouts, its regression test, and GPG-002 records. It must preserve all GPG-001 exact-candidate and fail-closed anchors.",
+    "currentCandidate": "The candidate replaces conflicting paid/advisory reviewer routes with one mandatory keyless producer ordered OpenAI subscription, Anthropic subscription, GitHub Copilot user auth in free auto mode, then fail closed. It must preserve all GPG-001/GPG-002 exact-candidate, MEM-8, secret-isolation and protection-claim anchors.",
     "protectedMachineGate": "Not activated and not required for the selected local-review claim. Any future PROTECTED claim remains RECOVERY_REQUIRED until this contract and every trusted verifier path are identical regular Git objects in the protected base and the live workflow/ruleset canaries pass.",
-    "localMachineEvidence": "The commands below are local regression evidence for an exact-candidate Verification Loop. Together with a fresh different-model checker they may support an honest-host LOCAL_REVIEWED adjudication, but they do not assert live App authority, branch protection or PROTECTED status.",
+    "localMachineEvidence": "The commands below are local regression evidence for an exact-candidate Verification Loop. The mandatory keyless producer supplies the fresh independent semantic result; the adjudicator remains the only acceptance authority. Neither route asserts live App authority, branch protection or PROTECTED status.",
     "anchorSequence": "The reviewed bootstrap and release are complete. A separate optional profile-upgrade unit may install and pin the protected workflow/ruleset to a protected release SHA without changing its attesting anchors before claiming protected-machine enforcement.",
     "externalCandidatePreparationEvidence": "Before the checker receipt, the honest host records the same tree/base, exact reconstruction, review-diff SHA-256, secretScrub=clean, and redactions=0 in the bound report. Any secret match is UNVERIFIED; candidate commands cannot self-attest egress scrub."
   },
@@ -30,11 +30,60 @@
   },
   "commands": [
     {
+      "id": "mandatory-keyless-review-regression",
+      "argv": [
+        "sh",
+        "skills/_shared/itd_py.sh",
+        "--itd-isolated",
+        "tests/verify_mandatory_keyless_review.py"
+      ],
+      "trustedVerifierPaths": [
+        "tests",
+        "skills/_shared/itd_py.sh",
+        "tests/verify_mandatory_keyless_review.py"
+      ],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
       "id": "free-reviewer-producer",
       "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_free_reviewer_producer.py"],
       "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_free_reviewer_producer.py"],
       "timeoutSeconds": 180,
       "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "copilot-reviewer",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_copilot_reviewer.py"],
+      "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_copilot_reviewer.py"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "reviewer-provider-freshness",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_reviewer_provider_freshness.py"],
+      "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_reviewer_provider_freshness.py", ".itd/REVIEW_PROVIDER_FRESHNESS.json"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "independent-review-efficacy",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_independent_review_efficacy.py"],
+      "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_independent_review_efficacy.py", "tests/run-independent-review-efficacy.py", "benchmarks/independent-review-efficacy/cases.json"],
+      "timeoutSeconds": 120,
+      "expectedOutput": "\"status\": \"PASSED\"",
+      "passFailParser": "stdout_contains"
+    },
+    {
+      "id": "live-model-evidence-replay",
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_live_model_benchmark.py", "--require-evidence"],
+      "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_live_model_benchmark.py", "tests/run-live-model-benchmark.py", "tests/fixtures/live-model-evidence"],
+      "timeoutSeconds": 180,
+      "expectedOutput": "passed, 0 failed",
       "passFailParser": "stdout_contains"
     },
     {
@@ -203,6 +252,15 @@
     ".itd/SCOPE_LOCK.md",
     ".itd/VERIFICATION_CONTRACT.json",
     ".itd-memory/STATE.json",
+    ".itd/GPG-003_ROOT_CAUSE.md",
+    ".itd/REVIEW_PROVIDER_FRESHNESS.json",
+    ".itd/REVIEW_EFFICACY_KEYRING.json",
+    ".itd/COPILOT_LIVE_WSL.json",
+    ".itd/COPILOT_LIVE_WINDOWS.json",
+    "skills/review/SKILL.md",
+    "skills/cross-review/SKILL.md",
+    "skills/cross-review/references/cli-adapters.md",
+    "tests/verify_mandatory_keyless_review.py",
     "skills/_shared/REVIEW_BROKER_POLICY.json",
     "skills/_shared/REVIEW_BROKER_POLICY.schema.json",
     "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json",
@@ -210,6 +268,13 @@
     "skills/_shared/itd_review_broker_primitives.py",
     "skills/_shared/itd_review_broker.py",
     "skills/_shared/itd_free_reviewer_producer.py",
+    "skills/_shared/itd_review_evidence.py",
+    "benchmarks/independent-review-efficacy/cases.json",
+    "benchmarks/independent-review-efficacy/results/wsl.json",
+    "benchmarks/independent-review-efficacy/results/windows.json",
+    "tests/run-independent-review-efficacy.py",
+    "tests/verify_independent_review_efficacy.py",
+    "docs/adr/ADR-005-evidence-first-deep-independent-review.md",
         "services/review_broker/server.py",
         "services/review_broker/operator.py",
         "services/review_broker/Dockerfile",
@@ -224,10 +289,13 @@
         "scripts/itd_machine_oracle.py",
         "scripts/itd_pre_push.py",
         "scripts/itd_install_git_hooks.py",
+    "docs/API_REVIEWER.md",
+    "docs/CI.md",
     "skills/_shared/itd_gate_control.py",
     "tests/verify_machine_oracle.py",
     "tests/verify_gate_control.py",
     "tests/verify_gate_profile_doctor.py",
+    "tests/verify_gate_registry_profiles.py",
     "tests/verify_itd_cli.py",
     "tests/verify_git_gate_hooks.py",
     "tests/verify_review_broker_policy.py",
@@ -260,12 +328,23 @@
     "All required commands exit 0.",
     "Expected output rules match.",
     "Required artifacts exist.",
+    "Portable v2 local-review validates the registered exact HEAD and current independent adjudication without requiring product adoption artifacts; App-backed and legacy profiles retain adoption and machine-preflight controls.",
+    "The default producer route is exactly OpenAI subscription then Anthropic subscription then GitHub Copilot user auth in free auto mode, with no provider API key, no enabled paid overage or paid-credit fallback, a closed 0..1 included premium-request bound per Copilot call, and no automatic paid dispatch.",
+    "Only typed transport UNAVAILABLE advances the route; findings, unverified output, malformed provenance, stale candidate and all-routes-unavailable block PR publication without caller bypass.",
+    "A scrubbed review diff above the direct bound is completely covered by at most 16 deterministic exact-byte units plus one integration review; the signed prompt bundle rejects missing, reordered, mutated, session-reused or mixed-model evidence.",
+    "Every direct, hierarchical-unit and integration prompt ends with a trusted closed RFC 8259 output contract after all untrusted material; fenced, prefixed, suffixed or otherwise non-strict JSON remains UNVERIFIED.",
+    "Every active criterion maps declared impact classes to exact-tree oracle IDs; missing or failed evidence is UNVERIFIED before reviewer dispatch.",
+    "High/unknown risk requires two independent clean provider/model/session reports, and deterministic host union preserves every unit, integration and reviewer finding.",
+    "The frozen efficacy pack reports 100% critical/high detection, 100% missing-evidence detection, 100% unit-finding retention, at least 90% medium detection and at most 10% clean-control false blocks on WSL and native Windows.",
+    "Dual-host efficacy and provider live proofs are host-derived Ed25519-signed envelopes; critical/high efficacy requires a blocking verdict and the host-owned local-review registry pins the authorized producer keyring SHA-256.",
+    "/review, /cross-review and Verification Loop name the same producer and adjudication authority.",
+    "Focused routing and host-adapter tests pass on WSL and native Windows.",
     "Bound external candidate-preparation evidence reports exact reconstruction and a clean zero-redaction secret scrub.",
     "A fresh different-model full checker reports an empty findings list.",
-    "A fresh full different-model checker and high-risk GPG-002 adjudication receipt revalidate the exact candidate."
+    "A fresh full different-model checker and high-risk GPG-003 adjudication receipt revalidate the exact candidate."
   ],
   "failureMode": "RECOVERY_REQUIRED",
-  "failClosed": "A missing shell-free argv, protected-base content-bound verifier, artifact, checker, receipt, ambiguous parser, redaction, changed staged tree, or attempt by this bootstrap candidate to self-attest changed verifier paths is RECOVERY_REQUIRED, never success.",
+  "failClosed": "A missing shell-free argv, protected-base content-bound verifier, artifact, checker, receipt, ambiguous parser, redaction, changed staged tree, same model/session, inherited context, reviewer tool use, all keyless routes unavailable, caller bypass, candidate-selected producer keyring, unsigned live result, or attempt by this bootstrap candidate to self-attest changed verifier paths is RECOVERY_REQUIRED, never success.",
   "machineGateTrust": {
     "activation": "Future protected-machine enforcement only, after the bootstrap anchors are merged and remain unchanged in the activating candidate.",
     "currentCandidateDisposition": "Ineligible for protected-machine attestation; commands run now are local regression evidence under bootstrapAcceptance.",

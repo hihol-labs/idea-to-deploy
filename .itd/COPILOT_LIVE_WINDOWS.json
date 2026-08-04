@@ -1,0 +1,30 @@
+{
+  "signatureHex": "7e7a5a5f0468cbd314b02b4a0f640f459a381e1f032cf7fdea73182836ff3fbd2bd4c46e3d42e2baf6d4c68332930780ca31bd031f3f60418e17d9cacb4d080d",
+  "signed": {
+    "host": "windows",
+    "isolation": {
+      "ephemeral": true,
+      "freshSession": true,
+      "inheritedContext": false,
+      "networkTools": false,
+      "observedToolCallsZero": true,
+      "paidApi": false,
+      "repositoryAccess": false,
+      "repositoryMutation": false,
+      "secrets": false,
+      "shellTools": false
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-review-provider-live-proof",
+    "observedAt": "2026-08-04T12:49:07Z",
+    "observedModel": "gpt-5-mini",
+    "paidApiCalls": 0,
+    "provider": "github-copilot-user",
+    "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "runtimeVersion": "1.0.78",
+    "session": "338a7990-682e-4ee5-9026-9a7bfe4c69b7",
+    "status": "PASSED",
+    "transportExecutableSha256": "ca9fec3f596de429b42713d3518d99968b14e5fc3e863831816516bad779cc08",
+    "version": 1
+  }
+}

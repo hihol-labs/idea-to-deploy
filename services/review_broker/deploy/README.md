@@ -50,7 +50,8 @@ unavailable model, stale coordinate, forged signer, or persistence failure
 keeps the Check fail-closed.
 
 Each free-review keyring entry is scoped to one repository, enrollment App,
-producer identity, reviewer provider, and reviewer model. A minimal entry is:
+producer identity, and a closed non-empty model allowlist for every provider in
+the mandatory route. A minimal entry is:
 
 ```json
 {
@@ -59,8 +60,11 @@ producer identity, reviewer provider, and reviewer model. A minimal entry is:
     "repository": "hihol-labs/example",
     "appIntegrationId": 424242,
     "producerId": "itd-free-reviewer-producer-v1",
-    "reviewerProvider": "openai-codex-subscription",
-    "reviewerModel": "gpt-5.6-terra"
+    "reviewerModels": {
+      "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
+      "anthropic-subscription": ["opus"],
+      "github-copilot-user": ["claude-haiku-4.5", "gpt-5-mini"]
+    }
   }
 }
 ```

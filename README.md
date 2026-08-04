@@ -269,10 +269,10 @@ Claude-only. Host-neutral output naming remains follow-up work.
 
 | Skill | Description |
 |-------|-------------|
-| `/review` | Validates documentation and code quality via deterministic binary rubric (BLOCKED / PASSED_WITH_WARNINGS / PASSED) |
+| `/review` | Validates documentation/code with the deterministic rubric and uses the same mandatory route-bound producer whenever the Verification Loop risk route requires an independent checker (medium/high/unknown; low remains the explicit machine-only route). No caller can downgrade the selected route (BLOCKED / PASSED_WITH_WARNINGS / PASSED). |
 | `/security-audit` | Read-only OWASP-style security audit (auth, secrets, injection, CORS/CSP, deps) with same status enum as `/review` |
 | `/security-guidance-setup` | **New in v1.29.0.** Security companion — sets up & integrates the official [security-guidance plugin](https://github.com/anthropics/claude-code/tree/main/plugins/security-guidance) by Anthropic (free, ships default-on). A shift-left, always-on reviewer of Claude-generated code: regex pattern warnings on every Edit/Write, an LLM diff review on Stop (findings fed back before you see the turn), and an agentic commit/push reviewer tracing cross-file vulns (IDOR, auth bypass, SSRF). Detects install, prints the verified CLI command, maps it onto the lifecycle. **Complements** `/security-audit` (on-demand audit), does **not** replace it; does not vendor upstream code; gates unaffected. |
-| `/cross-review` | Independent second opinion over the exact staged candidate. Maker/risk-aware routing retains Codex and Gemini and adds a managed OpenAI Responses API adapter. Local use is explicit opt-in and advisory; typed `UNAVAILABLE`/`UNVERIFIED` never become a false clean result. Mandatory evidence is accepted only through the existing Verification Loop. See [`docs/API_REVIEWER.md`](docs/API_REVIEWER.md). |
+| `/cross-review` | Mandatory independent pre-PR review over the exact staged candidate. Uses one keyless `OpenAI -> Anthropic -> GitHub Copilot` route through `itd_free_reviewer_producer.py`; only `UNAVAILABLE` advances as fallback, while a clean pass may continue solely to fill an unmet high/unknown-risk quorum. There is no caller bypass, and acceptance remains owned by Verification Loop adjudication. The separately configured paid adapter is optional operations infrastructure, not a fallback. |
 | `/grill-me` | **New in v1.21.0.** Interactive read-only stress-test for plans, designs, architecture, and risky decisions — asks one question at a time (with a recommended answer) to surface assumptions, risks, and dependencies. Runs before `/review`, does not replace it. |
 | `/browser-check` | **New in v1.21.0.** Local browser smoke-test for frontend/full-stack/visual flows via a bundled Playwright harness (Browser Use / in-app browser fallback) — checks first render + critical path (navigation, forms, states). Broken render/flow → BLOCKED before deploy. |
 
@@ -400,7 +400,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/context-mode-setup` | `status`/`install`/`doctor`/`off` | None — stdout (detect state + print/run upstream install commands); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
 | `/seo-setup` | `status`/`install`/`audit-map`/`off` | None — stdout (detect state + print/run upstream install commands + lifecycle map); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
 | `/security-guidance-setup` | `status`/`install`/`lifecycle-map`/`off` | None — stdout (detect state + print/run upstream install command + lifecycle map); no upstream code vendored | None (read-only; detect-and-advise only) | ✅ |
-| `/cross-review` | diff range / path / empty | None — stdout (ranked second-opinion findings, with the engine that ran named); shells out to an external CLI on a scrubbed diff | None (read-only; additive to `/review`, never a gate) | ✅ |
+| `/cross-review` | exact staged candidate / PR preparation | Verification evidence only; runs the shared isolated keyless producer | Yes, through the same Verification Loop adjudication as `/review` | ✅ |
 
 **Reading the table:**
 - **Idempotent ✅** — safe to run twice on the same input. Output is unchanged.

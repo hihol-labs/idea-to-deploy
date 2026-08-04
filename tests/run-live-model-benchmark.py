@@ -316,6 +316,8 @@ def base_report(args: argparse.Namespace, status: str, reason: str) -> dict:
     return {
         "schemaVersion": 1,
         "benchmark": "itd-live-fixture-v1",
+        "evidencePurpose": "workflow-output-quality",
+        "independentReviewEvidence": False,
         "status": status,
         "observedAt": utc_now(),
         "provider": args.resolved_provider,
@@ -572,7 +574,7 @@ def run_candidate(args: argparse.Namespace, executable: str, project: Path,
         "--json", "--ephemeral", "--ignore-user-config",
         "--config", 'model_reasoning_effort="medium"',
         "--skip-git-repo-check",
-        "--dangerously-bypass-hook-trust", "-C", candidate_project,
+        "--disable", "hooks", "-C", candidate_project,
     ]
     if args.model:
         command.extend(["--model", args.model])
@@ -646,6 +648,7 @@ def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path
             "workspaceTransport": getattr(
                 args, "workspace_transport", "unknown"),
             "approvalPolicy": "never-no-escalation",
+            "hookPolicy": "disabled",
             "captureLimitBytes": MAX_TRANSCRIPT_BYTES,
             "transcriptBytes": len(transcript_raw),
             "transcriptSanitized": True,
@@ -658,6 +661,7 @@ def archive_failed_run(args: argparse.Namespace, fixture_dir: Path, output: Path
             "mode": "repository-local-adopted-project",
             "skill": "$idea-to-deploy:blueprint",
             "transcriptProvesSkillLoad": transcript_proves_harness(transcript_raw),
+            "hookExecution": "disabled-for-live-model-evidence",
             "methodologyTreeSha256": methodology_tree_sha256(),
         },
         "failureArtifacts": {
@@ -915,6 +919,7 @@ def run(args: argparse.Namespace) -> int:
                 "attempts": attempts,
                 "workspaceTransport": args.workspace_transport,
                 "approvalPolicy": "never-no-escalation",
+                "hookPolicy": "disabled",
                 "captureLimitBytes": MAX_TRANSCRIPT_BYTES,
                 "transcriptBytes": len(transcript_raw),
                 "transcriptSanitized": True,
@@ -934,6 +939,7 @@ def run(args: argparse.Namespace) -> int:
                 "projectContracts": ".itd/",
                 "projectHooks": ".codex/hooks.json" if args.resolved_provider == "openai" else "plugin hooks/hooks.json",
                 "transcriptProvesSkillLoad": True,
+                "hookExecution": "disabled-for-live-model-evidence",
                 "methodologyTreeSha256": methodology_tree_sha256(),
             },
             "artifacts": {

@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "frozenAt": "2026-08-03",
+  "thresholds": {
+    "criticalHighDetection": 1.0,
+    "missingEvidenceDetection": 1.0,
+    "unitFindingRetention": 1.0,
+    "mediumDetection": 0.9,
+    "maximumCleanFalseBlockRate": 0.1
+  },
+  "structuralCases": [
+    {"id": "critical-missing-review-evidence", "severity": "critical", "mutation": "missing-review-evidence"},
+    {"id": "critical-failed-oracle", "severity": "critical", "mutation": "failed-oracle"},
+    {"id": "high-foreign-tree", "severity": "high", "mutation": "foreign-tree"},
+    {"id": "high-missing-impact", "severity": "high", "mutation": "missing-impact"},
+    {"id": "high-under-quorum", "severity": "high", "mutation": "under-quorum"},
+    {"id": "high-missing-oracle", "severity": "high", "mutation": "missing-oracle"},
+    {"id": "medium-unpassed-criterion", "severity": "medium", "mutation": "unpassed-criterion"},
+    {"id": "medium-unknown-impact", "severity": "medium", "mutation": "unknown-impact"},
+    {"id": "medium-duplicate-oracle", "severity": "medium", "mutation": "duplicate-oracle"},
+    {"id": "medium-risk-mismatch", "severity": "medium", "mutation": "risk-mismatch"},
+    {"id": "medium-missing-claim", "severity": "medium", "mutation": "missing-claim"},
+    {"id": "clean-coverage", "severity": "clean", "mutation": "none"}
+  ],
+  "semanticCases": [
+    {
+      "id": "high-export-capacity",
+      "severity": "high",
+      "scope": "Export the default annual report to an ordinary browser-generated single-sheet Excel workbook.",
+      "acceptance": "The default annual export must remain downloadable and must never exceed the browser or Excel worksheet capacity.",
+      "machineEvidence": "Observed base rows: 309555; average conversion documents per row: 5.8; Excel worksheet maximum rows: 1048576; projected rows after this change: 1807231.",
+      "diff": "diff --git a/src/export.ts b/src/export.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.ts\n@@ -0,0 +1,12 @@\n+const EXCEL_MAX_ROWS = 1_048_576;\n+\n+export function buildAnnualExport(lots: Lot[]) {\n+  const rows = lots.flatMap((lot) =>\n+    lot.orders.flatMap((order) =>\n+      order.conversionDocuments.map((conversion) => ({ lot, order, conversion }))\n+    )\n+  );\n+  return writeSingleBrowserWorksheet(rows);\n+}\n",
+      "expectedFaults": [
+        {"id": "export-row-ceiling", "file": "src/export.ts", "lineStart": 4, "lineEnd": 10}
+      ]
+    },
+    {
+      "id": "high-reconciliation-omission",
+      "severity": "high",
+      "scope": "Display an exact TRY opening/inflow/outflow/conversion/closing turnover for every pool consumer category.",
+      "acceptance": "The displayed turnover must reconcile exactly to the closing balance for all supported consumption types.",
+      "machineEvidence": "Supported consumption types are expense, fx_eur and fx_other. The observed fx_other total is 1494440 TRY.",
+      "diff": "diff --git a/src/turnover.ts b/src/turnover.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/turnover.ts\n@@ -0,0 +1,9 @@\n+export function displayedClosing(pool: Pool) {\n+  const expenses = sum(pool.consumptions.filter((x) => x.type === 'expense'));\n+  const fxEur = sum(pool.consumptions.filter((x) => x.type === 'fx_eur'));\n+  return pool.opening + pool.inflows - expenses - fxEur;\n+}\n+\n+export const supportedConsumptionTypes = ['expense', 'fx_eur', 'fx_other'];\n",
+      "expectedFaults": [
+        {"id": "fx-other-omitted", "file": "src/turnover.ts", "lineStart": 2, "lineEnd": 4}
+      ]
+    },
+    {
+      "id": "medium-allocation-rounding",
+      "severity": "medium",
+      "scope": "Split source amounts across detail rows while preserving the exact source total to the cent.",
+      "acceptance": "The sum of exported detail amounts must equal each source amount exactly after currency rounding.",
+      "machineEvidence": "One source amount can be split across 5.8 detail rows on average; independent per-row rounding has produced a 1578 TRY aggregate drift.",
+      "diff": "diff --git a/src/allocation.ts b/src/allocation.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/allocation.ts\n@@ -0,0 +1,6 @@\n+export function allocate(source: number, shares: number[]) {\n+  return shares.map((share) =>\n+    Math.round(source * share * 100) / 100\n+  );\n+}\n",
+      "expectedFaults": [
+        {"id": "independent-rounding-drift", "file": "src/allocation.ts", "lineStart": 2, "lineEnd": 4}
+      ]
+    },
+    {
+      "id": "high-stale-generated-client",
+      "severity": "high",
+      "scope": "Make the full typecheck a truthful release gate after schema changes.",
+      "acceptance": "Generated clients must be refreshed before typecheck; any typecheck failure must remain non-zero.",
+      "machineEvidence": "The schema adds newcrmChangedSince. A clean main checkout passes after prisma generate.",
+      "diff": "diff --git a/package.json b/package.json\n--- a/package.json\n+++ b/package.json\n@@ -4,5 +4,5 @@\n   \"scripts\": {\n-    \"verify\": \"prisma generate && tsc --noEmit\"\n+    \"verify\": \"tsc --noEmit || echo existing Prisma mismatch\"\n   }\n }\n",
+      "expectedFaults": [
+        {"id": "typecheck-bypass", "file": "package.json", "lineStart": 5, "lineEnd": 5}
+      ]
+    },
+    {
+      "id": "medium-repository-hygiene",
+      "severity": "medium",
+      "scope": "Ship only product and durable public methodology artifacts.",
+      "acceptance": "Temporary reviewer probes and private root-cause scratch notes must not enter the release tree.",
+      "machineEvidence": "The changed-file manifest contains two files classified as local reviewer scratch tooling.",
+      "diff": "diff --git a/review-tools/local_probe.py b/review-tools/local_probe.py\nnew file mode 100644\n--- /dev/null\n+++ b/review-tools/local_probe.py\n@@ -0,0 +1,2 @@\n+# temporary local reviewer probe; not a product tool\n+print('debug')\ndiff --git a/ROOT_CAUSE.md b/ROOT_CAUSE.md\nnew file mode 100644\n--- /dev/null\n+++ b/ROOT_CAUSE.md\n@@ -0,0 +1 @@\n+private scratch notes for this review run\n",
+      "expectedFaults": [
+        {"id": "review-scratch-committed", "file": "review-tools/local_probe.py", "lineStart": 1, "lineEnd": 2}
+      ]
+    },
+    {
+      "id": "clean-bounded-reconciled-export",
+      "severity": "clean",
+      "scope": "Implement and harden pure report chunking, reconciliation and integer-allocation helpers; workbook integration is explicitly outside this candidate.",
+      "acceptance": "Chunking uses the fixed Excel data-row ceiling; every supplied consumption value is included; sparse or invalid bigint input fails closed; and proportional integer allocation uses deterministic largest remainders while conserving the exact source total and never funding zero weight.",
+      "machineEvidence": "The supplied diff includes boundary, dense/sparse input, validation and conservation tests; the isolated oracle reports all assertions passed.",
+      "diff": "diff --git a/src/export.ts b/src/export.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.ts\n@@ -0,0 +1,49 @@\n+const EXCEL_DATA_ROWS = 1_048_575;\n+const WEIGHT_TOTAL = 1_000_000n;\n+function assertBigint(value: unknown, label: string): asserts value is bigint {\n+  if (typeof value !== 'bigint') throw new RangeError(`invalid ${label}`);\n+}\n+function assertDenseBigints(values: readonly bigint[], label: string) {\n+  for (let index = 0; index < values.length; index += 1) {\n+    if (!Object.hasOwn(values, index)) throw new RangeError(`invalid ${label}`);\n+    assertBigint(values[index], label);\n+  }\n+}\n+export function worksheetChunks<T>(rows: readonly T[]) {\n+  return Array.from(\n+    { length: Math.ceil(rows.length / EXCEL_DATA_ROWS) },\n+    (_, i) => rows.slice(i * EXCEL_DATA_ROWS, (i + 1) * EXCEL_DATA_ROWS)\n+  );\n+}\n+export function closingCents(\n+  openingCents: bigint, inflowCents: bigint, consumptionCents: readonly bigint[]\n+) {\n+  assertBigint(openingCents, 'opening amount');\n+  assertBigint(inflowCents, 'inflow amount');\n+  assertDenseBigints(consumptionCents, 'consumption values');\n+  const values = [openingCents, inflowCents, ...consumptionCents];\n+  if (values.some((value) => value < 0n)) {\n+    throw new RangeError('negative minor-unit amount');\n+  }\n+  return openingCents + inflowCents\n+    - consumptionCents.reduce((total, value) => total + value, 0n);\n+}\n+export function allocateCents(sourceCents: bigint, weights: readonly bigint[]) {\n+  assertBigint(sourceCents, 'source amount');\n+  assertDenseBigints(weights, 'allocation weights');\n+  if (sourceCents < 0n || weights.length === 0\n+      || weights.some((x) => x < 0n)\n+      || weights.reduce((total, value) => total + value, 0n) !== WEIGHT_TOTAL) {\n+    throw new RangeError('invalid integer allocation');\n+  }\n+  const allocated = weights.map((x) => sourceCents * x / WEIGHT_TOTAL);\n+  const ranked = weights.map((x, index) => ({\n+    index, remainder: sourceCents * x % WEIGHT_TOTAL, weight: x,\n+  })).filter((row) => row.weight > 0n).sort((a, b) =>\n+    a.remainder === b.remainder ? a.index - b.index\n+      : a.remainder > b.remainder ? -1 : 1);\n+  const remainder = Number(sourceCents\n+    - allocated.reduce((total, value) => total + value, 0n));\n+  for (let index = 0; index < remainder; index += 1) {\n+    allocated[ranked[index].index] += 1n;\n+  }\n+  return allocated;\n+}\ndiff --git a/src/export.test.ts b/src/export.test.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.test.ts\n@@ -0,0 +1,23 @@\n+import assert from 'node:assert/strict';\n+import { allocateCents, closingCents, worksheetChunks } from './export';\n+assert.deepEqual(worksheetChunks([]), []);\n+assert.deepEqual(worksheetChunks(new Array(1_048_575)).map((x) => x.length), [1_048_575]);\n+assert.deepEqual(worksheetChunks(new Array(1_048_576)).map((x) => x.length),\n+  [1_048_575, 1]);\n+assert.deepEqual(worksheetChunks(new Array(1_048_577)).map((x) => x.length),\n+  [1_048_575, 2]);\n+assert.equal(closingCents(10_000n, 5_000n, [1_000n, 2_000n, 3_000n]), 9_000n);\n+assert.throws(() => closingCents(-1n, 0n, []), RangeError);\n+assert.throws(() => closingCents({ valueOf: () => 10n } as unknown as bigint, 0n, []), RangeError);\n+const sparseConsumption = Array<bigint>(2);\n+sparseConsumption[1] = 1n;\n+assert.throws(() => closingCents(10n, 0n, sparseConsumption), RangeError);\n+const inheritedConsumption = Array<bigint>(1);\n+const inheritedArrayProto = Object.create(Array.prototype);\n+Object.defineProperty(inheritedArrayProto, '0', { value: 1n });\n+Object.setPrototypeOf(inheritedConsumption, inheritedArrayProto);\n+assert.throws(() => closingCents(10n, 0n, inheritedConsumption), RangeError);\n+const allocated = allocateCents(10_001n, [333_333n, 333_333n, 333_334n]);\n+assert.equal(allocated.reduce((a, b) => a + b, 0n), 10_001n);\n+assert.deepEqual(allocateCents(1n, [500_000n, 500_000n, 0n]), [1n, 0n, 0n]);\n+assert.throws(() => allocateCents(100n, []), RangeError);\n+assert.throws(() => allocateCents(100n, [-1n, 1_000_001n]), RangeError);\n+assert.throws(() => allocateCents(100n, [600_000n, 600_000n]), RangeError);\n+assert.throws(() => allocateCents({ valueOf: () => 100n } as unknown as bigint, [1_000_000n]), RangeError);\n+const sparseWeights = Array<bigint>(2); sparseWeights[1] = 1_000_000n;\n+assert.throws(() => allocateCents(100n, sparseWeights), RangeError);\n",
+      "expectedFaults": []
+    }
+  ]
+}

@@ -62,6 +62,7 @@ def row(root: Path, protection: str) -> dict[str, Any]:
         "localReviewReceiptFile": str(root / "review.json") if local else None,
         "localReviewUnitId": "GPG-001:general-review" if local else None,
         "localReviewRiskTier": "high" if local else None,
+        "localReviewProducerKeyringSha256": "a" * 64 if local else None,
         "brokerUrl": None if local else "https://broker.example.test",
         "appId": None if local else APP_ID,
         "appOwner": None if local else "app-owner",
@@ -164,6 +165,7 @@ def main() -> int:
 
         gate.validate_local_adjudication(
             root, root / "review.json", "GPG-001:general-review", "high",
+            REPOSITORY, "a" * 64,
             runner=committed_runner,
         )
         check(
@@ -172,6 +174,21 @@ def main() -> int:
             and commands[0][commands[0].index("--candidate-mode") + 1]
             == "committed-head",
             "local doctor bridges only the exact committed HEAD candidate",
+        )
+        check(
+            "--require-mandatory-route" in commands[0],
+            "local doctor rejects generic checker/adjudication publication evidence",
+        )
+        check(
+            commands[0][commands[0].index("--expected-repository") + 1]
+            == REPOSITORY,
+            "local doctor binds mandatory route evidence to the selected repository",
+        )
+        check(
+            commands[0][
+                commands[0].index("--expected-producer-keyring-sha256") + 1
+            ] == "a" * 64,
+            "local doctor does not bind the host-authorized producer keyring",
         )
         unc_timeouts: list[int] = []
 
@@ -188,7 +205,9 @@ def main() -> int:
             unc_timeouts.clear()
             gate.validate_local_adjudication(
                 unc_checkout, unc_checkout / "review.json",
-                "GPG-001:general-review", "high", runner=unc_runner,
+                "GPG-001:general-review", "high", REPOSITORY,
+                "a" * 64,
+                runner=unc_runner,
                 platform_name="nt",
             )
             check(

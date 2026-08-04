@@ -27,11 +27,137 @@ not presented as a security boundary against the machine owner.
 |---|---|---|
 | low | required | forbidden as unnecessary cost |
 | medium | required | targeted, fresh session |
-| high / unknown | required | full, fresh session and different model or provider |
+| high / unknown | required | full, at least two fresh independent provider/model/session reports |
 
-Missing checker evidence is `UNVERIFIED`, never implicit success. Majority
-vote is not evidence. One checker is sufficient only when it closes a named
-semantic contour that machine oracles cannot decide.
+Missing checker evidence is `UNVERIFIED`, never implicit success. Reviewer
+quorum is not a vote: every report must be clean and the host preserves the
+union of all negative evidence. One checker is sufficient only for medium risk.
+
+### Mandatory keyless pre-PR checker
+
+Medium/high-risk PR publication uses one shared checker producer:
+`skills/_shared/itd_free_reviewer_producer.py`. Its fixed route is
+`OpenAI -> Anthropic -> GitHub Copilot`: a fresh different OpenAI model/session
+first, then an Anthropic subscription session, then an official GitHub Copilot
+user-auth session in free `auto` mode. Only
+typed `UNAVAILABLE` advances the route. `BLOCKED`, `UNVERIFIED`, malformed
+provenance, same-model/session evidence, or tool use stops the gate. If every
+provider is unavailable, publication remains unavailable.
+
+An evidence-first policy runs before transport selection. Every active
+acceptance criterion maps generic impact classes to one or more exact-tree
+machine-oracle IDs. The active policy declares the complete required impact
+set. Missing, failed, duplicate, foreign-tree or uncovered evidence is
+`UNVERIFIED` before a model can return `PASSED`. The isolated machine oracle is
+the read-only explorer; the model cannot replace an absent scale,
+reconciliation, numerical-stability, generated-artifact, performance or output
+bound with prose.
+
+Transport absence is positive evidence, not a catch-all for CLI failure.
+Missing validated auth/transport, an allowlisted auth/quota/network/status
+failure, or a bounded process timeout may produce `UNAVAILABLE`. Unknown
+non-zero exits, argument/protocol defects and oversized failure output are
+terminal `UNVERIFIED` and cannot advance to another provider.
+
+The keyless producer applies the broker's same frozen size policy before model
+dispatch. A direct review is used only while the complete scrubbed diff fits
+the direct bound. Larger valid candidates are deterministically partitioned at
+complete-file then UTF-8 line boundaries into at most 16 exact byte-range
+units; every unit is reviewed in a fresh isolated session by the selected
+provider/model and one final integration review is mandatory. The signed
+prompt artifact is then a canonical bundle of the root binding, plan, every
+unit prompt/report, the raw integration report and the integration prompt.
+The host deterministically unions all unit and integration findings; a clean
+integration answer cannot erase a unit blocker. Missing, reordered, changed,
+mixed-model, session-reused, incomplete, or oversized bundle evidence is
+`UNVERIFIED`; no unit may be truncated or silently skipped.
+
+The phase-one v2 signature binds the exact single-reviewer attempt prefix used
+by the earlier policy. Evidence-first high/unknown review uses phase-one v3:
+the ordered route continues after the first clean pass until at least two
+independent providers pass. Typed `UNAVAILABLE` may be interleaved; any
+`BLOCKED` or `UNVERIFIED` is terminal. The signature binds the exact attempt
+prefix, all reviewer identities and a canonical per-reviewer prompt/report
+bundle. The producer and broker reject under-quorum, missing, skipped,
+reordered, duplicated, mistyped, unauthorized-model or foreign entries before
+publication evidence can be authorized.
+The shared producer persists that receipt plus its exact direct prompt or
+hierarchical prompt bundle and canonical integration report. The checker binds
+all three together with the producer public-key
+keyring. For local publication, the host-owned gate registry additionally pins
+that keyring's SHA-256 and the installed validator rejects any candidate-chosen
+replacement. A generic checker remains available for non-publication diagnostics,
+but `local-submission` validation invokes `check --require-mandatory-route` and
+therefore rejects any generic adjudication before guarded PR publication.
+Structurally valid negative output persists the exact prompt, report, reviewer,
+and attempt prefix for repair, but it never creates a phase-one receipt.
+Before initial PR creation, the signed target binds the canonical repository
+with `pullRequest=null` and `expectedHeadSha=null`; the unchanged commit bridge
+then proves the reviewed parent/tree/diff. Existing-PR/App flows require the
+positive PR number and exact head SHA. Local publication also compares the
+signed repository with the selected gate registry entry.
+The consumer proves signed `baseCommit` is an ancestor of `parentCommit`, then
+reconstructs the complete binary base-to-staged/committed diff and compares
+both its SHA-256 and byte count. A signed foreign base cannot skip exact-range
+binding or borrow the machine/checker candidate.
+
+The keyless producer normally sends that exact Git diff. If the candidate
+contains a path ending in `.jsonl.gz`, it instead uses the broker's frozen
+`gzip-jsonl-utf8-v1` transparent-review contract: complete base/index Git blobs
+remain hash/size/mode bound, exactly one bounded gzip member is decoded, every
+non-empty UTF-8 JSONL record is parsed with duplicate keys and non-standard
+constants forbidden, and a separately hashed canonical logical diff is sent
+to the checker. The signed raw candidate digest and byte count do not change.
+Any other binary path, malformed/extra gzip member, invalid JSONL, oversized
+logical representation, or scrub finding is terminal `UNVERIFIED`. The
+producer also recomputes the prompt from the frozen packet before signing, so
+a caller cannot substitute a different review representation after freezing.
+
+There is no caller bypass. `/review` and `/cross-review` are two entry points to
+this same producer, not separate evidence authorities. The default route uses
+installed user/subscription authentication, does not require provider API
+keys, and does not dispatch a paid API request. The resulting exact-candidate
+checker evidence is accepted only through normal Verification Loop
+adjudication.
+
+The frozen independent-review efficacy pack is a release oracle. Deterministic
+mutations measure missing-evidence detection and unit-finding retention. Real
+no-tools keyless reports over hidden expected faults measure 100%
+critical/high blocker detection, at least 90% medium detection and at most 10%
+clean-control false blocks. Reconstructed prompt hashes, current
+producer/manifest hashes, distinct sessions and coherent host runtimes must all
+match, and fresh reports must independently pass on WSL and native Windows.
+
+Reviewer model identity is never copied from the caller's requested argument.
+The producer reads one pinned transport runtime source: the single rollout in
+an otherwise empty temporary Codex home, Claude's one `modelUsage` entry, or
+Copilot's JSONL event stream. It requires the observed model to match the requested
+approved model/alias or the closed Copilot Free auto-model allowlist. Missing telemetry is `UNAVAILABLE`; multiple or changed
+models are `UNVERIFIED`. The temporary Codex rollout exists only long enough to
+read session/model provenance and is deleted with the isolated auth home.
+Independence compares conservative canonical provider/model families, not only
+raw strings. In particular, Anthropic aliases such as `opus`, `sonnet`, and
+`haiku` are the same identities as their runtime `claude-<family>-*` telemetry
+within the Anthropic provider family. The route, phase-one producer, and
+phase-one verifier all apply this comparison, so a re-signed alias cannot turn
+a same-model fallback into independent evidence. The broker applies that same
+identity to enrollment authorization: an enrolled `opus` family accepts its
+observed `claude-opus-*` runtime name but not an unlisted `claude-sonnet-*`.
+
+GitHub Copilot receives the exact self-contained packet only through stdin.
+Its pinned native executable must advertise every invoked flag before review.
+The producer runs an empty temporary project and `COPILOT_HOME`, forces free
+`auto` mode with a bounded session, disables custom instructions, builtin MCP,
+remote control/export, updates, tools and logging, and preserves only the
+host-native GitHub credential coordinate. The oracle requires exact stdin,
+one stable allowed runtime model/session, zero tool requests, zero file
+changes, and a closed 0..1 included-premium-request bound from the JSONL stream.
+
+Codex model/session telemetry is read from its one private fresh-session
+rollout. The review packet remains capped at 2 MB and captured stdout/stderr at
+1 MB. Because the rollout also contains internal runtime events, that ephemeral
+container has its own 16 MiB hard cap; it is never durable evidence and is
+deleted with the isolated auth home after provenance is extracted.
 
 The clean-checkout invariant is rechecked before machine execution, when
 checker evidence is minted, during adjudication, and whenever an accepted
@@ -79,24 +205,28 @@ CHECKER_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" checker --root . \
   --prompt-file "$PROMPT_FILE" --report "$REPORT_FILE" \
   --maker-provider "$MAKER_PROVIDER" --maker-model "$MAKER_MODEL" \
   --maker-session "$MAKER_SESSION" --checker-provider "$CHECKER_PROVIDER" \
-  --checker-model "$CHECKER_MODEL" --checker-session "$CHECKER_SESSION")
+  --checker-model "$CHECKER_MODEL" --checker-session "$CHECKER_SESSION" \
+  --phase-one-receipt "$PHASE_ONE_RECEIPT" \
+  --producer-keyring "$PRODUCER_KEYRING")
 
 ADJUDICATION_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" adjudicate --root . \
   --unit-id "$CLAIM_ID" --risk-tier "$RISK_TIER" \
   --machine "$MACHINE_RECEIPT" --checker "$CHECKER_RECEIPT")
 ```
 
-The checker report must end with the canonical JSON verdict block containing
-`verdict`, `findings`, and `unverified`. Any candidate, policy, prompt, report,
-receipt dependency, risk, or unit change invalidates the chain.
+The checker report must end with the closed canonical JSON verdict block
+containing exactly `verdict`, `findings`, and `unverified`; no missing field is
+defaulted. For publication, `PHASE_ONE_RECEIPT`, `PROMPT_FILE`, and
+`REPORT_FILE` are the three outputs of the shared keyless producer and the
+keyring maps its key ID to the trusted Ed25519 public key. Any candidate,
+policy, prompt, report, signed route, machine receipt, risk, or unit change
+invalidates the chain.
 
-An external model is only a checker transport. The provider-neutral adapter in
-`skills/_shared/itd_external_reviewer.py` may prepare a sanitized, bounded
-exact-candidate prompt and validated report, but those artifacts remain
-diagnostic until the ordinary checker producer records host-observed
-maker/checker provenance and the adjudicator accepts them. Local fail-open
-review therefore cannot weaken a required medium/high route. See
-`docs/API_REVIEWER.md` and ADR-003.
+An external model is only a checker transport. The canonical keyless producer
+above prepares and validates the exact-candidate review and records
+host-observed maker/checker provenance. Any separately operated paid API
+adapter is optional infrastructure and cannot replace, weaken, or mint the
+mandatory route's evidence. See `docs/API_REVIEWER.md` and ADR-003.
 
 ## Repair and terminal states
 
@@ -118,3 +248,9 @@ allocation lock is reclaimed and a complete adjudication receipt published
 immediately before the interruption is validated and reconciled into its
 missing ledger entry. Conflicting or partial evidence fails closed and is
 preserved for explicit recovery.
+The `itd-live-fixture-v1` transcript proves workflow output quality in an
+adopted repository; it is explicitly **not** independent-review isolation or
+efficacy evidence. Reviewer efficacy is measured separately by the frozen
+`benchmarks/independent-review-efficacy` corpus, using real no-tools keyless
+reports on both WSL and native Windows plus deterministic evidence/union
+canaries.

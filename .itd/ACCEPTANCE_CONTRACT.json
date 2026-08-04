@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "purpose": "Acceptance contract for the GPG-001 transport-neutral review gate, broker bootstrap, and local/global gate-control release candidate.",
-  "sourceRequest": "Implement the approved portable nine-point review-gate plan with role separation, local/self-hosted/managed deployment profiles, a free isolated fresh-model reviewer as the primary transport, paid API only as an explicitly authorized fallback, and preserve MEM-8 prompt-supply-chain trust, exact-candidate, independent-review, fail-closed, least-privilege, and secret-isolation guarantees.",
+  "version": 2,
+  "purpose": "Acceptance contract for the portable review gate and GPG-003 unified mandatory keyless independent-review workflow.",
+  "sourceRequest": "Preserve the approved nine-point plan while replacing conflicting review paths with one mandatory pre-PR workflow: fresh different OpenAI model/session first, Anthropic second, and an externally fresh official keyless user transport third, fail closed when unavailable, no provider API-key default and no caller bypass, with Windows/WSL parity. On 2026-08-04 live evidence rejected Antigravity for the current account location and the already-retired GitHub Models service; GitHub Copilot Free/auto then passed stdin-only zero-tool dual-host probes within its included premium-request quota.",
   "createdAt": "2026-07-30",
   "criteriaSchema": {
     "requiredFields": [
@@ -17,7 +17,8 @@
       "passed",
       "failed",
       "recovery_required"
-    ]
+    ],
+    "evidenceFirstRequiredField": "reviewEvidence"
   },
   "criteria": [
     {
@@ -110,7 +111,7 @@
     },
     {
       "id": "GPG-001-AC12",
-      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain Codex/Gemini CLI only as advisory transports, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or persist or expose a runtime reviewer API key.",
+      "criterion": "Adoption and operator documentation name the central App/broker as the required authority, retain separately configured provider CLIs only as advisory transports outside the mandatory local route, require live enforceability before protected status, and never direct operators to edit an installed plugin cache or persist or expose a runtime reviewer API key.",
       "source": "Approved plan items 3, 4, and 7.",
       "evidence": "Release, host-adapter, methodology meta-review, and deployment documentation checks pass with the legacy repository gate retained through trust-anchor bootstrap; removal is a separate post-deployment cutover only after protected doctor and negative canaries pass.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
@@ -155,6 +156,149 @@
       "evidence": "PASSED. RED reproduced the hard 30-second child termination. Standard/extended Windows UNC receive 180 seconds while local, device and incomplete paths retain 30 seconds; focused WSL/native-Windows tests pass 25/25. PR #180 merged as ed33169e8cc48f6a5da314586548ee0c5e2389cd; v1.95.1 release PR #181 merged as 1422c94d28f7a6821f0038a766437b7618cc22f1 and is installed on WSL/Windows Codex and Claude with zero clean-archive drift. Windows-bound high-risk receipt 0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09 made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds with drift=[] and protected=0. Durable index: .itd/GPG-002_COMPLETION_EVIDENCE.json.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
       "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC1",
+      "criterion": "One shared mandatory pre-PR producer is authoritative for /review, /cross-review and Verification Loop; no parallel advisory path may satisfy or bypass it.",
+      "source": "User-authorized GPG-003 clarification after a parallel session substituted missing OPENAI_API_KEY with local review consent.",
+      "evidence": "PASSED focused contract oracle: 93 checks prove /review, /cross-review and Verification Loop name itd_free_reviewer_producer.py, one fixed route, viable null coordinates before initial PR creation, actionable negative-report persistence, runtime-observed model provenance, conservative provider/model-family alias comparison, and no caller bypass. Verification Loop 76/76 proves a generic checker cannot satisfy mandatory publication and a signed foreign-base diff cannot borrow the candidate, while repository-bound phase-one/prompt/report/keyring/machine evidence does; local doctor 27/27 requires the route and selected repository before guarded push. Guarded-CLI mutations additionally prove that an amended existing Draft uses an observed-SHA force-with-lease under the same receipt/maker environment, while an already current Draft performs no push. The actual pre-push timeout regression is closed by carrying the existing CLI budget through a bounded 300..3600-second range. PR lookup binds the exact current branch/repository and only its exact no-PR diagnostic permits Draft creation.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "reviewEvidence": {
+        "claim": "All review entry points converge on one route-bound adjudication authority.",
+        "impactClasses": ["correctness", "repository-hygiene"],
+        "oracleIds": ["mandatory-keyless-review-regression", "verification-loop-commit-bridge-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC2",
+      "criterion": "The shared producer tries exactly: fresh different OpenAI model/session with ChatGPT subscription auth, then Anthropic subscription auth, then official GitHub Copilot user auth in free auto mode. The default route contains no provider API-key requirement, bounds each Copilot call to 0..1 included premium request, and never enables or automatically dispatches paid overage or a paid API request.",
+      "source": "User-selected ordered independent-review route.",
+      "evidence": "PASSED on 2026-08-04: 49 Copilot adapter, 89 mandatory-route and 106 producer checks cover the exact route, pinned binary, stdin-only packet, free auto mode, 30-credit session bound, closed 0..1 included premium-request per-call quota, no-tool/no-MCP/no-instructions/no-remote profile, runtime session/model telemetry, zero file changes, malformed output and tool-attempt rejection. Every direct, unit and integration prompt ends in a trusted RFC 8259 closed-output contract after all untrusted material; Markdown-wrapped or prose-prefixed JSON remains terminal UNVERIFIED. Fresh live user-auth probes passed on both hosts with runtime 1.0.78 and observed gpt-5-mini.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "reviewEvidence": {
+        "claim": "The keyless provider route preserves isolation, compatibility and paid-dispatch denial.",
+        "impactClasses": ["compatibility", "security"],
+        "oracleIds": ["mandatory-keyless-review-regression", "free-reviewer-producer"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC3",
+      "criterion": "Only typed transport UNAVAILABLE may advance to the next provider. Findings, unverified contours, malformed output, tool use, same model/session, inherited context, missing exact coverage, stale evidence, or all routes unavailable block PR publication with no caller/user/force bypass.",
+      "source": "Fail-closed independent-review invariant from the nine-point plan.",
+      "evidence": "PASSED mutations for primary stop, ordered fallthrough, all-unavailable, BLOCKED/UNVERIFIED terminal behavior, exact and aliased same-model rejection, missing/mismatched runtime model telemetry, caller off-switch rejection and a signed closed attempt ledger. The 106-check producer suite rejects missing, skipped, mistyped, non-passing-terminal and foreign-terminal re-signed ledgers, empty non-PASSED verdicts, Anthropic alias-family bypasses during minting and verification, legacy receipt version 1, incomplete/mutated hierarchical bundles, session reuse and mixed-model unit evidence while retaining bounded provenance for a Codex rollout larger than the prompt cap; the 744-check broker suite rejects a re-signed broken ledger before App authentication or GitHub access, authorizes runtime `claude-opus-*` telemetry against the `opus` family, and rejects an unlisted Anthropic family. Positively identified auth/status, TLS-handshake disconnect, request timeout or absent model-telemetry failures are UNAVAILABLE; an unknown non-zero post-launch CLI defect or mismatched model is UNVERIFIED and proves no fallback call occurs.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
+      "reviewEvidence": {
+        "claim": "Typed failures, findings and evidence gaps remain terminal across producer, consumer and broker.",
+        "impactClasses": ["correctness", "error-handling", "security"],
+        "oracleIds": ["mandatory-keyless-review-regression", "free-reviewer-producer", "broker-orchestration", "verification-loop-commit-bridge-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC4",
+      "criterion": "Every provider receives only a scrubbed self-contained exact-candidate direct packet or every unit of one deterministic complete hierarchical plan in fresh non-persistent sessions with no repository, mutation, shell, network-tool, inherited-history, model-visible credential or arbitrary environment access; oversized candidates require all units plus integration. Every call places its trusted RFC 8259 closed-output contract after all untrusted material, and successful output uses one closed verdict/findings/unverified schema with real provider/model/session provenance.",
+      "source": "Existing free-producer isolation boundary extended without weakening.",
+      "evidence": "PASSED on 2026-08-04: the 106-check producer, 49-check Copilot adapter, 744-check broker and 50-check broker-server suites passed after replacing the unavailable Google transport with GitHub Copilot Free/auto. Direct, unit and integration prompts end with the trusted output contract; strict parsing rejects fenced or prose-prefixed JSON. Dual-host semantic efficacy retained every seeded blocker, passed the clean control and bound current producer/corpus hashes.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "Bounded hierarchical review retains all findings and covers scale/performance contours without truncation.",
+        "impactClasses": ["bounded-output", "performance", "scale"],
+        "oracleIds": ["free-reviewer-producer", "independent-review-efficacy"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC5",
+      "criterion": "The same route, typed outcomes and evidence semantics work in WSL and native Windows; host adapters document only transport differences and cannot change order or acceptance authority.",
+      "source": "User-required Windows and WSL operation plus host-adapter parity contract.",
+      "evidence": "PASSED pre-release host-parity acceptance on 2026-08-04: current focused route/producer/adapter suites passed on WSL and native Windows; host adapters registered the same 28 shared hooks and all 11 hard gates; native live Copilot probes used distinct sessions, allowed auto model gpt-5-mini, zero tools/file changes and included quota only. Release installation and dual-host rollout remain separate completion gates.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_host_adapters.py",
+      "reviewEvidence": {
+        "claim": "The evidence-first review contract and transport adapters stay host-neutral.",
+        "impactClasses": ["host-parity"],
+        "oracleIds": ["host-adapter-regression", "independent-review-efficacy"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC6",
+      "criterion": "Paid Responses API review, if retained, is a separately named operation requiring separate explicit consent and budget; it is not part of the mandatory default fallback chain and cannot be selected by missing subscription auth or provider outage.",
+      "source": "User rejection of API-key substitution and existing decision log.",
+      "evidence": "PASSED: mandatory producer contains no paid endpoint or provider-key surface; external reviewer release test passes 14 criteria and five mutation guards while API_REVIEWER.md names it optional paid operator infrastructure only.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_external_reviewer_release.py",
+      "reviewEvidence": {
+        "claim": "Paid review remains a separately consented operation outside the mandatory route.",
+        "impactClasses": ["security"],
+        "oracleIds": ["external-reviewer-release-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC7",
+      "criterion": "Every active acceptance criterion carries a closed evidence-first mapping from generic impact classes to exact-tree machine oracle IDs; missing, failed, duplicate, foreign-tree or uncovered evidence is UNVERIFIED before any model can return PASSED.",
+      "source": "User-approved methodology-wide independent-review effectiveness correction on 2026-08-03.",
+      "evidence": "The frozen structural canaries pass 12/12 missing, failed, duplicate, foreign-tree, under-quorum and uncovered-evidence mutations against the same coverage module embedded in the producer packet; the semantic corpus is measured separately from these deterministic mechanics.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py",
+      "reviewEvidence": {
+        "claim": "Evidence coverage is closed, exact-tree bound and measured before semantic review.",
+        "impactClasses": ["correctness", "reconciliation", "numerical-stability", "generated-artifact-freshness"],
+        "oracleIds": ["independent-review-efficacy"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC8",
+      "criterion": "High and unknown risk require clean reports from at least two independent provider/model/session identities. Their findings and unverified contours are combined by deterministic host union; one clean reviewer or integration response cannot erase another reviewer's blocker.",
+      "source": "User-approved mandatory deep-review quorum and the A29 Terra aggregation finding.",
+      "evidence": "Producer, route, broker and Verification Loop mutations cover two-provider execution, under-quorum denial, second-reviewer blockers, signed phase-one v3 reviewer lists, enrollment authorization and route-bound adjudication.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "The signed receipt, prompt bundle and adjudication preserve the complete reviewer union.",
+        "impactClasses": ["correctness", "error-handling", "security"],
+        "oracleIds": ["free-reviewer-producer", "mandatory-keyless-review-regression", "broker-orchestration", "verification-loop-commit-bridge-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC9",
+      "criterion": "Independent-review efficacy is a release gate: critical/high blocker detection, missing-evidence detection and unit-finding retention are 100%; medium detection is at least 90%; clean-control false blocks are at most 10%; the same focused suite passes on WSL and native Windows.",
+      "source": "User-approved measurable reviewer-effectiveness target.",
+      "evidence": "PASSED from fresh real keyless gpt-5.6-terra reports on WSL and native Windows: critical/high detection 100%, medium detection 100%, clean-control false blocks 0%, structural missing-evidence detection 100% and unit-finding retention 100%. Every host-derived result is an Ed25519-signed envelope with runtime version, executable/proxy hashes and distinct sessions; the host label is measured, not caller supplied. Critical/high detection additionally requires a BLOCKED verdict, while medium requires BLOCKED or PASSED_WITH_WARNINGS. The frozen eval manifest keeps hidden expected faults outside the reviewer prompt. The separate live-model workflow fixture is explicitly not reviewer-isolation evidence.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py",
+      "reviewEvidence": {
+        "claim": "Reviewer effectiveness and false-block calibration are executable release criteria.",
+        "impactClasses": ["repository-hygiene", "host-parity"],
+        "oracleIds": ["independent-review-efficacy", "host-adapter-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC10",
+      "criterion": "Every mandatory external reviewer transport has a current official service/migration source, a freshness record no older than 30 days and a pinned minimum runtime version. Available quorum transports require signed, host-derived live model proof on WSL and native Windows before release acceptance; a deliberately unconfigured subscription may remain only as typed UNAVAILABLE and cannot satisfy quorum. Unit protocol tests alone cannot prove provider availability.",
+      "source": "2026-08-04 methodology correction after the legacy Gemini CLI individual backend retired while its local adapter oracle remained green.",
+      "evidence": "PASSED on 2026-08-04: record v3 covers the full OpenAI -> Anthropic -> Copilot route with official sources and minimum runtimes, plus legacy Gemini retirement, Antigravity location ineligibility and GitHub Models retirement. Signed host-derived WSL/Windows OpenAI Terra efficacy envelopes and Copilot Free/auto live envelopes validate current runtime/model/session/executable/proxy provenance. Anthropic is explicitly typed unavailable because the user has no paid Claude subscription and therefore cannot satisfy the two-reviewer quorum.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_provider_freshness.py",
+      "reviewEvidence": {
+        "claim": "Mandatory provider availability is externally fresh rather than inferred from adapter unit tests.",
+        "impactClasses": ["compatibility", "generated-artifact-freshness", "host-parity"],
+        "oracleIds": ["reviewer-provider-freshness", "copilot-reviewer"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-003-AC11",
+      "criterion": "A portable v2 local-review profile may publish an intentionally unadopted product checkout only through the guarded exact-HEAD path and a current exact independent adjudication. The host-owned registry must pin the authorized phase-one producer keyring SHA-256, so candidate code/evidence cannot introduce its own signing authority. The route does not require an adoption contract or machine preflight, while App-backed and legacy profiles retain both controls.",
+      "source": "2026-08-04 OneOfS publication blocker and bounded repair 7e80b5b folded into the active WIP=1 unit.",
+      "evidence": "PASSED focused replay: profile registry 24 checks, profile doctor 28 checks, Verification Loop 78 checks, Git hooks 30 checks, guarded CLI 62 checks and host adapters all passed. Mutations prove local-review rejects non-HEAD, invalid adjudication and a foreign producer keyring before publication, never calls adoption/machine preflight, and App-backed/legacy paths still require their original controls.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_registry_profiles.py",
+      "reviewEvidence": {
+        "claim": "Portable local-review remains exact and fail-closed without coupling product PRs to adoption contracts.",
+        "impactClasses": ["compatibility", "correctness", "repository-hygiene", "security"],
+        "oracleIds": ["gate-registry-profiles-regression", "gate-profile-doctor-regression", "guarded-pr-cli-regression", "global-git-gate-regression"]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -173,10 +317,18 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GPG-002",
-    "status": "completed",
+    "unitId": "GPG-003",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd/GPG-002_ROOT_CAUSE.md"
+    "rootCause": ".itd/GPG-003_ROOT_CAUSE.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": ["bounded-output", "compatibility", "correctness", "error-handling", "generated-artifact-freshness", "host-parity", "numerical-stability", "performance", "reconciliation", "repository-hygiene", "scale", "security"],
+      "minimumIndependentReviewers": 2,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 remains verified under completion. GPG-002 requires its focused command plus exact high-risk review/adjudication, merge, patch release, dual-host install, and a Windows-bound real UNC doctor result; it never upgrades LOCAL_REVIEWED to PROTECTED."
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED."
 }

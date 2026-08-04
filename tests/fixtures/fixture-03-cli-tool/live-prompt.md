@@ -28,6 +28,11 @@ Constraints and approved decisions:
 - Include at least three user stories and a 4–10 step implementation plan.
 - In `PRD.md`, place the user stories under the exact second-level heading
   `## User Stories` so the documented contract is explicit and replayable.
+- Define hourly request distribution as a percentage using the literal formula
+  `100 × hourly_request_count / total_valid_requests`; do not describe it as an
+  unscaled fraction.
+- Use the complete exit-code contract `0/1/2/3/4` in every implementation guide;
+  code `4` means unique-cardinality exhaustion. Do not omit or remap code 4.
 
 Before ending, verify that all six required files exist in the project root:
 

@@ -84,6 +84,7 @@ def local_profile(root: Path) -> dict:
             "localReviewReceiptFile": str(root / "review.json"),
             "localReviewUnitId": "GPG-001:general-review",
             "localReviewRiskTier": "high",
+            "localReviewProducerKeyringSha256": "a" * 64,
             "brokerUrl": None,
             "appId": None,
             "appOwner": None,
@@ -116,6 +117,10 @@ def push_updates() -> bytes:
     return f"refs/heads/topic {HEAD} refs/heads/topic {BASE}\n".encode("utf-8")
 
 
+def non_head_push_updates() -> bytes:
+    return f"refs/heads/topic {BASE} refs/heads/topic {HEAD}\n".encode("utf-8")
+
+
 def main() -> int:
     check(
         gate.adopted_checkout(ROOT) == [],
@@ -129,6 +134,17 @@ def main() -> int:
               "legacy v1 stays readable")
         profile = gate.validate_registry(local_profile(root))
         check(profile["version"] == 2, "canonical registry accepts profile v2")
+        local_doctor = gate.profile_doctor_entry(
+            profile["repositories"][0],
+            local_review=lambda *_: None,
+            adoption=lambda _: [".itd/VERIFICATION_CONTRACT.json is missing"],
+            version_probe=lambda: "test-version",
+        )
+        check(
+            local_doctor["status"] == "LOCAL_REVIEWED"
+            and local_doctor["drift"] == [],
+            "local review does not require adoption contract drift",
+        )
         extra = json.loads(json.dumps(profile))
         extra["repositories"][0]["mergeAuthority"] = True
         rejects("UNVERIFIED", lambda: gate.validate_registry(extra),
@@ -147,7 +163,9 @@ def main() -> int:
             "--protection-profile", "local-review",
             "--local-review-receipt-file", str(root / "review.json"),
             "--local-review-unit-id", "GPG-001:general-review",
-            "--local-review-risk-tier", "high", "--registry", str(registered),
+            "--local-review-risk-tier", "high",
+            "--local-review-producer-keyring-sha256", "a" * 64,
+            "--registry", str(registered),
         ])
         registered_result = args.handler(args)
         check(
@@ -208,22 +226,18 @@ def main() -> int:
             else:
                 check(False, "pre-push accepted stale local adjudication")
 
-        machine = {
-            "headSha": HEAD, "tree": "c" * 40, "repository": str(root),
-        }
         guarded = {
             "ITD_GUARDED_PR_PUSH": "1",
-            "ITD_MACHINE_RECEIPT": str(root / "machine.json"),
             "ITD_MAKER_VENDOR": "openai",
             "ITD_MAKER_MODEL": "gpt-5.6-sol",
             "ITD_MAKER_SESSION": "maker-session",
         }
         with (
-            mock.patch.object(hook, "load_machine_receipt", return_value=machine),
             mock.patch.object(
-                hook, "execute_fresh_machine_oracle", return_value=machine
+                hook, "execute_fresh_machine_oracle",
+                side_effect=AssertionError("local profile ran adoption oracle"),
             ),
-            mock.patch.object(hook, "machine_evidence_binding", return_value=()),
+            mock.patch.object(hook, "current_head", return_value=HEAD),
             mock.patch.object(
                 hook.gate, "profile_doctor_entry",
                 return_value=result("LOCAL_REVIEWED"),
@@ -235,7 +249,24 @@ def main() -> int:
             )
         check(True, "guarded enforce consumes the local-review profile")
         with (
-            mock.patch.object(hook, "load_machine_receipt", return_value=machine),
+            mock.patch.object(hook, "current_head", return_value=HEAD),
+            mock.patch.object(
+                hook.gate, "profile_doctor_entry",
+                side_effect=AssertionError("non-HEAD push reached local adjudication"),
+            ),
+        ):
+            try:
+                hook.enforce(
+                    "https://github.com/owner/example.git",
+                    non_head_push_updates(), environment=guarded,
+                    registry=profile, root=root,
+                )
+            except hook.PushBlocked:
+                check(True, "guarded local-review rejects a non-HEAD push first")
+            else:
+                check(False, "guarded local-review accepted a non-HEAD push")
+        with (
+            mock.patch.object(hook, "current_head", return_value=HEAD),
             mock.patch.object(
                 hook.gate, "profile_doctor_entry", return_value=result("UNVERIFIED")
             ),
@@ -256,12 +287,18 @@ def main() -> int:
             maker_session="maker-session", timeout=120, no_wait=False,
         )
         with (
-            mock.patch.object(cli.gate, "adopted_checkout", return_value=[]),
+            mock.patch.object(
+                cli.gate, "adopted_checkout",
+                side_effect=AssertionError("local profile requested adoption"),
+            ),
             mock.patch.object(cli.gate, "profile_doctor_entry",
                               return_value=result("LOCAL_REVIEWED")),
             mock.patch.object(cli, "require_registered_origin"),
             mock.patch.object(cli, "ensure_clean_branch", return_value=("topic", HEAD)),
-            mock.patch.object(cli, "machine_preflight", return_value=root / "machine.json"),
+            mock.patch.object(
+                cli, "machine_preflight",
+                side_effect=AssertionError("local profile requested adoption oracle"),
+            ),
             mock.patch.object(cli, "create_draft_pr", return_value={
                 "number": 177, "url": "https://github.test/pull/177",
                 "headRefOid": HEAD, "baseRefOid": BASE,
@@ -276,9 +313,63 @@ def main() -> int:
             local_pr = cli.pr_create(pr_args)
         check(
             local_pr["status"] == "LOCAL_REVIEWED"
-            and local_pr["provenance"] == "NOT_REQUIRED",
-            "local Draft PR route uses no App or broker authority",
+            and local_pr["provenance"] == "NOT_REQUIRED"
+            and local_pr["preflightReceipt"] is None,
+            "local Draft PR route uses receipt review, not adoption oracle",
         )
+
+        app_entry = dict(entry)
+        app_entry.update({
+            "deploymentProfile": "self-hosted-app",
+            "protectionProfile": "app-check",
+            "localReviewReceiptFile": None,
+            "localReviewUnitId": None,
+            "localReviewRiskTier": None,
+            "localReviewProducerKeyringSha256": None,
+            "brokerUrl": "https://broker.example.test",
+            "appId": 424242,
+            "appOwner": "owner",
+            "appOwnerType": "user",
+            "appVisibility": "private",
+            "rulesetScope": "repository",
+            "rulesetId": 91,
+            "machineWorkflowRepositoryId": None,
+            "machineWorkflowSha": None,
+            "provenanceKeyId": "current",
+            "provenanceKeyFile": str(root / "signing.key"),
+            "enrollmentReceiptSha256": "1" * 64,
+        })
+        app_args = SimpleNamespace(**vars(pr_args))
+        with (
+            mock.patch.object(cli.gate, "load_registry",
+                              return_value={"version": 2, "repositories": [app_entry]}),
+            mock.patch.object(cli.gate, "adopted_checkout",
+                              return_value=["app adoption is required"]),
+        ):
+            rejects(
+                "UNVERIFIED", lambda: cli.pr_create(app_args),
+                "app-check route still evaluates adoption before its inactive transport",
+            )
+
+        legacy_args = SimpleNamespace(**vars(pr_args))
+        legacy_registry = legacy(root)
+        with (
+            mock.patch.object(cli.gate, "load_registry", return_value=legacy_registry),
+            mock.patch.object(cli.gate, "adopted_checkout", return_value=[]),
+            mock.patch.object(cli, "require_registered_origin"),
+            mock.patch.object(cli, "ensure_clean_branch", return_value=("topic", HEAD)),
+            mock.patch.object(
+                cli, "machine_preflight",
+                side_effect=cli.gate.GateError(
+                    "UNVERIFIED", "legacy machine preflight reached",
+                ),
+            ) as legacy_preflight,
+        ):
+            rejects(
+                "UNVERIFIED", lambda: cli.pr_create(legacy_args),
+                "legacy route still executes machine preflight",
+            )
+        check(legacy_preflight.called, "legacy route cannot skip machine preflight")
 
         api_docs = (ROOT / "docs" / "API_REVIEWER.md").read_text("utf-8")
         ci_docs = (ROOT / "docs" / "CI.md").read_text("utf-8")
@@ -291,6 +382,11 @@ def main() -> int:
         check(
             "LOCAL_REVIEWED" in api_docs and "never `PROTECTED`" in ci_docs,
             "docs do not overclaim the local profile",
+        )
+        check(
+            all("does not require an adoption verification contract"
+                in " ".join(text.split()) for text in (api_docs, ci_docs)),
+            "docs distinguish portable local review from adoption",
         )
         check(
             all("--candidate-mode committed-head" in text for text in
