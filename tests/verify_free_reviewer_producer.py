@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import copy
 import datetime as dt
+import gzip
+import hashlib
 import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
@@ -186,15 +190,768 @@ def main() -> int:
         check(packet["candidate"]["diffBytes"] > 0, "exact diff is absent")
         check(packet["machineEvidence"]["outcome"] == "PASSED",
               "non-passing machine evidence was accepted")
+        pre_pr_packet = producer.freeze_packet(
+            root=repo, base_commit=base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=scope,
+            acceptance_file=acceptance, machine_receipt=machine,
+        )
+        check(
+            pre_pr_packet["target"] == {
+                "repository": "hihol-labs/idea-to-deploy",
+                "pullRequest": None,
+                "expectedHeadSha": None,
+            },
+            "initial pre-PR route requires impossible existing PR coordinates",
+        )
 
         prompt = producer.review_prompt(packet)
         check("return 'reviewed'" in prompt, "candidate diff is absent from prompt")
+        check(
+            prompt.endswith("END TRUSTED OUTPUT CONTRACT\n")
+            and prompt.index("END UNTRUSTED REVIEW DIFF")
+            < prompt.index("BEGIN TRUSTED OUTPUT CONTRACT"),
+            "direct review output contract does not follow untrusted material",
+        )
         check(str(repo) not in prompt, "review prompt leaks repository path")
         check("hihol-labs/idea-to-deploy" not in prompt,
               "review prompt leaks PR target coordinates")
         check("Frozen scope" in prompt and "review exact candidate" in prompt,
               "frozen scope/acceptance are absent")
         check("machine-verification" in prompt, "machine evidence is absent")
+
+        for verdict, expected_status in (
+            ("BLOCKED", "BLOCKED"),
+            ("PASSED_WITH_WARNINGS", "BLOCKED"),
+            ("UNVERIFIED", "UNVERIFIED"),
+        ):
+            try:
+                producer._clean_report({
+                    "verdict": verdict,
+                    "findings": [],
+                    "unverified": [],
+                })
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == expected_status,
+                    f"empty {verdict} report failed with the wrong disposition",
+                )
+            else:
+                raise AssertionError(
+                    f"empty {verdict} report was promoted to a clean pass"
+                )
+
+        transparent_repo = fixture / "transparent-repo"
+        transparent_repo.mkdir()
+        transparent_base, transparent_parent, _ = git_fixture(transparent_repo)
+        logical_jsonl = b'{"event":"one"}\n{"event":"two"}\n'
+        transparent_path = transparent_repo / "review.jsonl.gz"
+        transparent_path.write_bytes(gzip.compress(logical_jsonl, mtime=0))
+        shell(["git", "add", "review.jsonl.gz"], transparent_repo)
+        transparent_tree = shell(["git", "write-tree"], transparent_repo)
+        transparent_inputs = fixture / "transparent-inputs"
+        transparent_inputs.mkdir()
+        transparent_scope, transparent_acceptance, transparent_machine = write_inputs(
+            transparent_inputs, transparent_repo,
+            transparent_parent, transparent_tree,
+        )
+        transparent_packet = producer.freeze_packet(
+            root=transparent_repo, base_commit=transparent_base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=transparent_scope,
+            acceptance_file=transparent_acceptance,
+            machine_receipt=transparent_machine,
+        )
+        representation = transparent_packet["reviewRepresentation"]
+        transparent_record = representation["files"]["review.jsonl.gz"]
+        check(
+            representation["algorithm"]
+            == "itd-canonical-transparent-diff-v1"
+            and representation["transparentFileCount"] == 1,
+            "supported transparent binary did not select the logical review route",
+        )
+        check(
+            transparent_record["headReview"] == {
+                "encoding": "gzip-jsonl-utf8-v1",
+                "sha256": hashlib.sha256(logical_jsonl).hexdigest(),
+                "bytes": len(logical_jsonl),
+            }
+            and transparent_record["baseReview"] is None
+            and transparent_record["newMode"] == "100644",
+            "transparent logical bytes are not raw-blob/mode bound",
+        )
+        transparent_raw_diff = subprocess.run(
+            ["git", "diff", "--cached", "--binary", "--full-index",
+             "--no-ext-diff", transparent_base, "--"],
+            cwd=transparent_repo, capture_output=True, check=True, timeout=30,
+        ).stdout
+        check(
+            transparent_packet["candidate"]["diffSha256"]
+            == hashlib.sha256(transparent_raw_diff).hexdigest()
+            and transparent_packet["candidate"]["diffBytes"]
+            == len(transparent_raw_diff),
+            "logical review replaced the exact raw candidate binding",
+        )
+        check(
+            '{"event":"one"}' in transparent_packet["diff"]
+            and "\nGIT binary patch\n" not in transparent_packet["diff"]
+            and representation["reviewDiffSha256"]
+            == hashlib.sha256(
+                transparent_packet["diff"].encode("utf-8")
+            ).hexdigest(),
+            "reviewer did not receive the exact hash-bound logical JSONL diff",
+        )
+
+        large_root = fixture / "large-transparent"
+        large_repo = large_root / "repo"
+        large_repo.mkdir(parents=True)
+        large_base, large_parent, _ = git_fixture(large_repo)
+        large_jsonl = b"".join(
+            json.dumps({"event": index, "payload": "x" * 24}, separators=(",", ":"))
+            .encode("utf-8") + b"\n"
+            for index in range(5000)
+        )
+        (large_repo / "review.jsonl.gz").write_bytes(
+            gzip.compress(large_jsonl, mtime=0)
+        )
+        shell(["git", "add", "review.jsonl.gz"], large_repo)
+        large_tree = shell(["git", "write-tree"], large_repo)
+        large_inputs = large_root / "inputs"
+        large_inputs.mkdir()
+        large_scope, large_acceptance, large_machine = write_inputs(
+            large_inputs, large_repo, large_parent, large_tree,
+        )
+        large_packet = producer.freeze_packet(
+            root=large_repo, base_commit=large_base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=large_scope,
+            acceptance_file=large_acceptance, machine_receipt=large_machine,
+        )
+        large_representation = large_packet["reviewRepresentation"]
+        plan = large_representation["reviewPlan"]
+        check(
+            large_representation["reviewMode"] == "hierarchical"
+            and plan["mode"] == "hierarchical"
+            and 1 < plan["unitCount"] <= 16,
+            "oversized keyless packet did not select the bounded review plan",
+        )
+        observed_prompts = []
+
+        def fake_packet_runner(prompt_text, report_schema, report_parser):
+            observed_prompts.append(prompt_text)
+            if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = {
+                    "verdict": "PASSED",
+                    "findings": [],
+                    "unverified": [],
+                    "summary": "Unit behavior and cross-unit interfaces are consistent.",
+                }
+            else:
+                report = clean_verdict()
+            return (
+                report_parser(report),
+                f"fresh-unit-{len(observed_prompts)}",
+                "subscription-model",
+            )
+
+        final_report, aggregate_session, observed_model, prompt_artifact = (
+            producer.run_packet_review(large_packet, fake_packet_runner)
+        )
+        check(
+            final_report == clean_verdict()
+            and observed_model == "subscription-model"
+            and len(aggregate_session) == 64
+            and len(observed_prompts) == plan["unitCount"] + 1,
+            "hierarchical keyless review did not run every unit plus integration",
+        )
+        check(
+            all(
+                len(value.encode("utf-8")) < producer.MAX_INPUT_BYTES
+                and large_packet["diff"] not in value
+                for value in observed_prompts
+            ),
+            "hierarchical keyless review sent the full oversized packet to a model",
+        )
+        check(
+            all(value.endswith("END TRUSTED OUTPUT CONTRACT\n")
+                for value in observed_prompts)
+            and all(
+                value.index("END UNTRUSTED DIFF UNIT")
+                < value.index("BEGIN TRUSTED OUTPUT CONTRACT")
+                for value in observed_prompts[:-1]
+            ),
+            "hierarchical output contract is not the final trusted instruction",
+        )
+        unit_prompts = observed_prompts[:-1]
+        serialized_representation = json.dumps(
+            large_packet["reviewRepresentation"],
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        check(
+            all(
+                len(value.encode("utf-8"))
+                <= producer.MAX_UNIT_PROMPT_BYTES
+                for value in unit_prompts
+            )
+            and len(observed_prompts[-1].encode("utf-8"))
+            <= producer.MAX_INTEGRATION_PROMPT_BYTES,
+            "hierarchical reviewer prompts exceed their transport bounds",
+        )
+        check(
+            all(serialized_representation not in value for value in unit_prompts)
+            and all(
+                '"reviewRepresentationSha256"' in value
+                and "FROZEN_ACTIVE_ACCEPTANCE=" in value
+                and "MACHINE_EVIDENCE_SUMMARY=" in value
+                for value in unit_prompts
+            ),
+            "unit prompts repeat the full plan instead of its exact hash binding",
+        )
+        producer.validate_review_prompt_artifact(
+            large_packet, prompt_artifact, final_report,
+        )
+
+        unit_failure_calls = 0
+
+        def unit_failure_runner(prompt_text, report_schema, report_parser):
+            nonlocal unit_failure_calls
+            unit_failure_calls += 1
+            if (
+                report_schema == producer.UNIT_VERDICT_SCHEMA
+                and unit_failure_calls == 1
+            ):
+                report = {
+                    "verdict": "BLOCKED",
+                    "findings": [{
+                        "severity": "high",
+                        "confidence": "high",
+                        "category": "correctness",
+                        "file": "service.py",
+                        "line": 1,
+                        "summary": "A bound unit found a blocking defect.",
+                    }],
+                    "unverified": [],
+                    "summary": "The first unit contains one blocking defect.",
+                }
+            elif report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = {
+                    "verdict": "PASSED", "findings": [], "unverified": [],
+                    "summary": "Bound unit behavior and interfaces are consistent.",
+                }
+            else:
+                # A clean integration response must never erase a unit failure.
+                report = clean_verdict()
+            return (
+                report_parser(report),
+                f"fresh-unit-failure-{unit_failure_calls}",
+                "subscription-model",
+            )
+
+        blocked_report, _session, _model, blocked_artifact = (
+            producer.run_packet_review(large_packet, unit_failure_runner)
+        )
+        check(
+            blocked_report["verdict"] == "BLOCKED"
+            and len(blocked_report["findings"]) == 1
+            and blocked_report["findings"][0]["file"] == "service.py",
+            "clean integration report erased a blocking unit finding",
+        )
+        producer.validate_review_prompt_artifact(
+            large_packet, blocked_artifact, blocked_report,
+        )
+        checks += 1
+        mutated_bundle = json.loads(prompt_artifact)
+        mutated_bundle["unitCalls"][0]["report"]["summary"] += " changed"
+        try:
+            producer.validate_review_prompt_artifact(
+                large_packet,
+                producer.canonical_bytes(mutated_bundle).decode("utf-8"),
+                final_report,
+            )
+        except producer.FreeReviewError:
+            pass
+        else:
+            raise AssertionError("changed hierarchical unit evidence was accepted")
+        checks += 1
+
+        try:
+            producer._unit_report({
+                "verdict": "PASSED",
+                "findings": [],
+                "unverified": [],
+                "summary": "x" * (producer.MAX_UNIT_SUMMARY_BYTES + 1),
+            })
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED" and "summary" in exc.reason,
+                "oversized unit summary failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError("oversized unit summary was accepted")
+
+        def reused_session_runner(prompt_text, report_schema, report_parser):
+            if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = {
+                    "verdict": "PASSED", "findings": [], "unverified": [],
+                    "summary": "Bound unit behavior and interfaces are consistent.",
+                }
+            else:
+                report = clean_verdict()
+            return report_parser(report), "reused-session", "subscription-model"
+
+        try:
+            producer.run_packet_review(large_packet, reused_session_runner)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED" and "session was reused" in exc.reason,
+                "hierarchical session reuse failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError("hierarchical reviewer session reuse was accepted")
+
+        mixed_model_calls = 0
+        def mixed_model_runner(prompt_text, report_schema, report_parser):
+            nonlocal mixed_model_calls
+            mixed_model_calls += 1
+            if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = {
+                    "verdict": "PASSED", "findings": [], "unverified": [],
+                    "summary": "Bound unit behavior and interfaces are consistent.",
+                }
+            else:
+                report = clean_verdict()
+            model = "foreign-model" if mixed_model_calls == 2 else "subscription-model"
+            return report_parser(report), f"fresh-mixed-{mixed_model_calls}", model
+
+        try:
+            producer.run_packet_review(large_packet, mixed_model_runner)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED" and "model changed" in exc.reason,
+                "hierarchical mixed-model evidence failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError("hierarchical mixed-model evidence was accepted")
+
+        # --- U15: per-unit resumability of the hierarchical route.
+        # A transient transport loss must cost only the failing unit, a unit
+        # that already produced a verdict is never re-run, and any checkpoint
+        # anomaly (tamper, staleness, foreign binding) discards the checkpoint
+        # and restarts the route from zero instead of being trusted.
+        route_key = raw_private_key()
+        route_binding = {
+            "provider": "openai-subscription",
+            "requestedModel": "gpt-5.6-terra",
+            "transportExecutableSha256": "a" * 64,
+            "proxySha256": "b" * 64,
+        }
+        route_checkpoint = fixture / "route-checkpoint.json"
+        unit_count = plan["unitCount"]
+
+        def passed_unit_report() -> dict:
+            return {
+                "verdict": "PASSED", "findings": [], "unverified": [],
+                "summary": "Bound unit behavior and interfaces are consistent.",
+            }
+
+        def make_interrupting_runner(fail_at: int, tag: str):
+            state = {"calls": 0}
+
+            def interrupting_runner(prompt_text, report_schema, report_parser):
+                state["calls"] += 1
+                if state["calls"] == fail_at:
+                    raise producer.FreeReviewError(
+                        "UNAVAILABLE", "simulated transport loss mid-route"
+                    )
+                report = (
+                    passed_unit_report()
+                    if report_schema == producer.UNIT_VERDICT_SCHEMA
+                    else clean_verdict()
+                )
+                return (
+                    report_parser(report),
+                    f"resume-{tag}-{state['calls']}",
+                    "subscription-model",
+                )
+
+            return interrupting_runner
+
+        try:
+            producer.run_packet_review(
+                large_packet, make_interrupting_runner(3, "a"),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNAVAILABLE" and route_checkpoint.exists(),
+                "interrupted hierarchical route left no resumable checkpoint",
+            )
+        else:
+            raise AssertionError("simulated transport loss did not fail the attempt")
+
+        resumed_prompts = []
+
+        def resuming_runner(prompt_text, report_schema, report_parser):
+            resumed_prompts.append(prompt_text)
+            report = (
+                passed_unit_report()
+                if report_schema == producer.UNIT_VERDICT_SCHEMA
+                else clean_verdict()
+            )
+            return (
+                report_parser(report),
+                f"resume-b-{len(resumed_prompts)}",
+                "subscription-model",
+            )
+
+        resumed_report, _resumed_session, _resumed_model, resumed_artifact = (
+            producer.run_packet_review(
+                large_packet, resuming_runner,
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        )
+        check(
+            resumed_report == clean_verdict()
+            and len(resumed_prompts) == unit_count - 2 + 1
+            and not route_checkpoint.exists(),
+            "resumed hierarchical route re-ran completed units or kept its checkpoint",
+        )
+        producer.validate_review_prompt_artifact(
+            large_packet, resumed_artifact, resumed_report,
+        )
+        resumed_bundle = json.loads(resumed_artifact)
+        check(
+            resumed_bundle["unitCalls"][0]["prompt"] not in resumed_prompts
+            and resumed_bundle["unitCalls"][1]["prompt"] not in resumed_prompts
+            and resumed_bundle["unitCalls"][2]["prompt"] in resumed_prompts,
+            "resumed route did not bind stored verdicts to their original units",
+        )
+
+        def make_counting_runner(tag: str, counter: list):
+            def counting_runner(prompt_text, report_schema, report_parser):
+                counter.append(prompt_text)
+                report = (
+                    passed_unit_report()
+                    if report_schema == producer.UNIT_VERDICT_SCHEMA
+                    else clean_verdict()
+                )
+                return (
+                    report_parser(report),
+                    f"resume-{tag}-{len(counter)}",
+                    "subscription-model",
+                )
+            return counting_runner
+
+        def regenerate_checkpoint(tag: str) -> None:
+            try:
+                producer.run_packet_review(
+                    large_packet, make_interrupting_runner(3, tag),
+                    checkpoint_path=route_checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                )
+            except producer.FreeReviewError:
+                pass
+
+        regenerate_checkpoint("c")
+        tampered = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+        tampered["signed"]["units"][0]["report"]["summary"] += " changed"
+        route_checkpoint.write_text(
+            json.dumps(tampered, ensure_ascii=False), encoding="utf-8"
+        )
+        tampered_calls: list = []
+        tampered_report, _s1, _m1, _a1 = producer.run_packet_review(
+            large_packet, make_counting_runner("d", tampered_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            tampered_report == clean_verdict()
+            and len(tampered_calls) == unit_count + 1,
+            "tampered route checkpoint was trusted instead of forcing a restart",
+        )
+
+        regenerate_checkpoint("e")
+        stale = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+        stale["signed"]["updatedAt"] = "2020-01-01T00:00:00Z"
+        stale_signature = producer.Ed25519PrivateKey.from_private_bytes(
+            route_key
+        ).sign(producer.canonical_bytes(stale["signed"])).hex()
+        stale["signatureHex"] = stale_signature
+        route_checkpoint.write_text(
+            json.dumps(stale, ensure_ascii=False), encoding="utf-8"
+        )
+        stale_calls: list = []
+        stale_report, _s2, _m2, _a2 = producer.run_packet_review(
+            large_packet, make_counting_runner("f", stale_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            stale_report == clean_verdict()
+            and len(stale_calls) == unit_count + 1,
+            "stale route checkpoint was trusted instead of forcing a restart",
+        )
+
+        regenerate_checkpoint("g")
+        foreign_binding = dict(route_binding)
+        foreign_binding["provider"] = "gemini-user"
+        foreign_calls: list = []
+        foreign_report, _s3, _m3, _a3 = producer.run_packet_review(
+            large_packet, make_counting_runner("h", foreign_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=foreign_binding,
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            foreign_report == clean_verdict()
+            and len(foreign_calls) == unit_count + 1,
+            "foreign-provider route checkpoint was trusted instead of discarded",
+        )
+        route_checkpoint.unlink(missing_ok=True)
+
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("i", []),
+                checkpoint_path=route_checkpoint,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "checkpoint configuration" in exc.reason,
+                "incomplete checkpoint configuration failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError(
+                "checkpoint path without signing material was accepted"
+            )
+
+        # Every checkpoint guard is exercised from the outside: a checkpoint
+        # carrying the anomaly must be discarded whole, so the route re-runs
+        # every unit plus integration. Nothing unverified is ever reused.
+        unit_ids = [call["unit"] for call in resumed_bundle["unitCalls"]]
+
+        def signed_checkpoint(tag: str) -> dict:
+            regenerate_checkpoint(tag)
+            envelope = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+            route_checkpoint.unlink()
+            return envelope
+
+        def resign(envelope: dict) -> None:
+            envelope["signatureHex"] = producer.Ed25519PrivateKey.from_private_bytes(
+                route_key
+            ).sign(producer.canonical_bytes(envelope["signed"])).hex()
+            route_checkpoint.write_text(
+                json.dumps(envelope, ensure_ascii=False), encoding="utf-8"
+            )
+
+        def check_full_restart(tag: str, message: str) -> None:
+            calls: list = []
+            report, _session, _model, _artifact = producer.run_packet_review(
+                large_packet, make_counting_runner(tag, calls),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+            check(
+                report == clean_verdict() and len(calls) == unit_count + 1,
+                message,
+            )
+
+        def full_prefix_rows() -> list[dict]:
+            return [
+                {
+                    "unit": unit_id, "report": passed_unit_report(),
+                    "session": f"synthetic-{index}",
+                    "model": "subscription-model",
+                }
+                for index, unit_id in enumerate(unit_ids)
+            ]
+
+        envelope = signed_checkpoint("j")
+        envelope["note"] = "smuggled envelope field"
+        resign(envelope)
+        check_full_restart(
+            "k", "route checkpoint envelope accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("l")
+        envelope["signed"]["note"] = "smuggled signed field"
+        resign(envelope)
+        check_full_restart(
+            "m", "route checkpoint signed payload accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("n")
+        envelope["signed"]["keyId"] = "route-checkpoint-other"
+        resign(envelope)
+        check_full_restart(
+            "o", "route checkpoint signed by a foreign key id was trusted"
+        )
+
+        envelope = signed_checkpoint("p")
+        envelope["signatureHex"] = envelope["signatureHex"].upper()
+        route_checkpoint.write_text(
+            json.dumps(envelope, ensure_ascii=False), encoding="utf-8"
+        )
+        check_full_restart(
+            "q", "route checkpoint accepted a non-canonical signature encoding"
+        )
+
+        envelope = signed_checkpoint("r")
+        rows = full_prefix_rows()
+        envelope["signed"]["units"] = rows + [
+            dict(rows[-1], session="synthetic-overflow")
+        ]
+        resign(envelope)
+        check_full_restart(
+            "s", "route checkpoint longer than the frozen plan was trusted"
+        )
+
+        envelope = signed_checkpoint("t")
+        envelope["signed"]["units"][0]["note"] = "smuggled row field"
+        resign(envelope)
+        check_full_restart(
+            "u", "route checkpoint row accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("v")
+        envelope["signed"]["units"][0]["unit"] = unit_ids[1]
+        resign(envelope)
+        check_full_restart(
+            "w", "route checkpoint row bound to a foreign unit was trusted"
+        )
+
+        envelope = signed_checkpoint("x")
+        envelope["signed"]["units"][0]["report"] = {"verdict": "PASSED"}
+        resign(envelope)
+        check_full_restart(
+            "y", "route checkpoint row bypassed the unit report contract"
+        )
+
+        envelope = signed_checkpoint("z")
+        envelope["signed"]["units"][0]["session"] = " resume-z-1 "
+        resign(envelope)
+        check_full_restart(
+            "aa", "route checkpoint row accepted untrimmed provenance"
+        )
+
+        envelope = signed_checkpoint("ab")
+        envelope["signed"]["units"][1]["session"] = (
+            envelope["signed"]["units"][0]["session"]
+        )
+        resign(envelope)
+        check_full_restart(
+            "ac", "route checkpoint rows reusing one session were trusted"
+        )
+
+        envelope = signed_checkpoint("ad")
+        envelope["signed"]["units"][1]["model"] = "other-subscription-model"
+        resign(envelope)
+        check_full_restart(
+            "ae", "route checkpoint rows changing the reviewer model were trusted"
+        )
+
+        route_checkpoint.unlink(missing_ok=True)
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("af", []),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding, proxySha256=""),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "checkpoint binding is invalid" in exc.reason,
+                "empty checkpoint binding failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError(
+                "route checkpoint accepted an empty reviewer binding"
+            )
+        route_checkpoint.unlink(missing_ok=True)
+
+        hostile_binary_cases = (
+            ("generic.bin", b"\x00\x01\x02", "undeclared binary"),
+            ("invalid.jsonl.gz", b"not-gzip", "invalid gzip"),
+            (
+                "multiple.jsonl.gz",
+                gzip.compress(b'{"a":1}\n', mtime=0)
+                + gzip.compress(b'{"b":2}\n', mtime=0),
+                "multiple gzip members",
+            ),
+            (
+                "invalid-json.jsonl.gz",
+                gzip.compress(b"not-json\n", mtime=0),
+                "invalid JSONL",
+            ),
+            (
+                "duplicate.jsonl.gz",
+                gzip.compress(b'{"a":1,"a":2}\n', mtime=0),
+                "duplicate JSON keys",
+            ),
+            (
+                "constant.jsonl.gz",
+                gzip.compress(b'{"a":NaN}\n', mtime=0),
+                "non-standard JSON constant",
+            ),
+            (
+                "empty-record.jsonl.gz",
+                gzip.compress(b'{"a":1}\n\n{"b":2}\n', mtime=0),
+                "empty JSONL record",
+            ),
+            (
+                "oversized.jsonl.gz",
+                gzip.compress(
+                    b'{"a":"' + b"x" * (1024 * 1024) + b'"}\n', mtime=0
+                ),
+                "decompression bound",
+            ),
+        )
+        for index, (name, payload, label) in enumerate(hostile_binary_cases):
+            hostile_root = fixture / f"hostile-{index}"
+            hostile_repo = hostile_root / "repo"
+            hostile_repo.mkdir(parents=True)
+            hostile_base, hostile_parent, _ = git_fixture(hostile_repo)
+            (hostile_repo / name).write_bytes(payload)
+            shell(["git", "add", name], hostile_repo)
+            hostile_tree = shell(["git", "write-tree"], hostile_repo)
+            hostile_inputs = hostile_root / "inputs"
+            hostile_inputs.mkdir()
+            hostile_scope, hostile_acceptance, hostile_machine = write_inputs(
+                hostile_inputs, hostile_repo, hostile_parent, hostile_tree
+            )
+            try:
+                producer.freeze_packet(
+                    root=hostile_repo, base_commit=hostile_base,
+                    repository="hihol-labs/idea-to-deploy", pull_request=None,
+                    expected_head_sha=None, scope_file=hostile_scope,
+                    acceptance_file=hostile_acceptance,
+                    machine_receipt=hostile_machine,
+                )
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == "UNVERIFIED",
+                    f"{label} failed with a non-terminal disposition",
+                )
+            else:
+                raise AssertionError(f"{label} reached the independent reviewer")
 
         argv = producer.codex_command(
             executable="codex", model="gpt-5.6-terra",
@@ -215,9 +972,22 @@ def main() -> int:
             "code_mode_host", "workspace_dependencies", "hooks", "goals",
         }.issubset(disabled), "Codex isolation omits an enabled tool surface")
         check(all(value in argv for value in (
-            "--ephemeral", "--ignore-user-config", "--ignore-rules",
+            "--ignore-user-config", "--ignore-rules",
             "--sandbox", "read-only", "--skip-git-repo-check",
-        )), "Codex session/sandbox isolation flags are incomplete")
+        )) and "--ephemeral" not in argv,
+              "Codex temporary-home provenance/sandbox flags are incomplete")
+        check(
+            "TemporaryDirectory-backed CODEX_HOME" in inspect.getsource(
+                producer.codex_command
+            ),
+            "Codex non-persistence/model-provenance trade-off is undocumented",
+        )
+        source = inspect.getsource(producer)
+        check(
+            'review_broker = _LazyModule("itd_review_broker")' in source
+            and "import itd_review_broker as review_broker" not in source,
+            "direct keyless transports avoid an eager broker/jsonschema dependency",
+        )
         check("resume" not in argv, "producer can inherit an old Codex session")
         check("api.openai.com" not in " ".join(argv), "paid API route is present")
         finding_schema = producer.VERDICT_SCHEMA["properties"]["findings"].get("items")
@@ -263,9 +1033,10 @@ def main() -> int:
             (transport_source["HTTP_PROXY"] + "\n"
              + transport_source["HTTPS_PROXY"]).encode("utf-8")
         )
-        original_run = producer.subprocess.run
+        original_run = producer.run_bounded_process
         event_item_type = "agent_message"
         observed_transport_env = {}
+        rollout_padding_bytes = 0
 
         def fake_codex_run(command, **kwargs):
             observed_transport_env.update(kwargs["env"])
@@ -273,22 +1044,47 @@ def main() -> int:
                 command[command.index("--output-last-message") + 1]
             )
             report_path.write_text(json.dumps(clean_verdict()), encoding="utf-8")
+            rollout = (
+                Path(kwargs["env"]["CODEX_HOME"])
+                / "sessions" / "2026" / "08" / "03" / "rollout-fixture.jsonl"
+            )
+            rollout.parent.mkdir(parents=True)
+            rollout_events = [{
+                "type": "session_meta", "payload": {"id": "fresh-clean"},
+            }]
+            if event_model is not None:
+                rollout_events.append({
+                    "type": "turn_context", "payload": {"model": event_model},
+                })
+            if rollout_padding_bytes:
+                rollout_events.append({
+                    "type": "response_item",
+                    "payload": {"text": "x" * rollout_padding_bytes},
+                })
+            rollout.write_bytes(b"\n".join(
+                json.dumps(event).encode() for event in rollout_events
+            ) + b"\n")
             events = b"\n".join((
-                json.dumps({"type": "thread.started", "thread_id": "fresh-clean"}).encode(),
+                json.dumps({
+                    "type": "thread.started", "thread_id": "fresh-clean",
+                }).encode(),
                 json.dumps({"type": "item.completed", "item": {
                     "type": event_item_type, "text": "done",
                 }}).encode(),
             )) + b"\n"
             return subprocess.CompletedProcess(command, 0, events, b"")
 
-        producer.subprocess.run = fake_codex_run
-        observed_report, observed_session = producer.run_codex_review(
+        producer.run_bounded_process = fake_codex_run
+        event_model = "subscription-model"
+        observed_report, observed_session, observed_model = producer.run_codex_review(
             "bounded prompt", executable=str(trusted_binary),
             model="subscription-model", source_env=transport_source,
             expected_executable_sha256=trusted_binary_sha,
             expected_proxy_sha256=trusted_proxy_sha,
         )
-        check(observed_report == clean_verdict() and observed_session == "fresh-clean",
+        check(observed_report == clean_verdict()
+              and observed_session == "fresh-clean"
+              and observed_model == "subscription-model",
               "zero-tool reviewer event stream was not accepted")
         check(
             observed_transport_env.get("HTTP_PROXY")
@@ -297,6 +1093,51 @@ def main() -> int:
             == transport_source["HTTPS_PROXY"],
             "content-pinned transport proxy was not applied",
         )
+        rollout_padding_bytes = producer.MAX_INPUT_BYTES + 1
+        padded_report, padded_session, padded_model = producer.run_codex_review(
+            "bounded prompt", executable=str(trusted_binary),
+            model="subscription-model", source_env=transport_source,
+            expected_executable_sha256=trusted_binary_sha,
+            expected_proxy_sha256=trusted_proxy_sha,
+        )
+        check(
+            padded_report == clean_verdict()
+            and padded_session == "fresh-clean"
+            and padded_model == "subscription-model",
+            "bounded Codex rollout larger than the prompt cap lost provenance",
+        )
+        rollout_padding_bytes = 0
+        event_model = None
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNAVAILABLE",
+                "missing OpenAI model telemetry was not unavailable",
+            )
+        else:
+            raise AssertionError("missing OpenAI model telemetry was accepted")
+        event_model = "maker-model"
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "mismatched OpenAI model telemetry was not terminal",
+            )
+        else:
+            raise AssertionError("mismatched OpenAI model telemetry was accepted")
+        event_model = "subscription-model"
         event_item_type = "command_execution"
         try:
             producer.run_codex_review(
@@ -322,7 +1163,7 @@ def main() -> int:
             pass
         else:
             raise AssertionError("untrusted Codex executable reached subscription auth")
-        producer.subprocess.run = original_run
+        producer.run_bounded_process = original_run
         checks += 1
         hostile_proxy_source = dict(transport_source)
         hostile_proxy_source["HTTPS_PROXY"] = "http://hostile.invalid:8080"
@@ -338,6 +1179,127 @@ def main() -> int:
         else:
             raise AssertionError("caller-controlled proxy bypassed the content pin")
         checks += 1
+
+        direct_source = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": str(fixture / "direct-home"),
+            "CODEX_HOME": str(review_codex_home),
+        }
+        direct_pin = producer.sha256_bytes(b"\n")
+        check(
+            producer.trusted_proxy_environment(direct_source, direct_pin) == {},
+            "pinned direct subscription transport was not accepted",
+        )
+        try:
+            producer.trusted_proxy_environment(direct_source, "f" * 64)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "changed direct-transport pin was not fail-closed",
+            )
+        else:
+            raise AssertionError("unbound direct subscription transport was accepted")
+        partial_proxy_source = dict(direct_source)
+        partial_proxy_source["HTTP_PROXY"] = "http://proxy.invalid:8080"
+        try:
+            producer.trusted_proxy_environment(partial_proxy_source, direct_pin)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "partial transport proxy was not fail-closed",
+            )
+        else:
+            raise AssertionError("partial transport proxy was accepted")
+
+        gemini_bundle_source = fixture / "gemini-bundle-source"
+        gemini_bundle_source.mkdir()
+        gemini_launcher = gemini_bundle_source / "cli.js"
+        gemini_launcher_content = b"// pinned Gemini launcher\n"
+        gemini_launcher.write_bytes(gemini_launcher_content)
+        gemini_runtime_source = fixture / "gemini-runtime-source"
+        gemini_runtime_content = b"pinned Gemini runtime\n"
+        gemini_runtime_source.write_bytes(gemini_runtime_content)
+        gemini_home = fixture / "gemini-review-home"
+        gemini_home.mkdir()
+        gemini_policy = gemini_home / "deny-all.toml"
+        gemini_policy.write_text("# deny all\n", encoding="utf-8")
+        exact_gemini_prompt = "exact review packet — bytes must survive\n"
+        observed_gemini_calls = []
+
+        @contextlib.contextmanager
+        def fake_gemini_home(_source):
+            yield gemini_home, gemini_policy
+
+        def fake_gemini_run(command, **kwargs):
+            if command[-1] == "--help":
+                help_text = " ".join(producer.GEMINI_REQUIRED_CLI_FLAGS).encode()
+                return subprocess.CompletedProcess(command, 0, help_text, b"")
+            observed_gemini_calls.append((list(command), kwargs["input"]))
+            session = command[command.index("--session-id") + 1]
+            requested_model = command[command.index("--model") + 1]
+            events = b"\n".join((
+                json.dumps({
+                    "type": "init", "session_id": session,
+                    "model": requested_model,
+                }).encode(),
+                json.dumps({
+                    "type": "result", "status": "success",
+                    "content": json.dumps(clean_verdict()),
+                }).encode(),
+            )) + b"\n"
+            return subprocess.CompletedProcess(command, 0, events, b"")
+
+        original_bundle = producer.trusted_gemini_bundle
+        original_runtime = producer.trusted_executable
+        original_gemini_home = producer.gemini_transport_home
+        original_run = producer.run_bounded_process
+        try:
+            producer.trusted_gemini_bundle = lambda *_args: (
+                gemini_launcher, "a" * 64,
+                [("cli.js", gemini_launcher_content)],
+            )
+            producer.trusted_executable = lambda *_args: (
+                gemini_runtime_source, "b" * 64, gemini_runtime_content,
+            )
+            producer.gemini_transport_home = fake_gemini_home
+            producer.run_bounded_process = fake_gemini_run
+            gemini_report, gemini_session, gemini_model = (
+                producer.run_gemini_review(
+                    exact_gemini_prompt,
+                    executable=str(gemini_launcher),
+                    runtime=str(gemini_runtime_source),
+                    model="gemini-2.5-pro",
+                    source_env={
+                        "PATH": os.environ.get("PATH", ""),
+                        "HOME": str(gemini_home),
+                    },
+                    expected_executable_sha256="a" * 64,
+                    expected_runtime_sha256="b" * 64,
+                    expected_proxy_sha256=producer.sha256_bytes(b"\n"),
+                )
+            )
+        finally:
+            producer.trusted_gemini_bundle = original_bundle
+            producer.trusted_executable = original_runtime
+            producer.gemini_transport_home = original_gemini_home
+            producer.run_bounded_process = original_run
+        check(
+            gemini_report == clean_verdict()
+            and gemini_session
+            and gemini_model == "gemini-2.5-pro",
+            "Gemini stdin transport did not return the closed review report",
+        )
+        check(
+            len(observed_gemini_calls) == 1
+            and observed_gemini_calls[0][0][
+                observed_gemini_calls[0][0].index("--prompt") + 1
+            ] == ""
+            and observed_gemini_calls[0][1]
+            == exact_gemini_prompt.encode("utf-8")
+            and producer.sha256_bytes(observed_gemini_calls[0][1])
+            == producer.sha256_bytes(exact_gemini_prompt.encode("utf-8")),
+            "Gemini did not receive the exact prompt bytes through stdin",
+        )
 
         hostile_env = {
             "PATH": os.environ.get("PATH", ""),
@@ -425,9 +1387,10 @@ def main() -> int:
             report=clean_verdict(),
             maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                    "session": "maker-session-current"},
-            reviewer={"provider": "openai-codex", "model": "gpt-5.6-terra",
+            reviewer={"provider": "openai-subscription", "model": "gpt-5.6-terra",
                       "session": "fresh-thread-123",
                       "transportExecutableSha256": "5" * 64},
+            attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
             isolation=producer.required_isolation(),
             key_id="free-reviewer-2026-08",
             private_key=producer_private,
@@ -443,6 +1406,234 @@ def main() -> int:
               "phase-one receipt lost the exact PR target")
         check(verified_one["producerId"] == "itd-free-reviewer-producer-v1",
               "phase-one receipt lacks a scoped producer identity")
+        check(
+            verified_one["attempts"]
+            == [{"provider": "openai-subscription", "status": "PASSED"}],
+            "phase-one receipt lost the signed attempt ledger",
+        )
+        quorum_reviewers = [
+            {"provider": "openai-subscription", "model": "gpt-5.6-terra",
+             "session": "fresh-quorum-openai",
+             "transportExecutableSha256": "5" * 64},
+            {"provider": "anthropic-subscription", "model": "claude-opus",
+             "session": "fresh-quorum-anthropic",
+             "transportExecutableSha256": "6" * 64},
+        ]
+        quorum_reviews = [
+            {"reviewer": reviewer, "report": clean_verdict()}
+            for reviewer in quorum_reviewers
+        ]
+        quorum_prompt = producer.quorum_prompt_artifact(
+            packet, quorum_reviews, {
+                "openai-subscription": prompt,
+                "anthropic-subscription": prompt,
+            },
+        )
+        quorum_phase_one = producer.phase_one_receipt(
+            packet=packet, prompt=quorum_prompt, report=clean_verdict(),
+            maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
+                   "session": "maker-session-current"},
+            reviewer=quorum_reviewers[0], reviewers=quorum_reviewers,
+            attempts=[
+                {"provider": "openai-subscription", "status": "PASSED"},
+                {"provider": "anthropic-subscription", "status": "PASSED"},
+            ],
+            isolation=producer.required_isolation(),
+            key_id="free-reviewer-2026-08", private_key=producer_private,
+            issued_at=issued,
+        )
+        try:
+            producer.verify_phase_one(
+                quorum_phase_one,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "non-authoritative" in exc.reason,
+                "legacy quorum remained authoritative on the current route",
+            )
+        else:
+            raise AssertionError("legacy quorum was accepted by the current verifier")
+        verified_quorum = producer.verify_legacy_quorum_phase_one(
+            quorum_phase_one,
+            {"free-reviewer-2026-08": public_key(producer_private)},
+        )
+        check(
+            verified_quorum["version"] == 3
+            and verified_quorum["reviewers"] == quorum_reviewers,
+            "phase-one receipt lost the high-risk reviewer quorum",
+        )
+        mutated_quorum = copy.deepcopy(quorum_phase_one["signed"])
+        mutated_quorum["reviewers"].pop()
+        mutated_quorum_receipt = {
+            "signed": mutated_quorum,
+            "signature": producer.b64url(
+                Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                    producer.canonical_bytes(mutated_quorum)
+                )
+            ),
+        }
+        try:
+            producer.verify_phase_one(
+                mutated_quorum_receipt,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError:
+            pass
+        else:
+            raise AssertionError("under-quorum phase one verified")
+        checks += 1
+        try:
+            producer.phase_one_receipt(
+                packet=packet, prompt=prompt, report=clean_verdict(),
+                maker={"provider": "anthropic", "model": "opus",
+                       "session": "maker-claude-alias"},
+                reviewer={"provider": "anthropic-subscription",
+                          "model": "claude-opus-4-6",
+                          "session": "fresh-claude-alias",
+                          "transportExecutableSha256": "6" * 64},
+                attempts=[
+                    {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+                    {"provider": "anthropic-subscription", "status": "PASSED"},
+                ],
+                isolation=producer.required_isolation(),
+                key_id="free-reviewer-2026-08",
+                private_key=producer_private, issued_at=issued,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "phase-one Anthropic alias bypass had the wrong disposition",
+            )
+        else:
+            raise AssertionError("phase one signed an Anthropic same-family alias")
+
+        alias_signed = copy.deepcopy(phase_one["signed"])
+        alias_signed["maker"] = {
+            "provider": "anthropic", "model": "opus",
+            "session": "maker-claude-alias",
+        }
+        alias_signed["reviewer"] = {
+            "provider": "anthropic-subscription",
+            "model": "claude-opus-4-6",
+            "session": "fresh-claude-alias",
+            "transportExecutableSha256": "6" * 64,
+        }
+        alias_signed["attempts"] = [
+            {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+            {"provider": "anthropic-subscription", "status": "PASSED"},
+        ]
+        alias_receipt = {
+            "signed": alias_signed,
+            "signature": producer.b64url(
+                Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                    producer.canonical_bytes(alias_signed)
+                )
+            ),
+        }
+        try:
+            producer.verify_phase_one(
+                alias_receipt,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "verified Anthropic alias bypass had the wrong disposition",
+            )
+        else:
+            raise AssertionError("re-signed Anthropic alias verified as independent")
+        try:
+            producer.phase_one_receipt(
+                packet=packet, prompt=prompt + "\ncaller mutation",
+                report=clean_verdict(),
+                maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
+                       "session": "maker-session-current"},
+                reviewer={"provider": "openai-subscription",
+                          "model": "gpt-5.6-terra",
+                          "session": "fresh-thread-prompt-mutation",
+                          "transportExecutableSha256": "5" * 64},
+                attempts=[{
+                    "provider": "openai-subscription", "status": "PASSED",
+                }],
+                isolation=producer.required_isolation(),
+                key_id="free-reviewer-2026-08",
+                private_key=producer_private, issued_at=issued,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "mutated review prompt failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError("caller-mutated prompt produced a signed receipt")
+
+        ledger_mutations = (
+            ("missing ledger", None),
+            ("skipped provider", [
+                {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+                {"provider": "github-copilot-user", "status": "PASSED"},
+            ]),
+            ("non-unavailable predecessor", [
+                {"provider": "openai-subscription", "status": "PASSED"},
+                {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
+                {"provider": "github-copilot-user", "status": "PASSED"},
+            ]),
+            ("non-passing terminal", [
+                {"provider": "openai-subscription", "status": "UNAVAILABLE"},
+                {"provider": "anthropic-subscription", "status": "UNAVAILABLE"},
+                {"provider": "github-copilot-user", "status": "UNAVAILABLE"},
+            ]),
+            ("foreign terminal", [
+                {"provider": "github-copilot-user", "status": "PASSED"},
+            ]),
+        )
+        for label, attempts in ledger_mutations:
+            altered_signed = copy.deepcopy(phase_one["signed"])
+            if attempts is None:
+                altered_signed.pop("attempts")
+            else:
+                altered_signed["attempts"] = attempts
+            altered_receipt = {
+                "signed": altered_signed,
+                "signature": producer.b64url(
+                    Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                        producer.canonical_bytes(altered_signed)
+                    )
+                ),
+            }
+            try:
+                producer.verify_phase_one(
+                    altered_receipt,
+                    {"free-reviewer-2026-08": public_key(producer_private)},
+                )
+            except producer.FreeReviewError:
+                pass
+            else:
+                raise AssertionError(f"{label} verified as a closed route")
+            checks += 1
+
+        legacy_signed = copy.deepcopy(phase_one["signed"])
+        legacy_signed["version"] = 1
+        legacy_receipt = {
+            "signed": legacy_signed,
+            "signature": producer.b64url(
+                Ed25519PrivateKey.from_private_bytes(producer_private).sign(
+                    producer.canonical_bytes(legacy_signed)
+                )
+            ),
+        }
+        try:
+            producer.verify_phase_one(
+                legacy_receipt,
+                {"free-reviewer-2026-08": public_key(producer_private)},
+            )
+        except producer.FreeReviewError:
+            pass
+        else:
+            raise AssertionError("legacy phase-one version verified as version 2")
+        checks += 1
 
         live = {
             "source": "github-app-api-revalidation-v1",
@@ -531,10 +1722,13 @@ def main() -> int:
                     packet=packet, prompt=prompt, report=report,
                     maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                            "session": "maker-session-current"},
-                    reviewer={"provider": "openai-codex",
+                    reviewer={"provider": "openai-subscription",
                               "model": "gpt-5.6-terra",
                               "session": reviewer_session,
                               "transportExecutableSha256": "5" * 64},
+                    attempts=[{
+                        "provider": "openai-subscription", "status": "PASSED",
+                    }],
                     isolation=isolation, key_id="free-reviewer-2026-08",
                     private_key=producer_private, issued_at=issued,
                 )
@@ -549,10 +1743,13 @@ def main() -> int:
                 packet=packet, prompt=prompt, report=clean_verdict(),
                 maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                        "session": "maker-session-current"},
-                reviewer={"provider": "openai-codex",
+                reviewer={"provider": "openai-subscription",
                           "model": " gpt-5.6-sol ",
                           "session": "fresh-padded-model",
                           "transportExecutableSha256": "5" * 64},
+                attempts=[{
+                    "provider": "openai-subscription", "status": "PASSED",
+                }],
                 isolation=producer.required_isolation(),
                 key_id="free-reviewer-2026-08",
                 private_key=producer_private, issued_at=issued,

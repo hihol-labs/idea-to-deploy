@@ -66,11 +66,15 @@
       "required_sections": [
         "User Stories|Пользовательские истории|User story"
       ],
+      "must_contain": ["100 ×", "percentage"],
       "min_user_story_count": 3
     },
     "IMPLEMENTATION_PLAN.md": {
       "min_step_count": 4,
       "max_step_count": 10
+    },
+    "CLAUDE_CODE_GUIDE.md": {
+      "must_contain": ["0/1/2/3/4", "unique-cardinality exhaustion"]
     }
   },
 

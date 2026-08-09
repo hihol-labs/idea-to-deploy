@@ -38,7 +38,7 @@ fallback'ом, а не в ширине абсорбции. Абстенция с
 | F-03 | SubagentStop-хук (авто-дожатие нарратив-финала) | adopt | `hooks/narration-final.sh` | Ручной re-ping «выдай итог одним сообщением» |
 | F-04 | Inter-agent messaging / авто-пинг-за-вердиктом (SendMessage) | adopt | `tests/verify_review_autoping.py` | Ручной re-ping вердикта в прозе |
 | F-05 | git worktree isolation (file-only refactor) | adopt | `skills/refactor/references/worktree-isolation.md` | `hooks/freeze.sh` scope-guard |
-| F-06 | Provider-neutral external checker (OpenAI API / Codex / Gemini) | adopt | `docs/adr/ADR-003-verifiable-external-reviewer.md` | Typed `UNAVAILABLE` locally; required acceptance remains `UNVERIFIED` until Verification Loop gets eligible evidence |
+| F-06 | Mandatory provider-neutral cross-review entry point selecting one fresh opposite-GPT checker (Sol → Terra / Terra → Sol) | adopt | `docs/adr/ADR-006-single-opposite-gpt-review.md` | No automatic provider fallback; a reviewer that cannot be reached fails typed `UNAVAILABLE` and never a pass, and required acceptance remains `UNVERIFIED` until evidence-first Verification Loop gets eligible exact-candidate evidence |
 | F-07 | Execution tracing (PreToolUse jsonl-trace, K15) | adopt | `hooks/execution-trace.sh` | Post-hoc `/session-save` summary + cost-tracker |
 | F-08 | On-disk unit ledger (GOAL.json, append-only) | adopt | `skills/goal/SKILL.md` | `session_*.md` proza-заметки |
 | F-09 | Model routing / per-role effort tiers | adopt | `docs/MODEL-ROUTING-POLICY.md` | Единая дефолт-модель |

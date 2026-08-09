@@ -191,21 +191,29 @@ itd gate register-profile \
   --protection-profile local-review \
   --local-review-receipt-file <absolute-current-adjudication.json> \
   --local-review-unit-id <unit-id>:general-review \
-  --local-review-risk-tier high
+  --local-review-risk-tier high \
+  --local-review-producer-keyring-sha256 <trusted-keyring-sha256>
 
 itd gate doctor --repository <owner/repository>
 ```
 
-The expected claim is `LOCAL_REVIEWED`, never `PROTECTED`. The doctor and
-guarded transport use Verification Loop `--candidate-mode committed-head`: the
-clean `HEAD` must have exactly one parent equal to the reviewed `baseCommit`,
-the same full tree, and the same binary diff. The default staged check remains
-strict. A guarded `itd pr create` revalidates this bridge and the exact machine
-preflight before push and does not contact an App or broker on this route. An
-amended tree, merge commit, or second commit requires a new adjudication and
-registry update. Evidence may also be refreshed after the commit by running
-the machine, checker, and adjudicate commands with
-`--candidate-mode committed-head`.
+The expected claim is `LOCAL_REVIEWED`, never `PROTECTED`. This portable route
+does not require an adoption verification contract: its guarded push validates
+the current exact independent adjudication instead of running an
+adoption-contract machine preflight. The doctor and guarded transport use
+Verification Loop `--candidate-mode committed-head`: the clean `HEAD` must have
+exactly one parent equal to the reviewed `baseCommit`, the same full tree, and
+the same binary diff. An amended tree, merge commit, or second commit requires
+a new adjudication and registry update. Evidence may also be refreshed after
+the commit by running the machine, checker, and adjudicate commands with
+`--candidate-mode committed-head`. App-backed profiles retain adoption and
+contract-machine requirements.
+In both cases the checker must bind the shared producer's signed phase-one v2
+receipt and trusted producer keyring. The doctor adds
+`--require-mandatory-route`; a generic fresh-session checker/adjudication is
+not publication evidence. The host registry's producer-keyring SHA-256 is
+passed into the installed validator, so a candidate cannot authorize its own
+replacement phase-one key.
 
 For the strongest organization-workflow profile, register each checkout with
 its active ruleset/enrollment coordinates and Ed25519 maker key, then run:

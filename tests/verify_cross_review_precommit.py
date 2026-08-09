@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Behavioural unit test for hooks/cross-review-precommit.sh (v1.34.0).
+"""Behavioural unit test for the mandatory-review checkpoint reminder.
 
-The hook is OPT-IN and strictly NON-BLOCKING (always exit 0), so the contract
-under test is the EGRESS DECISION, not an exit code: given a git-commit payload,
-does the hook emit a safe explicit-review REMINDER without launching a
-tool-capable CLI, or stay SILENT?
+The hook itself is a read-only reminder (always exit 0); it never mints review
+evidence. Sensitive commits always receive the canonical-route reminder.
 
-Each case spins up a throwaway git repo, stages synthetic files, toggles the
-opt-in marker / env, and runs the hook with a JSON payload on stdin. PATH is
-stripped of the codex dir so the detached worker resolves engine=none and never
-performs a real (paid) external call.
+Each case spins up a throwaway git repo, stages synthetic files, and runs the
+hook with a JSON payload on stdin. PATH is stripped of reviewer CLIs so a
+regression cannot perform an external call.
 
 Run: python3 tests/verify_cross_review_precommit.py
 Exits non-zero if any case fails (CI-friendly).
@@ -74,7 +71,7 @@ def run_hook(repo, command="git commit -m x", env_overrides=None):
         capture_output=True, text=True, env=env,
     )
     shutil.rmtree(env["TMPDIR"], ignore_errors=True)
-    acted = "automated Codex/Gemini CLI egress is disabled" in (p.stdout or "")
+    acted = "canonical Sol -> Terra / Terra -> Sol" in (p.stdout or "")
     return p.returncode, (REMIND if acted else SKIP), p.stdout
 
 
@@ -91,10 +88,10 @@ def c_optin_marker_auth(repo):
     return "git commit -m x", {}, REMIND
 
 
-def c_default_off(repo):
-    # sensitive path but NO opt-in -> must stay silent (DEFAULT-OFF)
+def c_default_sensitive(repo):
+    # no marker/env is needed: this is a local reminder, not egress
     stage(repo, "db/migrations/001_init.sql")
-    return "git commit -m x", {}, SKIP
+    return "git commit -m x", {}, REMIND
 
 
 def c_optin_nonsensitive(repo):
@@ -110,17 +107,16 @@ def c_non_commit(repo):
 
 
 def c_off_switch(repo):
-    # opted in + sensitive, but the hard off-switch wins
+    # a caller flag cannot suppress the mandatory-route checkpoint
     stage(repo, "db/migrations/001_init.sql")
-    return "git commit -m x", {"CROSS_REVIEW_EGRESS_OK": "1", "ITD_CROSS_REVIEW": "0"}, SKIP
+    return "git commit -m x", {"ITD_CROSS_REVIEW": "0"}, REMIND
 
 
 def c_agent_teams_disabled(repo):
-    # opted in + sensitive, but multi-agent mode auto-disables egress
+    # reminder is safe in multi-agent mode because it never sends the diff
     stage(repo, "db/migrations/001_init.sql")
     return ("git commit -m x",
-            {"CROSS_REVIEW_EGRESS_OK": "1", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"},
-            SKIP)
+            {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}, REMIND)
 
 
 def c_agent_teams_override(repo):
@@ -148,11 +144,11 @@ def c_amp_chain_commit(repo):
 CASES = [
     ("opt-in(env) + migration -> REMIND", c_optin_env_migration),
     ("opt-in(marker) + auth -> REMIND", c_optin_marker_auth),
-    ("sensitive but NOT opted-in -> SKIP (default-off)", c_default_off),
+    ("sensitive default -> REMIND", c_default_sensitive),
     ("opted-in but non-sensitive path -> SKIP", c_optin_nonsensitive),
     ("not a commit -> SKIP", c_non_commit),
-    ("off-switch ITD_CROSS_REVIEW=0 -> SKIP", c_off_switch),
-    ("Agent Teams mode -> SKIP (auto-disable)", c_agent_teams_disabled),
+    ("caller off-switch cannot bypass reminder", c_off_switch),
+    ("Agent Teams mode -> REMIND", c_agent_teams_disabled),
     ("Agent Teams + override -> REMIND", c_agent_teams_override),
     ("opt-in + payments path -> REMIND", c_payments_path),
     ("commit via && chain -> REMIND", c_amp_chain_commit),

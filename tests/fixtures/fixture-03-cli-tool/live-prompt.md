@@ -7,6 +7,13 @@ questions or confirmation. Follow the actual workflow in
 template, and write the resulting project documents in the current project
 root. Do not implement product code.
 
+This isolated output-quality benchmark has no independent reviewer or subagent
+transport. If the workflow asks for an adversarial review, perform and label a
+self-critique; do not claim that an independent/adversarial reviewer ran. Do
+not report artifact hashes or exact validation counts in chat: the external
+harness computes hashes and validates the final files only after the process
+exits.
+
 Project: a local Python 3.11 CLI for DevOps/SRE engineers that streams nginx
 access logs and reports top-10 IPs, top-10 URLs by 4xx/5xx errors, hourly
 request distribution, and the share of unique User-Agents. Default output is
@@ -28,6 +35,11 @@ Constraints and approved decisions:
 - Include at least three user stories and a 4–10 step implementation plan.
 - In `PRD.md`, place the user stories under the exact second-level heading
   `## User Stories` so the documented contract is explicit and replayable.
+- Define hourly request distribution as a percentage using the literal formula
+  `100 × hourly_request_count / total_valid_requests`; do not describe it as an
+  unscaled fraction.
+- Use the complete exit-code contract `0/1/2/3/4` in every implementation guide;
+  code `4` means unique-cardinality exhaustion. Do not omit or remap code 4.
 
 Before ending, verify that all six required files exist in the project root:
 

@@ -1,9 +1,13 @@
 # ADR-003: external reviewers are checker transports, not completion authorities
 
 **Date:** 2026-07-28
-**Status:** Accepted
+**Status:** Superseded for pre-PR routing by ADR-004; retained for the optional
+paid API adapter
 **Supersedes:** the provider-order and native-fallback portions of ADR-002;
 ADR-002's default-off egress and local non-blocking decision remain active.
+
+> Historical scope: the decisions below now apply only to the separately
+> configured paid API adapter. ADR-004 owns every default pre-PR review path.
 
 ## Context
 

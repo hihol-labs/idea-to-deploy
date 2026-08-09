@@ -34,9 +34,19 @@ from typing import Any
 
 INSTALL_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = Path(__file__).with_name("VERIFICATION_LOOP_POLICY.json")
+FREE_REVIEWER_PATH = Path(__file__).with_name("itd_free_reviewer_producer.py")
 REVIEW_CACHE_PATH = INSTALL_ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 RECEIPT_VERSION = 1
 ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED"}
+# ADR-007: an adjudication receipt is honestly either a clean PASSED or a
+# human-adjudicated ADJUDICATED; the checker's own verdict is never rewritten.
+ADJUDICATION_OUTCOMES = ("PASSED", "ADJUDICATED")
+DISPOSITION_CLASSES = ("accepted-trade-off", "refuted-by-evidence", "fixed")
+# The confirmation is a closed affirmative sentence binding the exact checker
+# receipt: arbitrary prose, negations, or a confirmation reused from another
+# receipt can never mint (ADR-007).
+CONFIRMATION_TEMPLATE = ("I adjudicated every finding of checker receipt "
+                         "{sha256} and accept the recorded dispositions")
 RISK_TIERS = {"low", "medium", "high", "unknown"}
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
@@ -857,9 +867,25 @@ def receipt_root(repo: Path, policy: dict[str, Any]) -> Path:
 
 def inside(path: Path, parent: Path, label: str) -> Path:
     resolved = path.resolve()
+    resolved_parent = parent.resolve()
     try:
-        resolved.relative_to(parent.resolve())
+        resolved.relative_to(resolved_parent)
     except ValueError as exc:
+        # Native Windows can expose the same directory through both its long
+        # Unicode name and an 8.3 alias (for example ``Dmitry`` versus
+        # ``AACE~1``).  Path.relative_to() is lexical, so that harmless alias
+        # must be reconciled by filesystem identity without weakening the
+        # containment check.  Rebuild the accepted path under the trusted
+        # parent spelling so later relative-path bindings stay deterministic.
+        if os.name == "nt":
+            candidates = (resolved, *resolved.parents)
+            for candidate in candidates:
+                try:
+                    if candidate.exists() and candidate.samefile(resolved_parent):
+                        suffix = resolved.relative_to(candidate)
+                        return resolved_parent / suffix
+                except OSError:
+                    continue
         raise LoopError(f"{label} escapes {parent}",
                         f"Place {label} under the durable Verification Loop directory.") from exc
     return resolved
@@ -1055,12 +1081,15 @@ def parse_report(text: str) -> dict[str, Any]:
     except Exception:
         pass
     for value in reversed(objects):
+        if set(value) != {"verdict", "findings", "unverified"}:
+            continue
         verdict = str(value.get("verdict") or "").upper()
-        if verdict in ALLOWED_VERDICTS and isinstance(value.get("findings"), list):
-            if "unverified" not in value:
-                value["unverified"] = []
-            if isinstance(value.get("unverified"), list):
-                return value
+        if (
+            verdict in ALLOWED_VERDICTS
+            and isinstance(value.get("findings"), list)
+            and isinstance(value.get("unverified"), list)
+        ):
+            return value
     raise LoopError("checker report has no valid verdict/findings/unverified JSON block",
                     "Finish the review report with the canonical vendor-neutral verdict block.")
 
@@ -1172,10 +1201,86 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
                         "A failing command cannot be narrated into PASSED.")
 
 
+def finding_digest(value: Any) -> str:
+    return sha256_bytes(canonical(value))
+
+
+def validate_human_adjudication(block: Any, checker: dict[str, Any],
+                                checker_sha256: str) -> None:
+    """Fail-closed validation of a per-finding human adjudication (ADR-007)."""
+    fields = {"confirmedBy", "confirmedAt", "confirmation",
+              "checkerReceiptSha256", "dispositions"}
+    if not isinstance(block, dict) or set(block) != fields:
+        raise LoopError("human adjudication block is malformed",
+                        "Provide exactly confirmedBy, confirmedAt, confirmation, "
+                        "checkerReceiptSha256 and dispositions.")
+    for field in ("confirmedBy", "confirmedAt", "confirmation"):
+        if not isinstance(block.get(field), str) or not block[field].strip():
+            raise LoopError(
+                f"human adjudication {field} is absent",
+                "Adjudication requires the explicit human confirmation; never mint without it.")
+    if block.get("checkerReceiptSha256") != checker_sha256:
+        raise LoopError("human adjudication binds another checker receipt",
+                        "Adjudicate the exact BLOCKED checker receipt this mint depends on.")
+    if block.get("confirmation") != CONFIRMATION_TEMPLATE.format(
+            sha256=checker_sha256):
+        raise LoopError(
+            "human confirmation is not the explicit affirmative statement",
+            "Write the exact affirmative confirmation sentence naming this "
+            "checker receipt sha256; free-form or negated text never mints.")
+    if checker.get("verdict") != "BLOCKED":
+        raise LoopError("human adjudication over a non-BLOCKED review",
+                        "A clean review needs no adjudication; mint plain PASSED evidence.")
+    targets = list(checker.get("findings") or []) + list(checker.get("unverified") or [])
+    if not targets:
+        raise LoopError("BLOCKED review carries no findings to adjudicate",
+                        "Rerun the checker; a finding-free BLOCKED verdict is malformed evidence.")
+    rows = block.get("dispositions")
+    if not isinstance(rows, list) or not rows:
+        raise LoopError("human dispositions are absent",
+                        "Disposition every checker finding or fix the candidate instead.")
+    required = {"findingSha256", "finding", "class", "rationale"}
+    expected = {finding_digest(item) for item in targets}
+    seen: set[str] = set()
+    for row in rows:
+        if (not isinstance(row, dict) or not required <= set(row)
+                or not set(row) <= required | {"evidence"}):
+            raise LoopError("a disposition row is malformed",
+                            "Each disposition needs findingSha256, finding, class and rationale.")
+        digest = row.get("findingSha256")
+        if digest not in expected or digest != finding_digest(row.get("finding")):
+            raise LoopError("a disposition names no checker finding",
+                            "Bind each disposition to the exact finding it adjudicates.")
+        if digest in seen:
+            raise LoopError("duplicate disposition for one finding",
+                            "Record exactly one human disposition per finding.")
+        seen.add(digest)
+        if row.get("class") not in DISPOSITION_CLASSES:
+            raise LoopError("disposition class is unknown",
+                            "Use accepted-trade-off, refuted-by-evidence or fixed.")
+        if not isinstance(row.get("rationale"), str) or not row["rationale"].strip():
+            raise LoopError("disposition rationale is absent",
+                            "State why the human accepted, refuted or fixed the finding.")
+        if row["class"] in ("refuted-by-evidence", "fixed") and (
+                not isinstance(row.get("evidence"), str) or not row["evidence"].strip()):
+            raise LoopError("disposition evidence is absent",
+                            "Name the evidence that refutes or fixes the finding.")
+    if seen != expected:
+        raise LoopError("a checker finding has no human disposition",
+                        "Disposition every finding (accepted-trade-off, "
+                        "refuted-by-evidence or fixed) or fix the candidate.")
+
+
 def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      unit_id: str, policy: dict[str, Any], policy_sha: str,
                      required_mode: str,
-                     candidate_mode: str = "staged") -> None:
+                     candidate_mode: str = "staged",
+                     require_mandatory_route: bool = False,
+                     expected_repository: str | None = None,
+                     expected_producer_keyring_sha256: str | None = None,
+                     allow_adjudicated_blocked: bool = False,
+                     accept_adjudicated_route: bool = False,
+                     ) -> dict[str, Any] | None:
     validate_common(receipt, kind="checker", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
                     candidate_mode=candidate_mode)
@@ -1213,15 +1318,50 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
         if not path.is_file() or sha256_file(path) != item.get("sha256"):
             raise LoopError(f"checker {name} artifact is missing or changed",
                             "Preserve the exact durable checker inputs and regenerate the receipt.")
-    if receipt.get("verdict") not in policy["acceptedVerdicts"]:
+    mandatory_route = receipt.get("mandatoryRoute")
+    # The producer never mints a signed phase-one receipt for a BLOCKED
+    # verdict, so an honestly adjudicated route (ADR-007) is authorized by its
+    # human adjudication instead — but only through the explicit opt-in flag;
+    # a clean PASSED outcome always requires the signed route.
+    adjudicated_route_authorized = (
+        accept_adjudicated_route and allow_adjudicated_blocked
+    )
+    if (require_mandatory_route and not isinstance(mandatory_route, dict)
+            and not adjudicated_route_authorized):
+        raise LoopError(
+            "mandatory keyless route evidence is missing",
+            "Run the shared fresh opposite-GPT producer and bind its signed phase-one receipt.",
+        )
+    verified_route = None
+    if mandatory_route is not None:
+        verified_route = validate_mandatory_route_evidence(
+            mandatory_route, repo=repo, policy=policy,
+            context=receipt["candidate"], maker=maker_identity,
+            checker=checker_identity,
+            report_path=(repo / artifacts["report"]["path"]).resolve(),
+            prompt_path=(repo / artifacts["prompt"]["path"]).resolve(),
+            candidate_mode=candidate_mode,
+            expected_repository=expected_repository,
+            expected_producer_keyring_sha256=(
+                expected_producer_keyring_sha256
+            ),
+        )
+    if receipt.get("verdict") not in policy["acceptedVerdicts"] and not (
+            allow_adjudicated_blocked and receipt.get("verdict") == "BLOCKED"):
         raise LoopError(f"checker verdict is {receipt.get('verdict')}, not accepted",
                         "Resolve findings and run a fresh checker; do not downgrade the verdict.")
+    return verified_route
 
 
 def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk: str,
                                    unit_id: str, policy: dict[str, Any],
                                    policy_sha: str,
-                                   candidate_mode: str = "staged") -> None:
+                                   candidate_mode: str = "staged",
+                                   require_mandatory_route: bool = False,
+                                   expected_repository: str | None = None,
+                                   expected_producer_keyring_sha256: str | None = None,
+                                   accept_adjudicated_route: bool = False,
+                                   ) -> None:
     dependencies = receipt.get("dependencies") or {}
     machine_ref = dependencies.get("machine") or {}
     machine_path = (repo / str(machine_ref.get("path") or "")).resolve()
@@ -1235,6 +1375,13 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         raise LoopError("machine verification failed", "Fix the candidate and rerun the oracle.")
     route = policy["riskRoutes"][risk]
     checker_ref = dependencies.get("checker")
+    adjudicated = receipt.get("outcome") == "ADJUDICATED"
+    if adjudicated and not route["checkerRequired"]:
+        raise LoopError("ADJUDICATED outcome without a checker route",
+                        "Only independent-review findings can be humanly adjudicated.")
+    if not adjudicated and receipt.get("humanAdjudication") is not None:
+        raise LoopError("PASSED adjudication carries a human adjudication block",
+                        "Mint clean evidence as PASSED without dispositions, or mint ADJUDICATED honestly.")
     if route["checkerRequired"]:
         if not isinstance(checker_ref, dict):
             raise LoopError("required checker receipt is missing", "Remain UNVERIFIED until the risk-tier checker completes.")
@@ -1242,10 +1389,24 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         if not checker_path.is_file() or sha256_file(checker_path) != checker_ref.get("sha256"):
             raise LoopError("checker receipt dependency is missing or changed", "Run a fresh checker and re-adjudicate.")
         checker = read_json(checker_path, "checker receipt")
-        validate_checker(checker, repo=repo, risk=risk, unit_id=unit_id,
-                         policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"],
-                         candidate_mode=candidate_mode)
+        verified_route = validate_checker(
+            checker, repo=repo, risk=risk, unit_id=unit_id,
+            policy=policy, policy_sha=policy_sha,
+            required_mode=route["checkerMode"],
+            candidate_mode=candidate_mode,
+            require_mandatory_route=require_mandatory_route,
+            expected_repository=expected_repository,
+            expected_producer_keyring_sha256=(
+                expected_producer_keyring_sha256
+            ),
+            allow_adjudicated_blocked=adjudicated,
+            accept_adjudicated_route=accept_adjudicated_route,
+        )
+        if adjudicated:
+            validate_human_adjudication(
+                receipt.get("humanAdjudication"), checker,
+                str(checker_ref.get("sha256") or ""))
+        validate_route_machine_binding(verified_route, machine_path)
     elif checker_ref is not None:
         raise LoopError("low-risk machine-only route contains a checker receipt",
                         "Remove the unnecessary checker cost and adjudicate machine evidence only.")
@@ -1253,7 +1414,12 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
 
 def validate_adjudication(root: Path | str, receipt_path: Path | str,
                           risk_tier: str, unit_id: str,
-                          candidate_mode: str = "staged") -> dict[str, Any]:
+                          candidate_mode: str = "staged",
+                          require_mandatory_route: bool = False,
+                          expected_repository: str | None = None,
+                          expected_producer_keyring_sha256: str | None = None,
+                          accept_adjudicated_route: bool = False,
+                          ) -> dict[str, Any]:
     policy, policy_sha = load_policy()
     repo = repository_root(root)
     risk = str(risk_tier or "unknown").lower()
@@ -1262,9 +1428,13 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
     validate_common(receipt, kind="adjudication", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
                     candidate_mode=candidate_mode)
-    if receipt.get("outcome") != "PASSED":
-        raise LoopError("adjudication outcome is not PASSED",
+    if receipt.get("outcome") not in ADJUDICATION_OUTCOMES:
+        raise LoopError("adjudication outcome is not PASSED or ADJUDICATED",
                         "Resolve failed/unverified evidence and re-adjudicate.")
+    if (receipt.get("outcome") == "ADJUDICATED"
+            and not isinstance(receipt.get("humanAdjudication"), dict)):
+        raise LoopError("ADJUDICATED receipt lacks its human adjudication block",
+                        "Mint through the human adjudication channel; never relabel evidence.")
     attempt = receipt.get("attempt")
     if type(attempt) is not int or not 1 <= attempt <= policy["maxAttemptsPerCandidate"]:
         raise LoopError("adjudication attempt is outside the bounded policy",
@@ -1273,7 +1443,15 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                            attempt, resolved_receipt, receipt)
     validate_adjudication_evidence(receipt, repo=repo, risk=risk, unit_id=unit_id,
                                    policy=policy, policy_sha=policy_sha,
-                                   candidate_mode=candidate_mode)
+                                   candidate_mode=candidate_mode,
+                                   require_mandatory_route=require_mandatory_route,
+                                   expected_repository=expected_repository,
+                                   expected_producer_keyring_sha256=(
+                                       expected_producer_keyring_sha256
+                                   ),
+                                   accept_adjudicated_route=(
+                                       accept_adjudicated_route
+                                   ))
     return receipt
 
 
@@ -1377,7 +1555,27 @@ def command_checker(args: argparse.Namespace) -> int:
     maker = {"provider": args.maker_provider.strip(),
              "model": args.maker_model.strip(),
              "session": args.maker_session.strip()}
-    receipt = seal_receipt({
+    if bool(args.phase_one_receipt) != bool(args.producer_keyring):
+        raise LoopError(
+            "mandatory route receipt/keyring pair is incomplete",
+            "Provide both --phase-one-receipt and --producer-keyring, or neither for non-publication diagnostics.",
+        )
+    mandatory_route = None
+    if args.phase_one_receipt:
+        phase_path = secure_dependency_path(
+            repo, root, args.phase_one_receipt, "phase-one route receipt"
+        )
+        keyring_path = secure_dependency_path(
+            repo, root, args.producer_keyring, "phase-one producer keyring"
+        )
+        mandatory_route = {
+            "kind": "itd-mandatory-keyless-route-v1",
+            "phaseOne": dependency(repo, root, phase_path, "phase-one route receipt"),
+            "producerKeyring": dependency(
+                repo, root, keyring_path, "phase-one producer keyring"
+            ),
+        }
+    payload = {
         "version": RECEIPT_VERSION,
         "kind": "checker",
         "createdAt": now_iso(),
@@ -1400,7 +1598,10 @@ def command_checker(args: argparse.Namespace) -> int:
         "verdict": str(verdict["verdict"]).upper(),
         "findings": verdict["findings"],
         "unverified": verdict["unverified"],
-    })
+    }
+    if mandatory_route is not None:
+        payload["mandatoryRoute"] = mandatory_route
+    receipt = seal_receipt(payload)
     output = (Path(args.output).resolve() if args.output else
               default_path(repo, policy, args.unit_id, "checker", context,
                            identity=receipt["receiptSha256"][:16]))
@@ -1429,10 +1630,32 @@ def secure_dependency_path(repo: Path, root: Path, raw: str, label: str) -> Path
     try:
         candidate.relative_to(boundary)
     except ValueError as exc:
-        raise LoopError(
-            f"{label} escapes the Verification Loop evidence root: {candidate}",
-            f"Keep {label} inside {boundary}.",
-        ) from exc
+        matched_boundary: Path | None = None
+        if os.name == "nt":
+            cursor = candidate
+            while True:
+                if _is_link_or_reparse(cursor):
+                    raise LoopError(
+                        f"{label} traverses a symlink or reparse point: {cursor}",
+                        "Use a real regular file under the evidence root.",
+                    ) from exc
+                try:
+                    if cursor.exists() and cursor.samefile(boundary):
+                        matched_boundary = cursor
+                        break
+                except OSError:
+                    pass
+                if cursor.parent == cursor:
+                    break
+                cursor = cursor.parent
+        if matched_boundary is None:
+            raise LoopError(
+                f"{label} escapes the Verification Loop evidence root: {candidate}",
+                f"Keep {label} inside {boundary}.",
+            ) from exc
+        # Preserve the trusted boundary spelling after proving that the 8.3
+        # alias denotes the exact same directory by filesystem identity.
+        candidate = boundary / candidate.relative_to(matched_boundary)
     cursor = candidate
     while True:
         if _is_link_or_reparse(cursor):
@@ -1459,6 +1682,203 @@ def secure_dependency_path(repo: Path, root: Path, raw: str, label: str) -> Path
     return candidate
 
 
+def _free_reviewer_module():
+    spec = importlib.util.spec_from_file_location(
+        "itd_loop_free_reviewer", FREE_REVIEWER_PATH
+    )
+    if spec is None or spec.loader is None:
+        raise LoopError(
+            "mandatory keyless producer is unavailable",
+            "Restore the shared itd_free_reviewer_producer.py module.",
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _phase_one_public_keys(value: object) -> dict[str, str]:
+    if not isinstance(value, dict) or not value or any(
+        not isinstance(key, str)
+        or not key
+        or not isinstance(public_key, str)
+        or not public_key
+        for key, public_key in value.items()
+    ):
+        raise LoopError(
+            "phase-one producer keyring is malformed",
+            "Use a closed non-empty key-id to raw Ed25519 public-key map.",
+        )
+    return dict(value)
+
+
+def validate_mandatory_route_evidence(
+    route: object, *, repo: Path, policy: dict[str, Any],
+    context: dict[str, Any], maker: dict[str, str], checker: dict[str, str],
+    report_path: Path, prompt_path: Path, candidate_mode: str,
+    expected_repository: str | None,
+    expected_producer_keyring_sha256: str | None,
+) -> dict[str, Any]:
+    if (
+        not isinstance(route, dict)
+        or set(route) != {"kind", "phaseOne", "producerKeyring"}
+        or route.get("kind") != "itd-mandatory-keyless-route-v1"
+    ):
+        raise LoopError(
+            "mandatory route reference is malformed",
+            "Regenerate the checker from one signed phase-one route receipt.",
+        )
+    root = receipt_root(repo, policy)
+    resolved: dict[str, Path] = {}
+    for field, label in (
+        ("phaseOne", "phase-one route receipt"),
+        ("producerKeyring", "phase-one producer keyring"),
+    ):
+        reference = route[field]
+        if not isinstance(reference, dict) or set(reference) != {"path", "sha256"}:
+            raise LoopError(
+                f"{label} reference is malformed",
+                "Keep the closed path/SHA-256 dependency reference.",
+            )
+        path = secure_dependency_path(repo, root, reference["path"], label)
+        if sha256_file(path) != reference["sha256"]:
+            raise LoopError(
+                f"{label} is missing or changed",
+                "Restore the exact route artifact and regenerate the checker.",
+            )
+        resolved[field] = path
+    if (
+        expected_producer_keyring_sha256 is not None
+        and route["producerKeyring"]["sha256"]
+        != expected_producer_keyring_sha256
+    ):
+        raise LoopError(
+            "phase-one producer keyring is not authorized by the host registry",
+            "Register the trusted producer keyring hash outside the candidate checkout.",
+        )
+    free = _free_reviewer_module()
+    phase_one = read_json(resolved["phaseOne"], "phase-one route receipt")
+    keys = _phase_one_public_keys(
+        read_json(resolved["producerKeyring"], "phase-one producer keyring")
+    )
+    try:
+        signed = free.verify_phase_one(phase_one, keys)
+    except free.FreeReviewError as exc:
+        raise LoopError(
+            f"mandatory route receipt is {exc.status}: {exc.reason}",
+            "Run the shared keyless producer again; do not substitute generic checker narration.",
+        ) from exc
+    if (
+        expected_repository is not None
+        and signed["target"]["repository"] != expected_repository
+    ):
+        raise LoopError(
+            "mandatory route target names another repository",
+            "Bind phase one to the exact repository selected for guarded publication.",
+        )
+    phase_candidate = signed["candidate"]
+    if (
+        phase_candidate["parentCommit"] != context.get("baseCommit")
+        or phase_candidate["tree"] != context.get("reviewedTree")
+        or signed["inputBindings"]["scopeSha256"]
+        != context.get("scopeContractHash")
+        or signed["inputBindings"]["acceptanceSha256"]
+        != context.get("acceptanceContractHash")
+    ):
+        raise LoopError(
+            "mandatory route receipt belongs to another candidate",
+            "Regenerate route evidence for the exact machine/checker candidate.",
+        )
+    try:
+        ancestry = subprocess.run(
+            ["git", "merge-base", "--is-ancestor",
+             phase_candidate["baseCommit"], phase_candidate["parentCommit"]],
+            cwd=repo, capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise LoopError(
+            "mandatory route ancestry could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        ) from exc
+    if ancestry.returncode != 0:
+        raise LoopError(
+            "mandatory route base is not an ancestor of its parent",
+            "Review one exact candidate range rooted in its real Git ancestry.",
+        )
+    diff_arguments = [
+        "git", "diff", "--binary", "--full-index", "--no-ext-diff",
+    ]
+    if candidate_mode == "staged":
+        diff_arguments.append("--cached")
+    diff_arguments.append(phase_candidate["baseCommit"])
+    if candidate_mode == "committed-head":
+        diff_arguments.append("HEAD")
+    diff_arguments.append("--")
+    try:
+        exact_diff = subprocess.run(
+            diff_arguments, cwd=repo, capture_output=True, timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise LoopError(
+            "mandatory route diff could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        ) from exc
+    if exact_diff.returncode != 0:
+        raise LoopError(
+            "mandatory route diff could not be reconstructed",
+            "Restore the exact candidate history and rerun the keyless producer.",
+        )
+    if (
+        phase_candidate["diffSha256"] != sha256_bytes(exact_diff.stdout)
+        or phase_candidate["diffBytes"] != len(exact_diff.stdout)
+    ):
+        raise LoopError(
+            "mandatory route diff binding is foreign",
+            "Review the exact base-to-candidate diff that will be submitted.",
+        )
+    if candidate_mode == "committed-head":
+        head = str(_review_cache_module().git(repo, "rev-parse", "HEAD")).strip()
+        expected_head = signed["target"]["expectedHeadSha"]
+        if expected_head is not None and expected_head != head:
+            raise LoopError(
+                "mandatory route target does not name the committed HEAD",
+                "Bind phase one to the exact submission commit before guarded publication.",
+            )
+    report = parse_report(report_path.read_text(encoding="utf-8", errors="replace"))
+    if (
+        signed["report"] != report
+        or signed["reportSha256"] != sha256_bytes(free.canonical_bytes(report))
+        or signed["promptSha256"] != sha256_file(prompt_path)
+    ):
+        raise LoopError(
+            "mandatory route prompt/report artifacts are foreign",
+            "Use the exact artifacts emitted by the signed producer run.",
+        )
+    if (
+        signed["maker"] != maker
+        or any(signed["reviewer"].get(field) != checker[field]
+               for field in ("provider", "model", "session"))
+    ):
+        raise LoopError(
+            "mandatory route provenance differs from checker provenance",
+            "Copy only host-observed maker/reviewer identity from phase one.",
+        )
+    return signed
+
+
+def validate_route_machine_binding(
+    verified_route: dict[str, Any] | None, machine_path: Path
+) -> None:
+    if (
+        verified_route is not None
+        and verified_route["inputBindings"]["machineReceiptSha256"]
+        != sha256_file(machine_path)
+    ):
+        raise LoopError(
+            "mandatory route receipt binds another machine receipt",
+            "Run the keyless reviewer only after the exact machine oracle passes.",
+        )
+
+
 def command_adjudicate(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
@@ -1474,20 +1894,49 @@ def command_adjudicate(args: argparse.Namespace) -> int:
         raise LoopError("machine verification failed", "Repair the candidate before semantic review/adjudication.")
     route = policy["riskRoutes"][risk]
     dependencies: dict[str, Any] = {"machine": dependency(repo, root, machine_path, "machine receipt")}
+    human_block: dict[str, Any] | None = None
+    if args.dispositions and not route["checkerRequired"]:
+        raise LoopError("machine-only route has no findings to adjudicate",
+                        "Human adjudication applies only to an independent checker's findings.")
     if route["checkerRequired"]:
         if not args.checker:
             raise LoopError("required checker receipt is missing",
                             "Run the risk-tier checker or remain UNVERIFIED.")
         checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
         checker = read_json(checker_path, "checker receipt")
-        validate_checker(checker, repo=repo, risk=risk, unit_id=args.unit_id,
-                         policy=policy, policy_sha=policy_sha,
-                         required_mode=route["checkerMode"],
-                         candidate_mode=args.candidate_mode)
+        if args.dispositions:
+            raw = Path(args.dispositions)
+            supplied = read_json(
+                (raw if raw.is_absolute() else repo / raw).resolve(),
+                "human dispositions")
+            allowed = {"confirmedBy", "confirmation",
+                       "checkerReceiptSha256", "dispositions"}
+            if not {"confirmedBy", "confirmation",
+                    "dispositions"} <= set(supplied) <= allowed:
+                raise LoopError("human dispositions file is malformed",
+                                "Provide confirmedBy, confirmation, checkerReceiptSha256 and dispositions.")
+            human_block = {
+                "confirmedBy": supplied.get("confirmedBy"),
+                "confirmedAt": now_iso(),
+                "confirmation": supplied.get("confirmation"),
+                "checkerReceiptSha256": supplied.get("checkerReceiptSha256"),
+                "dispositions": supplied.get("dispositions"),
+            }
+            validate_human_adjudication(human_block, checker,
+                                        sha256_file(checker_path))
+        verified_route = validate_checker(
+            checker, repo=repo, risk=risk, unit_id=args.unit_id,
+            policy=policy, policy_sha=policy_sha,
+            required_mode=route["checkerMode"],
+            candidate_mode=args.candidate_mode,
+            allow_adjudicated_blocked=human_block is not None,
+        )
+        validate_route_machine_binding(verified_route, machine_path)
         dependencies["checker"] = dependency(repo, root, checker_path, "checker receipt")
     elif args.checker:
         raise LoopError("low-risk machine-only route must not spend a checker",
                         "Adjudicate the machine receipt without --checker.")
+    outcome = "ADJUDICATED" if human_block is not None else "PASSED"
     assert_checkout_matches_candidate(repo, context)
     with reserve_attempt(repo, policy, context, args.unit_id, risk, policy_sha,
                          args.attempt) as (attempt, entry_path):
@@ -1506,7 +1955,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 "entryPath": entry_path.relative_to(repo).as_posix(),
                 "sequence": attempt,
             }
-            if (receipt.get("outcome") != "PASSED"
+            if (receipt.get("outcome") != outcome
                     or receipt.get("attempt") != attempt
                     or receipt.get("attemptLedger") != expected_ledger
                     or receipt.get("dependencies") != dependencies):
@@ -1517,7 +1966,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 policy=policy, policy_sha=policy_sha,
                 candidate_mode=args.candidate_mode)
         else:
-            receipt = seal_receipt({
+            payload = {
                 "version": RECEIPT_VERSION,
                 "kind": "adjudication",
                 "createdAt": now_iso(),
@@ -1537,8 +1986,11 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 },
                 "checkerMode": route["checkerMode"],
                 "dependencies": dependencies,
-                "outcome": "PASSED",
-            })
+                "outcome": outcome,
+            }
+            if human_block is not None:
+                payload["humanAdjudication"] = human_block
+            receipt = seal_receipt(payload)
             write_json_exclusive(output, receipt)
         entry = make_attempt_entry(repo, output, receipt)
         write_json_exclusive(entry_path, entry)
@@ -1549,9 +2001,25 @@ def command_adjudicate(args: argparse.Namespace) -> int:
 
 
 def command_check(args: argparse.Namespace) -> int:
-    validate_adjudication(
+    if args.require_mandatory_route and not args.expected_repository:
+        raise LoopError(
+            "mandatory publication repository is missing",
+            "Provide --expected-repository with --require-mandatory-route.",
+        )
+    receipt = validate_adjudication(
         args.root, args.receipt, args.risk_tier, args.unit_id,
-        args.candidate_mode)
+        args.candidate_mode,
+        require_mandatory_route=args.require_mandatory_route,
+        expected_repository=args.expected_repository,
+        expected_producer_keyring_sha256=(
+            args.expected_producer_keyring_sha256
+        ),
+        accept_adjudicated_route=args.accept_adjudicated_route)
+    if args.accept_adjudicated_route:
+        # Route-evidence label for the opt-in caller only; the default check
+        # surface stays byte-identical (silent stdout on success).
+        print(json.dumps({"outcome": receipt.get("outcome")},
+                         ensure_ascii=False, sort_keys=True))
     return 0
 
 
@@ -1591,16 +2059,29 @@ def parser() -> argparse.ArgumentParser:
     checker.add_argument("--checker-provider", required=True)
     checker.add_argument("--checker-model", required=True)
     checker.add_argument("--checker-session", required=True)
+    checker.add_argument("--phase-one-receipt")
+    checker.add_argument("--producer-keyring")
     checker.add_argument("--output")
     adjudicate = sub.add_parser("adjudicate", parents=[common])
     adjudicate.add_argument("--machine", required=True)
     adjudicate.add_argument("--checker")
+    adjudicate.add_argument(
+        "--dispositions",
+        help="JSON file with the human's per-finding adjudication (ADR-007)")
     adjudicate.add_argument(
         "--attempt", type=int,
         help="optional assertion of the next durable attempt; allocation is automatic")
     adjudicate.add_argument("--output")
     check = sub.add_parser("check", parents=[common])
     check.add_argument("--receipt", required=True)
+    check.add_argument("--require-mandatory-route", action="store_true")
+    check.add_argument(
+        "--accept-adjudicated-route", action="store_true",
+        help=("with --require-mandatory-route: accept an ADJUDICATED outcome "
+              "through its human adjudication channel; a PASSED outcome "
+              "still requires the signed phase-one route"))
+    check.add_argument("--expected-repository")
+    check.add_argument("--expected-producer-keyring-sha256")
     return p
 
 

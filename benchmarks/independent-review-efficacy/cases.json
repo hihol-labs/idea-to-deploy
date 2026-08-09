@@ -1,0 +1,241 @@
+{
+  "version": 2,
+  "frozenAt": "2026-08-08",
+  "thresholds": {
+    "criticalHighDetection": 1.0,
+    "closedEvidenceDetection": 1.0,
+    "missingEvidenceDetection": 1.0,
+    "unitFindingRetention": 1.0,
+    "mediumDetection": 0.9,
+    "maximumCleanFalseBlockRate": 0.1
+  },
+  "structuralCases": [
+    {
+      "id": "critical-missing-review-evidence",
+      "severity": "critical",
+      "mutation": "missing-review-evidence"
+    },
+    {
+      "id": "critical-failed-oracle",
+      "severity": "critical",
+      "mutation": "failed-oracle"
+    },
+    {
+      "id": "high-foreign-tree",
+      "severity": "high",
+      "mutation": "foreign-tree"
+    },
+    {
+      "id": "high-missing-impact",
+      "severity": "high",
+      "mutation": "missing-impact"
+    },
+    {
+      "id": "high-missing-reviewer",
+      "severity": "high",
+      "mutation": "missing-reviewer"
+    },
+    {
+      "id": "high-missing-oracle",
+      "severity": "high",
+      "mutation": "missing-oracle"
+    },
+    {
+      "id": "medium-unpassed-criterion",
+      "severity": "medium",
+      "mutation": "unpassed-criterion"
+    },
+    {
+      "id": "medium-unknown-impact",
+      "severity": "medium",
+      "mutation": "unknown-impact"
+    },
+    {
+      "id": "medium-duplicate-oracle",
+      "severity": "medium",
+      "mutation": "duplicate-oracle"
+    },
+    {
+      "id": "high-duplicate-criterion",
+      "severity": "high",
+      "mutation": "duplicate-criterion"
+    },
+    {
+      "id": "medium-risk-mismatch",
+      "severity": "medium",
+      "mutation": "risk-mismatch"
+    },
+    {
+      "id": "medium-missing-claim",
+      "severity": "medium",
+      "mutation": "missing-claim"
+    },
+    {
+      "id": "clean-coverage",
+      "severity": "clean",
+      "mutation": "none"
+    }
+  ],
+  "semanticCases": [
+    {
+      "id": "high-export-capacity",
+      "severity": "high",
+      "scope": "Export the default annual report to an ordinary browser-generated single-sheet Excel workbook.",
+      "acceptance": "The default annual export must remain downloadable and must never exceed the browser or Excel worksheet capacity.",
+      "machineEvidence": "Observed base rows: 309555; average conversion documents per row: 5.8; Excel worksheet maximum rows: 1048576; projected rows after this change: 1807231.",
+      "diff": "diff --git a/src/export.ts b/src/export.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.ts\n@@ -0,0 +1,12 @@\n+const EXCEL_MAX_ROWS = 1_048_576;\n+\n+export function buildAnnualExport(lots: Lot[]) {\n+  const rows = lots.flatMap((lot) =>\n+    lot.orders.flatMap((order) =>\n+      order.conversionDocuments.map((conversion) => ({ lot, order, conversion }))\n+    )\n+  );\n+  return writeSingleBrowserWorksheet(rows);\n+}\n",
+      "expectedFaults": [
+        {
+          "id": "export-row-ceiling",
+          "file": "src/export.ts",
+          "lineStart": 4,
+          "lineEnd": 10,
+          "minimumSeverity": "high",
+          "categories": [
+            "specification-compliance",
+            "correctness",
+            "scale",
+            "bounded-output"
+          ],
+          "summaryTerms": [
+            "1,048,576"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "high-reconciliation-omission",
+      "severity": "high",
+      "scope": "Display an exact TRY opening/inflow/outflow/conversion/closing turnover for every pool consumer category.",
+      "acceptance": "The displayed turnover must reconcile exactly to the closing balance for all supported consumption types.",
+      "machineEvidence": "Supported consumption types are expense, fx_eur and fx_other. The observed fx_other total is 1494440 TRY.",
+      "diff": "diff --git a/src/turnover.ts b/src/turnover.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/turnover.ts\n@@ -0,0 +1,9 @@\n+export function displayedClosing(pool: Pool) {\n+  const expenses = sum(pool.consumptions.filter((x) => x.type === 'expense'));\n+  const fxEur = sum(pool.consumptions.filter((x) => x.type === 'fx_eur'));\n+  return pool.opening + pool.inflows - expenses - fxEur;\n+}\n+\n+export const supportedConsumptionTypes = ['expense', 'fx_eur', 'fx_other'];\n",
+      "expectedFaults": [
+        {
+          "id": "fx-other-omitted",
+          "file": "src/turnover.ts",
+          "lineStart": 2,
+          "lineEnd": 4,
+          "minimumSeverity": "high",
+          "categories": [
+            "correctness",
+            "reconciliation"
+          ],
+          "summaryTerms": [
+            "fx_other"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "medium-allocation-rounding",
+      "severity": "medium",
+      "scope": "Split source amounts across detail rows while preserving the exact source total to the cent.",
+      "acceptance": "The sum of exported detail amounts must equal each source amount exactly after currency rounding.",
+      "machineEvidence": "One source amount can be split across 5.8 detail rows on average; independent per-row rounding has produced a 1578 TRY aggregate drift.",
+      "diff": "diff --git a/src/allocation.ts b/src/allocation.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/allocation.ts\n@@ -0,0 +1,6 @@\n+export function allocate(source: number, shares: number[]) {\n+  return shares.map((share) =>\n+    Math.round(source * share * 100) / 100\n+  );\n+}\n",
+      "expectedFaults": [
+        {
+          "id": "independent-rounding-drift",
+          "file": "src/allocation.ts",
+          "lineStart": 2,
+          "lineEnd": 4,
+          "minimumSeverity": "medium",
+          "categories": [
+            "correctness",
+            "numerical-stability",
+            "reconciliation"
+          ],
+          "summaryTerms": [
+            "round"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "high-stale-generated-client",
+      "severity": "high",
+      "scope": "Make the full typecheck a truthful release gate after schema changes.",
+      "acceptance": "Generated clients must be refreshed before typecheck; any typecheck failure must remain non-zero.",
+      "machineEvidence": "The schema adds newcrmChangedSince. A clean main checkout passes after prisma generate.",
+      "diff": "diff --git a/package.json b/package.json\n--- a/package.json\n+++ b/package.json\n@@ -4,5 +4,5 @@\n   \"scripts\": {\n-    \"verify\": \"prisma generate && tsc --noEmit\"\n+    \"verify\": \"tsc --noEmit || echo existing Prisma mismatch\"\n   }\n }\n",
+      "expectedFaults": [
+        {
+          "id": "typecheck-bypass",
+          "file": "package.json",
+          "lineStart": 5,
+          "lineEnd": 7,
+          "minimumSeverity": "high",
+          "categories": [
+            "release-gate",
+            "error-handling",
+            "specification-compliance"
+          ],
+          "summaryTerms": [
+            "typecheck"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "medium-repository-hygiene",
+      "severity": "medium",
+      "scope": "Ship only product and durable public methodology artifacts.",
+      "acceptance": "Temporary reviewer probes and private root-cause scratch notes must not enter the release tree.",
+      "machineEvidence": "The changed-file manifest contains two files classified as local reviewer scratch tooling.",
+      "diff": "diff --git a/review-tools/local_probe.py b/review-tools/local_probe.py\nnew file mode 100644\n--- /dev/null\n+++ b/review-tools/local_probe.py\n@@ -0,0 +1,2 @@\n+# temporary local reviewer probe; not a product tool\n+print('debug')\ndiff --git a/ROOT_CAUSE.md b/ROOT_CAUSE.md\nnew file mode 100644\n--- /dev/null\n+++ b/ROOT_CAUSE.md\n@@ -0,0 +1 @@\n+private scratch notes for this review run\n",
+      "expectedFaults": [
+        {
+          "id": "review-scratch-committed",
+          "file": "review-tools/local_probe.py",
+          "lineStart": 1,
+          "lineEnd": 2,
+          "minimumSeverity": "medium",
+          "categories": [
+            "repository-hygiene",
+            "specification-compliance"
+          ],
+          "summaryTerms": [
+            "temporary"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clean-bounded-reconciled-export",
+      "severity": "clean",
+      "scope": "Implement and harden pure report chunking, reconciliation and integer-allocation helpers over genuine dense bigint arrays; workbook integration is explicitly outside this candidate.",
+      "acceptance": "All three helpers reject a non-array container and read its length exactly once, so a container that reports a changing length cannot make iteration diverge from what was validated. Chunking uses the fixed Excel data-row ceiling, treats row values as opaque, and copies them positionally by reading only length and indexes - it calls no method reachable from the input, so an own slice override or a poisoned Symbol.species cannot influence it, only own indexes are read so holes are copied as undefined without consulting the prototype chain - and the declared return type admits that undefined rather than hiding it behind a cast - and no element validation applies to it. For the consumption and weight inputs, which are declared as dense bigint arrays, every supplied value is included, and sparse or non-bigint input fails closed; and proportional integer allocation uses deterministic largest remainders while conserving the exact source total and never funding zero weight. Threat model: these helpers are contractually defined for genuine arrays only. Callers that pass exotic array-likes or Proxies which misreport their own length or own keys are outside this candidate's threat model and remain the caller's responsibility; do not treat that documented boundary as a defect of this change.",
+      "machineEvidence": "The isolated oracle reports the project typecheck clean, no other module importing these helpers, and every assertion in the supplied test file passing.",
+      "diff": "diff --git a/src/export.ts b/src/export.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.ts\n@@ -0,0 +1,72 @@\n+const EXCEL_DATA_ROWS = 1_048_575;\n+const WEIGHT_TOTAL = 1_000_000n;\n+// Contract: these helpers are defined for genuine dense bigint arrays. Exotic\n+// array-likes and Proxies that misreport their own length or own keys are the\n+// caller's responsibility and are outside this candidate.\n+function assertBigint(value: unknown, label: string): asserts value is bigint {\n+  if (typeof value !== 'bigint') throw new RangeError(`invalid ${label}`);\n+}\n+function denseBigints(values: readonly bigint[], label: string): bigint[] {\n+  if (!Array.isArray(values)) throw new RangeError(`invalid ${label}`);\n+  const length = values.length;\n+  const snapshot: bigint[] = [];\n+  for (let index = 0; index < length; index += 1) {\n+    if (!Object.hasOwn(values, index)) throw new RangeError(`invalid ${label}`);\n+    const value = values[index];\n+    assertBigint(value, label);\n+    snapshot.push(value);\n+  }\n+  return snapshot;\n+}\n+// Chunking treats row values as opaque and copies them positionally. It reads\n+// only length and indexes, and never calls a method reachable from the input,\n+// so an own `slice` override or a poisoned Symbol.species cannot influence it.\n+// Holes are copied as undefined without consulting the prototype chain.\n+export function worksheetChunks<T>(rows: readonly T[]): (T | undefined)[][] {\n+  if (!Array.isArray(rows)) throw new RangeError('invalid rows');\n+  const total = rows.length;\n+  const chunks: (T | undefined)[][] = [];\n+  for (let start = 0; start < total; start += EXCEL_DATA_ROWS) {\n+    const end = Math.min(start + EXCEL_DATA_ROWS, total);\n+    const chunk: (T | undefined)[] = [];\n+    for (let index = start; index < end; index += 1) {\n+      chunk.push(Object.hasOwn(rows, index) ? rows[index] : undefined);\n+    }\n+    chunks.push(chunk);\n+  }\n+  return chunks;\n+}\n+export function closingCents(\n+  openingCents: bigint, inflowCents: bigint, consumptionCents: readonly bigint[]\n+) {\n+  assertBigint(openingCents, 'opening amount');\n+  assertBigint(inflowCents, 'inflow amount');\n+  const consumptions = denseBigints(consumptionCents, 'consumption values');\n+  const values = [openingCents, inflowCents, ...consumptions];\n+  if (values.some((value) => value < 0n)) {\n+    throw new RangeError('negative minor-unit amount');\n+  }\n+  return openingCents + inflowCents\n+    - consumptions.reduce((total, value) => total + value, 0n);\n+}\n+export function allocateCents(sourceCents: bigint, weights: readonly bigint[]) {\n+  assertBigint(sourceCents, 'source amount');\n+  const stableWeights = denseBigints(weights, 'allocation weights');\n+  if (sourceCents < 0n || stableWeights.length === 0\n+      || stableWeights.some((x) => x < 0n)\n+      || stableWeights.reduce((total, value) => total + value, 0n) !== WEIGHT_TOTAL) {\n+    throw new RangeError('invalid integer allocation');\n+  }\n+  const allocated = stableWeights.map((x) => sourceCents * x / WEIGHT_TOTAL);\n+  const ranked = stableWeights.map((x, index) => ({\n+    index, remainder: sourceCents * x % WEIGHT_TOTAL, weight: x,\n+  })).filter((row) => row.weight > 0n).sort((a, b) =>\n+    a.remainder === b.remainder ? a.index - b.index\n+      : a.remainder > b.remainder ? -1 : 1);\n+  const remainder = Number(sourceCents\n+    - allocated.reduce((total, value) => total + value, 0n));\n+  for (let index = 0; index < remainder; index += 1) {\n+    allocated[ranked[index].index] += 1n;\n+  }\n+  return allocated;\n+}\ndiff --git a/src/export.test.ts b/src/export.test.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/export.test.ts\n@@ -0,0 +1,71 @@\n+import assert from 'node:assert/strict';\n+import { allocateCents, closingCents, worksheetChunks } from './export';\n+assert.deepEqual(worksheetChunks([]), []);\n+assert.deepEqual(worksheetChunks(new Array(1_048_575)).map((x) => x.length), [1_048_575]);\n+assert.deepEqual(worksheetChunks(new Array(1_048_576)).map((x) => x.length),\n+  [1_048_575, 1]);\n+assert.deepEqual(worksheetChunks(new Array(1_048_577)).map((x) => x.length),\n+  [1_048_575, 2]);\n+assert.throws(() => worksheetChunks({ length: 1, slice: () => [] } as unknown as number[]), RangeError);\n+assert.throws(() => worksheetChunks('ab' as unknown as string[]), RangeError);\n+let rowLengthReads = 0;\n+const settlingRows = new Proxy([1, 2], {\n+  get(target, property, receiver) {\n+    if (property === 'length') {\n+      rowLengthReads += 1;\n+      return rowLengthReads === 1 ? 2 : 1_000_000_000;\n+    }\n+    return Reflect.get(target, property, receiver);\n+  },\n+});\n+assert.deepEqual(worksheetChunks(settlingRows), [[1, 2]]);\n+assert.equal(rowLengthReads, 1);\n+const inheritedRows = Array<number>(2);\n+inheritedRows[0] = 1;\n+const inheritedRowProto = Object.create(Array.prototype);\n+Object.defineProperty(inheritedRowProto, '1', { value: 9 });\n+Object.setPrototypeOf(inheritedRows, inheritedRowProto);\n+assert.deepEqual(worksheetChunks(inheritedRows), [[1, undefined]]);\n+const poisonedSlice = [1, 2, 3];\n+Object.defineProperty(poisonedSlice, 'slice', { value: () => { throw new Error('poisoned'); } });\n+assert.deepEqual(worksheetChunks(poisonedSlice), [[1, 2, 3]]);\n+const poisonedSpecies = [1, 2];\n+Object.defineProperty(poisonedSpecies, 'constructor', {\n+  value: { [Symbol.species]: () => { throw new Error('species'); } },\n+});\n+assert.deepEqual(worksheetChunks(poisonedSpecies), [[1, 2]]);\n+assert.equal(closingCents(10_000n, 5_000n, [1_000n, 2_000n, 3_000n]), 9_000n);\n+assert.throws(() => closingCents(-1n, 0n, []), RangeError);\n+assert.throws(() => closingCents({ valueOf: () => 10n } as unknown as bigint, 0n, []), RangeError);\n+assert.throws(() => closingCents(10n, 0n, [1] as unknown as bigint[]), RangeError);\n+const arrayLikeConsumption = { length: 2, 0: 1n, 1: 2n };\n+assert.throws(() => closingCents(10n, 0n, arrayLikeConsumption as unknown as bigint[]), RangeError);\n+const sparseConsumption = Array<bigint>(2);\n+sparseConsumption[1] = 1n;\n+assert.throws(() => closingCents(10n, 0n, sparseConsumption), RangeError);\n+const inheritedConsumption = Array<bigint>(1);\n+const inheritedArrayProto = Object.create(Array.prototype);\n+Object.defineProperty(inheritedArrayProto, '0', { value: 1n });\n+Object.setPrototypeOf(inheritedConsumption, inheritedArrayProto);\n+assert.throws(() => closingCents(10n, 0n, inheritedConsumption), RangeError);\n+let consumptionReads = 0;\n+const volatileConsumption = [1n];\n+Object.defineProperty(volatileConsumption, '0', { get: () => ++consumptionReads === 1 ? 1n : -1n });\n+assert.equal(closingCents(10n, 0n, volatileConsumption), 9n);\n+assert.equal(consumptionReads, 1);\n+const allocated = allocateCents(10_001n, [333_333n, 333_333n, 333_334n]);\n+assert.equal(allocated.reduce((a, b) => a + b, 0n), 10_001n);\n+assert.deepEqual(allocateCents(1n, [500_000n, 500_000n, 0n]), [1n, 0n, 0n]);\n+assert.throws(() => allocateCents(100n, []), RangeError);\n+assert.throws(() => allocateCents(100n, [-1n, 1_000_001n]), RangeError);\n+assert.throws(() => allocateCents(100n, [600_000n, 600_000n]), RangeError);\n+assert.throws(() => allocateCents({ valueOf: () => 100n } as unknown as bigint, [1_000_000n]), RangeError);\n+const arrayLikeWeights = { length: 1, 0: 1_000_000n };\n+assert.throws(() => allocateCents(100n, arrayLikeWeights as unknown as bigint[]), RangeError);\n+const sparseWeights = Array<bigint>(2); sparseWeights[1] = 1_000_000n;\n+assert.throws(() => allocateCents(100n, sparseWeights), RangeError);\n+let weightReads = 0;\n+const volatileWeights = [1_000_000n];\n+Object.defineProperty(volatileWeights, '0', { get: () => ++weightReads === 1 ? 1_000_000n : 0n });\n+assert.deepEqual(allocateCents(100n, volatileWeights), [100n]);\n+assert.equal(weightReads, 1);\n",
+      "expectedFaults": []
+    },
+    {
+      "id": "clean-inclusive-utc-day-span",
+      "severity": "clean",
+      "scope": "Add a pure inclusive UTC calendar-day span helper for the reporting range picker; the picker's UI and any local-timezone presentation are outside this candidate.",
+      "acceptance": "The helper is defined for four-digit calendar years 1000 through 9999 - two-digit years are outside the declared range on purpose. Within it the span counts whole UTC calendar days inclusively, is exact across month and leap-year boundaries, is bounded by a declared maximum range, and fails closed on a year outside the declared range, a malformed calendar date, a non-existent date, a non-string input, a reversed range or an over-long range.",
+      "machineEvidence": "The isolated oracle reports the project typecheck clean, no other module importing these helpers, and every assertion in the supplied test file passing.",
+      "diff": "diff --git a/src/daySpan.ts b/src/daySpan.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/daySpan.ts\n@@ -0,0 +1,32 @@\n+const MS_PER_UTC_DAY = 86_400_000;\n+const MAX_SPAN_DAYS = 3_660;\n+// Supported range: years 1000 through 9999. Two-digit years are excluded on\n+// purpose - Date.UTC remaps 0..99 into the 1900s, so they are not accepted.\n+const CALENDAR_DATE = /^[1-9]\\d{3}-\\d{2}-\\d{2}$/;\n+// Validation does not rely on Date.parse rejecting an out-of-range day: the\n+// instant is round-tripped back to a calendar string and compared to the input,\n+// which rejects anything the calendar would have rolled over instead.\n+function utcMidnight(value: string): number {\n+  if (typeof value !== 'string' || !CALENDAR_DATE.test(value)) {\n+    throw new RangeError('invalid calendar date');\n+  }\n+  const instant = Date.UTC(\n+    Number(value.slice(0, 4)),\n+    Number(value.slice(5, 7)) - 1,\n+    Number(value.slice(8, 10))\n+  );\n+  // Every component is bounded by the pattern above, so instant is always a\n+  // valid time value and the round-trip below cannot throw on its own.\n+  if (new Date(instant).toISOString().slice(0, 10) !== value) {\n+    throw new RangeError('invalid calendar date');\n+  }\n+  return instant;\n+}\n+export function utcDaySpan(startDate: string, endDate: string): number {\n+  const start = utcMidnight(startDate);\n+  const end = utcMidnight(endDate);\n+  if (end < start) throw new RangeError('reversed reporting range');\n+  const span = (end - start) / MS_PER_UTC_DAY + 1;\n+  if (span > MAX_SPAN_DAYS) throw new RangeError('reporting range too large');\n+  return span;\n+}\ndiff --git a/src/daySpan.test.ts b/src/daySpan.test.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/daySpan.test.ts\n@@ -0,0 +1,19 @@\n+import assert from 'node:assert/strict';\n+import { utcDaySpan } from './daySpan';\n+assert.equal(utcDaySpan('2026-01-01', '2026-01-01'), 1);\n+assert.equal(utcDaySpan('2026-01-01', '2026-01-31'), 31);\n+assert.equal(utcDaySpan('2024-02-28', '2024-03-01'), 3);\n+assert.equal(utcDaySpan('2026-03-28', '2026-03-30'), 3);\n+assert.equal(utcDaySpan('2026-12-31', '2027-01-01'), 2);\n+assert.throws(() => utcDaySpan('2026-01-02', '2026-01-01'), RangeError);\n+assert.throws(() => utcDaySpan('2026-02-30', '2026-03-01'), RangeError);\n+assert.throws(() => utcDaySpan('2026-13-01', '2026-13-02'), RangeError);\n+assert.throws(() => utcDaySpan('2026-00-10', '2026-01-11'), RangeError);\n+// Outside the declared 1000..9999 year range, not a calendar defect.\n+assert.throws(() => utcDaySpan('0099-01-01', '0099-01-02'), RangeError);\n+assert.equal(utcDaySpan('1000-01-01', '1000-01-02'), 2);\n+assert.equal(utcDaySpan('9999-12-30', '9999-12-31'), 2);\n+assert.throws(() => utcDaySpan('2026-1-1', '2026-01-02'), RangeError);\n+assert.throws(() => utcDaySpan('2026-01-01T00:00:00Z', '2026-01-02'), RangeError);\n+assert.throws(() => utcDaySpan('2016-01-01', '2036-01-01'), RangeError);\n+assert.throws(() => utcDaySpan(20260101 as unknown as string, '2026-01-02'), RangeError);\n",
+      "expectedFaults": []
+    },
+    {
+      "id": "clean-nearest-rank-percentile",
+      "severity": "clean",
+      "scope": "Add a pure nearest-rank percentile helper for the latency dashboard; sample collection and transport are outside this candidate.",
+      "acceptance": "The helper implements the nearest-rank definition ceil(percentile * n / 100) over an ascending copy of the sample, never mutates the caller's array, reads the container length exactly once so the validated bound also governs iteration and the rank, takes exactly one own-property observation per element so existence and value cannot disagree, and fails closed on an empty or over-large sample, a non-array input, a hole, an accessor slot, a non-finite element, and on a percentile that is not an integer in 1..100. The declared sample ceiling is exported and both of its boundaries are covered by the supplied tests. Threat model: the helper is defined for genuine arrays that answer truthfully about themselves; a container engineered to lie in its own property traps is the caller's responsibility and is outside this candidate - do not treat that documented boundary as a defect.",
+      "machineEvidence": "The isolated oracle reports the project typecheck clean, no other module importing these helpers, and every assertion in the supplied test file passing.",
+      "diff": "diff --git a/src/percentile.ts b/src/percentile.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/percentile.ts\n@@ -0,0 +1,42 @@\n+export const MAX_SAMPLE = 1_000_000;\n+export function nearestRankPercentile(\n+  values: readonly number[], percentile: number\n+): number {\n+  // The validated length is snapshotted once: re-reading it per iteration\n+  // would let a container that reports a growing length escape MAX_SAMPLE.\n+  const length = Array.isArray(values) ? values.length : -1;\n+  if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_SAMPLE) {\n+    throw new RangeError('invalid latency sample');\n+  }\n+  if (!Number.isInteger(percentile) || percentile < 1 || percentile > 100) {\n+    throw new RangeError('invalid percentile');\n+  }\n+  const sorted: number[] = [];\n+  for (let index = 0; index < length; index += 1) {\n+    // One own-property observation per element: existence and value come from\n+    // the same descriptor, so a hole cannot resolve through the prototype\n+    // chain and no second read can disagree with the first.\n+    // Contract: defined for genuine arrays that answer truthfully about\n+    // themselves. A container engineered to lie in its own property traps is\n+    // the caller's responsibility and is out of scope for this candidate.\n+    const slot = Object.getOwnPropertyDescriptor(values, index);\n+    // An accessor descriptor carries no own `value`, so reading slot.value\n+    // would resolve through Object.prototype: a polluted\n+    // Object.prototype.value holding a finite number would let an accessor\n+    // slot pass without its getter ever running. Require an own data value.\n+    if (slot === undefined || !Object.hasOwn(slot, 'value')) {\n+      throw new RangeError('invalid latency sample');\n+    }\n+    const value = slot.value;\n+    if (typeof value !== 'number' || !Number.isFinite(value)) {\n+      throw new RangeError('invalid latency sample');\n+    }\n+    sorted.push(value);\n+  }\n+  sorted.sort((left, right) => left - right);\n+  // scaled is an exact integer (percentile <= 100, length <= 1e6), so the rank\n+  // is ceil(scaled / 100) expressed without relying on inexact division.\n+  const scaled = percentile * length;\n+  const rank = (scaled - (scaled % 100)) / 100 + (scaled % 100 === 0 ? 0 : 1);\n+  return sorted[rank - 1];\n+}\ndiff --git a/src/percentile.test.ts b/src/percentile.test.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/percentile.test.ts\n@@ -0,0 +1,51 @@\n+import assert from 'node:assert/strict';\n+import { MAX_SAMPLE, nearestRankPercentile } from './percentile';\n+assert.equal(nearestRankPercentile([7], 50), 7);\n+assert.equal(nearestRankPercentile([5, 1, 4, 2, 3], 100), 5);\n+assert.equal(nearestRankPercentile([5, 1, 4, 2, 3], 1), 1);\n+assert.equal(nearestRankPercentile([5, 1, 4, 2, 3], 20), 1);\n+assert.equal(nearestRankPercentile([5, 1, 4, 2, 3], 21), 2);\n+assert.equal(nearestRankPercentile([10, 20, 30, 40], 95), 40);\n+assert.equal(nearestRankPercentile([-2, -1, 0], 50), -1);\n+const sample = [3, 1, 2];\n+assert.equal(nearestRankPercentile(sample, 50), 2);\n+assert.deepEqual(sample, [3, 1, 2]);\n+assert.throws(() => nearestRankPercentile([], 50), RangeError);\n+assert.throws(() => nearestRankPercentile([1, Number.NaN], 50), RangeError);\n+assert.throws(() => nearestRankPercentile([1, Number.POSITIVE_INFINITY], 50), RangeError);\n+assert.throws(() => nearestRankPercentile(Array<number>(2), 50), RangeError);\n+assert.throws(() => nearestRankPercentile({ length: 1, 0: 1 } as unknown as number[], 50), RangeError);\n+const inheritedSample = Array<number>(2);\n+inheritedSample[0] = 1;\n+const inheritedProto = Object.create(Array.prototype);\n+Object.defineProperty(inheritedProto, '1', { value: 5 });\n+Object.setPrototypeOf(inheritedSample, inheritedProto);\n+assert.throws(() => nearestRankPercentile(inheritedSample, 50), RangeError);\n+assert.throws(() => nearestRankPercentile([1, 2], 0), RangeError);\n+assert.throws(() => nearestRankPercentile([1, 2], 101), RangeError);\n+assert.throws(() => nearestRankPercentile([1, 2], 50.5), RangeError);\n+assert.equal(nearestRankPercentile(Array.from({ length: MAX_SAMPLE }, () => 4), 50), 4);\n+assert.throws(() => nearestRankPercentile(Array.from({ length: MAX_SAMPLE + 1 }, () => 4), 50), RangeError);\n+let lengthReads = 0;\n+const settlingLength = new Proxy([3, 1, 2], {\n+  get(target, property, receiver) {\n+    if (property === 'length') {\n+      lengthReads += 1;\n+      return lengthReads === 1 ? 3 : 1_000_000_000;\n+    }\n+    return Reflect.get(target, property, receiver);\n+  },\n+});\n+assert.equal(nearestRankPercentile(settlingLength, 100), 3);\n+assert.equal(lengthReads, 1);\n+const accessorSample = [1, 2];\n+Object.defineProperty(accessorSample, '1', { get: () => 2, configurable: true });\n+assert.throws(() => nearestRankPercentile(accessorSample, 50), RangeError);\n+Object.defineProperty(Object.prototype, 'value', {\n+  value: 7, configurable: true, writable: true,\n+});\n+try {\n+  assert.throws(() => nearestRankPercentile(accessorSample, 50), RangeError);\n+} finally {\n+  delete (Object.prototype as { value?: number }).value;\n+}\n",
+      "expectedFaults": []
+    },
+    {
+      "id": "clean-half-up-basis-point-fee",
+      "severity": "clean",
+      "scope": "Add a pure basis-point fee helper in integer minor units for the billing exporter; invoice assembly and currency selection are outside this candidate.",
+      "acceptance": "The fee is computed in exact bigint minor units, rounds half up at exactly one half, never exceeds the source amount for any accepted basis-point value, and fails closed on a negative or non-bigint amount and on basis points that are not an integer in 0..10000.",
+      "machineEvidence": "The isolated oracle reports the project typecheck clean, no other module importing these helpers, and every assertion in the supplied test file passing.",
+      "diff": "diff --git a/src/fee.ts b/src/fee.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/fee.ts\n@@ -0,0 +1,15 @@\n+const BASIS_POINT_TOTAL = 10_000n;\n+const MAX_BASIS_POINTS = 10_000;\n+export function feeCents(amountCents: bigint, basisPoints: number): bigint {\n+  if (typeof amountCents !== 'bigint' || amountCents < 0n) {\n+    throw new RangeError('invalid amount');\n+  }\n+  if (!Number.isInteger(basisPoints) || basisPoints < 0\n+      || basisPoints > MAX_BASIS_POINTS) {\n+    throw new RangeError('invalid basis points');\n+  }\n+  const scaled = amountCents * BigInt(basisPoints);\n+  const quotient = scaled / BASIS_POINT_TOTAL;\n+  const remainder = scaled % BASIS_POINT_TOTAL;\n+  return remainder * 2n >= BASIS_POINT_TOTAL ? quotient + 1n : quotient;\n+}\ndiff --git a/src/fee.test.ts b/src/fee.test.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/fee.test.ts\n@@ -0,0 +1,20 @@\n+import assert from 'node:assert/strict';\n+import { feeCents } from './fee';\n+assert.equal(feeCents(0n, 10_000), 0n);\n+assert.equal(feeCents(12_345n, 0), 0n);\n+assert.equal(feeCents(10_000n, 250), 250n);\n+assert.equal(feeCents(12_345n, 10_000), 12_345n);\n+assert.equal(feeCents(1n, 5_000), 1n);\n+assert.equal(feeCents(1n, 4_999), 0n);\n+assert.equal(feeCents(3n, 5_000), 2n);\n+assert.equal(feeCents(9_007_199_254_740_993n, 10_000), 9_007_199_254_740_993n);\n+for (const amount of [0n, 1n, 3n, 7n, 9_999n, 1_000_003n]) {\n+  for (const points of [0, 1, 4_999, 5_000, 9_999, 10_000]) {\n+    assert.ok(feeCents(amount, points) <= amount);\n+  }\n+}\n+assert.throws(() => feeCents(-1n, 100), RangeError);\n+assert.throws(() => feeCents(100 as unknown as bigint, 100), RangeError);\n+assert.throws(() => feeCents(100n, -1), RangeError);\n+assert.throws(() => feeCents(100n, 10_001), RangeError);\n+assert.throws(() => feeCents(100n, 1.5), RangeError);\n",
+      "expectedFaults": []
+    }
+  ]
+}

@@ -1,44 +1,16 @@
 #!/usr/bin/env python3
-"""
-PreToolUse hook on Bash — OPT-IN, NON-BLOCKING cross-vendor second opinion at
-commit (idea-to-deploy v1.34.0).
+"""PreToolUse checkpoint reminder for the mandatory independent review.
 
-Fires before `git commit`. When the repo has OPTED IN to external egress AND the
-staged diff touches a correctness-critical / sensitive path (migrations, money,
-auth, secrets), it emits a reminder to run the canonical `/cross-review`
-workflow. It never shells out to a tool-capable CLI: a pre-commit process cannot
-prove a no-tools/no-secret sandbox or trustworthy maker provenance.
+For a sensitive staged candidate, this hook reminds the orchestrator that
+`/review` and `/cross-review` must converge on
+`itd_free_reviewer_producer.py` before PR publication. The hook itself never
+egresses code, launches a reviewer, writes review evidence, or authorizes a
+commit/PR; exact-candidate Verification Loop adjudication owns enforcement.
 
-This is the "continuous" companion to the on-demand /cross-review skill, and the
-deliberate OPPOSITE of check-dod-before-commit.sh: the DoD gate BLOCKS (deny);
-this one only ADVISES (fail-open, never a gate). It reuses the DoD gate's
-risk-signal paths as the trigger surface, nothing more.
-
-Design constraints (see docs/adr/ADR-002-cross-review-opt-in-precommit.md):
-  • DEFAULT-OFF. Egress to a third-party model (OpenAI Codex / Google Gemini)
-    happens ONLY when explicitly opted in, via either:
-      - env  CROSS_REVIEW_EGRESS_OK=1            (per-machine), or
-      - a  .cross-review-egress-ok  marker file at the repo root. The marker is
-        detected by PRESENCE in the working tree, so it can be local/untracked
-        (e.g. listed in .git/info/exclude) and never enter a commit or PR —
-        nothing lands in the reviewed repo. Committing it is reserved for a
-        deliberate team-wide opt-in, not the default.
-  • NO AUTOMATED CLI EGRESS. Codex/Gemini remain host-native advisory
-    alternatives, invoked explicitly by an isolated host workflow.
-  • AUTO-DISABLED in a linked/secondary worktree (the index may hold another
-    agent's staged work) — unconditional. Also disabled when the Agent Teams flag
-    (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1) is set, UNLESS overridden with
-    CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 (for machines that run Agent Teams as their
-    default and still want the background review).
-  • SCRUB before egress (same patterns as pii-egress-guard.sh). If a live
-    credential survives scrubbing, the diff is NOT sent — it degrades to a note.
-  • Findings are NOTES, not a gate. This hook MUST NOT write the
-    /tmp/claude-review-done-* sentinel — that belongs to /review.
-
-Disable entirely (even when opted in): ITD_CROSS_REVIEW=0.
+The reminder is always enabled for sensitive commits, including Agent Teams
+and linked worktrees, because it is read-only and has no credential surface.
 Reads JSON on stdin: {"tool_name":"Bash","tool_input":{"command":"..."}}
-
-Fail-open: ANY error path -> exit 0 (allow, never block).
+Any detector error returns zero without manufacturing review evidence.
 """
 from __future__ import annotations
 
@@ -110,10 +82,10 @@ def scrub(text: str) -> str:
 def write_notes_header(notes: str, root: str) -> None:
     try:
         with open(notes, "w", encoding="utf-8") as f:
-            f.write("# Cross-review (background, opt-in pre-commit)\n\n")
+            f.write("# Mandatory independent-review checkpoint\n\n")
             f.write("- repo: %s\n" % root)
             f.write("- trigger: sensitive staged paths (migration/money/auth)\n")
-            f.write("- NON-BLOCKING and NOT a substitute for /review (the mandatory floor).\n\n")
+            f.write("- Reminder only; Verification Loop evidence is still required.\n\n")
     except OSError:
         pass
 
@@ -139,11 +111,10 @@ def run_worker(promptf: str, notes: str) -> None:
     """Compatibility entry point: never launches a tool-capable external CLI."""
     append(
         notes,
-        "## External second opinion UNAVAILABLE\n\n"
-        "Automated Codex/Gemini CLI egress is disabled because this hook cannot\n"
-        "prove a no-tools/no-secret sandbox or complete cost telemetry.\n"
-        "Run `/cross-review` through an isolated host workflow; either way\n"
-        "the mandatory `/review` still applies.\n",
+        "## Mandatory independent review UNAVAILABLE in this hook\n\n"
+        "This checkpoint cannot mint review evidence. Run `/review` or\n"
+        "`/cross-review`; both use one isolated Sol -> Terra / Terra -> Sol\n"
+        "producer and require Verification Loop adjudication.\n",
     )
     _cleanup(promptf)
 
@@ -156,8 +127,6 @@ def _cleanup(promptf: str) -> None:
 
 
 def main() -> int:
-    if os.environ.get("ITD_CROSS_REVIEW") == "0":
-        return 0
     try:
         payload = json.load(sys.stdin)
     except Exception:
@@ -174,28 +143,6 @@ def main() -> int:
     if not root:
         return 0
 
-    # opt-in (DEFAULT-OFF) — env override OR committed marker file.
-    enabled = (
-        os.environ.get("CROSS_REVIEW_EGRESS_OK") == "1"
-        or os.path.exists(os.path.join(root, ".cross-review-egress-ok"))
-    )
-    if not enabled:
-        return 0
-
-    # auto-disable in multi-agent / shared-worktree mode.
-    # The CONCRETE hazard is a linked/secondary worktree (the index may hold
-    # another agent's staged work) — that skip below is UNCONDITIONAL. The Agent
-    # Teams FLAG alone is a weaker proxy: on a machine where Agent Teams is the
-    # default it would disable the hook permanently, so it is overridable with an
-    # explicit CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 (you thereby accept that an
-    # in-process parallel agent's staged change could ride along in the diff).
-    if (os.environ.get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1"
-            and os.environ.get("CROSS_REVIEW_ALLOW_AGENT_TEAMS") != "1"):
-        return 0
-    gd, gcd = git(["rev-parse", "--git-dir"]), git(["rev-parse", "--git-common-dir"])
-    if gd and gcd and os.path.realpath(gd) != os.path.realpath(gcd):
-        return 0
-
     staged = git(["diff", "--cached", "--name-only"])
     if not staged:
         return 0
@@ -203,9 +150,10 @@ def main() -> int:
     if not any(MIGRATION_RE.search(p) or MONEY_AUTH_RE.search(p) for p in paths):
         return 0
     emit_context(
-        "[cross-review] sensitive staged paths detected; automated Codex/Gemini "
-        "CLI egress is disabled. Run the canonical /cross-review workflow for an "
-        "isolated advisory review (NON-BLOCKING; does NOT satisfy /review)."
+        "[independent-review] sensitive staged paths detected. Before PR "
+        "publication run /review or /cross-review; both must use the canonical "
+        "Sol -> Terra / Terra -> Sol keyless producer and Verification Loop "
+        "adjudication. This reminder is not review evidence."
     )
     return 0
 

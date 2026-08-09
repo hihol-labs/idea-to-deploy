@@ -9,6 +9,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Human adjudication channel for independent-review findings (ADR-007). The
+  Verification Loop can now mint an honestly labelled `ADJUDICATED` receipt
+  from a PASSED machine oracle plus a BLOCKED checker receipt whose findings
+  each carry an explicit human disposition (`accepted-trade-off`,
+  `refuted-by-evidence`, or `fixed`) with rationale and a recorded human
+  confirmation bound to the exact checker receipt sha. The checker's own
+  verdict is never rewritten and `acceptedVerdicts` stays `["PASSED"]`; the
+  commit review gate accepts `PASSED` and `ADJUDICATED` and refuses to record
+  one label as the other. Proven necessary by execution on 2026-08-09: a
+  machine-accepted candidate was permanently blocked on adjudicated and
+  refuted findings, including a demonstrated reviewer false positive.
+
+### Changed
+- `/review`, `/cross-review`, and Verification Loop now share one mandatory
+  fresh opposite-GPT route: Sol maker to Terra reviewer, or Terra maker to Sol
+  reviewer, in a new context with no inherited development history. Anthropic,
+  GitHub Copilot, Antigravity and paid API transports are separately invoked
+  optional facilities, not fallbacks or quorum prerequisites. No provider API
+  key or caller publication bypass exists.
+- Keyless reviews above the direct diff bound now reuse the broker's frozen
+  complete-file/UTF-8-line plan, require every bound unit plus a final
+  integration review, and sign the complete prompt/report bundle. This keeps
+  valid 1.2 MB candidates inside subscription-model input limits without
+  truncation or partial acceptance.
+- Evidence-first review now maps every active acceptance criterion and generic
+  impact class to exact-tree machine oracle IDs. Missing, failed, duplicate,
+  foreign-tree, or uncovered evidence is `UNVERIFIED` before model dispatch.
+- Medium/high/unknown risk now requires one clean fresh opposite-GPT report.
+  Phase-one v2 seals its exact prompt/report and attempt evidence;
+  deterministic host adjudication preserves every machine, unit, integration,
+  and reviewer finding.
+- A frozen independent-review efficacy pack gates release at 100% critical/high
+  and missing-evidence detection, 100% unit-finding retention, at least 90%
+  medium detection, at most 10% clean-control false blocks, and WSL/Windows
+  parity.
+- Portable v2 `local-review` profiles now validate the registered exact `HEAD`
+  and current independent adjudication without requiring adoption contracts in
+  product repositories. App-backed and legacy profiles retain adoption and
+  machine-preflight requirements.
+- Every reviewer transport now runs through one bounded process helper that
+  caps each captured stream and bounds the process tree: on Windows a
+  kill-on-close Job Object contains the whole tree; on POSIX the call runs in
+  its own session and cleanup kills that process group, which is best-effort —
+  a descendant that re-calls `setsid()` leaves the group and is not reaped.
+  Output can no longer outgrow the call on either host, and on Windows the
+  whole tree is killed; on POSIX a descendant that escapes its session can
+  still outlive the call, so strict POSIX descendant containment is a
+  recorded backlog item.
+- The hierarchical keyless route is resumable per unit through an optional
+  signed `--unit-checkpoint`. A transport loss now costs only the failing
+  unit instead of the whole route. The checkpoint is a convenience and never
+  an acceptance input: a bad envelope or signature, a foreign or stale
+  binding, a row that leaves the frozen plan, a report that fails the unit
+  contract, a reused session, or a changed reviewer model discards the whole
+  checkpoint and restarts from zero, and a completed route consumes it.
+- Acceptance coverage now rejects a duplicated active criterion ID instead of
+  mapping the same criterion twice.
+
+### Security
+- Free-review phase-one receipts now sign the complete ordered provider-attempt
+  prefix. Producer and broker reject missing, skipped, reordered, mistyped, or
+  reviewer-mismatched route evidence before PR authorization. The closed
+  receipt schema is version 2; version-1 receipts must be regenerated.
+- Guarded local publication now requires Verification Loop checker evidence to
+  bind that signed phase-one receipt, its producer keyring, exact prompt/report,
+  candidate, provenance, and machine receipt. Generic checker adjudications and
+  reports missing any closed verdict field are rejected before push.
+- Initial local review can bind a repository before a PR/head exists using
+  closed null coordinates; existing PR/App evidence still requires the exact
+  positive PR number and head SHA.
+- Native Windows route validation reconciles long Unicode and 8.3 spellings
+  only by filesystem identity while retaining symlink/reparse rejection, so
+  exact producer evidence remains usable from Windows and WSL UNC checkouts.
+- Subscription transports accept either an exact content-pinned HTTP proxy or
+  a hash-bound complete absence of proxy variables; partial or changed proxy
+  configuration remains `UNVERIFIED`.
+- Structurally valid `BLOCKED`/`UNVERIFIED` reviewer output now persists its
+  byte-exact prompt, findings, reviewer provenance, and route attempts for
+  repair while still refusing to mint a passing phase-one receipt.
+- Mandatory-route consumption reconstructs the signed base-to-candidate diff
+  after proving base ancestry and compares both digest and byte count, closing
+  foreign-base exact-range substitution.
+- Reviewer model provenance now comes only from pinned transport runtime
+  telemetry: Codex's single isolated rollout, Claude `modelUsage`, or Gemini's
+  init event. Missing telemetry is `UNAVAILABLE`; ambiguous or mismatched
+  telemetry is terminal `UNVERIFIED`.
+- The mandatory keyless producer now reviews required `.jsonl.gz` benchmark
+  evidence through the broker's bounded single-member transparent JSONL
+  representation while retaining the exact raw Git diff/blob/mode bindings.
+  Other binaries and malformed, ambiguous, oversized, or sensitive logical
+  content remain `UNVERIFIED`; phase one also rejects caller-mutated prompts.
+- Same-model denial now canonicalizes provider/model families in live routing,
+  phase-one minting, receipt verification, and broker enrollment
+  authorization. Anthropic aliases such as `opus` cannot differ from runtime
+  `claude-opus-*` merely by spelling, while unlisted families stay denied.
+- Gemini fallback now has a behavioral subprocess-boundary test proving that
+  its headless `--prompt ""` invocation delivers the complete exact packet on
+  stdin with the expected SHA-256 digest.
+- Codex runtime telemetry now has a separate 16 MiB ephemeral rollout bound,
+  allowing the already-bounded packet plus internal events without changing
+  the 2 MB model-input or 1 MB captured-output limits.
+- Live Codex evidence disables repository hooks explicitly and no longer uses
+  the broad `--dangerously-bypass-hook-trust` switch.
+
 ## [1.95.1] - 2026-08-02
 
 ### Fixed

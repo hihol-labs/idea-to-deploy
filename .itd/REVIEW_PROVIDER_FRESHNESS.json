@@ -1,0 +1,61 @@
+{
+  "version": 4,
+  "checkedAt": "2026-08-04",
+  "maxAgeDays": 30,
+  "mandatoryRoute": [
+    {
+      "id": "openai-subscription",
+      "officialSource": "https://developers.openai.com/codex/cli",
+      "minimumVersion": "0.144.3",
+      "status": "available",
+      "requiredEvidence": [
+        "benchmarks/independent-review-efficacy/results/wsl.json",
+        "benchmarks/independent-review-efficacy/results/windows.json"
+      ]
+    }
+  ],
+  "optionalTransports": [
+    {
+      "id": "anthropic-subscription",
+      "officialSource": "https://docs.anthropic.com/en/docs/claude-code/overview",
+      "minimumVersion": "2.1.0",
+      "status": "unavailable-no-paid-subscription",
+      "unavailabilityEvidence": "The user confirmed that no paid Claude subscription is available; the Anthropic executable/auth route is deliberately unconfigured and must remain typed UNAVAILABLE."
+    },
+    {
+      "id": "github-copilot-user",
+      "officialSource": "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference",
+      "minimumVersion": "1.0.78",
+      "status": "available",
+      "requiredEvidence": [
+        ".itd/COPILOT_LIVE_WSL.json",
+        ".itd/COPILOT_LIVE_WINDOWS.json"
+      ]
+    }
+  ],
+  "legacyProvider": {
+    "id": "gemini-user",
+    "status": "retired-for-individual-accounts",
+    "retiredAt": "2026-06-18",
+    "officialAnnouncement": "https://github.com/google-gemini/gemini-cli/discussions/27274"
+  },
+  "rejectedCandidates": [
+    {
+      "id": "antigravity-user",
+      "status": "unavailable-current-account-location",
+      "observedAt": "2026-08-04",
+      "evidence": "Authenticated Antigravity CLI 1.1.10 returned its Eligibility Check location rejection on native Windows."
+    },
+    {
+      "id": "github-models",
+      "status": "retired",
+      "retiredAt": "2026-07-30",
+      "officialAnnouncement": "https://docs.github.com/en/github-models"
+    }
+  ],
+  "requiredLiveHosts": [
+    "wsl",
+    "windows"
+  ],
+  "doneRule": "The one-entry mandatory OpenAI route has a current official source, minimum runtime and host-derived signed fresh WSL/Windows proof. Optional transports are inventory only and cannot satisfy or block mandatory acceptance."
+}

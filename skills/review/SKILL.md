@@ -32,6 +32,41 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 
 You are a quality validator for project documentation and code. Your job is to find gaps, inconsistencies, and missing pieces BEFORE implementation begins.
 
+## Mandatory independent pre-PR route
+
+For every medium/high/unknown-risk candidate that is going to be published as a PR,
+`/review`, `/cross-review`, and the Verification Loop use the same producer:
+`skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless route is
+`Sol -> Terra` and `Terra -> Sol`: exactly one fresh opposite OpenAI
+model/session reviews the evidence-bound candidate. `BLOCKED`, `UNVERIFIED`
+and `UNAVAILABLE` stop the gate. Anthropic, GitHub Copilot, Antigravity and
+paid API adapters are optional separately invoked facilities, not automatic
+fallbacks or quorum members.
+
+The signed phase-one v2 receipt contains the exact attempt prefix and one fresh
+opposite-GPT identity plus its prompt/report. Missing or malformed route
+evidence is `UNVERIFIED`, and the broker must reject it before authorization.
+
+For PR publication, pass the producer-emitted prompt/report plus
+`--phase-one-receipt` and its trusted `--producer-keyring` to Verification Loop
+`checker`. The local gate revalidates the final adjudication with
+`--require-mandatory-route`; a generic checker receipt is diagnostic only and
+cannot satisfy guarded publication. Never default a missing verdict field.
+
+This route has no caller bypass. A user acknowledgement, a local self-review,
+or a request to publish anyway cannot replace its exact-candidate receipt.
+The default route uses installed user/subscription authentication and must not
+request a provider API key. The Verification Loop adjudication receipt remains
+the sole acceptance authority; the shared producer supplies its independent
+checker evidence rather than creating a parallel gate.
+
+When `activeFollowup.reviewPolicy.mode=evidence-first`, validate the closed
+criterion → impact class → exact-tree oracle matrix before semantic review.
+Missing coverage is `UNVERIFIED`, even when ordinary tests are green. For
+medium/high/unknown risk require one clean fresh opposite-GPT report; combine
+every unit, integration and reviewer finding by host adjudication. A clean
+later response can never erase earlier negative evidence.
+
 ## Recommended model
 
 **opus** — Cross-document validation requires holding all 6 documents in working memory simultaneously and checking ~25 rubric items. Opus is recommended; the code-reviewer subagent fork is also Sonnet-capable.
@@ -135,6 +170,12 @@ Verdict:
 - **No `.itd/` contracts present** (most current projects) → this stage is a soft no-op: note "Stage A skipped — no acceptance contract" and proceed to Step 1. Backward-compatible; nothing breaks.
 
 Fail-closed rule: if you cannot determine spec compliance because evidence is missing or ambiguous, treat it as **not passed** — never assume green.
+
+Under evidence-first policy, prose `evidence` is not sufficient. Every active
+criterion must also have closed `reviewEvidence` with non-empty `impactClasses`
+and exact-tree passing `oracleIds`; their union must cover the policy's
+`requiredImpactClasses`. Treat any gap as `UNVERIFIED` and stop before the
+quality rubric.
 
 **Stage A.5: Contract health (v1.67.0 — init-audit gap #3).** When `.itd/` exists, before reading the contracts as gates, verify they are trustworthy sensors — rubric check **I10** (Important tier, see `references/review-checklist.md`):
 

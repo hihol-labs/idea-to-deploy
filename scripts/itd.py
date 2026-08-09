@@ -67,6 +67,7 @@ def sign_provenance(unsigned: dict[str, Any], material: bytes) -> dict[str, Any]
 def save_registry(value: dict[str, Any], path: Path | None = None) -> Path:
     validated = gate.validate_registry(value)
     target = (path or gate.registry_path()).resolve()
+    gate.assert_registry_write_isolated(validated, target)
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
     data = json.dumps(
@@ -270,6 +271,9 @@ def profile_registry_row(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "localReviewUnitId": args.local_review_unit_id,
         "localReviewRiskTier": args.local_review_risk_tier,
+        "localReviewProducerKeyringSha256": (
+            args.local_review_producer_keyring_sha256
+        ),
         "brokerUrl": (
             args.broker_url.rstrip("/") if args.broker_url is not None else None
         ),
@@ -879,20 +883,44 @@ def machine_preflight(root: Path, head: str) -> Path:
 
 
 def pr_view(root, repository):
+    branch = git(root, "symbolic-ref", "--short", "HEAD")
+    if (
+        not branch
+        or len(branch) > 255
+        or "\n" in branch
+        or "\r" in branch
+        or "\0" in branch
+        or '"' in branch
+    ):
+        raise gate.GateError("UNVERIFIED", "current Git branch is invalid")
     value, completed = run_json(
         [
             "gh",
             "pr",
             "view",
+            branch,
             "--repo",
             repository,
             "--json",
-            "number,headRefOid,baseRefOid,url,isDraft,state",
+            "number,headRefName,headRefOid,baseRefOid,url,isDraft,state",
         ],
         cwd=root,
         check=False,
     )
     if completed.returncode != 0:
+        try:
+            stderr = completed.stderr.decode("utf-8")
+        except UnicodeError as exc:
+            raise gate.GateError(
+                "UNVERIFIED", "GitHub PR lookup error is not UTF-8"
+            ) from exc
+        expected = f'no pull requests found for branch "{branch}"'
+        if completed.stdout or stderr not in {
+            expected,
+            expected + "\n",
+            expected + "\r\n",
+        }:
+            raise gate.GateError("UNAVAILABLE", "GitHub PR lookup failed")
         return None
     if not isinstance(value, dict):
         raise gate.GateError("UNVERIFIED", "GitHub PR response is invalid")
@@ -904,6 +932,8 @@ def draft(value):
         (value.get("state"), value.get("isDraft")) != ("OPEN", True)
         or type(value.get("number")) is not int
         or value["number"] <= 0
+        or not isinstance(value.get("headRefName"), str)
+        or not value["headRefName"]
         or any(
             not gate.SHA_RE.fullmatch(str(value.get(key, "")).lower())
             for key in ("headRefOid", "baseRefOid")
@@ -925,11 +955,18 @@ def guarded_push_environment(
         if not SENSITIVE_ENV_RE.search(name)
     }
     environment["ITD_GUARDED_PR_PUSH"] = "1"
-    environment["ITD_MACHINE_RECEIPT"] = str(receipt.resolve())
+    if receipt is not None:
+        environment["ITD_MACHINE_RECEIPT"] = str(receipt.resolve())
     environment["ITD_MAKER_VENDOR"] = maker_vendor
     environment["ITD_MAKER_MODEL"] = maker_model
     environment["ITD_MAKER_SESSION"] = maker_session
     return environment
+
+
+def guarded_push_timeout(value: int) -> int:
+    if type(value) is not int or value <= 0:
+        raise gate.GateError("UNVERIFIED", "guarded push timeout is invalid")
+    return min(max(value, 300), 3600)
 
 
 def create_draft_pr(
@@ -939,21 +976,43 @@ def create_draft_pr(
     maker_vendor,
     maker_model,
     maker_session,
+    push_timeout_seconds=1200,
 ):
     value = pr_view(root, repository)
+    push_command = ["git", "push", "--set-upstream", "origin", "HEAD"]
     if value is not None:
-        draft(value)
-    run(
-        ["git", "push", "--set-upstream", "origin", "HEAD"],
-        cwd=root,
-        env=guarded_push_environment(
-            machine_receipt,
-            maker_vendor,
-            maker_model,
-            maker_session,
-        ),
-        timeout=300,
-    )
+        current = draft(value)
+        branch = git(root, "symbolic-ref", "--short", "HEAD")
+        if current["headRefName"] != branch:
+            raise gate.GateError(
+                "BLOCKED", "existing Draft PR belongs to another branch"
+            )
+        local_head = git(root, "rev-parse", "HEAD").lower()
+        remote_head = str(current["headRefOid"]).lower()
+        if local_head != remote_head:
+            remote_ref = f"refs/heads/{branch}"
+            push_command = [
+                "git",
+                "push",
+                f"--force-with-lease={remote_ref}:{remote_head}",
+                "--set-upstream",
+                "origin",
+                f"HEAD:{remote_ref}",
+            ]
+        else:
+            push_command = []
+    if push_command:
+        run(
+            push_command,
+            cwd=root,
+            env=guarded_push_environment(
+                machine_receipt,
+                maker_vendor,
+                maker_model,
+                maker_session,
+            ),
+            timeout=guarded_push_timeout(push_timeout_seconds),
+        )
     value = pr_view(root, repository)
     if value is None:
         run(
@@ -1404,18 +1463,19 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
     root = args.root.resolve()
     registry = gate.load_registry(args.registry)
     entry = repository_entry(registry, root, args.repository)
-    adoption_drift = gate.adopted_checkout(root)
-    if adoption_drift:
-        raise gate.GateError(
-            "UNVERIFIED",
-            "checkout is not gate-ready: " + "; ".join(adoption_drift),
-        )
-    require_registered_origin(root, entry["repository"])
-    _, head = ensure_clean_branch(root)
     local_review = (
         registry["version"] == 2
         and entry["protectionProfile"] == "local-review"
     )
+    if not local_review:
+        adoption_drift = gate.adopted_checkout(root)
+        if adoption_drift:
+            raise gate.GateError(
+                "UNVERIFIED",
+                "checkout is not gate-ready: " + "; ".join(adoption_drift),
+            )
+    require_registered_origin(root, entry["repository"])
+    _, head = ensure_clean_branch(root)
     if registry["version"] == 2 and entry["protectionProfile"] == "app-check":
         raise gate.GateError(
             "UNVERIFIED",
@@ -1430,7 +1490,7 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
             raise gate.GateError(
                 "UNVERIFIED", "current local independent review is not valid"
             )
-    preflight = machine_preflight(root, head)
+    preflight = None if local_review else machine_preflight(root, head)
     pull_request = create_draft_pr(
         root,
         entry["repository"],
@@ -1438,10 +1498,11 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
         args.maker_vendor,
         args.maker_model,
         args.maker_session,
+        args.timeout,
     )
     if str(pull_request["headRefOid"]).lower() != head:
         raise gate.GateError(
-            "UNVERIFIED", "Draft PR head differs from machine-preflight HEAD"
+            "UNVERIFIED", "Draft PR head differs from exact reviewed HEAD"
         )
     if local_review:
         return {
@@ -1452,7 +1513,7 @@ def pr_create(args: argparse.Namespace) -> dict[str, Any]:
             "headSha": head,
             "baseSha": str(pull_request["baseRefOid"]).lower(),
             "checkSha": None,
-            "preflightReceipt": str(preflight),
+            "preflightReceipt": None,
             "provenanceReceipt": None,
             "provenance": "NOT_REQUIRED",
         }
@@ -1566,6 +1627,7 @@ def parser() -> argparse.ArgumentParser:
         "--local-review-risk-tier",
         choices=["low", "medium", "high", "unknown"],
     )
+    profile.add_argument("--local-review-producer-keyring-sha256")
     profile.add_argument("--broker-url")
     profile.add_argument("--app-id", type=int)
     profile.add_argument("--app-owner")

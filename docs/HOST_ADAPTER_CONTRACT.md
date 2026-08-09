@@ -68,12 +68,18 @@ provider. If the host cannot establish the required provenance, the outcome is
 The portable trust root is the honest host orchestrator, not a cryptographic
 model identity claim.
 
-Hosts may use `skills/_shared/itd_external_reviewer.py` as a shared checker
-transport. They must supply real maker provenance, preserve its typed
-`UNAVAILABLE`/`UNVERIFIED` states, and pass successful prompt/report metadata
-through the same Verification Loop. An adapter must not relabel same-vendor
-evidence as cross-vendor or treat the external transport as a second completion
-authority.
+Before PR publication, hosts must use
+`skills/_shared/itd_free_reviewer_producer.py` as the one mandatory independent
+checker producer. They preserve `Sol -> Terra` and `Terra -> Sol`, run exactly
+one fresh opposite-GPT reviewer through the active host's native subscription
+transport, and expose no caller bypass. Native Windows must not borrow WSL
+credentials or executables, and WSL must not invoke Windows credential-bearing
+transports. Successful evidence still passes through the same Verification
+Loop; an adapter cannot create another completion authority.
+
+`skills/_shared/itd_external_reviewer.py` remains an explicitly configured paid
+operator transport. It is not the default and cannot replace or automatically
+fallback from the mandatory keyless route.
 
 ## Native continuation for bounded goals
 

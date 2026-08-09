@@ -138,6 +138,28 @@ def load_machine_receipt(path: Path) -> dict[str, Any]:
     return value
 
 
+def current_head(root: Path) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise PushBlocked("current Git HEAD is unavailable") from exc
+    if completed.returncode != 0 or len(completed.stdout) > 256:
+        raise PushBlocked("current Git HEAD is unavailable")
+    try:
+        head = completed.stdout.decode("ascii").strip().lower()
+    except UnicodeError as exc:
+        raise PushBlocked("current Git HEAD is invalid") from exc
+    if not gate.SHA_RE.fullmatch(head):
+        raise PushBlocked("current Git HEAD is invalid")
+    return head
+
+
 def execute_fresh_machine_oracle(root: Path) -> dict[str, Any]:
     try:
         value = MACHINE_EXECUTOR(
@@ -260,6 +282,27 @@ def enforce(
             raise PushBlocked(
                 "guarded push maker provenance is missing or invalid"
             )
+    actual_root = (root or git_root()).resolve()
+    if actual_root != Path(matches[0]["checkout"]).resolve():
+        raise PushBlocked(
+            "registered checkout differs from the active Git repository"
+        )
+    local_review = (
+        registry.get("version") == 2
+        and matches[0].get("protectionProfile") == "local-review"
+    )
+    if local_review:
+        expected_head = current_head(actual_root)
+        if any(
+            row["localSha"] in {ZERO_SHA}
+            or row["localSha"] != expected_head
+            for row in updates
+        ):
+            raise PushBlocked(
+                "pushed commit does not equal the exact reviewed HEAD"
+            )
+        require_profile_review(registry, matches[0], actual_root)
+        return
     receipt_raw = environment.get("ITD_MACHINE_RECEIPT", "")
     receipt = load_machine_receipt(Path(receipt_raw))
     expected_head = str(receipt["headSha"]).lower()
@@ -270,11 +313,6 @@ def enforce(
     ):
         raise PushBlocked(
             "pushed commit does not equal the exact machine receipt HEAD"
-        )
-    actual_root = (root or git_root()).resolve()
-    if actual_root != Path(matches[0]["checkout"]).resolve():
-        raise PushBlocked(
-            "registered checkout differs from the active Git repository"
         )
     require_profile_review(registry, matches[0], actual_root)
     if Path(str(receipt.get("repository", ""))).resolve() != actual_root:

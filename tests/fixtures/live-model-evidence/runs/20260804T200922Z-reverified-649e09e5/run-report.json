@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "itd-live-fixture-v1",
+  "evidencePurpose": "workflow-output-quality",
+  "independentReviewEvidence": false,
+  "status": "PASS",
+  "observedAt": "2026-08-04T20:09:22Z",
+  "provider": "openai",
+  "fixture": "fixture-03-cli-tool",
+  "candidateModelRequested": "gpt-5.6-sol",
+  "reason": "archived live candidate passed the corrected deterministic oracle without another model invocation",
+  "source": {
+    "revision": "958aa09e926832e4c46598353b19801185d65e2b",
+    "workingTreeDirty": false,
+    "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "methodologyTreeSha256": "sha256:34d34f82538ee3feba1bbc3d6de6dec7747bb8fce6a57bc478f97eca20ff171c"
+  },
+  "runner": "tests/run-live-model-benchmark.py",
+  "runId": "20260804T200922Z-reverified-649e09e5",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260804T200922Z-reverified-649e09e5/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260804T200922Z-reverified-649e09e5",
+  "candidate": {
+    "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
+    "exitCode": 0,
+    "liveResultEvents": 1,
+    "isError": false,
+    "attemptCount": 1,
+    "recoveryTriggered": false,
+    "attempts": [
+      {
+        "attempt": 1,
+        "exitCode": 0,
+        "timedOut": false,
+        "missingBefore": [
+          "STRATEGIC_PLAN.md",
+          "PROJECT_ARCHITECTURE.md",
+          "PRD.md",
+          "IMPLEMENTATION_PLAN.md",
+          "CLAUDE_CODE_GUIDE.md",
+          "CLAUDE.md"
+        ],
+        "missingAfter": [],
+        "liveResultEvents": 1,
+        "isError": false,
+        "captureLimitBytes": 8388608,
+        "transcriptRedactionCount": 0,
+        "transcriptBytes": 66636,
+        "transcriptSha256": "sha256:9b76cc58f7c5a20a95641b76eb8c4f1730dbf30d588b377fe85e8faa649e09e5"
+      }
+    ],
+    "workspaceTransport": "native-temp",
+    "approvalPolicy": "never-no-escalation",
+    "hookPolicy": "disabled",
+    "captureLimitBytes": 8388608,
+    "transcriptBytes": 66636,
+    "transcriptSanitized": true,
+    "transcriptRedactionCount": 0,
+    "transcriptSha256": "sha256:9b76cc58f7c5a20a95641b76eb8c4f1730dbf30d588b377fe85e8faa649e09e5",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260804T200922Z-reverified-649e09e5/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:8fbefd5b01da1c953e8da915037e2d66abfa90aecaa8d424eb3b38a1b2681149"
+  },
+  "harnessInvocation": {
+    "mode": "repository-local-adopted-project",
+    "skill": "$idea-to-deploy:blueprint",
+    "skillPath": ".itd-plugin/skills/blueprint/SKILL.md",
+    "referencePath": ".itd-plugin/skills/blueprint/references/document-templates.md",
+    "projectGuidance": "AGENTS.md",
+    "projectContracts": ".itd/",
+    "projectHooks": ".codex/hooks.json",
+    "transcriptProvesSkillLoad": true,
+    "hookExecution": "disabled-for-live-model-evidence",
+    "methodologyTreeSha256": "sha256:34d34f82538ee3feba1bbc3d6de6dec7747bb8fce6a57bc478f97eca20ff171c"
+  },
+  "artifacts": {
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260804T200922Z-reverified-649e09e5/output",
+    "requiredFiles": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "CLAUDE.md"
+    ],
+    "sha256": {
+      "STRATEGIC_PLAN.md": "sha256:4a7365de9a2e4c6c519510a7c938d3a6af2ea84faf061fff593b065db7964ca9",
+      "PROJECT_ARCHITECTURE.md": "sha256:7eaff3c27f4a20ff85563f1724fc5fbb49d503810bb1956041bb254c627ef77d",
+      "PRD.md": "sha256:6f7eec3f5e535d1db08cf56f027e8bcbac1036532cd4d0746adcc7fda09f4af4",
+      "IMPLEMENTATION_PLAN.md": "sha256:053bf2e5076f074d9acbe822101bcbd0181310bc21a9eafc91fe9f5b4c55ea13",
+      "CLAUDE_CODE_GUIDE.md": "sha256:fb046358ebc3667ff275f9bb1b4b04a6a0cd404918627797d56cdf7caa8095d7",
+      "CLAUDE.md": "sha256:7f29372f12a41be548e2989f16ef0d22f53ced249f943f864b0d1ee43d574ec1"
+    }
+  },
+  "independentVerdict": {
+    "actor": "deterministic-external-oracle",
+    "oracle": "tests/verify_snapshot.py",
+    "exitCode": 0,
+    "status": "PASS",
+    "candidateSelfReportAccepted": false
+  },
+  "sourcePins": {
+    "benchmarkRunner": "sha256:fd7074170dd1306807de4ab5b1d281ff0a06e8481b058eb6c3540b014f761ccd",
+    "candidateAdapter": "sha256:fd7074170dd1306807de4ab5b1d281ff0a06e8481b058eb6c3540b014f761ccd",
+    "oracle": "sha256:3cdfa961238e0010172633a1ad655cc9c005cc6885751a878a9538f92aa33a89",
+    "fixturePrompt": "sha256:0ead224f89b2b2374c1bf98ec2e605d09f10098b438f9c25e6920a191a55d0e1",
+    "fixtureContract": "sha256:c59fc0c281e8580da6818d28a28f8117f211f6c38f83c1b86717e15874a33eff",
+    "codexAdapterTemplate": "sha256:4f38f0f43b17f51166681d06382f3a287deb9173fdb93ea3570ea6b32e1fd66a",
+    "agentsTemplate": "sha256:af0b59d7a879d5c0a5e5b1218aa11141dab3312e7ed975b7bb39a07759df5c21",
+    "methodologyTree": "sha256:34d34f82538ee3feba1bbc3d6de6dec7747bb8fce6a57bc478f97eca20ff171c"
+  }
+}
