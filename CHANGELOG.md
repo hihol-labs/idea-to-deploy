@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.96.0] - 2026-08-09
+
 ### Added
 - Human adjudication channel for independent-review findings (ADR-007). The
   Verification Loop can now mint an honestly labelled `ADJUDICATED` receipt

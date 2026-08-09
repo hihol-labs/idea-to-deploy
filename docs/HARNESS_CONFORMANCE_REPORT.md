@@ -1,8 +1,12 @@
 # Оценка эффективности ITD и соответствия Harness Engineering
 
-> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.95.1**.
+> **Результат: 5,0/5,0.** Текущий пакет — idea-to-deploy **v1.96.0**.
 > Исполняемая evidence-база обновлена на текущем content-pinned tree
-> 2026-07-28. v1.95.1 сохраняет доказательства v1.95.0 и добавляет
+> 2026-08-09. v1.96.0 добавляет closed-class политику независимости
+> ревьюера ({anthropic, openai}), обязательный cross-vendor маршрут для
+> anthropic-maker'ов с flagged same-vendor fallback, канал человеческой
+> адъюдикации находок (ADR-007) и измеренную лестницу независимости (U12).
+> v1.95.1 сохраняет доказательства v1.95.0 и добавляет
 > bounded startup timeout для Windows UNC checkout. v1.95.0 добавляет
 > provider-neutral exact-candidate API reviewer, bounded egress, честные
 > independence labels и fail-closed PR adjudication. v1.94.0 добавляет
