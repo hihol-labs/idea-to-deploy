@@ -51,6 +51,18 @@ push made after any further commit. They are reused as RED-test fixtures and
 as the minting procedure template only; the push-time chain is minted fresh
 on the final HEAD and needs one more explicit human adjudication.
 
+## User-authorized follow-up in this unit's queue (2026-08-09)
+
+Restore PR #183 CI to green: the first CI run exposed that
+`tests/verify_verification_loop.py` imports `cryptography` while the
+meta-review lane deliberately installs nothing. The user explicitly asked to
+check and repair the failing checks. Scope of the follow-up: install the
+already hash-locked Verification Loop runtime
+(`services/review_broker/requirements.lock`, `--require-hashes`) in the
+meta-review lane before that single test, updating the workflow header
+comment accordingly. Signed-route regression coverage is not skipped,
+weakened or moved between lanes; both lanes keep the full contract.
+
 ## Allowed Change Areas
 
 - `skills/_shared/itd_verification_loop.py` — the `--accept-adjudicated-route`
@@ -71,6 +83,8 @@ on the final HEAD and needs one more explicit human adjudication.
 - live registry repair via the guarded register flow (post-commit ops step)
 - `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (PB criteria),
   CHANGELOG/BACKLOG/HANDOFF and `.itd-memory` state records
+- `.github/workflows/meta-review.yml` — only the user-authorized CI
+  restoration above (hash-locked dependency step + header comment)
 
 ## Forbidden Change Areas
 

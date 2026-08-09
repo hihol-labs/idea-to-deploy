@@ -9,10 +9,15 @@ name: meta-review
 # publishing the repo flipped the cost/benefit on CI from "wait for first
 # PR" to "have it in place BEFORE the first PR arrives".
 #
-# The workflow uses only Python 3.11 stdlib — no pip install step — because
-# tests/meta_review.py and tests/verify_triggers.py are intentionally
-# zero-dependency. This keeps the run fast (< 30 seconds typically) and
-# removes supply-chain risk from the CI itself.
+# The workflow uses only Python 3.11 stdlib — with one deliberate exception —
+# because tests/meta_review.py and tests/verify_triggers.py are intentionally
+# zero-dependency. This keeps the run fast and keeps supply-chain risk out of
+# the CI itself. The exception: tests/verify_verification_loop.py exercises
+# the signed mandatory-route push-gate invariant and needs Ed25519 key
+# material, so the hash-locked Verification Loop runtime
+# (services/review_broker/requirements.lock, --require-hashes) is installed
+# before it runs. Hash pinning preserves the supply-chain boundary; the same
+# lock already gates windows-verify.yml.
 #
 # To enable as a required check on main, see docs/CI.md for the GitHub UI
 # steps (branch protection must be configured manually — it cannot be
@@ -40,6 +45,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install hash-locked Verification Loop runtime
+        # Sole non-stdlib dependency of this lane (see header comment):
+        # required by the signed mandatory-route regression in
+        # tests/verify_verification_loop.py.
+        run: python3 -m pip install --require-hashes -r services/review_broker/requirements.lock
 
       - name: Run meta-review rubric (verbose)
         run: python3 tests/meta_review.py --verbose
