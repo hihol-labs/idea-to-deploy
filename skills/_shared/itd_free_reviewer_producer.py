@@ -43,6 +43,7 @@ sys.path.insert(0, str(HERE))
 import itd_external_reviewer as scrubber  # noqa: E402
 import itd_gate_control as gate  # noqa: E402
 import itd_review_evidence as review_evidence  # noqa: E402
+import itd_reviewer_independence as independence  # noqa: E402
 
 
 class _LazyModule:
@@ -2214,14 +2215,30 @@ def route_keyless_review(
     )
 
 
-def select_openai_reviewer_model(maker_model: str, configured_model: str) -> str:
-    """Select the exact opposite Sol/Terra model without caller bypasses."""
-    if not isinstance(maker_model, str) or not isinstance(configured_model, str):
+def select_openai_reviewer_model(
+    maker_model: str, configured_model: str, *,
+    maker_provider: str = "openai-subscription",
+) -> str:
+    """Select the reviewer model the closed independence class permits."""
+    if (
+        not isinstance(maker_model, str)
+        or not isinstance(configured_model, str)
+        or not isinstance(maker_provider, str)
+    ):
         raise FreeReviewError("UNVERIFIED", "OpenAI model selection is malformed")
     maker = maker_model.strip()
     configured = configured_model.strip()
-    if not maker or not configured:
+    provider = maker_provider.strip()
+    if not maker or not configured or not provider:
         raise FreeReviewError("UNAVAILABLE", "OpenAI reviewer model is absent")
+    if canonical_model_identity(provider, maker)[0] == "anthropic":
+        # Cross-vendor leg: an anthropic maker may select either supported
+        # OpenAI reviewer model; the configured value picks the leg.
+        if configured.casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES:
+            raise FreeReviewError(
+                "UNVERIFIED", "configured reviewer is outside the Sol/Terra pair"
+            )
+        return configured
     alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker.casefold())
     if not alternate:
         raise FreeReviewError(
@@ -2905,7 +2922,19 @@ def independent_identities(
 def require_opposite_openai_model(
     maker: dict[str, str], reviewer: dict[str, str]
 ) -> None:
-    """Require the host-observed reviewer to be the exact Sol/Terra alternate."""
+    """Require the reviewer the closed independence class permits."""
+    if canonical_model_identity(maker["provider"], maker["model"])[0] == "anthropic":
+        # Cross-vendor pair: anthropic maker, OpenAI-subscription reviewer on
+        # a supported Sol/Terra model.
+        if (
+            reviewer["provider"] != "openai-subscription"
+            or reviewer["model"].casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES
+        ):
+            raise FreeReviewError(
+                "UNVERIFIED",
+                "reviewer is not a supported cross-vendor OpenAI model",
+            )
+        return
     alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker["model"].casefold())
     if alternate is None:
         raise FreeReviewError(
@@ -2918,6 +2947,25 @@ def require_opposite_openai_model(
         raise FreeReviewError(
             "UNVERIFIED", "reviewer is not the exact opposite Sol/Terra model"
         )
+
+
+def reviewer_independence_level(
+    maker: dict[str, str], reviewer: dict[str, str],
+) -> str:
+    """Honest independence level of a maker/reviewer pair (closed class)."""
+    maker_family = canonical_model_identity(maker["provider"], maker["model"])[0]
+    reviewer_family = canonical_model_identity(
+        reviewer["provider"], reviewer["model"]
+    )[0]
+    allowed = independence.INDEPENDENCE_VENDOR_CLASS.get(maker_family)
+    if allowed is not None and reviewer_family in allowed:
+        return independence.CROSS_VENDOR
+    if maker_family == reviewer_family:
+        return independence.SAME_VENDOR_DIFFERENT_MODEL
+    raise FreeReviewError(
+        "UNVERIFIED",
+        "maker/reviewer pair is outside the closed independence class",
+    )
 
 
 def _reviewer_identity(value: object) -> dict[str, str]:
@@ -3093,6 +3141,27 @@ def phase_one_receipt(
     }
     if reviewer_rows is not None:
         signed["reviewers"] = reviewer_rows
+    else:
+        level = reviewer_independence_level(maker_row, reviewer_row)
+        signed["independenceLevel"] = level
+        if level == independence.SAME_VENDOR_DIFFERENT_MODEL:
+            # The flagged fallback is honest only with typed cross-vendor
+            # unavailability. The mandatory route structurally carries no
+            # cross-vendor transport for this maker, and the receipt records
+            # that fact through the shared fallback authorization.
+            granted = independence.authorize_same_vendor_fallback(
+                maker_row, reviewer_row, {
+                    "status": "UNAVAILABLE",
+                    "route": independence.CROSS_VENDOR,
+                    "detail": (
+                        "no cross-vendor reviewer transport is part of the "
+                        "mandatory keyless route"
+                    ),
+                },
+            )
+            signed["crossVendorUnavailability"] = granted[
+                "crossVendorUnavailability"
+            ]
     return _sign(signed, key_id, private_key)
 
 
@@ -3114,6 +3183,15 @@ def verify_phase_one(
         )
     if version == 3:
         fields.add("reviewers")
+    # Receipts minted before the independence class lack the label; the field
+    # stays optional on verification so pre-batch chains keep validating.
+    # Only single-reviewer version-2 receipts may carry independence fields:
+    # a legacy-quorum v3 payload with a laundered label fails the closed set.
+    if version == 2 and isinstance(signed, dict):
+        if "independenceLevel" in signed:
+            fields.add("independenceLevel")
+            if "crossVendorUnavailability" in signed:
+                fields.add("crossVendorUnavailability")
     exact_dict(signed, fields, "phase-one signed payload")
     if version not in {2, 3} or signed["kind"] != "itd-free-review-phase-one":
         raise FreeReviewError("UNVERIFIED", "phase-one kind/version is invalid")
@@ -3140,6 +3218,38 @@ def verify_phase_one(
     if version == 2:
         require_opposite_openai_model(maker, reviewer)
         verify_attempt_ledger(signed["attempts"], reviewer["provider"])
+        if "independenceLevel" in signed:
+            level = reviewer_independence_level(maker, reviewer)
+            if signed["independenceLevel"] != level:
+                raise FreeReviewError(
+                    "UNVERIFIED", "phase-one independence label is dishonest"
+                )
+            has_unavailability = "crossVendorUnavailability" in signed
+            if level == independence.SAME_VENDOR_DIFFERENT_MODEL:
+                if not has_unavailability:
+                    raise FreeReviewError(
+                        "UNVERIFIED",
+                        "same-vendor phase-one lacks typed cross-vendor "
+                        "unavailability",
+                    )
+                evidence_row = signed["crossVendorUnavailability"]
+                if (
+                    not isinstance(evidence_row, dict)
+                    or set(evidence_row) != {"status", "route", "detail"}
+                    or evidence_row["status"] != "UNAVAILABLE"
+                    or evidence_row["route"] != independence.CROSS_VENDOR
+                    or not isinstance(evidence_row["detail"], str)
+                    or not evidence_row["detail"].strip()
+                ):
+                    raise FreeReviewError(
+                        "UNVERIFIED",
+                        "same-vendor fallback evidence is malformed",
+                    )
+            elif has_unavailability:
+                raise FreeReviewError(
+                    "UNVERIFIED",
+                    "cross-vendor phase-one carries fallback evidence",
+                )
     else:
         reviewers = [_reviewer_identity(value) for value in signed["reviewers"]]
         if len(reviewers) < 2 or reviewers[0] != reviewer:
@@ -4453,7 +4563,8 @@ def main(argv: list[str] | None = None) -> int:
             def openai_adapter(value: str) -> tuple[dict[str, Any], dict[str, str]]:
                 nonlocal selected_prompt_artifact
                 reviewer_model = select_openai_reviewer_model(
-                    args.maker_model, args.reviewer_model
+                    args.maker_model, args.reviewer_model,
+                    maker_provider=args.maker_provider,
                 )
                 def runner(
                     review_value: str, schema: dict[str, Any], parser_value: Any,

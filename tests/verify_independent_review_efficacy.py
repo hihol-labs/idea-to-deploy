@@ -20,6 +20,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "skills" / "_shared" / "itd_review_evidence.py"
+POLICY_PATH = ROOT / "skills" / "_shared" / "itd_reviewer_independence.py"
 PRODUCER_PATH = ROOT / "skills" / "_shared" / "itd_free_reviewer_producer.py"
 RUNNER_PATH = ROOT / "tests" / "run-independent-review-efficacy.py"
 KEYRING_PATH = ROOT / ".itd" / "REVIEW_EFFICACY_KEYRING.json"
@@ -27,6 +28,10 @@ HOST_PIN_REL = Path(
     ".itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256"
 )
 CASES_PATH = ROOT / "benchmarks" / "independent-review-efficacy" / "cases.json"
+U12_CROSS_PATH = (
+    ROOT / "benchmarks" / "independent-review-efficacy" / "results"
+    / "u12-cross-vendor-wsl.json"
+)
 RESULTS = {
     "wsl": ROOT / "benchmarks" / "independent-review-efficacy" / "results" / "wsl.json",
     "windows": ROOT / "benchmarks" / "independent-review-efficacy" / "results" / "windows.json",
@@ -251,10 +256,45 @@ def structural_metrics(manifest, evidence, producer) -> dict[str, float]:
         detected = blocked is expected_block
         outcomes.append({**case, "detected": detected, "blocked": blocked})
         print(("PASS  " if detected else "FAIL  ") + "structural/" + case["id"])
-    # Reviewer-cardinality structural cases are deliberately NOT part of this
-    # slice: they assert a reviewer-policy contract in itd_review_evidence.py
-    # that belongs to the independent-reviewer policy unit. Porting them here
-    # would import that unit's scope through the benchmark's back door.
+    low_acceptance, low_machine = baseline()
+    low_acceptance["activeFollowup"]["reviewPolicy"].update({
+        "riskTier": "low", "minimumIndependentReviewers": 0,
+    })
+    low_machine["riskTier"] = "low"
+    evidence.coverage_matrix(low_acceptance, low_machine)
+    for label, risk, minimum in (
+        ("low-reviewer", "low", 1),
+        ("high-quorum", "high", 2),
+    ):
+        mutated_acceptance, mutated_machine = baseline()
+        mutated_acceptance["activeFollowup"]["reviewPolicy"].update({
+            "riskTier": risk, "minimumIndependentReviewers": minimum,
+        })
+        mutated_machine["riskTier"] = risk
+        try:
+            evidence.coverage_matrix(mutated_acceptance, mutated_machine)
+        except evidence.ReviewEvidenceError:
+            print("PASS  structural/" + label)
+        else:
+            raise AssertionError(label + " reviewer cardinality was accepted")
+    policy = load_module("itd_reviewer_independence_efficacy", POLICY_PATH)
+    quorum_identity = {
+        "provider": "openai-subscription", "model": "gpt-5.6-terra",
+        "session": "quorum-a",
+    }
+    try:
+        policy.require_reviewer_quorum(
+            [dict(quorum_identity), {**quorum_identity, "model": "GPT-5.6-TERRA"}], 2,
+        )
+    except policy.IndependenceError:
+        print("PASS  structural/duplicate-reviewer-quorum")
+    else:
+        raise AssertionError("duplicate reviewer identity satisfied a higher quorum")
+    assert policy.require_reviewer_quorum(
+        [dict(quorum_identity),
+         {"provider": "openai-subscription", "model": "gpt-5.6-sol",
+          "session": "quorum-b"}], 2,
+    ) == 2
     missing = [row for row in outcomes if "missing" in row["mutation"]]
     unit_finding = {
         "severity": "high", "confidence": "high", "category": "correctness",
@@ -283,7 +323,7 @@ def structural_metrics(manifest, evidence, producer) -> dict[str, float]:
 
 def validate_host_result(
     host, path, manifest, manifest_raw, producer, runner, keyring,
-    observed_sessions,
+    observed_sessions, *, maker_provider="openai-subscription",
 ):
     envelope = json.loads(path.read_text(encoding="utf-8"))
     result = verify_signed_evidence(
@@ -325,14 +365,25 @@ def validate_host_result(
     if not dt.timedelta(0) <= age <= dt.timedelta(days=30):
         raise AssertionError(f"{host} semantic result is stale")
     reviewer = exact(row["reviewer"], {
-        "provider", "makerModel", "requestedModel", "runtimeVersion",
+        "provider", "makerProvider", "makerModel", "requestedModel",
+        "runtimeVersion",
         "transportExecutableSha256", "proxySha256", "paidApiCalls", "isolation",
     }, f"{host} reviewer")
+    maker_norm = str(reviewer["makerModel"]).strip().casefold()
+    requested_norm = str(reviewer["requestedModel"]).strip().casefold()
+    if maker_provider == "openai-subscription":
+        # Same-vendor parity leg: exact Sol/Terra alternation.
+        pair_ok = EXPECTED_OPPOSITE.get(maker_norm) == requested_norm
+    else:
+        # Cross-vendor U12 leg: anthropic maker, supported OpenAI reviewer.
+        pair_ok = (
+            requested_norm in EXPECTED_OPPOSITE
+            and maker_norm not in EXPECTED_OPPOSITE
+        )
     if (
         reviewer["provider"] != "openai-subscription"
-        or EXPECTED_OPPOSITE.get(
-            str(reviewer["makerModel"]).strip().casefold()
-        ) != str(reviewer["requestedModel"]).strip().casefold()
+        or reviewer["makerProvider"] != maker_provider
+        or not pair_ok
         or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", reviewer["runtimeVersion"])
         or reviewer["paidApiCalls"] != 0
         or not re.fullmatch(r"[0-9a-f]{64}", reviewer["transportExecutableSha256"])
@@ -344,11 +395,15 @@ def validate_host_result(
                for value in reviewer["isolation"].values())
     ):
         raise AssertionError(f"{host} reviewer provenance is invalid")
+    expected_selection = (
+        EXPECTED_OPPOSITE[maker_norm]
+        if maker_provider == "openai-subscription"
+        else requested_norm
+    )
     if producer.select_openai_reviewer_model(
-        reviewer["makerModel"], reviewer["requestedModel"]
-    ).casefold() != EXPECTED_OPPOSITE[
-        str(reviewer["makerModel"]).strip().casefold()
-    ]:
+        reviewer["makerModel"], reviewer["requestedModel"],
+        maker_provider=reviewer["makerProvider"],
+    ).casefold() != expected_selection:
         raise AssertionError("candidate producer opposite-model policy drifted")
     if producer.required_isolation() != EXPECTED_ISOLATION:
         raise AssertionError("candidate producer isolation policy drifted")
@@ -491,6 +546,7 @@ def verify_checkpoint_resume(manifest: dict[str, Any], manifest_raw: bytes) -> N
         host="wsl", manifest_raw=manifest_raw,
         producer_raw=PRODUCER_PATH.read_bytes(),
         runner_raw=RUNNER_PATH.read_bytes(), maker_model="gpt-5.6-sol",
+        maker_provider="openai-subscription",
         model="gpt-5.6-terra",
         runtime_version="0.146.0", executable_sha256="a" * 64,
         proxy_sha256="b" * 64,
@@ -695,11 +751,41 @@ def main(argv: list[str] | None = None) -> int:
         >= thresholds["unitFindingRetention"]
     )
     host_parity = set(host_metrics) == {"wsl", "windows"} and all_ok
+    # U12: the independence ladder is measured, not asserted. The cross-vendor
+    # leg must be a valid signed host-derived run over the same frozen corpus;
+    # its rates are recorded honestly and are deliberately NOT thresholded
+    # against the same-vendor leg.
+    u12_outcomes = validate_host_result(
+        "wsl", U12_CROSS_PATH, manifest, manifest_raw, producer, runner,
+        keyring, observed_sessions, maker_provider="anthropic-subscription",
+    )
+    u12_critical_high = [
+        row for row in u12_outcomes if row["severity"] in {"critical", "high"}
+    ]
+    u12_medium = [row for row in u12_outcomes if row["severity"] == "medium"]
+    u12_clean = [row for row in u12_outcomes if row["severity"] == "clean"]
+    u12 = {
+        "sameVendor": {
+            key: host_metrics["wsl"][key]
+            for key in (
+                "criticalHighDetection", "mediumDetection",
+                "cleanFalseBlockRate",
+            )
+        },
+        "crossVendor": {
+            "criticalHighDetection": rate(u12_critical_high, "detected"),
+            "mediumDetection": rate(u12_medium, "detected"),
+            "cleanFalseBlockRate": rate(u12_clean, "falseBlock"),
+        },
+        "host": "wsl",
+        "corpus": "shared-frozen-manifest",
+    }
     ok = structural_ok and host_parity
     print(json.dumps({
         "status": "PASSED" if ok else "FAILED",
         "structuralMetrics": structural,
         "semanticMetrics": host_metrics,
+        "u12IndependenceLadder": u12,
         "hostParityVerified": host_parity,
         "evidenceSource": "real-keyless-model-reports",
     }, sort_keys=True))

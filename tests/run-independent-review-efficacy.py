@@ -266,7 +266,7 @@ def signed_evidence(payload: dict[str, Any], key_id: str, private_key: bytes) ->
 
 def checkpoint_context(
     *, host: str, manifest_raw: bytes, producer_raw: bytes, runner_raw: bytes,
-    maker_model: str, model: str,
+    maker_model: str, maker_provider: str, model: str,
     runtime_version: str, executable_sha256: str, proxy_sha256: str,
 ) -> dict[str, Any]:
     return {
@@ -276,6 +276,7 @@ def checkpoint_context(
         "runnerSha256": producer.sha256_bytes(runner_raw),
         "reviewer": {
             "provider": "openai-subscription",
+            "makerProvider": maker_provider,
             "makerModel": maker_model,
             "requestedModel": model,
             "runtimeVersion": runtime_version,
@@ -388,6 +389,7 @@ def main() -> int:
     parser.add_argument("--codex-sha256", required=True)
     parser.add_argument("--proxy-sha256", required=True)
     parser.add_argument("--maker-model", required=True)
+    parser.add_argument("--maker-provider", default="openai-subscription")
     parser.add_argument("--model", default="gpt-5.6-terra")
     parser.add_argument("--max-transport-attempts", type=int, default=1)
     parser.add_argument("--signing-key", type=Path, required=True)
@@ -416,7 +418,8 @@ def main() -> int:
         return 4
     try:
         selected_model = producer.select_openai_reviewer_model(
-            args.maker_model, args.model
+            args.maker_model, args.model,
+            maker_provider=args.maker_provider,
         )
     except producer.FreeReviewError as exc:
         print(
@@ -469,7 +472,8 @@ def main() -> int:
     context = checkpoint_context(
         host=observed_host, manifest_raw=manifest_raw,
         producer_raw=producer_raw, runner_raw=runner_raw,
-        maker_model=args.maker_model, model=args.model,
+        maker_model=args.maker_model, maker_provider=args.maker_provider,
+        model=args.model,
         runtime_version=runtime_version,
         executable_sha256=actual_codex_sha256,
         proxy_sha256=args.proxy_sha256,
@@ -578,6 +582,7 @@ def main() -> int:
         "runnerSha256": context["runnerSha256"],
         "reviewer": {
             "provider": "openai-subscription",
+            "makerProvider": args.maker_provider,
             "makerModel": args.maker_model,
             "requestedModel": args.model,
             "runtimeVersion": runtime_version,

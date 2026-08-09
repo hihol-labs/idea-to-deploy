@@ -1,7 +1,7 @@
 # BACKLOG — Harness-demo UX absorption
 
 **Decision:** [ADR-004](docs/adr/ADR-004-harness-demo-ux-absorption.md)
-**Last reviewed:** 2026-07-26
+**Last reviewed:** 2026-08-09
 **Next review:** 2026-08-30
 
 ## P0 — Must do
@@ -52,6 +52,58 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `skills/_shared/.claude/traces/` silently entered the H4 tree pin, and the mismatch
   only surfaced later in the isolated staged candidate as three failing checks. The
   pin should either exclude the same paths Git ignores or fail loudly at run time.
+
+## P0 — Deferred out of GPG-004 push-gate/adjudication execution (2026-08-09)
+
+Found while executing the ADR-007 channel, the push-gate slice and the route
+adjudication; each was deliberately kept out of those bounded slices.
+
+- [ ] Completion gate: `runtime_evidence_status` (`hooks/completion-gate.sh`)
+  reduces the session's L2/L3 signals as one outcome set — a single
+  ambiguous/unknown signal or any earlier `fail` poisons the session verdict
+  permanently, because there is no latest-signal-per-command reduction; a later
+  green rerun of the same command cannot supersede an earlier red or unknown one.
+- [ ] Completion gate: `rerun_strict_verification` (`hooks/completion-gate.sh`)
+  reads `spec.command`, but the shipped `.itd/VERIFICATION_CONTRACT.json` v2
+  schema declares `commands[].argv` — every strict rerun fails closed as
+  "verification command is empty", so the strict boundary is structurally
+  impassable on argv contracts. Support the argv shape (shell-free) while
+  keeping fail-closed semantics for missing/ambiguous commands.
+- [ ] Live-model benchmark fixture hardening — three defects of the RECORDED
+  benchmark run, not of the methodology: fail-open self-validation visible in
+  the transcript; no originating user request in the capture; the run
+  substituted the Devil's Advocate subagent invocation with inline
+  self-critique. Fix the benchmark scenario so the real devils-advocate
+  subagent is invoked, then re-record. `/blueprint`'s Devil's Advocate itself
+  stays as designed; the independent reviewer does not replace it.
+- [ ] Sync-manifest gap: `scripts/sync-to-active.sh` verifies that
+  `.claude-plugin/plugin.json` exists but never syncs it, so the installed
+  manifest `~/.claude/.claude-plugin/plugin.json` is aligned manually today.
+  Add the manifest to the sync and verify-sync surface.
+- [ ] Bounded-process transport hardening (route-adjudication accepted
+  trade-offs): reject NaN/inf timeout values before deadline arithmetic and
+  harden relative-cwd handling in the Windows wrapper. POSIX descendant
+  containment and the run-all host-pin boundary are already tracked in the
+  slice section above.
+- [ ] Pre-existing ledger drift: `GOAL-2026-07-06-axis*` / `PE5-015` unit
+  ledgers drifted from current evidence before GPG-004 started. Reconcile the
+  ledgers honestly — no synthetic evidence backfill.
+- [ ] Surface the reviewer-independence label in the local-review profile
+  doctor: `validate_local_adjudication` already receives `routeIndependence`
+  in the check stdout, but its `str | None` route-label contract (stubbed by
+  the doctor regression suite) keeps the doctor entry at
+  `routeEvidence`-only. Extend the callable contract and the doctor suite
+  together in one bounded change.
+- [ ] Completion-ledger writer schema: agent-delegation telemetry rows are
+  written without the `producer` field, so the strict completion evaluation
+  fails to parse the ledger (observed 2026-08-09, signals.jsonl line 270,
+  audited COMPLETION_BYPASS). Fix the writer and make the evaluator skip
+  layer-0 telemetry rows instead of failing closed on them.
+- [ ] Harden `reviewer_independence_level`: require the shared family to be a
+  member of the closed independence class before labeling a same-family pair
+  (currently unreachable through minting because the reviewer provider is
+  pinned to openai-subscription — reviewer finding, adjudicated
+  refuted-by-evidence on 2026-08-09).
 
 ## P1 — Should do
 
