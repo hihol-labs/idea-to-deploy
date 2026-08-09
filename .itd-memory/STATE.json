@@ -38,9 +38,9 @@
   },
   "currentUnit": {
     "id": "GPG-004",
-    "goal": "GPG-004 ladder remainder (reviewer independence policy): PC-S3 complete - producer batch (closed class {anthropic,openai}, cross-vendor route for anthropic makers, flagged same-vendor fallback with typed cross-vendor unavailability), independenceLevel/mint-override wiring, three signed efficacy legs (wsl same-vendor, u12 cross-vendor, windows on stable codex 0.146.0) and the honest U12 comparison; PC1..PC5 passed. Candidate is in the commit ladder: first independent route returned BLOCKED (12 findings), user chose the fix-and-rerun path (state-record refresh, v3 label closure, typed fallback evidence).",
+    "goal": "GPG-004 reviewer independence policy — VERIFIED and published. Closed class {anthropic, openai} with cross-vendor route for anthropic makers, flagged same-vendor fallback with typed cross-vendor unavailability, independenceLevel/mint-override wiring, exact-equality reviewer cardinality, three signed efficacy legs and the honest U12 comparison. Commits b38d893+28119f9+a3aa462 landed through the full ladder (two ADR-007 human adjudications: 4 dispositions on the commit chain, 1 on the push chain), guarded registry re-registered, Draft PR #184 published (head a3aa462, LOCAL_REVIEWED). Final machine evidence: committed-head receipt GPG-004-machine-pushchain.json — 15/15 oracles PASSED on the exact HEAD tree f1a86608, including reviewer-independence-policy and live-model-evidence-replay.",
     "riskTier": "high",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-02T23:25:00Z"
   },
   "gateResults": {
@@ -565,5 +565,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Finish the commit ladder on the fixed candidate: re-mint the three signed legs (producer bytes changed in the fix round), re-mint both machine receipts on the new staged tree, run a fresh independent route, then commit through check-review-before-commit (ADR-007 adjudication if findings). After the commit: 'pin clean live evidence state' follow-up, guarded push by explicit user command only, then the /goal verification pass. Signed legs and producer bytes are frozen once the final chain is minted."
+  "nextAction": "GPG-004 closed. Next candidates by plan: U6 (installed-skill parity), U16 (pre-deploy), U17 (design-stage), the queued BACKLOG follow-ups (benchmark scenario devils-advocate fix, completion-ledger writer schema, doctor independence label), and the GENG /strategy session recorded in project memory. PR #184 merge + CI watch by explicit user command."
 }
