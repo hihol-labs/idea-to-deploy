@@ -1,120 +1,106 @@
-# Scope Lock — GPG-004 push-gate unit: ADJUDICATED acceptance in the push layer
+# Scope Lock — GPG-004 ladder remainder: reviewer independence policy
 
 ## Current Task
 
-Extend the guarded push layer so a human-adjudicated independent review can
-honestly satisfy it, and repair the live gate registry after the isolation
-incident. Necessity is proven by execution (2026-08-09):
+Ladder remainder of GPG-004 (compressed plan agreed 2026-08-09, phase after A
+and after the accepted push-gate slice): make reviewer independence an
+explicit, honest, machine-checked policy instead of a hard-coded Sol/Terra
+convention.
 
-1. `validate_local_adjudication` (`skills/_shared/itd_gate_control.py:1458`)
-   shells to `itd_verification_loop.py check --require-mandatory-route
-   --expected-producer-keyring-sha256 …`, which requires a checker receipt
-   carrying a signed phase-one clean-pass route. The producer structurally
-   refuses to mint a phase-one receipt for a BLOCKED verdict
-   (`itd_free_reviewer_producer.py`: "review did not return a clean pass";
-   `verify_phase_one` requires `status == "PASSED"`). An honestly
-   BLOCKED-then-adjudicated route (ADR-007) can therefore never pass the push
-   gate: authorized pushes deadlock forever. The commit gate already accepts
-   ADJUDICATED (phase A); the push layer is the remaining PASSED-only surface.
-2. The live registry `~/.config/itd/gates.json` was overwritten by a
-   test-fixture row (`checkout: /tmp/itd_gate_local_review_commit`, missing
-   `localReviewProducerKeyringSha256`) and no longer validates — a
-   test/rehearsal isolation leak (incident, DECISIONS 2026-08-09).
+1. **Closed vendor independence class {Claude (anthropic), Codex (openai)}**
+   for the maker/reviewer pair. Live proof of necessity: an honest anthropic
+   maker today dead-ends with typed UNAVAILABLE "maker is not a supported
+   Sol/Terra model" (`select_openai_reviewer_model`,
+   `require_opposite_openai_model` in
+   `skills/_shared/itd_free_reviewer_producer.py`) — cross-vendor review for
+   an anthropic maker is structurally impossible, so authorized work made by
+   Claude can never obtain the mandatory independent review.
+2. **Flagged same-vendor-different-model fallback** — selectable only after
+   the cross-vendor route returns a typed unavailability; every receipt and
+   claim surface carries the honest `same-vendor-different-model` label,
+   never silently, never for a same-model pair, and it never upgrades the
+   recorded independence claim.
+3. **HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW** — explicit audited human override
+   class for "no independent route available at all": bound to the exact
+   candidate digest, recorded under its own honest label, never counted as an
+   independent review by any downstream gate.
+4. **Reviewer cardinality** — restore the `minimumIndependentReviewers`
+   contract and the removed `low-reviewer` / `high-quorum` structural cases
+   in the efficacy suite; quorum deduplicates by provider/model/session
+   identity.
+5. **U12 measurement** — measure the ladder: same-vendor vs cross-vendor
+   reviewer legs over the frozen seeded benchmark corpus, published as signed
+   host-derived evidence, recorded honestly whatever the result.
 
-Design, fixed for this unit:
+## Slicing (fixed for this unit)
 
-- New explicit opt-in flag `--accept-adjudicated-route` on the `check`
-  subcommand. Default behavior is byte-preserved: `--require-mandatory-route`
-  without the new flag stays PASSED-only with the signed route. With the flag:
-  a PASSED outcome still requires the signed phase-one route; an ADJUDICATED
-  outcome is authorized by the ADR-007 human channel instead (PASSED machine
-  receipt + BLOCKED checker with exact-tree/artifact/identity validation +
-  complete human adjudication bound to the checker sha256), because a signed
-  clean-pass route cannot honestly exist for it.
-- `validate_local_adjudication` passes the new flag; the profile doctor
-  surfaces the honest route evidence (`human-adjudication` vs
-  `signed-keyless-route`) without elevating the LOCAL_REVIEWED claim.
-- Registry-write isolation: the guarded registry writer refuses to write a
-  row whose checkout lies under the system temp directory into the live
-  default registry path; tests and rehearsals write only through an explicit
-  `ITD_GATE_REGISTRY` target. A RED-first isolation test reproduces the
-  incident write and pins that the live registry stays byte-identical across
-  the gate suites.
-- Live registry repair happens only through the guarded register flow, after
-  the unit commit, with a freshly minted committed-head receipt chain.
-
-Established by execution this session: `validate_common` recomputes the
-candidate context (HEAD, tree, scope/acceptance contract hashes) from the
-live repository on every check, so the pre-unit receipts in
-`.itd-memory/verification-loop/receipts/adf40ca3f6d504c9/` cannot authorize a
-push made after any further commit. They are reused as RED-test fixtures and
-as the minting procedure template only; the push-time chain is minted fresh
-on the final HEAD and needs one more explicit human adjudication.
-
-## User-authorized follow-up in this unit's queue (2026-08-09)
-
-Restore PR #183 CI to green: the first CI run exposed that
-`tests/verify_verification_loop.py` imports `cryptography` while the
-meta-review lane deliberately installs nothing. The user explicitly asked to
-check and repair the failing checks. Scope of the follow-up: install the
-already hash-locked Verification Loop runtime
-(`services/review_broker/requirements.lock`, `--require-hashes`) in the
-meta-review lane before that single test, updating the workflow header
-comment accordingly. Signed-route regression coverage is not skipped,
-weakened or moved between lanes; both lanes keep the full contract.
+- **PC-S1 (contracts, this session):** BACKLOG delta, this scope lock,
+  `GPG-004-PC1..PC5` in `.itd/ACCEPTANCE_CONTRACT.json`, plan approval. No
+  code.
+- **PC-S2 (RED-first, after plan approval):** policy module + tests outside
+  the frozen producer; RED tests pin today's anthropic-maker UNAVAILABLE
+  dead-end, the cardinality gaps, and the missing override class.
+- **PC-S3 (producer batch, separate explicit approval):** ALL producer edits
+  for PC1/PC2/PC5 land as ONE batch; both signed benchmark legs are re-run
+  exactly once after the batch (a single producer byte invalidates both
+  legs). This is the most expensive slice of the unit and starts only on its
+  own explicit user approval.
+- The unit commit is one combined candidate (PC-S2 + PC-S3) so
+  `coverage_matrix` sees every active criterion passed before the commit
+  review — same pattern as the accepted phase-A combined slice.
 
 ## Allowed Change Areas
 
-- `skills/_shared/itd_verification_loop.py` — the `--accept-adjudicated-route`
-  flag and its threading through `command_check`/`validate_adjudication`/
-  `validate_adjudication_evidence`/`validate_checker` (the mandatory-route
-  requirement site)
-- `skills/_shared/itd_gate_control.py` — `validate_local_adjudication`,
-  profile-doctor route-evidence surface, registry-write guard
-- the guarded `itd` CLI registry writer, if it lives outside
-  `itd_gate_control.py`
-- new focused RED-first tests and mutation checks
-  (`tests/verify_push_gate_adjudicated.py`,
-  `tests/verify_gate_registry_isolation.py`) plus bounded extensions of
-  `tests/verify_gate_profile_doctor.py`,
-  `tests/verify_gate_registry_profiles.py`,
+- new policy module for the independence class and its threading through the
+  reviewer selection surface (`skills/_shared/itd_free_reviewer_producer.py`
+  ONLY inside the approved PC-S3 batch)
+- `skills/_shared/itd_verification_loop.py`,
+  `skills/_shared/itd_gate_control.py` — honest label surfaces
+  (independence level, override class) without changing gate defaults
+- new focused RED-first tests
+  (`tests/verify_reviewer_independence_policy.py`) plus bounded extensions of
+  `tests/verify_independent_review_efficacy.py` (cardinality cases + U12),
   `tests/verify_mandatory_keyless_review.py`, and oracle-id registration in
   the evidence-coverage mapping
-- live registry repair via the guarded register flow (post-commit ops step)
-- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (PB criteria),
+- amendment 2026-08-09 (after the legs were minted): ONE broker-suite fixture
+  line in `tests/verify_review_broker.py` — the foreign-maker negative
+  fixture moves from the out-of-class provider `forged-maker` to a
+  class-member but still foreign `anthropic-subscription/opus` identity,
+  because the closed class refuses to label out-of-class pairs at mint time
+  and a producer-byte fix would burn all three freshly signed legs; the
+  fixture's downstream intent (maker claim must match signed PR provenance;
+  no Check Run, no token spend) is unchanged
+- a new ADR for the independence policy if the design departs from ADR-006/7
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (PC criteria),
   CHANGELOG/BACKLOG/HANDOFF and `.itd-memory` state records
-- `.github/workflows/meta-review.yml` — only the user-authorized CI
-  restoration above (hash-locked dependency step + header comment)
 
 ## Forbidden Change Areas
 
-- weakening the default: `--require-mandatory-route` without the new flag
-  stays PASSED-only with the signed phase-one route
-- minting phase-one receipts for BLOCKED verdicts, rewriting/downgrading/
-  re-labelling checker verdicts, widening checker `acceptedVerdicts`
-- `skills/_shared/itd_free_reviewer_producer.py` and the signed benchmark-leg
-  surface (a single producer byte invalidates both live legs)
-- `--no-verify`, environment kill-switches, direct `git push`, or manual
-  edits of `~/.config/itd/gates.json` outside the guarded register flow
-- treating the pre-unit receipts (`adf40ca3f6d504c9/*`) as push authorization
-  after HEAD moves — fixtures/templates only
-- the ladder remainder (independence class {Claude,Codex}, same-vendor
-  fallback, `HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW`, reviewer cardinality,
-  U12), U6, U16/U17 — separate deferred units
-- push or PR before: unit commit + the "pin clean live evidence" follow-up +
-  a fresh committed-head chain + a valid live registry
+- any producer byte outside the explicitly approved PC-S3 batch; piecemeal
+  producer edits (each byte invalidates both signed benchmark legs)
+- same-model maker/reviewer pairs; silent fallback selection; recording
+  HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW as PASSED, ADJUDICATED or any form of
+  independent review; widening checker `acceptedVerdicts`
+- weakening `--require-mandatory-route` defaults, the ADR-007 channel, or the
+  push-gate/registry-isolation behavior accepted in PB1..PB3
+- `--no-verify`, environment kill-switches, direct `git push`, manual edits
+  of `~/.config/itd/gates.json` outside the guarded register flow
+- U6 (installed-skill parity), U16 (pre-deploy), U17 (design-stage) — separate
+  deferred units; the completion-gate and fixture-hardening BACKLOG candidates
+  recorded 2026-08-09 — separate bounded fixes
+- push or PR before: unit acceptance + the "pin clean live evidence state"
+  follow-up (skills/ edits burn the H4 content pin) + a fresh committed-head
+  chain
 
 ## Acceptance Boundary
 
-The unit is accepted only when GPG-004-PB1..PB3 pass: RED-first tests
-reproduce both deadlocks (mandatory-route-missing for an honest ADJUDICATED
-receipt; the live-registry fixture write), then turn GREEN only through the
-new flag and the isolation guard; mutation checks kill each guard
-individually; the full quick suite stays green; and the unit commit itself
-passes the commit review gate (through the ADR-007 channel if the fresh
-route returns findings) without bypass. The live registry repair is a
-post-commit ops gate carried by the contract doneRule, not a pre-commit
-criterion: it structurally requires the committed code and a fresh
-committed-head chain, and it must complete before guarded publication.
-`skills/` edits burn the H4 pin — the queued "pin clean live evidence state"
-follow-up restores it before `itd pr create`.
+The unit remainder is accepted only when GPG-004-PC1..PC5 pass: RED-first
+tests reproduce the anthropic-maker dead-end, the silent-fallback and
+label-laundering mutations, the missing override class and the cardinality
+gaps, then turn GREEN only through the policy; mutation checks kill each
+guard individually; both signed benchmark legs revalidate after the single
+PC-S3 batch; the U12 comparison is recorded as signed host-derived numbers;
+the full quick suite stays green; and the unit commit passes the commit
+review gate (through the ADR-007 channel if the fresh route returns findings)
+without bypass. GOAL/STATE closure of GPG-004 additionally requires the /goal
+pass over the unit's verificationCommands after this remainder lands.

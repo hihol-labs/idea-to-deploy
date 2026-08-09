@@ -38,7 +38,7 @@
   },
   "currentUnit": {
     "id": "GPG-004",
-    "goal": "Reviewer policy unit first (compressed plan agreed 2026-08-09): phase A human adjudication channel for independent-review findings, then independence class {Claude,Codex}+flagged same-vendor fallback and HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW; bounded-process slice stays frozen at staged tree 1a9eaa240f8bd7d3 until the channel exists",
+    "goal": "GPG-004 ladder remainder (reviewer independence policy): PC-S3 complete - producer batch (closed class {anthropic,openai}, cross-vendor route for anthropic makers, flagged same-vendor fallback with typed cross-vendor unavailability), independenceLevel/mint-override wiring, three signed efficacy legs (wsl same-vendor, u12 cross-vendor, windows on stable codex 0.146.0) and the honest U12 comparison; PC1..PC5 passed. Candidate is in the commit ladder: first independent route returned BLOCKED (12 findings), user chose the fix-and-rerun path (state-record refresh, v3 label closure, typed fallback evidence).",
     "riskTier": "high",
     "status": "in_progress",
     "startedAt": "2026-08-02T23:25:00Z"
@@ -565,5 +565,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Reviewer policy unit phase A (adjudication channel), per HANDOFF.md: rewrite .itd/SCOPE_LOCK.md for the unit, present the phase-A plan for approval, then RED-first tests against validate_checker/review gate before any code change. Do not touch the frozen slice index (staged tree 1a9eaa240f8bd7d3), no push/PR."
+  "nextAction": "Finish the commit ladder on the fixed candidate: re-mint the three signed legs (producer bytes changed in the fix round), re-mint both machine receipts on the new staged tree, run a fresh independent route, then commit through check-review-before-commit (ADR-007 adjudication if findings). After the commit: 'pin clean live evidence state' follow-up, guarded push by explicit user command only, then the /goal verification pass. Signed legs and producer bytes are frozen once the final chain is minted."
 }

@@ -165,8 +165,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
       "reviewEvidence": {
         "claim": "All review entry points converge on one route-bound adjudication authority.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["mandatory-keyless-review-regression", "verification-loop-commit-bridge-regression"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "mandatory-keyless-review-regression",
+          "verification-loop-commit-bridge-regression"
+        ]
       },
       "status": "passed"
     },
@@ -178,8 +184,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
       "reviewEvidence": {
         "claim": "The keyless provider route preserves isolation, compatibility and paid-dispatch denial.",
-        "impactClasses": ["compatibility", "security"],
-        "oracleIds": ["mandatory-keyless-review-regression", "free-reviewer-producer"]
+        "impactClasses": [
+          "compatibility",
+          "security"
+        ],
+        "oracleIds": [
+          "mandatory-keyless-review-regression",
+          "free-reviewer-producer"
+        ]
       },
       "status": "passed"
     },
@@ -191,8 +203,17 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_mandatory_keyless_review.py",
       "reviewEvidence": {
         "claim": "Typed failures, findings and evidence gaps remain terminal across producer, consumer and broker.",
-        "impactClasses": ["correctness", "error-handling", "security"],
-        "oracleIds": ["mandatory-keyless-review-regression", "free-reviewer-producer", "broker-orchestration", "verification-loop-commit-bridge-regression"]
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "mandatory-keyless-review-regression",
+          "free-reviewer-producer",
+          "broker-orchestration",
+          "verification-loop-commit-bridge-regression"
+        ]
       },
       "status": "passed"
     },
@@ -204,8 +225,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
       "reviewEvidence": {
         "claim": "Bounded hierarchical review retains all findings and covers scale/performance contours without truncation.",
-        "impactClasses": ["bounded-output", "performance", "scale"],
-        "oracleIds": ["free-reviewer-producer", "independent-review-efficacy"]
+        "impactClasses": [
+          "bounded-output",
+          "performance",
+          "scale"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer",
+          "independent-review-efficacy"
+        ]
       },
       "status": "passed"
     },
@@ -217,8 +245,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_host_adapters.py",
       "reviewEvidence": {
         "claim": "The evidence-first review contract and transport adapters stay host-neutral.",
-        "impactClasses": ["host-parity"],
-        "oracleIds": ["host-adapter-regression", "independent-review-efficacy"]
+        "impactClasses": [
+          "host-parity"
+        ],
+        "oracleIds": [
+          "host-adapter-regression",
+          "independent-review-efficacy"
+        ]
       },
       "status": "passed"
     },
@@ -230,8 +263,12 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_external_reviewer_release.py",
       "reviewEvidence": {
         "claim": "Paid review remains a separately consented operation outside the mandatory route.",
-        "impactClasses": ["security"],
-        "oracleIds": ["external-reviewer-release-regression"]
+        "impactClasses": [
+          "security"
+        ],
+        "oracleIds": [
+          "external-reviewer-release-regression"
+        ]
       },
       "status": "passed"
     },
@@ -243,8 +280,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "Evidence coverage is closed, exact-tree bound and measured before semantic review.",
-        "impactClasses": ["correctness", "reconciliation", "numerical-stability", "generated-artifact-freshness"],
-        "oracleIds": ["independent-review-efficacy"]
+        "impactClasses": [
+          "correctness",
+          "reconciliation",
+          "numerical-stability",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "independent-review-efficacy"
+        ]
       },
       "status": "passed"
     },
@@ -256,8 +300,17 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
       "reviewEvidence": {
         "claim": "The signed receipt, prompt bundle and adjudication preserve the complete reviewer union.",
-        "impactClasses": ["correctness", "error-handling", "security"],
-        "oracleIds": ["free-reviewer-producer", "mandatory-keyless-review-regression", "broker-orchestration", "verification-loop-commit-bridge-regression"]
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer",
+          "mandatory-keyless-review-regression",
+          "broker-orchestration",
+          "verification-loop-commit-bridge-regression"
+        ]
       },
       "status": "passed"
     },
@@ -269,8 +322,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "Reviewer effectiveness and false-block calibration are executable release criteria.",
-        "impactClasses": ["repository-hygiene", "host-parity"],
-        "oracleIds": ["independent-review-efficacy", "host-adapter-regression"]
+        "impactClasses": [
+          "repository-hygiene",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "independent-review-efficacy",
+          "host-adapter-regression"
+        ]
       },
       "status": "passed"
     },
@@ -282,8 +341,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_provider_freshness.py",
       "reviewEvidence": {
         "claim": "Mandatory provider availability is externally fresh rather than inferred from adapter unit tests.",
-        "impactClasses": ["compatibility", "generated-artifact-freshness", "host-parity"],
-        "oracleIds": ["reviewer-provider-freshness", "copilot-reviewer"]
+        "impactClasses": [
+          "compatibility",
+          "generated-artifact-freshness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "reviewer-provider-freshness",
+          "copilot-reviewer"
+        ]
       },
       "status": "passed"
     },
@@ -295,8 +361,18 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_registry_profiles.py",
       "reviewEvidence": {
         "claim": "Portable local-review remains exact and fail-closed without coupling product PRs to adoption contracts.",
-        "impactClasses": ["compatibility", "correctness", "repository-hygiene", "security"],
-        "oracleIds": ["gate-registry-profiles-regression", "gate-profile-doctor-regression", "guarded-pr-cli-regression", "global-git-gate-regression"]
+        "impactClasses": [
+          "compatibility",
+          "correctness",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "gate-registry-profiles-regression",
+          "gate-profile-doctor-regression",
+          "guarded-pr-cli-regression",
+          "global-git-gate-regression"
+        ]
       },
       "status": "passed"
     },
@@ -308,8 +384,14 @@
       "verificationCommand": "python3 tests/verify_adjudication_channel.py",
       "reviewEvidence": {
         "claim": "A human can adjudicate independent-review findings through a fail-closed machine channel without bypassing or weakening the mandatory reviewer.",
-        "impactClasses": ["correctness", "error-handling", "security"],
-        "oracleIds": ["adjudication-channel"]
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "adjudication-channel"
+        ]
       },
       "status": "passed"
     },
@@ -321,8 +403,14 @@
       "verificationCommand": "python3 tests/verify_adjudication_channel.py --gate",
       "reviewEvidence": {
         "claim": "The commit gate distinguishes a clean review from a humanly adjudicated one and stays fail-closed for everything else.",
-        "impactClasses": ["correctness", "repository-hygiene", "security"],
-        "oracleIds": ["adjudication-channel-gate"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "adjudication-channel-gate"
+        ]
       },
       "status": "passed"
     },
@@ -334,8 +422,15 @@
       "verificationCommand": "bash tests/run-all.sh",
       "reviewEvidence": {
         "claim": "Phase A is accepted end to end on its own exact candidate through the machinery it introduces.",
-        "impactClasses": ["correctness", "repository-hygiene", "security"],
-        "oracleIds": ["adjudication-channel", "adjudication-channel-gate"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "adjudication-channel",
+          "adjudication-channel-gate"
+        ]
       },
       "status": "passed"
     },
@@ -347,8 +442,26 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "The bounded-process slice inside the combined candidate keeps its full machine acceptance: bounded transport containment, dual-host parity, fresh generated-artifact evidence, and reviewer-transport regressions.",
-        "impactClasses": ["bounded-output", "compatibility", "generated-artifact-freshness", "host-parity", "numerical-stability", "performance", "reconciliation", "scale"],
-        "oracleIds": ["copilot-reviewer", "free-reviewer-producer", "gate-profile-doctor-regression", "gate-registry-profiles-regression", "host-adapter-regression", "independent-review-efficacy", "mandatory-keyless-review-regression", "reviewer-provider-freshness"]
+        "impactClasses": [
+          "bounded-output",
+          "compatibility",
+          "generated-artifact-freshness",
+          "host-parity",
+          "numerical-stability",
+          "performance",
+          "reconciliation",
+          "scale"
+        ],
+        "oracleIds": [
+          "copilot-reviewer",
+          "free-reviewer-producer",
+          "gate-profile-doctor-regression",
+          "gate-registry-profiles-regression",
+          "host-adapter-regression",
+          "independent-review-efficacy",
+          "mandatory-keyless-review-regression",
+          "reviewer-provider-freshness"
+        ]
       },
       "status": "passed"
     },
@@ -360,8 +473,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_push_gate_adjudicated.py",
       "reviewEvidence": {
         "claim": "An honestly adjudicated independent review can satisfy the push layer without weakening the signed-route requirement for clean passes.",
-        "impactClasses": ["correctness", "error-handling", "security"],
-        "oracleIds": ["push-gate-adjudicated"]
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "push-gate-adjudicated"
+        ]
       },
       "status": "passed"
     },
@@ -373,8 +492,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
       "reviewEvidence": {
         "claim": "The push-layer claim surface stays honest about which authority backed the review.",
-        "impactClasses": ["correctness", "repository-hygiene", "security"],
-        "oracleIds": ["gate-profile-doctor-regression"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "gate-profile-doctor-regression"
+        ]
       },
       "status": "passed"
     },
@@ -386,8 +511,108 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_registry_isolation.py",
       "reviewEvidence": {
         "claim": "Registry isolation is enforced by the writer and pinned by a regression, not by convention.",
-        "impactClasses": ["repository-hygiene", "security"],
-        "oracleIds": ["gate-registry-isolation"]
+        "impactClasses": [
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "gate-registry-isolation"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PC1",
+      "criterion": "Reviewer selection is governed by a closed maker/reviewer independence class over the vendor set {anthropic (Claude), openai (Codex Sol/Terra)}: for every supported maker identity the policy resolves at least one cross-vendor independent reviewer route; an anthropic maker no longer dead-ends with the typed UNAVAILABLE 'maker is not a supported Sol/Terra model'; unknown or unsupported maker vendors stay fail-closed typed UNAVAILABLE; and the maker identity can never be selected as its own reviewer.",
+      "source": "Compressed reviewer-policy plan 2026-08-09 (ladder remainder); live typed-UNAVAILABLE proof in skills/_shared/itd_free_reviewer_producer.py (select_openai_reviewer_model / require_opposite_openai_model).",
+      "evidence": "PASSED 2026-08-09: the RED pin producer/cross-vendor-anthropic-maker-accepted (typed UNAVAILABLE reproduced by execution) turned GREEN only through the approved PC-S3 producer batch; the 42-check policy suite kills same-vendor selection, unknown-vendor acceptance and self-review individually; producer 128, mandatory-route 83 and Verification Loop 78 checks stayed green on the batched tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_independence_policy.py",
+      "reviewEvidence": {
+        "claim": "Cross-vendor reviewer independence is a closed machine-checked class, not a hard-coded convention.",
+        "impactClasses": [
+          "compatibility",
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "reviewer-independence-policy"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PC2",
+      "criterion": "A same-vendor-different-model fallback reviewer is selectable only after the cross-vendor route returns a typed unavailability; the honest independence label ('same-vendor-different-model' distinct from 'cross-vendor') is carried by the signed phase-one receipt (independenceLevel, minted by the producer and verified fail-closed) and by the check --accept-adjudicated-route output (routeIndependence); the fallback is never selected silently, never permits a same-model pair, and never upgrades the recorded independence claim. Surfacing the label in the profile doctor is a recorded BACKLOG follow-up outside this unit.",
+      "source": "Compressed reviewer-policy plan 2026-08-09, point 2 (flagged fallback, honest label, not silent).",
+      "evidence": "PASSED 2026-08-09: policy-suite mutations cover silent fallback without typed unavailability, same-model pairs, label laundering to 'cross-vendor' and claim elevation; the producer mints independenceLevel into phase-one (optional on verification so pre-batch chains keep validating — Verification Loop 78 checks green), verify_phase_one rejects a dishonest label, and check --accept-adjudicated-route reports routeIndependence from the signed route only.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_independence_policy.py",
+      "reviewEvidence": {
+        "claim": "Degraded independence is possible only as an explicitly labeled state, never as a silent substitute.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "reviewer-independence-policy"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PC3",
+      "criterion": "An explicit HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW outcome exists for the case where no independent reviewer route is available at all: the mint-override CLI channel records an explicit human confirmation bound to the exact candidate digest with typed cross-vendor and fallback unavailability evidence, under its own honest label — never PASSED, never ADJUDICATED, never any form of independent review. The record is structurally not an adjudication receipt, so every downstream gate that requires an independent review continues to treat the candidate as review-absent and the doctor keeps reporting the weakest claim.",
+      "source": "Compressed reviewer-policy plan 2026-08-09, point 3; ADR-007 honest-label precedent.",
+      "evidence": "PASSED 2026-08-09: module mutations cover missing confirmation, foreign candidate digest, wrong outcome literal, extra keys and missing typed unavailability; the mint-override CLI channel mints the audited record fail-closed (happy path, bad-digest rejection) and the record is structurally not an adjudication receipt, so review gates keep treating the candidate as review-absent (adjudication-channel 42 and push-gate 17 checks green).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_reviewer_independence_policy.py",
+      "reviewEvidence": {
+        "claim": "A human can consciously proceed without independent review only through an audited, honestly labeled, non-review outcome.",
+        "impactClasses": [
+          "error-handling",
+          "repository-hygiene",
+          "security"
+        ],
+        "oracleIds": [
+          "reviewer-independence-policy"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PC4",
+      "criterion": "The minimumIndependentReviewers contract is enforced structurally: the restored low-reviewer and high-quorum cases in the efficacy suite prove that fewer distinct independent reviewer identities than the contract requires is UNVERIFIED, and quorum counting deduplicates by provider/model/session identity so one reviewer cannot satisfy a higher quorum.",
+      "source": "BACKLOG deferred item from the bounded-process slice: cardinality cases removed with the ported matcher because the contract belongs to this policy unit.",
+      "evidence": "PASSED 2026-08-09: RED (low-reviewer reviewer cardinality was accepted under the weakened 0..3 matcher) turned GREEN by restoring the exact-equality contract; the restored low-reviewer/high-quorum canaries and the duplicate-identity quorum canary run inside the signed efficacy harness — final run EXIT 0, 48 PASS / 0 FAIL, both signed host legs valid.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "reviewEvidence": {
+        "claim": "Reviewer cardinality is an executable contract, not an advisory count.",
+        "impactClasses": [
+          "correctness",
+          "scale",
+          "security"
+        ],
+        "oracleIds": [
+          "independent-review-efficacy"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PC5",
+      "criterion": "U12: the independence ladder is measured, not asserted — same-vendor-different-model and cross-vendor reviewer legs run over the frozen seeded benchmark corpus under the same manifest, the comparison (per-class detection and clean-control false-block rates) is published as signed host-derived evidence, the measurement never edits the corpus expectations, and the result is recorded honestly even if same-vendor is not measurably worse.",
+      "source": "Compressed reviewer-policy plan 2026-08-09, point 5 (U12, deferred from session_2026-08-08_7).",
+      "evidence": "PASSED 2026-08-09: signed legs — wsl same-vendor (terra-maker/sol-reviewer) 9/9 attempts=1, u12 cross-vendor (opus anthropic-subscription maker/sol-reviewer) 9/9 attempts=1, windows same-vendor on stable codex 0.146.0 (user-authorized transport replacement after the 0.147-alpha deterministic tool-use aborts) 9/9 attempts=1. Recorded honest comparison u12IndependenceLadder over the shared frozen manifest: sameVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} vs crossVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} — measured identical, not asserted; hostParityVerified true.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "reviewEvidence": {
+        "claim": "The cost of degraded independence is a measured quantity with signed evidence, not an assumption.",
+        "impactClasses": [
+          "generated-artifact-freshness",
+          "host-parity",
+          "numerical-stability"
+        ],
+        "oracleIds": [
+          "independent-review-efficacy"
+        ]
       },
       "status": "passed"
     }
@@ -415,11 +640,24 @@
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
-      "requiredImpactClasses": ["bounded-output", "compatibility", "correctness", "error-handling", "generated-artifact-freshness", "host-parity", "numerical-stability", "performance", "reconciliation", "repository-hygiene", "scale", "security"],
+      "requiredImpactClasses": [
+        "bounded-output",
+        "compatibility",
+        "correctness",
+        "error-handling",
+        "generated-artifact-freshness",
+        "host-parity",
+        "numerical-stability",
+        "performance",
+        "reconciliation",
+        "repository-hygiene",
+        "scale",
+        "security"
+      ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     }
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push."
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

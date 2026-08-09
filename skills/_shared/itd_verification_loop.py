@@ -1361,7 +1361,7 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
                                    expected_repository: str | None = None,
                                    expected_producer_keyring_sha256: str | None = None,
                                    accept_adjudicated_route: bool = False,
-                                   ) -> None:
+                                   ) -> dict[str, Any] | None:
     dependencies = receipt.get("dependencies") or {}
     machine_ref = dependencies.get("machine") or {}
     machine_path = (repo / str(machine_ref.get("path") or "")).resolve()
@@ -1407,9 +1407,11 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
                 receipt.get("humanAdjudication"), checker,
                 str(checker_ref.get("sha256") or ""))
         validate_route_machine_binding(verified_route, machine_path)
+        return verified_route
     elif checker_ref is not None:
         raise LoopError("low-risk machine-only route contains a checker receipt",
                         "Remove the unnecessary checker cost and adjudicate machine evidence only.")
+    return None
 
 
 def validate_adjudication(root: Path | str, receipt_path: Path | str,
@@ -1419,7 +1421,8 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                           expected_repository: str | None = None,
                           expected_producer_keyring_sha256: str | None = None,
                           accept_adjudicated_route: bool = False,
-                          ) -> dict[str, Any]:
+                          return_route: bool = False,
+                          ) -> Any:
     policy, policy_sha = load_policy()
     repo = repository_root(root)
     risk = str(risk_tier or "unknown").lower()
@@ -1441,17 +1444,20 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                         "Stop after the approved attempt budget and escalate RECOVERY_REQUIRED.")
     validate_attempt_entry(repo, policy, receipt["candidate"], unit_id, risk, policy_sha,
                            attempt, resolved_receipt, receipt)
-    validate_adjudication_evidence(receipt, repo=repo, risk=risk, unit_id=unit_id,
-                                   policy=policy, policy_sha=policy_sha,
-                                   candidate_mode=candidate_mode,
-                                   require_mandatory_route=require_mandatory_route,
-                                   expected_repository=expected_repository,
-                                   expected_producer_keyring_sha256=(
-                                       expected_producer_keyring_sha256
-                                   ),
-                                   accept_adjudicated_route=(
-                                       accept_adjudicated_route
-                                   ))
+    verified_route = validate_adjudication_evidence(
+        receipt, repo=repo, risk=risk, unit_id=unit_id,
+        policy=policy, policy_sha=policy_sha,
+        candidate_mode=candidate_mode,
+        require_mandatory_route=require_mandatory_route,
+        expected_repository=expected_repository,
+        expected_producer_keyring_sha256=(
+            expected_producer_keyring_sha256
+        ),
+        accept_adjudicated_route=(
+            accept_adjudicated_route
+        ))
+    if return_route:
+        return receipt, verified_route
     return receipt
 
 
@@ -2006,7 +2012,7 @@ def command_check(args: argparse.Namespace) -> int:
             "mandatory publication repository is missing",
             "Provide --expected-repository with --require-mandatory-route.",
         )
-    receipt = validate_adjudication(
+    receipt, verified_route = validate_adjudication(
         args.root, args.receipt, args.risk_tier, args.unit_id,
         args.candidate_mode,
         require_mandatory_route=args.require_mandatory_route,
@@ -2014,13 +2020,87 @@ def command_check(args: argparse.Namespace) -> int:
         expected_producer_keyring_sha256=(
             args.expected_producer_keyring_sha256
         ),
-        accept_adjudicated_route=args.accept_adjudicated_route)
+        accept_adjudicated_route=args.accept_adjudicated_route,
+        return_route=True)
     if args.accept_adjudicated_route:
         # Route-evidence label for the opt-in caller only; the default check
-        # surface stays byte-identical (silent stdout on success).
-        print(json.dumps({"outcome": receipt.get("outcome")},
-                         ensure_ascii=False, sort_keys=True))
+        # surface stays byte-identical (silent stdout on success). The honest
+        # independence label comes from the signed phase-one route when the
+        # producer minted one; pre-batch receipts and ADJUDICATED outcomes
+        # without a route report null instead of a fabricated level.
+        print(json.dumps({
+            "outcome": receipt.get("outcome"),
+            "routeIndependence": (verified_route or {}).get(
+                "independenceLevel"
+            ),
+        }, ensure_ascii=False, sort_keys=True))
     return 0
+
+
+def command_mint_override(args: argparse.Namespace) -> int:
+    """Mint the audited HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW record.
+
+    The record documents a human decision to proceed with NO independent
+    review at all. It is validated fail-closed by the shared independence
+    policy, is bound to the exact candidate digest, and is deliberately not
+    an adjudication receipt: every gate that requires an independent review
+    keeps treating the candidate as review-absent.
+    """
+    policy_module = _independence_module()
+    record = {
+        "outcome": policy_module.HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW,
+        "candidateDigest": args.candidate_digest,
+        "confirmedBy": args.confirmed_by,
+        "reason": args.reason,
+        "crossVendorUnavailability": {
+            "status": "UNAVAILABLE", "route": policy_module.CROSS_VENDOR,
+            "detail": args.cross_vendor_detail,
+        },
+        "fallbackUnavailability": {
+            "status": "UNAVAILABLE",
+            "route": policy_module.SAME_VENDOR_DIFFERENT_MODEL,
+            "detail": args.fallback_detail,
+        },
+    }
+    try:
+        validated = policy_module.validate_human_override(
+            record, args.candidate_digest
+        )
+    except policy_module.IndependenceError as exc:
+        raise LoopError(
+            f"human override record is {exc.status}: {exc}",
+            "Provide the exact candidate digest, confirmer and typed "
+            "unavailability details.",
+        ) from exc
+    policy, _policy_sha = load_policy()
+    repo = repository_root(args.root)
+    output = inside(
+        Path(args.output), receipt_root(repo, policy), "override record"
+    )
+    payload = {
+        "kind": "itd-human-override-no-independent-review-v1",
+        "unitId": args.unit_id,
+        "recordedAt": now_iso(),
+        **validated,
+    }
+    write_json_exclusive(output, payload)
+    print(output.as_posix())
+    return 0
+
+
+def _independence_module():
+    import importlib.util as _util
+    path = Path(__file__).resolve().parent / "itd_reviewer_independence.py"
+    spec = _util.spec_from_file_location("itd_reviewer_independence", path)
+    if spec is None or spec.loader is None:
+        raise LoopError(
+            "independence policy module is unavailable",
+            "Restore skills/_shared/itd_reviewer_independence.py.",
+        )
+    module = _util.module_from_spec(spec)
+    sys.modules.setdefault("itd_reviewer_independence", module)
+    spec.loader.exec_module(module)
+    return module
 
 
 def fail(exc: LoopError) -> int:
@@ -2082,6 +2162,17 @@ def parser() -> argparse.ArgumentParser:
               "still requires the signed phase-one route"))
     check.add_argument("--expected-repository")
     check.add_argument("--expected-producer-keyring-sha256")
+    override = sub.add_parser(
+        "mint-override", parents=[common],
+        help=("record an audited HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW "
+              "decision; the record is never a review outcome and satisfies "
+              "no review gate"))
+    override.add_argument("--candidate-digest", required=True)
+    override.add_argument("--confirmed-by", required=True)
+    override.add_argument("--reason", required=True)
+    override.add_argument("--cross-vendor-detail", required=True)
+    override.add_argument("--fallback-detail", required=True)
+    override.add_argument("--output", required=True)
     return p
 
 
@@ -2101,7 +2192,9 @@ def main(argv: list[str] | None = None) -> int:
             return command_adjudicate(args)
         if args.action == "check":
             return command_check(args)
-        raise LoopError("a Verification Loop action is required", "Use machine, checker, adjudicate or check.")
+        if args.action == "mint-override":
+            return command_mint_override(args)
+        raise LoopError("a Verification Loop action is required", "Use machine, checker, adjudicate, check or mint-override.")
     except LoopError as exc:
         return fail(exc)
 

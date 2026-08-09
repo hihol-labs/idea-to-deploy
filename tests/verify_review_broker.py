@@ -2680,7 +2680,11 @@ def free_review_phase() -> None:
         packet=packet,
         prompt=free.review_prompt(packet),
         report={"verdict": "PASSED", "findings": [], "unverified": []},
-        maker={"provider": "forged-maker", "model": "gpt-5.6-sol",
+        # A class-member but foreign maker identity: the closed independence
+        # class now refuses to label pairs outside {anthropic, openai} at
+        # mint time, so the foreign-maker rejection is exercised with an
+        # anthropic maker that still mismatches the signed PR provenance.
+        maker={"provider": "anthropic-subscription", "model": "opus",
                "session": "maker-session"},
         reviewer={"provider": "openai-subscription",
                   "model": "gpt-5.6-terra", "session": "fresh-session-2",
