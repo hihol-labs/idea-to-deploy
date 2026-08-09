@@ -1,77 +1,106 @@
-# Scope Lock — GPG-004 reviewer-policy unit, phase A: human adjudication channel
+# Scope Lock — GPG-004 push-gate unit: ADJUDICATED acceptance in the push layer
 
 ## Current Task
 
-Build the machine channel that lets a human adjudicate independent-review
-findings, so that a BLOCKED checker verdict whose findings are all explicitly
-dispositioned by the human can mint a gate-satisfying receipt with the honest
-outcome `ADJUDICATED`. Necessity is proven by execution (2026-08-09): the
-bounded-process slice is fully machine-accepted (mutations 19/19, both live
-benchmark legs host-parity, machine receipt 26/26, H4 PASS, full run-all
-green) yet permanently blocked at the commit review gate, because the gate
-accepts only a recorded `PASSED` adjudication receipt and the mandatory
-reviewer returned BLOCKED on findings that were adjudicated or refuted by
-evidence (including a proven gzip false positive). A mandatory no-bypass
-reviewer without an adjudication channel can deadlock correct code forever.
+Extend the guarded push layer so a human-adjudicated independent review can
+honestly satisfy it, and repair the live gate registry after the isolation
+incident. Necessity is proven by execution (2026-08-09):
 
-Producer files are not touched in this phase, so the signed benchmark legs
-(bound to the producer file sha) remain valid. WIP=1: the bounded-process
-slice stays parked verified-and-uncommitted on frozen staged tree
-`1a9eaa240f8bd7d3` and commits through this channel as the next step.
+1. `validate_local_adjudication` (`skills/_shared/itd_gate_control.py:1458`)
+   shells to `itd_verification_loop.py check --require-mandatory-route
+   --expected-producer-keyring-sha256 …`, which requires a checker receipt
+   carrying a signed phase-one clean-pass route. The producer structurally
+   refuses to mint a phase-one receipt for a BLOCKED verdict
+   (`itd_free_reviewer_producer.py`: "review did not return a clean pass";
+   `verify_phase_one` requires `status == "PASSED"`). An honestly
+   BLOCKED-then-adjudicated route (ADR-007) can therefore never pass the push
+   gate: authorized pushes deadlock forever. The commit gate already accepts
+   ADJUDICATED (phase A); the push layer is the remaining PASSED-only surface.
+2. The live registry `~/.config/itd/gates.json` was overwritten by a
+   test-fixture row (`checkout: /tmp/itd_gate_local_review_commit`, missing
+   `localReviewProducerKeyringSha256`) and no longer validates — a
+   test/rehearsal isolation leak (incident, DECISIONS 2026-08-09).
 
-The deferred remainder of the reviewer-policy work (closed vendor set
-{Claude, Codex}, same-vendor-different-model fallback, honest independence
-class, `HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW`, reviewer cardinality and its
-benchmark cases, U12 measurement) is a separate backlog unit and is out of
-scope here.
+Design, fixed for this unit:
+
+- New explicit opt-in flag `--accept-adjudicated-route` on the `check`
+  subcommand. Default behavior is byte-preserved: `--require-mandatory-route`
+  without the new flag stays PASSED-only with the signed route. With the flag:
+  a PASSED outcome still requires the signed phase-one route; an ADJUDICATED
+  outcome is authorized by the ADR-007 human channel instead (PASSED machine
+  receipt + BLOCKED checker with exact-tree/artifact/identity validation +
+  complete human adjudication bound to the checker sha256), because a signed
+  clean-pass route cannot honestly exist for it.
+- `validate_local_adjudication` passes the new flag; the profile doctor
+  surfaces the honest route evidence (`human-adjudication` vs
+  `signed-keyless-route`) without elevating the LOCAL_REVIEWED claim.
+- Registry-write isolation: the guarded registry writer refuses to write a
+  row whose checkout lies under the system temp directory into the live
+  default registry path; tests and rehearsals write only through an explicit
+  `ITD_GATE_REGISTRY` target. A RED-first isolation test reproduces the
+  incident write and pins that the live registry stays byte-identical across
+  the gate suites.
+- Live registry repair happens only through the guarded register flow, after
+  the unit commit, with a freshly minted committed-head receipt chain.
+
+Established by execution this session: `validate_common` recomputes the
+candidate context (HEAD, tree, scope/acceptance contract hashes) from the
+live repository on every check, so the pre-unit receipts in
+`.itd-memory/verification-loop/receipts/adf40ca3f6d504c9/` cannot authorize a
+push made after any further commit. They are reused as RED-test fixtures and
+as the minting procedure template only; the push-time chain is minted fresh
+on the final HEAD and needs one more explicit human adjudication.
 
 ## Allowed Change Areas
 
-- `skills/_shared/itd_verification_loop.py` — the `ADJUDICATED` receipt
-  outcome: minting that requires a BLOCKED checker receipt plus complete
-  per-finding human dispositions with rationale and explicit human
-  confirmation; fail-closed validation of that receipt
-- `skills/review/scripts/itd_review_cache.py` — accepting the new receipt
-  outcome at the commit review gate with its honest label
-- `hooks/check-review-before-commit.sh` — only as far as its flow or wording
-  must name the new outcome
-- new focused tests for the channel (RED-first) and mutation checks that kill
-  each minting guard
-- `docs/adr/ADR-007-human-adjudication-of-independent-review.md`
-- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (phase-A criteria),
+- `skills/_shared/itd_verification_loop.py` — the `--accept-adjudicated-route`
+  flag and its threading through `command_check`/`validate_adjudication`/
+  `validate_adjudication_evidence`/`validate_checker` (the mandatory-route
+  requirement site)
+- `skills/_shared/itd_gate_control.py` — `validate_local_adjudication`,
+  profile-doctor route-evidence surface, registry-write guard
+- the guarded `itd` CLI registry writer, if it lives outside
+  `itd_gate_control.py`
+- new focused RED-first tests and mutation checks
+  (`tests/verify_push_gate_adjudicated.py`,
+  `tests/verify_gate_registry_isolation.py`) plus bounded extensions of
+  `tests/verify_gate_profile_doctor.py`,
+  `tests/verify_gate_registry_profiles.py`,
+  `tests/verify_mandatory_keyless_review.py`, and oracle-id registration in
+  the evidence-coverage mapping
+- live registry repair via the guarded register flow (post-commit ops step)
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (PB criteria),
   CHANGELOG/BACKLOG/HANDOFF and `.itd-memory` state records
 
 ## Forbidden Change Areas
 
-- `skills/_shared/itd_free_reviewer_producer.py`,
-  `skills/_shared/itd_review_evidence.py`, the efficacy benchmark corpus,
-  runner, verifier or signed legs, and any semantics of the parked
-  bounded-process slice (a single producer byte invalidates both live legs)
-- widening the checker `acceptedVerdicts` beyond `["PASSED"]`, or rewriting,
-  downgrading or re-labelling a checker verdict: the checker receipt stays
-  BLOCKED in its own record; adjudication is a separate receipt that
-  references it
-- minting `ADJUDICATED` while any checker finding lacks a human disposition
-  (`accepted-trade-off` / `refuted-by-evidence` / `fixed`), a rationale, or
-  the explicit human confirmation; no default or model-authored dispositions
-- `--no-verify`, environment kill-switches, or any second review authority
-  beside Verification Loop
-- the ladder scope listed above as deferred
-- unstaging or moving the frozen slice index (tree `1a9eaa240f8bd7d3`)
-  except at the slice's own commit step
-- push or PR without an explicit user command
+- weakening the default: `--require-mandatory-route` without the new flag
+  stays PASSED-only with the signed phase-one route
+- minting phase-one receipts for BLOCKED verdicts, rewriting/downgrading/
+  re-labelling checker verdicts, widening checker `acceptedVerdicts`
+- `skills/_shared/itd_free_reviewer_producer.py` and the signed benchmark-leg
+  surface (a single producer byte invalidates both live legs)
+- `--no-verify`, environment kill-switches, direct `git push`, or manual
+  edits of `~/.config/itd/gates.json` outside the guarded register flow
+- treating the pre-unit receipts (`adf40ca3f6d504c9/*`) as push authorization
+  after HEAD moves — fixtures/templates only
+- the ladder remainder (independence class {Claude,Codex}, same-vendor
+  fallback, `HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW`, reviewer cardinality,
+  U12), U6, U16/U17 — separate deferred units
+- push or PR before: unit commit + the "pin clean live evidence" follow-up +
+  a fresh committed-head chain + a valid live registry
 
 ## Acceptance Boundary
 
-Phase A is accepted only when: RED-first tests reproduce today's deadlock (a
-BLOCKED checker receipt with fully-dispositioned findings cannot satisfy the
-gate); the channel converts exactly that state into an `ADJUDICATED` receipt
-only in the presence of complete per-finding human dispositions and explicit
-confirmation; mutation checks kill every minting guard (uncovered finding,
-foreign unit, stale/foreign candidate, verdict rewrite, missing
-confirmation); the full `tests/run-all.sh` stays green; a fresh independent
-route reviews the exact phase-A candidate and any findings are adjudicated
-through the channel itself; and the phase-A commit passes
-`hooks/check-review-before-commit.sh` without bypass. The bounded-process
-slice then commits through the same channel as its own next step (separate
-acceptance: fresh H4, machine receipt, fresh route on the moved tree).
+The unit is accepted only when GPG-004-PB1..PB3 pass: RED-first tests
+reproduce both deadlocks (mandatory-route-missing for an honest ADJUDICATED
+receipt; the live-registry fixture write), then turn GREEN only through the
+new flag and the isolation guard; mutation checks kill each guard
+individually; the full quick suite stays green; and the unit commit itself
+passes the commit review gate (through the ADR-007 channel if the fresh
+route returns findings) without bypass. The live registry repair is a
+post-commit ops gate carried by the contract doneRule, not a pre-commit
+criterion: it structurally requires the committed code and a fresh
+committed-head chain, and it must complete before guarded publication.
+`skills/` edits burn the H4 pin — the queued "pin clean live evidence state"
+follow-up restores it before `itd pr create`.

@@ -1279,6 +1279,7 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      expected_repository: str | None = None,
                      expected_producer_keyring_sha256: str | None = None,
                      allow_adjudicated_blocked: bool = False,
+                     accept_adjudicated_route: bool = False,
                      ) -> dict[str, Any] | None:
     validate_common(receipt, kind="checker", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
@@ -1318,7 +1319,15 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
             raise LoopError(f"checker {name} artifact is missing or changed",
                             "Preserve the exact durable checker inputs and regenerate the receipt.")
     mandatory_route = receipt.get("mandatoryRoute")
-    if require_mandatory_route and not isinstance(mandatory_route, dict):
+    # The producer never mints a signed phase-one receipt for a BLOCKED
+    # verdict, so an honestly adjudicated route (ADR-007) is authorized by its
+    # human adjudication instead — but only through the explicit opt-in flag;
+    # a clean PASSED outcome always requires the signed route.
+    adjudicated_route_authorized = (
+        accept_adjudicated_route and allow_adjudicated_blocked
+    )
+    if (require_mandatory_route and not isinstance(mandatory_route, dict)
+            and not adjudicated_route_authorized):
         raise LoopError(
             "mandatory keyless route evidence is missing",
             "Run the shared fresh opposite-GPT producer and bind its signed phase-one receipt.",
@@ -1351,6 +1360,7 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
                                    require_mandatory_route: bool = False,
                                    expected_repository: str | None = None,
                                    expected_producer_keyring_sha256: str | None = None,
+                                   accept_adjudicated_route: bool = False,
                                    ) -> None:
     dependencies = receipt.get("dependencies") or {}
     machine_ref = dependencies.get("machine") or {}
@@ -1390,6 +1400,7 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
                 expected_producer_keyring_sha256
             ),
             allow_adjudicated_blocked=adjudicated,
+            accept_adjudicated_route=accept_adjudicated_route,
         )
         if adjudicated:
             validate_human_adjudication(
@@ -1407,6 +1418,7 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                           require_mandatory_route: bool = False,
                           expected_repository: str | None = None,
                           expected_producer_keyring_sha256: str | None = None,
+                          accept_adjudicated_route: bool = False,
                           ) -> dict[str, Any]:
     policy, policy_sha = load_policy()
     repo = repository_root(root)
@@ -1436,6 +1448,9 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
                                    expected_repository=expected_repository,
                                    expected_producer_keyring_sha256=(
                                        expected_producer_keyring_sha256
+                                   ),
+                                   accept_adjudicated_route=(
+                                       accept_adjudicated_route
                                    ))
     return receipt
 
@@ -1991,14 +2006,20 @@ def command_check(args: argparse.Namespace) -> int:
             "mandatory publication repository is missing",
             "Provide --expected-repository with --require-mandatory-route.",
         )
-    validate_adjudication(
+    receipt = validate_adjudication(
         args.root, args.receipt, args.risk_tier, args.unit_id,
         args.candidate_mode,
         require_mandatory_route=args.require_mandatory_route,
         expected_repository=args.expected_repository,
         expected_producer_keyring_sha256=(
             args.expected_producer_keyring_sha256
-        ))
+        ),
+        accept_adjudicated_route=args.accept_adjudicated_route)
+    if args.accept_adjudicated_route:
+        # Route-evidence label for the opt-in caller only; the default check
+        # surface stays byte-identical (silent stdout on success).
+        print(json.dumps({"outcome": receipt.get("outcome")},
+                         ensure_ascii=False, sort_keys=True))
     return 0
 
 
@@ -2054,6 +2075,11 @@ def parser() -> argparse.ArgumentParser:
     check = sub.add_parser("check", parents=[common])
     check.add_argument("--receipt", required=True)
     check.add_argument("--require-mandatory-route", action="store_true")
+    check.add_argument(
+        "--accept-adjudicated-route", action="store_true",
+        help=("with --require-mandatory-route: accept an ADJUDICATED outcome "
+              "through its human adjudication channel; a PASSED outcome "
+              "still requires the signed phase-one route"))
     check.add_argument("--expected-repository")
     check.add_argument("--expected-producer-keyring-sha256")
     return p

@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.parse
 import urllib.request
 from ctypes import wintypes
@@ -72,16 +73,49 @@ def canonical_json(value: Any) -> bytes:
     ).encode("utf-8")
 
 
-def registry_path() -> Path:
-    configured = os.environ.get("ITD_GATE_REGISTRY")
-    if configured:
-        return Path(configured).expanduser().resolve()
+def live_default_registry_path() -> Path:
+    """The un-overridden OS default registry target, ignoring ITD_GATE_REGISTRY."""
     if os.name == "nt":
         base = Path(
             os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))
         )
         return (base / "ITD" / "gates.json").resolve()
     return (Path.home() / ".config" / "itd" / "gates.json").resolve()
+
+
+def registry_path() -> Path:
+    configured = os.environ.get("ITD_GATE_REGISTRY")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return live_default_registry_path()
+
+
+def assert_registry_write_isolated(
+    registry: dict[str, Any], target: Path
+) -> None:
+    """Keep fixture/rehearsal rows out of the live default gate registry.
+
+    2026-08-09 incident: a rehearsal register run wrote a test-fixture row
+    (checkout under the system temp directory) into the un-overridden live
+    default registry. Isolated targets (explicit path or ITD_GATE_REGISTRY)
+    stay unrestricted.
+    """
+    if target.resolve() != live_default_registry_path():
+        return
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    for row in registry.get("repositories") or []:
+        checkout = Path(str(row.get("checkout") or ""))
+        try:
+            is_fixture = checkout.resolve().is_relative_to(temp_root)
+        except OSError:
+            is_fixture = True
+        if is_fixture:
+            raise GateError(
+                "BLOCKED",
+                "temp-directory checkout cannot be registered into the live "
+                "default gate registry; use an explicit ITD_GATE_REGISTRY "
+                "target for fixtures",
+            )
 
 
 def github_repository_from_remote(value: str) -> str:
@@ -1465,7 +1499,7 @@ def validate_local_adjudication(
     *,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
     platform_name: str | None = None,
-) -> None:
+) -> str | None:
     if (
         not checkout.is_absolute()
         or not receipt.is_absolute()
@@ -1479,6 +1513,7 @@ def validate_local_adjudication(
         "--risk-tier", risk_tier,
         "--candidate-mode", "committed-head",
         "--require-mandatory-route",
+        "--accept-adjudicated-route",
         "--expected-repository", repository,
         "--expected-producer-keyring-sha256", producer_keyring_sha256,
         "--receipt", str(receipt),
@@ -1503,6 +1538,18 @@ def validate_local_adjudication(
         raise GateError(
             "UNVERIFIED", "local adjudication is stale, foreign, or invalid"
         )
+    # Honest route-evidence label from the validated outcome the check
+    # subprocess printed; absent/foreign output degrades to no label.
+    try:
+        line = completed.stdout.decode("utf-8").strip().splitlines()[-1]
+        outcome = json.loads(line).get("outcome")
+    except (IndexError, UnicodeError, ValueError):
+        outcome = None
+    if outcome == "ADJUDICATED":
+        return "human-adjudication"
+    if outcome == "PASSED":
+        return "signed-keyless-route"
+    return None
 
 
 def profile_doctor_entry(
@@ -1510,7 +1557,7 @@ def profile_doctor_entry(
     *,
     gh: Callable[..., Any] = gh_json,
     readiness: Callable[..., dict[str, Any]] = broker_ready,
-    local_review: Callable[[Path, Path, str, str, str, str], None]
+    local_review: Callable[[Path, Path, str, str, str, str], str | None]
     = validate_local_adjudication,
     adoption: Callable[[Path], list[str]] = adopted_checkout,
     version_probe: Callable[[], str] = installed_version,
@@ -1558,14 +1605,17 @@ def profile_doctor_entry(
         drift.append(f"version: {exc.status}: {exc.reason}")
         version = None
     ready = None
+    route_evidence: str | None = None
     if protection == "local-review":
         try:
-            local_review(
+            observed = local_review(
                 checkout, Path(entry["localReviewReceiptFile"]),
                 entry["localReviewUnitId"], entry["localReviewRiskTier"],
                 entry["repository"],
                 entry["localReviewProducerKeyringSha256"],
             )
+            if isinstance(observed, str):
+                route_evidence = observed
         except GateError as exc:
             drift.append(f"local review: {exc.status}: {exc.reason}")
     else:
@@ -1608,6 +1658,7 @@ def profile_doctor_entry(
         "repository": entry["repository"],
         "status": claim if not drift else "UNVERIFIED", "drift": drift,
         "itdVersion": version, "broker": ready,
+        "routeEvidence": route_evidence,
         "deploymentProfile": deployment, "protectionProfile": protection,
     }
 

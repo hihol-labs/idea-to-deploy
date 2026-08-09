@@ -67,6 +67,7 @@ def sign_provenance(unsigned: dict[str, Any], material: bytes) -> dict[str, Any]
 def save_registry(value: dict[str, Any], path: Path | None = None) -> Path:
     validated = gate.validate_registry(value)
     target = (path or gate.registry_path()).resolve()
+    gate.assert_registry_write_isolated(validated, target)
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
     data = json.dumps(

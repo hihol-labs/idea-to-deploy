@@ -351,6 +351,45 @@
         "oracleIds": ["copilot-reviewer", "free-reviewer-producer", "gate-profile-doctor-regression", "gate-registry-profiles-regression", "host-adapter-regression", "independent-review-efficacy", "mandatory-keyless-review-regression", "reviewer-provider-freshness"]
       },
       "status": "passed"
+    },
+    {
+      "id": "GPG-004-PB1",
+      "criterion": "The Verification Loop check subcommand gains an explicit opt-in --accept-adjudicated-route flag. Default behavior is byte-preserved: --require-mandatory-route without the new flag accepts only a PASSED adjudication whose checker carries a valid signed phase-one clean-pass route. With the flag: a PASSED outcome still requires the signed route, while an ADJUDICATED outcome is authorized by the ADR-007 human channel (PASSED machine receipt, BLOCKED checker validated on the exact tree with artifact and identity checks, complete human adjudication bound to the checker sha256) without a phase-one route, because the producer structurally never mints phase-one for a BLOCKED verdict. Missing human adjudication, tampered checker binding, foreign unit or candidate, and PASSED-without-route all stay fail-closed under the flag.",
+      "source": ".itd/DECISIONS.md 2026-08-09 (push through the guarded gate is honestly impossible today); .itd/SCOPE_LOCK.md push-gate unit.",
+      "evidence": "RED-first: the honest ADJUDICATED committed-head chain (fixture modeled on receipts adf40ca3f6d504c9) fails check --require-mandatory-route today; it turns GREEN only under --accept-adjudicated-route; mutation checks kill each guard individually and prove the default path is unchanged.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_push_gate_adjudicated.py",
+      "reviewEvidence": {
+        "claim": "An honestly adjudicated independent review can satisfy the push layer without weakening the signed-route requirement for clean passes.",
+        "impactClasses": ["correctness", "error-handling", "security"],
+        "oracleIds": ["push-gate-adjudicated"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PB2",
+      "criterion": "validate_local_adjudication passes --accept-adjudicated-route, and the local-review profile doctor reports the honest route evidence label (human-adjudication vs signed-keyless-route) for the validated receipt without elevating the LOCAL_REVIEWED claim; stale, foreign, unbound and fixture receipts still fail closed.",
+      "source": ".itd/SCOPE_LOCK.md push-gate unit design.",
+      "evidence": "Extended profile-doctor regression covers accept and reject paths for both route-evidence labels on committed-head candidates.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_profile_doctor.py",
+      "reviewEvidence": {
+        "claim": "The push-layer claim surface stays honest about which authority backed the review.",
+        "impactClasses": ["correctness", "repository-hygiene", "security"],
+        "oracleIds": ["gate-profile-doctor-regression"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PB3",
+      "criterion": "Tests and rehearsals cannot write the live default gate registry: the guarded registry writer refuses a row whose checkout lies under the system temp directory unless the write targets an explicit non-default ITD_GATE_REGISTRY path, and the isolation test proves the live registry file stays byte-identical across the gate suites while the same write succeeds against an explicit isolated target.",
+      "source": ".itd/DECISIONS.md 2026-08-09 incident: live ~/.config/itd/gates.json overwritten by the /tmp/itd_gate_local_review_commit fixture.",
+      "evidence": "RED-first: the incident write (fixture row into the default path) is reproduced and then fails closed; the explicit isolated write passes; a live-registry hash pin brackets the suite run.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_gate_registry_isolation.py",
+      "reviewEvidence": {
+        "claim": "Registry isolation is enforced by the writer and pinned by a regression, not by convention.",
+        "impactClasses": ["repository-hygiene", "security"],
+        "oracleIds": ["gate-registry-isolation"]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -382,5 +421,5 @@
       "adjudicator": "sealed-host-union"
     }
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED."
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push."
 }

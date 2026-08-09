@@ -157,6 +157,62 @@ def main() -> int:
             local_result["status"] == "LOCAL_REVIEWED" and local_calls,
             "local doctor reports only local review authority",
         )
+        # GPG-004-PB2: the doctor surfaces which authority backed the review
+        # without elevating the LOCAL_REVIEWED claim.
+        adjudicated_result = gate.profile_doctor_entry(
+            local_entry,
+            gh=lambda _args: (_ for _ in ()).throw(
+                AssertionError("local doctor called GitHub")
+            ),
+            readiness=lambda *_args: (_ for _ in ()).throw(
+                AssertionError("local doctor called broker")
+            ),
+            local_review=lambda *_args: "human-adjudication",
+            adoption=lambda _root: [], version_probe=lambda: "1.95.0",
+        )
+        check(
+            adjudicated_result["status"] == "LOCAL_REVIEWED"
+            and adjudicated_result.get("routeEvidence") == "human-adjudication",
+            "adjudicated route evidence is labelled honestly without a claim lift",
+        )
+        signed_result = gate.profile_doctor_entry(
+            local_entry,
+            gh=lambda _args: (_ for _ in ()).throw(
+                AssertionError("local doctor called GitHub")
+            ),
+            readiness=lambda *_args: (_ for _ in ()).throw(
+                AssertionError("local doctor called broker")
+            ),
+            local_review=lambda *_args: "signed-keyless-route",
+            adoption=lambda _root: [], version_probe=lambda: "1.95.0",
+        )
+        check(
+            signed_result["status"] == "LOCAL_REVIEWED"
+            and signed_result.get("routeEvidence") == "signed-keyless-route",
+            "signed keyless route evidence keeps its own honest label",
+        )
+
+        def outcome_runner(payload: bytes):
+            def runner(command, **_kwargs):
+                return subprocess.CompletedProcess(command, 0, payload, b"")
+            return runner
+
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(b'{"outcome": "ADJUDICATED"}'),
+            ) == "human-adjudication",
+            "validated ADJUDICATED outcome maps to the human-adjudication label",
+        )
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(b'{"outcome": "PASSED"}'),
+            ) == "signed-keyless-route",
+            "validated PASSED outcome maps to the signed-keyless-route label",
+        )
         commands: list[list[str]] = []
 
         def committed_runner(command, **_kwargs):
