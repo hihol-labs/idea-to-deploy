@@ -94,6 +94,16 @@ adjudication; each was deliberately kept out of those bounded slices.
   the doctor regression suite) keeps the doctor entry at
   `routeEvidence`-only. Extend the callable contract and the doctor suite
   together in one bounded change.
+- [ ] Completion-ledger writer schema: agent-delegation telemetry rows are
+  written without the `producer` field, so the strict completion evaluation
+  fails to parse the ledger (observed 2026-08-09, signals.jsonl line 270,
+  audited COMPLETION_BYPASS). Fix the writer and make the evaluator skip
+  layer-0 telemetry rows instead of failing closed on them.
+- [ ] Harden `reviewer_independence_level`: require the shared family to be a
+  member of the closed independence class before labeling a same-family pair
+  (currently unreachable through minting because the reviewer provider is
+  pinned to openai-subscription — reviewer finding, adjudicated
+  refuted-by-evidence on 2026-08-09).
 
 ## P1 — Should do
 
