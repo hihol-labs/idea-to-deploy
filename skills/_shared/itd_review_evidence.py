@@ -120,8 +120,12 @@ def coverage_matrix(
         raise ReviewEvidenceError("active unit has no acceptance criteria")
     rows: list[dict[str, Any]] = []
     observed_impacts: set[str] = set()
+    criterion_ids: set[str] = set()
     for criterion in active:
         criterion_id = criterion["id"]
+        if criterion_id in criterion_ids:
+            raise ReviewEvidenceError("active acceptance criterion ID is duplicated")
+        criterion_ids.add(criterion_id)
         if criterion.get("status") != "passed":
             raise ReviewEvidenceError(f"{criterion_id} is not passed")
         spec = _closed_dict(criterion.get("reviewEvidence"), {

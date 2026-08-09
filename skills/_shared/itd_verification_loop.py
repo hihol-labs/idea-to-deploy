@@ -38,6 +38,15 @@ FREE_REVIEWER_PATH = Path(__file__).with_name("itd_free_reviewer_producer.py")
 REVIEW_CACHE_PATH = INSTALL_ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 RECEIPT_VERSION = 1
 ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED"}
+# ADR-007: an adjudication receipt is honestly either a clean PASSED or a
+# human-adjudicated ADJUDICATED; the checker's own verdict is never rewritten.
+ADJUDICATION_OUTCOMES = ("PASSED", "ADJUDICATED")
+DISPOSITION_CLASSES = ("accepted-trade-off", "refuted-by-evidence", "fixed")
+# The confirmation is a closed affirmative sentence binding the exact checker
+# receipt: arbitrary prose, negations, or a confirmation reused from another
+# receipt can never mint (ADR-007).
+CONFIRMATION_TEMPLATE = ("I adjudicated every finding of checker receipt "
+                         "{sha256} and accept the recorded dispositions")
 RISK_TIERS = {"low", "medium", "high", "unknown"}
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
@@ -1192,6 +1201,76 @@ def validate_machine(receipt: dict[str, Any], *, repo: Path, risk: str,
                         "A failing command cannot be narrated into PASSED.")
 
 
+def finding_digest(value: Any) -> str:
+    return sha256_bytes(canonical(value))
+
+
+def validate_human_adjudication(block: Any, checker: dict[str, Any],
+                                checker_sha256: str) -> None:
+    """Fail-closed validation of a per-finding human adjudication (ADR-007)."""
+    fields = {"confirmedBy", "confirmedAt", "confirmation",
+              "checkerReceiptSha256", "dispositions"}
+    if not isinstance(block, dict) or set(block) != fields:
+        raise LoopError("human adjudication block is malformed",
+                        "Provide exactly confirmedBy, confirmedAt, confirmation, "
+                        "checkerReceiptSha256 and dispositions.")
+    for field in ("confirmedBy", "confirmedAt", "confirmation"):
+        if not isinstance(block.get(field), str) or not block[field].strip():
+            raise LoopError(
+                f"human adjudication {field} is absent",
+                "Adjudication requires the explicit human confirmation; never mint without it.")
+    if block.get("checkerReceiptSha256") != checker_sha256:
+        raise LoopError("human adjudication binds another checker receipt",
+                        "Adjudicate the exact BLOCKED checker receipt this mint depends on.")
+    if block.get("confirmation") != CONFIRMATION_TEMPLATE.format(
+            sha256=checker_sha256):
+        raise LoopError(
+            "human confirmation is not the explicit affirmative statement",
+            "Write the exact affirmative confirmation sentence naming this "
+            "checker receipt sha256; free-form or negated text never mints.")
+    if checker.get("verdict") != "BLOCKED":
+        raise LoopError("human adjudication over a non-BLOCKED review",
+                        "A clean review needs no adjudication; mint plain PASSED evidence.")
+    targets = list(checker.get("findings") or []) + list(checker.get("unverified") or [])
+    if not targets:
+        raise LoopError("BLOCKED review carries no findings to adjudicate",
+                        "Rerun the checker; a finding-free BLOCKED verdict is malformed evidence.")
+    rows = block.get("dispositions")
+    if not isinstance(rows, list) or not rows:
+        raise LoopError("human dispositions are absent",
+                        "Disposition every checker finding or fix the candidate instead.")
+    required = {"findingSha256", "finding", "class", "rationale"}
+    expected = {finding_digest(item) for item in targets}
+    seen: set[str] = set()
+    for row in rows:
+        if (not isinstance(row, dict) or not required <= set(row)
+                or not set(row) <= required | {"evidence"}):
+            raise LoopError("a disposition row is malformed",
+                            "Each disposition needs findingSha256, finding, class and rationale.")
+        digest = row.get("findingSha256")
+        if digest not in expected or digest != finding_digest(row.get("finding")):
+            raise LoopError("a disposition names no checker finding",
+                            "Bind each disposition to the exact finding it adjudicates.")
+        if digest in seen:
+            raise LoopError("duplicate disposition for one finding",
+                            "Record exactly one human disposition per finding.")
+        seen.add(digest)
+        if row.get("class") not in DISPOSITION_CLASSES:
+            raise LoopError("disposition class is unknown",
+                            "Use accepted-trade-off, refuted-by-evidence or fixed.")
+        if not isinstance(row.get("rationale"), str) or not row["rationale"].strip():
+            raise LoopError("disposition rationale is absent",
+                            "State why the human accepted, refuted or fixed the finding.")
+        if row["class"] in ("refuted-by-evidence", "fixed") and (
+                not isinstance(row.get("evidence"), str) or not row["evidence"].strip()):
+            raise LoopError("disposition evidence is absent",
+                            "Name the evidence that refutes or fixes the finding.")
+    if seen != expected:
+        raise LoopError("a checker finding has no human disposition",
+                        "Disposition every finding (accepted-trade-off, "
+                        "refuted-by-evidence or fixed) or fix the candidate.")
+
+
 def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      unit_id: str, policy: dict[str, Any], policy_sha: str,
                      required_mode: str,
@@ -1199,6 +1278,7 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                      require_mandatory_route: bool = False,
                      expected_repository: str | None = None,
                      expected_producer_keyring_sha256: str | None = None,
+                     allow_adjudicated_blocked: bool = False,
                      ) -> dict[str, Any] | None:
     validate_common(receipt, kind="checker", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
@@ -1257,7 +1337,8 @@ def validate_checker(receipt: dict[str, Any], *, repo: Path, risk: str,
                 expected_producer_keyring_sha256
             ),
         )
-    if receipt.get("verdict") not in policy["acceptedVerdicts"]:
+    if receipt.get("verdict") not in policy["acceptedVerdicts"] and not (
+            allow_adjudicated_blocked and receipt.get("verdict") == "BLOCKED"):
         raise LoopError(f"checker verdict is {receipt.get('verdict')}, not accepted",
                         "Resolve findings and run a fresh checker; do not downgrade the verdict.")
     return verified_route
@@ -1284,6 +1365,13 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
         raise LoopError("machine verification failed", "Fix the candidate and rerun the oracle.")
     route = policy["riskRoutes"][risk]
     checker_ref = dependencies.get("checker")
+    adjudicated = receipt.get("outcome") == "ADJUDICATED"
+    if adjudicated and not route["checkerRequired"]:
+        raise LoopError("ADJUDICATED outcome without a checker route",
+                        "Only independent-review findings can be humanly adjudicated.")
+    if not adjudicated and receipt.get("humanAdjudication") is not None:
+        raise LoopError("PASSED adjudication carries a human adjudication block",
+                        "Mint clean evidence as PASSED without dispositions, or mint ADJUDICATED honestly.")
     if route["checkerRequired"]:
         if not isinstance(checker_ref, dict):
             raise LoopError("required checker receipt is missing", "Remain UNVERIFIED until the risk-tier checker completes.")
@@ -1301,7 +1389,12 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
             expected_producer_keyring_sha256=(
                 expected_producer_keyring_sha256
             ),
+            allow_adjudicated_blocked=adjudicated,
         )
+        if adjudicated:
+            validate_human_adjudication(
+                receipt.get("humanAdjudication"), checker,
+                str(checker_ref.get("sha256") or ""))
         validate_route_machine_binding(verified_route, machine_path)
     elif checker_ref is not None:
         raise LoopError("low-risk machine-only route contains a checker receipt",
@@ -1323,9 +1416,13 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
     validate_common(receipt, kind="adjudication", repo=repo, risk=risk,
                     unit_id=unit_id, policy=policy, policy_sha=policy_sha,
                     candidate_mode=candidate_mode)
-    if receipt.get("outcome") != "PASSED":
-        raise LoopError("adjudication outcome is not PASSED",
+    if receipt.get("outcome") not in ADJUDICATION_OUTCOMES:
+        raise LoopError("adjudication outcome is not PASSED or ADJUDICATED",
                         "Resolve failed/unverified evidence and re-adjudicate.")
+    if (receipt.get("outcome") == "ADJUDICATED"
+            and not isinstance(receipt.get("humanAdjudication"), dict)):
+        raise LoopError("ADJUDICATED receipt lacks its human adjudication block",
+                        "Mint through the human adjudication channel; never relabel evidence.")
     attempt = receipt.get("attempt")
     if type(attempt) is not int or not 1 <= attempt <= policy["maxAttemptsPerCandidate"]:
         raise LoopError("adjudication attempt is outside the bounded policy",
@@ -1782,23 +1879,49 @@ def command_adjudicate(args: argparse.Namespace) -> int:
         raise LoopError("machine verification failed", "Repair the candidate before semantic review/adjudication.")
     route = policy["riskRoutes"][risk]
     dependencies: dict[str, Any] = {"machine": dependency(repo, root, machine_path, "machine receipt")}
+    human_block: dict[str, Any] | None = None
+    if args.dispositions and not route["checkerRequired"]:
+        raise LoopError("machine-only route has no findings to adjudicate",
+                        "Human adjudication applies only to an independent checker's findings.")
     if route["checkerRequired"]:
         if not args.checker:
             raise LoopError("required checker receipt is missing",
                             "Run the risk-tier checker or remain UNVERIFIED.")
         checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
         checker = read_json(checker_path, "checker receipt")
+        if args.dispositions:
+            raw = Path(args.dispositions)
+            supplied = read_json(
+                (raw if raw.is_absolute() else repo / raw).resolve(),
+                "human dispositions")
+            allowed = {"confirmedBy", "confirmation",
+                       "checkerReceiptSha256", "dispositions"}
+            if not {"confirmedBy", "confirmation",
+                    "dispositions"} <= set(supplied) <= allowed:
+                raise LoopError("human dispositions file is malformed",
+                                "Provide confirmedBy, confirmation, checkerReceiptSha256 and dispositions.")
+            human_block = {
+                "confirmedBy": supplied.get("confirmedBy"),
+                "confirmedAt": now_iso(),
+                "confirmation": supplied.get("confirmation"),
+                "checkerReceiptSha256": supplied.get("checkerReceiptSha256"),
+                "dispositions": supplied.get("dispositions"),
+            }
+            validate_human_adjudication(human_block, checker,
+                                        sha256_file(checker_path))
         verified_route = validate_checker(
             checker, repo=repo, risk=risk, unit_id=args.unit_id,
             policy=policy, policy_sha=policy_sha,
             required_mode=route["checkerMode"],
             candidate_mode=args.candidate_mode,
+            allow_adjudicated_blocked=human_block is not None,
         )
         validate_route_machine_binding(verified_route, machine_path)
         dependencies["checker"] = dependency(repo, root, checker_path, "checker receipt")
     elif args.checker:
         raise LoopError("low-risk machine-only route must not spend a checker",
                         "Adjudicate the machine receipt without --checker.")
+    outcome = "ADJUDICATED" if human_block is not None else "PASSED"
     assert_checkout_matches_candidate(repo, context)
     with reserve_attempt(repo, policy, context, args.unit_id, risk, policy_sha,
                          args.attempt) as (attempt, entry_path):
@@ -1817,7 +1940,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 "entryPath": entry_path.relative_to(repo).as_posix(),
                 "sequence": attempt,
             }
-            if (receipt.get("outcome") != "PASSED"
+            if (receipt.get("outcome") != outcome
                     or receipt.get("attempt") != attempt
                     or receipt.get("attemptLedger") != expected_ledger
                     or receipt.get("dependencies") != dependencies):
@@ -1828,7 +1951,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 policy=policy, policy_sha=policy_sha,
                 candidate_mode=args.candidate_mode)
         else:
-            receipt = seal_receipt({
+            payload = {
                 "version": RECEIPT_VERSION,
                 "kind": "adjudication",
                 "createdAt": now_iso(),
@@ -1848,8 +1971,11 @@ def command_adjudicate(args: argparse.Namespace) -> int:
                 },
                 "checkerMode": route["checkerMode"],
                 "dependencies": dependencies,
-                "outcome": "PASSED",
-            })
+                "outcome": outcome,
+            }
+            if human_block is not None:
+                payload["humanAdjudication"] = human_block
+            receipt = seal_receipt(payload)
             write_json_exclusive(output, receipt)
         entry = make_attempt_entry(repo, output, receipt)
         write_json_exclusive(entry_path, entry)
@@ -1918,6 +2044,9 @@ def parser() -> argparse.ArgumentParser:
     adjudicate = sub.add_parser("adjudicate", parents=[common])
     adjudicate.add_argument("--machine", required=True)
     adjudicate.add_argument("--checker")
+    adjudicate.add_argument(
+        "--dispositions",
+        help="JSON file with the human's per-finding adjudication (ADR-007)")
     adjudicate.add_argument(
         "--attempt", type=int,
         help="optional assertion of the next durable attempt; allocation is automatic")

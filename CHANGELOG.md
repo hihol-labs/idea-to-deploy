@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Human adjudication channel for independent-review findings (ADR-007). The
+  Verification Loop can now mint an honestly labelled `ADJUDICATED` receipt
+  from a PASSED machine oracle plus a BLOCKED checker receipt whose findings
+  each carry an explicit human disposition (`accepted-trade-off`,
+  `refuted-by-evidence`, or `fixed`) with rationale and a recorded human
+  confirmation bound to the exact checker receipt sha. The checker's own
+  verdict is never rewritten and `acceptedVerdicts` stays `["PASSED"]`; the
+  commit review gate accepts `PASSED` and `ADJUDICATED` and refuses to record
+  one label as the other. Proven necessary by execution on 2026-08-09: a
+  machine-accepted candidate was permanently blocked on adjudicated and
+  refuted findings, including a demonstrated reviewer false positive.
+
 ### Changed
 - `/review`, `/cross-review`, and Verification Loop now share one mandatory
   fresh opposite-GPT route: Sol maker to Terra reviewer, or Terra maker to Sol
@@ -36,6 +49,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and current independent adjudication without requiring adoption contracts in
   product repositories. App-backed and legacy profiles retain adoption and
   machine-preflight requirements.
+- Every reviewer transport now runs through one bounded process helper that
+  caps each captured stream and bounds the process tree: on Windows a
+  kill-on-close Job Object contains the whole tree; on POSIX the call runs in
+  its own session and cleanup kills that process group, which is best-effort —
+  a descendant that re-calls `setsid()` leaves the group and is not reaped.
+  Output can no longer outgrow the call on either host, and on Windows the
+  whole tree is killed; on POSIX a descendant that escapes its session can
+  still outlive the call, so strict POSIX descendant containment is a
+  recorded backlog item.
+- The hierarchical keyless route is resumable per unit through an optional
+  signed `--unit-checkpoint`. A transport loss now costs only the failing
+  unit instead of the whole route. The checkpoint is a convenience and never
+  an acceptance input: a bad envelope or signature, a foreign or stale
+  binding, a row that leaves the frozen plan, a report that fails the unit
+  contract, a reused session, or a changed reviewer model discards the whole
+  checkpoint and restarts from zero, and a completed route consumes it.
+- Acceptance coverage now rejects a duplicated active criterion ID instead of
+  mapping the same criterion twice.
 
 ### Security
 - Free-review phase-one receipts now sign the complete ordered provider-attempt

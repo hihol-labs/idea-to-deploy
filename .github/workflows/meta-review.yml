@@ -178,6 +178,8 @@ jobs:
 
       - name: Run proof-carrying Verification Loop adversarial contract
         run: python3 tests/verify_verification_loop.py
+      - name: Run human adjudication channel contract (ADR-007)
+        run: python3 tests/verify_adjudication_channel.py
       - name: Run provider-neutral external reviewer contract
         run: python3 tests/verify_api_reviewer.py
       - name: Run external reviewer release contract

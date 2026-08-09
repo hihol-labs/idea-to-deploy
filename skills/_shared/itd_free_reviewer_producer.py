@@ -20,10 +20,13 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from typing import Any
 import urllib.parse
 import uuid
@@ -225,13 +228,288 @@ def read_regular(path: Path, label: str, limit: int = MAX_INPUT_BYTES) -> bytes:
         raise FreeReviewError("UNVERIFIED", f"{label} is unavailable: {exc}") from exc
 
 
+def _windows_kill_on_close_job(process: subprocess.Popen[bytes]) -> Any:
+    """Assign a child to a kill-on-close Job Object on native Windows."""
+    if os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class IO_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            ("ReadOperationCount", ctypes.c_uint64),
+            ("WriteOperationCount", ctypes.c_uint64),
+            ("OtherOperationCount", ctypes.c_uint64),
+            ("ReadTransferCount", ctypes.c_uint64),
+            ("WriteTransferCount", ctypes.c_uint64),
+            ("OtherTransferCount", ctypes.c_uint64),
+        ]
+
+    class BASIC_LIMITS(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_int64),
+            ("PerJobUserTimeLimit", ctypes.c_int64),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class EXTENDED_LIMITS(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", BASIC_LIMITS),
+            ("IoInfo", IO_COUNTERS),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    kernel32.SetInformationJobObject.restype = wintypes.BOOL
+    kernel32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+    ]
+    kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        raise OSError(ctypes.get_last_error(), "CreateJobObjectW failed")
+    limits = EXTENDED_LIMITS()
+    limits.BasicLimitInformation.LimitFlags = 0x00002000
+    if not kernel32.SetInformationJobObject(
+        job, 9, ctypes.byref(limits), ctypes.sizeof(limits)
+    ):
+        error = ctypes.get_last_error()
+        kernel32.CloseHandle(job)
+        raise OSError(error, "SetInformationJobObject failed")
+    if not kernel32.AssignProcessToJobObject(
+        job, wintypes.HANDLE(int(process._handle))  # type: ignore[attr-defined]
+    ):
+        error = ctypes.get_last_error()
+        kernel32.CloseHandle(job)
+        raise OSError(error, "AssignProcessToJobObject failed")
+    return (kernel32, job)
+
+
+# This program is deliberately a fixed, isolated wrapper rather than the
+# candidate command.  On Windows a direct child can create descendants and
+# exit before AssignProcessToJobObject runs.  The wrapper cannot execute the
+# plan until its parent creates the release file *after* assigning the wrapper
+# to a KILL_ON_JOB_CLOSE job; every process it subsequently creates inherits
+# that job membership.
+WINDOWS_JOB_WRAPPER = r"""
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+plan_path = Path(os.environ["ITD_WRAPPER_PLAN"])
+release_path = Path(os.environ["ITD_WRAPPER_RELEASE"])
+while not release_path.exists():
+    time.sleep(0.005)
+with plan_path.open("r", encoding="utf-8") as source:
+    plan = json.load(source)
+stdin_path = plan.get("stdinPath")
+stdin = open(stdin_path, "rb") if stdin_path else subprocess.DEVNULL
+try:
+    child = subprocess.Popen(
+        plan["command"], stdin=stdin, stdout=None, stderr=None,
+        cwd=plan["cwd"], env=plan["env"],
+    )
+    raise SystemExit(child.wait())
+finally:
+    if stdin is not subprocess.DEVNULL:
+        stdin.close()
+"""
+
+
+def _windows_wrapper_environment(plan_path: Path, release_path: Path) -> dict[str, str]:
+    """Return the minimal environment required before the Job assignment."""
+    environment = {
+        name: os.environ[name]
+        for name in ("SYSTEMROOT", "WINDIR", "COMSPEC", "PATH")
+        if name in os.environ
+    }
+    environment["ITD_WRAPPER_PLAN"] = str(plan_path)
+    environment["ITD_WRAPPER_RELEASE"] = str(release_path)
+    return environment
+
+
+def _release_windows_wrapper(path: Path) -> None:
+    """Atomically permit a Job-contained Windows wrapper to start its target."""
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+    os.close(descriptor)
+
+
+def _close_process_tree(
+    process: subprocess.Popen[bytes], windows_job: Any,
+) -> None:
+    """Terminate the whole isolated child tree, never just its direct PID."""
+    if os.name == "nt":
+        if windows_job is not None:
+            kernel32, job = windows_job
+            kernel32.CloseHandle(job)
+            return
+        with contextlib.suppress(OSError):
+            process.kill()
+        return
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGKILL)
+
+
+def run_bounded_process(
+    command: list[str], *, input: bytes | None = None,
+    cwd: Path | str | None = None, env: dict[str, str] | None = None,
+    timeout: int | float = 60, max_output: int = MAX_PROCESS_OUTPUT,
+) -> subprocess.CompletedProcess[bytes]:
+    """Capture each stream to max+1 bytes and contain the whole process tree."""
+    if (
+        not isinstance(command, list)
+        or not command
+        or any(not isinstance(value, str) or not value for value in command)
+        or not isinstance(input, (bytes, type(None)))
+        or not isinstance(timeout, (int, float))
+        or timeout <= 0
+        or type(max_output) is not int
+        or max_output <= 0
+    ):
+        raise ValueError("bounded subprocess inputs are invalid")
+    with contextlib.ExitStack() as stack:
+        windows_release: Path | None = None
+        if os.name == "nt":
+            # Do not launch the candidate directly: it could fork and exit in
+            # the interval before the Job Object assignment.  The isolated
+            # wrapper waits on an O_EXCL release file, so it is Job-contained
+            # before any candidate-controlled process can exist.
+            wrapper_directory = Path(stack.enter_context(tempfile.TemporaryDirectory(
+                prefix="itd-windows-job-"
+            )))
+            stdin_path: Path | None = None
+            if input is not None:
+                stdin_path = wrapper_directory / "stdin.bin"
+                stdin_path.write_bytes(input)
+            plan_path = wrapper_directory / "plan.json"
+            windows_release = wrapper_directory / "release"
+            target_environment = dict(os.environ if env is None else env)
+            plan_path.write_text(json.dumps({
+                "command": command,
+                "stdinPath": str(stdin_path) if stdin_path is not None else None,
+                "cwd": str(cwd) if cwd is not None else os.getcwd(),
+                "env": target_environment,
+            }, separators=(",", ":")), encoding="utf-8")
+            process = subprocess.Popen(
+                [sys.executable, "-I", "-c", WINDOWS_JOB_WRAPPER],
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, cwd=str(wrapper_directory),
+                env=_windows_wrapper_environment(plan_path, windows_release),
+                creationflags=int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)),
+            )
+        else:
+            if input is None:
+                stdin_value: Any = subprocess.DEVNULL
+            else:
+                stdin_file = stack.enter_context(tempfile.TemporaryFile(mode="w+b"))
+                stdin_file.write(input)
+                stdin_file.seek(0)
+                stdin_value = stdin_file
+            process = subprocess.Popen(
+                command, stdin=stdin_value, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, cwd=cwd, env=env,
+                start_new_session=True,
+            )
+        windows_job = None
+        try:
+            windows_job = _windows_kill_on_close_job(process)
+            if windows_release is not None:
+                _release_windows_wrapper(windows_release)
+        except OSError:
+            with contextlib.suppress(OSError):
+                _close_process_tree(process, windows_job)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=10)
+            raise
+        streams = (process.stdout, process.stderr)
+        buffers = (bytearray(), bytearray())
+        overflow = threading.Event()
+
+        def drain(index: int) -> None:
+            stream = streams[index]
+            assert stream is not None
+            while True:
+                chunk = os.read(stream.fileno(), 64 * 1024)
+                if not chunk:
+                    return
+                remaining = max_output + 1 - len(buffers[index])
+                if remaining > 0:
+                    buffers[index].extend(chunk[:remaining])
+                if len(buffers[index]) > max_output:
+                    overflow.set()
+                    return
+
+        readers = [
+            threading.Thread(target=drain, args=(index,), daemon=True)
+            for index in range(2)
+        ]
+        for reader in readers:
+            reader.start()
+        deadline = time.monotonic() + float(timeout)
+        timed_out = False
+        killed = False
+        while process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = True
+                _close_process_tree(process, windows_job)
+                windows_job = None
+                killed = True
+                break
+            if overflow.wait(timeout=min(0.02, remaining)):
+                _close_process_tree(process, windows_job)
+                windows_job = None
+                killed = True
+                break
+        # Closing a normal-run Job Object also kills any descendant that kept
+        # an inherited output handle after the direct child exited.
+        if not killed:
+            _close_process_tree(process, windows_job)
+            windows_job = None
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=10)
+        if process.poll() is None:
+            with contextlib.suppress(OSError):
+                process.kill()
+            process.wait()
+        for reader in readers:
+            reader.join(timeout=10)
+        for stream in streams:
+            if stream is not None:
+                stream.close()
+        stdout, stderr = bytes(buffers[0]), bytes(buffers[1])
+        if timed_out:
+            raise subprocess.TimeoutExpired(
+                command, timeout, output=stdout, stderr=stderr
+            )
+        returncode = int(process.returncode or 0)
+        if overflow.is_set() and returncode == 0:
+            returncode = 125
+        return subprocess.CompletedProcess(
+            command, returncode, stdout, stderr
+        )
+
+
 def git(root: Path, *arguments: str, binary: bool = False) -> bytes | str:
     try:
-        result = subprocess.run(
+        result = run_bounded_process(
             ["git", "-C", str(root), *arguments],
-            capture_output=True,
-            text=False,
             timeout=60,
+            max_output=MAX_INPUT_BYTES,
         )
     except (OSError, subprocess.SubprocessError, UnicodeError) as exc:
         raise FreeReviewError("UNAVAILABLE", "git is unavailable") from exc
@@ -588,19 +866,19 @@ def freeze_packet(
         "pullRequest": pull_request,
         "expectedHeadSha": expected_head_sha,
     })
-    ancestry = subprocess.run(
+    ancestry = run_bounded_process(
         ["git", "-C", str(root), "merge-base", "--is-ancestor", base, parent],
-        capture_output=True, timeout=30,
+        timeout=30,
     )
     if ancestry.returncode != 0:
         raise FreeReviewError("UNVERIFIED", "PR base is not an ancestor of head parent")
-    dirty = subprocess.run(
+    dirty = run_bounded_process(
         ["git", "-C", str(root), "diff", "--quiet", "--"],
-        capture_output=True, timeout=30,
+        timeout=30,
     )
-    untracked = subprocess.run(
+    untracked = run_bounded_process(
         ["git", "-C", str(root), "ls-files", "--others", "--exclude-standard", "-z"],
-        capture_output=True, timeout=30,
+        timeout=30,
     )
     if dirty.returncode != 0 or untracked.returncode != 0 or untracked.stdout:
         raise FreeReviewError(
@@ -1141,12 +1419,164 @@ def validate_review_prompt_artifact(
     return {"mode": "hierarchical", "unitCount": len(units)}
 
 
+ROUTE_CHECKPOINT_KIND = "itd-keyless-hierarchical-route-checkpoint-v1"
+MAX_ROUTE_CHECKPOINT_AGE = dt.timedelta(days=1)
+
+
+def _route_checkpoint_context(
+    packet: dict[str, Any], plan: dict[str, Any], binding: dict[str, Any],
+) -> dict[str, Any]:
+    bound = exact_dict(binding, {
+        "provider", "requestedModel", "transportExecutableSha256", "proxySha256",
+    }, "hierarchical checkpoint binding")
+    if any(not isinstance(value, str) or not value for value in bound.values()):
+        raise FreeReviewError(
+            "UNVERIFIED", "hierarchical checkpoint binding is invalid"
+        )
+    return {
+        "version": 1,
+        "kind": ROUTE_CHECKPOINT_KIND,
+        "candidate": packet["candidate"],
+        "reviewRepresentationSha256": sha256_bytes(
+            canonical_bytes(packet["reviewRepresentation"])
+        ),
+        "reviewPlanSha256": sha256_bytes(canonical_bytes(plan)),
+        "scopeSha256": packet["scope"]["sha256"],
+        "acceptanceSha256": packet["acceptance"]["sha256"],
+        "machineEvidenceSha256": packet["machineEvidence"]["sha256"],
+        "reviewer": bound,
+    }
+
+
+def _load_route_checkpoint(
+    path: Path, context: dict[str, Any],
+    units: list[tuple[dict[str, Any], str]],
+    key_id: str, private_key: bytes,
+) -> list[dict[str, Any]]:
+    """Return the verified completed-unit prefix, or [] for a full restart.
+
+    A checkpoint is a convenience, never an acceptance input: any anomaly —
+    bad envelope, bad signature, foreign or stale binding, a row that does
+    not match the frozen plan, a report that fails the unit contract —
+    silently discards the whole checkpoint and the route restarts from zero.
+    Nothing unverified is ever reused.
+    """
+    if not path.exists():
+        return []
+    try:
+        envelope = json.loads(read_regular(
+            path, "hierarchical route checkpoint", limit=MAX_INPUT_BYTES
+        ).decode("utf-8"))
+        if not isinstance(envelope, dict) or set(envelope) != {
+            "signed", "signatureHex",
+        }:
+            raise ValueError("checkpoint envelope is not closed")
+        signed = envelope["signed"]
+        signature = envelope["signatureHex"]
+        fields = set(context) | {"keyId", "updatedAt", "units"}
+        if (
+            not isinstance(signed, dict)
+            or set(signed) != fields
+            or signed.get("keyId") != key_id
+            or not isinstance(signature, str)
+            or not re.fullmatch(r"[0-9a-f]{128}", signature)
+        ):
+            raise ValueError("checkpoint signed payload is malformed")
+        public = Ed25519PrivateKey.from_private_bytes(private_key).public_key()
+        public.verify(bytes.fromhex(signature), canonical_bytes(signed))
+        if any(signed[field] != context[field] for field in context):
+            raise ValueError("checkpoint binding is stale or foreign")
+        age = dt.datetime.now(dt.timezone.utc) - parse_time(
+            signed["updatedAt"], "route checkpoint time"
+        )
+        if not dt.timedelta(0) <= age <= MAX_ROUTE_CHECKPOINT_AGE:
+            raise ValueError("checkpoint is stale")
+        rows = signed["units"]
+        if not isinstance(rows, list) or len(rows) > len(units):
+            raise ValueError("checkpoint unit prefix is invalid")
+        sessions: set[str] = set()
+        model_names: set[str] = set()
+        clean: list[dict[str, Any]] = []
+        for (unit, _unit_diff), raw_row in zip(units, rows):
+            row = exact_dict(raw_row, {
+                "unit", "report", "session", "model",
+            }, "hierarchical checkpoint row")
+            if row["unit"] != unit:
+                raise ValueError("checkpoint row is bound to a foreign unit")
+            report = _unit_report(row["report"])
+            session = row["session"]
+            model = row["model"]
+            if any(
+                not isinstance(value, str) or not value.strip()
+                or value != value.strip()
+                for value in (session, model)
+            ):
+                raise ValueError("checkpoint row provenance is invalid")
+            if session in sessions:
+                raise ValueError("checkpoint row reuses a session")
+            sessions.add(session)
+            model_names.add(model.casefold())
+            clean.append({
+                "unit": unit, "report": report,
+                "session": session, "model": model,
+            })
+        if len(model_names) > 1:
+            raise ValueError("checkpoint rows change the reviewer model")
+        return clean
+    except (
+        ValueError, KeyError, TypeError, OSError,
+        InvalidSignature, FreeReviewError,
+    ):
+        return []
+
+
+def _write_route_checkpoint(
+    path: Path, context: dict[str, Any], rows: list[dict[str, Any]],
+    key_id: str, private_key: bytes,
+) -> None:
+    signed = {
+        **context, "keyId": key_id, "updatedAt": now_iso(), "units": rows,
+    }
+    signature = Ed25519PrivateKey.from_private_bytes(private_key).sign(
+        canonical_bytes(signed)
+    ).hex()
+    write_json(path, {"signed": signed, "signatureHex": signature})
+
+
 def run_packet_review(
-    packet: dict[str, Any], runner: Any,
+    packet: dict[str, Any], runner: Any, *,
+    checkpoint_path: Path | None = None,
+    checkpoint_binding: dict[str, Any] | None = None,
+    checkpoint_key_id: str | None = None,
+    checkpoint_private_key: bytes | None = None,
 ) -> tuple[dict[str, Any], str, str, str]:
-    """Run one direct call or every frozen unit plus mandatory integration."""
+    """Run one direct call or every frozen unit plus mandatory integration.
+
+    With checkpoint material supplied, the hierarchical route becomes
+    resumable per unit: a transient transport loss costs only the failing
+    unit, and a unit that already produced a verdict is never re-run. Every
+    unit still must produce a real verdict from a fresh session; the
+    integration call always runs live. This does not retry anything inside
+    one invocation and does not change how a failed call is classified.
+    """
     if not callable(runner):
         raise FreeReviewError("UNVERIFIED", "review runner is not callable")
+    checkpoint_options = (
+        checkpoint_path, checkpoint_binding,
+        checkpoint_key_id, checkpoint_private_key,
+    )
+    checkpoint_enabled = any(value is not None for value in checkpoint_options)
+    if checkpoint_enabled and (
+        any(value is None for value in checkpoint_options)
+        or not isinstance(checkpoint_path, Path)
+        or not isinstance(checkpoint_key_id, str)
+        or not KEY_ID_RE.fullmatch(checkpoint_key_id)
+        or not isinstance(checkpoint_private_key, bytes)
+        or len(checkpoint_private_key) != 32
+    ):
+        raise FreeReviewError(
+            "UNVERIFIED", "hierarchical checkpoint configuration is incomplete"
+        )
     plan, units = _hierarchical_units(packet)
     if plan is None:
         report, session, model = runner(review_prompt(packet), VERDICT_SCHEMA, _report)
@@ -1154,22 +1584,48 @@ def run_packet_review(
         if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
             raise FreeReviewError("UNVERIFIED", "direct reviewer provenance is absent")
         return report, session.strip(), model.strip(), review_prompt(packet)
+    checkpoint_context: dict[str, Any] | None = None
+    stored: list[dict[str, Any]] = []
+    if checkpoint_enabled:
+        checkpoint_context = _route_checkpoint_context(
+            packet, plan, checkpoint_binding
+        )
+        stored = _load_route_checkpoint(
+            checkpoint_path, checkpoint_context, units,
+            checkpoint_key_id, checkpoint_private_key,
+        )
     unit_calls: list[dict[str, Any]] = []
     sessions: list[str] = []
     models: list[str] = []
     reports: list[dict[str, Any]] = []
-    for unit, unit_diff in units:
+    checkpoint_rows: list[dict[str, Any]] = []
+    for index, (unit, unit_diff) in enumerate(units):
         unit_prompt = _unit_review_prompt(packet, plan, unit, unit_diff)
-        unit_report, session, model = runner(
-            unit_prompt, UNIT_VERDICT_SCHEMA, _unit_report
-        )
-        unit_report = _unit_report(unit_report)
-        if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
-            raise FreeReviewError("UNVERIFIED", "unit reviewer provenance is absent")
+        if index < len(stored):
+            row = stored[index]
+            unit_report = row["report"]
+            session = row["session"]
+            model = row["model"]
+        else:
+            unit_report, session, model = runner(
+                unit_prompt, UNIT_VERDICT_SCHEMA, _unit_report
+            )
+            unit_report = _unit_report(unit_report)
+            if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
+                raise FreeReviewError("UNVERIFIED", "unit reviewer provenance is absent")
         unit_calls.append({"unit": unit, "prompt": unit_prompt, "report": unit_report})
         reports.append({"unit": unit, "report": unit_report})
         sessions.append(session.strip())
         models.append(model.strip())
+        checkpoint_rows.append({
+            "unit": unit, "report": unit_report,
+            "session": session.strip(), "model": model.strip(),
+        })
+        if checkpoint_enabled and index >= len(stored):
+            _write_route_checkpoint(
+                checkpoint_path, checkpoint_context, checkpoint_rows,
+                checkpoint_key_id, checkpoint_private_key,
+            )
     integration_prompt = _integration_review_prompt(packet, plan, reports)
     integration_report, session, model = runner(
         integration_prompt, VERDICT_SCHEMA, _report
@@ -1196,6 +1652,11 @@ def run_packet_review(
     final_report = _aggregate_hierarchical_report(reports, integration_report)
     validate_review_prompt_artifact(packet, prompt_artifact, final_report)
     aggregate_session = sha256_bytes(canonical_bytes({"sessions": sessions}))
+    if checkpoint_enabled:
+        # The route is complete and validated; the checkpoint has served its
+        # purpose and must not survive to influence any later candidate.
+        with contextlib.suppress(OSError):
+            checkpoint_path.unlink()
     return final_report, aggregate_session, models[0], prompt_artifact
 
 
@@ -3078,9 +3539,8 @@ def run_codex_review(
                 environment["CODEX_HOME"] = str(auth_home)
                 environment["HOME"] = str(model_home)
                 environment["USERPROFILE"] = str(model_home)
-                result = subprocess.run(
+                result = run_bounded_process(
                     command, input=prompt.encode("utf-8"),
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=timeout,
                 )
                 if result.returncode == 0:
@@ -3190,9 +3650,8 @@ def run_claude_review(
                 environment["HOME"] = str(home)
                 environment["USERPROFILE"] = str(home)
                 environment["CLAUDE_CONFIG_DIR"] = str(config)
-                result = subprocess.run(
+                result = run_bounded_process(
                     command, input=prompt.encode("utf-8"),
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=timeout,
                 )
         except FreeReviewError:
@@ -3383,15 +3842,13 @@ def run_gemini_review(
                 environment.update(proxy_environment)
                 environment["HOME"] = str(home)
                 environment["USERPROFILE"] = str(home)
-                smoke = subprocess.run(
+                smoke = run_bounded_process(
                     [str(runtime_copy), str(launcher_copy), "--help"], input=b"",
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=min(timeout, 60),
                 )
                 assert_gemini_cli_contract(smoke)
-                result = subprocess.run(
+                result = run_bounded_process(
                     command, input=prompt.encode("utf-8"),
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=timeout,
                 )
         except FreeReviewError:
@@ -3546,15 +4003,13 @@ def run_antigravity_review(
                 environment.update(proxy_environment)
                 environment["HOME"] = str(home)
                 environment["USERPROFILE"] = str(home)
-                smoke = subprocess.run(
+                smoke = run_bounded_process(
                     [str(binary_copy), "--help"], input=b"",
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=min(timeout, 60),
                 )
                 assert_antigravity_cli_contract(smoke)
-                result = subprocess.run(
+                result = run_bounded_process(
                     command, input=prompt_bytes,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     cwd=work, env=environment, timeout=timeout,
                 )
         except FreeReviewError:
@@ -3780,15 +4235,13 @@ def run_copilot_review(
             "NO_COLOR": "1",
         })
         try:
-            smoke = subprocess.run(
+            smoke = run_bounded_process(
                 [str(binary_copy), "--help"], input=b"",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 cwd=work, env=environment, timeout=min(timeout, 60),
             )
             assert_copilot_cli_contract(smoke)
-            result = subprocess.run(
+            result = run_bounded_process(
                 command, input=prompt_bytes,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 cwd=work, env=environment, timeout=timeout,
             )
         except FreeReviewError:
@@ -3916,6 +4369,12 @@ def parser() -> argparse.ArgumentParser:
     review.add_argument("--copilot-model", default="auto")
     review.add_argument("--copilot-sha256", default="")
     review.add_argument("--proxy-sha256", required=True)
+    review.add_argument(
+        "--unit-checkpoint", type=Path,
+        help="signed per-unit resume file for the hierarchical route; a unit "
+             "with a recorded verdict is never re-run, any anomaly restarts "
+             "the route from zero",
+    )
     review.add_argument("--prompt-output", type=Path, required=True)
     review.add_argument("--report-output", type=Path, required=True)
     review.add_argument("--output", type=Path, required=True)
@@ -3968,6 +4427,28 @@ def main(argv: list[str] | None = None) -> int:
                 )
             selected_prompt_artifact = prompt
             selected_prompt_artifacts: dict[str, str] = {}
+            route_checkpoint_key: bytes | None = None
+            if args.unit_checkpoint is not None:
+                route_checkpoint_key = gate.read_provenance_private_key(
+                    args.signing_key
+                )
+
+            def route_checkpoint_kwargs(
+                provider: str, requested_model: str, transport_sha256: str,
+            ) -> dict[str, Any]:
+                if args.unit_checkpoint is None:
+                    return {}
+                return {
+                    "checkpoint_path": args.unit_checkpoint,
+                    "checkpoint_binding": {
+                        "provider": provider,
+                        "requestedModel": requested_model,
+                        "transportExecutableSha256": transport_sha256,
+                        "proxySha256": args.proxy_sha256,
+                    },
+                    "checkpoint_key_id": args.key_id,
+                    "checkpoint_private_key": route_checkpoint_key,
+                }
 
             def openai_adapter(value: str) -> tuple[dict[str, Any], dict[str, str]]:
                 nonlocal selected_prompt_artifact
@@ -3988,7 +4469,11 @@ def main(argv: list[str] | None = None) -> int:
                         expected_proxy_sha256=args.proxy_sha256,
                         report_schema=schema, report_parser=parser_value,
                     )
-                review_result = run_packet_review(packet, runner)
+                review_result = run_packet_review(
+                    packet, runner, **route_checkpoint_kwargs(
+                        "openai-subscription", reviewer_model, args.codex_sha256,
+                    )
+                )
                 selected_prompt_artifact = review_result[3]
                 report, session, observed_model = review_result[:3]
                 selected_prompt_artifacts["openai-subscription"] = (
@@ -4019,7 +4504,12 @@ def main(argv: list[str] | None = None) -> int:
                         report_schema=schema, report_parser=parser_value,
                     )
                 report, session, observed_model, selected_prompt_artifact = (
-                    run_packet_review(packet, runner)
+                    run_packet_review(
+                        packet, runner, **route_checkpoint_kwargs(
+                            "anthropic-subscription", args.claude_model,
+                            args.claude_sha256,
+                        )
+                    )
                 )
                 selected_prompt_artifacts["anthropic-subscription"] = (
                     selected_prompt_artifact
@@ -4053,7 +4543,12 @@ def main(argv: list[str] | None = None) -> int:
                         report_schema=schema, report_parser=parser_value,
                     )
                 report, session, observed_model, selected_prompt_artifact = (
-                    run_packet_review(packet, runner)
+                    run_packet_review(
+                        packet, runner, **route_checkpoint_kwargs(
+                            "github-copilot-user", args.copilot_model,
+                            args.copilot_sha256,
+                        )
+                    )
                 )
                 selected_prompt_artifacts["github-copilot-user"] = (
                     selected_prompt_artifact

@@ -186,12 +186,15 @@ def main() -> int:
             return subprocess.CompletedProcess(call, 0, stream(prompt), b"")
 
         original_trusted = producer.trusted_executable
-        original_run = producer.subprocess.run
+        # The reviewer transport is executed through run_bounded_process, which
+        # contains the whole process tree; patching subprocess.run would miss it
+        # and launch the real Copilot binary instead of this stub.
+        original_run = producer.run_bounded_process
         try:
             producer.trusted_executable = lambda *_args: (
                 binary, "a" * 64, binary_content,
             )
-            producer.subprocess.run = fake_run
+            producer.run_bounded_process = fake_run
             actual_report, actual_session, actual_model = producer.run_copilot_review(
                 prompt, executable=str(binary), model="auto",
                 source_env={
@@ -205,7 +208,7 @@ def main() -> int:
             )
         finally:
             producer.trusted_executable = original_trusted
-            producer.subprocess.run = original_run
+            producer.run_bounded_process = original_run
         check(actual_report == clean_report() and actual_session and
               actual_model == "gpt-5-mini",
               "Copilot subprocess result lost runtime provenance")

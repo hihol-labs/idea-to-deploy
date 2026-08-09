@@ -35,7 +35,8 @@ KEY_FIELDS = (
     "methodologyVersion", "parentStateHash", "activeUnitId",
     "activeUnitRiskTier", "riskTier",
 )
-VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "FAILED"}
+VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "ADJUDICATED", "BLOCKED",
+            "UNVERIFIED", "FAILED"}
 KINDS = {"general", "security"}
 RISK_TIERS = {"low", "medium", "high", "unknown"}
 
@@ -412,10 +413,16 @@ def valid_warning(value: Any) -> bool:
 
 
 def verdict_accepted(verdict: str, warnings: list[dict[str, Any]]) -> bool:
-    if verdict == "PASSED":
+    if verdict in {"PASSED", "ADJUDICATED"}:
+        # ADJUDICATED is accepted only through an adjudication receipt whose
+        # outcome carries the same honest label (enforced at record/match time).
         return True
     return verdict == "PASSED_WITH_WARNINGS" and bool(warnings) \
         and all(valid_warning(item) for item in warnings)
+
+
+def expected_receipt_outcome(verdict: str) -> str:
+    return "ADJUDICATED" if verdict == "ADJUDICATED" else "PASSED"
 
 
 def record_matches(record: dict[str, Any], context: dict[str, str],
@@ -437,7 +444,7 @@ def record_matches(record: dict[str, Any], context: dict[str, str],
         repo = repository_root(Path(context["repository"]))
         binding = record.get("verificationReceipt") or {}
         if (not isinstance(binding, dict)
-                or binding.get("outcome") != "PASSED"
+                or binding.get("outcome") != expected_receipt_outcome(verdict)
                 or binding.get("claimId") != review_claim_id(repo, expected_kind)):
             return False
         current = validate_review_receipt(
@@ -531,6 +538,13 @@ def record_review(root: Path | str, *, verdict: str, kind: str = "general",
             )
         receipt_binding = validate_review_receipt(
             repo, verification_receipt, context["riskTier"], normalized_kind)
+        if receipt_binding.get("outcome") != expected_receipt_outcome(
+                normalized_verdict):
+            raise CacheError(
+                "review verdict does not match the receipt outcome",
+                "Record ADJUDICATED evidence as ADJUDICATED and clean PASSED "
+                "evidence as PASSED; labels are never interchangeable.",
+            )
     recorded_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     gate_material = json.dumps({
         "context": context, "verdict": normalized_verdict,

@@ -240,7 +240,7 @@
       "criterion": "Every active acceptance criterion carries a closed evidence-first mapping from generic impact classes to exact-tree machine oracle IDs; missing, failed, duplicate, foreign-tree or uncovered evidence is UNVERIFIED before any model can return PASSED.",
       "source": "User-approved methodology-wide independent-review effectiveness correction on 2026-08-03.",
       "evidence": "The frozen structural canaries cover missing, failed, duplicate, foreign-tree, missing-reviewer and uncovered-evidence mutations against the same coverage module embedded in the producer packet; the semantic corpus is measured separately from these deterministic mechanics.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "Evidence coverage is closed, exact-tree bound and measured before semantic review.",
         "impactClasses": ["correctness", "reconciliation", "numerical-stability", "generated-artifact-freshness"],
@@ -266,7 +266,7 @@
       "criterion": "Independent-review efficacy is a release gate: critical/high blocker detection, missing-evidence detection and unit-finding retention are 100%; medium detection is at least 90%; clean-control false blocks are at most 10%; the same focused suite passes on WSL and native Windows.",
       "source": "User-approved measurable reviewer-effectiveness target.",
       "evidence": "PASSED from fresh real keyless gpt-5.6-terra reports on WSL and native Windows: critical/high detection 100%, medium detection 100%, clean-control false blocks 0%, structural missing-evidence detection 100% and unit-finding retention 100%. Every host-derived result is an Ed25519-signed envelope with runtime version, executable/proxy hashes and distinct sessions; the host label is measured, not caller supplied. Critical/high detection additionally requires a BLOCKED verdict, while medium requires BLOCKED or PASSED_WITH_WARNINGS. The frozen eval manifest keeps hidden expected faults outside the reviewer prompt. The separate live-model workflow fixture is explicitly not reviewer-isolation evidence.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "Reviewer effectiveness and false-block calibration are executable release criteria.",
         "impactClasses": ["repository-hygiene", "host-parity"],
@@ -299,6 +299,58 @@
         "oracleIds": ["gate-registry-profiles-regression", "gate-profile-doctor-regression", "guarded-pr-cli-regression", "global-git-gate-regression"]
       },
       "status": "passed"
+    },
+    {
+      "id": "GPG-004-PA1",
+      "criterion": "The Verification Loop mints an ADJUDICATED adjudication receipt only from a PASSED machine receipt plus a BLOCKED checker receipt whose findings are each covered by a human disposition (accepted-trade-off | refuted-by-evidence | fixed) with a rationale and an explicit recorded human confirmation bound to the exact candidate digest and the checker receipt sha256. Any uncovered finding, disposition naming no finding, foreign unit, stale or foreign candidate, or missing confirmation refuses to mint. Checker acceptedVerdicts stays [\"PASSED\"] and a checker verdict is never rewritten, downgraded or re-labelled.",
+      "source": "docs/adr/ADR-007-human-adjudication-of-independent-review.md; .itd/DECISIONS.md 2026-08-09 (compressed reviewer-policy unit, phase A).",
+      "evidence": "RED-first: the pre-channel deadlock (BLOCKED checker receipt with fully dispositioned findings cannot satisfy the gate) is reproduced by execution, then turns GREEN only through the channel; mutation checks kill every minting guard individually.",
+      "verificationCommand": "python3 tests/verify_adjudication_channel.py",
+      "reviewEvidence": {
+        "claim": "A human can adjudicate independent-review findings through a fail-closed machine channel without bypassing or weakening the mandatory reviewer.",
+        "impactClasses": ["correctness", "error-handling", "security"],
+        "oracleIds": ["adjudication-channel"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PA2",
+      "criterion": "The commit review gate (hooks/check-review-before-commit.sh via skills/review/scripts/itd_review_cache.py) accepts PASSED and ADJUDICATED adjudication receipts for the exact candidate, records the honest ADJUDICATED label distinct from PASSED, and continues to reject prose verdicts, missing or foreign receipts, and BLOCKED checker evidence that lacks complete human adjudication.",
+      "source": "docs/adr/ADR-007-human-adjudication-of-independent-review.md.",
+      "evidence": "Gate-level tests exercise accept and reject paths for both outcomes against the exact candidate context; the recorded outcome preserves the ADJUDICATED label end to end.",
+      "verificationCommand": "python3 tests/verify_adjudication_channel.py --gate",
+      "reviewEvidence": {
+        "claim": "The commit gate distinguishes a clean review from a humanly adjudicated one and stays fail-closed for everything else.",
+        "impactClasses": ["correctness", "repository-hygiene", "security"],
+        "oracleIds": ["adjudication-channel-gate"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PA3",
+      "criterion": "On the exact phase-A candidate: the full test suite passes, a fresh independent route reviews the candidate, any findings are adjudicated through the channel itself, and the phase-A commit passes the review gate without --no-verify or any environment bypass.",
+      "source": ".itd/SCOPE_LOCK.md acceptance boundary.",
+      "evidence": "Full run-all output, the route evidence directory, the ADJUDICATED (or PASSED) receipt for the exact staged phase-A tree, and the committed result are recorded together.",
+      "verificationCommand": "bash tests/run-all.sh",
+      "reviewEvidence": {
+        "claim": "Phase A is accepted end to end on its own exact candidate through the machinery it introduces.",
+        "impactClasses": ["correctness", "repository-hygiene", "security"],
+        "oracleIds": ["adjudication-channel", "adjudication-channel-gate"]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "GPG-004-PA4",
+      "criterion": "The combined candidate carries the machine-accepted bounded-process/resumability slice unchanged: producer bytes stay identical to the frozen slice (both signed benchmark legs remain bound to the same producer sha256), the dual-host efficacy legs hold host parity, and the live-model artifact evidence is the fresh PASS run pinned by latest.json. The slice's oracle evidence therefore remains exact on this tree.",
+      "source": ".itd/DECISIONS.md 2026-08-09 (combined slice+channel commit); .itd-memory/session_2026-08-09_3.md.",
+      "evidence": "Every cited oracle passes exactly on this candidate tree inside the bound machine receipt; the efficacy verifier revalidates both signed legs against the host-owned keyring pin on every run.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "reviewEvidence": {
+        "claim": "The bounded-process slice inside the combined candidate keeps its full machine acceptance: bounded transport containment, dual-host parity, fresh generated-artifact evidence, and reviewer-transport regressions.",
+        "impactClasses": ["bounded-output", "compatibility", "generated-artifact-freshness", "host-parity", "numerical-stability", "performance", "reconciliation", "scale"],
+        "oracleIds": ["copilot-reviewer", "free-reviewer-producer", "gate-profile-doctor-regression", "gate-registry-profiles-regression", "host-adapter-regression", "independent-review-efficacy", "mandatory-keyless-review-regression", "reviewer-provider-freshness"]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -317,7 +369,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GPG-003",
+    "unitId": "GPG-004",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/GPG-003_ROOT_CAUSE.md",

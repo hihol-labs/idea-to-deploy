@@ -534,6 +534,359 @@ def main() -> int:
         else:
             raise AssertionError("hierarchical mixed-model evidence was accepted")
 
+        # --- U15: per-unit resumability of the hierarchical route.
+        # A transient transport loss must cost only the failing unit, a unit
+        # that already produced a verdict is never re-run, and any checkpoint
+        # anomaly (tamper, staleness, foreign binding) discards the checkpoint
+        # and restarts the route from zero instead of being trusted.
+        route_key = raw_private_key()
+        route_binding = {
+            "provider": "openai-subscription",
+            "requestedModel": "gpt-5.6-terra",
+            "transportExecutableSha256": "a" * 64,
+            "proxySha256": "b" * 64,
+        }
+        route_checkpoint = fixture / "route-checkpoint.json"
+        unit_count = plan["unitCount"]
+
+        def passed_unit_report() -> dict:
+            return {
+                "verdict": "PASSED", "findings": [], "unverified": [],
+                "summary": "Bound unit behavior and interfaces are consistent.",
+            }
+
+        def make_interrupting_runner(fail_at: int, tag: str):
+            state = {"calls": 0}
+
+            def interrupting_runner(prompt_text, report_schema, report_parser):
+                state["calls"] += 1
+                if state["calls"] == fail_at:
+                    raise producer.FreeReviewError(
+                        "UNAVAILABLE", "simulated transport loss mid-route"
+                    )
+                report = (
+                    passed_unit_report()
+                    if report_schema == producer.UNIT_VERDICT_SCHEMA
+                    else clean_verdict()
+                )
+                return (
+                    report_parser(report),
+                    f"resume-{tag}-{state['calls']}",
+                    "subscription-model",
+                )
+
+            return interrupting_runner
+
+        try:
+            producer.run_packet_review(
+                large_packet, make_interrupting_runner(3, "a"),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNAVAILABLE" and route_checkpoint.exists(),
+                "interrupted hierarchical route left no resumable checkpoint",
+            )
+        else:
+            raise AssertionError("simulated transport loss did not fail the attempt")
+
+        resumed_prompts = []
+
+        def resuming_runner(prompt_text, report_schema, report_parser):
+            resumed_prompts.append(prompt_text)
+            report = (
+                passed_unit_report()
+                if report_schema == producer.UNIT_VERDICT_SCHEMA
+                else clean_verdict()
+            )
+            return (
+                report_parser(report),
+                f"resume-b-{len(resumed_prompts)}",
+                "subscription-model",
+            )
+
+        resumed_report, _resumed_session, _resumed_model, resumed_artifact = (
+            producer.run_packet_review(
+                large_packet, resuming_runner,
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        )
+        check(
+            resumed_report == clean_verdict()
+            and len(resumed_prompts) == unit_count - 2 + 1
+            and not route_checkpoint.exists(),
+            "resumed hierarchical route re-ran completed units or kept its checkpoint",
+        )
+        producer.validate_review_prompt_artifact(
+            large_packet, resumed_artifact, resumed_report,
+        )
+        resumed_bundle = json.loads(resumed_artifact)
+        check(
+            resumed_bundle["unitCalls"][0]["prompt"] not in resumed_prompts
+            and resumed_bundle["unitCalls"][1]["prompt"] not in resumed_prompts
+            and resumed_bundle["unitCalls"][2]["prompt"] in resumed_prompts,
+            "resumed route did not bind stored verdicts to their original units",
+        )
+
+        def make_counting_runner(tag: str, counter: list):
+            def counting_runner(prompt_text, report_schema, report_parser):
+                counter.append(prompt_text)
+                report = (
+                    passed_unit_report()
+                    if report_schema == producer.UNIT_VERDICT_SCHEMA
+                    else clean_verdict()
+                )
+                return (
+                    report_parser(report),
+                    f"resume-{tag}-{len(counter)}",
+                    "subscription-model",
+                )
+            return counting_runner
+
+        def regenerate_checkpoint(tag: str) -> None:
+            try:
+                producer.run_packet_review(
+                    large_packet, make_interrupting_runner(3, tag),
+                    checkpoint_path=route_checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                )
+            except producer.FreeReviewError:
+                pass
+
+        regenerate_checkpoint("c")
+        tampered = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+        tampered["signed"]["units"][0]["report"]["summary"] += " changed"
+        route_checkpoint.write_text(
+            json.dumps(tampered, ensure_ascii=False), encoding="utf-8"
+        )
+        tampered_calls: list = []
+        tampered_report, _s1, _m1, _a1 = producer.run_packet_review(
+            large_packet, make_counting_runner("d", tampered_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            tampered_report == clean_verdict()
+            and len(tampered_calls) == unit_count + 1,
+            "tampered route checkpoint was trusted instead of forcing a restart",
+        )
+
+        regenerate_checkpoint("e")
+        stale = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+        stale["signed"]["updatedAt"] = "2020-01-01T00:00:00Z"
+        stale_signature = producer.Ed25519PrivateKey.from_private_bytes(
+            route_key
+        ).sign(producer.canonical_bytes(stale["signed"])).hex()
+        stale["signatureHex"] = stale_signature
+        route_checkpoint.write_text(
+            json.dumps(stale, ensure_ascii=False), encoding="utf-8"
+        )
+        stale_calls: list = []
+        stale_report, _s2, _m2, _a2 = producer.run_packet_review(
+            large_packet, make_counting_runner("f", stale_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            stale_report == clean_verdict()
+            and len(stale_calls) == unit_count + 1,
+            "stale route checkpoint was trusted instead of forcing a restart",
+        )
+
+        regenerate_checkpoint("g")
+        foreign_binding = dict(route_binding)
+        foreign_binding["provider"] = "gemini-user"
+        foreign_calls: list = []
+        foreign_report, _s3, _m3, _a3 = producer.run_packet_review(
+            large_packet, make_counting_runner("h", foreign_calls),
+            checkpoint_path=route_checkpoint,
+            checkpoint_binding=foreign_binding,
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        check(
+            foreign_report == clean_verdict()
+            and len(foreign_calls) == unit_count + 1,
+            "foreign-provider route checkpoint was trusted instead of discarded",
+        )
+        route_checkpoint.unlink(missing_ok=True)
+
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("i", []),
+                checkpoint_path=route_checkpoint,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "checkpoint configuration" in exc.reason,
+                "incomplete checkpoint configuration failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError(
+                "checkpoint path without signing material was accepted"
+            )
+
+        # Every checkpoint guard is exercised from the outside: a checkpoint
+        # carrying the anomaly must be discarded whole, so the route re-runs
+        # every unit plus integration. Nothing unverified is ever reused.
+        unit_ids = [call["unit"] for call in resumed_bundle["unitCalls"]]
+
+        def signed_checkpoint(tag: str) -> dict:
+            regenerate_checkpoint(tag)
+            envelope = json.loads(route_checkpoint.read_text(encoding="utf-8"))
+            route_checkpoint.unlink()
+            return envelope
+
+        def resign(envelope: dict) -> None:
+            envelope["signatureHex"] = producer.Ed25519PrivateKey.from_private_bytes(
+                route_key
+            ).sign(producer.canonical_bytes(envelope["signed"])).hex()
+            route_checkpoint.write_text(
+                json.dumps(envelope, ensure_ascii=False), encoding="utf-8"
+            )
+
+        def check_full_restart(tag: str, message: str) -> None:
+            calls: list = []
+            report, _session, _model, _artifact = producer.run_packet_review(
+                large_packet, make_counting_runner(tag, calls),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+            check(
+                report == clean_verdict() and len(calls) == unit_count + 1,
+                message,
+            )
+
+        def full_prefix_rows() -> list[dict]:
+            return [
+                {
+                    "unit": unit_id, "report": passed_unit_report(),
+                    "session": f"synthetic-{index}",
+                    "model": "subscription-model",
+                }
+                for index, unit_id in enumerate(unit_ids)
+            ]
+
+        envelope = signed_checkpoint("j")
+        envelope["note"] = "smuggled envelope field"
+        resign(envelope)
+        check_full_restart(
+            "k", "route checkpoint envelope accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("l")
+        envelope["signed"]["note"] = "smuggled signed field"
+        resign(envelope)
+        check_full_restart(
+            "m", "route checkpoint signed payload accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("n")
+        envelope["signed"]["keyId"] = "route-checkpoint-other"
+        resign(envelope)
+        check_full_restart(
+            "o", "route checkpoint signed by a foreign key id was trusted"
+        )
+
+        envelope = signed_checkpoint("p")
+        envelope["signatureHex"] = envelope["signatureHex"].upper()
+        route_checkpoint.write_text(
+            json.dumps(envelope, ensure_ascii=False), encoding="utf-8"
+        )
+        check_full_restart(
+            "q", "route checkpoint accepted a non-canonical signature encoding"
+        )
+
+        envelope = signed_checkpoint("r")
+        rows = full_prefix_rows()
+        envelope["signed"]["units"] = rows + [
+            dict(rows[-1], session="synthetic-overflow")
+        ]
+        resign(envelope)
+        check_full_restart(
+            "s", "route checkpoint longer than the frozen plan was trusted"
+        )
+
+        envelope = signed_checkpoint("t")
+        envelope["signed"]["units"][0]["note"] = "smuggled row field"
+        resign(envelope)
+        check_full_restart(
+            "u", "route checkpoint row accepted an undeclared field"
+        )
+
+        envelope = signed_checkpoint("v")
+        envelope["signed"]["units"][0]["unit"] = unit_ids[1]
+        resign(envelope)
+        check_full_restart(
+            "w", "route checkpoint row bound to a foreign unit was trusted"
+        )
+
+        envelope = signed_checkpoint("x")
+        envelope["signed"]["units"][0]["report"] = {"verdict": "PASSED"}
+        resign(envelope)
+        check_full_restart(
+            "y", "route checkpoint row bypassed the unit report contract"
+        )
+
+        envelope = signed_checkpoint("z")
+        envelope["signed"]["units"][0]["session"] = " resume-z-1 "
+        resign(envelope)
+        check_full_restart(
+            "aa", "route checkpoint row accepted untrimmed provenance"
+        )
+
+        envelope = signed_checkpoint("ab")
+        envelope["signed"]["units"][1]["session"] = (
+            envelope["signed"]["units"][0]["session"]
+        )
+        resign(envelope)
+        check_full_restart(
+            "ac", "route checkpoint rows reusing one session were trusted"
+        )
+
+        envelope = signed_checkpoint("ad")
+        envelope["signed"]["units"][1]["model"] = "other-subscription-model"
+        resign(envelope)
+        check_full_restart(
+            "ae", "route checkpoint rows changing the reviewer model were trusted"
+        )
+
+        route_checkpoint.unlink(missing_ok=True)
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("af", []),
+                checkpoint_path=route_checkpoint,
+                checkpoint_binding=dict(route_binding, proxySha256=""),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and "checkpoint binding is invalid" in exc.reason,
+                "empty checkpoint binding failed with the wrong disposition",
+            )
+        else:
+            raise AssertionError(
+                "route checkpoint accepted an empty reviewer binding"
+            )
+        route_checkpoint.unlink(missing_ok=True)
+
         hostile_binary_cases = (
             ("generic.bin", b"\x00\x01\x02", "undeclared binary"),
             ("invalid.jsonl.gz", b"not-gzip", "invalid gzip"),
@@ -680,7 +1033,7 @@ def main() -> int:
             (transport_source["HTTP_PROXY"] + "\n"
              + transport_source["HTTPS_PROXY"]).encode("utf-8")
         )
-        original_run = producer.subprocess.run
+        original_run = producer.run_bounded_process
         event_item_type = "agent_message"
         observed_transport_env = {}
         rollout_padding_bytes = 0
@@ -721,7 +1074,7 @@ def main() -> int:
             )) + b"\n"
             return subprocess.CompletedProcess(command, 0, events, b"")
 
-        producer.subprocess.run = fake_codex_run
+        producer.run_bounded_process = fake_codex_run
         event_model = "subscription-model"
         observed_report, observed_session, observed_model = producer.run_codex_review(
             "bounded prompt", executable=str(trusted_binary),
@@ -810,7 +1163,7 @@ def main() -> int:
             pass
         else:
             raise AssertionError("untrusted Codex executable reached subscription auth")
-        producer.subprocess.run = original_run
+        producer.run_bounded_process = original_run
         checks += 1
         hostile_proxy_source = dict(transport_source)
         hostile_proxy_source["HTTPS_PROXY"] = "http://hostile.invalid:8080"
@@ -899,7 +1252,7 @@ def main() -> int:
         original_bundle = producer.trusted_gemini_bundle
         original_runtime = producer.trusted_executable
         original_gemini_home = producer.gemini_transport_home
-        original_run = producer.subprocess.run
+        original_run = producer.run_bounded_process
         try:
             producer.trusted_gemini_bundle = lambda *_args: (
                 gemini_launcher, "a" * 64,
@@ -909,7 +1262,7 @@ def main() -> int:
                 gemini_runtime_source, "b" * 64, gemini_runtime_content,
             )
             producer.gemini_transport_home = fake_gemini_home
-            producer.subprocess.run = fake_gemini_run
+            producer.run_bounded_process = fake_gemini_run
             gemini_report, gemini_session, gemini_model = (
                 producer.run_gemini_review(
                     exact_gemini_prompt,
@@ -929,7 +1282,7 @@ def main() -> int:
             producer.trusted_gemini_bundle = original_bundle
             producer.trusted_executable = original_runtime
             producer.gemini_transport_home = original_gemini_home
-            producer.subprocess.run = original_run
+            producer.run_bounded_process = original_run
         check(
             gemini_report == clean_verdict()
             and gemini_session
