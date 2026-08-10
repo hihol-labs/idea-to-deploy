@@ -1,7 +1,7 @@
 # BACKLOG — Harness-demo UX absorption
 
 **Decision:** [ADR-004](docs/adr/ADR-004-harness-demo-ux-absorption.md)
-**Last reviewed:** 2026-08-09
+**Last reviewed:** 2026-08-10
 **Next review:** 2026-08-30
 
 ## P0 — Must do
@@ -113,6 +113,23 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Build the fresh-session worktree/resource-isolation pilot kit.
 - [ ] Run three serial, user-authorized brownfield units in named project roots with
   isolated mutable resources and exact-candidate receipts.
+
+## P1 — GENG: Graph Contract Layer (ADR-009, accepted 2026-08-10)
+
+Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md). Program
+GENG-000…GENG-010 (variant B, approved 2026-08-07; full unit text enters the
+repo as a /goal ledger at GENG-000 start). Ordered after the queued GPG
+follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
+
+- [ ] GENG-000 Harness Readiness Freeze — first GENG unit via /goal; imports
+  the program text from the originating sessions into the unit ledger.
+- [ ] GENG-003 carries the amended exit criterion: content-addressed node
+  receipts with downstream-only invalidation; final integration oracle always
+  over the single exact candidate (ADR-009, amendment 3).
+- [ ] GENG-004 (Codex Shadow Mode) is entry-gated on a dedicated Codex
+  isolated-transport stability check (repeated clean passes; U8's adjudicated
+  closure does not itself certify stability — transport root cause unknown);
+  serial fallback stays first-class until then (ADR-009, amendment 2).
 
 ## P2 — Conditional
 
