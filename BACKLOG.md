@@ -52,6 +52,10 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `skills/_shared/.claude/traces/` silently entered the H4 tree pin, and the mismatch
   only surfaced later in the isolated staged candidate as three failing checks. The
   pin should either exclude the same paths Git ignores or fail loudly at run time.
+- [ ] Exclude `__pycache__`/`*.pyc` bytecode from the `sync-to-active.sh` drift
+  scan (found closing U6, 2026-08-10): the only reported skill drift on a fully
+  synced install was `skills/_shared/__pycache__` — pure noise that makes a
+  clean parity check read as "~1 updated".
 
 ## P0 — Deferred out of GPG-004 push-gate/adjudication execution (2026-08-09)
 
