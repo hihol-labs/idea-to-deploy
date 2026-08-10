@@ -37,11 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "GPG-004",
-    "goal": "GPG-004 reviewer independence policy — VERIFIED and published. Closed class {anthropic, openai} with cross-vendor route for anthropic makers, flagged same-vendor fallback with typed cross-vendor unavailability, independenceLevel/mint-override wiring, exact-equality reviewer cardinality, three signed efficacy legs and the honest U12 comparison. Commits b38d893+28119f9+a3aa462 landed through the full ladder (two ADR-007 human adjudications: 4 dispositions on the commit chain, 1 on the push chain), guarded registry re-registered, Draft PR #184 published (head a3aa462, LOCAL_REVIEWED). Final machine evidence: committed-head receipt GPG-004-machine-pushchain.json — 15/15 oracles PASSED on the exact HEAD tree f1a86608, including reviewer-independence-policy and live-model-evidence-replay.",
-    "riskTier": "high",
+    "id": "U6",
+    "riskTier": "low",
+    "goal": "Installed-skill parity: repo==installed cross-review hash on WSL, recorded Windows check; fresh evidence, no install mutations",
     "status": "verified",
-    "startedAt": "2026-08-02T23:25:00Z"
+    "startedAt": "2026-08-10T10:03:35Z",
+    "completedAt": "2026-08-10T10:04:16Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -565,5 +566,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "GPG-004 closed. Next candidates by plan: U6 (installed-skill parity), U16 (pre-deploy), U17 (design-stage), the queued BACKLOG follow-ups (benchmark scenario devils-advocate fix, completion-ledger writer schema, doctor independence label), and the GENG /strategy session recorded in project memory. PR #184 merge + CI watch by explicit user command."
+  "nextAction": "U6 (installed-skill parity) closed on fresh evidence 2026-08-10; GENG /strategy formalized as ADR-009 (PR #186 merged 7ed8e43). Next candidates by plan: U16 (pre-deploy), U17 (design-stage), the queued BACKLOG follow-ups (benchmark scenario devils-advocate fix, completion-ledger writer schema, doctor independence label, itd pr create up-to-date push bug, __pycache__ sync-scan noise). GENG-000 starts via /goal after U16/U17."
 }
