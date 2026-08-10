@@ -1910,6 +1910,141 @@ def main() -> int:
             raise AssertionError("stale live observation remained valid")
         checks += 1
 
+    # --- redaction is not a finding (route findings r33-r35, retro R1) ----
+    # The reviewer gets the SCRUBBED text; only a detector hit refuses.
+    noreply = "maintainer@" + "users.noreply.github.com"
+    manifest = '{"author": {"email": "' + noreply + '"}}\n'
+    safe = producer._safe_review_text(manifest.encode("utf-8"), "manifest")
+    check("[REDACTED-EMAIL]" in safe and "noreply" not in safe,
+          "a contact address is redacted, not a reason to refuse the route")
+    check('"author"' in safe,
+          "the surrounding candidate text still reaches the reviewer")
+
+    # fail-closed side: a credential the scrubber cannot neutralise refuses.
+    # Prefixes are assembled at runtime so this file does not read as a leak
+    # to the very scrubber whose diff it passes through.
+    assign = "tok" + "en" + ' = "'
+    for label, payload in (
+        ("openai-style key", assign + "s" + "k-" + "a" * 40 + '"\n'),
+        ("aws access key", assign + "AK" + "IA" + "B" * 16 + '"\n'),
+        ("high-entropy blob", assign + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3"
+                                        "zA5bC7dE9fG1hJ3kL5mN7pQ9rS1tU3vW5x"
+                                        '"\n'),
+    ):
+        try:
+            producer._safe_review_text(payload.encode("utf-8"), "candidate diff")
+        except producer.FreeReviewError:
+            checks += 1
+        else:
+            raise AssertionError(f"{label} did not block the review route")
+
+    # --- whitespace-split credential (independent route finding r2) --------
+    # A credential split by intra-line spaces evades the contiguous patterns;
+    # before R1 it escaped only when nothing else was redactable (any contact
+    # in the same candidate blocked the whole text by accident). Detection
+    # now collapses per-line whitespace, so the composite blocks directly.
+    split_key = "AK" + "IA " + "IOSF " + "ODNN " + "7EXA " + "MPLE"
+    composite = ('contact = "maintainer@' + 'users.noreply.github.com"\n'
+                 'key = "' + split_key + '"\n')
+    try:
+        producer._safe_review_text(composite.encode("utf-8"), "candidate diff")
+    except producer.FreeReviewError:
+        checks += 1
+    else:
+        raise AssertionError(
+            "whitespace-split credential + redactable contact passed")
+    try:
+        producer._safe_review_text(
+            ('key = "' + split_key + '"\n').encode("utf-8"), "candidate diff")
+    except producer.FreeReviewError:
+        checks += 1
+    else:
+        raise AssertionError("whitespace-split credential alone passed")
+    # negative control: ordinary spaced prose must not trip the collapsed
+    # detection (collapse is line-scoped and detection-only)
+    benign = ("# AKIA prefix mentioned in prose, then words\n"
+              "value = compute(a, b)  # spaced call, no credential\n")
+    check(producer._safe_review_text(benign.encode("utf-8"), "diff") == benign,
+          "benign spaced text does not trip collapsed detection")
+
+    # the smuggling shape that defeated the earlier safe-reference attempt:
+    # a secret in front of a public no-reply suffix must still refuse
+    smuggled = ('contact = "' + "s" + "k-ant-api03-" + "A" * 80
+                + '@users.noreply.github.com"\n')
+    try:
+        producer._safe_review_text(smuggled.encode("utf-8"), "candidate diff")
+    except producer.FreeReviewError:
+        checks += 1
+    else:
+        raise AssertionError("a secret hidden in a no-reply address passed")
+
+    # --- full route in the redacted regime (review finding, 2026-08-10) ----
+    # Before R1 the scrubber was fail-closed, so packet['diff'] was always
+    # byte-identical to the raw candidate. R1 makes packet['diff'] scrubbed;
+    # this proves the whole freeze_packet route stays coherent when the shown
+    # text differs from the raw candidate identity. Contract the asserts pin:
+    # `candidate.diffSha256` is the RAW candidate identity (the verification
+    # loop reconstructs the exact git diff and compares against it — never a
+    # scrubbed-text hash), while `packet['diff']` is the scrubbed text the
+    # reviewer sees, carried verbatim inside the signed packet so the exact
+    # shown bytes stay auditable without a separate hash.
+    with tempfile.TemporaryDirectory(prefix="itd-free-review-redact-") as raw2:
+        fx = Path(raw2)
+        repo2 = fx / "repo"
+        repo2.mkdir()
+        shell(["git", "init", "-q"], repo2)
+        shell(["git", "config", "user.name", "ITD Redact Test"], repo2)
+        shell(["git", "config", "user.email", "review@invalid"], repo2)
+        (repo2 / "service.py").write_text(
+            "def decision():\n    return 'old'\n", encoding="utf-8")
+        shell(["git", "add", "service.py"], repo2)
+        shell(["git", "commit", "-qm", "base"], repo2)
+        base2 = shell(["git", "rev-parse", "HEAD"], repo2)
+        (repo2 / "branch.py").write_text("BRANCH = True\n", encoding="utf-8")
+        shell(["git", "add", "branch.py"], repo2)
+        shell(["git", "commit", "-qm", "branch parent"], repo2)
+        parent2 = shell(["git", "rev-parse", "HEAD"], repo2)
+        # a redactable public contact detail in the candidate diff
+        contact = "owner" + "@" + "example.com"
+        (repo2 / "service.py").write_text(
+            "def decision():\n"
+            f"    # maintainer: {contact}\n"
+            "    return 'reviewed'\n",
+            encoding="utf-8")
+        shell(["git", "add", "service.py"], repo2)
+        tree2 = shell(["git", "write-tree"], repo2)
+        scope2, acceptance2, machine2 = write_inputs(fx, repo2, parent2, tree2)
+
+        redacted_packet = producer.freeze_packet(
+            root=repo2, base_commit=base2,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=scope2,
+            acceptance_file=acceptance2, machine_receipt=machine2,
+        )
+        # candidate.diffSha256 binds the base..cached diff (freeze_packet
+        # uses base_commit, not the head parent, for the candidate identity)
+        raw_diff = subprocess.run(
+            ["git", "diff", "--cached", "--binary", "--full-index",
+             "--no-ext-diff", base2, "--"], cwd=repo2,
+            capture_output=True, timeout=30, check=True,
+        ).stdout
+        # identity hash stays the RAW candidate (what the verification loop
+        # reconstructs and compares), untouched by scrubbing
+        check(redacted_packet["candidate"]["diffSha256"]
+              == __import__("hashlib").sha256(raw_diff).hexdigest(),
+              "diffSha256 stays the raw candidate identity under redaction")
+        # the reviewer sees the scrubbed text, not the raw contact
+        check("[REDACTED-EMAIL]" in redacted_packet["diff"]
+              and contact not in redacted_packet["diff"],
+              "the shown diff is scrubbed while the route still completes")
+        # the shown text is auditable: it is carried verbatim in the packet
+        # and the prompt is deterministic from that packet
+        check(producer.review_prompt(redacted_packet)
+              == producer.review_prompt(redacted_packet)
+              and redacted_packet["diff"]
+              in producer.review_prompt(redacted_packet),
+              "the scrubbed shown text is embedded verbatim in the prompt")
+
     source = PRODUCER.read_text(encoding="utf-8")
     check("api.openai.com" not in source and "OPENAI_API_KEY" not in source,
           "producer contains a paid API dispatch path")
