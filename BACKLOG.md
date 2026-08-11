@@ -56,6 +56,16 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   scan (found closing U6, 2026-08-10): the only reported skill drift on a fully
   synced install was `skills/_shared/__pycache__` — pure noise that makes a
   clean parity check read as "~1 updated".
+- [x] Whitespace-split secrets evade the scrubber detectors (R1 review
+  finding, 2026-08-10, pre-existing): closed INSIDE the R1 slice after the
+  independent route showed R1 widens the exposure (the accidental
+  any-redaction block previously caught the composite case) —
+  `contains_high_confidence_secret` now also checks per-line
+  whitespace-collapsed variants (detection only; line-scoped so entropy
+  checks never see the document fused into one token). Remaining open tail:
+  secrets split ACROSS lines, and entropy detection on collapsed text, stay
+  undetected by design — document-scoped collapse would fire on everything;
+  revisit only with a bounded design.
 
 ## P0 — Deferred out of GPG-004 push-gate/adjudication execution (2026-08-09)
 

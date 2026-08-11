@@ -580,18 +580,25 @@ def _safe_review_text(raw: bytes, label: str) -> str:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise FreeReviewError("UNVERIFIED", f"{label} is not UTF-8 text") from exc
-    clean, redactions = scrubber.scrub(text)
+    clean, _redactions = scrubber.scrub(text)
+    # Redaction is the scrubber doing its job, not a finding: the reviewer
+    # receives the SCRUBBED text, so nothing unredacted ever leaves. Only a
+    # detector hit — a credential the scrubber could not neutralise — is a
+    # reason to refuse (fail-closed).
+    #
+    # Treating any redaction as a finding made the route unusable: a public
+    # `*@users.noreply.github.com` address sitting in a manifest blocked
+    # every candidate whose diff context touched it (route findings r33-r35,
+    # 2026-08-10), exactly like a leaked key would.
     if (
-        redactions
-        or clean != text
-        or scrubber.contains_high_confidence_secret(text)
+        scrubber.contains_high_confidence_secret(text)
         or scrubber.contains_residual_credential(text)
         or scrubber.contains_high_entropy_token(text)
     ):
         raise FreeReviewError(
             "UNVERIFIED", f"{label} contains sensitive material; review is blocked"
         )
-    return text
+    return clean
 
 
 def _staged_file_records(
