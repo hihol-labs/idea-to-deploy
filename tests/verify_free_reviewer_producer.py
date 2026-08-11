@@ -13,6 +13,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,18 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCER = ROOT / "skills/_shared/itd_free_reviewer_producer.py"
+
+# The governing review total must be read as an exact delimited number, never as
+# a substring: an emitted 1411470 embeds the expected 141147 and would otherwise
+# satisfy the regression while violating the contract.
+GOVERNING_TOTAL_RE = re.compile(
+    r"(?:exact total is|representation total of) (\d+) bytes(?![\d])"
+)
+
+
+def governing_totals(prompt_text: str) -> set[int]:
+    """Every governing total the prompt states, parsed exactly."""
+    return {int(match) for match in GOVERNING_TOTAL_RE.findall(prompt_text)}
 
 
 def shell(argv: list[str], cwd: Path) -> str:
@@ -407,6 +420,46 @@ def main() -> int:
                 for value in unit_prompts
             ),
             "unit prompts repeat the full plan instead of its exact hash binding",
+        )
+        representation_total = plan["fullDiffBytes"]
+        check(
+            large_packet["candidate"]["diffBytes"] != representation_total
+            and all(
+                "never against candidate.diffBytes" in value
+                and str(representation_total) in value
+                for value in observed_prompts
+            )
+            and "never against candidate.diffBytes"
+            in producer.review_prompt(large_packet),
+            "reviewer prompts leave the candidate and review byte totals ambiguous",
+        )
+        check(
+            transparent_packet["candidate"]["diffBytes"]
+            != representation["reviewDiffBytes"]
+            and str(representation["reviewDiffBytes"])
+            in producer.review_prompt(transparent_packet)
+            and "never against candidate.diffBytes"
+            in producer.review_prompt(transparent_packet),
+            "direct transparent prompt omits its exact review representation total",
+        )
+        check(
+            all(
+                governing_totals(value) == {representation_total}
+                for value in observed_prompts
+            )
+            and governing_totals(producer.review_prompt(large_packet))
+            == {representation_total}
+            and governing_totals(producer.review_prompt(transparent_packet))
+            == {representation["reviewDiffBytes"]}
+            and not governing_totals(
+                producer.review_prompt(large_packet).replace(
+                    f"{representation_total} bytes",
+                    f"{representation_total}0 bytes",
+                )
+            )
+            == {representation_total},
+            "governing review total is accepted as a substring instead of an "
+            "exact delimited number",
         )
         producer.validate_review_prompt_artifact(
             large_packet, prompt_artifact, final_report,
