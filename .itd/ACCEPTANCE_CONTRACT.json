@@ -643,6 +643,8 @@
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "activeFollowup": {
     "unitId": "R1-SCRUB",
-    "status": "in_progress"
+    "status": "verified",
+    "closedAt": "2026-08-11",
+    "evidence": "Merged as PR #188 (a2ce0a3). On the merged main, read-only: verify_free_reviewer_producer 140 checks PASSED (liveExternalCalls 0); verify_independent_review_efficacy PASSED with hostParityVerified true, wsl+windows criticalHigh/medium detection 1.0 and cleanFalseBlockRate 0.0, u12 cross-vendor ladder 1.0/1.0/0.0; tests/run-all.sh --quick DONE fails:none. STATE.json records R1-SCRUB verified via itd_unit_log.py after an explicit backfill-activation reconciliation (the activation event was written in the isolated worktree, not this checkout)."
   }
 }

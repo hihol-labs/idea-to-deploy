@@ -92,3 +92,29 @@ text already never leaves); R3 (ceremonial SKILL_BYPASS) — separate slice;
 snapshot `a7` mint and the U16 route — operational steps after this merges;
 narrowing the `producerSha256` binding granularity (retro R2) — separate
 decision.
+
+## Closure (2026-08-11)
+
+Merged as PR #188 (`a2ce0a3`, implementation commit `0715a6a`). All four
+acceptance items verified on the merged `main`, read-only, in this checkout:
+
+1./2. `verify_free_reviewer_producer` — 140 checks PASSED,
+   `liveExternalCalls: 0`, `paidApiCalls: 0` (redaction reaches the reviewer
+   scrubbed; the four mutation cases still refuse fail-closed).
+3. `verify_independent_review_efficacy --expected-keyring-sha256-file
+   .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256` — PASSED,
+   `hostParityVerified: true`, wsl and windows both
+   `criticalHighDetection 1.0 / mediumDetection 1.0 / cleanFalseBlockRate 0.0`,
+   u12 cross-vendor ladder 1.0/1.0/0.0, evidence source
+   `real-keyless-model-reports`.
+4. `tests/run-all.sh --quick` — `DONE fails:none`.
+
+Ledger: `STATE.json` records R1-SCRUB `verified` (riskTier high) via
+`itd_unit_log.py`. The activation event was written 2026-08-10T21:43:44Z
+(`evt-unit-1786398224`) inside the isolated worktree
+`.claude/worktrees/r1-producer-scrub`, so the main-checkout ledger needed an
+explicit `backfill-activation` reconciliation before the pair could close —
+recorded as `actor: harness-reconciliation`, not as a fresh activation.
+
+Next operational steps (separate units, not this slice): mint snapshot `a7`
+over the patched producer + scrubber, run the U16 route with it, then R3.
