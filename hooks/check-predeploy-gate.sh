@@ -340,6 +340,16 @@ NETWORK_CONTENT_CLIENTS = frozenset({
 })
 
 
+# A `#` starts a shell comment when it begins a WORD — that is, at the start of
+# the input, after whitespace, or after a control operator (`;`, `&`, `|`, and
+# the subshell parentheses), because an operator ends the previous word too.
+# Producer round 2026-08-12-e (round 2): only whitespace was accepted here, so
+# `echo ok;# $(rsync …)` — an inert comment the shell never executes — was read
+# as live dynamic execution and a gated candidate was falsely DENIED. A mid-word
+# `#` (`foo#$(bar)`) still runs the substitution and stays scanned.
+COMMENT_START_BEFORE = " \t\r\n;&|()"
+
+
 def _has_dynamic_execution(text: str) -> bool:
     """Command/process substitution outside single quotes, unconditionally.
 
@@ -370,7 +380,8 @@ def _has_dynamic_execution(text: str) -> bool:
                 return True
             elif char == "`":
                 return True
-        elif char == "#" and (index == 0 or text[index - 1] in " \t\r\n"):
+        elif char == "#" and (index == 0
+                              or text[index - 1] in COMMENT_START_BEFORE):
             # Unquoted shell comment (word-start `#`): the rest of the line does
             # not execute, so a `$(…)`/backtick inside it is inert — treating it
             # as dynamic falsely blocked `echo x # $(rsync …)` and `make test
@@ -422,7 +433,8 @@ def _split_segments_with_operators(command: str) -> list[tuple[str, str]]:
         elif char in "'\"":
             current.append(char)
             quote = char
-        elif char == "#" and (index == 0 or command[index - 1] in " \t\r\n"):
+        elif char == "#" and (index == 0
+                              or command[index - 1] in COMMENT_START_BEFORE):
             # Unquoted word-start comment: consume to end-of-line WITHOUT
             # splitting on operators inside it — an inert `;`/`|`/transport in a
             # comment must not create a spurious segment (`echo ok # x; rsync …`

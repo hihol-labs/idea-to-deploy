@@ -455,6 +455,18 @@ def main() -> int:
         for cmd in ("grep $PATTERN app.py", "make test BUILD=${CI}"):
             check(f"gated + expansion in an ARGUMENT stays allowed: {cmd!r}",
                   hook(cmd) == 0)
+        # 1b. A `#` after a CONTROL OPERATOR starts a comment too (`echo ok;#
+        #     $(rsync …)`): the shell never executes it, so treating it as live
+        #     dynamic execution falsely denied a gated candidate (round-2
+        #     over-block finding). Word-start is: input start, whitespace, or an
+        #     operator — a mid-word `#` still runs the substitution.
+        for cmd in ("echo ok;# " + sub, "echo ok&# " + sub,
+                    "echo ok|# " + sub, "make test;# runs $(nproc) jobs"):
+            check(f"gated + comment after a control operator is inert → allow: "
+                  f"{cmd[:32]!r}", hook(cmd) == 0)
+        check("gated + a mid-word '#' after an operator still gates "
+              "(only word-start starts a comment)",
+              hook("echo ok;echo foo#" + sub) == 2)
         # 2. A shell payload reached THROUGH a prefix wrapper hid its `cd` from
         #    candidate-root analysis: `sudo bash -c 'cd /gated && rsync …'` was
         #    judged against the routine launch cwd. The payload's directory
