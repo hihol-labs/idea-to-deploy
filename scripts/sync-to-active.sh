@@ -398,7 +398,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/completion-gate.sh",              "timeout": 900 },
-        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",                  "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/state-guard.sh",                  "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/check-predeploy-gate.sh",         "timeout": 90 }
       ]
     },
     {

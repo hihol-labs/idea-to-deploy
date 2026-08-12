@@ -66,6 +66,33 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   secrets split ACROSS lines, and entropy detection on collapsed text, stay
   undetected by design — document-scoped collapse would fire on everything;
   revisit only with a bounded design.
+- [ ] Signed HUMAN_OVERRIDE channel (U16 cross-vendor route finding r17,
+  2026-08-10): `itd_verification_loop.py mint-override` records carry no
+  cryptographic signature, so the pre-deploy gate refuses ALL override records
+  (an unsigned record is forgeable). Add an authenticated minting channel
+  (host-owned signing key + verification against the installed trust anchor),
+  then re-enable the data-sensitive-only bypass in `itd_predeploy_gate.py`.
+- [ ] Authenticated deployed-state attestation (U16 route findings r23/r25,
+  2026-08-10): local `deploy-*` tags are forgeable, so the pre-deploy gate
+  classifies ANY populated migration directory as irreversible (strict
+  presence-based) and migration-bearing projects have no routine path. Add an
+  attested "deployed up to X" marker (e.g. signed by the same host-owned
+  authority as the override channel) to restore a sound routine path.
+- [ ] Broaden pre-deploy risk auto-detection (U16 review finding, 2026-08-10):
+  classification is opt-in — a project with no `itd-domain:` marker whose
+  migrations live outside the fixed list (`migrations`, `db/migrations`,
+  `packages/supabase/migrations`) is classified routine and deploys
+  unreviewed. Add the common tool layouts (`alembic/versions`,
+  `prisma/migrations`, `app/migrations`, …) and payment/PII import
+  heuristics as defense-in-depth.
+- [x] Mechanical pre-deploy enforcement (U16 review finding + route finding
+  r32, 2026-08-10): closed inside U16 — `hooks/check-predeploy-gate.sh`
+  (PreToolUse, Bash matcher) denies content-shipping commands for a gated
+  candidate until the gate records a pass bound to the exact candidate
+  digest. Follow-up CLOSED 2026-08-11 (route finding r51): the gate-pass
+  record is authenticated by an HMAC keyed by a host-owned secret outside every
+  checkout (`~/.config/itd/deploy-gate.key`), so a hand-written record is not a
+  pass. The signed OVERRIDE channel above stays open — different channel.
 
 ## P0 — Deferred out of GPG-004 push-gate/adjudication execution (2026-08-09)
 
@@ -127,6 +154,46 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Build the fresh-session worktree/resource-isolation pilot kit.
 - [ ] Run three serial, user-authorized brownfield units in named project roots with
   isolated mutable resources and exact-candidate receipts.
+- [ ] Narrow the residual-credential detector's assignment false positive
+  (U16, 2026-08-11): an ordinary local variable in
+  `hooks/check-predeploy-gate.sh` — named after a parsed word and assigned from
+  a list element — tripped `contains_residual_credential`, so the route refused
+  the candidate outright (`UNVERIFIED: candidate diff contains sensitive
+  material`). Renaming the variable unblocked it; then the NEXT round refused
+  again because the scope-lock amendment quoted the offending line verbatim,
+  i.e. documenting the false positive re-triggered it. A detector that reads
+  ordinary parser code — and prose about parser code — as a credential taxes
+  every future candidate. Needs a bounded precision fix in the scrubber, which
+  also re-mints the signed efficacy legs — hence a separate unit, not this one.
+- [ ] Investigate machine-oracle interference between two heavy commands in
+  one isolated candidate (U16, 2026-08-11): minting a receipt with both
+  `verify_predeploy_independent_review` AND `run-all.sh --quick` produced a red
+  verdict three times at the SAME tree, alternating which command failed
+  (quick red / verifier green, then verifier red twice). The verifier run alone
+  in the same oracle was green 3/3, and both commands were green outside it.
+  U16's accepted exact-candidate oracle was therefore narrowed to the single
+  verifier command `python3 tests/verify_predeploy_independent_review.py`
+  (deterministic; it self-proves its own CORE registration) — see the scope
+  lock's "Machine-oracle shape" and the acceptance contract's U16 `oracleIds`.
+  The full `run-all.sh --quick` still runs in pre-commit/CI; it is simply no
+  longer this unit's oracle. What remains for S2 is the interference itself: a
+  machine oracle that can go red for reasons that are not the candidate is a
+  trust problem for every future multi-command unit; find the shared state
+  (temp paths, process limits, or ordering) and pin it. (The residual
+  `gate_pass_is_current` flake inside the verifier was root-caused and fixed
+  under S1, but NOT as first hypothesised: instrumenting every return-False
+  branch showed the failing branch was the freshness check with a NEGATIVE age
+  — the wall clock stepping backward on WSL2 / NTP, not a racy-clean
+  `worktree_clean`. The speculative `git update-index --refresh` change was
+  therefore REVERTED; the real fix is a bounded negative clock-skew tolerance
+  in the age check. See the scope lock's "S1-flake root cause and fix". This
+  S2 item is the broader full-suite interference, not that sub-check.)
+- [ ] Chase the `verify_session_hygiene_quality` flake seen once during U16
+  (2026-08-11): the quick suite reported `FAILED: 1 — close rejects dirty git
+  state`, and the same assertion then passed both standalone (5/5) and on an
+  immediate full re-run (`DONE fails:none`). A gate test that fails
+  non-deterministically is a weak gate even when the product code is fine —
+  find the shared state (temp dir reuse or host git state) and pin it.
 
 ## P1 — GENG: Graph Contract Layer (ADR-009, accepted 2026-08-10)
 

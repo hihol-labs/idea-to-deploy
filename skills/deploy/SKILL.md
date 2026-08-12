@@ -63,6 +63,107 @@ Before ANY deployment action:
 
 4. **Identify what changed** — `git log --oneline` since last deploy tag/marker (`git tag --list 'deploy-*' | tail -1`).
 5. **Check for pending migrations** — scan `packages/supabase/migrations/`, `migrations/`, `db/migrations/`, or whichever directory the project uses. If the project has no migrations dir, skip this check and note it in the summary.
+5b. **Pre-deploy independent review gate (U16)** — before ANY
+   mutating step (Steps 1–5), run the risk-tiered gate:
+
+   ```bash
+   # ONLY the installed copy — never a gate script shipped inside the deploy
+   # candidate (candidate-controlled gate code must not gate itself). The
+   # anchor comes from the OS account database, NOT from $HOME: a launch
+   # with a relocated HOME must not be able to substitute the gate itself
+   # (route findings r53/r55). On hosts without getent, use the installed
+   # launcher path verified by /doctor.
+   ITD_HOME="$(getent passwd "$(id -u)" | cut -d: -f6)"
+   G="$ITD_HOME/.claude/skills/deploy/scripts/itd_predeploy_gate.py"
+   # For a GATED class add both flags (r60: this fence is paste-executable,
+   # so the optional flags live in this comment, not in bracket notation):
+   #   --receipt <path-to-the-fresh-adjudication-receipt>
+   #   --emit-deploy-input .itd-memory/deploy-input.tar
+   sh "$ITD_HOME/.claude/skills/_shared/itd_py.sh" "$G" check --root "$(git rev-parse --show-toplevel)"
+   ```
+
+   For a **gated** class `--emit-deploy-input` is REQUIRED: the gate itself
+   produces the deployable artifact (`git archive --format=tar HEAD`) and
+   prints its `deployInputSha256`. Steps 1–5 must ship **that artifact**;
+   an rsync/tar of the working directory is not the reviewed candidate and
+   silently carries ignored, unreviewed files (route finding r30).
+
+   Exit 0 — proceed; exit 2 prints one typed JSON line (WHY + FIX) and the
+   deploy MUST stop before any mutating step. **Enforcement is mechanical**:
+   `hooks/check-predeploy-gate.sh` (PreToolUse, Bash matcher) is a
+   **shipment-scoped receipt gate** (ADR-008, 2026-08-12): for a gated
+   candidate it denies a recognized deploy transport — `ssh`, `scp`, `rsync`,
+   `docker` push, `podman`, `kubectl`, `helm`, `tar`, `curl`, `wget`, `nc`,
+   `aws`, `rclone`, `terraform`, `pulumi`, `flyctl`, `vercel`, `kamal`, … —
+   or a statically opaque command that could hide one (command/process
+   substitution outside single quotes, `eval`/`source`/`xargs`, `case`/
+   `select`, unlexable text) until this gate has recorded a pass bound to the
+   exact current candidate digest, so skipping this item does not skip the
+   gate. A **valid current pass then allows the reviewed deploy regardless of
+   shipment form** — the r53–r89 review rounds proved that statically parsing
+   a Turing-complete shell to prove a command "ships only the reviewed
+   artifact" is undecidable, so the gate stopped analysing the form.
+   **Ordinary local code execution** (interpreters, build/test/task runners
+   like `bash deploy.sh` / `python deploy.py` / `make deploy`, path-qualified
+   or custom executables) and **local file operations** are **out of scope**
+   — allowed, and covered by `/careful`, the completion gate and human deploy
+   review, not this hook. Read-only inspection (`docker ps`, `kubectl get`,
+   …) and routine candidates are never blocked. Shipping the exact
+   `--emit-deploy-input` artifact (above) remains the correct practice even
+   though the gate no longer mechanically enforces the transport's shape.
+   **Stated boundary (route finding r73, same-principal TOCTOU):** the gate
+   binds the deploy-input digest at check time, but a *separate concurrent
+   process running as the same user* could replace the artifact file between
+   the gate's validation and the transport's own `open()`. A PreToolUse hook
+   cannot hold that file descriptor through an external `rsync`/`scp`, so this
+   race is out of scope — it is the same same-principal limit already stated
+   for the pass-record key (r51/r53): the gate is not a defense against an
+   attacker who already has concurrent code execution as the user. Risk signals are
+   read from **opt-in project declarations**, not objectively derived: the
+   `itd-domain: data-sensitive` / `itd-domain: monetary` markers in the
+   project's `CLAUDE.md`, `ITD_DEPLOY_MONETARY` in the deploy environment,
+   and a recursive auto-scan of a **fixed list** of migration directories
+   (`migrations`, `db/migrations`, `packages/supabase/migrations`) — a
+   genuinely data-sensitive project that declares no marker and keeps
+   migrations elsewhere (`alembic/versions`, `prisma/migrations`, …) is
+   classified routine and passes unreviewed; broader auto-detection is a
+   queued BACKLOG follow-up. ANY populated
+   migration directory from that list classifies the candidate irreversible (strict
+   presence-based; local `deploy-*` tags are a forgeable marker and never
+   downgrade the class — an authenticated deployed-state attestation is a
+   queued BACKLOG follow-up). Explicit `--data-sensitive` /
+   `--monetary` / `--migrations-dir` flags can only ESCALATE a signal (e.g.
+   with the dir found in item 5) — they never suppress one the project
+   itself declares. Semantics (fail-closed): a data-sensitive,
+   irreversible or monetary candidate requires a clean
+   worktree (the deployed content must be the exact reviewed HEAD) and a
+   fresh Verification Loop adjudication receipt bound to that candidate —
+   missing/stale/invalid blocks. Receipt and override validation run against
+   the INSTALLED methodology (fixed trust anchor `~/.claude`; deliberately
+   not configurable from the CLI), never against validator code shipped
+   inside the deploy candidate. The
+   criterion's only bypass class — the audited
+   `HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW` record — must carry a recorded
+   reason AND a signature; `mint-override` records are unsigned today, so
+   the gate refuses every override for every gated class (strict fail-closed
+   branch; the signed override channel is a queued BACKLOG follow-up), and
+   an override is never PASSED and never review evidence. A routine
+   candidate passes without a receipt — the gate is risk-tiered, not
+   unconditional. **Deployment-input constraint for gated classes:** the
+   receipt covers tracked committed content only — locally changed IGNORED
+   artifacts are outside it (`git status` cannot see them). For a
+   data-sensitive/irreversible/monetary deploy, Step 1 MUST ship the artifact
+   the gate itself emitted — the gate produces it with `git archive HEAD`, so
+   it is exactly the tracked committed content of the reviewed candidate.
+   Never a working-directory tar that could include ignored build/deploy
+   artifacts, and never a fresh ad-hoc archive of the working tree. **This is
+   required deploy procedure, not hook enforcement:** under ADR-008 a valid
+   current pass authorizes the reviewed deploy regardless of the transport's
+   shape, so the hook will NOT deny an ad-hoc archive after a clean gate run —
+   shipping the emitted artifact is on the operator, and skipping it silently
+   ships unreviewed ignored files. Ship it, for example, as
+   `cat .itd-memory/deploy-input.tar | ssh $DEPLOY_HOST "tar -x -C $DEPLOY_PATH"`
+   or `scp .itd-memory/deploy-input.tar $DEPLOY_HOST:$DEPLOY_PATH/`.
 6. **Confirm with user** — show summary of what will be deployed and ask for explicit approval.
 
 **CRITICAL:** Never deploy without user confirmation. Show:

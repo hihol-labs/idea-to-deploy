@@ -6,8 +6,8 @@
   "inventory": {
     "skills": 40,
     "subagents": 10,
-    "hooks": 29,
-    "hardGates": 11,
+    "hooks": 30,
+    "hardGates": 12,
     "softHooks": 18
   },
   "conformanceContractSha256": "8f0f5d3bb7beff0c20b39ce5405a770de20d21e4cbb67162a8115f116366ef3e",

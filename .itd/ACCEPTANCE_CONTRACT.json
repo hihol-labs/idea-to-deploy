@@ -623,6 +623,63 @@
       "evidence": "verify_free_reviewer_producer 140 checks PASSED (both-direction mutation coverage incl. split-credential composite); verify_independent_review_efficacy PASSED, hostParityVerified true, detection 1.0/1.0, cleanFalseBlockRate 0.0 both hosts; receipts .itd-memory/verification-loop/receipts/r1-staged/.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
       "status": "passed"
+    },
+    {
+      "id": "U16:general-review-1",
+      "criterion": "/deploy is gated fail-closed: for a deploy candidate whose derived risk class is data-sensitive, irreversible or monetary, a recognised deploy-transport command (rsync/scp/ssh/tar-non-read-only/curl/wget/aws/docker-push/kubectl/terraform/... or a statically opaque command that could hide one — command/process substitution, eval/source/xargs, case/select, non-lexable) is blocked unless a fresh Verification Loop adjudication receipt bound to the exact deploy candidate validates; missing, stale or invalid receipts block with a typed JSON WHY/FIX and exit 2. Per ADR-008 the gate does not re-analyse the shipment form (a valid current pass authorises the reviewed deploy whatever its shape); ordinary local code execution and file operations are the documented out-of-scope honest limit (covered by /careful, the completion gate and human deploy review).",
+      "source": "GPG-004 ladder point U16 (plan 2026-08-09), user-approved unit plan 2026-08-10; skills/deploy/scripts/itd_predeploy_gate.py + Step 0 item 5b wiring in skills/deploy/SKILL.md.",
+      "evidence": "PASSED 2026-08-12 on the exact candidate: tests/verify_predeploy_independent_review.py exit 0, 103/103 assertions under the ADR-008 shipment-scoped receipt gate (the S1 redesign that ended the r53–r89 shipment-FORM arms race: the hook no longer parses the shipment form — a gated candidate's recognised deploy transport, or a statically opaque command that could hide one, is denied without a valid current pass; a valid pass authorizes the reviewed deploy regardless of form; local code execution and file operations are the documented ADR-008 out-of-scope honest limit — design and boundaries in .itd/SCOPE_LOCK.md 'ADR-008 amendment'); tests/verify_predeploy_gate.py 11/11 (real PreToolUse subprocess); the exact-candidate machine oracle runs this verifier directly (deterministic, self-proves CORE registration — the full-suite interference flake is a queued S2 follow-up, see SCOPE_LOCK 'Machine-oracle shape'). Deny/allow/receipt-core branches and both mutation directions exercised at module, hook and CLI level. The `oracleIds` value `quick-suite-with-u16-verifier` is an OPAQUE machine-oracle run label (the isolated single-command verifier run, retained for receipt continuity); it is NOT a claim that the full run-all.sh --quick suite is this unit's oracle — the accepted oracle is verifier-only (see SCOPE_LOCK 'Machine-oracle shape').",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_predeploy_independent_review.py",
+      "reviewEvidence": {
+        "claim": "The pre-deploy gate blocks a gated candidate's recognised deploy transport (and transport-hiding opaque commands) without a valid exact-candidate adjudication receipt, allows the reviewed deploy once a valid pass exists regardless of shipment form (ADR-008), leaves ordinary local execution untouched, refuses the unsigned override bypass for every gated class (cannotWeaken), and stays quiet-pass for routine candidates — the single narrow exception being a content-shipping command that changes to a statically-unresolvable directory (`cd \"$VAR\" && rsync …`), which is fail-closed regardless of launch class because it may reach a gated checkout (r65 cd-escape guard).",
+        "impactClasses": [
+          "bounded-output",
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "quick-suite-with-u16-verifier"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U16:general-review-2",
+      "criterion": "The criterion's only bypass class, the audited HUMAN_OVERRIDE_NO_INDEPENDENT_REVIEW record, requires a recorded reason AND a signature; since mint-override records carry no signature today, the gate refuses every override record for every gated class (strict fail-closed branch, typed WHY/FIX naming the missing signed channel), an override is never reported as PASSED and never counted as independent-review evidence (cannotWeaken), and the signed override channel is queued as an explicit BACKLOG follow-up; the gate-pass record itself is authenticated by a host-owned MAC outside the checkout, so a hand-written record is not a pass (r51).",
+      "source": "Unit U16 criterion cannotWeaken clause; itd_predeploy_gate.py evaluate_gate/load_override; mint-override producer shape in skills/_shared/itd_verification_loop.py.",
+      "evidence": "PASSED 2026-08-12 on the exact candidate: tests/verify_predeploy_independent_review.py exit 0, 103/103 assertions under the ADR-008 shipment-scoped receipt gate (the S1 redesign that ended the r53–r89 shipment-FORM arms race: the hook no longer parses the shipment form — a gated candidate's recognised deploy transport, or a statically opaque command that could hide one, is denied without a valid current pass; a valid pass authorizes the reviewed deploy regardless of form; local code execution and file operations are the documented ADR-008 out-of-scope honest limit — design and boundaries in .itd/SCOPE_LOCK.md 'ADR-008 amendment'); tests/verify_predeploy_gate.py 11/11 (real PreToolUse subprocess); the exact-candidate machine oracle runs this verifier directly (deterministic, self-proves CORE registration — the full-suite interference flake is a queued S2 follow-up, see SCOPE_LOCK 'Machine-oracle shape'). Deny/allow/receipt-core branches and both mutation directions exercised at module, hook and CLI level. The `oracleIds` value `quick-suite-with-u16-verifier` is an OPAQUE machine-oracle run label (the isolated single-command verifier run, retained for receipt continuity); it is NOT a claim that the full run-all.sh --quick suite is this unit's oracle — the accepted oracle is verifier-only (see SCOPE_LOCK 'Machine-oracle shape').",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_predeploy_independent_review.py",
+      "reviewEvidence": {
+        "claim": "The bypass class cannot weaken the gate: unsigned override records are refused outright for every gated class until an authenticated signed channel exists; never PASSED, never review evidence.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "quick-suite-with-u16-verifier"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U16:general-review-3",
+      "criterion": "Mutation coverage holds in both directions: removing or unwiring the gate turns tests/verify_predeploy_independent_review.py red (block cases + SKILL.md Step 0 wiring assertion), and an unconditional gate turns the routine negative control red; the verifier is registered in the run-all CORE list and green in the isolated snapshot.",
+      "source": "Unit U16 mutation clause; tests/verify_predeploy_independent_review.py; tests/run-all.sh CORE registration.",
+      "evidence": "PASSED 2026-08-12 on the exact candidate: tests/verify_predeploy_independent_review.py exit 0, 103/103 assertions under the ADR-008 shipment-scoped receipt gate (the S1 redesign that ended the r53–r89 shipment-FORM arms race: the hook no longer parses the shipment form — a gated candidate's recognised deploy transport, or a statically opaque command that could hide one, is denied without a valid current pass; a valid pass authorizes the reviewed deploy regardless of form; local code execution and file operations are the documented ADR-008 out-of-scope honest limit — design and boundaries in .itd/SCOPE_LOCK.md 'ADR-008 amendment'); tests/verify_predeploy_gate.py 11/11 (real PreToolUse subprocess); the exact-candidate machine oracle runs this verifier directly (deterministic, self-proves CORE registration — the full-suite interference flake is a queued S2 follow-up, see SCOPE_LOCK 'Machine-oracle shape'). Deny/allow/receipt-core branches and both mutation directions exercised at module, hook and CLI level. The `oracleIds` value `quick-suite-with-u16-verifier` is an OPAQUE machine-oracle run label (the isolated single-command verifier run, retained for receipt continuity); it is NOT a claim that the full run-all.sh --quick suite is this unit's oracle — the accepted oracle is verifier-only (see SCOPE_LOCK 'Machine-oracle shape').",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_predeploy_independent_review.py",
+      "reviewEvidence": {
+        "claim": "Both mutation directions are executable checks, not narration.",
+        "impactClasses": [
+          "compatibility",
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "quick-suite-with-u16-verifier"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -640,11 +697,26 @@
       "credential rotation"
     ]
   },
-  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "activeFollowup": {
-    "unitId": "R1-SCRUB",
-    "status": "verified",
-    "closedAt": "2026-08-11",
-    "evidence": "Merged as PR #188 (a2ce0a3). On the merged main, read-only: verify_free_reviewer_producer 140 checks PASSED (liveExternalCalls 0); verify_independent_review_efficacy PASSED with hostParityVerified true, wsl+windows criticalHigh/medium detection 1.0 and cleanFalseBlockRate 0.0, u12 cross-vendor ladder 1.0/1.0/0.0; tests/run-all.sh --quick DONE fails:none. STATE.json records R1-SCRUB verified via itd_unit_log.py after an explicit backfill-activation reconciliation (the activation event was written in the isolated worktree, not this checkout)."
-  }
+    "unitId": "U16:general-review",
+    "status": "in_progress",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd/GPG-003_ROOT_CAUSE.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "bounded-output",
+        "compatibility",
+        "correctness",
+        "error-handling",
+        "repository-hygiene",
+        "security"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
+  },
+  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

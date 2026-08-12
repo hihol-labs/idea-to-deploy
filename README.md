@@ -48,7 +48,7 @@ without blueprints:
 ## The Solution
 
 **idea-to-deploy** is a methodology, not just a set of tools. Its
-40 skills + 10 specialized agents, 29 hooks, project contracts, and persistent
+40 skills + 10 specialized agents, 30 hooks, project contracts, and persistent
 state give a supported coding host an evidence-gated delivery pipeline:
 
 ```
@@ -468,12 +468,12 @@ Skills can invoke each other. This is the maximum depth and the chains:
 The methodology is only effective if the active host invokes the skills.
 Trigger matching is necessary but not sufficient: under pressure or on an
 ambiguous prompt an agent may default to ad-hoc tool calls. The `hooks/` folder
-contains **29 hooks** — **11 hard gates** that can stop an action and **18 soft
+contains **30 hooks** — **12 hard gates** that can stop an action and **18 soft
 hooks** for reminders, context, observability, and self-correction. The
-enforcement strength is the **11 hard gates, not 29**. Put plainly: of the 29,
-11 are hard and 18 are soft.
+enforcement strength is the **12 hard gates, not 30**. Put plainly: of the 30,
+12 are hard and 18 are soft.
 
-### Hook taxonomy — 11 hard gates vs 18 soft (machine-checked)
+### Hook taxonomy — 12 hard gates vs 18 soft (machine-checked)
 
 | # | Hard gate (can block/deny) | Event | What it stops |
 |---|---|---|---|
@@ -488,10 +488,11 @@ enforcement strength is the **11 hard gates, not 29**. Put plainly: of the 29,
 | 9 | `verdict-contract.sh` | SubagentStop | a review subagent ending with a prose verdict and no valid JSON verdict block (≤2 block-pings) |
 | 10 | `completion-gate.sh` | PreToolUse · Bash | a `git commit` with source code claiming done while a completion layer is unproven — L2 tests failing or never run (deny, exit 2) |
 | 11 | `state-guard.sh` | PreToolUse · Write/Edit **+ Bash/PowerShell** | a write to a `.itd-memory` state ledger (`STATE.json`/`GOAL*.json`) — via Write/Edit tools OR a Bash command targeting the ledger (redirect/`tee`/`sed -i`/…, v1.78.0) — while a FRESH `.active-session.lock` is owned by ANOTHER session — parallel-session last-writer-wins, the NeuroExpert 2026-04-11 incident class (deny, exit 2; ≤2 denies per session, then warn-allow; its PostToolUse validation/heartbeat legs stay soft) |
+| 12 | `check-predeploy-gate.sh` | PreToolUse · Bash | shipment-scoped receipt gate (ADR-008) for a data-sensitive, irreversible or monetary candidate: a **recognized deploy transport** (`ssh`/`scp`/`rsync`/`docker` push/`kubectl`/`helm`/`tar`/`curl`/`wget`/`aws`/`terraform`/…) or a statically **opaque** command that could hide one (command/process substitution outside single quotes, `eval`/`source`/`xargs`, `case`/`select`, unlexable text) is denied unless a Verification Loop adjudication receipt is recorded for the exact current candidate digest. A **valid current pass then allows the reviewed deploy regardless of shipment form** — the gate no longer re-analyses the command shape. Ordinary local code execution (interpreters, build/test runners, scripts, custom executables) and file operations are **out of scope** (allowed; covered by `/careful` + the completion gate); read-only client calls and routine candidates are never touched; the trust anchor derives from the OS account database, not `HOME` |
 
 **Soft (18):** `careful`, `check-skills`, `completion-signals`, `completion-stop`, `context-aware`, `context-budget`, `crash-recovery`, `cross-review-precommit`, `execution-trace`, `freeze`, `handoff-readiness`, `model-policy`, `pre-flight-check`, `record-agent-skill`, `risk-score`, `session-open-diagnostic`, `stuck-detection`, `wip-gate` — they raise the invocation rate and quality, but never hard-stop (each self-declares "never blocks" / exit 0).
 
-**Hard-gate coverage** — the metric that keeps the 11 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 11/18/29 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 11/11.**
+**Hard-gate coverage** — the metric that keeps the 12 honest: the fraction of hard gates backed by a *behavioural* test that actually drives the gate to `deny`/`block` (a real exit-2/block exercise, not a doc grep). `tests/verify_gate_taxonomy.py` asserts the 12/18/30 split and this README table stay in sync with `hooks/`; `tests/verify_harness_map_fixtures.py` enforces coverage. **Target: 12/12.**
 
 ### Claude Code global hook install
 
@@ -531,7 +532,7 @@ After installation:
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse on Write/Edit/MultiEdit)** — **before** any modification to `skills/*/SKILL.md` inside a methodology repo, parses the pending tool input and verifies that `references/`, trigger phrases in the prompt hook, and regression fixture all exist. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the Write never runs, the file never lands on disk.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse on Bash)** — before any `git commit` inside a methodology repo, parses the staged diff and denies the commit if a skill file is staged without its supporting artifacts. **Hard block (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — the commit never runs.**
 
-All 29 hooks are registered by the canonical adapters. `handoff-readiness.sh`
+All 30 hooks are registered by the canonical adapters. `handoff-readiness.sh`
 is soft/rate-limited and can be disabled with `ITD_HANDOFF_READINESS=0`;
 methodology-only enforcement hooks no-op on unrelated projects.
 `execution-trace.sh` records paired intent/outcome rows, while
