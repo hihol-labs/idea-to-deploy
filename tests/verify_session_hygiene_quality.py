@@ -538,6 +538,11 @@ def test_cleanup_requires_tracking_proof() -> None:
     # S2 deletion-safety pin: when git cannot prove tracking state (any rc
     # outside {0,1}, including the degraded rc=127 spawn fallback), cleanup
     # must refuse to delete instead of reading the failure as "untracked".
+    # POSIX-only like the spawn-pressure pin: Windows CreateProcess resolves
+    # "git" to git.exe only, so a .cmd shim never intercepts the runner's
+    # subprocess.run(["git", ...]) and the scenario cannot be staged there.
+    if os.name != "posix":
+        return
     with tempfile.TemporaryDirectory(prefix="itd-hygiene-gitfail-") as td:
         repo = init_repo(Path(td))
         artifact = repo / "tmp" / "debug.log"
@@ -549,12 +554,9 @@ def test_cleanup_requires_tracking_proof() -> None:
         })
         shims = Path(td) / "shims"
         shims.mkdir()
-        if os.name == "posix":
-            shim = shims / "git"
-            shim.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
-            shim.chmod(0o755)
-        else:
-            (shims / "git.cmd").write_text("@exit /b 2\n", encoding="utf-8")
+        shim = shims / "git"
+        shim.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+        shim.chmod(0o755)
         env = dict(os.environ)
         env["PATH"] = str(shims) + os.pathsep + env.get("PATH", "")
         broken = runner(repo, "cleanup", env=env)
