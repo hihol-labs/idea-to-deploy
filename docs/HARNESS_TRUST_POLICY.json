@@ -77,6 +77,14 @@
       "behavioralTest": "tests/verify_completion_gate.py"
     },
     {
+      "script": "check-predeploy-gate.sh",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "riskTier": "high",
+      "decision": "deny",
+      "behavioralTest": "tests/verify_predeploy_gate.py"
+    },
+    {
       "script": "state-guard.sh",
       "event": "PreToolUse",
       "matcher": "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit",

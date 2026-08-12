@@ -40,7 +40,8 @@
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-dod-before-commit.sh",   "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cross-review-precommit.sh",    "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-gate.sh",          "timeout": 900 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",              "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",              "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-predeploy-gate.sh",     "timeout": 90 }
         ]
       },
       {

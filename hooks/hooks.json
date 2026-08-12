@@ -46,7 +46,8 @@
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script context-budget.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script context-budget.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script careful.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script careful.sh", "timeout": 5 },
           { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script completion-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script completion-gate.sh", "timeout": 900 },
-          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 }
+          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script state-guard.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script state-guard.sh", "timeout": 5 },
+          { "type": "command", "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-predeploy-gate.sh", "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-predeploy-gate.sh", "timeout": 90 }
         ]
       },
       {
