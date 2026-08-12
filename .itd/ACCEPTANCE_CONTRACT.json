@@ -848,6 +848,153 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC1",
+      "criterion": "Both plain-stat identity builders (_plain_source_identities and _plain_ancestor_identities) drop the directory st_size from the entry identity through the single shared _plain_identity helper, while a regular file keeps its size, so an untouched tree yields an identical identity map across consecutive scans and a resized declared file is still detected.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "tests/verify_verification_loop.py models the NTFS resident/non-resident flip deterministically through Path.lstat and covers both identity functions, the end-to-end guarded fallback of secure_copy_declared_source, and two controls proving the guard still fires on a resized declared file. 83/83 cases pass on the exact reviewed tree.",
+      "verificationCommand": "python3 tests/verify_verification_loop.py",
+      "reviewEvidence": {
+        "claim": "The declared-input guard reconciles a before/after observation of the same untouched tree as unchanged, and still refuses a genuinely changed input.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "verification-loop-regression",
+          "full-suite"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC2",
+      "criterion": "The regression test is bound to the defect rather than to the implementation shape: restoring the directory st_size into the identity tuple makes the targeted suite fail.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "Executable mutation proof: the candidate tree is copied outside the reviewed checkout, the single line binding the directory size is reverted to the pre-fix expression, and the targeted suite is re-run in the mutant. Observed 80 passed / 3 failed; the oracle exits 0 only when the mutant fails.",
+      "verificationCommand": "python3 -c 'import pathlib,shutil,subprocess,sys,tempfile; d=pathlib.Path(tempfile.mkdtemp())/\"mutant\"; shutil.copytree(\".\",d,symlinks=True,ignore=shutil.ignore_patterns(\".git\",\".itd-memory\")); p=d/\"skills/_shared/itd_verification_loop.py\"; s=p.read_text(encoding=\"utf-8\"); old=\"    size = 0 if stat.S_ISDIR(info.st_mode) else info.st_size\"; new=\"    size = info.st_size\"; assert s.count(old)==1, s.count(old); p.write_text(s.replace(old,new),encoding=\"utf-8\"); q=subprocess.run([sys.executable,\"tests/verify_verification_loop.py\"],cwd=d,capture_output=True); print(\"mutant exit:\",q.returncode); sys.exit(0 if q.returncode!=0 else 1)'",
+      "reviewEvidence": {
+        "claim": "Removing the fix reintroduces the failure, so the green result is caused by the change and not by a test that cannot fail.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "directory-size-mutation-proof"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC3",
+      "criterion": "Identity stability holds at the scale that produced the defect and the scan stays within a bounded wall-clock budget: a 2000-directory tree is scanned twice with no write in between and both identity maps are equal.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "Executable oracle builds a synthetic 2000-directory tree (4001 entries) outside the reviewed checkout, scans it twice through the changed _plain_source_identities and asserts equality plus a 60-second bound on the second scan. Observed 4001 entries, about 0.8 s per scan, maps equal.",
+      "verificationCommand": "python3 -c 'import sys,pathlib,tempfile,time; sys.path.insert(0,\"skills/_shared\"); import itd_verification_loop as m; base=pathlib.Path(tempfile.mkdtemp()); root=base/\"t\"; root.mkdir(); N=2000; [ ((root/(\"d%04d\"%i)).mkdir(), (root/(\"d%04d\"%i)/\"f\").write_bytes(b\"x\"*(i%97))) for i in range(N) ]; t0=time.monotonic(); a=m._plain_source_identities(root,base,\"t\"); t1=time.monotonic(); b=m._plain_source_identities(root,base,\"t\"); t2=time.monotonic(); print(\"entries\",len(a),\"scan1\",round(t1-t0,3),\"scan2\",round(t2-t1,3)); assert len(a)>=2*N, len(a); assert a==b, \"identity unstable across two scans of an untouched tree\"; assert (t2-t1)<60, t2-t1'",
+      "reviewEvidence": {
+        "claim": "The changed scan is stable and bounded on a tree of the order that exposed the defect, so the fix is not a small-input artefact.",
+        "impactClasses": [
+          "scale",
+          "performance"
+        ],
+        "oracleIds": [
+          "identity-scan-scale-performance"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC4",
+      "criterion": "The identity remains a fixed-arity 6-tuple of integers for every entry, and the size component of a directory identity is pinned to 0 independently of the directory size reported by the filesystem.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "Executable oracle scans a tree with files of widely different sizes and asserts arity == {6}, component types == {int} (timestamps are st_mtime_ns/st_ctime_ns nanosecond integers, so no floating-point member can drift between observations), and directory size components == {0}.",
+      "verificationCommand": "python3 -c 'import sys,pathlib,tempfile,stat; sys.path.insert(0,\"skills/_shared\"); import itd_verification_loop as m; base=pathlib.Path(tempfile.mkdtemp()); root=base/\"t\"; root.mkdir(); [ ((root/(\"d%d\"%i)).mkdir(), (root/(\"d%d\"%i)/\"f\").write_bytes(b\"x\"*(i*1000))) for i in range(5) ]; ids=m._plain_source_identities(root,base,\"t\"); ar={len(v) for v in ids.values()}; ty={type(x) for v in ids.values() for x in v}; dirs=[p for p in ids if stat.S_ISDIR((base/p).stat().st_mode)]; sizes={ids[p][3] for p in dirs}; print(\"entries\",len(ids),\"arity\",ar,\"types\",ty,\"dir-size\",sizes); assert ar=={6}, ar; assert ty=={int}, ty; assert sizes=={0}, sizes'",
+      "reviewEvidence": {
+        "claim": "Identity output is constant-size per entry and carries no floating-point component, so comparison cannot drift with input magnitude.",
+        "impactClasses": [
+          "bounded-output",
+          "numerical-stability"
+        ],
+        "oracleIds": [
+          "identity-bounded-arity"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC5",
+      "criterion": "The defect is Windows/NTFS-specific but the fix is host-neutral: the hard-gate host-parity contract is unchanged and still passes on the reviewed tree.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "tests/verify_all_hard_gate_host_parity.py passes on the exact reviewed tree, and the full repository suite reports DONE fails:none, so no host-specific gate behaviour was altered by removing the directory size from the identity.",
+      "verificationCommand": "python3 tests/verify_all_hard_gate_host_parity.py",
+      "reviewEvidence": {
+        "claim": "A Windows-only observation defect was repaired without introducing a host-dependent branch in the identity oracle.",
+        "impactClasses": [
+          "host-parity"
+        ],
+        "oracleIds": [
+          "host-parity",
+          "full-suite"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC6",
+      "criterion": "POSIX behaviour is preserved: a regular file still binds its size, the identity field order and arity are unchanged, and the cross-platform runtime contract still passes.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "tests/verify_cross_platform_runtime.py passes on the reviewed tree and the targeted suite asserts that a resized declared file is still rejected, so the change is backward compatible for every input class other than a directory.",
+      "verificationCommand": "python3 tests/verify_cross_platform_runtime.py",
+      "reviewEvidence": {
+        "claim": "The identity contract stays compatible for existing callers and input classes; only the directory size component changed.",
+        "impactClasses": [
+          "compatibility"
+        ],
+        "oracleIds": [
+          "cross-platform-runtime",
+          "verification-loop-regression"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC7",
+      "criterion": "The guarded fallback still fails closed on a real change and the isolation of the machine oracle is unaffected: a weakened identity must not let a mutated tree pass as unchanged.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "tests/verify_fail_closed_hygiene.py and tests/verify_machine_oracle.py pass on the reviewed tree; the targeted suite contains two controls in which the guard fires on a resized declared file, so the narrowed identity did not become permissive.",
+      "verificationCommand": "python3 tests/verify_fail_closed_hygiene.py",
+      "reviewEvidence": {
+        "claim": "Narrowing the identity did not weaken the security property it exists to enforce, and error paths still refuse rather than degrade.",
+        "impactClasses": [
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "fail-closed-hygiene",
+          "machine-oracle-isolation",
+          "verification-loop-regression"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-NTFS-DIRSIZE-AC8",
+      "criterion": "The candidate leaves the repository clean: the whole test suite is green and no generated or documented artefact went stale behind the change.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-NTFS-DIRSIZE); commit message of this candidate (measurement 2026-08-10).",
+      "evidence": "bash tests/run-all.sh reports DONE fails:none on the exact reviewed tree with the host-owned efficacy keyring pin declared as an input, and tests/verify_harness_docs_freshness.py passes, so no suite that was green before the candidate is red after it.",
+      "verificationCommand": "bash tests/run-all.sh",
+      "reviewEvidence": {
+        "claim": "No regression and no stale generated artefact was introduced anywhere in the repository.",
+        "impactClasses": [
+          "repository-hygiene",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "full-suite",
+          "harness-docs-freshness"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {

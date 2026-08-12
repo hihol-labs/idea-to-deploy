@@ -8,6 +8,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -970,6 +971,135 @@ with tempfile.TemporaryDirectory(prefix="declared-input-alias-") as td:
                   SCRIPT.read_text(encoding="utf-8"))
     finally:
         os.supports_dir_fd.update(disabled_dir_fd)
+# NTFS does not report a stable st_size for a *directory*: the index moves
+# between resident (in the MFT record) and non-resident storage, so two
+# consecutive scans of an unchanged tree disagree.  Measured 2026-08-10 on a
+# real 1.1 GB node_modules tree: 1964/1964 changed entries, every one of them
+# a directory, every one differing only in st_size (4096|8192|12288|32768 ->
+# 0); the other five identity fields were stable.  Binding directory size in
+# the guarded no-dir_fd fallback therefore made a declared *directory* input
+# impossible on Windows — secure_copy_declared_source compares before/after
+# identities and rejected an input nobody had touched.
+#
+# The flip is invisible on a tree small enough for a test (a small directory
+# index stays resident and its size does not move), so the mechanism is
+# modelled deterministically through Path.lstat rather than left to the real
+# filesystem.
+with tempfile.TemporaryDirectory(prefix="declared-input-dir-size-") as td:
+    size_root = Path(td)
+    size_repo = size_root / "repo"
+    (size_repo / "pkg" / "nested").mkdir(parents=True)
+    (size_repo / "pkg" / "keep.txt").write_text("payload\n", encoding="utf-8")
+    (size_repo / "pkg" / "nested" / "deep.txt").write_text(
+        "deep\n", encoding="utf-8")
+    canonical_size_repo = size_repo.resolve()
+    dir_snapshot_root = size_root / "snapshot-dir"
+    file_snapshot_root = size_root / "snapshot-file"
+    dir_snapshot_root.mkdir()
+    file_snapshot_root.mkdir()
+    dir_destination = module.secure_destination(dir_snapshot_root, "pkg/nested")
+    file_destination = module.secure_destination(
+        file_snapshot_root, "pkg/keep.txt")
+
+    class _ResizedStat:
+        """os.stat_result proxy that overrides st_size and nothing else."""
+
+        def __init__(self, real: os.stat_result, size: int) -> None:
+            self._real = real
+            self.st_size = size
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    real_lstat = Path.lstat
+    # None = report the true size for that kind of entry.
+    reported: dict[str, int | None] = {"directory": 4096, "file": None}
+
+    def resized_lstat(self, *args, **kwargs):
+        info = real_lstat(self, *args, **kwargs)
+        size = reported["directory" if stat.S_ISDIR(info.st_mode) else "file"]
+        return info if size is None else _ResizedStat(info, size)
+
+    real_copytree, real_copy2 = module.shutil.copytree, module.shutil.copy2
+
+    def flip_size_after(inner, kind: str):
+        # The harness copy only *reads* the source, so the filesystem is free
+        # to re-report the size underneath it.  Flipping exactly between the
+        # before and the after pass keeps the test independent of how many
+        # times a single pass happens to stat each path.
+        def wrapper(*args, **kwargs):
+            result = inner(*args, **kwargs)
+            reported[kind] = 0 if kind == "directory" else 9
+            return result
+        return wrapper
+
+    size_disabled_dir_fd = {
+        function for function in (os.open, os.stat)
+        if function in os.supports_dir_fd
+    }
+    os.supports_dir_fd.difference_update(size_disabled_dir_fd)
+    Path.lstat = resized_lstat
+    try:
+        reported["directory"] = 4096
+        before_dir = module._plain_source_identities(
+            size_repo / "pkg", canonical_size_repo, "pkg")
+        reported["directory"] = 0
+        after_dir = module._plain_source_identities(
+            size_repo / "pkg", canonical_size_repo, "pkg")
+        check("directory st_size flip keeps _plain_source_identities stable",
+              before_dir == after_dir,
+              "unstable NTFS directory size leaked into the source identity")
+
+        reported["directory"] = 4096
+        before_ancestors_size = module._plain_ancestor_identities(
+            canonical_size_repo, ("pkg", "nested"), "pkg/nested")
+        reported["directory"] = 0
+        after_ancestors_size = module._plain_ancestor_identities(
+            canonical_size_repo, ("pkg", "nested"), "pkg/nested")
+        check("directory st_size flip keeps _plain_ancestor_identities stable",
+              before_ancestors_size == after_ancestors_size,
+              "unstable NTFS directory size leaked into the ancestor identity")
+
+        # Control: a regular file that really changes size is still a change.
+        reported["directory"], reported["file"] = None, 7
+        before_file = module._plain_source_identities(
+            size_repo / "pkg" / "keep.txt", canonical_size_repo, "pkg/keep.txt")
+        reported["file"] = 9
+        after_file = module._plain_source_identities(
+            size_repo / "pkg" / "keep.txt", canonical_size_repo, "pkg/keep.txt")
+        check("file st_size stays bound in the guarded fallback identity",
+              before_file != after_file,
+              "the fallback stopped noticing a resized regular file")
+
+        reported["directory"], reported["file"] = 4096, None
+        module.shutil.copytree = flip_size_after(real_copytree, "directory")
+        try:
+            module.secure_copy_declared_source(
+                size_repo, "pkg/nested", dir_destination)
+            dir_copy_detail = ""
+            dir_copy_ok = (dir_destination / "deep.txt").read_text(
+                encoding="utf-8") == "deep\n"
+        except module.LoopError as exc:
+            dir_copy_ok, dir_copy_detail = False, str(exc)
+        check("guarded fallback accepts an unchanged declared directory input",
+              dir_copy_ok, dir_copy_detail)
+
+        # Control: the same end-to-end path still rejects a resized file.
+        reported["directory"], reported["file"] = None, 7
+        module.shutil.copy2 = flip_size_after(real_copy2, "file")
+        try:
+            module.secure_copy_declared_source(
+                size_repo, "pkg/keep.txt", file_destination)
+            file_copy_rejected = False
+        except module.LoopError:
+            file_copy_rejected = True
+        check("guarded fallback still rejects a resized declared file input",
+              file_copy_rejected,
+              "a declared file changed under the copy without being noticed")
+    finally:
+        Path.lstat = real_lstat
+        module.shutil.copytree, module.shutil.copy2 = real_copytree, real_copy2
+        os.supports_dir_fd.update(size_disabled_dir_fd)
 with tempfile.TemporaryDirectory(prefix="weak-loop-policy-") as td:
     weak_path = Path(td) / "policy.json"
     weak = json.loads(POLICY.read_text(encoding="utf-8"))

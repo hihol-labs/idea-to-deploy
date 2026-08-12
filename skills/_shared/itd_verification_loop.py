@@ -533,6 +533,21 @@ def _copy_open_directory(source_fd: int, destination: Path, label: str) -> None:
                         "Freeze the input and retry the machine oracle.")
 
 
+def _plain_identity(info: os.stat_result) -> tuple[int, ...]:
+    """Identity of one entry bound by the guarded no-dir_fd fallback.
+
+    st_size is bound for regular files only: NTFS moves a directory index
+    between resident and non-resident storage, so a directory size changes
+    with no write behind it — measured 2026-08-10 on a 1.1 GB node_modules
+    tree, two consecutive scans disagreed on 1964/1964 directory entries
+    (4096|8192|12288|32768 -> 0) while the other five fields stayed stable,
+    which made a declared directory input impossible on Windows.
+    """
+    size = 0 if stat.S_ISDIR(info.st_mode) else info.st_size
+    return (info.st_dev, info.st_ino, info.st_mode, size,
+            info.st_mtime_ns, info.st_ctime_ns)
+
+
 def _plain_source_identities(source: Path, repo: Path,
                              relative: str) -> dict[str, tuple[int, ...]]:
     # Windows may hand tempfile/Git paths back through an 8.3 alias
@@ -556,9 +571,7 @@ def _plain_source_identities(source: Path, repo: Path,
         except (ValueError, OSError) as exc:
             raise LoopError(f"declared input escapes or changed: {relative}",
                             "Restore a stable project-local input and retry.") from exc
-        identities[resolved.relative_to(repo).as_posix()] = (
-            info.st_dev, info.st_ino, info.st_mode, info.st_size,
-            info.st_mtime_ns, info.st_ctime_ns)
+        identities[resolved.relative_to(repo).as_posix()] = _plain_identity(info)
         if stat.S_ISDIR(info.st_mode):
             pending.extend(Path(entry.path) for entry in os.scandir(current))
         elif not stat.S_ISREG(info.st_mode):
@@ -588,9 +601,7 @@ def _plain_ancestor_identities(repo: Path, parts: tuple[str, ...],
         if not stat.S_ISDIR(info.st_mode):
             raise LoopError(f"declared input ancestor is not a directory: {relative}",
                             "Use real project-local source directories.")
-        identities[resolved.relative_to(repo).as_posix()] = (
-            info.st_dev, info.st_ino, info.st_mode, info.st_size,
-            info.st_mtime_ns, info.st_ctime_ns)
+        identities[resolved.relative_to(repo).as_posix()] = _plain_identity(info)
     return identities
 
 
