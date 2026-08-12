@@ -382,9 +382,34 @@ def scrub(text: str) -> tuple[str, int]:
     return clean, count
 
 
+def _whitespace_collapsed_lines(masked: str):
+    """Per-line variants with intra-line whitespace removed, for DETECTION only.
+
+    A credential split by spaces or tabs (``AKIA IOSF ODNN 7EXA MPLE``)
+    matches no contiguous pattern, so it evades both ``scrub()`` and the raw
+    detectors. Before the redaction-is-not-a-finding change that composite
+    escaped only by luck: any unrelated redactable contact in the same
+    candidate blocked the whole text. Now detection must catch it directly
+    (independent route finding, 2026-08-10). Collapsing is line-scoped —
+    joining across newlines would fuse the entire document into one token
+    and make entropy-style checks fire on everything — and the collapsed
+    variant is never returned to a caller: the reviewer text is produced by
+    ``scrub()`` alone.
+    """
+    for line in masked.splitlines():
+        collapsed = re.sub(r"[ \t]+", "", line)
+        if collapsed != line:
+            yield collapsed
+
+
 def contains_high_confidence_secret(text: str) -> bool:
     masked, _references = _mask_safe_references(text)
-    return HIGH_CONFIDENCE_SECRET_RE.search(masked) is not None
+    if HIGH_CONFIDENCE_SECRET_RE.search(masked) is not None:
+        return True
+    return any(
+        HIGH_CONFIDENCE_SECRET_RE.search(line) is not None
+        for line in _whitespace_collapsed_lines(masked)
+    )
 
 
 def contains_residual_credential(text: str) -> bool:

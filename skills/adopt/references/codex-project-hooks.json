@@ -96,6 +96,12 @@
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-predeploy-gate.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-predeploy-gate.sh",
+            "timeout": 90
           }
         ]
       },

@@ -48,6 +48,7 @@ GATE_TESTS = {
     "completion-gate.sh":            "verify_completion_gate.py",
     "state-guard.sh":                "verify_state_hardening.py",
     "cost-tracker.sh":               "verify_cost_gate.py",
+    "check-predeploy-gate.sh":       "verify_predeploy_gate.py",
 }
 
 # a mapped test is "behavioural" if it spawns a subprocess and asserts a
@@ -86,7 +87,7 @@ def main():
             failed += 1
 
     hard = derived_hard_gates()
-    check("derived hard-gate set has 11 members", len(hard) == 11)
+    check("derived hard-gate set has 12 members", len(hard) == 12)
 
     # every hard gate is mapped to a proof, and nothing extraneous is mapped
     check("GATE_TESTS covers exactly the derived hard set (no gap)",
@@ -119,7 +120,7 @@ def main():
     cov_ok = covered == len(hard)
     print("\n[metric] hard-gate coverage = %d/%d (%.0f%%)"
           % (covered, len(hard), 100.0 * covered / max(1, len(hard))))
-    check("hard-gate coverage == 11/11 (every hard gate behaviourally proven)", cov_ok)
+    check("hard-gate coverage == 12/12 (every hard gate behaviourally proven)", cov_ok)
 
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0

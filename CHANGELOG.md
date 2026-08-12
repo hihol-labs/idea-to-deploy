@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Pre-deploy independent-review gate (U16, ADR-008)** — new PreToolUse hook
+  `hooks/check-predeploy-gate.sh` + `skills/deploy/scripts/itd_predeploy_gate.py`.
+  For a deploy candidate whose derived risk class is data-sensitive, irreversible
+  or monetary, a recognised deploy transport (rsync/scp/ssh/tar-non-read-only/
+  curl/aws/docker push/kubectl/terraform/…) — or a statically opaque command that
+  could hide one — is denied unless a valid current Verification Loop adjudication
+  receipt is bound to the exact candidate. Routine candidates are never consulted.
+  Per ADR-008 the hook does **not** re-analyse the shipment form: a valid pass
+  authorises the reviewed deploy whatever its shape, and ordinary local execution
+  and file operations are the documented out-of-scope honest limit (covered by
+  `/careful`, the completion gate and human deploy review). This redesign ended
+  the r53–r89 shipment-form arms race.
+  Parser hardening shipped with a regression test per class: leading, glued and
+  fd-dup redirects in command position; a redirect before the shell `-c` flag;
+  bare-shell stdin; `exec -a`; `chroot`; expansion inside the command word
+  (parameter/brace/glob/tilde); nested shell payloads behind prefix wrappers.
+  Evidence: `tests/verify_predeploy_independent_review.py` 137/137,
+  `tests/verify_predeploy_gate.py` 11/11, `tests/run-all.sh --quick` green.
+  Known follow-ups: an inert substitution in a comment after a control operator
+  is still over-blocked, and the gate is not yet backed by a clean producer PASS
+  receipt (see PR #192 for the full route disclosure).
+
 ## [1.96.0] - 2026-08-09
 
 ### Added

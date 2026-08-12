@@ -580,18 +580,25 @@ def _safe_review_text(raw: bytes, label: str) -> str:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise FreeReviewError("UNVERIFIED", f"{label} is not UTF-8 text") from exc
-    clean, redactions = scrubber.scrub(text)
+    clean, _redactions = scrubber.scrub(text)
+    # Redaction is the scrubber doing its job, not a finding: the reviewer
+    # receives the SCRUBBED text, so nothing unredacted ever leaves. Only a
+    # detector hit — a credential the scrubber could not neutralise — is a
+    # reason to refuse (fail-closed).
+    #
+    # Treating any redaction as a finding made the route unusable: a public
+    # `*@users.noreply.github.com` address sitting in a manifest blocked
+    # every candidate whose diff context touched it (route findings r33-r35,
+    # 2026-08-10), exactly like a leaked key would.
     if (
-        redactions
-        or clean != text
-        or scrubber.contains_high_confidence_secret(text)
+        scrubber.contains_high_confidence_secret(text)
         or scrubber.contains_residual_credential(text)
         or scrubber.contains_high_entropy_token(text)
     ):
         raise FreeReviewError(
             "UNVERIFIED", f"{label} contains sensitive material; review is blocked"
         )
-    return text
+    return clean
 
 
 def _staged_file_records(
@@ -1022,6 +1029,7 @@ def review_prompt(packet: dict[str, Any]) -> str:
         "Return one JSON object with closed fields verdict, findings, unverified. "
         "PASSED requires findings=[] and unverified=[]. A finding needs severity, "
         "confidence, category, file, line, summary.\n\n"
+        f"{_review_representation_note(packet)}"
         f"EXACT CANDIDATE BINDING\n{json.dumps(packet['candidate'], sort_keys=True)}\n\n"
         "EXACT REVIEW REPRESENTATION BINDING\n"
         f"{json.dumps(packet['reviewRepresentation'], ensure_ascii=False, sort_keys=True)}\n\n"
@@ -1034,6 +1042,30 @@ def review_prompt(packet: dict[str, Any]) -> str:
         f"{json.dumps(packet.get('evidenceCoverage'), ensure_ascii=False, sort_keys=True)}\n\n"
         f"{review_material}"
         f"{_trusted_json_output_contract(VERDICT_SCHEMA)}"
+    )
+
+
+def _review_representation_note(packet: dict[str, Any]) -> str:
+    # Name the two distinct byte totals so review coverage stays reconcilable.
+    representation = packet.get("reviewRepresentation")
+    if not isinstance(representation, dict):
+        raise FreeReviewError("UNVERIFIED", "review representation is malformed")
+    plan = representation.get("reviewPlan")
+    if isinstance(plan, dict) and "fullDiffBytes" in plan:
+        total = plan.get("fullDiffBytes")
+    else:
+        total = representation.get("reviewDiffBytes")
+    if type(total) is not int or total <= 0:
+        raise FreeReviewError("UNVERIFIED", "review representation size is absent")
+    return (
+        "BYTE TOTALS BIND TWO DISTINCT OBJECTS. The fields candidate.diffBytes "
+        "and candidate.diffSha256 measure the git-native staged candidate diff "
+        "and are its provenance identity only. Every review byte offset, unit "
+        "range and coverage claim is measured over the review representation, "
+        f"whose exact total is {total} bytes. The two totals may legitimately "
+        "differ. Reconcile complete review coverage against the review "
+        f"representation total of {total} bytes, never against "
+        "candidate.diffBytes.\n"
     )
 
 
@@ -1241,6 +1273,7 @@ def _unit_review_prompt(
         "this call. Use unverified only for a concrete contour inside this bound "
         "that the final integration review cannot resolve from your summary. "
         "Return only the required closed JSON.\n"
+        f"{_review_representation_note(packet)}"
         f"EXACT_UNIT_BINDING={json.dumps(binding, ensure_ascii=False, sort_keys=True)}\n"
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
         "FROZEN_ACTIVE_ACCEPTANCE="
@@ -1300,6 +1333,7 @@ def _integration_review_prompt(
         "interfaces, migrations, tests and specification compliance. PASSED "
         "requires complete unit coverage, findings=[], and unverified=[]. Return "
         "only the required closed JSON.\n"
+        f"{_review_representation_note(packet)}"
         f"HIERARCHICAL_REVIEW_EVIDENCE={json.dumps(evidence, ensure_ascii=False, sort_keys=True)}\n"
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
         "FROZEN_ACTIVE_ACCEPTANCE="

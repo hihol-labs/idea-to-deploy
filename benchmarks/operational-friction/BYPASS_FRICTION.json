@@ -9,6 +9,7 @@
     "check-tool-skill.sh",
     "pii-egress-guard.sh",
     "completion-gate.sh",
+    "check-predeploy-gate.sh",
     "state-guard.sh",
     "cost-tracker.sh",
     "narration-final.sh",

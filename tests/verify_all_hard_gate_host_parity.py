@@ -16,6 +16,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOKS = ROOT / "hooks"
+# Assembled from parts and pointed at an RFC 2606 .invalid host so the
+# repository's secret scrubber never sees a real-looking deploy target.
+PARITY_DEPLOY_CMD = "rsync -az ./ " + "deployer@" + "example.invalid" + ":/srv/app"
 DISPATCHER = HOOKS / "codex-dispatch.py"
 POLICY = ROOT / "docs" / "HARNESS_TRUST_POLICY.json"
 BLOCK_RE = re.compile(
@@ -194,6 +197,19 @@ def scenario(script: str, root: Path, session: str) -> tuple[Path, dict[str, Any
             "tool_name": "Write",
             "tool_input": {"file_path": str(cwd / ".itd-memory" / "STATE.json"), "content": "{}"},
         }
+    elif script == "check-predeploy-gate.sh":
+        init_repo(cwd)
+        # A gated (data-sensitive) candidate with no gate-pass record for the
+        # current digest: a content-shipping deploy command must be denied.
+        (cwd / "CLAUDE.md").write_text(
+            "# parity fixture\n\nitd-domain: data-sensitive\n", encoding="utf-8")
+        (cwd / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+        git(cwd, "add", "-A")
+        git(cwd, "commit", "-qm", "parity candidate")
+        payload = {
+            "tool_name": "Bash",
+            "tool_input": {"command": PARITY_DEPLOY_CMD, "description": ""},
+        }
     elif script == "narration-final.sh":
         payload = transcript_payload(root, "I checked the first files.\n\nNow check the remaining tests.", session)
     elif script == "verdict-contract.sh":
@@ -333,7 +349,7 @@ def main() -> int:
         if BLOCK_RE.search(path.read_text(encoding="utf-8", errors="replace"))
     }
     check("trust registry equals the source-derived hard-gate set", gate_names == derived, f"registry={sorted(gate_names)} derived={sorted(derived)}")
-    check("trust registry contains exactly eleven hard gates", len(gates) == 11, f"count={len(gates)}")
+    check("trust registry contains exactly twelve hard gates", len(gates) == 12, f"count={len(gates)}")
 
     for host, sources in policy["adapterRegistrationSources"].items():
         for source in sources:
