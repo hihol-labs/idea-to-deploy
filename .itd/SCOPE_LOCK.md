@@ -54,20 +54,30 @@ Post-review CI amendment (2026-08-13, same unit):
   standing live-benchmark evidence re-pin (precedent a8b0885/de4f9c1): the S2
   change to `docs/templates` staled the previous pin and failed Gate 1; fresh
   live run fixture-03-cli-tool PASS, replay verifier 39/39.
+- `tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181/` — the
+  corrected re-pin run: the 3d92147a run was executed with the test fix still
+  uncommitted, so its evidence pinned a dirty `workingTreeStatusSha256` and
+  Gate 1 failed on CI's clean checkout ("dirty-state digest is pinned").
+  f2abf181 re-ran the identical fixture on the clean committed tree;
+  `latest.json` now points to it. The superseded 3d92147a run directory stays
+  as history, matching how prior pinned runs are retained.
 
-  Transcript-artifact contract (for reviewers of this diff): the run's
+  Transcript-artifact contract (for reviewers of this diff): each run's
   `transcript.jsonl.gz` IS part of this candidate and is committed as a git
-  binary blob (`Bin 18696 bytes`), exactly like every prior pinned run. It is
-  genuine gzip (magic `1f8b 08`); `run-report.json` binds it twice —
-  `transcriptGzipSha256` = sha256 of the committed gzip bytes
-  (2b798c1e57b11154ef55496f478c2ef71073d0114b8503abac0cc9794a24e7ec, verified
-  equal to the staged blob) and `transcriptSha256`/`transcriptBytes` = digest
-  and size (59630) of the decompressed stream. The declared-transparent review
-  transport may render this artifact decompressed or omit binary blobs from a
-  unit's text path list; that rendering is not the repository content. The
-  self-containment claim is machine-checked by
-  `tests/verify_live_model_benchmark.py` (39/39 on this tree), which
-  hash-verifies the artifact against the report before any consumer trusts it.
+  binary blob, exactly like every prior pinned run. It is genuine gzip (magic
+  `1f8b 08`); the run's own `run-report.json` binds it twice —
+  `transcriptGzipSha256` = sha256 of the committed gzip bytes, and
+  `transcriptSha256`/`transcriptBytes` = digest and size of the decompressed
+  stream. For the active pinned run f2abf181 those values are
+  4dc363ddd6008a24a9e88dc3989c36b2a3efbd8a4dfe5b59570e3f3d11de14fb (gzip,
+  verified equal to the staged blob) and 53856 decompressed bytes; the
+  superseded 3d92147a history run carries its own matching pair
+  (2b798c1e…, 59630). The declared-transparent review transport may render
+  this artifact decompressed or omit binary blobs from a unit's text path
+  list; that rendering is not the repository content. The self-containment
+  claim is machine-checked by `tests/verify_live_model_benchmark.py`
+  (39/39 on this tree), which hash-verifies the artifact against the report
+  before any consumer trusts it.
 
 ## Out of scope (honest limits)
 
