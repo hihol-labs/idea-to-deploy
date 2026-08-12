@@ -995,6 +995,43 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "S2-FLAKE:general-review-1",
+      "criterion": "The session-hygiene runner is fail-closed under host spawn pressure: a transient fork-level OSError inside itd_hygiene can no longer crash `close` into an rc=1/empty-stdout state (the 2026-08-11 flake signature); git() retries a spawn-level failure boundedly and degrades to a structured rc=127 result so every caller reports its own diagnosable error; cleanup_manifest deletes only with positive proof of untracked-ness (ls-files --error-unmatch rc=1) and treats any other git rc as the fail-closed error 'tracking state could not be proven'. Both properties are pinned by tests that are red on the pre-fix runner.",
+      "source": "S2 (PLAN-CLOSEOUT-2026-08-11) closing BACKLOG P0 items 'machine-oracle interference' and 'verify_session_hygiene_quality flake'; root cause in tests/ROOT_CAUSE-s2-oracle-nondeterminism.md.",
+      "evidence": "PASSED 2026-08-12 on the exact candidate: tests/verify_session_hygiene_quality.py exit 0, 50 checks ALL PASS including test_close_survives_spawn_pressure (RLIMIT_NPROC=1: structured fail-closed report, no traceback, non-empty stdout) and test_cleanup_requires_tracking_proof (git shim rc=2: deletion refused, artifact preserved); both pins verified red on the pre-fix runner via stash runs (rc=1 stdout='' Traceback, and silent rc=0 deletion respectively). Operator series: 5 consecutive green hygiene runs and 5 consecutive green U16-verifier runs on this tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_session_hygiene_quality.py",
+      "reviewEvidence": {
+        "claim": "Under transient host spawn failure the hygiene close/cleanup gates fail closed with structured diagnosable errors instead of crashing with empty output or silently deleting paths whose tracking state git could not prove; absent spawn pressure their behaviour is unchanged (the full pre-existing suite stays green).",
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "hygiene-suite"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "S2-FLAKE:general-review-2",
+      "criterion": "The candidate keeps the repository's static review rubric green (docs/code consistency, registration and counts, gate taxonomy) — the diagnosis documents (ROOT_CAUSE, BACKLOG closures) and the runner change introduce no meta-review Critical or Important findings.",
+      "source": "tests/meta_review.py binary rubric (review skill machine oracle for this repo).",
+      "evidence": "PASSED 2026-08-12 on the exact candidate: tests/meta_review.py exit 0, FINAL STATUS: PASSED (0 Critical, 0 Important).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/meta_review.py",
+      "reviewEvidence": {
+        "claim": "Repository-wide static consistency holds on the exact candidate tree: the S2 fix and its documentation do not drift docs from code and keep every registration/count/table rubric check green.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -1013,16 +1050,14 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "U16:general-review",
+    "unitId": "S2-FLAKE:general-review",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd/GPG-003_ROOT_CAUSE.md",
+    "rootCause": "tests/ROOT_CAUSE-s2-oracle-nondeterminism.md",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
       "requiredImpactClasses": [
-        "bounded-output",
-        "compatibility",
         "correctness",
         "error-handling",
         "repository-hygiene",

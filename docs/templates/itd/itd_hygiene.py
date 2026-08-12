@@ -403,12 +403,38 @@ def resolve_repo_path(root: Path, raw: str, label: str, errors: list[str]) -> Pa
 
 
 def git(root: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=str(root), capture_output=True,
-                          text=True, encoding="utf-8", errors="replace")
+    # A spawn-level OSError (fork EAGAIN under host process pressure) means the
+    # child never ran, so a bounded retry is safe for any git command; the
+    # final fallback is a synthetic failed result so every caller degrades to
+    # its structured fail-closed error instead of an uncaught crash that exits
+    # with an empty stdout (S2 flake, BACKLOG 2026-08-11).
+    argv = ["git", *args]
+    last_error = "git could not be spawned"
+    for attempt in range(3):
+        try:
+            return subprocess.run(argv, cwd=str(root), capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace")
+        except FileNotFoundError as exc:
+            last_error = str(exc)
+            break
+        except OSError as exc:
+            last_error = str(exc)
+            time.sleep(0.2 * (attempt + 1))
+    return subprocess.CompletedProcess(argv, returncode=127, stdout="",
+                                       stderr=last_error)
 
 
-def is_tracked(root: Path, rel: str) -> bool:
-    return git(root, "ls-files", "--error-unmatch", "--", rel).returncode == 0
+def tracking_state(root: Path, rel: str) -> str:
+    # Deletion safety needs positive proof of untracked-ness: ls-files
+    # --error-unmatch exits 0 for tracked, 1 for untracked, and anything else
+    # (including a degraded spawn, rc 127) is a git failure that must stay
+    # fail-closed instead of reading as "not tracked".
+    rc = git(root, "ls-files", "--error-unmatch", "--", rel).returncode
+    if rc == 0:
+        return "tracked"
+    if rc == 1:
+        return "untracked"
+    return "unknown"
 
 
 def protected_contract_error(root: Path, protected_base: str,
@@ -637,9 +663,14 @@ def cleanup_manifest(root: Path, manifest_rel: str) -> tuple[list[str], int]:
         target = resolve_repo_path(root, rel, label, errors)
         if target is None:
             continue
-        if is_tracked(root, rel):
+        tracking = tracking_state(root, rel)
+        if tracking == "tracked":
             errors.append(problem(rel, "tracked paths are never cleanup targets",
                                   "remove it from the manifest; use an explicit reviewed change"))
+            continue
+        if tracking != "untracked":
+            errors.append(problem(rel, "tracking state could not be proven",
+                                  "run git status manually before cleanup"))
             continue
         if not target.exists() and not target.is_symlink():
             continue  # idempotent repeat

@@ -534,10 +534,73 @@ def test_methodology_debug_scan_exclusions() -> None:
     )
 
 
+def test_cleanup_requires_tracking_proof() -> None:
+    # S2 deletion-safety pin: when git cannot prove tracking state (any rc
+    # outside {0,1}, including the degraded rc=127 spawn fallback), cleanup
+    # must refuse to delete instead of reading the failure as "untracked".
+    with tempfile.TemporaryDirectory(prefix="itd-hygiene-gitfail-") as td:
+        repo = init_repo(Path(td))
+        artifact = repo / "tmp" / "debug.log"
+        artifact.parent.mkdir()
+        artifact.write_text("temporary\n", encoding="utf-8")
+        write_json(repo / ".itd-memory" / "session-artifacts.json", {
+            "version": 1,
+            "artifacts": [{"path": "tmp/debug.log", "createdBySession": True}],
+        })
+        shims = Path(td) / "shims"
+        shims.mkdir()
+        if os.name == "posix":
+            shim = shims / "git"
+            shim.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+            shim.chmod(0o755)
+        else:
+            (shims / "git.cmd").write_text("@exit /b 2\n", encoding="utf-8")
+        env = dict(os.environ)
+        env["PATH"] = str(shims) + os.pathsep + env.get("PATH", "")
+        broken = runner(repo, "cleanup", env=env)
+        check("cleanup refuses deletion without tracking proof",
+              broken.returncode == 1 and artifact.exists()
+              and "tracking state could not be proven" in broken.stdout,
+              f"rc={broken.returncode} stdout={broken.stdout[:200]!r}")
+
+
+def test_close_survives_spawn_pressure() -> None:
+    # S2 flake pin (BACKLOG 2026-08-11): a transient fork failure (EAGAIN under
+    # host process pressure) inside the runner used to crash `close` with an
+    # empty stdout, which this suite then misread as a wrong gate verdict
+    # ("close rejects dirty git state" with no detail).  RLIMIT_NPROC=1 makes
+    # every internal spawn fail deterministically; the runner must still emit
+    # a structured fail-closed report instead of dying with a traceback.
+    if os.name != "posix":
+        return
+    import resource
+
+    def clamp() -> None:
+        resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
+
+    with tempfile.TemporaryDirectory(prefix="itd-hygiene-pressure-") as td:
+        repo = init_repo(Path(td))
+        (repo / "src" / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(RUNNER), "close", "--root", str(repo)],
+            cwd=str(repo), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", preexec_fn=clamp)
+        check("close under spawn pressure fails closed with a structured report",
+              proc.returncode == 1 and bool(proc.stdout.strip())
+              and "Traceback" not in proc.stderr,
+              f"rc={proc.returncode} stdout={proc.stdout[:200]!r} "
+              f"stderr={proc.stderr[:200]!r}")
+        check("close under spawn pressure names the degraded inspection",
+              "could not" in proc.stdout,
+              proc.stdout[:400])
+
+
 def main() -> int:
     check("runner exists", RUNNER.is_file(), str(RUNNER))
     test_cleanup()
+    test_cleanup_requires_tracking_proof()
     test_close_conjunction()
+    test_close_survives_spawn_pressure()
     test_quality()
     test_objective_quality_scorecard()
     test_periodic_cycles()
