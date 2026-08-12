@@ -680,6 +680,174 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC1",
+      "criterion": "Every reviewer prompt that carries candidate.diffBytes also states the exact review representation total that governs coverage, and states the rule that complete review coverage is reconciled against that representation total and never against candidate.diffBytes. This holds for the root prompt, for every hierarchical unit prompt and for the integration prompt.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "tests/verify_free_reviewer_producer.py asserts the property on a fixture whose two totals genuinely differ (an oversized gzip transparent blob: the candidate diff is the git-native binary patch, the review representation is the canonical JSONL text), and additionally on the direct transparent route. The vacuity guard in the same check requires candidate.diffBytes != the representation total, so a fixture where the totals coincide cannot satisfy the criterion. 142/142 cases pass on the exact reviewed tree.",
+      "verificationCommand": "python3 tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "The reviewer is told which of the two byte totals governs coverage, so the reconciliation that produced BLOCKED with empty findings on run terra-r4 now resolves against the representation.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "producer"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC2",
+      "criterion": "The regression test is bound to the defect rather than to the wording: removing the emitting line from the three prompt builders makes the targeted suite fail.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "Executable mutation proof: the candidate tree is copied outside the reviewed checkout, all three occurrences of the emitting line are deleted, and the targeted suite is re-run in the mutant. The oracle exits 0 only when the mutant fails. The governing total is additionally parsed as an exact delimited number rather than matched as a substring: a helper extracts every total the note states and the suite requires the extracted set to equal the representation total, and asserts that an emitted digits-superset (141147 -> 1411470) no longer satisfies the check. Suite after the addition: 143 checks PASSED, liveExternalCalls 0, paidApiCalls 0.",
+      "verificationCommand": "python3 -c 'import pathlib,shutil,subprocess,tempfile; d=pathlib.Path(tempfile.mkdtemp())/\"mutant\"; shutil.copytree(\".\",d,symlinks=True,ignore=shutil.ignore_patterns(\".git\",\".itd-memory\")); p=d/\"skills/_shared/itd_free_reviewer_producer.py\"; s=p.read_text(encoding=\"utf-8\"); line=\"        f\\\"{_review_representation_note(packet)}\\\"\\n\"; assert s.count(line)==3, s.count(line); p.write_text(s.replace(line,\"\",3),encoding=\"utf-8\"); r=subprocess.run([\"python3\",\"tests/verify_free_reviewer_producer.py\"],cwd=d); raise SystemExit(0 if r.returncode!=0 else 1)'",
+      "reviewEvidence": {
+        "claim": "The test cannot pass on the pre-fix producer.",
+        "impactClasses": [
+          "correctness",
+          "error-handling"
+        ],
+        "oracleIds": [
+          "mutation"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC3",
+      "criterion": "The two changed code files -- skills/_shared/itd_free_reviewer_producer.py and tests/verify_free_reviewer_producer.py -- are additions-only: no line is removed or rewritten there, so no existing binding, hash, review plan, partition, receipt or artifact schema can shift as a side effect, and the redaction-scrub contract merged in PR #188 is preserved verbatim. The claim is deliberately scoped to those two files. The candidate also rewrites .itd/SCOPE_LOCK.md and replaces activeFollowup.unitId in .itd/ACCEPTANCE_CONTRACT.json; that is this unit's own bookkeeping, explicitly authorized by its Allowed zones, and it is contract state rather than reviewed behaviour, so it is outside the additions-only claim.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "Two independent observations, both scoped to the two code files. (1) git diff --numstat against the merge base reports 27/0 and 21/0 for them: zero deletions, confirmable by the reviewer directly from the diff. (2) An executable oracle, runnable inside the isolated machine run where no git history exists, asserts that the three emitting lines are present AND that the three distinctive markers of the scrub contract merged in PR #188 survive verbatim -- the scrub call, the comment stating that redaction is not a finding, and the high-confidence-secret detector. Deleting or rewriting that work fails the oracle. The two contract files are expected to change and are not part of this criterion.",
+      "verificationCommand": "python3 -c 'import pathlib; s=pathlib.Path(\"skills/_shared/itd_free_reviewer_producer.py\").read_text(encoding=\"utf-8\"); emit=\"        f\\\"{_review_representation_note(packet)}\\\"\\n\"; keep=[\"clean, _redactions = scrubber.scrub(text)\", \"Redaction is the scrubber doing its job, not a finding\", \"scrubber.contains_high_confidence_secret(text)\"]; missing=[k for k in keep if k not in s]; print({\"emitters\": s.count(emit), \"missing_pr188_markers\": missing}); raise SystemExit(0 if s.count(emit)==3 and not missing else 1)'",
+      "reviewEvidence": {
+        "claim": "Nothing that a receipt or a downstream checker binds to has changed, and the concurrently merged producer work is intact.",
+        "impactClasses": [
+          "compatibility",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "additions"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC4",
+      "criterion": "The helper is fail-closed: a malformed, absent, non-integer or non-positive representation total raises FreeReviewError('UNVERIFIED', ...) instead of emitting a prompt that names no governing total.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "Five degenerate representations (absent, empty, zero, string, None plan total) each raise UNVERIFIED. A silent fallback would reintroduce exactly the ambiguity this unit removes, so the absence of a default is the point.",
+      "verificationCommand": "python3 -c 'import importlib.util; spec=importlib.util.spec_from_file_location(\"p\",\"skills/_shared/itd_free_reviewer_producer.py\"); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); bad=[{}, {\"reviewRepresentation\": {}}, {\"reviewRepresentation\": {\"reviewDiffBytes\": 0}}, {\"reviewRepresentation\": {\"reviewDiffBytes\": \"12\"}}, {\"reviewRepresentation\": {\"reviewPlan\": {\"fullDiffBytes\": None}}}]; raised=0\nfor case in bad:\n    try:\n        m._review_representation_note(case)\n    except m.FreeReviewError as exc:\n        raised += 1 if exc.status==\"UNVERIFIED\" else 0\nprint(raised); raise SystemExit(0 if raised==len(bad) else 1)'",
+      "reviewEvidence": {
+        "claim": "An unbound prompt is unreachable; the producer refuses instead.",
+        "impactClasses": [
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "failclosed"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC5",
+      "criterion": "The note is trusted framing that precedes all untrusted material, and the trusted output contract remains the final instruction in every prompt; the added text is producer-authored and never interpolates untrusted candidate content.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "The suite asserts that every observed prompt ends with END TRUSTED OUTPUT CONTRACT and that END UNTRUSTED DIFF UNIT precedes BEGIN TRUSTED OUTPUT CONTRACT. The helper interpolates a single integer taken from the producer-computed representation, so no untrusted byte enters the trusted framing.",
+      "verificationCommand": "python3 tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "Prompt-injection ordering and the closed output contract are preserved.",
+        "impactClasses": [
+          "security",
+          "bounded-output"
+        ],
+        "oracleIds": [
+          "producer"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC6",
+      "criterion": "Unit and integration prompts still fit their transport bounds on the oversized transparent fixture, and unit prompts still carry the plan hash rather than the plan itself.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "The suite bounds every unit prompt by MAX_UNIT_PROMPT_BYTES and the integration prompt by MAX_INTEGRATION_PROMPT_BYTES on a 5000-record gzip fixture that selects the hierarchical plan, and asserts the serialized representation is absent from unit prompts. The addition is a fixed-length sentence plus one integer per prompt.",
+      "verificationCommand": "python3 tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "Transport bounds and the hash-only unit binding are unaffected at scale.",
+        "impactClasses": [
+          "bounded-output",
+          "scale"
+        ],
+        "oracleIds": [
+          "producer"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC7",
+      "criterion": "The helper performs no IO, no hashing and no arithmetic: it reads an integer already computed by the producer and formats it, so it adds no measurable cost and cannot introduce a numerical discrepancy between the stated total and the plan.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "An AST oracle over the helper body reports its only calls are isinstance, type and FreeReviewError. The emitted total is plan.fullDiffBytes when a hierarchical plan is present and representation.reviewDiffBytes otherwise, taken verbatim, which are the same integers the plan validator compares against len(diff.encode('utf-8')).",
+      "verificationCommand": "python3 -c 'import ast,pathlib; tree=ast.parse(pathlib.Path(\"skills/_shared/itd_free_reviewer_producer.py\").read_text(encoding=\"utf-8\")); fn=[n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name==\"_review_representation_note\"][0]; calls={n.func.id for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name)}; print(sorted(calls)); raise SystemExit(0 if calls<={\"isinstance\",\"type\",\"FreeReviewError\"} else 1)'",
+      "reviewEvidence": {
+        "claim": "The stated total is the plan's own integer, not a recomputation.",
+        "impactClasses": [
+          "performance",
+          "numerical-stability"
+        ],
+        "oracleIds": [
+          "noio"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC8",
+      "criterion": "The surrounding review contour stays green on this host and the working tree carries no stray artifacts: the producer suite, the review broker, the keyless review route, the reviewer independence policy, the provider freshness check and the verification loop all pass, with no live or paid model calls.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY); live run report .itd-memory/verification-loop/reports/U-NTFS-DIRSIZE-terra-r4.json (2026-08-11).",
+      "evidence": "Measured on WSL 2026-08-11 on the exact candidate tree, rebuilt on main a2ce0a3 which already contains PR #188: producer 142 checks PASSED (was 130 before #188 added 12), review broker 741, mandatory keyless review 83, reviewer independence policy 42, copilot reviewer 49, provider freshness PASSED, verification loop 78 passed / 0 failed. git status lists only the four files of this unit.",
+      "verificationCommand": "python3 tests/verify_free_reviewer_producer.py && python3 tests/verify_review_broker.py && python3 tests/verify_verification_loop.py",
+      "reviewEvidence": {
+        "claim": "No adjacent contract that reads these prompts regressed, including the one merged in #188.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "producer",
+          "broker",
+          "loop",
+          "keyless",
+          "independence",
+          "copilot",
+          "freshness"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U-PRODUCER-LEGIBILITY-AC9",
+      "criterion": "The live-model evidence is re-observed on this exact candidate tree instead of being carried over stale: the recorded methodology-tree content pin equals the pin computed live, the candidate run is a real external headless model that exited zero, and the deterministic snapshot oracle rather than the model self-report returns PASS.",
+      "source": ".itd/SCOPE_LOCK.md (unit U-PRODUCER-LEGIBILITY, Allowed zones); tests/verify_live_model_benchmark.py:105-123,214 (methodology tree pin over AGENTS.md, .codex-plugin, .claude-plugin, skills, agents, hooks, docs/templates/itd*, docs/HOST_ADAPTER_CONTRACT.md, docs/host-adapters.json).",
+      "evidence": "Re-minted on WSL 2026-08-11 by tests/run-live-model-benchmark.py --provider openai on this exact candidate tree: run 20260811T112211Z-68af56ad, observedAt 2026-08-11T11:22:11Z, provider openai, commandFamily 'codex exec --json --ephemeral --repository-local-itd', candidate exitCode 0, attemptCount 1, transcript 48861 bytes sanitized with 0 redactions. The deterministic snapshot oracle tests/verify_snapshot.py returned PASS with exitCode 0 and candidateSelfReportAccepted false. sourcePins.methodologyTree = sha256:d848c6564b5e47f12b37cb7a48957612dda15b382801b710acead16924bccaf1, which equals the tree hash computed live (the pre-run evidence pinned sha256:5cfc3ce7820881f1ebd2002d39cb1e15aa04bee283abd7979d683a3638027e1b and was stale by construction). tests/verify_live_model_benchmark.py --require-evidence: 98 passed, 0 failed, including the mutation checks that reject a tampered pin and stale external evidence.",
+      "verificationCommand": "python3 tests/verify_live_model_benchmark.py --require-evidence",
+      "reviewEvidence": {
+        "claim": "This unit edits a file inside the pinned methodology tree, so the previous evidence pin is stale by construction; it is re-minted by running the unmodified runner, never by editing a pin.",
+        "impactClasses": [
+          "evidence-freshness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-model-benchmark"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
