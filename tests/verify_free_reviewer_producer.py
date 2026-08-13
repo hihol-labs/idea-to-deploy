@@ -1973,23 +1973,42 @@ def main() -> int:
     check('"author"' in safe,
           "the surrounding candidate text still reaches the reviewer")
 
-    # fail-closed side: a credential the scrubber cannot neutralise refuses.
+    # Neutralised side (S6): a pattern-known credential is REDACTED by
+    # scrub(), the reviewer receives the redacted text, and the route
+    # proceeds — refusing on the raw form over-refuses (detection runs on
+    # the scrubbed text, matching the broker and build_candidate routes).
     # Prefixes are assembled at runtime so this file does not read as a leak
     # to the very scrubber whose diff it passes through.
     assign = "tok" + "en" + ' = "'
-    for label, payload in (
-        ("openai-style key", assign + "s" + "k-" + "a" * 40 + '"\n'),
-        ("aws access key", assign + "AK" + "IA" + "B" * 16 + '"\n'),
+    for label, payload, raw_marker in (
+        ("openai-style key", assign + "s" + "k-" + "a" * 40 + '"\n',
+         "k-" + "a" * 40),
+        ("aws access key", assign + "AK" + "IA" + "B" * 16 + '"\n',
+         "IA" + "B" * 16),
         ("high-entropy blob", assign + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3"
                                         "zA5bC7dE9fG1hJ3kL5mN7pQ9rS1tU3vW5x"
-                                        '"\n'),
+                                        '"\n',
+         "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3"),
     ):
-        try:
-            producer._safe_review_text(payload.encode("utf-8"), "candidate diff")
-        except producer.FreeReviewError:
-            checks += 1
-        else:
-            raise AssertionError(f"{label} did not block the review route")
+        safe = producer._safe_review_text(
+            payload.encode("utf-8"), "candidate diff"
+        )
+        check(raw_marker not in safe and "[REDACTED" in safe,
+              f"{label} was not neutralised before reaching the reviewer")
+
+    # fail-closed side: a credential the scrubber cannot neutralise refuses.
+    # The scrub() bare-value pattern stops at '#' ([^\s#;,]), the residual
+    # detector does not ([^ \t\r\n"'&]) — a literal password containing '#'
+    # is exactly the gap where only clean-text detection stands between the
+    # credential and the reviewer.
+    literal = "pass" + "word" + "=abcd#efgh2026\n"
+    try:
+        producer._safe_review_text(literal.encode("utf-8"), "candidate diff")
+    except producer.FreeReviewError:
+        checks += 1
+    else:
+        raise AssertionError(
+            "unneutralisable literal credential did not block the route")
 
     # --- whitespace-split credential (independent route finding r2) --------
     # A credential split by intra-line spaces evades the contiguous patterns;
@@ -2021,15 +2040,17 @@ def main() -> int:
           "benign spaced text does not trip collapsed detection")
 
     # the smuggling shape that defeated the earlier safe-reference attempt:
-    # a secret in front of a public no-reply suffix must still refuse
+    # a secret in front of a public no-reply suffix. The historical bug was
+    # RESTORATION — an email-shaped safe reference returned the raw key to
+    # the outgoing text. The invariant is that the key never reaches the
+    # reviewer: scrub() must neutralise it before egress (S6: detection runs
+    # on the scrubbed text, so an unneutralised key still refuses the route).
     smuggled = ('contact = "' + "s" + "k-ant-api03-" + "A" * 80
                 + '@users.noreply.github.com"\n')
-    try:
-        producer._safe_review_text(smuggled.encode("utf-8"), "candidate diff")
-    except producer.FreeReviewError:
-        checks += 1
-    else:
-        raise AssertionError("a secret hidden in a no-reply address passed")
+    safe = producer._safe_review_text(smuggled.encode("utf-8"), "candidate diff")
+    check("k-ant-api03-" not in safe and "A" * 80 not in safe
+          and "[REDACTED" in safe,
+          "a secret hidden in a no-reply address reached the reviewer text")
 
     # --- full route in the redacted regime (review finding, 2026-08-10) ----
     # Before R1 the scrubber was fail-closed, so packet['diff'] was always

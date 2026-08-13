@@ -163,17 +163,19 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Build the fresh-session worktree/resource-isolation pilot kit.
 - [ ] Run three serial, user-authorized brownfield units in named project roots with
   isolated mutable resources and exact-candidate receipts.
-- [ ] Narrow the residual-credential detector's assignment false positive
-  (U16, 2026-08-11): an ordinary local variable in
-  `hooks/check-predeploy-gate.sh` — named after a parsed word and assigned from
-  a list element — tripped `contains_residual_credential`, so the route refused
-  the candidate outright (`UNVERIFIED: candidate diff contains sensitive
-  material`). Renaming the variable unblocked it; then the NEXT round refused
-  again because the scope-lock amendment quoted the offending line verbatim,
-  i.e. documenting the false positive re-triggered it. A detector that reads
-  ordinary parser code — and prose about parser code — as a credential taxes
-  every future candidate. Needs a bounded precision fix in the scrubber, which
-  also re-mints the signed efficacy legs — hence a separate unit, not this one.
+- [x] Narrow the residual-credential detector's assignment false positive
+  (U16, 2026-08-11) — **closed under S6-SCRUBBER (2026-08-13)**: the detector
+  now captures the assigned VALUE and skips a value that is purely one code
+  expression (call, subscript, shell interpolation; trailing prose backticks
+  stripped) — a token-named variable assigned from `tokens[position]` and
+  prose quoting that line no longer refuse a route, while every exclusion
+  carries a true-positive antipair
+  (`tests/verify_scrubber_precision.py`, RED-first). The free-reviewer
+  producer now runs all three detectors on the SCRUBBED text, matching the
+  broker and build_candidate routes and its own "redaction is not a finding"
+  contract; the unneutralisable gap (scrub stops at `#`, detector does not)
+  is pinned fail-closed. Signed efficacy legs re-minted on the new producer
+  bytes.
 - [x] Investigate machine-oracle interference between two heavy commands in
   one isolated candidate (U16, 2026-08-11) — **root-caused and pinned under S2
   (2026-08-12)**: the shared state is the HOST, not temp paths or ordering.

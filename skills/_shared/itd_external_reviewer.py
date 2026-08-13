@@ -113,12 +113,48 @@ RESIDUAL_CREDENTIAL_RE = re.compile(
     r"[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)\1"
     r"[ \t]*[=:][ \t]*"
     r"(?:"
-    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
-    r"|(?![\"'\r\n]|\[REDACTED)[^ \t\r\n\"'&]{6,}"
+    r"[\"'](?!\[REDACTED)(?P<quoted>[^\r\n\"']{6,})[\"']"
+    r"|(?![\"'\r\n]|\[REDACTED)(?P<bare>[^ \t\r\n\"'&]{6,})"
     r"|\r?\n[ +\-]?[ \t]*"
-    r"[\"'](?!\[REDACTED)[^\r\n\"']{6,}[\"']"
+    r"[\"'](?!\[REDACTED)(?P<continued>[^\r\n\"']{6,})[\"']"
     r")"
 )
+# S6 (BACKLOG 2026-08-11): ordinary parser code — a token-named variable
+# assigned from a list element in a hook, and prose quoting such a line
+# verbatim — tripped the residual detector and refused two review routes. A BARE value that is purely one
+# code expression (call, subscript, shell interpolation) cannot be a literal
+# credential; any mixed value stays flagged (fail-closed). Scoped to this
+# one detector on purpose: widening SAFE_REFERENCE_PATTERNS instead would
+# mask the text for the high-confidence and entropy detectors too, hiding
+# a literal argument inside a masked call. Trailing backticks are stripped
+# before the check because prose quotes code as ``expr``, and a backtick is
+# not a plausible tail of a real credential while it IS the standard tail
+# of quoted code.
+#
+# QUOTED values get only the interpolation subset (route finding r5,
+# 2026-08-13): quoting makes the value a string literal in most host
+# languages, so a call-lookalike such as a quoted fetchKey() stays flagged —
+# while `"${...}"` remains live interpolation in double-quoted shell and is
+# exactly the recorded U16 incident shape.
+# The expression grammar is deliberately narrow (route finding r6,
+# 2026-08-13): an expression WRAPPER can embed a literal the scrubber cannot
+# neutralise — `$(printf …)` with arguments, `${x:-default}` expansions, or
+# call arguments carrying '#'. So `${…}` admits only a variable name with an
+# optional subscript, `$(…)` only a bare command name, and call arguments /
+# subscript indexes exclude '#' and whitespace outright.
+_BENIGN_INTERPOLATION = (
+    r"\$\{[A-Za-z_][A-Za-z0-9_]*(?:\[[^\][{}\"'\r\n \t#]*\])?\}"
+    r"|\$\([A-Za-z_][A-Za-z0-9_./-]*\)"
+    r"|\$[A-Za-z_][A-Za-z0-9_]*"
+)
+_BENIGN_EXPRESSION_RE = re.compile(
+    r"(?:"
+    r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+    r"(?:\([^()\"'\r\n \t#]*\)|\[[^\][\"'\r\n \t#]*\])"
+    r"|" + _BENIGN_INTERPOLATION +
+    r")"
+)
+_BENIGN_QUOTED_VALUE_RE = re.compile(r"(?:" + _BENIGN_INTERPOLATION + r")")
 HIGH_ENTROPY_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9_-])"
     r"(?!(?:clean-redactionManifest-reviewDiffSha256-equals-candidate-reviewDiffSha256|"
@@ -414,7 +450,21 @@ def contains_high_confidence_secret(text: str) -> bool:
 
 def contains_residual_credential(text: str) -> bool:
     masked, _references = _mask_safe_references(text)
-    return RESIDUAL_CREDENTIAL_RE.search(masked) is not None
+    for match in RESIDUAL_CREDENTIAL_RE.finditer(masked):
+        bare = match.group("bare")
+        if bare is not None:
+            if _BENIGN_EXPRESSION_RE.fullmatch(bare.rstrip("`")):
+                continue
+            return True
+        quoted = (
+            match.group("quoted")
+            if match.group("quoted") is not None
+            else match.group("continued")
+        )
+        if quoted is not None and _BENIGN_QUOTED_VALUE_RE.fullmatch(quoted):
+            continue
+        return True
+    return False
 
 
 def contains_high_entropy_token(text: str) -> bool:
