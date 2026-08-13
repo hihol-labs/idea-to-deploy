@@ -1051,7 +1051,7 @@
   },
   "activeFollowup": {
     "unitId": "S2-FLAKE:general-review",
-    "status": "in_progress",
+    "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": "tests/ROOT_CAUSE-s2-oracle-nondeterminism.md",
     "reviewPolicy": {
@@ -1066,7 +1066,9 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    }
+    },
+    "closedAt": "2026-08-13",
+    "closure": "Ledger-close after merge 3755560 (PR #193): both S2-FLAKE criteria passed on the exact reviewed tree; adjudication receipt receipts/bfb86fcf99859c76/S2-FLAKE-general-review-adjudication-a1.json; fresh post-merge oracle runs green on main 2026-08-13."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
