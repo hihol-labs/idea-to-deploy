@@ -65,3 +65,20 @@ GPG-004_UNIT_PLAN) — machine-only adjudication per ADR-003/verification
 profiles; no independent checker is required for this tier.
 
 Base for the candidate: main `ef15e97` (merge of PR #198).
+
+## Closure (2026-08-13)
+
+PR #199 merged as `5b9537f` (base `ef15e97`; commits `56325d0` feature,
+`b655943` live evidence re-pin — run `20260813T134904Z-c56e465c`,
+`--require-evidence` 107/0, `a01380e` fixture-container stub after the
+windows-verify snapshot failure), CI green (Gate 1 + windows-verify). Fresh
+post-merge evidence on merged main: the sealed U17 verificationCommand exit 0
+(`ALL CHECKS COMPLETED`) and `tests/run-all.sh --quick` `DONE fails:none`.
+Unit U17 is `verified` in STATE/events; acceptance activeFollowup closed;
+**GPG-004 plan closed — 17/17 units verified.**
+
+This ledger-close candidate stages exactly four tracked files: `HANDOFF.md`,
+`.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md`,
+`.itd-memory/STATE.json`. The git-ignored local ledgers
+(`GPG-004_UNIT_PLAN.json` → plan `done`, `PLAN-CLOSEOUT-2026-08-11.md` →
+S5 ✅) stay uncommitted.

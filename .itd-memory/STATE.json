@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "U17",
     "goal": "GPG-004 U17: opt-in advisory design-stage provenance reviewer in /blueprint on top of devils-advocate; advisory report, never a gate; fixture-verified",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-13T13:26:09Z",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-08-13T14:17:02Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

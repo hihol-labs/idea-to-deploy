@@ -1,67 +1,42 @@
-# HANDOFF — S4 / U12: замер лестницы независимости — ЗАКРЫТ (2026-08-13)
+# HANDOFF — S5 / U17: design-provenance reviewer — ЗАКРЫТ; план GPG-004 ЗАКРЫТ (2026-08-13)
 
-**Юнит U12 закрыт целиком**: PR #197 merged как `2ddea97` (head `7cf4e95`,
-base `18dc762`), CI green; fresh post-merge evidence на merged main —
-efficacy verifier exit 0 (hostParity true, паритет лестницы) и quick
-`DONE fails:none`; STATE/events/acceptance → verified (ledger-close).
-Никакого остатка по U12 нет; ниже — запись выполненного для истории.
+**U17 закрыт целиком**: [PR #199] merged как `5b9537f` (base `ef15e97`), CI
+green. Fresh post-merge на merged main: sealed verificationCommand
+`python3 tests/verify_blueprint_provenance_reviewer.py` exit 0
+(`ALL CHECKS COMPLETED`) и quick `DONE fails:none`. STATE/events/acceptance →
+verified (ledger-close). **GPG-004 план закрыт: 17/17 юнитов verified**
+(леджер `GPG-004_UNIT_PLAN.json` → status `done`).
 
-## Что сделано (этой сессией, проверено)
+## Что вошло (запись выполненного)
 
-1. **Диагноз:** `verify_independent_review_efficacy` был красным на main
-   18dc762 — «wsl semantic result binding is foreign»: PR #191 (`da42644`,
-   2026-08-11) изменил байты `skills/_shared/itd_free_reviewer_producer.py`
-   после чеканки 2026-08-10 → `producerSha256` всех трёх подписанных ног стал
-   чужим (manifest/runner sha совпадали).
-2. **Перечеканка трёх ног живыми прогонами** (текущие байты продюсера):
-   - WSL same-vendor (maker `gpt-5.6-terra` → reviewer `gpt-5.6-sol`, codex
-     0.146.0 пин `2e863156…`): 9/9 кейсов, `attempts=1`, PASSED;
-   - U12 cross-vendor (maker `opus`, anthropic-subscription → `gpt-5.6-sol`):
-     9/9, `attempts=1`, PASSED;
-   - Windows same-vendor (нативный `python.exe` 3.12.10 по UNC-пути репо,
-     codex.exe пин `bc343ba4…`, DPAPI-ключ): кейс 1 записан, один typed
-     UNAVAILABLE обрыв транспорта на кейсе 2, возобновление с подписанного
-     чекпоинта (прецедент typed-exit-3 ретраев 2026-08-08) — итого 9/9,
-     `attempts=1`, PASSED.
-3. **Верифаер зелёный**: exit 0, `status PASSED`, `hostParityVerified true`.
-   **Замер лестницы** (`u12IndependenceLadder`, общий замороженный корпус):
-   sameVendor criticalHigh 1.0 / medium 1.0 / cleanFalseBlock 0.0 ==
-   crossVendor 1.0 / 1.0 / 0.0 — **паритет, не превосходство**; порядок
-   лестницы остаётся cross-vendor-first по correlated-blind-spots аргументу.
-   Итог записан в аддендуме ADR-007 и в подписанных результатах бенчмарка.
-4. **Кейсы кардинальности подтверждены возвращёнными и зелёными**:
-   `structural/low-reviewer`, `structural/high-quorum`,
-   `structural/duplicate-reviewer-quorum` (точный exact-equality контракт
-   `minimumIndependentReviewers`, восстановление PC4) — кодовых правок не
-   потребовалось.
-5. `bash tests/run-all.sh --quick` → `DONE fails:none` на дереве кандидата.
-6. Контракты юнита: `.itd/SCOPE_LOCK.md` переписан под U12;
-   `.itd/ACCEPTANCE_CONTRACT.json` — activeFollowup `U12:general-review`
-   (medium), evidence PC4/PC5 дополнены перечеканкой, добавлены криты
-   `U12:general-review-1/2` (точечный дифф, остальные записи byte-for-byte).
-   `.itd-memory/STATE.json` — currentUnit U12. Локальные (git-ignored)
-   леджеры: `GPG-004_UNIT_PLAN.json` U12 → verified c evidence,
-   `PLAN-CLOSEOUT-2026-08-11.md` S4 → ✅ DONE.
+1. **Фича** (`56325d0`): opt-in advisory sub-step 2.5b «Design Provenance
+   Review» в /blueprint поверх Devil's Advocate (opt-in: запрос пользователя
+   или `ITD_DESIGN_PROVENANCE=1`); `DESIGN_PROVENANCE.md` — `## Claim:` +
+   `- Source: user-requirement|measured-evidence|external-doc|
+   model-assumption` + `- Reference:`; stdlib-валидатор
+   `skills/blueprint/scripts/itd_design_provenance.py`. Инварианты
+   `cannotWeaken` доказаны верифаером (RED-first rc=2 → green):
+   advisory никогда не блокирует (exit 0 на находках/чистом/отсутствующем/
+   битом отчёте; quiet no-op без аргументов; read-only), никакого
+   acceptance-evidence (нет verdict-поля, acceptance-токен не эмитится),
+   gate-outcome неизменен (свип: ни один хук/гейт не ссылается на ревьюер).
+2. **Live re-pin** (`b655943`): правка skills/blueprint/SKILL.md жжёт
+   methodology-tree пин по построению → двухкоммитный acceptance (прецедент
+   PR #193/#195): re-record на чистом committed-дереве, ран
+   `20260813T134904Z-c56e465c`, `--require-evidence` 107/0. Коммит 1 шёл с
+   COMPLETION_BYPASS ровно на этот задокументированный inherent-красный.
+3. **CI-фикс** (`a01380e`): `verify_snapshot --all` требует
+   `expected-snapshot.json` в каждой папке tests/fixtures/ — добавлен
+   pending-container стаб (конвенция live-model-evidence).
+4. **Маршрут** (low tier, sealed): machine receipt + adjudication без
+   checker — `c589dd3c86d21c14/a1` (staged) и `d5868d05163a63d2/a1`
+   (committed-head, для PR-гейта). Профиль local-submission/local-review
+   перерегистрировался на каждую новую голову.
 
-## Маршрут (как закрывался)
+## Дальше (за пределами GPG-004)
 
-1. Producer-маршрут U12:general-review: 8 раундов fresh gpt-5.6-terra;
-   BLOCKED-раунды c2/c5/c6 — реальные находки контрактной бухгалтерии
-   (stale PC5 evidence; полная перезапись контракта из-за indent=1;
-   устаревший HANDOFF), закрыты правками кандидата. Финал c8 PASS →
-   checker → adjudication `fad0cf1af1f4702e/a1` → review-cache check rc=0
-   → коммит `7cf4e95` → PR #197 (`itd pr create`,
-   local-submission/local-review) → merge `2ddea97` по команде пользователя.
-2. Ledger-close: STATE/events verified через itd_unit_log, acceptance
-   activeFollowup closed, SCOPE_LOCK Closure — отдельным docs-коммитом
-   (прецедент S2/S3).
-
-## Пины (если понадобится перегон)
-
-codex WSL: `/home/hihol/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`
-sha `2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04`;
-codex.exe Windows: `$env:APPDATA\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`
-sha `bc343ba420dc2e2e9f59e6fc5e5bf0aae1cd8c771fc319665241fc9c0271fddb`;
-proxy-sentinel `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`;
-ключи подписи ног: `.itd-memory/verification-loop/keys/gpg003-local-producer-20260803{.key,.windows.key}`;
-байты producer/runner/cases после чеканки НЕ менять — иначе перегон.
+По PLAN-CLOSEOUT: S6 (точность скраббера; правка жжёт efficacy-ноги →
+перечеканка), S7 (долги адъюдикаций), S8 (пин дерева + A19), S9 (harness-
+фиксы: doctor label, completion-ledger schema, no-op-push дефект pre-push
+хука — воспроизведён в S4 и S5), S10 (дрейф леджера). После S10 —
+стратегические треки (GENG-000…010 через /goal по ADR-009).
