@@ -37,18 +37,16 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S2-FLAKE",
-    "goal": "S2 (PLAN-CLOSEOUT-2026-08-11): root-cause and pin the machine-oracle full-suite nondeterminism and the verify_session_hygiene_quality flake; fail-closed spawn handling in itd_hygiene (riskTier high — gate-runner integrity and deletion safety)",
-    "status": "verified",
+    "id": "S3-ADVOCATE",
+    "goal": "S3 (PLAN-CLOSEOUT-2026-08-11): make the live-benchmark adversarial review run the REAL devils-advocate agent definition in a harness-orchestrated fresh session (headless-compatible), replacing the inline self-critique substitution; re-record evidence; unblocks U12 (riskTier high — H4 evidence machinery)",
+    "status": "in_progress",
     "riskTier": "high",
-    "startedAt": "2026-08-12T19:30:00Z",
+    "startedAt": "2026-08-13T09:30:00Z",
     "previousUnit": {
-      "id": "U16",
+      "id": "S2-FLAKE",
       "status": "verified",
-      "note": "merged PR #192 (e9681d7); ledger closed 2026-08-12; STATE pointer advanced 2026-08-12 during S2 closure"
-    },
-    "verifiedAt": "2026-08-13",
-    "evidence": "Merged main 3755560 (PR #193; commits 742d0e6/3d4f282/42c168f). Adjudicated mandatory route on the final candidate: receipts .itd-memory/verification-loop/receipts/bfb86fcf99859c76/ (machine PASSED: hygiene-suite + meta-review isolated; fresh gpt-5.6-terra producer PASSED phase-one-9; checker; adjudication-a1; check --require-mandatory-route exit 0). Fresh post-merge oracle runs 2026-08-13 on 3755560: verify_session_hygiene_quality ALL PASS (50 checks), meta_review FINAL STATUS: PASSED. CI green at merge: Gate 1 pass, windows-verify pass."
+      "note": "S2-FLAKE ledger-closed via PR #194 (5c1d008)"
+    }
   },
   "gateResults": {
     "acceptanceContract": "pending",

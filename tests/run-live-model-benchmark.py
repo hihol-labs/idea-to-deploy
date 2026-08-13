@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import json
 import os
+import stat
 from pathlib import Path
 import re
 import shutil
@@ -42,6 +43,14 @@ GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
 MAX_CANDIDATE_ATTEMPTS = 2
 MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
 CAPTURE_LIMIT_EXIT_CODE = 86
+# Devil's Advocate runs as a harness-orchestrated SECOND fresh session (S3,
+# BACKLOG 2026-08-13): headless transports do not spawn Claude-native
+# subagents (claude -p auth-blocked; codex has no subagent mechanism), so the
+# real agent definition is executed in its own isolated session instead of
+# being substituted with inline self-critique inside the blueprint session.
+ADVOCATE_AGENT_RELPATH = "agents/devils-advocate.md"
+ADVOCATE_ARTIFACT = "DEVILS_ADVOCATE_REVIEW.md"
+ADVOCATE_MIN_BYTES = 400
 
 CAPTURE_REDACTIONS = (
     (re.compile(
@@ -822,6 +831,31 @@ def reverify_failed_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def advocate_prompt(agent_definition: str) -> str:
+    """Phase-2 prompt: the real Devil's Advocate agent definition is embedded
+    VERBATIM, so the executed role is bound into the recorded prompt/transcript
+    by construction rather than depending on the model reading a file."""
+    return (
+        "This is the Devil's Advocate phase of a non-interactive benchmark, "
+        "running in a fresh session with no memory of the blueprint session. "
+        "Adopt the following agent definition verbatim as your role — it is "
+        f"the exact content of `{ADVOCATE_AGENT_RELPATH}`:\n\n"
+        "----- BEGIN AGENT DEFINITION -----\n"
+        f"{agent_definition}\n"
+        "----- END AGENT DEFINITION -----\n\n"
+        "The architectural proposal under review is the current project "
+        "root's `PROJECT_ARCHITECTURE.md` (context: `STRATEGIC_PLAN.md`, "
+        f"`PRD.md`). Write the complete adversarial review to "
+        f"`{ADVOCATE_ARTIFACT}` in the project root, following the Debate "
+        "Protocol sections above, including at least one "
+        "`#### Challenge N: ...` heading whose body carries the protocol's "
+        "`**Weakness:**`, `**Risk level:**`, `**Alternative:**` and "
+        "`**Trade-off:**` fields. Do not modify any other file. Do not "
+        "soften the review: the goal is rigorous stress-testing, not "
+        "approval. Do not claim any other reviewer ran."
+    )
+
+
 def run(args: argparse.Namespace) -> int:
     fixture_dir = ROOT / "tests" / "fixtures" / args.fixture
     snapshot_path = fixture_dir / "expected-snapshot.json"
@@ -1013,6 +1047,129 @@ def run(args: argparse.Namespace) -> int:
                 return archive_current(
                     f"oracle passed but required output is missing: {rel}")
 
+        # Phase 2 — the real Devil's Advocate agent in a fresh isolated
+        # session of the same transport (S3): the harness, not the blueprint
+        # session, orchestrates the adversarial review.
+        agent_source = plugin / "agents" / "devils-advocate.md"
+        if not agent_source.is_file():
+            return archive_current(
+                "devils-advocate agent definition is missing from the plugin")
+        advocate_file = output / ADVOCATE_ARTIFACT
+        # The artifact must be CREATED by the fresh phase-2 session: a
+        # blueprint session that pre-writes it (against the prompt) would let
+        # a no-op advocate transport pass the post-phase checks on phase-1
+        # content (reviewer finding, phase-one-14).
+        if advocate_file.is_file() or advocate_file.is_symlink():
+            return archive_current(
+                "blueprint session pre-created the devils-advocate artifact")
+        # Phase 2 has write access to the oracle-validated phase-1 workspace;
+        # its prompt is untrusted, so immutability is proven by hashing the
+        # COMPLETE workspace (not just the required artifacts) and allowing
+        # exactly one addition afterwards (reviewer findings, phase-one-18/19).
+        def workspace_snapshot() -> dict[str, str]:
+            snapshot: dict[str, str] = {}
+            for path in sorted(output.rglob("*")):
+                rel = path.relative_to(output).as_posix()
+                if rel == ".run.stream.jsonl":
+                    continue  # harness-owned stream, appended between phases
+                if path.is_symlink():
+                    snapshot[rel] = "symlink:" + os.readlink(path)
+                elif path.is_dir():
+                    snapshot[rel] = "dir"
+                elif path.is_file():
+                    snapshot[rel] = sha256_file(path)
+                else:
+                    snapshot[rel] = "special"
+            return snapshot
+
+        phase1_snapshot = workspace_snapshot()
+        advocate_remaining = deadline - time.monotonic()
+        if advocate_remaining <= 0:
+            return archive_current(
+                "no time budget left for the devils-advocate phase")
+        advocate_capture = (
+            MAX_TRANSCRIPT_BYTES - sum(len(part) for part in transcript_parts))
+        if advocate_capture <= 0:
+            return archive_current(
+                "no transcript byte budget left for the devils-advocate phase")
+        try:
+            advocate, _ = run_candidate(
+                args, executable_or_reason, output, plugin,
+                advocate_prompt(
+                    agent_source.read_text(encoding="utf-8",
+                                           errors="replace")),
+                timeout_seconds=advocate_remaining,
+                attempt_budget=attempt_budget,
+                candidate_project=candidate_project,
+                capture_limit_bytes=advocate_capture)
+        except subprocess.TimeoutExpired:
+            return archive_current(
+                "devils-advocate phase exceeded the shared timeout")
+        advocate_raw = advocate.stdout.encode("utf-8")
+        if (advocate_raw and not advocate_raw.endswith(b"\n")
+                and len(advocate_raw) < advocate_capture):
+            advocate_raw += b"\n"
+        transcript_parts.append(advocate_raw)
+        stream.write_bytes(b"".join(transcript_parts))
+        advocate_results = parse_result_events_text(
+            advocate.stdout, args.resolved_provider)
+        attempts.append({
+            "attempt": len(attempts) + 1,
+            "phase": "devils-advocate",
+            "exitCode": advocate.returncode,
+            "timedOut": False,
+            "liveResultEvents": len(advocate_results),
+            "isError": bool(
+                advocate_results and advocate_results[-1].get("is_error")),
+            "captureLimitBytes": advocate_capture,
+            "transcriptRedactionCount": int(
+                getattr(advocate, "itd_redaction_count", 0)),
+            "transcriptBytes": len(advocate_raw),
+            "transcriptSha256": sha256_bytes(advocate_raw),
+        })
+        if advocate.returncode != 0 or not advocate_results or (
+                args.resolved_provider == "anthropic"
+                and advocate_results[-1].get("is_error") is True):
+            return archive_current(
+                "devils-advocate phase did not complete successfully")
+        # Advocate result events stay OUT of `results`: the candidate report
+        # fields (exit/subtype/error) must keep describing the blueprint
+        # invocation (reviewer finding, phase-one-18).
+        phase2_snapshot = workspace_snapshot()
+        expected_added = {ADVOCATE_ARTIFACT}
+        added = set(phase2_snapshot) - set(phase1_snapshot)
+        removed = set(phase1_snapshot) - set(phase2_snapshot)
+        changed = {
+            rel for rel in set(phase1_snapshot) & set(phase2_snapshot)
+            if phase1_snapshot[rel] != phase2_snapshot[rel]}
+        if added != expected_added or removed or changed:
+            return archive_current(
+                "devils-advocate phase mutated the workspace beyond its "
+                f"artifact (added={sorted(added - expected_added)} "
+                f"removed={sorted(removed)} changed={sorted(changed)})")
+        # Re-check with lstat AFTER the untrusted phase-2 session: reading or
+        # archiving through a symlink would hash-bind a foreign target as the
+        # review (reviewer finding, phase-one-17).
+        try:
+            advocate_stat = os.lstat(advocate_file)
+        except OSError:
+            advocate_stat = None
+        advocate_regular = (
+            advocate_stat is not None and stat.S_ISREG(advocate_stat.st_mode))
+        advocate_text = (
+            advocate_file.read_text(encoding="utf-8", errors="replace")
+            if advocate_regular else "")
+        if (len(advocate_text.encode("utf-8")) < ADVOCATE_MIN_BYTES
+                or not re.search(r"^####\s+Challenge\s+\d+:", advocate_text,
+                                 re.MULTILINE)
+                or "**Weakness:**" not in advocate_text
+                or "**Risk level:**" not in advocate_text
+                or "**Alternative:**" not in advocate_text
+                or "**Trade-off:**" not in advocate_text):
+            return archive_current(
+                "devils-advocate phase produced no substantive review artifact")
+
+        transcript_raw = stream.read_bytes()
         transcript_hash = sha256_bytes(transcript_raw)
         run_id = utc_now().replace("-", "").replace(":", "") + "-" + transcript_hash[-8:]
         evidence_root = args.evidence.parent.resolve()
@@ -1025,6 +1182,9 @@ def run(args: argparse.Namespace) -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(output / rel, target)
             artifact_hashes[rel] = sha256_file(target)
+        advocate_target = archive_output / ADVOCATE_ARTIFACT
+        shutil.copy2(advocate_file, advocate_target)
+        artifact_hashes[ADVOCATE_ARTIFACT] = sha256_file(advocate_target)
         transcript_archive = run_dir / "transcript.jsonl.gz"
         with gzip.open(transcript_archive, "wb", compresslevel=9) as handle:
             handle.write(transcript_raw)
@@ -1056,8 +1216,15 @@ def run(args: argparse.Namespace) -> int:
                 "isError": bool(last.get("is_error")),
                 "durationMs": sum(durations) if durations else None,
                 "totalCostUsd": sum(costs) if costs else None,
-                "attemptCount": len(attempts),
-                "recoveryTriggered": len(attempts) > 1,
+                # attemptCount keeps its historical meaning (blueprint
+                # attempts); the devils-advocate phase entry stays in
+                # attempts[] only for exact transcript segment coverage.
+                "attemptCount": len([
+                    item for item in attempts
+                    if item.get("phase") != "devils-advocate"]),
+                "recoveryTriggered": len([
+                    item for item in attempts
+                    if item.get("phase") != "devils-advocate"]) > 1,
                 "attempts": attempts,
                 "workspaceTransport": args.workspace_transport,
                 "approvalPolicy": "never-no-escalation",
@@ -1095,6 +1262,24 @@ def run(args: argparse.Namespace) -> int:
                 "exitCode": oracle.returncode,
                 "status": "PASS",
                 "candidateSelfReportAccepted": False,
+            },
+            "devilsAdvocate": {
+                "mode": "harness-orchestrated-fresh-session",
+                "agentPath": ADVOCATE_AGENT_RELPATH,
+                "agentSha256": sha256_file(agent_source),
+                "artifact": ADVOCATE_ARTIFACT,
+                "artifactSha256": artifact_hashes[ADVOCATE_ARTIFACT],
+                "artifactBytes": len(advocate_text.encode("utf-8")),
+                "exitCode": advocate.returncode,
+                "resultSubtype": advocate_results[-1].get("subtype"),
+                "isError": bool(advocate_results[-1].get("is_error")),
+                "liveResultEvents": len(advocate_results),
+                "phase1ArtifactsUnchanged": True,
+                "sessionIsolation": (
+                    "claude -p --no-session-persistence"
+                    if args.resolved_provider == "anthropic"
+                    else "codex exec --ephemeral"),
+                "inlineSelfCritiqueSubstitution": False,
             },
             "sourcePins": source_pins(fixture_dir, args.resolved_provider),
         })

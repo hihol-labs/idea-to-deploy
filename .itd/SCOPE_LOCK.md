@@ -1,112 +1,94 @@
-# Scope Lock — S2-FLAKE: oracle/hygiene nondeterminism root-caused and pinned
+# Scope Lock — S3-ADVOCATE: real devils-advocate phase in the live benchmark
 
 ## Current Task
 
-Close unit S2-FLAKE (S2 in PLAN-CLOSEOUT-2026-08-11): the two 2026-08-11
-BACKLOG P0 nondeterminism items. Diagnosis (evidence in
-`tests/ROOT_CAUSE-s2-oracle-nondeterminism.md`): both flakes share one root —
-transient fork-level `EAGAIN` under user-wide host process pressure, with a
-per-run hit probability that scales with subprocess count (≈4429 git spawns in
-`run-all.sh --quick` vs ≈328 in the U16 verifier). Oracle receipts a45/a46/a47
-(same tree `862d3416`, serial runs, fresh isolated checkouts) rule out temp
-paths and command ordering. The hygiene flake specifically: the unguarded
-`subprocess.run` in `itd_hygiene.py::git()` turned a spawn failure into an
-uncaught crash of `close` — rc=1 with EMPTY stdout — which the suite misread
-as a wrong gate verdict. Reproduced 40/40 under RLIMIT_NPROC pressure.
-
-The candidate fixes the runner fail-closed and pins both causes with
-regression tests that are red on the pre-fix runner (verified via stash runs).
+Close unit S3-ADVOCATE (S3 in PLAN-CLOSEOUT-2026-08-11; BACKLOG live-model
+fixture-hardening defect): the recorded benchmark run substituted the Devil's
+Advocate subagent invocation with an inline self-critique because headless
+transports cannot spawn Claude-native subagents (`claude -p` is currently
+401-blocked by account review; `codex exec` has no subagent mechanism). The
+fix keeps the benchmark headless-reproducible: after the snapshot oracle
+passes, the harness runs the REAL `agents/devils-advocate.md` definition in a
+SECOND fresh session of the same transport (codex `--ephemeral` / claude
+`--no-session-persistence` = isolated context, the subagent semantics), and
+the review artifact is validated, archived and hash-bound into the run report.
+`/blueprint`'s in-session Devil's Advocate step stays as designed for
+interactive use; this unit changes only the benchmark scenario.
 
 ## Allowed zones
 
-- `docs/templates/itd/itd_hygiene.py` — `git()` gains a bounded spawn retry
-  (spawn-level OSError only; FileNotFoundError not retried) degrading to a
-  synthetic rc=127 `CompletedProcess`; `is_tracked` is replaced by a
-  three-state `tracking_state` and `cleanup_manifest` deletion now requires
-  positive proof of untracked-ness (`ls-files --error-unmatch` rc=1); any
-  other git rc is the fail-closed error "tracking state could not be proven".
-  No other behaviour change.
-- `tests/verify_session_hygiene_quality.py` — two added pins:
-  `test_close_survives_spawn_pressure` (POSIX RLIMIT_NPROC=1: close must emit
-  a structured fail-closed report, never an empty-stdout crash) and
-  `test_cleanup_requires_tracking_proof` (git shim rc=2: cleanup must refuse
-  deletion). No existing check weakened.
-- `tests/ROOT_CAUSE-s2-oracle-nondeterminism.md` — new evidence document.
-- `BACKLOG.md` — the two S2 items move to `[x]` with root-cause pointers;
-  historical text retained.
-- `.itd/SCOPE_LOCK.md` and `.itd/ACCEPTANCE_CONTRACT.json` — this unit's
-  frozen scope and its two evidence-first criteria
-  (`S2-FLAKE:general-review-1/2`), superseding the closed U-NTFS-DIRSIZE
-  scope; prior units' criteria are retained untouched.
-- `.itd-memory/STATE.json` — bookkeeping only: `currentUnit` advances from
-  the closed U16 (merged PR #192, ledger verified) to `S2-FLAKE`
-  (in_progress, high). No other state field changes.
-
-Post-review CI amendment (2026-08-13, same unit):
-
-- `tests/verify_session_hygiene_quality.py` — `test_cleanup_requires_tracking_proof`
-  becomes POSIX-only: Windows CreateProcess resolves `git` to `git.exe` only,
-  so the `.cmd` shim never intercepts the runner's subprocess and windows-verify
-  correctly failed; the guard under test is platform-neutral, the staging of a
-  failing git is not.
-- `tests/fixtures/live-model-evidence/latest.json` and
-  `tests/fixtures/live-model-evidence/runs/20260812T220745Z-3d92147a/` — the
-  standing live-benchmark evidence re-pin (precedent a8b0885/de4f9c1): the S2
-  change to `docs/templates` staled the previous pin and failed Gate 1; fresh
-  live run fixture-03-cli-tool PASS, replay verifier 39/39.
-- `tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181/` — the
-  corrected re-pin run: the 3d92147a run was executed with the test fix still
-  uncommitted, so its evidence pinned a dirty `workingTreeStatusSha256` and
-  Gate 1 failed on CI's clean checkout ("dirty-state digest is pinned").
-  f2abf181 re-ran the identical fixture on the clean committed tree;
-  `latest.json` now points to it. The superseded 3d92147a run directory stays
-  as history, matching how prior pinned runs are retained.
-
-  Transcript-artifact contract (for reviewers of this diff): each run's
-  `transcript.jsonl.gz` IS part of this candidate and is committed as a git
-  binary blob, exactly like every prior pinned run. It is genuine gzip (magic
-  `1f8b 08`); the run's own `run-report.json` binds it twice —
-  `transcriptGzipSha256` = sha256 of the committed gzip bytes, and
-  `transcriptSha256`/`transcriptBytes` = digest and size of the decompressed
-  stream. For the active pinned run f2abf181 those values are
-  4dc363ddd6008a24a9e88dc3989c36b2a3efbd8a4dfe5b59570e3f3d11de14fb (gzip,
-  verified equal to the staged blob) and 53856 decompressed bytes; the
-  superseded 3d92147a history run carries its own matching pair
-  (2b798c1e…, 59630). The declared-transparent review transport may render
-  this artifact decompressed or omit binary blobs from a unit's text path
-  list; that rendering is not the repository content. The self-containment
-  claim is machine-checked by `tests/verify_live_model_benchmark.py`
-  (39/39 on this tree), which hash-verifies the artifact against the report
-  before any consumer trusts it.
+- `tests/run-live-model-benchmark.py` — ADVOCATE_* constants,
+  `advocate_prompt()`, the phase-2 block in `run()` (after the snapshot
+  oracle; fail-closed on missing agent, exhausted time/byte budget, non-zero
+  exit, missing/insubstantial artifact), artifact archiving + hashing, the
+  `devilsAdvocate` report block, and blueprint-only `attemptCount`/
+  `recoveryTriggered` (the phase entry stays in `attempts[]` solely for exact
+  transcript segment coverage, marked `"phase": "devils-advocate"`).
+- `tests/verify_live_model_benchmark.py` — `verify_evidence` (runs only under
+  `--require-evidence`, as CI invokes it): blueprint/advocate attempt split,
+  exactly-one-phase-last check, archived-hash set = required ∪ {advocate
+  artifact}, and five fail-closed advocate checks (mode, agent digest pinned
+  to the current tree, artifact retained + hash-pinned, substantive review).
+- `tests/fixtures/fixture-03-cli-tool/live-prompt.md` — the self-critique
+  paragraph is replaced: the adversarial review is phase 2, run by the
+  harness; inline substitution and reviewer claims are forbidden in-session.
+- `tests/fixtures/live-model-evidence/latest.json` and the new
+  `tests/fixtures/live-model-evidence/runs/20260813T090330Z-64df7624/` — the re-recorded
+  evidence (second commit of this unit, run on the clean committed tree per
+  DECISIONS 2026-08-13).
+- `BACKLOG.md` — the live-model fixture-hardening item closes with pointers
+  (second commit).
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd-memory/STATE.json` — this unit's contracts and the currentUnit
+  advance from ledger-closed S2-FLAKE.
 
 ## Out of scope (honest limits)
 
-- The host transient itself is not eliminable from the repository; a shared
-  spawn-retry helper for the other ~60 verify tests is a recorded backlog
-  candidate, not part of this unit.
-- `verify_independent_review_efficacy` is deterministically red on clean main
-  `b5fd588` ("wsl semantic result binding is foreign") — pre-existing live-pin
-  friction (S6, user-deferred). Not an S2 flake; not touched by this unit.
-- Promoting the quick suite back into the U16 exact-candidate oracle
-  (SCOPE_LOCK criterion 4 amendment of the U16 era) stays blocked on S6.
+- Claude-native subagent transport in headless mode: blocked externally (401
+  account review); when it returns, the anthropic path of the same phase-2
+  machinery applies unchanged.
+- The other two recorded-run defects of the BACKLOG item (fail-open
+  self-validation visible in the transcript; no originating user request in
+  the capture) are addressed only to the extent the new prompt/verifier
+  contract covers them; anything residual stays in the BACKLOG item history.
+- `/blueprint` skill behaviour and its interactive Devil's Advocate step.
+
+## Two-commit acceptance contract (inherent, not an oversight)
+
+This candidate (commit 1: runner/verifier/prompt/contracts) is EXPECTED to
+fail CI's `--require-evidence` replay in isolation, and no single-commit
+candidate can avoid that: the evidence is source-pinned to the exact runner/
+verifier/prompt bytes that recorded it, so re-recorded evidence cannot precede
+the code change; and the dirty-state pin (DECISIONS 2026-08-13) forbids
+recording evidence while that code change is uncommitted. The unit is
+therefore accepted at the PR head after commit 2 (the re-recorded evidence on
+the clean committed tree), exactly as the merged PR #193 precedent
+(3d4f282 -> 42c168f). Commit 1's own machine oracles are the static harness
+contract (`verify_live_model_benchmark` without the flag, 39/39 green on this
+candidate) and `tests/meta_review.py`; the operator evidence that the new
+replay checks are fail-closed is the exact 10-FAIL run against the old
+evidence.
+
+## Commit topology of the recorded evidence (for reviewers of commit 2)
+
+Commit 1 of this unit (`2a8da716de83`) carries the ENTIRE advocate code
+change (runner phase 2, prompt, verifier). The evidence run
+20260813T090330Z-64df7624 was recorded on that commit's clean tree, so its
+`source.revision` = `2a8da716de83` IS the post-code-change commit: the exact
+runner/prompt/verifier bytes it pins are the new advocate implementation
+(machine-checked — the replay's `source pin matches: benchmarkRunner /
+liveVerifier / livePrompt` checks compare the recorded pins against the
+CURRENT files and pass 107/107 on this candidate). Commit 2 (this diff, whose
+git base is naturally commit 1) adds only the generated evidence plus
+BACKLOG/scope documentation; per the dirty-state pin it cannot itself be the
+recorded revision, and per the two-commit contract above the evidence can
+never cite a commit that does not yet exist.
 
 ## Machine-oracle shape
 
-The exact-candidate machine oracle for this unit runs, in isolation on the
-staged tree: `tests/meta_review.py` (repo-wide static rubric, deterministic)
-and `tests/verify_session_hygiene_quality.py` (the S2-pinned behavioural
-suite, 50 checks). Operator evidence besides the receipt: 5 consecutive green
-runs of the hygiene suite and of the U16 verifier, and 5 quick-suite runs
-whose only red each time is the deterministic pre-existing efficacy pin.
-
-Ledger-close amendment (2026-08-13, closing this unit):
-
-- `.itd-memory/STATE.json` — `currentUnit` S2-FLAKE moves to `verified` with
-  the closure evidence (merge 3755560, receipts bfb86fcf99859c76, fresh
-  post-merge oracle runs green on main).
-- `.itd/ACCEPTANCE_CONTRACT.json` — `activeFollowup` for
-  `S2-FLAKE:general-review` moves to `verified`/closed with the same
-  evidence; criteria lists are unchanged.
-- No other file changes; matching unit events were appended to the untracked
-  `.itd-memory/events.jsonl` (U16 verified backfill, S2-FLAKE
-  activated/verified) per the ledger validator.
+Exact-candidate oracles: `tests/verify_live_model_benchmark.py` (static
+harness contract, no flag — the CI-only `--require-evidence` replay goes
+green with the re-recorded evidence of commit 2) and `tests/meta_review.py`.
+Operator evidence: against the OLD evidence, `--require-evidence` fails on
+exactly the new advocate contract (10 FAIL) — the checks are fail-closed,
+not decorative.
