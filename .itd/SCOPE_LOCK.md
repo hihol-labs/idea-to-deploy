@@ -1,84 +1,92 @@
-# Scope Lock — U17: opt-in advisory design-provenance reviewer in /blueprint
+# Scope Lock — S6-SCRUBBER: residual-credential detector precision
 
 ## Current Task
 
-Close unit U17 (GPG-004; S5 in `.itd-memory/PLAN-CLOSEOUT-2026-08-11.md`),
-the last pending unit of the GPG-004 plan: an opt-in, advisory provenance
-reviewer runs ON TOP of the Devil's Advocate debate in /blueprint and records
-the provenance of each architectural claim. Sealed criterion: it is
-explicitly NOT a gate — its absence never blocks, and its findings never turn
-into an acceptance verdict. Verified by fixture runs showing an advisory
-report plus an unchanged gate outcome (`cannotWeaken`).
+Close unit S6-SCRUBBER (queue position after S5/U17; source BACKLOG.md:166,
+incident U16 2026-08-11): a bounded precision fix of the residual-credential
+detector — ordinary parser code (a token-named variable assigned from
+`tokens[position]`) and prose quoting such a line verbatim must stop
+refusing review routes — plus
+alignment of the free-reviewer producer onto scrubbed-text detection, and
+the forced live re-mint of the three signed efficacy legs whose
+`producerSha256` pin the producer edit burns. riskTier: high (the change
+narrows a security detector), sealed in STATE.currentUnit and
+`.itd-memory/contracts/S6-SCRUBBER.md`.
 
 ## Candidate composition (allowed zones)
 
-- `skills/blueprint/SKILL.md` — new sub-step 2.5b «Design Provenance Review
-  (opt-in, advisory — GPG-004 U17)» inside the Step 2.5 adversarial debate
-  protocol: opt-in via user request or `ITD_DESIGN_PROVENANCE=1`, writes
-  `DESIGN_PROVENANCE.md` (`## Claim:` + `- Source:` + `- Reference:`), runs
-  the structure check, and states the non-gate invariants verbatim.
-- `skills/blueprint/scripts/itd_design_provenance.py` — new stdlib-only
-  advisory validator: exit 0 on findings, clean report, absent report and
-  malformed report; JSON output with `advisory: true`, actionable
-  path+line+why+fix notes, no verdict-shaped field, never the acceptance
-  token; quiet no-op without arguments; read-only.
-- `tests/verify_blueprint_provenance_reviewer.py` — the sealed U17
-  verificationCommand: RED first (rc=2, file absent), now green — 77 checks
-  covering the skill text invariants, five fixture runs, read-only proof,
-  and the unchanged-gate sweep (no hook or gate script references the
-  reviewer).
-- `tests/fixtures/blueprint-provenance/{sourced,unsourced,malformed}.md`.
-- `tests/run-all.sh` — CORE registration of the new verifier.
-- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
-  `.itd-memory/STATE.json` — unit contracts (activeFollowup
-  `U17:general-review`, low tier; currentUnit U17).
-- Follow-up commit of this same unit: `tests/fixtures/live-model-evidence/**`
-  — re-recorded live benchmark evidence (see below).
+- `skills/_shared/itd_external_reviewer.py` — value-capture groups
+  (`quoted`/`bare`/`continued`) in `RESIDUAL_CREDENTIAL_RE`;
+  `_BENIGN_EXPRESSION_RE` (a value that is PURELY one code expression —
+  dotted call, subscript, `${…}`/`$(…)`/`$var` — is not a literal
+  credential; trailing prose backticks stripped); filtering loop in
+  `contains_residual_credential`. NOT via SAFE_REFERENCE_PATTERNS (masking
+  hides literal call-arguments from the other detectors and masked spans
+  are restored verbatim into outgoing text).
+- `skills/_shared/itd_free_reviewer_producer.py` — `_safe_review_text`
+  detectors run on `clean`, matching broker/`build_candidate` and the
+  route's own «redaction is not a finding» contract.
+- `tests/verify_scrubber_precision.py` — new RED-first verifier (30 checks
+  after the r5/r6 route findings grew the corpus: quoted call-lookalike and
+  expression-wrapper true positives):
+  FP corpus with true-positive antipair per exclusion; producer clean-text
+  contract; end-to-end fail-closed proof.
+- `tests/verify_free_reviewer_producer.py` — re-pins to the new contract:
+  neutralisable credentials redacted+proceed; the unneutralisable shape (a
+  password-named assignment whose bare value `abcd#efgh2026` carries `#`,
+  where scrub stops and the detector does not) refuses; no-reply smuggling
+  asserts neutralisation before egress.
+- `tests/run-all.sh` — CORE registration.
+- `benchmarks/independent-review-efficacy/results/*.json` — three legs
+  re-minted live on the final producer bytes (wsl + u12 cross-vendor on
+  WSL; windows via powershell interop). Retries only on typed exit 3 from
+  the signed checkpoint; resampling a reviewer miss is forbidden (A21).
+- Bookkeeping: `BACKLOG.md`, `HANDOFF.md`, `.itd-memory/STATE.json`,
+  `.itd-memory/HANDOFF-S6-SCRUBBER.md`, `.itd-memory/contracts/S6-SCRUBBER.md`,
+  `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`.
+- Follow-up commit of this same unit (two-commit acceptance below):
+  `tests/fixtures/live-model-evidence/**` — the re-recorded live benchmark
+  run replacing the burned pin (latest.json + one new run directory).
+  Corpus conventions a reviewer needs to validate it: (a) the run records
+  the METHODOLOGY BENCHMARK on `fixture-03-cli-tool` — an nginx-log-analysis
+  CLI project — so its transcript legitimately documents a /blueprint +
+  devils-advocate run over that fixture, not this unit's diff; (b)
+  `transcript.jsonl.gz` is genuine gzip on disk (magic 1f 8b) and appears as
+  plaintext JSONL in the review diff only because of the declared-only
+  `.jsonl.gz` transparent-review textconv (a GPG-001 invariant) — the
+  run-report's transcriptGzipSha256 binds the compressed bytes and is
+  machine-verified by `verify_live_model_benchmark --require-evidence`
+  (107/0 on this run); (c) the recorder's tail-truncation of the final
+  in-progress item is a known recorded artefact
+  (`tests/ROOT_CAUSE-live-model-benchmark-partial-output.md`) — completion
+  is proven by the machine-verified run-report, not by the transcript tail.
 
-## Two-commit acceptance (inherent, precedent PR #193/#195)
+## Two-commit acceptance (inherent, precedent PR #193/#195/#199)
 
-`verify_live_model_benchmark --require-evidence` (CI Gate 1) pins
-`methodologyTreeSha256` over skills/hooks/agents and requires a clean
-recorded working tree. Editing `skills/blueprint/SKILL.md` therefore burns
-the recorded evidence BY CONSTRUCTION: source-pinned live evidence cannot
-predate the code it pins. Commit 1 lands the feature with the old evidence
-honestly red under `--require-evidence` (default-mode verifier and the quick
-suite stay green); the live benchmark is then re-recorded on the clean
-committed tree and commit 2 re-pins the evidence. Neither commit weakens the
-oracle.
+Edits under `skills/_shared/` burn the live-model benchmark's
+`methodologyTreeSha256` by construction. Commit 1 lands the fix with the old
+evidence honestly red under `--require-evidence` (COMPLETION_BYPASS names
+exactly this documented inherent red); the benchmark is then re-recorded on
+the clean committed tree and commit 2 re-pins the evidence. Neither commit
+weakens the oracle.
 
 ## Out of scope (honest limits)
 
-- No new skill/agent/hook; counts unchanged. devils-advocate untouched.
-- The reviewer never writes receipts and never appears in Verification Loop,
-  review-cache, or any hook — enforced by the verifier's gate sweep.
-- `.itd-memory/GPG-004_UNIT_PLAN.json` and `PLAN-CLOSEOUT-2026-08-11.md`
-  are git-ignored local ledgers (updated locally; never committed).
-  `.itd-memory/STATE.json` is git-tracked and part of this candidate.
-- Scrubber precision (S6) and other queue items untouched.
+- No weakening of scrub(), SAFE_REFERENCE_PATTERNS, the high-confidence or
+  entropy detectors; every benign exclusion carries a literal antipair.
+- Frozen benchmark cases/thresholds untouched (`manifestSha256` stable).
+- No new skill/agent/hook; counts unchanged.
+- The queued BACKLOG follow-ups (matcher category wording, benchmark
+  provenance polish, sync-manifest gap, …) untouched.
 
 ## Machine-oracle shape
 
-`u17-verifier=python3 tests/verify_blueprint_provenance_reviewer.py` plus
-`quick-suite=bash tests/run-all.sh --quick`. Risk tier: low (sealed in
-GPG-004_UNIT_PLAN) — machine-only adjudication per ADR-003/verification
-profiles; no independent checker is required for this tier.
+`s6-verifier=python3 tests/verify_scrubber_precision.py` +
+`producer=python3 tests/verify_free_reviewer_producer.py` +
+`efficacy=python3 tests/verify_independent_review_efficacy.py
+--expected-keyring-sha256-file
+.itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256` +
+`quick-suite=bash tests/run-all.sh --quick`. Risk tier: high — full fresh
+adjudicated independent review of the exact staged candidate before commit.
 
-Base for the candidate: main `ef15e97` (merge of PR #198).
-
-## Closure (2026-08-13)
-
-PR #199 merged as `5b9537f` (base `ef15e97`; commits `56325d0` feature,
-`b655943` live evidence re-pin — run `20260813T134904Z-c56e465c`,
-`--require-evidence` 107/0, `a01380e` fixture-container stub after the
-windows-verify snapshot failure), CI green (Gate 1 + windows-verify). Fresh
-post-merge evidence on merged main: the sealed U17 verificationCommand exit 0
-(`ALL CHECKS COMPLETED`) and `tests/run-all.sh --quick` `DONE fails:none`.
-Unit U17 is `verified` in STATE/events; acceptance activeFollowup closed;
-**GPG-004 plan closed — 17/17 units verified.**
-
-This ledger-close candidate stages exactly four tracked files: `HANDOFF.md`,
-`.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md`,
-`.itd-memory/STATE.json`. The git-ignored local ledgers
-(`GPG-004_UNIT_PLAN.json` → plan `done`, `PLAN-CLOSEOUT-2026-08-11.md` →
-S5 ✅) stay uncommitted.
+Base for the candidate: main `84742fb` (merge of PR #200).

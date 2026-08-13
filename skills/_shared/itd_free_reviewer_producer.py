@@ -590,10 +590,13 @@ def _safe_review_text(raw: bytes, label: str) -> str:
     # `*@users.noreply.github.com` address sitting in a manifest blocked
     # every candidate whose diff context touched it (route findings r33-r35,
     # 2026-08-10), exactly like a leaked key would.
+    # S6: detection runs on the SCRUBBED text, exactly like the broker and
+    # build_candidate routes — a credential that scrub() already neutralised
+    # never reaches the reviewer, so refusing on its raw form over-refuses.
     if (
-        scrubber.contains_high_confidence_secret(text)
-        or scrubber.contains_residual_credential(text)
-        or scrubber.contains_high_entropy_token(text)
+        scrubber.contains_high_confidence_secret(clean)
+        or scrubber.contains_residual_credential(clean)
+        or scrubber.contains_high_entropy_token(clean)
     ):
         raise FreeReviewError(
             "UNVERIFIED", f"{label} contains sensitive material; review is blocked"

@@ -1140,6 +1140,63 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "S6-SCRUBBER:general-review-1",
+      "criterion": "The residual-credential detector separates code from credentials: both recorded U16 false-positive classes (an ordinary parser assignment such as a token-named variable assigned from a subscript or call expression, and prose quoting such a line verbatim) no longer match, while every benign exclusion keeps a literal true-positive antipair that still matches (quoted and bare literals, values that merely contain interpolation syntax, call-lookalikes with embedded quotes, newline-continued quoted values). The high-confidence and entropy detectors are untouched. RED-first: the verifier failed on the pre-fix detector.",
+      "source": "S6-SCRUBBER (BACKLOG residual-credential item, U16 2026-08-11); root cause in .itd-memory/contracts/S6-SCRUBBER.md.",
+      "evidence": "tests/verify_scrubber_precision.py exit 0, 30 checks PASSED on the exact candidate (11 benign code/prose samples, 14 true-positive antipairs including the r5 quoted call-lookalikes and the r6 expression-wrapper attacks, 1 high-confidence regression pin, 3 producer clean-text source pins, 1 end-to-end scrub check). RED-first at each step: the original detector failed on the benign parser assignment; the r5 detector failed on the quoted call-lookalike; the pre-r6 grammar failed on the no-space wrapper attacks. Machine run s6-verifier exit 0 in the isolated staged-tree receipt.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_scrubber_precision.py",
+      "reviewEvidence": {
+        "claim": "Ordinary code and prose about it no longer refuse a review route while every literal credential shape the detector previously caught is still caught.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "s6-verifier"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "S6-SCRUBBER:general-review-2",
+      "criterion": "The free-reviewer producer runs all three detectors on the SCRUBBED text, matching the broker and build_candidate routes and its own recorded contract: a credential scrub() neutralises reaches the reviewer only in redacted form and the route proceeds; a credential scrub() cannot neutralise (the bare-value gap where scrub stops at '#' and the detector does not) still refuses fail-closed; the whitespace-split composite and the no-reply smuggling shape never reach the reviewer unneutralised.",
+      "source": "S6-SCRUBBER scope; producer contract comment «redaction is not a finding» (route findings r33-r35, 2026-08-10).",
+      "evidence": "tests/verify_free_reviewer_producer.py exit 0, 144 checks PASSED on the exact candidate (re-pinned: sk-/AKIA/entropy payloads redacted+proceed, unneutralisable literal refuses, smuggling shape neutralised before egress); tests/verify_review_broker.py exit 0, 741 checks (clean-text parity unchanged). Machine runs producer-suite and review-broker exit 0 in the isolated staged-tree receipt.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "Detection on scrubbed text neither leaks an unneutralised credential to a reviewer nor over-refuses a fully neutralised one.",
+        "impactClasses": [
+          "security",
+          "error-handling",
+          "correctness"
+        ],
+        "oracleIds": [
+          "producer-suite",
+          "review-broker"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "S6-SCRUBBER:general-review-3",
+      "criterion": "All three signed efficacy legs are re-minted live on the final producer bytes (wsl same-vendor, u12 cross-vendor, windows via native interop), each 9/9 with attempts=1 and no resampling; the efficacy verifier passes with hostParityVerified true against the host-owned keyring pin; the quick regression suite is green on the exact tree, the only pre-declared red being verify_live_model_benchmark --require-evidence, inherent until the post-commit live re-record (two-commit acceptance, precedent PR #193/#195/#199).",
+      "source": "S6-SCRUBBER scope (producer edit burns producerSha256 of all three legs); leg retry policy A21.",
+      "evidence": "Legs re-minted 2026-08-13: wsl 9/9 attempts=1 (15:09:04Z), u12-cross-vendor 9/9 attempts=1 (15:14:29Z, maker claude-fable-5/anthropic-subscription), windows 9/9 via powershell interop. verify_independent_review_efficacy exit 0: status PASSED, hostParityVerified true, criticalHigh/medium 1.0, cleanFalseBlock 0.0 on both hosts. Machine runs efficacy and quick-suite exit 0 in the isolated staged-tree receipt (quick DONE fails:none).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "reviewEvidence": {
+        "claim": "The signed efficacy evidence is current for the candidate producer bytes and the repository-wide quick regression holds on the exact tree.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "efficacy",
+          "quick-suite"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -1158,23 +1215,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "U17:general-review",
-    "status": "verified",
+    "unitId": "S6-SCRUBBER:general-review",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/U17.md",
+    "rootCause": ".itd-memory/contracts/S6-SCRUBBER.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "low",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "repository-hygiene"
+        "error-handling",
+        "repository-hygiene",
+        "security"
       ],
-      "minimumIndependentReviewers": 0,
+      "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-08-13",
-    "closure": "Ledger-close after merge 5b9537f (PR #199). Both U17 criteria passed during the unit on the exact reviewed candidates (staged 7961ff1c, committed heads b655943/a01380e; low-tier machine adjudications c589dd3c86d21c14/a1 and d5868d05163a63d2/a1); after the merge the sealed verificationCommand and the quick suite ran green again on merged main. U17 was the last pending GPG-004 unit - the plan is closed with 17/17 units verified; this bookkeeping candidate carries its own machine receipt bound to its own staged tree."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
