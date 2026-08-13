@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "unit-test-inputs",
+  "skill_under_test": "/blueprint",
+  "status": "pending",
+  "description": "Input corpus for tests/verify_blueprint_provenance_reviewer.py (GPG-004 U17): sourced/unsourced/malformed DESIGN_PROVENANCE.md samples for the advisory design-provenance validator. Not a generation fixture; validated fail-closed by the dedicated verifier, so snapshot validation is intentionally skipped."
+}
