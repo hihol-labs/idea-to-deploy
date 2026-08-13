@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "U12",
-    "goal": "GPG-004 U12: measure the independence ladder same-vendor vs cross-vendor over the shared frozen corpus; confirm restored reviewer-cardinality canaries; record outcome in benchmark and ADR-007",
-    "status": "verified",
-    "startedAt": "2026-08-13T11:08:52Z",
-    "riskTier": "medium",
-    "completedAt": "2026-08-13T12:49:13Z"
+    "id": "U17",
+    "goal": "GPG-004 U17: opt-in advisory design-stage provenance reviewer in /blueprint on top of devils-advocate; advisory report, never a gate; fixture-verified",
+    "status": "in_progress",
+    "startedAt": "2026-08-13T13:26:09Z",
+    "riskTier": "low"
   },
   "gateResults": {
     "acceptanceContract": "pending",

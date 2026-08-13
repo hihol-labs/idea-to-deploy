@@ -1,101 +1,67 @@
-# Scope Lock — U12: measured independence ladder + re-signed efficacy legs
+# Scope Lock — U17: opt-in advisory design-provenance reviewer in /blueprint
 
 ## Current Task
 
-Close unit U12 (GPG-004; S4 in `.itd-memory/PLAN-CLOSEOUT-2026-08-11.md`):
-measure the reviewer-independence ladder — same-vendor versus cross-vendor
-detection rate — over the SAME frozen seeded-defect corpus, and record the
-outcome in the benchmark and in ADR-007. The unit also confirms that the
-reviewer-cardinality canaries (low-reviewer / high-quorum /
-duplicate-reviewer-quorum, the exact-equality `minimumIndependentReviewers`
-contract) are restored and green — they already live in
-`tests/verify_independent_review_efficacy.py` (PC4 restoration), so this
-candidate contains NO code change for them, only the recorded confirmation.
-
-Root cause of the red verifier on main 18dc762: PR #191 (`da42644`) changed
-the bytes of `skills/_shared/itd_free_reviewer_producer.py` after the
-2026-08-10 recordings, so `producerSha256` in all three signed semantic
-results became foreign (manifest and runner hashes still matched). The remedy
-is live re-signing of the three legs with the current producer bytes — the
-same remedy class as after PR #188 (R1 scrub), a known precedent.
+Close unit U17 (GPG-004; S5 in `.itd-memory/PLAN-CLOSEOUT-2026-08-11.md`),
+the last pending unit of the GPG-004 plan: an opt-in, advisory provenance
+reviewer runs ON TOP of the Devil's Advocate debate in /blueprint and records
+the provenance of each architectural claim. Sealed criterion: it is
+explicitly NOT a gate — its absence never blocks, and its findings never turn
+into an acceptance verdict. Verified by fixture runs showing an advisory
+report plus an unchanged gate outcome (`cannotWeaken`).
 
 ## Candidate composition (allowed zones)
 
-- `benchmarks/independent-review-efficacy/results/wsl.json` — re-signed live
-  same-vendor leg (maker `gpt-5.6-terra` → reviewer `gpt-5.6-sol`, codex
-  0.146.0 pin `2e863156…`, 9/9 cases `attempts=1`).
-- `benchmarks/independent-review-efficacy/results/u12-cross-vendor-wsl.json`
-  — re-signed live cross-vendor leg (maker `opus`, anthropic-subscription →
-  reviewer `gpt-5.6-sol`, 9/9 `attempts=1`).
-- `benchmarks/independent-review-efficacy/results/windows.json` — re-signed
-  live Windows leg (native `python.exe` 3.12.10 over the UNC repo path,
-  codex.exe pin `bc343ba4…`, DPAPI signing key; case 1 recorded, one typed
-  UNAVAILABLE transport drop on case 2, resumed from the signed checkpoint —
-  accepted typed-exit-3 retry precedent of 2026-08-08; 9/9 `attempts=1`).
-- `docs/adr/ADR-007-human-adjudication-of-independent-review.md` — addendum
-  «U12: the independence ladder is measured, not asserted» with the measured
-  rates and the honest parity conclusion.
-- `HANDOFF.md` — S4 transfer packet (diagnosis, exact re-record commands,
-  pins); superseded stale v1.96.0 release packet.
-- `.itd/ACCEPTANCE_CONTRACT.json` — activeFollowup → `U12:general-review`
-  (medium tier).
-- `.itd/SCOPE_LOCK.md` — this file.
-- `.itd-memory/STATE.json` — currentUnit S3-ADVOCATE (verified, closed) →
-  U12 (in_progress → verified on close).
+- `skills/blueprint/SKILL.md` — new sub-step 2.5b «Design Provenance Review
+  (opt-in, advisory — GPG-004 U17)» inside the Step 2.5 adversarial debate
+  protocol: opt-in via user request or `ITD_DESIGN_PROVENANCE=1`, writes
+  `DESIGN_PROVENANCE.md` (`## Claim:` + `- Source:` + `- Reference:`), runs
+  the structure check, and states the non-gate invariants verbatim.
+- `skills/blueprint/scripts/itd_design_provenance.py` — new stdlib-only
+  advisory validator: exit 0 on findings, clean report, absent report and
+  malformed report; JSON output with `advisory: true`, actionable
+  path+line+why+fix notes, no verdict-shaped field, never the acceptance
+  token; quiet no-op without arguments; read-only.
+- `tests/verify_blueprint_provenance_reviewer.py` — the sealed U17
+  verificationCommand: RED first (rc=2, file absent), now green — 77 checks
+  covering the skill text invariants, five fixture runs, read-only proof,
+  and the unchanged-gate sweep (no hook or gate script references the
+  reviewer).
+- `tests/fixtures/blueprint-provenance/{sourced,unsourced,malformed}.md`.
+- `tests/run-all.sh` — CORE registration of the new verifier.
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd-memory/STATE.json` — unit contracts (activeFollowup
+  `U17:general-review`, low tier; currentUnit U17).
+- Follow-up commit of this same unit: `tests/fixtures/live-model-evidence/**`
+  — re-recorded live benchmark evidence (see below).
 
-No producer/runner/manifest byte changes: `skills/_shared/*`, `tests/*` and
-`benchmarks/independent-review-efficacy/cases.json` are untouched — the
-signatures bind to their current committed bytes.
+## Two-commit acceptance (inherent, precedent PR #193/#195)
 
-## Measured outcome (the point of the unit)
-
-`tests/verify_independent_review_efficacy.py` exit 0 on this tree:
-`status PASSED`, `hostParityVerified true`, `u12IndependenceLadder`:
-sameVendor criticalHigh 1.0 / medium 1.0 / cleanFalseBlock 0.0;
-crossVendor 1.0 / 1.0 / 0.0. Parity, not superiority: the ladder order
-stays cross-vendor-first on the correlated-blind-spots argument; the
-cross-vendor leg is recorded, deliberately not thresholded against the
-same-vendor leg.
+`verify_live_model_benchmark --require-evidence` (CI Gate 1) pins
+`methodologyTreeSha256` over skills/hooks/agents and requires a clean
+recorded working tree. Editing `skills/blueprint/SKILL.md` therefore burns
+the recorded evidence BY CONSTRUCTION: source-pinned live evidence cannot
+predate the code it pins. Commit 1 lands the feature with the old evidence
+honestly red under `--require-evidence` (default-mode verifier and the quick
+suite stay green); the live benchmark is then re-recorded on the clean
+committed tree and commit 2 re-pins the evidence. Neither commit weakens the
+oracle.
 
 ## Out of scope (honest limits)
 
-- The 9-case corpus cannot surface correlated same-vendor blind spots; the
-  addendum says so explicitly instead of overclaiming.
-- `.itd-memory/GPG-004_UNIT_PLAN.json` and `PLAN-CLOSEOUT-2026-08-11.md` are
-  git-ignored local ledger files — updated locally (U12 → verified, S4 →
-  DONE) and never committed. `.itd-memory/STATE.json` is different: it IS
-  git-tracked and is a legitimate part of both the merged candidate and the
-  ledger-close candidate below.
-- Residual scrubber precision work (S6) and the other PLAN-CLOSEOUT queue
-  items are untouched.
+- No new skill/agent/hook; counts unchanged. devils-advocate untouched.
+- The reviewer never writes receipts and never appears in Verification Loop,
+  review-cache, or any hook — enforced by the verifier's gate sweep.
+- `.itd-memory/GPG-004_UNIT_PLAN.json` and `PLAN-CLOSEOUT-2026-08-11.md`
+  are git-ignored local ledgers (updated locally; never committed).
+  `.itd-memory/STATE.json` is git-tracked and part of this candidate.
+- Scrubber precision (S6) and other queue items untouched.
 
 ## Machine-oracle shape
 
-`oracle=sh skills/_shared/itd_py.sh tests/verify_independent_review_efficacy.py
---expected-keyring-sha256-file
-.itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256` — the
-host-owned keyring pin is a declared input (host-provisioned, git-ignored),
-plus `bash tests/run-all.sh --quick` green on the same tree
-(`DONE fails:none`, 2026-08-13).
+`u17-verifier=python3 tests/verify_blueprint_provenance_reviewer.py` plus
+`quick-suite=bash tests/run-all.sh --quick`. Risk tier: low (sealed in
+GPG-004_UNIT_PLAN) — machine-only adjudication per ADR-003/verification
+profiles; no independent checker is required for this tier.
 
-Base for the candidate: main `18dc7620520f7ab2eb6666120c91b7a4bb49d44d`.
-
-## Closure (2026-08-13)
-
-PR #197 merged as `2ddea97` (head `7cf4e95`, base `18dc762`), CI green
-(Gate 1 + windows-verify). Fresh post-merge evidence on merged main:
-`verify_independent_review_efficacy` exit 0 — status PASSED,
-hostParityVerified true, `u12IndependenceLadder` sameVendor 1.0/1.0/0.0 ==
-crossVendor 1.0/1.0/0.0 (parity; ladder order stays cross-vendor-first) —
-and `tests/run-all.sh --quick` `DONE fails:none`. Unit U12 is `verified` in
-STATE/events; acceptance activeFollowup closed. Route receipt:
-`receipts/fad0cf1af1f4702e/U12-general-review-adjudication-a1.json`.
-
-This ledger-close candidate stages exactly four tracked files: `HANDOFF.md`
-(closed-state record), `.itd/ACCEPTANCE_CONTRACT.json` (activeFollowup →
-verified/closed), `.itd/SCOPE_LOCK.md` (this closure), and
-`.itd-memory/STATE.json` (currentUnit U12 → verified via itd_unit_log; the
-paired event lives in the git-ignored events.jsonl). The git-ignored local
-ledgers (`GPG-004_UNIT_PLAN.json`, `PLAN-CLOSEOUT-2026-08-11.md`) stay
-uncommitted. The candidate composition list above describes the merged
-main-candidate of PR #197, not this bookkeeping diff.
+Base for the candidate: main `ef15e97` (merge of PR #198).
