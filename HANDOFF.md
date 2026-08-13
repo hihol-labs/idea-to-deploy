@@ -46,6 +46,23 @@
 - Прямой запуск verify_independent_review_efficacy требует
   `--expected-keyring-sha256-file` (run-all подставляет сам; host-owned pin).
 
+## Ре-минт efficacy-ног — восстановленные параметры (S7, 2026-08-13)
+- Signing key: `.itd-memory/verification-loop/keys/gpg003-local-producer-20260803.key`
+  (в проекте, gitignored; НЕ в `~/.itd/keys/` — такого каталога на машине нет).
+  Windows-нога: `...-20260803.windows.key` рядом. Публичная часть сверена с
+  `.itd/REVIEW_EFFICACY_KEYRING.json` — совпадает.
+- Codex 0.146.0 native binary (sha 2e863156…, совпал с записанным в ноге):
+  `~/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`
+  (обёртка `~/.npm-global/bin/codex` имеет другой sha — брать native).
+- `--proxy-sha256 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
+- Пары маркер/ревьюер (enforced верификатором): wsl-нога — opposite-GPT
+  `--maker-model gpt-5.6-terra --maker-provider openai-subscription --model gpt-5.6-sol`;
+  u12-cross-vendor — anthropic maker + OpenAI reviewer
+  (`--maker-model claude-opus-5 --maker-provider anthropic-subscription --model gpt-5.6-sol`;
+  любой anthropic-маркер вне EXPECTED_OPPOSITE валиден — для свежей записи
+  честное значение = модель, реально ведущая сессию).
+- Ноги протухают: верификатор требует `observedAt` не старше 30 дней.
+
 ## Финиш-чеклист S7 (после U4)
 ре-минт 3 efficacy-ног (wsl, windows, u12-cross-vendor — Windows-нога с
 Windows-хоста!) → полный run-all зелёный → /review + adjudication → PR

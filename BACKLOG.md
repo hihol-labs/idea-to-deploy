@@ -49,6 +49,15 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   before the kill would be signalled by mistake (the window killpg always had,
   now spread over the escapee list). Closing (a)-(c) properly means cgroup or
   PID-namespace containment — a separate bounded design, not a patch.
+- [ ] Ложноположительный класс у gpt-5.6-sol на чистом коде (S7, 2026-08-14):
+  в раунде-1 ре-минта обе same-vendor ноги независимо заблокировали чистый
+  кейс `clean-bounded-reconciled-export` с находкой severity high вида
+  «`chunk.push` берётся из `Array.prototype`, достижимого для атакующего».
+  Раунд-2 на том же промпте (promptSha256 совпадает) прошёл чисто, поэтому это
+  дисперсия, а не устойчивый дефект — но класс стоит отслеживать: при пороге
+  maximumCleanFalseBlockRate 0.1 одного такого срабатывания на 4 чистых кейса
+  хватает, чтобы покраснел весь гейт. Артефакты раунда-1:
+  `.itd-memory/efficacy-evidence/s7-round1/`.
 - [ ] Harden the run-all host-pin boundary (route finding F4, 2026-08-09): the
   efficacy keyring pin path is chosen by candidate code (`tests/run-all.sh`) and
   only existence-checked. The strict receipt path already passes it as a declared

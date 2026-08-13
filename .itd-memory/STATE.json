@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S7-U4-SYNC",
-    "goal": "S7 U4: sync-to-active.sh — sync+verify .claude-plugin/plugin.json manifest and exclude __pycache__/*.pyc bytecode from the drift scan; fixture dry-run test; riskTier medium",
+    "id": "S7-EVIDENCE",
+    "goal": "S7 evidence commit: re-mint three efficacy legs on the final S7 tree (two rounds recorded honestly) + BACKLOG false-positive class; riskTier high (pre-PR publication claim: security containment changes + signed efficacy evidence replacement)",
     "status": "verified",
-    "startedAt": "2026-08-13T20:33:19Z",
-    "riskTier": "medium",
-    "completedAt": "2026-08-13T20:48:38Z"
+    "startedAt": "2026-08-13T22:06:15Z",
+    "riskTier": "high",
+    "completedAt": "2026-08-13T22:38:47Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
