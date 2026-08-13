@@ -366,6 +366,15 @@ def _close_process_tree(
         os.killpg(process.pid, signal.SIGKILL)
 
 
+def wrapper_plan_cwd(cwd: Path | str | None) -> str:
+    """Anchor the plan cwd at the caller: the wrapper starts from a temp
+    directory, so a relative path must not survive into the plan. abspath,
+    not resolve — the candidate's symlink view stays intact."""
+    if cwd is None:
+        return os.getcwd()
+    return os.path.abspath(os.fspath(cwd))
+
+
 def run_bounded_process(
     command: list[str], *, input: bytes | None = None,
     cwd: Path | str | None = None, env: dict[str, str] | None = None,
@@ -404,7 +413,7 @@ def run_bounded_process(
             plan_path.write_text(json.dumps({
                 "command": command,
                 "stdinPath": str(stdin_path) if stdin_path is not None else None,
-                "cwd": str(cwd) if cwd is not None else os.getcwd(),
+                "cwd": wrapper_plan_cwd(cwd),
                 "env": target_environment,
             }, separators=(",", ":")), encoding="utf-8")
             process = subprocess.Popen(

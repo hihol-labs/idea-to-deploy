@@ -175,6 +175,19 @@ def main() -> int:
     check(completed.returncode == 0 and b"ok" in completed.stdout,
           "finite float timeout no longer runs the bounded process")
 
+    # S7-U2: the Windows wrapper starts from its own temp directory, so a
+    # relative cwd in the plan would resolve against the wrong base. The plan
+    # must anchor it at the caller's directory before handoff — without
+    # collapsing symlinks (abspath semantics, not resolve).
+    check(producer.wrapper_plan_cwd(None) == os.getcwd(),
+          "plan cwd default is not the caller's directory")
+    check(producer.wrapper_plan_cwd("sub/dir")
+          == os.path.join(os.getcwd(), "sub", "dir"),
+          "relative plan cwd is not anchored at the caller")
+    absolute_probe = os.path.join(os.getcwd(), "already-absolute")
+    check(producer.wrapper_plan_cwd(Path(absolute_probe)) == absolute_probe,
+          "absolute plan cwd must pass through unchanged")
+
     with tempfile.TemporaryDirectory(prefix="itd-free-review-") as raw:
         fixture = Path(raw)
         repo = fixture / "repo"
