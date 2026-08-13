@@ -37,10 +37,16 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "U16",
-    "goal": "Pre-deploy independent review, risk-tiered: /deploy fail-closed without a fresh Verification Loop adjudication receipt bound to the exact deploy candidate (unit plan U16, riskTier high)",
+    "id": "S2-FLAKE",
+    "goal": "S2 (PLAN-CLOSEOUT-2026-08-11): root-cause and pin the machine-oracle full-suite nondeterminism and the verify_session_hygiene_quality flake; fail-closed spawn handling in itd_hygiene (riskTier high — gate-runner integrity and deletion safety)",
     "status": "in_progress",
-    "startedAt": "2026-08-11T07:41:02Z"
+    "riskTier": "high",
+    "startedAt": "2026-08-12T19:30:00Z",
+    "previousUnit": {
+      "id": "U16",
+      "status": "verified",
+      "note": "merged PR #192 (e9681d7); ledger closed 2026-08-12; STATE pointer advanced 2026-08-12 during S2 closure"
+    }
   },
   "gateResults": {
     "acceptanceContract": "pending",

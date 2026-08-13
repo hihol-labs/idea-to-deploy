@@ -4,21 +4,21 @@
   "evidencePurpose": "workflow-output-quality",
   "independentReviewEvidence": false,
   "status": "PASS",
-  "observedAt": "2026-08-12T22:21:10Z",
+  "observedAt": "2026-08-12T22:07:45Z",
   "provider": "openai",
   "fixture": "fixture-03-cli-tool",
   "candidateModelRequested": "provider-default",
   "reason": "live candidate passed independent snapshot oracle",
   "source": {
-    "revision": "3d4f282569ead57cd4560fed957cb913a1150722",
-    "workingTreeDirty": false,
-    "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "revision": "742d0e6add8118e4340906d0591acb59732e9008",
+    "workingTreeDirty": true,
+    "workingTreeStatusSha256": "sha256:8ae427e2332f84706aa27ef04816cbda4216568946633eaa894b9540a09d7c75",
     "methodologyTreeSha256": "sha256:791db147dae18add274b03ea84a77bdf5df4074c5a747214d6d7c990334f729d"
   },
   "runner": "tests/run-live-model-benchmark.py",
-  "runId": "20260812T222109Z-f2abf181",
-  "runReport": "tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181/run-report.json",
-  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181",
+  "runId": "20260812T220745Z-3d92147a",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260812T220745Z-3d92147a/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260812T220745Z-3d92147a",
   "candidate": {
     "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
     "exitCode": 0,
@@ -47,20 +47,20 @@
         "isError": false,
         "captureLimitBytes": 8388608,
         "transcriptRedactionCount": 0,
-        "transcriptBytes": 53856,
-        "transcriptSha256": "sha256:9cb946ca937a3622f92f35fe2fa3469898c4e3665036e32936b20546f2abf181"
+        "transcriptBytes": 59630,
+        "transcriptSha256": "sha256:173c74cb6d65318bf7b8a79c3dce6ac6dc6b27fd0fcc24ba752bf3f23d92147a"
       }
     ],
     "workspaceTransport": "native-temp",
     "approvalPolicy": "never-no-escalation",
     "hookPolicy": "disabled",
     "captureLimitBytes": 8388608,
-    "transcriptBytes": 53856,
+    "transcriptBytes": 59630,
     "transcriptSanitized": true,
     "transcriptRedactionCount": 0,
-    "transcriptSha256": "sha256:9cb946ca937a3622f92f35fe2fa3469898c4e3665036e32936b20546f2abf181",
-    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181/transcript.jsonl.gz",
-    "transcriptGzipSha256": "sha256:4dc363ddd6008a24a9e88dc3989c36b2a3efbd8a4dfe5b59570e3f3d11de14fb"
+    "transcriptSha256": "sha256:173c74cb6d65318bf7b8a79c3dce6ac6dc6b27fd0fcc24ba752bf3f23d92147a",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260812T220745Z-3d92147a/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:2b798c1e57b11154ef55496f478c2ef71073d0114b8503abac0cc9794a24e7ec"
   },
   "harnessInvocation": {
     "mode": "repository-local-adopted-project",
@@ -75,7 +75,7 @@
     "methodologyTreeSha256": "sha256:791db147dae18add274b03ea84a77bdf5df4074c5a747214d6d7c990334f729d"
   },
   "artifacts": {
-    "outputDir": "tests/fixtures/live-model-evidence/runs/20260812T222109Z-f2abf181/output",
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260812T220745Z-3d92147a/output",
     "requiredFiles": [
       "STRATEGIC_PLAN.md",
       "PROJECT_ARCHITECTURE.md",
@@ -85,12 +85,12 @@
       "CLAUDE.md"
     ],
     "sha256": {
-      "STRATEGIC_PLAN.md": "sha256:b45b8a1312f3e666ffdb5ec253a0691c4cd9084aaef6f4d1c8588529d860d278",
-      "PROJECT_ARCHITECTURE.md": "sha256:a25fa7563236715ffc307d70cf268c0df034774947dc683f005de418804c43aa",
-      "PRD.md": "sha256:3abc4939146e1ddeef829fd4ac5959c1cb43f4f64087b93e697f6155dfcef613",
-      "IMPLEMENTATION_PLAN.md": "sha256:a6aa608438ab0fbf5c858cb25c4565b40a6727e84745b21396e4af4076f9f19b",
-      "CLAUDE_CODE_GUIDE.md": "sha256:6d4ab147bb68117300d335dde49de017d281e36aaf5e8c06d7abb0d4a02d5099",
-      "CLAUDE.md": "sha256:87d7b5a17feecb7bb643de720896c54bc81bc6770b71984b88ea4213713310e9"
+      "STRATEGIC_PLAN.md": "sha256:b7e4909712514ef0442c74c9e84f411cbc3c01e1cdc66c0ed028ec5d61bf2c6b",
+      "PROJECT_ARCHITECTURE.md": "sha256:3f8b11cd3067422ddd43a11449b3ac7763e20385cc5de469b8c9c103819c4f59",
+      "PRD.md": "sha256:8d941e353b2aa6be7c6eb271f43093f016e38a3174535a01bc5bc937cbbeee5e",
+      "IMPLEMENTATION_PLAN.md": "sha256:e1fe388ff9919dcedd83bdf06b137dd522ca7bbc1f9f4aa81eeeaa2c1adc919e",
+      "CLAUDE_CODE_GUIDE.md": "sha256:475ed17d0311306182c5d097d8ec551ce2ca48d8786388f20dbc14c72ed0bfb4",
+      "CLAUDE.md": "sha256:4fffbeb1cb8b21ec75ae66694b948294edc2c27b56806d36ce73ee1db46bff2f"
     }
   },
   "independentVerdict": {

@@ -165,8 +165,20 @@ adjudication; each was deliberately kept out of those bounded slices.
   ordinary parser code — and prose about parser code — as a credential taxes
   every future candidate. Needs a bounded precision fix in the scrubber, which
   also re-mints the signed efficacy legs — hence a separate unit, not this one.
-- [ ] Investigate machine-oracle interference between two heavy commands in
-  one isolated candidate (U16, 2026-08-11): minting a receipt with both
+- [x] Investigate machine-oracle interference between two heavy commands in
+  one isolated candidate (U16, 2026-08-11) — **root-caused and pinned under S2
+  (2026-08-12)**: the shared state is the HOST, not temp paths or ordering.
+  Receipts a45/a46/a47 prove the commands ran serially, each in a fresh
+  isolated checkout; the reds are transient fork-level `EAGAIN` failures under
+  user-wide process/memory pressure (parallel-session windows), and the
+  per-run hit probability scales with subprocess count — measured ≈4429 git
+  spawns for `run-all.sh --quick` vs ≈328 for the U16 verifier (~13.5×), which
+  explains "verifier green 3/3, quick red" exactly. Natural reproduction,
+  receipt analysis, and the fix/pin live in
+  `tests/ROOT_CAUSE-s2-oracle-nondeterminism.md`. Promoting the quick suite
+  back into the U16 oracle (SCOPE_LOCK criterion 4) stays blocked by the
+  unrelated deterministic efficacy-pin red (live-pin friction, see S6).
+  Historical record below: minting a receipt with both
   `verify_predeploy_independent_review` AND `run-all.sh --quick` produced a red
   verdict three times at the SAME tree, alternating which command failed
   (quick red / verifier green, then verifier red twice). The verifier run alone
@@ -188,12 +200,18 @@ adjudication; each was deliberately kept out of those bounded slices.
   therefore REVERTED; the real fix is a bounded negative clock-skew tolerance
   in the age check. See the scope lock's "S1-flake root cause and fix". This
   S2 item is the broader full-suite interference, not that sub-check.)
-- [ ] Chase the `verify_session_hygiene_quality` flake seen once during U16
-  (2026-08-11): the quick suite reported `FAILED: 1 — close rejects dirty git
-  state`, and the same assertion then passed both standalone (5/5) and on an
-  immediate full re-run (`DONE fails:none`). A gate test that fails
-  non-deterministically is a weak gate even when the product code is fine —
-  find the shared state (temp dir reuse or host git state) and pin it.
+- [x] Chase the `verify_session_hygiene_quality` flake seen once during U16
+  (2026-08-11) — **root-caused, fixed and pinned under S2 (2026-08-12)**: not
+  temp dir reuse or host git state. The unguarded `subprocess.run` in
+  `itd_hygiene.py::git()` turned a transient fork `EAGAIN` (host process
+  pressure) into an uncaught crash of `close` — rc=1 with EMPTY stdout — which
+  the suite misread as a wrong gate verdict (the check needs "working tree is
+  dirty" in stdout). Reproduced 40/40 under RLIMIT_NPROC pressure with the
+  exact recorded signature. Fix: bounded spawn retry + structured rc=127
+  degradation in `git()`, plus a fail-closed positive-proof guard in
+  `cleanup_manifest` (a git failure no longer reads as "untracked"). Pinned by
+  `test_close_survives_spawn_pressure` (red on pre-fix code via stash run).
+  Details: `tests/ROOT_CAUSE-s2-oracle-nondeterminism.md`.
 
 ## P1 — GENG: Graph Contract Layer (ADR-009, accepted 2026-08-10)
 
