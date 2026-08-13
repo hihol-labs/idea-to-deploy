@@ -283,6 +283,31 @@ After the Architect generates the chosen architecture variant, invoke the **Devi
    the external seat get elevated priority; disagreements are surfaced to the
    user as a fork with provenance (`[external: codex|gemini]`), never resolved
    silently. Without opt-in this sub-step is skipped in silence.
+2.5b. **Design Provenance Review (opt-in, advisory — GPG-004 U17)** —
+   when the user asks for it or `ITD_DESIGN_PROVENANCE=1` is set, record the
+   provenance of each architectural claim ON TOP of the Devil's Advocate
+   debate. Write `DESIGN_PROVENANCE.md` next to PROJECT_ARCHITECTURE.md: one
+   `## Claim: <claim>` entry per load-bearing architectural claim (stack
+   choices, capacity assumptions, latency budgets, protocol constraints),
+   each with `- Source: user-requirement | measured-evidence | external-doc |
+   model-assumption` and `- Reference: <where>` (for `model-assumption` the
+   Reference states what would confirm or refute it). Then run the structure
+   check:
+
+   ```bash
+   BP="skills/blueprint/scripts"; [ -f "$BP/itd_design_provenance.py" ] || BP="$HOME/.claude/skills/blueprint/scripts"
+   SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
+   sh "$SHD/itd_py.sh" "$BP/itd_design_provenance.py" --report DESIGN_PROVENANCE.md
+   ```
+
+   **This reviewer is explicitly NOT a gate.** It is advisory by
+   construction: the validator exits 0 with findings, with a clean report,
+   and when the report is absent or malformed — its absence never blocks
+   anything, and its findings never turn into a PASSED verdict or any other
+   review/acceptance evidence. Unsourced claims are surfaced back into the
+   debate (a claim with no provenance is a candidate challenge for the
+   Advocate), never enforced. Without opt-in this sub-step is skipped in
+   silence.
 3. **Resolution:**
    - If APPROVE → proceed with architecture as-is
    - If APPROVE WITH CONDITIONS → address the conditions, update architecture, note changes

@@ -1104,6 +1104,42 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "U17:general-review-1",
+      "criterion": "An opt-in, advisory design-provenance reviewer exists on top of the Devil's Advocate debate in /blueprint: DESIGN_PROVENANCE.md records each architectural claim with a provenance source, the stdlib validator surfaces unsourced claims advisorily, and the cannotWeaken invariants hold - exit 0 with findings, with a clean report, with an absent report and with a malformed report; JSON output has no verdict-shaped field and never the acceptance token; the tool is read-only and a quiet no-op without arguments; no hook or gate script references the reviewer (gate outcome unchanged).",
+      "source": "U17 (GPG-004 unit plan) = S5 in PLAN-CLOSEOUT-2026-08-11.",
+      "evidence": "RED first: rc=2 before implementation (verifier file absent). GREEN on the exact candidate: python3 tests/verify_blueprint_provenance_reviewer.py exit 0, ALL CHECKS COMPLETED - skill-text invariants, five fixture runs (sourced 4/0, unsourced 4 claims / 2 unsourced findings / assumption-without-reference note, absent, malformed, no-args quiet no-op), fixtures byte-identical after runs, gate sweep over all hooks plus review-cache/verification-loop/producer clean.",
+      "verificationCommand": "python3 tests/verify_blueprint_provenance_reviewer.py",
+      "reviewEvidence": {
+        "claim": "The design-stage reviewer is advisory by construction and cannot block or mint acceptance evidence.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "u17-verifier"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U17:general-review-2",
+      "criterion": "The candidate keeps the quick regression suite green on the exact tree; the only pre-declared red is verify_live_model_benchmark --require-evidence, inherent until the post-commit live re-record (two-commit acceptance, precedent PR #193/#195).",
+      "source": "tests/run-all.sh --quick; .itd/SCOPE_LOCK.md two-commit acceptance section.",
+      "evidence": "DONE fails:none on the exact candidate tree 2026-08-13 (includes the newly registered verify_blueprint_provenance_reviewer). verify_live_model_benchmark default mode rc=0, 0 FAIL; --require-evidence red exactly on the burned tree/dirty pins as declared.",
+      "verificationCommand": "bash tests/run-all.sh --quick",
+      "reviewEvidence": {
+        "claim": "Repository-wide quick regression holds on the exact candidate tree.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "quick-suite"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -1122,23 +1158,21 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "U12:general-review",
-    "status": "verified",
+    "unitId": "U17:general-review",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "HANDOFF.md",
+    "rootCause": ".itd-memory/contracts/U17.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "low",
       "requiredImpactClasses": [
         "correctness",
         "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 1,
+      "minimumIndependentReviewers": 0,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-08-13",
-    "closure": "Ledger-close after merge 2ddea97 (PR #197). Both U12 criteria passed during the unit on the exact merged-candidate tree 4eed7367 (head 7cf4e95, adjudication receipt fad0cf1af1f4702e/a1, fresh gpt-5.6-terra PASS); after the merge the same oracles ran green again on merged main (efficacy verifier exit 0, hostParityVerified true, ladder parity recorded; quick suite DONE fails:none). This bookkeeping candidate carries its own machine receipt bound to its own staged tree."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
