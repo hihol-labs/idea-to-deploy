@@ -16,6 +16,7 @@ import datetime as dt
 import hashlib
 import importlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -377,6 +378,7 @@ def run_bounded_process(
         or any(not isinstance(value, str) or not value for value in command)
         or not isinstance(input, (bytes, type(None)))
         or not isinstance(timeout, (int, float))
+        or not math.isfinite(timeout)
         or timeout <= 0
         or type(max_output) is not int
         or max_output <= 0

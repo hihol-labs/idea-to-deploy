@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S6-SCRUBBER",
-    "goal": "S6: bounded precision fix of the residual-credential detector (false positive on ordinary parser code and prose quoting it, U16 2026-08-11, cost 2 review routes) + align producer detection with scrubbed-text contract + re-mint three signed efficacy legs (wsl, windows, u12-cross-vendor); riskTier high",
+    "id": "S7-U1-NANINF",
+    "goal": "S7 U1: reject NaN/inf timeout in run_bounded_process before deadline arithmetic; tests for nan/inf/-inf; riskTier standard",
     "status": "verified",
-    "startedAt": "2026-08-13T14:46:03Z",
-    "riskTier": "high",
-    "completedAt": "2026-08-13T17:32:05Z"
+    "startedAt": "2026-08-13T19:34:30Z",
+    "completedAt": "2026-08-13T19:47:11Z",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

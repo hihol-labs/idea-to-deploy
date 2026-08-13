@@ -155,6 +155,26 @@ def main() -> int:
         if not condition:
             raise AssertionError(message)
 
+    # S7-U1: non-finite timeouts must be rejected before deadline arithmetic —
+    # NaN slips through a `timeout <= 0` guard (both comparisons are False) and
+    # +inf never expires, so either would silently disarm the process bound.
+    for bad_timeout in (float("nan"), float("inf"), float("-inf")):
+        try:
+            producer.run_bounded_process(
+                [sys.executable, "-c", "pass"], timeout=bad_timeout
+            )
+        except ValueError:
+            checks += 1
+        else:
+            raise AssertionError(
+                f"non-finite timeout {bad_timeout!r} was accepted"
+            )
+    completed = producer.run_bounded_process(
+        [sys.executable, "-c", "print('ok')"], timeout=30.0
+    )
+    check(completed.returncode == 0 and b"ok" in completed.stdout,
+          "finite float timeout no longer runs the bounded process")
+
     with tempfile.TemporaryDirectory(prefix="itd-free-review-") as raw:
         fixture = Path(raw)
         repo = fixture / "repo"
