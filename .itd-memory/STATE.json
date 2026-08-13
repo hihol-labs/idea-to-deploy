@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "U12",
     "goal": "GPG-004 U12: measure the independence ladder same-vendor vs cross-vendor over the shared frozen corpus; confirm restored reviewer-cardinality canaries; record outcome in benchmark and ADR-007",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-13T11:08:52Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-13T12:49:13Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

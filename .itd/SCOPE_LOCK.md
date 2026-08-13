@@ -62,8 +62,10 @@ same-vendor leg.
 - The 9-case corpus cannot surface correlated same-vendor blind spots; the
   addendum says so explicitly instead of overclaiming.
 - `.itd-memory/GPG-004_UNIT_PLAN.json` and `PLAN-CLOSEOUT-2026-08-11.md` are
-  git-ignored ledger files — updated locally (U12 → verified, S4 → DONE),
-  not part of the committed candidate.
+  git-ignored local ledger files — updated locally (U12 → verified, S4 →
+  DONE) and never committed. `.itd-memory/STATE.json` is different: it IS
+  git-tracked and is a legitimate part of both the merged candidate and the
+  ledger-close candidate below.
 - Residual scrubber precision work (S6) and the other PLAN-CLOSEOUT queue
   items are untouched.
 
@@ -77,3 +79,23 @@ plus `bash tests/run-all.sh --quick` green on the same tree
 (`DONE fails:none`, 2026-08-13).
 
 Base for the candidate: main `18dc7620520f7ab2eb6666120c91b7a4bb49d44d`.
+
+## Closure (2026-08-13)
+
+PR #197 merged as `2ddea97` (head `7cf4e95`, base `18dc762`), CI green
+(Gate 1 + windows-verify). Fresh post-merge evidence on merged main:
+`verify_independent_review_efficacy` exit 0 — status PASSED,
+hostParityVerified true, `u12IndependenceLadder` sameVendor 1.0/1.0/0.0 ==
+crossVendor 1.0/1.0/0.0 (parity; ladder order stays cross-vendor-first) —
+and `tests/run-all.sh --quick` `DONE fails:none`. Unit U12 is `verified` in
+STATE/events; acceptance activeFollowup closed. Route receipt:
+`receipts/fad0cf1af1f4702e/U12-general-review-adjudication-a1.json`.
+
+This ledger-close candidate stages exactly four tracked files: `HANDOFF.md`
+(closed-state record), `.itd/ACCEPTANCE_CONTRACT.json` (activeFollowup →
+verified/closed), `.itd/SCOPE_LOCK.md` (this closure), and
+`.itd-memory/STATE.json` (currentUnit U12 → verified via itd_unit_log; the
+paired event lives in the git-ignored events.jsonl). The git-ignored local
+ledgers (`GPG-004_UNIT_PLAN.json`, `PLAN-CLOSEOUT-2026-08-11.md`) stay
+uncommitted. The candidate composition list above describes the merged
+main-candidate of PR #197, not this bookkeeping diff.
