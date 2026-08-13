@@ -5,30 +5,22 @@
 - Скоуп S7 approved пользователем: 4 юнита, все с тестами; декомпозиция ниже.
 - «sync-manifest __pycache__» подтверждён как ОБА sync-долга (манифест + bytecode-шум).
 
-## Юниты (WIP=1, по порядку)
-1. **S7-U1-NANINF** — СДЕЛАН, receipt в процессе. `math.isfinite(timeout)` в
-   валидации `run_bounded_process` (skills/_shared/itd_free_reviewer_producer.py,
-   +`import math`); тесты в tests/verify_free_reviewer_producer.py (блок «S7-U1»
-   в начале main(): nan/inf/-inf → ValueError, позитив 30.0). Таргетный оракул
-   зелёный: `PASSED, checks: 148`. Активирован через itd_unit_log (goal в
-   STATE.json). Осталось: machine receipt (staged: producer+tests, БЕЗ
-   STATE.json) → adjudicate (risk medium: machine + targeted fresh checker) →
-   `check` → `itd_unit_log verified` с путём/дайджестом receipt.
-2. **S7-U2-RELCWD** (standard) — Windows-wrapper: план пишет `"cwd": str(cwd)`
-   (строка ~406), wrapper стартует из temp `wrapper_directory` → относительный
-   cwd резолвится не от caller'а. Фикс: абсолютизировать при сборке плана
-   (`str(Path(cwd).resolve())`-семантика, POSIX-тестируемо по содержимому плана).
-3. **S7-U3-POSIXREAP** (HIGH) — потомок с повторным setsid() сбегает от killpg
-   (`_close_process_tree`); фикс: PPID-walk reap по /proc после killpg
-   (cgroup — отвергнут как избыточный). Тесты реально демонизируются
-   (grandchild setsid, pid-файл, проверить kill). High → полный fresh-session
-   checker другой модели.
-4. **S7-U4-SYNC** (standard) — scripts/sync-to-active.sh: (a) синкать
-   `.claude-plugin/plugin.json` → `~/.claude/.claude-plugin/plugin.json` +
-   verify-sync поверхность (сейчас только existence-check, строка ~91);
-   (b) исключить `__pycache__`/`*.pyc` из drift-скана (строки ~133-141, 197,
-   250, 279-297). Тестов на скрипт нет — fixture dry-run `--check` с временным
-   HOME.
+## Юниты (WIP=1) — 4/4 кода готово
+1. **S7-U1-NANINF** — DONE, коммит 219f6c8. `math.isfinite(timeout)` в
+   валидации `run_bounded_process`; тесты nan/inf/-inf + позитив.
+2. **S7-U2-RELCWD** — DONE, коммит 64f68a2. Helper `wrapper_plan_cwd`
+   (abspath, не resolve) анкерит относительный cwd на caller'е до temp-хопа.
+3. **S7-U3-POSIXREAP** (high) — DONE, коммит 298dc24. Pre-kill PPID-walk
+   снапшот `/proc` в `_close_process_tree` + SIGKILL сбежавших; тест реально
+   демонизирует setsid-грандчайлда. Residual (double-fork orphan, /proc-only,
+   PID-reuse) задекларирован в docstring и BACKLOG.
+4. **S7-U4-SYNC** — код готов, unit verified (receipt f370b6f5), НЕ закоммичен:
+   ждёт general-review клейма. sync-to-active.sh синкает
+   `.claude-plugin/plugin.json` (add + drift, dry-run aware) и исключает
+   `__pycache__`/`*.pyc` из drift-скана; verify-sync-to-active.sh полицит
+   манифест; новый оракул tests/verify_sync_manifest.py (9 checks: dry-run,
+   apply-mode install, re-run unchanged, bytecode-not-drift) в run-all CORE;
+   BACKLOG: три пункта закрыты.
 
 ## Ключевые решения (уже в .itd/DECISIONS.md, последняя запись)
 - Efficacy-леги ре-минтятся ОДИН раз на финальном S7-дереве перед PR;

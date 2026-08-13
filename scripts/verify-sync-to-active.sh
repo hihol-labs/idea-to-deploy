@@ -58,6 +58,19 @@ registered=0
 exempt=0
 missing=0
 
+# v1.96.1: the plugin manifest is part of the sync surface, not just a startup
+# existence check — a future edit that drops it must fail here, loudly, instead
+# of silently returning the install to hand alignment.
+if grep -q '\.claude-plugin/plugin\.json"$' "$SYNC_SCRIPT" \
+   && grep -q 'dst_manifest=' "$SYNC_SCRIPT"; then
+  [ "$LIST_MODE" = "1" ] && printf "  \033[1;32m✓\033[0m registered   %s\n" ".claude-plugin/plugin.json"
+else
+  printf "\033[1;31m✗\033[0m DRIFT        %s — the plugin manifest is no longer synced by sync-to-active.sh.\n" ".claude-plugin/plugin.json" >&2
+  printf "  Fix: restore the manifest sync block in scripts/sync-to-active.sh (src_manifest/dst_manifest).\n" >&2
+  missing=$((missing + 1))
+  status=1
+fi
+
 for hook in "$HOOKS_DIR"/*.sh; do
   name="$(basename "$hook")"
   if is_registered "$name"; then
