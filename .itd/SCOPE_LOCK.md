@@ -33,7 +33,7 @@ interactive use; this unit changes only the benchmark scenario.
   paragraph is replaced: the adversarial review is phase 2, run by the
   harness; inline substitution and reviewer claims are forbidden in-session.
 - `tests/fixtures/live-model-evidence/latest.json` and the new
-  `tests/fixtures/live-model-evidence/runs/<new-run>/` — the re-recorded
+  `tests/fixtures/live-model-evidence/runs/20260813T090330Z-64df7624/` — the re-recorded
   evidence (second commit of this unit, run on the clean committed tree per
   DECISIONS 2026-08-13).
 - `BACKLOG.md` — the live-model fixture-hardening item closes with pointers
@@ -68,6 +68,21 @@ contract (`verify_live_model_benchmark` without the flag, 39/39 green on this
 candidate) and `tests/meta_review.py`; the operator evidence that the new
 replay checks are fail-closed is the exact 10-FAIL run against the old
 evidence.
+
+## Commit topology of the recorded evidence (for reviewers of commit 2)
+
+Commit 1 of this unit (`2a8da716de83`) carries the ENTIRE advocate code
+change (runner phase 2, prompt, verifier). The evidence run
+20260813T090330Z-64df7624 was recorded on that commit's clean tree, so its
+`source.revision` = `2a8da716de83` IS the post-code-change commit: the exact
+runner/prompt/verifier bytes it pins are the new advocate implementation
+(machine-checked — the replay's `source pin matches: benchmarkRunner /
+liveVerifier / livePrompt` checks compare the recorded pins against the
+CURRENT files and pass 107/107 on this candidate). Commit 2 (this diff, whose
+git base is naturally commit 1) adds only the generated evidence plus
+BACKLOG/scope documentation; per the dirty-state pin it cannot itself be the
+recorded revision, and per the two-commit contract above the evidence can
+never cite a commit that does not yet exist.
 
 ## Machine-oracle shape
 

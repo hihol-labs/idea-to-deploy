@@ -110,13 +110,22 @@ adjudication; each was deliberately kept out of those bounded slices.
   "verification command is empty", so the strict boundary is structurally
   impassable on argv contracts. Support the argv shape (shell-free) while
   keeping fail-closed semantics for missing/ambiguous commands.
-- [ ] Live-model benchmark fixture hardening — three defects of the RECORDED
-  benchmark run, not of the methodology: fail-open self-validation visible in
-  the transcript; no originating user request in the capture; the run
-  substituted the Devil's Advocate subagent invocation with inline
-  self-critique. Fix the benchmark scenario so the real devils-advocate
-  subagent is invoked, then re-record. `/blueprint`'s Devil's Advocate itself
-  stays as designed; the independent reviewer does not replace it.
+- [x] Live-model benchmark fixture hardening — the Devil's Advocate defect is
+  CLOSED under S3 (2026-08-13): headless transports cannot spawn Claude-native
+  subagents (claude -p 401 account review; codex has no subagent mechanism),
+  so the runner now executes the real `agents/devils-advocate.md` definition
+  in a harness-orchestrated SECOND fresh session (definition embedded verbatim
+  in the phase prompt; artifact newly created, Debate-Protocol-validated,
+  hash-bound; complete-workspace immutability proven; replay verifier enforces
+  it fail-closed under --require-evidence). Re-recorded run
+  20260813T090330Z-64df7624, full replay 107/107. `/blueprint`'s interactive
+  Devil's Advocate stays as designed. Residual honest tail (recorded-run
+  provenance polish: fail-open self-validation visible in the old transcript;
+  originating user request now pinned only via live-prompt sourcePins) stays
+  below.
+- [ ] Live-model benchmark provenance polish (residual of the closed item
+  above): assert absence of fail-open self-validation in the retained
+  transcript and record the originating request as a first-class field.
 - [ ] Sync-manifest gap: `scripts/sync-to-active.sh` verifies that
   `.claude-plugin/plugin.json` exists but never syncs it, so the installed
   manifest `~/.claude/.claude-plugin/plugin.json` is aligned manually today.
