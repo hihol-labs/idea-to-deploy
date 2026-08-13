@@ -1,33 +1,61 @@
----
-project: idea-to-deploy
-stage: "Release v1.96.0 (юнит GPG-004 verified и в main) — release-PR + tag + rollout"
-roles: "сессия 2026-08-09 (release started) → следующая сессия-реализатор"
----
+# HANDOFF — S4 / U12: замер лестницы независимости — ВЫПОЛНЕНО (2026-08-13)
 
-# HANDOFF — release v1.96.0 + rollout WSL/Windows
+**Ветка:** `chore/s4-u12-ladder-measurement` от main @ 18dc762. **Юнит:** U12
+(GPG-004; S4 в `.itd-memory/PLAN-CLOSEOUT-2026-08-11.md`) — работы этой
+сессии завершены; остаток — PR/merge по команде пользователя и ledger-close.
 
-**Дата:** 2026-08-09 · **Ветка:** `chore/release-v1.96.0` от `main@126a1f0` (PR #184 merged, юнит GPG-004 verified). Risk `high` (release-цепочка), WIP=1.
+## Что сделано (этой сессией, проверено)
 
-## 1. Состояние
+1. **Диагноз:** `verify_independent_review_efficacy` был красным на main
+   18dc762 — «wsl semantic result binding is foreign»: PR #191 (`da42644`,
+   2026-08-11) изменил байты `skills/_shared/itd_free_reviewer_producer.py`
+   после чеканки 2026-08-10 → `producerSha256` всех трёх подписанных ног стал
+   чужим (manifest/runner sha совпадали).
+2. **Перечеканка трёх ног живыми прогонами** (текущие байты продюсера):
+   - WSL same-vendor (maker `gpt-5.6-terra` → reviewer `gpt-5.6-sol`, codex
+     0.146.0 пин `2e863156…`): 9/9 кейсов, `attempts=1`, PASSED;
+   - U12 cross-vendor (maker `opus`, anthropic-subscription → `gpt-5.6-sol`):
+     9/9, `attempts=1`, PASSED;
+   - Windows same-vendor (нативный `python.exe` 3.12.10 по UNC-пути репо,
+     codex.exe пин `bc343ba4…`, DPAPI-ключ): кейс 1 записан, один typed
+     UNAVAILABLE обрыв транспорта на кейсе 2, возобновление с подписанного
+     чекпоинта (прецедент typed-exit-3 ретраев 2026-08-08) — итого 9/9,
+     `attempts=1`, PASSED.
+3. **Верифаер зелёный**: exit 0, `status PASSED`, `hostParityVerified true`.
+   **Замер лестницы** (`u12IndependenceLadder`, общий замороженный корпус):
+   sameVendor criticalHigh 1.0 / medium 1.0 / cleanFalseBlock 0.0 ==
+   crossVendor 1.0 / 1.0 / 0.0 — **паритет, не превосходство**; порядок
+   лестницы остаётся cross-vendor-first по correlated-blind-spots аргументу.
+   Итог записан в аддендуме ADR-007 и в подписанных результатах бенчмарка.
+4. **Кейсы кардинальности подтверждены возвращёнными и зелёными**:
+   `structural/low-reviewer`, `structural/high-quorum`,
+   `structural/duplicate-reviewer-quorum` (точный exact-equality контракт
+   `minimumIndependentReviewers`, восстановление PC4) — кодовых правок не
+   потребовалось.
+5. `bash tests/run-all.sh --quick` → `DONE fails:none` на дереве кандидата.
+6. Контракты юнита: `.itd/SCOPE_LOCK.md` переписан под U12;
+   `.itd/ACCEPTANCE_CONTRACT.json` — activeFollowup `U12:general-review`
+   (medium), evidence PC4/PC5 дополнены перечеканкой, добавлены криты
+   `U12:general-review-1/2` (точечный дифф, остальные записи byte-for-byte).
+   `.itd-memory/STATE.json` — currentUnit U12. Локальные (git-ignored)
+   леджеры: `GPG-004_UNIT_PLAN.json` U12 → verified c evidence,
+   `PLAN-CLOSEOUT-2026-08-11.md` S4 → ✅ DONE.
 
-- **GPG-004 закрыт verified и целиком в main** (merge-commit `126a1f0`, Gate 1 + windows-verify success). Локальный main синхронизирован ff-only до `126a1f0`.
-- **Release-коммит подготовлен (не закоммичен, если дерево грязное — доделай)**: бамп 1.95.1 → 1.96.0 в `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `README.md`, `README.ru.md`, `docs/HARNESS_DOCS_STATE.json`, `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`, `docs/HARNESS_CONFORMANCE_REPORT.md` (+прозаический абзац v1.96.0), `docs/HARNESS_ENGINEERING_MAP.md`; заголовок `## [1.96.0] - 2026-08-09` в CHANGELOG (контент уже был в Unreleased). Live-model evidence свежий (прогон 20260809T204934Z в main) — refresh НЕ нужен.
+## Остаток (для принимающего)
 
-## 2. Осталось (порядок фиксирован)
+1. Producer-маршрут U12:general-review довести до PASS (раунды c2/c5/c6 —
+   реальные находки контрактной бухгалтерии, все закрыты правками кандидата;
+   typed UNAVAILABLE ретраится), затем checker → adjudication → commit → PR
+   через `itd pr create` (профиль local-submission/local-review).
+2. Мерж PR — только по команде пользователя; после мержа — ledger-close S4
+   (прецедент S2/S3) и `/session-save`.
 
-1. `bash tests/run-all.sh` зелёный → коммит `chore: release v1.96.0` (единый, включая этот HANDOFF).
-2. **Свежая committed-head цепочка на release-коммите**: machine-квитанция (15 оракулов — состав как в `push-f2d9a2b/GPG-004-machine-pushchain.json`: adjudication-channel(+gate), copilot-reviewer, free-reviewer-producer, gate-profile-doctor, gate-registry-isolation/profiles, host-adapter, independent-review-efficacy (keyring-пин `.itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256`), mandatory-keyless-review, push-gate-adjudicated, reviewer-provider-freshness, verification-loop-commit-bridge, reviewer-independence-policy, live-model-evidence-replay), `--candidate-mode committed-head --risk-tier high`.
-3. Checker: cross-vendor маршрут из снапшота `~/.cache/itd-gpg004-producer/a6/`, ключ `~/.cache/itd-review-authority/GPG004-U8-1ed4cb5a-a1/producer-ed25519.key` (key-id `gpg004-u8-producer-20260808`), codex-sha `2e863156…6e04`, proxy-sha `01ba4719…546b`. Находки → диспозиции пишет ЧЕЛОВЕК (ADR-007), затем `check --require-mandatory-route --accept-adjudicated-route`.
-4. Registry: guarded `register-profile` на release-HEAD → `itd pr create` (--maker-vendor/--maker-model/--maker-session; probe-драйвер при мигающей сети; ретраи только typed exit 3).
-5. CI зелёный → merge (авторизован заданием сессии) → tag `v1.96.0` + gh release notes.
-6. Rollout: `bash scripts/sync-to-active.sh` (WSL) + `CLAUDE_HOME=/mnt/c/Users/<user>/.claude bash scripts/sync-to-active.sh` (Windows), hash-верификация по прецеденту v1.94/v1.95; манифест `~/.claude/.claude-plugin/plugin.json` копировать ВРУЧНУЮ (sync-gap в BACKLOG). Затем `/session-save`.
+## Пины (если понадобится перегон)
 
-## 3. Ссылки
-
-- Kickoff: `.itd-memory/session_2026-08-09_19.md`; runbook: `docs/RELEASE_RUNBOOK.md`.
-- Прецедент цепочки: `.itd-memory/verification-loop/receipts/push-f2d9a2b/`, `push-a3aa462/`; прецедент release-диффа: коммит `1422c94` (v1.95.1).
-- CLI: `python3 skills/_shared/itd_verification_loop.py {machine,checker,adjudicate,check}`; `python3 scripts/itd.py pr create`; producer `skills/_shared/itd_free_reviewer_producer.py review`.
-
-## 4. Запреты
-
-`--no-verify`/env-обходы/прямой push (только `itd pr create`); пересэмпл маршрута (ретрай только typed exit 3); ручная правка `~/.config/itd/gates.json`; ветку `codex/gpg-004-reviewer-independence` и `refs/itd-backup/gpg004-pre-rebase` не удалять до конца release-цикла; следующие юниты (U6/U16/U17/GENG) — только после rollout.
+codex WSL: `/home/hihol/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`
+sha `2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04`;
+codex.exe Windows: `$env:APPDATA\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`
+sha `bc343ba420dc2e2e9f59e6fc5e5bf0aae1cd8c771fc319665241fc9c0271fddb`;
+proxy-sentinel `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`;
+ключи подписи ног: `.itd-memory/verification-loop/keys/gpg003-local-producer-20260803{.key,.windows.key}`;
+байты producer/runner/cases после чеканки НЕ менять — иначе перегон.
