@@ -44,6 +44,22 @@ narrows a security detector), sealed in STATE.currentUnit and
 - Bookkeeping: `BACKLOG.md`, `HANDOFF.md`, `.itd-memory/STATE.json`,
   `.itd-memory/HANDOFF-S6-SCRUBBER.md`, `.itd-memory/contracts/S6-SCRUBBER.md`,
   `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`.
+- Follow-up commit of this same unit (two-commit acceptance below):
+  `tests/fixtures/live-model-evidence/**` — the re-recorded live benchmark
+  run replacing the burned pin (latest.json + one new run directory).
+  Corpus conventions a reviewer needs to validate it: (a) the run records
+  the METHODOLOGY BENCHMARK on `fixture-03-cli-tool` — an nginx-log-analysis
+  CLI project — so its transcript legitimately documents a /blueprint +
+  devils-advocate run over that fixture, not this unit's diff; (b)
+  `transcript.jsonl.gz` is genuine gzip on disk (magic 1f 8b) and appears as
+  plaintext JSONL in the review diff only because of the declared-only
+  `.jsonl.gz` transparent-review textconv (a GPG-001 invariant) — the
+  run-report's transcriptGzipSha256 binds the compressed bytes and is
+  machine-verified by `verify_live_model_benchmark --require-evidence`
+  (107/0 on this run); (c) the recorder's tail-truncation of the final
+  in-progress item is a known recorded artefact
+  (`tests/ROOT_CAUSE-live-model-benchmark-partial-output.md`) — completion
+  is proven by the machine-verified run-report, not by the transcript tail.
 
 ## Two-commit acceptance (inherent, precedent PR #193/#195/#199)
 
