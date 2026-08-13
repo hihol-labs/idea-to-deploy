@@ -90,3 +90,22 @@ weakens the oracle.
 adjudicated independent review of the exact staged candidate before commit.
 
 Base for the candidate: main `84742fb` (merge of PR #200).
+
+## Closure (2026-08-13)
+
+PR #201 merged as `300fcab` (base `84742fb`; commits `afe8748` fix +
+`fb71ba0` live evidence re-pin — run `20260813T164516Z-916e7a92`,
+`--require-evidence` 107/0), CI green (Gate 1 + windows-verify). Fresh
+post-merge evidence on merged main: verify_scrubber_precision 30 PASSED,
+verify_review_broker 741, verify_free_reviewer_producer 144,
+verify_independent_review_efficacy PASSED (hostParityVerified true), quick
+`DONE fails:none`. Unit `S6-SCRUBBER` is `verified` in STATE; acceptance
+activeFollowup closed (adjudication receipts `c231e0239981f339/a1` and
+`95bbe377e5b8daea/a1`; 14 producer rounds, two real detector findings —
+quoted call-lookalike r5, expression-wrapper smuggling r6 — closed
+RED-first and shipped in the final grammar).
+
+This ledger-close candidate stages exactly three tracked files:
+`HANDOFF.md`, `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md`, plus
+the force-added `.itd-memory/STATE.json`; it carries its own machine
+receipt and adjudicated route bound to its own staged tree.

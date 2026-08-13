@@ -1216,7 +1216,7 @@
   },
   "activeFollowup": {
     "unitId": "S6-SCRUBBER:general-review",
-    "status": "in_progress",
+    "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd-memory/contracts/S6-SCRUBBER.md",
     "reviewPolicy": {
@@ -1231,7 +1231,9 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    }
+    },
+    "closedAt": "2026-08-13",
+    "closure": "Ledger-close after merge 300fcab (PR #201, CI green: Gate 1 + windows-verify). All three S6 criteria passed on the exact reviewed candidates (full candidate c231e0239981f339, r10 clean PASS with adjudication a1; evidence commit 95bbe377e5b8daea, r14 clean PASS with adjudication a1; committed heads afe8748/fb71ba0). Post-merge fresh evidence on merged main: verify_scrubber_precision 30 PASSED, verify_review_broker 741, verify_free_reviewer_producer 144, verify_independent_review_efficacy PASSED with hostParityVerified true, quick suite DONE fails:none. Route history: 14 producer rounds; two real detector findings (r5 quoted call-lookalike, r6 expression-wrapper smuggling) were closed RED-first and hardened the shipped grammar."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
