@@ -87,3 +87,29 @@ checker itself may return or what counts as `PASSED`.**
   per-finding completeness requirement, the honest `ADJUDICATED` label kept
   distinct from `PASSED`, mutation tests on every minting guard, and the
   durable BLOCKED checker receipt that any later audit can re-read.
+
+## Addendum (2026-08-13) — U12: the independence ladder is measured, not asserted
+
+Until this measurement ran, the ladder order (cross-vendor first, same-vendor
+fallback) was a reasoned default backed by the correlated-blind-spots
+argument, not by measurement. U12 (GPG-004) has now run both independence
+classes over the SAME frozen seeded-defect corpus
+(`benchmarks/independent-review-efficacy/cases.json`, version 2), reviewer
+`gpt-5.6-sol` on codex 0.146.0, one attempt per case, on WSL:
+
+- **same-vendor** (maker `gpt-5.6-terra`, openai-subscription):
+  criticalHighDetection 1.0, mediumDetection 1.0, cleanFalseBlockRate 0.0;
+- **cross-vendor** (maker `opus`, anthropic-subscription):
+  criticalHighDetection 1.0, mediumDetection 1.0, cleanFalseBlockRate 0.0.
+
+The measured result: **parity, not superiority** — on this corpus the
+cross-vendor leg detects no worse and no better than the same-vendor leg.
+The ladder order therefore stays as declared: cross-vendor first remains
+justified by the correlated-blind-spots argument (a same-vendor pair can
+share training-lineage blind spots that a shared 9-case corpus cannot
+surface), and the measurement is recorded honestly as showing no detection
+gap rather than proving superiority. The rates live in the signed benchmark
+results (`benchmarks/independent-review-efficacy/results/`) and are replayed
+by `tests/verify_independent_review_efficacy.py` as `u12IndependenceLadder`;
+the cross-vendor leg is deliberately not thresholded against the same-vendor
+leg — it is a recorded measurement, not a gate.

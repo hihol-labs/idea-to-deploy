@@ -37,18 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S3-ADVOCATE",
-    "goal": "S3 (PLAN-CLOSEOUT-2026-08-11): make the live-benchmark adversarial review run the REAL devils-advocate agent definition in a harness-orchestrated fresh session (headless-compatible), replacing the inline self-critique substitution; re-record evidence; unblocks U12 (riskTier high — H4 evidence machinery)",
-    "status": "verified",
-    "riskTier": "high",
-    "startedAt": "2026-08-13T09:30:00Z",
-    "previousUnit": {
-      "id": "S2-FLAKE",
-      "status": "verified",
-      "note": "S2-FLAKE ledger-closed via PR #194 (5c1d008)"
-    },
-    "verifiedAt": "2026-08-13",
-    "evidence": "Merged main b87bba0 (PR #195; commits 2a8da716/c7c0afa). Adjudicated mandatory route: receipts 2c1d5e60385ac74f/ (commit 1, phase-one-24 after 7 substantive BLOCKED rounds closed in code) and 26306e0ba14791d0/ (commit 2, phase-one-28). Re-recorded two-phase run 20260813T090330Z-64df7624 with the real devils-advocate fresh-session review (16.5KB artifact, workspace immutability hash-proven). Fresh post-merge runs 2026-08-13 on b87bba0: verify_live_model_benchmark --require-evidence 107 passed 0 failed, meta_review PASSED. CI green at merge. Unblocks U12."
+    "id": "U12",
+    "goal": "GPG-004 U12: measure the independence ladder same-vendor vs cross-vendor over the shared frozen corpus; confirm restored reviewer-cardinality canaries; record outcome in benchmark and ADR-007",
+    "status": "in_progress",
+    "startedAt": "2026-08-13T11:08:52Z",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

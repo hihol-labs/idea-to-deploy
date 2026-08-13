@@ -582,7 +582,7 @@
       "id": "GPG-004-PC4",
       "criterion": "The minimumIndependentReviewers contract is enforced structurally: the restored low-reviewer and high-quorum cases in the efficacy suite prove that fewer distinct independent reviewer identities than the contract requires is UNVERIFIED, and quorum counting deduplicates by provider/model/session identity so one reviewer cannot satisfy a higher quorum.",
       "source": "BACKLOG deferred item from the bounded-process slice: cardinality cases removed with the ported matcher because the contract belongs to this policy unit.",
-      "evidence": "PASSED 2026-08-09: RED (low-reviewer reviewer cardinality was accepted under the weakened 0..3 matcher) turned GREEN by restoring the exact-equality contract; the restored low-reviewer/high-quorum canaries and the duplicate-identity quorum canary run inside the signed efficacy harness — final run EXIT 0, 48 PASS / 0 FAIL, both signed host legs valid.",
+      "evidence": "PASSED 2026-08-09: RED (low-reviewer reviewer cardinality was accepted under the weakened 0..3 matcher) turned GREEN by restoring the exact-equality contract; the restored low-reviewer/high-quorum canaries and the duplicate-identity quorum canary run inside the signed efficacy harness — final run EXIT 0, 48 PASS / 0 FAIL, both signed host legs valid. Re-confirmed 2026-08-13 on the U12 candidate: after PR #191 (da42644) changed producer bytes, the three legs were live re-signed with the current bytes and the same canaries ran green inside the re-signed harness (verifier status PASSED, hostParityVerified true).",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "Reviewer cardinality is an executable contract, not an advisory count.",
@@ -601,7 +601,7 @@
       "id": "GPG-004-PC5",
       "criterion": "U12: the independence ladder is measured, not asserted — same-vendor-different-model and cross-vendor reviewer legs run over the frozen seeded benchmark corpus under the same manifest, the comparison (per-class detection and clean-control false-block rates) is published as signed host-derived evidence, the measurement never edits the corpus expectations, and the result is recorded honestly even if same-vendor is not measurably worse.",
       "source": "Compressed reviewer-policy plan 2026-08-09, point 5 (U12, deferred from session_2026-08-08_7).",
-      "evidence": "PASSED 2026-08-09: signed legs — wsl same-vendor (terra-maker/sol-reviewer) 9/9 attempts=1, u12 cross-vendor (opus anthropic-subscription maker/sol-reviewer) 9/9 attempts=1, windows same-vendor on stable codex 0.146.0 (user-authorized transport replacement after the 0.147-alpha deterministic tool-use aborts) 9/9 attempts=1. Recorded honest comparison u12IndependenceLadder over the shared frozen manifest: sameVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} vs crossVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} — measured identical, not asserted; hostParityVerified true.",
+      "evidence": "PASSED 2026-08-09: signed legs — wsl same-vendor (terra-maker/sol-reviewer) 9/9 attempts=1, u12 cross-vendor (opus anthropic-subscription maker/sol-reviewer) 9/9 attempts=1, windows same-vendor on stable codex 0.146.0 (user-authorized transport replacement after the 0.147-alpha deterministic tool-use aborts) 9/9 attempts=1. Recorded honest comparison u12IndependenceLadder over the shared frozen manifest: sameVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} vs crossVendor {criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0} — measured identical, not asserted; hostParityVerified true. Re-signed 2026-08-13 (this candidate): PR #191 (da42644) changed producer bytes after the prior recording, so all three legs were live re-recorded with the current producer/runner/manifest bytes - wsl same-vendor 9/9 attempts=1, u12 cross-vendor 9/9 attempts=1, windows 9/9 attempts=1 (one typed UNAVAILABLE transport drop resumed from the signed checkpoint, typed-exit-3 retry precedent). Measured u12IndependenceLadder unchanged: sameVendor 1.0/1.0/0.0 == crossVendor 1.0/1.0/0.0; outcome recorded in the ADR-007 addendum.",
       "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
       "reviewEvidence": {
         "claim": "The cost of degraded independence is a measured quantity with signed evidence, not an assumption.",
@@ -1068,6 +1068,42 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "U12:general-review-1",
+      "criterion": "The independence ladder is measured, not asserted: both independence classes run over the SAME frozen seeded-defect corpus with signed host-derived results bound to the current producer/runner/manifest bytes (re-signed after PR #191 changed producer bytes), the verifier replays them fail-closed and reports u12IndependenceLadder, and the restored reviewer-cardinality canaries (low-reviewer, high-quorum, duplicate-reviewer-quorum; exact-equality minimumIndependentReviewers contract) are green. The measured outcome is recorded in the benchmark results and in the ADR-007 addendum.",
+      "source": "U12 (GPG-004 unit plan) = S4 in PLAN-CLOSEOUT-2026-08-11.",
+      "evidence": "exit 0 on the exact candidate: status PASSED, hostParityVerified true; sameVendor criticalHigh 1.0 / medium 1.0 / cleanFalseBlock 0.0 == crossVendor 1.0 / 1.0 / 0.0 (parity, not superiority; ladder order stays cross-vendor-first on the correlated-blind-spots argument). Legs: wsl 9/9 attempts=1; u12 cross-vendor 9/9 attempts=1; windows 9/9 attempts=1 with one typed UNAVAILABLE drop resumed from the signed checkpoint (typed-exit-3 retry precedent 2026-08-08).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "reviewEvidence": {
+        "claim": "Same-vendor and cross-vendor reviewer legs are honestly re-signed over the shared frozen corpus and the measured ladder is recorded without overclaiming.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "efficacy-oracle"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "U12:general-review-2",
+      "criterion": "The candidate keeps the quick regression suite green on the exact tree.",
+      "source": "tests/run-all.sh --quick.",
+      "evidence": "DONE fails:none on the exact candidate tree, 2026-08-13.",
+      "verificationCommand": "bash tests/run-all.sh --quick",
+      "reviewEvidence": {
+        "claim": "Repository-wide quick regression holds on the exact candidate tree.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "quick-suite"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -1086,13 +1122,13 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "S3-ADVOCATE:general-review",
-    "status": "verified",
+    "unitId": "U12:general-review",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/HANDOFF-S3-ADVOCATE.md",
+    "rootCause": "HANDOFF.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "repository-hygiene"
@@ -1100,9 +1136,7 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-08-13",
-    "closure": "Ledger-close after merge b87bba0 (PR #195): both S3-ADVOCATE criteria passed on the exact reviewed trees; adjudication receipts 2c1d5e60385ac74f/a1 and 26306e0ba14791d0/a1; fresh post-merge full replay 107/107 green on main."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
