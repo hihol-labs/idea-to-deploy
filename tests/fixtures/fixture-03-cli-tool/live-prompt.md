@@ -7,12 +7,14 @@ questions or confirmation. Follow the actual workflow in
 template, and write the resulting project documents in the current project
 root. Do not implement product code.
 
-This isolated output-quality benchmark has no independent reviewer or subagent
-transport. If the workflow asks for an adversarial review, perform and label a
-self-critique; do not claim that an independent/adversarial reviewer ran. Do
-not report artifact hashes or exact validation counts in chat: the external
-harness computes hashes and validates the final files only after the process
-exits.
+The adversarial (Devil's Advocate) review is NOT part of this session: the
+external harness runs the real `devils-advocate` agent definition in a
+separate fresh session after this one and validates its artifact. Do not
+perform an inline self-critique in place of that review, do not write
+`DEVILS_ADVOCATE_REVIEW.md` yourself, and do not claim that any adversarial
+or independent reviewer ran inside this session. Do not report artifact
+hashes or exact validation counts in chat: the external harness computes
+hashes and validates the final files only after the process exits.
 
 Project: a local Python 3.11 CLI for DevOps/SRE engineers that streams nginx
 access logs and reports top-10 IPs, top-10 URLs by 4xx/5xx errors, hourly

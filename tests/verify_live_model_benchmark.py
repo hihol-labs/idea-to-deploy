@@ -244,11 +244,18 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
           type(candidate.get("liveResultEvents")) is int and candidate.get("liveResultEvents", 0) >= 1)
     check("live result is not an error", candidate.get("isError") is False)
     attempts = candidate.get("attempts") or []
+    blueprint_attempts = [
+        item for item in attempts if item.get("phase") != "devils-advocate"]
+    advocate_attempts = [
+        item for item in attempts if item.get("phase") == "devils-advocate"]
     attempt_count = candidate.get("attemptCount")
     check("live candidate attempt count stays within bounded policy",
-          attempt_count in {1, 2} and len(attempts) == attempt_count)
+          attempt_count in {1, 2} and len(blueprint_attempts) == attempt_count)
     check("live candidate recovery flag matches attempt count",
           candidate.get("recoveryTriggered") is (attempt_count == 2))
+    check("exactly one devils-advocate phase ran last",
+          len(advocate_attempts) == 1 and attempts
+          and attempts[-1].get("phase") == "devils-advocate")
     check("live candidate records its writable workspace transport",
           candidate.get("workspaceTransport")
           in {"native-temp", "host-mounted-temp"})
@@ -275,11 +282,13 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
                   and item.get("transcriptRedactionCount", -1) >= 0
                   for item in attempts))
     check("final live attempt completed the required output set",
-          bool(attempts) and attempts[-1].get("missingAfter") == [])
-    if attempt_count == 2 and len(attempts) == 2:
+          bool(blueprint_attempts)
+          and blueprint_attempts[-1].get("missingAfter") == [])
+    if attempt_count == 2 and len(blueprint_attempts) == 2:
         check("recovery continued exactly the first attempt's missing outputs",
-              bool(attempts[0].get("missingAfter"))
-              and attempts[1].get("missingBefore") == attempts[0].get("missingAfter"))
+              bool(blueprint_attempts[0].get("missingAfter"))
+              and blueprint_attempts[1].get("missingBefore")
+              == blueprint_attempts[0].get("missingAfter"))
     transcript = inside(evidence_root, str(candidate.get("transcriptArtifact") or ""))
     check("compressed sanitized transcript is retained",
           transcript is not None and transcript.is_file())
@@ -352,10 +361,13 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
     output_dir = inside(evidence_root, str(artifacts.get("outputDir") or ""))
     hashes = artifacts.get("sha256") or {}
     required = artifacts.get("requiredFiles") or []
+    advocate = report.get("devilsAdvocate") or {}
+    advocate_artifact = str(advocate.get("artifact") or "")
     check("archived output is bounded and replayable",
           output_dir is not None and output_dir.is_dir()
           and isinstance(required, list) and bool(required)
-          and isinstance(hashes, dict) and set(required) == set(hashes))
+          and isinstance(hashes, dict)
+          and set(hashes) == set(required) | {advocate_artifact})
     if output_dir and output_dir.is_dir() and isinstance(hashes, dict):
         for rel, expected in hashes.items():
             target = inside_base(output_dir, str(rel))
@@ -368,6 +380,57 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
             cwd=ROOT, capture_output=True, text=True, timeout=180)
         check("independent verdict replays from archived artifacts",
               oracle.returncode == 0, oracle.stdout + oracle.stderr)
+
+    # S3: the adversarial review must be the REAL devils-advocate agent
+    # definition executed in a harness-orchestrated fresh session — never an
+    # inline self-critique substituted inside the blueprint session.
+    agent_source = ROOT / str(advocate.get("agentPath") or "")
+    expected_isolation = {
+        "anthropic": "claude -p --no-session-persistence",
+        "openai": "codex exec --ephemeral",
+    }.get(str(report.get("provider") or ""))
+    check("devils-advocate ran as a harness-orchestrated fresh session",
+          advocate.get("mode") == "harness-orchestrated-fresh-session"
+          and advocate.get("agentPath") == "agents/devils-advocate.md"
+          and advocate_artifact == "DEVILS_ADVOCATE_REVIEW.md"
+          and advocate_artifact not in set(required)
+          and advocate.get("inlineSelfCritiqueSubstitution") is False
+          and expected_isolation is not None
+          and advocate.get("sessionIsolation") == expected_isolation)
+    check("devils-advocate phase completed successfully",
+          advocate.get("exitCode") == 0
+          and advocate.get("isError") is False
+          and type(advocate.get("liveResultEvents")) is int
+          and advocate.get("liveResultEvents", 0) >= 1
+          and advocate.get("phase1ArtifactsUnchanged") is True
+          and len(advocate_attempts) == 1
+          and advocate_attempts[0].get("exitCode") == 0
+          and advocate_attempts[0].get("isError") is False
+          and advocate_attempts[0].get("liveResultEvents")
+          == advocate.get("liveResultEvents"))
+    check("devils-advocate agent definition is pinned to the current tree",
+          agent_source.is_file()
+          and advocate.get("agentSha256") == sha256_file(agent_source))
+    advocate_file = (
+        inside_base(output_dir, advocate_artifact)
+        if output_dir and advocate_artifact else None)
+    advocate_text = (
+        advocate_file.read_text(encoding="utf-8", errors="replace")
+        if advocate_file is not None and advocate_file.is_file() else "")
+    check("devils-advocate review artifact is retained and hash-pinned",
+          advocate_file is not None and advocate_file.is_file()
+          and sha256_file(advocate_file) == advocate.get("artifactSha256")
+          and advocate.get("artifactSha256") == hashes.get(advocate_artifact)
+          and len(advocate_text.encode("utf-8"))
+          == advocate.get("artifactBytes"))
+    check("devils-advocate review is substantive",
+          len(advocate_text.encode("utf-8")) >= 400
+          and bool(re.search(r"^####\s+Challenge\s+\d+:", advocate_text,
+                             re.MULTILINE))
+          and "**Weakness:**" in advocate_text
+          and "**Risk level:**" in advocate_text
+          and "**Alternative:**" in advocate_text
+          and "**Trade-off:**" in advocate_text)
 
     pins = report.get("sourcePins") or {}
     expected_paths = source_pin_paths(str(report.get("fixture") or ""),

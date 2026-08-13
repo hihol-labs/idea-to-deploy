@@ -1032,6 +1032,42 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "S3-ADVOCATE:general-review-1",
+      "criterion": "The live benchmark's adversarial review is the REAL agents/devils-advocate.md definition executed in a harness-orchestrated fresh session of the same transport after the snapshot oracle (never an inline self-critique inside the blueprint session): the runner's phase 2 writes and validates DEVILS_ADVOCATE_REVIEW.md (min bytes + Challenge structure), archives it hash-pinned, records the devilsAdvocate block (agent digest, artifact digest, session isolation), and keeps attemptCount/recovery semantics for blueprint attempts while the phase entry preserves exact transcript segment coverage. verify_evidence enforces all of this fail-closed under --require-evidence.",
+      "source": "S3 (PLAN-CLOSEOUT-2026-08-11) closing the BACKLOG live-model fixture-hardening defect 'the run substituted the Devil's Advocate subagent invocation with inline self-critique'; headless transports cannot spawn Claude-native subagents (claude -p 401 account review; codex has no subagent mechanism).",
+      "evidence": "Static harness suite green on the exact candidate: verify_live_model_benchmark (no flag) 39 passed 0 failed; against the OLD pinned evidence --require-evidence fails exactly on the new advocate contract + changed source pins (10 FAIL), proving the checks are fail-closed; full green arrives with the re-recorded evidence in the follow-up commit of this same unit.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/verify_live_model_benchmark.py",
+      "reviewEvidence": {
+        "claim": "The benchmark scenario is reproducible headlessly with a real, isolated devils-advocate execution whose artifact and agent definition are hash-bound into the run report, and the replay verifier rejects runs that lack or fake that phase.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-benchmark-static"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "S3-ADVOCATE:general-review-2",
+      "criterion": "The candidate keeps the repository's static review rubric green (docs/code consistency, registration and counts).",
+      "source": "tests/meta_review.py binary rubric.",
+      "evidence": "PASSED 2026-08-13 on the exact candidate: tests/meta_review.py exit 0, FINAL STATUS: PASSED.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh --itd-isolated tests/meta_review.py",
+      "reviewEvidence": {
+        "claim": "Repository-wide static consistency holds on the exact candidate tree.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -1050,25 +1086,21 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "S2-FLAKE:general-review",
-    "status": "verified",
+    "unitId": "S3-ADVOCATE:general-review",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "tests/ROOT_CAUSE-s2-oracle-nondeterminism.md",
+    "rootCause": ".itd-memory/HANDOFF-S3-ADVOCATE.md",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "error-handling",
-        "repository-hygiene",
-        "security"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-08-13",
-    "closure": "Ledger-close after merge 3755560 (PR #193): both S2-FLAKE criteria passed on the exact reviewed tree; adjudication receipt receipts/bfb86fcf99859c76/S2-FLAKE-general-review-adjudication-a1.json; fresh post-merge oracle runs green on main 2026-08-13."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
