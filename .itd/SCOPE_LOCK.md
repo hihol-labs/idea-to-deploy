@@ -98,3 +98,15 @@ and `tests/verify_session_hygiene_quality.py` (the S2-pinned behavioural
 suite, 50 checks). Operator evidence besides the receipt: 5 consecutive green
 runs of the hygiene suite and of the U16 verifier, and 5 quick-suite runs
 whose only red each time is the deterministic pre-existing efficacy pin.
+
+Ledger-close amendment (2026-08-13, closing this unit):
+
+- `.itd-memory/STATE.json` — `currentUnit` S2-FLAKE moves to `verified` with
+  the closure evidence (merge 3755560, receipts bfb86fcf99859c76, fresh
+  post-merge oracle runs green on main).
+- `.itd/ACCEPTANCE_CONTRACT.json` — `activeFollowup` for
+  `S2-FLAKE:general-review` moves to `verified`/closed with the same
+  evidence; criteria lists are unchanged.
+- No other file changes; matching unit events were appended to the untracked
+  `.itd-memory/events.jsonl` (U16 verified backfill, S2-FLAKE
+  activated/verified) per the ledger validator.
