@@ -92,3 +92,15 @@ green with the re-recorded evidence of commit 2) and `tests/meta_review.py`.
 Operator evidence: against the OLD evidence, `--require-evidence` fails on
 exactly the new advocate contract (10 FAIL) — the checks are fail-closed,
 not decorative.
+
+Ledger-close amendment (2026-08-13, closing this unit):
+
+- `.itd-memory/STATE.json` — `currentUnit` S3-ADVOCATE moves to `verified`
+  with the closure evidence (merge b87bba0, receipts 2c1d5e60385ac74f/ and
+  26306e0ba14791d0/, fresh post-merge full replay 107/107 on main).
+- `.itd/ACCEPTANCE_CONTRACT.json` — `activeFollowup` for
+  `S3-ADVOCATE:general-review` moves to `verified`/closed with the same
+  evidence; criteria lists are unchanged.
+- No other file changes; the matching `verified` unit event was appended to
+  the untracked `.itd-memory/events.jsonl` and the PLAN-CLOSEOUT row marked
+  done, per the S2-FLAKE ledger-close precedent (PR #194).
