@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S6-SCRUBBER",
     "goal": "S6: bounded precision fix of the residual-credential detector (false positive on ordinary parser code and prose quoting it, U16 2026-08-11, cost 2 review routes) + align producer detection with scrubbed-text contract + re-mint three signed efficacy legs (wsl, windows, u12-cross-vendor); riskTier high",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-13T14:46:03Z",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-13T17:32:05Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
