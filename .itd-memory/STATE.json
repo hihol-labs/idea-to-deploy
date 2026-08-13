@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S7-U2-RELCWD",
-    "goal": "S7 U2: anchor Windows-wrapper plan cwd at the caller (absolutize relative cwd at plan build; wrapper runs from temp dir); POSIX-testable helper; riskTier medium",
+    "id": "S7-U3-POSIXREAP",
+    "goal": "S7 U3: reap setsid-escaping descendants in run_bounded_process POSIX cleanup via pre-kill PPID-walk snapshot of /proc; tests that actually daemonize; riskTier high",
     "status": "verified",
-    "startedAt": "2026-08-13T19:55:36Z",
-    "riskTier": "medium",
-    "completedAt": "2026-08-13T19:58:50Z"
+    "startedAt": "2026-08-13T20:02:16Z",
+    "riskTier": "high",
+    "completedAt": "2026-08-13T20:19:52Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

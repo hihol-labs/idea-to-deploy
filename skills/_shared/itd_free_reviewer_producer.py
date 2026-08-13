@@ -350,6 +350,50 @@ def _release_windows_wrapper(path: Path) -> None:
     os.close(descriptor)
 
 
+def _descendant_pids(root_pid: int, *, limit: int = 4096) -> list[int]:
+    """Every live descendant of root_pid, read from /proc by PPID walk.
+
+    Snapshot this BEFORE the kill: a descendant that re-called setsid() has
+    left the process group and killpg can no longer reach it, but its PPID
+    link is still visible while its parent lives.
+
+    Declared limits: /proc-only, so on a POSIX host without it (macOS) the
+    walk returns nothing and containment degrades to the killpg it always
+    was — never to a false claim of containment.  A PID snapshotted here and
+    reused by an unrelated process before the kill would be signalled by
+    mistake; the window is the same one killpg(process.pid) has always had,
+    now spread over the escapee list.  Both stay tracked in BACKLOG with the
+    double-fork orphan case.
+    """
+    children: dict[int, list[int]] = {}
+    with contextlib.suppress(OSError):
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            parent = -1
+            with contextlib.suppress(OSError, ValueError, IndexError):
+                status = Path("/proc", entry, "status").read_text(
+                    encoding="utf-8", errors="replace"
+                )
+                for line in status.splitlines():
+                    if line.startswith("PPid:"):
+                        parent = int(line.split()[1])
+                        break
+            if parent >= 0:
+                children.setdefault(parent, []).append(int(entry))
+    found: list[int] = []
+    pending = [root_pid]
+    seen = {root_pid}
+    while pending and len(found) < limit:
+        for child in children.get(pending.pop(), ()):
+            if child in seen:
+                continue
+            seen.add(child)
+            found.append(child)
+            pending.append(child)
+    return found
+
+
 def _close_process_tree(
     process: subprocess.Popen[bytes], windows_job: Any,
 ) -> None:
@@ -362,8 +406,14 @@ def _close_process_tree(
         with contextlib.suppress(OSError):
             process.kill()
         return
+    # Descendants that stayed in the group die with the killpg below; the
+    # snapshot covers the ones that escaped it via their own setsid().
+    escapees = _descendant_pids(process.pid)
     with contextlib.suppress(ProcessLookupError):
         os.killpg(process.pid, signal.SIGKILL)
+    for pid in escapees:
+        with contextlib.suppress(OSError):
+            os.kill(pid, signal.SIGKILL)
 
 
 def wrapper_plan_cwd(cwd: Path | str | None) -> str:

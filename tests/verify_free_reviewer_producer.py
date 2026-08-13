@@ -14,9 +14,11 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -187,6 +189,52 @@ def main() -> int:
     absolute_probe = os.path.join(os.getcwd(), "already-absolute")
     check(producer.wrapper_plan_cwd(Path(absolute_probe)) == absolute_probe,
           "absolute plan cwd must pass through unchanged")
+
+    # S7-U3: a descendant that re-calls setsid() leaves the process group, so
+    # killpg alone never reaps it. The cleanup must snapshot descendants via a
+    # PPID walk BEFORE the kill and finish off group escapees. This test
+    # actually daemonizes: the grandchild detaches into its own session and
+    # outlives the parent's timeout unless reaped. (Accepted residual: a
+    # double-fork orphan reparented to init before cleanup stays invisible to
+    # a PPID walk — BACKLOG containment item.)
+    if os.name != "nt" and Path("/proc").is_dir():
+        with tempfile.TemporaryDirectory(prefix="itd-reap-") as reap_raw:
+            escapee_pid_path = Path(reap_raw) / "escapee.pid"
+            daemonizing_child = (
+                "import os, sys, time\n"
+                "pid = os.fork()\n"
+                "if pid == 0:\n"
+                "    os.setsid()\n"
+                f"    open({str(escapee_pid_path)!r}, 'w')"
+                ".write(str(os.getpid()))\n"
+                "    time.sleep(120)\n"
+                "    raise SystemExit(0)\n"
+                "time.sleep(120)\n"
+            )
+            try:
+                producer.run_bounded_process(
+                    [sys.executable, "-c", daemonizing_child], timeout=3.0
+                )
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                raise AssertionError("daemonizing fixture did not time out")
+            check(escapee_pid_path.is_file(),
+                  "daemonized escapee never announced its pid")
+            escapee_pid = int(escapee_pid_path.read_text())
+            for _ in range(50):
+                try:
+                    os.kill(escapee_pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                os.kill(escapee_pid, signal.SIGKILL)
+                raise AssertionError(
+                    "setsid escapee survived cleanup: killpg cannot reach "
+                    "another session and no reap followed"
+                )
+            checks += 1
 
     with tempfile.TemporaryDirectory(prefix="itd-free-review-") as raw:
         fixture = Path(raw)

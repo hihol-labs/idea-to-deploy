@@ -36,11 +36,19 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   efficacy attempt (`high-export-capacity`, no unavailability marker in the CLI
   output). The case passed on every later attempt and the suppressed CLI detail was
   not captured, so the cause is currently unknown rather than diagnosed.
-- [ ] Strict POSIX descendant containment in `run_bounded_process` (route finding,
+- [x] Strict POSIX descendant containment in `run_bounded_process` (route finding,
   2026-08-09): cleanup kills the call's process group, so a descendant that
   re-calls `setsid()` escapes and is not reaped; Windows is already strict via the
-  Job Object. Close the gap with a PPID-walk reap or cgroup/PID-namespace
-  containment, with tests that actually daemonize.
+  Job Object. CLOSED by S7-U3 with a PPID-walk reap (pre-kill /proc snapshot,
+  then SIGKILL of the group escapees) and a test that actually daemonizes.
+- [ ] Residual of the containment fix above (S7-U3, 2026-08-13): (a) a double-fork
+  orphan already reparented to init before cleanup is invisible to a PPID walk;
+  (b) the walk is /proc-only, so on a POSIX host without it (macOS) containment
+  degrades to the plain killpg it always was — the reap test skips there rather
+  than claiming coverage; (c) a snapshotted PID reused by an unrelated process
+  before the kill would be signalled by mistake (the window killpg always had,
+  now spread over the escapee list). Closing (a)-(c) properly means cgroup or
+  PID-namespace containment — a separate bounded design, not a patch.
 - [ ] Harden the run-all host-pin boundary (route finding F4, 2026-08-09): the
   efficacy keyring pin path is chosen by candidate code (`tests/run-all.sh`) and
   only existence-checked. The strict receipt path already passes it as a declared
