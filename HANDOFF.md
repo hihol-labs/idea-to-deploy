@@ -1,8 +1,10 @@
-# HANDOFF — S4 / U12: замер лестницы независимости — ВЫПОЛНЕНО (2026-08-13)
+# HANDOFF — S4 / U12: замер лестницы независимости — ЗАКРЫТ (2026-08-13)
 
-**Ветка:** `chore/s4-u12-ladder-measurement` от main @ 18dc762. **Юнит:** U12
-(GPG-004; S4 в `.itd-memory/PLAN-CLOSEOUT-2026-08-11.md`) — работы этой
-сессии завершены; остаток — PR/merge по команде пользователя и ledger-close.
+**Юнит U12 закрыт целиком**: PR #197 merged как `2ddea97` (head `7cf4e95`,
+base `18dc762`), CI green; fresh post-merge evidence на merged main —
+efficacy verifier exit 0 (hostParity true, паритет лестницы) и quick
+`DONE fails:none`; STATE/events/acceptance → verified (ledger-close).
+Никакого остатка по U12 нет; ниже — запись выполненного для истории.
 
 ## Что сделано (этой сессией, проверено)
 
@@ -41,14 +43,18 @@
    леджеры: `GPG-004_UNIT_PLAN.json` U12 → verified c evidence,
    `PLAN-CLOSEOUT-2026-08-11.md` S4 → ✅ DONE.
 
-## Остаток (для принимающего)
+## Маршрут (как закрывался)
 
-1. Producer-маршрут U12:general-review довести до PASS (раунды c2/c5/c6 —
-   реальные находки контрактной бухгалтерии, все закрыты правками кандидата;
-   typed UNAVAILABLE ретраится), затем checker → adjudication → commit → PR
-   через `itd pr create` (профиль local-submission/local-review).
-2. Мерж PR — только по команде пользователя; после мержа — ledger-close S4
-   (прецедент S2/S3) и `/session-save`.
+1. Producer-маршрут U12:general-review: 8 раундов fresh gpt-5.6-terra;
+   BLOCKED-раунды c2/c5/c6 — реальные находки контрактной бухгалтерии
+   (stale PC5 evidence; полная перезапись контракта из-за indent=1;
+   устаревший HANDOFF), закрыты правками кандидата. Финал c8 PASS →
+   checker → adjudication `fad0cf1af1f4702e/a1` → review-cache check rc=0
+   → коммит `7cf4e95` → PR #197 (`itd pr create`,
+   local-submission/local-review) → merge `2ddea97` по команде пользователя.
+2. Ledger-close: STATE/events verified через itd_unit_log, acceptance
+   activeFollowup closed, SCOPE_LOCK Closure — отдельным docs-коммитом
+   (прецедент S2/S3).
 
 ## Пины (если понадобится перегон)
 

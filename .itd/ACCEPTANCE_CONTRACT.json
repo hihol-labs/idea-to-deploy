@@ -1123,7 +1123,7 @@
   },
   "activeFollowup": {
     "unitId": "U12:general-review",
-    "status": "in_progress",
+    "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": "HANDOFF.md",
     "reviewPolicy": {
@@ -1136,7 +1136,9 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    }
+    },
+    "closedAt": "2026-08-13",
+    "closure": "Ledger-close after merge 2ddea97 (PR #197). Both U12 criteria passed during the unit on the exact merged-candidate tree 4eed7367 (head 7cf4e95, adjudication receipt fad0cf1af1f4702e/a1, fresh gpt-5.6-terra PASS); after the merge the same oracles ran green again on merged main (efficacy verifier exit 0, hostParityVerified true, ladder parity recorded; quick suite DONE fails:none). This bookkeeping candidate carries its own machine receipt bound to its own staged tree."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
