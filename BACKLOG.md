@@ -108,6 +108,19 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   the candidate was already committed).
   Either honour the closed status (fall back to no matrix, or to STATE's active
   unit) or refuse a closed followup loudly instead of silently pinning it.
+- [ ] The recorded live H4 run contradicts itself (independent review, S8,
+  2026-08-14). In the committed run `20260814T163339Z-1e1ab055` the final
+  structural validation command exits 1 while the next agent message asserts
+  every required check passed. The reviewer raised a second, similar defect
+  (generated `CLAUDE.md` redefining exit code 3 against the PRD of the same
+  session) against a LATER re-record that exists only in a throwaway review
+  worktree and was never committed — recorded here as an observation, not as a
+  repository artifact, because citing an artifact the repo does not contain is
+  itself a defect (that miscitation was the reviewer's own finding). The
+  benchmark exists to measure exactly this, and no run was re-shot to look
+  better. Open question worth its own unit: should
+  `verify_live_model_benchmark.py` fail an internally self-contradictory run
+  rather than accepting the snapshot oracle's PASS?
 - [ ] A16 keeps costing whole runs: the isolated benchmark invocation drops with
   a typed `OpenAI reviewer event stream transport is unavailable` (exit 3) far
   more often than a flat `codex exec` does. Fresh data, S8 re-mint 2026-08-14:

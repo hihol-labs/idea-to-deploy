@@ -3809,8 +3809,16 @@ def run_codex_review(
                         item.get("message") if isinstance(item, dict) else None
                     )
                     advisory = message.strip() if isinstance(message, str) else ""
+                    # isprintable() - not a line-separator test - because the
+                    # class being closed is "arbitrary text rides past the
+                    # prefix", not "newlines specifically". Two review rounds
+                    # narrowed it twice and missed twice: `"\n" not in ...`
+                    # let CR through, and splitlines() let NUL through, since
+                    # NUL is not a line boundary. isprintable() is False for
+                    # every C0/C1 control, NUL, NEL and U+2028/9 alike, and
+                    # True for an ordinary one-line advisory with spaces.
                     if (advisory.startswith(CODE_MODE_DISABLED_ADVISORY_PREFIX)
-                            and "\n" not in advisory):
+                            and advisory.isprintable()):
                         # The build acknowledging our own --disable
                         # code_mode_host is the denylist working (A19);
                         # it is neither a failure nor a tool call.

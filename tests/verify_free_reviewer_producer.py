@@ -1330,26 +1330,36 @@ def main() -> int:
             "code-mode-disabled advisory was treated as a failure",
         )
 
-        # A genuine advisory is one line. A multi-line message that merely
-        # starts with the prefix is not the CLI acknowledging our flag.
-        event_item_extra = {
-            "message": producer.CODE_MODE_DISABLED_ADVISORY_PREFIX
-            + "\nand here is something else entirely",
-        }
-        try:
-            producer.run_codex_review(
-                "bounded prompt", executable=str(trusted_binary),
-                model="subscription-model", source_env=transport_source,
-                expected_executable_sha256=trusted_binary_sha,
-                expected_proxy_sha256=trusted_proxy_sha,
-            )
-        except producer.FreeReviewError as exc:
-            check(
-                "event stream" in str(exc),
-                "a multi-line advisory was not treated as a transport failure",
-            )
-        else:
-            raise AssertionError("a multi-line advisory was accepted")
+        # A genuine advisory is one printable line. Anything that starts with
+        # the prefix and then smuggles a control character plus text is not the
+        # CLI acknowledging our flag. Two review rounds found two holes here -
+        # CR past an LF-only test, then NUL past a line-splitting test - so the
+        # cases below cover every C0/C1 control and Unicode separator, not a
+        # hand-listed subset.
+        for separator in ("\n", "\r", "\r\n", "\u2028", "\u2029", "\x0b",
+                          "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\x00",
+                          "\x07", "\x7f"):
+            event_item_extra = {
+                "message": producer.CODE_MODE_DISABLED_ADVISORY_PREFIX
+                + separator + "and here is something else entirely",
+            }
+            try:
+                producer.run_codex_review(
+                    "bounded prompt", executable=str(trusted_binary),
+                    model="subscription-model", source_env=transport_source,
+                    expected_executable_sha256=trusted_binary_sha,
+                    expected_proxy_sha256=trusted_proxy_sha,
+                )
+            except producer.FreeReviewError as exc:
+                check(
+                    "event stream" in str(exc),
+                    "a broken-line advisory was not treated as a transport"
+                    f" failure (separator {separator!r})",
+                )
+            else:
+                raise AssertionError(
+                    f"a broken-line advisory was accepted (separator {separator!r})"
+                )
 
         # Anything else in an error item stays fail-closed - and stays a
         # TRANSPORT failure. A near-miss of the advisory wording must not be
