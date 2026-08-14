@@ -29,6 +29,18 @@ activeFollowup.
 - `.itd-memory/STATE.json` (force-added ledger) — currentUnit
   S7-EVIDENCE verified, riskTier high.
 
+- `tests/run-live-model-benchmark.py`, `tests/verify_live_model_benchmark.py`
+  — bounded provenance fix from the r3 route finding (2026-08-14): the prose
+  reason claimed "bounded recovery" whenever attempts[] had a devils-advocate
+  phase entry, contradicting recoveryTriggered; the verifier now enforces
+  reason/flag agreement.
+- `tests/fixtures/live-model-evidence/**` — the declared second commit of the
+  two-commit acceptance: any methodology change burns the benchmark tree pin
+  by construction, so a fresh live run is recorded on the clean committed
+  tree and added as fixtures. By that same construction the recorded run
+  attests the PARENT tree of the evidence commit, never the evidence commit
+  itself (precedent PR #193/#195/#199/#201).
+
 ## Forbidden change areas
 
 - Any production code (`skills/`, `scripts/`, `hooks/`, `tests/` logic) —

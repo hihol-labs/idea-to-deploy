@@ -1199,8 +1199,13 @@ def run(args: argparse.Namespace) -> int:
             if isinstance(row.get("total_cost_usd"), (int, float))
         ]
         reason = (
+            # Recovery means a real blueprint retry; the devils-advocate
+            # phase entry in attempts[] is transcript coverage, not a retry,
+            # and must not make the reason claim a recovery that
+            # recoveryTriggered correctly denies.
             "live candidate passed independent snapshot oracle after bounded recovery"
-            if len(attempts) > 1
+            if len([item for item in attempts
+                    if item.get("phase") != "devils-advocate"]) > 1
             else "live candidate passed independent snapshot oracle"
         )
         report = base_report(args, "PASS", reason)
