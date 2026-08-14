@@ -156,6 +156,19 @@ adjudication; each was deliberately kept out of those bounded slices.
   (`math.isfinite` guard) and S7-U2 (`wrapper_plan_cwd` anchors a relative cwd
   at the caller before the temp-dir hop). POSIX descendant containment closed
   separately by S7-U3; the run-all host-pin boundary stays open above.
+- [ ] `itd pr create` fails on an already-pushed branch (S7 finish, 2026-08-14):
+  a first attempt timed out AFTER its push succeeded, and every retry then died
+  in the pre-push hook — a no-op push produces an empty update stream which the
+  hook treats as invalid ("pre-push update stream is empty or invalid"). The
+  no-op case should be recognized as already-synced and skip to PR creation.
+  Related: the pr_view GitHub lookup runs BEFORE the push and turns a lookup
+  outage into a full transport failure; ordering push-first would decouple them.
+- [ ] gh CLI GraphQL transport fails with TLS handshake timeout from this WSL
+  environment while plain REST via curl/urllib works (S7 finish, 2026-08-14):
+  `gh pr create/list` and `gh api` die on api.github.com GraphQL; the S7 PR was
+  created, un-drafted and merged over REST as a workaround. Diagnose the gh
+  HTTP client difference (proxy/IPv6/http2?) or teach the itd transport a REST
+  fallback for lookup/create.
 - [ ] Pre-existing ledger drift: `GOAL-2026-07-06-axis*` / `PE5-015` unit
   ledgers drifted from current evidence before GPG-004 started. Reconcile the
   ledgers honestly — no synthetic evidence backfill.
