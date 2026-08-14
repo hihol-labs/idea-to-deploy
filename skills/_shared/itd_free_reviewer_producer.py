@@ -3808,7 +3808,12 @@ def run_codex_review(
                     message = (
                         item.get("message") if isinstance(item, dict) else None
                     )
-                    advisory = message.strip() if isinstance(message, str) else ""
+                    # NOT message.strip(): stripping first would delete a
+                    # leading or trailing CR/LF before the check could see it,
+                    # so "\rPREFIX" normalized into a valid advisory. Third
+                    # review round on this same exemption - validate the raw
+                    # message (independent route finding, S8).
+                    advisory = message if isinstance(message, str) else ""
                     # isprintable() - not a line-separator test - because the
                     # class being closed is "arbitrary text rides past the
                     # prefix", not "newlines specifically". Two review rounds

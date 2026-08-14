@@ -1361,6 +1361,25 @@ def main() -> int:
                     f"a broken-line advisory was accepted (separator {separator!r})"
                 )
 
+        # A separator BEFORE or AFTER the prefix must not be normalized away
+        # first: stripping before validating accepted "\rPREFIX" outright.
+        for wrapped in ("\r" + producer.CODE_MODE_DISABLED_ADVISORY_PREFIX,
+                        producer.CODE_MODE_DISABLED_ADVISORY_PREFIX + "\n",
+                        " " + producer.CODE_MODE_DISABLED_ADVISORY_PREFIX):
+            event_item_extra = {"message": wrapped}
+            try:
+                producer.run_codex_review(
+                    "bounded prompt", executable=str(trusted_binary),
+                    model="subscription-model", source_env=transport_source,
+                    expected_executable_sha256=trusted_binary_sha,
+                    expected_proxy_sha256=trusted_proxy_sha,
+                )
+            except producer.FreeReviewError as exc:
+                check("event stream" in str(exc),
+                      f"a padded advisory was not treated as a transport failure ({wrapped!r})")
+            else:
+                raise AssertionError(f"a padded advisory was accepted ({wrapped!r})")
+
         # Anything else in an error item stays fail-closed - and stays a
         # TRANSPORT failure. A near-miss of the advisory wording must not be
         # accepted, and must not be reported as the reviewer using a tool
