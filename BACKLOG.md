@@ -95,6 +95,19 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `tests/fixtures/*/output/` exist — which is after any local test run. Same
   class as the H4 tree-pin item below. Decide once: either the clean-HEAD check
   ignores what Git ignores, or the namespace entries are replaced by file lists.
+- [ ] A closed `activeFollowup` still pins the independent-review coverage matrix
+  (S8, 2026-08-14). `evidence_first_policy` in `skills/_shared/itd_review_evidence.py`
+  activates the matrix on the mere presence of `reviewPolicy` and never reads
+  `status`/`closedAt`, while `coverage_matrix` then takes the active unit from
+  `activeFollowup.unitId` rather than from `.itd-memory/STATE.json`. A followup
+  marked `status: verified, closedAt: …` therefore keeps binding every later
+  candidate to a unit that is finished: two S8 route attempts failed with
+  `active unit and machine evidence differ` before the field was re-declared
+  (a third, earlier attempt failed for an unrelated reason — `staged machine
+  candidate diff is empty`, because the producer reads `git diff --cached` and
+  the candidate was already committed).
+  Either honour the closed status (fall back to no matrix, or to STATE's active
+  unit) or refuse a closed followup loudly instead of silently pinning it.
 - [ ] A16 keeps costing whole runs: the isolated benchmark invocation drops with
   a typed `OpenAI reviewer event stream transport is unavailable` (exit 3) far
   more often than a flat `codex exec` does. Fresh data, S8 re-mint 2026-08-14:
