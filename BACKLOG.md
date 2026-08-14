@@ -63,6 +63,23 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   only existence-checked. The strict receipt path already passes it as a declared
   host input; move the convenience path to a host-owned location outside the
   checkout (env var or absolute host path) so candidate code cannot select the pin.
+- [ ] `quick-regression.trustedVerifierPaths` in `docs/VERIFICATION_CONTRACT.json`
+  is a stale roster (S8-U1, 2026-08-14): it enumerates 55 verifiers while
+  `run-all.sh` CORE now carries ~70, so verifiers added since (efficacy,
+  `verify_sync_manifest`, `verify_free_reviewer_producer`, …) are executed by the
+  aggregator without being declared. The trusted-path check only binds the
+  dispatcher and its script, so nothing is red today — but the list reads as a
+  complete dependency declaration and is not one. Either regenerate it from CORE
+  and police the equality, or stop presenting it as the full roster.
+- [ ] Git-ignored debris makes tracked-namespace trusted paths fail the
+  clean-HEAD check (S8-U1, 2026-08-14): `v2_verifier_error` runs
+  `git status --ignored=matching` over each `trustedVerifierPaths` entry, and the
+  `.itd/VERIFICATION_CONTRACT.json` entries that name the whole `tests` namespace
+  therefore report `trusted verifier differs from clean HEAD` whenever
+  `tests/__pycache__/`, `tests/helpers/__pycache__/` or
+  `tests/fixtures/*/output/` exist — which is after any local test run. Same
+  class as the H4 tree-pin item below. Decide once: either the clean-HEAD check
+  ignores what Git ignores, or the namespace entries are replaced by file lists.
 - [ ] Make the methodology tree pin ignore harness debris. `methodology_tree_sha256`
   in `tests/verify_live_model_benchmark.py` skips `__pycache__` and `.pyc` but not
   Git-ignored harness output such as `.claude/`. A stray 800-byte trace file under
