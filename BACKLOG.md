@@ -80,12 +80,27 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `tests/fixtures/*/output/` exist — which is after any local test run. Same
   class as the H4 tree-pin item below. Decide once: either the clean-HEAD check
   ignores what Git ignores, or the namespace entries are replaced by file lists.
-- [ ] Make the methodology tree pin ignore harness debris. `methodology_tree_sha256`
+- [ ] `prepare_adopted_project` in `tests/run-live-model-benchmark.py` copies the
+  same `METHODOLOGY_TREE_ROOTS` into the isolated benchmark project through
+  `shutil.ignore_patterns`, which excludes `__pycache__`/`*.pyc` by name and is
+  not Git-ignore aware (general-review finding, S8-U2, 2026-08-14). Same debris
+  class the tree pin just closed, different surface: harness output under a tree
+  root is handed to the live model as if it were methodology. Deliberately left
+  out of S8-U2's scope rather than widened into it.
+- [x] Make the methodology tree pin ignore harness debris. `methodology_tree_sha256`
   in `tests/verify_live_model_benchmark.py` skips `__pycache__` and `.pyc` but not
   Git-ignored harness output such as `.claude/`. A stray 800-byte trace file under
   `skills/_shared/.claude/traces/` silently entered the H4 tree pin, and the mismatch
   only surfaced later in the isolated staged candidate as three failing checks. The
   pin should either exclude the same paths Git ignores or fail loudly at run time.
+  CLOSED by S8-U2 with both: one batched `git check-ignore -z --stdin` in the
+  verifier AND in the producer (`tests/run-live-model-benchmark.py`, which writes
+  the pin the verifier re-computes), and a `RuntimeError` when Git cannot answer.
+  Covered by `tests/verify_tree_pin_debris.py` (14 checks: H4 debris reproduction,
+  non-vacuity via a non-ignored probe, producer/verifier agreement, and loud failure
+  on all three ways Git can fail to answer - missing executable, fatal exit code,
+  timeout - for both implementations). The digest is unchanged on today's tree - every ignored file
+  under the roots is already `__pycache__`/`*.pyc`.
 - [x] Exclude `__pycache__`/`*.pyc` bytecode from the `sync-to-active.sh` drift
   scan (found closing U6, 2026-08-10): the only reported skill drift on a fully
   synced install was `skills/_shared/__pycache__` — pure noise that makes a

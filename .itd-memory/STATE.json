@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S8-U1-HOSTPIN",
-    "goal": "S8-U1: add the mandatory --expected-keyring-sha256-file host input to the independent-review-efficacy entry in .itd/VERIFICATION_CONTRACT.json; unblocks contract-driven session close",
+    "id": "S8-U2-TREEPIN",
+    "goal": "S8-U2: methodology tree pin excludes exactly what Git ignores, in both the producer and the verifier, with a loud failure when Git cannot answer",
     "status": "verified",
-    "startedAt": "2026-08-14T12:34:37Z",
+    "startedAt": "2026-08-14T13:30:14Z",
     "riskTier": "medium",
-    "completedAt": "2026-08-14T13:26:56Z"
+    "completedAt": "2026-08-14T14:01:54Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

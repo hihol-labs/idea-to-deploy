@@ -102,6 +102,35 @@ def git_status_bytes() -> bytes:
             else b"git-status-unavailable")
 
 
+def git_ignored_relatives(relatives: list[str]) -> set[str]:
+    """Repository-relative paths that Git ignores, resolved in one batch.
+
+    The tree pin must digest the methodology, not harness debris that happens
+    to sit inside it: a stray file under `skills/_shared/.claude/traces/` once
+    entered the pin silently and only surfaced later, in an isolated staged
+    candidate, as three failing checks. Git already knows which paths are
+    debris, so the pin defers to it instead of maintaining a second, always
+    incomplete, name-based denylist. A Git that cannot answer raises - a pin
+    that silently widens on a broken Git is the exact failure mode being
+    removed here. Tracked files are never reported by `check-ignore` unless
+    `--no-index` is passed, so a tracked path matching an ignore rule stays in
+    the pin.
+    """
+    if not relatives:
+        return set()
+    result = subprocess.run(
+        ["git", "check-ignore", "-z", "--stdin"], cwd=ROOT,
+        input="\0".join(relatives).encode("utf-8") + b"\0",
+        capture_output=True, timeout=60,
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(
+            "git check-ignore failed while pinning the methodology tree: "
+            + result.stderr.decode("utf-8", errors="replace").strip()[:200]
+        )
+    return {item for item in result.stdout.decode("utf-8").split("\0") if item}
+
+
 def methodology_tree_sha256() -> str:
     files: list[Path] = []
     for raw in METHODOLOGY_TREE_ROOTS:
@@ -112,6 +141,10 @@ def methodology_tree_sha256() -> str:
             files.extend(candidate for candidate in path.rglob("*")
                          if candidate.is_file() and "__pycache__" not in candidate.parts
                          and candidate.suffix != ".pyc")
+    ignored = git_ignored_relatives(
+        [path.relative_to(ROOT).as_posix() for path in files])
+    files = [path for path in files
+             if path.relative_to(ROOT).as_posix() not in ignored]
     digest = hashlib.sha256()
     for path in sorted(set(files), key=lambda item: item.relative_to(ROOT).as_posix()):
         relative = path.relative_to(ROOT).as_posix().encode("utf-8")
