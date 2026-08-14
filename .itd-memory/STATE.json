@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S8-U4-CRLF",
     "goal": "S8-U4: close the independent-review finding that the A19 advisory exemption rejected only LF, letting CR and other line separators smuggle text past the prefix match; rewrite SCOPE_LOCK for S8",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-14T18:23:47Z",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-14T18:49:25Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
