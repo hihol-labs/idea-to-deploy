@@ -1169,6 +1169,7 @@ def main() -> int:
         )
         original_run = producer.run_bounded_process
         event_item_type = "agent_message"
+        event_item_extra: dict[str, object] = {}
         observed_transport_env = {}
         rollout_padding_bytes = 0
 
@@ -1202,9 +1203,10 @@ def main() -> int:
                 json.dumps({
                     "type": "thread.started", "thread_id": "fresh-clean",
                 }).encode(),
-                json.dumps({"type": "item.completed", "item": {
-                    "type": event_item_type, "text": "done",
-                }}).encode(),
+                json.dumps({"type": "item.completed", "item": dict(
+                    {"type": event_item_type, "text": "done"},
+                    **event_item_extra,
+                )}).encode(),
             )) + b"\n"
             return subprocess.CompletedProcess(command, 0, events, b"")
 
@@ -1286,6 +1288,111 @@ def main() -> int:
         else:
             raise AssertionError("observed reviewer tool call was accepted")
         checks += 1
+        # A19. Newer Codex builds report a turn failure as an error ITEM
+        # instead of a turn.failed EVENT. The two-name allowlist counted that
+        # item as a tool call, so the transport's own failure was reported as
+        # the reviewer breaking isolation - blaming the reviewer and hiding the
+        # cause. An error item is a CLI failure, and it must say so.
+        event_item_type = "error"
+        event_item_extra = {"message": "stream disconnected before completion"}
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                "event stream" in str(exc)
+                and "attempted to use a tool" not in str(exc),
+                "codex error item was misreported as a reviewer tool call",
+            )
+        else:
+            raise AssertionError("codex error item was accepted as a clean turn")
+
+        # The build acknowledging our own --disable code_mode_host arrives as an
+        # advisory error item while the turn still completes. That is the closed
+        # denylist working: neither a failure nor a tool call.
+        event_item_extra = {
+            "message": producer.CODE_MODE_DISABLED_ADVISORY_PREFIX
+            + " - install the code-mode host to enable it",
+        }
+        advisory_report, advisory_session, _ = producer.run_codex_review(
+            "bounded prompt", executable=str(trusted_binary),
+            model="subscription-model", source_env=transport_source,
+            expected_executable_sha256=trusted_binary_sha,
+            expected_proxy_sha256=trusted_proxy_sha,
+        )
+        check(
+            advisory_report == clean_verdict()
+            and advisory_session == "fresh-clean",
+            "code-mode-disabled advisory was treated as a failure",
+        )
+
+        # A genuine advisory is one line. A multi-line message that merely
+        # starts with the prefix is not the CLI acknowledging our flag.
+        event_item_extra = {
+            "message": producer.CODE_MODE_DISABLED_ADVISORY_PREFIX
+            + "\nand here is something else entirely",
+        }
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                "event stream" in str(exc),
+                "a multi-line advisory was not treated as a transport failure",
+            )
+        else:
+            raise AssertionError("a multi-line advisory was accepted")
+
+        # Anything else in an error item stays fail-closed - and stays a
+        # TRANSPORT failure. A near-miss of the advisory wording must not be
+        # accepted, and must not be reported as the reviewer using a tool
+        # either; the pre-change producer refused it for the wrong reason.
+        event_item_extra = {"message": "Code Mode is unavailable"}
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                "event stream" in str(exc)
+                and "attempted to use a tool" not in str(exc),
+                "a near-miss advisory was refused as a reviewer tool call",
+            )
+        else:
+            raise AssertionError("a non-advisory error item was accepted")
+
+        # A refusal must name what it saw: a newer CLI emitting an item type
+        # this allowlist has never heard of cannot otherwise be told apart from
+        # a real tool call, which is exactly the distinction an operator needs.
+        event_item_extra = {}
+        event_item_type = "web_search_call"
+        try:
+            producer.run_codex_review(
+                "bounded prompt", executable=str(trusted_binary),
+                model="subscription-model", source_env=transport_source,
+                expected_executable_sha256=trusted_binary_sha,
+                expected_proxy_sha256=trusted_proxy_sha,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                "attempted to use a tool" in str(exc)
+                and "web_search_call" in str(exc),
+                "tool-call refusal did not name the observed item type",
+            )
+        else:
+            raise AssertionError("unknown reviewer item type was accepted")
+        event_item_type = "agent_message"
         try:
             producer.run_codex_review(
                 "bounded prompt", executable=str(trusted_binary),

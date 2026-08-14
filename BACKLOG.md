@@ -28,10 +28,25 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `high-quorum`) in `tests/verify_independent_review_efficacy.py` together with the
   `minimumIndependentReviewers` contract they assert. They were removed from the
   ported matcher because that contract belongs to the policy unit.
-- [ ] Codex error-item classification (A19): the candidate's `run_codex_review`
+- [ ] `run_codex_review` in `skills/_shared/itd_free_reviewer_producer.py` is a
+  God-function: 145 lines after S8-U3, already 107 before it (general-review
+  finding, 2026-08-14). Transport setup, event-stream classification, provenance
+  and report parsing all live in one body, which is why every change to it needs
+  a full-file read. Deliberately not refactored inside a narrowly-scoped
+  classification fix - a behaviour-preserving split is its own unit.
+- [x] Codex error-item classification (A19): the candidate's `run_codex_review`
   handles a reviewer error item that the slice's HEAD-derived version does not.
   Not observed to fail on codex 0.146.0 during acceptance, so it stays a separate
-  bounded fix rather than a silent slice extension.
+  bounded fix rather than a silent slice extension. CLOSED by S8-U3: an error
+  ITEM now routes to the same typed CLI-failure path as a `turn.failed` EVENT
+  instead of being counted as a tool call (which reported the transport's own
+  failure as the reviewer breaking isolation); the code-mode-disabled advisory
+  is recognized by prefix as the denylist working rather than a failure; and the
+  tool-call refusal names the observed item types, so an unknown item type from
+  a newer CLI can be told apart from a real tool call. Covered by five new cases
+  in `tests/verify_free_reviewer_producer.py` (153 -> 158 checks). One narrowing
+  beyond the reviewed GPG-004 port: the advisory must be a single line, so an
+  unbounded trailing suffix cannot smuggle a second line past the prefix match.
 - [ ] Explain one unreproduced `UNVERIFIED` reviewer failure seen on the first WSL
   efficacy attempt (`high-export-capacity`, no unavailability marker in the CLI
   output). The case passed on every later attempt and the suppressed CLI detail was

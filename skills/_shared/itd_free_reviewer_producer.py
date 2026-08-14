@@ -139,6 +139,19 @@ DISABLED_TOOL_FEATURES = (
     "workspace_dependencies",
 )
 
+# codex 0.147.0-alpha acknowledges the transport's own --disable
+# code_mode_host with an advisory error ITEM while the turn still
+# completes; that acknowledgment is the closed denylist working, not a
+# transport failure (A19). Matched by prefix so trailing install-hint
+# wording may vary between builds - but on a SINGLE line, which every
+# genuine advisory is. That is one narrowing beyond the reviewed GPG-004
+# port (checker finding, S8-U3): it costs no real build and denies the
+# only shape an unbounded suffix could smuggle. Anything else stays
+# fail-closed.
+CODE_MODE_DISABLED_ADVISORY_PREFIX = (
+    "Code Mode is unavailable because code-mode host is disabled"
+)
+
 
 class FreeReviewError(RuntimeError):
     """Typed fail-closed producer error."""
@@ -3767,6 +3780,7 @@ def run_codex_review(
             raise FreeReviewError("UNVERIFIED", "OpenAI reviewer output exceeded bounds")
         session = None
         observed_tool_calls = 0
+        observed_tool_items: set[str] = set()
         for raw_line in result.stdout.splitlines():
             try:
                 event = json.loads(raw_line)
@@ -3790,10 +3804,47 @@ def run_codex_review(
             if isinstance(event_type, str) and event_type.startswith("item."):
                 item = event.get("item")
                 item_type = item.get("type") if isinstance(item, dict) else None
+                if item_type == "error":
+                    message = (
+                        item.get("message") if isinstance(item, dict) else None
+                    )
+                    advisory = message.strip() if isinstance(message, str) else ""
+                    if (advisory.startswith(CODE_MODE_DISABLED_ADVISORY_PREFIX)
+                            and "\n" not in advisory):
+                        # The build acknowledging our own --disable
+                        # code_mode_host is the denylist working (A19);
+                        # it is neither a failure nor a tool call.
+                        continue
+                    # Newer Codex builds report a failure as an error ITEM
+                    # rather than a turn.failed EVENT. The tool-call allowlist
+                    # below counted that item as a tool call, so the transport's
+                    # own failure was reported as the reviewer breaking
+                    # isolation - blaming the reviewer and hiding the cause.
+                    # An error item is not a tool call; route it to the same
+                    # typed CLI-failure path as turn.failed, carrying its text.
+                    event_raw = json.dumps(
+                        event, ensure_ascii=False, sort_keys=True
+                    ).encode("utf-8")
+                    raise_cli_failure(
+                        subprocess.CompletedProcess(
+                            command, 1, stdout=event_raw, stderr=b""
+                        ),
+                        "OpenAI reviewer event stream",
+                    )
                 if item_type not in {"reasoning", "agent_message"}:
                     observed_tool_calls += 1
+                    observed_tool_items.add(str(item_type))
         if observed_tool_calls:
-            raise FreeReviewError("UNVERIFIED", "reviewer attempted to use a tool")
+            # Name what was observed. The refusal itself is unchanged and still
+            # fail-closed, but a bare "attempted to use a tool" cannot be told
+            # apart from a newer CLI emitting an item type this two-name
+            # allowlist has never heard of - which is exactly the distinction
+            # an operator needs before touching anything.
+            raise FreeReviewError(
+                "UNVERIFIED",
+                "reviewer attempted to use a tool: "
+                + ", ".join(sorted(observed_tool_items)),
+            )
         if not isinstance(session, str) or not session.strip():
             raise FreeReviewError("UNVERIFIED", "reviewer session provenance is absent")
         if session.strip() != rollout_session:
