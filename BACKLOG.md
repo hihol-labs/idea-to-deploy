@@ -95,6 +95,15 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `tests/fixtures/*/output/` exist — which is after any local test run. Same
   class as the H4 tree-pin item below. Decide once: either the clean-HEAD check
   ignores what Git ignores, or the namespace entries are replaced by file lists.
+- [ ] A16 keeps costing whole runs: the isolated benchmark invocation drops with
+  a typed `OpenAI reviewer event stream transport is unavailable` (exit 3) far
+  more often than a flat `codex exec` does. Fresh data, S8 re-mint 2026-08-14:
+  the `wsl` leg went clean first try, `u12-cross-vendor` needed three attempts
+  and `windows` two, all on that same typed exit, on the same transport within
+  the same hour. Two of those failures hit the FIRST case, so no checkpoint
+  existed and the whole leg restarted from zero - the checkpoint only helps once
+  a verdict has been produced. Worth either a bounded typed-exit-3 retry inside
+  the runner, or a checkpoint written before the first case.
 - [ ] `prepare_adopted_project` in `tests/run-live-model-benchmark.py` copies the
   same `METHODOLOGY_TREE_ROOTS` into the isolated benchmark project through
   `shutil.ignore_patterns`, which excludes `__pycache__`/`*.pyc` by name and is

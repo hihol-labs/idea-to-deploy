@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S8-U3-A19",
-    "goal": "S8-U3: codex error-item classification in run_codex_review (A19) — an error ITEM is a transport failure, not a reviewer tool call; the code-mode-disabled advisory is the denylist working",
+    "id": "S8-EVIDENCE",
+    "goal": "S8 evidence: re-mint the three signed efficacy legs on the final S8 tree so they bind the S8-U3 producer bytes; riskTier high (signed security evidence replacement)",
     "status": "verified",
-    "startedAt": "2026-08-14T14:03:34Z",
+    "startedAt": "2026-08-14T16:05:40Z",
     "riskTier": "high",
-    "completedAt": "2026-08-14T14:49:22Z"
+    "completedAt": "2026-08-14T16:17:20Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
