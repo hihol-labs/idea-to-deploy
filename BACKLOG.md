@@ -36,11 +36,28 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   efficacy attempt (`high-export-capacity`, no unavailability marker in the CLI
   output). The case passed on every later attempt and the suppressed CLI detail was
   not captured, so the cause is currently unknown rather than diagnosed.
-- [ ] Strict POSIX descendant containment in `run_bounded_process` (route finding,
+- [x] Strict POSIX descendant containment in `run_bounded_process` (route finding,
   2026-08-09): cleanup kills the call's process group, so a descendant that
   re-calls `setsid()` escapes and is not reaped; Windows is already strict via the
-  Job Object. Close the gap with a PPID-walk reap or cgroup/PID-namespace
-  containment, with tests that actually daemonize.
+  Job Object. CLOSED by S7-U3 with a PPID-walk reap (pre-kill /proc snapshot,
+  then SIGKILL of the group escapees) and a test that actually daemonizes.
+- [ ] Residual of the containment fix above (S7-U3, 2026-08-13): (a) a double-fork
+  orphan already reparented to init before cleanup is invisible to a PPID walk;
+  (b) the walk is /proc-only, so on a POSIX host without it (macOS) containment
+  degrades to the plain killpg it always was — the reap test skips there rather
+  than claiming coverage; (c) a snapshotted PID reused by an unrelated process
+  before the kill would be signalled by mistake (the window killpg always had,
+  now spread over the escapee list). Closing (a)-(c) properly means cgroup or
+  PID-namespace containment — a separate bounded design, not a patch.
+- [ ] Ложноположительный класс у gpt-5.6-sol на чистом коде (S7, 2026-08-14):
+  в раунде-1 ре-минта обе same-vendor ноги независимо заблокировали чистый
+  кейс `clean-bounded-reconciled-export` с находкой severity high вида
+  «`chunk.push` берётся из `Array.prototype`, достижимого для атакующего».
+  Раунд-2 на том же промпте (promptSha256 совпадает) прошёл чисто, поэтому это
+  дисперсия, а не устойчивый дефект — но класс стоит отслеживать: при пороге
+  maximumCleanFalseBlockRate 0.1 одного такого срабатывания на 4 чистых кейса
+  хватает, чтобы покраснел весь гейт. Артефакты раунда-1:
+  `.itd-memory/efficacy-evidence/s7-round1/`.
 - [ ] Harden the run-all host-pin boundary (route finding F4, 2026-08-09): the
   efficacy keyring pin path is chosen by candidate code (`tests/run-all.sh`) and
   only existence-checked. The strict receipt path already passes it as a declared
@@ -52,10 +69,11 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `skills/_shared/.claude/traces/` silently entered the H4 tree pin, and the mismatch
   only surfaced later in the isolated staged candidate as three failing checks. The
   pin should either exclude the same paths Git ignores or fail loudly at run time.
-- [ ] Exclude `__pycache__`/`*.pyc` bytecode from the `sync-to-active.sh` drift
+- [x] Exclude `__pycache__`/`*.pyc` bytecode from the `sync-to-active.sh` drift
   scan (found closing U6, 2026-08-10): the only reported skill drift on a fully
   synced install was `skills/_shared/__pycache__` — pure noise that makes a
-  clean parity check read as "~1 updated".
+  clean parity check read as "~1 updated". CLOSED by S7-U4 (`diff -rq -x
+  __pycache__ -x '*.pyc'`), covered by `tests/verify_sync_manifest.py`.
 - [x] Whitespace-split secrets evade the scrubber detectors (R1 review
   finding, 2026-08-10, pre-existing): closed INSIDE the R1 slice after the
   independent route showed R1 widens the exposure (the accidental
@@ -126,15 +144,18 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Live-model benchmark provenance polish (residual of the closed item
   above): assert absence of fail-open self-validation in the retained
   transcript and record the originating request as a first-class field.
-- [ ] Sync-manifest gap: `scripts/sync-to-active.sh` verifies that
+- [x] Sync-manifest gap: `scripts/sync-to-active.sh` verifies that
   `.claude-plugin/plugin.json` exists but never syncs it, so the installed
   manifest `~/.claude/.claude-plugin/plugin.json` is aligned manually today.
-  Add the manifest to the sync and verify-sync surface.
-- [ ] Bounded-process transport hardening (route-adjudication accepted
+  CLOSED by S7-U4: the manifest is synced (add + content-drift paths, dry-run
+  aware) and policed by `scripts/verify-sync-to-active.sh`, with
+  `tests/verify_sync_manifest.py` as the behavioral oracle.
+- [x] Bounded-process transport hardening (route-adjudication accepted
   trade-offs): reject NaN/inf timeout values before deadline arithmetic and
-  harden relative-cwd handling in the Windows wrapper. POSIX descendant
-  containment and the run-all host-pin boundary are already tracked in the
-  slice section above.
+  harden relative-cwd handling in the Windows wrapper. CLOSED by S7-U1
+  (`math.isfinite` guard) and S7-U2 (`wrapper_plan_cwd` anchors a relative cwd
+  at the caller before the temp-dir hop). POSIX descendant containment closed
+  separately by S7-U3; the run-all host-pin boundary stays open above.
 - [ ] Pre-existing ledger drift: `GOAL-2026-07-06-axis*` / `PE5-015` unit
   ledgers drifted from current evidence before GPG-004 started. Reconcile the
   ledgers honestly — no synthetic evidence backfill.

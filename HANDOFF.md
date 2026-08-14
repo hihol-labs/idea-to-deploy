@@ -1,54 +1,69 @@
-# HANDOFF — S6-SCRUBBER: residual-credential detector precision — ЗАКРЫТ (2026-08-13)
+# HANDOFF — S7: четыре долга адъюдикаций GPG-004 (2026-08-13)
 
-**S6 закрыт целиком**: [PR #201] merged как `300fcab` (base `84742fb`), CI
-green (Gate 1 + windows-verify). Post-merge fresh evidence на merged main:
-verify_scrubber_precision 30 PASSED, verify_review_broker 741,
-verify_free_reviewer_producer 144, verify_independent_review_efficacy PASSED
-(hostParityVerified true), quick `DONE fails:none`. Юнит `S6-SCRUBBER` →
-verified в STATE (evidence полный, adjudication receipts
-c231e0239981f339/a1 и 95bbe377e5b8daea/a1).
+## Состояние
+- Ветка: `fix/s7-transport-sync-debts` (от main 6aa1d34, S6 закрыт).
+- Скоуп S7 approved пользователем: 4 юнита, все с тестами; декомпозиция ниже.
+- «sync-manifest __pycache__» подтверждён как ОБА sync-долга (манифест + bytecode-шум).
 
-## Что вошло
+## Юниты (WIP=1) — 4/4 кода готово
+1. **S7-U1-NANINF** — DONE, коммит 219f6c8. `math.isfinite(timeout)` в
+   валидации `run_bounded_process`; тесты nan/inf/-inf + позитив.
+2. **S7-U2-RELCWD** — DONE, коммит 64f68a2. Helper `wrapper_plan_cwd`
+   (abspath, не resolve) анкерит относительный cwd на caller'е до temp-хопа.
+3. **S7-U3-POSIXREAP** (high) — DONE, коммит 298dc24. Pre-kill PPID-walk
+   снапшот `/proc` в `_close_process_tree` + SIGKILL сбежавших; тест реально
+   демонизирует setsid-грандчайлда. Residual (double-fork orphan, /proc-only,
+   PID-reuse) задекларирован в docstring и BACKLOG.
+4. **S7-U4-SYNC** — код готов, unit verified (receipt f370b6f5), НЕ закоммичен:
+   ждёт general-review клейма. sync-to-active.sh синкает
+   `.claude-plugin/plugin.json` (add + drift, dry-run aware) и исключает
+   `__pycache__`/`*.pyc` из drift-скана; verify-sync-to-active.sh полицит
+   манифест; новый оракул tests/verify_sync_manifest.py (9 checks: dry-run,
+   apply-mode install, re-run unchanged, bytecode-not-drift) в run-all CORE;
+   BACKLOG: три пункта закрыты.
 
-1. **Детектор** (`afe8748`): value-capture в `RESIDUAL_CREDENTIAL_RE`;
-   значение, целиком являющееся одним код-выражением, — не литеральный
-   секрет. Грамматика узкая после двух реальных находок маршрута: кавычные
-   значения — только `$`-интерполяции (r5); `${…}` — имя+опциональный
-   подскрипт, `$(…)` — голое имя команды, аргументы/индексы — без `#` и
-   пробелов (r6, wrapper-smuggling). Каждый пропуск — с TP-антипарой:
-   RED-first `tests/verify_scrubber_precision.py`, 30 checks, CORE.
-2. **Producer**: детекторы по SCRUBBED-тексту (паритет с broker/
-   build_candidate, контракт «redaction is not a finding»); ненейтрализуемый
-   зазор (`#` в bare-значении) — fail-closed. producer-сьют перепинен (144).
-3. **Три efficacy-ноги** перечеканены живьём на финальных байтах: wsl 9/9,
-   u12 cross-vendor 9/9 (maker claude-fable-5), windows 9/9 (powershell-
-   interop); ретраев не было (A21).
-4. **Live re-record** (`fb71ba0`): ран 20260813T164516Z-916e7a92,
-   `--require-evidence` 107/0; конвенции evidence-корпуса вписаны в
-   SCOPE_LOCK (transparent .jsonl.gz textconv, fixture-03 = nginx-CLI
-   бенчмарк, известная tail-truncation рекордера).
+## Ключевые решения (уже в .itd/DECISIONS.md, последняя запись)
+- Efficacy-леги ре-минтятся ОДИН раз на финальном S7-дереве перед PR;
+  per-unit регрессия = run-all зелёный за вычетом одного tree-bound
+  `verify_independent_review_efficacy` («producerSha256 foreign» — ожидаемо
+  при любой правке producer'а). Гейт PR остаётся полным.
+- Прогон bfivnldkv: run-all на U1-дереве — единственный FAIL именно этот.
 
-## Уроки маршрута (для retro)
+## Ловушки (из session-файла S6, не переоткрывать)
+- `itd pr create` делает draft-PR; coverage-матрица требует machine receipt;
+  снапшот producer'а держать вне репо; committed-head валидация — через
+  staged-дифф; completion-signals hook мисклассифицирует (его FIX-подсказки —
+  шум, корневую причину искать самому); riskTier у `itd_unit_log activate`
+  флага НЕТ — activate пишет только id/goal/status/startedAt, а review-cache
+  читает СТРУКТУРНОЕ поле STATE.currentUnit.riskTier (иначе context
+  riskTier=unknown и гейт красный): после activate добавь поле руками
+  json-round-trip'ом, значение из enum high/low/medium/unknown («standard»
+  НЕ значение — маппится в medium). Прецедент: S6 high, U17 low. Укус №3.
+- review-гейт биндит exact staged diff: любой новый staged файл (включая
+  claude-review-*.md отчёт — он НЕ в .gitignore) инвалидирует record;
+  порядок: финализируй staged-набор → mint receipts → record → commit без
+  промежуточных git add.
+- Прямой запуск verify_independent_review_efficacy требует
+  `--expected-keyring-sha256-file` (run-all подставляет сам; host-owned pin).
 
-- Тесты/доки про детектор обязаны сами проходить детектор: runtime-сборка
-  строк; scrub-редакция калечит кавычки в диффе → ревьюер видит «битый»
-  Python (r5-blocker класс).
-- Ревьюеру нужны конвенции корпуса в scope-lock — иначе 3 FP-находки об
-  evidence-файлах (gzip/textconv, содержимое бенчмарк-транскрипта,
-  tail-truncation).
-- `itd_unit_log activate` не пишет riskTier в STATE.currentUnit → cache-
-  контекст unknown, record fail-closed отказывает; дописывать при активации
-  (known follow-up).
-- verify_review_broker: один транзиентный ранний крах в изолированном
-  чекауте (5с, пустой stdout, S2-класс) — зелёный на повторе; follow-up.
-- itd pr create дотолкал push через гейт, но упал на PR-lookup из-за
-  персистентного TLS-флейка к api.github.com → PR создан gh-фоллбэком
-  (прецедент S2), реестр перерегистрирован register-profile'ом заранее.
+## Ре-минт efficacy-ног — восстановленные параметры (S7, 2026-08-13)
+- Signing key: `.itd-memory/verification-loop/keys/gpg003-local-producer-20260803.key`
+  (в проекте, gitignored; НЕ в `~/.itd/keys/` — такого каталога на машине нет).
+  Windows-нога: `...-20260803.windows.key` рядом. Публичная часть сверена с
+  `.itd/REVIEW_EFFICACY_KEYRING.json` — совпадает.
+- Codex 0.146.0 native binary (sha 2e863156…, совпал с записанным в ноге):
+  `~/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`
+  (обёртка `~/.npm-global/bin/codex` имеет другой sha — брать native).
+- `--proxy-sha256 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
+- Пары маркер/ревьюер (enforced верификатором): wsl-нога — opposite-GPT
+  `--maker-model gpt-5.6-terra --maker-provider openai-subscription --model gpt-5.6-sol`;
+  u12-cross-vendor — anthropic maker + OpenAI reviewer
+  (`--maker-model claude-opus-5 --maker-provider anthropic-subscription --model gpt-5.6-sol`;
+  любой anthropic-маркер вне EXPECTED_OPPOSITE валиден — для свежей записи
+  честное значение = модель, реально ведущая сессию).
+- Ноги протухают: верификатор требует `observedAt` не старше 30 дней.
 
-## Очередь (next)
-
-BACKLOG follow-ups: benchmark provenance polish, sync-manifest gap,
-bounded-process transport hardening, ledger drift, matcher category wording,
-S9 stale-head pre-push, riskTier в itd_unit_log activate. GENG-000 стартует
-через /goal (план ADR-009, memory geng_program_plan + правки
-project_geng_plan_amendments).
+## Финиш-чеклист S7 (после U4)
+ре-минт 3 efficacy-ног (wsl, windows, u12-cross-vendor — Windows-нога с
+Windows-хоста!) → полный run-all зелёный → /review + adjudication → PR
+(draft) → BACKLOG: снять 4 закрытых пункта → ledger-close → /session-save --close.

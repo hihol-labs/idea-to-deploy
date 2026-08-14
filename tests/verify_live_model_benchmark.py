@@ -253,6 +253,13 @@ def verify_evidence(path: Path, max_age_days: int) -> None:
           attempt_count in {1, 2} and len(blueprint_attempts) == attempt_count)
     check("live candidate recovery flag matches attempt count",
           candidate.get("recoveryTriggered") is (attempt_count == 2))
+    # The prose reason must agree with the structured recovery flag: a
+    # devils-advocate phase entry in attempts[] is not a retry, and a reason
+    # claiming "bounded recovery" over recoveryTriggered=false misleads any
+    # consumer that reads only one of the two (S7 route finding, 2026-08-14).
+    check("live candidate reason agrees with the recovery flag",
+          ("after bounded recovery" in str(report.get("reason", "")))
+          is (candidate.get("recoveryTriggered") is True))
     check("exactly one devils-advocate phase ran last",
           len(advocate_attempts) == 1 and attempts
           and attempts[-1].get("phase") == "devils-advocate")

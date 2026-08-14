@@ -132,7 +132,7 @@ for src_skill in "$REPO_ROOT"/skills/*/; do
   # Content-based compare — ignores mtime/inode metadata that would
   # make tar+md5 report false drift on every run. `diff -rq` returns
   # non-zero if any file differs, silent if identical.
-  if diff -rq "$src_skill" "$dst" >/dev/null 2>&1; then
+  if diff -rq -x '__pycache__' -x '*.pyc' "$src_skill" "$dst" >/dev/null 2>&1; then
     unchanged=$((unchanged + 1))
     continue
   fi
@@ -148,6 +148,30 @@ for src_skill in "$REPO_ROOT"/skills/*/; do
 done
 
 ok "skills: +$added added, ~$updated updated, =$unchanged unchanged"
+
+# --- plugin manifest (v1.96.1) ------------------------------------------------
+# The repo manifest was only existence-checked at startup and never synced, so
+# ~/.claude/.claude-plugin/plugin.json drifted until someone aligned it by hand.
+src_manifest="$REPO_ROOT/.claude-plugin/plugin.json"
+dst_manifest="$ACTIVE/.claude-plugin/plugin.json"
+if [ ! -f "$dst_manifest" ]; then
+  if [ "$DRY_RUN" = "1" ]; then
+    printf "  + would add   %s\n" ".claude-plugin/plugin.json"
+  else
+    mkdir -p "$ACTIVE/.claude-plugin"
+    cp "$src_manifest" "$dst_manifest"
+    printf "  + added       %s\n" ".claude-plugin/plugin.json"
+  fi
+elif cmp -s "$src_manifest" "$dst_manifest"; then
+  ok "manifest: .claude-plugin/plugin.json unchanged"
+else
+  if [ "$DRY_RUN" = "1" ]; then
+    printf "  ~ would sync  %s (content drift)\n" ".claude-plugin/plugin.json"
+  else
+    cp "$src_manifest" "$dst_manifest"
+    printf "  ~ updated     %s\n" ".claude-plugin/plugin.json"
+  fi
+fi
 
 # -----------------------------------------------------------------------------
 # Step 2/6: Sync hooks

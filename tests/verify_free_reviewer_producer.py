@@ -14,9 +14,11 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -154,6 +156,85 @@ def main() -> int:
         checks += 1
         if not condition:
             raise AssertionError(message)
+
+    # S7-U1: non-finite timeouts must be rejected before deadline arithmetic —
+    # NaN slips through a `timeout <= 0` guard (both comparisons are False) and
+    # +inf never expires, so either would silently disarm the process bound.
+    for bad_timeout in (float("nan"), float("inf"), float("-inf")):
+        try:
+            producer.run_bounded_process(
+                [sys.executable, "-c", "pass"], timeout=bad_timeout
+            )
+        except ValueError:
+            checks += 1
+        else:
+            raise AssertionError(
+                f"non-finite timeout {bad_timeout!r} was accepted"
+            )
+    completed = producer.run_bounded_process(
+        [sys.executable, "-c", "print('ok')"], timeout=30.0
+    )
+    check(completed.returncode == 0 and b"ok" in completed.stdout,
+          "finite float timeout no longer runs the bounded process")
+
+    # S7-U2: the Windows wrapper starts from its own temp directory, so a
+    # relative cwd in the plan would resolve against the wrong base. The plan
+    # must anchor it at the caller's directory before handoff — without
+    # collapsing symlinks (abspath semantics, not resolve).
+    check(producer.wrapper_plan_cwd(None) == os.getcwd(),
+          "plan cwd default is not the caller's directory")
+    check(producer.wrapper_plan_cwd("sub/dir")
+          == os.path.join(os.getcwd(), "sub", "dir"),
+          "relative plan cwd is not anchored at the caller")
+    absolute_probe = os.path.join(os.getcwd(), "already-absolute")
+    check(producer.wrapper_plan_cwd(Path(absolute_probe)) == absolute_probe,
+          "absolute plan cwd must pass through unchanged")
+
+    # S7-U3: a descendant that re-calls setsid() leaves the process group, so
+    # killpg alone never reaps it. The cleanup must snapshot descendants via a
+    # PPID walk BEFORE the kill and finish off group escapees. This test
+    # actually daemonizes: the grandchild detaches into its own session and
+    # outlives the parent's timeout unless reaped. (Accepted residual: a
+    # double-fork orphan reparented to init before cleanup stays invisible to
+    # a PPID walk — BACKLOG containment item.)
+    if os.name != "nt" and Path("/proc").is_dir():
+        with tempfile.TemporaryDirectory(prefix="itd-reap-") as reap_raw:
+            escapee_pid_path = Path(reap_raw) / "escapee.pid"
+            daemonizing_child = (
+                "import os, sys, time\n"
+                "pid = os.fork()\n"
+                "if pid == 0:\n"
+                "    os.setsid()\n"
+                f"    open({str(escapee_pid_path)!r}, 'w')"
+                ".write(str(os.getpid()))\n"
+                "    time.sleep(120)\n"
+                "    raise SystemExit(0)\n"
+                "time.sleep(120)\n"
+            )
+            try:
+                producer.run_bounded_process(
+                    [sys.executable, "-c", daemonizing_child], timeout=3.0
+                )
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                raise AssertionError("daemonizing fixture did not time out")
+            check(escapee_pid_path.is_file(),
+                  "daemonized escapee never announced its pid")
+            escapee_pid = int(escapee_pid_path.read_text())
+            for _ in range(50):
+                try:
+                    os.kill(escapee_pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                os.kill(escapee_pid, signal.SIGKILL)
+                raise AssertionError(
+                    "setsid escapee survived cleanup: killpg cannot reach "
+                    "another session and no reap followed"
+                )
+            checks += 1
 
     with tempfile.TemporaryDirectory(prefix="itd-free-review-") as raw:
         fixture = Path(raw)
