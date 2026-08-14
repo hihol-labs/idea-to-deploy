@@ -121,6 +121,14 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   better. Open question worth its own unit: should
   `verify_live_model_benchmark.py` fail an internally self-contradictory run
   rather than accepting the snapshot oracle's PASS?
+- [ ] `bash tests/run-all.sh` can report a FALSE red when the unit ledger is
+  written concurrently (S8, 2026-08-14): a run that overlapped an
+  `itd_unit_log activate` write to `.itd-memory/STATE.json` reported
+  `DONE fails: verify_harness_map_fixtures`, while the same verifier standalone
+  gave `39 passed, 0 failed` and an immediate clean re-run of the whole suite
+  gave `DONE fails:none`. Harness-state readers should either snapshot the
+  ledger or the suite should refuse to start while a ledger write is in flight;
+  a red that disappears on re-run teaches operators to ignore reds.
 - [ ] A16 keeps costing whole runs: the isolated benchmark invocation drops with
   a typed `OpenAI reviewer event stream transport is unavailable` (exit 3) far
   more often than a flat `codex exec` does. Fresh data, S8 re-mint 2026-08-14:

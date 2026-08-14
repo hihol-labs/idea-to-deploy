@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S8-U4-CRLF",
-    "goal": "S8-U4: close the independent-review finding that the A19 advisory exemption rejected only LF, letting CR and other line separators smuggle text past the prefix match; rewrite SCOPE_LOCK for S8",
-    "status": "verified",
-    "startedAt": "2026-08-14T18:23:47Z",
-    "riskTier": "high",
-    "completedAt": "2026-08-14T18:49:25Z"
+    "id": "S8-EVIDENCE2",
+    "goal": "S8 evidence 2: re-mint the three signed efficacy legs against the S8-U4-CRLF producer bytes",
+    "status": "in_progress",
+    "startedAt": "2026-08-14T19:15:04Z",
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",
