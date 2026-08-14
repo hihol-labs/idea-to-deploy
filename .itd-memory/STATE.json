@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S8-RERECORD",
     "goal": "S8 re-record: live H4 benchmark evidence re-recorded on the clean S8 tree so benchmarkRunner, candidateAdapter and methodologyTree pins bind again; riskTier high (published live evidence replacement)",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-14T16:34:48Z",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-14T16:53:08Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
