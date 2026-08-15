@@ -180,49 +180,57 @@ U1 обесценил подписанные ноги (`producerSha256` бинд
 живой re-record бенчмарка на чистом дереве → публикация через `itd pr create`
 → релиз S8+S9.
 
-## 6c. ОТКРЫТО: публикации нужен отдельный claim на committed-head
+## 6c. ОТКРЫТО: публикации нужен mandatory keyless route (одна команда)
 
-`itd pr create` отвечает
-`{"reason": "current local independent review is not valid", "status":
-"UNVERIFIED"}`. Причина найдена прямым прогоном валидатора:
+Сделано и лежит готовым: claim `S9-EVIDENCE` открыт, обе машинные квитанции
+отчеканены на committed-head (`receipts/bcd19b10edf85776/`), свежий чекер
+`claude-sonnet-5` вернул PASSED 0 findings по всей ветке, обе adjudication —
+PASSED (`S9-EVIDENCE-adjudication.json`, `S9-EVIDENCE-gr-adjudication.json`).
 
-```bash
-sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py check \
-  --root . --unit-id "<claim>" --risk-tier medium \
-  --candidate-mode committed-head --require-mandatory-route \
-  --accept-adjudicated-route --expected-repository hihol-labs/idea-to-deploy \
-  --receipt <adjudication.json>
+**Но этого НЕ хватает, и это не дефект.** Прогон валидатора ровно так, как его
+зовёт `profile_doctor_entry`, даёт точную причину:
+
+```json
+{"why": "mandatory keyless route evidence is missing",
+ "fix": "Run the shared fresh opposite-GPT producer and bind its signed
+         phase-one receipt."}
 ```
 
-- без `--expected-repository` → `mandatory publication repository is missing`;
-- с ним, но с квитанцией юнита → `receipt does not match the exact current
-  candidate`.
+То есть публикационный гейт принимает НЕ claude-чекера (им закрывались юниты),
+а **общий свежий opposite-GPT продюсер** — `gpt-5.6-terra` через codex, с
+подписанной phase-one квитанцией. Прежняя запись в этом поле угадывала иначе;
+проверено исполнением, а не рассуждением.
 
-Дело не в дефекте: квитанции юнитов привязаны к **staged-деревьям своих
-кандидатов**, а публикация судит **committed-head текущего HEAD ветки**
-(сейчас `ed73f59`, родитель `59ad17d`). Это ровно тот отдельный
-publication-claim, который в прошлых срезах назывался `S7-EVIDENCE` /
-`S8-EVIDENCE` (см. сообщение коммита `08c070f`: «pre-PR publication claim
-S7-EVIDENCE:general-review rides the mandatory opposite-GPT route»).
+Второй факт из того же прогона: реестр `~/.config/itd/gates.json` пришпилен к
+предыдущему claim'у (`localReviewUnitId: "S8-PUBLISH2"`, `localReviewRiskTier:
+"high"`, receipt `S8-PUBLISH2-adjudication.json`). Проверка на tier `high`
+отвечает `receipt risk tier does not match adjudication` — значит квитанцию S9
+надо чеканить под ТОТ ЖЕ tier, что будет прописан в реестре, и реестр
+перерегистрировать на неё.
 
-**Что сделать следующей сессии:**
+**Что осталось сделать — по шагам:**
 
-1. Открыть claim публикации (например `S9-EVIDENCE`) и отчеканить его тройку
-   в режиме `--candidate-mode committed-head` — на HEAD ветки как есть, без
-   новых правок дерева. Нужны ОБА claim-id: `S9-EVIDENCE` и
-   `S9-EVIDENCE:general-review`.
-2. Обязательные флаги маршрута: `--require-mandatory-route`,
-   `--accept-adjudicated-route`, `--expected-repository hihol-labs/idea-to-deploy`.
-3. Ревьюер этого claim'а — mandatory opposite-GPT route (в S7 это был свежий
-   `gpt-5.6-terra`), а не тот же claude-чекер, которым закрывались юниты.
-   **Теперь это исполнимо благодаря U1**: продюсер наконец умеет
-   `--candidate-mode committed-head`, ради чего юнит и делался.
-4. Затем `sh skills/_shared/itd_py.sh scripts/itd.py pr create --maker-vendor
+1. Прогнать `skills/_shared/itd_free_reviewer_producer.py review` с
+   `--candidate-mode committed-head` (именно ради этого делался U1 — до него
+   продюсер не умел закоммиченный кандидат). Аргументы: `--root .`,
+   `--base e3131c9`, `--repository hihol-labs/idea-to-deploy`,
+   `--scope .itd/SCOPE_LOCK.md`, `--acceptance .itd/ACCEPTANCE_CONTRACT.json`,
+   `--machine-receipt <S9-EVIDENCE-machine из receipts/bcd19b10edf85776/>`,
+   `--signing-key .itd-memory/verification-loop/keys/gpg003-local-producer-20260803.key`,
+   `--key-id gpg003-local-producer-20260803`, `--codex <ELF из vendor-пакета>`,
+   `--codex-sha256 37e6f595…`, `--proxy-sha256 01ba4719…`,
+   `--maker-provider anthropic --maker-model claude-opus-5 --maker-session <id>`,
+   `--reviewer-model gpt-5.6-terra`, плюс `--prompt-output/--report-output/--output`.
+   Транспорт рвётся — у продюсера, в отличие от efficacy-раннера, чекпоинта
+   НЕТ (см. `.itd/GPG-004_A16_TRANSPORT.md`), обрыв стоит всю попытку.
+2. Отчеканить adjudication поверх подписанной phase-one квитанции, tier —
+   согласовать с реестром (в S8 было `high`).
+3. Перерегистрировать `~/.config/itd/gates.json` на новый
+   `localReviewUnitId` / `localReviewReceiptFile` / `localReviewRiskTier`.
+4. `sh skills/_shared/itd_py.sh scripts/itd.py pr create --maker-vendor
    anthropic --maker-model claude-opus-5 --maker-session <id>`.
-   Прямой `git push` запрещён и отклоняется guarded-хуком.
-5. После merge — общий релиз S8+S9 по `docs/RELEASE_RUNBOOK.md`, затем
-   `scripts/sync-to-active.sh` (иначе установка останется на версии с
-   закрытыми дырами).
+5. После merge — релиз S8+S9 по `docs/RELEASE_RUNBOOK.md`, затем
+   `scripts/sync-to-active.sh`.
 
 ## 7. Блокеры и риски
 
