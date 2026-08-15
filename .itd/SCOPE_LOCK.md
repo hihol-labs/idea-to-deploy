@@ -64,7 +64,39 @@ branch against main.
 - `.itd/SCOPE_LOCK.md` — this file.
 - `.itd-memory/STATE.json` (force-added ledger) — the unit ledger as it
   advanced through S8-U1 → S8-U2 → S8-U3 → S8-EVIDENCE → S8-RERECORD →
-  S8-FOLLOWUP → S8-U4-CRLF, each recorded verified with its receipt digest.
+  S8-FOLLOWUP → S8-U4-CRLF → S8-U5 → S8-EVIDENCE2 → S8-RERECORD2 → S8-POLICY →
+  S8-RERECORD3, each recorded verified with its receipt digest.
+
+## Units added after this scope was first sealed
+
+The branch did not stop at S8-U4-CRLF. Each unit below was opened because the
+mandatory route or a frozen oracle rejected the branch as it then stood, and
+each carries its own adjudication receipt under
+`.itd-memory/verification-loop/`. They are named here so the candidate declares
+its real composition rather than a stale prefix of it.
+
+- **S8-U5** (`skills/_shared/itd_free_reviewer_producer.py`,
+  `tests/verify_free_reviewer_producer.py`) — the advisory exemption stripped
+  the message before checking it, so a leading control character was
+  normalised away before the check could see it. Validate the raw message;
+  171 -> 174 checks. Commit 7b31eb7.
+- **S8-EVIDENCE2 / S8-RERECORD2 / S8-RERECORD3**
+  (`benchmarks/independent-review-efficacy/results/*.json`,
+  `tests/fixtures/live-model-evidence/**`) — the signed efficacy legs and the
+  live H4 recording, re-minted each time a producer or policy change moved the
+  bytes they pin. No recording is ever edited; each repair is a fresh live run.
+  Commits 0f88fca, aae7e0a, 0c3671d.
+- **S8-POLICY** (`skills/_shared/itd_review_evidence.py`,
+  `tests/verify_independent_review_efficacy.py`,
+  `.itd/ACCEPTANCE_CONTRACT.json`, `BACKLOG.md`) — a closed acceptance followup
+  kept pinning the review coverage matrix and deadlocked publication. Closing
+  releases the matrix to the pre-declaration baseline; an OPEN followup is not
+  relaxed, which two tests pin. Commit 7ff247b.
+- **Contract and ledger bookkeeping** (`.itd/SCOPE_LOCK.md`,
+  `.itd-memory/STATE.json`, `.itd-memory/contracts/S8-*.md`) — the gate results
+  closed in 50b4707 are backed by named receipts recorded in
+  `verificationHistory`; `branchFinish` and `deploymentReadiness` stay pending
+  because the branch is not finished and nothing is deployed.
 
 ## What a reviewer judges inside recorded live evidence
 
