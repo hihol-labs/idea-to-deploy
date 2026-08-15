@@ -12,6 +12,26 @@ from scripts import itd_machine_oracle as oracle  # noqa: E402
 
 RUN_ALL = ROOT / "tests" / "run-all.sh"
 NAME_RE = re.compile(r"^[a-z0-9_]+$")
+# Verifiers that refuse a repository-supplied value and take it as a host-owned
+# input instead. run-all.sh carries the same table in its run_py case; this
+# aggregator runs the same CORE list without that shell, so omitting an entry
+# makes the verifier exit on argparse and read as a candidate regression.
+# tests/verify_machine_oracle.py fails closed if the two copies drift apart.
+# Each entry declares the extra argv AND, separately, which of those values are
+# repository-relative files the host must have provisioned. Keeping the two
+# explicit means a future host input that is a literal value rather than a path
+# needs no guessing rule here (checker finding, S8-U1).
+HOST_INPUT_ARGS = {
+    "verify_independent_review_efficacy": {
+        "args": (
+            "--expected-keyring-sha256-file",
+            ".itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+        ),
+        "requiredFiles": (
+            ".itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+        ),
+    },
+}
 
 
 def main() -> int:
@@ -30,9 +50,23 @@ def main() -> int:
         if not NAME_RE.fullmatch(name) or not verifier.is_file():
             failures.append(name)
             continue
+        entry = HOST_INPUT_ARGS.get(name, {})
+        extra = tuple(entry.get("args", ()))
+        missing_input = [
+            value for value in entry.get("requiredFiles", ())
+            if not (ROOT / value).is_file()
+        ]
+        if missing_input:
+            failures.append(name)
+            print(
+                f"FAIL {name} host-owned input is not provisioned: "
+                + " ".join(missing_input),
+                file=sys.stderr,
+            )
+            continue
         try:
             result = oracle.run_argv(
-                [sys.executable, "-I", str(verifier)],
+                [sys.executable, "-I", str(verifier), *extra],
                 cwd=ROOT,
                 timeout=300,
                 max_output_bytes=oracle.MAX_OUTPUT_BYTES,

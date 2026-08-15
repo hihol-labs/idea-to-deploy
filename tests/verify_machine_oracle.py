@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "scripts" / "itd_machine_oracle.py"
+RUN_ALL = ROOT / "tests" / "run-all.sh"
 spec = importlib.util.spec_from_file_location("itd_machine_oracle_test", MODULE)
 assert spec and spec.loader
 oracle = importlib.util.module_from_spec(spec)
@@ -944,6 +946,56 @@ def required_workflow_phase() -> None:
         "oracle.run_argv(" in quick
         and "max_output_bytes=oracle.MAX_OUTPUT_BYTES" in quick,
         "quick verifier delegates every child to bounded oracle capture",
+    )
+
+    # run-all.sh special-cases the verifiers that need a host-owned input
+    # (the efficacy oracle refuses a repository-supplied keyring digest). The
+    # CORE aggregator runs the same list without that shell, so a verifier
+    # missing here exits on argparse and reports as a candidate regression.
+    # Both callers must name the same verifiers and the same flags.
+    run_all = RUN_ALL.read_text(encoding="utf-8")
+    body = run_all.partition("run_py() {")[2].partition("\n}")[0]
+    shell_arms = set(re.findall(r"^\s{4}([a-z_][a-z_0-9]*)\)\s*$", body, re.M))
+    shell_flags = set(re.findall(r'"tests/\$t\.py"\s+(--[a-z0-9-]+)', body))
+    module = importlib.util.module_from_spec(
+        importlib.util.spec_from_file_location(
+            "itd_quick_regression", ROOT / "tests/verify_quick_regression.py"
+        )
+    )
+    table = {}
+    try:
+        module.__loader__.exec_module(module)
+        table = dict(getattr(module, "HOST_INPUT_ARGS", {}))
+    except Exception:
+        table = {}
+    check(
+        set(table) == shell_arms and bool(shell_arms),
+        "aggregator host-input table names the same verifiers as run-all.sh",
+    )
+    table_args = {name: tuple(entry.get("args", ()))
+                  for name, entry in table.items()}
+    check(
+        {flag for args in table_args.values() for flag in args
+         if flag.startswith("--")} == shell_flags and bool(shell_flags),
+        "aggregator passes the same host-input flags as run-all.sh",
+    )
+    # Names and flags matching is not enough: a table whose PATH value is a
+    # typo still satisfies both sets above while silently pointing the verifier
+    # at a file that does not exist. Every non-flag value must appear verbatim
+    # in run-all.sh, which is where the host-owned path is authored.
+    table_values = {value for args in table_args.values() for value in args
+                    if not value.startswith("--")}
+    check(
+        bool(table_values)
+        and all(f'"{value}"' in body for value in table_values),
+        "aggregator host-input values are the ones run-all.sh authors",
+    )
+    # Every declared required file must be one of the values actually passed,
+    # otherwise the fail-closed branch guards a path the verifier never reads.
+    check(
+        all(set(entry.get("requiredFiles", ())) <= set(entry.get("args", ()))
+            for entry in table.values()),
+        "aggregator required host inputs are a subset of the passed values",
     )
 
 

@@ -37,17 +37,17 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S7-EVIDENCE",
-    "goal": "S7 evidence commit: re-mint three efficacy legs on the final S7 tree (two rounds recorded honestly) + BACKLOG false-positive class; riskTier high (pre-PR publication claim: security containment changes + signed efficacy evidence replacement)",
+    "id": "S8-RERECORD3",
+    "goal": "S8 re-record 3: live H4 evidence recorded on the clean tree after S8-POLICY changed skills/",
     "status": "verified",
-    "startedAt": "2026-08-13T22:06:15Z",
+    "startedAt": "2026-08-15T15:14:39Z",
     "riskTier": "high",
-    "completedAt": "2026-08-13T22:38:47Z"
+    "completedAt": "2026-08-15T15:14:39Z"
   },
   "gateResults": {
-    "acceptanceContract": "pending",
-    "specComplianceReview": "pending",
-    "codeQualityReview": "pending",
+    "acceptanceContract": "passed",
+    "specComplianceReview": "passed",
+    "codeQualityReview": "passed",
     "tests": "passed",
     "tddRed": "passed",
     "tddGreen": "passed",
@@ -344,6 +344,12 @@
       "command": "ADR-006 single opposite-GPT implementation and dual-host pre-freeze validation",
       "result": "passed",
       "evidence": "Mandatory route 81/81 on WSL and native Windows reports route=[openai-subscription]; producer 105/105 on both hosts; Verification Loop 78/78, broker 741/741, server 50/50, doctor 28/28, optional Copilot adapter 49/49, host adapters, feature-ledger completeness, meta-review and quick suite DONE fails:none passed. Fresh signed Terra efficacy envelopes on WSL and Windows report critical/high detection 100%, medium detection 100%, clean false blocks 0%, missing-evidence detection 100% and finding retention 100%. Exact committed-candidate machine/review/adjudication remains pending."
+    },
+    {
+      "unitId": "S8-POLICY",
+      "at": "2026-08-15T12:30:00Z",
+      "gate": "acceptanceContract/codeQualityReview/specComplianceReview",
+      "evidence": "acceptanceContract: .itd-memory/contracts/S8-POLICY.md standards all met and .itd/ACCEPTANCE_CONTRACT.json activeFollowup S8 closed with every criterion passed. codeQualityReview: adjudication S8-POLICY-adjudication-gr.json PASSED over a fresh claude-sonnet-5 checker (mode full, own mutation and non-closed-status probes), 0 findings. specComplianceReview: meta_review.py FINAL STATUS PASSED (docs-vs-code rubric). branchFinish and deploymentReadiness stay pending: the branch is not finished and nothing is deployed."
     }
   ],
   "decisionLog": [

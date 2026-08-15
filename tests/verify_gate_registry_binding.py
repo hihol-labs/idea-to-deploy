@@ -37,4 +37,19 @@ rows = json.loads((ROOT/".itd/VERIFICATION_CONTRACT.json").read_text())["command
 rows = {x["id"]: x for x in rows}
 for n in ("external-reviewer-release-regression", "host-adapter-regression"):
     assert rows[n]["passFailParser"] == "exit_code_zero" and not rows[n]["expectedOutput"]
+# The efficacy verifier's host pin is a REQUIRED argparse input: an entry that
+# omits it exits 2 before any check runs, so every contract-driven gate
+# (itd_hygiene.py close) reads red for a reason that has nothing to do with the
+# candidate. The pin file itself is a host input under git-ignored
+# .itd-memory/, so it must NOT be declared as a trusted verifier path -
+# trustedVerifierPaths entries are required to be tracked clean blobs.
+efficacy = rows["independent-review-efficacy"]
+argv = efficacy["argv"]
+flag = "--expected-keyring-sha256-file"
+assert flag in argv, "efficacy entry lost its required host pin flag"
+pin = argv[argv.index(flag) + 1]
+assert pin and not pin.startswith("-"), "host pin flag has no path argument"
+assert pin not in efficacy["trustedVerifierPaths"], (
+    "host pin is a git-ignored host input, not a trusted verifier path")
+
 print(json.dumps({"status": "PASSED"}))

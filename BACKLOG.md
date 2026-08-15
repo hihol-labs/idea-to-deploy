@@ -28,10 +28,25 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   `high-quorum`) in `tests/verify_independent_review_efficacy.py` together with the
   `minimumIndependentReviewers` contract they assert. They were removed from the
   ported matcher because that contract belongs to the policy unit.
-- [ ] Codex error-item classification (A19): the candidate's `run_codex_review`
+- [ ] `run_codex_review` in `skills/_shared/itd_free_reviewer_producer.py` is a
+  God-function: 145 lines after S8-U3, already 107 before it (general-review
+  finding, 2026-08-14). Transport setup, event-stream classification, provenance
+  and report parsing all live in one body, which is why every change to it needs
+  a full-file read. Deliberately not refactored inside a narrowly-scoped
+  classification fix - a behaviour-preserving split is its own unit.
+- [x] Codex error-item classification (A19): the candidate's `run_codex_review`
   handles a reviewer error item that the slice's HEAD-derived version does not.
   Not observed to fail on codex 0.146.0 during acceptance, so it stays a separate
-  bounded fix rather than a silent slice extension.
+  bounded fix rather than a silent slice extension. CLOSED by S8-U3: an error
+  ITEM now routes to the same typed CLI-failure path as a `turn.failed` EVENT
+  instead of being counted as a tool call (which reported the transport's own
+  failure as the reviewer breaking isolation); the code-mode-disabled advisory
+  is recognized by prefix as the denylist working rather than a failure; and the
+  tool-call refusal names the observed item types, so an unknown item type from
+  a newer CLI can be told apart from a real tool call. Covered by five new cases
+  in `tests/verify_free_reviewer_producer.py` (153 -> 158 checks). One narrowing
+  beyond the reviewed GPG-004 port: the advisory must be a single line, so an
+  unbounded trailing suffix cannot smuggle a second line past the prefix match.
 - [ ] Explain one unreproduced `UNVERIFIED` reviewer failure seen on the first WSL
   efficacy attempt (`high-export-capacity`, no unavailability marker in the CLI
   output). The case passed on every later attempt and the suppressed CLI detail was
@@ -63,12 +78,87 @@ the slice stays one reviewable change. None of them is a known-broken invariant.
   only existence-checked. The strict receipt path already passes it as a declared
   host input; move the convenience path to a host-owned location outside the
   checkout (env var or absolute host path) so candidate code cannot select the pin.
-- [ ] Make the methodology tree pin ignore harness debris. `methodology_tree_sha256`
+- [ ] `quick-regression.trustedVerifierPaths` in `docs/VERIFICATION_CONTRACT.json`
+  is a stale roster (S8-U1, 2026-08-14): it enumerates 55 verifiers while
+  `run-all.sh` CORE now carries ~70, so verifiers added since (efficacy,
+  `verify_sync_manifest`, `verify_free_reviewer_producer`, …) are executed by the
+  aggregator without being declared. The trusted-path check only binds the
+  dispatcher and its script, so nothing is red today — but the list reads as a
+  complete dependency declaration and is not one. Either regenerate it from CORE
+  and police the equality, or stop presenting it as the full roster.
+- [ ] Git-ignored debris makes tracked-namespace trusted paths fail the
+  clean-HEAD check (S8-U1, 2026-08-14): `v2_verifier_error` runs
+  `git status --ignored=matching` over each `trustedVerifierPaths` entry, and the
+  `.itd/VERIFICATION_CONTRACT.json` entries that name the whole `tests` namespace
+  therefore report `trusted verifier differs from clean HEAD` whenever
+  `tests/__pycache__/`, `tests/helpers/__pycache__/` or
+  `tests/fixtures/*/output/` exist — which is after any local test run. Same
+  class as the H4 tree-pin item below. Decide once: either the clean-HEAD check
+  ignores what Git ignores, or the namespace entries are replaced by file lists.
+- [ ] A closed `activeFollowup` still pins the independent-review coverage matrix
+  (S8, 2026-08-14). `evidence_first_policy` in `skills/_shared/itd_review_evidence.py`
+  activates the matrix on the mere presence of `reviewPolicy` and never reads
+  `status`/`closedAt`, while `coverage_matrix` then takes the active unit from
+  `activeFollowup.unitId` rather than from `.itd-memory/STATE.json`. A followup
+  marked `status: verified, closedAt: …` therefore keeps binding every later
+  candidate to a unit that is finished: two S8 route attempts failed with
+  `active unit and machine evidence differ` before the field was re-declared
+  (a third, earlier attempt failed for an unrelated reason — `staged machine
+  candidate diff is empty`, because the producer reads `git diff --cached` and
+  the candidate was already committed).
+  Either honour the closed status (fall back to no matrix, or to STATE's active
+  unit) or refuse a closed followup loudly instead of silently pinning it.
+- [ ] The recorded live H4 run contradicts itself (independent review, S8,
+  2026-08-14). In the committed run `20260814T163339Z-1e1ab055` the final
+  structural validation command exits 1 while the next agent message asserts
+  every required check passed. The reviewer raised a second, similar defect
+  (generated `CLAUDE.md` redefining exit code 3 against the PRD of the same
+  session) against a LATER re-record that exists only in a throwaway review
+  worktree and was never committed — recorded here as an observation, not as a
+  repository artifact, because citing an artifact the repo does not contain is
+  itself a defect (that miscitation was the reviewer's own finding). The
+  benchmark exists to measure exactly this, and no run was re-shot to look
+  better. Open question worth its own unit: should
+  `verify_live_model_benchmark.py` fail an internally self-contradictory run
+  rather than accepting the snapshot oracle's PASS?
+- [ ] `bash tests/run-all.sh` can report a FALSE red when the unit ledger is
+  written concurrently (S8, 2026-08-14): a run that overlapped an
+  `itd_unit_log activate` write to `.itd-memory/STATE.json` reported
+  `DONE fails: verify_harness_map_fixtures`, while the same verifier standalone
+  gave `39 passed, 0 failed` and an immediate clean re-run of the whole suite
+  gave `DONE fails:none`. Harness-state readers should either snapshot the
+  ledger or the suite should refuse to start while a ledger write is in flight;
+  a red that disappears on re-run teaches operators to ignore reds.
+- [ ] A16 keeps costing whole runs: the isolated benchmark invocation drops with
+  a typed `OpenAI reviewer event stream transport is unavailable` (exit 3) far
+  more often than a flat `codex exec` does. Fresh data, S8 re-mint 2026-08-14:
+  the `wsl` leg went clean first try, `u12-cross-vendor` needed three attempts
+  and `windows` two, all on that same typed exit, on the same transport within
+  the same hour. Two of those failures hit the FIRST case, so no checkpoint
+  existed and the whole leg restarted from zero - the checkpoint only helps once
+  a verdict has been produced. Worth either a bounded typed-exit-3 retry inside
+  the runner, or a checkpoint written before the first case.
+- [ ] `prepare_adopted_project` in `tests/run-live-model-benchmark.py` copies the
+  same `METHODOLOGY_TREE_ROOTS` into the isolated benchmark project through
+  `shutil.ignore_patterns`, which excludes `__pycache__`/`*.pyc` by name and is
+  not Git-ignore aware (general-review finding, S8-U2, 2026-08-14). Same debris
+  class the tree pin just closed, different surface: harness output under a tree
+  root is handed to the live model as if it were methodology. Deliberately left
+  out of S8-U2's scope rather than widened into it.
+- [x] Make the methodology tree pin ignore harness debris. `methodology_tree_sha256`
   in `tests/verify_live_model_benchmark.py` skips `__pycache__` and `.pyc` but not
   Git-ignored harness output such as `.claude/`. A stray 800-byte trace file under
   `skills/_shared/.claude/traces/` silently entered the H4 tree pin, and the mismatch
   only surfaced later in the isolated staged candidate as three failing checks. The
   pin should either exclude the same paths Git ignores or fail loudly at run time.
+  CLOSED by S8-U2 with both: one batched `git check-ignore -z --stdin` in the
+  verifier AND in the producer (`tests/run-live-model-benchmark.py`, which writes
+  the pin the verifier re-computes), and a `RuntimeError` when Git cannot answer.
+  Covered by `tests/verify_tree_pin_debris.py` (14 checks: H4 debris reproduction,
+  non-vacuity via a non-ignored probe, producer/verifier agreement, and loud failure
+  on all three ways Git can fail to answer - missing executable, fatal exit code,
+  timeout - for both implementations). The digest is unchanged on today's tree - every ignored file
+  under the roots is already `__pycache__`/`*.pyc`.
 - [x] Exclude `__pycache__`/`*.pyc` bytecode from the `sync-to-active.sh` drift
   scan (found closing U6, 2026-08-10): the only reported skill drift on a fully
   synced install was `skills/_shared/__pycache__` — pure noise that makes a
@@ -291,3 +381,33 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 - A bundled Python-only code-navigation MCP.
 - New `plan`, `implement`, `validate`, or `review` lifecycle skills duplicating the
   current pipeline.
+
+## P1 — Recorded in S8 publication route (2026-08-15)
+
+- [ ] The mandatory route grades generated benchmark output as if the candidate
+  proposed it. On the S8 re-record candidate the free reviewer returned three
+  high findings against `output/PRD.md` and `output/PROJECT_ARCHITECTURE.md`
+  inside `tests/fixtures/live-model-evidence/runs/**` — documents the
+  model-under-test wrote, which the maker must not edit. Closed for S8 by
+  declaring the reviewable properties in `.itd/SCOPE_LOCK.md`; the durable fix
+  is for the packet builder to mark recorded-evidence paths as observations so
+  the reviewer scores integrity/freshness/hygiene instead of content.
+- [ ] The same review claimed the transcript had an unmatched in-progress item
+  and no `turn.completed`, and read a sandbox `git status` exit 128 as a
+  provenance failure. Both are machine-refutable on the artifact (0 unmatched,
+  two `turn.completed`, the failure is inside the disposable adopted project).
+  Worth a cheap transcript-shape summary in the packet so the reviewer does not
+  have to infer structure from a gzip blob.
+
+## P0 — S9: the route must accept a committed-head candidate
+
+- [ ] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
+  a candidate that is already committed cannot be routed: publication needs the
+  LAST commit of the branch reviewed, and re-staging it re-introduces the
+  dirty-state problem this repo hit twice (2026-08-14 whole-branch attempt,
+  2026-08-15 ledger commit). Teach the producer a `--candidate-mode
+  committed-head` that binds parent->HEAD with the same exact tree/diff the
+  machine receipt uses, mirroring `itd_verification_loop`. User decision
+  2026-08-15: this is unit S9; until then a closed followup (S8-POLICY) keeps
+  the matrix from blocking later commits.
+

@@ -277,6 +277,37 @@ def structural_metrics(manifest, evidence, producer) -> dict[str, float]:
             print("PASS  structural/" + label)
         else:
             raise AssertionError(label + " reviewer cardinality was accepted")
+    # A followup that has been closed must stop pinning the coverage matrix.
+    # Found on 2026-08-15: the S8 followup stayed authoritative after its unit
+    # was verified, so every later candidate had to re-satisfy oracles that
+    # belong to finished work - including a live-benchmark replay whose
+    # dirty-state pin cannot hold while any other file is staged. Closing the
+    # followup returns the route to the pre-declaration baseline; it never
+    # lets an OPEN followup skip its matrix, which the second case pins.
+    for label, closure, foreign_unit, expect_matrix in (
+        ("closed-followup-verified", {"status": "verified"}, False, False),
+        ("closed-followup-timestamp",
+         {"closedAt": "2026-08-15T00:00:00Z"}, False, False),
+        ("closed-followup-releases-foreign-unit",
+         {"status": "verified"}, True, False),
+        ("open-followup-still-pinned", {"status": "in_progress"}, False, True),
+        ("open-followup-rejects-foreign-unit",
+         {"status": "in_progress"}, True, None),
+    ):
+        closed_acceptance, closed_machine = baseline()
+        closed_acceptance["activeFollowup"].update(closure)
+        if foreign_unit:
+            closed_machine["unitId"] = "SOMETHING-ELSE"
+        try:
+            matrix = evidence.coverage_matrix(closed_acceptance, closed_machine)
+        except evidence.ReviewEvidenceError:
+            observed: bool | None = None
+        else:
+            observed = matrix is not None
+        if observed is not expect_matrix:
+            raise AssertionError(
+                f"{label}: expected {expect_matrix!r}, observed {observed!r}")
+        print("PASS  structural/" + label)
     policy = load_module("itd_reviewer_independence_efficacy", POLICY_PATH)
     quorum_identity = {
         "provider": "openai-subscription", "model": "gpt-5.6-terra",
