@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S9-U3-LEDGER",
     "goal": "agent-delegation telemetry must not fail the strict completion ledger closed in either the commit gate or the explicit-close evaluator",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-15T19:51:00Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-15T20:09:08Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -571,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9), 3 commits: 39bfbf5 evidence U4, 4191213 ledger U4, f2638f2 handoff. U4 is verified. U3 (S9-U3-LEDGER) is implemented and locally green but NOT committed: writer hooks/record-agent-skill.sh stamps producer itd-record-agent-skill; both strict evaluators (hooks/completion-gate.sh signal_schema_error and the explicit-close path in docs/templates/itd/itd_hygiene.py) exempt layer-0 delegation accounting while the policy has not declared layer 0 a runtime layer. verify_completion_gate 16->27 PASSED, verify_strict_completion_policy 56->58 PASSED, both mutation-proved. Remaining for U3 is the route: two machine receipts (claims S9-U3-LEDGER and S9-U3-LEDGER:general-review), a fresh checker of another model, adjudicate x2, review_cache record, evidence commit, then a SEPARATE ledger commit. U3 touches hooks/ so it burns the live-evidence pin by construction; the single live re-record still runs at the very end. Then U2 (doctor independence label) and U1 (producer committed-head). Context packet: HANDOFF.md, route recipe in its field 5."
+  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). U4 and U3 are CLOSED. Commits: 39bfbf5 evidence U4, 4191213 ledger U4, f2638f2 handoff, 57252a0 evidence U3, plus this ledger commit. U3 route evidence: machine receipts under .itd-memory/verification-loop/receipts/c07001b73e094084/, fresh claude-sonnet-5 --mode full checker PASSED 0 findings, both adjudications PASSED on tree 2d6a4f473f449c1746b64092b7dc12682a79c14b, review cache recorded. The U3 evidence commit needed an audited COMPLETION_BYPASS: the completion verdict takes the LATEST run per command string, and the independent checker restores mutated files with a unique compound command whose output the text classifier reads as a failure, so that row can never be re-run green. Expect this on every remaining unit; the honest escape is the audited bypass with the exact reason, recorded in .itd-memory/events.jsonl. Next: U2 (doctor independence label, skills/_shared/itd_gate_control.py validate_local_adjudication plus tests/verify_gate_profile_doctor.py), then U1 (producer committed-head). Both burn the live-evidence pin, like U3 did; ONE live re-record runs at the very end on a clean tree, then publication via itd pr create (direct git push is forbidden) and a combined S8+S9 release per docs/RELEASE_RUNBOOK.md. Context packet: HANDOFF.md, per-unit route recipe in its field 5."
 }
