@@ -180,6 +180,50 @@ U1 обесценил подписанные ноги (`producerSha256` бинд
 живой re-record бенчмарка на чистом дереве → публикация через `itd pr create`
 → релиз S8+S9.
 
+## 6c. ОТКРЫТО: публикации нужен отдельный claim на committed-head
+
+`itd pr create` отвечает
+`{"reason": "current local independent review is not valid", "status":
+"UNVERIFIED"}`. Причина найдена прямым прогоном валидатора:
+
+```bash
+sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py check \
+  --root . --unit-id "<claim>" --risk-tier medium \
+  --candidate-mode committed-head --require-mandatory-route \
+  --accept-adjudicated-route --expected-repository hihol-labs/idea-to-deploy \
+  --receipt <adjudication.json>
+```
+
+- без `--expected-repository` → `mandatory publication repository is missing`;
+- с ним, но с квитанцией юнита → `receipt does not match the exact current
+  candidate`.
+
+Дело не в дефекте: квитанции юнитов привязаны к **staged-деревьям своих
+кандидатов**, а публикация судит **committed-head текущего HEAD ветки**
+(сейчас `ed73f59`, родитель `59ad17d`). Это ровно тот отдельный
+publication-claim, который в прошлых срезах назывался `S7-EVIDENCE` /
+`S8-EVIDENCE` (см. сообщение коммита `08c070f`: «pre-PR publication claim
+S7-EVIDENCE:general-review rides the mandatory opposite-GPT route»).
+
+**Что сделать следующей сессии:**
+
+1. Открыть claim публикации (например `S9-EVIDENCE`) и отчеканить его тройку
+   в режиме `--candidate-mode committed-head` — на HEAD ветки как есть, без
+   новых правок дерева. Нужны ОБА claim-id: `S9-EVIDENCE` и
+   `S9-EVIDENCE:general-review`.
+2. Обязательные флаги маршрута: `--require-mandatory-route`,
+   `--accept-adjudicated-route`, `--expected-repository hihol-labs/idea-to-deploy`.
+3. Ревьюер этого claim'а — mandatory opposite-GPT route (в S7 это был свежий
+   `gpt-5.6-terra`), а не тот же claude-чекер, которым закрывались юниты.
+   **Теперь это исполнимо благодаря U1**: продюсер наконец умеет
+   `--candidate-mode committed-head`, ради чего юнит и делался.
+4. Затем `sh skills/_shared/itd_py.sh scripts/itd.py pr create --maker-vendor
+   anthropic --maker-model claude-opus-5 --maker-session <id>`.
+   Прямой `git push` запрещён и отклоняется guarded-хуком.
+5. После merge — общий релиз S8+S9 по `docs/RELEASE_RUNBOOK.md`, затем
+   `scripts/sync-to-active.sh` (иначе установка останется на версии с
+   закрытыми дырами).
+
 ## 7. Блокеры и риски
 
 > [!warning] Live-evidence пин сгорает от правок `skills/`, `agents/`, `hooks/`
