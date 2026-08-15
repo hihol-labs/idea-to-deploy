@@ -1,69 +1,198 @@
-# HANDOFF — S7: четыре долга адъюдикаций GPG-004 (2026-08-13)
+---
+project: idea-to-deploy
+stage: S9 — четыре харнес-фикса; U4 доведён до готового к коммиту кандидата
+from: сессия 2026-08-15 (исполнитель S9, часть 1)
+to: свежая сессия-исполнитель S9 (продолжение)
+created: 2026-08-15
+reason: исчерпание контекстного окна на середине маршрута U4
+tags: [handoff, gpg-004-followups, s9, harness]
+---
 
-## Состояние
-- Ветка: `fix/s7-transport-sync-debts` (от main 6aa1d34, S6 закрыт).
-- Скоуп S7 approved пользователем: 4 юнита, все с тестами; декомпозиция ниже.
-- «sync-manifest __pycache__» подтверждён как ОБА sync-долга (манифест + bytecode-шум).
+# HANDOFF — S9: U4 готов, остались U3 → U2 → U1
 
-## Юниты (WIP=1) — 4/4 кода готово
-1. **S7-U1-NANINF** — DONE, коммит 219f6c8. `math.isfinite(timeout)` в
-   валидации `run_bounded_process`; тесты nan/inf/-inf + позитив.
-2. **S7-U2-RELCWD** — DONE, коммит 64f68a2. Helper `wrapper_plan_cwd`
-   (abspath, не resolve) анкерит относительный cwd на caller'е до temp-хопа.
-3. **S7-U3-POSIXREAP** (high) — DONE, коммит 298dc24. Pre-kill PPID-walk
-   снапшот `/proc` в `_close_process_tree` + SIGKILL сбежавших; тест реально
-   демонизирует setsid-грандчайлда. Residual (double-fork orphan, /proc-only,
-   PID-reuse) задекларирован в docstring и BACKLOG.
-4. **S7-U4-SYNC** — код готов, unit verified (receipt f370b6f5), НЕ закоммичен:
-   ждёт general-review клейма. sync-to-active.sh синкает
-   `.claude-plugin/plugin.json` (add + drift, dry-run aware) и исключает
-   `__pycache__`/`*.pyc` из drift-скана; verify-sync-to-active.sh полицит
-   манифест; новый оракул tests/verify_sync_manifest.py (9 checks: dry-run,
-   apply-mode install, re-run unchanged, bytecode-not-drift) в run-all CORE;
-   BACKLOG: три пункта закрыты.
+## 1. From → To
 
-## Ключевые решения (уже в .itd/DECISIONS.md, последняя запись)
-- Efficacy-леги ре-минтятся ОДИН раз на финальном S7-дереве перед PR;
-  per-unit регрессия = run-all зелёный за вычетом одного tree-bound
-  `verify_independent_review_efficacy` («producerSha256 foreign» — ожидаемо
-  при любой правке producer'а). Гейт PR остаётся полным.
-- Прогон bfivnldkv: run-all на U1-дереве — единственный FAIL именно этот.
+**From:** сессия 2026-08-15, исполнитель S9 (часть 1). Ветка создана, U4
+реализован и отревьюирован, коммита ещё НЕТ.
+**To:** свежая сессия — доделать коммит U4, затем U3 → U2 → U1, один живой
+re-record, публикация.
 
-## Ловушки (из session-файла S6, не переоткрывать)
-- `itd pr create` делает draft-PR; coverage-матрица требует machine receipt;
-  снапшот producer'а держать вне репо; committed-head валидация — через
-  staged-дифф; completion-signals hook мисклассифицирует (его FIX-подсказки —
-  шум, корневую причину искать самому); riskTier у `itd_unit_log activate`
-  флага НЕТ — activate пишет только id/goal/status/startedAt, а review-cache
-  читает СТРУКТУРНОЕ поле STATE.currentUnit.riskTier (иначе context
-  riskTier=unknown и гейт красный): после activate добавь поле руками
-  json-round-trip'ом, значение из enum high/low/medium/unknown («standard»
-  НЕ значение — маппится в medium). Прецедент: S6 high, U17 low. Укус №3.
-- review-гейт биндит exact staged diff: любой новый staged файл (включая
-  claude-review-*.md отчёт — он НЕ в .gitignore) инвалидирует record;
-  порядок: финализируй staged-набор → mint receipts → record → commit без
-  промежуточных git add.
-- Прямой запуск verify_independent_review_efficacy требует
-  `--expected-keyring-sha256-file` (run-all подставляет сам; host-owned pin).
+## 2. Причина передачи
 
-## Ре-минт efficacy-ног — восстановленные параметры (S7, 2026-08-13)
-- Signing key: `.itd-memory/verification-loop/keys/gpg003-local-producer-20260803.key`
-  (в проекте, gitignored; НЕ в `~/.itd/keys/` — такого каталога на машине нет).
-  Windows-нога: `...-20260803.windows.key` рядом. Публичная часть сверена с
-  `.itd/REVIEW_EFFICACY_KEYRING.json` — совпадает.
-- Codex 0.146.0 native binary (sha 2e863156…, совпал с записанным в ноге):
-  `~/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`
-  (обёртка `~/.npm-global/bin/codex` имеет другой sha — брать native).
-- `--proxy-sha256 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
-- Пары маркер/ревьюер (enforced верификатором): wsl-нога — opposite-GPT
-  `--maker-model gpt-5.6-terra --maker-provider openai-subscription --model gpt-5.6-sol`;
-  u12-cross-vendor — anthropic maker + OpenAI reviewer
-  (`--maker-model claude-opus-5 --maker-provider anthropic-subscription --model gpt-5.6-sol`;
-  любой anthropic-маркер вне EXPECTED_OPPOSITE валиден — для свежей записи
-  честное значение = модель, реально ведущая сессию).
-- Ноги протухают: верификатор требует `observedAt` не старше 30 дней.
+Исчерпание контекста. Работа НЕ заблокирована по существу: U4 машинно зелёный,
+последний фикс по находке ревьюера внесён, требуется только перечеканка
+квитанций на финальном дереве и коммит.
 
-## Финиш-чеклист S7 (после U4)
-ре-минт 3 efficacy-ног (wsl, windows, u12-cross-vendor — Windows-нога с
-Windows-хоста!) → полный run-all зелёный → /review + adjudication → PR
-(draft) → BACKLOG: снять 4 закрытых пункта → ledger-close → /session-save --close.
+## 3. Текущее состояние — ФАКТЫ
+
+- Ветка: **`fix/s9-harness-debts`** от main `e3131c9`. Коммитов на ветке **0**.
+- В индексе (staged) лежит кандидат U4, 8 файлов:
+  `scripts/itd.py`, `tests/verify_itd_cli.py`, `BACKLOG.md`,
+  `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd-memory/contracts/S9-U4-PRCREATE.md`, `.itd-memory/STATE.json`,
+  `HANDOFF.md`.
+- `.itd/ACCEPTANCE_CONTRACT.json` → `activeFollowup.unitId = "S9"`,
+  `status = in_progress`, riskTier **medium**, rootCause →
+  `.itd-memory/contracts/S9-U4-PRCREATE.md`.
+- `.itd-memory/STATE.json` → `currentUnit = S9-U4-PRCREATE / in_progress`
+  (активация едет в evidence-коммите — см. поле 4, п. 2).
+- `.itd/SCOPE_LOCK.md` **переписан под S9** целиком: состав ветки, порядок
+  юнитов, зона live-evidence, запреты.
+- Всё изменённое застейджено, рабочее дерево совпадает с индексом. Первое, что
+  делает следующий актор, — `git status --short` и `git write-tree`; дерево,
+  которое он там увидит, и есть кандидат. Номер дерева в этом пакете намеренно
+  не зафиксирован (см. урок в поле 5).
+
+## 4. Финальные решения (уже приняты, не переоткрывать)
+
+1. **Порядок U4 → U3 → U2 → U1** и один живой re-record в самом конце.
+2. **Активация юнита едет в evidence-коммите, `verified` — в ledger-коммите.**
+   Проверено на истории ветки S8: `40a1bc0` (evidence) ставит
+   `id: S8-U4-CRLF / in_progress`, следующий `4dabc62` (ledger) переводит в
+   `verified`. Значит `.itd-memory/STATE.json` **входит в кандидата** — иначе
+   `review_cache` не резолвит юнит, а грязное дерево ломает биндинг.
+3. **Коммит-гейт биндится к claim-id `<unit>:general-review`**, а не к голому
+   `unitId`. Поэтому на юнит нужны ДВЕ тройки квитанций: `S9-U4-PRCREATE`
+   (существо) и `S9-U4-PRCREATE:general-review` (то, что открывает гейт).
+   Отсюда парные `-gr-*` файлы в S7/S8.
+4. **Машинный оракул гоняет `tests/run-all.sh --quick`, не полный**: изоляция
+   `git clone --shared` + `read-tree` не содержит host-owned входов, полный
+   агрегатор падает там семью суитами по окружению. Полный `run-all.sh`
+   остаётся отдельной уликой на рабочем дереве (прогнан, `DONE fails:none`).
+5. **Обязателен `--input .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256`**
+   — без него `verify_independent_review_efficacy` падает в изоляции.
+6. **`currentUnit` в `STATE.json` обязан нести `riskTier`.** `itd_unit_log.py
+   activate` его не пишет (`skills/task/scripts/itd_unit_log.py:116`), а
+   `detected_risk_tier` без него отдаёт `unknown` — и коммит-гейт отвергает
+   квитанцию, отчеканенную как `medium`, с сообщением «нет успешного /review
+   для exact current context». Прецедент S8 (`40a1bc0`) поле содержит.
+   Проставляй его руками ДО чеканки: это правка внутри кандидата, после неё
+   все квитанции надо чеканить заново. Каждый следующий юнит S9 наступит на
+   это снова.
+
+## 5. Что сделано по U4 — с уликами
+
+**Root cause.** `create_draft_pr` (`scripts/itd.py`) выводил решение о пуше из
+**существования PR**, а не из **состояния удалённого рефа**: при `pr_view →
+None` он всегда пушил, даже когда удалённая голова уже равна локальной. No-op
+пуш даёт пустой pre-push update stream, который `parse_updates`
+(`scripts/itd_pre_push.py:55`) отвергает fail-closed.
+
+**Фикс.** Новый `remote_branch_head(root, branch, timeout=120)` резолвит голову
+через `git ls-remote --heads origin refs/heads/<branch>`; ветка `value is None`
+пропускает пуш, если она уже равна локальному `HEAD`. `parse_updates` НЕ
+ослаблен; `pr_view` НЕ переставлен перед пушем (обоснование — в контракте,
+раздел Exclusions).
+
+**Улики (не привязаны к раунду):**
+- `tests/verify_itd_cli.py`: 75 checks PASSED (было 63). RED-first подтверждён
+  (`AttributeError: ... does not have the attribute 'remote_branch_head'`).
+- Мутация: подмена условия на `if False` валит ровно новый кейс
+  `synced remote without PR skips the empty-stream push`; восстановление —
+  снова зелёный. Ревьюер воспроизвёл мутацию независимо.
+- `verify_git_gate_hooks.py` 30 PASSED, `verify_gate_registry_profiles.py`
+  24 PASSED, полный `bash tests/run-all.sh` на рабочем дереве →
+  `DONE fails:none`.
+- Машинные квитанции чеканились на каждом дереве-кандидате; актуальные лежат
+  в `.itd-memory/verification-loop/receipts/<digest>/`, где `<digest>` отвечает
+  ТЕКУЩЕМУ `git write-tree`. Ищи по `candidate.reviewedTree`, а не по имени.
+- Свежие чекеры `claude-sonnet-5`, `--mode full`, четыре раунда. Существо кода
+  прошло с первого раза (**PASSED, 0 findings** на дереве `562cc45d`). Раунды
+  r2/r3/r4 нашли по одной ошибке ОДНОГО класса — устаревшая бухгалтерия внутри
+  кандидата: `HANDOFF.md` описывал S9 как не начатый (r2), `STATE.json.nextAction`
+  говорил «Not started» (r3), затем `HANDOFF.md` §5/§6/§9 описывал состояние
+  двух раундов назад (r4). Все три закрыты. Отчёты — `reports/S9-U4-PRCREATE-checker-report*.md`.
+
+> [!important] Устойчивый урок этого юнита
+> Кандидат содержит собственный контекст-пакет, поэтому **любая правка
+> бухгалтерии меняет дерево и обесценивает квитанции**. Не описывай в пакете
+> «что осталось» в терминах конкретного дерева или номера раунда — иначе текст
+> протухает ровно тем действием, которым ты его чинишь. Порядок, который
+> сходится: сначала довести ВСЮ бухгалтерию до состояния «описывает ветку как
+> она есть», и только потом чеканить квитанции и звать чекера.
+
+## 6. Что осталось по U4
+
+Существо готово; открыт только маршрут. Инвариант: **чеканить на том дереве,
+которое лежит в индексе прямо сейчас**, при индекс == рабочее дерево.
+
+```bash
+git write-tree                       # текущий кандидат; сверяй с ним всё ниже
+```
+
+Для каждого из двух claim-id — `S9-U4-PRCREATE` и
+`S9-U4-PRCREATE:general-review`:
+
+```bash
+sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
+  --unit-id "<claim-id>" --risk-tier medium \
+  --command "cli=sh skills/_shared/itd_py.sh tests/verify_itd_cli.py" \
+  --command "hooks=sh skills/_shared/itd_py.sh tests/verify_git_gate_hooks.py" \
+  --command "profiles=sh skills/_shared/itd_py.sh tests/verify_gate_registry_profiles.py" \
+  --command "quick=bash tests/run-all.sh --quick" \
+  --input .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256 \
+  --timeout 1800
+```
+
+Затем свежий чекер другой модели по промпту
+`.itd-memory/verification-loop/prompts/S9-U4-PRCREATE-checker-prompt.md`
+(обнови в нём строку `Reviewed tree` под текущее дерево), затем `checker` ×2,
+`adjudicate` ×2 и
+
+```bash
+python3 skills/review/scripts/itd_review_cache.py record --risk-tier medium \
+  --kind general --verdict PASSED --session <session-id> \
+  --verification-receipt .itd-memory/verification-loop/S9-U4-PRCREATE-gr-adjudication.json
+```
+
+и коммит `fix(transport): itd pr create must not issue a no-op push`.
+**Ledger-коммит отдельный**, следом: `itd_unit_log.py verified S9-U4-PRCREATE`
++ `STATE.json`.
+
+`checker`/`adjudicate`/`record` требуют, чтобы рабочее дерево совпадало с
+индексом — держи его чистым на этих шагах.
+
+## 7. Оставшиеся юниты (якоря — прежние)
+
+| # | Долг | Якоря | Жжёт live-пин? |
+|---|------|-------|----------------|
+| U3 | completion-ledger schema | писатель `hooks/record-agent-skill.sh:95-106` → `hooks/completion_lib.py:637` (`append_signal` не ставит `producer`, ср. `hooks/completion-signals.sh:94`); оценщик `hooks/completion-gate.sh:287-296` (`signal_schema_error` валит строку). Починить писателя И научить оценщика пропускать layer-0 telemetry, а не падать закрыто. Конкретная строка: `.claude/completion/signals.jsonl:1130`. Леджер НЕ править. | да |
+| U2 | doctor independence label | `skills/_shared/itd_gate_control.py:1492` (`validate_local_adjudication`, контракт `str \| None` ~1561), заглушка `tests/verify_gate_profile_doctor.py:201-262` | да |
+| U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | да |
+
+**U1 не может отревьюить сам себя** — маршрут поедет на копии продюсера,
+снятой ДО фикса. Снимай свежую копию `_shared` после каждого изменения.
+
+## 8. Блокеры и риски
+
+> [!warning] Live-evidence пин сгорает от правок `skills/`, `agents/`, `hooks/`
+> U3, U2, U1 попадают в `METHODOLOGY_TREE_ROOTS`. Один живой re-record —
+> в самом конце, после последней правки в пиновой зоне, на чистом дереве.
+
+> [!warning] Недетерминизм изолированного `quick`-агрегатора — НЕ объяснён
+> На идентичном дереве `962f862c` с тем же `--input`: три прогона зелёных,
+> один красный (`quick` exit 1) — квитанция
+> `.itd-memory/verification-loop/receipts/a1770aa1284c11fa/S9-U4-PRCREATE-general-review-machine-fe28e0ca6cf6c519.json`
+> против зелёных `1c9a2c1ea68e118c` и `40bc24b82d532974`. Квитанция хранит
+> только хеши, поэтому имя упавшей суиты неизвестно. Ручная репродукция в
+> `git clone --shared` + `read-tree` показала только детерминированный отказ
+> `verify_independent_review_efficacy (host-owned efficacy keyring pin is not
+> provisioned)` — то есть подозрение на гонку в провижининге declared-input.
+> Записано в BACKLOG как открытый долг; **красная квитанция не удалена**.
+
+Прочие риски: сеть к GitHub API нестабильна (gh GraphQL → TLS handshake
+timeout, REST работает); external-write гейт классифицирует по тексту команды —
+такие файлы писать инструментом Write, не через heredoc.
+
+## 9. Первое действие
+
+> [!todo] Проверь, что вся бухгалтерия в кандидате описывает ветку как она
+> есть (это единственный класс находок, который тут всплывал). Затем — поле 6:
+> обе машинные квитанции, свежий чекер, adjudicate ×2, `review_cache record`,
+> evidence-коммит U4, отдельный ledger-коммит. Дальше U3.
+
+---
+
+Артефакты: `.itd/SCOPE_LOCK.md` · `.itd/ACCEPTANCE_CONTRACT.json` ·
+`.itd-memory/contracts/S9-U4-PRCREATE.md` · [[STATE]] · [[BACKLOG]] ·
+[[DECISIONS]] · [[FORBIDDEN_CHANGES]]

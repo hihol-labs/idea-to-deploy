@@ -969,6 +969,40 @@ def guarded_push_timeout(value: int) -> int:
     return min(max(value, 300), 3600)
 
 
+def remote_branch_head(root, branch, timeout=120):
+    """Remote head of `branch` on origin, or None when the ref does not exist."""
+    completed = run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-remote",
+            "--heads",
+            "origin",
+            f"refs/heads/{branch}",
+        ],
+        timeout=timeout,
+    )
+    try:
+        listing = completed.stdout.decode("utf-8")
+    except UnicodeError as exc:
+        raise gate.GateError(
+            "UNVERIFIED", "Git remote listing is not UTF-8"
+        ) from exc
+    lines = [line for line in listing.splitlines() if line.strip()]
+    if not lines:
+        return None
+    if len(lines) != 1:
+        raise gate.GateError("UNVERIFIED", "Git remote listing is ambiguous")
+    fields = lines[0].split()
+    if len(fields) != 2 or fields[1] != f"refs/heads/{branch}":
+        raise gate.GateError("UNVERIFIED", "Git remote listing is malformed")
+    value = fields[0].lower()
+    if not gate.SHA_RE.fullmatch(value):
+        raise gate.GateError("UNVERIFIED", "Git remote head is invalid")
+    return value
+
+
 def create_draft_pr(
     root,
     repository,
@@ -980,7 +1014,18 @@ def create_draft_pr(
 ):
     value = pr_view(root, repository)
     push_command = ["git", "push", "--set-upstream", "origin", "HEAD"]
-    if value is not None:
+    if value is None:
+        # The push decision must follow the remote ref, not PR existence: a
+        # branch whose delivery succeeded before the PR was created is already
+        # synced, and pushing it again yields an empty pre-push update stream
+        # that the guard hook rejects fail-closed.
+        branch = git(root, "symbolic-ref", "--short", "HEAD")
+        local_head = git(root, "rev-parse", "HEAD").lower()
+        if not gate.SHA_RE.fullmatch(local_head):
+            raise gate.GateError("UNVERIFIED", "Git HEAD is invalid")
+        if remote_branch_head(root, branch) == local_head:
+            push_command = []
+    else:
         current = draft(value)
         branch = git(root, "symbolic-ref", "--short", "HEAD")
         if current["headRefName"] != branch:

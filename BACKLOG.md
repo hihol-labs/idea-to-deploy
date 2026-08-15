@@ -246,13 +246,41 @@ adjudication; each was deliberately kept out of those bounded slices.
   (`math.isfinite` guard) and S7-U2 (`wrapper_plan_cwd` anchors a relative cwd
   at the caller before the temp-dir hop). POSIX descendant containment closed
   separately by S7-U3; the run-all host-pin boundary stays open above.
-- [ ] `itd pr create` fails on an already-pushed branch (S7 finish, 2026-08-14):
+- [x] `itd pr create` fails on an already-pushed branch (S7 finish, 2026-08-14):
   a first attempt timed out AFTER its push succeeded, and every retry then died
   in the pre-push hook — a no-op push produces an empty update stream which the
   hook treats as invalid ("pre-push update stream is empty or invalid"). The
   no-op case should be recognized as already-synced and skip to PR creation.
-  Related: the pr_view GitHub lookup runs BEFORE the push and turns a lookup
-  outage into a full transport failure; ordering push-first would decouple them.
+  CLOSED by S9-U4-PRCREATE: `remote_branch_head` resolves the remote head with
+  `git ls-remote` and the absent-PR path skips the push when it already equals
+  local `HEAD`; `parse_updates` stays fail-closed on an empty stream.
+- [ ] Unexplained nondeterminism in the isolated machine oracle's quick
+  aggregator (S9-U4, 2026-08-15): on the identical staged tree `962f862c` with
+  the same declared host input, three runs were green and one had
+  `bash tests/run-all.sh --quick` exit 1. Red receipt
+  `.itd-memory/verification-loop/receipts/a1770aa1284c11fa/S9-U4-PRCREATE-general-review-machine-fe28e0ca6cf6c519.json`,
+  green `1c9a2c1ea68e118c` and `40bc24b82d532974`. Receipts retain hashes only,
+  so the failing suite name is unknown. Manual reproduction in a
+  `git clone --shared` + `read-tree` isolation only ever showed the
+  deterministic `verify_independent_review_efficacy (host-owned efficacy
+  keyring pin is not provisioned)`, which points at a race in declared-input
+  provisioning. Worth retaining a bounded stdout tail (or the failing suite
+  name) in the receipt so this is diagnosable without re-running.
+- [ ] `itd_unit_log.py activate` does not record the unit's `riskTier`
+  (S9-U4, 2026-08-15): `skills/task/scripts/itd_unit_log.py:116` writes
+  `currentUnit` as `{id, goal, status, startedAt}` only, so
+  `detected_risk_tier` in `skills/review/scripts/itd_review_cache.py:250-266`
+  falls through to `unknown` and the commit gate then refuses a review receipt
+  minted at the unit's real tier. Worked around here by writing `riskTier`
+  into `.itd-memory/STATE.json` by hand; the writer is the thing to fix. It
+  lives under `skills/`, so fixing it burns the live-evidence pin and does not
+  belong inside a `scripts/`-scoped unit.
+- [ ] The `pr_view` GitHub lookup still runs BEFORE the push, so a lookup
+  outage is a full transport failure (split out of the item above by S9-U4).
+  Push-first ordering would decouple them, but it was deliberately NOT taken:
+  the pre-push draft check is what rejects a ready (non-draft) PR before any
+  push happens, and with an unknown draft state failing closed is correct.
+  A safe decoupling needs a different mechanism, not a reordering.
 - [ ] gh CLI GraphQL transport fails with TLS handshake timeout from this WSL
   environment while plain REST via curl/urllib works (S7 finish, 2026-08-14):
   `gh pr create/list` and `gh api` die on api.github.com GraphQL; the S7 PR was

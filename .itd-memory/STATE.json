@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S8-RERECORD3",
-    "goal": "S8 re-record 3: live H4 evidence recorded on the clean tree after S8-POLICY changed skills/",
-    "status": "verified",
-    "startedAt": "2026-08-15T15:14:39Z",
-    "riskTier": "high",
-    "completedAt": "2026-08-15T15:14:39Z"
+    "id": "S9-U4-PRCREATE",
+    "goal": "itd pr create must recognize an already-synced branch and skip the no-op push the guarded pre-push hook rejects",
+    "status": "in_progress",
+    "startedAt": "2026-08-15T17:27:20Z",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +571,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "U6 (installed-skill parity) closed on fresh evidence 2026-08-10; GENG /strategy formalized as ADR-009 (PR #186 merged 7ed8e43). Next candidates by plan: U16 (pre-deploy), U17 (design-stage), the queued BACKLOG follow-ups (benchmark scenario devils-advocate fix, completion-ledger writer schema, doctor independence label, itd pr create up-to-date push bug, __pycache__ sync-scan noise). GENG-000 starts via /goal after U16/U17."
+  "nextAction": "S9 in progress on branch fix/s9-harness-debts (from main e3131c9, 0 commits yet). Order U4 -> U3 -> U2 -> U1; one live benchmark re-record at the very end on a clean tree. U4 (itd pr create no-op push) is implemented and its substance is verified: RED-first test, mutation proof, verify_itd_cli 63->75 PASSED, full run-all DONE fails:none, and a fresh claude-sonnet-5 full checker passed the code with 0 findings on the first round. It is NOT committed. Remaining for U4 is route only, and it must be re-minted on whatever tree `git write-tree` reports at that moment: two machine receipts (claim ids S9-U4-PRCREATE and S9-U4-PRCREATE:general-review, commands cli/hooks/profiles/quick plus --input the efficacy keyring pin), a fresh checker of another model, adjudicate x2, review_cache record, evidence commit, then a SEPARATE ledger commit flipping this unit to verified. Editing any bookkeeping file inside the candidate invalidates the receipts, so settle the bookkeeping first and mint afterwards. Then U3 (completion-ledger producer schema), U2 (doctor independence label), U1 (producer committed-head). Context packet: HANDOFF.md. GENG-000 starts via /goal after the S-series follow-ups."
 }
