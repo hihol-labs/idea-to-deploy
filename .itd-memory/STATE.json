@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S9-U4-PRCREATE",
     "goal": "itd pr create must recognize an already-synced branch and skip the no-op push the guarded pre-push hook rejects",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-15T17:27:20Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-15T19:40:35Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -571,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "S9 in progress on branch fix/s9-harness-debts (from main e3131c9, 0 commits yet). Order U4 -> U3 -> U2 -> U1; one live benchmark re-record at the very end on a clean tree. U4 (itd pr create no-op push) is implemented and its substance is verified: RED-first test, mutation proof, verify_itd_cli 63->75 PASSED, full run-all DONE fails:none, and a fresh claude-sonnet-5 full checker passed the code with 0 findings on the first round. It is NOT committed. Remaining for U4 is route only, and it must be re-minted on whatever tree `git write-tree` reports at that moment: two machine receipts (claim ids S9-U4-PRCREATE and S9-U4-PRCREATE:general-review, commands cli/hooks/profiles/quick plus --input the efficacy keyring pin), a fresh checker of another model, adjudicate x2, review_cache record, evidence commit, then a SEPARATE ledger commit flipping this unit to verified. Editing any bookkeeping file inside the candidate invalidates the receipts, so settle the bookkeeping first and mint afterwards. Then U3 (completion-ledger producer schema), U2 (doctor independence label), U1 (producer committed-head). Context packet: HANDOFF.md. GENG-000 starts via /goal after the S-series follow-ups."
+  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). U4 is CLOSED: evidence commit 39bfbf5 (tree a07597466c6f9c544709380a01e29b5efdf77272) plus this ledger commit. Route evidence: two isolated machine receipts under .itd-memory/verification-loop/receipts/8e39592ea6e558a8/ (claims S9-U4-PRCREATE and S9-U4-PRCREATE:general-review, exit 0), a fresh claude-sonnet-5 --mode full checker PASSED with 0 findings (report S9-U4-PRCREATE-checker-report-r6.md), both adjudications PASSED, general-review recorded in the exact-context review cache. Next: U3 (completion-ledger producer schema: hooks/record-agent-skill.sh writer plus hooks/completion-gate.sh evaluator), then U2 (doctor independence label), then U1 (producer committed-head). Those three touch METHODOLOGY_TREE_ROOTS and burn the live-evidence pin, so ONE live benchmark re-record runs at the very end on a clean tree, then publication via itd pr create (direct git push is forbidden) and a combined S8+S9 release per docs/RELEASE_RUNBOOK.md. Two traps recorded this round: itd_unit_log.py activate does not write riskTier, so set it by hand in currentUnit BEFORE minting receipts or the commit gate resolves the tier as unknown; and the completion ledger only classifies a Bash run when the command echoes 'EXIT: \\$?', so a checker's mutation red stays the newest classified L2 signal until you re-run the same command with that echo. Context packet: HANDOFF.md. GENG-000 starts via /goal after S9."
 }
