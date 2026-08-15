@@ -482,6 +482,31 @@ def main() -> int:
         close = run_close(repo)
         check("strict explicit close accepts matching green runtime evidence",
               close.returncode == 0, close.stdout)
+
+        # S9-U3: учётная телеметрия делегирования (слой 0, без `producer` —
+        # ровно то, что писал record-agent-skill.sh) не участвует в
+        # runtime-вердикте и не должна ронять строгий разбор леджера.
+        with ledger.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({
+                "ts": "2026-07-15T00:00:00Z", "kind": "agent", "layer": 0,
+                "class": "delegation", "command": "agent:general-purpose",
+                "outcome": "empty", "evidence": "пустой финал субагента",
+                "session": "close-probe"}) + "\n")
+        close = run_close(repo)
+        check("strict explicit close ignores layer-0 delegation telemetry",
+              close.returncode == 0, close.stdout)
+        # Послабление не расползается: строка слоя 2 без провенанса по-прежнему
+        # закрывает сессию красной.
+        with ledger.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({
+                "ts": "2026-07-15T00:00:00Z", "kind": "test_run", "layer": 2,
+                "command": "pytest -q", "outcome": "pass",
+                "evidence": "12 passed", "session": "close-probe"}) + "\n")
+        close = run_close(repo)
+        check("strict explicit close still denies a layer-2 row without producer",
+              close.returncode == 1 and "missing fields" in close.stdout,
+              close.stdout)
+        seed_signals(repo, [{"layer": 2, "outcome": "pass"}], "close-probe")
         verification_path = repo / ".itd" / "VERIFICATION_CONTRACT.json"
         verification = json.loads(verification_path.read_text(encoding="utf-8"))
         (repo / ".verification-status").write_text("fail\n", encoding="utf-8")

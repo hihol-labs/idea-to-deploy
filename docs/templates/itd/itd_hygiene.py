@@ -334,8 +334,7 @@ def strict_runtime_completion_errors(root: Path, contract: dict,
     layers = {int(x) for x in (policy.get("runtimeLayers") or [2, 3])}
     relevant = []
     for index, row in enumerate(rows, 1):
-        required = ("ts", "kind", "layer", "command", "outcome", "evidence",
-                    "session", "producer")
+        required = ("ts", "kind", "layer", "outcome")
         missing = [key for key in required if key not in row]
         if missing:
             return [problem(ledger_rel,
@@ -346,12 +345,25 @@ def strict_runtime_completion_errors(root: Path, contract: dict,
         except Exception:
             return [problem(ledger_rel, "runtime signal timestamp is invalid",
                             "rerun verification through completion-signals")]
-        if str(row.get("producer")) != str(policy.get("signalProducer")):
-            return [problem(ledger_rel, "runtime signal producer provenance is invalid",
-                            "rerun verification through completion-signals")]
         layer = row.get("layer")
         if type(layer) is not int or layer not in {0, 1, 2, 3}:
             return [problem(ledger_rel, "runtime signal layer is invalid",
+                            "rerun verification through completion-signals")]
+        # Слой 0 — учётная телеметрия делегирования, не слой завершения: он не
+        # участвует в runtime-вердикте, поэтому его провенанс не может его
+        # изменить. Строгий разбор ронялся на нём и закрывал сессию красной
+        # (S9-U3). Послабление ровно на слой 0 и только пока политика не
+        # объявила его runtime-слоем.
+        if layer == 0 and 0 not in layers:
+            continue
+        missing = [key for key in ("command", "outcome", "evidence",
+                                   "session", "producer") if key not in row]
+        if missing:
+            return [problem(ledger_rel,
+                            "runtime signal is missing fields: " + ", ".join(missing),
+                            "rerun verification through completion-signals")]
+        if str(row.get("producer")) != str(policy.get("signalProducer")):
+            return [problem(ledger_rel, "runtime signal producer provenance is invalid",
                             "rerun verification through completion-signals")]
         if layer in layers:
             if not str(row.get("command") or "").strip() \

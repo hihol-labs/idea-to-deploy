@@ -103,6 +103,12 @@ def record_agent_signal(payload: dict, agent: str) -> None:
         if resp is None:
             resp = (payload or {}).get("tool_result")
         sig = cl.agent_result_signal(agent, resp)
+        # Провенанс писателя обязателен: строгий оценщик леджера читает
+        # `producer` у каждой строки сессии, и строка без него роняла разбор
+        # ВСЕГО леджера — учётная телеметрия делегирования блокировала коммит
+        # (S9-U3). Значение своё, не чужое: подписываться идентификатором
+        # completion-signals значило бы подделать провенанс.
+        sig["producer"] = "itd-record-agent-skill"
         cl.append_signal(cwd, str((payload or {}).get("session_id") or "unknown"), sig)
     except Exception:
         pass

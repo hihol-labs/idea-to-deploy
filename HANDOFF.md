@@ -1,6 +1,6 @@
 ---
 project: idea-to-deploy
-stage: S9 — четыре харнес-фикса; U4 закрыт, остались U3 → U2 → U1
+stage: S9 — четыре харнес-фикса; U4 закрыт, U3 в работе, остались U2 → U1
 from: сессия 2026-08-15 (исполнитель S9, часть 2)
 to: следующая сессия-исполнитель S9
 created: 2026-08-15
@@ -8,12 +8,12 @@ reason: приближение к порогу контекста на гран�
 tags: [handoff, gpg-004-followups, s9, harness]
 ---
 
-# HANDOFF — S9: U4 закрыт, дальше U3 → U2 → U1
+# HANDOFF — S9: U4 закрыт, U3 в работе, дальше U2 → U1
 
 ## 1. From → To
 
 **From:** сессия 2026-08-15, часть 2. U4 доведён до конца полным маршрутом.
-**To:** следующая сессия — U3, затем U2, затем U1, один живой re-record,
+**To:** следующая сессия — маршрут U3, затем U2 и U1, один живой re-record,
 публикация, общий релиз S8+S9.
 
 ## 2. Причина передачи
@@ -23,15 +23,24 @@ tags: [handoff, gpg-004-followups, s9, harness]
 
 ## 3. Текущее состояние — ФАКТЫ
 
-- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **2 коммита**:
-  - `39bfbf5` — evidence U4 (8 файлов, дерево
-    `a07597466c6f9c544709380a01e29b5efdf77272`);
-  - `4191213` — ledger U4 (`STATE.json`, юнит → `verified`).
-- Рабочее дерево **чистое**, индекс пуст. Ветка **не запушена**.
+- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **3 коммита**:
+  - `39bfbf5` — evidence U4 (дерево `a0759746`);
+  - `4191213` — ledger U4 (юнит → `verified`);
+  - `f2638f2` — обновлённый этот пакет.
+- Ветка **не запушена**.
+- **U3 реализован, локально зелёный, НЕ закоммичен.** В рабочем дереве:
+  `hooks/record-agent-skill.sh` (писатель подписывается
+  `itd-record-agent-skill`), `hooks/completion-gate.sh` и
+  `docs/templates/itd/itd_hygiene.py` (оба строгих оценщика выводят слой 0 из
+  провенанс-проверки, пока политика не объявила его runtime-слоем),
+  `tests/verify_completion_gate.py` 16→27 PASSED,
+  `tests/verify_strict_completion_policy.py` 56→58 PASSED, оба мутационно
+  доказаны. Плюс бухгалтерия: контракт `.itd-memory/contracts/S9-U3-LEDGER.md`,
+  поправка зоны в `.itd/SCOPE_LOCK.md`, `BACKLOG` (пункт закрыт + два новых
+  остатка), активация `S9-U3-LEDGER` с `riskTier` в `STATE.json`.
+- Остался только маршрут U3 по рецепту из поля 5.
 - `.itd/ACCEPTANCE_CONTRACT.json` → `activeFollowup.unitId = "S9"`,
-  `in_progress`, riskTier **medium**.
-- `.itd/SCOPE_LOCK.md` описывает состав всей ветки S9 (все четыре юнита +
-  re-record), править его под U3 не нужно — зоны уже объявлены.
+  `in_progress`, riskTier **medium**, `rootCause` → контракт U3.
 
 ## 4. Финальные решения (уже приняты, не переоткрывать)
 
@@ -99,11 +108,11 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
 7. Evidence-коммит, затем **отдельный** ledger-коммит
    (`itd_unit_log.py verified <unit>` + правка `nextAction`).
 
-## 6. Оставшиеся юниты (якоря)
+## 6. Юниты (якоря)
 
 | # | Долг | Якоря | Жжёт live-пин? |
 |---|------|-------|----------------|
-| U3 | completion-ledger schema | писатель `hooks/record-agent-skill.sh:95-106` → `hooks/completion_lib.py:637` (`append_signal` не ставит `producer`, ср. `hooks/completion-signals.sh:94`); оценщик `hooks/completion-gate.sh:287-296` (`signal_schema_error` валит строку). Починить писателя И научить оценщика пропускать layer-0 telemetry, а не падать закрыто. Конкретная строка: `.claude/completion/signals.jsonl:1130`. Леджер НЕ править. | да |
+| U3 | completion-ledger schema — **реализован, ждёт маршрута** | писатель `hooks/record-agent-skill.sh` (подпись `itd-record-agent-skill`); оценщики `hooks/completion-gate.sh` (`signal_schema_error`) и `docs/templates/itd/itd_hygiene.py` (explicit-close). Леджер `.claude/completion/signals.jsonl` НЕ править — он улика. | да |
 | U2 | doctor independence label | `skills/_shared/itd_gate_control.py:1492` (`validate_local_adjudication`, контракт `str \| None` ~1561), заглушка `tests/verify_gate_profile_doctor.py:201-262` | да |
 | U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | да |
 
@@ -133,10 +142,13 @@ timeout, REST работает); external-write гейт классифицир�
 
 ## 9. Первое действие
 
-> [!todo] `git status --short` и `git log --oneline -3` — убедиться, что на
-> ветке два коммита и дерево чистое. Затем открыть U3: контракт юнита в
-> `.itd-memory/contracts/S9-U3-LEDGER.md`, активация в `STATE.json` С
-> `riskTier`, RED-first тест, и дальше рецепт из поля 5.
+> [!todo] `git status --short` и `git log --oneline -3`. Если U3 ещё не
+> закоммичен — довести бухгалтерию до состояния «описывает ветку как она
+> есть», затем маршрут из поля 5 для claim-id `S9-U3-LEDGER` и
+> `S9-U3-LEDGER:general-review`. Набор `--command` для машинной квитанции U3:
+> `gate=sh skills/_shared/itd_py.sh tests/verify_completion_gate.py`,
+> `strict=sh skills/_shared/itd_py.sh tests/verify_strict_completion_policy.py`,
+> `quick=bash tests/run-all.sh --quick`.
 
 ---
 

@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S9-U4-PRCREATE",
-    "goal": "itd pr create must recognize an already-synced branch and skip the no-op push the guarded pre-push hook rejects",
-    "status": "verified",
-    "startedAt": "2026-08-15T17:27:20Z",
-    "riskTier": "medium",
-    "completedAt": "2026-08-15T19:40:35Z"
+    "id": "S9-U3-LEDGER",
+    "goal": "agent-delegation telemetry must not fail the strict completion ledger closed in either the commit gate or the explicit-close evaluator",
+    "status": "in_progress",
+    "startedAt": "2026-08-15T19:51:00Z",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +571,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). U4 is CLOSED: evidence commit 39bfbf5 (tree a07597466c6f9c544709380a01e29b5efdf77272) plus this ledger commit. Route evidence: two isolated machine receipts under .itd-memory/verification-loop/receipts/8e39592ea6e558a8/ (claims S9-U4-PRCREATE and S9-U4-PRCREATE:general-review, exit 0), a fresh claude-sonnet-5 --mode full checker PASSED with 0 findings (report S9-U4-PRCREATE-checker-report-r6.md), both adjudications PASSED, general-review recorded in the exact-context review cache. Next: U3 (completion-ledger producer schema: hooks/record-agent-skill.sh writer plus hooks/completion-gate.sh evaluator), then U2 (doctor independence label), then U1 (producer committed-head). Those three touch METHODOLOGY_TREE_ROOTS and burn the live-evidence pin, so ONE live benchmark re-record runs at the very end on a clean tree, then publication via itd pr create (direct git push is forbidden) and a combined S8+S9 release per docs/RELEASE_RUNBOOK.md. Two traps recorded this round: itd_unit_log.py activate does not write riskTier, so set it by hand in currentUnit BEFORE minting receipts or the commit gate resolves the tier as unknown; and the completion ledger only classifies a Bash run when the command echoes 'EXIT: \\$?', so a checker's mutation red stays the newest classified L2 signal until you re-run the same command with that echo. Context packet: HANDOFF.md. GENG-000 starts via /goal after S9."
+  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9), 3 commits: 39bfbf5 evidence U4, 4191213 ledger U4, f2638f2 handoff. U4 is verified. U3 (S9-U3-LEDGER) is implemented and locally green but NOT committed: writer hooks/record-agent-skill.sh stamps producer itd-record-agent-skill; both strict evaluators (hooks/completion-gate.sh signal_schema_error and the explicit-close path in docs/templates/itd/itd_hygiene.py) exempt layer-0 delegation accounting while the policy has not declared layer 0 a runtime layer. verify_completion_gate 16->27 PASSED, verify_strict_completion_policy 56->58 PASSED, both mutation-proved. Remaining for U3 is the route: two machine receipts (claims S9-U3-LEDGER and S9-U3-LEDGER:general-review), a fresh checker of another model, adjudicate x2, review_cache record, evidence commit, then a SEPARATE ledger commit. U3 touches hooks/ so it burns the live-evidence pin by construction; the single live re-record still runs at the very end. Then U2 (doctor independence label) and U1 (producer committed-head). Context packet: HANDOFF.md, route recipe in its field 5."
 }

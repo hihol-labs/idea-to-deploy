@@ -284,21 +284,33 @@ def strict_required(policy: dict, risk_tier: str) -> bool:
 
 
 def signal_schema_error(row: dict, policy: dict) -> str:
-    required = ("ts", "kind", "layer", "command", "outcome", "evidence",
-                "session", "producer")
-    missing = [key for key in required if key not in row]
+    base = ("ts", "kind", "layer", "outcome")
+    missing = [key for key in base if key not in row]
     if missing:
         return "runtime signal is missing fields: " + ", ".join(missing)
     try:
         datetime.fromisoformat(str(row["ts"]).replace("Z", "+00:00"))
     except Exception:
         return "runtime signal timestamp is invalid"
-    if str(row.get("producer")) != str(policy.get("signalProducer")):
-        return "runtime signal producer provenance is invalid"
     layer = row.get("layer")
     if type(layer) is not int or layer not in {0, 1, 2, 3}:
         return "runtime signal layer is invalid"
-    if layer in set(policy.get("runtimeLayers") or []):
+    runtime_layers = set(policy.get("runtimeLayers") or [])
+    # Слой 0 — учётная телеметрия (делегирование субагентов), а не слой
+    # завершения: runtime_evidence_status его не читает, поэтому его провенанс
+    # физически не может изменить вердикт. Раньше строка такой телеметрии
+    # роняла разбор ВСЕГО леджера и превращалась в жёсткий блок коммита
+    # (S9-U3). Послабление ровно на слой 0 и только пока политика не объявила
+    # его runtime-слоем: если объявила — он проверяется строго, как раньше.
+    if layer == 0 and 0 not in runtime_layers:
+        return ""
+    missing = [key for key in ("command", "evidence", "session", "producer")
+               if key not in row]
+    if missing:
+        return "runtime signal is missing fields: " + ", ".join(missing)
+    if str(row.get("producer")) != str(policy.get("signalProducer")):
+        return "runtime signal producer provenance is invalid"
+    if layer in runtime_layers:
         if not str(row.get("command") or "").strip():
             return "runtime signal command is empty"
         if not str(row.get("evidence") or "").strip():

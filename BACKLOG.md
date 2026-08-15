@@ -266,6 +266,18 @@ adjudication; each was deliberately kept out of those bounded slices.
   keyring pin is not provisioned)`, which points at a race in declared-input
   provisioning. Worth retaining a bounded stdout tail (or the failing suite
   name) in the receipt so this is diagnosable without re-running.
+- [ ] The completion-signal classifier recognizes failure text but not success
+  text (S9-U3, 2026-08-15): `outcome_from`
+  (`hooks/completion_lib.py:361-378`) resolves an outcome from an exit code, an
+  echoed `EXIT: N`, then `FAIL_TEXT_RE`, then `PASS_TEXT_RE`. This host does not
+  supply a structural exit code and a `| tail` masks `$?`, so a verifier
+  printing `{"checks": 75, "status": "PASSED"}` is recorded as `unknown` while
+  the same verifier's `AssertionError` is recorded as `fail`. The ledger can
+  therefore go red and never green again for the same command, and a checker's
+  deliberate mutation run blocks the commit until the operator knows to re-run
+  with `; echo "EXIT: $?"`. Asymmetric by construction: worth teaching
+  `PASS_TEXT_RE` the project's own verifier JSON, or having the runner echo the
+  code.
 - [ ] `itd_unit_log.py activate` does not record the unit's `riskTier`
   (S9-U4, 2026-08-15): `skills/task/scripts/itd_unit_log.py:116` writes
   `currentUnit` as `{id, goal, status, startedAt}` only, so
@@ -296,11 +308,17 @@ adjudication; each was deliberately kept out of those bounded slices.
   the doctor regression suite) keeps the doctor entry at
   `routeEvidence`-only. Extend the callable contract and the doctor suite
   together in one bounded change.
-- [ ] Completion-ledger writer schema: agent-delegation telemetry rows are
+- [x] Completion-ledger writer schema: agent-delegation telemetry rows are
   written without the `producer` field, so the strict completion evaluation
   fails to parse the ledger (observed 2026-08-09, signals.jsonl line 270,
   audited COMPLETION_BYPASS). Fix the writer and make the evaluator skip
   layer-0 telemetry rows instead of failing closed on them.
+  CLOSED by S9-U3-LEDGER: `record-agent-skill.sh` stamps its own provenance
+  `itd-record-agent-skill`; both strict evaluators (`hooks/completion-gate.sh`
+  and the explicit-close path in `docs/templates/itd/itd_hygiene.py`) exempt
+  layer-0 delegation accounting from provenance and runtime-field checks while
+  the policy has not declared layer 0 a runtime layer. Layer 2 keeps failing
+  closed on a missing or foreign producer.
 - [ ] Harden `reviewer_independence_level`: require the shared family to be a
   member of the closed independence class before labeling a same-family pair
   (currently unreachable through minting because the reviewer provider is

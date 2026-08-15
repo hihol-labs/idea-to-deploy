@@ -1382,7 +1382,7 @@
     "unitId": "S9",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/S9-U4-PRCREATE.md",
+    "rootCause": ".itd-memory/contracts/S9-U3-LEDGER.md",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",

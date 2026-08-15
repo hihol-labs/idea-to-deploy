@@ -31,12 +31,21 @@ candidate is structurally unreducible (durable decision, 2026-08-14).
   `git ls-remote --heads origin refs/heads/<branch>` and the absent-PR path
   skips the push when it already equals local `HEAD`. `parse_updates` is NOT
   relaxed and `pr_view` stays before the push — see the contract's Exclusions.
-- `hooks/record-agent-skill.sh`, `hooks/completion_lib.py`,
-  `hooks/completion-gate.sh` and their oracles — **S9-U3-LEDGER**:
+- `hooks/record-agent-skill.sh`, `hooks/completion-gate.sh`,
+  `docs/templates/itd/itd_hygiene.py` and their oracles — **S9-U3-LEDGER**:
   agent-delegation telemetry rows are written without `producer`, so the strict
   completion evaluation fails to parse the ledger. Fix the writer and teach the
   evaluator to skip layer-0 telemetry rows instead of failing closed on them.
   `.claude/completion/signals.jsonl` is evidence and is never edited.
+  The zone was widened while implementing the unit, and the widening is
+  declared rather than silent: the identical strict check lives twice — in the
+  commit gate (`hooks/completion-gate.sh`) and in the explicit-close evaluator
+  (`docs/templates/itd/itd_hygiene.py`), both reading the same ledger. Fixing
+  only the first would have left `/session-save --close` failing closed on the
+  same rows, which is a half-fix, not a bounded one. `hooks/completion_lib.py`
+  was in the originally declared zone and turned out NOT to need a change:
+  giving `append_signal` a default producer would forge provenance for any
+  writer that forgot to sign, so each writer signs itself instead.
 - `skills/_shared/itd_gate_control.py`,
   `tests/verify_gate_profile_doctor.py` — **S9-U2-DOCTOR**: extend the
   `validate_local_adjudication` route-label contract past `str | None` so the
