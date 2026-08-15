@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S9-U1-COMMITTED-HEAD",
     "goal": "the free isolated reviewer producer must be able to bind an already-committed candidate as parent->HEAD instead of failing closed on an empty staged diff",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-15T21:03:04Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-15T22:21:31Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -571,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). U4, U3 and U2 are CLOSED. Commits: 39bfbf5+4191213 (U4), f2638f2 handoff, 57252a0+0d6f013 (U3), 0ac7c80 handoff, 3df0309 evidence U2, plus this ledger commit. U2 route evidence: machine receipts under .itd-memory/verification-loop/receipts/2545583e3137a38c/, fresh claude-sonnet-5 --mode full checker r2 PASSED 0 findings (r1 returned one minor bookkeeping finding, fixed and re-minted), both adjudications PASSED on tree c08a4822f14e40395b473cf0f3bb294ab3a4896e, review cache recorded. Both U3 and U2 evidence commits used an audited COMPLETION_BYPASS for the same harness defect: the completion verdict takes the LATEST run per command string, and the independent checker mutates and restores files with unique compound commands whose output the text classifier reads as failures, so those rows can never be re-run green. Expect it on U1 too; the escape is the audited bypass with the exact reason, in .itd-memory/events.jsonl. NEXT: U1 (S9-U1-COMMITTED-HEAD) — teach skills/_shared/itd_free_reviewer_producer.py a --candidate-mode committed-head that binds parent->HEAD with the same exact tree/diff the machine receipt uses; anchors are _staged_file_records() ~681 and git diff --cached at ~974/979/1013, modelled on skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133. The producer cannot review itself: route U1 on a copy of _shared taken BEFORE the fix. Then ONE live benchmark re-record on a clean tree (the pin is already burned by U3 and U2), publication via itd pr create (direct git push is forbidden), and a combined S8+S9 release per docs/RELEASE_RUNBOOK.md. Context packet: HANDOFF.md, route recipe field 5."
+  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). ALL FOUR UNITS CLOSED: U4 (39bfbf5+4191213), U3 (57252a0+0d6f013), U2 (3df0309+e56284e), U1 (560862c + this ledger commit). U1 also re-minted the three signed efficacy legs, because they bind producerSha256 to the exact producer bytes; verify_independent_review_efficacy is PASSED with hostParityVerified true and cleanFalseBlockRate 0.0 on every leg. REMAINING: (1) ONE live benchmark re-record on a clean tree — the METHODOLOGY_TREE_ROOTS pin was burned by U3/U2/U1, precedent PR #193/#195/#199/#201/#205, recorded evidence attests the PARENT tree of its own evidence commit; (2) publication via itd pr create (direct git push is forbidden); (3) combined S8+S9 release per docs/RELEASE_RUNBOOK.md, then scripts/sync-to-active.sh. Route traps that recur on every unit are in HANDOFF.md field 4 (riskTier on activation; completion ledger classifies only echoed EXIT and takes the latest run per command string, so a checker restore command forces an audited COMPLETION_BYPASS). Efficacy re-mint procedure incl. the Windows leg over WSL interop is HANDOFF field 6b."
 }
