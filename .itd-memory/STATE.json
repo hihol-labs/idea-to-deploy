@@ -39,14 +39,15 @@
   "currentUnit": {
     "id": "S8-POLICY",
     "goal": "S8 policy fix: a closed acceptance followup must stop pinning the review coverage matrix, and the S8 followup is closed",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-15T11:58:16Z",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-15T12:15:15Z"
   },
   "gateResults": {
-    "acceptanceContract": "pending",
-    "specComplianceReview": "pending",
-    "codeQualityReview": "pending",
+    "acceptanceContract": "passed",
+    "specComplianceReview": "passed",
+    "codeQualityReview": "passed",
     "tests": "passed",
     "tddRed": "passed",
     "tddGreen": "passed",
@@ -343,6 +344,12 @@
       "command": "ADR-006 single opposite-GPT implementation and dual-host pre-freeze validation",
       "result": "passed",
       "evidence": "Mandatory route 81/81 on WSL and native Windows reports route=[openai-subscription]; producer 105/105 on both hosts; Verification Loop 78/78, broker 741/741, server 50/50, doctor 28/28, optional Copilot adapter 49/49, host adapters, feature-ledger completeness, meta-review and quick suite DONE fails:none passed. Fresh signed Terra efficacy envelopes on WSL and Windows report critical/high detection 100%, medium detection 100%, clean false blocks 0%, missing-evidence detection 100% and finding retention 100%. Exact committed-candidate machine/review/adjudication remains pending."
+    },
+    {
+      "unitId": "S8-POLICY",
+      "at": "2026-08-15T12:30:00Z",
+      "gate": "acceptanceContract/codeQualityReview/specComplianceReview",
+      "evidence": "acceptanceContract: .itd-memory/contracts/S8-POLICY.md standards all met and .itd/ACCEPTANCE_CONTRACT.json activeFollowup S8 closed with every criterion passed. codeQualityReview: adjudication S8-POLICY-adjudication-gr.json PASSED over a fresh claude-sonnet-5 checker (mode full, own mutation and non-closed-status probes), 0 findings. specComplianceReview: meta_review.py FINAL STATUS PASSED (docs-vs-code rubric). branchFinish and deploymentReadiness stay pending: the branch is not finished and nothing is deployed."
     }
   ],
   "decisionLog": [
