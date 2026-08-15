@@ -66,6 +66,32 @@ branch against main.
   advanced through S8-U1 → S8-U2 → S8-U3 → S8-EVIDENCE → S8-RERECORD →
   S8-FOLLOWUP → S8-U4-CRLF, each recorded verified with its receipt digest.
 
+## What a reviewer judges inside recorded live evidence
+
+`tests/fixtures/live-model-evidence/runs/**` is a RECORDING of what the
+model-under-test produced while the benchmark drove it. The generated
+`output/*.md` documents, the `run-report.json` and the `transcript.jsonl.gz`
+are observations, not this candidate's specification, and the maker may not
+edit their content: rewriting a recorded run to read better is evidence
+forgery, which the frozen `evidence-replay` oracle exists to prevent.
+
+Therefore, inside that directory the reviewable properties are exactly:
+
+- freshness — the recorded `methodologyTreeSha256` and the other source pins
+  equal the reviewed tree's actual pins, and `latest.json` points at this run;
+- integrity — the transcript is a complete run (matched items, a terminal
+  `turn.completed`) and `run-report.json` agrees with it;
+- hygiene — no secret, token, or credential survives into the recording.
+
+Statements *inside* a generated document (its requirements, its architecture
+choices, its error-handling promises) are the model's output under test. They
+are graded by the benchmark's own scoring, not re-litigated as if this
+candidate proposed them. A defect found there is a finding about the
+model-under-test, to be recorded in `BACKLOG.md`, never a reason to alter the
+recording. Commands the model ran inside the disposable adopted project
+(which has no `.git` by construction, so `git status` there exits 128) are
+likewise part of the recording, not a provenance failure of this candidate.
+
 ## Forbidden change areas
 
 - Any production or test code NOT listed above — in particular the transport,

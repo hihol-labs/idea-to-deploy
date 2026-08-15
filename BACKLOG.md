@@ -381,3 +381,20 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 - A bundled Python-only code-navigation MCP.
 - New `plan`, `implement`, `validate`, or `review` lifecycle skills duplicating the
   current pipeline.
+
+## P1 — Recorded in S8 publication route (2026-08-15)
+
+- [ ] The mandatory route grades generated benchmark output as if the candidate
+  proposed it. On the S8 re-record candidate the free reviewer returned three
+  high findings against `output/PRD.md` and `output/PROJECT_ARCHITECTURE.md`
+  inside `tests/fixtures/live-model-evidence/runs/**` — documents the
+  model-under-test wrote, which the maker must not edit. Closed for S8 by
+  declaring the reviewable properties in `.itd/SCOPE_LOCK.md`; the durable fix
+  is for the packet builder to mark recorded-evidence paths as observations so
+  the reviewer scores integrity/freshness/hygiene instead of content.
+- [ ] The same review claimed the transcript had an unmatched in-progress item
+  and no `turn.completed`, and read a sandbox `git status` exit 128 as a
+  provenance failure. Both are machine-refutable on the artifact (0 unmatched,
+  two `turn.completed`, the failure is inside the disposable adopted project).
+  Worth a cheap transcript-shape summary in the packet so the reviewer does not
+  have to infer structure from a gzip blob.
