@@ -453,7 +453,7 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 
 ## P0 — S9: the route must accept a committed-head candidate
 
-- [ ] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
+- [x] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
   a candidate that is already committed cannot be routed: publication needs the
   LAST commit of the branch reviewed, and re-staging it re-introduces the
   dirty-state problem this repo hit twice (2026-08-14 whole-branch attempt,
@@ -462,4 +462,13 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
   machine receipt uses, mirroring `itd_verification_loop`. User decision
   2026-08-15: this is unit S9; until then a closed followup (S8-POLICY) keeps
   the matrix from blocking later commits.
+  CLOSED by S9-U1-COMMITTED-HEAD: `freeze_packet` takes a `candidate_mode`, and
+  `review --candidate-mode committed-head` resolves the parent from
+  `git rev-list --parents -n 1 HEAD`, rejects anything that is not a
+  single-parent commit, and requires the index to equal `HEAD^{tree}` — so the
+  existing `git diff --cached <parent>` yields exactly `parent..HEAD` and the
+  exact-candidate math is unchanged. `staged` stays the default; the clean-tree
+  requirement is not relaxed. Proven equivalent: the packet frozen from an index
+  and the packet frozen from the commit of that same index agree on tree,
+  diffSha256, parentCommit and baseCommit.
 

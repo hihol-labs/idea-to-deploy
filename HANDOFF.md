@@ -1,6 +1,6 @@
 ---
 project: idea-to-deploy
-stage: S9 — четыре харнес-фикса; U4 и U3 закрыты, U2 в работе, остался U1
+stage: S9 — четыре харнес-фикса; U4, U3 и U2 закрыты, U1 в работе
 from: сессия 2026-08-15 (исполнитель S9, часть 2)
 to: следующая сессия-исполнитель S9
 created: 2026-08-15
@@ -8,14 +8,14 @@ reason: приближение к порогу контекста на гран�
 tags: [handoff, gpg-004-followups, s9, harness]
 ---
 
-# HANDOFF — S9: U4 и U3 закрыты, U2 в работе, дальше U1
+# HANDOFF — S9: U4, U3 и U2 закрыты, U1 в работе
 
 ## 1. From → To
 
-**From:** сессия 2026-08-15, часть 2. U4 и U3 доведены до конца полным
+**From:** сессия 2026-08-15, часть 2. U4, U3 и U2 доведены до конца полным
 маршрутом.
-**To:** следующая сессия — маршрут U2, затем U1, один живой re-record,
-публикация, общий релиз S8+S9.
+**To:** следующая сессия — маршрут U1, один живой re-record, публикация,
+общий релиз S8+S9.
 
 ## 2. Причина передачи
 
@@ -24,30 +24,31 @@ tags: [handoff, gpg-004-followups, s9, harness]
 
 ## 3. Текущее состояние — ФАКТЫ
 
-- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **5 коммитов**:
-  - `39bfbf5` evidence U4 · `4191213` ledger U4 (дерево `a0759746`);
-  - `f2638f2` обновление этого пакета;
-  - `57252a0` evidence U3 · `0d6f013` ledger U3 (дерево `2d6a4f47`).
-- Рабочее дерево **чистое**, индекс пуст. Ветка **не запушена**.
-- **U2 реализован, локально зелёный, НЕ закоммичен.** В рабочем дереве:
-  `skills/_shared/itd_gate_control.py` (контракт метки маршрута →
-  `dict[str, str] | None`, `independence_levels()` читает закрытый класс
-  лениво из `itd_reviewer_independence.py`, `profile_doctor_entry` отдаёт
-  `routeIndependence`), `tests/verify_gate_profile_doctor.py` 32→44 PASSED,
-  два мутационных доказательства. Плюс бухгалтерия: контракт
-  `.itd-memory/contracts/S9-U2-DOCTOR.md`, BACKLOG (пункт закрыт), активация
-  `S9-U2-DOCTOR` с `riskTier` в `STATE.json`, `rootCause` в acceptance.
-  `.itd/SCOPE_LOCK.md` уже объявлял эту зону — расширять не потребовалось.
-- Остался только маршрут U2 по рецепту из поля 5. Набор `--command` для
-  машинной квитанции: `doctor=sh skills/_shared/itd_py.sh
-  tests/verify_gate_profile_doctor.py`, `quick=bash tests/run-all.sh --quick`.
+- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **8 коммитов**:
+  `39bfbf5`+`4191213` (U4, дерево `a0759746`) · `f2638f2` пакет ·
+  `57252a0`+`0d6f013` (U3, дерево `2d6a4f47`) · `0ac7c80` пакет ·
+  `3df0309`+`e56284e` (U2, дерево `c08a4822`).
+- Ветка **не запушена**.
+- **U1 реализован, локально зелёный, НЕ закоммичен.** В рабочем дереве:
+  `skills/_shared/itd_free_reviewer_producer.py` (`freeze_packet` принимает
+  `candidate_mode`; committed-head резолвит родителя из
+  `git rev-list --parents -n 1 HEAD`, отвергает не-single-parent, требует
+  индекс == `HEAD^{tree}`; CLI-флаг `review --candidate-mode`),
+  `tests/verify_free_reviewer_producer.py` 174→184 PASSED
+  (`liveExternalCalls: 0`), два мутационных доказательства. Плюс бухгалтерия:
+  контракт `.itd-memory/contracts/S9-U1-COMMITTED-HEAD.md`, BACKLOG (пункт
+  закрыт), активация `S9-U1-COMMITTED-HEAD` с `riskTier`, `rootCause` в
+  acceptance. `.itd/SCOPE_LOCK.md` уже объявлял эту зону.
+- Остался маршрут U1 по рецепту из поля 5. Набор `--command` для машинной
+  квитанции: `producer=sh skills/_shared/itd_py.sh
+  tests/verify_free_reviewer_producer.py`, `quick=bash tests/run-all.sh --quick`.
+  Маршрут U1 НЕ использует сам продюсер (машинные оракулы + чекер-субагент),
+  поэтому «продюсер не ревьюит сам себя» соблюдено по построению.
 - `.itd/ACCEPTANCE_CONTRACT.json` → `activeFollowup.unitId = "S9"`,
   `in_progress`, riskTier **medium**; `rootCause` указывает на контракт
-  активного юнита (сейчас `S9-U2-DOCTOR.md`) — при открытии следующего юнита
-  переставляй его на контракт этого юнита.
-- `.itd/SCOPE_LOCK.md` уже объявляет зоны всех четырёх юнитов и re-record.
-- **Live-evidence пин сожжён** правками `hooks/` в U3 (и будет ещё раз в
-  U2/U1). Один живой re-record — в самом конце.
+  активного юнита.
+- **Live-evidence пин сожжён** правками `hooks/` (U3) и `skills/` (U2, U1).
+  Один живой re-record — после закрытия U1, на чистом дереве.
 
 ## 4. Финальные решения (уже приняты, не переоткрывать)
 
@@ -78,10 +79,11 @@ tags: [handoff, gpg-004-followups, s9, harness]
    а «латест-на-команду» означает, что ЭТУ строку нельзя перепрогнать зелёной
    никогда. На U3 это стоило штатного аудируемого `COMPLETION_BYPASS: <причина>`
    в description коммит-вызова (запись легла в `.itd-memory/events.jsonl`).
-   Ожидай того же на U2 и U1; честный выход — именно аудируемый обход с точной
-   причиной, не отключение гейта. Долг записан в BACKLOG.
+   На U2 повторилось один в один. Ожидай того же на U1; честный выход —
+   именно аудируемый обход с точной причиной, не отключение гейта. Долг
+   записан в BACKLOG.
 
-## 5. Маршрут одного юнита — рецепт, проверенный на U4
+## 5. Маршрут одного юнита — рецепт, проверенный на U4, U3 и U2
 
 Инвариант: **чеканить на том дереве, которое лежит в индексе прямо сейчас**,
 при индекс == рабочее дерево. Сначала вся бухгалтерия, потом чеканка.
@@ -127,11 +129,56 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
 |---|------|-------|--------|
 | U4 | `itd pr create` no-op push | `scripts/itd.py` `remote_branch_head` | **verified** (`39bfbf5`/`4191213`) |
 | U3 | completion-ledger schema | писатель `hooks/record-agent-skill.sh`; оценщики `hooks/completion-gate.sh` и `docs/templates/itd/itd_hygiene.py` | **verified** (`57252a0`/`0d6f013`) |
-| U2 | doctor independence label — **реализован, ждёт маршрута** | `skills/_shared/itd_gate_control.py` (`validate_local_adjudication` → `dict[str, str] \| None`, `independence_levels()`, `profile_doctor_entry`), `tests/verify_gate_profile_doctor.py` | открыт |
-| U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | открыт |
+| U2 | doctor independence label | `skills/_shared/itd_gate_control.py`, `tests/verify_gate_profile_doctor.py` | **verified** (`3df0309`/`e56284e`) |
+| U1 | producer committed-head — **реализован, ждёт маршрута** | `skills/_shared/itd_free_reviewer_producer.py` (`freeze_packet` + CLI `--candidate-mode`), `tests/verify_free_reviewer_producer.py` | открыт |
 
-**U1 не может отревьюить сам себя** — маршрут поедет на копии продюсера,
-снятой ДО фикса. Снимай свежую копию `_shared` после каждого изменения.
+**U1 не ревьюит сам себя по построению**: его маршрут — изолированные
+машинные оракулы плюс свежий чекер-субагент другой модели; ни один из них не
+загружает `itd_free_reviewer_producer.py` в роли ревьюера.
+
+## 6b. ЗАКРЫТО: три efficacy-ноги перечеканены
+
+U1 обесценил подписанные ноги (`producerSha256` биндит точные байты продюсера)
+— все три перечеканены живыми прогонами на финальном дереве и лежат в
+кандидате. Итог верификатора: `status: PASSED`, `hostParityVerified: true`,
+`cleanFalseBlockRate` 0.0 на всех ногах, обнаружение 1.0; полный `run-all` →
+`DONE fails:none`.
+
+Как это было сделано (для следующей правки продюсера — повторится один в один):
+
+- **WSL-ноги** (`wsl.json`, `u12-cross-vendor-wsl.json`) — раннер
+  `tests/run-independent-review-efficacy.py` из WSL, ключ
+  `…-20260803.key`, `--key-id gpg003-local-producer-20260803`, ревьюер
+  `gpt-5.6-sol`, `--proxy-sha256 01ba4719…` (= sha256 от `\n`, прямой
+  транспорт), maker `gpt-5.6-terra`/`openai-subscription` и
+  `claude-opus-5`/`anthropic-subscription` соответственно.
+- **Windows-нога** — тем же раннером, но через WSL-interop: PowerShell полным
+  путём `/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe`
+  (голого `powershell.exe` в PATH нет), `py -3` против UNC
+  `\\wsl.localhost\Ubuntu-24.04\home\hihol\projects\idea-to-deploy`,
+  ключ `…-20260803.windows.key` (DPAPI, расшифровывается под тем же
+  пользователем). Отдельный git-чекаут на Windows НЕ нужен.
+- **Пины транспорта разъехались** и это законно: проверено по коду —
+  `verify_independent_review_efficacy` требует от `transportExecutableSha256`
+  только корректный формат, конкретное значение не пинится. Ноги перечеканены
+  на текущих бинарях (WSL `37e6f595…`, Windows вендорный `F29F6093…`), смена
+  версии честно записана в конверт.
+- **Раунд 1 WSL-ноги был честно красный** (`cleanFalseBlockRate 0.25`:
+  same-vendor ревьюер вернул `PASSED_WITH_WARNINGS` с одним `unverified` на
+  чистом кейсе — метрика засчитывает чистый кейс только при PASSED с пустыми
+  `findings` И `unverified`). Израсходован разрешённый пользователем ОДИН
+  повтор; артефакты раунда 1 сохранены в
+  `.itd-memory/efficacy-evidence/s9-round1/`, прежние ноги — в `s9-pre-u1/`.
+- **Транспорт рвался трижды** (`event stream transport is unavailable`) — один
+  раз на Windows, дважды на одном кейсе в WSL. Возобновление с чекпоинта —
+  штатная механика (`.itd/GPG-004_A16_TRANSPORT.md`), качественный повтор она
+  НЕ расходует.
+
+Оба раунда журналированы в `.itd/DECISIONS.md`.
+
+**Порядок остатка S9:** маршрут U1 → evidence- и ledger-коммиты U1 → один
+живой re-record бенчмарка на чистом дереве → публикация через `itd pr create`
+→ релиз S8+S9.
 
 ## 7. Блокеры и риски
 

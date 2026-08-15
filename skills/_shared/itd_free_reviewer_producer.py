@@ -940,10 +940,32 @@ def freeze_packet(
     scope_file: Path,
     acceptance_file: Path,
     machine_receipt: Path,
+    candidate_mode: str = "staged",
 ) -> dict[str, Any]:
     root = root.resolve()
+    if candidate_mode not in {"staged", "committed-head"}:
+        raise FreeReviewError("UNVERIFIED", "invalid candidate mode")
     base = str(git(root, "rev-parse", "--verify", f"{base_commit}^{{commit}}" )).strip()
-    parent = str(git(root, "rev-parse", "HEAD")).strip()
+    # staged: the candidate is the index on top of HEAD, so HEAD is the parent.
+    # committed-head: the candidate is ALREADY committed, so the parent is
+    # HEAD's parent and the index must equal the committed HEAD tree. Without
+    # this an already-committed candidate cannot be routed at all — the machine
+    # diff `parent..index` is empty and the producer fails closed on its own
+    # submission (S9-U1). Mirrors itd_verification_loop.py:251-276.
+    if candidate_mode == "committed-head":
+        parents = str(
+            git(root, "rev-list", "--parents", "-n", "1", "HEAD")
+        ).strip().split()
+        if len(parents) != 2:
+            raise FreeReviewError(
+                "UNVERIFIED",
+                "committed-head requires one exact single-parent commit",
+            )
+        head, parent = parents
+        if not SHA1_RE.fullmatch(head):
+            raise FreeReviewError("UNVERIFIED", "candidate commits are invalid")
+    else:
+        parent = str(git(root, "rev-parse", "HEAD")).strip()
     if not SHA1_RE.fullmatch(base) or not SHA1_RE.fullmatch(parent):
         raise FreeReviewError("UNVERIFIED", "candidate commits are invalid")
     target = _target({
@@ -970,6 +992,12 @@ def freeze_packet(
             "UNVERIFIED", "working tree differs from the exact staged candidate"
         )
     tree = str(git(root, "write-tree")).strip()
+    if candidate_mode == "committed-head":
+        head_tree = str(git(root, "rev-parse", "HEAD^{tree}")).strip()
+        if tree != head_tree:
+            raise FreeReviewError(
+                "UNVERIFIED", "index does not equal the exact committed HEAD tree"
+            )
     diff_raw = git(
         root, "diff", "--cached", "--binary", "--full-index",
         "--no-ext-diff", base, "--", binary=True,
@@ -4614,6 +4642,13 @@ def parser() -> argparse.ArgumentParser:
     review = commands.add_parser("review")
     review.add_argument("--root", type=Path, required=True)
     review.add_argument("--base", required=True)
+    review.add_argument(
+        "--candidate-mode", choices=("staged", "committed-head"),
+        default="staged",
+        help="staged (default), or committed-head to bind the clean "
+             "single-parent HEAD to its parent using the same exact "
+             "tree/diff the machine receipt uses",
+    )
     review.add_argument("--repository", required=True)
     review.add_argument(
         "--pull-request", type=int,
@@ -4681,6 +4716,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_head_sha=args.expected_head_sha,
                 scope_file=args.scope, acceptance_file=args.acceptance,
                 machine_receipt=args.machine_receipt,
+                candidate_mode=args.candidate_mode,
             )
             prompt = review_prompt(packet)
             maker = {

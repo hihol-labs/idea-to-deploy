@@ -37,12 +37,11 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S9-U2-DOCTOR",
-    "goal": "the local-review profile doctor must surface the signed route's independence level instead of discarding it at the validator boundary",
-    "status": "verified",
-    "startedAt": "2026-08-15T20:21:28Z",
-    "riskTier": "medium",
-    "completedAt": "2026-08-15T20:56:14Z"
+    "id": "S9-U1-COMMITTED-HEAD",
+    "goal": "the free isolated reviewer producer must be able to bind an already-committed candidate as parent->HEAD instead of failing closed on an empty staged diff",
+    "status": "in_progress",
+    "startedAt": "2026-08-15T21:03:04Z",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",

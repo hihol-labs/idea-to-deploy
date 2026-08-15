@@ -58,6 +58,13 @@ candidate is structurally unreducible (durable decision, 2026-08-14).
   cannot be routed. Teach it `--candidate-mode committed-head`, binding
   parent->HEAD with the same exact tree/diff the machine receipt uses, mirroring
   `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133`.
+- `benchmarks/independent-review-efficacy/results/*.json` — **S9-U1**: the
+  three signed efficacy legs bind `producerSha256` to the exact bytes of
+  `skills/_shared/itd_free_reviewer_producer.py`, so U1 invalidates them by
+  construction and they are re-minted with live runs on the final tree (same
+  necessity as S7's `08c070f`). Inside these files the reviewable properties
+  are freshness and integrity of the recording, never its content: the model's
+  verdicts are observations under test, not this candidate's specification.
 - `tests/fixtures/live-model-evidence/**` — **S9-RERECORD**: one fresh live H4
   run, because U1/U2/U3 move the methodology tree pin by construction. Recorded
   on the clean committed tree; by construction it attests the PARENT tree of
