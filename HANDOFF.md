@@ -1,6 +1,6 @@
 ---
 project: idea-to-deploy
-stage: S9 — четыре харнес-фикса; U4 закрыт, U3 в работе, остались U2 → U1
+stage: S9 — четыре харнес-фикса; U4 и U3 закрыты, остались U2 → U1
 from: сессия 2026-08-15 (исполнитель S9, часть 2)
 to: следующая сессия-исполнитель S9
 created: 2026-08-15
@@ -8,13 +8,14 @@ reason: приближение к порогу контекста на гран�
 tags: [handoff, gpg-004-followups, s9, harness]
 ---
 
-# HANDOFF — S9: U4 закрыт, U3 в работе, дальше U2 → U1
+# HANDOFF — S9: U4 и U3 закрыты, дальше U2 → U1
 
 ## 1. From → To
 
-**From:** сессия 2026-08-15, часть 2. U4 доведён до конца полным маршрутом.
-**To:** следующая сессия — маршрут U3, затем U2 и U1, один живой re-record,
-публикация, общий релиз S8+S9.
+**From:** сессия 2026-08-15, часть 2. U4 и U3 доведены до конца полным
+маршрутом.
+**To:** следующая сессия — U2, затем U1, один живой re-record, публикация,
+общий релиз S8+S9.
 
 ## 2. Причина передачи
 
@@ -23,24 +24,18 @@ tags: [handoff, gpg-004-followups, s9, harness]
 
 ## 3. Текущее состояние — ФАКТЫ
 
-- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **3 коммита**:
-  - `39bfbf5` — evidence U4 (дерево `a0759746`);
-  - `4191213` — ledger U4 (юнит → `verified`);
-  - `f2638f2` — обновлённый этот пакет.
-- Ветка **не запушена**.
-- **U3 реализован, локально зелёный, НЕ закоммичен.** В рабочем дереве:
-  `hooks/record-agent-skill.sh` (писатель подписывается
-  `itd-record-agent-skill`), `hooks/completion-gate.sh` и
-  `docs/templates/itd/itd_hygiene.py` (оба строгих оценщика выводят слой 0 из
-  провенанс-проверки, пока политика не объявила его runtime-слоем),
-  `tests/verify_completion_gate.py` 16→27 PASSED,
-  `tests/verify_strict_completion_policy.py` 56→58 PASSED, оба мутационно
-  доказаны. Плюс бухгалтерия: контракт `.itd-memory/contracts/S9-U3-LEDGER.md`,
-  поправка зоны в `.itd/SCOPE_LOCK.md`, `BACKLOG` (пункт закрыт + два новых
-  остатка), активация `S9-U3-LEDGER` с `riskTier` в `STATE.json`.
-- Остался только маршрут U3 по рецепту из поля 5.
+- Ветка **`fix/s9-harness-debts`** от main `e3131c9`, **5 коммитов**:
+  - `39bfbf5` evidence U4 · `4191213` ledger U4 (дерево `a0759746`);
+  - `f2638f2` обновление этого пакета;
+  - `57252a0` evidence U3 · `0d6f013` ledger U3 (дерево `2d6a4f47`).
+- Рабочее дерево **чистое**, индекс пуст. Ветка **не запушена**.
+- Открытых юнитов нет: `STATE.json.currentUnit` = `S9-U3-LEDGER` / `verified`.
 - `.itd/ACCEPTANCE_CONTRACT.json` → `activeFollowup.unitId = "S9"`,
-  `in_progress`, riskTier **medium**, `rootCause` → контракт U3.
+  `in_progress`, riskTier **medium**; `rootCause` указывает на контракт U3 —
+  при открытии U2 переставь на его контракт.
+- `.itd/SCOPE_LOCK.md` уже объявляет зоны всех четырёх юнитов и re-record.
+- **Live-evidence пин сожжён** правками `hooks/` в U3 (и будет ещё раз в
+  U2/U1). Один живой re-record — в самом конце.
 
 ## 4. Финальные решения (уже приняты, не переоткрывать)
 
@@ -60,13 +55,19 @@ tags: [handoff, gpg-004-followups, s9, harness]
    квитанцию, отчеканенную как `medium`, с сообщением «нет успешного /review
    для exact current context». Проставляй руками ДО чеканки: это правка внутри
    кандидата, после неё все квитанции надо чеканить заново.
-7. **Completion-гейт классифицирует прогон только по эху `EXIT: $?`.**
-   `outcome_from` (`hooks/completion_lib.py:361-378`) берёт код из
-   `EXIT: N`; без него зелёный прогон пишется как `outcome: unknown`, а
-   красный от мутационного эксперимента чекера остаётся последним
-   классифицированным L2-сигналом и вечно валит коммит. Перед коммитом
-   прогони проверку **одиночной** командой вида
+7. **Completion-гейт классифицирует прогон только по эху `EXIT: $?`, и
+   вердикт берёт ПОСЛЕДНИЙ прогон на строку команды.** `outcome_from`
+   (`hooks/completion_lib.py:361-378`) берёт код из `EXIT: N`; без него зелёный
+   прогон пишется как `outcome: unknown`. Поэтому перед коммитом гоняй проверку
+   **одиночной** командой вида
    `sh skills/_shared/itd_py.sh tests/<verifier>.py; echo "EXIT: $?"`.
+   Хуже другое: независимый чекер восстанавливает мутированные файлы уникальной
+   составной командой, вывод которой текстовая эвристика читает как провал —
+   а «латест-на-команду» означает, что ЭТУ строку нельзя перепрогнать зелёной
+   никогда. На U3 это стоило штатного аудируемого `COMPLETION_BYPASS: <причина>`
+   в description коммит-вызова (запись легла в `.itd-memory/events.jsonl`).
+   Ожидай того же на U2 и U1; честный выход — именно аудируемый обход с точной
+   причиной, не отключение гейта. Долг записан в BACKLOG.
 
 ## 5. Маршрут одного юнита — рецепт, проверенный на U4
 
@@ -110,11 +111,12 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
 
 ## 6. Юниты (якоря)
 
-| # | Долг | Якоря | Жжёт live-пин? |
-|---|------|-------|----------------|
-| U3 | completion-ledger schema — **реализован, ждёт маршрута** | писатель `hooks/record-agent-skill.sh` (подпись `itd-record-agent-skill`); оценщики `hooks/completion-gate.sh` (`signal_schema_error`) и `docs/templates/itd/itd_hygiene.py` (explicit-close). Леджер `.claude/completion/signals.jsonl` НЕ править — он улика. | да |
-| U2 | doctor independence label | `skills/_shared/itd_gate_control.py:1492` (`validate_local_adjudication`, контракт `str \| None` ~1561), заглушка `tests/verify_gate_profile_doctor.py:201-262` | да |
-| U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | да |
+| # | Долг | Якоря | Статус |
+|---|------|-------|--------|
+| U4 | `itd pr create` no-op push | `scripts/itd.py` `remote_branch_head` | **verified** (`39bfbf5`/`4191213`) |
+| U3 | completion-ledger schema | писатель `hooks/record-agent-skill.sh`; оценщики `hooks/completion-gate.sh` и `docs/templates/itd/itd_hygiene.py` | **verified** (`57252a0`/`0d6f013`) |
+| U2 | doctor independence label | `skills/_shared/itd_gate_control.py:1492` (`validate_local_adjudication`, контракт `str \| None` ~1561), заглушка `tests/verify_gate_profile_doctor.py:201-262` | открыт |
+| U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | открыт |
 
 **U1 не может отревьюить сам себя** — маршрут поедет на копии продюсера,
 снятой ДО фикса. Снимай свежую копию `_shared` после каждого изменения.
