@@ -39,9 +39,11 @@
   "currentUnit": {
     "id": "S8-RERECORD2",
     "goal": "S8 re-record 2: live H4 evidence recorded on the clean tree after S8-U4-CRLF moved the methodology tree pin",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-14T20:07:35Z",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-15T11:03:27Z",
+    "note": "closed on commit aae7e0a (fresh re-record); the 0f88fca recording was stale and superseded"
   },
   "gateResults": {
     "acceptanceContract": "pending",
