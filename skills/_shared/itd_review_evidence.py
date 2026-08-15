@@ -45,9 +45,32 @@ def _string_list(value: object, label: str) -> list[str]:
     return list(value)
 
 
+CLOSED_FOLLOWUP_STATUSES = frozenset({"verified", "closed", "done", "superseded"})
+
+
+def followup_is_closed(followup: dict[str, Any]) -> bool:
+    """A finished followup stops being authoritative over later candidates.
+
+    The matrix exists to keep the ACTIVE unit's claim honest. Left pinned after
+    the unit is verified it starts gating unrelated work: on 2026-08-15 the
+    closed S8 followup still demanded a live-benchmark replay whose dirty-state
+    pin cannot hold while any other file is staged, so no later commit could be
+    routed at all. Closing releases the matrix back to the pre-declaration
+    baseline - it never relaxes an OPEN followup, whose every criterion is
+    still required.
+    """
+    status = followup.get("status")
+    if isinstance(status, str) and status.strip().lower() in CLOSED_FOLLOWUP_STATUSES:
+        return True
+    closed_at = followup.get("closedAt")
+    return isinstance(closed_at, str) and bool(closed_at.strip())
+
+
 def evidence_first_policy(acceptance: dict[str, Any]) -> dict[str, Any] | None:
     followup = acceptance.get("activeFollowup")
     if not isinstance(followup, dict) or "reviewPolicy" not in followup:
+        return None
+    if followup_is_closed(followup):
         return None
     policy = _closed_dict(followup["reviewPolicy"], {
         "mode", "riskTier", "requiredImpactClasses",

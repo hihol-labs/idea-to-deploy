@@ -398,3 +398,16 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
   two `turn.completed`, the failure is inside the disposable adopted project).
   Worth a cheap transcript-shape summary in the packet so the reviewer does not
   have to infer structure from a gzip blob.
+
+## P0 — S9: the route must accept a committed-head candidate
+
+- [ ] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
+  a candidate that is already committed cannot be routed: publication needs the
+  LAST commit of the branch reviewed, and re-staging it re-introduces the
+  dirty-state problem this repo hit twice (2026-08-14 whole-branch attempt,
+  2026-08-15 ledger commit). Teach the producer a `--candidate-mode
+  committed-head` that binds parent->HEAD with the same exact tree/diff the
+  machine receipt uses, mirroring `itd_verification_loop`. User decision
+  2026-08-15: this is unit S9; until then a closed followup (S8-POLICY) keeps
+  the matrix from blocking later commits.
+
