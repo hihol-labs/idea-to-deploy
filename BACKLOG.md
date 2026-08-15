@@ -302,12 +302,18 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Pre-existing ledger drift: `GOAL-2026-07-06-axis*` / `PE5-015` unit
   ledgers drifted from current evidence before GPG-004 started. Reconcile the
   ledgers honestly — no synthetic evidence backfill.
-- [ ] Surface the reviewer-independence label in the local-review profile
+- [x] Surface the reviewer-independence label in the local-review profile
   doctor: `validate_local_adjudication` already receives `routeIndependence`
   in the check stdout, but its `str | None` route-label contract (stubbed by
   the doctor regression suite) keeps the doctor entry at
   `routeEvidence`-only. Extend the callable contract and the doctor suite
   together in one bounded change.
+  CLOSED by S9-U2-DOCTOR: the contract is now `dict[str, str] | None` carrying
+  `routeEvidence` and, when the check printed a member of the closed
+  independence class, `routeIndependence`; `profile_doctor_entry` surfaces both
+  without lifting the claim. The class is read lazily from
+  `itd_reviewer_independence.py` rather than copied, and an unavailable policy
+  module reports an empty class so the label is dropped, never trusted.
 - [x] Completion-ledger writer schema: agent-delegation telemetry rows are
   written without the `producer` field, so the strict completion evaluation
   fails to parse the ledger (observed 2026-08-09, signals.jsonl line 270,

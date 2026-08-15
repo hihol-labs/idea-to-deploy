@@ -1,6 +1,6 @@
 ---
 project: idea-to-deploy
-stage: S9 — четыре харнес-фикса; U4 и U3 закрыты, остались U2 → U1
+stage: S9 — четыре харнес-фикса; U4 и U3 закрыты, U2 в работе, остался U1
 from: сессия 2026-08-15 (исполнитель S9, часть 2)
 to: следующая сессия-исполнитель S9
 created: 2026-08-15
@@ -8,14 +8,14 @@ reason: приближение к порогу контекста на гран�
 tags: [handoff, gpg-004-followups, s9, harness]
 ---
 
-# HANDOFF — S9: U4 и U3 закрыты, дальше U2 → U1
+# HANDOFF — S9: U4 и U3 закрыты, U2 в работе, дальше U1
 
 ## 1. From → To
 
 **From:** сессия 2026-08-15, часть 2. U4 и U3 доведены до конца полным
 маршрутом.
-**To:** следующая сессия — U2, затем U1, один живой re-record, публикация,
-общий релиз S8+S9.
+**To:** следующая сессия — маршрут U2, затем U1, один живой re-record,
+публикация, общий релиз S8+S9.
 
 ## 2. Причина передачи
 
@@ -29,10 +29,22 @@ tags: [handoff, gpg-004-followups, s9, harness]
   - `f2638f2` обновление этого пакета;
   - `57252a0` evidence U3 · `0d6f013` ledger U3 (дерево `2d6a4f47`).
 - Рабочее дерево **чистое**, индекс пуст. Ветка **не запушена**.
-- Открытых юнитов нет: `STATE.json.currentUnit` = `S9-U3-LEDGER` / `verified`.
+- **U2 реализован, локально зелёный, НЕ закоммичен.** В рабочем дереве:
+  `skills/_shared/itd_gate_control.py` (контракт метки маршрута →
+  `dict[str, str] | None`, `independence_levels()` читает закрытый класс
+  лениво из `itd_reviewer_independence.py`, `profile_doctor_entry` отдаёт
+  `routeIndependence`), `tests/verify_gate_profile_doctor.py` 32→44 PASSED,
+  два мутационных доказательства. Плюс бухгалтерия: контракт
+  `.itd-memory/contracts/S9-U2-DOCTOR.md`, BACKLOG (пункт закрыт), активация
+  `S9-U2-DOCTOR` с `riskTier` в `STATE.json`, `rootCause` в acceptance.
+  `.itd/SCOPE_LOCK.md` уже объявлял эту зону — расширять не потребовалось.
+- Остался только маршрут U2 по рецепту из поля 5. Набор `--command` для
+  машинной квитанции: `doctor=sh skills/_shared/itd_py.sh
+  tests/verify_gate_profile_doctor.py`, `quick=bash tests/run-all.sh --quick`.
 - `.itd/ACCEPTANCE_CONTRACT.json` → `activeFollowup.unitId = "S9"`,
-  `in_progress`, riskTier **medium**; `rootCause` указывает на контракт U3 —
-  при открытии U2 переставь на его контракт.
+  `in_progress`, riskTier **medium**; `rootCause` указывает на контракт
+  активного юнита (сейчас `S9-U2-DOCTOR.md`) — при открытии следующего юнита
+  переставляй его на контракт этого юнита.
 - `.itd/SCOPE_LOCK.md` уже объявляет зоны всех четырёх юнитов и re-record.
 - **Live-evidence пин сожжён** правками `hooks/` в U3 (и будет ещё раз в
   U2/U1). Один живой re-record — в самом конце.
@@ -115,7 +127,7 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
 |---|------|-------|--------|
 | U4 | `itd pr create` no-op push | `scripts/itd.py` `remote_branch_head` | **verified** (`39bfbf5`/`4191213`) |
 | U3 | completion-ledger schema | писатель `hooks/record-agent-skill.sh`; оценщики `hooks/completion-gate.sh` и `docs/templates/itd/itd_hygiene.py` | **verified** (`57252a0`/`0d6f013`) |
-| U2 | doctor independence label | `skills/_shared/itd_gate_control.py:1492` (`validate_local_adjudication`, контракт `str \| None` ~1561), заглушка `tests/verify_gate_profile_doctor.py:201-262` | открыт |
+| U2 | doctor independence label — **реализован, ждёт маршрута** | `skills/_shared/itd_gate_control.py` (`validate_local_adjudication` → `dict[str, str] \| None`, `independence_levels()`, `profile_doctor_entry`), `tests/verify_gate_profile_doctor.py` | открыт |
 | U1 | producer committed-head | `skills/_shared/itd_free_reviewer_producer.py` — `_staged_file_records()` ~681 и `git diff --cached` на ~974/979/1013; образец: `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133` | открыт |
 
 **U1 не может отревьюить сам себя** — маршрут поедет на копии продюсера,
