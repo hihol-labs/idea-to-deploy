@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S9-RERECORD",
     "goal": "re-record the live model benchmark evidence on the final S9 tree, because U3/U2/U1 burned the methodology-tree pin by construction",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-15T22:37:37Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-15T23:03:01Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -571,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "S9 on branch fix/s9-harness-debts (from main e3131c9). ALL FOUR UNITS CLOSED: U4 (39bfbf5+4191213), U3 (57252a0+0d6f013), U2 (3df0309+e56284e), U1 (560862c + this ledger commit). U1 also re-minted the three signed efficacy legs, because they bind producerSha256 to the exact producer bytes; verify_independent_review_efficacy is PASSED with hostParityVerified true and cleanFalseBlockRate 0.0 on every leg. REMAINING: (1) ONE live benchmark re-record on a clean tree — the METHODOLOGY_TREE_ROOTS pin was burned by U3/U2/U1, precedent PR #193/#195/#199/#201/#205, recorded evidence attests the PARENT tree of its own evidence commit; (2) publication via itd pr create (direct git push is forbidden); (3) combined S8+S9 release per docs/RELEASE_RUNBOOK.md, then scripts/sync-to-active.sh. Route traps that recur on every unit are in HANDOFF.md field 4 (riskTier on activation; completion ledger classifies only echoed EXIT and takes the latest run per command string, so a checker restore command forces an audited COMPLETION_BYPASS). Efficacy re-mint procedure incl. the Windows leg over WSL interop is HANDOFF field 6b."
+  "nextAction": "S9 COMPLETE on branch fix/s9-harness-debts (from main e3131c9), 12 commits. All four harness debts closed as reviewed units (U4 39bfbf5+4191213, U3 57252a0+0d6f013, U2 3df0309+e56284e, U1 560862c+43e661e) plus the live re-record (59ad17d + this ledger commit). U1 also re-minted the three signed efficacy legs. Every unit carries two isolated machine receipts, a fresh claude-sonnet-5 --mode full checker PASSED, two adjudications bound to its exact tree, and an exact-context review-cache record. Full run-all is DONE fails:none and the live-evidence pin resolves against this tree. REMAINING: publication via  (direct git push is forbidden), then the combined S8+S9 release per docs/RELEASE_RUNBOOK.md, then scripts/sync-to-active.sh to bring the local install byte-identical to the merged main. Route traps: HANDOFF.md field 4 (riskTier on activation, completion-ledger classification) and field 6b (how to re-mint the efficacy legs, including the Windows leg over WSL interop)."
 }
