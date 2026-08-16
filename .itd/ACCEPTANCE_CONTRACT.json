@@ -1421,7 +1421,7 @@
       "id": "S9-4-producer",
       "criterion": "The shared producer can route an already-committed candidate: committed-head binds HEAD to its exact single parent and requires the index to equal the committed HEAD tree, so a publication claim no longer needs history rewriting to be reviewed.",
       "source": ".itd-memory/contracts/S9-U1-COMMITTED-HEAD.md (commit 560862c).",
-      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0 on the reviewed tree (184 checks, liveExternalCalls 0).",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0 on the reviewed tree (189 checks, liveExternalCalls 0).",
       "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
       "status": "passed",
       "reviewEvidence": {
@@ -1469,6 +1469,25 @@
         ],
         "oracleIds": [
           "evidence-replay"
+        ]
+      }
+    },
+    {
+      "id": "S9-7-splitter",
+      "criterion": "A bound review unit discloses its own cut: the unit prompt states the exact machine-derived bound-range facts and forbids concluding that a file, transcript or record in the candidate is truncated from where that range starts or ends, and the integration prompt receives every unit's boundary so a boundary observation is resolved against the adjacent units instead of being promoted into a candidate verdict.",
+      "source": ".itd-memory/ROOT_CAUSE-splitter-false-blocked.md; measured on prompt bundle S9-RELEASE-publish-prompt-r2.json.",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0 on the reviewed tree (189 checks, liveExternalCalls 0). RED before the fix: 'unit prompts omit the exact machine-derived bound-range facts'. Five mutations each fail exactly one new check.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The reviewer is told where its bound range was cut and may not infer artifact completeness from that cut; the splitter itself is unchanged.",
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "producer-oracle"
         ]
       }
     }

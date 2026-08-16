@@ -1,5 +1,5 @@
 {
-  "version": "1.96.0",
+  "version": "1.97.0",
   "purpose": "Acceptance surface for the planned external-reviewer release candidate. Publication promotes it to the immutable release-owned contract; it must not depend on mutable current-unit .itd contracts.",
   "criteria": [
     "GPG-001-AC1",

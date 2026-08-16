@@ -58,6 +58,26 @@ candidate is structurally unreducible (durable decision, 2026-08-14).
   cannot be routed. Teach it `--candidate-mode committed-head`, binding
   parent->HEAD with the same exact tree/diff the machine receipt uses, mirroring
   `skills/_shared/itd_verification_loop.py:251-261, 1830-1855, 2131-2133`.
+- `skills/_shared/itd_free_reviewer_producer.py`,
+  `tests/verify_free_reviewer_producer.py` — **S9-RELEASE-SPLITTER** (declared
+  2026-08-16, unblocking of this same unit, not new work beside it): the
+  publication claim was refused twice by the producer with one deterministic
+  finding — «the transcript terminates while item_4 is still in_progress» —
+  which is false about the artifact and true about the bound range the unit
+  checker was handed. Units are cut from the scrubbed diff by a byte budget at
+  UTF-8 line boundaries alone, so the paired records of one JSONL entry land in
+  adjacent units; the unit prompt never explained the cut and the integration
+  prompt carried only the plan hash, so the boundary observation could not be
+  resolved and was promoted into a candidate verdict. The cut itself is NOT
+  changed — cutting on logical record boundaries would bind the transport to
+  the format of the data it carries. Instead the cut is disclosed:
+  `_bound_range_facts` derives the exact boundary from the unit manifest,
+  `_unit_review_prompt` states it with `BOUND_RANGE_FACTS=` plus the shared
+  `BOUND_RANGE_DISCLAIMER`, and `_integration_review_prompt` receives
+  `unitBoundaries` for every unit and must resolve a boundary observation
+  against them before it can become a finding. Any candidate whose diff carries
+  a JSONL transcript was blocked deterministically, so this is a blocker of the
+  current unit, not a second unit opened beside it.
 - `benchmarks/independent-review-efficacy/results/*.json` — **S9-U1**: the
   three signed efficacy legs bind `producerSha256` to the exact bytes of
   `skills/_shared/itd_free_reviewer_producer.py`, so U1 invalidates them by
@@ -76,6 +96,10 @@ candidate is structurally unreducible (durable decision, 2026-08-14).
 - `BACKLOG.md` — the four items closed by S9, and any residual deliberately
   recorded rather than fixed inside a scoped unit.
 - `.itd/SCOPE_LOCK.md` — this file.
+- `CHANGELOG.md` — the release entry for v1.97.0. The version bump and the
+  consolidated S5..S9 entry are this branch's purpose, and any behaviour landed
+  on the branch after that commit is recorded in the same entry rather than
+  left undocumented.
 - `HANDOFF.md`, `.itd-memory/STATE.json` (force-added ledger) — the S9 context
   packet carried over from main uncommitted, and the unit ledger as it advances
   U4 -> U3 -> U2 -> U1 -> RERECORD, each recorded verified with its receipt

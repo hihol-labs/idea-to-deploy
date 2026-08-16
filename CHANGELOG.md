@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.97.0] - 2026-08-16
+
 ### Added
 - **Pre-deploy independent-review gate (U16, ADR-008)** — new PreToolUse hook
   `hooks/check-predeploy-gate.sh` + `skills/deploy/scripts/itd_predeploy_gate.py`.
@@ -28,9 +30,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (parameter/brace/glob/tilde); nested shell payloads behind prefix wrappers.
   Evidence: `tests/verify_predeploy_independent_review.py` 137/137,
   `tests/verify_predeploy_gate.py` 11/11, `tests/run-all.sh --quick` green.
-  Known follow-ups: an inert substitution in a comment after a control operator
-  is still over-blocked, and the gate is not yet backed by a clean producer PASS
-  receipt (see PR #192 for the full route disclosure).
+  Known follow-up: the gate is not yet backed by a clean producer PASS receipt
+  (see PR #192 for the full route disclosure). The other follow-up recorded at
+  the time — an inert substitution in a comment after a control operator being
+  over-blocked — was fixed inside this same release (see Fixed, `11bea2d`).
+- **Committed-head candidates in the shared producer** — `freeze_packet` and the
+  `review` CLI accept `--candidate-mode committed-head`, binding a clean
+  single-parent HEAD to its parent and requiring the index to equal the committed
+  HEAD tree. An already-committed candidate is now routable without rewriting
+  history; the S9 publication claim is the first route that used it.
+- **Real devils-advocate phase in the live model benchmark (S3)** — the phase is
+  a harness-orchestrated fresh session with the definition embedded verbatim in
+  its prompt, not a self-simulated critique.
+- **Opt-in advisory design-provenance reviewer in `/blueprint` (U17)** — advisory
+  only; it reports where a design decision came from and never gates the phase.
+
+### Fixed
+- **Hierarchical review disclosed its own cut** — a bound review unit is sliced
+  out of the scrubbed diff by a byte budget at UTF-8 line boundaries alone, so
+  the paired records of one JSONL entry land in adjacent units. The unit prompt
+  never explained that cut and the integration prompt carried only the review
+  plan's hash, so a unit checker's truthful observation about its own slice
+  ("the transcript ends while item_4 is still in_progress") was promoted into a
+  critical finding about the candidate. Any candidate whose diff carries a JSONL
+  transcript was blocked deterministically; two independent producer rounds
+  returned the identical false finding. The splitter is unchanged — cutting on
+  logical record boundaries would bind the transport to the format of the data
+  it carries. Instead `_bound_range_facts` derives the exact boundary from the
+  unit manifest, `_unit_review_prompt` emits `BOUND_RANGE_FACTS=` plus a shared
+  `BOUND_RANGE_DISCLAIMER` forbidding any completeness verdict drawn from the
+  cut, and `_integration_review_prompt` receives `unitBoundaries` for every unit
+  and must resolve a boundary observation against them first. Evidence:
+  `tests/verify_free_reviewer_producer.py` 189 checks (RED before the fix, five
+  mutations each failing exactly one new check), three efficacy legs re-minted
+  live with `cleanFalseBlockRate` 0.0 and detection 1.0 on WSL, native Windows
+  and cross-vendor, full `tests/run-all.sh` green.
+- **Four harness debts of one class (S9).** `itd pr create` issued a no-op push
+  instead of resolving the remote branch head, so an already up-to-date branch
+  could not be published. Delegation telemetry wrote a completion record that both
+  strict evaluators (`hooks/completion-gate.sh` and
+  `docs/templates/itd/itd_hygiene.py`) rejected, silently degrading runtime
+  evidence. `validate_local_adjudication` read only `outcome` and dropped
+  `routeIndependence` at the boundary, so `itd gate doctor` could not report how
+  independent the maker/reviewer pair was — the level is now surfaced from the
+  validated payload, and an unknown level, a non-object payload or a non-passing
+  outcome raises no claim at all. The producer could not route a committed
+  candidate (see Added).
+- **Four reviewer-isolation defects (S8, #205)** plus the re-bound S8 evidence.
+- **Four transport and sync defects (S7).** Non-finite timeouts are rejected in
+  `run_bounded_process`; the Windows wrapper anchors its plan cwd at the caller;
+  POSIX cleanup reaps setsid-escaping descendants; `sync-to-active.sh` syncs the
+  plugin manifest and no longer reads bytecode as drift.
+- **Scrubber precision (S6)** — the residual-credential detector is value-aware,
+  so ordinary parser code is no longer read as credentials, and the free-reviewer
+  producer runs all three detectors on the scrubbed text like the broker and
+  build-candidate routes already did.
+- **A redaction is not a finding (retro R1)** — `_safe_review_text` treated any
+  scrubber redaction as blocking, so the maintainer's public no-reply address in
+  the plugin manifests refused every review candidate whose diff context touched
+  them; the route now refuses only on detector hits.
+- **Host nondeterminism pinned to its cause (S2)** — the oracle/hygiene flake is
+  host `fork`-EAGAIN, hygiene spawn handling is fail-closed, and the guarded
+  fallback identity no longer includes directory `st_size` on NTFS (#189).
+- A shell comment is recognised after a control operator; every reviewer prompt
+  names the governing review byte total.
+
+### Changed
+- **The independence ladder is measured, not asserted (U12)** — same-vendor and
+  cross-vendor reviewer legs run over the frozen seeded corpus under one manifest;
+  the three signed efficacy legs were re-signed against the producer bytes each
+  slice ships, and the live model-benchmark evidence was re-recorded on every
+  final tree it belongs to.
+- The GENG Graph Contract Layer plan is adopted as ADR-009 with its backlog
+  section; blueprint-provenance fixtures are declared as a pending input corpus.
 
 ## [1.96.0] - 2026-08-09
 
