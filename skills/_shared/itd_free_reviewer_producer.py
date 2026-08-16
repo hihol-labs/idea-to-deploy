@@ -74,6 +74,49 @@ MAX_PROCESS_OUTPUT = 1_000_000
 MAX_CODEX_ROLLOUT_BYTES = 16 * 1024 * 1024
 MAX_UNIT_PROMPT_BYTES = 128 * 1024
 MAX_INTEGRATION_PROMPT_BYTES = 256 * 1024
+
+# A bound unit is cut from one scrubbed diff by a size budget at UTF-8 line
+# boundaries alone.  Paired records, hunks and whole files therefore straddle
+# unit boundaries, and a checker that judges only its own slice reports that
+# cut as a truncated artifact.  The reviewer is told the cut is transport, not
+# candidate state, and is given the exact boundary facts to say so from.
+BOUND_RANGE_DISCLAIMER = (
+    "The bound range is cut from one scrubbed diff by a size budget at UTF-8 "
+    "line boundaries only, never on record, hunk or file boundaries, so a "
+    "file or a record may begin or end part-way inside it. Content that runs "
+    "past a bound range is carried by the adjacent bound ranges named in the "
+    "bound-range facts, which are separately reviewed. A bound range that "
+    "starts or ends part-way through content is truncated by the review "
+    "transport and not by the candidate: never report a file, transcript, "
+    "record or artifact as truncated, incomplete or unterminated on that "
+    "evidence alone, because a boundary of this bound range is not a defect "
+    "of the candidate."
+)
+
+
+def _bound_range_facts(
+    plan: dict[str, Any], unit: dict[str, Any]
+) -> dict[str, Any]:
+    """State the exact cut this unit was given, derived from its manifest."""
+    segments = unit["pathSegments"]
+    return {
+        "unitIndex": unit["index"],
+        "unitCount": plan["unitCount"],
+        "reviewDiffStartByte": unit["reviewDiffStartByte"],
+        "reviewDiffEndByteExclusive": unit["reviewDiffEndByteExclusive"],
+        "fullDiffBytes": plan["fullDiffBytes"],
+        "continuesPreviousUnit": unit["reviewDiffStartByte"] > 0,
+        "continuedByNextUnit":
+            unit["reviewDiffEndByteExclusive"] < plan["fullDiffBytes"],
+        "pathsContinuedFromPreviousUnit": sorted(
+            path for path, segment in segments.items()
+            if segment["index"] > 1
+        ),
+        "pathsContinuedInNextUnit": sorted(
+            path for path, segment in segments.items()
+            if segment["index"] < segment["count"]
+        ),
+    }
 MAX_UNIT_SUMMARY_BYTES = 4 * 1024
 MAX_EXECUTABLE_BYTES = 384 * 1024 * 1024
 MAX_LIVE_AGE_SECONDS = 300
@@ -1366,6 +1409,7 @@ def _unit_review_prompt(
         "evidenceCoverageSha256": sha256_bytes(canonical_bytes(coverage)),
         "unit": unit,
     }
+    facts = _bound_range_facts(plan, unit)
     prompt = (
         "You are an independent unit checker in a hierarchical high-risk "
         "exact-candidate review. You have no tools, repository access, network "
@@ -1377,7 +1421,10 @@ def _unit_review_prompt(
         "units or integration work as unverified merely because they are outside "
         "this call. Use unverified only for a concrete contour inside this bound "
         "that the final integration review cannot resolve from your summary. "
+        f"{BOUND_RANGE_DISCLAIMER} "
         "Return only the required closed JSON.\n"
+        "BOUND_RANGE_FACTS="
+        f"{json.dumps(facts, ensure_ascii=False, sort_keys=True)}\n"
         f"{_review_representation_note(packet)}"
         f"EXACT_UNIT_BINDING={json.dumps(binding, ensure_ascii=False, sort_keys=True)}\n"
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
@@ -1428,6 +1475,9 @@ def _integration_review_prompt(
             canonical_bytes(representation)
         ),
         "reviewPlanSha256": sha256_bytes(canonical_bytes(plan)),
+        "unitBoundaries": [
+            _bound_range_facts(plan, unit) for unit in plan["units"]
+        ],
         "unitReports": unit_reports,
     }
     prompt = (
@@ -1435,7 +1485,18 @@ def _integration_review_prompt(
         "candidate. Every deterministic diff unit was separately reviewed by "
         "the same selected provider/model in fresh isolated sessions. Reconcile "
         "all unit summaries and findings for cross-unit correctness, security, "
-        "interfaces, migrations, tests and specification compliance. PASSED "
+        "interfaces, migrations, tests and specification compliance. "
+        f"{BOUND_RANGE_DISCLAIMER} unitBoundaries states every bound range and "
+        "the paths each one continues from and into. You hold unit summaries "
+        "and those boundary facts, never the adjacent bound ranges themselves, "
+        "so you cannot establish from here that content is genuinely absent "
+        "from the candidate. A unit observation about content that starts or "
+        "stops at a bound-range boundary is therefore not a finding on that "
+        "evidence alone; neither is it discarded. Raise it as a finding only "
+        "when an adjacent unit summary shows the content is actually missing, "
+        "and otherwise carry it into unverified so it is never silently "
+        "dropped. "
+        "PASSED "
         "requires complete unit coverage, findings=[], and unverified=[]. Return "
         "only the required closed JSON.\n"
         f"{_review_representation_note(packet)}"

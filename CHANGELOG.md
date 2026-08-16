@@ -46,6 +46,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only; it reports where a design decision came from and never gates the phase.
 
 ### Fixed
+- **Hierarchical review disclosed its own cut** — a bound review unit is sliced
+  out of the scrubbed diff by a byte budget at UTF-8 line boundaries alone, so
+  the paired records of one JSONL entry land in adjacent units. The unit prompt
+  never explained that cut and the integration prompt carried only the review
+  plan's hash, so a unit checker's truthful observation about its own slice
+  ("the transcript ends while item_4 is still in_progress") was promoted into a
+  critical finding about the candidate. Any candidate whose diff carries a JSONL
+  transcript was blocked deterministically; two independent producer rounds
+  returned the identical false finding. The splitter is unchanged — cutting on
+  logical record boundaries would bind the transport to the format of the data
+  it carries. Instead `_bound_range_facts` derives the exact boundary from the
+  unit manifest, `_unit_review_prompt` emits `BOUND_RANGE_FACTS=` plus a shared
+  `BOUND_RANGE_DISCLAIMER` forbidding any completeness verdict drawn from the
+  cut, and `_integration_review_prompt` receives `unitBoundaries` for every unit
+  and must resolve a boundary observation against them first. Evidence:
+  `tests/verify_free_reviewer_producer.py` 189 checks (RED before the fix, five
+  mutations each failing exactly one new check), three efficacy legs re-minted
+  live with `cleanFalseBlockRate` 0.0 and detection 1.0 on WSL, native Windows
+  and cross-vendor, full `tests/run-all.sh` green.
 - **Four harness debts of one class (S9).** `itd pr create` issued a no-op push
   instead of resolving the remote branch head, so an already up-to-date branch
   could not be published. Delegation telemetry wrote a completion record that both

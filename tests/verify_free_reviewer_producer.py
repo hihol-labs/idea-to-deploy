@@ -546,6 +546,204 @@ def main() -> int:
             large_packet, prompt_artifact, final_report,
         )
 
+        # A bound unit is cut by a byte budget at line boundaries alone, so the
+        # paired records of one JSONL entry land in adjacent units.  The unit
+        # checker then truthfully reports its own slice as ending mid-record;
+        # without a machine-derived boundary fact the integration stage cannot
+        # tell that observation apart from a genuinely truncated artifact and
+        # promotes it into the candidate verdict.
+        split_root = fixture / "split-transcript"
+        split_repo = split_root / "repo"
+        split_repo.mkdir(parents=True)
+        split_base, split_parent, _ = git_fixture(split_repo)
+        (split_repo / "review.jsonl.gz").write_bytes(gzip.compress(
+            b"".join(
+                json.dumps({
+                    "type": phase,
+                    "item": {
+                        "id": f"item_{index}",
+                        "status": status,
+                        "payload": "x" * 96,
+                    },
+                }, separators=(",", ":")).encode("utf-8") + b"\n"
+                for index in range(1400)
+                for phase, status in (
+                    ("item.started", "in_progress"),
+                    ("item.completed", "completed"),
+                )
+            ),
+            mtime=0,
+        ))
+        shell(["git", "add", "review.jsonl.gz"], split_repo)
+        split_tree = shell(["git", "write-tree"], split_repo)
+        split_inputs = split_root / "inputs"
+        split_inputs.mkdir()
+        split_scope, split_acceptance, split_machine = write_inputs(
+            split_inputs, split_repo, split_parent, split_tree,
+        )
+        split_packet = producer.freeze_packet(
+            root=split_repo, base_commit=split_base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=split_scope,
+            acceptance_file=split_acceptance, machine_receipt=split_machine,
+        )
+        split_plan = split_packet["reviewRepresentation"]["reviewPlan"]
+        split_diff = split_packet["diff"].encode("utf-8")
+        split_units = split_plan["units"]
+        started_re = re.compile(
+            r'"type":"item\.started","item":\{"id":"(item_\d+)"'
+        )
+        completed_re = re.compile(
+            r'"type":"item\.completed","item":\{"id":"(item_\d+)"'
+        )
+        unit_texts = [
+            split_diff[
+                unit["reviewDiffStartByte"]:unit["reviewDiffEndByteExclusive"]
+            ].decode("utf-8")
+            for unit in split_units
+        ]
+        orphaned = [
+            sorted(set(started_re.findall(text)) - set(completed_re.findall(text)))
+            for text in unit_texts
+        ]
+        split_index = next(
+            (index for index, ids in enumerate(orphaned) if ids), -1
+        )
+        check(
+            split_plan["mode"] == "hierarchical"
+            and split_plan["unitCount"] > 1
+            and 0 <= split_index < len(unit_texts) - 1
+            and any(
+                item_id in completed_re.findall(unit_texts[split_index + 1])
+                for item_id in orphaned[split_index]
+            ),
+            "transcript fixture does not split a paired record across units",
+        )
+
+        def bound_range_truth(plan_value, unit):
+            segments = unit["pathSegments"]
+            return {
+                "unitIndex": unit["index"],
+                "unitCount": plan_value["unitCount"],
+                "reviewDiffStartByte": unit["reviewDiffStartByte"],
+                "reviewDiffEndByteExclusive":
+                    unit["reviewDiffEndByteExclusive"],
+                "fullDiffBytes": plan_value["fullDiffBytes"],
+                "continuesPreviousUnit": unit["reviewDiffStartByte"] > 0,
+                "continuedByNextUnit":
+                    unit["reviewDiffEndByteExclusive"]
+                    < plan_value["fullDiffBytes"],
+                "pathsContinuedFromPreviousUnit": sorted(
+                    path for path, segment in segments.items()
+                    if segment["index"] > 1
+                ),
+                "pathsContinuedInNextUnit": sorted(
+                    path for path, segment in segments.items()
+                    if segment["index"] < segment["count"]
+                ),
+            }
+
+        def tagged_json(prompt_text, marker):
+            start = prompt_text.find(marker)
+            if start < 0:
+                return None
+            start += len(marker)
+            end = prompt_text.find("\n", start)
+            try:
+                return json.loads(prompt_text[start:end])
+            except json.JSONDecodeError:
+                return None
+
+        split_prompts = []
+
+        def split_runner(prompt_text, report_schema, report_parser):
+            split_prompts.append(prompt_text)
+            if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = {
+                    "verdict": "PASSED",
+                    "findings": [],
+                    "unverified": [],
+                    "summary": "Bound range reviewed; no cross-unit risk.",
+                }
+            else:
+                report = clean_verdict()
+            return (
+                report_parser(report),
+                f"fresh-split-{len(split_prompts)}",
+                "subscription-model",
+            )
+
+        producer.run_packet_review(split_packet, split_runner)
+        split_unit_prompts = split_prompts[:-1]
+        split_integration_prompt = split_prompts[-1]
+        check(
+            len(split_unit_prompts) == split_plan["unitCount"]
+            and [
+                tagged_json(value, "BOUND_RANGE_FACTS=")
+                for value in split_unit_prompts
+            ] == [
+                bound_range_truth(split_plan, unit) for unit in split_units
+            ],
+            "unit prompts omit the exact machine-derived bound-range facts",
+        )
+        check(
+            all(
+                producer.BOUND_RANGE_DISCLAIMER in value
+                for value in split_prompts
+            )
+            and all(
+                term in producer.BOUND_RANGE_DISCLAIMER
+                for term in ("bound range", "truncated", "incomplete",
+                             "not a defect of the candidate")
+            ),
+            "reviewer prompts permit a candidate verdict about completeness "
+            "drawn from an intentionally cut bound range",
+        )
+        integration_evidence = tagged_json(
+            split_integration_prompt, "HIERARCHICAL_REVIEW_EVIDENCE="
+        )
+        check(
+            isinstance(integration_evidence, dict)
+            and integration_evidence.get("unitBoundaries")
+            == [bound_range_truth(split_plan, unit) for unit in split_units],
+            "the integration stage cannot resolve a boundary observation "
+            "against the adjacent bound units",
+        )
+
+        boundary_unit = split_units[split_index]
+        boundary_text = unit_texts[split_index]
+        earlier_line = boundary_text[boundary_text.rindex(
+            "\n", 0, len(boundary_text) - 1
+        ) + 1:]
+        later_line = unit_texts[split_index + 1].split("\n", 1)[0] + "\n"
+        shifted_earlier = copy.deepcopy(boundary_unit)
+        shifted_earlier["reviewDiffEndByteExclusive"] -= len(
+            earlier_line.encode("utf-8")
+        )
+        shifted_later = copy.deepcopy(boundary_unit)
+        shifted_later["reviewDiffEndByteExclusive"] += len(
+            later_line.encode("utf-8")
+        )
+        whole_path = copy.deepcopy(boundary_unit)
+        whole_path["reviewDiffStartByte"] = 0
+        whole_path["reviewDiffEndByteExclusive"] = split_plan["fullDiffBytes"]
+        whole_path["pathSegments"] = {
+            path: {"index": 1, "count": 1}
+            for path in whole_path["pathSegments"]
+        }
+        check(
+            all(
+                tagged_json(
+                    producer._unit_review_prompt(
+                        split_packet, split_plan, mutated, boundary_text,
+                    ),
+                    "BOUND_RANGE_FACTS=",
+                ) == bound_range_truth(split_plan, mutated)
+                for mutated in (shifted_earlier, shifted_later, whole_path)
+            ),
+            "bound-range facts do not follow the exact unit boundary",
+        )
+
         unit_failure_calls = 0
 
         def unit_failure_runner(prompt_text, report_schema, report_parser):
