@@ -39,9 +39,10 @@
   "currentUnit": {
     "id": "S9-RELEASE",
     "goal": "release v1.97.0: bump the nine pinned version sites and land the consolidated CHANGELOG entry for S5..S9",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-16T08:47:34Z",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-16T20:25:40Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
