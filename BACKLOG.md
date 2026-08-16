@@ -246,13 +246,53 @@ adjudication; each was deliberately kept out of those bounded slices.
   (`math.isfinite` guard) and S7-U2 (`wrapper_plan_cwd` anchors a relative cwd
   at the caller before the temp-dir hop). POSIX descendant containment closed
   separately by S7-U3; the run-all host-pin boundary stays open above.
-- [ ] `itd pr create` fails on an already-pushed branch (S7 finish, 2026-08-14):
+- [x] `itd pr create` fails on an already-pushed branch (S7 finish, 2026-08-14):
   a first attempt timed out AFTER its push succeeded, and every retry then died
   in the pre-push hook — a no-op push produces an empty update stream which the
   hook treats as invalid ("pre-push update stream is empty or invalid"). The
   no-op case should be recognized as already-synced and skip to PR creation.
-  Related: the pr_view GitHub lookup runs BEFORE the push and turns a lookup
-  outage into a full transport failure; ordering push-first would decouple them.
+  CLOSED by S9-U4-PRCREATE: `remote_branch_head` resolves the remote head with
+  `git ls-remote` and the absent-PR path skips the push when it already equals
+  local `HEAD`; `parse_updates` stays fail-closed on an empty stream.
+- [ ] Unexplained nondeterminism in the isolated machine oracle's quick
+  aggregator (S9-U4, 2026-08-15): on the identical staged tree `962f862c` with
+  the same declared host input, three runs were green and one had
+  `bash tests/run-all.sh --quick` exit 1. Red receipt
+  `.itd-memory/verification-loop/receipts/a1770aa1284c11fa/S9-U4-PRCREATE-general-review-machine-fe28e0ca6cf6c519.json`,
+  green `1c9a2c1ea68e118c` and `40bc24b82d532974`. Receipts retain hashes only,
+  so the failing suite name is unknown. Manual reproduction in a
+  `git clone --shared` + `read-tree` isolation only ever showed the
+  deterministic `verify_independent_review_efficacy (host-owned efficacy
+  keyring pin is not provisioned)`, which points at a race in declared-input
+  provisioning. Worth retaining a bounded stdout tail (or the failing suite
+  name) in the receipt so this is diagnosable without re-running.
+- [ ] The completion-signal classifier recognizes failure text but not success
+  text (S9-U3, 2026-08-15): `outcome_from`
+  (`hooks/completion_lib.py:361-378`) resolves an outcome from an exit code, an
+  echoed `EXIT: N`, then `FAIL_TEXT_RE`, then `PASS_TEXT_RE`. This host does not
+  supply a structural exit code and a `| tail` masks `$?`, so a verifier
+  printing `{"checks": 75, "status": "PASSED"}` is recorded as `unknown` while
+  the same verifier's `AssertionError` is recorded as `fail`. The ledger can
+  therefore go red and never green again for the same command, and a checker's
+  deliberate mutation run blocks the commit until the operator knows to re-run
+  with `; echo "EXIT: $?"`. Asymmetric by construction: worth teaching
+  `PASS_TEXT_RE` the project's own verifier JSON, or having the runner echo the
+  code.
+- [ ] `itd_unit_log.py activate` does not record the unit's `riskTier`
+  (S9-U4, 2026-08-15): `skills/task/scripts/itd_unit_log.py:116` writes
+  `currentUnit` as `{id, goal, status, startedAt}` only, so
+  `detected_risk_tier` in `skills/review/scripts/itd_review_cache.py:250-266`
+  falls through to `unknown` and the commit gate then refuses a review receipt
+  minted at the unit's real tier. Worked around here by writing `riskTier`
+  into `.itd-memory/STATE.json` by hand; the writer is the thing to fix. It
+  lives under `skills/`, so fixing it burns the live-evidence pin and does not
+  belong inside a `scripts/`-scoped unit.
+- [ ] The `pr_view` GitHub lookup still runs BEFORE the push, so a lookup
+  outage is a full transport failure (split out of the item above by S9-U4).
+  Push-first ordering would decouple them, but it was deliberately NOT taken:
+  the pre-push draft check is what rejects a ready (non-draft) PR before any
+  push happens, and with an unknown draft state failing closed is correct.
+  A safe decoupling needs a different mechanism, not a reordering.
 - [ ] gh CLI GraphQL transport fails with TLS handshake timeout from this WSL
   environment while plain REST via curl/urllib works (S7 finish, 2026-08-14):
   `gh pr create/list` and `gh api` die on api.github.com GraphQL; the S7 PR was
@@ -262,17 +302,29 @@ adjudication; each was deliberately kept out of those bounded slices.
 - [ ] Pre-existing ledger drift: `GOAL-2026-07-06-axis*` / `PE5-015` unit
   ledgers drifted from current evidence before GPG-004 started. Reconcile the
   ledgers honestly — no synthetic evidence backfill.
-- [ ] Surface the reviewer-independence label in the local-review profile
+- [x] Surface the reviewer-independence label in the local-review profile
   doctor: `validate_local_adjudication` already receives `routeIndependence`
   in the check stdout, but its `str | None` route-label contract (stubbed by
   the doctor regression suite) keeps the doctor entry at
   `routeEvidence`-only. Extend the callable contract and the doctor suite
   together in one bounded change.
-- [ ] Completion-ledger writer schema: agent-delegation telemetry rows are
+  CLOSED by S9-U2-DOCTOR: the contract is now `dict[str, str] | None` carrying
+  `routeEvidence` and, when the check printed a member of the closed
+  independence class, `routeIndependence`; `profile_doctor_entry` surfaces both
+  without lifting the claim. The class is read lazily from
+  `itd_reviewer_independence.py` rather than copied, and an unavailable policy
+  module reports an empty class so the label is dropped, never trusted.
+- [x] Completion-ledger writer schema: agent-delegation telemetry rows are
   written without the `producer` field, so the strict completion evaluation
   fails to parse the ledger (observed 2026-08-09, signals.jsonl line 270,
   audited COMPLETION_BYPASS). Fix the writer and make the evaluator skip
   layer-0 telemetry rows instead of failing closed on them.
+  CLOSED by S9-U3-LEDGER: `record-agent-skill.sh` stamps its own provenance
+  `itd-record-agent-skill`; both strict evaluators (`hooks/completion-gate.sh`
+  and the explicit-close path in `docs/templates/itd/itd_hygiene.py`) exempt
+  layer-0 delegation accounting from provenance and runtime-field checks while
+  the policy has not declared layer 0 a runtime layer. Layer 2 keeps failing
+  closed on a missing or foreign producer.
 - [ ] Harden `reviewer_independence_level`: require the shared family to be a
   member of the closed independence class before labeling a same-family pair
   (currently unreachable through minting because the reviewer provider is
@@ -401,7 +453,7 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 
 ## P0 — S9: the route must accept a committed-head candidate
 
-- [ ] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
+- [x] `itd_free_reviewer_producer.py review` reads `git diff --cached` only, so
   a candidate that is already committed cannot be routed: publication needs the
   LAST commit of the branch reviewed, and re-staging it re-introduces the
   dirty-state problem this repo hit twice (2026-08-14 whole-branch attempt,
@@ -410,4 +462,13 @@ follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
   machine receipt uses, mirroring `itd_verification_loop`. User decision
   2026-08-15: this is unit S9; until then a closed followup (S8-POLICY) keeps
   the matrix from blocking later commits.
+  CLOSED by S9-U1-COMMITTED-HEAD: `freeze_packet` takes a `candidate_mode`, and
+  `review --candidate-mode committed-head` resolves the parent from
+  `git rev-list --parents -n 1 HEAD`, rejects anything that is not a
+  single-parent commit, and requires the index to equal `HEAD^{tree}` — so the
+  existing `git diff --cached <parent>` yields exactly `parent..HEAD` and the
+  exact-candidate math is unchanged. `staged` stays the default; the clean-tree
+  requirement is not relaxed. Proven equivalent: the packet frozen from an index
+  and the packet frozen from the commit of that same index agree on tree,
+  diffSha256, parentCommit and baseCommit.
 

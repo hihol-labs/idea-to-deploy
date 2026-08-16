@@ -167,13 +167,19 @@ def main() -> int:
             readiness=lambda *_args: (_ for _ in ()).throw(
                 AssertionError("local doctor called broker")
             ),
-            local_review=lambda *_args: "human-adjudication",
+            local_review=lambda *_args: {"routeEvidence": "human-adjudication"},
             adoption=lambda _root: [], version_probe=lambda: "1.95.0",
         )
         check(
             adjudicated_result["status"] == "LOCAL_REVIEWED"
             and adjudicated_result.get("routeEvidence") == "human-adjudication",
             "adjudicated route evidence is labelled honestly without a claim lift",
+        )
+        # S9-U2: a route with no signed independence level reports null rather
+        # than inventing one.
+        check(
+            adjudicated_result.get("routeIndependence") is None,
+            "route without a signed independence level reports no level",
         )
         signed_result = gate.profile_doctor_entry(
             local_entry,
@@ -183,13 +189,42 @@ def main() -> int:
             readiness=lambda *_args: (_ for _ in ()).throw(
                 AssertionError("local doctor called broker")
             ),
-            local_review=lambda *_args: "signed-keyless-route",
+            local_review=lambda *_args: {
+                "routeEvidence": "signed-keyless-route",
+                "routeIndependence": "cross-vendor",
+            },
             adoption=lambda _root: [], version_probe=lambda: "1.95.0",
         )
         check(
             signed_result["status"] == "LOCAL_REVIEWED"
             and signed_result.get("routeEvidence") == "signed-keyless-route",
             "signed keyless route evidence keeps its own honest label",
+        )
+        # S9-U2: the doctor entry surfaces the independence level the validated
+        # route reported, and surfacing it does not lift the claim.
+        check(
+            signed_result.get("routeIndependence") == "cross-vendor"
+            and signed_result["status"] == "LOCAL_REVIEWED",
+            "signed route independence level reaches the doctor entry",
+        )
+        foreign_result = gate.profile_doctor_entry(
+            local_entry,
+            gh=lambda _args: (_ for _ in ()).throw(
+                AssertionError("local doctor called GitHub")
+            ),
+            readiness=lambda *_args: (_ for _ in ()).throw(
+                AssertionError("local doctor called broker")
+            ),
+            local_review=lambda *_args: {
+                "routeEvidence": "signed-keyless-route",
+                "routeIndependence": "",
+            },
+            adoption=lambda _root: [], version_probe=lambda: "1.95.0",
+        )
+        check(
+            foreign_result.get("routeIndependence") is None
+            and foreign_result.get("routeEvidence") == "signed-keyless-route",
+            "empty independence label is dropped, evidence label survives",
         )
 
         def outcome_runner(payload: bytes):
@@ -202,7 +237,7 @@ def main() -> int:
                 root, root / "review.json", "GPG-004:local-review-commit",
                 "high", REPOSITORY, "a" * 64,
                 runner=outcome_runner(b'{"outcome": "ADJUDICATED"}'),
-            ) == "human-adjudication",
+            ) == {"routeEvidence": "human-adjudication"},
             "validated ADJUDICATED outcome maps to the human-adjudication label",
         )
         check(
@@ -210,8 +245,69 @@ def main() -> int:
                 root, root / "review.json", "GPG-004:local-review-commit",
                 "high", REPOSITORY, "a" * 64,
                 runner=outcome_runner(b'{"outcome": "PASSED"}'),
-            ) == "signed-keyless-route",
+            ) == {"routeEvidence": "signed-keyless-route"},
             "validated PASSED outcome maps to the signed-keyless-route label",
+        )
+        # S9-U2: the validator carries the independence level the check
+        # printed, but only when it is inside the closed independence class.
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(
+                    b'{"outcome": "PASSED", '
+                    b'"routeIndependence": "cross-vendor"}'
+                ),
+            ) == {"routeEvidence": "signed-keyless-route",
+                  "routeIndependence": "cross-vendor"},
+            "validated signed route carries its closed-class independence level",
+        )
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(
+                    b'{"outcome": "PASSED", '
+                    b'"routeIndependence": "same-vendor-different-model"}'
+                ),
+            ) == {"routeEvidence": "signed-keyless-route",
+                  "routeIndependence": "same-vendor-different-model"},
+            "the weaker closed-class level is reported as itself, not upgraded",
+        )
+        for forged in (
+            b'{"outcome": "PASSED", "routeIndependence": "fully-independent"}',
+            b'{"outcome": "PASSED", "routeIndependence": ""}',
+            b'{"outcome": "PASSED", "routeIndependence": true}',
+            b'{"outcome": "PASSED", "routeIndependence": ["cross-vendor"]}',
+            b'{"outcome": "PASSED", "routeIndependence": null}',
+        ):
+            check(
+                gate.validate_local_adjudication(
+                    root, root / "review.json", "GPG-004:local-review-commit",
+                    "high", REPOSITORY, "a" * 64,
+                    runner=outcome_runner(forged),
+                ) == {"routeEvidence": "signed-keyless-route"},
+                "independence level outside the closed class is dropped: "
+                + forged.decode("utf-8"),
+            )
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(b'["PASSED"]'),
+            ) is None,
+            "a non-object route payload yields no label at all",
+        )
+        check(
+            gate.validate_local_adjudication(
+                root, root / "review.json", "GPG-004:local-review-commit",
+                "high", REPOSITORY, "a" * 64,
+                runner=outcome_runner(
+                    b'{"outcome": "UNVERIFIED", '
+                    b'"routeIndependence": "cross-vendor"}'
+                ),
+            ) is None,
+            "an independence level cannot survive a non-passing outcome",
         )
         commands: list[list[str]] = []
 

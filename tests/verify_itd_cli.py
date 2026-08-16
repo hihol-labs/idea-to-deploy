@@ -1072,6 +1072,98 @@ def remote_phase() -> None:
         check(value == response, "unchanged Draft PR returned")
         check(not push.called, "up-to-date Draft skips empty-stream push")
 
+    create_command = [
+        "gh", "pr", "create", "--repo", REPOSITORY, "--draft", "--fill",
+    ]
+    with (
+        mock.patch.object(cli, "pr_view", side_effect=[None, None, response]),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run") as calls,
+    ):
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session",
+        )
+        commands = [call.args[0] for call in calls.call_args_list]
+        check(value == response, "absent Draft PR created after synced remote")
+        check(
+            commands == [create_command],
+            "synced remote without PR skips the empty-stream push",
+        )
+
+    for label, remote in (
+        ("absent remote branch", None),
+        ("stale remote branch", "d" * 40),
+    ):
+        with (
+            mock.patch.object(
+                cli, "pr_view", side_effect=[None, None, response]
+            ),
+            mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+            mock.patch.object(cli, "remote_branch_head", return_value=remote),
+            mock.patch.object(cli, "run") as calls,
+        ):
+            cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session",
+            )
+            commands = [call.args[0] for call in calls.call_args_list]
+            check(
+                commands == [
+                    ["git", "push", "--set-upstream", "origin", "HEAD"],
+                    create_command,
+                ],
+                f"{label} without PR still pushes before creation",
+            )
+            check(
+                calls.call_args_list[0].kwargs["env"]["ITD_GUARDED_PR_PUSH"]
+                == "1",
+                f"{label} push stays inside the guarded environment",
+            )
+
+    listing = type(
+        "Completed", (), {"returncode": 0, "stdout": b"", "stderr": b""}
+    )()
+    with mock.patch.object(cli, "run", return_value=listing) as runner:
+        check(
+            cli.remote_branch_head(Path("."), "topic") is None,
+            "missing remote branch reads as absent",
+        )
+        check(
+            runner.call_args.args[0][-2:] == ["origin", "refs/heads/topic"],
+            "remote head listing binds the exact branch ref",
+        )
+    listed = type(
+        "Completed", (), {
+            "returncode": 0,
+            "stdout": (HEAD.upper() + "\trefs/heads/topic\n").encode("utf-8"),
+            "stderr": b"",
+        }
+    )()
+    with mock.patch.object(cli, "run", return_value=listed):
+        check(
+            cli.remote_branch_head(Path("."), "topic") == HEAD,
+            "remote head is normalized to lowercase",
+        )
+    for label, stdout in (
+        ("unrelated ref", b"a" * 40 + b"\trefs/heads/other\n"),
+        ("ambiguous listing", (HEAD + "\trefs/heads/topic\n") .encode() * 2),
+        ("invalid object name", b"zz\trefs/heads/topic\n"),
+        ("missing ref field", HEAD.encode("utf-8") + b"\n"),
+    ):
+        broken = type(
+            "Completed", (), {
+                "returncode": 0, "stdout": stdout, "stderr": b"",
+            }
+        )()
+        with mock.patch.object(cli, "run", return_value=broken):
+            rejects(
+                "UNVERIFIED",
+                lambda: cli.remote_branch_head(Path("."), "topic"),
+                f"{label} never reads as a remote head",
+            )
+
 
 def parser_phase() -> None:
     parser = cli.parser()

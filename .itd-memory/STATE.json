@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "S8-RERECORD3",
-    "goal": "S8 re-record 3: live H4 evidence recorded on the clean tree after S8-POLICY changed skills/",
+    "id": "S9-RERECORD",
+    "goal": "re-record the live model benchmark evidence on the final S9 tree, because U3/U2/U1 burned the methodology-tree pin by construction",
     "status": "verified",
-    "startedAt": "2026-08-15T15:14:39Z",
-    "riskTier": "high",
-    "completedAt": "2026-08-15T15:14:39Z"
+    "startedAt": "2026-08-15T22:37:37Z",
+    "riskTier": "medium",
+    "completedAt": "2026-08-15T23:03:01Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "U6 (installed-skill parity) closed on fresh evidence 2026-08-10; GENG /strategy formalized as ADR-009 (PR #186 merged 7ed8e43). Next candidates by plan: U16 (pre-deploy), U17 (design-stage), the queued BACKLOG follow-ups (benchmark scenario devils-advocate fix, completion-ledger writer schema, doctor independence label, itd pr create up-to-date push bug, __pycache__ sync-scan noise). GENG-000 starts via /goal after U16/U17."
+  "nextAction": "S9 COMPLETE on branch fix/s9-harness-debts (from main e3131c9), 12 commits. All four harness debts closed as reviewed units (U4 39bfbf5+4191213, U3 57252a0+0d6f013, U2 3df0309+e56284e, U1 560862c+43e661e) plus the live re-record (59ad17d + this ledger commit). U1 also re-minted the three signed efficacy legs. Every unit carries two isolated machine receipts, a fresh claude-sonnet-5 --mode full checker PASSED, two adjudications bound to its exact tree, and an exact-context review-cache record. Full run-all is DONE fails:none and the live-evidence pin resolves against this tree. REMAINING: publication needs its OWN pre-PR claim routed with --candidate-mode committed-head against the branch HEAD (precedent S7-EVIDENCE/S8-EVIDENCE) — unit receipts bind their staged trees and itd pr create rejects them with \"receipt does not match the exact current candidate\"; full recipe in HANDOFF field 6c. Then  (direct git push is forbidden), then the combined S8+S9 release per docs/RELEASE_RUNBOOK.md, then scripts/sync-to-active.sh to bring the local install byte-identical to the merged main. Route traps: HANDOFF.md field 4 (riskTier on activation, completion-ledger classification) and field 6b (how to re-mint the efficacy legs, including the Windows leg over WSL interop)."
 }

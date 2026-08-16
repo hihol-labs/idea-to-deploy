@@ -1361,6 +1361,116 @@
           "evidence-replay"
         ]
       }
+    },
+    {
+      "id": "S9-1-prcreate",
+      "criterion": "itd pr create resolves the remote branch head instead of assuming a push happened, so an already up-to-date branch publishes rather than failing closed on a no-op push.",
+      "source": ".itd-memory/contracts/S9-U4-PRCREATE.md (commit 39bfbf5).",
+      "evidence": "Oracle cli = python3 -I tests/verify_itd_cli.py, exit 0 on the reviewed tree.",
+      "verificationCommand": "python3 -I tests/verify_itd_cli.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A branch whose remote head already equals the local head is published, and a genuinely unpushed branch is still refused.",
+        "impactClasses": [
+          "correctness",
+          "error-handling"
+        ],
+        "oracleIds": [
+          "cli"
+        ]
+      }
+    },
+    {
+      "id": "S9-2-ledger",
+      "criterion": "Delegation telemetry can no longer drop the strict completion ledger: both evaluators (hooks/completion-gate.sh and docs/templates/itd/itd_hygiene.py) accept the writer's schema instead of rejecting the record they are handed.",
+      "source": ".itd-memory/contracts/S9-U3-LEDGER.md (commit 57252a0).",
+      "evidence": "Oracles completion-gate = python3 -I tests/verify_completion_gate.py and strict-completion = python3 -I tests/verify_strict_completion_policy.py, both exit 0 on the reviewed tree.",
+      "verificationCommand": "python3 -I tests/verify_completion_gate.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The writer's record is classified by both evaluators, so a delegated run cannot silently degrade strict runtime evidence.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "completion-gate",
+          "strict-completion"
+        ]
+      }
+    },
+    {
+      "id": "S9-3-doctor",
+      "criterion": "validate_local_adjudication surfaces the route's independence level from the validated payload instead of discarding it at the boundary, and reports nothing rather than a fabricated level for values outside the closed class.",
+      "source": ".itd-memory/contracts/S9-U2-DOCTOR.md (commit 3df0309).",
+      "evidence": "Oracle gate-profile-doctor = python3 -I tests/verify_gate_profile_doctor.py, exit 0 on the reviewed tree (44 checks).",
+      "verificationCommand": "python3 -I tests/verify_gate_profile_doctor.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "An honest independence label reaches the doctor, and an unknown level, a non-object payload or a non-passing outcome raises no claim at all.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "gate-profile-doctor"
+        ]
+      }
+    },
+    {
+      "id": "S9-4-producer",
+      "criterion": "The shared producer can route an already-committed candidate: committed-head binds HEAD to its exact single parent and requires the index to equal the committed HEAD tree, so a publication claim no longer needs history rewriting to be reviewed.",
+      "source": ".itd-memory/contracts/S9-U1-COMMITTED-HEAD.md (commit 560862c).",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0 on the reviewed tree (184 checks, liveExternalCalls 0).",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A clean single-parent HEAD is routable, while a merge head, a dirty tree or an index that differs from the committed tree still fails closed.",
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "S9-5-efficacy",
+      "criterion": "The three signed independent-review efficacy legs are bound to the producer bytes of this candidate, not to the pre-S9 producer, and hold host parity across WSL and native Windows.",
+      "source": "HANDOFF.md field 6b; re-minted legs in commit 560862c.",
+      "evidence": "Oracle efficacy = python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256, exit 0 with hostParityVerified true.",
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The efficacy release gate is signed against the exact producer this candidate ships, on both hosts.",
+        "impactClasses": [
+          "host-parity",
+          "security"
+        ],
+        "oracleIds": [
+          "efficacy"
+        ]
+      }
+    },
+    {
+      "id": "S9-6-rerecord",
+      "criterion": "The live model-benchmark evidence was re-recorded on the final S9 tree, so its runner, adapter and methodology-tree pins resolve against this candidate instead of the tree the S9 units burned.",
+      "source": "Unit S9-RERECORD in .itd-memory/GOAL.json (commit 59ad17d).",
+      "evidence": "Oracle evidence-replay = python3 -I tests/verify_live_model_benchmark.py --require-evidence, exit 0 on the reviewed tree.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py --require-evidence",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The published live evidence belongs to this tree, so the pin cannot pass on inherited artifacts.",
+        "impactClasses": [
+          "correctness",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "evidence-replay"
+        ]
+      }
     }
   ],
   "completion": {
@@ -1379,18 +1489,16 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "S8",
-    "status": "verified",
+    "unitId": "S9",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/S8-U1-HOSTPIN.md",
+    "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "error-handling",
-        "generated-artifact-freshness",
-        "host-parity",
         "repository-hygiene",
         "security"
       ],
@@ -1398,8 +1506,8 @@
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "closedAt": "2026-08-15T12:20:00Z",
-    "closureEvidence": "All five S8 criteria passed on the reviewed tree and the mandatory opposite-vendor route returned PASSED with no findings on commit aae7e0a; the closed followup no longer pins the coverage matrix (S8-POLICY)."
+    "openedAt": "2026-08-15T18:00:00Z",
+    "scopeNote": "Four harness debts of one class, one committed unit each, in order U4 (scripts/itd.py no-op push) -> U3 (completion-ledger producer schema) -> U2 (doctor independence label) -> U1 (producer committed-head candidate). U1, U2 and U3 touch METHODOLOGY_TREE_ROOTS and burn the live-evidence pin; a single live re-record runs at the end on a clean tree."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

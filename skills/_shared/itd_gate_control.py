@@ -1489,6 +1489,32 @@ def local_adjudication_timeout(
     return LOCAL_ADJUDICATION_TIMEOUT_SECONDS
 
 
+def independence_levels() -> tuple[str, ...]:
+    """The closed independence class, read from its single source of truth.
+
+    Loaded lazily by path (the same pattern itd_verification_loop uses) so this
+    module keeps no import-time dependency on the policy module and no second
+    copy of the level names that could drift from it. An unavailable or
+    malformed policy module reports an empty class, so an independence label is
+    dropped rather than trusted — fail-closed, never fabricated.
+    """
+    import importlib.util as _util
+    path = Path(__file__).resolve().parent / "itd_reviewer_independence.py"
+    try:
+        spec = _util.spec_from_file_location("itd_reviewer_independence", path)
+        if spec is None or spec.loader is None:
+            return ()
+        module = _util.module_from_spec(spec)
+        sys.modules.setdefault("itd_reviewer_independence", module)
+        spec.loader.exec_module(module)
+        levels = getattr(module, "INDEPENDENCE_LEVELS", ())
+    except Exception:
+        return ()
+    if not isinstance(levels, (tuple, list)):
+        return ()
+    return tuple(str(level) for level in levels if isinstance(level, str))
+
+
 def validate_local_adjudication(
     checkout: Path,
     receipt: Path,
@@ -1499,7 +1525,7 @@ def validate_local_adjudication(
     *,
     runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
     platform_name: str | None = None,
-) -> str | None:
+) -> dict[str, str] | None:
     if (
         not checkout.is_absolute()
         or not receipt.is_absolute()
@@ -1538,18 +1564,31 @@ def validate_local_adjudication(
         raise GateError(
             "UNVERIFIED", "local adjudication is stale, foreign, or invalid"
         )
-    # Honest route-evidence label from the validated outcome the check
-    # subprocess printed; absent/foreign output degrades to no label.
+    # Honest route labels from the validated payload the check subprocess
+    # printed; absent/foreign output degrades to no label.
     try:
         line = completed.stdout.decode("utf-8").strip().splitlines()[-1]
-        outcome = json.loads(line).get("outcome")
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise ValueError("route payload is not an object")
+        outcome = payload.get("outcome")
+        independence = payload.get("routeIndependence")
     except (IndexError, UnicodeError, ValueError):
-        outcome = None
+        outcome, independence = None, None
     if outcome == "ADJUDICATED":
-        return "human-adjudication"
-    if outcome == "PASSED":
-        return "signed-keyless-route"
-    return None
+        evidence = "human-adjudication"
+    elif outcome == "PASSED":
+        evidence = "signed-keyless-route"
+    else:
+        return None
+    label = {"routeEvidence": evidence}
+    # The independence level is reported ONLY when the check printed one of the
+    # closed class's levels. A pre-batch receipt, an ADJUDICATED outcome with no
+    # signed route, or any value from outside the class reports nothing rather
+    # than a fabricated level (S9-U2).
+    if independence in independence_levels():
+        label["routeIndependence"] = str(independence)
+    return label
 
 
 def profile_doctor_entry(
@@ -1557,8 +1596,9 @@ def profile_doctor_entry(
     *,
     gh: Callable[..., Any] = gh_json,
     readiness: Callable[..., dict[str, Any]] = broker_ready,
-    local_review: Callable[[Path, Path, str, str, str, str], str | None]
-    = validate_local_adjudication,
+    local_review: Callable[
+        [Path, Path, str, str, str, str], dict[str, str] | None
+    ] = validate_local_adjudication,
     adoption: Callable[[Path], list[str]] = adopted_checkout,
     version_probe: Callable[[], str] = installed_version,
     strongest_doctor: Callable[..., dict[str, Any]] | None = None,
@@ -1606,6 +1646,7 @@ def profile_doctor_entry(
         version = None
     ready = None
     route_evidence: str | None = None
+    route_independence: str | None = None
     if protection == "local-review":
         try:
             observed = local_review(
@@ -1614,8 +1655,16 @@ def profile_doctor_entry(
                 entry["repository"],
                 entry["localReviewProducerKeyringSha256"],
             )
-            if isinstance(observed, str):
-                route_evidence = observed
+            # Both labels come from the validated payload. Each is surfaced
+            # only when the validator actually reported it, so a route without
+            # a signed independence level shows null instead of a guess.
+            if isinstance(observed, dict):
+                evidence = observed.get("routeEvidence")
+                if isinstance(evidence, str) and evidence:
+                    route_evidence = evidence
+                independence = observed.get("routeIndependence")
+                if isinstance(independence, str) and independence:
+                    route_independence = independence
         except GateError as exc:
             drift.append(f"local review: {exc.status}: {exc.reason}")
     else:
@@ -1659,6 +1708,7 @@ def profile_doctor_entry(
         "status": claim if not drift else "UNVERIFIED", "drift": drift,
         "itdVersion": version, "broker": ready,
         "routeEvidence": route_evidence,
+        "routeIndependence": route_independence,
         "deploymentProfile": deployment, "protectionProfile": protection,
     }
 

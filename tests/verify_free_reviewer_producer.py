@@ -2336,6 +2336,139 @@ def main() -> int:
               in producer.review_prompt(redacted_packet),
               "the scrubbed shown text is embedded verbatim in the prompt")
 
+    # --- S9-U1: an already-committed candidate must be routable --------
+    with tempfile.TemporaryDirectory() as raw:
+        fixture = Path(raw)
+        repo = fixture / "repo"
+        repo.mkdir()
+        base, parent, tree = git_fixture(repo)
+        scope, acceptance, machine = write_inputs(fixture, repo, parent, tree)
+        # Freeze the staged packet FIRST, then commit the very same index, so
+        # the two modes can be compared on one repository rather than on two
+        # look-alike fixtures.
+        staged_before = producer.freeze_packet(
+            root=repo, base_commit=base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=scope,
+            acceptance_file=acceptance, machine_receipt=machine,
+        )
+        # Commit the exact staged candidate: index and HEAD tree now agree, and
+        # `git diff --cached HEAD` is empty by construction.
+        shell(["git", "commit", "-qm", "candidate"], repo)
+        head = shell(["git", "rev-parse", "HEAD"], repo)
+        head_tree = shell(["git", "rev-parse", "HEAD^{tree}"], repo)
+
+        try:
+            producer.freeze_packet(
+                root=repo, base_commit=base,
+                repository="hihol-labs/idea-to-deploy", pull_request=None,
+                expected_head_sha=None, scope_file=scope,
+                acceptance_file=acceptance, machine_receipt=machine,
+            )
+        except producer.FreeReviewError as exc:
+            check("empty" in exc.reason,
+                  "staged mode on a committed candidate failed for a new reason")
+        else:
+            raise AssertionError(
+                "staged mode accepted a committed candidate with an empty "
+                "machine diff"
+            )
+
+        committed = producer.freeze_packet(
+            root=repo, base_commit=base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=scope,
+            acceptance_file=acceptance, machine_receipt=machine,
+            candidate_mode="committed-head",
+        )
+        check(committed["candidate"]["parentCommit"] == parent,
+              "committed-head did not bind HEAD's own parent")
+        check(committed["candidate"]["tree"] == head_tree == tree,
+              "committed-head did not bind the committed HEAD tree")
+        check(committed["candidate"]["baseCommit"] == base,
+              "committed-head lost the PR base")
+        check(committed["candidate"]["diffBytes"] > 0,
+              "committed-head produced an empty exact diff")
+        check(head != parent, "fixture did not actually commit the candidate")
+
+        # The two modes must agree on the exact candidate they describe: the
+        # committed packet has to equal what staged mode froze from the very
+        # same index before the commit, otherwise routing after commit would
+        # review something other than what was accepted.
+        check(
+            staged_before["candidate"]["tree"] == committed["candidate"]["tree"]
+            and staged_before["candidate"]["diffSha256"]
+            == committed["candidate"]["diffSha256"]
+            and staged_before["candidate"]["parentCommit"]
+            == committed["candidate"]["parentCommit"]
+            and staged_before["candidate"]["baseCommit"]
+            == committed["candidate"]["baseCommit"],
+            "committing the candidate changed the exact candidate it describes",
+        )
+
+        # A dirty index over the committed HEAD is not the committed candidate.
+        (repo / "extra.py").write_text("EXTRA = 1" + chr(10), encoding="utf-8")
+        shell(["git", "add", "extra.py"], repo)
+        try:
+            producer.freeze_packet(
+                root=repo, base_commit=base,
+                repository="hihol-labs/idea-to-deploy", pull_request=None,
+                expected_head_sha=None, scope_file=scope,
+                acceptance_file=acceptance, machine_receipt=machine,
+                candidate_mode="committed-head",
+            )
+        except producer.FreeReviewError as exc:
+            check("committed HEAD tree" in exc.reason,
+                  "a staged change over committed HEAD was not rejected exactly")
+        else:
+            raise AssertionError(
+                "committed-head accepted an index that differs from HEAD"
+            )
+        shell(["git", "reset", "-q", "HEAD", "--", "extra.py"], repo)
+        (repo / "extra.py").unlink()
+
+        try:
+            producer.freeze_packet(
+                root=repo, base_commit=base,
+                repository="hihol-labs/idea-to-deploy", pull_request=None,
+                expected_head_sha=None, scope_file=scope,
+                acceptance_file=acceptance, machine_receipt=machine,
+                candidate_mode="staged-head",
+            )
+        except producer.FreeReviewError as exc:
+            check("invalid candidate mode" in exc.reason,
+                  "an unknown candidate mode was not rejected fail-closed")
+        else:
+            raise AssertionError("an unknown candidate mode was accepted")
+
+    # A merge commit has no single exact parent to bind.
+    with tempfile.TemporaryDirectory() as raw:
+        fixture = Path(raw)
+        repo = fixture / "repo"
+        repo.mkdir()
+        base, parent, tree = git_fixture(repo)
+        shell(["git", "commit", "-qm", "candidate"], repo)
+        scope, acceptance, machine = write_inputs(fixture, repo, parent, tree)
+        shell(["git", "checkout", "-q", "-b", "side", base], repo)
+        (repo / "side.py").write_text("SIDE = 1" + chr(10), encoding="utf-8")
+        shell(["git", "add", "side.py"], repo)
+        shell(["git", "commit", "-qm", "side"], repo)
+        shell(["git", "checkout", "-q", "-"], repo)
+        shell(["git", "merge", "-q", "--no-ff", "-m", "merge", "side"], repo)
+        try:
+            producer.freeze_packet(
+                root=repo, base_commit=base,
+                repository="hihol-labs/idea-to-deploy", pull_request=None,
+                expected_head_sha=None, scope_file=scope,
+                acceptance_file=acceptance, machine_receipt=machine,
+                candidate_mode="committed-head",
+            )
+        except producer.FreeReviewError as exc:
+            check("single-parent" in exc.reason,
+                  "a merge commit was not rejected as a committed candidate")
+        else:
+            raise AssertionError("committed-head accepted a merge commit")
+
     source = PRODUCER.read_text(encoding="utf-8")
     check("api.openai.com" not in source and "OPENAI_API_KEY" not in source,
           "producer contains a paid API dispatch path")
