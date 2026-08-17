@@ -1,0 +1,7 @@
+{
+  "$schema_version": "1.0",
+  "fixture_type": "unit-test-inputs",
+  "skill_under_test": "/task",
+  "status": "pending",
+  "description": "Frozen real-history input corpus for tests/verify_ledger_reconciliation.py (S10-LEDGER): GOAL ledgers with a colliding unit id across two owners, an externally blocked unit, a re-verified unit, a task-level unit owned by no ledger, and one historical row whose ledger no longer exists and is explained through LEDGER-RECONCILIATION.json. Not a candidate run: there is no generated output to snapshot, the files ARE the input. Assertions that consume it live in the oracle and are mutation-tested there; see tests/fixtures/ledger-reconciliation/README.md for the full inventory."
+}

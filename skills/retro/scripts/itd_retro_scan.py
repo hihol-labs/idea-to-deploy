@@ -80,23 +80,30 @@ def read_json(path: Path) -> dict:
         return {}
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
+import itd_unit_lifecycle as LIFECYCLE  # noqa: E402
+
+
 def scan_project(mem: Path) -> dict:
     """Aggregate one project's .itd-memory dir into plain counts."""
     p: dict = {"project": mem.parent.name}
 
     events = [e for e in read_jsonl(mem / "events.jsonl") if e.get("type") == "unit"]
-    activated = {e.get("name") for e in events if e.get("decision") == "activated"}
-    verified = {e.get("name") for e in events if e.get("decision") == "verified"}
-    # verified-юнит по определению был активен: без объединения теряные
-    # activation-события давали VCR>1 (live: OneOfS 16/13 = 1.231, retro
-    # 2026-07-11 P3). Семантика выровнена с scripts/itd_metrics.py; сама
-    # аномалия учёта не прячется — репортится отдельным счётчиком.
-    no_activation = verified - activated
-    activated |= verified
-    p["unitsActivated"] = len(activated)
-    p["unitsVerified"] = len(verified)
-    p["unitsVerifiedNoActivation"] = len(no_activation)
-    p["vcr"] = round(len(verified) / len(activated), 3) if activated else None
+    # Единица учёта — ЖИЗНЕННЫЙ ЦИКЛ (activated -> первый терминал),
+    # привязанный к леджеру-владельцу, а не имя юнита: один id принадлежит
+    # разным юнитам разных леджеров, а `blocked` — легитимный терминал, не
+    # промах верификации (S10-LEDGER; было: множество имён, VCR 0.953 с июля).
+    lc = LIFECYCLE.build(mem)
+    p["unitsActivated"] = lc["lifecyclesTotal"]
+    p["unitsVerified"] = lc["lifecyclesVerified"]
+    p["unitsVerifiedNoActivation"] = lc["lifecyclesNoActivation"]
+    p["unitsBlocked"] = lc["lifecyclesBlocked"]
+    p["unitsOpen"] = lc["lifecyclesOpen"]
+    p["unitsWip"] = lc["lifecyclesWip"]
+    p["unitsExcluded"] = lc["lifecyclesExcluded"]
+    p["unitsReverified"] = lc["lifecyclesReverified"]
+    p["unattributedEvents"] = lc["unattributedEvents"]
+    p["vcr"] = lc["vcr"]
     p["regressions"] = sum(1 for e in events if e.get("decision") == "regressed")
     p["failedVerifications"] = sum(
         1 for e in events if e.get("decision") == "verification_failed")
@@ -410,13 +417,25 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     activated = sum(p["unitsActivated"] for p in projects)
     verified = sum(p["unitsVerified"] for p in projects)
     no_activation = sum(p.get("unitsVerifiedNoActivation", 0) for p in projects)
+    denominator = (activated
+                   - sum(p.get("unitsExcluded", 0) for p in projects)
+                   - sum(p.get("unitsWip", 0) for p in projects))
     report = {
         "workspaces": [str(w) for w in workspaces],
         "projectsScanned": len(projects),
         "unitsActivated": activated,
         "unitsVerified": verified,
         "unitsVerifiedNoActivation": no_activation,
-        "vcrGlobal": round(verified / activated, 3) if activated else None,
+        "unitsBlocked": sum(p.get("unitsBlocked", 0) for p in projects),
+        "unitsExcluded": sum(p.get("unitsExcluded", 0) for p in projects),
+        "unitsOpen": sum(p.get("unitsOpen", 0) for p in projects),
+        "unitsWip": sum(p.get("unitsWip", 0) for p in projects),
+        "unitsReverified": sum(p.get("unitsReverified", 0) for p in projects),
+        "unattributedEvents": sum(p.get("unattributedEvents", 0) for p in projects),
+        # Знаменатель исключает циклы, закрытые явным человеческим/внешним
+        # решением (blocked/skipped/superseded) и текущий WIP; открытые циклы
+        # в знаменателе остаются — это настоящий дрейф и обязан бить.
+        "vcrGlobal": (round(verified / denominator, 3) if denominator else None),
         "regressions": sum(p["regressions"] for p in projects),
         "failedVerifications": sum(p["failedVerifications"] for p in projects),
         "projectsBelowVcr1": [
@@ -451,13 +470,22 @@ def render_markdown(r: dict) -> str:
                f"(workspace: {', '.join(r['workspaces'])})")
     vcr = r["vcrGlobal"]
     out.append(f"**VCR глобально:** {vcr if vcr is not None else 'n/a (unit-событий нет)'} "
-               f"({r['unitsVerified']}/{r['unitsActivated']} юнитов), "
+               f"({r['unitsVerified']} verified из {r['unitsActivated']} жизненных циклов; "
+               f"вне знаменателя: {r.get('unitsExcluded', 0)} закрытых явным решением "
+               f"(blocked {r.get('unitsBlocked', 0)}), wip {r.get('unitsWip', 0)}), "
                f"регрессий: {r['regressions']}, "
                f"проваленных верификаций: {r['failedVerifications']}")
     if r.get("unitsVerifiedNoActivation"):
         out.append(f"**Аномалия учёта:** {r['unitsVerifiedNoActivation']} юнит(ов) "
                    f"verified без записанного activation-события — писатель "
                    f"активаций теряет события (сигнал для /retro, не для VCR>1)")
+    if r.get("unattributedEvents"):
+        out.append(f"**Неатрибутированные unit-события:** {r['unattributedEvents']} — "
+                   f"строка не сводится ни к одному леджеру; объясни её в "
+                   f".itd-memory/LEDGER-RECONCILIATION.json (fail-closed: без why не учитывается)")
+    if r.get("unitsOpen"):
+        out.append(f"**Открытые циклы:** {r['unitsOpen']} — активированы и не имеют "
+                   f"терминального события; закрой через `itd_unit_log.py close <id> --note ...`")
     if r["projectsBelowVcr1"]:
         out.append(f"**Проекты с VCR<1.0:** {', '.join(r['projectsBelowVcr1'])}")
     out.append("")

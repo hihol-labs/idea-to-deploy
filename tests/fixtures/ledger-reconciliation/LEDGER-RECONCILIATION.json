@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "purpose": "Frozen counterpart of .itd-memory/LEDGER-RECONCILIATION.json for the oracle fixture.",
+  "entries": [
+    {
+      "unit": "G-001",
+      "at": "2026-07-14T16:07:57Z",
+      "ledger": "GOAL-axis1.json",
+      "why": "Строка из леджера, который больше не существует в прежнем виде; отнесена явно, чтобы фикстура проверяла путь ручной реконсиляции, а не только машинный вывод."
+    }
+  ]
+}

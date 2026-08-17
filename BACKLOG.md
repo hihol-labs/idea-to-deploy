@@ -14,6 +14,30 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — Found while closing S10-LEDGER (2026-08-16)
+
+- [ ] `hooks/completion-signals.sh` помечает ЗЕЛЁНЫЙ прогон как `FAILED`: строка
+  `24 passed, 0 failed` матчится по подстроке `failed` без разбора числа. За одну
+  сессию сработало 6 раз на зелёных прогонах — шум, обесценивающий сигнал слоя L2.
+  Воспроизведение: любой тест этого репо, печатающий `N passed, 0 failed`.
+- [ ] `scripts/itd_metrics.py` и `skills/retro/scripts/itd_retro_scan.py` держали
+  ДВЕ копии семантики VCR (комментарий в retro_scan прямо это фиксировал). Копии
+  сведены в `skills/_shared/itd_unit_lifecycle.py` — проверить, нет ли третьего
+  потребителя unit-событий, который остался на старой семантике.
+
+- [ ] **Идентификатор claim'а рассогласован между продюсером и review-cache.**
+  `itd_review_cache.py:329` валидирует квитанцию против `review_claim_id()` =
+  `"<unit>:general-review"`, а Verification Loop выпускает квитанции с голым
+  `unitId`. `machine` и `checker` под claim-id проходят, но `adjudicate` падает
+  (`mandatory route receipt binds another machine receipt`). Цена — лишний ЖИВОЙ
+  прогон ревьюера только ради согласования имени. Измерено на S10-LEDGER
+  2026-08-17; в `HANDOFF-RELEASE-1.97.0.md` тот же дефект описан неточно.
+- [ ] `checker` требует отчёт, промпт, phase-one-квитанцию И keyring продюсера
+  внутри `.itd-memory/verification-loop/`; каждый внешний путь отдаётся
+  отдельным `UNVERIFIED`, по одному за прогон.
+- [ ] Продюсер отдаёт два неразличимых `UNVERIFIED`: исчерпание квоты (решение
+  владельца) и обрыв event stream (просто ретрай). За S10 обрыв случился дважды.
+
 ## P0 — Deferred out of the bounded-process/resumability slice (GPG-004)
 
 Each item was found while accepting that slice and deliberately left out of it, so

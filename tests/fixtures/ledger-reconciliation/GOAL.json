@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "goal": "frozen fixture mirroring the real ledger shapes",
+  "status": "done",
+  "createdAt": "2026-07-15T19:12:04Z",
+  "updatedAt": "2026-07-27T12:49:18Z",
+  "currentUnitId": "",
+  "units": [
+    {
+      "id": "PE5-008",
+      "criterion": "c",
+      "verificationCommand": "true",
+      "status": "verified"
+    },
+    {
+      "id": "PE5-015",
+      "criterion": "c",
+      "verificationCommand": "true",
+      "status": "verified"
+    }
+  ]
+}

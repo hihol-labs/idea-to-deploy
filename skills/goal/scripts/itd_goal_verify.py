@@ -551,6 +551,9 @@ def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str) ->
         "name": unit_id,
         "decision": decision,
         "evidence": evidence[:EVIDENCE_MAX],
+        # Имя юнита не уникально между леджерами (live: `G-001` — пять разных
+        # юнитов), поэтому событие несёт СВОЙ леджер (S10-LEDGER).
+        "ledger": goal_path.name,
     }
     try:
         with events.open("a", encoding="utf-8") as f:
