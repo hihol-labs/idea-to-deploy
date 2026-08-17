@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "S10-LEDGER",
     "goal": "Устранить дрейф между GOAL-леджерами и events.jsonl: атрибуция unit-событий к леджеру, корректный жизненный цикл юнита в бухгалтерии VCR, fail-closed писатель",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-16T20:57:24Z",
     "riskTier": "medium",
-    "ledger": "STATE"
+    "ledger": "STATE",
+    "completedAt": "2026-08-17T21:51:26Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",

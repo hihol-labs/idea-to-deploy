@@ -1565,7 +1565,8 @@
   },
   "activeFollowup": {
     "unitId": "S10-LEDGER",
-    "status": "in_progress",
+    "status": "verified",
+    "closedAt": "2026-08-17T21:51:26Z",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
