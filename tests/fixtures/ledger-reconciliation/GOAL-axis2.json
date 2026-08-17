@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "goal": "frozen fixture mirroring the real ledger shapes",
+  "status": "done",
+  "createdAt": "2026-07-06T07:06:21Z",
+  "updatedAt": "2026-07-06T08:19:46Z",
+  "currentUnitId": "",
+  "units": [
+    {
+      "id": "G-001",
+      "criterion": "c",
+      "verificationCommand": "true",
+      "status": "verified"
+    }
+  ]
+}

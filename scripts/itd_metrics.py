@@ -20,51 +20,45 @@ DEPLOY_READY = "READY_FOR_DEPLOY"
 DEPLOYED = "DEPLOYED"
 
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills" / "_shared"))
+import itd_unit_lifecycle as LIFECYCLE  # noqa: E402
+
+
 def unit_vcr(workspace: Path) -> dict:
-    """Verified Completion Rate = verified units / activated units.
+    """Verified Completion Rate по ЖИЗНЕННЫМ ЦИКЛАМ юнитов.
 
-    v1.41.0. Source of truth: `*/.itd-memory/events.jsonl` lines with
-    `type: "unit"` — `decision: "activated"` opens a unit, `decision:
-    "verified"` closes it with passing verification (convention documented in
-    docs/templates/itd-memory/events.example.jsonl; /task writes these events
-    on unit start / verified finish). Counted by distinct unit `name` so
-    re-activation after RECOVERY_REQUIRED doesn't inflate the denominator.
-    VCR is null when no unit events exist yet.
+    Семантика больше не дублируется здесь: единственный источник правды —
+    skills/_shared/itd_unit_lifecycle.py (S10-LEDGER). Считать по множеству
+    имён было неверно: один id принадлежит разным юнитам разных леджеров, а
+    `blocked` — легитимный терминал, не промах верификации.
     """
-    activated: set[str] = set()
-    verified: set[str] = set()
-    for events_path in workspace.glob("*/.itd-memory/events.jsonl"):
-        try:
-            lines = events_path.read_text(encoding="utf-8").splitlines()
-        except Exception:
-            continue
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                evt = json.loads(line)
-            except Exception:
-                continue
-            if evt.get("type") != "unit":
-                continue
-            name = str(evt.get("name") or "")
-            if not name:
-                continue
-            decision = str(evt.get("decision") or "").lower()
-            if decision == "activated":
-                activated.add(name)
-            elif decision == "verified":
-                verified.add(name)
-    # Units verified without a recorded activation still count as activated —
-    # a verified unit was by definition active at some point.
-    activated |= verified
-    return {
-        "unitsActivated": len(activated),
-        "unitsVerified": len(verified),
-        "vcr": round(len(verified) / len(activated), 3) if activated else None,
-    }
-
+    keys = ("unitsBlocked", "unitsOpen", "unitsWip", "unitsExcluded",
+            "unattributedEvents")
+    total = {"unitsActivated": 0, "unitsVerified": 0, "vcr": None}
+    total.update({k: 0 for k in keys})
+    activated = verified = denominator = 0
+    mems = list(sorted(workspace.glob("*/.itd-memory")))
+    own = workspace / ".itd-memory"
+    if own.is_dir():
+        mems.append(own)
+    for mem in mems:
+        lc = LIFECYCLE.build(mem)
+        activated += lc["lifecyclesTotal"]
+        verified += lc["lifecyclesVerified"]
+        denominator += lc["lifecyclesTotal"] - lc["lifecyclesExcluded"] - lc["lifecyclesWip"]
+        # Счётчики дрейфа обязаны доходить до вызывающего, а не оставаться
+        # внутри (ревьюер 2026-08-17, spec-compliance): без них потребитель не
+        # видит ни неатрибутированных строк, ни открытых циклов.
+        total["unitsBlocked"] += lc["lifecyclesBlocked"]
+        total["unitsOpen"] += lc["lifecyclesOpen"]
+        total["unitsWip"] += lc["lifecyclesWip"]
+        total["unitsExcluded"] += lc["lifecyclesExcluded"]
+        total["unattributedEvents"] += lc["unattributedEvents"]
+    total["unitsActivated"] = activated
+    total["unitsVerified"] = verified
+    total["vcr"] = round(verified / denominator, 3) if denominator else None
+    return total
 
 def collect(workspace: Path) -> dict:
     projects: list[dict] = []
