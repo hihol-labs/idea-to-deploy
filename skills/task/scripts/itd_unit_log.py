@@ -113,7 +113,15 @@ def state_describes(mem: Path, cur: dict, unit_id: str, ledger: str) -> bool:
     """
     if cur.get("id") != unit_id:
         return False
-    recorded = cur.get("ledger") or ""
+    recorded = cur.get("ledger")
+    # Внешний вход проверяется по ТИПУ: `[]`, `{}`, `0`, `false` в поле `ledger`
+    # — искажённая запись, а не легаси-пустая; трактовать её как «без леджера»
+    # значило бы снова описать этой записью любой цикл имени (ревьюер
+    # 2026-08-17, medium — тот же класс, что закрывался у метки времени и id
+    # леджера). Fail-closed: искажённая запись не описывает ни один цикл.
+    # Только отсутствие поля / `null` / пустая строка — легаси.
+    if recorded is not None and not isinstance(recorded, str):
+        return False
     if recorded:
         return recorded == ledger
     # Легаси-запись без `ledger` принимается ТОЛЬКО для однозначного имени:

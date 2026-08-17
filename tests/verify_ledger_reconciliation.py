@@ -34,10 +34,12 @@ UNIT_LOG = ROOT / "skills" / "task" / "scripts" / "itd_unit_log.py"
 PY = sys.executable
 
 PASSED, FAILED = 0, 0
+SEEN_NAMES: list[str] = []
 
 
 def check(name: str, cond: bool, detail: str = "") -> None:
     global PASSED, FAILED
+    SEEN_NAMES.append(name)
     if cond:
         PASSED += 1
         print("PASS  " + name)
@@ -449,34 +451,8 @@ def main() -> int:
                 ok = False
             check(f"a non-object reconciliation manifest ({junk}) degrades, not aborts",
                   ok, junk)
-        # `attribute()` is public and reachable without build()'s timestamp
-        # pre-filter, so its own key-type guard is pinned by a direct call.
-        try:
-            L.attribute({"type": "unit", "name": "A", "at": []}, [],
-                        {("A", "x"): "GOAL-x.json"})
-            direct_ok = True
-        except Exception:
-            direct_ok = False
-        # Own variable, asserted IMMEDIATELY: a shared `ok` was clobbered by a
-        # build() call inserted between this call and its check, so the
-        # assertion silently stopped testing the direct call (reviewer
-        # 2026-08-17) — same vacuous-pin class caught in r2 and r9.
-        check("attribute() tolerates a non-string timestamp on a direct call",
-              direct_ok, "")
-        # Same unhashable class on the LEDGER side.
-        (mem / "GOAL-broken.json").write_text(json.dumps({
-            "version": "1", "goal": "x", "status": "active",
-            "createdAt": "2026-07-10T00:00:00Z", "updatedAt": "2026-07-10T23:59:59Z",
-            "currentUnitId": "", "units": [{"id": ["G-1"]}, {"id": "  "}]}),
-            encoding="utf-8")
-        try:
-            L.build(mem)
-            ok = True
-        except Exception:
-            ok = False
-        check("a ledger with a non-string unit id is skipped, not fatal", ok, "")
-        (mem / "GOAL-broken.json").unlink()
-
+        # The junk loop leaves its last manifest on disk; drop it before the
+        # name-guard scenario below.
         (mem / "LEDGER-RECONCILIATION.json").unlink()
 
         write_events(mem, [
@@ -662,6 +638,35 @@ def main() -> int:
         st_legacy["currentUnit"]["ledger"] = "GOAL-axis2.json"
         (mem / "STATE.json").write_text(json.dumps(st_legacy), encoding="utf-8")
 
+        # `state_describes` is the only reader of STATE.currentUnit.ledger. A
+        # falsy NON-string there (`[]`, `{}`, `0`, `false`) is a malformed
+        # record, not a legacy one: `or ""` folded it into the legacy branch,
+        # which for a uniquely-owned id answers True and lets a corrupt STATE
+        # describe any cycle of that name (reviewer 2026-08-17, medium — the
+        # same external-input type class as the timestamp and ledger-id
+        # guards). Z-9 is owned by GOAL-other.json alone in this tmpdir, so the
+        # legacy branch WOULD say True — that is what makes the pin discriminate.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("itd_unit_log_under_test", UNIT_LOG)
+        UL = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(UL)
+        legacy_ok = UL.state_describes(mem, {"id": "Z-9"}, "Z-9", "GOAL-other.json")
+        check("state_describes: a legacy record without ledger describes a uniquely-owned id",
+              legacy_ok is True, repr(legacy_ok))
+        exact_ok = UL.state_describes(mem, {"id": "Z-9", "ledger": "GOAL-other.json"},
+                                      "Z-9", "GOAL-other.json")
+        check("state_describes: a string ledger is matched exactly",
+              exact_ok is True, repr(exact_ok))
+        malformed = {v: UL.state_describes(mem, {"id": "Z-9", "ledger": json.loads(v)},
+                                           "Z-9", "GOAL-other.json")
+                     for v in ("[]", "{}", "0", "false")}
+        check("state_describes: a falsy non-string ledger is malformed, not legacy",
+              all(res is False for res in malformed.values()), json.dumps(malformed))
+        typed = UL.state_describes(mem, {"id": "Z-9", "ledger": ["GOAL-other.json"]},
+                                   "Z-9", "GOAL-other.json")
+        check("state_describes: a truthy non-string ledger never matches",
+              typed is False, repr(typed))
+
         # The axis1 row above sorts after every "now" row the writer appends, so
         # its cycle would stay open and give implicit resolution a valid owned
         # candidate. Close it in the log at an even later stamp.
@@ -763,6 +768,15 @@ def main() -> int:
               r["lifecyclesBlocked"] >= 1 and r["vcr"] == 1.0,
               f"vcr={r['vcr']} blocked={r['lifecyclesBlocked']} "
               f"verified={r['lifecyclesVerified']} total={r['lifecyclesTotal']}")
+
+    # ------------------------------------------------------- F. oracle hygiene
+    # A duplicated scenario block once shipped inside this file (r8/r10 merges):
+    # two identical `a ledger with a non-string unit id` checks and a redundant
+    # unlink (reviewer 2026-08-17). Duplicates inflate the advertised count
+    # without adding a guarantee, so every check name must be unique.
+    dupes = sorted({n for n in SEEN_NAMES if SEEN_NAMES.count(n) > 1})
+    check("oracle hygiene: every check name is unique (no duplicated blocks)",
+          not dupes, json.dumps(dupes))
 
     print(f"\n{PASSED} passed, {FAILED} failed")
     return 1 if FAILED else 0

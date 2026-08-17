@@ -38,8 +38,24 @@
   гейт `verified` смотрит на ОТКРЫТЫЙ цикл; новая fail-closed подкоманда `close`
   (`--note` обязателен, actor `harness-reconciliation`).
 - `skills/goal/scripts/itd_goal_verify.py` — `append_event` пишет `ledger`.
-- `tests/verify_ledger_reconciliation.py` — **НОВЫЙ**, 24 проверки; зарегистрирован
-  в `tests/run-all.sh`.
+- `tests/verify_ledger_reconciliation.py` — **НОВЫЙ**, 75 проверок (24 на старте,
+  рост — закрытие находок 16 раундов независимого ревью + чистка дубля);
+  зарегистрирован в `tests/run-all.sh`.
+- `tests/fixtures/ledger-reconciliation/` — **НОВАЯ** замороженная фикстура
+  реальной по форме истории (`events.jsonl`, три леджера, манифест,
+  `expected-snapshot.json`, `README.md`): оракул проверяет её безусловно, потому
+  что живой `.itd-memory/events.jsonl` gitignored и в свежем клоне отсутствует.
+- `tests/fixtures/live-model-evidence/` (`latest.json` + `runs/<stamp>/…`) —
+  **перечеканка live-evidence** на дереве кандидата: пин
+  `verify_live_model_benchmark` привязывает evidence к дереву skills/hooks/agents,
+  поэтому любая правка там требует свежего живого прогона. Артефакты прогона
+  (`PROJECT_ARCHITECTURE.md`, `STRATEGIC_PLAN.md`, `transcript.jsonl.gz` и т.п.)
+  — записи ДЕМО-проекта бенчмарка (`fixture-03-cli-tool`), а не код кандидата;
+  они входят в диф по построению пина и ревьюируются как evidence-артефакт
+  (целостность/подписи), не как исходник. Раньше зона не была перечислена, и
+  ревьюер справедливо счёл её «outside the frozen candidate composition».
+- `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md` — контракт и заморозка
+  скоупа самого юнита (критерии `S10-LEDGER-1..3`, `activeFollowup`).
 - `.itd-memory/LEDGER-RECONCILIATION.json` — **НОВЫЙ**, 4 исторические строки
   `G-001`, объяснённые поимённо; отслеживается через `git add -f` (весь
   `.itd-memory/` под `.gitignore:11`).
