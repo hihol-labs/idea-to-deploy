@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "1",
+  "planId": "LPD-002",
+  "approvedAt": "2026-08-18T00:00:00Z",
+  "approval": {
+    "status": "approved",
+    "requires": "явный approve владельца перед записью в GOAL/STATE и первой активацией",
+    "approvedBy": "owner",
+    "approvedIn": "session 2026-08-18 (LPD-002 kickoff)"
+  },
+  "supersedes": {
+    "planId": "LPD-001",
+    "mode": "partial",
+    "kept": [
+      "M3 -> R6"
+    ],
+    "droppedWithReason": {
+      "M1": "мутация-как-гейт добавляет церемонию в маршрут, который по замеру 2026-08-18 съедает ~25% времени мейнтейнера; внешнего инцидента 'мутацию не прогнали -> дефект прошёл' нет (все 4 вакуумных пина S10 поймала мутация ПО КОНВЕНЦИИ). Пересмотреть после R1-R6 на новых данных ретро.",
+      "M2": "бюджет церемонии измеряет то, что M1 усугубил бы; сам план признаёт, что токены на мультисессионном юните не бюджетируются честно -> advisory-метрика без экономии времени.",
+      "M4": "warning-only потолок поправок: не сокращает ни один измеренный расход, польза косвенная. В BACKLOG."
+    }
+  },
+  "objective": "Снять измеренный налог маршрута ITD: четыре класса трения, стоившие ~2-2.5 ч из ~8 ч рабочей сессии 2026-08-18 и повторявшиеся на S9/S10/S11, плюс пропорциональный прогон сьютов вместо полного. Критерий успеха плана: каждый пункт закрыт машинной проверкой с двусторонней мутацией, а на следующем юните методологии повторный ретро-скан не показывает тот же класс.",
+  "status": "active",
+  "wipLimit": 1,
+  "currentPointId": "R1",
+  "nextPointId": "R2",
+  "sessionProtocol": "WIP=1, RED-first: сначала проверка, воспроизводящая дефект на текущем коде, затем правка, затем мутация в обе стороны. Verification-команда пункта прогоняется в момент написания. Коммит только после маршрута /review (machine -> свежий чекер другой моделью -> adjudicate -> review-cache). Поправки к оракулу — в oracleAmendments и events.jsonl, не молча.",
+  "evidenceBase": {
+    "retro": "docs/retros/RETRO-2026-08-18.md (FACTS из itd_retro_scan.py + 11 внешних сигналов E1-E11)",
+    "handoff": ".itd-memory/HANDOFF-S10-LEDGER.md §17.10-17.12, §18-18.2, §19-19.2",
+    "backlog": "BACKLOG.md, секция P1 2026-08-18",
+    "measuredCosts": {
+      "capacityRetries": "~35 мин на одну публикацию (E2)",
+      "ledgerCloseCircle": "~40 мин + вынужденный обходной вариант владельца (E1)",
+      "installVsRepoValidator": "~25 мин, два лишних перечеканенных маршрута на релиз (E3)",
+      "githubFlakes": "~40 мин циклов ретраев вручную (E5)",
+      "runAllQuick": "156 с измерено 2026-08-18 (полный прогон дороже), 150 сьютов в tests/, 31 группа в run-all.sh"
+    }
+  },
+  "outOfScope": [
+    "Разрез дифа по байтам, скраббер, подписи, ключи, кэш ревью, модель доверия maker/checker.",
+    "Новые вендоры/транспорты ревьюера.",
+    "M1/M2/M4 из LPD-001 (см. supersedes.droppedWithReason).",
+    "P9 (false-block ноги 1/4 в run1) и P10 (метрика SKILL_BYPASS) — наблюдения ретро, не работа: первое — недетерминизм внешней модели при адекватном пороге 0.1, второе — собственная метрика (анти-Гудхарт)."
+  ],
+  "designDecisions": [
+    "Порядок R1-R4 (дешёвые, снимают налог с каждого следующего пункта этого же плана) -> R5 (структурная дыра) -> R6 (самый широкий по поверхности). Каждый следующий пункт исполняется маршрутом, уже облегчённым предыдущими.",
+    "R5 определяет КЛАСС кандидата, а не ослабляет продюсера: диф вне точного состава класса судится как раньше. Ослабление ради прохождения ledger-close отклонено как Гудхарт.",
+    "R6 подаёт карту как ДАННЫЕ в существующий impact_closure (skills/_shared/itd_verification_profiles.py:112) — новый движок не пишется (ADR-001).",
+    "skills/_shared/itd_review_evidence.py не имеет собственного сьюта (проверено 2026-08-18: покрыт только косвенно через producer). R5 создаёт первый прямой оракул для него — это часть работы, а не побочный эффект."
+  ],
+  "globalInvariants": [
+    "Ни один пункт не ослабляет fail-closed поведение: у каждой правки есть канарейка на переблокировку И на недоблокировку.",
+    "Vendor-neutral: контракт остаётся текст/JSON в репо; исчезновение любой harness-фичи деградирует в ручной путь, не в ложное 'всё зелено'.",
+    "Правки в скраббере/подписях/ключах запрещены планом."
+  ],
+  "points": [
+    {
+      "id": "R1",
+      "title": "Транспорт: 'at capacity' — недоступность, и провал транспорта оставляет след",
+      "status": "in_progress",
+      "riskTier": "medium",
+      "dependsOn": [],
+      "source": "retro E2 / P2",
+      "criterion": "Ответ транспорта 'Selected model is at capacity' (и тот же класс формулировок) классифицируется как UNAVAILABLE, а не UNVERIFIED; при любом ненулевом коде возврата транспорта скрабленный хвост stdout+stderr (<=4 КБ) сохраняется рядом с --report-output как машиночитаемый файл. Обе канарейки: снятие маркера -> падает проверка capacity; расширение маркера до голого 'capacity' -> падает канарейка переклассификации на отчёте, где слово встречается легитимно.",
+      "files": [
+        "skills/_shared/itd_free_reviewer_producer.py (CLI_UNAVAILABLE_MARKERS :2519, raise_cli_failure :2560+)",
+        "tests/verify_free_reviewer_producer.py"
+      ],
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "notes": "Скраббер применяется к дампу обязательно — пин отдельной проверкой. Диагностика сегодня доступна только внешней обёрткой run_bounded_process (scratchpad/dbg_producer.py) — это и есть дефект."
+    },
+    {
+      "id": "R2",
+      "title": "Гейт коммита в репо методологии валидирует кандидата кодом кандидата",
+      "status": "pending",
+      "riskTier": "medium",
+      "dependsOn": [
+        "R1"
+      ],
+      "source": "retro E3 / P3",
+      "criterion": "Когда рабочий каталог — сам репо методологии (детект: .claude-plugin/plugin.json в корне git И совпадение корня), hooks/check-review-before-commit.sh грузит itd_review_cache.py из РЕПО; для любого другого проекта — из инсталла, как сейчас. Канарейки: принудительный installed-only -> падает сценарий 'бамп версии в дереве' (methodologyVersion mismatch); принудительный repo-only для не-методологического проекта -> падает канарейка изоляции.",
+      "files": [
+        "hooks/check-review-before-commit.sh (CACHE_SCRIPT :23-26)",
+        "tests/verify_review_cache.py",
+        "docs/RELEASE_RUNBOOK.md (секция «Грабли»)"
+      ],
+      "verificationCommand": "python3 -I tests/verify_review_cache.py && python3 -I tests/verify_git_gate_hooks.py"
+    },
+    {
+      "id": "R3",
+      "title": "Сетевые вызовы гейта переживают флейк и не создают дублей",
+      "status": "pending",
+      "riskTier": "low",
+      "dependsOn": [
+        "R2"
+      ],
+      "source": "retro E5+E9 / P4+P8",
+      "criterion": "itd pr create и itd gate: bounded retry (<=5 попыток, экспоненциальная пауза 15-30 с) на транспортных ошибках GraphQL/REST; НЕТ ретрая на 401/403/422 (права/валидация); перед созданием PR проверяется существующий PR для ветки (идемпотентность); при исчерпании — typed UNAVAILABLE с подсказкой 'состояние могло примениться, перепроверь gh pr view'. Канарейки: ретрай на 403 -> падает; двойной вызов create при существующем PR -> падает.",
+      "files": [
+        "scripts/itd.py (:923 GitHub PR lookup failed и соседние пути merge/create)",
+        "tests/verify_itd_cli.py",
+        "docs/RELEASE_RUNBOOK.md"
+      ],
+      "verificationCommand": "python3 -I tests/verify_itd_cli.py && python3 -I tests/verify_gate_control.py",
+      "notes": "Докой закрывается E9: тег релиза только через gh release create --target $(git rev-parse <merge-sha>) — короткий sha даёт target_commitish is invalid, прямой push тега блокирует pre-push гейт (ожидаемо)."
+    },
+    {
+      "id": "R4",
+      "title": "Мелкое трение инструментов: оракул в изоляции, честные флаги, риск-тир при активации",
+      "status": "pending",
+      "riskTier": "low",
+      "dependsOn": [
+        "R3"
+      ],
+      "source": "retro E4+E7+E8+E11 / P5+P6+P7+P11",
+      "criterion": "(a) verify_independent_review_efficacy.py принимает --expected-keyring-sha256 <hex> (значение, не путь к gitignored файлу) и с ним проходит в изолированном worktree -> efficacy-оракул может входить в машинную квитанцию; (b) run-independent-review-efficacy.py: --max-transport-attempts принимает 1..3 либо флаг удалён, чекпоинт сохраняется как <path>.done вместо удаления; (c) itd_unit_log.py activate --risk-tier обязателен для medium/high и пишется в STATE без ручной правки; (d) шаблон checker-промпта содержит буквальную первую строку отчёта с каноническим 'PASSED' (одиночный сигнал, near-zero cost, только шаблон); (e) диагностика: назван конкретный цикл 'verified без activation' из скана и объяснён в LEDGER-RECONCILIATION.json либо заведён дефект писателя.",
+      "files": [
+        "tests/verify_independent_review_efficacy.py",
+        "tests/run-independent-review-efficacy.py",
+        "skills/task/scripts/itd_unit_log.py",
+        "docs/templates (checker prompt)",
+        ".itd-memory/LEDGER-RECONCILIATION.json"
+      ],
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2 && python3 -I tests/verify_goal_tools.py && python3 -I tests/verify_ledger_reconciliation.py"
+    },
+    {
+      "id": "R5",
+      "title": "Класс ledger-close кандидата: закрытие юнита перестаёт быть неразрешимым кругом",
+      "status": "pending",
+      "riskTier": "high",
+      "dependsOn": [
+        "R4"
+      ],
+      "source": "retro E1 / P1",
+      "criterion": "Определён точный класс кандидата 'ledger-close': диф ограничен .itd-memory/STATE.json и полями activeFollowup.status/closedAt контракта, И все критерии закрываемого followup имеют status passed. Для этого класса coverage_matrix отдаёт покрытие ЗАКРЫТОГО юнита (не None), а unit-промпт продюсера несёт явную строку 'closing commit: coverage inherited from the delivered unit <id>'. Канарейки: любой код/иной файл в дифе -> не класс, судится как раньше; followup с непройденным критерием -> отказ; open followup при close-дифе -> отказ; положительный контроль: обычный delivery-кандидат по-прежнему требует собственного покрытия.",
+      "files": [
+        "skills/_shared/itd_review_evidence.py (:48 CLOSED_FOLLOWUP_STATUSES, :105-111 coverage_matrix, :145-155 требование passed)",
+        "skills/_shared/itd_free_reviewer_producer.py (unit-промпт)",
+        "tests/verify_review_evidence.py (НОВЫЙ — первый прямой оракул модуля)",
+        "tests/run-all.sh"
+      ],
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "notes": "Проверено 2026-08-18: у itd_review_evidence.py нет собственного сьюта, он покрыт лишь косвенно. Пункт создаёт его. Эффект: STATE в main перестаёт отставать, исчезает обходной вариант владельца от 2026-08-18."
+    },
+    {
+      "id": "R6",
+      "title": "Пропорциональные сьюты: объявленный impact-граф вместо полного прогона",
+      "status": "pending",
+      "riskTier": "medium",
+      "dependsOn": [
+        "R5"
+      ],
+      "source": "LPD-001 M3",
+      "criterion": "Карта 'путь исходника -> сьюты' лежит в репо как данные и подаётся в impact_closure как impactGraph. Полнота проверяется машинно: каждый tests/verify_*.py встречается в карте хотя бы раз; каждый skills/_shared/*.py и hooks/*.sh имеет владеющий сьют; impactKnown:false -> строгий полный путь. Пропорциональность: замыкание для точечной правки СТРОГО меньше полного набора. Обе стороны мутации: удалить ребро -> падает полнота; объявить всё смежным всему -> падает пропорциональность.",
+      "files": [
+        "skills/_shared/itd_verification_profiles.py (impact_closure :112)",
+        "новая карта-данные (.itd/ или docs/)",
+        "tests/verify_verification_profiles.py"
+      ],
+      "verificationCommand": "python3 -I tests/verify_verification_profiles.py",
+      "notes": "Масштаб на 2026-08-18: 150 сьютов tests/verify_*.py, 18 модулей skills/_shared/*.py, 30 хуков. Ручной список в LPD-001 отвергнут — он и был источником ошибок U9/U10; карта обязана проверяться машинно."
+    }
+  ],
+  "oracleAmendments": [],
+  "updatedAt": "2026-08-18T00:00:00Z"
+}

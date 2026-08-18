@@ -2517,6 +2517,12 @@ def assert_gemini_cli_contract(result: subprocess.CompletedProcess[bytes]) -> No
 
 
 CLI_UNAVAILABLE_MARKERS = (
+    # Вместимость провайдера — доказанная недоступность транспорта (замер
+    # 2026-08-18: `Selected model is at capacity` судился как UNVERIFIED и
+    # стоил ~35 мин ручных повторов на одну публикацию). Маркеры намеренно
+    # двусловные: голое `capacity` встречается в легитимном тексте отчёта.
+    "at capacity",
+    "over capacity",
     "authentication failed",
     "authorization failed",
     "connection refused",
@@ -2550,21 +2556,144 @@ CLI_UNAVAILABLE_MARKERS = (
 )
 
 
-def raise_cli_failure(
+# A refused transport used to leave nothing behind: `raise_cli_failure` read
+# stdout/stderr only to reach a verdict and dropped the bytes.  The tail below
+# is DIAGNOSTICS, never evidence — it is not signed, no verdict consults it, and
+# a log that cannot be written must not change how a failure is classified.
+# Anything else would reintroduce the very defect this closes (a proven
+# unavailability demoted to UNVERIFIED) from the other side.
+TRANSPORT_FAILURE_KIND = "itd-transport-failure-v1"
+# Per stream, so one record stays within four kilobytes in total.
+TRANSPORT_TAIL_BYTES = 2048
+
+
+def transport_log_path(report_output: Path) -> Path:
+    """The report's sibling that records why a transport refused."""
+    resolved = Path(report_output).resolve()
+    return resolved.with_name(resolved.name + ".transport.jsonl")
+
+
+def _scrubbed_tails(stdout: bytes, stderr: bytes) -> tuple[str, str, bool]:
+    """Scrub whole streams, then cut: a tail cut first can split a secret."""
+    tails: list[str] = []
+    for raw in (stdout, stderr):
+        clean, _redactions = scrubber.scrub(raw.decode("utf-8", errors="replace"))
+        if (
+            scrubber.contains_high_confidence_secret(clean)
+            or scrubber.contains_residual_credential(clean)
+            or scrubber.contains_high_entropy_token(clean)
+        ):
+            # The scrubber could not neutralise it: withhold the text entirely
+            # rather than ship a credential into a diagnostic file.
+            return "", "", True
+        tails.append(
+            clean.encode("utf-8")[-TRANSPORT_TAIL_BYTES:].decode(
+                "utf-8", errors="ignore"
+            )
+        )
+    return tails[0], tails[1], False
+
+
+class TransportFailureLog:
+    """Append-only scrubbed trace of every non-zero reviewer transport exit."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path).resolve()
+        self.enabled = True
+        try:
+            # Create-if-absent, never truncate: the journal is append-only, so a
+            # reused --report-output keeps the refusals of earlier invocations
+            # instead of silently losing them.
+            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor = os.open(
+                self.path,
+                os.O_WRONLY | os.O_CREAT | os.O_APPEND
+                | int(getattr(os, "O_NOFOLLOW", 0)),
+                0o600,
+            )
+            os.close(descriptor)
+        except OSError:
+            self.enabled = False
+
+    def record(
+        self, label: str, returncode: int, stdout: bytes, stderr: bytes,
+        classification: str, reason: str,
+    ) -> None:
+        """Append one failure; never raises — diagnostics cannot fail a route."""
+        if not self.enabled:
+            return
+        stdout_tail, stderr_tail, withheld = _scrubbed_tails(stdout, stderr)
+        row = {
+            "kind": TRANSPORT_FAILURE_KIND,
+            "label": str(label),
+            "returncode": int(returncode),
+            "classification": str(classification),
+            "reason": str(reason),
+            "stdoutTail": stdout_tail,
+            "stderrTail": stderr_tail,
+            "withheld": withheld,
+        }
+        line = (json.dumps(
+            row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ) + "\n").encode("utf-8")
+        flags = os.O_WRONLY | os.O_APPEND | int(getattr(os, "O_NOFOLLOW", 0))
+        try:
+            descriptor = os.open(self.path, flags)
+            with os.fdopen(descriptor, "ab") as handle:
+                handle.write(line)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError:
+            self.enabled = False
+
+
+_TRANSPORT_FAILURE_LOG: TransportFailureLog | None = None
+
+
+def set_transport_failure_log(log: TransportFailureLog | None) -> None:
+    """Attach (or detach) the diagnostic sink for this invocation."""
+    global _TRANSPORT_FAILURE_LOG
+    if log is not None and not isinstance(log, TransportFailureLog):
+        raise FreeReviewError("UNVERIFIED", "transport failure log is not a log")
+    _TRANSPORT_FAILURE_LOG = log
+
+
+def current_transport_failure_log() -> TransportFailureLog | None:
+    """The sink attached to this invocation, if any."""
+    return _TRANSPORT_FAILURE_LOG
+
+
+@contextlib.contextmanager
+def transport_failure_sink(path: Path):
+    """Attach the diagnostic sink for one invocation and always detach it.
+
+    Without the guaranteed detach a later call in the same process would append
+    its refusals to a previous invocation's report sibling - a path that may no
+    longer exist.
+    """
+    log = TransportFailureLog(path)
+    set_transport_failure_log(log)
+    try:
+        yield log
+    finally:
+        set_transport_failure_log(None)
+
+
+def classify_cli_failure(
     result: subprocess.CompletedProcess[bytes], label: str,
-) -> None:
-    """Classify only positively identified auth/network/quota failures as unavailable."""
+) -> tuple[str, str]:
+    """Classify only positively identified auth/network/quota/capacity failures."""
     if (
         len(result.stdout) > MAX_PROCESS_OUTPUT
         or len(result.stderr) > MAX_PROCESS_OUTPUT
     ):
-        raise FreeReviewError("UNVERIFIED", f"{label} output exceeded bounds")
+        return "UNVERIFIED", f"{label} output exceeded bounds"
     try:
         detail = (result.stdout + b"\n" + result.stderr).decode(
             "utf-8", errors="strict"
         ).casefold()
-    except UnicodeDecodeError as exc:
-        raise FreeReviewError("UNVERIFIED", f"{label} failure output is not UTF-8") from exc
+    except UnicodeDecodeError:
+        return "UNVERIFIED", f"{label} failure output is not UTF-8"
     status_pattern = re.compile(
         r"(?:api\s+error|http(?:\s+error)?|response\s+status|status(?:\s+code)?)"
         r"\D{0,12}(?:401|403|408|429|5[0-9]{2})\b"
@@ -2572,10 +2701,21 @@ def raise_cli_failure(
     if status_pattern.search(detail) or any(
         marker in detail for marker in CLI_UNAVAILABLE_MARKERS
     ):
-        raise FreeReviewError("UNAVAILABLE", f"{label} transport is unavailable")
-    raise FreeReviewError(
+        return "UNAVAILABLE", f"{label} transport is unavailable"
+    return (
         "UNVERIFIED", f"{label} failed without proven transport unavailability"
     )
+
+
+def raise_cli_failure(
+    result: subprocess.CompletedProcess[bytes], label: str,
+) -> None:
+    """Classify the refusal, leave a scrubbed trace, then fail closed."""
+    status, reason = classify_cli_failure(result, label)
+    log = _TRANSPORT_FAILURE_LOG
+    if log is not None:
+        log.record(label, result.returncode, result.stdout, result.stderr, status, reason)
+    raise FreeReviewError(status, reason)
 
 
 def verify_attempt_ledger(
@@ -5170,20 +5310,27 @@ def main(argv: list[str] | None = None) -> int:
                 prompt_log = args.prompt_output.with_name(
                     args.prompt_output.name + ".ledger.jsonl"
                 )
+            transport_log = transport_log_path(args.report_output)
             output_paths = {
                 args.output.resolve(),
                 args.prompt_output.resolve(),
                 args.report_output.resolve(),
                 prompt_log.resolve(),
+                transport_log,
             }
-            if len(output_paths) != 4:
+            if len(output_paths) != 5:
                 raise FreeReviewError(
-                    "UNVERIFIED", "review receipt/prompt/report/ledger outputs overlap"
+                    "UNVERIFIED",
+                    "review receipt/prompt/report/ledger/transport outputs overlap",
                 )
             selected_prompt_artifact = prompt
             selected_prompt_artifacts: dict[str, str] = {}
             # Opened before any transport runs; every send appends first.
             prompt_ledger = PromptLedger(prompt_log)
+            # Opened alongside it: a refused transport must leave a trace even
+            # when the route ends without a receipt. main() detaches the sink in
+            # its finally, so it never outlives this invocation.
+            set_transport_failure_log(TransportFailureLog(transport_log))
             route_checkpoint_key: bytes | None = None
             if args.unit_checkpoint is not None:
                 route_checkpoint_key = gate.read_provenance_private_key(
@@ -5425,6 +5572,10 @@ def main(argv: list[str] | None = None) -> int:
             payload["evidence"] = exc.evidence
         print(json.dumps(payload, sort_keys=True), file=sys.stderr)
         return {"BLOCKED": 2, "UNAVAILABLE": 3, "UNVERIFIED": 4}.get(exc.status, 4)
+    finally:
+        # The diagnostic sink belongs to one invocation: a stale one would append
+        # a later refusal to a previous run's report sibling.
+        set_transport_failure_log(None)
 
 
 if __name__ == "__main__":
