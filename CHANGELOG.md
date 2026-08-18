@@ -9,6 +9,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.98.0] - 2026-08-18
+
+### Added
+- **Model-visible means logged (S11)** — the free isolated reviewer producer
+  (`skills/_shared/itd_free_reviewer_producer.py`) now keeps by machine the
+  invariant that everything handed to the reviewer model is byte-exactly
+  recoverable from the log. Three measured cases of one class motivated it
+  (the S9-RELEASE splitter false-BLOCKED, the S10 r4 "no ledger files" verdict
+  on a file that lay in a neighbouring unit, live-evidence artefacts judged as
+  the candidate): the reviewer inferred facts about what it was never shown and
+  nothing in the log forbade it.
+  - *Prompt ledger*: every prompt sent to the transport (direct / each unit /
+    integration) is appended byte-exact with its sha256 to
+    `<prompt-output>.ledger.jsonl` (or `--prompt-log`), fsync'd **before** the
+    send; the signed phase-one v2 receipt binds it (`promptLedger`: file hash +
+    per-entry kind/unitIndex/sha256) and refuses to sign a binding that
+    contradicts the prompt artefact.
+  - *`verify-prompt-log --prompt-log --receipt`*: a pure function of the two
+    files — recomputes and compares; `VERIFIED` rc 0 / `UNVERIFIED` rc 4 with a
+    named reason (missing, extra, altered, unreadable). `review` self-checks its
+    own ledger against the receipt it is about to emit.
+  - *File inventory*: unit prompts carry `FILE_INVENTORY=` (every candidate
+    path: complete in this unit / partial with segment index and other units /
+    in other units) plus a disclaimer against inferring absence; the
+    integration prompt gets `fileInventory`; the plan's path claims are
+    cross-checked against `diff --git` headers inside each unit's exact byte
+    range. The byte-budget diff cut itself is unchanged.
+  Evidence: `tests/verify_free_reviewer_producer.py` 189 -> 205 checks, RED-first,
+  nine mutations each killing its own check; three efficacy legs re-minted live
+  on the new producer (wsl, windows over WSL interop, u12 cross-vendor) —
+  verifier PASSED, `hostParityVerified`, `cleanFalseBlockRate 0.0`; live
+  evidence re-recorded on the committed tree (108/0); publication claim PASSED
+  cross-vendor. PR #210.
+- **Unit accounting by lifecycle, not by name (S10-LEDGER)** — new shared module
+  `skills/_shared/itd_unit_lifecycle.py` is the single source of truth for the
+  VCR: the unit of accounting is a lifecycle (`activated` -> first terminal)
+  attributed to the ledger that owns it. Repeated activation without a terminal
+  is idempotent, re-activation after a terminal opens a second cycle,
+  `blocked`/`skipped`/`superseded` are legitimate terminals outside the VCR
+  denominator, an open cycle stays in the denominator. `itd_retro_scan.py` and
+  `scripts/itd_metrics.py` consume the module (139/124/1.0 on the real log,
+  12 blocked cycles visible as a separate counter, 8 re-verifications counted).
+  `itd_unit_log.py` stamps `ledger` on every unit event, gates `verified` on an
+  OPEN cycle (the July activation can no longer unlock an August `verified`),
+  and gains a fail-closed `close` subcommand (`--note` mandatory,
+  actor `harness-reconciliation`). Colliding ids across ledgers (`G-001` in five
+  ledgers) are resolved by ownership; four unresolvable historical rows are
+  explained by name in `.itd-memory/LEDGER-RECONCILIATION.json`. Frozen fixture
+  `tests/fixtures/ledger-reconciliation/`. Evidence:
+  `tests/verify_ledger_reconciliation.py` 75 checks (24 -> 75 across 16 rounds of
+  independent review, 27 real findings closed, each guarantee mutation-tested),
+  `tests/verify_goal_tools.py` 21/21. PR #209.
+
+### Fixed
+- `itd_unit_log.py state_describes()` treated a falsy non-string `ledger`
+  (`[]`, `{}`, `0`, `false`) in STATE as a legacy empty ledger; it is now
+  malformed and describes no cycle (fail-closed). Contract text for
+  `S10-LEDGER-1-lifecycle` aligned with the code (a row without a usable
+  timestamp inherits the previous stamp and keeps its position; sorting it as
+  `datetime.min` used to put a terminal before its activation). Duplicate
+  scenario block removed from the ledger oracle; check names are now pinned
+  unique. `.itd/SCOPE_LOCK.md` states what a live-evidence recording attests
+  and what PASS means, so re-recorded demo-project artefacts are not judged as
+  methodology code.
+
+### Known follow-ups (BACKLOG P1, 2026-08-18)
+- A ledger-close commit cannot pass the evidence-first producer with either an
+  open or a closed `activeFollowup`; the followup rotates in the next unit's
+  delivery commit instead. The producer classifies codex `Selected model is at
+  capacity` as `UNVERIFIED` rather than `UNAVAILABLE`. The efficacy verifier
+  needs a host-input outside the tree and cannot run in the isolated machine
+  worktree. `run-independent-review-efficacy.py --max-transport-attempts`
+  accepts only 1. `itd_unit_log.py activate` has no `--risk-tier`.
+
 ## [1.97.0] - 2026-08-16
 
 ### Added
