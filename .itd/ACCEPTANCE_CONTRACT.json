@@ -1546,6 +1546,61 @@
           "ledger-oracle"
         ]
       }
+    },
+    {
+      "id": "S11-1-prompt-ledger",
+      "criterion": "Каждый промпт, переданный транспорту модели-ревьюера (direct, каждый unit, integration), записывается в prompt-ledger (`<prompt-output>.ledger.jsonl` или `--prompt-log`) теми же байтами ДО отправки, с sha256 на запись; подписанная phase-one квитанция v2 несёт `promptLedger` (sha файла + sha каждой записи с kind/unitIndex), и запись, противоречащая артефакту промпта, не подписывается.",
+      "source": ".itd/SCOPE_LOCK.md корни 1-3; три измеренных случая «модель судит о том, чего ей не показали»: splitter S9-RELEASE, многофайловые директории S10 r4, артефакты live-evidence S10 publication claim.",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0, 189 -> 205 checks. RED до правки: 'a prompt reached the transport before its ledger entry was written', 'the prompt ledger does not recover every sent prompt byte-exactly', 'the ledger binding does not name every unit and integration prompt hash', 'a signed receipt does not bind the prompt ledger it was minted with'. Мутации: запись после отправки -> валит первую; binding() без последней записи -> третью; receipt без _bind_prompt_ledger -> 'a ledger binding contradicting the prompt artifact was signed'.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Всё, что дошло до модели, побайтово восстановимо из журнала и привязано к подписанной квитанции — до отправки, а не постфактум.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "S11-2-verify-prompt-log",
+      "criterion": "Подкоманда продюсера `verify-prompt-log --prompt-log <ledger> --receipt <phase-one.json>` — чистая функция двух файлов без сети: пересчитывает sha256 записей и файла, сверяет с `promptLedger` квитанции; exit 0 + `{\"status\":\"VERIFIED\"}` только при полном совпадении; missing/extra/изменённая запись/нечитаемый вход -> non-zero + `{\"status\":\"UNVERIFIED\",\"why\":...}` с именованной причиной. `review` сам сверяет только что записанный журнал с квитанцией перед подписью и при расхождении отдаёт UNVERIFIED, не эмитируя квитанцию.",
+      "source": ".itd/SCOPE_LOCK.md зона (b); решение владельца 2026-08-18: сверка — подкомандой продюсера, не внутри checker/adjudicate.",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0. RED до правки: argparse 'invalid choice: verify-prompt-log' (rc=2), 'a tampered prompt ledger or receipt still verifies', 'the review command emitted a receipt over a prompt ledger that does not verify (rc=0)'. Мутации: снять ветку missing/extra -> валит 'a tampered prompt ledger or receipt still verifies (missing -> generic hash reason)'; отключить self-check в review -> валит 'the review command emitted a receipt over a prompt ledger that does not verify'.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Расхождение журнала и квитанции — детерминированная машинная ошибка, а не наблюдение ревьюера; продюсер не может подписать то, что сам не сверил.",
+        "impactClasses": [
+          "correctness",
+          "error-handling",
+          "security"
+        ],
+        "oracleIds": [
+          "producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "S11-3-file-inventory",
+      "criterion": "Каждый unit-промпт несёт `FILE_INVENTORY=` (полный список путей кандидата из заголовков дифа; для каждого — целиком в этом юните / частично (segmentIndex/segmentCount, otherUnits) / в других юнитах) и `FILE_INVENTORY_DISCLAIMER` (не выводить отсутствие файла из своего куска); интеграционный промпт получает `fileInventory` по всем юнитам. Инвентарь выводится из плана юнитов, а заявления плана о путях сверяются с заголовками `diff --git` внутри точного байтового диапазона юнита; расхождение -> UNVERIFIED 'hierarchical unit paths do not match the diff headers'. Разрез по байтам не меняется.",
+      "source": ".itd/SCOPE_LOCK.md корень 2 (S10 r4: файл лежал в соседнем юните, BOUND_RANGE_FACTS даёт границу в байтах).",
+      "evidence": "Oracle producer-oracle = python3 -I tests/verify_free_reviewer_producer.py, exit 0. RED до правки: 'unit prompts omit the plan-derived candidate file inventory', 'a unit is not told which candidate files lie whole, split, or in other units', 'reviewer prompts permit inferring a file's absence from one bound range', 'the integration stage lacks the candidate file inventory', 'a plan lying about file ownership (owner|whole) was accepted'. Мутации: split->complete в _file_inventory -> валит первую; снять кросс-проверку заголовков -> 'a plan lying about file ownership (owner) was accepted'; убрать дисклеймер -> третью; убрать fileInventory из integration -> четвёртую.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Юнит знает инвентарь кандидата целиком, даже видя часть; план не может солгать о принадлежности файлов.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "producer-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -1564,9 +1619,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "S10-LEDGER",
-    "status": "verified",
-    "closedAt": "2026-08-17T21:51:26Z",
+    "unitId": "S11",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -1582,8 +1636,8 @@
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-16T21:02:00Z",
-    "scopeNote": "Единица учёта unit-бухгалтерии переведена с множества имён на жизненные циклы, привязанные к леджеру-владельцу. Один коммит: новый общий модуль, два потребителя сведены к нему, два писателя, новый тест и объясняющий манифест реконсиляции. История events.jsonl не переписывается — только новые события и манифест."
+    "openedAt": "2026-08-18T08:05:06Z",
+    "scopeNote": "Инвариант model-visible means logged в бесплатном изолированном продюсере: prompt-ledger байтов до отправки + привязка в подписанной квитанции, подкоманда verify-prompt-log (чистая сверка журнала и квитанции, self-check в review), FILE_INVENTORY по файлам в unit/integration промптах с кросс-проверкой плана по заголовкам дифа. Разрез дифа, скраббер, подписи, кэш и гейты не тронуты. Последний юнит цели (S12/S13 отменены владельцем 2026-08-17). Плюс закрытие S10-LEDGER в STATE (PR #209 merged 7dbf9d6; ledger-close отдельным коммитом не проходит evidence-first продюсера — HANDOFF-S10 §17.11, решение владельца: ротация в этом delivery-коммите)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
