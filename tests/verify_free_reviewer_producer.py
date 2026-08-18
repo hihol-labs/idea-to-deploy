@@ -3271,6 +3271,50 @@ def main() -> int:
         finally:
             producer.set_transport_failure_log(None)
 
+        # Append-only значит append-only: повторное открытие того же пути
+        # (переиспользованный --report-output) НЕ теряет прежние отказы.
+        reused = failure_root / "reused.json"
+        reused_log = producer.transport_log_path(reused)
+        producer.set_transport_failure_log(producer.TransportFailureLog(reused_log))
+        try:
+            classify_failure(stderr=b"first refusal at capacity")
+        finally:
+            producer.set_transport_failure_log(None)
+        producer.set_transport_failure_log(producer.TransportFailureLog(reused_log))
+        try:
+            classify_failure(stderr=b"second refusal at capacity")
+        finally:
+            producer.set_transport_failure_log(None)
+        kept = [
+            json.loads(line)
+            for line in reused_log.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        check(
+            len(kept) == 2 and "first refusal" in kept[0]["stderrTail"],
+            "reopening the failure log truncated the earlier refusals",
+        )
+
+        # Синк принадлежит одному вызову: контекст обязан отцепить его даже на
+        # исключении, иначе следующий вызов допишет в чужой (возможно уже
+        # исчезнувший) отчёт.
+        detached = failure_root / "detached.json"
+        try:
+            with producer.transport_failure_sink(
+                producer.transport_log_path(detached)
+            ):
+                check(
+                    producer.current_transport_failure_log() is not None,
+                    "the sink context did not attach the failure log",
+                )
+                raise RuntimeError("route exploded")
+        except RuntimeError:
+            pass
+        check(
+            producer.current_transport_failure_log() is None,
+            "a failed route left its transport failure sink attached",
+        )
+
         # Диагностика не может изменить вердикт: без журнала и с непишущимся
         # журналом классификация та же (иначе почин вернул бы тот же класс —
         # недоступность, осуждённая как UNVERIFIED, — с другой стороны).

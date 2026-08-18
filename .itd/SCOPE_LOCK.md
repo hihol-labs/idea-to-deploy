@@ -40,9 +40,12 @@
   `review`.
 - `tests/verify_free_reviewer_producer.py` — RED-first проверки на (a)-(d) +
   мутации в обе стороны; oracleId `producer-oracle`.
-- `.itd/ACCEPTANCE_CONTRACT.json` — критерии `R1-*` (`passed` в delivery-коммите),
-  ротация `activeFollowup` S11 -> R1; `.itd-memory/STATE.json` — `currentUnit R1`
-  (плюс приезжающее с этим коммитом закрытие S10/S11 — HANDOFF-S10 §17.11).
+- `.itd/ACCEPTANCE_CONTRACT.json` — критерии `LPD002-R1-*` (`passed` в
+  delivery-коммите), ротация `activeFollowup` S11 -> `LPD002-R1`;
+  `.itd-memory/STATE.json` — `currentUnit LPD002-R1`. Закрытие S10-LEDGER и S11
+  фиксируется СОБЫТИЯМИ `verified` в `.itd-memory/events.jsonl` (единица учёта —
+  жизненный цикл, `itd_unit_lifecycle.py`), а не полем `currentUnit`: оно несёт
+  ровно один активный юнит и по построению не является журналом закрытий.
 - `.itd-memory/LPD-002_UNIT_PLAN.json` — статус пункта R1.
 - `tests/fixtures/live-model-evidence/` — ТОЛЬКО если правка ломает
   live-benchmark пин (тогда перечеканка по протоколу; записи демо-проекта

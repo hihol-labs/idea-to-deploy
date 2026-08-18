@@ -2601,7 +2601,17 @@ class TransportFailureLog:
         self.path = Path(path).resolve()
         self.enabled = True
         try:
-            write_text(self.path, "")
+            # Create-if-absent, never truncate: the journal is append-only, so a
+            # reused --report-output keeps the refusals of earlier invocations
+            # instead of silently losing them.
+            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor = os.open(
+                self.path,
+                os.O_WRONLY | os.O_CREAT | os.O_APPEND
+                | int(getattr(os, "O_NOFOLLOW", 0)),
+                0o600,
+            )
+            os.close(descriptor)
         except OSError:
             self.enabled = False
 
@@ -2646,6 +2656,27 @@ def set_transport_failure_log(log: TransportFailureLog | None) -> None:
     if log is not None and not isinstance(log, TransportFailureLog):
         raise FreeReviewError("UNVERIFIED", "transport failure log is not a log")
     _TRANSPORT_FAILURE_LOG = log
+
+
+def current_transport_failure_log() -> TransportFailureLog | None:
+    """The sink attached to this invocation, if any."""
+    return _TRANSPORT_FAILURE_LOG
+
+
+@contextlib.contextmanager
+def transport_failure_sink(path: Path):
+    """Attach the diagnostic sink for one invocation and always detach it.
+
+    Without the guaranteed detach a later call in the same process would append
+    its refusals to a previous invocation's report sibling - a path that may no
+    longer exist.
+    """
+    log = TransportFailureLog(path)
+    set_transport_failure_log(log)
+    try:
+        yield log
+    finally:
+        set_transport_failure_log(None)
 
 
 def classify_cli_failure(
@@ -5297,7 +5328,8 @@ def main(argv: list[str] | None = None) -> int:
             # Opened before any transport runs; every send appends first.
             prompt_ledger = PromptLedger(prompt_log)
             # Opened alongside it: a refused transport must leave a trace even
-            # when the route ends without a receipt.
+            # when the route ends without a receipt. main() detaches the sink in
+            # its finally, so it never outlives this invocation.
             set_transport_failure_log(TransportFailureLog(transport_log))
             route_checkpoint_key: bytes | None = None
             if args.unit_checkpoint is not None:
@@ -5540,6 +5572,10 @@ def main(argv: list[str] | None = None) -> int:
             payload["evidence"] = exc.evidence
         print(json.dumps(payload, sort_keys=True), file=sys.stderr)
         return {"BLOCKED": 2, "UNAVAILABLE": 3, "UNVERIFIED": 4}.get(exc.status, 4)
+    finally:
+        # The diagnostic sink belongs to one invocation: a stale one would append
+        # a later refusal to a previous run's report sibling.
+        set_transport_failure_log(None)
 
 
 if __name__ == "__main__":
