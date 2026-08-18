@@ -216,7 +216,14 @@ defaulted. For publication, `PHASE_ONE_RECEIPT`, `PROMPT_FILE`, and
 `REPORT_FILE` are the three outputs of the shared keyless producer and the
 keyring maps its key ID to the trusted Ed25519 public key. Any candidate,
 policy, prompt, report, signed route, machine receipt, risk, or unit change
-invalidates the chain.
+invalidates the chain. The producer also writes a prompt ledger next to
+`PROMPT_FILE` (`<prompt-output>.ledger.jsonl`, or `--prompt-log`): every prompt
+handed to the reviewer transport, byte-exact, appended before the send and
+bound into the signed receipt (`promptLedger`). `itd_free_reviewer_producer.py
+verify-prompt-log --prompt-log <ledger> --receipt <phase-one.json>` recomputes
+the hashes and exits non-zero with `UNVERIFIED` on any missing, extra, or
+altered entry — model-visible means logged, checked by machine, not by prompt
+discipline.
 
 An external model is only a checker transport. The canonical keyless producer
 above prepares and validates the exact-candidate review and records

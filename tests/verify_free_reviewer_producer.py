@@ -10,6 +10,7 @@ import gzip
 import hashlib
 import importlib.util
 import inspect
+import io
 import json
 import os
 from pathlib import Path
@@ -743,6 +744,449 @@ def main() -> int:
             ),
             "bound-range facts do not follow the exact unit boundary",
         )
+
+        # --- S11: model-visible means logged ---------------------------------
+        # (c) A bound unit sees a byte range, never the candidate's file list.
+        # A reviewer that misses a file in its own slice must be told, from the
+        # frozen plan itself, that the file exists and which units carry it.
+        def inventory_truth(plan_value, unit):
+            carriers: dict = {}
+            for row in plan_value["units"]:
+                for path in row["paths"]:
+                    carriers.setdefault(path, []).append(row["index"])
+            segments = unit["pathSegments"]
+            complete, partial, other = [], {}, {}
+            for path in [*carriers, *[p for p in segments if p not in carriers]]:
+                indices = carriers.get(path, [])
+                segment = segments.get(path)
+                if segment is None:
+                    other[path] = indices
+                elif segment["count"] == 1:
+                    complete.append(path)
+                else:
+                    partial[path] = {
+                        "segmentIndex": segment["index"],
+                        "segmentCount": segment["count"],
+                        "otherUnits": [
+                            index for index in indices if index != unit["index"]
+                        ],
+                    }
+            return {
+                "candidateFileCount": len(carriers),
+                "unitIndex": unit["index"],
+                "unitCount": plan_value["unitCount"],
+                "completeInThisUnit": complete,
+                "partialInThisUnit": partial,
+                "inOtherUnits": other,
+            }
+
+        split_inventories = [
+            tagged_json(value, "FILE_INVENTORY=") for value in split_unit_prompts
+        ]
+        check(
+            split_inventories
+            == [inventory_truth(split_plan, unit) for unit in split_units],
+            "unit prompts omit the plan-derived candidate file inventory",
+        )
+        service_units = [
+            unit["index"] for unit in split_units
+            if "service.py" in unit["paths"]
+        ]
+        transcript_units = [
+            unit["index"] for unit in split_units
+            if "review.jsonl.gz" in unit["paths"]
+        ]
+        candidate_paths = {
+            path for unit in split_units for path in unit["paths"]
+        }
+        check(
+            len(service_units) == 1
+            and len(transcript_units) > 1
+            and candidate_paths >= {"branch.py", "review.jsonl.gz", "service.py"}
+            and all(
+                isinstance(inventory, dict)
+                and inventory["candidateFileCount"] == len(candidate_paths)
+                and (
+                    "service.py" in inventory["completeInThisUnit"]
+                    if unit["index"] in service_units
+                    else inventory["inOtherUnits"].get("service.py")
+                    == service_units
+                )
+                and (
+                    inventory["partialInThisUnit"].get("review.jsonl.gz")
+                    == {
+                        "segmentIndex": unit["pathSegments"]["review.jsonl.gz"]["index"],
+                        "segmentCount": len(transcript_units),
+                        "otherUnits": [
+                            index for index in transcript_units
+                            if index != unit["index"]
+                        ],
+                    }
+                    if unit["index"] in transcript_units
+                    else inventory["inOtherUnits"].get("review.jsonl.gz")
+                    == transcript_units
+                )
+                for inventory, unit in zip(split_inventories, split_units)
+            ),
+            "a unit is not told which candidate files lie whole, split, or in "
+            "other units",
+        )
+        check(
+            all(
+                producer.FILE_INVENTORY_DISCLAIMER in value
+                for value in split_prompts
+            )
+            and all(
+                term in producer.FILE_INVENTORY_DISCLAIMER
+                for term in ("never infer", "absent", "named units")
+            ),
+            "reviewer prompts permit inferring a file's absence from one bound "
+            "range",
+        )
+        check(
+            isinstance(integration_evidence, dict)
+            and integration_evidence.get("fileInventory") == {
+                "candidateFileCount": len(candidate_paths),
+                "files": {
+                    path: [
+                        unit["index"] for unit in split_units
+                        if path in unit["paths"]
+                    ]
+                    for path in candidate_paths
+                },
+            }
+            and integration_evidence["fileInventory"]["files"]["review.jsonl.gz"]
+            == transcript_units
+            and integration_evidence["fileInventory"]["files"]["service.py"]
+            == service_units,
+            "the integration stage lacks the candidate file inventory",
+        )
+        # The inventory is only as honest as the plan's path claims, so the
+        # plan is checked against the diff headers inside the exact byte
+        # ranges before any prompt is built.
+        lying_owner = copy.deepcopy(split_packet)
+        lying_units = lying_owner["reviewRepresentation"]["reviewPlan"]["units"]
+        owner = next(u for u in lying_units if "service.py" in u["paths"])
+        foreign = next(u for u in lying_units if "service.py" not in u["paths"])
+        owner["paths"].remove("service.py")
+        del owner["pathSegments"]["service.py"]
+        foreign["paths"].append("service.py")
+        foreign["pathSegments"]["service.py"] = {"index": 1, "count": 1}
+        lying_whole = copy.deepcopy(split_packet)
+        for row in lying_whole["reviewRepresentation"]["reviewPlan"]["units"]:
+            if "review.jsonl.gz" in row["pathSegments"]:
+                row["pathSegments"]["review.jsonl.gz"] = {"index": 1, "count": 1}
+        for label, lying in (("owner", lying_owner), ("whole", lying_whole)):
+            try:
+                producer.run_packet_review(lying, split_runner)
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == "UNVERIFIED" and "diff headers" in exc.reason,
+                    f"a plan lying about file ownership ({label}) failed for "
+                    "the wrong reason",
+                )
+            else:
+                raise AssertionError(
+                    f"a plan lying about file ownership ({label}) was accepted"
+                )
+
+        # (a) Every prompt handed to a transport is appended to a byte ledger
+        # BEFORE the send, with its own sha256, and (b) the ledger verifies
+        # against the signed receipt as a pure function of the two files.
+        ledger_path = fixture / "split-transcript" / "prompt.ledger.jsonl"
+        ledger = producer.PromptLedger(ledger_path)
+        ledger_prompts = []
+        ledger_seen_before_send = []
+
+        def ledger_runner(prompt_text, report_schema, report_parser):
+            ledger_prompts.append(prompt_text)
+            lines = ledger_path.read_bytes().split(b"\n")
+            last = json.loads(lines[-2]) if len(lines) > 1 else {}
+            ledger_seen_before_send.append(
+                last.get("sha256")
+                == hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
+                and last.get("prompt") == prompt_text
+            )
+            return split_runner(prompt_text, report_schema, report_parser)
+
+        ledger_report, _ledger_session, _ledger_model, ledger_bundle = (
+            producer.run_packet_review(
+                split_packet, ledger_runner, prompt_ledger=ledger,
+            )
+        )
+        check(
+            len(ledger_seen_before_send) == split_plan["unitCount"] + 1
+            and all(ledger_seen_before_send),
+            "a prompt reached the transport before its ledger entry was written",
+        )
+        ledger_rows = [
+            json.loads(line)
+            for line in ledger_path.read_bytes().decode("utf-8").split("\n")[:-1]
+        ]
+        check(
+            [(row["kind"], row["unitIndex"]) for row in ledger_rows]
+            == [("unit", index) for index in range(1, split_plan["unitCount"] + 1)]
+            + [("integration", None)]
+            and [row["prompt"] for row in ledger_rows] == ledger_prompts
+            and all(
+                row["sha256"]
+                == hashlib.sha256(row["prompt"].encode("utf-8")).hexdigest()
+                and row["promptBytes"] == len(row["prompt"].encode("utf-8"))
+                for row in ledger_rows
+            ),
+            "the prompt ledger does not recover every sent prompt byte-exactly",
+        )
+        ledger_binding = ledger.binding()
+        ledger_bundle_value = json.loads(ledger_bundle)
+        check(
+            ledger_binding["sha256"]
+            == hashlib.sha256(ledger_path.read_bytes()).hexdigest()
+            and [entry["sha256"] for entry in ledger_binding["entries"]]
+            == [
+                hashlib.sha256(call["prompt"].encode("utf-8")).hexdigest()
+                for call in ledger_bundle_value["unitCalls"]
+            ] + [
+                hashlib.sha256(
+                    ledger_bundle_value["integrationPrompt"].encode("utf-8")
+                ).hexdigest()
+            ],
+            "the ledger binding does not name every unit and integration "
+            "prompt hash",
+        )
+        ledger_private = raw_private_key()
+        ledger_keys = {"free-reviewer-2026-08": public_key(ledger_private)}
+        ledger_maker = {"provider": "openai-codex", "model": "gpt-5.6-sol",
+                        "session": "maker-session-ledger"}
+        ledger_reviewer = {
+            "provider": "openai-subscription", "model": "gpt-5.6-terra",
+            "session": "fresh-thread-ledger",
+            "transportExecutableSha256": "5" * 64,
+        }
+        ledger_attempts = [{"provider": "openai-subscription", "status": "PASSED"}]
+
+        def mint(prompt_value, packet_value, binding):
+            return producer.phase_one_receipt(
+                packet=packet_value, prompt=prompt_value, report=clean_verdict(),
+                maker=ledger_maker, reviewer=ledger_reviewer,
+                attempts=ledger_attempts,
+                isolation=producer.required_isolation(),
+                key_id="free-reviewer-2026-08", private_key=ledger_private,
+                issued_at="2026-08-18T09:00:00Z", prompt_ledger=binding,
+            )
+
+        ledger_receipt = mint(ledger_bundle, split_packet, ledger_binding)
+        verified_ledger_receipt = producer.verify_phase_one(
+            ledger_receipt, ledger_keys
+        )
+        check(
+            verified_ledger_receipt["promptLedger"] == ledger_binding
+            and producer.verify_prompt_ledger(
+                ledger_path.read_bytes(), ledger_receipt
+            )["status"] == "VERIFIED",
+            "a signed receipt does not bind the prompt ledger it was minted with",
+        )
+
+        def ledger_why(ledger_bytes, receipt_value):
+            try:
+                producer.verify_prompt_ledger(ledger_bytes, receipt_value)
+            except producer.FreeReviewError as exc:
+                return exc.status + ":" + exc.reason
+            return "VERIFIED"
+
+        ledger_bytes = ledger_path.read_bytes()
+        ledger_lines = ledger_bytes.split(b"\n")
+        dropped = b"\n".join(ledger_lines[:-2] + [b""])
+        extra = ledger_bytes + ledger_lines[-2] + b"\n"
+        flipped_row = json.loads(ledger_lines[0])
+        flipped_row["prompt"] = flipped_row["prompt"][:-1] + "!"
+        flipped = b"\n".join([
+            json.dumps(flipped_row, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":")).encode("utf-8"),
+            *ledger_lines[1:],
+        ])
+        foreign_receipt = copy.deepcopy(ledger_receipt)
+        foreign_receipt["signed"]["promptLedger"]["entries"][0]["sha256"] = "0" * 64
+        unbound_receipt = copy.deepcopy(ledger_receipt)
+        del unbound_receipt["signed"]["promptLedger"]
+        ledger_mutations = {
+            "missing": ledger_why(dropped, ledger_receipt),
+            "extra": ledger_why(extra, ledger_receipt),
+            "flipped": ledger_why(flipped, ledger_receipt),
+            "foreign": ledger_why(ledger_bytes, foreign_receipt),
+            "unbound": ledger_why(ledger_bytes, unbound_receipt),
+            "garbage": ledger_why(b"not json\n", ledger_receipt),
+        }
+        check(
+            all(value.startswith("UNVERIFIED:")
+                for value in ledger_mutations.values())
+            and "missing" in ledger_mutations["missing"]
+            and "extra" in ledger_mutations["extra"],
+            "a tampered prompt ledger or receipt still verifies: "
+            f"{ledger_mutations}",
+        )
+        ledger_receipt_path = fixture / "split-transcript" / "phase-one.json"
+        ledger_receipt_path.write_text(json.dumps(ledger_receipt), encoding="utf-8")
+        cli_ok = subprocess.run(
+            [sys.executable, "-I", str(PRODUCER), "verify-prompt-log",
+             "--prompt-log", str(ledger_path),
+             "--receipt", str(ledger_receipt_path)],
+            capture_output=True, text=True, timeout=120,
+        )
+        broken_ledger_path = fixture / "split-transcript" / "prompt.broken.jsonl"
+        broken_ledger_path.write_bytes(dropped)
+        cli_bad = subprocess.run(
+            [sys.executable, "-I", str(PRODUCER), "verify-prompt-log",
+             "--prompt-log", str(broken_ledger_path),
+             "--receipt", str(ledger_receipt_path)],
+            capture_output=True, text=True, timeout=120,
+        )
+        check(
+            cli_ok.returncode == 0
+            and json.loads(cli_ok.stdout)["status"] == "VERIFIED"
+            and cli_bad.returncode != 0
+            and json.loads(cli_bad.stdout)["status"] == "UNVERIFIED"
+            and "missing" in json.loads(cli_bad.stdout)["why"],
+            "verify-prompt-log does not report VERIFIED/UNVERIFIED as a pure "
+            f"function of the two files ({cli_ok.stdout!r} {cli_bad.stdout!r} "
+            f"{cli_bad.stderr!r})",
+        )
+        # direct mode: one entry whose hash is the receipt's promptSha256
+        direct_ledger_path = fixture / "direct.ledger.jsonl"
+        direct_ledger = producer.PromptLedger(direct_ledger_path)
+        direct_prompts = []
+
+        def direct_runner(prompt_text, report_schema, report_parser):
+            direct_prompts.append(prompt_text)
+            return report_parser(clean_verdict()), "fresh-direct-ledger", "gpt-5.6-terra"
+
+        producer.run_packet_review(
+            transparent_packet, direct_runner, prompt_ledger=direct_ledger,
+        )
+        direct_binding = direct_ledger.binding()
+        direct_receipt = mint(
+            producer.review_prompt(transparent_packet), transparent_packet,
+            direct_binding,
+        )
+        check(
+            [(entry["kind"], entry["unitIndex"]) for entry in direct_binding["entries"]]
+            == [("direct", None)]
+            and direct_binding["entries"][0]["sha256"]
+            == direct_receipt["signed"]["promptSha256"]
+            == hashlib.sha256(direct_prompts[0].encode("utf-8")).hexdigest()
+            and producer.verify_prompt_ledger(
+                direct_ledger_path.read_bytes(), direct_receipt
+            )["status"] == "VERIFIED",
+            "the direct route does not ledger its single prompt against "
+            "promptSha256",
+        )
+        # A receipt whose ledger binding contradicts the prompt artifact
+        # (a unit hash that no sent unit prompt has) must not be mintable.
+        contradicting = copy.deepcopy(ledger_binding)
+        contradicting["entries"][0]["sha256"] = "1" * 64
+        try:
+            mint(ledger_bundle, split_packet, contradicting)
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "a contradicting ledger binding failed with the wrong status",
+            )
+        else:
+            raise AssertionError(
+                "a ledger binding contradicting the prompt artifact was signed"
+            )
+
+        # End-to-end: the review command writes the ledger next to the prompt
+        # artifact, binds it into the receipt, and refuses to emit a receipt
+        # whose ledger no longer verifies (self-check before publication).
+        e2e_root = fixture / "s11-e2e"
+        e2e_root.mkdir()
+        e2e_key = e2e_root / "producer.key"
+        e2e_key.write_bytes(ledger_private)
+        e2e_key.chmod(0o600)
+        e2e_prompt = e2e_root / "prompt.md"
+        e2e_report = e2e_root / "report.json"
+        e2e_receipt = e2e_root / "phase-one.json"
+        e2e_sessions = []
+
+        def fake_codex_review(prompt_text, **kwargs):
+            e2e_sessions.append(f"fresh-e2e-{len(e2e_sessions) + 1}")
+            schema = kwargs["report_schema"]
+            report = (
+                {"verdict": "PASSED", "findings": [], "unverified": [],
+                 "summary": "Bound range reviewed; no cross-unit risk."}
+                if schema == producer.UNIT_VERDICT_SCHEMA else clean_verdict()
+            )
+            return kwargs["report_parser"](report), e2e_sessions[-1], "gpt-5.6-terra"
+
+        def e2e_argv(root_dir):
+            return [
+                "review", "--root", str(split_repo), "--base", split_base,
+                "--repository", "hihol-labs/idea-to-deploy",
+                "--scope", str(split_scope), "--acceptance", str(split_acceptance),
+                "--machine-receipt", str(split_machine),
+                "--signing-key", str(e2e_key), "--key-id", "free-reviewer-2026-08",
+                "--maker-provider", "openai-codex", "--maker-model", "gpt-5.6-sol",
+                "--maker-session", "maker-session-e2e",
+                "--codex-sha256", "5" * 64, "--proxy-sha256", "6" * 64,
+                "--prompt-output", str(root_dir / "prompt.md"),
+                "--report-output", str(root_dir / "report.json"),
+                "--output", str(root_dir / "phase-one.json"),
+            ]
+
+        original_codex_review = producer.run_codex_review
+        original_phase_one_receipt = producer.phase_one_receipt
+        producer.run_codex_review = fake_codex_review
+        try:
+            e2e_out = io.StringIO()
+            with contextlib.redirect_stdout(e2e_out):
+                e2e_code = producer.main(e2e_argv(e2e_root))
+            e2e_ledger = e2e_root / "prompt.md.ledger.jsonl"
+            e2e_verify = subprocess.run(
+                [sys.executable, "-I", str(PRODUCER), "verify-prompt-log",
+                 "--prompt-log", str(e2e_ledger), "--receipt", str(e2e_receipt)],
+                capture_output=True, text=True, timeout=120,
+            )
+            check(
+                e2e_code == 0
+                and json.loads(e2e_out.getvalue())["promptLedger"] == str(e2e_ledger)
+                and e2e_ledger.is_file()
+                and len(e2e_ledger.read_bytes().decode("utf-8").split("\n")[:-1])
+                == split_plan["unitCount"] + 1
+                and e2e_verify.returncode == 0
+                and json.loads(e2e_verify.stdout)["status"] == "VERIFIED"
+                and json.loads(e2e_receipt.read_text(encoding="utf-8"))["signed"]
+                ["promptLedger"]["sha256"]
+                == hashlib.sha256(e2e_ledger.read_bytes()).hexdigest(),
+                "the review command does not publish a receipt-bound prompt "
+                f"ledger (rc={e2e_code} {e2e_out.getvalue()!r} "
+                f"{e2e_verify.stdout!r} {e2e_verify.stderr!r})",
+            )
+
+            def corrupting_phase_one_receipt(**kwargs):
+                # Damage the ledger between the last send and the signature.
+                with open(e2e_root2 / "prompt.md.ledger.jsonl", "ab") as handle:
+                    handle.write(b'{"stray":true}\n')
+                return original_phase_one_receipt(**kwargs)
+
+            e2e_root2 = fixture / "s11-e2e-corrupt"
+            e2e_root2.mkdir()
+            e2e_sessions.clear()
+            producer.phase_one_receipt = corrupting_phase_one_receipt
+            e2e_err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(e2e_err):
+                e2e_code2 = producer.main(e2e_argv(e2e_root2))
+            check(
+                e2e_code2 == 4
+                and json.loads(e2e_err.getvalue())["status"] == "UNVERIFIED"
+                and "prompt ledger" in json.loads(e2e_err.getvalue())["reason"]
+                and not (e2e_root2 / "phase-one.json").exists(),
+                "the review command emitted a receipt over a prompt ledger that "
+                f"does not verify (rc={e2e_code2} {e2e_err.getvalue()!r})",
+            )
+        finally:
+            producer.run_codex_review = original_codex_review
+            producer.phase_one_receipt = original_phase_one_receipt
 
         unit_failure_calls = 0
 

@@ -117,6 +117,100 @@ def _bound_range_facts(
             if segment["index"] < segment["count"]
         ),
     }
+
+
+# A unit checker sees one byte range and no directory listing, so a file that
+# lives in a neighbouring unit reads as "missing from the candidate".  The
+# whole-candidate path inventory is therefore derived from the frozen plan and
+# handed to every unit and to the integration stage, with each path placed
+# relative to the unit that reads it.  It is derived, never authored: the plan
+# is first checked against the diff headers inside its own byte ranges.
+FILE_INVENTORY_DISCLAIMER = (
+    "FILE_INVENTORY is derived from the frozen review plan and names every "
+    "candidate path together with the bound ranges that carry it. A path "
+    "listed under inOtherUnits or partialInThisUnit is present in the "
+    "candidate and is reviewed in the named units, so never infer that a "
+    "file, directory, record or artifact is absent from the candidate because "
+    "it does not appear inside this bound range."
+)
+
+
+def _plan_path_carriers(plan: dict[str, Any]) -> dict[str, list[int]]:
+    """Every candidate path in plan order with the unit indices carrying it."""
+    carriers: dict[str, list[int]] = {}
+    for row in plan["units"]:
+        for path in row["paths"]:
+            carriers.setdefault(path, []).append(row["index"])
+    return carriers
+
+
+def _file_inventory(plan: dict[str, Any], unit: dict[str, Any]) -> dict[str, Any]:
+    """Place every candidate path relative to this unit, from the plan alone."""
+    carriers = _plan_path_carriers(plan)
+    segments = unit["pathSegments"]
+    complete: list[str] = []
+    partial: dict[str, dict[str, Any]] = {}
+    other: dict[str, list[int]] = {}
+    for path in [*carriers, *[p for p in segments if p not in carriers]]:
+        indices = carriers.get(path, [])
+        segment = segments.get(path)
+        if segment is None:
+            other[path] = indices
+        elif segment["count"] == 1:
+            complete.append(path)
+        else:
+            partial[path] = {
+                "segmentIndex": segment["index"],
+                "segmentCount": segment["count"],
+                "otherUnits": [
+                    index for index in indices if index != unit["index"]
+                ],
+            }
+    return {
+        "candidateFileCount": len(carriers),
+        "unitIndex": unit["index"],
+        "unitCount": plan["unitCount"],
+        "completeInThisUnit": complete,
+        "partialInThisUnit": partial,
+        "inOtherUnits": other,
+    }
+
+
+def _plan_file_inventory(plan: dict[str, Any]) -> dict[str, Any]:
+    """The whole-candidate path inventory for the integration stage."""
+    carriers = _plan_path_carriers(plan)
+    return {"candidateFileCount": len(carriers), "files": carriers}
+
+
+def _check_unit_paths_against_headers(
+    units: list[tuple[dict[str, Any], str]],
+) -> None:
+    """Refuse a plan whose per-unit path claims contradict the diff headers.
+
+    Units are cut at line boundaries, so the ``diff --git`` header of a file
+    lies whole inside the unit that carries the file's first segment; a
+    header count or name that differs from the manifest means the inventory
+    would be authored rather than derived.
+    """
+    for unit, unit_text in units:
+        segments = unit["pathSegments"]
+        expected = [
+            path for path in unit["paths"] if segments[path]["index"] == 1
+        ]
+        headers = [
+            line for line in unit_text.splitlines(keepends=True)
+            if line.startswith("diff --git ")
+        ]
+        if len(headers) != len(expected) or any(
+            '"' not in header and not header.endswith(f" b/{path}\n")
+            for header, path in zip(headers, expected)
+        ):
+            raise FreeReviewError(
+                "UNVERIFIED",
+                "hierarchical unit paths do not match the diff headers",
+            )
+
+
 MAX_UNIT_SUMMARY_BYTES = 4 * 1024
 MAX_EXECUTABLE_BYTES = 384 * 1024 * 1024
 MAX_LIVE_AGE_SECONDS = 300
@@ -1328,6 +1422,7 @@ def _hierarchical_units(
         offset = end
     if offset != len(encoded):
         raise FreeReviewError("UNVERIFIED", "hierarchical review coverage is incomplete")
+    _check_unit_paths_against_headers(bound_units)
     return plan, bound_units
 
 
@@ -1410,6 +1505,7 @@ def _unit_review_prompt(
         "unit": unit,
     }
     facts = _bound_range_facts(plan, unit)
+    inventory = _file_inventory(plan, unit)
     prompt = (
         "You are an independent unit checker in a hierarchical high-risk "
         "exact-candidate review. You have no tools, repository access, network "
@@ -1422,9 +1518,12 @@ def _unit_review_prompt(
         "this call. Use unverified only for a concrete contour inside this bound "
         "that the final integration review cannot resolve from your summary. "
         f"{BOUND_RANGE_DISCLAIMER} "
+        f"{FILE_INVENTORY_DISCLAIMER} "
         "Return only the required closed JSON.\n"
         "BOUND_RANGE_FACTS="
         f"{json.dumps(facts, ensure_ascii=False, sort_keys=True)}\n"
+        "FILE_INVENTORY="
+        f"{json.dumps(inventory, ensure_ascii=False, sort_keys=True)}\n"
         f"{_review_representation_note(packet)}"
         f"EXACT_UNIT_BINDING={json.dumps(binding, ensure_ascii=False, sort_keys=True)}\n"
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
@@ -1478,6 +1577,7 @@ def _integration_review_prompt(
         "unitBoundaries": [
             _bound_range_facts(plan, unit) for unit in plan["units"]
         ],
+        "fileInventory": _plan_file_inventory(plan),
         "unitReports": unit_reports,
     }
     prompt = (
@@ -1486,7 +1586,10 @@ def _integration_review_prompt(
         "the same selected provider/model in fresh isolated sessions. Reconcile "
         "all unit summaries and findings for cross-unit correctness, security, "
         "interfaces, migrations, tests and specification compliance. "
-        f"{BOUND_RANGE_DISCLAIMER} unitBoundaries states every bound range and "
+        f"{BOUND_RANGE_DISCLAIMER} {FILE_INVENTORY_DISCLAIMER} fileInventory "
+        "names every candidate path and the units carrying it, and each unit "
+        "checker was given the same inventory placed relative to its own bound "
+        "range. unitBoundaries states every bound range and "
         "the paths each one continues from and into. You hold unit summaries "
         "and those boundary facts, never the adjacent bound ranges themselves, "
         "so you cannot establish from here that content is genuinely absent "
@@ -1620,6 +1723,231 @@ def validate_review_prompt_artifact(
     return {"mode": "hierarchical", "unitCount": len(units)}
 
 
+# Model-visible means logged.  Every prompt handed to a reviewer transport is
+# appended to a byte ledger BEFORE the send, one JSON line per prompt with its
+# own sha256, and the signed phase-one receipt carries the ledger's file hash
+# plus every entry hash.  The ledger is a sibling of the prompt artifact rather
+# than the artifact itself: the artifact stays the exact direct prompt or the
+# canonical hierarchical bundle that promptSha256 and the Verification Loop
+# bind byte-for-byte, while the ledger records the order and bytes of what
+# actually reached a model.  verify_prompt_ledger is a pure function of the
+# ledger bytes and the receipt, so a missing, extra or altered prompt is a
+# deterministic UNVERIFIED and never a reviewer observation.
+PROMPT_LEDGER_KIND = "itd-prompt-ledger-v1"
+PROMPT_LEDGER_ENTRY_KIND = "itd-prompt-ledger-entry-v1"
+PROMPT_LEDGER_ENTRY_KINDS = ("direct", "unit", "integration")
+MAX_PROMPT_LEDGER_BYTES = MAX_PROMPT_BUNDLE_BYTES
+
+
+def _prompt_ledger_row(
+    kind: str, unit_index: int | None, prompt: str,
+) -> dict[str, Any]:
+    if kind not in PROMPT_LEDGER_ENTRY_KINDS or not isinstance(prompt, str):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger entry is invalid")
+    if (kind == "unit") != (type(unit_index) is int and unit_index >= 1):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger unit index is invalid")
+    encoded = prompt.encode("utf-8")
+    return {
+        "entry": PROMPT_LEDGER_ENTRY_KIND,
+        "kind": kind,
+        "unitIndex": unit_index,
+        "promptBytes": len(encoded),
+        "sha256": sha256_bytes(encoded),
+        "prompt": prompt,
+    }
+
+
+class PromptLedger:
+    """Append-only byte ledger of every prompt handed to a reviewer transport."""
+
+    def __init__(self, path: Path):
+        self.path = path.resolve()
+        self.entries: list[dict[str, Any]] = []
+        # One invocation, one ledger: it records exactly the sends of this
+        # run, so a resumed hierarchical route ledgers only the units it
+        # actually sent while the bundle still binds every unit prompt.
+        write_text(self.path, "")
+
+    def record(self, kind: str, unit_index: int | None, prompt: str) -> dict[str, Any]:
+        """Append one prompt; returns after the bytes are durable on disk."""
+        row = _prompt_ledger_row(kind, unit_index, prompt)
+        line = (json.dumps(
+            row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ) + "\n").encode("utf-8")
+        flags = os.O_WRONLY | os.O_APPEND | int(getattr(os, "O_NOFOLLOW", 0))
+        descriptor = os.open(self.path, flags)
+        try:
+            with os.fdopen(descriptor, "ab") as handle:
+                handle.write(line)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError as exc:
+            raise FreeReviewError("UNVERIFIED", "prompt ledger is unwritable") from exc
+        entry = {"kind": kind, "unitIndex": unit_index, "sha256": row["sha256"]}
+        self.entries.append(entry)
+        return entry
+
+    def binding(self) -> dict[str, Any]:
+        """The receipt-side binding: ledger file hash plus every entry hash."""
+        raw = read_regular(self.path, "prompt ledger", limit=MAX_PROMPT_LEDGER_BYTES)
+        return {
+            "kind": PROMPT_LEDGER_KIND,
+            "sha256": sha256_bytes(raw),
+            "entries": [dict(entry) for entry in self.entries],
+        }
+
+
+def _prompt_ledger_binding(value: object) -> dict[str, Any]:
+    """Closed-shape check of a receipt's prompt ledger binding."""
+    binding = exact_dict(value, {"kind", "sha256", "entries"}, "prompt ledger binding")
+    entries = binding["entries"]
+    if (
+        binding["kind"] != PROMPT_LEDGER_KIND
+        or not SHA256_RE.fullmatch(str(binding["sha256"]))
+        or not isinstance(entries, list)
+        or not entries
+    ):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger binding is invalid")
+    for entry in entries:
+        row = exact_dict(entry, {"kind", "unitIndex", "sha256"}, "prompt ledger entry")
+        if (
+            row["kind"] not in PROMPT_LEDGER_ENTRY_KINDS
+            or not SHA256_RE.fullmatch(str(row["sha256"]))
+            or (row["kind"] == "unit")
+            != (type(row["unitIndex"]) is int and row["unitIndex"] >= 1)
+            or (row["kind"] != "unit" and row["unitIndex"] is not None)
+        ):
+            raise FreeReviewError("UNVERIFIED", "prompt ledger entry is invalid")
+    kinds = [row["kind"] for row in entries]
+    if ("direct" in kinds) and (len(entries) != 1):
+        raise FreeReviewError("UNVERIFIED", "direct prompt ledger carries several entries")
+    return binding
+
+
+def _bind_prompt_ledger(
+    binding: dict[str, Any], prompt: str, prompt_sha256: str,
+) -> None:
+    """Every ledgered hash must be a prompt the signed artifact actually names."""
+    entries = binding["entries"]
+    if entries[0]["kind"] == "direct":
+        if entries[0]["sha256"] != prompt_sha256:
+            raise FreeReviewError(
+                "UNVERIFIED", "prompt ledger differs from the direct prompt"
+            )
+        return
+    try:
+        bundle = json.loads(prompt)
+    except json.JSONDecodeError as exc:
+        raise FreeReviewError("UNVERIFIED", "prompt ledger has no hierarchical bundle") from exc
+    unit_hashes = {
+        call["unit"]["index"]: sha256_bytes(call["prompt"].encode("utf-8"))
+        for call in bundle["unitCalls"]
+    }
+    integration_hash = sha256_bytes(bundle["integrationPrompt"].encode("utf-8"))
+    for entry in entries:
+        expected = (
+            unit_hashes.get(entry["unitIndex"]) if entry["kind"] == "unit"
+            else integration_hash
+        )
+        if entry["sha256"] != expected:
+            raise FreeReviewError(
+                "UNVERIFIED", "prompt ledger names a prompt the artifact does not"
+            )
+    # The integration call always runs live, so it is always ledgered; a
+    # resumed route may legitimately have sent fewer than all units.
+    if all(entry["kind"] != "integration" for entry in entries):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger lacks the integration prompt")
+
+
+def _phase_one_signed_payload(receipt: object) -> dict[str, Any]:
+    """The signed payload of a phase-one envelope, without key verification."""
+    if isinstance(receipt, dict) and isinstance(receipt.get("phaseOne"), dict):
+        receipt = receipt["phaseOne"]
+    row = exact_dict(receipt, {"signed", "signature"}, "phase-one receipt")
+    signed = row["signed"]
+    if not isinstance(signed, dict) or signed.get("kind") != "itd-free-review-phase-one":
+        raise FreeReviewError("UNVERIFIED", "receipt is not a phase-one receipt")
+    return signed
+
+
+def verify_prompt_ledger(ledger_raw: bytes, receipt: object) -> dict[str, Any]:
+    """Recompute every prompt hash from the ledger bytes against the receipt.
+
+    Pure function of the two inputs: no keyring, packet, network or clock.
+    Signature validity is the business of ``verify``/the Verification Loop;
+    this only answers whether the ledger is the one the receipt was minted
+    over and whether every ledgered prompt still hashes to what was signed.
+    """
+    signed = _phase_one_signed_payload(receipt)
+    if "promptLedger" not in signed:
+        raise FreeReviewError("UNVERIFIED", "receipt carries no prompt ledger binding")
+    binding = _prompt_ledger_binding(signed["promptLedger"])
+    if not isinstance(ledger_raw, bytes) or len(ledger_raw) > MAX_PROMPT_LEDGER_BYTES:
+        raise FreeReviewError("UNVERIFIED", "prompt ledger is oversized")
+    try:
+        text = ledger_raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise FreeReviewError("UNVERIFIED", "prompt ledger is not UTF-8") from exc
+    if text and not text.endswith("\n"):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger is truncated")
+    rows: list[dict[str, Any]] = []
+    # Split on "\n" alone: a prompt may legitimately carry NEL or U+2028,
+    # which str.splitlines would treat as record boundaries.
+    for number, line in enumerate(text.split("\n")[:-1], start=1):
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise FreeReviewError(
+                "UNVERIFIED", f"prompt ledger line {number} is not JSON"
+            ) from exc
+        row = exact_dict(value, {
+            "entry", "kind", "unitIndex", "promptBytes", "sha256", "prompt",
+        }, f"prompt ledger line {number}")
+        if row["entry"] != PROMPT_LEDGER_ENTRY_KIND or not isinstance(row["prompt"], str):
+            raise FreeReviewError("UNVERIFIED", f"prompt ledger line {number} is invalid")
+        recomputed = _prompt_ledger_row(row["kind"], row["unitIndex"], row["prompt"])
+        if (
+            row["sha256"] != recomputed["sha256"]
+            or row["promptBytes"] != recomputed["promptBytes"]
+        ):
+            raise FreeReviewError(
+                "UNVERIFIED",
+                f"prompt ledger line {number} hash differs from its prompt bytes",
+            )
+        rows.append(row)
+    entries = binding["entries"]
+    for number, (row, entry) in enumerate(zip(rows, entries), start=1):
+        if (row["kind"], row["unitIndex"], row["sha256"]) != (
+            entry["kind"], entry["unitIndex"], entry["sha256"]
+        ):
+            raise FreeReviewError(
+                "UNVERIFIED", f"prompt ledger line {number} differs from the receipt"
+            )
+    if len(rows) < len(entries):
+        raise FreeReviewError(
+            "UNVERIFIED",
+            f"prompt ledger is missing {len(entries) - len(rows)} receipt entries",
+        )
+    if len(rows) > len(entries):
+        raise FreeReviewError(
+            "UNVERIFIED",
+            f"prompt ledger carries {len(rows) - len(entries)} extra entries",
+        )
+    if entries[0]["kind"] == "direct" and entries[0]["sha256"] != signed.get("promptSha256"):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger differs from promptSha256")
+    # Named causes above are more useful than a bare hash mismatch; the file
+    # hash is still the final word on anything the entry walk cannot name.
+    if sha256_bytes(ledger_raw) != binding["sha256"]:
+        raise FreeReviewError("UNVERIFIED", "prompt ledger bytes differ from the receipt")
+    return {
+        "status": "VERIFIED",
+        "kind": PROMPT_LEDGER_KIND,
+        "entries": len(rows),
+        "ledgerSha256": binding["sha256"],
+        "promptSha256": signed.get("promptSha256"),
+    }
+
+
 ROUTE_CHECKPOINT_KIND = "itd-keyless-hierarchical-route-checkpoint-v1"
 MAX_ROUTE_CHECKPOINT_AGE = dt.timedelta(days=1)
 
@@ -1750,6 +2078,7 @@ def run_packet_review(
     checkpoint_binding: dict[str, Any] | None = None,
     checkpoint_key_id: str | None = None,
     checkpoint_private_key: bytes | None = None,
+    prompt_ledger: PromptLedger | None = None,
 ) -> tuple[dict[str, Any], str, str, str]:
     """Run one direct call or every frozen unit plus mandatory integration.
 
@@ -1759,9 +2088,21 @@ def run_packet_review(
     unit still must produce a real verdict from a fresh session; the
     integration call always runs live. This does not retry anything inside
     one invocation and does not change how a failed call is classified.
+
+    With a prompt ledger supplied, every prompt is appended to it, durably,
+    before the runner is handed that prompt: nothing reaches a model that the
+    ledger does not already hold byte-for-byte.
     """
     if not callable(runner):
         raise FreeReviewError("UNVERIFIED", "review runner is not callable")
+    if prompt_ledger is not None and not isinstance(prompt_ledger, PromptLedger):
+        raise FreeReviewError("UNVERIFIED", "prompt ledger is not a PromptLedger")
+
+    def send(kind: str, unit_index: int | None, prompt_value: str,
+             schema: dict[str, Any], parser_value: Any) -> Any:
+        if prompt_ledger is not None:
+            prompt_ledger.record(kind, unit_index, prompt_value)
+        return runner(prompt_value, schema, parser_value)
     checkpoint_options = (
         checkpoint_path, checkpoint_binding,
         checkpoint_key_id, checkpoint_private_key,
@@ -1780,7 +2121,9 @@ def run_packet_review(
         )
     plan, units = _hierarchical_units(packet)
     if plan is None:
-        report, session, model = runner(review_prompt(packet), VERDICT_SCHEMA, _report)
+        report, session, model = send(
+            "direct", None, review_prompt(packet), VERDICT_SCHEMA, _report
+        )
         _report(report)
         if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
             raise FreeReviewError("UNVERIFIED", "direct reviewer provenance is absent")
@@ -1808,8 +2151,8 @@ def run_packet_review(
             session = row["session"]
             model = row["model"]
         else:
-            unit_report, session, model = runner(
-                unit_prompt, UNIT_VERDICT_SCHEMA, _unit_report
+            unit_report, session, model = send(
+                "unit", unit["index"], unit_prompt, UNIT_VERDICT_SCHEMA, _unit_report
             )
             unit_report = _unit_report(unit_report)
             if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
@@ -1828,8 +2171,8 @@ def run_packet_review(
                 checkpoint_key_id, checkpoint_private_key,
             )
     integration_prompt = _integration_review_prompt(packet, plan, reports)
-    integration_report, session, model = runner(
-        integration_prompt, VERDICT_SCHEMA, _report
+    integration_report, session, model = send(
+        "integration", None, integration_prompt, VERDICT_SCHEMA, _report
     )
     integration_report = _report(integration_report)
     if any(not isinstance(value, str) or not value.strip() for value in (session, model)):
@@ -3293,6 +3636,7 @@ def phase_one_receipt(
     attempts: list[dict[str, str]], isolation: dict[str, bool], key_id: str,
     private_key: bytes, issued_at: str | None = None,
     reviewers: list[dict[str, str]] | None = None,
+    prompt_ledger: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     target, candidate, bindings = _packet_bindings(packet)
     maker_row = _identity(maker, "maker identity")
@@ -3322,6 +3666,15 @@ def phase_one_receipt(
     clean_report = _clean_report(report)
     issued = issued_at or now_iso()
     parse_time(issued, "phase-one issuedAt")
+    prompt_sha256 = sha256_bytes(prompt.encode("utf-8"))
+    ledger_binding: dict[str, Any] | None = None
+    if prompt_ledger is not None:
+        if reviewer_rows is not None:
+            raise FreeReviewError(
+                "UNVERIFIED", "legacy quorum receipts carry no prompt ledger"
+            )
+        ledger_binding = _prompt_ledger_binding(prompt_ledger)
+        _bind_prompt_ledger(ledger_binding, prompt, prompt_sha256)
     signed = {
         "version": version,
         "kind": "itd-free-review-phase-one",
@@ -3330,7 +3683,7 @@ def phase_one_receipt(
         "target": target,
         "candidate": candidate,
         "inputBindings": bindings,
-        "promptSha256": sha256_bytes(prompt.encode("utf-8")),
+        "promptSha256": prompt_sha256,
         "report": clean_report,
         "reportSha256": sha256_bytes(canonical_bytes(clean_report)),
         "maker": maker_row,
@@ -3339,6 +3692,8 @@ def phase_one_receipt(
         "isolation": isolation,
         "issuedAt": issued,
     }
+    if ledger_binding is not None:
+        signed["promptLedger"] = ledger_binding
     if reviewer_rows is not None:
         signed["reviewers"] = reviewer_rows
     else:
@@ -3392,6 +3747,11 @@ def verify_phase_one(
             fields.add("independenceLevel")
             if "crossVendorUnavailability" in signed:
                 fields.add("crossVendorUnavailability")
+        # Receipts minted before the prompt ledger lack the binding; it stays
+        # optional on verification so earlier chains keep validating, while
+        # verify_prompt_ledger refuses any receipt that does not carry it.
+        if "promptLedger" in signed:
+            fields.add("promptLedger")
     exact_dict(signed, fields, "phase-one signed payload")
     if version not in {2, 3} or signed["kind"] != "itd-free-review-phase-one":
         raise FreeReviewError("UNVERIFIED", "phase-one kind/version is invalid")
@@ -3465,6 +3825,13 @@ def verify_phase_one(
         or signed["reportSha256"] != sha256_bytes(canonical_bytes(report))
     ):
         raise FreeReviewError("UNVERIFIED", "phase-one prompt/report binding is invalid")
+    if "promptLedger" in signed:
+        ledger = _prompt_ledger_binding(signed["promptLedger"])
+        if (
+            ledger["entries"][0]["kind"] == "direct"
+            and ledger["entries"][0]["sha256"] != signed["promptSha256"]
+        ):
+            raise FreeReviewError("UNVERIFIED", "phase-one prompt ledger binding is invalid")
     return signed
 
 
@@ -4744,12 +5111,25 @@ def parser() -> argparse.ArgumentParser:
              "the route from zero",
     )
     review.add_argument("--prompt-output", type=Path, required=True)
+    review.add_argument(
+        "--prompt-log", type=Path,
+        help="append-only ledger of every prompt handed to the reviewer "
+             "transport, written before each send and bound into the signed "
+             "receipt; default: <prompt-output>.ledger.jsonl",
+    )
     review.add_argument("--report-output", type=Path, required=True)
     review.add_argument("--output", type=Path, required=True)
     verify = commands.add_parser("verify")
     verify.add_argument("--receipt", type=Path, required=True)
     verify.add_argument("--producer-keyring", type=Path, required=True)
     verify.add_argument("--app-keyring", type=Path, required=True)
+    verify_log = commands.add_parser(
+        "verify-prompt-log",
+        help="recompute every prompt hash from the ledger bytes and compare "
+             "with the phase-one receipt; pure function of the two files",
+    )
+    verify_log.add_argument("--prompt-log", type=Path, required=True)
+    verify_log.add_argument("--receipt", type=Path, required=True)
     return top
 
 
@@ -4785,17 +5165,25 @@ def main(argv: list[str] | None = None) -> int:
                 "model": args.maker_model,
                 "session": args.maker_session,
             }
+            prompt_log = args.prompt_log
+            if prompt_log is None:
+                prompt_log = args.prompt_output.with_name(
+                    args.prompt_output.name + ".ledger.jsonl"
+                )
             output_paths = {
                 args.output.resolve(),
                 args.prompt_output.resolve(),
                 args.report_output.resolve(),
+                prompt_log.resolve(),
             }
-            if len(output_paths) != 3:
+            if len(output_paths) != 4:
                 raise FreeReviewError(
-                    "UNVERIFIED", "review receipt/prompt/report outputs overlap"
+                    "UNVERIFIED", "review receipt/prompt/report/ledger outputs overlap"
                 )
             selected_prompt_artifact = prompt
             selected_prompt_artifacts: dict[str, str] = {}
+            # Opened before any transport runs; every send appends first.
+            prompt_ledger = PromptLedger(prompt_log)
             route_checkpoint_key: bytes | None = None
             if args.unit_checkpoint is not None:
                 route_checkpoint_key = gate.read_provenance_private_key(
@@ -4840,7 +5228,8 @@ def main(argv: list[str] | None = None) -> int:
                         report_schema=schema, report_parser=parser_value,
                     )
                 review_result = run_packet_review(
-                    packet, runner, **route_checkpoint_kwargs(
+                    packet, runner, prompt_ledger=prompt_ledger,
+                    **route_checkpoint_kwargs(
                         "openai-subscription", reviewer_model, args.codex_sha256,
                     )
                 )
@@ -4875,7 +5264,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 report, session, observed_model, selected_prompt_artifact = (
                     run_packet_review(
-                        packet, runner, **route_checkpoint_kwargs(
+                        packet, runner, prompt_ledger=prompt_ledger,
+                        **route_checkpoint_kwargs(
                             "anthropic-subscription", args.claude_model,
                             args.claude_sha256,
                         )
@@ -4914,7 +5304,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 report, session, observed_model, selected_prompt_artifact = (
                     run_packet_review(
-                        packet, runner, **route_checkpoint_kwargs(
+                        packet, runner, prompt_ledger=prompt_ledger,
+                        **route_checkpoint_kwargs(
                             "github-copilot-user", args.copilot_model,
                             args.copilot_sha256,
                         )
@@ -4968,7 +5359,27 @@ def main(argv: list[str] | None = None) -> int:
                 private_key=gate.read_provenance_private_key(args.signing_key),
                 reviewers=(routed["reviewers"]
                            if minimum_reviewers > 1 else None),
+                prompt_ledger=(prompt_ledger.binding()
+                               if minimum_reviewers == 1 else None),
             )
+            # Self-check before publication: the ledger on disk must verify
+            # against the receipt just minted by the very function a later
+            # verify-prompt-log run uses; otherwise nothing is emitted.
+            if minimum_reviewers == 1:
+                try:
+                    verify_prompt_ledger(
+                        read_regular(
+                            prompt_log, "prompt ledger",
+                            limit=MAX_PROMPT_LEDGER_BYTES,
+                        ),
+                        receipt,
+                    )
+                except FreeReviewError as exc:
+                    raise FreeReviewError(
+                        "UNVERIFIED",
+                        f"prompt ledger does not verify against the receipt: "
+                        f"{exc.reason}",
+                    ) from exc
             write_text(args.prompt_output, selected_prompt_artifact)
             write_json(args.report_output, routed["report"])
             write_json(args.output, receipt)
@@ -4976,6 +5387,7 @@ def main(argv: list[str] | None = None) -> int:
                 "status": "PASSED",
                 "receipt": str(args.output),
                 "prompt": str(args.prompt_output),
+                "promptLedger": str(prompt_log),
                 "report": str(args.report_output),
                 "reviewer": routed["reviewer"]["provider"],
                 "reviewers": [
@@ -4983,6 +5395,22 @@ def main(argv: list[str] | None = None) -> int:
                 ],
                 "attempts": routed["attempts"],
             }, sort_keys=True))
+            return 0
+        if args.command == "verify-prompt-log":
+            try:
+                result = verify_prompt_ledger(
+                    read_regular(
+                        args.prompt_log, "prompt ledger",
+                        limit=MAX_PROMPT_LEDGER_BYTES,
+                    ),
+                    read_json(args.receipt, "phase-one receipt"),
+                )
+            except FreeReviewError as exc:
+                print(json.dumps(
+                    {"status": "UNVERIFIED", "why": exc.reason}, sort_keys=True
+                ))
+                return 4
+            print(json.dumps(result, sort_keys=True))
             return 0
         verified = verify_two_phase(
             read_json(args.receipt, "two-phase receipt"),

@@ -1,5 +1,5 @@
 {
-  "signatureHex": "9782387bd78941ff4da5adc7270b63087b0edcc5f12839da189f71d9816459435a1d310511003ff34f24c0bb3c5540189105d9b2190b052df9d34fad60045207",
+  "signatureHex": "0702be90056c3cbe250b9cfa68a658b6105a04436395e655e15ad3d1b310a877b613bc13cca86dfdbc9e0c320dcde9c3d91047bc56f1e7f565729f55bbbc4a05",
   "signed": {
     "cases": [
       {
@@ -10,22 +10,22 @@
         "report": {
           "findings": [
             {
-              "category": "capacity",
+              "category": "scale-and-bounded-output",
               "confidence": "high",
               "file": "src/export.ts",
               "line": 4,
               "severity": "high",
-              "summary": "The export materializes an estimated 1,807,231 rows and passes all of them to a single worksheet, exceeding Excel's 1,048,576-row limit by 758,655 rows. The declared EXCEL_MAX_ROWS constant is never enforced, so the default annual export can fail, truncate data, or produce an invalid/incomplete workbook instead of remaining downloadable within worksheet capacity."
+              "summary": "The export materializes a projected 1,807,231 data rows and passes all of them to one worksheet, exceeding Excel's 1,048,576-row worksheet limit (and leaving no allowance for a header). The declared EXCEL_MAX_ROWS constant is unused, so the default annual export can fail, truncate data, or create an invalid workbook instead of remaining downloadable within capacity."
             }
           ],
           "unverified": [
-            "Browser memory and runtime feasibility of materializing and serializing the full annual export cannot be verified from the supplied diff.",
-            "Behavior of writeSingleBrowserWorksheet when its input exceeds worksheet capacity, including whether it throws or silently truncates, is not shown.",
-            "No tests are shown for capacity-boundary behavior, download completion, or row-count reconciliation."
+            "Browser memory feasibility cannot be verified; nested flatMap/map constructs multiple large intermediate arrays before workbook generation and may exhaust memory or freeze the page.",
+            "No tests are shown for worksheet row limits, boundary behavior, download success, or reconciliation of exported rows against source conversion documents.",
+            "The behavior of writeSingleBrowserWorksheet, including error propagation and whether it silently truncates rows, cannot be verified from the supplied diff."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a00bc2-d28e-7633-9936-3fedf0a036aa"
+        "session": "01a0141d-60e1-70e0-a677-ef9a9ab897a8"
       },
       {
         "attempts": 1,
@@ -40,24 +40,17 @@
               "file": "src/turnover.ts",
               "line": 4,
               "severity": "high",
-              "summary": "displayedClosing subtracts only expense and fx_eur consumption, omitting the supported fx_other category. With the evidenced fx_other total of 1494440 TRY, the displayed closing balance is overstated by exactly 1494440 TRY and cannot reconcile."
-            },
-            {
-              "category": "specification-compliance",
-              "confidence": "high",
-              "file": "src/turnover.ts",
-              "line": 1,
-              "severity": "high",
-              "summary": "The implementation returns only a computed closing value and does not display or expose the required exact opening, inflow, per-consumer-category outflow/conversion, and closing turnover."
+              "summary": "displayedClosing subtracts only expense and fx_eur consumption, omitting the supported fx_other category. With the observed fx_other total of 1494440 TRY, the displayed closing balance is overstated by exactly 1494440 TRY and cannot reconcile for all supported consumption types."
             }
           ],
           "unverified": [
-            "No tests are supplied to verify exact reconciliation across all supported consumption types or numerical behavior of sum and TRY arithmetic.",
-            "The Pool type and sum implementation are not shown, so handling of missing values, invalid types, and numerical precision cannot be verified."
+            "No tests are shown that exercise all supported consumption types or assert exact opening/inflow/outflow/conversion/closing reconciliation.",
+            "The definitions and numeric behavior of Pool and sum are not supplied, so type correctness and numerical precision for TRY amounts cannot be verified.",
+            "The diff exposes only a closing calculation; the exact display of each required turnover component cannot be verified from the supplied text."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a00bc3-7dc1-72c3-91fa-13527caed47d"
+        "session": "01a0141d-c129-7940-92a9-c6d6de6eeed6"
       },
       {
         "attempts": 1,
@@ -72,24 +65,25 @@
               "file": "src/allocation.ts",
               "line": 2,
               "severity": "high",
-              "summary": "Each detail amount is rounded independently, but no residual-cent reconciliation is applied, so the returned amounts can sum above or below the rounded source amount. This directly violates the exact-total acceptance criterion and is consistent with the reported 1578 TRY aggregate drift."
+              "summary": "Each detail amount is rounded independently, with no residual-cent reconciliation, so the exported detail sum can differ from the rounded source amount. The supplied host evidence reports 1578 TRY aggregate drift, directly violating the exact-to-cent acceptance criterion."
             },
             {
-              "category": "input-validation/numerical-stability",
+              "category": "input validation/specification",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 2,
-              "severity": "medium",
-              "summary": "The function does not validate that source and shares are finite or that shares sum to 1; invalid, negative, or non-normalized inputs can produce NaN, infinities, or allocations that cannot reconcile to the source total."
+              "severity": "high",
+              "summary": "The function neither validates nor normalizes shares to sum to 1. Even before rounding, missing, excess, negative, or non-finite shares can produce an allocation whose total does not equal the source."
             }
           ],
           "unverified": [
-            "No tests are shown for residual-cent distribution, positive and negative source amounts, fractional-cent ties, zero/empty shares, large values, or non-normalized/invalid shares.",
-            "The required policy for distributing reconciliation cents among detail rows (including deterministic tie-breaking) is unspecified and cannot be verified from the supplied material."
+            "No tests are shown for positive and negative sources, fractional-cent residual distribution, zero or empty shares, large row counts, or non-finite/unsafe numeric inputs.",
+            "It cannot be verified from the diff whether callers guarantee normalized shares or whether downstream export logic performs reconciliation.",
+            "The required tie-breaking rule for assigning residual cents among detail rows is unspecified."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a00bc4-2d9d-7290-b50f-a781bf837ad1"
+        "session": "01a01420-88db-7941-abb0-f3206d6eb3cf"
       },
       {
         "attempts": 1,
@@ -99,26 +93,26 @@
         "report": {
           "findings": [
             {
-              "category": "specification compliance",
+              "category": "specification-compliance",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
               "severity": "high",
-              "summary": "The verify script no longer runs `prisma generate`, so generated clients are not refreshed before typecheck and the new `newcrmChangedSince` schema field can remain absent from generated types."
+              "summary": "The verify script no longer runs `prisma generate` before TypeScript checking, so generated clients can remain stale after schema changes, directly violating the required release-gate ordering."
             },
             {
-              "category": "error handling",
+              "category": "error-handling",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
               "severity": "high",
-              "summary": "Appending `|| echo existing Prisma mismatch` converts every non-zero TypeScript result into a successful script exit, masking both Prisma-related and unrelated typecheck failures and making the release gate untruthful."
+              "summary": "The `|| echo existing Prisma mismatch` fallback converts every non-zero `tsc --noEmit` result into a successful script exit, masking both Prisma-related and unrelated type errors and making the release gate non-truthful."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a00bc4-9084-7ce3-98c8-bc137abedd5b"
+        "session": "01a01420-e9c8-7871-9afc-99eeed031b77"
       },
       {
         "attempts": 1,
@@ -133,7 +127,7 @@
               "file": "review-tools/local_probe.py",
               "line": 1,
               "severity": "high",
-              "summary": "Temporary reviewer probe is included in the release tree despite the stated requirement to ship only product and durable public methodology artifacts."
+              "summary": "Temporary reviewer probe is included in the release tree despite the frozen acceptance criterion explicitly excluding reviewer probes."
             },
             {
               "category": "repository hygiene",
@@ -141,13 +135,13 @@
               "file": "ROOT_CAUSE.md",
               "line": 1,
               "severity": "high",
-              "summary": "Private review-run scratch notes are included in the release tree, violating the acceptance requirement."
+              "summary": "Private root-cause scratch notes are included in the release tree despite the frozen acceptance criterion explicitly excluding private scratch notes."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a00bc4-d760-71e0-b525-77729e53221f"
+        "session": "01a01421-9f90-7ef2-bf94-278cfad7faa6"
       },
       {
         "attempts": 1,
@@ -159,7 +153,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a00bc5-4c1e-7822-a49f-a15f7632a175"
+        "session": "01a01422-1bb9-7b41-b90f-9d0a6dd13d95"
       },
       {
         "attempts": 1,
@@ -171,7 +165,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a00bc6-42d6-7c21-acaa-3821f3e3a7f1"
+        "session": "01a01422-a954-7600-933b-f486ac7c3f3a"
       },
       {
         "attempts": 1,
@@ -183,7 +177,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a00bc6-bb55-7ba1-bba4-2b2512ba4fca"
+        "session": "01a01423-24af-7710-8c68-b3ceb5ba80cd"
       },
       {
         "attempts": 1,
@@ -195,7 +189,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a00bc7-4f4d-7c82-ad5d-0264d4b02f9e"
+        "session": "01a01423-92d7-7251-9e9f-4be921d022b7"
       }
     ],
     "host": "windows",
@@ -208,8 +202,8 @@
     "keyId": "gpg003-local-producer-20260803",
     "kind": "itd-independent-review-semantic-efficacy-run",
     "manifestSha256": "740a3538f32121e97698cc8cfe1af0dc027ed37759f02df7702e44891fb42342",
-    "observedAt": "2026-08-16T18:13:44Z",
-    "producerSha256": "d709e14c7139498b0f95af624205264ee8a80537e6ee27528e9cd7f7d010b044",
+    "observedAt": "2026-08-18T09:11:42Z",
+    "producerSha256": "667541f500a082006e01a826e4d2a9728de737d8aae6db04075476e0bb94e7fb",
     "reviewer": {
       "isolation": {
         "ephemeral": true,
