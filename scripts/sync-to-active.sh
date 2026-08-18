@@ -173,6 +173,28 @@ else
   fi
 fi
 
+# --- install provenance (v1.99.0, LPD-002 R2) ---------------------------------
+# The commit gate loads the review validator from the methodology checkout it is
+# judging, so that a release commit is judged by its own code instead of by the
+# installed copy with the previous version. That decision must not be forgeable
+# from the working directory: a plugin manifest is self-declared, so any project
+# could name itself and hand the gate a validator of its own. The install is the
+# non-forgeable anchor -- only sync writes here, and only from a real checkout.
+src_provenance="$ACTIVE/.itd-install-source.json"
+new_provenance="$(printf '{\n  "checkout": "%s",\n  "plugin": "idea-to-deploy"\n}\n' "$REPO_ROOT")"
+if [ "$DRY_RUN" = "1" ]; then
+  if [ ! -f "$src_provenance" ] || [ "$(cat "$src_provenance")" != "$new_provenance" ]; then
+    printf "  ~ would record %s (checkout %s)\n" ".itd-install-source.json" "$REPO_ROOT"
+  else
+    ok "provenance: .itd-install-source.json unchanged"
+  fi
+elif [ -f "$src_provenance" ] && [ "$(cat "$src_provenance")" = "$new_provenance" ]; then
+  ok "provenance: .itd-install-source.json unchanged"
+else
+  printf '%s' "$new_provenance" > "$src_provenance"
+  printf "  ~ recorded    %s (checkout %s)\n" ".itd-install-source.json" "$REPO_ROOT"
+fi
+
 # -----------------------------------------------------------------------------
 # Step 2/6: Sync hooks
 # -----------------------------------------------------------------------------

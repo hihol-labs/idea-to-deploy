@@ -5,6 +5,11 @@ For commits with more than two staged files, a review cache hit must match the
 current repository, HEAD, staged tree/binary diff, scope and acceptance
 contracts, rubric/version, and active risk tier. Legacy timestamp/tree marker
 files are deliberately ignored: they carry neither verdict nor full context.
+
+The validator itself is resolved per candidate, not per install: inside the
+methodology checkout this install was synced from, the gate loads that
+checkout's own itd_review_cache.py; everywhere else the installed one. See
+methodology_checkout() for why, and why the install is the anchor.
 """
 from __future__ import annotations
 
@@ -20,14 +25,109 @@ from pathlib import Path
 
 GIT_COMMIT_RE = re.compile(r"(^|\s|;|&&|\|\|)git\s+commit(\s|$)")
 MAX_FILES_WITHOUT_REVIEW = 2
-CACHE_SCRIPT = (
-    Path(__file__).resolve().parents[1]
-    / "skills" / "review" / "scripts" / "itd_review_cache.py"
-)
+PLUGIN_NAME = "idea-to-deploy"
+CACHE_RELATIVE = Path("skills") / "review" / "scripts" / "itd_review_cache.py"
+INSTALL_ROOT = Path(__file__).resolve().parents[1]
+INSTALLED_CACHE_SCRIPT = INSTALL_ROOT / CACHE_RELATIVE
+PROVENANCE_RELATIVE = Path(".itd-install-source.json")
+GIT_PROBE_TIMEOUT_SECONDS = 5
 
 
-def load_cache_module():
-    loader = importlib.machinery.SourceFileLoader("itd_review_cache_gate", str(CACHE_SCRIPT))
+def git_toplevel(cwd: Path) -> Path | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=str(cwd),
+            capture_output=True, text=True, timeout=GIT_PROBE_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    if not value:
+        return None
+    try:
+        return Path(value).resolve()
+    except OSError:
+        return None
+
+
+def recorded_checkout() -> Path | None:
+    """The checkout this install was synced from, as recorded by the install.
+
+    The anchor has to live outside the candidate. A plugin manifest is
+    self-declared, so a working directory that names itself would be trusted on
+    its own word; this file is written only by scripts/sync-to-active.sh, into
+    the user's install, from a real checkout -- a repository cannot put it
+    there.
+    """
+    try:
+        record = json.loads(
+            (INSTALL_ROOT / PROVENANCE_RELATIVE).read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(record, dict) or record.get("plugin") != PLUGIN_NAME:
+        return None
+    value = record.get("checkout")
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return Path(value).resolve()
+    except OSError:
+        return None
+
+
+def methodology_checkout(cwd: Path) -> Path | None:
+    """Return the methodology checkout being judged, or None for any other project.
+
+    A release commit bumps the version inside the tree, so the installed
+    validator resolves a different methodologyVersion than the one /review
+    recorded with the checkout's own validator -- a cache miss that blocks a
+    commit whose review actually passed. The candidate must be judged by the
+    candidate's own validator.
+
+    Trust is anchored in the install, not in the candidate: the git top level
+    must be exactly the checkout this install was synced from, that root must
+    also declare this plugin, and the validator found there must belong to that
+    same root (its own install root, after symlinks are resolved, is the
+    detected checkout). Anything else -- no provenance, another directory, not
+    a repository, no manifest, a validator pointing outside -- falls back to
+    the installed validator, which is what every other project keeps using.
+    """
+    source = recorded_checkout()
+    if source is None:
+        return None
+    top = git_toplevel(cwd)
+    if top is None or top != source:
+        return None
+    try:
+        manifest = json.loads(
+            (top / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(manifest, dict) or manifest.get("name") != PLUGIN_NAME:
+        return None
+    candidate = top / CACHE_RELATIVE
+    try:
+        if not candidate.is_file():
+            return None
+        if candidate.resolve().parents[3] != top:
+            return None
+    except (OSError, IndexError):
+        return None
+    return top
+
+
+def cache_script_for(cwd: Path) -> Path:
+    checkout = methodology_checkout(cwd)
+    if checkout is None:
+        return INSTALLED_CACHE_SCRIPT
+    return checkout / CACHE_RELATIVE
+
+
+def load_cache_module(cwd: Path):
+    script = cache_script_for(cwd)
+    loader = importlib.machinery.SourceFileLoader("itd_review_cache_gate", str(script))
     spec = importlib.util.spec_from_loader("itd_review_cache_gate", loader)
     if spec is None:
         return None
@@ -36,11 +136,12 @@ def load_cache_module():
     return module
 
 
-def review_was_done() -> bool:
+def review_was_done(root: Path | None = None) -> bool:
     """Fail closed unless the durable cache matches the exact current context."""
+    target = Path(root) if root is not None else Path.cwd()
     try:
-        module = load_cache_module()
-        return bool(module and module.cache_allows(Path.cwd()))
+        module = load_cache_module(target)
+        return bool(module and module.cache_allows(target))
     except Exception:
         return False
 

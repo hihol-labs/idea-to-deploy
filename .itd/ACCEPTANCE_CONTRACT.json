@@ -1639,6 +1639,46 @@
      "producer-oracle"
     ]
    }
+  },
+  {
+   "id": "LPD002-R2-1-candidate-validates-itself",
+   "criterion": "PreToolUse-гейт коммита hooks/check-review-before-commit.sh грузит валидатор кэша ревью skills/review/scripts/itd_review_cache.py ИЗ ТОГО checkout'а, из которого собран инсталл; для любого другого проекта источник прежний — инсталл. Якорь решения лежит в инсталле, а не в кандидате: scripts/sync-to-active.sh записывает .itd-install-source.json ({checkout, plugin}), и корень git рабочего каталога обязан совпасть с этим checkout. Дополнительно: манифест в корне git несёт name == 'idea-to-deploy', валидатор лежит по каноническому относительному пути внутри корня, и его собственный install root (resolve().parents[3]) после разрешения симлинков равен тому же корню. Любой сбой детекта — нет провенанса, другой checkout, не git, нет манифеста, чужое имя, валидатор наружу — падает в инсталловую ветку, а не открывает гейт.",
+   "source": "retro 2026-08-18 сигнал E3/P3 (~25 мин и два лишних перечеканенных маршрута на релиз v1.98.0); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R2, approved владельцем.",
+   "evidence": "Oracle review-cache-oracle = python3 tests/verify_review_cache.py, exit 0, 46 -> 61 checks. RED до правки: AttributeError, у гейта не было methodology_checkout. Корень измерен: methodology_version() читает INSTALL_ROOT/.claude-plugin/plugin.json ЗАГРУЖЕННОГО валидатора, поэтому инсталловая копия на релизном коммите даёт версию инсталла, а квитанция /review — версию дерева. Мутация 'installed-only resolution' валит четыре именованные проверки, включая 'review recorded by the candidate's validator unblocks its own commit'.",
+   "verificationCommand": "python3 tests/verify_review_cache.py && python3 -I tests/verify_git_gate_hooks.py",
+   "status": "passed",
+   "reviewEvidence": {
+    "claim": "Кандидата судит валидатор кандидата, но правом быть кандидатом распоряжается инсталл, а не рабочий каталог.",
+    "impactClasses": [
+     "correctness",
+     "tooling",
+     "repository-hygiene"
+    ],
+    "oracleIds": [
+     "review-cache-oracle",
+     "git-gate-oracle"
+    ]
+   }
+  },
+  {
+   "id": "LPD002-R2-2-two-canaries",
+   "criterion": "Обе обязательные канарейки исполняемы и держат свою сторону, и решение о repo-first неподделываемо содержимым рабочего каталога. (1) Принудительный installed-only на фикстуре «бамп версии в дереве» -> гейт НЕ открывается (воспроизведён ровно тот промах по methodologyVersion, что ловили на релизе). (2) Принудительный repo-only -> гейт открывается на вендоренном чужом валидаторе И на валидаторе проекта, самоназвавшегося методологией; при штатном детекте оба проекта гейт не открывают. Самоназвание пинится отдельной проверкой, потому что имя в манифесте кандидата не является доказательством: без якоря в инсталле два файла в чужом репо отключали бы гейт и добивались исполнения своего python-кода в процессе хука.",
+   "source": "Требование пункта R2 плана: обе канарейки обязательны.",
+   "evidence": "Oracle review-cache-oracle: 'canary: installed-only resolution false-blocks a version bump in the tree', 'canary: repo-only resolution opens the gate on a vendored validator', 'a project that names itself the methodology is still not the methodology' — все PASS. Мутации в обе стороны: снятие якоря провенанса валит 3 проверки (самоназвавшийся проект, чужой checkout, инсталл без провенанса); снятие имени плагина валит безымянный манифест; снятие совпадения корня валит симлинк наружу. Фикстура — два независимых дерева методологии с разными версиями плагина; квитанция кандидата чеканится ПЕТЛЁЙ КАНДИДАТА, поэтому записанный methodologyVersion принадлежит дереву, ровно как на релизном коммите. Критическая находка независимого чекера (sonnet, свежая сессия) на первой редакции детекта закрыта именно этой проверкой.",
+   "verificationCommand": "python3 tests/verify_review_cache.py && python3 -I tests/verify_git_gate_hooks.py",
+   "status": "passed",
+   "reviewEvidence": {
+    "claim": "Обе стороны выбора источника валидатора пинятся исполняемыми канарейками, а не рассуждением.",
+    "impactClasses": [
+     "correctness",
+     "security",
+     "tooling",
+     "supply-chain"
+    ],
+    "oracleIds": [
+     "review-cache-oracle"
+    ]
+   }
   }
  ],
  "completion": {
@@ -1657,7 +1697,7 @@
   ]
  },
  "activeFollowup": {
-  "unitId": "LPD002-R1",
+  "unitId": "LPD002-R2",
   "status": "in_progress",
   "selectedClaim": "LOCAL_REVIEWED",
   "rootCause": ".itd/SCOPE_LOCK.md",
@@ -1666,16 +1706,16 @@
    "riskTier": "medium",
    "requiredImpactClasses": [
     "correctness",
-    "error-handling",
-    "repository-hygiene",
-    "security"
+    "security",
+    "tooling",
+    "repository-hygiene"
    ],
    "minimumIndependentReviewers": 1,
    "explorer": "isolated-machine-oracle",
    "adjudicator": "sealed-host-union"
   },
-  "openedAt": "2026-08-18T15:05:20Z",
-  "scopeNote": "LPD-002 R1 (первый пункт approved-плана, WIP=1): классификация отказа транспорта класса «вместимость провайдера» как UNAVAILABLE и append-only скрабленный журнал отказов рядом с --report-output. Скраббер, подписи, ключи, кэш ревью, разрез дифа не тронуты. С этим delivery-коммитом приезжает закрытие S10-LEDGER/S11 в STATE (ledger-close отдельным коммитом не проходит evidence-first продюсера — HANDOFF-S10 §17.11, решение владельца). Идентификатор юнита — LPD002-R1: продюсер выбирает критерии по префиксу unitId+'-', и голое 'R1' захватывало исторический критерий R1-SCRUB-1 (дефект маршрута, BACKLOG)."
+  "openedAt": "2026-08-18T19:40:00Z",
+  "scopeNote": "LPD-002 R2 (второй пункт approved-плана, WIP=1): гейт коммита в репо методологии грузит itd_review_cache.py из репо, в любом другом проекте — из инсталла. Сам валидатор и прочие хуки не тронуты; scripts/sync-to-active.sh внесён в скоуп решением владельца 2026-08-18 (единственное место, куда кандидат писать не может, — значит единственный неподделываемый якорь). С delivery-коммитом приезжают отметки закрытия R1 в STATE.json и LPD-002_UNIT_PLAN.json (отдельный ledger-close коммит не проходит evidence-first продюсера — HANDOFF-S10 §17.11, решение владельца). Идентификатор юнита — LPD002-R2: продюсер выбирает критерии по префиксу unitId+'-', голое 'R2' затянуло бы чужое. verificationCommand пункта плана указывал python3 -I для обоих оракулов; -I подразумевает -E -P, а verify_review_cache.py импортирует tests/verification_loop_fixture.py — под -I он не запускается вовсе (это верно и до правки), поэтому первый оракул зафиксирован без -I."
  },
  "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
