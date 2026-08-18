@@ -1651,8 +1651,8 @@
     "claim": "Кандидата судит валидатор кандидата, но правом быть кандидатом распоряжается инсталл, а не рабочий каталог.",
     "impactClasses": [
      "correctness",
-     "tooling",
-     "repository-hygiene"
+     "repository-hygiene",
+     "compatibility"
     ],
     "oracleIds": [
      "review-cache-oracle",
@@ -1672,8 +1672,7 @@
     "impactClasses": [
      "correctness",
      "security",
-     "tooling",
-     "supply-chain"
+     "repository-hygiene"
     ],
     "oracleIds": [
      "review-cache-oracle"
@@ -1707,8 +1706,8 @@
    "requiredImpactClasses": [
     "correctness",
     "security",
-    "tooling",
-    "repository-hygiene"
+    "repository-hygiene",
+    "compatibility"
    ],
    "minimumIndependentReviewers": 1,
    "explorer": "isolated-machine-oracle",
