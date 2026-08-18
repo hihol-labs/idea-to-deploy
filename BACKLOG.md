@@ -14,6 +14,26 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — Found while closing S10-LEDGER / delivering S11 (2026-08-18)
+
+- [ ] Ledger-close коммит (STATE `verified` + контракт) не проходит evidence-first
+  продюсера ни с открытым followup («STATE и контракт расходятся»), ни с закрытым
+  (`coverage_matrix = None` → «verified без покрытия классов»). Круг маршрута;
+  обход владельца — ротация в delivery-коммите следующего юнита. HANDOFF-S10 §17.11.
+- [ ] Продюсер классифицирует `Selected model is at capacity` (codex `turn.failed`)
+  как UNVERIFIED «failed without proven transport unavailability»: маркер
+  «at capacity» отсутствует в `CLI_UNAVAILABLE_MARKERS`; по смыслу это UNAVAILABLE
+  (транзиент, лечится повтором). Диагностика доступна только обёрткой
+  `run_bounded_process` — stderr/stdout транспорта при провале не сохраняются.
+- [ ] `tests/verify_independent_review_efficacy.py` требует host-input
+  `.itd-memory/host-inputs/…sha256` (gitignored) → в изолированном machine-worktree
+  не запускается (exit 1) даже с абсолютным путём; efficacy-oracle нельзя включить
+  в машинную квитанцию.
+- [ ] `tests/run-independent-review-efficacy.py`: `--max-transport-attempts` принимает
+  только 1 (иначе `retry bound is invalid`) — флаг вводит в заблуждение; чекпоинт
+  удаляется при успехе, повторный запуск с тем же путём стартует с нуля.
+- [ ] `itd_unit_log.py activate` не пишет `riskTier` (нет флага) — правится руками в STATE.
+
 ## P1 — Found while closing S10-LEDGER (2026-08-16)
 
 - [ ] `hooks/completion-signals.sh` помечает ЗЕЛЁНЫЙ прогон как `FAILED`: строка
