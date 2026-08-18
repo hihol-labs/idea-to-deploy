@@ -8,11 +8,13 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+import verification_loop_fixture
 from verification_loop_fixture import make_review_receipt
 
 
@@ -322,6 +324,218 @@ with tempfile.TemporaryDirectory(prefix="review-cache-linked-memory-") as td:
     else:
         check("review-cache parent loader has a reparse/symlink guard",
               "_is_link_or_reparse(memory)" in SCRIPT.read_text(encoding="utf-8"))
+
+# --- LPD-002 R2 -------------------------------------------------------------
+# The commit gate judges a methodology candidate with the CANDIDATE's validator,
+# and refuses any other project's copy of that path. Trust is anchored in the
+# install, which only scripts/sync-to-active.sh writes.
+
+GATE_HOOK = ROOT / "hooks" / "check-review-before-commit.sh"
+SYNC_SCRIPT = ROOT / "scripts" / "sync-to-active.sh"
+CACHE_RELATIVE = Path("skills") / "review" / "scripts" / "itd_review_cache.py"
+PROVENANCE_RELATIVE = Path(".itd-install-source.json")
+METHODOLOGY_TREE_FILES = (
+    CACHE_RELATIVE.as_posix(),
+    "skills/review/SKILL.md",
+    "skills/review/references/review-checklist.md",
+    "skills/review/references/meta-review-checklist.md",
+    "skills/_shared/WORKING_DEADLINE_POLICY.json",
+    "skills/_shared/VERIFICATION_LOOP_POLICY.json",
+    "skills/_shared/itd_verification_loop.py",
+    "hooks/check-skills.sh",
+)
+
+
+def load_python(name: str, path: Path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    if spec is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def record_provenance(install: Path, checkout: Path | None) -> None:
+    path = install / PROVENANCE_RELATIVE
+    if checkout is None:
+        if path.exists():
+            path.unlink()
+        return
+    write(path, json.dumps({"checkout": str(checkout), "plugin": "idea-to-deploy"}))
+
+
+def load_gate(installed_tree: Path):
+    """The gate as the harness loads it, with the install root under test control."""
+    gate = load_python("itd_commit_review_gate", GATE_HOOK)
+    gate.INSTALL_ROOT = installed_tree
+    gate.INSTALLED_CACHE_SCRIPT = installed_tree / CACHE_RELATIVE
+    return gate
+
+
+def stage_all(root: Path) -> None:
+    """Stage the fixture and refresh the index — a fresh copy is racy-clean."""
+    sh(["git", "add", "-A"], root)
+    sh(["git", "update-index", "-q", "--refresh"], root)
+
+
+def make_methodology_tree(root: Path, version: str) -> None:
+    """A checkout carrying the validator and every install-root file it reads."""
+    for relative in METHODOLOGY_TREE_FILES:
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / relative, target)
+    write(root / ".claude-plugin" / "plugin.json",
+          json.dumps({"name": "idea-to-deploy", "version": version}))
+
+
+check("sync-to-active.sh records which checkout the install was built from",
+      ".itd-install-source.json" in SYNC_SCRIPT.read_text(encoding="utf-8"))
+
+# A fixture checkout must stay untracked-clean: the validators loaded below
+# import further modules out of the fixture tree, and their __pycache__ would
+# make the checkout differ from its own staged candidate.
+sys.dont_write_bytecode = True
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"  # the same rule for child processes
+with tempfile.TemporaryDirectory(prefix="review-gate-source-") as td:
+    box = Path(td)
+    install = box / "install"
+    install.mkdir()
+    make_methodology_tree(install, "1.0.0-installed-fixture")
+
+    repo = box / "repo"
+    repo.mkdir()
+    make_repo(repo)
+    make_methodology_tree(repo, "9.9.9-candidate-fixture")
+    stage_all(repo)
+    record_provenance(install, repo)
+
+    candidate_core = load_python("itd_review_cache_candidate", repo / CACHE_RELATIVE)
+    # The candidate's own proof chain: its receipt is minted by its own loop, so
+    # the recorded methodologyVersion is the tree's, exactly as on a release commit.
+    installed_loop = verification_loop_fixture.LOOP
+    verification_loop_fixture.LOOP = repo / "skills" / "_shared" / "itd_verification_loop.py"
+    try:
+        candidate_receipt = receipt(repo)
+    finally:
+        verification_loop_fixture.LOOP = installed_loop
+    accepted, _ = candidate_core.record_review(
+        repo, verdict="PASSED", kind="general", session="r2-gate",
+        verification_receipt=candidate_receipt)
+    check("the candidate checkout records its own successful review", accepted)
+
+    gate = load_gate(install)
+    check("commit gate detects the checkout this install was synced from",
+          gate.methodology_checkout(repo) == repo.resolve())
+    check("commit gate loads the validator from the candidate checkout",
+          gate.cache_script_for(repo) == repo / CACHE_RELATIVE)
+    check("review recorded by the candidate's validator unblocks its own commit",
+          gate.review_was_done(repo))
+
+    # Canary A — forced installed-only reproduces the measured false block:
+    # bumping the version in the tree is exactly what a release commit does.
+    installed_only = load_gate(install)
+    installed_only.methodology_checkout = lambda cwd: None
+    check("canary: installed-only resolution false-blocks a version bump in the tree",
+          not installed_only.review_was_done(repo))
+
+    # The identity a project declares about itself is worth nothing: a manifest
+    # is two lines to forge, and being believed would both open the gate and
+    # execute the working directory's Python inside the hook.
+    impostor = box / "impostor"
+    impostor.mkdir()
+    make_repo(impostor)
+    write(impostor / ".claude-plugin" / "plugin.json",
+          json.dumps({"name": "idea-to-deploy", "version": "13.0.0-forged"}))
+    write(impostor / CACHE_RELATIVE,
+          "def cache_allows(root, risk_tier=None, kind='general'):\n"
+          "    return True\n")
+    stage_all(impostor)
+    forged = load_gate(install)
+    check("a project that names itself the methodology is still not the methodology",
+          forged.methodology_checkout(impostor) is None
+          and not forged.review_was_done(impostor))
+
+    foreign = box / "foreign"
+    foreign.mkdir()
+    make_repo(foreign)
+    write(foreign / ".claude-plugin" / "plugin.json",
+          json.dumps({"name": "someone-elses-plugin", "version": "0.1.0"}))
+    write(foreign / CACHE_RELATIVE,
+          "def cache_allows(root, risk_tier=None, kind='general'):\n"
+          "    return True\n")
+    stage_all(foreign)
+    isolated = load_gate(install)
+    check("a foreign project cannot hand the commit gate its own validator",
+          isolated.methodology_checkout(foreign) is None
+          and not isolated.review_was_done(foreign))
+
+    # Canary B — forced repo-only opens the gate on the vendored validator,
+    # which is precisely what anchoring the decision in the install prevents.
+    repo_only = load_gate(install)
+    repo_only.methodology_checkout = lambda cwd: Path(cwd)
+    check("canary: repo-only resolution opens the gate on a vendored validator",
+          repo_only.review_was_done(impostor)
+          and repo_only.review_was_done(foreign))
+
+    other = box / "other"
+    other.mkdir()
+    make_repo(other)
+    make_methodology_tree(other, "9.9.9-candidate-fixture")
+    stage_all(other)
+    check("provenance for one checkout does not travel to a second one",
+          load_gate(install).methodology_checkout(other) is None)
+
+    record_provenance(install, None)
+    check("an install without recorded provenance keeps the installed validator",
+          load_gate(install).methodology_checkout(repo) is None
+          and load_gate(install).cache_script_for(repo) == install / CACHE_RELATIVE)
+    record_provenance(install, repo)
+
+    unnamed = box / "unnamed"
+    unnamed.mkdir()
+    make_repo(unnamed)
+    make_methodology_tree(unnamed, "9.9.9-candidate-fixture")
+    write(unnamed / ".claude-plugin" / "plugin.json",
+          json.dumps({"version": "9.9.9-candidate-fixture"}))
+    stage_all(unnamed)
+    record_provenance(install, unnamed)
+    check("a manifest without the methodology name is not a methodology checkout",
+          load_gate(install).methodology_checkout(unnamed) is None)
+    record_provenance(install, repo)
+
+    outside = box / "outside"
+    outside.mkdir()
+    check("a directory outside any repository falls back to the installed validator",
+          load_gate(install).cache_script_for(outside) == install / CACHE_RELATIVE)
+
+    escaped = box / "escaped"
+    escaped.mkdir()
+    make_repo(escaped)
+    write(escaped / ".claude-plugin" / "plugin.json",
+          json.dumps({"name": "idea-to-deploy", "version": "9.9.9-candidate-fixture"}))
+    (escaped / "hooks").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "hooks" / "check-skills.sh", escaped / "hooks" / "check-skills.sh")
+    (escaped / CACHE_RELATIVE).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        (escaped / CACHE_RELATIVE).symlink_to(install / CACHE_RELATIVE)
+        symlink_supported = True
+    except OSError:
+        symlink_supported = False
+    record_provenance(install, escaped)
+    if symlink_supported:
+        check("a validator symlinked out of the checkout fails the root match",
+              load_gate(install).methodology_checkout(escaped) is None)
+    else:
+        check("commit gate binds the validator root to the detected checkout",
+              "parents[3]" in GATE_HOOK.read_text(encoding="utf-8"))
+
+    synced = box / "synced-install"
+    synced.mkdir()
+    make_methodology_tree(synced, "1.0.0-installed-fixture")
+    record_provenance(synced, ROOT)
+    check("the methodology repository resolves to its own validator once recorded",
+          load_gate(synced).cache_script_for(ROOT) == ROOT / CACHE_RELATIVE)
 
 # Frozen policy remains the source, not a self-edited oracle.
 policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))

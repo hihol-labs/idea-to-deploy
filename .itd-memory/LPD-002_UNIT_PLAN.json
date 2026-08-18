@@ -23,8 +23,8 @@
   "objective": "Снять измеренный налог маршрута ITD: четыре класса трения, стоившие ~2-2.5 ч из ~8 ч рабочей сессии 2026-08-18 и повторявшиеся на S9/S10/S11, плюс пропорциональный прогон сьютов вместо полного. Критерий успеха плана: каждый пункт закрыт машинной проверкой с двусторонней мутацией, а на следующем юните методологии повторный ретро-скан не показывает тот же класс.",
   "status": "active",
   "wipLimit": 1,
-  "currentPointId": "R1",
-  "nextPointId": "R2",
+  "currentPointId": "R2",
+  "nextPointId": "R3",
   "sessionProtocol": "WIP=1, RED-first: сначала проверка, воспроизводящая дефект на текущем коде, затем правка, затем мутация в обе стороны. Verification-команда пункта прогоняется в момент написания. Коммит только после маршрута /review (machine -> свежий чекер другой моделью -> adjudicate -> review-cache). Поправки к оракулу — в oracleAmendments и events.jsonl, не молча.",
   "evidenceBase": {
     "retro": "docs/retros/RETRO-2026-08-18.md (FACTS из itd_retro_scan.py + 11 внешних сигналов E1-E11)",
@@ -59,7 +59,7 @@
     {
       "id": "R1",
       "title": "Транспорт: 'at capacity' — недоступность, и провал транспорта оставляет след",
-      "status": "in_progress",
+      "status": "verified",
       "riskTier": "medium",
       "dependsOn": [],
       "source": "retro E2 / P2",
@@ -69,12 +69,14 @@
         "tests/verify_free_reviewer_producer.py"
       ],
       "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
-      "notes": "Скраббер применяется к дампу обязательно — пин отдельной проверкой. Диагностика сегодня доступна только внешней обёрткой run_bounded_process (scratchpad/dbg_producer.py) — это и есть дефект."
+      "notes": "Скраббер применяется к дампу обязательно — пин отдельной проверкой. Диагностика сегодня доступна только внешней обёрткой run_bounded_process (scratchpad/dbg_producer.py) — это и есть дефект.",
+      "closedAt": "2026-08-18T18:28:02Z",
+      "evidence": "PR #212 merged 25407ea; unit LPD002-R1 verified in STATE ledger"
     },
     {
       "id": "R2",
       "title": "Гейт коммита в репо методологии валидирует кандидата кодом кандидата",
-      "status": "pending",
+      "status": "in_progress",
       "riskTier": "medium",
       "dependsOn": [
         "R1"
@@ -164,5 +166,5 @@
     }
   ],
   "oracleAmendments": [],
-  "updatedAt": "2026-08-18T00:00:00Z"
+  "updatedAt": "2026-08-18T19:40:00Z"
 }
