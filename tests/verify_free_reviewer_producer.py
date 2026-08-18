@@ -3111,6 +3111,204 @@ def main() -> int:
         else:
             raise AssertionError("committed-head accepted a merge commit")
 
+    # LPD-002 R1 (retro 2026-08-18, сигнал E2): провайдерская вместимость —
+    # доказанная недоступность транспорта, а не недоказанный отказ; и любой
+    # ненулевой код возврата обязан оставить скрабленный машиночитаемый след
+    # рядом с отчётом. До этого пункта хвост stdout/stderr не сохранялся вовсе:
+    # диагностика существовала только во внешней обёртке вокруг
+    # run_bounded_process, то есть штатный маршрут не отвечал на вопрос «что
+    # именно ответил транспорт».
+    def cli_failure(stdout: bytes = b"", stderr: bytes = b"", code: int = 1):
+        return subprocess.CompletedProcess(
+            args=["reviewer"], returncode=code, stdout=stdout, stderr=stderr,
+        )
+
+    def classify_failure(**kwargs) -> str:
+        try:
+            producer.raise_cli_failure(cli_failure(**kwargs), "OpenAI reviewer")
+        except producer.FreeReviewError as exc:
+            return exc.status
+        raise AssertionError("raise_cli_failure returned without raising")
+
+    for capacity_text in (
+        b"stream error: Selected model is at capacity; retry later",
+        b"ERROR: the model is currently AT CAPACITY",
+        b"upstream reports the pool is over capacity",
+    ):
+        check(
+            classify_failure(stderr=capacity_text) == "UNAVAILABLE",
+            "a provider capacity refusal was not classified as transport unavailability",
+        )
+    # Канарейка переблокировки: слово встречается в легитимном тексте отчёта,
+    # который транспорт успел напечатать перед ненулевым кодом возврата.
+    check(
+        classify_failure(
+            stdout=json.dumps({
+                "findings": [{
+                    "title": "capacity planning is unbounded",
+                    "detail": "the queue has no capacity ceiling at all",
+                }],
+            }).encode("utf-8"),
+        ) == "UNVERIFIED",
+        "a legitimate report mentioning capacity was reclassified as unavailable",
+    )
+
+    with tempfile.TemporaryDirectory() as raw:
+        failure_root = Path(raw)
+        report = failure_root / "report.json"
+        log_path = producer.transport_log_path(report)
+        check(
+            log_path.parent == report.resolve().parent
+            and log_path != report.resolve()
+            and log_path.name.startswith(report.name),
+            "the transport failure log is not a sibling of the report artifact",
+        )
+
+        failure_log = producer.TransportFailureLog(log_path)
+        producer.set_transport_failure_log(failure_log)
+        try:
+            check(
+                classify_failure(
+                    stderr=b"Selected model is at capacity", code=7,
+                ) == "UNAVAILABLE",
+                "the capacity refusal changed once a failure log was attached",
+            )
+            check(
+                classify_failure(stdout=b"reviewer exploded", code=3) == "UNVERIFIED",
+                "an unclassified transport failure stopped being UNVERIFIED",
+            )
+            rows = [
+                json.loads(line)
+                for line in log_path.read_text(encoding="utf-8").splitlines()
+                if line
+            ]
+            check(
+                len(rows) == 2,
+                "a non-zero transport exit did not append one failure record each",
+            )
+            check(
+                all(
+                    set(row) == {
+                        "kind", "label", "returncode", "classification",
+                        "reason", "stdoutTail", "stderrTail", "withheld",
+                    }
+                    and row["kind"] == producer.TRANSPORT_FAILURE_KIND
+                    and row["label"] == "OpenAI reviewer"
+                    for row in rows
+                ),
+                "the transport failure record is not a closed machine-readable shape",
+            )
+            check(
+                [row["classification"] for row in rows] == ["UNAVAILABLE", "UNVERIFIED"]
+                and [row["returncode"] for row in rows] == [7, 3],
+                "the failure record does not carry the exit code and the classification",
+            )
+            check(
+                "capacity" in rows[0]["stderrTail"]
+                and "reviewer exploded" in rows[1]["stdoutTail"],
+                "the failure record does not preserve the transport output tail",
+            )
+
+            # Хвост ограничен: транспорт может напечатать мегабайт. Маркеры
+            # головы и хвоста различимы — иначе срез головы проходит проверку.
+            classify_failure(
+                stdout=b"HEAD-STDOUT" + b"A" * 900_000 + b"TAIL-STDOUT",
+                stderr=b"HEAD-STDERR" + b"B" * 900_000 + b"TAIL-STDERR",
+            )
+            latest = json.loads(
+                log_path.read_text(encoding="utf-8").splitlines()[-1]
+            )
+            tail_bytes = len(latest["stdoutTail"].encode("utf-8")) + len(
+                latest["stderrTail"].encode("utf-8")
+            )
+            check(
+                0 < tail_bytes <= 4096,
+                "the recorded transport tail is not bounded to four kilobytes",
+            )
+            check(
+                latest["stdoutTail"].endswith("TAIL-STDOUT")
+                and latest["stderrTail"].endswith("TAIL-STDERR")
+                and "HEAD-STDOUT" not in latest["stdoutTail"]
+                and "HEAD-STDERR" not in latest["stderrTail"],
+                "the record keeps the head instead of the tail of the transport output",
+            )
+
+            # Скраббер обязателен: транспорт печатает то, что ему передали.
+            secret = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH"
+            classify_failure(
+                stderr=f"Authorization: Bearer {secret}".encode("utf-8"),
+            )
+            dumped = log_path.read_text(encoding="utf-8")
+            scrubbed = json.loads(dumped.splitlines()[-1])
+            check(
+                secret not in dumped,
+                "an unscrubbed transport credential reached the failure log",
+            )
+            check(
+                scrubbed["withheld"] is False
+                and "REDACTED" in scrubbed["stderrTail"]
+                and "Authorization" in scrubbed["stderrTail"],
+                "a scrubbable credential was withheld instead of scrubbed",
+            )
+            # Остаток, который скраббер нейтрализовать НЕ смог, не пишется
+            # вовсе. Все реальные образцы скраббер гасит, поэтому ветка
+            # проверяется подменой детектора, а не выдуманным «дырявым» входом.
+            residual = producer.scrubber.contains_residual_credential
+            producer.scrubber.contains_residual_credential = lambda _text: True
+            try:
+                classify_failure(stderr=b"leftover credential material")
+            finally:
+                producer.scrubber.contains_residual_credential = residual
+            withheld_row = json.loads(
+                log_path.read_text(encoding="utf-8").splitlines()[-1]
+            )
+            check(
+                withheld_row["withheld"] is True
+                and withheld_row["stdoutTail"] == ""
+                and withheld_row["stderrTail"] == "",
+                "a residual credential the scrubber could not neutralise was written out",
+            )
+        finally:
+            producer.set_transport_failure_log(None)
+
+        # Диагностика не может изменить вердикт: без журнала и с непишущимся
+        # журналом классификация та же (иначе почин вернул бы тот же класс —
+        # недоступность, осуждённая как UNVERIFIED, — с другой стороны).
+        check(
+            classify_failure(stderr=b"Selected model is at capacity") == "UNAVAILABLE",
+            "the capacity classification depends on an attached failure log",
+        )
+        blocked = failure_root / "blocked.json"
+        blocked_log = producer.transport_log_path(blocked)
+        blocked_log.mkdir(parents=True)
+        producer.set_transport_failure_log(producer.TransportFailureLog(blocked_log))
+        try:
+            check(
+                classify_failure(stderr=b"Selected model is at capacity") == "UNAVAILABLE",
+                "an unwritable failure log downgraded a proven transport unavailability",
+            )
+        finally:
+            producer.set_transport_failure_log(None)
+        # И отдельно ветка ЗАПИСИ: журнал открылся штатно, а к моменту отказа
+        # его путь стал непишущимся (временный каталог прошлого прогона исчез —
+        # ровно то, что делает стейл-синк в одном процессе).
+        vanished = failure_root / "vanished.json"
+        vanished_log = producer.transport_log_path(vanished)
+        producer.set_transport_failure_log(producer.TransportFailureLog(vanished_log))
+        try:
+            vanished_log.unlink()
+            vanished_log.mkdir()
+            check(
+                classify_failure(stderr=b"Selected model is at capacity") == "UNAVAILABLE",
+                "a failure log that became unwritable changed the transport verdict",
+            )
+            check(
+                classify_failure(stdout=b"reviewer exploded") == "UNVERIFIED",
+                "a failure log that became unwritable changed an unclassified failure",
+            )
+        finally:
+            producer.set_transport_failure_log(None)
+
     source = PRODUCER.read_text(encoding="utf-8")
     check("api.openai.com" not in source and "OPENAI_API_KEY" not in source,
           "producer contains a paid API dispatch path")
