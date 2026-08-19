@@ -1716,6 +1716,116 @@
           "guarded-pr-cli-regression"
         ]
       }
+    },
+    {
+      "id": "LPD002-R4-1-efficacy-oracle-runs-isolated",
+      "criterion": "tests/verify_independent_review_efficacy.py принимает ожидаемый дайджест keyring'а ЗНАЧЕНИЕМ (--expected-keyring-sha256 <64 строчных hex>) наравне с host-owned файлом (--expected-keyring-sha256-file); формы взаимоисключающие, ровно одна обязательна, обе сверяются с фактическим содержимым tracked .itd/REVIEW_EFFICACY_KEYRING.json. Отчёт называет источник авторизации честно: keyringAuthorization = host-pin | caller-pin. В дереве, содержащем только tracked-файлы (host-inputs/ не tracked, .gitignore:11), форма-значение даёт exit 0 -> efficacy-оракул впервые входит в машинную квитанцию; .itd/VERIFICATION_CONTRACT.json переведён на неё, tests/run-all.sh остаётся на host-пине и fail-closed без него. tests/verify_gate_registry_binding.py принимает ОБЕ формы пина, но ровно одну: файловая форма по-прежнему не может быть trustedVerifierPath (host-input под gitignore), а форма-значение сверяется с sha256 tracked .itd/REVIEW_EFFICACY_KEYRING.json — устаревший пин в контракте красил бы каждую машинную квитанцию по причине, не связанной с кандидатом.",
+      "source": "retro 2026-08-18 (E4+E7+E8+E11 -> P5+P6+P7+P11); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R4, approved владельцем.",
+      "evidence": "RED: `--expected-keyring-sha256 <hex>` разбирался argparse как аббревиатура файлового флага -> AssertionError: review keyring pin path is not the host contract. GREEN: обе формы exit 0 (caller-pin / host-pin); обе сразу -> argparse 'not allowed with argument'; ни одной -> 'one of the arguments ... is required'; чужой hex -> 'review efficacy keyring is not host-authorized'; мусорная форма значения -> 'malformed caller keyring pin was accepted' не срабатывает (проверка внутри main). Изоляция замерена: копия дерева из `git ls-files` без .itd-memory/host-inputs -> exit 0, keyringAuthorization caller-pin. Правка контракта поймана собственной проверкой контракта (run-all #1: FAIL verify_gate_registry_binding 'efficacy entry lost its required host pin flag') и закрыта по существу; мутации 13 (снять пин -> 'lost its required keyring pin flag') и 14 (чужой дайджест -> 'tracked keyring pin does not match') валят именованные проверки.",
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2 && python3 -I tests/verify_gate_registry_binding.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Оракул эффективности ревью запускается там, где живёт машинная квитанция, а сила авторизации дайджеста названа, а не подразумевается.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "efficacy-isolation-oracle",
+          "gate-registry-binding-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R4-2-honest-runner-flags",
+      "criterion": "tests/run-independent-review-efficacy.py: флаг --max-transport-attempts УДАЛЁН (он объявлял 1..N и отвергал всё, кроме 1), граница — константа TRANSPORT_ATTEMPT_BOUND = 1, которую использует сам цикл повторов; это исполнение .itd/DECISIONS.md:214 и :447, а не их правка. Успешный прогон не удаляет чекпоинт, а переименовывает его в <path>.done (finalize_checkpoint): след пройденного корпуса сохраняется, отсутствующий чекпоинт не порождает пустой маркер, повторное завершение заменяет маркер.",
+      "source": "retro 2026-08-18 (E4+E7+E8+E11 -> P5+P6+P7+P11); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R4, approved владельцем.",
+      "evidence": "RED: 'runner still exposes a retry knob it does not honour'. GREEN: PASS runner exposes no retry knob and keeps the decided bound of 1; PASS successful run preserves the checkpoint as <path>.done. Раннер отвергает флаг собственным парсером ('unrecognized arguments: --max-transport-attempts'). Ограничение: правка раннера обесценивает три подписанные efficacy-ноги (runnerSha256 пинится в verify_independent_review_efficacy.py:375) — перечеканены живьём на итоговом дереве PR.",
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Инструмент не обещает ретрая, которого не делает, и не стирает единственный след пройденного корпуса.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "efficacy-isolation-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R4-3-risk-tier-declared-at-activation",
+      "criterion": "skills/task/scripts/itd_unit_log.py activate требует --risk-tier из закрытого множества low|medium|high|unknown и пишет его в STATE.currentUnit.riskTier; отказ происходит ДО события и до записи STATE (ни events.jsonl, ни STATE.json не создаются). Требование безусловно: отличить пропуск от осознанного low по отсутствию флага невозможно, а unknown — честный выход для неклассифицированного риска, ведущий по строгому маршруту. Первые три значения обязаны совпадать с ключами riskRoutes в skills/_shared/PROPORTIONALITY_POLICY.json. Терминалы (verified/close/backfill-activation) флага не требуют.",
+      "source": "retro 2026-08-18 (E4+E7+E8+E11 -> P5+P6+P7+P11); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R4, approved владельцем.",
+      "evidence": "RED: 'error: unrecognized arguments: --risk-tier'. GREEN: activate-without-risk-tier-refused; refused-activation-writes-nothing; activate-rejects-unknown-risk-tier (invalid choice); declared-risk-tier-reaches-state (medium доезжает до STATE); risk-tiers-match-proportionality-policy; terminals-do-not-require-risk-tier. Побочно замерено: tests/verify_ledger_reconciliation.py читал events.jsonl без проверки, что писатель что-то записал, и падал трейсбеком вместо красной проверки — закрыто проверкой 'the writer produced an event log to read'.",
+      "verificationCommand": "python3 -I tests/verify_unit_log.py && python3 -I tests/verify_ledger_reconciliation.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Пропорциональность маршрута ревью объявляется тем же вызовом, который открывает цикл, а не дописывается в STATE руками.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "unit-log-oracle",
+          "ledger-reconciliation-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R4-4-canonical-verdict-template",
+      "criterion": "docs/templates/CHECKER_PROMPT.md существует, содержит буквальный блок отчёта {\"verdict\": \"PASSED\", \"findings\": [], \"unverified\": []} последним, называет все пять вердиктов закрытого множества ALLOWED_VERDICTS и показывает отвергаемую форму (PASS) рядом с принимаемой. Шаблон валидируется ТЕМ ЖЕ парсером, что и живой отчёт (itd_verification_loop.parse_report): расхождение шаблона с кодом — красный оракул. Скоуп — только шаблон; checker --dry-run не вводится.",
+      "source": "retro 2026-08-18 (E4+E7+E8+E11 -> P5+P6+P7+P11); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R4, approved владельцем.",
+      "evidence": "RED: файла docs/templates/CHECKER_PROMPT.md не существовало. GREEN: PASS checker prompt template exists; PASS checker prompt template ends with the canonical verdict block (parse_report -> {'verdict': 'PASSED', 'findings': [], 'unverified': []}); PASS checker prompt template names every allowed verdict; PASS checker prompt counter-example stays a rejected verdict (обрезанный до контр-примера шаблон -> LoopError). verify_verification_loop 83 -> 87 checks.",
+      "verificationCommand": "python3 -I tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Канонический вердикт выдаётся чекеру буквально и проверяется тем же кодом, который его принимает.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "verification-loop-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R4-5-named-explained-no-activation",
+      "criterion": "Диагностика 'verified без активации' названа машинно, а не предположена: единственный такой цикл в этом репо — RECONCILIATION / G-001 @ 2026-08-10T09:22:19Z (bulk-housekeeping строка, помечающая G-001 verified сразу в трёх axis-леджерах), и он уже объяснён записью с непустым why в .itd-memory/LEDGER-RECONCILIATION.json — дефекта писателя нет. Аномалией теперь считается только НЕобъяснённая строка: skills/_shared/itd_unit_lifecycle.py получает _explained()/unexplained_no_activation() и счётчик lifecyclesNoActivationUnexplained, itd_retro_scan.py — поле unitsVerifiedNoActivationUnexplained; объяснённая строка остаётся видимой в сыром счётчике, но факт ретро перестаёт кричать на объяснённую историю.",
+      "source": "retro 2026-08-18 (E4+E7+E8+E11 -> P5+P6+P7+P11); план .itd-memory/LPD-002_UNIT_PLAN.json пункт R4, approved владельцем.",
+      "evidence": "GREEN: an unexplained verified row without activation is an anomaly; the anomaly is named, not just counted; an explained row stays visible but stops being an anomaly; an entry without why explains nothing; an entry for another row does not explain this one; a properly activated cycle is never flagged as an anomaly; this repository has no unexplained verified-without-activation row (живой прогон: lifecyclesNoActivation 1, lifecyclesNoActivationUnexplained 0). verify_ledger_reconciliation 72 -> 83 checks; verify_retro_scan 23/23.",
+      "verificationCommand": "python3 -I tests/verify_ledger_reconciliation.py && python3 -I tests/verify_retro_scan.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Аномалия учёта — это необъяснённая потеря активации, а объяснённая историческая строка остаётся видимой и перестаёт быть ложным сигналом.",
+        "impactClasses": [
+          "reconciliation",
+          "correctness"
+        ],
+        "oracleIds": [
+          "ledger-reconciliation-oracle",
+          "retro-scan-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R4-6-source-not-stale-bytecode",
+      "criterion": "Оракул efficacy судит ИСХОДНИК, а не кэш байткода: load_module компилирует прочитанные байты файла вместо spec.loader.exec_module, который берёт __pycache__/*.pyc, если тот выглядит свежим по паре (mtime, size). Правка той же длины в пределах одной секунды — обычный случай при мутационном тестировании — иначе оставляет кэш «свежим», и вердикт относится к СТАРОМУ коду.",
+      "source": "Измерено в этой же сессии: мутация TRANSPORT_ATTEMPT_BOUND = 3 пережила откат файла и дала ложный красный на чистом дереве (run-all #2: FAIL verify_independent_review_efficacy 'transport attempt bound is not the decided 1' при исходнике = 1). Класс «bytecode drift» уже числится в BACKLOG (S7-U4).",
+      "evidence": "GREEN: PASS modules are judged from source, never from stale bytecode — герметичная проверка verify_source_loading() воспроизводит ровно этот случай (одинаковая длина, mtime возвращён через os.utime) и требует увидеть новое значение. Мутация 15 (вернуть spec.loader.exec_module) валит именно её: 'oracle judged cached bytecode, not the source'. После правки полный run-all -> DONE fails:none.",
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Вердикт оракула относится к тому коду, который лежит в дереве, а не к тому, что успел закэшироваться.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "efficacy-isolation-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -1734,7 +1844,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-R3",
+    "unitId": "LPD002-R4",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -1742,16 +1852,16 @@
       "mode": "evidence-first",
       "riskTier": "low",
       "requiredImpactClasses": [
-        "error-handling",
         "correctness",
-        "compatibility"
+        "repository-hygiene",
+        "reconciliation"
       ],
       "minimumIndependentReviewers": 0,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-19T08:08:32Z",
-    "scopeNote": "LPD-002 R3 (третий пункт approved-плана, WIP=1, riskTier low = machine_only, checker не требуется, pre-PR claim обязателен): itd pr create и itd gate ретраят ТОЛЬКО доказанно транспортные ошибки GitHub в границах (<=5, 15->30 с), не ретраят 401/403/422 и неизвестное, проверяют существующий PR перед каждой попыткой create, при исчерпании — typed UNAVAILABLE с подсказкой перепроверить gh pr view. skills/_shared/itd_gate_control.py не тронут (retry живёт в CLI над ним). С delivery-коммитом приезжают отметки закрытия R2 (план: R2 verified; STATE: currentUnit R2->R3) — отдельный ledger-close коммит не проходит evidence-first продюсера (HANDOFF-S10 §17.11, решение владельца). Идентификатор юнита — LPD002-R3 (префиксный выбор критериев)."
+    "openedAt": "2026-08-19T09:24:19Z",
+    "scopeNote": "LPD-002 R4 (четвёртый пункт approved-плана, WIP=1, riskTier low = machine_only, checker не требуется, pre-PR claim обязателен): пять независимых мелких трений маршрута — efficacy-оракул запускается в изоляции по дайджесту-значению; раннер efficacy лишён флага --max-transport-attempts (граница константой 1) и сохраняет чекпоинт как <path>.done; itd_unit_log.py activate требует --risk-tier и пишет его в STATE; docs/templates/CHECKER_PROMPT.md несёт канонический блок вердикта, проверяемый тем же парсером; цикл 'verified без активации' назван (RECONCILIATION/G-001 @ 2026-08-10T09:22:19Z) и отделён от необъяснённых счётчиком lifecyclesNoActivationUnexplained. Правка раннера обесценивает подписанные efficacy-ноги, а правка skills/ — live-evidence пин: обе перечеканки едут отдельными коммитами на итоговом дереве. С delivery-коммитом приезжают отметки закрытия R3 (план: R3 verified; STATE: currentUnit R3->R4) — отдельный ledger-close коммит не проходит evidence-first продюсера (HANDOFF-S10 §17.11, решение владельца). Идентификатор юнита — LPD002-R4 (префиксный выбор критериев)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

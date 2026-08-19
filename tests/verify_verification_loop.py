@@ -1117,5 +1117,38 @@ with tempfile.TemporaryDirectory(prefix="weak-loop-policy-") as td:
     finally:
         module.POLICY_PATH = original
 
+# --- checker prompt template (LPD-002 R4d) ---------------------------------
+# Incident E8 (retro 2026-08-18): a fresh checker wrote "PASS" instead of
+# "PASSED", the receipt became UNVERIFIED and the whole review was re-run. The
+# template is the single place that hands the checker the literal verdict
+# block, so it is validated by the SAME parser the loop uses — a template that
+# drifts from ALLOWED_VERDICTS is a red oracle, not a documentation nit.
+TEMPLATE = ROOT / "docs" / "templates" / "CHECKER_PROMPT.md"
+check("checker prompt template exists", TEMPLATE.is_file(), str(TEMPLATE))
+if TEMPLATE.is_file():
+    template_text = TEMPLATE.read_text(encoding="utf-8")
+    parsed = None
+    try:
+        parsed = module.parse_report(template_text)
+    except module.LoopError as exc:
+        parsed = {"error": str(exc)}
+    check("checker prompt template ends with the canonical verdict block",
+          parsed == {"verdict": "PASSED", "findings": [], "unverified": []},
+          repr(parsed))
+    check("checker prompt template names every allowed verdict",
+          all(verdict in template_text for verdict in module.ALLOWED_VERDICTS),
+          repr(sorted(v for v in module.ALLOWED_VERDICTS
+                      if v not in template_text)))
+    # The template deliberately shows the rejected form ("PASS"). It must stay
+    # rejected: if the parser ever accepted it, the counter-example would teach
+    # the exact defect it warns about.
+    rejected_only = template_text.split('That block above is the')[0]
+    refused = False
+    try:
+        module.parse_report(rejected_only)
+    except module.LoopError:
+        refused = True
+    check("checker prompt counter-example stays a rejected verdict", refused)
+
 print(f"\n{PASSED} passed, {FAILED} failed")
 raise SystemExit(1 if FAILED else 0)

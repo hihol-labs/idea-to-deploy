@@ -72,7 +72,7 @@
     },
     {
       "id": "independent-review-efficacy",
-      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_independent_review_efficacy.py", "--expected-keyring-sha256-file", ".itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256"],
+      "argv": ["sh", "skills/_shared/itd_py.sh", "--itd-isolated", "tests/verify_independent_review_efficacy.py", "--expected-keyring-sha256", "dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2"],
       "trustedVerifierPaths": ["tests", "skills/_shared/itd_py.sh", "tests/verify_independent_review_efficacy.py", "tests/run-independent-review-efficacy.py", "benchmarks/independent-review-efficacy/cases.json"],
       "timeoutSeconds": 120,
       "expectedOutput": "\"status\": \"PASSED\"",

@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Route friction, five measured taxes (LPD-002 R4)** — retro 2026-08-18
+  signals E4+E7+E8+E11.
+  - `tests/verify_independent_review_efficacy.py` now accepts the expected
+    keyring digest **by value** (`--expected-keyring-sha256 <hex>`) next to the
+    host-owned pin file, which lives in the gitignored `.itd-memory/` and made
+    the oracle unrunnable in an isolated machine worktree. Exactly one form is
+    required, both are checked against the tracked keyring, and the report says
+    which authority was used (`keyringAuthorization: host-pin | caller-pin`) —
+    a digest in the tree is weaker than a host-owned file and the evidence now
+    says so. `.itd/VERIFICATION_CONTRACT.json` switched to the value form, so
+    the efficacy oracle enters a machine receipt for the first time;
+    `tests/run-all.sh` stays on the host pin and fail-closed without it.
+  - `tests/run-independent-review-efficacy.py` lost `--max-transport-attempts`.
+    It advertised 1..N and rejected everything but 1; the bound is now the
+    constant `TRANSPORT_ATTEMPT_BOUND = 1`, which *enforces* the existing
+    decision (`.itd/DECISIONS.md:214`, `:447`) instead of amending it. A
+    successful run renames its checkpoint to `<path>.done` instead of deleting
+    it, so the trail of an answered corpus survives.
+  - `itd_unit_log.py activate` requires `--risk-tier low|medium|high|unknown`
+    and writes it into `STATE.currentUnit`; the refusal happens before any event
+    or state is written. `riskTier` had been hand-edited into STATE on S10, S11
+    and R1-R3, which also left `detected_risk_tier` falling through to
+    `unknown` in the review cache.
+  - New `docs/templates/CHECKER_PROMPT.md` carries the literal verdict block and
+    shows the rejected form (`PASS`) beside the accepted one; it is validated by
+    the same `parse_report`/`ALLOWED_VERDICTS` the live loop uses, so template
+    drift is a red oracle rather than a documentation nit.
+  - Two defects found by the unit's own evidence, fixed rather than worked
+    around: `tests/verify_gate_registry_binding.py` pinned the efficacy entry to
+    the file form of the flag, so it now accepts either form but exactly one —
+    and checks a tracked digest against `.itd/REVIEW_EFFICACY_KEYRING.json`,
+    since a stale pin would redden every machine receipt for a reason unrelated
+    to the candidate. And the efficacy oracle judged **cached bytecode**: a
+    same-length edit within one second leaves `__pycache__` looking fresh by
+    (mtime, size), so `load_module` now compiles the file's bytes, guarded by
+    `verify_source_loading()`.
+  - Ledger diagnostics separate an explained historical row from a writer
+    anomaly: `lifecyclesNoActivationUnexplained` /
+    `unexplained_no_activation()` in `skills/_shared/itd_unit_lifecycle.py` and
+    `unitsVerifiedNoActivationUnexplained` in the retro scan. The single
+    verified-without-activation row in this repository is named —
+    `RECONCILIATION / G-001 @ 2026-08-10T09:22:19Z` — and is already explained
+    in `.itd-memory/LEDGER-RECONCILIATION.json`, so there is no writer defect.
+
 ## [1.98.0] - 2026-08-18
 
 ### Added
@@ -82,6 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   needs a host-input outside the tree and cannot run in the isolated machine
   worktree. `run-independent-review-efficacy.py --max-transport-attempts`
   accepts only 1. `itd_unit_log.py activate` has no `--risk-tier`.
+  (The last three are closed by LPD-002 R4, see Unreleased.)
 
 ## [1.97.0] - 2026-08-16
 

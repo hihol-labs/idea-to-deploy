@@ -264,6 +264,28 @@ def signed_evidence(payload: dict[str, Any], key_id: str, private_key: bytes) ->
     return {"signed": signed, "signatureHex": signature.hex()}
 
 
+# Ровно одна попытка транспорта на кейс — это ИЗМЕРЯЕМАЯ хрупкость, а не
+# недоделка (.itd/DECISIONS.md:214 и :447, .itd/GPG-004_A16_TRANSPORT.md:102):
+# автоматический повтор внутри обязательного маршрута спрятал бы то, что этот
+# бенчмарк как раз измеряет. Флаг `--max-transport-attempts` обещал 1..N, но
+# отвергал всё, кроме 1 — обещание, которого нет (retro 2026-08-18, E7/P6).
+TRANSPORT_ATTEMPT_BOUND = 1
+
+
+def finalize_checkpoint(path: Path) -> Path:
+    """Успешный прогон СОХРАНЯЕТ чекпоинт как `<path>.done`, а не удаляет.
+
+    Удаление стирало единственный след того, какие кейсы уже отвечены: после
+    успеха повторный запуск начинал корпус с нуля (retro 2026-08-18, E7/P6).
+    Маркер завершения одновременно отличает «прогон дошёл до конца» от
+    «оборван на середине» без чтения подписанного результата.
+    """
+    done = path.with_name(path.name + ".done")
+    if path.exists():
+        os.replace(path, done)
+    return done
+
+
 def checkpoint_context(
     *, host: str, manifest_raw: bytes, producer_raw: bytes, runner_raw: bytes,
     maker_model: str, maker_provider: str, model: str,
@@ -391,7 +413,6 @@ def main() -> int:
     parser.add_argument("--maker-model", required=True)
     parser.add_argument("--maker-provider", default="openai-subscription")
     parser.add_argument("--model", default="gpt-5.6-terra")
-    parser.add_argument("--max-transport-attempts", type=int, default=1)
     parser.add_argument("--signing-key", type=Path, required=True)
     parser.add_argument("--key-id", required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -402,15 +423,6 @@ def main() -> int:
         print(
             json.dumps(
                 {"status": "UNVERIFIED", "reason": "host is unsupported"},
-                sort_keys=True,
-            ),
-            file=sys.stderr,
-        )
-        return 4
-    if args.max_transport_attempts != 1:
-        print(
-            json.dumps(
-                {"status": "UNVERIFIED", "reason": "retry bound is invalid"},
                 sort_keys=True,
             ),
             file=sys.stderr,
@@ -500,7 +512,7 @@ def main() -> int:
         session = ""
         observed_model = ""
         attempts = 0
-        for attempts in range(1, args.max_transport_attempts + 1):
+        for attempts in range(1, TRANSPORT_ATTEMPT_BOUND + 1):
             try:
                 report, session, observed_model = producer.run_codex_review(
                     prompt,
@@ -513,7 +525,7 @@ def main() -> int:
                 )
                 break
             except producer.FreeReviewError as exc:
-                if exc.status != "UNAVAILABLE" or attempts >= args.max_transport_attempts:
+                if exc.status != "UNAVAILABLE" or attempts >= TRANSPORT_ATTEMPT_BOUND:
                     print(
                         json.dumps(
                             {
@@ -596,8 +608,9 @@ def main() -> int:
     producer.write_json(
         args.output, signed_evidence(payload, args.key_id, private_key)
     )
-    args.checkpoint.unlink(missing_ok=True)
-    print(json.dumps({"status": "PASSED", "host": observed_host}, sort_keys=True))
+    completed = finalize_checkpoint(args.checkpoint)
+    print(json.dumps({"status": "PASSED", "host": observed_host,
+                      "checkpoint": completed.name}, sort_keys=True))
     return 0
 
 

@@ -326,7 +326,10 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
    закрываем/переклассифицируем?» Proceed only after an explicit choice.
    (Скрипт продублирует WIP=1 fail-closed — но спросить пользователя обязан ты.)
 2. **On activation** —
-   `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" activate U-<next> --goal "<one-line task>"`
+   `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" activate U-<next> --goal "<one-line task>" --risk-tier <low|medium|high|unknown>`
+   (`--risk-tier` обязателен: маршрут ревью пропорционален тиру, а тир не
+   выводится из имени юнита; неклассифицированный риск объявляется как
+   `unknown` и идёт по строгому маршруту)
    — скрипт сам выставит `currentUnit` (атомарно) и запишет событие
    `activated` (actor: harness).
 3. **On verified completion** (the target skill's adjudication receipt passed

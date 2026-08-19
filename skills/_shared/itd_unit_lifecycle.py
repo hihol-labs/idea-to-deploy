@@ -339,6 +339,16 @@ def build(mem: Path) -> dict:
         # так закрываются циклы, чья активация предшествует самому логу.
         "lifecyclesNoActivation": sum(
             1 for lc in lifecycles if lc["noActivation"] and lc["outcome"] == "verified"),
+        # Объяснённая историческая строка — НЕ аномалия писателя. Живой
+        # пример: одна bulk-housekeeping строка 2026-08-10 помечает G-001
+        # verified сразу в трёх axis-леджерах, поэтому не принадлежит ни
+        # одному и объяснена записью в LEDGER-RECONCILIATION.json. Пока скан
+        # считал её вместе с настоящими потерями активации, факт «Аномалия
+        # учёта: 1» кричал в каждом ретро и обесценивал сигнал (LPD-002 R4e).
+        "lifecyclesNoActivationUnexplained": sum(
+            1 for lc in lifecycles if lc["noActivation"]
+            and lc["outcome"] == "verified"
+            and not _explained(reconciliation, lc)),
         "lifecyclesReconciledTerminal": sum(
             1 for lc in lifecycles if lc["noActivation"] and lc["outcome"] != "verified"),
         "lifecyclesReverified": sum(1 for lc in lifecycles if lc["reverification"]),
@@ -346,6 +356,32 @@ def build(mem: Path) -> dict:
         "unattributedSample": unattributed[:20],
         "vcr": round(verified / denominator, 3) if denominator else None,
     }
+
+
+def _explained(reconciliation: dict, lc: dict) -> bool:
+    """Есть ли для строки цикла запись реконсиляции с непустым `why`.
+
+    Ключ манифеста — (unit, at) конкретной СТРОКИ; у цикла без активации
+    начало и конец — одно и то же событие, но сверяются оба конца: цикл,
+    объяснённый по любому из своих терминалов, объяснён.
+    """
+    return bool({(lc["unit"], lc["startedAt"]), (lc["unit"], lc["endedAt"])}
+                & set(reconciliation))
+
+
+def unexplained_no_activation(mem: Path) -> list[dict]:
+    """Циклы `verified` без активации, НИЧЕМ не объяснённые.
+
+    Это и есть аномалия писателя: потерянное событие `activated`. Строка,
+    объяснённая записью с непустым `why` в LEDGER-RECONCILIATION.json,
+    остаётся видимой в `lifecyclesNoActivation`, но из аномалий уходит —
+    иначе объяснить историю невозможно, и факт ретро врёт навсегда.
+    """
+    mem = Path(mem)
+    reconciliation = load_reconciliation(mem)
+    return [lc for lc in build(mem)["lifecycles"]
+            if lc["noActivation"] and lc["outcome"] == "verified"
+            and not _explained(reconciliation, lc)]
 
 
 def has_activation(mem: Path, unit_id: str, ledger: str) -> bool:

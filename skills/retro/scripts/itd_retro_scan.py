@@ -97,6 +97,11 @@ def scan_project(mem: Path) -> dict:
     p["unitsActivated"] = lc["lifecyclesTotal"]
     p["unitsVerified"] = lc["lifecyclesVerified"]
     p["unitsVerifiedNoActivation"] = lc["lifecyclesNoActivation"]
+    # Аномалией писателя считается только НЕобъяснённая строка: объяснённая
+    # запись в LEDGER-RECONCILIATION.json остаётся видимой, но перестаёт
+    # кричать в каждом ретро (LPD-002 R4e; живой пример — bulk-housekeeping
+    # G-001 @ 2026-08-10T09:22:19Z, помеченный verified сразу в трёх леджерах).
+    p["unitsVerifiedNoActivationUnexplained"] = lc["lifecyclesNoActivationUnexplained"]
     p["unitsBlocked"] = lc["lifecyclesBlocked"]
     p["unitsOpen"] = lc["lifecyclesOpen"]
     p["unitsWip"] = lc["lifecyclesWip"]
@@ -417,6 +422,8 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
     activated = sum(p["unitsActivated"] for p in projects)
     verified = sum(p["unitsVerified"] for p in projects)
     no_activation = sum(p.get("unitsVerifiedNoActivation", 0) for p in projects)
+    no_activation_unexplained = sum(
+        p.get("unitsVerifiedNoActivationUnexplained", 0) for p in projects)
     denominator = (activated
                    - sum(p.get("unitsExcluded", 0) for p in projects)
                    - sum(p.get("unitsWip", 0) for p in projects))
@@ -426,6 +433,7 @@ def build(workspaces: list[Path], tmp_dir: Path) -> dict:
         "unitsActivated": activated,
         "unitsVerified": verified,
         "unitsVerifiedNoActivation": no_activation,
+        "unitsVerifiedNoActivationUnexplained": no_activation_unexplained,
         "unitsBlocked": sum(p.get("unitsBlocked", 0) for p in projects),
         "unitsExcluded": sum(p.get("unitsExcluded", 0) for p in projects),
         "unitsOpen": sum(p.get("unitsOpen", 0) for p in projects),
@@ -475,10 +483,15 @@ def render_markdown(r: dict) -> str:
                f"(blocked {r.get('unitsBlocked', 0)}), wip {r.get('unitsWip', 0)}), "
                f"регрессий: {r['regressions']}, "
                f"проваленных верификаций: {r['failedVerifications']}")
-    if r.get("unitsVerifiedNoActivation"):
-        out.append(f"**Аномалия учёта:** {r['unitsVerifiedNoActivation']} юнит(ов) "
-                   f"verified без записанного activation-события — писатель "
+    if r.get("unitsVerifiedNoActivationUnexplained"):
+        out.append(f"**Аномалия учёта:** {r['unitsVerifiedNoActivationUnexplained']} "
+                   f"юнит(ов) verified без записанного activation-события — писатель "
                    f"активаций теряет события (сигнал для /retro, не для VCR>1)")
+    elif r.get("unitsVerifiedNoActivation"):
+        out.append(f"**Учёт:** {r['unitsVerifiedNoActivation']} юнит(ов) verified без "
+                   f"activation-события, и все объяснены записями в "
+                   f".itd-memory/LEDGER-RECONCILIATION.json — историческая строка, "
+                   f"не потеря писателя")
     if r.get("unattributedEvents"):
         out.append(f"**Неатрибутированные unit-события:** {r['unattributedEvents']} — "
                    f"строка не сводится ни к одному леджеру; объясни её в "
