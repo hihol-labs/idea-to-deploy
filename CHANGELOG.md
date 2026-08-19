@@ -156,8 +156,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (57 → 86 checks): drop every edge to a suite → completeness fails; drop an
     owned source's edges → completeness fails; declare every node adjacent to
     every suite → proportionality fails; stale node / stale target / wrong
-    schema fail; three engine mutants (unattached-, orphan-, saturation-
-    blindness) are each killed.
+    schema fail; four engine mutants (unattached-, orphan-, saturation-
+    blindness, and the early-return bypass of the impactGraph/impactGraphPath
+    exclusivity rule found by the cross-vendor pre-PR review) are each killed.
   - The RED run of the audit on the pre-R6 tree found two real gaps, closed at
     the root rather than by a declared edge: `hooks/completion-stop.sh` had no
     owning suite at all (now exercised directly by
