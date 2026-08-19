@@ -976,6 +976,32 @@ def main() -> int:
                     is (state_mode == "modify"),
                     f"candidate ledger facts are not resolved ({label})",
                 )
+                # An unreadable base contract declines the class rather than
+                # aborting the packet: _git_blob raises FreeReviewError, and
+                # letting it escape would turn "not a ledger close" into
+                # UNVERIFIED for the whole candidate (producer review finding).
+                original_blob = producer._git_blob
+
+                def refusing_blob(*_args, **_kwargs):
+                    raise producer.FreeReviewError(
+                        "UNVERIFIED", "staged Git blob binding is invalid"
+                    )
+
+                producer._git_blob = refusing_blob
+                try:
+                    degraded = producer._candidate_ledger_facts(
+                        ledger_repo.resolve(), l_parent, l_contract,
+                    )
+                except producer.FreeReviewError:
+                    degraded = "escaped"
+                finally:
+                    producer._git_blob = original_blob
+                check(
+                    isinstance(degraded, dict)
+                    and degraded["contractBefore"] is None,
+                    f"an unreadable base contract aborted the packet ({label})",
+                )
+
                 ledger_packet = producer.freeze_packet(
                     root=ledger_repo, base_commit=l_parent,
                     repository="hihol-labs/idea-to-deploy", pull_request=None,

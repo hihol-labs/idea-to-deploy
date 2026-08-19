@@ -912,7 +912,12 @@ def _candidate_ledger_facts(
             continue
         try:
             value = json.loads(_git_blob(root, row["baseBlobSha"]).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError, FreeReviewError):
+            # An unreadable base contract declines the ledger-close class; it
+            # does not abort the packet. The ordinary route is strictly
+            # stricter, so falling back to it is always the safe answer - and
+            # the inventory that named this row was produced by the same git,
+            # so a failure here is about this blob, not about git itself.
             value = None
         if isinstance(value, dict):
             before = value

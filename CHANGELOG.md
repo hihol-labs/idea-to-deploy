@@ -59,8 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     grows an end-to-end case that stages a genuine ledger close in a real
     repository whose contract lives inside it, because every previous fixture
     kept the acceptance file beside the repo and so never reached the git
-    plumbing at all. 19 mutations, all lethal with a named check; the producer suite grows 228 -> 244 checks.
-  - Six guarantees survived a mutation pass or an independent review round and
+    plumbing at all. 20 mutations, all lethal with a named check; the producer suite grows 228 -> 249 checks.
+  - `.itd/DECISIONS.md` enters version control (`git add -f`). `.itd/` is
+    excluded through `.git/info/exclude` and the journal was created after that,
+    so the durable decisions this and every earlier unit recorded did not
+    survive a clone and were invisible in any reviewed diff - while
+    `.itd/ACCEPTANCE_CONTRACT.json` and `.itd/SCOPE_LOCK.md`, added before the
+    exclusion, were tracked all along.
+  - Seven guarantees survived a mutation pass or an independent review round and
     were fixed at the root rather than in the test: a guard unreachable from its
     only caller is now exercised by a direct call; a provably redundant final
     check was deleted with its dead branch; the `isinstance` guard on the base
@@ -69,9 +75,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     contract transition inside the diff, because without it any later
     `STATE.json`-only commit would have inherited an unrelated closed unit's
     coverage; and the git plumbing that supplies the candidate facts is now
-    exercised against a real repository; and the git *status* of both rows is
-    now checked, because path membership alone let a candidate that adds or
-    deletes `STATE.json` be announced to the reviewer as routine bookkeeping.
+    exercised against a real repository; the git *status* of both rows is now
+    checked, because path membership alone let a candidate that adds or deletes
+    `STATE.json` be announced to the reviewer as routine bookkeeping; and an
+    unreadable base contract now declines the class instead of aborting the
+    packet, since `FreeReviewError` from the blob read escaped the decode
+    handler and turned "not a ledger close" into `UNVERIFIED` for the whole
+    candidate.
 - **Route friction, five measured taxes (LPD-002 R4)** — retro 2026-08-18
   signals E4+E7+E8+E11.
   - `tests/verify_independent_review_efficacy.py` now accepts the expected
