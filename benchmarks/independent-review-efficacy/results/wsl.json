@@ -1,5 +1,5 @@
 {
-  "signatureHex": "2e3071f2a0423de256e9bbcb1033b9a1c109651cb21a8861a8499a33a5a5a37c626f881297e752139b4d11528069ecfa19e9173380c5aa937502938bdd634a09",
+  "signatureHex": "d4e9312103e6fa110da07a99e59e179881883f80316aafc5ca850a3510c087d93d098a34cbe9eb208faf03358b385123fac22d158997e7cf2f5aa28adfd05e0d",
   "signed": {
     "cases": [
       {
@@ -10,21 +10,21 @@
         "report": {
           "findings": [
             {
-              "category": "capacity/specification compliance",
+              "category": "scale/specification compliance",
               "confidence": "high",
               "file": "src/export.ts",
-              "line": 5,
+              "line": 4,
               "severity": "high",
-              "summary": "The conversion-document expansion projects 1,807,231 data rows, exceeding Excel's 1,048,576-row worksheet limit even before any header row. The declared EXCEL_MAX_ROWS constant is never enforced, so the required ordinary single-sheet export cannot remain within worksheet capacity and may fail or produce a truncated/corrupt download."
+              "summary": "The export expands each lot/order into one row per conversion document, producing a projected 1,807,231 rows—758,655 above Excel's 1,048,576-row worksheet limit. EXCEL_MAX_ROWS is declared but never enforced, so the required single-sheet workbook cannot satisfy the capacity guarantee and may fail during browser generation or produce an invalid/truncated export."
             }
           ],
           "unverified": [
-            "Download behavior and error handling cannot be verified because writeSingleBrowserWorksheet and its handling of oversized inputs are not shown.",
-            "Tests covering the worksheet row boundary, header-row accounting, and default annual dataset are not shown."
+            "No tests or error-handling behavior are shown to verify that oversized exports remain downloadable, fail safely, or reconcile all source records without silent loss.",
+            "Browser memory/runtime feasibility for materializing the full expanded rows array and generating the workbook is not established."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01966-1c3d-7b51-b488-cd21c66eb109"
+        "session": "01a01a54-9217-7121-8ce2-12e48f5e2c81"
       },
       {
         "attempts": 1,
@@ -39,24 +39,15 @@
               "file": "src/turnover.ts",
               "line": 4,
               "severity": "high",
-              "summary": "displayedClosing omits supported fx_other consumption, so the displayed closing balance is overstated by the fx_other total (observed as 1,494,440 TRY) and cannot reconcile exactly for all supported consumption types."
-            },
-            {
-              "category": "specification-compliance",
-              "confidence": "high",
-              "file": "src/turnover.ts",
-              "line": 1,
-              "severity": "high",
-              "summary": "The change only calculates a closing value; it does not display or return the required exact opening, inflow, per-consumer-category outflow, conversion, and closing turnover."
+              "summary": "displayedClosing omits the supported fx_other consumption category, so its 1,494,440 TRY total is not deducted and the displayed turnover cannot reconcile exactly to the true closing balance."
             }
           ],
           "unverified": [
-            "No tests are shown to verify exact reconciliation across expense, fx_eur, and fx_other, including mixed-consumption pools.",
-            "The supplied diff does not define Pool or sum, so numeric precision, currency-unit handling, and behavior for invalid or missing values cannot be verified."
+            "The supplied diff does not show Pool and sum definitions, numeric representation/rounding behavior, category-level opening/inflow/outflow/conversion display logic, or tests, so those acceptance contours cannot be verified."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01966-6334-7270-b5b8-57365936a8ef"
+        "session": "01a01a55-24df-7413-b713-12caf0f773fb"
       },
       {
         "attempts": 1,
@@ -66,37 +57,30 @@
         "report": {
           "findings": [
             {
-              "category": "reconciliation",
+              "category": "correctness/reconciliation",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 2,
               "severity": "high",
-              "summary": "Each detail amount is rounded independently, but no residual-cent adjustment reconciles the rounded rows to the currency-rounded source total. Consequently, the returned sum can differ from the source amount, directly violating the acceptance criterion and matching the reported aggregate drift."
+              "summary": "Each detail amount is rounded independently, so rounding residuals accumulate and the returned amounts are not guaranteed to sum to the currency-rounded source amount. The supplied evidence reports a 1578 TRY aggregate drift, directly violating exact source-total preservation; allocate the residual cents deterministically across rows after computing a cent-based target."
             },
             {
-              "category": "specification-compliance",
+              "category": "input validation/numerical stability",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 2,
-              "severity": "high",
-              "summary": "The function does not validate or normalize shares, so shares that do not sum exactly to 1 (or contain negative/non-finite values) can produce allocations whose total is unrelated to the source amount."
-            },
-            {
-              "category": "numerical-stability",
-              "confidence": "medium",
-              "file": "src/allocation.ts",
-              "line": 3,
               "severity": "medium",
-              "summary": "Binary floating-point multiplication and Math.round introduce boundary-sensitive currency rounding; values near half-cent thresholds can round unexpectedly, and large/non-finite inputs are not handled."
+              "summary": "The implementation neither validates nor normalizes shares, and accepts empty arrays, non-finite values, negative shares, or shares whose total differs from 1; these inputs can produce missing, invalid, or materially mismatched allocations instead of rejecting them."
             }
           ],
           "unverified": [
-            "No tests are supplied for exact per-source reconciliation, positive and negative amounts, fractional-cent boundaries, zero/empty shares, invalid shares, or large values.",
-            "The expected policy for distributing residual cents among detail rows cannot be verified from the supplied material."
+            "No tests are shown for positive and negative sources, fractional-cent ties, zero or empty shares, many-row allocations, invalid/non-finite inputs, or deterministic residual-cent distribution.",
+            "The required currency rounding rule for half-cent ties and negative amounts is unspecified; Math.round uses JavaScript semantics that may not match the accounting rule.",
+            "Because repository contents are unavailable, integration behavior, caller-side share guarantees, generated artifacts, and export-level reconciliation cannot be verified."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01967-2907-71d1-9f62-1aac18cef129"
+        "session": "01a01a55-c651-7281-8c45-566cfe88734a"
       },
       {
         "attempts": 1,
@@ -106,7 +90,7 @@
         "report": {
           "findings": [
             {
-              "category": "specification-compliance",
+              "category": "specification compliance",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
@@ -114,18 +98,18 @@
               "summary": "The verify script no longer runs `prisma generate`, so generated clients are not refreshed before typecheck after schema changes."
             },
             {
-              "category": "error-handling",
+              "category": "error handling",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
               "severity": "high",
-              "summary": "The `|| echo existing Prisma mismatch` fallback converts every TypeScript failure into a successful exit, making the release gate pass despite typecheck errors and masking failures unrelated to Prisma."
+              "summary": "The `|| echo existing Prisma mismatch` fallback converts every non-zero TypeScript result into a successful script exit, allowing genuine typecheck failures to pass the release gate."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a01967-adc0-7221-b909-9b556b1481b7"
+        "session": "01a01a56-4e2a-7fa2-a736-45328d4eec3e"
       },
       {
         "attempts": 1,
@@ -135,28 +119,26 @@
         "report": {
           "findings": [
             {
-              "category": "repository_hygiene",
+              "category": "repository hygiene",
               "confidence": "high",
               "file": "review-tools/local_probe.py",
               "line": 1,
               "severity": "high",
-              "summary": "A file explicitly identified as a temporary local reviewer probe is added to the release tree, violating the frozen scope and acceptance criteria."
+              "summary": "A temporary reviewer probe is included in the release tree despite the frozen acceptance criterion limiting shipped content to product and durable public methodology artifacts."
             },
             {
-              "category": "repository_hygiene",
+              "category": "repository hygiene",
               "confidence": "high",
               "file": "ROOT_CAUSE.md",
               "line": 1,
               "severity": "high",
-              "summary": "Private scratch notes from the review run are added to the release tree, violating the frozen acceptance criteria."
+              "summary": "Private root-cause scratch notes are included in the release tree, directly violating the frozen acceptance criterion."
             }
           ],
-          "unverified": [
-            "The supplied diff provides no evidence about tests or whether other changed/generated artifacts are fresh; these contours cannot be verified from the provided text."
-          ],
+          "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a01968-092f-7701-b4c2-8ba232884cf9"
+        "session": "01a01a56-e965-7983-a024-31f91208be1b"
       },
       {
         "attempts": 1,
@@ -168,7 +150,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01968-4503-74c3-8bcf-d3d0dc732a23"
+        "session": "01a01a57-2eba-7690-ac4f-ebaf147aa492"
       },
       {
         "attempts": 1,
@@ -180,7 +162,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01968-9a30-7c93-ae03-ff347d0f76de"
+        "session": "01a01a57-b136-7d73-a498-a7e3baf3ced2"
       },
       {
         "attempts": 1,
@@ -192,7 +174,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01969-1988-7092-8a87-80f2c586d587"
+        "session": "01a01a58-08fa-7612-b52a-7e59f3bd5513"
       },
       {
         "attempts": 1,
@@ -204,7 +186,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01969-5c8f-7191-95ba-5b45ce95a915"
+        "session": "01a01a58-8030-7381-b178-7f0a5e25d8eb"
       }
     ],
     "host": "wsl",
@@ -217,8 +199,8 @@
     "keyId": "gpg003-local-producer-20260803",
     "kind": "itd-independent-review-semantic-efficacy-run",
     "manifestSha256": "740a3538f32121e97698cc8cfe1af0dc027ed37759f02df7702e44891fb42342",
-    "observedAt": "2026-08-19T09:45:50Z",
-    "producerSha256": "36157b8365fd39e6a809b8bdd19238b77f65059ea9118ace0b22b939cd42bd51",
+    "observedAt": "2026-08-19T14:06:59Z",
+    "producerSha256": "8d5a4f9a59572e6a366306e0fa61bf22c812c1e7d51bf4fd719a7de25442ef13",
     "reviewer": {
       "isolation": {
         "ephemeral": true,
@@ -238,8 +220,8 @@
       "provider": "openai-subscription",
       "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
       "requestedModel": "gpt-5.6-sol",
-      "runtimeVersion": "0.146.0",
-      "transportExecutableSha256": "2e863156ed35ecc5253b1e2f907a9143077b9f7cb51942070c61996471ff6e04"
+      "runtimeVersion": "0.144.3",
+      "transportExecutableSha256": "37e6f5953f191b04f7b62cb07dae90f51d0947ad89f0355665b421fbde28700b"
     },
     "runnerSha256": "a4292ce10828a41d8bae5e4c6b4646b4d268847108e070b6b70004eaad561a9c",
     "version": 1
