@@ -174,7 +174,12 @@ def run(
         if writer.is_alive() or errors:
             raise gate.GateError("UNAVAILABLE", "command input failed")
     if result["timedOut"]:
-        raise gate.GateError("UNAVAILABLE", f"command unavailable: {command[0]}")
+        # A silent subprocess is not a missing binary: `git ls-remote` that
+        # hangs on a TLS handshake used to surface as `command unavailable:
+        # git` and sent the operator after the local toolchain (LPD-002 R3).
+        raise gate.GateError(
+            "UNAVAILABLE", f"{command[0]} timed out after {timeout}s"
+        )
     if result["outputOverflow"]:
         raise gate.GateError("UNVERIFIED", "command output exceeds its bound")
     completed = subprocess.CompletedProcess(
@@ -205,6 +210,134 @@ def run_json(
         raise gate.GateError(
             "UNVERIFIED", f"{command[0]} returned invalid JSON"
         ) from exc
+
+
+# --- LPD-002 R3: a transport flake is retried in bounds; rights are not. ---
+#
+# Measured on the live route (publication of R2, 2026-08-18): `itd pr create`
+# failed twice on TLS handshake timeouts to api.github.com after the push had
+# already landed, and the operator's fix was to re-run the command by hand
+# two to five times.  The retry below makes that routine, and only that:
+# the vocabulary is a closed set of transport markers, an authorization or
+# validation status (401/403/422) wins over any marker in the same reason,
+# and an unclassified failure is not retried at all.
+TRANSPORT_RETRY_ATTEMPTS = 5
+TRANSPORT_RETRY_BASE_SECONDS = 15
+TRANSPORT_RETRY_MAX_SECONDS = 30
+TRANSPORT_STATE_HINT = (
+    "state may have applied; re-check with gh pr view before retrying"
+)
+TRANSPORT_FAILURE_MARKERS = (
+    "tls handshake timeout",
+    "tls handshake eof",
+    "timed out after",
+    "request timed out",
+    "operation timed out",
+    "connection timed out",
+    "i/o timeout",
+    "client.timeout",
+    "connection reset",
+    "connection refused",
+    "unexpected eof",
+    "error connecting to",
+    "failed to connect",
+    "could not resolve host",
+    "no such host",
+    "unable to access",
+    "dial tcp",
+    "net/http:",
+    "ssl_connect",
+    "gnutls_handshake",
+    "temporarily unavailable",
+    "service unavailable",
+    "bad gateway",
+    "gateway timeout",
+    "http 500",
+    "http 502",
+    "http 503",
+    "http 504",
+)
+NON_RETRYABLE_HTTP_RE = re.compile(r"\bHTTP (401|403|422)\b", re.IGNORECASE)
+
+
+def transport_failure(exc: BaseException) -> bool:
+    """True only for a proven transport failure of an UNAVAILABLE gate error."""
+    if not isinstance(exc, gate.GateError) or exc.status != "UNAVAILABLE":
+        return False
+    reason = str(exc.reason)
+    if NON_RETRYABLE_HTTP_RE.search(reason):
+        return False
+    lowered = reason.casefold()
+    return any(marker in lowered for marker in TRANSPORT_FAILURE_MARKERS)
+
+
+def retry_delay(attempt: int) -> int:
+    """Pause before attempt `attempt + 1`: 15s doubling, capped at 30s."""
+    return min(
+        TRANSPORT_RETRY_MAX_SECONDS,
+        TRANSPORT_RETRY_BASE_SECONDS * 2 ** (attempt - 1),
+    )
+
+
+def exhausted_transport(
+    label: str, attempts: int, last: gate.GateError
+) -> gate.GateError:
+    return gate.GateError(
+        "UNAVAILABLE",
+        f"{label} failed after {attempts} attempts on a transport error"
+        f" ({last.reason}); {TRANSPORT_STATE_HINT}",
+    )
+
+
+def with_transport_retry(
+    operation: Callable[[], Any],
+    *,
+    label: str,
+    attempts: int = TRANSPORT_RETRY_ATTEMPTS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    """Run `operation`, retrying only proven transport failures, in bounds."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except gate.GateError as exc:
+            if not transport_failure(exc):
+                raise
+            if attempt == attempts:
+                raise exhausted_transport(label, attempts, exc) from exc
+            sleep(retry_delay(attempt))
+    raise gate.GateError("UNAVAILABLE", f"{label} was never attempted")
+
+
+def _gh_runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+    """`subprocess.run` that tells a missing gh from a silent one."""
+    try:
+        return subprocess.run(command, **kwargs)
+    except OSError as exc:
+        raise gate.GateError(
+            "UNAVAILABLE", f"command unavailable: {command[0]}"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise gate.GateError(
+            "UNAVAILABLE",
+            f"{command[0]} timed out after {kwargs.get('timeout')}s",
+        ) from exc
+
+
+def gh_json(
+    arguments: list[str],
+    *,
+    input_value: dict[str, Any] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    """`gate.gh_json` for read-only calls, with the bounded transport retry."""
+    return with_transport_retry(
+        lambda: gate.gh_json(
+            arguments, input_value=input_value, runner=_gh_runner
+        ),
+        label="GitHub API request",
+        sleep=sleep,
+    )
 
 
 def repository_entry(
@@ -514,7 +647,7 @@ def apply_ruleset(args: argparse.Namespace) -> dict[str, Any]:
             "payload": payload,
         }
     method = "PUT" if args.ruleset_id is not None else "POST"
-    result = gate.gh_json(
+    result = gate.gh_json(  # mutation: never retried blindly (LPD-002 R3)
         ["--method", method, endpoint, "--input", "-"],
         input_value=payload,
     )
@@ -570,12 +703,12 @@ def observe_enrollment(args: argparse.Namespace) -> dict[str, Any]:
             "live ruleset differs from canonical policy: "
             + "; ".join(drift),
     )
-    repository_value = gate.gh_json([f"repos/{repository}"])
-    app = gate.gh_json([f"apps/{args.app_slug}"])
-    workflow_repository = gate.gh_json(
+    repository_value = gh_json([f"repos/{repository}"])
+    app = gh_json([f"apps/{args.app_slug}"])
+    workflow_repository = gh_json(
         [f"repos/{gate.MACHINE_WORKFLOW_REPOSITORY}"]
     )
-    workflow_commit = gate.gh_json(
+    workflow_commit = gh_json(
         [
             f"repos/{gate.MACHINE_WORKFLOW_REPOSITORY}/commits/"
             f"{args.workflow_sha}"
@@ -711,7 +844,7 @@ def observe_enrollment(args: argparse.Namespace) -> dict[str, Any]:
 def organization_repositories(
     owner: str,
     *,
-    gh: Callable[..., Any] = gate.gh_json,
+    gh: Callable[..., Any] = gh_json,
 ) -> list[str]:
     if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", owner):
         raise gate.GateError(
@@ -920,7 +1053,13 @@ def pr_view(root, repository):
             expected + "\n",
             expected + "\r\n",
         }:
-            raise gate.GateError("UNAVAILABLE", "GitHub PR lookup failed")
+            # The cause travels with the verdict: a TLS timeout and a denied
+            # token used to read identically, and only the first is retried.
+            detail = stderr[:1000].strip()
+            raise gate.GateError(
+                "UNAVAILABLE",
+                "GitHub PR lookup failed" + (f": {detail}" if detail else ""),
+            )
         return None
     if not isinstance(value, dict):
         raise gate.GateError("UNVERIFIED", "GitHub PR response is invalid")
@@ -1003,6 +1142,67 @@ def remote_branch_head(root, branch, timeout=120):
     return value
 
 
+def lookup_pull_request(root, repository, *, sleep=time.sleep):
+    """`pr_view` behind the bounded transport retry (read-only)."""
+    return with_transport_retry(
+        lambda: pr_view(root, repository),
+        label="GitHub PR lookup",
+        sleep=sleep,
+    )
+
+
+def create_pull_request(
+    root,
+    repository,
+    *,
+    attempts=TRANSPORT_RETRY_ATTEMPTS,
+    sleep=time.sleep,
+):
+    """Create the Draft PR for the current branch exactly once.
+
+    Every attempt is preceded by a lookup, so a PR that already exists — or
+    that GitHub created while our request timed out — is reused rather than
+    created twice.  Only a proven transport failure of the create call is
+    retried; rights and validation errors surface on the first attempt.
+    """
+    for attempt in range(1, attempts + 1):
+        value = lookup_pull_request(root, repository, sleep=sleep)
+        if value is not None:
+            return value
+        try:
+            run(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--repo",
+                    repository,
+                    "--draft",
+                    "--fill",
+                ],
+                cwd=root,
+                timeout=120,
+            )
+        except gate.GateError as exc:
+            if not transport_failure(exc):
+                raise
+            if attempt == attempts:
+                # The last request may still have landed server-side.
+                value = lookup_pull_request(root, repository, sleep=sleep)
+                if value is not None:
+                    return value
+                raise exhausted_transport(
+                    "GitHub PR creation", attempts, exc
+                ) from exc
+            sleep(retry_delay(attempt))
+            continue
+        value = lookup_pull_request(root, repository, sleep=sleep)
+        if value is None:
+            raise gate.GateError("UNAVAILABLE", "Draft PR was not created")
+        return value
+    raise gate.GateError("UNAVAILABLE", "Draft PR was never attempted")
+
+
 def create_draft_pr(
     root,
     repository,
@@ -1011,8 +1211,10 @@ def create_draft_pr(
     maker_model,
     maker_session,
     push_timeout_seconds=1200,
+    *,
+    sleep=time.sleep,
 ):
-    value = pr_view(root, repository)
+    value = lookup_pull_request(root, repository, sleep=sleep)
     push_command = ["git", "push", "--set-upstream", "origin", "HEAD"]
     if value is None:
         # The push decision must follow the remote ref, not PR existence: a
@@ -1023,7 +1225,12 @@ def create_draft_pr(
         local_head = git(root, "rev-parse", "HEAD").lower()
         if not gate.SHA_RE.fullmatch(local_head):
             raise gate.GateError("UNVERIFIED", "Git HEAD is invalid")
-        if remote_branch_head(root, branch) == local_head:
+        remote_head = with_transport_retry(
+            lambda: remote_branch_head(root, branch),
+            label="Git remote head listing",
+            sleep=sleep,
+        )
+        if remote_head == local_head:
             push_command = []
     else:
         current = draft(value)
@@ -1047,6 +1254,9 @@ def create_draft_pr(
         else:
             push_command = []
     if push_command:
+        # A push is a mutation under the pre-push gate and is never retried
+        # blindly: a repeated push of an already-synced branch is an empty
+        # update stream, which the guard rejects by construction.
         run(
             push_command,
             cwd=root,
@@ -1058,25 +1268,7 @@ def create_draft_pr(
             ),
             timeout=guarded_push_timeout(push_timeout_seconds),
         )
-    value = pr_view(root, repository)
-    if value is None:
-        run(
-            [
-                "gh",
-                "pr",
-                "create",
-                "--repo",
-                repository,
-                "--draft",
-                "--fill",
-            ],
-            cwd=root,
-            timeout=120,
-        )
-        value = pr_view(root, repository)
-    if value is None:
-        raise gate.GateError("UNAVAILABLE", "Draft PR was not created")
-    return draft(value)
+    return draft(create_pull_request(root, repository, sleep=sleep))
 
 
 def build_provenance(
@@ -1344,7 +1536,7 @@ def current_pull_request(
     repository: str,
     pull_request: int,
     *,
-    gh: Callable[..., Any] = gate.gh_json,
+    gh: Callable[..., Any] = gh_json,
 ) -> dict[str, Any]:
     value = gh([f"repos/{repository}/pulls/{pull_request}"])
     if not isinstance(value, dict):
@@ -1399,7 +1591,7 @@ def check_runs(
     repository: str,
     check_sha: str,
     *,
-    gh: Callable[..., Any] = gate.gh_json,
+    gh: Callable[..., Any] = gh_json,
 ) -> Any:
     return gh(
         [
@@ -1416,7 +1608,7 @@ def wait_pull_candidate(
     expected_base: str,
     *,
     timeout_seconds: int,
-    gh: Callable[..., Any] = gate.gh_json,
+    gh: Callable[..., Any] = gh_json,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
@@ -1457,7 +1649,7 @@ def wait_checks(
     *,
     ignored_external_ids: frozenset[int] = frozenset(),
     timeout_seconds: int,
-    gh: Callable[..., Any] = gate.gh_json,
+    gh: Callable[..., Any] = gh_json,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
