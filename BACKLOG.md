@@ -62,14 +62,21 @@
   «at capacity» отсутствует в `CLI_UNAVAILABLE_MARKERS`; по смыслу это UNAVAILABLE
   (транзиент, лечится повтором). Диагностика доступна только обёрткой
   `run_bounded_process` — stderr/stdout транспорта при провале не сохраняются.
-- [ ] `tests/verify_independent_review_efficacy.py` требует host-input
+- [x] `tests/verify_independent_review_efficacy.py` требует host-input
   `.itd-memory/host-inputs/…sha256` (gitignored) → в изолированном machine-worktree
   не запускается (exit 1) даже с абсолютным путём; efficacy-oracle нельзя включить
-  в машинную квитанцию.
-- [ ] `tests/run-independent-review-efficacy.py`: `--max-transport-attempts` принимает
+  в машинную квитанцию. **Закрыто LPD-002 R4:** добавлена форма-значение
+  `--expected-keyring-sha256 <hex>`, `.itd/VERIFICATION_CONTRACT.json` переведён
+  на неё; сила авторизации названа в отчёте (`keyringAuthorization`).
+- [x] `tests/run-independent-review-efficacy.py`: `--max-transport-attempts` принимает
   только 1 (иначе `retry bound is invalid`) — флаг вводит в заблуждение; чекпоинт
   удаляется при успехе, повторный запуск с тем же путём стартует с нуля.
-- [ ] `itd_unit_log.py activate` не пишет `riskTier` (нет флага) — правится руками в STATE.
+  **Закрыто LPD-002 R4:** флаг удалён (граница — константа
+  `TRANSPORT_ATTEMPT_BOUND = 1`, исполнение `.itd/DECISIONS.md:214/:447`),
+  чекпоинт сохраняется как `<path>.done`.
+- [x] `itd_unit_log.py activate` не пишет `riskTier` (нет флага) — правится руками в STATE.
+  **Закрыто LPD-002 R4:** `--risk-tier low|medium|high|unknown` обязателен и
+  пишется в `STATE.currentUnit`.
 
 ## P1 — Found while closing S10-LEDGER (2026-08-16)
 
@@ -359,8 +366,9 @@ adjudication; each was deliberately kept out of those bounded slices.
   with `; echo "EXIT: $?"`. Asymmetric by construction: worth teaching
   `PASS_TEXT_RE` the project's own verifier JSON, or having the runner echo the
   code.
-- [ ] `itd_unit_log.py activate` does not record the unit's `riskTier`
-  (S9-U4, 2026-08-15): `skills/task/scripts/itd_unit_log.py:116` writes
+- [x] `itd_unit_log.py activate` does not record the unit's `riskTier`
+  (S9-U4, 2026-08-15; **closed by LPD-002 R4** — `--risk-tier` is required at
+  activation and written to `STATE.currentUnit`): `skills/task/scripts/itd_unit_log.py:116` writes
   `currentUnit` as `{id, goal, status, startedAt}` only, so
   `detected_risk_tier` in `skills/review/scripts/itd_review_cache.py:250-266`
   falls through to `unknown` and the commit gate then refuses a review receipt

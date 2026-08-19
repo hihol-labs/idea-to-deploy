@@ -99,9 +99,12 @@ costs the whole 16-call attempt.
 
 ## What this is NOT
 
-- NOT a licence to raise `--max-transport-attempts`, add automatic retries to
+- NOT a licence to raise the transport attempt bound, add automatic retries to
   the mandatory route, or reclassify a genuinely failed call: a call that
-  dies without a verdict must stay fatal (U15 cannotWeaken).
+  dies without a verdict must stay fatal (U15 cannotWeaken). Since LPD-002 R4
+  the runner has no `--max-transport-attempts` flag at all — the bound is the
+  module constant `TRANSPORT_ATTEMPT_BOUND = 1`, so the decision is enforced by
+  absence instead of by a knob that rejected every value but its default.
 - NOT an isolation defect: H1 (environment), H2 (credential home), H3
   (disabled features), H4 (execution shape), H6 (DNS/TUN) are refuted by
   execution; H5 (rate/concurrency) is refuted as a *sufficient* cause — the

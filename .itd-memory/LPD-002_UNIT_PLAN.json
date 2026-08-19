@@ -23,8 +23,8 @@
   "objective": "Снять измеренный налог маршрута ITD: четыре класса трения, стоившие ~2-2.5 ч из ~8 ч рабочей сессии 2026-08-18 и повторявшиеся на S9/S10/S11, плюс пропорциональный прогон сьютов вместо полного. Критерий успеха плана: каждый пункт закрыт машинной проверкой с двусторонней мутацией, а на следующем юните методологии повторный ретро-скан не показывает тот же класс.",
   "status": "active",
   "wipLimit": 1,
-  "currentPointId": "R3",
-  "nextPointId": "R3",
+  "currentPointId": "R4",
+  "nextPointId": "R4",
   "sessionProtocol": "WIP=1, RED-first: сначала проверка, воспроизводящая дефект на текущем коде, затем правка, затем мутация в обе стороны. Verification-команда пункта прогоняется в момент написания. Коммит только после маршрута /review (machine -> свежий чекер другой моделью -> adjudicate -> review-cache). Поправки к оракулу — в oracleAmendments и events.jsonl, не молча.",
   "evidenceBase": {
     "retro": "docs/retros/RETRO-2026-08-18.md (FACTS из itd_retro_scan.py + 11 внешних сигналов E1-E11)",
@@ -93,7 +93,7 @@
     {
       "id": "R3",
       "title": "Сетевые вызовы гейта переживают флейк и не создают дублей",
-      "status": "in_progress",
+      "status": "verified",
       "riskTier": "low",
       "dependsOn": [
         "R2"
@@ -111,7 +111,7 @@
     {
       "id": "R4",
       "title": "Мелкое трение инструментов: оракул в изоляции, честные флаги, риск-тир при активации",
-      "status": "pending",
+      "status": "in_progress",
       "riskTier": "low",
       "dependsOn": [
         "R3"
@@ -125,7 +125,7 @@
         "docs/templates (checker prompt)",
         ".itd-memory/LEDGER-RECONCILIATION.json"
       ],
-      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2 && python3 -I tests/verify_goal_tools.py && python3 -I tests/verify_ledger_reconciliation.py"
+      "verificationCommand": "python3 -I tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2 && python3 -I tests/verify_unit_log.py && python3 -I tests/verify_verification_loop.py && python3 -I tests/verify_ledger_reconciliation.py && python3 -I tests/verify_retro_scan.py && python3 -I tests/verify_goal_tools.py"
     },
     {
       "id": "R5",
@@ -165,6 +165,39 @@
       "notes": "Масштаб на 2026-08-18: 150 сьютов tests/verify_*.py, 18 модулей skills/_shared/*.py, 30 хуков. Ручной список в LPD-001 отвергнут — он и был источником ошибок U9/U10; карта обязана проверяться машинно."
     }
   ],
-  "oracleAmendments": [],
-  "updatedAt": "2026-08-19T10:00:00Z"
+  "oracleAmendments": [
+    {
+      "at": "2026-08-19T09:24:19Z",
+      "pointId": "R4",
+      "kind": "verification-command",
+      "what": "В verificationCommand пункта добавлены tests/verify_unit_log.py, tests/verify_verification_loop.py и tests/verify_retro_scan.py.",
+      "why": "Названный в плане tests/verify_goal_tools.py не содержит НИ ОДНОГО упоминания itd_unit_log — критерий (c) он не проверяет в принципе. Реальные оракулы писателя — verify_unit_log.py (зарегистрирован в run-all) и verify_ledger_reconciliation.py; критерий (d) живёт в verify_verification_loop.py (владелец ALLOWED_VERDICTS/parse_report), критерий (e) — в verify_ledger_reconciliation.py + verify_retro_scan.py. verify_goal_tools.py оставлен как регрессия соседнего слоя.",
+      "decidedBy": "исполнитель, зафиксировано до правки кода"
+    },
+    {
+      "at": "2026-08-19T09:24:19Z",
+      "pointId": "R4",
+      "kind": "criterion-narrowing",
+      "what": "Подпункт (b) закрыт УДАЛЕНИЕМ флага --max-transport-attempts, а не расширением его диапазона до 1..3.",
+      "why": ".itd/DECISIONS.md:214 и .itd/GPG-004_A16_TRANSPORT.md:102 прямо отвергают поднятие границы и автоматические ретраи в обязательном маршруте («спрятало бы измеряемую хрупкость»), .itd/DECISIONS.md:447 фиксирует «жёстко обязан быть 1». Формулировка критерия допускала оба исхода («принимает 1..3 либо флаг удалён»); выбран тот, который исполняет уже принятое решение, а не правит его. Граница стала константой TRANSPORT_ATTEMPT_BOUND = 1.",
+      "decidedBy": "исполнитель по действующим durable-решениям"
+    },
+    {
+      "at": "2026-08-19T09:24:19Z",
+      "pointId": "R4",
+      "kind": "file-choice",
+      "what": "Шаблон checker-промпта создан как НОВЫЙ файл docs/templates/CHECKER_PROMPT.md.",
+      "why": "Названного в плане шаблона в docs/templates/ не существовало (там BRANCH_FINISH.md, ROOT_CAUSE.md, UNIT_CONTEXT_MANIFEST.json, github/, itd/, itd-memory/, global-*.md). Единственный существующий образец — docs/examples/brownfield-piv/artifacts/checker-prompt.md — фиксирует историю конкретного прогона (BF-017) и переиспользованию не подлежит.",
+      "decidedBy": "исполнитель, выбор записан в контракт юнита"
+    },
+    {
+      "at": "2026-08-19T09:24:19Z",
+      "pointId": "R4",
+      "kind": "measured-cost",
+      "what": "Правка tests/run-independent-review-efficacy.py требует живой перечеканки трёх подписанных efficacy-ног.",
+      "why": "verify_independent_review_efficacy.py:375 пинит runnerSha256 = sha256 текущих байт раннера; проба одного лишнего байта дала AssertionError: wsl semantic result binding is foreign. Стоимость измерена ДО начала работ и подтверждена владельцем (полный скоуп a-e).",
+      "decidedBy": "владелец (выбор варианта «делаем (b) с перечеканкой»)"
+    }
+  ],
+  "updatedAt": "2026-08-19T09:24:19Z"
 }

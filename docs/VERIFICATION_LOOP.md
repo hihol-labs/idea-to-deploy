@@ -173,7 +173,11 @@ tails, so alternate field names cannot turn secrets or PII into durable memory.
 
 Keep the checkout identical to the staged index; unstaged or non-ignored
 untracked files fail closed. Put the exact checker prompt and report under the
-durable, Git-ignored Verification Loop directory.
+durable, Git-ignored Verification Loop directory. Start the prompt from
+[docs/templates/CHECKER_PROMPT.md](templates/CHECKER_PROMPT.md): it carries the
+literal verdict block and the closed verdict set, because a checker that
+finishes with `PASS` instead of `PASSED` produces an `UNVERIFIED` receipt and
+the whole review has to be run again (live incident, 2026-08-18).
 Checkout probes allow a 60-second host-adapter deadline so native Windows Git
 can inspect a WSL UNC worktree without weakening the exact-tree comparison.
 Oracle commands use the native shell transport: `cmd.exe /d /c` on Windows

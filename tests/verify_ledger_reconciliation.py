@@ -302,7 +302,7 @@ def main() -> int:
         (mem / "STATE.json").write_text("{}", encoding="utf-8")
         cwd = Path(td)
 
-        r = run(UNIT_LOG, "activate", "U-1", "--goal", "g", cwd=cwd)
+        r = run(UNIT_LOG, "activate", "U-1", "--goal", "g", "--risk-tier", "low", cwd=cwd)
         check("activate succeeds", r.returncode == 0, r.stdout + r.stderr)
         r = run(UNIT_LOG, "verified", "U-1", "--evidence", "e", cwd=cwd)
         check("verified succeeds inside an open lifecycle", r.returncode == 0,
@@ -314,7 +314,7 @@ def main() -> int:
               r.returncode != 0, r.stdout + r.stderr)
 
         # close: fail-closed terminal for reconciliation
-        r = run(UNIT_LOG, "activate", "U-2", "--goal", "g", cwd=cwd)
+        r = run(UNIT_LOG, "activate", "U-2", "--goal", "g", "--risk-tier", "low", cwd=cwd)
         r = run(UNIT_LOG, "close", "U-2", cwd=cwd)
         check("close without --note is refused (fail-closed)", r.returncode != 0,
               r.stdout + r.stderr)
@@ -332,8 +332,15 @@ def main() -> int:
         check("close with --note writes the terminal event", r.returncode == 0,
               r.stdout + r.stderr)
 
+        # Читать лог до проверки, что писатель вообще что-то записал, значит
+        # ронять оракул трейсбеком вместо красной проверки (ревьюер
+        # 2026-08-17; воспроизвелось на R4c, когда activate стал требовать
+        # --risk-tier и переставал создавать events.jsonl).
+        check("the writer produced an event log to read",
+              (mem / "events.jsonl").is_file())
         rows = [json.loads(l) for l in (mem / "events.jsonl").read_text(
-            encoding="utf-8").splitlines() if l.strip()]
+            encoding="utf-8").splitlines() if l.strip()] \
+            if (mem / "events.jsonl").is_file() else []
         closing = [e for e in rows if e["name"] == "U-2" and e["decision"] == "abandoned"]
         check("close is attributed to harness-reconciliation, not plain harness",
               len(closing) == 1 and closing[0]["actor"] == "harness-reconciliation",
@@ -533,11 +540,11 @@ def main() -> int:
         ledger(mem / "GOAL-axis2.json", ["G-001"],
                "2026-07-06T00:00:00Z", "2026-07-06T23:59:59Z")
 
-        r = run(UNIT_LOG, "activate", "G-001", "--goal", "g", cwd=cwd)
+        r = run(UNIT_LOG, "activate", "G-001", "--goal", "g", "--risk-tier", "low", cwd=cwd)
         check("activate of an id owned by several ledgers is refused without --ledger",
               r.returncode != 0, r.stdout + r.stderr)
 
-        r = run(UNIT_LOG, "activate", "G-001", "--goal", "g",
+        r = run(UNIT_LOG, "activate", "G-001", "--goal", "g", "--risk-tier", "low",
                 "--ledger", "GOAL-axis1.json", cwd=cwd)
         check("activate with an explicit ledger succeeds", r.returncode == 0,
               r.stdout + r.stderr)
@@ -564,7 +571,7 @@ def main() -> int:
 
         # A terminal explicitly aimed at the WRONG ledger must be refused rather
         # than silently opening a second, no-activation lifecycle there.
-        act = run(UNIT_LOG, "activate", "G-001", "--goal", "g2",
+        act = run(UNIT_LOG, "activate", "G-001", "--goal", "g2", "--risk-tier", "low",
                   "--ledger", "GOAL-axis2.json", cwd=cwd)
         # Without this the next check passes vacuously: if the axis2 activation
         # failed there is no open lifecycle anywhere and the refusal proves
@@ -583,11 +590,11 @@ def main() -> int:
         # and close it themselves (reviewer 2026-08-17, high/security).
         ledger(mem / "GOAL-other.json", ["Z-9"],
                "2026-07-07T00:00:00Z", "2026-07-07T23:59:59Z")
-        r = run(UNIT_LOG, "activate", "G-001", "--goal", "forge",
+        r = run(UNIT_LOG, "activate", "G-001", "--goal", "forge", "--risk-tier", "low",
                 "--ledger", "GOAL-other.json", cwd=cwd)
         check("explicit ledger that does not own the unit is refused",
               r.returncode != 0, r.stdout + r.stderr)
-        r = run(UNIT_LOG, "activate", "G-001", "--goal", "forge",
+        r = run(UNIT_LOG, "activate", "G-001", "--goal", "forge", "--risk-tier", "low",
                 "--ledger", L.STATE_LEDGER, cwd=cwd)
         check("STATE is refused for an id that has ledger owners",
               r.returncode != 0, r.stdout + r.stderr)
@@ -768,6 +775,82 @@ def main() -> int:
               r["lifecyclesBlocked"] >= 1 and r["vcr"] == 1.0,
               f"vcr={r['vcr']} blocked={r['lifecyclesBlocked']} "
               f"verified={r['lifecyclesVerified']} total={r['lifecyclesTotal']}")
+
+    # ------------------------------------- G. explained vs anomalous (R4e)
+    # A `verified` row with no activation is the writer anomaly that started
+    # this whole ledger work. But one live row is NOT a writer defect: the
+    # bulk-housekeeping line of 2026-08-10 marks G-001 verified in three axis
+    # ledgers at once, belongs to none of them, and is documented in
+    # LEDGER-RECONCILIATION.json. Counting it as an anomaly made the retro fact
+    # cry wolf forever, so `unexplained` is the honest anomaly counter and the
+    # explained row stays visible in the raw count.
+    with tempfile.TemporaryDirectory() as td:
+        mem = Path(td) / ".itd-memory"
+        mem.mkdir()
+        write_events(mem, [ev("H-1", "verified", "2026-08-10T09:22:19Z")])
+        raw = L.build(mem)
+        check("an unexplained verified row without activation is an anomaly",
+              raw["lifecyclesNoActivation"] == 1
+              and raw["lifecyclesNoActivationUnexplained"] == 1,
+              json.dumps({k: raw[k] for k in
+                          ("lifecyclesNoActivation",
+                           "lifecyclesNoActivationUnexplained")}))
+        check("the anomaly is named, not just counted",
+              [(lc["unit"], lc["endedAt"])
+               for lc in L.unexplained_no_activation(mem)]
+              == [("H-1", "2026-08-10T09:22:19Z")],
+              json.dumps(L.unexplained_no_activation(mem)))
+        (mem / "LEDGER-RECONCILIATION.json").write_text(json.dumps({"entries": [
+            {"unit": "H-1", "at": "2026-08-10T09:22:19Z", "ledger": "RECONCILIATION",
+             "why": "bulk housekeeping row belonging to no single ledger"}]}),
+            encoding="utf-8")
+        explained = L.build(mem)
+        check("an explained row stays visible but stops being an anomaly",
+              explained["lifecyclesNoActivation"] == 1
+              and explained["lifecyclesNoActivationUnexplained"] == 0
+              and L.unexplained_no_activation(mem) == [],
+              json.dumps({k: explained[k] for k in
+                          ("lifecyclesNoActivation",
+                           "lifecyclesNoActivationUnexplained")}))
+        # Fail-closed both ways: an entry without `why` explains nothing, and an
+        # entry for a different row does not launder this one.
+        for label, entry in (
+            ("an entry without why explains nothing",
+             {"unit": "H-1", "at": "2026-08-10T09:22:19Z",
+              "ledger": "RECONCILIATION", "why": "  "}),
+            ("an entry for another row does not explain this one",
+             {"unit": "H-1", "at": "2026-08-10T09:22:20Z",
+              "ledger": "RECONCILIATION", "why": "off-by-one second"}),
+        ):
+            (mem / "LEDGER-RECONCILIATION.json").write_text(
+                json.dumps({"entries": [entry]}), encoding="utf-8")
+            check(label, L.build(mem)["lifecyclesNoActivationUnexplained"] == 1)
+        # Over-block canary: a properly activated verified cycle is never an
+        # anomaly, explained or not.
+        write_events(mem, [ev("H-2", "activated", "2026-08-10T10:00:00Z"),
+                           ev("H-2", "verified", "2026-08-10T10:30:00Z")])
+        (mem / "LEDGER-RECONCILIATION.json").unlink()
+        healthy = L.build(mem)
+        check("a properly activated cycle is never flagged as an anomaly",
+              healthy["lifecyclesVerified"] == 1
+              and healthy["lifecyclesNoActivationUnexplained"] == 0,
+              json.dumps({k: healthy[k] for k in
+                          ("lifecyclesVerified",
+                           "lifecyclesNoActivationUnexplained")}))
+
+    # The repository's own ledger, when its (gitignored) event log is present:
+    # every verified-without-activation row must be explained. In an isolated
+    # tracked-only tree there is no event log at all, and the check reports that
+    # honestly instead of passing by silence.
+    live = ROOT / ".itd-memory"
+    if (live / "events.jsonl").is_file():
+        unexplained = L.unexplained_no_activation(live)
+        check("this repository has no unexplained verified-without-activation row",
+              unexplained == [],
+              json.dumps(unexplained, ensure_ascii=False))
+    else:
+        check("repository event log is absent (isolated tree): live row check skipped",
+              True)
 
     # ------------------------------------------------------- F. oracle hygiene
     # A duplicated scenario block once shipped inside this file (r8/r10 merges):

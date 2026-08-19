@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import inspect
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -55,10 +56,20 @@ EXPECTED_ISOLATION = {
 
 
 def load_module(name: str, path: Path):
+    """Загрузка ИЗ ИСХОДНИКА, минуя кэш байткода.
+
+    `exec_module` берёт `__pycache__/*.pyc`, если тот выглядит свежим по паре
+    (mtime, size). Правка той же длины в пределах одной секунды — обычное дело
+    при мутационном тестировании — оставляет кэш «свежим», и оракул судит СТАРЫЙ
+    код: живьём (LPD-002 R4) мутация `TRANSPORT_ATTEMPT_BOUND = 3` пережила
+    откат файла и дала ложный красный на чистом дереве. Компиляция прочитанных
+    байт снимает весь класс: судится ровно то, что лежит в файле.
+    """
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[name] = module
+    exec(compile(Path(path).read_bytes(), str(path), "exec"), module.__dict__)
     return module
 
 
@@ -145,14 +156,43 @@ def parse_host_pin(raw: bytes) -> str:
     return raw.rstrip(b"\n").decode("ascii")
 
 
-def host_keyring(path: Path) -> dict[str, str]:
-    if path != HOST_PIN_REL:
-        raise AssertionError("review keyring pin path is not the host contract")
-    expected = parse_host_pin((ROOT / path).read_bytes())
+def parse_caller_pin(value: str) -> str:
+    """Ожидаемый дайджест, переданный ЗНАЧЕНИЕМ.
+
+    Форма строго та же, что у host-пина (64 строчных hex), но авторизация
+    слабее и называется честно: значение приходит от вызывающего (и,
+    в машинном маршруте, из tracked `.itd/VERIFICATION_CONTRACT.json`),
+    а не из host-owned файла. Путь к host-пину лежит в gitignored
+    `.itd-memory/`, поэтому в изолированном worktree оракул без этого флага
+    не запускается вовсе (retro 2026-08-18, сигнал E4).
+    """
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise AssertionError("caller-supplied review keyring pin is malformed")
+    return value
+
+
+def authorized_keyring(expected: str) -> dict[str, str]:
     keyring_raw = KEYRING_PATH.read_bytes()
     if sha256(keyring_raw) != expected:
         raise AssertionError("review efficacy keyring is not host-authorized")
     return json.loads(keyring_raw.decode("utf-8"))
+
+
+def host_keyring(path: Path) -> dict[str, str]:
+    if path != HOST_PIN_REL:
+        raise AssertionError("review keyring pin path is not the host contract")
+    return authorized_keyring(parse_host_pin((ROOT / path).read_bytes()))
+
+
+def resolve_keyring(args: argparse.Namespace) -> tuple[dict[str, str], str]:
+    """Keyring + ЧЕСТНОЕ имя авторизации дайджеста.
+
+    Fail-closed: ровно один источник (argparse-группа), обе формы обязаны
+    совпасть с фактическим содержимым tracked-keyring'а.
+    """
+    if args.expected_keyring_sha256_file is not None:
+        return host_keyring(args.expected_keyring_sha256_file), "host-pin"
+    return authorized_keyring(parse_caller_pin(args.expected_keyring_sha256)), "caller-pin"
 
 
 def verify_signed_evidence(envelope, keyring, producer, label):
@@ -508,6 +548,85 @@ def rate(rows: list[dict[str, Any]], field: str) -> float:
     return sum(bool(row[field]) for row in rows) / len(rows)
 
 
+def verify_source_loading() -> None:
+    """Загрузчик оракула обязан видеть ФАЙЛ, а не кэш байткода.
+
+    Проверка воспроизводит ровно тот случай, который дал ложный красный на
+    чистом дереве: правка той же длины в пределах секунды после первой
+    загрузки. Кэш при этом остаётся «свежим» по (mtime, size).
+    """
+    with tempfile.TemporaryDirectory(prefix="efficacy-loader-") as td:
+        path = Path(td) / "itd_loader_probe.py"
+        path.write_text("VALUE = 1\n", encoding="utf-8")
+        first = load_module("itd_loader_probe_case", path)
+        if first.VALUE != 1:
+            raise AssertionError("loader probe did not observe its own source")
+        stat = path.stat()
+        path.write_text("VALUE = 3\n", encoding="utf-8")
+        os.utime(path, (stat.st_atime, stat.st_mtime))
+        second = load_module("itd_loader_probe_case", path)
+        if second.VALUE != 3:
+            raise AssertionError("oracle judged cached bytecode, not the source")
+    print("PASS  modules are judged from source, never from stale bytecode")
+
+
+def verify_runner_flags(runner) -> None:
+    """Раннер не обещает того, чего не делает, и не стирает свой чекпоинт.
+
+    E7 (retro 2026-08-18): `--max-transport-attempts` объявлял тип int и
+    default 1, но любое значение != 1 отвергалось как `retry bound is invalid`,
+    хотя цикл уже умел N. Решение — снять флаг (`.itd/DECISIONS.md:214,:447`:
+    граница ОБЯЗАНА быть 1, иначе бенчмарк прячет измеряемую хрупкость), а не
+    расширять диапазон. Второй дефект того же сигнала: успешный прогон удалял
+    чекпоинт, и повторный запуск начинал корпус с нуля.
+    """
+    # Порядок важен: сначала статическая проверка, потом запуск. Если флаг
+    # вернут, argparse его ПРИМЕТ и раннер пойдёт дёргать живой транспорт
+    # прямо из оракула — проверка обязана отказать раньше.
+    if "--max-transport-attempts" in inspect.getsource(runner.main):
+        raise AssertionError("runner still exposes a retry knob it does not honour")
+    probe = subprocess.run(
+        [sys.executable, str(RUNNER_PATH),
+         "--codex", "x", "--codex-sha256", "0" * 64, "--proxy-sha256", "0" * 64,
+         "--maker-model", "m", "--signing-key", "k", "--key-id", "i",
+         "--checkpoint", "c.json", "--output", "o.json",
+         "--max-transport-attempts", "3"],
+        capture_output=True, text=True, timeout=60,
+    )
+    if "unrecognized arguments: --max-transport-attempts" not in probe.stderr:
+        raise AssertionError("retry knob is not rejected by the runner's own parser")
+    if runner.TRANSPORT_ATTEMPT_BOUND != 1:
+        raise AssertionError("transport attempt bound is not the decided 1")
+    loop_source = inspect.getsource(runner.main)
+    if "TRANSPORT_ATTEMPT_BOUND" not in loop_source:
+        raise AssertionError("retry loop does not use the declared attempt bound")
+    if "unlink" in loop_source:
+        raise AssertionError("successful run still deletes its own checkpoint")
+    print("PASS  runner exposes no retry knob and keeps the decided bound of 1")
+
+    with tempfile.TemporaryDirectory(prefix="efficacy-checkpoint-") as td:
+        path = Path(td) / "run.checkpoint.json"
+        path.write_bytes(b'{"kind":"probe"}')
+        done = runner.finalize_checkpoint(path)
+        if (done != path.with_name(path.name + ".done")
+                or not done.is_file()
+                or done.read_bytes() != b'{"kind":"probe"}'
+                or path.exists()):
+            raise AssertionError("completed run does not preserve the checkpoint as .done")
+        # Повторное завершение (перезапуск после успеха) не должно падать и
+        # не должно оставлять два конфликтующих маркера.
+        path.write_bytes(b'{"kind":"probe-2"}')
+        again = runner.finalize_checkpoint(path)
+        if again.read_bytes() != b'{"kind":"probe-2"}' or path.exists():
+            raise AssertionError("re-completion does not replace the done marker")
+        # Отсутствующий чекпоинт — не ошибка и не повод создать пустой маркер.
+        missing = Path(td) / "absent.json"
+        marker = runner.finalize_checkpoint(missing)
+        if marker.exists() or missing.exists():
+            raise AssertionError("finalizing an absent checkpoint invents a marker")
+    print("PASS  successful run preserves the checkpoint as <path>.done")
+
+
 def verify_checkpoint_resume(manifest: dict[str, Any], manifest_raw: bytes) -> None:
     runner = load_module("itd_independent_efficacy_runner_test", RUNNER_PATH)
     main_source = inspect.getsource(runner.main)
@@ -722,26 +841,36 @@ def verify_manifest_contract(manifest: dict[str, Any], runner) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--expected-keyring-sha256-file", type=Path, required=True
-    )
+    # Ровно один источник ожидаемого дайджеста: host-owned файл (сильнее, но
+    # лежит в gitignored .itd-memory/) ИЛИ значение (запускаемо в изоляции).
+    pin = parser.add_mutually_exclusive_group(required=True)
+    pin.add_argument("--expected-keyring-sha256-file", type=Path, default=None)
+    pin.add_argument("--expected-keyring-sha256", default=None)
     args = parser.parse_args(argv)
     evidence = load_module("itd_review_evidence_test", MODULE_PATH)
     producer = load_module("itd_free_reviewer_efficacy_test", PRODUCER_PATH)
     runner = load_module("itd_independent_efficacy_runner_main", RUNNER_PATH)
-    keyring = host_keyring(args.expected_keyring_sha256_file)
+    keyring, keyring_authorization = resolve_keyring(args)
     for raw in (b"a" * 63, b"A" * 64, b"a" * 64 + b"\n\n"):
         try:
             parse_host_pin(raw)
         except AssertionError:
             continue
         raise AssertionError("malformed host keyring pin was accepted")
+    for value in ("a" * 63, "A" * 64, "a" * 64 + "\n", "", None, b"a" * 64):
+        try:
+            parse_caller_pin(value)
+        except AssertionError:
+            continue
+        raise AssertionError("malformed caller keyring pin was accepted")
     manifest_raw = CASES_PATH.read_bytes()
     manifest, _semantic_cases = runner.exact_manifest(
         json.loads(manifest_raw.decode("utf-8"))
     )
     structural = structural_metrics(manifest, evidence, producer)
     verify_checkpoint_resume(manifest, manifest_raw)
+    verify_source_loading()
+    verify_runner_flags(runner)
     verify_semantic_matcher(manifest, runner)
     verify_prompt_boundary(manifest, runner)
     verify_manifest_contract(manifest, runner)
@@ -819,6 +948,7 @@ def main(argv: list[str] | None = None) -> int:
         "u12IndependenceLadder": u12,
         "hostParityVerified": host_parity,
         "evidenceSource": "real-keyless-model-reports",
+        "keyringAuthorization": keyring_authorization,
     }, sort_keys=True))
     return 0 if ok else 1
 

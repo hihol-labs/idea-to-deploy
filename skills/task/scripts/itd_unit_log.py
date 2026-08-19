@@ -9,13 +9,16 @@ VCR слеп). Ремонт слоя: инструкция → инструме�
 проверкой, verified без evidence не бывает.
 
 Использование (из корня проекта; --dir переопределяет .itd-memory):
-  itd_unit_log.py activate U-9 --goal "однострочная формулировка"
+  itd_unit_log.py activate U-9 --goal "однострочная формулировка" --risk-tier low
   itd_unit_log.py verified U-9 --evidence "вывод команды верификации"
   itd_unit_log.py backfill-activation U-2 --note "почему активация дописывается задним числом"
 
 Семантика:
   activate  — WIP=1 (откажет, пока текущий unit in_progress/verifying),
               пишет STATE.currentUnit + событие activated (actor: harness).
+              `--risk-tier` обязателен: тир определяет цену маршрута ревью
+              (PROPORTIONALITY_POLICY), из имени юнита он не выводится, а
+              ручная дописка в STATE теряется (S10, S11, LPD-002 R1-R3).
   verified  — требует существующего activated-события юнита (иначе exit 1 с
               подсказкой про осознанный backfill), обновляет STATE.currentUnit,
               пишет событие verified с обязательным evidence.
@@ -43,6 +46,12 @@ import itd_unit_lifecycle as LC  # noqa: E402
 
 # Терминалы, которыми можно закрыть цикл вручную при реконсиляции.
 CLOSE_OUTCOMES = ("superseded", "abandoned", "blocked", "skipped")
+
+# Закрытое множество риск-тиров. Первые три обязаны совпадать с ключами
+# `riskRoutes` в `skills/_shared/PROPORTIONALITY_POLICY.json` (дрейф ловит
+# `tests/verify_unit_log.py`); `unknown` — честное «не классифицировано»,
+# которое политика верификации ведёт по строгому маршруту, а не по дешёвому.
+RISK_TIERS = ("low", "medium", "high", "unknown")
 
 
 def now_iso() -> str:
@@ -199,6 +208,10 @@ def main() -> int:
     ap.add_argument("--ledger", default="",
                     help="явный леджер-владелец события; обязателен, когда id "
                          "принадлежит нескольким леджерам и открытый цикл не один")
+    ap.add_argument("--risk-tier", choices=RISK_TIERS, default=None,
+                    help="риск-тир юнита при activate: " + " | ".join(RISK_TIERS)
+                         + " (обязателен: пропорциональность маршрута ревью "
+                           "не выводится из имени юнита)")
     ap.add_argument("--outcome", default="superseded",
                     help="терминал для close: " + ", ".join(CLOSE_OUTCOMES))
     ap.add_argument("--dir", default=".itd-memory")
@@ -219,6 +232,16 @@ def main() -> int:
             return die(f"WIP=1: текущий unit {cur['id']} в статусе {cur['status']} — сначала доведи его", 1)
         if not a.goal:
             return die("--goal обязателен при activate (однострочная формулировка задачи)", 1)
+        # Отказ ДО события и до записи STATE: активация без тира оставляла бы
+        # цикл открытым, а тир — на ручной дописке (её и теряли на S10/S11 и
+        # на R1-R3 плана LPD-002). Пропорциональность обязана быть объявлена
+        # тем же вызовом, который открывает цикл.
+        if not a.risk_tier:
+            return die("--risk-tier обязателен при activate ("
+                       + " | ".join(RISK_TIERS)
+                       + "): маршрут ревью пропорционален тиру, а тир не "
+                         "выводится из имени юнита; неклассифицированный риск "
+                         "объявляется явно как unknown и идёт по строгому маршруту", 1)
         try:
             ledger = resolve_ledger(mem, a.unit_id, a.ledger)
         except LedgerAmbiguity as exc:
@@ -230,7 +253,8 @@ def main() -> int:
         # цикл виден бухгалтерии и закрывается штатной `close`.
         append_event(mem, a.unit_id, "activated", a.goal, ledger)
         state["currentUnit"] = {"id": a.unit_id, "goal": a.goal, "status": "in_progress",
-                                "startedAt": now_iso(), "ledger": ledger}
+                                "startedAt": now_iso(), "ledger": ledger,
+                                "riskTier": a.risk_tier}
         save_state(mem, state)
         print(f"activated {a.unit_id}: {a.goal}")
         return 0
