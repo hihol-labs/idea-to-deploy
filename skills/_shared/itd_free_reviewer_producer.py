@@ -888,6 +888,66 @@ def _git_blob(root: Path, oid: str | None) -> bytes:
     return raw
 
 
+def _candidate_ledger_facts(
+    root: Path, base: str, acceptance_file: Path,
+) -> dict[str, Any] | None:
+    """Name the candidate's changed paths and the acceptance contract at base.
+
+    These are the only facts the closed coverage policy needs to recognise a
+    ledger-close candidate. The decision itself stays in itd_review_evidence,
+    where it is testable without a repository; this helper never interprets it.
+    """
+    try:
+        contract_path = (
+            acceptance_file.resolve().relative_to(root.resolve()).as_posix()
+        )
+    except (OSError, ValueError):
+        return None
+    records = _staged_file_records(root, base)
+    changed = [str(row["path"]) for row in records]
+    modified = [str(row["path"]) for row in records if row["status"] == "M"]
+    before: dict[str, Any] | None = None
+    for row in records:
+        if str(row["path"]) != contract_path or row["status"] != "M":
+            continue
+        try:
+            value = json.loads(_git_blob(root, row["baseBlobSha"]).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            value = None
+        if isinstance(value, dict):
+            before = value
+    return {
+        "changedPaths": changed,
+        "modifiedPaths": modified,
+        "contractPath": contract_path,
+        "contractBefore": before,
+    }
+
+
+CLOSING_COVERAGE_NOTE = (
+    "closing commit: coverage inherited from the delivered unit {unit_id}\n"
+    "This candidate changes only the ledger state file and the closing fields "
+    "of the acceptance contract's active followup. It carries no code, so it "
+    "has no coverage of its own: the coverage below is the already-delivered "
+    "unit {unit_id}'s own evidence, restated here as the bookkeeping this "
+    "commit records. The absence of new coverage is expected and is not a "
+    "finding on its own.\n"
+)
+
+
+def _closing_coverage_note(packet: dict[str, Any]) -> str:
+    """Name inherited coverage wherever the packet shows it to a reviewer."""
+    coverage = packet.get("evidenceCoverage")
+    if not isinstance(coverage, dict):
+        return ""
+    if coverage.get("coverageSource") != "closed-unit-inherited":
+        return ""
+    unit_id = coverage.get("unitId")
+    if not isinstance(unit_id, str) or not unit_id:
+        raise FreeReviewError("UNVERIFIED", "inherited coverage names no unit")
+    return CLOSING_COVERAGE_NOTE.format(unit_id=unit_id)
+
+
 def _transparent_review_representation(
     root: Path, base: str,
 ) -> tuple[str, dict[str, Any], list[tuple[str, str]]]:
@@ -1214,7 +1274,8 @@ def freeze_packet(
     )
     try:
         evidence_coverage = review_evidence.coverage_matrix(
-            acceptance_value, machine_summary
+            acceptance_value, machine_summary,
+            candidate=_candidate_ledger_facts(root, base, acceptance_file),
         )
     except review_evidence.ReviewEvidenceError as exc:
         raise FreeReviewError("UNVERIFIED", str(exc)) from exc
@@ -1280,6 +1341,7 @@ def review_prompt(packet: dict[str, Any]) -> str:
         f"{json.dumps(packet['acceptance']['value'], ensure_ascii=False, sort_keys=True)}\n\n"
         "MACHINE EVIDENCE\n"
         f"{json.dumps(packet['machineEvidence'], ensure_ascii=False, sort_keys=True)}\n\n"
+        f"{_closing_coverage_note(packet)}"
         "EVIDENCE COVERAGE\n"
         f"{json.dumps(packet.get('evidenceCoverage'), ensure_ascii=False, sort_keys=True)}\n\n"
         f"{review_material}"
@@ -1531,6 +1593,7 @@ def _unit_review_prompt(
         f"{json.dumps(_reviewer_acceptance(packet), ensure_ascii=False, sort_keys=True)}\n"
         "MACHINE_EVIDENCE_SUMMARY="
         f"{json.dumps(_reviewer_machine_evidence(packet), ensure_ascii=False, sort_keys=True)}\n"
+        f"{_closing_coverage_note(packet)}"
         "EVIDENCE_COVERAGE="
         f"{json.dumps(coverage, ensure_ascii=False, sort_keys=True)}\n"
         f"BEGIN UNTRUSTED DIFF UNIT\n{unit_diff}END UNTRUSTED DIFF UNIT\n"
@@ -1607,6 +1670,7 @@ def _integration_review_prompt(
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
         "FROZEN_ACTIVE_ACCEPTANCE="
         f"{json.dumps(_reviewer_acceptance(packet), ensure_ascii=False, sort_keys=True)}\n"
+        f"{_closing_coverage_note(packet)}"
         "EVIDENCE_COVERAGE="
         f"{json.dumps(packet.get('evidenceCoverage'), ensure_ascii=False, sort_keys=True)}\n"
         f"{_trusted_json_output_contract(VERDICT_SCHEMA)}"

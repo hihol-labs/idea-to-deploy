@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "LPD002-R4",
-    "goal": "LPD-002 R4: мелкое трение инструментов — efficacy-оракул запускается в изоляции, честные флаги раннера, --risk-tier при активации, канонический PASSED в шаблоне чекера, названный цикл verified-без-активации",
+    "id": "LPD002-R5",
+    "goal": "LPD-002 R5: класс ledger-close — закрытие юнита наследует покрытие доставленного юнита, строка наследования во всех трёх промптах, сила маршрута не падает",
     "status": "in_progress",
-    "startedAt": "2026-08-19T09:24:19Z",
+    "startedAt": "2026-08-19T11:36:16Z",
     "ledger": "STATE",
-    "riskTier": "low"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "passed",
