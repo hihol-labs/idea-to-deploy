@@ -641,7 +641,7 @@ def enrollment_observation_phase() -> None:
             selected_workflow_repository=workflow_repository,
             selected_workflow_commit=workflow_commit,
         ):
-            def gh(arguments):
+            def gh(arguments, **_):
                 endpoint = arguments[0]
                 if endpoint == f"repos/{REPOSITORY}":
                     return repository_value
@@ -1165,6 +1165,426 @@ def remote_phase() -> None:
             )
 
 
+def retry_phase() -> None:
+    """LPD-002 R3: transport flakes are retried in bounds; rights are not."""
+    unavailable = cli.gate.GateError
+    transport_reasons = (
+        'GitHub API request failed: Post "https://api.github.com/graphql":'
+        " net/http: TLS handshake timeout",
+        "GitHub PR lookup failed: error connecting to api.github.com",
+        "gh timed out after 30s",
+        "git timed out after 120s",
+        "GitHub API request failed: HTTP 502: Bad Gateway",
+        "gh command failed: dial tcp 140.82.121.6:443: i/o timeout",
+        "gh command failed: read: connection reset by peer",
+        "git command failed: fatal: unable to access"
+        " 'https://github.com/x/y.git/': Could not resolve host: github.com",
+    )
+    for reason in transport_reasons:
+        check(
+            cli.transport_failure(unavailable("UNAVAILABLE", reason)),
+            f"transport failure is retryable: {reason[:40]}",
+        )
+    rights_reasons = (
+        "GitHub PR lookup failed: gh: Resource not accessible by integration"
+        " (HTTP 403)",
+        "GitHub API request failed: gh: Bad credentials (HTTP 401)",
+        "gh command failed: GraphQL: a pull request for branch already exists"
+        " (HTTP 422)",
+    )
+    for reason in rights_reasons:
+        check(
+            not cli.transport_failure(unavailable("UNAVAILABLE", reason)),
+            f"rights/validation failure never retries: {reason[-10:]}",
+        )
+    check(
+        not cli.transport_failure(
+            unavailable(
+                "UNAVAILABLE",
+                "GitHub API request failed: HTTP 403 after dial tcp: i/o timeout",
+            )
+        ),
+        "rights status wins over a transport marker in the same reason",
+    )
+    check(
+        not cli.transport_failure(
+            unavailable("UNAVAILABLE", "gh command failed: something odd")
+        ),
+        "unclassified failure is not retried (fail-closed)",
+    )
+    check(
+        not cli.transport_failure(
+            unavailable("UNAVAILABLE", "command unavailable: gh")
+        ),
+        "missing binary is not a transport failure",
+    )
+    check(
+        not cli.transport_failure(
+            unavailable("UNVERIFIED", "TLS handshake timeout")
+        ),
+        "only UNAVAILABLE can be transport",
+    )
+    check(
+        cli.retry_delay(1) == 15
+        and cli.retry_delay(2) == 30
+        and cli.retry_delay(3) == 30
+        and cli.retry_delay(4) == 30,
+        "retry pause grows exponentially from 15s and caps at 30s",
+    )
+
+    flake = unavailable("UNAVAILABLE", "gh timed out after 30s")
+    sleeps: list[float] = []
+    calls = mock.Mock(side_effect=[flake, flake, {"ok": True}])
+    try:
+        outcome = cli.with_transport_retry(
+            calls, label="probe", sleep=sleeps.append
+        )
+    except unavailable:
+        outcome = None
+    check(
+        outcome == {"ok": True}
+        and calls.call_count == 3
+        and sleeps == [15, 30],
+        "transport flake is retried with exponential pauses until success",
+    )
+    sleeps.clear()
+    calls = mock.Mock(side_effect=flake)
+    try:
+        cli.with_transport_retry(calls, label="probe", sleep=sleeps.append)
+    except unavailable as exc:
+        check(
+            exc.status == "UNAVAILABLE"
+            and calls.call_count == 5
+            and sleeps == [15, 30, 30, 30]
+            and "5 attempts" in exc.reason
+            and "gh timed out after 30s" in exc.reason
+            and cli.TRANSPORT_STATE_HINT in exc.reason
+            and "gh pr view" in exc.reason,
+            "exhausted retry is typed UNAVAILABLE with the re-check hint",
+        )
+    else:
+        raise AssertionError("exhausted retry must raise")
+    forbidden = unavailable(
+        "UNAVAILABLE",
+        "GitHub PR lookup failed: gh: Resource not accessible (HTTP 403)",
+    )
+    sleeps.clear()
+    calls = mock.Mock(side_effect=forbidden)
+    try:
+        cli.with_transport_retry(calls, label="probe", sleep=sleeps.append)
+    except unavailable as exc:
+        check(
+            exc is forbidden and calls.call_count == 1 and sleeps == [],
+            "canary: HTTP 403 is raised once and never retried",
+        )
+    else:
+        raise AssertionError("403 must raise")
+    blocked = unavailable("BLOCKED", "PR is not an open exact Draft")
+    calls = mock.Mock(side_effect=blocked)
+    try:
+        cli.with_transport_retry(calls, label="probe", sleep=sleeps.append)
+    except unavailable as exc:
+        check(
+            exc is blocked and calls.call_count == 1,
+            "non-UNAVAILABLE gate errors pass through untouched",
+        )
+    else:
+        raise AssertionError("BLOCKED must raise")
+
+    # run(): a timed-out subprocess is named as such, not as a missing binary.
+    timed_out = {
+        "timedOut": True,
+        "outputOverflow": False,
+        "exitCode": None,
+        "stdout": b"",
+        "stderr": b"",
+    }
+    process = mock.Mock()
+    process.stdin = None
+    with (
+        mock.patch.object(cli.subprocess, "Popen", return_value=process),
+        mock.patch.object(
+            cli.machine, "_capture_process", return_value=timed_out
+        ),
+    ):
+        try:
+            cli.run(["git", "ls-remote"], timeout=120)
+        except unavailable as exc:
+            check(
+                exc.status == "UNAVAILABLE"
+                and exc.reason == "git timed out after 120s",
+                "subprocess timeout is reported honestly",
+            )
+        else:
+            raise AssertionError("timeout must raise")
+    with mock.patch.object(
+        cli.subprocess, "Popen", side_effect=FileNotFoundError("gh")
+    ):
+        try:
+            cli.run(["gh", "pr", "view"])
+        except unavailable as exc:
+            check(
+                exc.reason == "command unavailable: gh",
+                "missing binary keeps its own reason",
+            )
+        else:
+            raise AssertionError("missing binary must raise")
+
+    # gh_json: the CLI wrapper distinguishes a missing gh from a silent one.
+    sleeps.clear()
+    with mock.patch.object(
+        cli.subprocess,
+        "run",
+        side_effect=subprocess.TimeoutExpired("gh", 30),
+    ) as runner:
+        try:
+            cli.gh_json(["repos/x/y"], sleep=sleeps.append)
+        except unavailable as exc:
+            check(
+                runner.call_count == 5
+                and sleeps == [15, 30, 30, 30]
+                and cli.TRANSPORT_STATE_HINT in exc.reason,
+                "silent gh is retried five times then typed UNAVAILABLE",
+            )
+        else:
+            raise AssertionError("silent gh must raise")
+    sleeps.clear()
+    with mock.patch.object(
+        cli.subprocess, "run", side_effect=FileNotFoundError("gh")
+    ) as runner:
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.gh_json(["repos/x/y"], sleep=sleeps.append),
+            "missing gh binary is UNAVAILABLE",
+        )
+        check(
+            runner.call_count == 1 and sleeps == [],
+            "missing gh binary is not retried",
+        )
+    denied = subprocess.CompletedProcess(
+        ["gh"], 1, b"", b"gh: Resource not accessible by integration (HTTP 403)"
+    )
+    with mock.patch.object(
+        cli.subprocess, "run", return_value=denied
+    ) as runner:
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.gh_json(["repos/x/y"], sleep=sleeps.append),
+            "canary: gh 403 is UNAVAILABLE",
+        )
+        check(
+            runner.call_count == 1 and sleeps == [],
+            "canary: gh 403 is not retried",
+        )
+    granted = subprocess.CompletedProcess(["gh"], 0, b'{"id": 7}', b"")
+    with mock.patch.object(cli.subprocess, "run", return_value=granted):
+        check(
+            cli.gh_json(["repos/x/y"]) == {"id": 7},
+            "gh_json returns the parsed payload on success",
+        )
+
+    # pr_view: the failure reason carries gh's stderr instead of hiding it.
+    failed = type(
+        "Completed", (), {
+            "returncode": 1,
+            "stdout": b"",
+            "stderr": b'Post "https://api.github.com/graphql": net/http:'
+            b" TLS handshake timeout\n",
+        }
+    )()
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(cli, "run_json", return_value=(None, failed)),
+    ):
+        try:
+            cli.pr_view(Path("."), REPOSITORY)
+        except unavailable as exc:
+            check(
+                exc.status == "UNAVAILABLE"
+                and exc.reason.startswith("GitHub PR lookup failed: ")
+                and "TLS handshake timeout" in exc.reason
+                and cli.transport_failure(exc),
+                "PR lookup failure names its transport cause",
+            )
+        else:
+            raise AssertionError("PR lookup must raise")
+
+    # create_draft_pr: idempotent creation under transport flakes.
+    response = {
+        "number": 9,
+        "headRefName": "topic",
+        "headRefOid": HEAD,
+        "baseRefOid": BASE,
+        "url": "https://github.com/hihol-labs/example/pull/9",
+        "isDraft": True,
+        "state": "OPEN",
+    }
+    create_command = [
+        "gh", "pr", "create", "--repo", REPOSITORY, "--draft", "--fill",
+    ]
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "pr_view", side_effect=[None, response]),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run") as calls,
+    ):
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session", sleep=sleeps.append,
+        )
+        check(
+            value == response and not calls.called and sleeps == [],
+            "canary: an existing PR is never created twice",
+        )
+    # The live incident: the push had landed, then the PR lookup timed out.
+    sleeps.clear()
+    with (
+        mock.patch.object(
+            cli, "pr_view", side_effect=[flake, None, None, response]
+        ),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run") as calls,
+    ):
+        try:
+            value = cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session", sleep=sleeps.append,
+            )
+        except unavailable:
+            value = None
+        commands = [call.args[0] for call in calls.call_args_list]
+        check(
+            value == response
+            and commands == [create_command]
+            and sleeps == [15],
+            "PR lookup survives a transport flake after the push landed",
+        )
+    sleeps.clear()
+    with (
+        mock.patch.object(
+            cli, "pr_view", side_effect=[None, None, response]
+        ),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session", sleep=sleeps.append,
+        )
+        commands = [call.args[0] for call in calls.call_args_list]
+        check(
+            value == response
+            and commands == [create_command]
+            and sleeps == [15],
+            "canary: a PR that appeared after a timed-out create is reused,"
+            " not created again",
+        )
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "pr_view", return_value=None),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        try:
+            cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session", sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            commands = [call.args[0] for call in calls.call_args_list]
+            check(
+                exc.status == "UNAVAILABLE"
+                and commands == [create_command] * 5
+                and sleeps == [15, 30, 30, 30]
+                and cli.TRANSPORT_STATE_HINT in exc.reason,
+                "PR creation gives up after five transport failures"
+                " with the re-check hint",
+            )
+        else:
+            raise AssertionError("exhausted creation must raise")
+    duplicate = unavailable(
+        "UNAVAILABLE",
+        "gh command failed: a pull request for branch \"topic\" into branch"
+        " \"main\" already exists (HTTP 422)",
+    )
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "pr_view", return_value=None),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=HEAD),
+        mock.patch.object(cli, "run", side_effect=duplicate) as calls,
+    ):
+        try:
+            cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session", sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            check(
+                exc is duplicate and calls.call_count == 1 and sleeps == [],
+                "validation failure on create is raised once, not retried",
+            )
+        else:
+            raise AssertionError("422 create must raise")
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "pr_view", return_value=None),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(cli, "remote_branch_head", return_value=None),
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session", sleep=sleeps.append,
+            ),
+            "push transport failure is UNAVAILABLE",
+        )
+        commands = [call.args[0] for call in calls.call_args_list]
+        check(
+            commands == [["git", "push", "--set-upstream", "origin", "HEAD"]]
+            and sleeps == [],
+            "guarded push is never retried blindly",
+        )
+    sleeps.clear()
+    listing = type(
+        "Completed", (), {
+            "returncode": 0,
+            "stdout": (HEAD + "\trefs/heads/topic\n").encode("utf-8"),
+            "stderr": b"",
+        }
+    )()
+    with (
+        mock.patch.object(cli, "pr_view", side_effect=[None, response]),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
+        mock.patch.object(
+            cli, "run", side_effect=[flake, listing]
+        ) as calls,
+    ):
+        try:
+            value = cli.create_draft_pr(
+                Path("."), REPOSITORY, Path("receipt.json"),
+                "openai", "model", "session", sleep=sleeps.append,
+            )
+        except unavailable:
+            value = None
+        check(
+            value == response
+            and calls.call_count == 2
+            and sleeps == [15]
+            and all(
+                call.args[0][:4] == ["git", "-C", ".", "ls-remote"]
+                for call in calls.call_args_list
+            ),
+            "remote head listing survives one transport flake",
+        )
+
+
 def parser_phase() -> None:
     parser = cli.parser()
     args = parser.parse_args(
@@ -1256,6 +1676,7 @@ def main() -> int:
     enrollment_observation_phase()
     keygen_phase()
     remote_phase()
+    retry_phase()
     parser_phase()
     print(json.dumps({"checks": CHECKS, "status": "PASSED"}, sort_keys=True))
     return 0
