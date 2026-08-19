@@ -36,13 +36,20 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
   `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
   basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
-- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 83 проверок):
+- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 86 проверок):
   карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
-  5 мутаций данных + 3 мутанта движка, `--check` FRESH.
+  5 мутаций данных + 4 мутанта движка, `--check` FRESH. Правило
+  взаимоисключения `impactGraph`/`impactGraphPath` проверяется ДО раннего
+  выхода по `impactKnown:false` (находка cross-vendor ревьюера PUB1), при этом
+  неизвестный impact карту по-прежнему не читает — обе стороны покрыты.
 - `tests/verify_completion_policy_calibration.py` — закрытие НАСТОЯЩЕЙ дыры,
   найденной RED-прогоном аудита: `hooks/completion-stop.sh` не имел ни одного
   прямого сьюта (8 -> 11 проверок: напоминание при грязном коде и красной
-  улике, kill switch, тишина при `stop_hook_active`).
+  улике, kill switch, тишина при `stop_hook_active`). **Факт для ревьюера:**
+  файлы `hooks/*.sh` этого репозитория — Python-программы с шебангом
+  `#!/usr/bin/env python3` (так их исполняет и харнес); сьюты запускают их как
+  `[sys.executable, <hook>]` — тот же приём, что существующий `run_gate` для
+  `completion-gate.sh` в этом же файле. Запуск через `bash` был бы ошибкой.
 - Документация: `docs/WORKING_DEADLINE_MODE.md` (раздел «Карта воздействия как
   данные»), `skills/task/SKILL.md` (одно предложение), `CHANGELOG.md`
   `[Unreleased]` (R6), `BACKLOG.md` (регистрация долгов A8/A9 из сессии R5 и
@@ -63,7 +70,14 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
 прогоном `verify_independent_review_efficacy.py` на дереве R6: PASSED).
 Перечеканка live-evidence приедет отдельным коммитом ветки: файлы под
 `tests/fixtures/live-model-evidence/` — НАБЛЮДЕНИЕ за поведением внешней
-модели, записанное дословно; кандидат их не пишет и не проектирует.
+модели, записанное дословно; кандидат их не пишет и не проектирует. В
+частности `tests/fixtures/live-model-evidence/runs/*/output/*.md`
+(PRD, PROJECT_ARCHITECTURE, IMPLEMENTATION_PLAN и т. д.) — документы,
+СГЕНЕРИРОВАННЫЕ внешней моделью под тестом (fixture-03-cli-tool); их
+содержание (например, раскладка exit-кодов в PROJECT_ARCHITECTURE.md) судится
+snapshot-оракулом бенчмарка, а не ревью кандидата: находка об их содержании —
+находка о модели, не о кандидате, и «исправить» её можно только фальсификацией
+улики.
 `transcript.jsonl.gz` на диске — настоящий gzip; ревьюер видит его прозрачным
 представлением продюсера.
 

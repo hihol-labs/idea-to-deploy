@@ -153,7 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (measured on the delivered tree: 151 suites, 341 nodes, 932 edges, largest
     closure 36/151 for `.itd-memory/STATE.json`).
   - *Both mutation sides* in `tests/verify_verification_profiles.py`
-    (57 → 83 checks): drop every edge to a suite → completeness fails; drop an
+    (57 → 86 checks): drop every edge to a suite → completeness fails; drop an
     owned source's edges → completeness fails; declare every node adjacent to
     every suite → proportionality fails; stale node / stale target / wrong
     schema fail; three engine mutants (unattached-, orphan-, saturation-

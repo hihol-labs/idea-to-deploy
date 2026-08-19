@@ -531,6 +531,22 @@ both["impactGraph"] = {SELECTOR: [SELF]}
 r, payload = invoke(both)
 check("inline graph and map path are mutually exclusive",
       r.returncode == 1 and "mutually exclusive" in payload.get("why", ""), r.stdout)
+both_unknown = dict(both, impactKnown=False)
+r, payload = invoke(both_unknown)
+check("the exclusivity rule holds even when impact is unknown",
+      r.returncode == 1 and "mutually exclusive" in payload.get("why", ""), r.stdout)
+unknown_missing_map = map_select([SELECTOR], known=False)
+unknown_missing_map["impactGraphPath"] = str(ROOT / "does-not-exist" / "IMPACT_GRAPH.json")
+r, payload = invoke(unknown_missing_map)
+check("unknown impact never loads the map, even when the path is given and missing",
+      r.returncode == 0 and payload.get("route") == "strict.release"
+      and payload.get("impactClosure") == [SELECTOR], r.stdout + r.stderr)
+r, payload = invoke_mutant((
+    ("    reject_ambiguous_graph(request)\n    if request.get(\"impactKnown\") is not True:",
+     "    if request.get(\"impactKnown\") is not True:"),
+), both_unknown)
+check("mutation guard kills the early-return bypass of the exclusivity rule",
+      r.returncode == 0 and payload.get("route") == "strict.release", r.stdout + r.stderr)
 
 with tempfile.TemporaryDirectory() as td:
     tmp = Path(td)

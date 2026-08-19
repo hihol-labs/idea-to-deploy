@@ -171,14 +171,19 @@ def merged_impact_graph(document: dict[str, Any]) -> dict[str, list[str]]:
     return {source: sorted(targets) for source, targets in sorted(merged.items())}
 
 
-def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
-    inline = request.get("impactGraph")
-    path_value = request.get("impactGraphPath")
-    if inline is not None and path_value is not None:
+def reject_ambiguous_graph(request: dict[str, Any]) -> None:
+    """Both graph sources at once is a malformed request whatever impactKnown says."""
+    if request.get("impactGraph") is not None and request.get("impactGraphPath") is not None:
         raise DecisionError(
             "impactGraph and impactGraphPath are mutually exclusive",
             "Pass the inline graph or the path to the declared map, not both.",
         )
+
+
+def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
+    reject_ambiguous_graph(request)
+    inline = request.get("impactGraph")
+    path_value = request.get("impactGraphPath")
     if path_value is not None:
         root = resolve_under(Path.cwd(), request.get("root", "."), "root")
         document = load_impact_graph_document(
@@ -196,6 +201,7 @@ def impact_closure(request: dict[str, Any]) -> list[str]:
             "changed must be a unique non-empty list of impact nodes",
             "List the changed files/components explicitly before selecting a profile.",
         )
+    reject_ambiguous_graph(request)
     if request.get("impactKnown") is not True:
         return list(changed)
     graph = effective_impact_graph(request)
