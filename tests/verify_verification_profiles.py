@@ -466,10 +466,16 @@ def map_select(changed: list[str], known: bool = True, risk: str = "medium",
     return request
 
 
+MUTANT_COUNTER = [0]
+
+
 def mutated_map(td: Path, mutate) -> Path:
+    """Write a mutated map INSIDE the repository root (containment is enforced
+    by the engine since the PUB3 security finding), under a git-ignored dir."""
     document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
     mutate(document)
-    path = td / "IMPACT_GRAPH.json"
+    MUTANT_COUNTER[0] += 1
+    path = td / f"IMPACT_GRAPH-{MUTANT_COUNTER[0]}.json"
     path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
     return path
 
@@ -548,8 +554,11 @@ r, payload = invoke_mutant((
 check("mutation guard kills the early-return bypass of the exclusivity rule",
       r.returncode == 0 and payload.get("route") == "strict.release", r.stdout + r.stderr)
 
-with tempfile.TemporaryDirectory() as td:
-    tmp = Path(td)
+import shutil as _shutil
+_scratch = ROOT / ".itd" / f"tmp-impact-oracle-{os.getpid()}"
+_scratch.mkdir(parents=True, exist_ok=True)
+try:
+    tmp = _scratch
     def drop_edges_to_self(doc):
         for targets in doc["generated"].values():
             if SELF in targets:
@@ -606,8 +615,9 @@ with tempfile.TemporaryDirectory() as td:
           r.returncode == 1 and "schemaVersion" in payload.get("why", ""), r.stdout)
 
     empty_root = tmp / "no-suites"
-    empty_root.mkdir()
-    empty_request = audit_request()
+    empty_root.mkdir(exist_ok=True)
+    (empty_root / "IMPACT_GRAPH.json").write_bytes(IMPACT_MAP.read_bytes())
+    empty_request = audit_request(empty_root / "IMPACT_GRAPH.json")
     empty_request["root"] = str(empty_root)
     r, payload = invoke(empty_request)
     check("an audit root without suites fails closed instead of passing vacuously",
@@ -630,6 +640,53 @@ with tempfile.TemporaryDirectory() as td:
     ), audit_request(mutated_map(tmp, everything_adjacent)))
     check("mutation guard kills saturation blindness",
           r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+
+    outside_request = audit_request()
+    outside_request["impactGraphPath"] = "../outside-map.json"
+    r, payload = invoke(outside_request)
+    check("a map path that escapes the root fails closed",
+          r.returncode == 1 and "escapes the declared root" in payload.get("why", ""),
+          r.stdout)
+
+    foreign_root = audit_request()
+    foreign_root["root"] = tempfile.gettempdir()
+    r, payload = invoke(foreign_root)
+    check("a root outside the working repository fails closed",
+          r.returncode == 1
+          and "escapes the working repository" in payload.get("why", ""), r.stdout)
+
+    link_name = ".itd/" + tmp.name + "/escape-link.py"
+    symlink_supported = True
+    try:
+        (tmp / "escape-link.py").symlink_to(Path(tempfile.gettempdir()))
+    except OSError:
+        symlink_supported = False
+    if symlink_supported:
+        def symlinked_node(doc):
+            doc["generated"][link_name] = [SELF]
+        r, payload = invoke(audit_request(mutated_map(tmp, symlinked_node)))
+        check("a symlinked node that resolves outside the root fails closed",
+              r.returncode == 1
+              and "outside the repository root" in payload.get("why", ""), r.stdout)
+    else:
+        check("a symlinked node that resolves outside the root fails closed",
+              True, "symlinks unsupported on this host; guard exercised on POSIX")
+
+    def escaping_node(doc):
+        doc["generated"]["../outside.py"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, escaping_node)))
+    check("a graph node outside the repository root fails closed",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+
+    def absolute_target(doc):
+        doc["generated"][SELECTOR] = [str(ROOT / SELF)]
+    r, payload = invoke(audit_request(mutated_map(tmp, absolute_target)))
+    check("an absolute graph target fails closed",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+finally:
+    _shutil.rmtree(_scratch, ignore_errors=True)
 
 fresh = subprocess.run(
     [PY, str(BUILDER), "--check"], cwd=str(ROOT), capture_output=True,

@@ -130,11 +130,45 @@ def validate_graph_shape(graph: Any, label: str) -> dict[str, list[str]]:
 
 
 def resolve_under(root: Path, value: Any, field: str) -> Path:
+    """Resolve a request path and refuse anything that escapes ``root``."""
     text = require_string(value, field)
     path = Path(text)
     if not path.is_absolute():
         path = root / path
-    return path
+    resolved = path.resolve(strict=False)
+    root_resolved = root.resolve(strict=False)
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise DecisionError(
+            f"{field} escapes the declared root",
+            f"Keep {field} inside the audited repository root; never point the "
+            "engine at an outside file.",
+        )
+    return resolved
+
+
+def contained_file(root: Path, node: str, label: str) -> Path:
+    """A graph node/target is a repository-relative path; escapes fail closed.
+
+    The resolved location must stay under the resolved root, so a symlink
+    inside the repository cannot smuggle an outside file past the audit.
+    """
+    candidate = Path(node)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise DecisionError(
+            f"{label} contains a path outside the repository root: {node}",
+            "Use repository-relative paths in the impact map; regenerate it "
+            "with tests/build_impact_graph.py.",
+        )
+    joined = root / candidate
+    resolved = joined.resolve(strict=False)
+    root_resolved = root.resolve(strict=False)
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise DecisionError(
+            f"{label} contains a path outside the repository root: {node}",
+            "Remove the escaping link or entry; the audit only trusts files "
+            "that really live under the repository root.",
+        )
+    return joined
 
 
 def load_impact_graph_document(path: Path) -> dict[str, Any]:
@@ -185,7 +219,7 @@ def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
     inline = request.get("impactGraph")
     path_value = request.get("impactGraphPath")
     if path_value is not None:
-        root = resolve_under(Path.cwd(), request.get("root", "."), "root")
+        root = resolve_root(request)
         document = load_impact_graph_document(
             resolve_under(root, path_value, "impactGraphPath"))
         return merged_impact_graph(document)
@@ -254,9 +288,12 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
     targets_seen: set[str] = set()
     for targets in graph.values():
         targets_seen.update(targets)
-    stale_nodes = [node for node in graph if not (root / node).is_file()]
+    stale_nodes = [
+        node for node in graph
+        if not contained_file(root, node, "impactGraph node").is_file()]
     stale_targets = sorted(
-        target for target in targets_seen if not (root / target).is_file())
+        target for target in targets_seen
+        if not contained_file(root, target, "impactGraph target").is_file())
     unattached = [suite for suite in suites if suite not in targets_seen]
     orphan_owned = [
         node for node in owned
@@ -296,8 +333,31 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
     }
 
 
+def resolve_root(request: dict[str, Any]) -> Path:
+    """The audited root: an existing directory inside the working repository.
+
+    The engine runs from the repository under review; a root elsewhere would
+    let a request point the audit at an arbitrary readable tree (PUB3).
+    """
+    text = require_string(request.get("root", "."), "root")
+    root = Path(text).resolve(strict=False)
+    if not root.is_dir():
+        raise DecisionError(
+            f"root is not an existing directory: {text}",
+            "Point root at the repository that owns the suites and the map.",
+        )
+    cwd = Path.cwd().resolve()
+    if root != cwd and cwd not in root.parents:
+        raise DecisionError(
+            "root escapes the working repository",
+            "Run the engine from the repository under audit; root may only "
+            "name that repository or a directory inside it.",
+        )
+    return root
+
+
 def run_impact_audit(request: dict[str, Any]) -> dict[str, Any]:
-    root = resolve_under(Path.cwd(), request.get("root", "."), "root")
+    root = resolve_root(request)
     path = resolve_under(root, request.get("impactGraphPath"), "impactGraphPath")
     document = load_impact_graph_document(path)
     return audit_impact_graph(document, root)

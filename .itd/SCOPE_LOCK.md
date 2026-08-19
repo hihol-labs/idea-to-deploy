@@ -36,12 +36,24 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
   `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
   basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
-- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 86 проверок):
+- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 91 проверок):
   карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
   5 мутаций данных + 4 мутанта движка, `--check` FRESH. Правило
   взаимоисключения `impactGraph`/`impactGraphPath` проверяется ДО раннего
   выхода по `impactKnown:false` (находка cross-vendor ревьюера PUB1), при этом
   неизвестный impact карту по-прежнему не читает — обе стороны покрыты.
+  По находке PUB3 (security) добавлено containment: `root` обязан быть
+  существующей директорией, `impactGraphPath` обязан резолвиться ВНУТРИ root
+  (`escapes the declared root` -> fail-closed), узлы/цели графа — только
+  repo-relative без `..` и без абсолютных путей (`outside the repository
+  root` -> fail-closed); `root` сам обязан быть рабочим репозиторием или
+  директорией внутри него (`escapes the working repository`), а containment
+  узлов/целей проверяется ПО РАЗРЕШЁННОМУ пути — симлинк внутри репо не
+  протаскивает внешний файл мимо аудита (находки sec-чекера r1). Оракул
+  86 -> 91 (пять escape-проверок; мутантные карты пишутся внутрь root во
+  временный каталог `.itd/tmp-impact-oracle-<pid>/`, который удаляется в
+  `finally`; корректность НЕ зависит от его git-ignore статуса — локальный
+  `.git/info/exclude` не версионируется).
 - `tests/verify_completion_policy_calibration.py` — закрытие НАСТОЯЩЕЙ дыры,
   найденной RED-прогоном аудита: `hooks/completion-stop.sh` не имел ни одного
   прямого сьюта (8 -> 11 проверок: напоминание при грязном коде и красной
