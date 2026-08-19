@@ -440,6 +440,189 @@ r, payload = invoke_mutant((
 check("mutation guard kills noisy no-input behavior",
       r.returncode == 0 and bool(r.stdout), r.stdout + r.stderr)
 
+# ---------------------------------------------------------------------------
+# LPD-002 R6: the impact map is data in the repository, fed to impact_closure
+# as impactGraph; completeness and proportionality are judged by the engine.
+# ---------------------------------------------------------------------------
+IMPACT_MAP = ROOT / ".itd" / "IMPACT_GRAPH.json"
+BUILDER = ROOT / "tests" / "build_impact_graph.py"
+SELF = "tests/verify_verification_profiles.py"
+SELECTOR = "skills/_shared/itd_verification_profiles.py"
+
+
+def audit_request(map_path: Path = IMPACT_MAP) -> dict:
+    return {"operation": "impact-audit", "impactGraphPath": str(map_path),
+            "root": str(ROOT)}
+
+
+def map_select(changed: list[str], known: bool = True, risk: str = "medium",
+               map_path: Path = IMPACT_MAP) -> dict:
+    request = {
+        "operation": "select", "profile": "targeted", "risk": risk, "signals": [],
+        "impactKnown": known, "changed": changed, "requestedCapabilities": [],
+    }
+    if known:
+        request["impactGraphPath"] = str(map_path)
+    return request
+
+
+def mutated_map(td: Path, mutate) -> Path:
+    document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
+    mutate(document)
+    path = td / "IMPACT_GRAPH.json"
+    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+check("impact map is committed data, not inferred at run time", IMPACT_MAP.is_file())
+document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
+check("impact map names its generator and schema",
+      document.get("schemaVersion") == "1"
+      and document.get("generator") == "tests/build_impact_graph.py"
+      and BUILDER.is_file())
+check("impact map declares the suite universe and the owned source globs",
+      (document.get("universe") or {}).get("suites") == "tests/verify_*.py"
+      and (document.get("universe") or {}).get("owned") == ["skills/_shared/*.py", "hooks/*.sh"])
+
+all_suites = sorted(
+    p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").glob("verify_*.py"))
+owned_files = sorted(
+    p.relative_to(ROOT).as_posix()
+    for pattern in ("skills/_shared/*.py", "hooks/*.sh") for p in ROOT.glob(pattern))
+r, payload = invoke(audit_request())
+check("impact audit passes on the committed map and the live tree",
+      r.returncode == 0 and payload.get("status") == "PASS"
+      and payload.get("verified") is True, r.stdout + r.stderr)
+check("completeness: every tests/verify_*.py suite appears in the map",
+      payload.get("suites") == len(all_suites) and len(all_suites) >= 151
+      and payload.get("unattachedSuites") == [], r.stdout)
+check("completeness: every skills/_shared/*.py and hooks/*.sh has an owning suite",
+      payload.get("owned") == len(owned_files) and payload.get("orphanOwned") == [],
+      r.stdout)
+check("completeness: no stale node or target survives in the map",
+      payload.get("staleNodes") == [] and payload.get("staleTargets") == [], r.stdout)
+check("proportionality: no node's closure reaches the full suite set",
+      payload.get("saturatedNodes") == []
+      and 0 < payload.get("maxClosure", 0) < payload.get("fullSet", 0), r.stdout)
+r, payload_cli = invoke(audit_request(), subprocess_mode=True)
+check("impact audit is reachable through the CLI with the same verdict",
+      r.returncode == 0 and payload_cli.get("status") == "PASS"
+      and payload_cli.get("edges") == payload.get("edges"), r.stdout + r.stderr)
+
+r, payload = invoke(map_select([SELECTOR]))
+selected = [node for node in payload.get("impactClosure") or [] if node in all_suites]
+check("the committed map is fed to impact_closure as impactGraph",
+      r.returncode == 0 and payload.get("route") == "working_deadline.targeted"
+      and SELF in selected, r.stdout + r.stderr)
+check("proportionality: a point change selects strictly fewer suites than the full set",
+      0 < len(selected) < len(all_suites), f"{len(selected)}/{len(all_suites)}")
+r, payload = invoke(map_select(["hooks/completion-stop.sh"]))
+check("an owned hook resolves to its owning suite through the map",
+      r.returncode == 0
+      and "tests/verify_completion_policy_calibration.py" in (payload.get("impactClosure") or []),
+      r.stdout + r.stderr)
+r, payload = invoke(map_select([SELECTOR], known=False))
+check("impactKnown:false exits to the strict release path without the map",
+      r.returncode == 0 and payload.get("route") == "strict.release"
+      and "unknown impact requires strict release" in (payload.get("reasons") or [])
+      and payload.get("impactClosure") == [SELECTOR], r.stdout + r.stderr)
+both = map_select([SELECTOR])
+both["impactGraph"] = {SELECTOR: [SELF]}
+r, payload = invoke(both)
+check("inline graph and map path are mutually exclusive",
+      r.returncode == 1 and "mutually exclusive" in payload.get("why", ""), r.stdout)
+
+with tempfile.TemporaryDirectory() as td:
+    tmp = Path(td)
+    def drop_edges_to_self(doc):
+        for targets in doc["generated"].values():
+            if SELF in targets:
+                targets.remove(SELF)
+        doc["declared"] = {}
+    r, payload = invoke(audit_request(mutated_map(tmp, drop_edges_to_self)))
+    check("mutation: removing every edge to a suite fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("unattachedSuites") == [SELF], r.stdout + r.stderr)
+
+    def drop_owned_node(doc):
+        doc["generated"].pop("hooks/completion-stop.sh")
+        doc["declared"] = {}
+    r, payload = invoke(audit_request(mutated_map(tmp, drop_owned_node)))
+    check("mutation: removing an owned source's edges fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and "hooks/completion-stop.sh" in (payload.get("orphanOwned") or []),
+          r.stdout + r.stderr)
+
+    def everything_adjacent(doc):
+        doc["generated"] = {node: list(all_suites) for node in doc["generated"]}
+    r, payload = invoke(audit_request(mutated_map(tmp, everything_adjacent)))
+    check("mutation: declaring every node adjacent to every suite fails proportionality",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and len(payload.get("saturatedNodes") or []) == len(document["generated"])
+          and payload.get("unattachedSuites") == [] and payload.get("orphanOwned") == [],
+          r.stdout + r.stderr)
+
+    def stale_node(doc):
+        doc["generated"]["skills/_shared/itd_ghost.py"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, stale_node)))
+    check("mutation: a node that no longer exists fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("staleNodes") == ["skills/_shared/itd_ghost.py"], r.stdout)
+
+    def stale_target(doc):
+        doc["generated"][SELECTOR].append("tests/verify_ghost.py")
+    r, payload = invoke(audit_request(mutated_map(tmp, stale_target)))
+    check("mutation: an edge to a missing suite fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("staleTargets") == ["tests/verify_ghost.py"], r.stdout)
+
+    def declared_edge(doc):
+        doc["declared"] = {"docs/WORKING_DEADLINE_MODE.md": [SELF]}
+    declared_path = mutated_map(tmp, declared_edge)
+    r, payload = invoke(map_select(["docs/WORKING_DEADLINE_MODE.md"], map_path=declared_path))
+    check("hand-declared edges merge into the generated graph",
+          r.returncode == 0 and SELF in (payload.get("impactClosure") or []), r.stdout)
+
+    def wrong_schema(doc):
+        doc["schemaVersion"] = "2"
+    r, payload = invoke(audit_request(mutated_map(tmp, wrong_schema)))
+    check("an unsupported map schema fails closed",
+          r.returncode == 1 and "schemaVersion" in payload.get("why", ""), r.stdout)
+
+    empty_root = tmp / "no-suites"
+    empty_root.mkdir()
+    empty_request = audit_request()
+    empty_request["root"] = str(empty_root)
+    r, payload = invoke(empty_request)
+    check("an audit root without suites fails closed instead of passing vacuously",
+          r.returncode == 1 and "no suites match" in payload.get("why", ""), r.stdout)
+
+    # Engine mutants: each completeness/proportionality guard is load-bearing.
+    r, payload = invoke_mutant((
+        ("unattached = [suite for suite in suites if suite not in targets_seen]",
+         "unattached = []"),
+    ), audit_request(mutated_map(tmp, drop_edges_to_self)))
+    check("mutation guard kills unattached-suite blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+    r, payload = invoke_mutant((
+        ("if not (set(walk_closure([node], graph)) & suite_set)]", "if False]"),
+    ), audit_request(mutated_map(tmp, drop_owned_node)))
+    check("mutation guard kills orphan-owned blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+    r, payload = invoke_mutant((
+        ("if reached >= len(suites):", "if False:"),
+    ), audit_request(mutated_map(tmp, everything_adjacent)))
+    check("mutation guard kills saturation blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+
+fresh = subprocess.run(
+    [PY, str(BUILDER), "--check"], cwd=str(ROOT), capture_output=True,
+    encoding="utf-8", errors="replace", timeout=120,
+    env={**os.environ, "PYTHONUTF8": "1"})
+check("the committed map is fresh against the tracked tree (regenerate to fix)",
+      fresh.returncode == 0 and fresh.stdout.startswith("FRESH"),
+      fresh.stdout + fresh.stderr)
+
 runtime_marker = "skills/_shared/itd_verification_profiles.py"
 for path in (TASK_SKILL, HELPERS, DOC):
     text = path.read_text(encoding="utf-8")

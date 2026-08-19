@@ -12,6 +12,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "hooks" / "completion-gate.sh"
+STOP = ROOT / "hooks" / "completion-stop.sh"
 POLICY = ROOT / "docs" / "templates" / "itd" / "COMPLETION_POLICY.json"
 passed = failed = 0
 
@@ -51,6 +52,18 @@ def run_gate(repo: Path, description: str = ""):
     output = json.loads(result.stdout) if result.stdout.strip() else {}
     hook = output.get("hookSpecificOutput") or {}
     return result, hook.get("permissionDecision"), output.get("systemMessage", "")
+
+
+def run_stop(repo: Path, env: dict | None = None, stop_hook_active: bool = False):
+    payload = {"session_id": "calibration", "cwd": str(repo),
+               "stop_hook_active": stop_hook_active}
+    run_env = {**os.environ, "ITD_COMPLETION_STOP_RATE_MIN": "0",
+               "PYTHONUTF8": "1", **(env or {})}
+    result = subprocess.run([sys.executable, str(STOP)], input=json.dumps(payload),
+                            capture_output=True, text=True, timeout=30,
+                            encoding="utf-8", errors="replace", env=run_env)
+    output = json.loads(result.stdout) if result.stdout.strip() else {}
+    return result, output.get("systemMessage", "")
 
 
 def main() -> int:
@@ -99,6 +112,19 @@ def main() -> int:
         result, decision, _ = run_gate(repo)
         check("low-risk still blocks known failed runtime evidence",
               result.returncode == 2 and decision == "deny")
+
+        # The Stop-boundary echelon of the same verdict: hooks/completion-stop.sh
+        # reads the identical ledger and only ever speaks softly (exit 0).
+        result, message = run_stop(repo)
+        check("completion-stop reminds on dirty source with red runtime evidence",
+              result.returncode == 0 and "НЕ доказано" in message
+              and "[COMPLETION-STOP]" in message)
+        result, message = run_stop(repo, env={"ITD_COMPLETION_STOP": "0"})
+        check("completion-stop kill switch is silent and never blocks",
+              result.returncode == 0 and message == "")
+        result, message = run_stop(repo, stop_hook_active=True)
+        check("completion-stop stays silent when the stop hook is already active",
+              result.returncode == 0 and message == "")
 
         signals.unlink()
         result, decision, _ = run_gate(repo, "COMPLETION_BYPASS: accepted debt")

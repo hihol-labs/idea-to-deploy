@@ -1,132 +1,90 @@
-# Scope Lock — R5 (LPD-002): класс ledger-close кандидата
+# Scope Lock — R6 (LPD-002): карта воздействия как данные + два оракула
 
 ## Current Task
 
-Пятый пункт плана `.itd-memory/LPD-002_UNIT_PLAN.json` (approved владельцем
-2026-08-18), riskTier **high** (`checkerMode full`, `checkerRequired true`,
-`minimumIndependentReviewers 1`, независимость требует другой сессии И другой
-модели/провайдера), WIP=1. Источник: retro 2026-08-18 E1 -> P1;
-первоисточник дефекта — `.itd-memory/HANDOFF-S10-LEDGER.md` §17.11-17.12.
+Шестой и ПОСЛЕДНИЙ пункт плана `.itd-memory/LPD-002_UNIT_PLAN.json`
+(approved владельцем 2026-08-18), riskTier **medium** (`checkerMode targeted`,
+`checkerRequired true`, `minimumIndependentReviewers 1`, независимость требует
+другой сессии, но НЕ другой модели/провайдера; контуры `static + targeted`),
+WIP=1. Источник: LPD-001 M3 (оставлен при пересмотре плана). Бриф пункта —
+`.itd-memory/LPD-002_R6_BRIEF.md`.
 
 ## Корень (измерен на текущем коде, не предположен)
 
-`skills/_shared/itd_review_evidence.py:69` `evidence_first_policy()` возвращает
-`None`, как только followup закрыт (`followup_is_closed`, :51), а
-`coverage_matrix` (:103) на `None`-политике отдаёт `None`.
-`skills/_shared/itd_free_reviewer_producer.py:1240` кладёт `evidenceCoverage` в
-пакет только `if evidence_coverage is not None` -> в промпт ревьюера уходит
-`EVIDENCE_COVERAGE=null`.
-
-Отсюда неразрешимый круг, замеренный на S10:
-
-- followup закрыт -> покрытия нет -> ревьюер даёт **BLOCKED high**: «политика
-  требует покрытия correctness/error-handling/repository-hygiene/security»;
-- followup открыт при том же close-дифе -> **BLOCKED**: «STATE и контракт
-  расходятся».
-
-Ни одно положение не пропускает ledger-close коммит. Цена обхода: `STATE` в
-`main` систематически отстаёт на один юнит, отметки закрытия едут «зайцем» в
-чужом delivery-коммите — включая delivery-коммит самого R5.
+`impact_closure` (`skills/_shared/itd_verification_profiles.py:112` до правки)
+УЖЕ принимает `impactGraph` и `impactKnown` и обходит граф BFS. Чего нет:
+(1) самой карты «путь исходника -> сьюты» как данных в репозитории; (2) машинной
+проверки её полноты; (3) машинной проверки пропорциональности. Ручной список в
+LPD-001 прямо отвергнут как источник ошибок U9/U10; масштаб на 2026-08-19:
+151 `tests/verify_*.py`, 18 `skills/_shared/*.py`, 30 `hooks/*.sh` — ручная
+карта устареет на следующем сьюте, поэтому полнота обязана быть машинной.
 
 ## Candidate composition (allowed zones)
 
-- `skills/_shared/itd_review_evidence.py` — точное определение класса
-  `ledger-close`: `LEDGER_STATE_PATH`, `CLOSING_FOLLOWUP_FIELDS`,
-  `ledger_close_policy()`; вынесенная общая валидация политики
-  (`_validated_policy`); необязательный именованный аргумент `candidate` у
-  `coverage_matrix()` (без него РЕШЕНИЕ политики прежнее: закрытый followup
-  отпускает матрицу, открытый требует своего покрытия); постоянное поле
-  `coverageSource` в матрице (`active-unit` | `closed-unit-inherited`) —
-  форма матрицы меняется всегда, и это осознанно.
-- `skills/_shared/itd_free_reviewer_producer.py` — `freeze_packet` собирает
-  факты кандидата (пути дифа из `_staged_file_records`, путь контракта
-  относительно корня, base-версия контракта через `_git_blob`) и передаёт их в
-  `coverage_matrix`; общий хелпер `_closing_coverage_note()` рендерит строку
-  `closing commit: coverage inherited from the delivered unit <id>` во ВСЕХ
-  трёх поверхностях, где дампится покрытие: `review_prompt` (плоский путь,
-  которым судился ledger-close на S10), `_unit_review_prompt`,
-  `_integration_review_prompt`.
-- `tests/verify_review_evidence.py` — **НОВЫЙ**, первый прямой оракул модуля
-  (до R5 он покрыт лишь косвенно через
-  `tests/verify_independent_review_efficacy.py:289/304/315/342`).
-- `tests/verify_free_reviewer_producer.py` — рендер строки во всех трёх
-  промптах, отсутствие строки на обычном кандидате, `minimum_reviewer_count`
-  на унаследованном покрытии.
-- `tests/run-all.sh` — регистрация `verify_review_evidence` в списке `CORE`
-  (список ведётся руками, сьюта там не было).
-- `.itd/DECISIONS.md` — впервые вводится в трекинг (`git add -f`: `.itd/`
-  исключён через `.git/info/exclude`, а журнал заведён позже, поэтому durable-
-  решения не переживали клон); две durable-записи: (1) строка наследования идёт во все
-  три поверхности промпта, а не только в unit-промпт; (2) close-класс
-  клампится к `minimumIndependentReviewers >= 1` — сила маршрута не
-  ослабляется.
-- `.itd/ACCEPTANCE_CONTRACT.json` — критерии `LPD002-R5-*`, ротация
-  `activeFollowup` `LPD002-R4` -> `LPD002-R5`;
-  `.itd-memory/contracts/LPD002-R5.md`; `.itd-memory/LPD-002_UNIT_PLAN.json` —
-  статус пункта R5 и `oracleAmendments`; `CHANGELOG.md`, `BACKLOG.md`.
-- С delivery-коммитом R5 едут отметки закрытия R4 в `STATE.json` и
-  `LPD-002_UNIT_PLAN.json` (тот же шаблон R1 -> R2 -> R3 -> R4; обход
-  HANDOFF-S10 §17.11 снимается только ПОСЛЕ мержа R5, отдельным решением
-  владельца).
-- Перечеканка на итоговом дереве отдельным коммитом: live-model-benchmark
-  (`skills/` входит в `METHODOLOGY_TREE_ROOTS`).
+- `skills/_shared/itd_verification_profiles.py` — поле запроса
+  `impactGraphPath` (взаимоисключимо с inline `impactGraph`; `impactKnown:false`
+  карту не читает), загрузчик документа карты (`schemaVersion 1`, `universe`,
+  `generated`, `declared`), слияние `generated ∪ declared`, операция
+  `impact-audit` (`audit_impact_graph`: полнота — `unattachedSuites`,
+  `orphanOwned`, `staleNodes`, `staleTargets`; пропорциональность —
+  `saturatedNodes`, `maxClosure < fullSet`). Обход графа — прежний BFS,
+  вынесенный в `walk_closure` без изменения семантики. Нового движка нет
+  (ADR-001).
+- `.itd/IMPACT_GRAPH.json` — **НОВЫЙ**, сама карта как данные (tracked;
+  `.itd/` скрыт только локальным `.git/info/exclude`, поэтому `git add -f`).
+- `tests/build_impact_graph.py` — **НОВЫЙ** генератор секции `generated` из
+  tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
+  `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
+  basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
+- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 83 проверок):
+  карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
+  5 мутаций данных + 3 мутанта движка, `--check` FRESH.
+- `tests/verify_completion_policy_calibration.py` — закрытие НАСТОЯЩЕЙ дыры,
+  найденной RED-прогоном аудита: `hooks/completion-stop.sh` не имел ни одного
+  прямого сьюта (8 -> 11 проверок: напоминание при грязном коде и красной
+  улике, kill switch, тишина при `stop_hook_active`).
+- Документация: `docs/WORKING_DEADLINE_MODE.md` (раздел «Карта воздействия как
+  данные»), `skills/task/SKILL.md` (одно предложение), `CHANGELOG.md`
+  `[Unreleased]` (R6), `BACKLOG.md` (регистрация долгов A8/A9 из сессии R5 и
+  измеренного предела «ребро — прямой шаг»).
+- Леджер юнита: `.itd/ACCEPTANCE_CONTRACT.json` (критерии `LPD002-R6-*`,
+  `activeFollowup` -> `LPD002-R6`), `.itd-memory/contracts/LPD002-R6.md`,
+  `.itd-memory/STATE.json` (activate `LPD002-R6`, riskTier medium),
+  `.itd/DECISIONS.md` (durable-записи R6 + запись R5 из прошлой сессии, которая
+  локально не была закоммичена), `.itd-memory/LPD-002_UNIT_PLAN.json`
+  (отметка закрытия R5 + активация R6 — тот же шаблон, что R1 -> … -> R5).
 
 ## Записанные улики в дифе — это НЕ авторский код кандидата
 
-Ветка несёт два перечеканенных набора улик. Они попадают в диф целиком, но
-кандидат их не пишет и не проектирует — он их ЗАПИСЫВАЕТ, потому что оба пина
-привязаны к правленым файлам:
-
-- `tests/fixtures/live-model-evidence/` — стенограмма и выходные документы
-  ОДНОГО живого прогона `fixture-03-cli-tool`. Содержимое (архитектура
-  сгенерированного демо-проекта, его границы памяти, полнота шагов скилла,
-  пустой `aggregated_output` шага) — это НАБЛЮДЕНИЕ за поведением внешней
-  модели, зафиксированное дословно. Правка этих файлов руками была бы
-  фальсификацией улики. Перечеканка вызвана только тем, что `skills/` входит в
-  `METHODOLOGY_TREE_ROOTS` (`tests/verify_live_model_benchmark.py`).
-  `transcript.jsonl.gz` на диске — НАСТОЯЩИЙ gzip (магия `1f8b`, `gzip -t`
-  проходит, sha256 совпадает с `candidate.transcriptGzipSha256`); ревьюер видит
-  его декодированным, потому что продюсер объявленные `.jsonl.gz` показывает
-  прозрачным представлением, а не сырыми байтами. Отсутствие gzip-магии В
-  ПРОМПТЕ — свойство представления, а не дефект артефакта.
-- `benchmarks/independent-review-efficacy/results/*.json` — три подписанных
-  конверта живых прогонов оракула эффективности. Перечеканка вызвана только
-  тем, что каждый конверт пинит `producerSha256` правленого
-  `itd_free_reviewer_producer.py`.
-
-Находки о СОДЕРЖАНИИ этих улик — не находки о кандидате: содержание
-принадлежит внешней модели, а кандидат отвечает за целостность записи.
-Нарушение целостности (несовпадение пина, подписи, дайджеста, состава корпуса)
-даёт красный оракул — `verify_live_model_benchmark --require-evidence`,
-`verify_independent_review_efficacy`. Замечание о качестве того, что модель
-написала, оракулом НЕ ловится и ловиться не должно: это наблюдение о внешней
-модели, и его место — бенчмарк или BACKLOG, а не находка о кандидате. Целостность
-улик проверять обязательно; интерпретировать содержимое как авторский код — нет.
+Правка `skills/` инвалидирует live-evidence пин
+(`tests/verify_live_model_benchmark.py`, `METHODOLOGY_TREE_ROOTS`); три
+подписанные efficacy-ноги R6 НЕ трогает (их пин — `producerSha256` самого
+`itd_free_reviewer_producer.py` плюс раннер и манифест; проверено прямым
+прогоном `verify_independent_review_efficacy.py` на дереве R6: PASSED).
+Перечеканка live-evidence приедет отдельным коммитом ветки: файлы под
+`tests/fixtures/live-model-evidence/` — НАБЛЮДЕНИЕ за поведением внешней
+модели, записанное дословно; кандидат их не пишет и не проектирует.
+`transcript.jsonl.gz` на диске — настоящий gzip; ревьюер видит его прозрачным
+представлением продюсера.
 
 ## Явно вне скоупа
 
-- **Расширение класса за букву критерия.** Класс — ровно
-  `.itd-memory/STATE.json` **и** контракт, изменённый только в
-  `activeFollowup.status` / `activeFollowup.closedAt` (оба файла обязательны и
-  обе строки дифа обязаны иметь статус `M`: переход контракта и есть закрытие,
-  а леджер закрытие правит, а не создаёт и не уничтожает). Реальный close этого
-  плана трогает ещё `.itd-memory/LPD-002_UNIT_PLAN.json` -> кандидат из класса
-  выпадает и судится как раньше. Это осознанный выбор владельца (2026-08-19):
-  буква approved-критерия, разрыв зафиксирован находкой в `BACKLOG.md` и
-  проверяется догфудингом после мержа.
-- **Ослабление продюсера ради прохождения ledger-close** — отвергнуто планом
-  как Гудхарт (`designDecisions`). Диф вне точного состава класса судится
-  ровно как сегодня.
+- **Перевод `tests/run-all.sh` на карту** (пропорциональный запуск сьютов по
+  замыканию). Критерий пункта — данные + два оракула; потребитель карты —
+  отдельное решение владельца после релиза LPD-002.
+- **Рёбра исходник -> исходник** в `generated`: измерено и отвергнуто
+  (транзитивный stem-матчинг насыщает 148/151 сьютов на узел). Предел записан
+  в `BACKLOG.md` с кандидатом (точные рёбра по Python-импортам).
+- **Долг A5** (класс `ledger-close` и файл плана) — отдельный коммит/юнит, не
+  этот дифф.
 - Скраббер, подписи, ключи, кэш ревью, модель доверия maker/checker, новые
   вендоры и транспорты ревьюера (`outOfScope` плана).
-- Пункт R6 (карта impact-графа) — отдельная сессия, WIP=1.
-- Догфудинг close-коммитом самого R5 — решение владельца ПОСЛЕ мержа, не
-  действие агента внутри этого юнита.
+- Остальные долги (A1-A4, A6-A7; 50 пунктов старше LPD-002) — решение владельца
+  2026-08-19: следующей сессией, не здесь.
 
 ## Принцип
 
-Гейт распознаёт класс кандидата, а не ослабляет требование. Закрытие юнита
-несёт нулевой код, поэтому его покрытие — это покрытие уже доставленного
-юнита, названное ревьюеру явно; а число независимых ревьюеров при этом не
-падает ни на одного. Любой байт вне точного состава класса возвращает
-кандидата на обычный маршрут.
+Карта — данные, которые можно перегенерировать и проверить, а не мнение
+автора о том, что на что влияет. Полнота и пропорциональность — свойства,
+которые движок ДОКАЗЫВАЕТ на живом дереве при каждом прогоне оракула; карта,
+устаревшая на один сьют, видна немедленно и чинится одной командой.

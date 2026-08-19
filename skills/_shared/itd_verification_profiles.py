@@ -109,6 +109,84 @@ def valid_sha256(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
 
 
+IMPACT_GRAPH_SCHEMA_VERSION = "1"
+
+
+def validate_graph_shape(graph: Any, label: str) -> dict[str, list[str]]:
+    if not isinstance(graph, dict):
+        raise DecisionError(
+            f"{label} must be a JSON object",
+            "Provide the bounded direct-impact graph for the changed nodes.",
+        )
+    for source, targets in graph.items():
+        if (not isinstance(source, str) or not source
+                or not isinstance(targets, list)
+                or any(not isinstance(target, str) or not target for target in targets)):
+            raise DecisionError(
+                f"{label} contains an invalid node or edge list",
+                "Use non-empty string nodes and arrays of directly impacted nodes.",
+            )
+    return graph
+
+
+def resolve_under(root: Path, value: Any, field: str) -> Path:
+    text = require_string(value, field)
+    path = Path(text)
+    if not path.is_absolute():
+        path = root / path
+    return path
+
+
+def load_impact_graph_document(path: Path) -> dict[str, Any]:
+    """Load the declared impact map (data in the repository, never inferred here)."""
+    document = load_object(path)
+    if document.get("schemaVersion") != IMPACT_GRAPH_SCHEMA_VERSION:
+        raise DecisionError(
+            f"impact graph {path} has unsupported schemaVersion",
+            f"Regenerate the map with schemaVersion {IMPACT_GRAPH_SCHEMA_VERSION!r}.",
+        )
+    universe = require_object(document.get("universe"), "impactGraph.universe")
+    require_string(universe.get("suites"), "impactGraph.universe.suites")
+    owned = universe.get("owned")
+    if (not isinstance(owned, list) or not owned
+            or any(not isinstance(item, str) or not item for item in owned)):
+        raise DecisionError(
+            "impactGraph.universe.owned must be a non-empty list of glob patterns",
+            "Declare which source globs must each have an owning suite.",
+        )
+    validate_graph_shape(document.get("generated", {}), "impactGraph.generated")
+    validate_graph_shape(document.get("declared", {}), "impactGraph.declared")
+    return document
+
+
+def merged_impact_graph(document: dict[str, Any]) -> dict[str, list[str]]:
+    """Union of the generated and the hand-declared edges, deterministic order."""
+    merged: dict[str, list[str]] = {}
+    for section in ("generated", "declared"):
+        for source, targets in (document.get(section) or {}).items():
+            bucket = merged.setdefault(source, [])
+            for target in targets:
+                if target not in bucket:
+                    bucket.append(target)
+    return {source: sorted(targets) for source, targets in sorted(merged.items())}
+
+
+def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
+    inline = request.get("impactGraph")
+    path_value = request.get("impactGraphPath")
+    if inline is not None and path_value is not None:
+        raise DecisionError(
+            "impactGraph and impactGraphPath are mutually exclusive",
+            "Pass the inline graph or the path to the declared map, not both.",
+        )
+    if path_value is not None:
+        root = resolve_under(Path.cwd(), request.get("root", "."), "root")
+        document = load_impact_graph_document(
+            resolve_under(root, path_value, "impactGraphPath"))
+        return merged_impact_graph(document)
+    return validate_graph_shape(inline, "impactGraph")
+
+
 def impact_closure(request: dict[str, Any]) -> list[str]:
     changed = request.get("changed")
     if (not isinstance(changed, list) or not changed
@@ -120,21 +198,11 @@ def impact_closure(request: dict[str, Any]) -> list[str]:
         )
     if request.get("impactKnown") is not True:
         return list(changed)
-    graph = request.get("impactGraph")
-    if not isinstance(graph, dict):
-        raise DecisionError(
-            "impactGraph must be a JSON object",
-            "Provide the bounded direct-impact graph for the changed nodes.",
-        )
-    for source, targets in graph.items():
-        if (not isinstance(source, str) or not source
-                or not isinstance(targets, list)
-                or any(not isinstance(target, str) or not target for target in targets)):
-            raise DecisionError(
-                "impactGraph contains an invalid node or edge list",
-                "Use non-empty string nodes and arrays of directly impacted nodes.",
-            )
+    graph = effective_impact_graph(request)
+    return walk_closure(changed, graph)
 
+
+def walk_closure(changed: list[str], graph: dict[str, list[str]]) -> list[str]:
     ordered: list[str] = []
     seen: set[str] = set()
     queue = deque(changed)
@@ -146,6 +214,87 @@ def impact_closure(request: dict[str, Any]) -> list[str]:
         ordered.append(node)
         queue.extend(graph.get(node, []))
     return ordered
+
+
+def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
+    """Completeness and proportionality of the declared map against the tree.
+
+    Completeness: every suite matched by ``universe.suites`` is the target of at
+    least one edge; every file matched by ``universe.owned`` reaches at least one
+    suite; every node and target still exists. Proportionality: no node's closure
+    covers the full suite set, so a point change never degenerates into the full
+    run. Any violation fails closed; the caller decides what to do with it.
+    """
+    universe = document["universe"]
+    suite_pattern = universe["suites"]
+    suites = sorted(
+        path.relative_to(root).as_posix() for path in root.glob(suite_pattern)
+        if path.is_file())
+    if not suites:
+        raise DecisionError(
+            f"no suites match {suite_pattern!r} under {root}",
+            "Audit the map from the repository root that owns the suites.",
+        )
+    owned: list[str] = []
+    for pattern in universe["owned"]:
+        for path in root.glob(pattern):
+            if path.is_file():
+                rel = path.relative_to(root).as_posix()
+                if rel not in owned:
+                    owned.append(rel)
+    owned.sort()
+    graph = merged_impact_graph(document)
+    suite_set = set(suites)
+    targets_seen: set[str] = set()
+    for targets in graph.values():
+        targets_seen.update(targets)
+    stale_nodes = [node for node in graph if not (root / node).is_file()]
+    stale_targets = sorted(
+        target for target in targets_seen if not (root / target).is_file())
+    unattached = [suite for suite in suites if suite not in targets_seen]
+    orphan_owned = [
+        node for node in owned
+        if not (set(walk_closure([node], graph)) & suite_set)]
+    saturated: list[str] = []
+    max_closure = 0
+    max_node = ""
+    for node in graph:
+        reached = len(set(walk_closure([node], graph)) & suite_set)
+        if reached > max_closure:
+            max_closure, max_node = reached, node
+        if reached >= len(suites):
+            saturated.append(node)
+    findings = {
+        "unattachedSuites": unattached,
+        "orphanOwned": orphan_owned,
+        "staleNodes": stale_nodes,
+        "staleTargets": stale_targets,
+        "saturatedNodes": saturated,
+    }
+    verified = not any(findings.values())
+    return {
+        "status": "PASS" if verified else "FAIL",
+        "verified": verified,
+        "suites": len(suites),
+        "owned": len(owned),
+        "nodes": len(graph),
+        "edges": sum(len(targets) for targets in graph.values()),
+        "fullSet": len(suites),
+        "maxClosure": max_closure,
+        "maxClosureNode": max_node,
+        **findings,
+        "why": "" if verified else "impact graph is incomplete or not proportional",
+        "fix": "" if verified else (
+            "Regenerate the map (see its generator field) or declare the missing "
+            "edge; never widen every node to every suite."),
+    }
+
+
+def run_impact_audit(request: dict[str, Any]) -> dict[str, Any]:
+    root = resolve_under(Path.cwd(), request.get("root", "."), "root")
+    path = resolve_under(root, request.get("impactGraphPath"), "impactGraphPath")
+    document = load_impact_graph_document(path)
+    return audit_impact_graph(document, root)
 
 
 def contours_and_capabilities(
@@ -540,8 +689,10 @@ def decide(request: dict[str, Any]) -> dict[str, Any]:
         return validate_diagnostics(request, work)
     if operation == "backlog":
         return evaluate_backlog(request, work)
+    if operation == "impact-audit":
+        return run_impact_audit(request)
     raise DecisionError(
-        "operation must be select, release-evidence, diagnostics, or backlog",
+        "operation must be select, release-evidence, diagnostics, backlog, or impact-audit",
         "Set one bounded operation in the input manifest; do not run an implicit full scan.",
     )
 
