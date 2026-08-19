@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD002-R5",
     "goal": "LPD-002 R5: класс ledger-close — закрытие юнита наследует покрытие доставленного юнита, строка наследования во всех трёх промптах, сила маршрута не падает",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-19T11:36:16Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-19T17:51:06Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
