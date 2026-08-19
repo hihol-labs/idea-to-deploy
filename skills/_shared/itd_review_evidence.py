@@ -22,6 +22,15 @@ IMPACT_CLASSES = frozenset({
 })
 RISK_TIERS = frozenset({"low", "medium", "high", "unknown"})
 
+# A ledger-close candidate records that an already-delivered unit is finished.
+# It moves the ledger state file and, at most, closes the acceptance contract's
+# active followup. Anything else is ordinary work and is judged as before.
+LEDGER_STATE_PATH = ".itd-memory/STATE.json"
+CLOSING_FOLLOWUP_FIELDS = frozenset({"status", "closedAt"})
+CANDIDATE_FACT_FIELDS = frozenset({
+    "changedPaths", "modifiedPaths", "contractPath", "contractBefore",
+})
+
 
 class ReviewEvidenceError(ValueError):
     """The declared acceptance evidence cannot support an independent PASS."""
@@ -72,6 +81,11 @@ def evidence_first_policy(acceptance: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if followup_is_closed(followup):
         return None
+    return _validated_policy(followup)
+
+
+def _validated_policy(followup: dict[str, Any]) -> dict[str, Any]:
+    """Validate a declared review policy regardless of the followup's state."""
     policy = _closed_dict(followup["reviewPolicy"], {
         "mode", "riskTier", "requiredImpactClasses",
         "minimumIndependentReviewers", "explorer", "adjudicator",
@@ -100,13 +114,100 @@ def evidence_first_policy(acceptance: dict[str, Any]) -> dict[str, Any] | None:
     return dict(policy)
 
 
+def _closes_only_the_followup(
+    before: dict[str, Any], after: dict[str, Any],
+) -> bool:
+    """True when the contract differs only by closing its active followup."""
+    if set(before) != set(after):
+        return False
+    if any(before[key] != after[key] for key in before if key != "activeFollowup"):
+        return False
+    before_followup = before.get("activeFollowup")
+    after_followup = after.get("activeFollowup")
+    if not isinstance(before_followup, dict) or not isinstance(after_followup, dict):
+        return False
+    if followup_is_closed(before_followup):
+        return False
+    carried = set(before_followup) - CLOSING_FOLLOWUP_FIELDS
+    if carried != set(after_followup) - CLOSING_FOLLOWUP_FIELDS:
+        return False
+    # A closing field necessarily differs: closedness is read from exactly
+    # these two fields, and the caller has already established that the
+    # candidate's followup is closed while this one is not.
+    return not any(before_followup[key] != after_followup[key] for key in carried)
+
+
+def ledger_close_policy(
+    acceptance: dict[str, Any], candidate: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return the closed unit's policy when the candidate is a pure close.
+
+    The circle this resolves was measured on S10: a closed followup released
+    the matrix, so the reviewer saw no coverage at all and blocked for its
+    absence; leaving the followup open at the same diff made STATE and the
+    contract disagree, and the reviewer blocked for that. No bookkeeping
+    commit could be routed in either position.
+
+    Recognising the class never relaxes the requirement - it names where the
+    coverage lives. The closed unit's own criteria must still all be passed,
+    their oracles must still be exact passes on the reviewed tree, and the
+    reviewer floor is clamped to at least one, so the route keeps every
+    independent reviewer it has today.
+    """
+    facts = _closed_dict(candidate, set(CANDIDATE_FACT_FIELDS), "candidate facts")
+    followup = acceptance.get("activeFollowup")
+    if not isinstance(followup, dict) or "reviewPolicy" not in followup:
+        return None
+    if not followup_is_closed(followup):
+        return None
+    contract_path = facts["contractPath"]
+    if not isinstance(contract_path, str) or not contract_path.strip():
+        raise ReviewEvidenceError("candidate contract path is absent")
+    changed = set(_string_list(facts["changedPaths"], "candidate changed paths"))
+    modified = facts["modifiedPaths"]
+    if not isinstance(modified, list) or any(
+        not isinstance(item, str) for item in modified
+    ):
+        raise ReviewEvidenceError("candidate modified paths are malformed")
+    # The contract transition is not optional evidence, it IS the close. Without
+    # it the only remaining signal is "the merged contract's followup happens to
+    # be closed" - true of every commit between one unit's close and the next
+    # unit's open, so any later STATE-only edit would inherit a stale unit's
+    # coverage and be announced to the reviewer as a closing commit. Requiring
+    # the contract in the diff is what makes the class mean "THIS diff closed it".
+    if changed != {LEDGER_STATE_PATH, contract_path}:
+        return None
+    # Both files must be MODIFIED, never added, deleted or type-changed. A close
+    # edits a ledger that already exists; a candidate that creates or destroys
+    # it is doing something else entirely and must not be announced to the
+    # reviewer as routine bookkeeping whose missing coverage is expected.
+    if set(modified) != changed:
+        return None
+    before = facts["contractBefore"]
+    if not isinstance(before, dict):
+        return None
+    if not _closes_only_the_followup(before, acceptance):
+        return None
+    policy = _validated_policy(followup)
+    policy["minimumIndependentReviewers"] = max(
+        policy["minimumIndependentReviewers"], 1
+    )
+    return policy
+
+
 def coverage_matrix(
     acceptance: dict[str, Any], machine: dict[str, Any],
+    *, candidate: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Return a closed matrix or fail before any model can claim PASSED."""
     if not isinstance(acceptance, dict) or not isinstance(machine, dict):
         raise ReviewEvidenceError("acceptance or machine evidence is malformed")
     policy = evidence_first_policy(acceptance)
+    coverage_source = "active-unit"
+    if policy is None and candidate is not None:
+        policy = ledger_close_policy(acceptance, candidate)
+        if policy is not None:
+            coverage_source = "closed-unit-inherited"
     if policy is None:
         return None
     followup = acceptance.get("activeFollowup")
@@ -116,8 +217,11 @@ def coverage_matrix(
         raise ReviewEvidenceError("active unit and machine evidence differ")
     if machine.get("riskTier") != policy["riskTier"]:
         raise ReviewEvidenceError("machine and review risk tiers differ")
-    candidate = machine.get("candidate")
-    tree = candidate.get("reviewedTree") if isinstance(candidate, dict) else None
+    machine_candidate = machine.get("candidate")
+    tree = (
+        machine_candidate.get("reviewedTree")
+        if isinstance(machine_candidate, dict) else None
+    )
     if not isinstance(tree, str) or not tree:
         raise ReviewEvidenceError("machine reviewed tree is absent")
     runs = machine.get("runs")
@@ -195,6 +299,7 @@ def coverage_matrix(
         "kind": "itd-independent-review-evidence-coverage",
         "mode": policy["mode"],
         "unitId": unit_id,
+        "coverageSource": coverage_source,
         "riskTier": policy["riskTier"],
         "minimumIndependentReviewers": policy["minimumIndependentReviewers"],
         "explorer": policy["explorer"],

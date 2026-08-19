@@ -1,102 +1,132 @@
-# Scope Lock — R4 (LPD-002): мелкое трение инструментов маршрута
+# Scope Lock — R5 (LPD-002): класс ledger-close кандидата
 
 ## Current Task
 
-Пять независимых мелких трений, измеренных ретро 2026-08-18
-(E4+E7+E8+E11 -> P5+P6+P7+P11). Четвёртый пункт плана
-`.itd-memory/LPD-002_UNIT_PLAN.json` (approved владельцем 2026-08-18), riskTier
-**low** (`checkerMode machine_only`, `checkerRequired false`,
-`minimumIndependentReviewers 0`), WIP=1. Pre-PR claim противоположным вендором
-обязателен как всегда.
+Пятый пункт плана `.itd-memory/LPD-002_UNIT_PLAN.json` (approved владельцем
+2026-08-18), riskTier **high** (`checkerMode full`, `checkerRequired true`,
+`minimumIndependentReviewers 1`, независимость требует другой сессии И другой
+модели/провайдера), WIP=1. Источник: retro 2026-08-18 E1 -> P1;
+первоисточник дефекта — `.itd-memory/HANDOFF-S10-LEDGER.md` §17.11-17.12.
 
 ## Корень (измерен на текущем коде, не предположен)
 
-1. **(a)** `tests/verify_independent_review_efficacy.py:726` требовал
-   `--expected-keyring-sha256-file`, а `host_keyring()` жёстко сверял путь с
-   `.itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256`. Весь
-   `.itd-memory/` gitignored (`.gitignore:11`), файл не tracked -> в
-   изолированном machine-worktree оракул падал независимо от значения, и
-   efficacy не входил ни в одну машинную квитанцию S11. Побочный эффект
-   argparse: `--expected-keyring-sha256 <hex>` молча разбирался как аббревиатура
-   файлового флага и падал с «pin path is not the host contract».
-2. **(b)** `tests/run-independent-review-efficacy.py:394` объявлял
-   `--max-transport-attempts` (int, default 1), а `:410` отвергал всё, кроме 1
-   («retry bound is invalid»), хотя цикл умеет N. `:599`
-   `args.checkpoint.unlink(missing_ok=True)` — успешный прогон стирал след
-   пройденного корпуса.
-3. **(c)** `skills/task/scripts/itd_unit_log.py:194-204` не знал про `riskTier`:
-   поле дописывалось руками в STATE на S10, S11 и на всех R1-R3.
-4. **(d)** Свежий чекер написал `"PASS"` вместо `"PASSED"` -> квитанция
-   `UNVERIFIED`, ревью прогнано заново (E8). Канон
-   (`ALLOWED_VERDICTS`, `skills/_shared/itd_verification_loop.py:40`) нигде не
-   выдавался чекеру буквальным шаблоном: в `docs/templates/` файла не было.
-5. **(e)** `itd_retro_scan.py:419` считал `unitsVerifiedNoActivation` = 1, и
-   факт «Аномалия учёта» кричал в каждом ретро, не называя строку.
+`skills/_shared/itd_review_evidence.py:69` `evidence_first_policy()` возвращает
+`None`, как только followup закрыт (`followup_is_closed`, :51), а
+`coverage_matrix` (:103) на `None`-политике отдаёт `None`.
+`skills/_shared/itd_free_reviewer_producer.py:1240` кладёт `evidenceCoverage` в
+пакет только `if evidence_coverage is not None` -> в промпт ревьюера уходит
+`EVIDENCE_COVERAGE=null`.
+
+Отсюда неразрешимый круг, замеренный на S10:
+
+- followup закрыт -> покрытия нет -> ревьюер даёт **BLOCKED high**: «политика
+  требует покрытия correctness/error-handling/repository-hygiene/security»;
+- followup открыт при том же close-дифе -> **BLOCKED**: «STATE и контракт
+  расходятся».
+
+Ни одно положение не пропускает ledger-close коммит. Цена обхода: `STATE` в
+`main` систематически отстаёт на один юнит, отметки закрытия едут «зайцем» в
+чужом delivery-коммите — включая delivery-коммит самого R5.
 
 ## Candidate composition (allowed zones)
 
-- `tests/verify_independent_review_efficacy.py` — взаимоисключающая пара
-  `--expected-keyring-sha256-file` / `--expected-keyring-sha256` (ровно одна
-  обязательна), `parse_caller_pin` (те же 64 строчных hex), `resolve_keyring`
-  -> `(keyring, "host-pin"|"caller-pin")`, поле `keyringAuthorization` в
-  отчёте; `verify_runner_flags()` — проверки (b).
-- `tests/run-independent-review-efficacy.py` — флаг `--max-transport-attempts`
-  удалён, граница = константа `TRANSPORT_ATTEMPT_BOUND = 1`;
-  `finalize_checkpoint(path)` переименовывает чекпоинт в `<path>.done` вместо
-  удаления, имя маркера уходит в итоговый JSON.
-- `skills/task/scripts/itd_unit_log.py` — `RISK_TIERS`, обязательный
-  `--risk-tier` у `activate` (отказ ДО события и до записи STATE), запись
-  `riskTier` в `STATE.currentUnit`; `skills/task/SKILL.md` — вызов Step 3.5.
-- `docs/templates/CHECKER_PROMPT.md` — новый шаблон с буквальным блоком
-  вердикта и отвергаемой формой рядом; ссылка из `docs/VERIFICATION_LOOP.md`.
-- `skills/_shared/itd_unit_lifecycle.py` — `_explained()`,
-  `unexplained_no_activation()`, счётчик `lifecyclesNoActivationUnexplained`;
-  `skills/retro/scripts/itd_retro_scan.py` — поле
-  `unitsVerifiedNoActivationUnexplained` и честная формулировка факта.
-- Оракулы: `tests/verify_unit_log.py` (c), `tests/verify_verification_loop.py`
-  (d), `tests/verify_ledger_reconciliation.py` (e; заодно все его вызовы
-  `activate` объявляют тир, а чтение лога больше не роняет оракул трейсбеком).
-- `.itd/VERIFICATION_CONTRACT.json` — команда `independent-review-efficacy`
-  переведена на форму-значение (иначе efficacy по-прежнему не входит в
-  квитанцию). `tests/run-all.sh` НЕ трогается: на хосте остаётся host-owned пин
-  и fail-closed без него.
-- `tests/verify_gate_registry_binding.py` — пин команды efficacy: обе формы
-  принимаются, но ровно одна; форма-значение сверяется с sha256 tracked
-  keyring'а (устаревший пин красил бы каждую машинную квитанцию).
-- `tests/verify_independent_review_efficacy.py` — `load_module` компилирует
-  прочитанные байты вместо `spec.loader.exec_module`: кэш байткода той же
-  длины давал вердикт о СТАРОМ коде (измерено на мутации в этой сессии);
-  гарантия закреплена `verify_source_loading()`.
-- Документы: `.itd/DECISIONS.md` (запись R4), `.itd/GPG-004_A16_TRANSPORT.md`
-  (флага больше нет — граница константой), `CHANGELOG.md`, `BACKLOG.md`.
-- `.itd/ACCEPTANCE_CONTRACT.json` — критерии `LPD002-R4-*`, ротация
-  `activeFollowup` `LPD002-R3` -> `LPD002-R4`;
-  `.itd-memory/contracts/LPD002-R4.md`; `.itd-memory/LPD-002_UNIT_PLAN.json` —
-  статус пункта R4 и `oracleAmendments`.
-- С delivery-коммитом R4 едут отметки закрытия R3 в `STATE.json` и
-  `LPD-002_UNIT_PLAN.json` (отдельный ledger-close коммит не проходит
-  evidence-first продюсера — HANDOFF-S10 §17.11, решение владельца; тот же
-  шаблон, что R1 -> R2 -> R3).
-- Перечеканки на итоговом дереве отдельными коммитами: три подписанные
-  efficacy-ноги (`benchmarks/independent-review-efficacy/results/*.json`,
-  `u12-cross-vendor-wsl.json`) — их `runnerSha256` пинит правку (b); и
-  live-model-benchmark (`skills/` меняется -> `methodology_tree_sha256`).
+- `skills/_shared/itd_review_evidence.py` — точное определение класса
+  `ledger-close`: `LEDGER_STATE_PATH`, `CLOSING_FOLLOWUP_FIELDS`,
+  `ledger_close_policy()`; вынесенная общая валидация политики
+  (`_validated_policy`); необязательный именованный аргумент `candidate` у
+  `coverage_matrix()` (без него РЕШЕНИЕ политики прежнее: закрытый followup
+  отпускает матрицу, открытый требует своего покрытия); постоянное поле
+  `coverageSource` в матрице (`active-unit` | `closed-unit-inherited`) —
+  форма матрицы меняется всегда, и это осознанно.
+- `skills/_shared/itd_free_reviewer_producer.py` — `freeze_packet` собирает
+  факты кандидата (пути дифа из `_staged_file_records`, путь контракта
+  относительно корня, base-версия контракта через `_git_blob`) и передаёт их в
+  `coverage_matrix`; общий хелпер `_closing_coverage_note()` рендерит строку
+  `closing commit: coverage inherited from the delivered unit <id>` во ВСЕХ
+  трёх поверхностях, где дампится покрытие: `review_prompt` (плоский путь,
+  которым судился ledger-close на S10), `_unit_review_prompt`,
+  `_integration_review_prompt`.
+- `tests/verify_review_evidence.py` — **НОВЫЙ**, первый прямой оракул модуля
+  (до R5 он покрыт лишь косвенно через
+  `tests/verify_independent_review_efficacy.py:289/304/315/342`).
+- `tests/verify_free_reviewer_producer.py` — рендер строки во всех трёх
+  промптах, отсутствие строки на обычном кандидате, `minimum_reviewer_count`
+  на унаследованном покрытии.
+- `tests/run-all.sh` — регистрация `verify_review_evidence` в списке `CORE`
+  (список ведётся руками, сьюта там не было).
+- `.itd/DECISIONS.md` — впервые вводится в трекинг (`git add -f`: `.itd/`
+  исключён через `.git/info/exclude`, а журнал заведён позже, поэтому durable-
+  решения не переживали клон); две durable-записи: (1) строка наследования идёт во все
+  три поверхности промпта, а не только в unit-промпт; (2) close-класс
+  клампится к `minimumIndependentReviewers >= 1` — сила маршрута не
+  ослабляется.
+- `.itd/ACCEPTANCE_CONTRACT.json` — критерии `LPD002-R5-*`, ротация
+  `activeFollowup` `LPD002-R4` -> `LPD002-R5`;
+  `.itd-memory/contracts/LPD002-R5.md`; `.itd-memory/LPD-002_UNIT_PLAN.json` —
+  статус пункта R5 и `oracleAmendments`; `CHANGELOG.md`, `BACKLOG.md`.
+- С delivery-коммитом R5 едут отметки закрытия R4 в `STATE.json` и
+  `LPD-002_UNIT_PLAN.json` (тот же шаблон R1 -> R2 -> R3 -> R4; обход
+  HANDOFF-S10 §17.11 снимается только ПОСЛЕ мержа R5, отдельным решением
+  владельца).
+- Перечеканка на итоговом дереве отдельным коммитом: live-model-benchmark
+  (`skills/` входит в `METHODOLOGY_TREE_ROOTS`).
+
+## Записанные улики в дифе — это НЕ авторский код кандидата
+
+Ветка несёт два перечеканенных набора улик. Они попадают в диф целиком, но
+кандидат их не пишет и не проектирует — он их ЗАПИСЫВАЕТ, потому что оба пина
+привязаны к правленым файлам:
+
+- `tests/fixtures/live-model-evidence/` — стенограмма и выходные документы
+  ОДНОГО живого прогона `fixture-03-cli-tool`. Содержимое (архитектура
+  сгенерированного демо-проекта, его границы памяти, полнота шагов скилла,
+  пустой `aggregated_output` шага) — это НАБЛЮДЕНИЕ за поведением внешней
+  модели, зафиксированное дословно. Правка этих файлов руками была бы
+  фальсификацией улики. Перечеканка вызвана только тем, что `skills/` входит в
+  `METHODOLOGY_TREE_ROOTS` (`tests/verify_live_model_benchmark.py`).
+  `transcript.jsonl.gz` на диске — НАСТОЯЩИЙ gzip (магия `1f8b`, `gzip -t`
+  проходит, sha256 совпадает с `candidate.transcriptGzipSha256`); ревьюер видит
+  его декодированным, потому что продюсер объявленные `.jsonl.gz` показывает
+  прозрачным представлением, а не сырыми байтами. Отсутствие gzip-магии В
+  ПРОМПТЕ — свойство представления, а не дефект артефакта.
+- `benchmarks/independent-review-efficacy/results/*.json` — три подписанных
+  конверта живых прогонов оракула эффективности. Перечеканка вызвана только
+  тем, что каждый конверт пинит `producerSha256` правленого
+  `itd_free_reviewer_producer.py`.
+
+Находки о СОДЕРЖАНИИ этих улик — не находки о кандидате: содержание
+принадлежит внешней модели, а кандидат отвечает за целостность записи.
+Нарушение целостности (несовпадение пина, подписи, дайджеста, состава корпуса)
+даёт красный оракул — `verify_live_model_benchmark --require-evidence`,
+`verify_independent_review_efficacy`. Замечание о качестве того, что модель
+написала, оракулом НЕ ловится и ловиться не должно: это наблюдение о внешней
+модели, и его место — бенчмарк или BACKLOG, а не находка о кандидате. Целостность
+улик проверять обязательно; интерпретировать содержимое как авторский код — нет.
 
 ## Явно вне скоупа
 
-- Расширение `--max-transport-attempts` до 1..3 — прямо отвергнуто
-  `.itd/DECISIONS.md:214` и `:447`; выбран противоположный ход (флаг удалён).
-- `checker --dry-run` (мини-валидатор вердикта из P7) — новая поверхность в
-  `itd_verification_loop.py`, в критерий (d) не входит, остаётся в BACKLOG.
-- Пересмотр самого механизма пинов (`runnerSha256`, `methodology_tree_sha256`)
-  — класс «live-benchmark pin friction» в BACKLOG, отдельная работа.
-- `tests/run-all.sh` и host-owned профиль запуска efficacy — не ослабляются.
-- Пункты R5-R6 плана — каждый отдельной сессией, WIP=1.
+- **Расширение класса за букву критерия.** Класс — ровно
+  `.itd-memory/STATE.json` **и** контракт, изменённый только в
+  `activeFollowup.status` / `activeFollowup.closedAt` (оба файла обязательны и
+  обе строки дифа обязаны иметь статус `M`: переход контракта и есть закрытие,
+  а леджер закрытие правит, а не создаёт и не уничтожает). Реальный close этого
+  плана трогает ещё `.itd-memory/LPD-002_UNIT_PLAN.json` -> кандидат из класса
+  выпадает и судится как раньше. Это осознанный выбор владельца (2026-08-19):
+  буква approved-критерия, разрыв зафиксирован находкой в `BACKLOG.md` и
+  проверяется догфудингом после мержа.
+- **Ослабление продюсера ради прохождения ledger-close** — отвергнуто планом
+  как Гудхарт (`designDecisions`). Диф вне точного состава класса судится
+  ровно как сегодня.
+- Скраббер, подписи, ключи, кэш ревью, модель доверия maker/checker, новые
+  вендоры и транспорты ревьюера (`outOfScope` плана).
+- Пункт R6 (карта impact-графа) — отдельная сессия, WIP=1.
+- Догфудинг close-коммитом самого R5 — решение владельца ПОСЛЕ мержа, не
+  действие агента внутри этого юнита.
 
 ## Принцип
 
-Инструмент не обещает того, чего не делает: флаг, принимающий одно значение,
-удаляется, а не расширяется; риск-тир объявляется тем же вызовом, который
-открывает цикл; ожидаемый дайджест можно передать значением, но отчёт честно
-называет, насколько сильна выбранная авторизация; объяснённая историческая
-строка перестаёт считаться аномалией, оставаясь видимой.
+Гейт распознаёт класс кандидата, а не ослабляет требование. Закрытие юнита
+несёт нулевой код, поэтому его покрытие — это покрытие уже доставленного
+юнита, названное ревьюеру явно; а число независимых ревьюеров при этом не
+падает ни на одного. Любой байт вне точного состава класса возвращает
+кандидата на обычный маршрут.

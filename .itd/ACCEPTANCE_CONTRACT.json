@@ -1826,6 +1826,115 @@
           "efficacy-isolation-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-R5-1-ledger-close-class-is-exact",
+      "criterion": "Класс кандидата ledger-close определён точно и машинно: множество путей дифа равно ровно {.itd-memory/STATE.json, файл acceptance-контракта}, И ОБЕ строки дифа имеют статус M (модификация): закрытие правит уже существующий леджер, а не создаёт и не уничтожает его — ОБА файла обязательны (союз «И» критерия читается буквально: переход контракта и есть закрытие, без него единственный оставшийся сигнал «в смердженном контракте followup уже закрыт» верен для КАЖДОГО коммита между закрытием одного юнита и открытием следующего). Base-версия контракта и версия кандидата различаются ТОЛЬКО в activeFollowup.status и/или activeFollowup.closedAt, все прочие ключи контракта и прочие поля activeFollowup побайтово равны, базовый followup ещё открыт. Определение живёт в skills/_shared/itd_review_evidence.py как чистая функция (без git), продюсер лишь поставляет факты кандидата из _staged_file_records и _git_blob.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "RED: tests/verify_review_evidence.py не существовал; на текущем коде первый же вызов дал TypeError: coverage_matrix() got an unexpected keyword argument 'candidate'. GREEN: ledger_close_policy() в itd_review_evidence.py — чистая функция, продюсер поставляет факты через _candidate_ledger_facts (пути из _staged_file_records, base-версия контракта через _git_blob с проверкой blob-биндинга). Мутации: any-path-accepted (снять `changed - {LEDGER_STATE_PATH, contract_path}`) -> FAIL close-class-refuses-a-third-path/code; state-file-not-required -> FAIL close-class-refuses-a-third-path/no-state-file. Обе летальны. Чекер r3 нашёл, что сама git-плумбинг-функция _candidate_ledger_facts не покрыта НИЧЕМ: все прежние фикстуры сьюта кладут acceptance-файл РЯДОМ с репозиторием, поэтому relative_to всегда бросал ValueError и функция коротко замыкалась в None ещё до обращения к git. Закрыто сквозным тестом: настоящий репозиторий, контракт ВНУТРИ него, staged-диф — честное закрытие юнита; три случая (чистое закрытие / закрытие плюс код / закрытие плюс файл плана) и три мутации (ledger-facts-not-supplied, ledger-facts-path-unresolved, ledger-facts-read-head-not-base) летальны. Итого 18/18.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Класс кандидата распознаётся по точному составу дифа, а не по намерению автора.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle",
+          "free-reviewer-producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R5-2-closed-unit-coverage-is-inherited",
+      "criterion": "Для кандидата этого класса coverage_matrix отдаёт покрытие ЗАКРЫТОГО followup (не None): матрица строится тем же кодом по критериям <unitId>-* закрытого юнита, с тем же требованием status passed и тем же точным связыванием оракулов с reviewedTree. В матрице появляется постоянное поле coverageSource со значением active-unit либо closed-unit-inherited, поэтому факт наследования виден везде, где покрытие дампится. Без именованного аргумента candidate РЕШЕНИЕ политики остаётся прежним: закрытый followup по-прежнему отпускает матрицу и функция возвращает None, а открытый по-прежнему требует своего покрытия. Форма возвращаемой матрицы при этом меняется всегда: поле coverageSource присутствует и на обычном кандидате (значение active-unit) — постоянная форма предпочтена условной, чтобы источник покрытия нельзя было не заметить.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "GREEN: close-кандидат отдаёт матрицу закрытого юнита с coverageSource=closed-unit-inherited и criteria=[UNIT-AC1]; без аргумента candidate закрытый followup по-прежнему отдаёт None (проверка closed-followup-without-candidate-stays-none — тот же контракт, что пинит tests/verify_independent_review_efficacy.py:342). Мутация source-always-active -> FAIL close-class-inherits-closed-unit-coverage; inherited-policy-unvalidated -> FAIL close-class-refuses-an-invalid-inherited-policy. Обе летальны. Чекер r1 (свежая сессия, claude-sonnet-5) нашёл переоценку формулировки: 'поведение байт-в-байт прежнее' ложно, coverageSource добавляется всегда. Формулировка исправлена здесь, в CHANGELOG.md и .itd/SCOPE_LOCK.md; проверено, что ни один сторонний вызов (tests/verify_independent_review_efficacy.py:289/304/315/342) не сверяет форму матрицы целиком и ни один подписанный хеш к старой форме не пинится.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Закрытие юнита несёт покрытие уже доставленного юнита вместо пустоты, и источник покрытия назван в самой матрице.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle",
+          "free-reviewer-producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R5-3-inheritance-is-named-to-the-reviewer",
+      "criterion": "Строка 'closing commit: coverage inherited from the delivered unit <id>' с объяснением, что закрытие не несёт кода и отсутствие собственного покрытия не является находкой, рендерится во ВСЕХ трёх поверхностях продюсера, где дампится покрытие: плоский review_prompt (именно им судился ledger-close на S10), _unit_review_prompt и _integration_review_prompt. На обычном кандидате строки нет ни в одной из трёх.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "GREEN: verify_free_reviewer_producer.py 228 -> 233 checks, status PASSED. Проверено, что строка есть во всех трёх рендерах (review_prompt, _unit_review_prompt, _integration_review_prompt), что она предшествует блоку покрытия, и что на обычном кандидате её нет ни в одном. Мутации flat-prompt-loses-the-note и unit-prompt-loses-the-note -> FAIL 'inherited coverage is not named on every reviewer surface'; note-always-rendered -> FAIL 'an ordinary candidate is described as a closing commit'. Все три летальны.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Ревьюер узнаёт про унаследованное покрытие на том пути, которым его реально судят, а не только на иерархическом.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R5-4-close-class-refuses-fail-closed",
+      "criterion": "Класс отказывает fail-closed по каждому измеренному входу: любой третий путь в дифе (код или файл плана) -> класс не признаётся и кандидат судится ровно как раньше; правка контракта вне двух разрешённых полей -> класс не признаётся; отсутствие или нечитаемость base-версии контракта -> класс не признаётся; ОТКРЫТЫЙ followup при close-дифе -> класс не признаётся и требуется собственное покрытие активного юнита; закрытый followup с непройденным критерием -> ReviewEvidenceError, а не тихое None.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "GREEN: отказы измерены поимённо — третий путь (код и .itd-memory/LPD-002_UNIT_PLAN.json) -> None; контракт без STATE.json -> None; чужой top-level ключ контракта -> None; чужое поле activeFollowup -> None; contractBefore не dict -> None; базовый followup уже закрыт -> None; пустой changedPaths -> ReviewEvidenceError (дефект фактов, не тихий отказ); малформленные facts (list, неполный dict, лишний ключ) -> ReviewEvidenceError; закрытый followup с непройденным критерием по обе стороны дифа -> 'UNIT-AC1 is not passed'. Мутации foreign-contract-edit-accepted, before-already-closed-accepted, carried-fields-may-drift, open-followup-accepted, nameless-unit-tolerated -> каждая валит свою именованную проверку. Чекер r1 нашёл непокрытый живой гуард: базовая версия контракта приходит из произвольного исторического blob'а, её activeFollowup может не быть объектом, и снятие isinstance-проверки давало НЕ отказ, а AttributeError из followup_is_closed — freeze_packet ловит только ReviewEvidenceError, то есть маршрут падал бы вместо возврата на обычный путь. Закрыто: проверки close-class-survives-a-non-object-base-followup и closes-only-the-followup-guards-both-sides, мутация base-followup-type-unchecked летальна; matrix_or_error в сьюте различает исход CRASH и даёт по нему именованный красный, а не трейсбек. Итого 14/14 мутаций летальны. Чекер r2 дал BLOCKED по настоящей дыре: ветка «контракт не в дифе» не проверяла переход вообще, поэтому ЛЮБОЙ поздний коммит из одного .itd-memory/STATE.json (рутинная форма в этом репо — 0d6f013, e56284e, 43e661e) наследовал бы покрытие чужого закрытого юнита и получал бы в промпте «отсутствие собственного покрытия ожидаемо». Закрыто требованием контракта в дифе: проверка close-class-refuses-a-state-only-diff, мутация state-only-diff-accepted летальна. Чекер r5 воспроизвёл ещё одну настоящую дыру в обе стороны: статус git-строки STATE.json не проверялся вовсе, поэтому кандидат, СОЗДАЮЩИЙ или УДАЛЯЮЩИЙ леджер рядом с корректным закрытием контракта, получал унаследованное покрытие. Закрыто требованием статуса M у обеих строк (факт modifiedPaths из _staged_file_records); проверки close-class-requires-both-rows-modified/{state-added,state-deleted,contract-added,nothing-modified}, malformed-modified-paths-refused и два сквозных сценария на настоящем репозитории; мутации row-status-unchecked и producer-reports-every-row-as-modified летальны. Продюсер на pre-PR claim нашёл ещё одну дыру error-handling: _candidate_ledger_facts ловил вокруг _git_blob только UnicodeDecodeError/JSONDecodeError, а FreeReviewError уходил наружу — нечитаемый базовый blob контракта ронял ВЕСЬ пакет в UNVERIFIED вместо отказа от класса и возврата на обычный (строго более строгий) маршрут, что прямо противоречит обещанию скоупа. Закрыто; проверка 'an unreadable base contract aborted the packet', мутация unreadable-base-blob-aborts летальна. Итого 20/20 мутаций летальны.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Каждый вход вне точного состава класса возвращает кандидата на обычный маршрут либо отказывает явно.",
+        "impactClasses": [
+          "error-handling",
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R5-5-route-strength-is-not-weakened",
+      "criterion": "Close-класс не может ослабить маршрут: minimumIndependentReviewers наследованной матрицы клампится к max(наследованное, 1), поэтому закрытие low-юнита получает 1, а не 0, и minimum_reviewer_count не возвращает NOT_REQUIRED. Положительный контроль переблокировки: обычный delivery-кандидат по-прежнему требует СОБСТВЕННОГО покрытия — недостающий требуемый impact-класс валит матрицу с прежним сообщением.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "GREEN: закрытие low-юнита (наследованный минимум 0) даёт matrix.minimumIndependentReviewers == 1 при riskTier low; minimum_reviewer_count возвращает 1 на унаследованном покрытии и по-прежнему 0 на активном low-покрытии, то есть клапан применён к close-классу, а не ко всему маршруту. Переблокировка держится: delivery-кандидат с урезанным impactClasses -> 'required impact evidence is missing: reconciliation'. Мутация clamp-removed -> FAIL close-class-clamps-reviewers-to-one, летальна.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Снят ложный блок, а не независимое ревью: число ревьюеров close-коммита не падает ни на одного.",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle",
+          "free-reviewer-producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-R5-6-module-has-its-own-oracle",
+      "criterion": "tests/verify_review_evidence.py существует как первый прямой оракул модуля skills/_shared/itd_review_evidence.py (до R5 модуль покрывался лишь косвенно через tests/verify_independent_review_efficacy.py) и зарегистрирован в списке CORE файла tests/run-all.sh; регистрация проверяется машинно самим сьютом, а не глазами.",
+      "source": "retro 2026-08-18 (E1 -> P1); .itd-memory/HANDOFF-S10-LEDGER.md §17.11-17.12; план .itd-memory/LPD-002_UNIT_PLAN.json пункт R5, approved владельцем.",
+      "evidence": "GREEN: tests/verify_review_evidence.py создан (40 проверок, exit 0) и добавлен в список CORE файла tests/run-all.sh; регистрация проверяется самим сьютом (suite-is-registered-in-run-all читает CORE регуляркой). Загрузчик модуля компилирует прочитанные байты, а не exec_module — класс стейл-байткода, измеренный на R4. Полный bash tests/run-all.sh: DONE fails: verify_independent_review_efficacy — единственный красный, это установленный налог producerSha256 на трёх подписанных efficacy-ногах, перечеканиваемых отдельным коммитом. verify_free_reviewer_producer.py вырос 228 -> 249 checks: пять новых проверок поверхностей промпта и одиннадцать — сквозной ноги ledger-close на настоящем git-репозитории (пять сценариев: чистое закрытие, закрытие плюс код, закрытие плюс файл плана, закрытие с созданием леджера, закрытие с удалением леджера).",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py && python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Модуль, решающий судьбу каждого кандидата, впервые проверяется собственным зарегистрированным сьютом.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -1844,24 +1953,26 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-R4",
+    "unitId": "LPD002-R5",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "low",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "repository-hygiene",
-        "reconciliation"
+        "error-handling",
+        "reconciliation",
+        "security",
+        "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 0,
+      "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-19T09:24:19Z",
-    "scopeNote": "LPD-002 R4 (четвёртый пункт approved-плана, WIP=1, riskTier low = machine_only, checker не требуется, pre-PR claim обязателен): пять независимых мелких трений маршрута — efficacy-оракул запускается в изоляции по дайджесту-значению; раннер efficacy лишён флага --max-transport-attempts (граница константой 1) и сохраняет чекпоинт как <path>.done; itd_unit_log.py activate требует --risk-tier и пишет его в STATE; docs/templates/CHECKER_PROMPT.md несёт канонический блок вердикта, проверяемый тем же парсером; цикл 'verified без активации' назван (RECONCILIATION/G-001 @ 2026-08-10T09:22:19Z) и отделён от необъяснённых счётчиком lifecyclesNoActivationUnexplained. Правка раннера обесценивает подписанные efficacy-ноги, а правка skills/ — live-evidence пин: обе перечеканки едут отдельными коммитами на итоговом дереве. С delivery-коммитом приезжают отметки закрытия R3 (план: R3 verified; STATE: currentUnit R3->R4) — отдельный ledger-close коммит не проходит evidence-first продюсера (HANDOFF-S10 §17.11, решение владельца). Идентификатор юнита — LPD002-R4 (префиксный выбор критериев)."
+    "openedAt": "2026-08-19T14:00:00Z",
+    "scopeNote": "LPD-002 R5 (пятый пункт approved-плана, WIP=1, riskTier high = checkerMode full, checkerRequired true, независимость требует другой сессии И другой модели/провайдера, minimumIndependentReviewers 1): закрытие юнита перестаёт быть неразрешимым кругом. Определён точный класс кандидата ledger-close (диф = .itd-memory/STATE.json плюс контракт, изменённый только в activeFollowup.status/closedAt, И все критерии закрываемого followup passed); для класса coverage_matrix отдаёт покрытие ЗАКРЫТОГО юнита с полем coverageSource, а промпт ревьюера во всех трёх поверхностях несёт строку 'closing commit: coverage inherited from the delivered unit <id>'. Сила маршрута не падает: minimumIndependentReviewers клампится к >= 1. Кандидат правит тот самый гейт, который его же и судит (прецедент 1d5e5a0), поэтому RED-first и мутации в обе стороны обязательны. С delivery-коммитом R5 приезжают отметки закрытия R4 (план: R4 verified; STATE: currentUnit LPD002-R4 verified) — тот же шаблон R1 -> R2 -> R3 -> R4, обход HANDOFF-S10 §17.11 снимается только после мержа отдельным решением владельца. Идентификатор юнита — LPD002-R5 (префиксный выбор критериев)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

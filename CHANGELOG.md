@@ -10,6 +10,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Closing a unit stops being an unresolvable circle (LPD-002 R5)** — retro
+  2026-08-18 signal E1, root cause `.itd-memory/HANDOFF-S10-LEDGER.md` §17.11.
+  - `skills/_shared/itd_review_evidence.py` gains an exact `ledger-close`
+    candidate class: the diff touches **exactly** `.itd-memory/STATE.json` and
+    the acceptance contract — both, not either, and both as *modifications*, so
+    a candidate that creates or destroys the ledger is not a close — the
+    contract differs from its
+    base version *only* in `activeFollowup.status` / `activeFollowup.closedAt`,
+    the candidate's followup is closed while the base one is still open, and
+    every criterion of the closed followup is `passed`. Requiring the contract
+    transition inside the diff is what makes the class mean *this* commit closed
+    the unit: without it the only remaining signal is that the merged contract's
+    followup happens to be closed, which holds for every commit between one
+    unit's close and the next unit's open. For that class `coverage_matrix` returns
+    the **delivered** unit's coverage instead of `None`, and every matrix now
+    names its origin in a constant `coverageSource` field
+    (`active-unit` | `closed-unit-inherited`). Without the new `candidate`
+    argument the policy decision is unchanged — a closed followup still releases
+    the matrix and the call still returns `None`, an open one still owes its own
+    coverage — but the returned matrix always carries `coverageSource`, ordinary
+    candidates included: a constant shape beats a conditional one when the point
+    is that the origin of coverage cannot be missed.
+  - Measured circle it removes: a closed followup released the matrix, so the
+    reviewer saw `EVIDENCE_COVERAGE=null` and blocked `high` for the missing
+    coverage; leaving the followup open at the same diff made STATE and the
+    contract disagree, and the reviewer blocked for that. No bookkeeping commit
+    could be routed in either position, so `STATE` in `main` trailed one unit
+    behind and closing marks rode along inside unrelated delivery commits.
+  - `skills/_shared/itd_free_reviewer_producer.py` supplies the candidate facts
+    (`_candidate_ledger_facts`: changed paths plus the contract blob at base)
+    and renders `closing commit: coverage inherited from the delivered unit
+    <id>` on **all three** surfaces that show coverage — the flat
+    `review_prompt`, `_unit_review_prompt` and `_integration_review_prompt`.
+    The flat one is the surface that actually judged the S10 ledger-close: a
+    two-file diff never reaches the hierarchical split, so a note placed only
+    in the unit prompt would have satisfied the criterion's wording without
+    touching the defect.
+  - The class recognises, it does not relax. `minimumIndependentReviewers` is
+    clamped to `max(inherited, 1)`, so closing a low-risk unit still gets its
+    one independent reviewer instead of `NOT_REQUIRED`; the closed unit's
+    criteria must all be `passed`, their oracles must still be exact passes on
+    the reviewed tree, and any third path in the diff — code or ledger —
+    returns the candidate to the ordinary route.
+  - New `tests/verify_review_evidence.py` is the module's first direct oracle
+    (40 checks; it was covered only indirectly before) and is registered in the
+    `CORE` list of `tests/run-all.sh`; `tests/verify_free_reviewer_producer.py`
+    grows an end-to-end case that stages a genuine ledger close in a real
+    repository whose contract lives inside it, because every previous fixture
+    kept the acceptance file beside the repo and so never reached the git
+    plumbing at all. 20 mutations, all lethal with a named check; the producer suite grows 228 -> 249 checks.
+  - `.itd/DECISIONS.md` enters version control (`git add -f`). `.itd/` is
+    excluded through `.git/info/exclude` and the journal was created after that,
+    so the durable decisions this and every earlier unit recorded did not
+    survive a clone and were invisible in any reviewed diff - while
+    `.itd/ACCEPTANCE_CONTRACT.json` and `.itd/SCOPE_LOCK.md`, added before the
+    exclusion, were tracked all along.
+  - Seven guarantees survived a mutation pass or an independent review round and
+    were fixed at the root rather than in the test: a guard unreachable from its
+    only caller is now exercised by a direct call; a provably redundant final
+    check was deleted with its dead branch; the `isinstance` guard on the base
+    contract's `activeFollowup` turned an uncaught `AttributeError` into the
+    promised fallback and is now covered both ways; the class now REQUIRES the
+    contract transition inside the diff, because without it any later
+    `STATE.json`-only commit would have inherited an unrelated closed unit's
+    coverage; and the git plumbing that supplies the candidate facts is now
+    exercised against a real repository; the git *status* of both rows is now
+    checked, because path membership alone let a candidate that adds or deletes
+    `STATE.json` be announced to the reviewer as routine bookkeeping; and an
+    unreadable base contract now declines the class instead of aborting the
+    packet, since `FreeReviewError` from the blob read escaped the decode
+    handler and turned "not a ledger close" into `UNVERIFIED` for the whole
+    candidate.
 - **Route friction, five measured taxes (LPD-002 R4)** — retro 2026-08-18
   signals E4+E7+E8+E11.
   - `tests/verify_independent_review_efficacy.py` now accepts the expected

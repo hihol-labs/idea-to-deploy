@@ -90,6 +90,123 @@ def git_fixture(root: Path) -> tuple[str, str, str]:
     return base, parent, tree
 
 
+LEDGER_STATE_REL = ".itd-memory/STATE.json"
+LEDGER_CONTRACT_REL = ".itd/ACCEPTANCE_CONTRACT.json"
+
+
+def ledger_contract(*, closed: bool) -> dict:
+    """The acceptance contract before and after a unit is closed."""
+    followup = {
+        "unitId": "DELIVERED",
+        "status": "verified" if closed else "in_progress",
+        "reviewPolicy": {
+            "mode": "evidence-first",
+            "riskTier": "low",
+            "requiredImpactClasses": ["correctness"],
+            "minimumIndependentReviewers": 0,
+            "explorer": "isolated-machine-oracle",
+            "adjudicator": "sealed-host-union",
+        },
+    }
+    if closed:
+        followup["closedAt"] = "2026-08-19T12:00:00Z"
+    return {
+        "version": 2,
+        "criteria": [{
+            "id": "DELIVERED-AC1",
+            "status": "passed",
+            "reviewEvidence": {
+                "claim": "The delivered behaviour is executable.",
+                "impactClasses": ["correctness"],
+                "oracleIds": ["domain-oracle"],
+            },
+        }],
+        "activeFollowup": followup,
+    }
+
+
+def ledger_close_fixture(
+    root: Path, extra: dict[str, str] | None = None, state_mode: str = "modify",
+):
+    """Build a real repository whose staged diff is a genuine ledger close.
+
+    The contract lives INSIDE the repository, which is what makes
+    `_candidate_ledger_facts` resolve it and read the base blob at all - every
+    other fixture here keeps the acceptance file beside the repo, so the git
+    plumbing of the ledger-close class was reachable only in production
+    (checker finding, round 3).
+    """
+    shell(["git", "init", "-q"], root)
+    shell(["git", "config", "user.name", "ITD Review Test"], root)
+    shell(["git", "config", "user.email", "review@invalid"], root)
+    (root / ".itd").mkdir()
+    (root / ".itd-memory").mkdir()
+    contract = root / LEDGER_CONTRACT_REL
+    state = root / LEDGER_STATE_REL
+    contract.write_text(
+        json.dumps(ledger_contract(closed=False), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    if state_mode != "add":
+        state.write_text(
+            json.dumps({"currentUnit": {"id": "DELIVERED",
+                                        "status": "in_progress"}}),
+            encoding="utf-8",
+        )
+    (root / "scope.md").write_text("# Frozen scope\nLedger close only.\n",
+                                   encoding="utf-8")
+    shell(["git", "add", "."], root)
+    shell(["git", "commit", "-qm", "base"], root)
+    parent = shell(["git", "rev-parse", "HEAD"], root)
+    contract.write_text(
+        json.dumps(ledger_contract(closed=True), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    if state_mode == "delete":
+        state.unlink()
+    else:
+        state.write_text(
+            json.dumps({"currentUnit": {"id": "DELIVERED",
+                                        "status": "verified"}}),
+            encoding="utf-8",
+        )
+    for name, body in (extra or {}).items():
+        (root / name).write_text(body, encoding="utf-8")
+    shell(["git", "add", "-A"], root)
+    tree = shell(["git", "write-tree"], root)
+    return parent, tree, contract, state
+
+
+def ledger_machine_receipt(
+    root: Path, repo: Path, parent: str, tree: str, contract: Path, scope: Path,
+) -> Path:
+    diff = subprocess.run(
+        ["git", "diff", "--cached", "--binary", "--full-index",
+         "--no-ext-diff", parent, "--"], cwd=repo, capture_output=True,
+        timeout=30, check=True,
+    ).stdout
+    digest = __import__("hashlib").sha256
+    receipt = root / "ledger-machine.json"
+    receipt.write_text(json.dumps({
+        "version": 1,
+        "kind": "machine-verification",
+        "unitId": "DELIVERED",
+        "riskTier": "low",
+        "outcome": "PASSED",
+        "candidate": {
+            "baseCommit": parent,
+            "reviewedTree": tree,
+            "diffHash": digest(diff).hexdigest(),
+            "scopeContractHash": digest(scope.read_bytes()).hexdigest(),
+            "acceptanceContractHash": digest(contract.read_bytes()).hexdigest(),
+        },
+        "runs": [{
+            "id": "domain-oracle", "exitCode": 0, "executedTree": tree,
+        }],
+    }), encoding="utf-8")
+    return receipt
+
+
 def write_inputs(
     root: Path, repo: Path, parent: str, tree: str
 ) -> tuple[Path, Path, Path]:
@@ -744,6 +861,185 @@ def main() -> int:
             ),
             "bound-range facts do not follow the exact unit boundary",
         )
+
+        # --- R5: a ledger-close candidate names its inherited coverage -------
+        # The circle measured on S10: a closed followup released the coverage
+        # matrix, the reviewer saw EVIDENCE_COVERAGE=null and blocked for the
+        # absence. Inheriting the delivered unit's coverage is only honest if
+        # every surface that shows coverage also says where it came from -
+        # and the surface that judged the S10 ledger-close was the FLAT one.
+        def coverage_packet(source, minimum=1, unit="LPD002-R4"):
+            value = copy.deepcopy(split_packet)
+            value["evidenceCoverage"] = {
+                "version": 1,
+                "kind": "itd-independent-review-evidence-coverage",
+                "mode": "evidence-first",
+                "unitId": unit,
+                "coverageSource": source,
+                "riskTier": "low",
+                "minimumIndependentReviewers": minimum,
+                "explorer": "isolated-machine-oracle",
+                "adjudicator": "sealed-host-union",
+                "requiredImpactClasses": ["correctness"],
+                "criteria": [{
+                    "criterionId": unit + "-1",
+                    "claim": "The delivered behaviour is executable.",
+                    "impactClasses": ["correctness"],
+                    "oracleIds": ["domain-oracle"],
+                }],
+            }
+            return value
+
+        closing_line = (
+            "closing commit: coverage inherited from the delivered unit "
+            "LPD002-R4"
+        )
+        inherited_packet = coverage_packet("closed-unit-inherited")
+        active_packet = coverage_packet("active-unit")
+        surfaces = (
+            lambda value: producer.review_prompt(value),
+            lambda value: producer._unit_review_prompt(
+                value, split_plan, boundary_unit, boundary_text,
+            ),
+            lambda value: producer._integration_review_prompt(
+                value, split_plan, [],
+            ),
+        )
+        check(
+            all(closing_line in render(inherited_packet) for render in surfaces),
+            "inherited coverage is not named on every reviewer surface",
+        )
+        def coverage_marker(text):
+            for marker in ("EVIDENCE_COVERAGE=", "EVIDENCE COVERAGE\n"):
+                if marker in text:
+                    return text.index(marker)
+            raise AssertionError("reviewer surface shows no coverage block")
+
+        check(
+            all(
+                render(inherited_packet).index(closing_line)
+                < coverage_marker(render(inherited_packet))
+                for render in surfaces
+            ),
+            "the closing note does not precede the coverage it explains",
+        )
+        check(
+            not any(closing_line in render(active_packet) for render in surfaces)
+            and not any(
+                "closing commit" in render(split_packet) for render in surfaces
+            ),
+            "an ordinary candidate is described as a closing commit",
+        )
+        check(
+            producer.minimum_reviewer_count(inherited_packet) == 1
+            and producer.minimum_reviewer_count(active_packet) == 1
+            and producer.minimum_reviewer_count(
+                coverage_packet("active-unit", minimum=0)
+            ) == 0,
+            "the closing route does not keep its independent reviewer",
+        )
+        # End-to-end: the git plumbing that decides the class, against a real
+        # repository whose contract lives inside it. Without this the whole
+        # ledger-close path was reachable only in production (checker r3).
+        for label, extra, state_mode, expect_inherited in (
+            ("pure-close", None, "modify", True),
+            ("close-plus-code", {"service.py": "X = 1\n"}, "modify", False),
+            ("close-plus-plan-ledger",
+             {".itd-memory/PLAN.json": '{"point": "R5"}\n'}, "modify", False),
+            # The ledger is edited by a close, never created or destroyed by
+            # one: an added or deleted STATE.json is a different kind of change
+            # and must not be announced as routine bookkeeping (checker r5).
+            ("close-that-adds-the-ledger", None, "add", False),
+            ("close-that-deletes-the-ledger", None, "delete", False),
+        ):
+            with tempfile.TemporaryDirectory(prefix="itd-ledger-") as ledger_raw:
+                ledger_root = Path(ledger_raw)
+                ledger_repo = ledger_root / "repo"
+                ledger_repo.mkdir()
+                l_parent, l_tree, l_contract, _l_state = ledger_close_fixture(
+                    ledger_repo, extra, state_mode,
+                )
+                l_scope = ledger_repo / "scope.md"
+                l_machine = ledger_machine_receipt(
+                    ledger_root, ledger_repo, l_parent, l_tree, l_contract,
+                    l_scope,
+                )
+                facts = producer._candidate_ledger_facts(
+                    ledger_repo.resolve(), l_parent, l_contract,
+                )
+                check(
+                    facts is not None
+                    and facts["contractPath"] == LEDGER_CONTRACT_REL
+                    and LEDGER_STATE_REL in facts["changedPaths"]
+                    and isinstance(facts["contractBefore"], dict)
+                    and (LEDGER_STATE_REL in facts["modifiedPaths"])
+                    is (state_mode == "modify"),
+                    f"candidate ledger facts are not resolved ({label})",
+                )
+                # An unreadable base contract declines the class rather than
+                # aborting the packet: _git_blob raises FreeReviewError, and
+                # letting it escape would turn "not a ledger close" into
+                # UNVERIFIED for the whole candidate (producer review finding).
+                original_blob = producer._git_blob
+
+                def refusing_blob(*_args, **_kwargs):
+                    raise producer.FreeReviewError(
+                        "UNVERIFIED", "staged Git blob binding is invalid"
+                    )
+
+                producer._git_blob = refusing_blob
+                try:
+                    degraded = producer._candidate_ledger_facts(
+                        ledger_repo.resolve(), l_parent, l_contract,
+                    )
+                except producer.FreeReviewError:
+                    degraded = "escaped"
+                finally:
+                    producer._git_blob = original_blob
+                check(
+                    isinstance(degraded, dict)
+                    and degraded["contractBefore"] is None,
+                    f"an unreadable base contract aborted the packet ({label})",
+                )
+
+                ledger_packet = producer.freeze_packet(
+                    root=ledger_repo, base_commit=l_parent,
+                    repository="hihol-labs/idea-to-deploy", pull_request=None,
+                    expected_head_sha=None, scope_file=l_scope,
+                    acceptance_file=l_contract, machine_receipt=l_machine,
+                )
+                observed = ledger_packet.get("evidenceCoverage")
+                if expect_inherited:
+                    check(
+                        isinstance(observed, dict)
+                        and observed["coverageSource"] == "closed-unit-inherited"
+                        and observed["unitId"] == "DELIVERED"
+                        and observed["minimumIndependentReviewers"] == 1,
+                        f"a real ledger close did not inherit its coverage ({label})",
+                    )
+                    check(
+                        "closing commit: coverage inherited from the delivered "
+                        "unit DELIVERED"
+                        in producer.review_prompt(ledger_packet),
+                        f"the real closing prompt does not name the source ({label})",
+                    )
+                else:
+                    check(
+                        observed is None,
+                        f"a diff beyond the class inherited coverage ({label})",
+                    )
+
+        nameless = coverage_packet("closed-unit-inherited")
+        nameless["evidenceCoverage"]["unitId"] = ""
+        try:
+            producer.review_prompt(nameless)
+        except producer.FreeReviewError as exc:
+            check(exc.status == "UNVERIFIED",
+                  "nameless inherited coverage did not fail closed")
+        else:
+            raise AssertionError(
+                "inherited coverage without a named unit was rendered"
+            )
 
         # --- S11: model-visible means logged ---------------------------------
         # (c) A bound unit sees a byte range, never the candidate's file list.
