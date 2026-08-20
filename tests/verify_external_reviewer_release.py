@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.98.0"
+VERSION = "1.99.0"
 REQUIRED_FILES = {
     "docs/templates/github/itd-machine-oracle.yml",
     "docs/API_REVIEWER.md",

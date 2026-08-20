@@ -21,9 +21,9 @@
     }
   },
   "objective": "Снять измеренный налог маршрута ITD: четыре класса трения, стоившие ~2-2.5 ч из ~8 ч рабочей сессии 2026-08-18 и повторявшиеся на S9/S10/S11, плюс пропорциональный прогон сьютов вместо полного. Критерий успеха плана: каждый пункт закрыт машинной проверкой с двусторонней мутацией, а на следующем юните методологии повторный ретро-скан не показывает тот же класс.",
-  "status": "active",
+  "status": "done",
   "wipLimit": 1,
-  "currentPointId": "R6",
+  "currentPointId": "",
   "nextPointId": "",
   "sessionProtocol": "WIP=1, RED-first: сначала проверка, воспроизводящая дефект на текущем коде, затем правка, затем мутация в обе стороны. Verification-команда пункта прогоняется в момент написания. Коммит только после маршрута /review (machine -> свежий чекер другой моделью -> adjudicate -> review-cache). Поправки к оракулу — в oracleAmendments и events.jsonl, не молча.",
   "evidenceBase": {
@@ -149,7 +149,7 @@
     {
       "id": "R6",
       "title": "Пропорциональные сьюты: объявленный impact-граф вместо полного прогона",
-      "status": "in_progress",
+      "status": "verified",
       "riskTier": "medium",
       "dependsOn": [
         "R5"
@@ -163,7 +163,9 @@
       ],
       "verificationCommand": "python3 -I tests/verify_verification_profiles.py",
       "notes": "Масштаб на 2026-08-18: 150 сьютов tests/verify_*.py, 18 модулей skills/_shared/*.py, 30 хуков. Ручной список в LPD-001 отвергнут — он и был источником ошибок U9/U10; карта обязана проверяться машинно.",
-      "activatedAt": "2026-08-19T18:59:41Z"
+      "activatedAt": "2026-08-19T18:59:41Z",
+      "verifiedAt": "2026-08-20T13:39:59Z",
+      "evidence": "PR #218 merged d659941; 13 раундов cross-vendor ревью до чистого PASS (PUB13); оракул 57->109; python3 -I tests/verify_verification_profiles.py 109/0"
     }
   ],
   "oracleAmendments": [
@@ -224,5 +226,5 @@
       "decidedBy": "владелец (выбор «буква критерия + находка в BACKLOG», 2026-08-19)"
     }
   ],
-  "updatedAt": "2026-08-19T18:59:41Z"
+  "updatedAt": "2026-08-20T13:39:59Z"
 }
