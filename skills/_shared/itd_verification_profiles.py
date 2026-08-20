@@ -9,6 +9,7 @@ inputs; this module only derives decisions from them.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import re
@@ -230,6 +231,29 @@ def reject_ambiguous_graph(request: dict[str, Any]) -> None:
         )
 
 
+def validate_path_graph(document: dict[str, Any], root: Path) -> dict[str, list[str]]:
+    """A path-backed map obeys the audit contract even when only selected from.
+
+    PUB7 finding: containment and the direct-suite rule lived only in
+    ``impact-audit``, so ``select`` could walk a map whose entries escape the
+    repository or route through a non-suite intermediate. Selection now fails
+    closed on the same violations instead of returning an unusable closure.
+    """
+    merged = merged_impact_graph(document)
+    suites_pattern = document["universe"]["suites"]
+    for source, targets in merged.items():
+        contained_file(root, source, "impactGraph node")
+        for target in targets:
+            contained_file(root, target, "impactGraph target")
+            if not fnmatch.fnmatch(target, suites_pattern):
+                raise DecisionError(
+                    f"impactGraph target is not a suite: {target}",
+                    "The declared map is 'source path -> suites'; regenerate "
+                    "it or fix the declared edge before selecting from it.",
+                )
+    return merged
+
+
 def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
     reject_ambiguous_graph(request)
     inline = request.get("impactGraph")
@@ -238,7 +262,7 @@ def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
         root = resolve_root(request)
         document = load_impact_graph_document(
             resolve_under(root, path_value, "impactGraphPath"))
-        return merged_impact_graph(document)
+        return validate_path_graph(document, root)
     return validate_graph_shape(inline, "impactGraph")
 
 
@@ -370,6 +394,12 @@ def resolve_root(request: dict[str, Any]) -> Path:
             "Point root at the repository that owns the suites and the map.",
         )
     cwd = Path.cwd().resolve()
+    if not (cwd / ".git").exists():
+        raise DecisionError(
+            "the engine is not running from a repository",
+            "Run the engine from the top of the repository under audit; an "
+            "arbitrary working directory is not a repository boundary.",
+        )
     if root != cwd and cwd not in root.parents:
         raise DecisionError(
             "root escapes the working repository",

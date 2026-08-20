@@ -640,6 +640,40 @@ try:
           r.returncode == 1 and "root-relative glob" in payload.get("why", ""),
           r.stdout)
 
+    def select_escaping_declared(doc):
+        doc["declared"] = {"../outside.py": [SELF]}
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, select_escaping_declared)))
+    check("select fails closed on a map with an escaping node",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+
+    def select_non_suite_target(doc):
+        doc["declared"] = {SELECTOR: ["docs/WORKING_DEADLINE_MODE.md"]}
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, select_non_suite_target)))
+    check("select fails closed on a map edge to a non-suite",
+          r.returncode == 1
+          and "is not a suite" in payload.get("why", ""), r.stdout)
+
+    nonrepo = tmp / "not-a-repo"
+    nonrepo.mkdir(exist_ok=True)
+    (nonrepo / "IMPACT_GRAPH.json").write_bytes(IMPACT_MAP.read_bytes())
+    nonrepo_request = {
+        "operation": "impact-audit", "root": str(nonrepo),
+        "impactGraphPath": str(nonrepo / "IMPACT_GRAPH.json"),
+    }
+    with tempfile.TemporaryDirectory() as td2:
+        req_path = Path(td2) / "request.json"
+        req_path.write_text(json.dumps(nonrepo_request), encoding="utf-8")
+        result = subprocess.run(
+            [PY, str(RUNTIME), "--input", str(req_path)], cwd=str(nonrepo),
+            capture_output=True, encoding="utf-8", errors="replace",
+            env={**os.environ, "PYTHONUTF8": "1"}, timeout=30)
+    check("the engine refuses to run from a directory that is not a repository",
+          result.returncode == 1
+          and "not running from a repository" in result.stdout, result.stdout)
+
     ambiguous_audit = audit_request()
     ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}
     r, payload = invoke(ambiguous_audit)

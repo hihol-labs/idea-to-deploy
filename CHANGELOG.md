@@ -153,7 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (measured on the delivered tree: 151 suites, 341 nodes, 932 edges, largest
     closure 36/151 for `.itd-memory/STATE.json`).
   - *Both mutation sides* in `tests/verify_verification_profiles.py`
-    (57 → 96 checks): drop every edge to a suite → completeness fails; drop an
+    (57 → 99 checks): drop every edge to a suite → completeness fails; drop an
     owned source's edges → completeness fails; declare every node adjacent to
     every suite → proportionality fails; stale node / stale target / wrong
     schema fail; four engine mutants (unattached-, orphan-, saturation-
@@ -169,8 +169,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (`nonSuiteTargets` fails the audit — a declared chain through a non-suite
     intermediate can no longer launder an orphaned source's coverage), and the
     oracle asserts the map is tracked by git, not a worktree leftover.
-    Universe patterns are validated as root-relative non-escaping globs, and
-    the audit operation rejects both graph sources at once, same as select.
+    Universe patterns are validated as root-relative non-escaping globs, the
+    audit operation rejects both graph sources at once, a path-backed map
+    obeys the same containment and direct-suite contract when merely selected
+    from (not only when audited), and the engine refuses to run from a
+    working directory that is not a repository boundary.
   - The RED run of the audit on the pre-R6 tree found two real gaps, closed at
     the root rather than by a declared edge: `hooks/completion-stop.sh` had no
     owning suite at all (now exercised directly by

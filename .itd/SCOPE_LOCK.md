@@ -36,7 +36,7 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
   `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
   basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
-- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 96 проверок):
+- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 99 проверок):
   карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
   5 мутаций данных + 4 мутанта движка, `--check` FRESH. Правило
   взаимоисключения `impactGraph`/`impactGraphPath` проверяется ДО раннего
@@ -58,7 +58,12 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   глобил бы вне root и падал необработанным ValueError вместо fail-closed
   DecisionError), а `impact-audit` зовёт `reject_ambiguous_graph` — оба
   источника графа сразу отвергаются и в аудите, не только в select.
-  Оракул 86 -> 96 (пять escape-проверок; мутантные карты пишутся внутрь root во
+  По находкам PUB7: path-backed карта подчиняется контракту аудита и в
+  `select` (`validate_path_graph`: containment узлов/целей по разрешённому
+  пути + цель обязана матчить universe.suites — иначе fail-closed ДО обхода),
+  а `resolve_root` требует, чтобы движок был запущен из корня репозитория
+  (`.git` существует) — произвольный cwd границей не является.
+  Оракул 86 -> 99 (пять escape-проверок; мутантные карты пишутся внутрь root во
   временный каталог `.itd/tmp-impact-oracle-<pid>/`, который удаляется в
   `finally`; корректность НЕ зависит от его git-ignore статуса — локальный
   `.git/info/exclude` не версионируется).
