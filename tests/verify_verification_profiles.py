@@ -648,12 +648,14 @@ try:
           r.returncode == 1
           and "outside the repository root" in payload.get("why", ""), r.stdout)
 
-    evil_dir = ROOT / "tests" / "verify_evil"
-    evil_dir.mkdir(exist_ok=True)
+    evil_name = f"verify_evil_{os.getpid()}"
+    evil_dir = ROOT / "tests" / evil_name
+    evil_rel = f"tests/{evil_name}/payload.py"
+    evil_dir.mkdir(exist_ok=False)
     fake = evil_dir / "payload.py"
     fake.write_text("print('not a suite')\n", encoding="utf-8")
     def select_slash_crossing_target(doc):
-        doc["declared"] = {SELECTOR: ["tests/verify_evil/payload.py"]}
+        doc["declared"] = {SELECTOR: [evil_rel]}
     try:
         r, payload = invoke(map_select([SELECTOR],
                                        map_path=mutated_map(tmp, select_slash_crossing_target)))
@@ -665,6 +667,7 @@ try:
             pass
     check("a nested path satisfying the pattern only via slash-crossing match is rejected",
           r.returncode == 1 and "is not a suite" in payload.get("why", ""), r.stdout)
+
 
     def select_non_suite_target(doc):
         doc["declared"] = {SELECTOR: ["docs/WORKING_DEADLINE_MODE.md"]}
@@ -715,6 +718,10 @@ try:
     check("comma-separated imports resolve every module, not only the first",
           "json" in alias_candidates and "hashlib" in alias_candidates,
           str(alias_candidates))
+    check("generator suite matching is the glob, not a name-charset regex",
+          big.is_suite("tests/verify_http.v2.py") is True
+          and big.is_suite("tests/verify_x/payload.py") is False
+          and big.is_suite("tests/helpers.py") is False)
 
     ambiguous_audit = audit_request()
     ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}

@@ -40,7 +40,11 @@ ROOT = Path(__file__).resolve().parents[1]
 MAP_PATH = ROOT / ".itd" / "IMPACT_GRAPH.json"
 SUITE_GLOB = "tests/verify_*.py"
 OWNED_GLOBS = ["skills/_shared/*.py", "hooks/*.sh"]
-SUITE_RE = re.compile(r"tests/verify_[\w\-]+\.py")
+def is_suite(rel: str) -> bool:
+    """Exactly the ``tests/verify_*.py`` glob: one path level, any characters
+    (PUB10 finding: a name-charset regex silently dropped suites with dots)."""
+    return (rel.startswith("tests/verify_") and rel.endswith(".py")
+            and "/" not in rel[len("tests/"):])
 CODE_SUFFIXES = (".py", ".sh", ".ps1")
 BASENAME_SUFFIXES = CODE_SUFFIXES + (".json",)
 GENERIC_BASENAMES = {"__init__.py", "__main__.py", "index.json", "package.json"}
@@ -121,7 +125,7 @@ def import_candidates(text: str) -> list[str]:
 def build_generated(root: Path) -> dict[str, list[str]]:
     tracked = tracked_files(root)
     tracked_set = set(tracked)
-    suites = [rel for rel in tracked if SUITE_RE.fullmatch(rel)]
+    suites = [rel for rel in tracked if is_suite(rel)]
     by_basename: dict[str, list[str]] = defaultdict(list)
     for rel in tracked:
         by_basename[os.path.basename(rel)].append(rel)
