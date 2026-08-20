@@ -182,6 +182,13 @@ def main():
           cl.display_only_command("cat <<EOF\n  EOF\npytest hidden\nEOF"))
     check("A2: <<- закрывается таб-отступленным терминатором, хвост виден (hd-r1)",
           cl.display_only_command("cat <<-EOF\n\tdata\n\tEOF\npytest -q") is False)
+    check("A2: делимитер с дефисом END-1 распознан — хвост после терминатора виден (PUB4)",
+          cl.display_only_command("cat <<END-1\ndata\nEND-1\npytest -q") is False
+          and cl.display_only_command("cat <<END-1\npytest inside\nEND-1"))
+    check("A2: кавычный делимитер с дефисом <<'E-D' распознан (PUB4)",
+          cl.display_only_command("cat <<'E-D'\nx\nE-D\npytest -q") is False)
+    check("A2: делимитер с точкой EOF.txt распознан (PUB4)",
+          cl.display_only_command("cat <<EOF.txt\nx\nEOF.txt\npytest -q") is False)
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",

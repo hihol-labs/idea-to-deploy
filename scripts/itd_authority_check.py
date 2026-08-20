@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,15 +52,24 @@ def main(argv: list[str] | None = None) -> int:
               "FIX: run from the repository or pass --repo")
         return 2
     # A fabricated directory that merely contains skills/_shared must not
-    # pass as the comparison authority (PUB3 finding): --repo has to be a
-    # real git checkout (.git is a dir in a normal clone, a file in a
-    # worktree). Byte-parity attests against THIS checkout only; the
-    # merged-main provenance comes from the minting procedure and from
-    # running the check in the canonical checkout at gate registration.
-    if not (args.repo / ".git").exists():
-        print(f"ERROR {args.repo}: not a git repository (.git missing) | "
-              "FIX: pass the canonical git checkout as --repo; parity "
-              "against a bare directory proves nothing")
+    # pass as the comparison authority (PUB3/PUB4 findings): --repo has to
+    # be a checkout git itself recognizes - a dummy `.git` FILE does not
+    # survive `rev-parse`, and the resolved toplevel must be --repo itself
+    # (not some parent repository the directory happens to sit inside).
+    # Byte-parity attests against THIS checkout only; the merged-main
+    # provenance comes from the minting procedure and from running the
+    # check in the canonical checkout at gate registration.
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(args.repo), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        proc = None
+    toplevel = proc.stdout.strip() if proc and proc.returncode == 0 else ""
+    if not toplevel or Path(toplevel).resolve() != args.repo.resolve():
+        print(f"ERROR {args.repo}: not a git checkout by git's own "
+              "rev-parse | FIX: pass the canonical git checkout as --repo; "
+              "parity against a bare directory proves nothing")
         return 2
     divergent = 0
     compared = 0

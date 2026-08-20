@@ -27,10 +27,10 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   head консервативно блокирует. По находке cross-vendor PUB2: heredoc
   КОНЕЧЕН — разрез стейтментов распознаёт делимитер и продолжается после
   терминатора (`cat <<EOF…EOF` + `pytest` больше не глотается). Оракул:
-  `tests/verify_completion_signal_classes.py` (15 -> 51 проверок, RED-first —
+  `tests/verify_completion_signal_classes.py` (15 -> 54 проверок, RED-first —
   оба display-кейса воспроизведены на старом коде; 43 на закрытии A2,
   +8 в hd-раундах: двойной heredoc, отступленный псевдо-терминатор,
-  here-string).
+  here-string; +3 PUB4: делимитер — общее слово, не только [A-Za-z0-9_]).
 - **LPD002-A517 (кластер itd_review_evidence)** — `skills/_shared/
   itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
   ОБЪЯВЛЕННЫЕ в STATE (не произвольный третий путь); A1 выбор критериев
@@ -51,7 +51,7 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
 - **LPD002-A8 (процедура authority-снапшота)** — раздел в
   `docs/VERIFICATION_LOOP.md` + `scripts/itd_authority_check.py` (байт-паритет
   в обе стороны, DIVERGED/MISSING, exempt ключей) + сьют
-  `tests/verify_authority_check.py` (17 проверок; 5 деталей процедуры прибиты
+  `tests/verify_authority_check.py` (20 проверок — 12 на закрытии; 5 деталей процедуры прибиты
   в доке по находке PUB2), зарегистрирован в run-all. Живой replay назвал 3
   разошедшихся модуля; снапшот LPD002-A8-62eea6bb-a1 перечеканен из
   origin/main. По находке PUB3 (high): `--repo` обязан быть git-чекаутом
@@ -59,9 +59,10 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   со `skills/_shared` больше не проходит как авторитет сравнения; в доке
   явно сказано, что merged-main provenance даёт процедура чеканки +
   запуск проверки в каноническом чекауте, а не сам байт-паритет
-  (сьют 17 -> 19). Вторая находка PUB3 (medium): бухгалтерия счётчика
-  оракула A2 сведена к фактическим 51 во всех четырёх местах
-  (контракт A2 / ACCEPTANCE / BACKLOG / CHANGELOG).
+  (сьют 17 -> 20; по PUB4 dummy-.git отбит: чекаут валидируется самим git rev-parse --show-toplevel, worktree-файл .git легитимен только настоящий). Вторая находка PUB3 (medium): бухгалтерия счётчика
+  оракула A2 сведена к фактическому значению суммы во всех леджерах
+  (контракт A2 / ACCEPTANCE / BACKLOG / CHANGELOG / этот файл); после
+  PUB4-регрессий фактическое значение — 54, все места обновлены вместе.
 - **A4, A6 — реклассификация без кода**: A4 опровергнут замером R6 (ноги
   пинят только `itd_free_reviewer_producer.py` + раннер + манифест; корень
   live-пина отложен решением владельца — memory

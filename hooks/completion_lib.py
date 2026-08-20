@@ -546,7 +546,8 @@ def _split_top(command: str, statements: bool) -> list[str]:
             delims = [(m.group(1) == "-",
                        m.group(3))
                       for m in re.finditer(
-                          r"<<(-?)\s*(['\"]?)([A-Za-z0-9_]+)\2", line_rest)]
+                          r"<<(-?)\s*(['\"]?)([^\s'\"<>|&;()]+)\2",
+                          line_rest)]
             if not delims or nl == -1:
                 cur.append(command[i:])
                 i = n

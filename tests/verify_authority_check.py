@@ -8,6 +8,7 @@ live procedure doc. Run: python3 -I tests/verify_authority_check.py
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -39,7 +40,8 @@ with tempfile.TemporaryDirectory() as td:
     root = Path(td)
     shared = root / "repo" / "skills" / "_shared"
     shared.mkdir(parents=True)
-    (root / "repo" / ".git").mkdir()
+    subprocess.run(["git", "init", "-q", str(root / "repo")], check=True,
+                   capture_output=True, timeout=30)
     snap = root / "auth"
     snap.mkdir()
     (shared / "mod.py").write_text("VALUE = 1\n", encoding="utf-8")
@@ -90,11 +92,32 @@ with tempfile.TemporaryDirectory() as td:
                                                              encoding="utf-8")
     r = run("--snapshot", str(snap), "--repo", str(fake))
     check("fabricated dir with skills/_shared but no .git is refused (exit 2)",
-          r.returncode == 2 and "not a git repository" in r.stdout, r.stdout)
+          r.returncode == 2 and "not a git checkout" in r.stdout, r.stdout)
 
-    (fake / ".git").write_text("gitdir: /elsewhere\n", encoding="utf-8")
+    (fake / ".git").write_text("dummy\n", encoding="utf-8")
     r = run("--snapshot", str(snap), "--repo", str(fake))
-    check("worktree-style .git FILE satisfies the repository requirement",
+    check("dummy .git FILE does not satisfy git rev-parse (exit 2)",
+          r.returncode == 2 and "not a git checkout" in r.stdout, r.stdout)
+
+    base = root / "wtbase"
+    subprocess.run(["git", "init", "-q", str(base)], check=True,
+                   capture_output=True, timeout=30)
+    genv = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+            "HOME": str(root), "PATH": os.environ.get("PATH", "")}
+    subprocess.run(["git", "-C", str(base), "commit", "--allow-empty",
+                    "-q", "-m", "x"], check=True, capture_output=True,
+                   timeout=30, env=genv)
+    wt = root / "wt"
+    subprocess.run(["git", "-C", str(base), "worktree", "add", "-q",
+                    str(wt)], check=True, capture_output=True, timeout=30,
+                   env=genv)
+    wshared = wt / "skills" / "_shared"
+    wshared.mkdir(parents=True)
+    (wshared / "mod.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (wshared / "POLICY.json").write_text("{}\n", encoding="utf-8")
+    r = run("--snapshot", str(snap), "--repo", str(wt))
+    check("a REAL git worktree (.git file) satisfies the repository check",
           r.returncode == 0, r.stdout)
 
     (shared / "newgate.py").write_text("GATE = 2\n", encoding="utf-8")
