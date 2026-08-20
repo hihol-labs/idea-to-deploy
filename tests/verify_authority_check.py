@@ -39,6 +39,7 @@ with tempfile.TemporaryDirectory() as td:
     root = Path(td)
     shared = root / "repo" / "skills" / "_shared"
     shared.mkdir(parents=True)
+    (root / "repo" / ".git").mkdir()
     snap = root / "auth"
     snap.mkdir()
     (shared / "mod.py").write_text("VALUE = 1\n", encoding="utf-8")
@@ -80,6 +81,21 @@ with tempfile.TemporaryDirectory() as td:
     r = run("--snapshot", str(snap), "--repo", str(root))
     check("non-repository --repo is an input error (exit 2)",
           r.returncode == 2, r.stdout)
+
+    fake = root / "fake"
+    (fake / "skills" / "_shared").mkdir(parents=True)
+    (fake / "skills" / "_shared" / "mod.py").write_text("VALUE = 1\n",
+                                                        encoding="utf-8")
+    (fake / "skills" / "_shared" / "POLICY.json").write_text("{}\n",
+                                                             encoding="utf-8")
+    r = run("--snapshot", str(snap), "--repo", str(fake))
+    check("fabricated dir with skills/_shared but no .git is refused (exit 2)",
+          r.returncode == 2 and "not a git repository" in r.stdout, r.stdout)
+
+    (fake / ".git").write_text("gitdir: /elsewhere\n", encoding="utf-8")
+    r = run("--snapshot", str(snap), "--repo", str(fake))
+    check("worktree-style .git FILE satisfies the repository requirement",
+          r.returncode == 0, r.stdout)
 
     (shared / "newgate.py").write_text("GATE = 2\n", encoding="utf-8")
     r = run("--snapshot", str(snap), "--repo", str(root / "repo"))

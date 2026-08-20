@@ -50,6 +50,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR {shared}: not a repository root | "
               "FIX: run from the repository or pass --repo")
         return 2
+    # A fabricated directory that merely contains skills/_shared must not
+    # pass as the comparison authority (PUB3 finding): --repo has to be a
+    # real git checkout (.git is a dir in a normal clone, a file in a
+    # worktree). Byte-parity attests against THIS checkout only; the
+    # merged-main provenance comes from the minting procedure and from
+    # running the check in the canonical checkout at gate registration.
+    if not (args.repo / ".git").exists():
+        print(f"ERROR {args.repo}: not a git repository (.git missing) | "
+              "FIX: pass the canonical git checkout as --repo; parity "
+              "against a bare directory proves nothing")
+        return 2
     divergent = 0
     compared = 0
     for entry in sorted(snapshot.iterdir()):

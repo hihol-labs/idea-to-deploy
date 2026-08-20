@@ -297,5 +297,10 @@ python3 scripts/itd_authority_check.py --snapshot ~/.cache/itd-review-authority/
 
 Exit 0 — every snapshot module/policy is byte-identical to `skills/_shared/`
 (quiet). Exit 1 — divergence, each line names the file with WHY and FIX
-(re-mint from merged main). Exit 2 — input error. The oracle is
-`tests/verify_authority_check.py`.
+(re-mint from merged main). Exit 2 — input error, including a `--repo` that
+is not a git checkout: parity against a bare directory that merely contains
+`skills/_shared` proves nothing, so the check refuses it fail-closed. The
+check attests byte-parity against the checkout you point it at — the
+merged-main provenance comes from the minting procedure above and from
+running the check in the canonical checkout at gate registration. The oracle
+is `tests/verify_authority_check.py`.

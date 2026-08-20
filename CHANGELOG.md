@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (owner decision 2026-08-20: debts before GENG-S02; format follows S9 -
   one reviewed unit per debt cluster, full Verification Loop per commit).
   - **A2, completion gate stale evaluator** (`hooks/completion_lib.py`,
-    oracle 15 -> 43): display/write commands are never runtime signals
+    oracle 15 -> 51): display/write commands are never runtime signals
     (statement-aware split over `&&`/`||`/`;`/newline with a heredoc stop;
     awk `system()`/sed `s///e` count as exec; diff/comm stay verification);
     latest-per-command displacement keys on `normalize_command_key`
