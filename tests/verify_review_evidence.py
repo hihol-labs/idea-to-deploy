@@ -112,13 +112,15 @@ def closed_pair(*, risk: str = "high", minimum: int = 1) -> tuple[dict, dict]:
 
 
 def close_facts(before: dict | None, paths: list[str] | None = None,
-                modified: list[str] | None = None) -> dict:
+                modified: list[str] | None = None,
+                state_before: dict | None = None) -> dict:
     changed = list(paths if paths is not None else [STATE_PATH, CONTRACT_PATH])
     return {
         "changedPaths": changed,
         "modifiedPaths": list(modified if modified is not None else changed),
         "contractPath": CONTRACT_PATH,
         "contractBefore": before,
+        "stateBefore": state_before,
     }
 
 
@@ -279,7 +281,7 @@ check("malformed-modified-paths-refused",
           after_mm, machine_fixture(),
           {"changedPaths": [STATE_PATH, CONTRACT_PATH],
            "modifiedPaths": "нет", "contractPath": CONTRACT_PATH,
-           "contractBefore": before_mm}), str))
+           "contractBefore": before_mm, "stateBefore": None}), str))
 
 after_f, before_f = closed_pair()
 before_f["purpose"] = "changed elsewhere"
@@ -406,6 +408,85 @@ check("ledger-state-path-is-the-canonical-one",
       getattr(evidence, "LEDGER_STATE_PATH", None) == STATE_PATH
       and set(getattr(evidence, "CLOSING_FOLLOWUP_FIELDS", frozenset()))
       == {"status", "closedAt"})
+
+
+# --- LPD002-A5: леджер-файлы, объявленные в БАЗОВОМ STATE, едут с close ---
+PLAN_PATH = ".itd-memory/LPD-002_UNIT_PLAN.json"
+DECLARING_STATE = {"ledgerFiles": [PLAN_PATH]}
+
+after_a5, before_a5 = closed_pair()
+m = matrix_or_error(after_a5, machine_fixture(),
+                    close_facts(before_a5,
+                                paths=[STATE_PATH, CONTRACT_PATH, PLAN_PATH],
+                                state_before=DECLARING_STATE))
+check("a5-declared-plan-file-rides-with-the-close",
+      isinstance(m, dict) and m.get("coverageSource") == "closed-unit-inherited",
+      str(m)[:120])
+
+after_a5b, before_a5b = closed_pair()
+check("a5-undeclared-third-path-still-expelled",
+      matrix_or_error(after_a5b, machine_fixture(),
+                      close_facts(before_a5b,
+                                  paths=[STATE_PATH, CONTRACT_PATH, PLAN_PATH],
+                                  state_before={"ledgerFiles": []})) is None)
+
+after_a5c, before_a5c = closed_pair()
+check("a5-declaration-must-precede-the-close-no-stateBefore",
+      matrix_or_error(after_a5c, machine_fixture(),
+                      close_facts(before_a5c,
+                                  paths=[STATE_PATH, CONTRACT_PATH, PLAN_PATH],
+                                  state_before=None)) is None)
+
+after_a5d, before_a5d = closed_pair()
+check("a5-declared-code-path-outside-itd-memory-refused",
+      matrix_or_error(after_a5d, machine_fixture(),
+                      close_facts(before_a5d,
+                                  paths=[STATE_PATH, CONTRACT_PATH, "skills/x.py"],
+                                  state_before={"ledgerFiles": ["skills/x.py"]}))
+      is None)
+
+after_a5e, before_a5e = closed_pair()
+check("a5-declared-traversal-path-refused",
+      matrix_or_error(after_a5e, machine_fixture(),
+                      close_facts(before_a5e,
+                                  paths=[STATE_PATH, CONTRACT_PATH,
+                                         ".itd-memory/../secrets"],
+                                  state_before={"ledgerFiles":
+                                                [".itd-memory/../secrets"]}))
+      is None)
+
+after_a5f, before_a5f = closed_pair()
+check("a5-extra-file-must-be-a-modification",
+      matrix_or_error(after_a5f, machine_fixture(),
+                      close_facts(before_a5f,
+                                  paths=[STATE_PATH, CONTRACT_PATH, PLAN_PATH],
+                                  modified=[STATE_PATH, CONTRACT_PATH],
+                                  state_before=DECLARING_STATE)) is None)
+
+after_a5g, before_a5g = closed_pair()
+check("a5-two-file-close-unchanged-without-declaration",
+      isinstance(matrix_or_error(after_a5g, machine_fixture(),
+                                 close_facts(before_a5g)), dict))
+
+# --- LPD002-A1: точная принадлежность критериев юниту ---
+after_a1 = acceptance_fixture(unit="R1")
+own = copy.deepcopy(after_a1["criteria"][0])
+own["id"] = "R1-own"
+own["unitId"] = "R1"
+foreign = copy.deepcopy(after_a1["criteria"][0])
+foreign["id"] = "R1-SCRUB-1"
+foreign["status"] = "pending"  # чужой исторический критерий (инцидент R1)
+after_a1["criteria"] = [own, foreign]
+m = matrix_or_error(after_a1, machine_fixture(unit="R1"))
+check("a1-explicit-unitId-excludes-prefix-captured-foreign-criterion",
+      isinstance(m, dict)
+      and [r["criterionId"] for r in m.get("criteria", [])] == ["R1-own"],
+      str(m)[:200])
+
+after_a1b = acceptance_fixture()
+m = matrix_or_error(after_a1b, machine_fixture())
+check("a1-legacy-contract-without-unitId-keeps-prefix-fallback",
+      isinstance(m, dict) and len(m.get("criteria", [])) == 1, str(m)[:120])
 
 
 if fails:

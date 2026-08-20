@@ -2063,6 +2063,62 @@
           "completion-signal-classes-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-A517-1-state-declared-ledger-files",
+      "unitId": "LPD002-A517",
+      "criterion": "Класс ledger-close принимает сверх {STATE, контракт} дополнительные файлы ТОЛЬКО когда каждый: (а) объявлен в ledgerFiles БАЗОВОЙ версии STATE.json (декларация предшествует close — кандидат не может провезти путь, объявив его в собственном диффе; продюсер поставляет stateBefore из base-блоба); (б) лежит под .itd-memory/ без '..'; (в) является модификацией. Двухфайловый close без деклараций работает как прежде; необъявленный третий путь по-прежнему выбивает из класса.",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: реальный close плана LPD-002 трогал .itd-memory/LPD-002_UNIT_PLAN.json и выпадал из класса (отметка каталась со следующим delivery-коммитом R1..R6 — измеренный обход). GREEN: 7 проверок a5-* в verify_review_evidence (43 checks): declared-plan-file-rides; undeclared-expelled; no-stateBefore-refused; code-path-refused; traversal-refused; extra-must-be-M; two-file-close-unchanged.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Дополнительный леджер-файл едет с close только по предшествующей декларации в STATE, в леджер-неймспейсе и как модификация.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A517-2-criterion-ownership-is-explicit",
+      "unitId": "LPD002-A517",
+      "criterion": "Выбор критериев контракта для юнита: при наличии хотя бы одного критерия с явным unitId == юнит — авторитетен ТОЛЬКО явный набор (префикс не consultируется); префикс-фоллбэк остаётся для legacy-контрактов без поля и не захватывает критерии, несущие чужой unitId.",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: инцидент R1 — юнит R1 захватил исторический R1-SCRUB-1 по префиксу (UNVERIFIED по чужой записи, обходили переименованием). GREEN: a1-explicit-unitId-excludes-prefix-captured-foreign-criterion (матрица содержит только R1-own); a1-legacy-contract-without-unitId-keeps-prefix-fallback.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Принадлежность критерия юниту — явное поле, а не совпадение префикса имён.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A517-3-single-staged-inventory",
+      "unitId": "LPD002-A517",
+      "criterion": "freeze_packet считает _staged_file_records ОДИН раз и передаёт инвентарь в has_transparent_path, _transparent_review_representation, _raw_review_file_chunks и _candidate_ledger_facts (records=…); чистые вызовы без инвентаря сохраняют прежнее поведение (records=None -> самостоятельный расчёт).",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: три независимых вызова за один freeze_packet (строки ~1227/1249/1283 + внутри ledger facts). GREEN: threading через staged_records; verify_free_reviewer_producer 249/0; verify_machine_oracle, verify_verification_loop, verify_scrubber_precision и остальные владельцы карты зелёные.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Инвентарь дифа — одна выборка на пакет, повторные git-обходы устранены без изменения решений.",
+        "impactClasses": [
+          "performance",
+          "correctness"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2081,7 +2137,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-A2",
+    "unitId": "LPD002-A517",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -2090,15 +2146,15 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "error-handling",
-        "reconciliation"
+        "reconciliation",
+        "performance"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-20T15:38:29Z",
-    "scopeNote": "Сессия долгов LPD-002 (решение владельца 2026-08-20, формат S9: юнит = долг, WIP=1). LPD002-A2 — стейл-оценщик completion-гейта: display/write-команды не сигналы; идентичность latest-на-команду нормализована; красный от чужого HEAD — стейл. Все три инцидента (R1 heredoc, R2 esac-grep, R6 grep-пайп) воспроизведены RED-first. riskTier medium: checkerMode targeted, checkerRequired true, независимость — другая сессия, та же модель допустима."
+    "openedAt": "2026-08-20T16:48:12Z",
+    "scopeNote": "Сессия долгов LPD-002, юнит 2: кластер itd_review_evidence/producer — A5 (ledger-файлы, объявленные в БАЗОВОМ STATE, едут с close), A1 (явный unitId у критериев, префикс — только legacy-фоллбэк), A7 (один проход _staged_file_records на freeze_packet + факт stateBefore). Правка продюсера инвалидирует efficacy-ноги — перечеканка в этом же юните. ВНИМАНИЕ ротации: предыдущий followup LPD002-A2 закрыт в ЭТОМ же диффе (status verified/closedAt) — это delivery-кандидат, НЕ ledger-close."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

@@ -31,8 +31,15 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
   ОБЪЯВЛЕННЫЕ в STATE (не произвольный третий путь); A1 выбор критериев
   контракта — точная принадлежность юниту, не префикс `unitId + "-"`;
-  A7 один проход `_staged_file_records` на `freeze_packet`. Оракул:
-  `tests/verify_review_evidence.py`.
+  A7 один проход `_staged_file_records` на `freeze_packet` (+ факт
+  `stateBefore` из base-блоба STATE). Оракул:
+  `tests/verify_review_evidence.py` (34 -> 43 проверки: 7×a5, 2×a1).
+  Правка продюсера инвалидировала три подписанные efficacy-ноги — все три
+  перечеканены живьём в этом юните (wsl + u12-cross-vendor на новом транспорте
+  2e863156/0.146.0; windows через PowerShell/UNC, bc343ba4; verifier PASSED,
+  hostParityVerified, cleanFalseBlockRate 0.0; ловушка: u12 требует
+  `--maker-provider anthropic-subscription`, голое `anthropic` отвергается
+  провенансом).
 - **LPD002-A39 (маршрутные мелочи)** — `skills/_shared/itd_verification_loop.py`
   (чекер fail-closed при смене дерева кандидата между прогоном и чеканкой),
   `tests/run-all.sh` (красный сьют печатает свои строки FAIL, не только

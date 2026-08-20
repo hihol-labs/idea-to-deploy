@@ -1,5 +1,5 @@
 {
-  "signatureHex": "fbd837f8a4de5bb5af1f5dbcf328b26a75d0a15d50c31b357de9698c6f9e588af2c1e8e56b8e0d1fbb6bd7413a860d7abbc3a2f8b394f022ac8379ae132b5301",
+  "signatureHex": "7ad2c38c8de1aae293bdef1582d871d7fae38f7bcdb0a737744d1d9c8d7aa41397b9b0d22c9e8edba19f3ed11699e6eb59477d5ead069e9f416ad439e99d1b04",
   "signed": {
     "cases": [
       {
@@ -10,29 +10,29 @@
         "report": {
           "findings": [
             {
-              "category": "worksheet-capacity",
+              "category": "scale/capacity",
               "confidence": "high",
               "file": "src/export.ts",
               "line": 10,
               "severity": "high",
-              "summary": "The export sends all projected 1,807,231 rows to one worksheet, exceeding Excel's 1,048,576-row limit by 758,655 rows. EXCEL_MAX_ROWS is never enforced, so the writer must fail, truncate data, or produce an invalid/noncompliant workbook; none satisfies a complete, downloadable single-sheet annual export."
+              "summary": "The projected 1,807,231 data rows exceed Excel's 1,048,576-row worksheet limit (and a header would reduce usable data capacity further), yet the implementation passes every expanded row to a single worksheet without enforcing EXCEL_MAX_ROWS. The default annual export therefore cannot satisfy the single-sheet capacity requirement and may fail, truncate data, or generate an invalid workbook."
             },
             {
-              "category": "scale-and-bounded-output",
+              "category": "bounded-memory/availability",
               "confidence": "high",
               "file": "src/export.ts",
               "line": 4,
               "severity": "high",
-              "summary": "Nested flatMap/map calls eagerly materialize the entire expanded export as roughly 1.8 million objects in browser memory before writing. There is no batching, streaming, size check, or handled failure path, so memory exhaustion or browser unresponsiveness can prevent the required download."
+              "summary": "Nested flatMap/map eagerly materializes the entire projected 1.8-million-row object array in browser memory before workbook generation, with each row retaining lot, order, and conversion objects. There is no streaming, preflight bound, or handled failure path, so the default download can exhaust browser memory or become unresponsive."
             }
           ],
           "unverified": [
-            "The supplied diff does not show writeSingleBrowserWorksheet, so its overflow, truncation, error-reporting, and browser-download behavior cannot be verified.",
-            "No tests are shown for worksheet row limits, large annual datasets, reconciliation of exported records, or browser memory/failure behavior."
+            "Whether writeSingleBrowserWorksheet detects worksheet overflow, rejects with a user-visible error, or silently truncates rows cannot be verified from the supplied diff.",
+            "No tests are shown for the default annual dataset, Excel row-boundary behavior (including header rows), browser memory limits, download completion, or exported-row reconciliation."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01ac9-3d35-7133-a1b5-0aaee82aad9c"
+        "session": "01a02027-3547-7851-be90-7adfa00e44d7"
       },
       {
         "attempts": 1,
@@ -47,7 +47,7 @@
               "file": "src/turnover.ts",
               "line": 4,
               "severity": "high",
-              "summary": "displayedClosing subtracts only expense and fx_eur consumption, omitting the supported fx_other category. The observed 1,494,440 TRY fx_other consumption therefore remains in the displayed closing balance, preventing exact reconciliation."
+              "summary": "displayedClosing subtracts expense and fx_eur consumption but never subtracts the supported fx_other category. With the observed fx_other total of 1494440 TRY, the displayed closing balance is overstated by exactly 1494440 TRY and cannot reconcile for all supported consumption types."
             },
             {
               "category": "specification-compliance",
@@ -55,16 +55,16 @@
               "file": "src/turnover.ts",
               "line": 1,
               "severity": "high",
-              "summary": "The new API returns only a calculated closing value; it does not display the required exact opening, inflow, outflow/conversion by every pool consumer category, and closing turnover."
+              "summary": "The change only returns a calculated closing value; it does not display the required exact TRY opening, inflow, per-consumer-category outflow/conversion, and closing turnover."
             }
           ],
           "unverified": [
-            "No tests are shown for all supported consumption types, exact reconciliation, empty or repeated consumptions, or numeric precision/rounding behavior.",
-            "The supplied diff does not define Pool or sum, so their type safety, amount-field handling, and behavior for malformed or non-finite values cannot be verified."
+            "No tests are shown for exact reconciliation across expense, fx_eur, and fx_other, including the observed 1494440 TRY fx_other total.",
+            "The supplied diff does not define Pool or sum, so type correctness, TRY precision/numerical stability, and handling of missing or malformed consumption amounts cannot be verified."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01ac9-d976-7972-9968-8d69f06a83bd"
+        "session": "01a02027-dc4a-7862-b218-03a6a7b041b9"
       },
       {
         "attempts": 1,
@@ -74,36 +74,36 @@
         "report": {
           "findings": [
             {
-              "category": "reconciliation",
+              "category": "correctness/reconciliation",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 2,
               "severity": "high",
-              "summary": "Each detail amount is rounded independently, so the returned amounts can differ from the currency-rounded source total by one or more cents. This violates exact per-source reconciliation and is consistent with the reported 1578 TRY aggregate drift; allocate the rounding remainder deterministically across detail rows."
+              "summary": "Each detail amount is rounded independently, but no residual-cent reconciliation is applied. Consequently, the returned amounts can sum above or below the rounded source amount, directly violating the exact-total acceptance criterion; the reported 1578 TRY aggregate drift confirms material impact."
             },
             {
-              "category": "input-validation",
+              "category": "input validation/specification compliance",
               "confidence": "high",
               "file": "src/allocation.ts",
-              "line": 2,
-              "severity": "high",
-              "summary": "The implementation does not validate or normalize shares to ensure they sum to 1. Even before rounding, missing, excess, negative, or non-finite shares can produce an allocation whose total does not equal the source amount."
+              "line": 1,
+              "severity": "medium",
+              "summary": "The function does not validate or normalize shares, so shares whose sum differs from 1 (as well as negative or non-finite inputs) can produce allocations unrelated to the source total and cannot guarantee reconciliation."
             },
             {
-              "category": "numerical-stability",
+              "category": "numerical stability",
               "confidence": "medium",
               "file": "src/allocation.ts",
               "line": 3,
               "severity": "medium",
-              "summary": "Binary floating-point multiplication and Math.round are not reliable currency arithmetic for all decimal and negative values; cent conversion can land near representation boundaries and Math.round handles negative half-ties asymmetrically. Integer minor-unit or decimal arithmetic with an explicit rounding policy is needed."
+              "summary": "Currency arithmetic uses binary floating-point multiplication and Math.round, which can mis-round decimal half-cent boundaries; integer minor-unit arithmetic or an explicit decimal rounding policy is needed for cent-exact behavior."
             }
           ],
           "unverified": [
-            "No tests are shown for exact reconciliation, zero and negative source amounts, fractional-cent ties, empty shares, invalid shares, or the observed multi-row drift contour."
+            "No tests are supplied for positive and negative sources, zero or empty shares, fractional-cent ties, large values, invalid inputs, or proof that every allocation reconciles exactly to the currency-rounded source."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a01aca-63cf-74b0-a015-62e1294c2d8a"
+        "session": "01a02028-583e-7c00-a70d-d04c4e2b245e"
       },
       {
         "attempts": 1,
@@ -113,26 +113,26 @@
         "report": {
           "findings": [
             {
-              "category": "generated-artifact freshness",
+              "category": "specification-compliance",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
               "severity": "high",
-              "summary": "The verify script removes `prisma generate`, so typecheck can run against stale generated clients after schema changes, violating the required release-gate ordering."
+              "summary": "The verify script no longer runs `prisma generate` before TypeScript checking, so generated clients can remain stale after schema changes, violating the required release-gate ordering."
             },
             {
-              "category": "error handling",
+              "category": "error-handling",
               "confidence": "high",
               "file": "package.json",
               "line": 7,
               "severity": "high",
-              "summary": "The `|| echo existing Prisma mismatch` fallback converts every TypeScript failure into a successful command, so the release gate can pass despite typecheck errors and also mislabels unrelated failures as Prisma mismatches."
+              "summary": "The `|| echo existing Prisma mismatch` fallback converts every `tsc --noEmit` failure into a successful script exit, including unrelated type errors, so typecheck is not a truthful non-zero release gate."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a01acb-3386-7c12-bcbf-2fe0983ee5aa"
+        "session": "01a02028-fdb3-78b1-9d0a-d48097e1b10e"
       },
       {
         "attempts": 1,
@@ -147,7 +147,7 @@
               "file": "review-tools/local_probe.py",
               "line": 1,
               "severity": "high",
-              "summary": "Temporary reviewer probe is included in the release tree despite the frozen acceptance criterion excluding reviewer scratch tooling."
+              "summary": "A temporary reviewer probe is added to the release tree despite the frozen acceptance criterion explicitly excluding reviewer probes."
             },
             {
               "category": "repository hygiene",
@@ -155,13 +155,13 @@
               "file": "ROOT_CAUSE.md",
               "line": 1,
               "severity": "high",
-              "summary": "Private root-cause scratch notes are included in the release tree despite the frozen acceptance criterion excluding private review notes."
+              "summary": "Private root-cause scratch notes are added to the release tree despite the frozen acceptance criterion explicitly excluding private scratch notes."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a01acc-2508-7c31-b2de-5be17eddaf5d"
+        "session": "01a02029-83ce-7c42-80a3-a74a77677cda"
       },
       {
         "attempts": 1,
@@ -173,7 +173,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01acc-962e-7cc0-911a-118dc3ab3c94"
+        "session": "01a0202a-0694-7770-a331-3b3e476be229"
       },
       {
         "attempts": 1,
@@ -185,7 +185,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01acd-1cf0-7701-806a-09e10e85e23f"
+        "session": "01a0202a-a3df-7c02-9d52-488efd7093c7"
       },
       {
         "attempts": 1,
@@ -197,7 +197,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01acd-b45a-7f43-b8ed-e62f2926bd5d"
+        "session": "01a0202b-7857-7752-88af-6e767f568480"
       },
       {
         "attempts": 1,
@@ -209,7 +209,7 @@
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a01ace-4b3d-75d3-a3ac-84433bf295e8"
+        "session": "01a0202b-f84f-7880-9473-aaf482c12dfe"
       }
     ],
     "host": "windows",
@@ -222,8 +222,8 @@
     "keyId": "gpg003-local-producer-20260803",
     "kind": "itd-independent-review-semantic-efficacy-run",
     "manifestSha256": "740a3538f32121e97698cc8cfe1af0dc027ed37759f02df7702e44891fb42342",
-    "observedAt": "2026-08-19T16:15:32Z",
-    "producerSha256": "b86bca2722e51f5a5928c447fbaf3f8a329ec304cefa0b0532e3304684c4c460",
+    "observedAt": "2026-08-20T17:16:33Z",
+    "producerSha256": "f1dbd58302cc2797e37dcee227cbcd940fc3583c4852c78c9a888866b0cebe02",
     "reviewer": {
       "isolation": {
         "ephemeral": true,

@@ -888,8 +888,12 @@ def _git_blob(root: Path, oid: str | None) -> bytes:
     return raw
 
 
+LEDGER_STATE_HELPER_PATH = ".itd-memory/STATE.json"
+
+
 def _candidate_ledger_facts(
     root: Path, base: str, acceptance_file: Path,
+    records: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Name the candidate's changed paths and the acceptance contract at base.
 
@@ -903,11 +907,21 @@ def _candidate_ledger_facts(
         )
     except (OSError, ValueError):
         return None
-    records = _staged_file_records(root, base)
+    if records is None:
+        records = _staged_file_records(root, base)
     changed = [str(row["path"]) for row in records]
     modified = [str(row["path"]) for row in records if row["status"] == "M"]
     before: dict[str, Any] | None = None
+    state_before: dict[str, Any] | None = None
     for row in records:
+        if str(row["path"]) == LEDGER_STATE_HELPER_PATH and row["status"] == "M":
+            try:
+                value = json.loads(
+                    _git_blob(root, row["baseBlobSha"]).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError, FreeReviewError):
+                value = None
+            if isinstance(value, dict):
+                state_before = value
         if str(row["path"]) != contract_path or row["status"] != "M":
             continue
         try:
@@ -926,6 +940,7 @@ def _candidate_ledger_facts(
         "modifiedPaths": modified,
         "contractPath": contract_path,
         "contractBefore": before,
+        "stateBefore": state_before,
     }
 
 
@@ -955,6 +970,7 @@ def _closing_coverage_note(packet: dict[str, Any]) -> str:
 
 def _transparent_review_representation(
     root: Path, base: str,
+    staged_records: list[dict[str, Any]] | None = None,
 ) -> tuple[str, dict[str, Any], list[tuple[str, str]]]:
     """Build the broker-defined logical diff for supported transparent blobs."""
     try:
@@ -966,7 +982,9 @@ def _transparent_review_representation(
         raw_total = 0
         review_total = 0
         transparent_count = 0
-        for source in _staged_file_records(root, base):
+        if staged_records is None:
+            staged_records = _staged_file_records(root, base)
+        for source in staged_records:
             path = str(source["path"])
             old = _git_blob(root, source["baseBlobSha"])
             new = _git_blob(root, source["headBlobSha"])
@@ -1222,14 +1240,15 @@ def freeze_packet(
     )
     if b"\0" in diff_raw:
         raise FreeReviewError("UNVERIFIED", "generic binary candidate is unverified")
+    staged_records = _staged_file_records(root, base)
     has_transparent_path = any(
         str(row["path"]).endswith(review_broker.TRANSPARENT_JSONL_SUFFIX)
-        for row in _staged_file_records(root, base)
+        for row in staged_records
     )
     if has_binary_record or has_transparent_path:
         diff_text, review_representation, file_chunks = (
             _transparent_review_representation(
-                root, base
+                root, base, staged_records
             )
         )
     else:
@@ -1246,8 +1265,7 @@ def freeze_packet(
             assert isinstance(review_raw, bytes)
             algorithm = "git-binary-full-index-no-renames-v1"
         diff_text = _safe_review_text(review_raw, "candidate diff")
-        records = _staged_file_records(root, base)
-        file_chunks = _raw_review_file_chunks(diff_text, records)
+        file_chunks = _raw_review_file_chunks(diff_text, staged_records)
         review_representation = {
             "algorithm": algorithm,
             "reviewDiffSha256": sha256_bytes(review_raw),
@@ -1280,7 +1298,8 @@ def freeze_packet(
     try:
         evidence_coverage = review_evidence.coverage_matrix(
             acceptance_value, machine_summary,
-            candidate=_candidate_ledger_facts(root, base, acceptance_file),
+            candidate=_candidate_ledger_facts(
+                root, base, acceptance_file, records=staged_records),
         )
     except review_evidence.ReviewEvidenceError as exc:
         raise FreeReviewError("UNVERIFIED", str(exc)) from exc
