@@ -9,7 +9,6 @@ inputs; this module only derives decisions from them.
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import hashlib
 import json
 import re
@@ -255,12 +254,18 @@ def validate_path_graph(document: dict[str, Any], root: Path) -> dict[str, list[
     closed on the same violations instead of returning an unusable closure.
     """
     merged = merged_impact_graph(document)
-    suites_pattern = document["universe"]["suites"]
+    # The suite universe is the same root-globbed set the audit uses; a name
+    # pattern match was rejected here because fnmatch's "*" crosses "/"
+    # (PUB9 finding): tests/verify_x/payload.py satisfied tests/verify_*.py.
+    suite_set = {
+        path.relative_to(root).as_posix()
+        for path in root.glob(document["universe"]["suites"])
+        if path.is_file()}
     for source, targets in merged.items():
         contained_file(root, source, "impactGraph node")
         for target in targets:
             contained_file(root, target, "impactGraph target")
-            if not fnmatch.fnmatch(target, suites_pattern):
+            if target not in suite_set:
                 raise DecisionError(
                     f"impactGraph target is not a suite: {target}",
                     "The declared map is 'source path -> suites'; regenerate "

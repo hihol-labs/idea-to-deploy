@@ -648,6 +648,24 @@ try:
           r.returncode == 1
           and "outside the repository root" in payload.get("why", ""), r.stdout)
 
+    evil_dir = ROOT / "tests" / "verify_evil"
+    evil_dir.mkdir(exist_ok=True)
+    fake = evil_dir / "payload.py"
+    fake.write_text("print('not a suite')\n", encoding="utf-8")
+    def select_slash_crossing_target(doc):
+        doc["declared"] = {SELECTOR: ["tests/verify_evil/payload.py"]}
+    try:
+        r, payload = invoke(map_select([SELECTOR],
+                                       map_path=mutated_map(tmp, select_slash_crossing_target)))
+    finally:
+        fake.unlink(missing_ok=True)
+        try:
+            evil_dir.rmdir()
+        except OSError:
+            pass
+    check("a nested path satisfying the pattern only via slash-crossing match is rejected",
+          r.returncode == 1 and "is not a suite" in payload.get("why", ""), r.stdout)
+
     def select_non_suite_target(doc):
         doc["declared"] = {SELECTOR: ["docs/WORKING_DEADLINE_MODE.md"]}
     r, payload = invoke(map_select([SELECTOR],
