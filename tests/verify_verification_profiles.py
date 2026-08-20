@@ -723,6 +723,21 @@ try:
           and big.is_suite("tests/verify_x/payload.py") is False
           and big.is_suite("tests/helpers.py") is False)
 
+    def missing_declared(doc):
+        doc.pop("declared")
+    r, payload = invoke(audit_request(mutated_map(tmp, missing_declared)))
+    check("a map without the declared section fails closed",
+          r.returncode == 1 and "section is missing" in payload.get("why", ""),
+          r.stdout)
+
+    def missing_generated(doc):
+        doc.pop("generated")
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, missing_generated)))
+    check("select refuses a map without the generated section",
+          r.returncode == 1 and "section is missing" in payload.get("why", ""),
+          r.stdout)
+
     def broken_glob(doc):
         doc["universe"]["suites"] = "tests/**broken.py"
     r, payload = invoke(audit_request(mutated_map(tmp, broken_glob)))

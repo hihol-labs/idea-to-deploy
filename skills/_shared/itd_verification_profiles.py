@@ -206,8 +206,15 @@ def load_impact_graph_document(path: Path) -> dict[str, Any]:
         )
     for pattern in owned:
         validate_universe_pattern(pattern, "impactGraph.universe.owned")
-    validate_graph_shape(document.get("generated", {}), "impactGraph.generated")
-    validate_graph_shape(document.get("declared", {}), "impactGraph.declared")
+    for section in ("generated", "declared"):
+        if section not in document:
+            raise DecisionError(
+                f"impactGraph.{section} section is missing",
+                "The map document carries both sections explicitly (an empty "
+                "declared section is {}); regenerate it with "
+                "tests/build_impact_graph.py.",
+            )
+        validate_graph_shape(document[section], f"impactGraph.{section}")
     return document
 
 

@@ -36,7 +36,7 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
   `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
   basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
-- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 107 проверок):
+- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 109 проверок):
   карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
   5 мутаций данных + 4 мутанта движка, `--check` FRESH. Правило
   взаимоисключения `impactGraph`/`impactGraphPath` проверяется ДО раннего
@@ -84,7 +84,10 @@ LPD-001 прямо отвергнут как источник ошибок U9/U1
   glob-грамматика (например `**broken`) -> fail-closed `DecisionError` через
   `safe_glob` (а не сырой ValueError из pathlib), и `--check` сравнивает ВЕСЬ
   документ карты — правка generator-owned полей (schemaVersion, generator,
-  purpose) тоже DRIFT. Оракул 86 -> 107 (пять escape-проверок; мутантные карты пишутся внутрь root во
+  purpose) тоже DRIFT. По находке PUB12: секции `generated` и `declared`
+  ОБЯЗАНЫ присутствовать в документе карты явно (пустая declared = `{}`);
+  отсутствующая секция -> fail-closed, а не молчаливый дефолт в пустой граф.
+  Оракул 86 -> 109 (пять escape-проверок; мутантные карты пишутся внутрь root во
   временный каталог `.itd/tmp-impact-oracle-<pid>/`, который удаляется в
   `finally`; корректность НЕ зависит от его git-ignore статуса — локальный
   `.git/info/exclude` не версионируется).
