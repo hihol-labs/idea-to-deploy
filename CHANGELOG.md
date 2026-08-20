@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (measured on the delivered tree: 151 suites, 341 nodes, 932 edges, largest
     closure 36/151 for `.itd-memory/STATE.json`).
   - *Both mutation sides* in `tests/verify_verification_profiles.py`
-    (57 → 105 checks): drop every edge to a suite → completeness fails; drop an
+    (57 → 107 checks): drop every edge to a suite → completeness fails; drop an
     owned source's edges → completeness fails; declare every node adjacent to
     every suite → proportionality fails; stale node / stale target / wrong
     schema fail; four engine mutants (unattached-, orphan-, saturation-
@@ -60,7 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     validates map targets against the real root-globbed suite set (fnmatch's
     slash-crossing "*" was exploitable with a nested verify_x/payload.py);
     the generator's suite matching is exactly the glob (single path level,
-    any characters — a charset regex silently dropped dotted names).
+    any characters — a charset regex silently dropped dotted names), invalid
+    glob grammar fails closed instead of leaking pathlib's ValueError, and
+    --check compares the whole map document so generator-owned fields cannot
+    drift silently.
   - The RED run of the audit on the pre-R6 tree found two real gaps, closed at
     the root rather than by a declared edge: `hooks/completion-stop.sh` had no
     owning suite at all (now exercised directly by

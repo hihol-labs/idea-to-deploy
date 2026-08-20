@@ -723,6 +723,24 @@ try:
           and big.is_suite("tests/verify_x/payload.py") is False
           and big.is_suite("tests/helpers.py") is False)
 
+    def broken_glob(doc):
+        doc["universe"]["suites"] = "tests/**broken.py"
+    r, payload = invoke(audit_request(mutated_map(tmp, broken_glob)))
+    check("an invalid glob grammar fails closed, not with a raw ValueError",
+          r.returncode == 1
+          and "not a valid glob pattern" in payload.get("why", ""), r.stdout)
+
+    def stamped_generator(doc):
+        doc["generator"] = "someone-else.py"
+    stamped_path = mutated_map(tmp, stamped_generator)
+    drift = subprocess.run(
+        [PY, str(BUILDER), "--check", "--path", str(stamped_path)],
+        cwd=str(ROOT), capture_output=True, encoding="utf-8",
+        errors="replace", timeout=120, env={**os.environ, "PYTHONUTF8": "1"})
+    check("--check flags drift in generator-owned document fields, not only edges",
+          drift.returncode == 1 and drift.stdout.startswith("DRIFT"),
+          drift.stdout + drift.stderr)
+
     ambiguous_audit = audit_request()
     ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}
     r, payload = invoke(ambiguous_audit)

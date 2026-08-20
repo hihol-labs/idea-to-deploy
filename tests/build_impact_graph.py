@@ -174,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
     summary = (f"nodes={len(generated)} edges={sum(len(v) for v in generated.values())} "
                f"suitesAttached={len(suites_attached)}")
     if args.check:
-        if existing.get("generated") != generated or existing.get("universe") != document["universe"]:
+        # The whole rendered document is compared: edits to generator-owned
+        # fields (schemaVersion, generator, purpose) are drift too (PUB11).
+        if existing != document:
             stale = sorted(set(existing.get("generated") or {}) ^ set(generated))
             print(f"DRIFT {args.path.relative_to(ROOT)} {summary}")
             print(f"FIX: python3 tests/build_impact_graph.py  (changed nodes: {stale[:12]})")

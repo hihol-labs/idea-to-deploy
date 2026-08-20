@@ -211,6 +211,18 @@ def load_impact_graph_document(path: Path) -> dict[str, Any]:
     return document
 
 
+def safe_glob(root: Path, pattern: str, field: str) -> list[Path]:
+    """Glob under root, translating pathlib's grammar errors (e.g. a bad
+    ``**`` placement) into the promised fail-closed DecisionError (PUB11)."""
+    try:
+        return [path for path in root.glob(pattern) if path.is_file()]
+    except ValueError as exc:
+        raise DecisionError(
+            f"{field} is not a valid glob pattern: {exc}",
+            "Fix the universe pattern; the engine never guesses a scan scope.",
+        ) from exc
+
+
 def validate_universe_pattern(pattern: str, field: str) -> None:
     """Universe globs are root-relative and non-escaping; anything else would
     let a malformed map glob outside root and crash past the fail-closed
@@ -259,8 +271,8 @@ def validate_path_graph(document: dict[str, Any], root: Path) -> dict[str, list[
     # (PUB9 finding): tests/verify_x/payload.py satisfied tests/verify_*.py.
     suite_set = {
         path.relative_to(root).as_posix()
-        for path in root.glob(document["universe"]["suites"])
-        if path.is_file()}
+        for path in safe_glob(root, document["universe"]["suites"],
+                              "impactGraph.universe.suites")}
     for source, targets in merged.items():
         contained_file(root, source, "impactGraph node")
         for target in targets:
@@ -328,8 +340,9 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
     universe = document["universe"]
     suite_pattern = universe["suites"]
     suites = sorted(
-        path.relative_to(root).as_posix() for path in root.glob(suite_pattern)
-        if path.is_file())
+        path.relative_to(root).as_posix()
+        for path in safe_glob(root, suite_pattern,
+                              "impactGraph.universe.suites"))
     if not suites:
         raise DecisionError(
             f"no suites match {suite_pattern!r} under {root}",
@@ -337,11 +350,10 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
         )
     owned: list[str] = []
     for pattern in universe["owned"]:
-        for path in root.glob(pattern):
-            if path.is_file():
-                rel = path.relative_to(root).as_posix()
-                if rel not in owned:
-                    owned.append(rel)
+        for path in safe_glob(root, pattern, "impactGraph.universe.owned"):
+            rel = path.relative_to(root).as_posix()
+            if rel not in owned:
+                owned.append(rel)
     owned.sort()
     graph = merged_impact_graph(document)
     suite_set = set(suites)
