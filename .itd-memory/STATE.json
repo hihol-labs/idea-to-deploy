@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD002-A8",
     "goal": "A8: процедура чеканки authority-снапшота задокументирована (runbook) + машинная проверка байт-паритета модулей снапшота с skills/_shared/* до принятия квитанции",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-20T18:09:34Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-20T18:41:07Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
