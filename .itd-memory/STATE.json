@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD002-R6",
     "goal": "LPD-002 R6: карта путь->сьюты как данные в репо (.itd/IMPACT_GRAPH.json), подаётся в impact_closure как impactGraph; машинная полнота (каждый сьют в карте, каждый skills/_shared/*.py и hooks/*.sh имеет владеющий сьют, impactKnown:false -> strict) и пропорциональность (замыкание точечной правки строго меньше полного набора), мутации в обе стороны",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-19T18:59:41Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-20T13:39:55Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
