@@ -528,13 +528,56 @@ def _split_top(command: str, statements: bool) -> list[str]:
             segments.append("".join(cur)); cur = []; i += 1
         elif statements and ch in (";", "\n"):
             segments.append("".join(cur)); cur = []
+        elif (statements and ch == "<" and i + 1 < n and command[i + 1] == "<"
+              and command[i + 2:i + 3] == "<"):
+            # Here-string `<<<слово` — операнд, не heredoc (hd-r2): тела нет,
+            # разрез стейтментов продолжается как обычно.
+            cur.append("<<<")
+            i += 3
+            continue
         elif statements and ch == "<" and i + 1 < n and command[i + 1] == "<":
-            # Heredoc: всё дальше — тело данных первой команды, его строки не
-            # являются стейтментами (иначе heredoc-текст «bash tests/…» снова
-            # стал бы ложным сигналом — регрессия r4-фикса).
-            cur.append(command[i:])
-            i = n
-            break
+            # Heredoc'и: тела — данные, не стейтменты, но каждый heredoc
+            # КОНЕЧЕН (находки PUB2/hd-r1): собираем ВСЕ делимитеры текущей
+            # строки (`cmd <<A <<B` читает тела последовательно), терминатор
+            # plain `<<` — строка РОВНО delim (без отступов), `<<-` допускает
+            # ведущие табы; нетерминированный heredoc поглощает остаток.
+            nl = command.find("\n", i)
+            line_rest = command[i:nl if nl != -1 else n]
+            delims = [(m.group(1) == "-",
+                       m.group(3))
+                      for m in re.finditer(
+                          r"<<(-?)\s*(['\"]?)([A-Za-z0-9_]+)\2", line_rest)]
+            if not delims or nl == -1:
+                cur.append(command[i:])
+                i = n
+                break
+            cur.append(line_rest)
+            j = nl
+            unterminated = False
+            for dash, delim in delims:
+                terminated = False
+                while True:
+                    line_end = command.find("\n", j + 1)
+                    line = command[j + 1:line_end if line_end != -1 else n]
+                    matched = (line.lstrip("\t") == delim) if dash else (line == delim)
+                    cur.append(command[j:line_end if line_end != -1 else n])
+                    if line_end == -1:
+                        j = n
+                        break
+                    j = line_end
+                    if matched:
+                        terminated = True
+                        break
+                if j >= n:
+                    unterminated = not terminated
+                    break
+            i = j
+            if unterminated or i >= n:
+                if i < n:
+                    cur.append(command[i:])
+                i = n
+                break
+            continue
         else:
             cur.append(ch)
         i += 1

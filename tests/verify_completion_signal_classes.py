@@ -164,9 +164,31 @@ def main():
     check("A2: верхнерегистровый FAILED остаётся провалом",
           cl.outcome_from("FAILED tests/test_x.py::test_y", None) == "fail"
           and cl.outcome_from("FAIL  some check", None) == "fail")
+    s9y = cl.classify_bash("cat <<EOF\nnotes about tests failed\nEOF\npytest -q tests/x.py",
+                           {"stdout": "1 failed", "exitCode": 1})
+    check("A2: команда ПОСЛЕ heredoc-терминатора не глотается",
+          bool(s9y) and s9y.get("layer") == 2 and s9y.get("outcome") == "fail",
+          str(s9y))
+    check("A2: heredoc с командой после терминатора — не display",
+          cl.display_only_command("cat <<EOF\ndata failed\nEOF\npytest -q") is False)
     check("A2: heredoc-тело не режется на стейтменты",
           cl.display_only_command(
               "cat >> notes.md <<'EOF'\nbash tests/run-all.sh && pytest\nEOF"))
+    check("A2: два heredoc'а в одной команде — оба тела display (hd-r1)",
+          cl.display_only_command("cat <<A <<B\npytest inside\nA\nmore pytest\nB"))
+    check("A2: два heredoc'а + реальная команда после обоих тел — не display (hd-r1)",
+          cl.display_only_command("cat <<A <<B\nx\nA\ny\nB\npytest -q") is False)
+    check("A2: отступленный псевдо-терминатор НЕ закрывает plain <<EOF (hd-r1)",
+          cl.display_only_command("cat <<EOF\n  EOF\npytest hidden\nEOF"))
+    check("A2: <<- закрывается таб-отступленным терминатором, хвост виден (hd-r1)",
+          cl.display_only_command("cat <<-EOF\n\tdata\n\tEOF\npytest -q") is False)
+    hs = cl.classify_bash('cat <<<"hello" && pytest -q',
+                          {"stdout": "1 failed", "exitCode": 1})
+    check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",
+          bool(hs) and hs.get("layer") == 2 and hs.get("outcome") == "fail",
+          str(hs))
+    check("A2: here-string с display-цепочкой остаётся display (hd-r2)",
+          cl.display_only_command('cat <<<"hello" && ls'))
     check("A2: экранированная кавычка не ломает чётность (разные команды != один ключ)",
           cl.normalize_command_key('pytest -k "x\\">5"')
           != cl.normalize_command_key('pytest -k "x\\">99"'),

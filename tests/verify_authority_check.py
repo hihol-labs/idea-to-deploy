@@ -108,6 +108,11 @@ check("no arguments is a usage error, never an implicit scan",
 doc = DOC.read_text(encoding="utf-8")
 check("the minting/parity procedure is documented in VERIFICATION_LOOP.md",
       "itd_authority_check.py" in doc and "itd-review-authority" in doc)
+for phrase in ("merged main", "byte-for-byte",
+               "producer-ed25519.key", "producer-keyring.json",
+               "When to re-mint"):
+    check(f"doc keeps the procedure detail: {phrase!r}", phrase in doc,
+          "regressed procedure text")
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

@@ -24,8 +24,10 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   отбрасываются; сплит quote-aware) — зелёный повтор `cmd | tail` вытесняет
   красный `cmd | grep`; (3) сигнал несёт `head` (короткий HEAD на момент
   прогона), красный от ЧУЖОГО HEAD — стейл и слой не блокирует; сигнал БЕЗ
-  head консервативно блокирует. Оракул:
-  `tests/verify_completion_signal_classes.py` (15 -> 43 проверок, RED-first —
+  head консервативно блокирует. По находке cross-vendor PUB2: heredoc
+  КОНЕЧЕН — разрез стейтментов распознаёт делимитер и продолжается после
+  терминатора (`cat <<EOF…EOF` + `pytest` больше не глотается). Оракул:
+  `tests/verify_completion_signal_classes.py` (15 -> 45 проверок, RED-first —
   оба display-кейса воспроизведены на старом коде).
 - **LPD002-A517 (кластер itd_review_evidence)** — `skills/_shared/
   itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
@@ -44,9 +46,13 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   (чекер fail-closed при смене дерева кандидата между прогоном и чеканкой),
   `tests/run-all.sh` (красный сьют печатает свои строки FAIL, не только
   tail -6).
-- **LPD002-A8 (процедура authority-снапшота)** — `docs/VERIFICATION_LOOP.md`
-  или отдельный runbook-раздел + машинная проверка байт-паритета модулей
-  снапшота с `skills/_shared/*` (скрипт + сьют).
+- **LPD002-A8 (процедура authority-снапшота)** — раздел в
+  `docs/VERIFICATION_LOOP.md` + `scripts/itd_authority_check.py` (байт-паритет
+  в обе стороны, DIVERGED/MISSING, exempt ключей) + сьют
+  `tests/verify_authority_check.py` (17 проверок; 5 деталей процедуры прибиты
+  в доке по находке PUB2), зарегистрирован в run-all. Живой replay назвал 3
+  разошедшихся модуля; снапшот LPD002-A8-62eea6bb-a1 перечеканен из
+  origin/main.
 - **A4, A6 — реклассификация без кода**: A4 опровергнут замером R6 (ноги
   пинят только `itd_free_reviewer_producer.py` + раннер + манифест; корень
   live-пина отложен решением владельца — memory
@@ -55,6 +61,19 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
 - Леджер по ходу: `.itd/ACCEPTANCE_CONTRACT.json` (критерии `LPD002-A*`),
   `.itd-memory/contracts/LPD002-A*.md`, `.itd-memory/STATE.json`, BACKLOG
   (галочки с evidence), `.itd/DECISIONS.md`, CHANGELOG `[Unreleased]`.
+
+## Записанные улики в дифе — это НЕ авторский код кандидата
+
+Файлы под `tests/fixtures/live-model-evidence/` — НАБЛЮДЕНИЕ за поведением
+внешней модели, записанное дословно; кандидат их не пишет и не проектирует.
+`runs/*/output/*.md` (CLAUDE.md, PRD и т.д.) — документы, СГЕНЕРИРОВАННЫЕ
+моделью под тестом; их содержание (включая внутренние противоречия хендоффа
+или заявления о валидации) судится snapshot-оракулом бенчмарка, а не ревью
+кандидата — находка о них есть находка о модели, «исправление» = фальсификация
+улики. `transcript.jsonl.gz` НА ДИСКЕ — настоящий gzip (магия `1f8b`,
+`gzip -t` проходит, sha совпадает с `transcriptGzipSha256`); ревьюер видит
+его ПРОЗРАЧНЫМ ПРЕДСТАВЛЕНИЕМ продюсера (декодированный JSONL в дифе — фича
+S11 «model-visible means logged», а не текстовый файл с расширением .gz).
 
 ## Явно вне скоупа
 
