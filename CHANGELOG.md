@@ -9,6 +9,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Proportional suites from a declared impact map (LPD-002 R6, the last point
+  of the plan; source LPD-001 M3)** — the graph that `impact_closure`
+  (`skills/_shared/itd_verification_profiles.py`) walks is now DATA in the
+  repository, not a hand list and not inferred at run time:
+  `.itd/IMPACT_GRAPH.json` maps every tracked source path to the
+  `tests/verify_*.py` suites that exercise it. No new engine (ADR-001): the
+  existing closure gets the map through a new `impactGraphPath` request field
+  (mutually exclusive with inline `impactGraph`; `impactKnown: false` still
+  exits to strict release without any map).
+  - *Data*: section `generated` is built mechanically by
+    `tests/build_impact_graph.py` from the tracked tree — one direct hop, edge
+    when the suite's text names the file by literal path, `"a" / "b"` Path
+    concatenation, Python import or unique basename (source-to-source
+    transitivity was measured and rejected: it saturated 148/151 suites per
+    node). Section `declared` holds hand edges the generator preserves.
+    `--check` fails when the committed map drifted from the tree.
+  - *Machine completeness* — new `impact-audit` operation, fail-closed: every
+    suite is reachable by at least one edge; every `skills/_shared/*.py` and
+    `hooks/*.sh` reaches an owning suite; no node or target points at a file
+    that no longer exists.
+  - *Machine proportionality*: no node's closure covers the full suite set
+    (measured on the delivered tree: 151 suites, 341 nodes, 932 edges, largest
+    closure 36/151 for `.itd-memory/STATE.json`).
+  - *Both mutation sides* in `tests/verify_verification_profiles.py`
+    (57 → 103 checks): drop every edge to a suite → completeness fails; drop an
+    owned source's edges → completeness fails; declare every node adjacent to
+    every suite → proportionality fails; stale node / stale target / wrong
+    schema fail; four engine mutants (unattached-, orphan-, saturation-
+    blindness, and the early-return bypass of the impactGraph/impactGraphPath
+    exclusivity rule found by the cross-vendor pre-PR review) are each killed.
+    The same review's security round hardened path handling fail-closed: the
+    audit root must be an existing directory, the map path must resolve inside
+    it, the audit root itself may only name the working repository or a
+    directory inside it, and graph nodes/targets are repository-relative and
+    judged by their RESOLVED location (a symlink cannot smuggle an outside
+    file past the audit) — escapes raise instead of reading or validating
+    anything outside the repository. Graph targets must themselves be suites
+    (`nonSuiteTargets` fails the audit — a declared chain through a non-suite
+    intermediate can no longer launder an orphaned source's coverage), and the
+    oracle asserts the map is tracked by git, not a worktree leftover.
+    Universe patterns are validated as root-relative non-escaping globs, the
+    audit operation rejects both graph sources at once, a path-backed map
+    obeys the same containment and direct-suite contract when merely selected
+    from (not only when audited), the engine refuses to run from a working
+    directory that is not a repository boundary, NUL-carrying path strings
+    fail closed instead of leaking a raw ValueError, and the generator parses
+    Python imports with ast so an alias never fabricates an edge.
+  - The RED run of the audit on the pre-R6 tree found two real gaps, closed at
+    the root rather than by a declared edge: `hooks/completion-stop.sh` had no
+    owning suite at all (now exercised directly by
+    `tests/verify_completion_policy_calibration.py`: reminder on dirty source
+    with red evidence, kill switch, `stop_hook_active` silence), and
+    `tests/verify_review_broker_server.py` reached its module only through a
+    Python import the first edge rule did not resolve (rule added).
+
 ### Changed
 - **Closing a unit stops being an unresolvable circle (LPD-002 R5)** — retro
   2026-08-18 signal E1, root cause `.itd-memory/HANDOFF-S10-LEDGER.md` §17.11.
@@ -129,58 +185,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.98.0] - 2026-08-18
 
 ### Added
-- **Proportional suites from a declared impact map (LPD-002 R6, the last point
-  of the plan; source LPD-001 M3)** — the graph that `impact_closure`
-  (`skills/_shared/itd_verification_profiles.py`) walks is now DATA in the
-  repository, not a hand list and not inferred at run time:
-  `.itd/IMPACT_GRAPH.json` maps every tracked source path to the
-  `tests/verify_*.py` suites that exercise it. No new engine (ADR-001): the
-  existing closure gets the map through a new `impactGraphPath` request field
-  (mutually exclusive with inline `impactGraph`; `impactKnown: false` still
-  exits to strict release without any map).
-  - *Data*: section `generated` is built mechanically by
-    `tests/build_impact_graph.py` from the tracked tree — one direct hop, edge
-    when the suite's text names the file by literal path, `"a" / "b"` Path
-    concatenation, Python import or unique basename (source-to-source
-    transitivity was measured and rejected: it saturated 148/151 suites per
-    node). Section `declared` holds hand edges the generator preserves.
-    `--check` fails when the committed map drifted from the tree.
-  - *Machine completeness* — new `impact-audit` operation, fail-closed: every
-    suite is reachable by at least one edge; every `skills/_shared/*.py` and
-    `hooks/*.sh` reaches an owning suite; no node or target points at a file
-    that no longer exists.
-  - *Machine proportionality*: no node's closure covers the full suite set
-    (measured on the delivered tree: 151 suites, 341 nodes, 932 edges, largest
-    closure 36/151 for `.itd-memory/STATE.json`).
-  - *Both mutation sides* in `tests/verify_verification_profiles.py`
-    (57 → 99 checks): drop every edge to a suite → completeness fails; drop an
-    owned source's edges → completeness fails; declare every node adjacent to
-    every suite → proportionality fails; stale node / stale target / wrong
-    schema fail; four engine mutants (unattached-, orphan-, saturation-
-    blindness, and the early-return bypass of the impactGraph/impactGraphPath
-    exclusivity rule found by the cross-vendor pre-PR review) are each killed.
-    The same review's security round hardened path handling fail-closed: the
-    audit root must be an existing directory, the map path must resolve inside
-    it, the audit root itself may only name the working repository or a
-    directory inside it, and graph nodes/targets are repository-relative and
-    judged by their RESOLVED location (a symlink cannot smuggle an outside
-    file past the audit) — escapes raise instead of reading or validating
-    anything outside the repository. Graph targets must themselves be suites
-    (`nonSuiteTargets` fails the audit — a declared chain through a non-suite
-    intermediate can no longer launder an orphaned source's coverage), and the
-    oracle asserts the map is tracked by git, not a worktree leftover.
-    Universe patterns are validated as root-relative non-escaping globs, the
-    audit operation rejects both graph sources at once, a path-backed map
-    obeys the same containment and direct-suite contract when merely selected
-    from (not only when audited), and the engine refuses to run from a
-    working directory that is not a repository boundary.
-  - The RED run of the audit on the pre-R6 tree found two real gaps, closed at
-    the root rather than by a declared edge: `hooks/completion-stop.sh` had no
-    owning suite at all (now exercised directly by
-    `tests/verify_completion_policy_calibration.py`: reminder on dirty source
-    with red evidence, kill switch, `stop_hook_active` silence), and
-    `tests/verify_review_broker_server.py` reached its module only through a
-    Python import the first edge rule did not resolve (rule added).
 - **Model-visible means logged (S11)** — the free isolated reviewer producer
   (`skills/_shared/itd_free_reviewer_producer.py`) now keeps by machine the
   invariant that everything handed to the reviewer model is byte-exactly

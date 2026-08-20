@@ -130,9 +130,22 @@ def validate_graph_shape(graph: Any, label: str) -> dict[str, list[str]]:
     return graph
 
 
+def require_path_text(value: Any, field: str) -> str:
+    """A filesystem path/pattern string: printable, no NUL — else the later
+    ``Path.resolve()``/``glob()`` would raise a raw ``ValueError`` instead of
+    the promised fail-closed ``DecisionError`` (PUB8 finding)."""
+    text = require_string(value, field)
+    if "\x00" in text:
+        raise DecisionError(
+            f"{field} contains a NUL byte",
+            f"Provide a real filesystem path in {field}.",
+        )
+    return text
+
+
 def resolve_under(root: Path, value: Any, field: str) -> Path:
     """Resolve a request path and refuse anything that escapes ``root``."""
-    text = require_string(value, field)
+    text = require_path_text(value, field)
     path = Path(text)
     if not path.is_absolute():
         path = root / path
@@ -153,6 +166,7 @@ def contained_file(root: Path, node: str, label: str) -> Path:
     The resolved location must stay under the resolved root, so a symlink
     inside the repository cannot smuggle an outside file past the audit.
     """
+    require_path_text(node, label)
     candidate = Path(node)
     if candidate.is_absolute() or ".." in candidate.parts:
         raise DecisionError(
@@ -202,6 +216,7 @@ def validate_universe_pattern(pattern: str, field: str) -> None:
     """Universe globs are root-relative and non-escaping; anything else would
     let a malformed map glob outside root and crash past the fail-closed
     contract (PUB6 finding)."""
+    require_path_text(pattern, field)
     parts = Path(pattern).parts
     if Path(pattern).is_absolute() or ".." in parts:
         raise DecisionError(
@@ -386,7 +401,7 @@ def resolve_root(request: dict[str, Any]) -> Path:
     The engine runs from the repository under review; a root elsewhere would
     let a request point the audit at an arbitrary readable tree (PUB3).
     """
-    text = require_string(request.get("root", "."), "root")
+    text = require_path_text(request.get("root", "."), "root")
     root = Path(text).resolve(strict=False)
     if not root.is_dir():
         raise DecisionError(

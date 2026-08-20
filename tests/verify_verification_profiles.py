@@ -674,6 +674,30 @@ try:
           result.returncode == 1
           and "not running from a repository" in result.stdout, result.stdout)
 
+    def nul_node(doc):
+        doc["generated"]["\u0000"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, nul_node)))
+    check("a NUL-carrying graph node fails closed, not with a raw ValueError",
+          r.returncode == 1 and "NUL byte" in payload.get("why", ""), r.stdout)
+
+    nul_path = audit_request()
+    nul_path["impactGraphPath"] = ".itd/\u0000map.json"
+    r, payload = invoke(nul_path)
+    check("a NUL-carrying map path fails closed",
+          r.returncode == 1 and "NUL byte" in payload.get("why", ""), r.stdout)
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    import build_impact_graph as big
+    alias_text = "from services.review_broker import server as srv\nimport json, hashlib\n"
+    alias_candidates = big.import_candidates(alias_text)
+    check("an import alias never fabricates a module edge",
+          "services/review_broker/server" in alias_candidates
+          and "services/review_broker/srv" not in alias_candidates,
+          str(alias_candidates))
+    check("comma-separated imports resolve every module, not only the first",
+          "json" in alias_candidates and "hashlib" in alias_candidates,
+          str(alias_candidates))
+
     ambiguous_audit = audit_request()
     ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}
     r, payload = invoke(ambiguous_audit)

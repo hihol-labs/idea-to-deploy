@@ -12,8 +12,8 @@ Edge rule (direct, one hop, no source-to-source transitivity — measured on
 2026-08-19: transitive stem-matching saturated 148/151 suites per node, i.e.
 destroyed proportionality): a suite owns a tracked file when its text contains
 the file's repository-relative path, a ``"a" / "b" / "c"`` Path concatenation
-that resolves to it, a Python ``import``/``from … import`` that resolves to a
-tracked module, or — for code/JSON files whose basename is unique in the
+that resolves to it, a Python import that ast-resolves to a tracked module
+(real names only — aliases never fabricate edges), or — for code/JSON files whose basename is unique in the
 tree — the basename (and, for ``.py``, the module stem of >= 8 characters).
 
   python3 tests/build_impact_graph.py           # rewrite .itd/IMPACT_GRAPH.json
@@ -26,6 +26,7 @@ tests/verify_verification_profiles.py. This script only keeps the data fresh.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -44,9 +45,9 @@ CODE_SUFFIXES = (".py", ".sh", ".ps1")
 BASENAME_SUFFIXES = CODE_SUFFIXES + (".json",)
 GENERIC_BASENAMES = {"__init__.py", "__main__.py", "index.json", "package.json"}
 CONCAT_RE = re.compile(r'((?:"[\w.\-]+"\s*/\s*)+"[\w.\-]+")')
-IMPORT_RE = re.compile(
-    r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w.,\s]+?)\s*(?:#.*)?$|import\s+([\w.]+))",
-    re.MULTILINE)
+# Imports are resolved with ast (PUB8 finding: a regex mis-handled
+# ``from p import real as alias`` — the alias fabricated a false edge to
+# ``p/alias.py`` — and missed ``import a, b`` beyond the first module).
 SEGMENT_RE = re.compile(r'"([\w.\-]+)"')
 MIN_STEM = 8
 
@@ -77,21 +78,10 @@ def references(text: str, tracked: list[str], tracked_set: set[str],
         for rel in tracked:
             if rel.endswith(suffix):
                 found.add(rel)
-    for match in IMPORT_RE.finditer(text):
-        package, names, module = match.groups()
-        candidates: list[str] = []
-        if module:
-            candidates.append(module.replace(".", "/"))
-        if package:
-            base = package.replace(".", "/")
-            candidates.append(base)
-            for name in re.split(r"[\s,]+", names or ""):
-                if name and name != "as":
-                    candidates.append(base + "/" + name)
-        for candidate in candidates:
-            for rel in (candidate + ".py", candidate + "/__init__.py"):
-                if rel in tracked_set:
-                    found.add(rel)
+    for candidate in import_candidates(text):
+        for rel in (candidate + ".py", candidate + "/__init__.py"):
+            if rel in tracked_set:
+                found.add(rel)
     for basename, owners in by_basename.items():
         if len(owners) != 1 or basename in GENERIC_BASENAMES:
             continue
@@ -107,6 +97,25 @@ def references(text: str, tracked: list[str], tracked_set: set[str],
                     r"(?<![\w])" + re.escape(stem) + r"(?![\w])", text):
                 found.add(rel)
     return found
+
+
+def import_candidates(text: str) -> list[str]:
+    """Module paths a Python suite really imports (real names, never aliases)."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    candidates: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                candidates.append(alias.name.replace(".", "/"))
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            base = node.module.replace(".", "/")
+            candidates.append(base)
+            for alias in node.names:
+                candidates.append(base + "/" + alias.name)
+    return candidates
 
 
 def build_generated(root: Path) -> dict[str, list[str]]:
