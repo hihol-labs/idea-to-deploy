@@ -453,7 +453,8 @@
     ],
     "docs/examples/brownfield-piv/artifacts/checker.json": [
       "tests/verify_harness_demo_capture_schema.py",
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_verification_loop.py"
     ],
     "docs/examples/brownfield-piv/artifacts/context.json": [
       "tests/verify_harness_demo_capture_schema.py",

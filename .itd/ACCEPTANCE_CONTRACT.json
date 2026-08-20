@@ -2119,6 +2119,44 @@
           "free-reviewer-producer-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-A39-1-inspected-tree-guard-is-pinned",
+      "unitId": "LPD002-A39",
+      "criterion": "Validate-сторона tree-гварда чекера покрыта оракулом: квитанция чекера с inspectedTree, отличным от candidate.reviewedTree, и КОРРЕКТНО пересчитанным receiptSha256 отвергается на adjudicate с 'checker was not observed on the exact reviewed tree' (не digest-гвардом); честные квитанции проходят.",
+      "source": "BACKLOG P1 R1-дефекты (A3: чекер сделал git stash при живом кандидате); BACKLOG P1 R5/R6 (A9: имя упавшей проверки не сохранилось, 90/1 невоспроизводим).",
+      "evidence": "RED: мутация-подделка без пересчёта digest ловилась более ранним digest-гвардом — tree-гвард был не покрыт (снятие прошло бы незаметно). GREEN: проверка 'adjudicator rejects a checker receipt observed on a foreign tree' в verify_verification_loop (87 -> 88), подделка с валидным digest отвергается именно tree-гвардом.",
+      "verificationCommand": "python3 -I tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Чекер, наблюдавший чужое дерево, не проходит адъюдикацию — и это свойство прибито мутацией, а не только кодом.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "verification-loop-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A39-2-runall-names-failures",
+      "unitId": "LPD002-A39",
+      "criterion": "Красный сьют в tests/run-all.sh печатает свои строки FAIL/FAILED (до 20) перед tail -6 — имя упавшей проверки сохраняется в логе, флейк воспроизводим.",
+      "source": "BACKLOG P1 R1-дефекты (A3: чекер сделал git stash при живом кандидате); BACKLOG P1 R5/R6 (A9: имя упавшей проверки не сохранилось, 90/1 невоспроизводим).",
+      "evidence": "RED: verify_state_hardening 90/1 на R5 — имя проверки потеряно (только tail -6), 5 прямых прогонов не воспроизвели. GREEN: grep -E '^(FAIL|FAILED)' | head -20 в run_py; verify_runall_drift 5/0; bash -n чист.",
+      "verificationCommand": "python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Провал называет себя по имени — иначе флейк неотличим от дефекта.",
+        "impactClasses": [
+          "error-handling",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2137,7 +2175,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-A517",
+    "unitId": "LPD002-A39",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -2146,15 +2184,16 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "reconciliation",
-        "performance"
+        "security",
+        "error-handling",
+        "reconciliation"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-20T16:48:12Z",
-    "scopeNote": "Сессия долгов LPD-002, юнит 2: кластер itd_review_evidence/producer — A5 (ledger-файлы, объявленные в БАЗОВОМ STATE, едут с close), A1 (явный unitId у критериев, префикс — только legacy-фоллбэк), A7 (один проход _staged_file_records на freeze_packet + факт stateBefore). Правка продюсера инвалидирует efficacy-ноги — перечеканка в этом же юните. ВНИМАНИЕ ротации: предыдущий followup LPD002-A2 закрыт в ЭТОМ же диффе (status verified/closedAt) — это delivery-кандидат, НЕ ledger-close."
+    "openedAt": "2026-08-20T18:02:28Z",
+    "scopeNote": "Сессия долгов LPD-002, юнит 3 (A3+A9): оракульное покрытие validate-гварда inspectedTree (подделка с валидным digest отвергается tree-гвардом) и имена FAIL-строк в run-all. Ротация: LPD002-A517 закрыт в этом же delivery-диффе."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

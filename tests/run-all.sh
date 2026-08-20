@@ -51,6 +51,10 @@ run_py() {
   if [ $rc -ne 0 ]; then
     fails="$fails $t"
     echo "FAIL $t rc=$rc"
+    # LPD002-A9: красный сьют называет свои упавшие проверки, а не только
+    # хвост вывода — иначе флейк неотличим от дефекта и невоспроизводим
+    # (verify_state_hardening 90/1 на R5: имя проверки не сохранилось).
+    echo "$out" | grep -E '^(FAIL|FAILED)' | head -20
     echo "$out" | tail -6
   fi
 }
