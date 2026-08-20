@@ -481,6 +481,12 @@ def mutated_map(td: Path, mutate) -> Path:
 
 
 check("impact map is committed data, not inferred at run time", IMPACT_MAP.is_file())
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", ".itd/IMPACT_GRAPH.json"],
+    cwd=str(ROOT), capture_output=True, timeout=30)
+check("impact map is tracked by git, not a worktree leftover",
+      tracked.returncode == 0,
+      tracked.stderr.decode("utf-8", "replace"))
 document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
 check("impact map names its generator and schema",
       document.get("schemaVersion") == "1"
@@ -607,6 +613,18 @@ try:
     r, payload = invoke(map_select(["docs/WORKING_DEADLINE_MODE.md"], map_path=declared_path))
     check("hand-declared edges merge into the generated graph",
           r.returncode == 0 and SELF in (payload.get("impactClosure") or []), r.stdout)
+
+    def laundered_coverage(doc):
+        doc["generated"].pop("hooks/completion-stop.sh")
+        doc["declared"] = {
+            "hooks/completion-stop.sh": ["docs/WORKING_DEADLINE_MODE.md"],
+            "docs/WORKING_DEADLINE_MODE.md": [SELF],
+        }
+    r, payload = invoke(audit_request(mutated_map(tmp, laundered_coverage)))
+    check("mutation: covering an owned source through a non-suite intermediate fails",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("nonSuiteTargets") == ["docs/WORKING_DEADLINE_MODE.md"]
+          and payload.get("orphanOwned") == [], r.stdout + r.stderr)
 
     def wrong_schema(doc):
         doc["schemaVersion"] = "2"

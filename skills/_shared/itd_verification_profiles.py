@@ -294,6 +294,12 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
     stale_targets = sorted(
         target for target in targets_seen
         if not contained_file(root, target, "impactGraph target").is_file())
+    # The map is "source path -> suites": an edge to anything that is not a
+    # suite would let a declared chain cover an orphaned source through an
+    # intermediate node while orphanOwned stays empty (PUB4 finding).
+    non_suite_targets = sorted(
+        target for target in targets_seen
+        if target not in suite_set and target not in stale_targets)
     unattached = [suite for suite in suites if suite not in targets_seen]
     orphan_owned = [
         node for node in owned
@@ -312,6 +318,7 @@ def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
         "orphanOwned": orphan_owned,
         "staleNodes": stale_nodes,
         "staleTargets": stale_targets,
+        "nonSuiteTargets": non_suite_targets,
         "saturatedNodes": saturated,
     }
     verified = not any(findings.values())
