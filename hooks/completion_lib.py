@@ -316,7 +316,6 @@ FAIL_TEXT_RE = re.compile(
     r"\b[1-9]\d*\s+fail(ing|ed|ures?)?\b|"        # "3 failed", "1 failing"
     r"tests?:\s*.*?\b[1-9]\d*\s+failed|"          # jest "Tests: 2 failed"
     r"=+\s*[1-9]\d*\s+failed|"                    # pytest "=== 2 failed"
-    r"\bFAILED\b|\bFAIL\b|"
     r"assertionerror|traceback \(most recent|"
     r"npm\s+err!|error\s+ts\d+|"
     r"\bexit\s+(code\s+)?[1-9]\b|"
@@ -333,6 +332,12 @@ FAIL_TEXT_RE = re.compile(
 # произвольном выводе (HTTP 200-логи, прогресс сборки) и давали FP на L2/L3.
 # Реальный успех почти всегда несёт exit-код или эхо EXIT=0 (см. outcome_from),
 # которые авторитетнее текста; сюда доходит лишь текст-only фоллбэк.
+# Голые маркеры FAILED/FAIL — ТОЛЬКО в верхнем регистре (pytest "FAILED
+# test_x", наш "FAIL  check"). Внутри FAIL_TEXT_RE они стояли под re.I и
+# матчили строчное "failed" в сводках — включая "0 failed" (замеренный долг
+# A2: суммарная строка успеха классифицировалась провалом).
+FAIL_TOKEN_RE = re.compile(r"\bFAILED\b|\bFAIL\b")
+
 PASS_TEXT_RE = re.compile(
     r"("
     r"\ball\s+tests?\s+pass|"
@@ -372,7 +377,7 @@ def outcome_from(text: str, exit_code: int | None) -> str:
         m = mm
     if m is not None:
         return "pass" if m.group(1) == "0" else "fail"
-    if FAIL_TEXT_RE.search(text):
+    if FAIL_TEXT_RE.search(text) or FAIL_TOKEN_RE.search(text):
         return "fail"
     if PASS_TEXT_RE.search(text):
         return "pass"
@@ -467,6 +472,173 @@ def _current_unit(cwd: Path | None) -> str:
         return ""
 
 
+# Display/write-инструменты: команда, чей КАЖДЫЙ сегмент пайпа начинается с
+# такого токена, только показывает или переписывает текст — она не исполняет
+# проверку, и её вывод/аргументы не могут быть runtime-доказательством. Долг
+# LPD-002 A2 (замерен на R1/R2/R5/R6): heredoc `cat >> HANDOFF.md` с текстом
+# про тесты и `grep … tests/run-all.sh` классифицировались как test_run по
+# проектному L2-паттерну и вешали вечный FAILED на совершенно чужие команды.
+# `diff`/`comm` здесь НЕТ намеренно (находка чекера r6): их exit-код — и есть
+# результат сравнения, это verification-инструменты. `stat`/`ls`/`which`/
+# `file`/`type` остаются: это метаданные/пробы существования — тот же класс,
+# что ENV_PROBE_RE («проба окружения — не сигнал слоя»).
+DISPLAY_TOKENS = frozenset({
+    "cat", "echo", "printf", "grep", "rg", "egrep", "fgrep", "sed", "awk",
+    "head", "tail", "cut", "tr", "wc", "ls", "sort", "uniq", "column",
+    "stat", "less", "more", "file", "which", "type",
+})
+_TRAILING_REDIRECT_RE = re.compile(r"\s*(2>&1|[12]?>>?\s*\S+)\s*$")
+
+
+def _split_top(command: str, statements: bool) -> list[str]:
+    """Quote-aware разрез верхнего уровня.
+
+    statements=False: только одиночный `|` (пайп; `||` не рвётся).
+    statements=True: границы стейтментов — `&&`, `||`, `;`, перевод строки
+    (находка чекера r4: `echo x && pytest …` считался одним display-сегментом
+    и настоящий прогон глотался).
+    """
+    segments: list[str] = []
+    cur: list[str] = []
+    quote = ""
+    i, n = 0, len(command)
+    while i < n:
+        ch = command[i]
+        if quote:
+            cur.append(ch)
+            if ch == quote:
+                quote = ""
+            elif ch == "\\" and quote == '"' and i + 1 < n:
+                cur.append(command[i + 1]); i += 1
+        elif ch in ("'", '"'):
+            quote = ch; cur.append(ch)
+        elif ch == "|":
+            double = i + 1 < n and command[i + 1] == "|"
+            if statements:
+                if double:
+                    segments.append("".join(cur)); cur = []; i += 1
+                else:
+                    cur.append(ch)
+            else:
+                if double:
+                    cur.append("||"); i += 1
+                else:
+                    segments.append("".join(cur)); cur = []
+        elif statements and ch == "&" and i + 1 < n and command[i + 1] == "&":
+            segments.append("".join(cur)); cur = []; i += 1
+        elif statements and ch in (";", "\n"):
+            segments.append("".join(cur)); cur = []
+        elif statements and ch == "<" and i + 1 < n and command[i + 1] == "<":
+            # Heredoc: всё дальше — тело данных первой команды, его строки не
+            # являются стейтментами (иначе heredoc-текст «bash tests/…» снова
+            # стал бы ложным сигналом — регрессия r4-фикса).
+            cur.append(command[i:])
+            i = n
+            break
+        else:
+            cur.append(ch)
+        i += 1
+    segments.append("".join(cur))
+    return segments
+
+
+def _split_pipeline(command: str) -> list[str]:
+    return _split_top(command, statements=False)
+
+
+def _segment_head_token(segment: str) -> str:
+    for tok in segment.strip().split():
+        if "=" in tok and not tok.startswith(("'", '"')):
+            continue  # префиксные VAR=val
+        if tok in {"env", "command", "nohup", "time"}:
+            continue
+        return tok.rsplit("/", 1)[-1].lower()
+    return ""
+
+
+_EXEC_MARKER_RE = re.compile(r"system\(|/e([^\w]|$)")
+
+
+def _display_segment(segment: str) -> bool:
+    head = _segment_head_token(segment)
+    if head not in DISPLAY_TOKENS:
+        return False
+    # awk `system(...)` и sed `s///e` ИСПОЛНЯЮТ код — такой сегмент не
+    # display (находка чекера r2: реальный прогон не должен глотаться).
+    if head in {"awk", "sed"} and _EXEC_MARKER_RE.search(segment):
+        return False
+    return True
+
+
+def display_only_command(command: str) -> bool:
+    """True, когда КАЖДЫЙ стейтмент (&&, ||, ;, новая строка) и каждый
+    сегмент его пайпа — display/write-инструмент."""
+    segments: list[str] = []
+    for statement in _split_top(command, statements=True):
+        segments.extend(_split_pipeline(statement))
+    checked = [seg for seg in segments if _segment_head_token(seg)]
+    return bool(checked) and all(_display_segment(seg) for seg in checked)
+
+
+def normalize_command_key(command: str) -> str:
+    """Идентичность команды для «latest-на-команду».
+
+    Display-хвосты пайпа (`| tail -2`, `| grep FAIL`) и хвостовые редиректы
+    не меняют того, ЧТО исполнялось, — без нормализации зелёный повтор
+    `cmd | tail` не вытеснял красный `cmd | grep` (долг A2: красный жил вечно,
+    каждый коммит шёл через COMPLETION_BYPASS).
+    """
+    segments = _split_pipeline(command)
+    while len(segments) > 1 and _display_segment(segments[-1]):
+        segments.pop()
+    key = "|".join(segments).strip()
+    while True:
+        m = _TRAILING_REDIRECT_RE.search(key)
+        if not m:
+            break
+        prefix = key[:m.start()]
+        # Редирект отрезается только ВНЕ кавычек: '>' внутри аргумента
+        # (pytest -k "x>5") — часть команды, а не редирект (находка чекера r1;
+        # r3: чётность считается СКАНЕРОМ с escape-обработкой — наивный
+        # счётчик считал \" и сливал разные команды в один ключ).
+        if _inside_quotes(prefix):
+            break
+        key = key[:m.start()]
+    return key.strip().rstrip(";").strip()
+
+
+def _inside_quotes(prefix: str) -> bool:
+    """True, если конец prefix находится внутри открытой кавычки (escape-aware)."""
+    quote = ""
+    i, n = 0, len(prefix)
+    while i < n:
+        ch = prefix[i]
+        if ch == "\\" and quote != "'":
+            i += 2
+            continue
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in ("'", '"'):
+            quote = ch
+        i += 1
+    return bool(quote)
+
+
+def _git_head(cwd: Path | None) -> str:
+    """Текущий HEAD (короткий) — сигнал привязывается к дереву, на котором
+    получен: красный от ЧУЖОГО HEAD — стейл-улика, а не вечное вето (A2)."""
+    if cwd is None:
+        return ""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(cwd),
+            capture_output=True, text=True, timeout=4)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
 def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict | None:
     """Одна Bash/PowerShell-команда -> один runtime-сигнал (или None).
 
@@ -500,6 +672,10 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     # Матчится только голый import в -c (import с вызовами/`;` — реальный
     # смоук, он сигналом остаётся).
     if ENV_PROBE_RE.search(effective):
+        return None
+    # Display/write-команда не исполняет проверку — её текст и вывод не
+    # являются runtime-сигналом, каким бы паттернам они ни матчились (A2).
+    if display_only_command(effective):
         return None
     command = effective  # дальше классифицируем и храним развёрнутую команду
     text, code = _extract_output(tool_response)
@@ -541,6 +717,9 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
         "outcome": outcome,
         "evidence": ev,
     }
+    head = _git_head(cwd)
+    if head:
+        sig["head"] = head
 
     # Фаза жизненного цикла приложения — по маркерам вывода запуска.
     if kind == "app_start":
@@ -814,7 +993,8 @@ def repo_has_tests(cwd: Path) -> bool:
     return False
 
 
-def _layer_status(signals: list, layer: int) -> tuple[str, str]:
+def _layer_status(signals: list, layer: int,
+                  current_head: str = "") -> tuple[str, str]:
     """(status, evidence) для слоя: pass | fail | unknown.
 
     Латест-на-команду: для каждой уникальной команды берём её ПОСЛЕДНИЙ прогон
@@ -828,8 +1008,20 @@ def _layer_status(signals: list, layer: int) -> tuple[str, str]:
         return "unknown", ""
     latest: dict = {}
     for s in rows:
-        latest[s.get("command", "")] = s  # позднейший на команду перезаписывает
+        # Идентичность — нормализованная команда: display-хвост пайпа не делает
+        # повтор «другой командой», иначе красный не вытесняется никогда (A2).
+        latest[normalize_command_key(s.get("command", ""))] = s
     vals = list(latest.values())
+    if current_head:
+        # Сигнал, привязанный к ЧУЖОМУ HEAD, — стейл ЦЕЛИКОМ: дерева, на
+        # котором он получен, больше нет — ни красный не блокирует, ни
+        # зелёный не доказывает (находка чекера r5: асимметричный фильтр
+        # давал false-green из стейл-pass). Сигнал БЕЗ head консервативен:
+        # красный блокирует, зелёный засчитывается (legacy-семантика).
+        vals = [s for s in vals
+                if not s.get("head") or s.get("head") == current_head]
+    if not vals:
+        return "unknown", ""
     fails = [s for s in vals if s.get("outcome") == "fail"]
     if fails:
         last = fails[-1]
@@ -860,9 +1052,10 @@ def compute_verdict(cwd: Path, signals: list) -> dict:
     declared_l2 = bool(_project_l2_patterns(cwd))
     real_tests = False if declared_l2 else repo_has_tests(cwd)
     has_tests = real_tests or declared_l2
-    l1s, l1e = _layer_status(signals, 1)
-    l2s, l2e = _layer_status(signals, 2)
-    l3s, l3e = _layer_status(signals, 3)
+    head = _git_head(cwd)
+    l1s, l1e = _layer_status(signals, 1, head)
+    l2s, l2e = _layer_status(signals, 2, head)
+    l3s, l3e = _layer_status(signals, 3, head)
 
     verdict = {
         "ts": now_iso(),

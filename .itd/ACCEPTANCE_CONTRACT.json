@@ -2009,6 +2009,60 @@
           "verification-profiles-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-A2-1-display-commands-are-not-signals",
+      "criterion": "Команда, каждый сегмент пайпа которой начинается с display/write-инструмента (cat, echo, printf, grep/rg, sed, awk, head, tail, cut, tr, wc, ls, sort, uniq, column, stat, diff, comm, less, more, file, which, type), НЕ классифицируется как runtime-сигнал ни одного слоя, каким бы L2-паттернам (включая проектные l2_evidence_patterns) ни матчилась её строка или heredoc-тело. Настоящий прогон (bash tests/run-all.sh, pytest, в т.ч. с display-хвостом пайпа) остаётся сигналом. Сплит пайпа — quote-aware ('DONE|FAIL' не рвётся), `||` не является границей сегмента.",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED (воспроизведено на старом коде до правки): classify_bash('grep -n case tests/run-all.sh') -> test_run/L2 c evidence '42: esac'; classify_bash(heredoc 'cat >> HANDOFF.md' с текстом про тесты) -> test_run/L2. GREEN: оба -> None; настоящий run-all и пайп с display-хвостом остаются L2; verify_completion_signal_classes.py 15 -> 43 проверок, 43/0. Находка чекера r2: awk system() и sed s///e исполняют код — такие сегменты исключены из display-подавления (exec-маркеры), пути вида tests/e2e ложным маркером не являются. Находка чекера r4 (critical): сплит только по | — `echo x && pytest` глотался целиком; закрыто statement-aware разрезом (&&, ||, ;, \\n) со стоп-правилом на heredoc (<<) и тремя регрессиями + heredoc-регрессия. Находка чекера r6: diff/comm — verification-инструменты (exit-код = результат сравнения), исключены из display-набора. Плюс закрыта вторая половина долга «включая 0 failed» (живой RED): голые токены FAILED/FAIL стояли под re.I и матчили строчное 'failed' в сводке успеха — вынесены в case-sensitive FAIL_TOKEN_RE; верхнерегистровый FAILED остаётся провалом; соседние сьюты (gate/ledger/attribution/adversarial/control/watchdog) зелёные.",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Показ текста не является его исполнением: display-команда не может ни зеленить, ни краснить слой.",
+        "impactClasses": [
+          "correctness",
+          "error-handling"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A2-2-command-identity-is-normalized",
+      "criterion": "Идентичность «latest-на-команду» в _layer_status — normalize_command_key(command): display-хвосты пайпа и хвостовые редиректы (2>&1, > file) отбрасываются, так что зелёный повтор той же команды с другим display-хвостом вытесняет прежний красный; красный ДРУГОЙ команды зелёным не вытесняется.",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED: красный 'bash tests/run-all.sh 2>&1 | grep FAIL' не вытеснялся зелёным 'bash tests/run-all.sh | tail -1' (разные сырые строки — измеренный корень вечного FAILED в R6). GREEN: ключи равны, слой pass; чужой красный сохраняется; проверка неравенства ключей разных команд. Находка чекера r1: срез хвостовых редиректов не был quote-aware — pytest -k \"x>5\" и -k \"x>99\" сливались в один ключ (over-displacement); закрыто проверкой чётности кавычек перед срезом + две проверки (кавычный '>' сохраняет различие; настоящий редирект отбрасывается). 32 checks. Находка чекера r3: наивная чётность считала экранированные кавычки (\\\\\") — over-merge; закрыто escape-aware сканером _inside_quotes + регрессия.",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Повтор той же проверки — та же проверка, как её вывод ни фильтруй.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A2-3-cross-head-red-is-stale",
+      "criterion": "Сигнал несёт поле head (короткий git HEAD на момент прогона, добавляется в classify_bash при доступном cwd). В _layer_status/compute_verdict сигнал с head, отличным от текущего HEAD, — стейл ЦЕЛИКОМ (ни fail не блокирует, ни pass не доказывает; стейл-fail + стейл-pass -> unknown); красный на текущем HEAD и красный БЕЗ поля head блокируют как раньше (консервативно), pass без head засчитывается (legacy).",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED: красный жил через границы коммитов вечно (R1: красный от прогона до перечеканки ног пережил фикс; каждый последующий коммит шёл через COMPLETION_BYPASS). GREEN: стейл-красный (head=aaaa при текущем bbbb) не блокирует; тот же head блокирует; legacy-сигнал без head блокирует. Находка чекера r5 (critical): фильтр был асимметричен — стейл-pass давал false-green при стейл-fail; закрыто фильтрацией всего набора по head + 4 регрессии (стейл-fail+стейл-pass -> unknown; стейл-pass -> unknown; свежий pass при стейл-fail -> pass; свежий fail при стейл-pass -> fail).",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Улика привязана к дереву, на котором получена, — принцип exact-candidate распространён на completion-сигналы.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2027,8 +2081,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-R6",
-    "status": "verified",
+    "unitId": "LPD002-A2",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2036,17 +2090,15 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "reconciliation",
         "error-handling",
-        "generated-artifact-freshness"
+        "reconciliation"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-19T19:14:45Z",
-    "scopeNote": "LPD-002 R6 (последний пункт approved-плана, WIP=1, riskTier medium = checkerMode targeted, checkerRequired true, независимость требует другой сессии, но НЕ другой модели/провайдера; контуры static + targeted; minimumIndependentReviewers 1): карта 'путь исходника -> сьюты' становится данными репозитория (.itd/IMPACT_GRAPH.json) и подаётся в существующий impact_closure через impactGraphPath; движок получает операцию impact-audit — машинную полноту (каждый сьют достижим; каждый skills/_shared/*.py и hooks/*.sh имеет владеющий сьют; нет стейл-узлов; impactKnown:false -> strict) и пропорциональность (ни одно замыкание не покрывает полный набор); генератор tests/build_impact_graph.py строит generated из tracked-дерева и проверяет свежесть (--check). RED-прогон аудита нашёл две настоящие дыры (hooks/completion-stop.sh без сьюта; verify_review_broker_server без разрешимого ребра) — закрыты корнем. С delivery-коммитом R6 приезжают отметки закрытия R5 (план: R5 verified) и durable-запись R5 в .itd/DECISIONS.md — тот же шаблон R1 -> ... -> R5. Идентификатор юнита — LPD002-R6 (префиксный выбор критериев).",
-    "closedAt": "2026-08-20T13:40:19Z"
+    "openedAt": "2026-08-20T15:38:29Z",
+    "scopeNote": "Сессия долгов LPD-002 (решение владельца 2026-08-20, формат S9: юнит = долг, WIP=1). LPD002-A2 — стейл-оценщик completion-гейта: display/write-команды не сигналы; идентичность latest-на-команду нормализована; красный от чужого HEAD — стейл. Все три инцидента (R1 heredoc, R2 esac-grep, R6 grep-пайп) воспроизведены RED-first. riskTier medium: checkerMode targeted, checkerRequired true, независимость — другая сессия, та же модель допустима."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

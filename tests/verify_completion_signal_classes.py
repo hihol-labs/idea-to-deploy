@@ -94,6 +94,121 @@ def main():
         v = cl.compute_verdict(Path(td), sigs)
         check("verdict: красный L2 блокирует как раньше", v.get("blocked"), str(v)[:200])
 
+    # 9) A2 (LPD-002 debts): display/write-команды — не runtime-сигнал, даже
+    # когда строка матчит проектный L2-паттерн; идентичность «latest-на-команду»
+    # нормализуется (display-хвосты пайпа не делают команду другой); красный от
+    # чужого HEAD — стейл, не вечный блок.
+    import json as _json
+    with tempfile.TemporaryDirectory() as td:
+        proj = Path(td)
+        (proj / ".claude" / "completion").mkdir(parents=True)
+        (proj / ".claude" / "completion" / "config.json").write_text(_json.dumps(
+            {"l2_evidence_patterns": ["tests/run-all\\.sh"]}), encoding="utf-8")
+        s9 = cl.classify_bash("grep -n case tests/run-all.sh",
+                              {"stdout": "42: esac", "exitCode": 0}, cwd=proj)
+        check("A2: display-команда (grep по файлу из L2-паттерна) — не сигнал",
+              s9 is None, str(s9))
+        s9 = cl.classify_bash(
+            "cat >> HANDOFF.md <<'EOF'\nbash tests/run-all.sh FAILED\nEOF",
+            {"stdout": "", "exitCode": 0}, cwd=proj)
+        check("A2: heredoc-запись с текстом про тесты — не сигнал",
+              s9 is None, str(s9))
+        s9 = cl.classify_bash("bash tests/run-all.sh --quick",
+                              {"stdout": "DONE fails:none", "exitCode": 0}, cwd=proj)
+        check("A2: настоящий прогон run-all остаётся сигналом L2/pass",
+              bool(s9) and s9.get("layer") == 2 and s9.get("outcome") == "pass",
+              str(s9))
+        s9 = cl.classify_bash("bash tests/run-all.sh 2>&1 | tail -2",
+                              {"stdout": "DONE fails:none", "exitCode": 0}, cwd=proj)
+        check("A2: пайп с display-хвостом сохраняет сигнал",
+              bool(s9) and s9.get("layer") == 2, str(s9))
+
+    k1 = cl.normalize_command_key("bash tests/run-all.sh 2>&1 | tail -2")
+    k2 = cl.normalize_command_key("bash tests/run-all.sh | grep -E 'DONE|FAIL' | head -3")
+    k3 = cl.normalize_command_key("bash tests/run-all.sh")
+    check("A2: display-хвост пайпа не меняет идентичность команды",
+          k1 == k2 == k3, f"{k1!r} {k2!r} {k3!r}")
+    check("A2: разные команды остаются разными ключами",
+          cl.normalize_command_key("pytest -q tests/a.py")
+          != cl.normalize_command_key("pytest -q tests/b.py"))
+    check("A2: '>' внутри кавычек — часть команды, не редирект",
+          cl.normalize_command_key('pytest -k "x>5"')
+          != cl.normalize_command_key('pytest -k "x>99"'),
+          cl.normalize_command_key('pytest -k "x>5"'))
+    check("A2: настоящий хвостовой редирект по-прежнему отбрасывается",
+          cl.normalize_command_key("pytest -q > out.log 2>&1")
+          == cl.normalize_command_key("pytest -q"))
+    check("A2: awk с system() — не display (исполняет код)",
+          cl.display_only_command("awk '{system(\"pytest\")}' list.txt") is False)
+    check("A2: sed с s///e — не display (исполняет код)",
+          cl.display_only_command("sed 's/x/pytest/e' f") is False)
+    check("A2: обычные sed -n / awk-печать остаются display",
+          cl.display_only_command("sed -n 10,20p tests/run-all.sh")
+          and cl.display_only_command("awk '{print $1}' report.txt"))
+    check("A2: путь с /e2e не считается exec-маркером sed",
+          cl.display_only_command("sed -n 5p tests/e2e/run.sh"))
+    s9x = cl.classify_bash("echo start && pytest tests/foo.py",
+                           {"stdout": "1 failed", "exitCode": 1})
+    check("A2: display-префикс с && не глотает настоящий прогон",
+          bool(s9x) and s9x.get("layer") == 2 and s9x.get("outcome") == "fail",
+          str(s9x))
+    check("A2: цепочка display-стейтментов остаётся подавленной",
+          cl.display_only_command("echo a; grep b f && tail -1 g"))
+    check("A2: `cat x || pytest y` — не display",
+          cl.display_only_command("cat x || pytest y") is False)
+    check("A2: diff — verification-инструмент, не display",
+          cl.display_only_command("diff expected.txt actual.txt") is False)
+    check("A2: '0 failed' в тексте — не провал (долг: подстрока failed зеленит/краснит)",
+          cl.outcome_from("=== 5 passed, 0 failed ===", None) != "fail"
+          and cl.outcome_from("=== 5 passed, 0 failed ===", 0) == "pass")
+    check("A2: верхнерегистровый FAILED остаётся провалом",
+          cl.outcome_from("FAILED tests/test_x.py::test_y", None) == "fail"
+          and cl.outcome_from("FAIL  some check", None) == "fail")
+    check("A2: heredoc-тело не режется на стейтменты",
+          cl.display_only_command(
+              "cat >> notes.md <<'EOF'\nbash tests/run-all.sh && pytest\nEOF"))
+    check("A2: экранированная кавычка не ломает чётность (разные команды != один ключ)",
+          cl.normalize_command_key('pytest -k "x\\">5"')
+          != cl.normalize_command_key('pytest -k "x\\">99"'),
+          cl.normalize_command_key('pytest -k "x\\">5"'))
+
+    red = {"ts": "t1", "kind": "test_run", "layer": 2, "outcome": "fail",
+           "command": "bash tests/run-all.sh 2>&1 | grep FAIL", "evidence": "1 failed"}
+    green = {"ts": "t2", "kind": "test_run", "layer": 2, "outcome": "pass",
+             "command": "bash tests/run-all.sh | tail -1", "evidence": "DONE fails:none"}
+    st, _ = cl._layer_status([red, green], 2)
+    check("A2: зелёный повтор той же команды с другим display-хвостом вытесняет красный",
+          st == "pass", st)
+    other_red = dict(red, command="python3 -I tests/verify_x.py")
+    st, _ = cl._layer_status([other_red, green], 2)
+    check("A2: красный ДРУГОЙ команды зелёным не вытесняется",
+          st == "fail", st)
+
+    stale = dict(red, head="aaaa1111")
+    st, _ = cl._layer_status([stale], 2, current_head="bbbb2222")
+    check("A2: красный от чужого HEAD — стейл, слой не в fail",
+          st != "fail", st)
+    st, _ = cl._layer_status([stale], 2, current_head="aaaa1111")
+    check("A2: красный на текущем HEAD блокирует как раньше",
+          st == "fail", st)
+    stale_pass = {"ts": "t3", "kind": "test_run", "layer": 2, "outcome": "pass",
+                  "command": "pytest -q other.py", "head": "aaaa1111",
+                  "evidence": "5 passed"}
+    st, _ = cl._layer_status([stale, stale_pass], 2, current_head="bbbb2222")
+    check("A2: стейл-fail + стейл-pass -> unknown, не false-green", st == "unknown", st)
+    st, _ = cl._layer_status([stale_pass], 2, current_head="bbbb2222")
+    check("A2: стейл-pass один не доказывает текущее дерево", st == "unknown", st)
+    fresh_pass = dict(stale_pass, head="bbbb2222")
+    st, _ = cl._layer_status([stale, fresh_pass], 2, current_head="bbbb2222")
+    check("A2: свежий pass при стейл-fail даёт pass", st == "pass", st)
+    fresh_fail = dict(red, head="bbbb2222")
+    st, _ = cl._layer_status([fresh_fail, stale_pass], 2, current_head="bbbb2222")
+    check("A2: свежий fail при стейл-pass блокирует", st == "fail", st)
+    legacy = dict(red)  # без поля head — консервативно блокирует
+    st, _ = cl._layer_status([legacy], 2, current_head="bbbb2222")
+    check("A2: сигнал без head консервативно остаётся блокирующим",
+          st == "fail", st)
+
     print(f"\n{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0
 

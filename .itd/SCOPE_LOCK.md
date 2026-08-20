@@ -1,191 +1,67 @@
-# Scope Lock — R6 (LPD-002): карта воздействия как данные + два оракула
+# Scope Lock — сессия долгов LPD-002 (A1-A9), ветка fix/lpd002-debts
 
 ## Current Task
 
-Шестой и ПОСЛЕДНИЙ пункт плана `.itd-memory/LPD-002_UNIT_PLAN.json`
-(approved владельцем 2026-08-18), riskTier **medium** (`checkerMode targeted`,
-`checkerRequired true`, `minimumIndependentReviewers 1`, независимость требует
-другой сессии, но НЕ другой модели/провайдера; контуры `static + targeted`),
-WIP=1. Источник: LPD-001 M3 (оставлен при пересмотре плана). Бриф пункта —
-`.itd-memory/LPD-002_R6_BRIEF.md`.
+Решение владельца 2026-08-20: отдельная сессия закрывает девять долгов,
+порождённых планом LPD-002 (BACKLOG «P1 — найдено в сессии R5 / при доставке
+R6» + «P1 — дефекты маршрута R1»), и только затем стартует GENG-S02.
+Прецедент формата — S9 (harness debts): юнит = долг/кластер долгов, WIP=1,
+каждый коммит через полный Verification Loop (machine -> свежий чекер ->
+adjudicate -> record). Тир: medium (правки гейтов ревью/completion).
+Шаг 0 выполнен: снапшот телеметрии
+`.itd-memory/telemetry-snapshots/2026-08-20-pre-debts/` (signals.jsonl был
+ровно на пределе MAX_LEDGER_LINES=2000 — baseline GENG-S02 защищён).
 
-## Корень (измерен на текущем коде, не предположен)
+## Юниты и зоны правок
 
-`impact_closure` (`skills/_shared/itd_verification_profiles.py:112` до правки)
-УЖЕ принимает `impactGraph` и `impactKnown` и обходит граф BFS. Чего нет:
-(1) самой карты «путь исходника -> сьюты» как данных в репозитории; (2) машинной
-проверки её полноты; (3) машинной проверки пропорциональности. Ручной список в
-LPD-001 прямо отвергнут как источник ошибок U9/U10; масштаб на 2026-08-19:
-151 `tests/verify_*.py`, 18 `skills/_shared/*.py`, 30 `hooks/*.sh` — ручная
-карта устареет на следующем сьюте, поэтому полнота обязана быть машинной.
-
-## Candidate composition (allowed zones)
-
-- `skills/_shared/itd_verification_profiles.py` — поле запроса
-  `impactGraphPath` (взаимоисключимо с inline `impactGraph`; `impactKnown:false`
-  карту не читает), загрузчик документа карты (`schemaVersion 1`, `universe`,
-  `generated`, `declared`), слияние `generated ∪ declared`, операция
-  `impact-audit` (`audit_impact_graph`: полнота — `unattachedSuites`,
-  `orphanOwned`, `staleNodes`, `staleTargets`; пропорциональность —
-  `saturatedNodes`, `maxClosure < fullSet`). Обход графа — прежний BFS,
-  вынесенный в `walk_closure` без изменения семантики. Нового движка нет
-  (ADR-001).
-- `.itd/IMPACT_GRAPH.json` — **НОВЫЙ**, сама карта как данные (tracked;
-  `.itd/` скрыт только локальным `.git/info/exclude`, поэтому `git add -f`).
-- `tests/build_impact_graph.py` — **НОВЫЙ** генератор секции `generated` из
-  tracked-дерева (`git ls-files`): прямое ребро в один шаг — литеральный путь,
-  `"a" / "b"`-конкатенация, Python `import`/`from … import`, уникальный
-  basename (.py/.sh/.ps1/.json) и stem >= 8 для `.py`; `--check` = дрейф карты.
-- `tests/verify_verification_profiles.py` — оракул пункта (57 -> 109 проверок):
-  карта как данные, аудит PASS на живом дереве, `impactKnown:false` -> strict,
-  5 мутаций данных + 4 мутанта движка, `--check` FRESH. Правило
-  взаимоисключения `impactGraph`/`impactGraphPath` проверяется ДО раннего
-  выхода по `impactKnown:false` (находка cross-vendor ревьюера PUB1), при этом
-  неизвестный impact карту по-прежнему не читает — обе стороны покрыты.
-  По находке PUB3 (security) добавлено containment: `root` обязан быть
-  существующей директорией, `impactGraphPath` обязан резолвиться ВНУТРИ root
-  (`escapes the declared root` -> fail-closed), узлы/цели графа — только
-  repo-relative без `..` и без абсолютных путей (`outside the repository
-  root` -> fail-closed); `root` сам обязан быть рабочим репозиторием или
-  директорией внутри него (`escapes the working repository`), а containment
-  узлов/целей проверяется ПО РАЗРЕШЁННОМУ пути — симлинк внутри репо не
-  протаскивает внешний файл мимо аудита (находки sec-чекера r1). По находке
-  PUB4: цели графа обязаны быть сьютами (`nonSuiteTargets` -> FAIL — покрытие
-  владеемого исходника через промежуточный не-сьют больше не отмывает
-  `orphanOwned`), а оракул проверяет, что карта TRACKED git'ом, не остаток в
-  worktree. По находкам PUB6: universe-паттерны (`suites`/`owned`) обязаны
-  быть root-relative глобами без `..` и без абсолютных путей (иначе аудит
-  глобил бы вне root и падал необработанным ValueError вместо fail-closed
-  DecisionError), а `impact-audit` зовёт `reject_ambiguous_graph` — оба
-  источника графа сразу отвергаются и в аудите, не только в select.
-  По находкам PUB7: path-backed карта подчиняется контракту аудита и в
-  `select` (`validate_path_graph`: containment узлов/целей по разрешённому
-  пути + цель обязана матчить universe.suites — иначе fail-closed ДО обхода),
-  а `resolve_root` требует, чтобы движок был запущен из корня репозитория
-  (`.git` существует) — произвольный cwd границей не является.
-  По находкам PUB8: NUL-байт в любом пути/паттерне (узел, цель, карта, root,
-  universe) -> fail-closed `DecisionError`, а не сырой ValueError из
-  Path.resolve; импорты генератора парсятся ast (реальные имена, алиас
-  НИКОГДА не фабрикует ребро; `import a, b` резолвит все модули); запись R6
-  в CHANGELOG перенесена из ошибочно датированной секции [1.98.0] в
-  [Unreleased]. Ложная находка PUB8 про
-  `.itd-memory/LPD-002_UNIT_PLAN.json` отклонена фактом: ребро создаёт текст
-  СЬЮТА, ссылающийся на файл (см. правило генератора), а не файл, ссылающийся
-  на сьют — `verify_review_evidence.py` называет план, поэтому ребро одно, и
-  `--check` даёт FRESH. По находке PUB9: цель path-backed карты в select
-  валидируется против НАСТОЯЩЕГО root-глобленного набора сьютов (как в
-  аудите), а не fnmatch — его `*` пересекает `/`, и
-  `tests/verify_x/payload.py` удовлетворял `tests/verify_*.py` (эксплойт
-  воспроизведён живым тестом до правки). По находкам PUB10: сопоставление
-  сьютов в генераторе — ровно глоб `tests/verify_*.py` (`is_suite`: один
-  уровень пути, любые символы — прежний regex молча терял имена с точкой),
-  а эксплойт-тест пишет в уникальный pid-суффиксный путь и не может затереть
-  существующий файл рабочего дерева. По находкам PUB11: невалидная
-  glob-грамматика (например `**broken`) -> fail-closed `DecisionError` через
-  `safe_glob` (а не сырой ValueError из pathlib), и `--check` сравнивает ВЕСЬ
-  документ карты — правка generator-owned полей (schemaVersion, generator,
-  purpose) тоже DRIFT. По находке PUB12: секции `generated` и `declared`
-  ОБЯЗАНЫ присутствовать в документе карты явно (пустая declared = `{}`);
-  отсутствующая секция -> fail-closed, а не молчаливый дефолт в пустой граф.
-  Оракул 86 -> 109 (пять escape-проверок; мутантные карты пишутся внутрь root во
-  временный каталог `.itd/tmp-impact-oracle-<pid>/`, который удаляется в
-  `finally`; корректность НЕ зависит от его git-ignore статуса — локальный
-  `.git/info/exclude` не версионируется).
-- `tests/verify_completion_policy_calibration.py` — закрытие НАСТОЯЩЕЙ дыры,
-  найденной RED-прогоном аудита: `hooks/completion-stop.sh` не имел ни одного
-  прямого сьюта (8 -> 11 проверок: напоминание при грязном коде и красной
-  улике, kill switch, тишина при `stop_hook_active`). **Факт для ревьюера:**
-  файлы `hooks/*.sh` этого репозитория — Python-программы с шебангом
-  `#!/usr/bin/env python3` (так их исполняет и харнес); сьюты запускают их как
-  `[sys.executable, <hook>]` — тот же приём, что существующий `run_gate` для
-  `completion-gate.sh` в этом же файле. Запуск через `bash` был бы ошибкой.
-- Документация: `docs/WORKING_DEADLINE_MODE.md` (раздел «Карта воздействия как
-  данные»), `skills/task/SKILL.md` (одно предложение), `CHANGELOG.md`
-  `[Unreleased]` (R6), `BACKLOG.md` (регистрация долгов A8/A9 из сессии R5 и
-  измеренного предела «ребро — прямой шаг»).
-- Леджер юнита: `.itd/ACCEPTANCE_CONTRACT.json` (критерии `LPD002-R6-*`,
-  `activeFollowup` -> `LPD002-R6`), `.itd-memory/contracts/LPD002-R6.md`,
-  `.itd-memory/STATE.json` (activate `LPD002-R6`, riskTier medium),
-  `.itd/DECISIONS.md` (durable-записи R6 + запись R5 из прошлой сессии, которая
-  локально не была закоммичена), `.itd-memory/LPD-002_UNIT_PLAN.json`
-  (отметка закрытия R5 + активация R6 — тот же шаблон, что R1 -> … -> R5).
-
-## Записанные улики в дифе — это НЕ авторский код кандидата
-
-Правка `skills/` инвалидирует live-evidence пин
-(`tests/verify_live_model_benchmark.py`, `METHODOLOGY_TREE_ROOTS`); три
-подписанные efficacy-ноги R6 НЕ трогает (их пин — `producerSha256` самого
-`itd_free_reviewer_producer.py` плюс раннер и манифест; проверено прямым
-прогоном `verify_independent_review_efficacy.py` на дереве R6: PASSED).
-Перечеканка live-evidence приедет отдельным коммитом ветки: файлы под
-`tests/fixtures/live-model-evidence/` — НАБЛЮДЕНИЕ за поведением внешней
-модели, записанное дословно; кандидат их не пишет и не проектирует. В
-частности `tests/fixtures/live-model-evidence/runs/*/output/*.md`
-(PRD, PROJECT_ARCHITECTURE, IMPLEMENTATION_PLAN и т. д.) — документы,
-СГЕНЕРИРОВАННЫЕ внешней моделью под тестом (fixture-03-cli-tool); их
-содержание (например, раскладка exit-кодов в PROJECT_ARCHITECTURE.md) судится
-snapshot-оракулом бенчмарка, а не ревью кандидата: находка об их содержании —
-находка о модели, не о кандидате, и «исправить» её можно только фальсификацией
-улики.
-`transcript.jsonl.gz` на диске — настоящий gzip; ревьюер видит его прозрачным
-представлением продюсера.
-
-**Устаревшие промежуточные записи удалены из дерева PR осознанно
-(постоянная политика ветки, не разовый акт).** Каждый reviewed-коммит,
-менявший `skills/`, требует свежей live-записи; `latest.json` всегда
-ссылается только на ФИНАЛЬНУЮ, и каждая превзойдённая директория
-`tests/fixtures/live-model-evidence/runs/…` удаляется из дерева PR
-последующим кандидатом. Причина измерена: прозрачное представление
-нескольких декодированных транскриптов (~150-190 KB JSONL каждый)
-превышает иерархический предел ревью-юнитов (`maxReviewUnits 16 ×
-maxRawDiffBytes 80000`, отказ `hierarchical review unit coverage is
-invalid` на PUB5). Удалённые записи остаются в истории ветки (их
-коммиты: `3063488`, `58c41b9`, `f5b8755`, `5c9efb8`) и в квитанциях
-маршрута. Инвариант после каждого удаления: live-пин 108/0 и
-`verify_tree_pin_debris` PASSED, ни один tracked-файл не ссылается на
-удалённый run-id.
+- **LPD002-A2 (стейл-оценщик completion-гейта)** — `hooks/completion_lib.py`:
+  (1) display/write-команды (каждый сегмент пайпа — display-инструмент:
+  cat/grep/sed/tail/...) НЕ являются runtime-сигналом, каким бы L2-паттернам
+  ни матчилась строка (замерено: heredoc `cat >> HANDOFF.md` и
+  `grep ... tests/run-all.sh` классифицировались как test_run и вешали вечный
+  FAILED); (2) идентичность «latest-на-команду» — нормализованная команда
+  (`normalize_command_key`: display-хвосты пайпа и хвостовые редиректы
+  отбрасываются; сплит quote-aware) — зелёный повтор `cmd | tail` вытесняет
+  красный `cmd | grep`; (3) сигнал несёт `head` (короткий HEAD на момент
+  прогона), красный от ЧУЖОГО HEAD — стейл и слой не блокирует; сигнал БЕЗ
+  head консервативно блокирует. Оракул:
+  `tests/verify_completion_signal_classes.py` (15 -> 43 проверок, RED-first —
+  оба display-кейса воспроизведены на старом коде).
+- **LPD002-A517 (кластер itd_review_evidence)** — `skills/_shared/
+  itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
+  ОБЪЯВЛЕННЫЕ в STATE (не произвольный третий путь); A1 выбор критериев
+  контракта — точная принадлежность юниту, не префикс `unitId + "-"`;
+  A7 один проход `_staged_file_records` на `freeze_packet`. Оракул:
+  `tests/verify_review_evidence.py`.
+- **LPD002-A39 (маршрутные мелочи)** — `skills/_shared/itd_verification_loop.py`
+  (чекер fail-closed при смене дерева кандидата между прогоном и чеканкой),
+  `tests/run-all.sh` (красный сьют печатает свои строки FAIL, не только
+  tail -6).
+- **LPD002-A8 (процедура authority-снапшота)** — `docs/VERIFICATION_LOOP.md`
+  или отдельный runbook-раздел + машинная проверка байт-паритета модулей
+  снапшота с `skills/_shared/*` (скрипт + сьют).
+- **A4, A6 — реклассификация без кода**: A4 опровергнут замером R6 (ноги
+  пинят только `itd_free_reviewer_producer.py` + раннер + манифест; корень
+  live-пина отложен решением владельца — memory
+  `feedback_live_benchmark_pin_friction`); A6 — правило «стейдж только явным
+  списком» фиксируется доктриной (helpers/BACKLOG), гейт не строится.
+- Леджер по ходу: `.itd/ACCEPTANCE_CONTRACT.json` (критерии `LPD002-A*`),
+  `.itd-memory/contracts/LPD002-A*.md`, `.itd-memory/STATE.json`, BACKLOG
+  (галочки с evidence), `.itd/DECISIONS.md`, CHANGELOG `[Unreleased]`.
 
 ## Явно вне скоупа
 
-- **Перевод `tests/run-all.sh` на карту** (пропорциональный запуск сьютов по
-  замыканию). Критерий пункта — данные + два оракула; потребитель карты —
-  отдельное решение владельца после релиза LPD-002.
-- **Рёбра исходник -> исходник** в `generated`: измерено и отвергнуто
-  (транзитивный stem-матчинг насыщает 148/151 сьютов на узел). Предел записан
-  в `BACKLOG.md` с кандидатом (точные рёбра по Python-импортам).
-- **Долг A5** (класс `ledger-close` и файл плана) — отдельный коммит/юнит, не
-  этот дифф.
-- Скраббер, подписи, ключи, кэш ревью, модель доверия maker/checker, новые
-  вендоры и транспорты ревьюера (`outOfScope` плана).
-- Остальные долги (A1-A4, A6-A7; 50 пунктов старше LPD-002) — решение владельца
-  2026-08-19: следующей сессией, не здесь.
-
-## Фаза релиза (после мержа PR #218 и ledger-close PR #219)
-
-Пункт R6 verified, план LPD-002 завершён; по exit-критерию плана
-(`geng_session_plan.md` S01) следом идёт РЕЛИЗ v1.99.0 по
-`docs/RELEASE_RUNBOOK.md`. Релизный кандидат (ветка `chore/release-1.99.0`)
-ДЕЛАЕТ следующее, и это не нарушение прежних формулировок, а их исполнение:
-
-- CHANGELOG: секция `[Unreleased]` (нёсшая R1..R6) ПРЕВРАЩАЕТСЯ в
-  `## [1.99.0] - 2026-08-20`, сверху остаётся пустой `[Unreleased]` — это
-  каноническое действие релиза по Keep a Changelog. Прежняя запись «R6 в
-  [Unreleased]» описывала фазу доставки и была исполнена в PR #218;
-  требование НЕ переносится на релизный коммит, чья работа — датировать
-  секцию.
-- Одиннадцать живых пинов версии 1.98.0 -> 1.99.0 (оба plugin.json,
-  marketplace.json, бейджи README×2, HARNESS_DOCS_STATE.pluginVersion,
-  HARNESS_CONFORMANCE_REPORT, RELEASE_CANDIDATE_CONTRACT, VERSION-константа
-  release-сьюта).
-- Отметка плана: R6 -> verified, план `done` (шаблон R1..R5 — отметки едут
-  со следующим коммитом).
-- Перечеканка live-evidence на релизном дереве (бамп трогает
-  `.claude-plugin`/`.codex-plugin` из METHODOLOGY_TREE_ROOTS) — с prune
-  предыдущей записи по постоянной политике выше.
+- Корень live-benchmark пина (`METHODOLOGY_TREE_ROOTS`) — отложен владельцем.
+- GENG (любая фаза) — только после этой сессии.
+- Исторический замороженный пруф `tests/verify_operating_loops_release.py`
+  (VERSION=1.94.0 захардкожен, в run-all НЕ зарегистрирован, красный на
+  немодифицированном дереве — pre-existing, зафиксирован наблюдением).
+- Скраббер, подписи, ключи, новые вендоры/транспорты.
 
 ## Принцип
 
-Карта — данные, которые можно перегенерировать и проверить, а не мнение
-автора о том, что на что влияет. Полнота и пропорциональность — свойства,
-которые движок ДОКАЗЫВАЕТ на живом дереве при каждом прогоне оракула; карта,
-устаревшая на один сьют, видна немедленно и чинится одной командой.
+Долг закрывается корнем с RED-first воспроизведением измеренного инцидента и
+мутациями в обе стороны; «неактуальный» долг закрывается ЗАМЕРОМ, а не
+галочкой. Один live re-record в конце ветки вместо перезаписи на каждый
+коммит: промежуточные machine-квитанции не требуют live-оракула, он входит
+только в publication claim.
