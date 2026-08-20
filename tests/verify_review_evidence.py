@@ -485,7 +485,7 @@ check("a1-explicit-unitId-excludes-prefix-captured-foreign-criterion",
 
 after_a1b = acceptance_fixture()
 m = matrix_or_error(after_a1b, machine_fixture())
-check("a1-legacy-contract-without-unitId-keeps-prefix-fallback",
+check("a1-legacy-prefix-fallback",
       isinstance(m, dict) and len(m.get("criteria", [])) == 1, str(m)[:120])
 
 

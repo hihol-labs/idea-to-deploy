@@ -2088,7 +2088,7 @@
       "unitId": "LPD002-A517",
       "criterion": "Выбор критериев контракта для юнита: при наличии хотя бы одного критерия с явным unitId == юнит — авторитетен ТОЛЬКО явный набор (префикс не consultируется); префикс-фоллбэк остаётся для legacy-контрактов без поля и не захватывает критерии, несущие чужой unitId.",
       "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
-      "evidence": "RED: инцидент R1 — юнит R1 захватил исторический R1-SCRUB-1 по префиксу (UNVERIFIED по чужой записи, обходили переименованием). GREEN: a1-explicit-unitId-excludes-prefix-captured-foreign-criterion (матрица содержит только R1-own); a1-legacy-contract-without-unitId-keeps-prefix-fallback.",
+      "evidence": "RED: инцидент R1 — юнит R1 захватил исторический R1-SCRUB-1 по префиксу (UNVERIFIED по чужой записи, обходили переименованием). GREEN: a1-explicit-unitId-excludes-prefix-captured-foreign-criterion (матрица содержит только R1-own); a1-legacy-prefix-fallback.",
       "verificationCommand": "python3 -I tests/verify_review_evidence.py",
       "status": "passed",
       "reviewEvidence": {
