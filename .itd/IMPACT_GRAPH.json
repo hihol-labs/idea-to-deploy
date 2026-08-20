@@ -405,6 +405,7 @@
       "tests/verify_session_hygiene_quality.py"
     ],
     "docs/VERIFICATION_LOOP.md": [
+      "tests/verify_authority_check.py",
       "tests/verify_mandatory_keyless_review.py"
     ],
     "docs/WORKING_DEADLINE_MODE.md": [
@@ -896,6 +897,9 @@
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_git_gate_hooks.py",
       "tests/verify_itd_cli.py"
+    ],
+    "scripts/itd_authority_check.py": [
+      "tests/verify_authority_check.py"
     ],
     "scripts/itd_external_outcomes.py": [
       "tests/verify_external_outcome_contract.py",

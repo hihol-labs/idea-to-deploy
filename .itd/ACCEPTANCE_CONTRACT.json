@@ -2157,6 +2157,46 @@
           "runall-drift-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-A8-1-minting-procedure-is-documented",
+      "unitId": "LPD002-A8",
+      "criterion": "Процедура чеканки authority-снапшота задокументирована в docs/VERIFICATION_LOOP.md: источник — ТОЛЬКО merged main, состав (все skills/_shared/*.py и *.json политики байт-в-байт), перенос ключа/keyring без изменений, граница «продюсер вне репозитория», критерий перечеканки (любая merged-правка, меняющая поведение гейта ревью), команда проверки паритета.",
+      "source": "BACKLOG P1 2026-08-19 (A8, находка сессии R5: снапшот REL198 судил бы close-кандидата до-R5 гейтом); замер этой сессии: старый снапшот разошёлся на 3 модуля и с веткой, и с merged main.",
+      "evidence": "GREEN: раздел «Authority snapshot: minting and byte-parity (LPD002-A8)»; проверка документации входит в verify_authority_check (12/0); процедура исполнена живьём — LPD002-A8-62eea6bb-a1 перечеканен из origin/main, parity OK, keyring 1fa8afec… перенесён.",
+      "verificationCommand": "python3 -I tests/verify_authority_check.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Чеканка снапшота — воспроизводимая записанная процедура, а не устная традиция сессий.",
+        "impactClasses": [
+          "reconciliation",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "authority-check-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A8-2-byte-parity-is-machine-checked",
+      "unitId": "LPD002-A8",
+      "criterion": "scripts/itd_authority_check.py проверяет байт-паритет каждого модуля/политики снапшота против skills/_shared fail-closed: exit 0 — тихий полный паритет; exit 1 — каждая дивергенция названа путём с WHY+FIX (включая snapshot-only файлы); exit 2 — input-ошибки (нет снапшота, не репозиторий); пустой снапшот против населённого гейта — тотальная дивергенция (exit 1, MISSING); подписные материалы (*.key, producer-keyring.json) — осознанный exempt; без аргументов — usage error, не implicit scan. Обратное направление тоже fail-closed: модуль/политика из skills/_shared, отсутствующие в снапшоте, флагаются MISSING.",
+      "source": "BACKLOG P1 2026-08-19 (A8, находка сессии R5: снапшот REL198 судил бы close-кандидата до-R5 гейтом); замер этой сессии: старый снапшот разошёлся на 3 модуля и с веткой, и с merged main.",
+      "evidence": "RED (живой): старый снапшот LPD002-R5-1139f855-a1 — DIVERGED itd_free_reviewer_producer.py, itd_review_evidence.py, itd_verification_profiles.py (последний разошёлся ещё с R6/main — дрейф был невидим). GREEN: verify_authority_check 12/0 (обе стороны: чистый паритет тих; дивергенция/orphan -> 1 c WHY/FIX; exempt ключей; 3 input-ошибки; usage error); сьют зарегистрирован в run-all (drift-guard 5/0). Находка чекера r1: полностью-orphan снапшот давал exit 2 вместо actionable 1 — закрыто (divergent учитывается в решении об input-error) + проверка. Находка чекера r2: repo-side модуль, отсутствующий в снапшоте, не флагался (обход по snapshot.iterdir) — закрыто обратным проходом по skills/_shared (MISSING) + проверка.",
+      "verificationCommand": "python3 -I tests/verify_authority_check.py && python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Дрейф замороженного гейта виден одной командой до того, как квитанция продюсера принята.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "authority-check-oracle",
+          "runall-drift-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2175,7 +2215,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-A39",
+    "unitId": "LPD002-A8",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -2185,15 +2225,15 @@
       "requiredImpactClasses": [
         "correctness",
         "security",
-        "error-handling",
-        "reconciliation"
+        "reconciliation",
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-20T18:02:28Z",
-    "scopeNote": "Сессия долгов LPD-002, юнит 3 (A3+A9): оракульное покрытие validate-гварда inspectedTree (подделка с валидным digest отвергается tree-гвардом) и имена FAIL-строк в run-all. Ротация: LPD002-A517 закрыт в этом же delivery-диффе."
+    "openedAt": "2026-08-20T18:12:47Z",
+    "scopeNote": "Сессия долгов LPD-002, юнит 4 (A8): процедура чеканки authority-снапшота (runbook) + машинный байт-паритет (scripts/itd_authority_check.py + сьют, зарегистрированный в run-all). Живой replay нашёл 3 разошедшихся модуля; снапшот перечеканен из origin/main по новой процедуре. Ротация: LPD002-A39 закрыт в этом же delivery-диффе."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
