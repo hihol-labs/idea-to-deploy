@@ -93,6 +93,26 @@ sh skills/_shared/itd_py.sh skills/_shared/itd_verification_profiles.py \
 что verification уже пройдена: в ответе остаётся `verified: false` до отдельной
 проверки evidence.
 
+### Карта воздействия как данные (LPD-002 R6)
+
+Граф для `impactClosure` не выводится движком на лету — он лежит в репозитории
+как данные: `.itd/IMPACT_GRAPH.json` (`путь исходника -> сьюты
+tests/verify_*.py, которые его исполняют`). В `select` карту подают полем
+`impactGraphPath` (взаимоисключимо с inline `impactGraph`; `impactKnown: false`
+по-прежнему уводит в strict/release без карты). Секция `generated` строится
+механически `python3 tests/build_impact_graph.py` (правило ребра — прямое,
+в один шаг: литеральный путь, `"a" / "b"`-конкатенация, Python-импорт или
+уникальный basename в тексте сьюта); секция `declared` — ручные рёбра, которые
+генератор сохраняет. Операция `impact-audit`
+(`{"operation": "impact-audit", "impactGraphPath": ".itd/IMPACT_GRAPH.json",
+"root": "."}`) судит карту машинно и fail-closed: **полнота** — каждый сьют
+достижим хотя бы одним ребром, каждый `skills/_shared/*.py` и `hooks/*.sh`
+имеет владеющий сьют, ни одного несуществующего узла/цели; **пропорциональность**
+— замыкание ни одного узла не покрывает полный набор сьютов. Обе стороны
+проверены мутацией в `tests/verify_verification_profiles.py` (удалить ребро ->
+падает полнота; объявить всё смежным всему -> падает пропорциональность), там
+же — свежесть карты против tracked-дерева (`--check`).
+
 ## Review, diagnostics и backlog
 
 Review cache допустим только для успешного verdict, связанного с repository,

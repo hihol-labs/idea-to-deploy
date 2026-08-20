@@ -23,8 +23,8 @@
   "objective": "Снять измеренный налог маршрута ITD: четыре класса трения, стоившие ~2-2.5 ч из ~8 ч рабочей сессии 2026-08-18 и повторявшиеся на S9/S10/S11, плюс пропорциональный прогон сьютов вместо полного. Критерий успеха плана: каждый пункт закрыт машинной проверкой с двусторонней мутацией, а на следующем юните методологии повторный ретро-скан не показывает тот же класс.",
   "status": "active",
   "wipLimit": 1,
-  "currentPointId": "R5",
-  "nextPointId": "R5",
+  "currentPointId": "R6",
+  "nextPointId": "",
   "sessionProtocol": "WIP=1, RED-first: сначала проверка, воспроизводящая дефект на текущем коде, затем правка, затем мутация в обе стороны. Verification-команда пункта прогоняется в момент написания. Коммит только после маршрута /review (machine -> свежий чекер другой моделью -> adjudicate -> review-cache). Поправки к оракулу — в oracleAmendments и events.jsonl, не молча.",
   "evidenceBase": {
     "retro": "docs/retros/RETRO-2026-08-18.md (FACTS из itd_retro_scan.py + 11 внешних сигналов E1-E11)",
@@ -130,7 +130,7 @@
     {
       "id": "R5",
       "title": "Класс ledger-close кандидата: закрытие юнита перестаёт быть неразрешимым кругом",
-      "status": "in_progress",
+      "status": "verified",
       "riskTier": "high",
       "dependsOn": [
         "R4"
@@ -149,7 +149,7 @@
     {
       "id": "R6",
       "title": "Пропорциональные сьюты: объявленный impact-граф вместо полного прогона",
-      "status": "pending",
+      "status": "in_progress",
       "riskTier": "medium",
       "dependsOn": [
         "R5"
@@ -162,7 +162,8 @@
         "tests/verify_verification_profiles.py"
       ],
       "verificationCommand": "python3 -I tests/verify_verification_profiles.py",
-      "notes": "Масштаб на 2026-08-18: 150 сьютов tests/verify_*.py, 18 модулей skills/_shared/*.py, 30 хуков. Ручной список в LPD-001 отвергнут — он и был источником ошибок U9/U10; карта обязана проверяться машинно."
+      "notes": "Масштаб на 2026-08-18: 150 сьютов tests/verify_*.py, 18 модулей skills/_shared/*.py, 30 хуков. Ручной список в LPD-001 отвергнут — он и был источником ошибок U9/U10; карта обязана проверяться машинно.",
+      "activatedAt": "2026-08-19T18:59:41Z"
     }
   ],
   "oracleAmendments": [
@@ -223,5 +224,5 @@
       "decidedBy": "владелец (выбор «буква критерия + находка в BACKLOG», 2026-08-19)"
     }
   ],
-  "updatedAt": "2026-08-19T12:10:00Z"
+  "updatedAt": "2026-08-19T18:59:41Z"
 }

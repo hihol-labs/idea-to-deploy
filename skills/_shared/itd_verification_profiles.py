@@ -109,6 +109,202 @@ def valid_sha256(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
 
 
+IMPACT_GRAPH_SCHEMA_VERSION = "1"
+
+
+def validate_graph_shape(graph: Any, label: str) -> dict[str, list[str]]:
+    if not isinstance(graph, dict):
+        raise DecisionError(
+            f"{label} must be a JSON object",
+            "Provide the bounded direct-impact graph for the changed nodes.",
+        )
+    for source, targets in graph.items():
+        if (not isinstance(source, str) or not source
+                or not isinstance(targets, list)
+                or any(not isinstance(target, str) or not target for target in targets)):
+            raise DecisionError(
+                f"{label} contains an invalid node or edge list",
+                "Use non-empty string nodes and arrays of directly impacted nodes.",
+            )
+    return graph
+
+
+def require_path_text(value: Any, field: str) -> str:
+    """A filesystem path/pattern string: printable, no NUL — else the later
+    ``Path.resolve()``/``glob()`` would raise a raw ``ValueError`` instead of
+    the promised fail-closed ``DecisionError`` (PUB8 finding)."""
+    text = require_string(value, field)
+    if "\x00" in text:
+        raise DecisionError(
+            f"{field} contains a NUL byte",
+            f"Provide a real filesystem path in {field}.",
+        )
+    return text
+
+
+def resolve_under(root: Path, value: Any, field: str) -> Path:
+    """Resolve a request path and refuse anything that escapes ``root``."""
+    text = require_path_text(value, field)
+    path = Path(text)
+    if not path.is_absolute():
+        path = root / path
+    resolved = path.resolve(strict=False)
+    root_resolved = root.resolve(strict=False)
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise DecisionError(
+            f"{field} escapes the declared root",
+            f"Keep {field} inside the audited repository root; never point the "
+            "engine at an outside file.",
+        )
+    return resolved
+
+
+def contained_file(root: Path, node: str, label: str) -> Path:
+    """A graph node/target is a repository-relative path; escapes fail closed.
+
+    The resolved location must stay under the resolved root, so a symlink
+    inside the repository cannot smuggle an outside file past the audit.
+    """
+    require_path_text(node, label)
+    candidate = Path(node)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise DecisionError(
+            f"{label} contains a path outside the repository root: {node}",
+            "Use repository-relative paths in the impact map; regenerate it "
+            "with tests/build_impact_graph.py.",
+        )
+    joined = root / candidate
+    resolved = joined.resolve(strict=False)
+    root_resolved = root.resolve(strict=False)
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise DecisionError(
+            f"{label} contains a path outside the repository root: {node}",
+            "Remove the escaping link or entry; the audit only trusts files "
+            "that really live under the repository root.",
+        )
+    return joined
+
+
+def load_impact_graph_document(path: Path) -> dict[str, Any]:
+    """Load the declared impact map (data in the repository, never inferred here)."""
+    document = load_object(path)
+    if document.get("schemaVersion") != IMPACT_GRAPH_SCHEMA_VERSION:
+        raise DecisionError(
+            f"impact graph {path} has unsupported schemaVersion",
+            f"Regenerate the map with schemaVersion {IMPACT_GRAPH_SCHEMA_VERSION!r}.",
+        )
+    universe = require_object(document.get("universe"), "impactGraph.universe")
+    validate_universe_pattern(
+        require_string(universe.get("suites"), "impactGraph.universe.suites"),
+        "impactGraph.universe.suites")
+    owned = universe.get("owned")
+    if (not isinstance(owned, list) or not owned
+            or any(not isinstance(item, str) or not item for item in owned)):
+        raise DecisionError(
+            "impactGraph.universe.owned must be a non-empty list of glob patterns",
+            "Declare which source globs must each have an owning suite.",
+        )
+    for pattern in owned:
+        validate_universe_pattern(pattern, "impactGraph.universe.owned")
+    for section in ("generated", "declared"):
+        if section not in document:
+            raise DecisionError(
+                f"impactGraph.{section} section is missing",
+                "The map document carries both sections explicitly (an empty "
+                "declared section is {}); regenerate it with "
+                "tests/build_impact_graph.py.",
+            )
+        validate_graph_shape(document[section], f"impactGraph.{section}")
+    return document
+
+
+def safe_glob(root: Path, pattern: str, field: str) -> list[Path]:
+    """Glob under root, translating pathlib's grammar errors (e.g. a bad
+    ``**`` placement) into the promised fail-closed DecisionError (PUB11)."""
+    try:
+        return [path for path in root.glob(pattern) if path.is_file()]
+    except ValueError as exc:
+        raise DecisionError(
+            f"{field} is not a valid glob pattern: {exc}",
+            "Fix the universe pattern; the engine never guesses a scan scope.",
+        ) from exc
+
+
+def validate_universe_pattern(pattern: str, field: str) -> None:
+    """Universe globs are root-relative and non-escaping; anything else would
+    let a malformed map glob outside root and crash past the fail-closed
+    contract (PUB6 finding)."""
+    require_path_text(pattern, field)
+    parts = Path(pattern).parts
+    if Path(pattern).is_absolute() or ".." in parts:
+        raise DecisionError(
+            f"{field} must be a root-relative glob without '..': {pattern}",
+            "Declare universe patterns relative to the audited repository root.",
+        )
+
+
+def merged_impact_graph(document: dict[str, Any]) -> dict[str, list[str]]:
+    """Union of the generated and the hand-declared edges, deterministic order."""
+    merged: dict[str, list[str]] = {}
+    for section in ("generated", "declared"):
+        for source, targets in (document.get(section) or {}).items():
+            bucket = merged.setdefault(source, [])
+            for target in targets:
+                if target not in bucket:
+                    bucket.append(target)
+    return {source: sorted(targets) for source, targets in sorted(merged.items())}
+
+
+def reject_ambiguous_graph(request: dict[str, Any]) -> None:
+    """Both graph sources at once is a malformed request whatever impactKnown says."""
+    if request.get("impactGraph") is not None and request.get("impactGraphPath") is not None:
+        raise DecisionError(
+            "impactGraph and impactGraphPath are mutually exclusive",
+            "Pass the inline graph or the path to the declared map, not both.",
+        )
+
+
+def validate_path_graph(document: dict[str, Any], root: Path) -> dict[str, list[str]]:
+    """A path-backed map obeys the audit contract even when only selected from.
+
+    PUB7 finding: containment and the direct-suite rule lived only in
+    ``impact-audit``, so ``select`` could walk a map whose entries escape the
+    repository or route through a non-suite intermediate. Selection now fails
+    closed on the same violations instead of returning an unusable closure.
+    """
+    merged = merged_impact_graph(document)
+    # The suite universe is the same root-globbed set the audit uses; a name
+    # pattern match was rejected here because fnmatch's "*" crosses "/"
+    # (PUB9 finding): tests/verify_x/payload.py satisfied tests/verify_*.py.
+    suite_set = {
+        path.relative_to(root).as_posix()
+        for path in safe_glob(root, document["universe"]["suites"],
+                              "impactGraph.universe.suites")}
+    for source, targets in merged.items():
+        contained_file(root, source, "impactGraph node")
+        for target in targets:
+            contained_file(root, target, "impactGraph target")
+            if target not in suite_set:
+                raise DecisionError(
+                    f"impactGraph target is not a suite: {target}",
+                    "The declared map is 'source path -> suites'; regenerate "
+                    "it or fix the declared edge before selecting from it.",
+                )
+    return merged
+
+
+def effective_impact_graph(request: dict[str, Any]) -> dict[str, list[str]]:
+    reject_ambiguous_graph(request)
+    inline = request.get("impactGraph")
+    path_value = request.get("impactGraphPath")
+    if path_value is not None:
+        root = resolve_root(request)
+        document = load_impact_graph_document(
+            resolve_under(root, path_value, "impactGraphPath"))
+        return validate_path_graph(document, root)
+    return validate_graph_shape(inline, "impactGraph")
+
+
 def impact_closure(request: dict[str, Any]) -> list[str]:
     changed = request.get("changed")
     if (not isinstance(changed, list) or not changed
@@ -118,23 +314,14 @@ def impact_closure(request: dict[str, Any]) -> list[str]:
             "changed must be a unique non-empty list of impact nodes",
             "List the changed files/components explicitly before selecting a profile.",
         )
+    reject_ambiguous_graph(request)
     if request.get("impactKnown") is not True:
         return list(changed)
-    graph = request.get("impactGraph")
-    if not isinstance(graph, dict):
-        raise DecisionError(
-            "impactGraph must be a JSON object",
-            "Provide the bounded direct-impact graph for the changed nodes.",
-        )
-    for source, targets in graph.items():
-        if (not isinstance(source, str) or not source
-                or not isinstance(targets, list)
-                or any(not isinstance(target, str) or not target for target in targets)):
-            raise DecisionError(
-                "impactGraph contains an invalid node or edge list",
-                "Use non-empty string nodes and arrays of directly impacted nodes.",
-            )
+    graph = effective_impact_graph(request)
+    return walk_closure(changed, graph)
 
+
+def walk_closure(changed: list[str], graph: dict[str, list[str]]) -> list[str]:
     ordered: list[str] = []
     seen: set[str] = set()
     queue = deque(changed)
@@ -146,6 +333,127 @@ def impact_closure(request: dict[str, Any]) -> list[str]:
         ordered.append(node)
         queue.extend(graph.get(node, []))
     return ordered
+
+
+def audit_impact_graph(document: dict[str, Any], root: Path) -> dict[str, Any]:
+    """Completeness and proportionality of the declared map against the tree.
+
+    Completeness: every suite matched by ``universe.suites`` is the target of at
+    least one edge; every file matched by ``universe.owned`` reaches at least one
+    suite; every node and target still exists. Proportionality: no node's closure
+    covers the full suite set, so a point change never degenerates into the full
+    run. Any violation fails closed; the caller decides what to do with it.
+    """
+    universe = document["universe"]
+    suite_pattern = universe["suites"]
+    suites = sorted(
+        path.relative_to(root).as_posix()
+        for path in safe_glob(root, suite_pattern,
+                              "impactGraph.universe.suites"))
+    if not suites:
+        raise DecisionError(
+            f"no suites match {suite_pattern!r} under {root}",
+            "Audit the map from the repository root that owns the suites.",
+        )
+    owned: list[str] = []
+    for pattern in universe["owned"]:
+        for path in safe_glob(root, pattern, "impactGraph.universe.owned"):
+            rel = path.relative_to(root).as_posix()
+            if rel not in owned:
+                owned.append(rel)
+    owned.sort()
+    graph = merged_impact_graph(document)
+    suite_set = set(suites)
+    targets_seen: set[str] = set()
+    for targets in graph.values():
+        targets_seen.update(targets)
+    stale_nodes = [
+        node for node in graph
+        if not contained_file(root, node, "impactGraph node").is_file()]
+    stale_targets = sorted(
+        target for target in targets_seen
+        if not contained_file(root, target, "impactGraph target").is_file())
+    # The map is "source path -> suites": an edge to anything that is not a
+    # suite would let a declared chain cover an orphaned source through an
+    # intermediate node while orphanOwned stays empty (PUB4 finding).
+    non_suite_targets = sorted(
+        target for target in targets_seen
+        if target not in suite_set and target not in stale_targets)
+    unattached = [suite for suite in suites if suite not in targets_seen]
+    orphan_owned = [
+        node for node in owned
+        if not (set(walk_closure([node], graph)) & suite_set)]
+    saturated: list[str] = []
+    max_closure = 0
+    max_node = ""
+    for node in graph:
+        reached = len(set(walk_closure([node], graph)) & suite_set)
+        if reached > max_closure:
+            max_closure, max_node = reached, node
+        if reached >= len(suites):
+            saturated.append(node)
+    findings = {
+        "unattachedSuites": unattached,
+        "orphanOwned": orphan_owned,
+        "staleNodes": stale_nodes,
+        "staleTargets": stale_targets,
+        "nonSuiteTargets": non_suite_targets,
+        "saturatedNodes": saturated,
+    }
+    verified = not any(findings.values())
+    return {
+        "status": "PASS" if verified else "FAIL",
+        "verified": verified,
+        "suites": len(suites),
+        "owned": len(owned),
+        "nodes": len(graph),
+        "edges": sum(len(targets) for targets in graph.values()),
+        "fullSet": len(suites),
+        "maxClosure": max_closure,
+        "maxClosureNode": max_node,
+        **findings,
+        "why": "" if verified else "impact graph is incomplete or not proportional",
+        "fix": "" if verified else (
+            "Regenerate the map (see its generator field) or declare the missing "
+            "edge; never widen every node to every suite."),
+    }
+
+
+def resolve_root(request: dict[str, Any]) -> Path:
+    """The audited root: an existing directory inside the working repository.
+
+    The engine runs from the repository under review; a root elsewhere would
+    let a request point the audit at an arbitrary readable tree (PUB3).
+    """
+    text = require_path_text(request.get("root", "."), "root")
+    root = Path(text).resolve(strict=False)
+    if not root.is_dir():
+        raise DecisionError(
+            f"root is not an existing directory: {text}",
+            "Point root at the repository that owns the suites and the map.",
+        )
+    cwd = Path.cwd().resolve()
+    if not (cwd / ".git").exists():
+        raise DecisionError(
+            "the engine is not running from a repository",
+            "Run the engine from the top of the repository under audit; an "
+            "arbitrary working directory is not a repository boundary.",
+        )
+    if root != cwd and cwd not in root.parents:
+        raise DecisionError(
+            "root escapes the working repository",
+            "Run the engine from the repository under audit; root may only "
+            "name that repository or a directory inside it.",
+        )
+    return root
+
+
+def run_impact_audit(request: dict[str, Any]) -> dict[str, Any]:
+    reject_ambiguous_graph(request)
+    root = resolve_root(request)
+    path = resolve_under(root, request.get("impactGraphPath"), "impactGraphPath")
+    document = load_impact_graph_document(path)
+    return audit_impact_graph(document, root)
 
 
 def contours_and_capabilities(
@@ -540,8 +848,10 @@ def decide(request: dict[str, Any]) -> dict[str, Any]:
         return validate_diagnostics(request, work)
     if operation == "backlog":
         return evaluate_backlog(request, work)
+    if operation == "impact-audit":
+        return run_impact_audit(request)
     raise DecisionError(
-        "operation must be select, release-evidence, diagnostics, or backlog",
+        "operation must be select, release-evidence, diagnostics, backlog, or impact-audit",
         "Set one bounded operation in the input manifest; do not run an implicit full scan.",
     )
 

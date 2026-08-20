@@ -100,7 +100,10 @@ The executable daily/release selector is
 with `--input`: it computes transitive impact closure, selects `targeted` or
 `strict.release`, binds release evidence to the exact candidate SHA-256, and
 validates diagnostic/backlog boundaries. With no input it is a quiet no-op;
-never replace its fail-closed result with a prose guess.
+never replace its fail-closed result with a prose guess. In this repository the
+impact graph is committed data — `.itd/IMPACT_GRAPH.json`, fed through
+`impactGraphPath` and audited for completeness/proportionality by the
+`impact-audit` operation (see `docs/WORKING_DEADLINE_MODE.md`).
 
 **Cost-awareness (v1.31.0 — New-SDLC port):** for a **high-risk** tier or a heavy
 target (`/kickstart`, `/autopilot`, long `/perf`/`/bugfix` sweeps) note that

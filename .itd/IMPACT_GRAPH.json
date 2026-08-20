@@ -1,0 +1,1629 @@
+{
+  "schemaVersion": "1",
+  "purpose": "Declared impact map of this repository: tracked source path -> the tests/verify_*.py suites that exercise it. Fed to impact_closure (skills/_shared/itd_verification_profiles.py) as impactGraph so a point change runs a proportional subset instead of the full set. Completeness and proportionality are audited by the engine's impact-audit operation (tests/verify_verification_profiles.py).",
+  "generator": "tests/build_impact_graph.py",
+  "universe": {
+    "suites": "tests/verify_*.py",
+    "owned": [
+      "skills/_shared/*.py",
+      "hooks/*.sh"
+    ]
+  },
+  "declared": {},
+  "generated": {
+    ".claude-plugin/marketplace.json": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_registration_and_counts.py"
+    ],
+    ".claude-plugin/plugin.json": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_commit_completeness_gate.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_registration_and_counts.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_routing.py",
+      "tests/verify_skill_completeness_gate.py",
+      "tests/verify_sync_manifest.py",
+      "tests/verify_triggers.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    ".codex-plugin/plugin.json": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    ".dockerignore": [
+      "tests/verify_review_broker_deployment.py"
+    ],
+    ".github/workflows/external-review-gate.yml": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_git_gate_hooks.py"
+    ],
+    ".github/workflows/fixture-smoke.yml": [
+      "tests/verify_live_model_benchmark.py"
+    ],
+    ".github/workflows/hygiene-schedule.yml": [
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    ".github/workflows/meta-review.yml": [
+      "tests/verify_cross_platform_runtime.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_runall_drift.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    ".github/workflows/windows-verify.yml": [
+      "tests/verify_cross_platform_runtime.py",
+      "tests/verify_fable_snippets.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_runall_drift.py",
+      "tests/verify_snapshot.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    ".gitignore": [
+      "tests/verify_adjudication_channel.py",
+      "tests/verify_dod_gate.py",
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py",
+      "tests/verify_snapshot.py",
+      "tests/verify_strict_completion_policy.py",
+      "tests/verify_verification_loop.py"
+    ],
+    ".itd-memory/GOAL.json": [
+      "tests/verify_efficiency_attribution.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py",
+      "tests/verify_state_hardening.py",
+      "tests/verify_task_contract_advisory.py",
+      "tests/verify_verdict_contract.py"
+    ],
+    ".itd-memory/LPD-002_UNIT_PLAN.json": [
+      "tests/verify_review_evidence.py"
+    ],
+    ".itd-memory/STATE.json": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_fresh_session_resume.py",
+      "tests/verify_fresh_session_worktree.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_ledger_reconciliation.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_platform_tmp_and_new_hooks.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_evidence.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_state_hardening.py",
+      "tests/verify_strict_completion_policy.py",
+      "tests/verify_task_piv_lite.py",
+      "tests/verify_unit_log.py",
+      "tests/verify_v147_fixes.py"
+    ],
+    ".itd/ACCEPTANCE_CONTRACT.json": [
+      "tests/verify_adjudication_channel.py",
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_evidence.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py",
+      "tests/verify_verdict_contract.py",
+      "tests/verify_verification_loop.py"
+    ],
+    ".itd/DECISIONS.md": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    ".itd/IMPACT_GRAPH.json": [
+      "tests/verify_verification_profiles.py"
+    ],
+    ".itd/REVIEW_EFFICACY_KEYRING.json": [
+      "tests/verify_gate_registry_binding.py",
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_reviewer_provider_freshness.py"
+    ],
+    ".itd/REVIEW_PROVIDER_FRESHNESS.json": [
+      "tests/verify_reviewer_provider_freshness.py"
+    ],
+    ".itd/SCOPE_LOCK.md": [
+      "tests/verify_adjudication_channel.py",
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_platform_tmp_and_new_hooks.py",
+      "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py",
+      "tests/verify_task_piv_lite.py",
+      "tests/verify_verdict_contract.py",
+      "tests/verify_verification_loop.py"
+    ],
+    ".itd/VERIFICATION_CONTRACT.json": [
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_fail_closed_hygiene.py",
+      "tests/verify_gate_control.py",
+      "tests/verify_gate_registry_binding.py",
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_itd_cli.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "AGENTS.md": [
+      "tests/verify_host_adapters.py",
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py"
+    ],
+    "BACKLOG.md": [
+      "tests/verify_feature_ledger_adoptions.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "CHANGELOG.md": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_feature_ledger_completeness.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "LAUNCH_PLAN.md": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_work_deadline_contract.py"
+    ],
+    "README.md": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_control_quality.py",
+      "tests/verify_cross_review_precommit.py",
+      "tests/verify_dod_gate.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_gate_taxonomy.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_hook_table_completeness.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_platform_tmp_and_new_hooks.py",
+      "tests/verify_review_broker_deployment.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "README.ru.md": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "agents/code-reviewer.md": [
+      "tests/verify_review_report_file.py"
+    ],
+    "agents/devils-advocate.md": [
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "benchmarks/completion-adversarial/CORPUS.json": [
+      "tests/verify_completion_adversarial_corpus.py"
+    ],
+    "benchmarks/completion-adversarial/CORPUS.sha256": [
+      "tests/verify_completion_adversarial_corpus.py"
+    ],
+    "benchmarks/cross-platform/CORPUS.json": [
+      "tests/verify_cross_platform_runtime.py"
+    ],
+    "benchmarks/cross-platform/CORPUS.sha256": [
+      "tests/verify_cross_platform_runtime.py"
+    ],
+    "benchmarks/harness-components/completion-stop.py": [
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_tool_trust_inventory.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "benchmarks/independent-review-efficacy/cases.json": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    "benchmarks/independent-review-efficacy/results/u12-cross-vendor-wsl.json": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    "benchmarks/independent-review-efficacy/results/windows.json": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    "benchmarks/independent-review-efficacy/results/wsl.json": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    "benchmarks/learning-loop/CORPUS.json": [
+      "tests/verify_learning_loop.py"
+    ],
+    "benchmarks/learning-loop/CORPUS.sha256": [
+      "tests/verify_learning_loop.py"
+    ],
+    "benchmarks/operational-friction/BYPASS_FRICTION.json": [
+      "tests/verify_bypass_friction.py"
+    ],
+    "benchmarks/operational-friction/BYPASS_FRICTION.sha256": [
+      "tests/verify_bypass_friction.py"
+    ],
+    "benchmarks/operational-friction/COLD_START.json": [
+      "tests/verify_operational_cold_start.py"
+    ],
+    "benchmarks/operational-friction/COLD_START.sha256": [
+      "tests/verify_operational_cold_start.py"
+    ],
+    "benchmarks/operational-friction/CONTINUATION.json": [
+      "tests/verify_operational_continuation.py"
+    ],
+    "benchmarks/operational-friction/CONTINUATION.sha256": [
+      "tests/verify_operational_continuation.py"
+    ],
+    "benchmarks/proportionality/CORPUS.json": [
+      "tests/verify_proportionality_benchmark.py",
+      "tests/verify_work_deadline_benchmark.py"
+    ],
+    "benchmarks/proportionality/CORPUS.sha256": [
+      "tests/verify_proportionality_benchmark.py",
+      "tests/verify_work_deadline_benchmark.py"
+    ],
+    "benchmarks/routing-prompts.json": [
+      "tests/verify_routing.py"
+    ],
+    "benchmarks/working-deadline/CORPUS.json": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_verification_profiles.py",
+      "tests/verify_work_deadline_benchmark.py",
+      "tests/verify_work_deadline_contract.py"
+    ],
+    "benchmarks/working-deadline/CORPUS.sha256": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_work_deadline_benchmark.py",
+      "tests/verify_work_deadline_contract.py"
+    ],
+    "docs/AGENT_EFFORT_TIERS.md": [
+      "tests/verify_model_risk_monotonic.py",
+      "tests/verify_work_deadline_docs.py"
+    ],
+    "docs/API_REVIEWER.md": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_gate_registry_profiles.py"
+    ],
+    "docs/CI.md": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_gate_registry_profiles.py"
+    ],
+    "docs/CONTRACTS.md": [
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "docs/FABLE5_FEATURE_LEDGER.md": [
+      "tests/verify_feature_ledger.py",
+      "tests/verify_feature_ledger_adoptions.py",
+      "tests/verify_feature_ledger_completeness.py",
+      "tests/verify_feature_ledger_fallbacks.py",
+      "tests/verify_retro_abstention_review.py"
+    ],
+    "docs/HARNESS_CONFORMANCE_CONTRACT.json": [
+      "tests/verify_harness_conformance.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "docs/HARNESS_CONFORMANCE_REPORT.md": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_piv_lite.py"
+    ],
+    "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/HARNESS_DOCS_STATE.json": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/HARNESS_ENGINEERING_MAP.md": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_registration_and_counts.py"
+    ],
+    "docs/HARNESS_TRUST_POLICY.json": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_bypass_friction.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_graduated_trust.py"
+    ],
+    "docs/HOST_ADAPTER_CONTRACT.md": [
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "docs/MODEL-ROUTING-POLICY.md": [
+      "tests/verify_model_risk_monotonic.py",
+      "tests/verify_work_deadline_docs.py"
+    ],
+    "docs/OPERATING_LOOPS.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/PRACTICAL_EFFECTIVENESS_CONTRACT.json": [
+      "tests/verify_external_outcome_contract.py",
+      "tests/verify_external_pilot_collection.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_practical_effectiveness.py"
+    ],
+    "docs/QUALITY.json": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/QUALITY_SCORECARD.json": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/SESSION_EXIT_CONTRACT.json": [
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/VERIFICATION_CONTRACT.json": [
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/VERIFICATION_LOOP.md": [
+      "tests/verify_mandatory_keyless_review.py"
+    ],
+    "docs/WORKING_DEADLINE_MODE.md": [
+      "tests/verify_verification_profiles.py",
+      "tests/verify_work_deadline_contract.py",
+      "tests/verify_work_deadline_docs.py"
+    ],
+    "docs/adr/ADR-003-verifiable-external-reviewer.md": [
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "docs/adr/ADR-004-harness-demo-ux-absorption.md": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json": [
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "docs/api-reviewer/SHADOW_PILOT.json": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "docs/diagnostics-pilot/LABEL_PACKET.json": [
+      "tests/verify_diagnostics_pilot.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/diagnostics-pilot/OBSERVATIONS.json": [
+      "tests/verify_diagnostics_pilot.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/diagnostics-pilot/RESULTS.json": [
+      "tests/verify_diagnostics_pilot.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_review_evalset.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/adjudication.json": [
+      "tests/verify_gate_registry_isolation.py",
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_harness_demo_pilots.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_predeploy_independent_review.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/checker-prompt.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/checker.json": [
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/context.json": [
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/machine.json": [
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_verification_loop.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/metrics.json": [
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/review.json": [
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_gate_profile_doctor.py",
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/task-contract.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/artifacts/ticket.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/before/.gitignore": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/before/src/invoice.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/before/tests/test_invoice.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/manifest.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/manifest.schema.json": [
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/examples/brownfield-piv/patch.diff": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/external-validation/EXTERNAL_OUTCOME_SCHEMA.json": [
+      "tests/verify_external_outcome_contract.py",
+      "tests/verify_external_pilot_collection.py",
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/external-validation/OPERATING_LOOP_STORIES.md": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/external-validation/PILOT_UNIT_SCHEMA.json": [
+      "tests/verify_external_pilot_collection.py"
+    ],
+    "docs/external-validation/PROTOCOL.md": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/harness-demo-pilots/INDEX.json": [
+      "tests/verify_external_outcome_contract.py",
+      "tests/verify_external_outcome_evidence.py",
+      "tests/verify_external_outcome_independence.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_harness_demo_pilots.py",
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation.py",
+      "tests/verify_semantic_navigation_demand.py"
+    ],
+    "docs/harness-demo-pilots/PORTABLE_EVIDENCE.json": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/harness-demo-pilots/PORTABLE_EVIDENCE.sha256": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/host-adapters.json": [
+      "tests/verify_fresh_session_resume.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "docs/instruction-registry.json": [
+      "tests/verify_retro_scan.py"
+    ],
+    "docs/semantic-navigation/DEMAND.json": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation.py",
+      "tests/verify_semantic_navigation_demand.py"
+    ],
+    "docs/templates/CHECKER_PROMPT.md": [
+      "tests/verify_verification_loop.py"
+    ],
+    "docs/templates/github/itd-hygiene.yml": [
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/templates/github/itd-machine-oracle.yml": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_machine_oracle.py"
+    ],
+    "docs/templates/global-claude-md.md": [
+      "tests/verify_fable_snippets.py",
+      "tests/verify_feature_ledger_completeness.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_registration_and_counts.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/templates/global-codex-agents.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/templates/itd-memory/goal.schema.json": [
+      "tests/verify_init_contracts.py",
+      "tests/verify_state_hardening.py"
+    ],
+    "docs/templates/itd-memory/session-state.schema.json": [
+      "tests/verify_state_hardening.py"
+    ],
+    "docs/templates/itd/ACCEPTANCE_CONTRACT.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/AGENT_CONTEXT_CONTRACT.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/templates/itd/COMPLETION_POLICY.json": [
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "docs/templates/itd/FRESH_SESSION_WORKTREE_CONTRACT.json": [
+      "tests/verify_fresh_session_worktree.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/templates/itd/INCREMENTAL_DIAGNOSTICS_CONTRACT.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_incremental_diagnostics.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_CONTRACT.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_CONTRACT.schema.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_FAILURE_STORY.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_RUN.schema.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_STORY.schema.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/OPERATING_LOOP_SUCCESS_STORY.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "docs/templates/itd/QUALITY_SCORECARD.json": [
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/templates/itd/TASK_CONTRACT.md": [
+      "tests/verify_task_contract_advisory.py"
+    ],
+    "docs/templates/itd/TOOL_CAPABILITY_REGISTRY.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation.py",
+      "tests/verify_semantic_navigation_demand.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "docs/templates/itd/TOOL_CAPABILITY_REGISTRY.schema.json": [
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "docs/templates/itd/VERIFICATION_CONTRACT.json": [
+      "tests/verify_dod_coverage.py"
+    ],
+    "docs/templates/itd/check_contract_drift.py": [
+      "tests/verify_init_contracts.py",
+      "tests/verify_operational_cold_start.py"
+    ],
+    "docs/templates/itd/itd_hygiene.py": [
+      "tests/verify_gate_registry_binding.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "docs/templates/itd/itd_init_validate.py": [
+      "tests/verify_init_contracts.py",
+      "tests/verify_operational_cold_start.py"
+    ],
+    "hooks/careful.sh": [
+      "tests/verify_hook_table_completeness.py",
+      "tests/verify_narration_final.py",
+      "tests/verify_v147_fixes.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    "hooks/check-commit-completeness.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_commit_completeness_gate.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    "hooks/check-dod-before-commit.sh": [
+      "tests/verify_agent_review_sentinel.py",
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_dod_gate.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_project_checks.py",
+      "tests/verify_task_contract_advisory.py"
+    ],
+    "hooks/check-predeploy-gate.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_predeploy_gate.py",
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_scrubber_precision.py"
+    ],
+    "hooks/check-review-before-commit.sh": [
+      "tests/verify_agent_review_sentinel.py",
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_redteam_multihost.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py"
+    ],
+    "hooks/check-skill-completeness.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_skill_completeness_gate.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    "hooks/check-skills.sh": [
+      "tests/verify_brownfield_and_gate.py",
+      "tests/verify_commit_completeness_gate.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_routing.py",
+      "tests/verify_skill_enforcement.py",
+      "tests/verify_triggers.py"
+    ],
+    "hooks/check-tool-skill.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_brownfield_and_gate.py",
+      "tests/verify_bypass_friction.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_redteam_multihost.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_skill_enforcement.py",
+      "tests/verify_v147_fixes.py"
+    ],
+    "hooks/codex-dispatch.py": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_bypass_friction.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "hooks/completion-gate.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_control_quality.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "hooks/completion-signals.sh": [
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "hooks/completion-stop.sh": [
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "hooks/completion_lib.py": [
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_completion_ledger.py",
+      "tests/verify_completion_signal_classes.py",
+      "tests/verify_control_quality.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_signal_attribution.py",
+      "tests/verify_state_hardening.py",
+      "tests/verify_verify_signal_and_watchdog.py"
+    ],
+    "hooks/context-aware.sh": [
+      "tests/verify_hook_depth.py"
+    ],
+    "hooks/context-budget.sh": [
+      "tests/verify_hook_depth.py"
+    ],
+    "hooks/cost-tracker.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_cost_gate.py",
+      "tests/verify_cost_tracker.py",
+      "tests/verify_efficiency_attribution.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_observed_token_telemetry.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_v147_fixes.py"
+    ],
+    "hooks/crash-recovery.sh": [
+      "tests/verify_hook_depth.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_state_hardening.py"
+    ],
+    "hooks/cross-review-precommit.sh": [
+      "tests/verify_cross_review_precommit.py",
+      "tests/verify_feature_ledger_fallbacks.py"
+    ],
+    "hooks/execution-trace.sh": [
+      "tests/verify_execution_trace_outcome.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_host_adapters.py"
+    ],
+    "hooks/freeze.sh": [
+      "tests/verify_feature_ledger_fallbacks.py",
+      "tests/verify_gate_taxonomy.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_hook_table_completeness.py",
+      "tests/verify_registration_and_counts.py"
+    ],
+    "hooks/handoff-readiness.sh": [
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_platform_tmp_and_new_hooks.py"
+    ],
+    "hooks/hooks.json": [
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_cost_gate.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_predeploy_independent_review.py"
+    ],
+    "hooks/model-policy.sh": [
+      "tests/verify_host_adapters.py",
+      "tests/verify_model_policy_hint.py"
+    ],
+    "hooks/narration-final.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_fable_snippets.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_table_completeness.py",
+      "tests/verify_narration_final.py",
+      "tests/verify_review_autoping.py"
+    ],
+    "hooks/pii-egress-guard.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_pii_egress.py"
+    ],
+    "hooks/pre-flight-check.sh": [
+      "tests/verify_fresh_session_resume.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_state_hardening.py",
+      "tests/verify_v147_fixes.py"
+    ],
+    "hooks/record-agent-skill.sh": [
+      "tests/verify_agent_review_sentinel.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_gate_taxonomy.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_strict_completion_policy.py",
+      "tests/verify_verify_signal_and_watchdog.py"
+    ],
+    "hooks/risk-score.sh": [
+      "tests/verify_risk_score.py"
+    ],
+    "hooks/session-open-diagnostic.sh": [
+      "tests/verify_fresh_session_resume.py",
+      "tests/verify_hook_depth.py",
+      "tests/verify_host_neutral_memory.py"
+    ],
+    "hooks/state-guard.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_state_hardening.py"
+    ],
+    "hooks/stuck-detection.sh": [
+      "tests/verify_hook_depth.py"
+    ],
+    "hooks/validate_state_core.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_state_hardening.py"
+    ],
+    "hooks/verdict-contract.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_table_completeness.py",
+      "tests/verify_retro_scan.py",
+      "tests/verify_review_autoping.py",
+      "tests/verify_verdict_contract.py"
+    ],
+    "hooks/wip-gate.sh": [
+      "tests/verify_platform_tmp_and_new_hooks.py"
+    ],
+    "scripts/itd.py": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_gate_registry_isolation.py",
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_itd_cli.py"
+    ],
+    "scripts/itd_external_outcomes.py": [
+      "tests/verify_external_outcome_contract.py",
+      "tests/verify_external_outcome_evidence.py",
+      "tests/verify_external_outcome_independence.py",
+      "tests/verify_external_pilot_collection.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "scripts/itd_external_pilot.py": [
+      "tests/verify_external_pilot_collection.py"
+    ],
+    "scripts/itd_gate_profile_doctor.py": [
+      "tests/verify_gate_profile_doctor.py"
+    ],
+    "scripts/itd_github_app_manifest.py": [
+      "tests/verify_github_app_manifest.py"
+    ],
+    "scripts/itd_install_cli.py": [
+      "tests/verify_git_gate_hooks.py"
+    ],
+    "scripts/itd_install_git_hooks.py": [
+      "tests/verify_git_gate_hooks.py"
+    ],
+    "scripts/itd_machine_oracle.py": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_quick_regression.py"
+    ],
+    "scripts/itd_metrics.py": [
+      "tests/verify_retro_scan.py"
+    ],
+    "scripts/itd_otel_export.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_otel_export.py",
+      "tests/verify_otel_semconv.py"
+    ],
+    "scripts/itd_pre_push.py": [
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_git_gate_hooks.py"
+    ],
+    "scripts/sync-to-active.sh": [
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_cost_gate.py",
+      "tests/verify_execution_trace_outcome.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_fable_snippets.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_registration_and_counts.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_sync_manifest.py"
+    ],
+    "scripts/validate_state.py": [
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_goal_tools.py",
+      "tests/verify_init_contracts.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_state_hardening.py",
+      "tests/verify_work_deadline_runtime.py"
+    ],
+    "scripts/verify-sync-to-active.sh": [
+      "tests/verify_sync_manifest.py"
+    ],
+    "scripts/verify_skill_profiles.py": [
+      "tests/verify_runall_drift.py"
+    ],
+    "services/review_broker/Dockerfile": [
+      "tests/verify_review_broker_deployment.py"
+    ],
+    "services/review_broker/__init__.py": [
+      "tests/verify_review_broker_server.py"
+    ],
+    "services/review_broker/deploy/Caddyfile.example": [
+      "tests/verify_review_broker_deployment.py"
+    ],
+    "services/review_broker/deploy/README.md": [
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_review_broker_deployment.py"
+    ],
+    "services/review_broker/deploy/compose.yaml": [
+      "tests/verify_review_broker_deployment.py"
+    ],
+    "services/review_broker/operator.py": [
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_external_outcome_contract.py",
+      "tests/verify_external_pilot_collection.py",
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_review_broker_operator.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
+    "services/review_broker/requirements.lock": [
+      "tests/verify_review_broker_deployment.py"
+    ],
+    "services/review_broker/server.py": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_review_broker_server.py"
+    ],
+    "skills/_shared/EXTERNAL_REVIEW_POLICY.json": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_api_reviewer_curl_transport.py",
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "skills/_shared/EXTERNAL_REVIEW_VERDICT_SCHEMA.json": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_api_reviewer_curl_transport.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_review_broker_policy.py"
+    ],
+    "skills/_shared/OPERATING_LOOP_POLICY.json": [
+      "tests/verify_operating_loops.py"
+    ],
+    "skills/_shared/OPERATING_LOOP_RECIPES.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/PROPORTIONALITY_POLICY.json": [
+      "tests/verify_proportionality_benchmark.py",
+      "tests/verify_unit_log.py",
+      "tests/verify_verification_profiles.py",
+      "tests/verify_work_deadline_contract.py"
+    ],
+    "skills/_shared/REVIEW_BROKER_POLICY.json": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_review_broker.py",
+      "tests/verify_review_broker_policy.py"
+    ],
+    "skills/_shared/REVIEW_BROKER_POLICY.schema.json": [
+      "tests/verify_review_broker.py",
+      "tests/verify_review_broker_policy.py"
+    ],
+    "skills/_shared/REVIEW_BROKER_RUNTIME.schema.json": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_review_broker_policy.py"
+    ],
+    "skills/_shared/VERIFICATION_LOOP_POLICY.json": [
+      "tests/verify_review_cache.py",
+      "tests/verify_verification_loop.py"
+    ],
+    "skills/_shared/WORKING_DEADLINE_POLICY.json": [
+      "tests/verify_external_write_gate.py",
+      "tests/verify_model_risk_monotonic.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_verification_profiles.py",
+      "tests/verify_work_deadline_contract.py",
+      "tests/verify_work_deadline_docs.py"
+    ],
+    "skills/_shared/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/_shared/helpers.md": [
+      "tests/verify_fable_snippets.py",
+      "tests/verify_feature_ledger_adoptions.py",
+      "tests/verify_proportionality_benchmark.py",
+      "tests/verify_review_report_file.py",
+      "tests/verify_source_read_contract.py",
+      "tests/verify_stall_fallback.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "skills/_shared/itd_captured_run.py": [
+      "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/itd_diagnostics_pilot.py": [
+      "tests/verify_diagnostics_pilot.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/itd_external_reviewer.py": [
+      "tests/verify_api_reviewer.py",
+      "tests/verify_api_reviewer_curl_transport.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_scrubber_precision.py"
+    ],
+    "skills/_shared/itd_external_write_gate.py": [
+      "tests/verify_external_write_gate.py",
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/_shared/itd_free_reviewer_producer.py": [
+      "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_copilot_reviewer.py",
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_reviewer_independence_policy.py",
+      "tests/verify_reviewer_provider_freshness.py",
+      "tests/verify_scrubber_precision.py",
+      "tests/verify_sync_manifest.py",
+      "tests/verify_verification_loop.py"
+    ],
+    "skills/_shared/itd_fresh_session_worktree.py": [
+      "tests/verify_fresh_session_worktree.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/itd_gate_control.py": [
+      "tests/verify_gate_control.py",
+      "tests/verify_gate_profile_doctor.py",
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_push_gate_adjudicated.py"
+    ],
+    "skills/_shared/itd_harness_controls.py": [
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "skills/_shared/itd_incremental_diagnostics.py": [
+      "tests/verify_diagnostics_pilot.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_incremental_diagnostics.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/itd_operating_loops.py": [
+      "tests/verify_operating_loops.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/_shared/itd_project_checks.sh": [
+      "tests/verify_project_checks.py"
+    ],
+    "skills/_shared/itd_py.sh": [
+      "tests/verify_fail_closed_hygiene.py",
+      "tests/verify_harness_conformance.py",
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_no_bare_python3.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_practical_effectiveness.py",
+      "tests/verify_py_launcher_encoding.py"
+    ],
+    "skills/_shared/itd_review_broker.py": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_free_reviewer_producer.py",
+      "tests/verify_review_broker.py"
+    ],
+    "skills/_shared/itd_review_broker_primitives.py": [
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_review_broker_primitives.py"
+    ],
+    "skills/_shared/itd_review_evidence.py": [
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_review_evidence.py"
+    ],
+    "skills/_shared/itd_reviewer_independence.py": [
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_reviewer_independence_policy.py"
+    ],
+    "skills/_shared/itd_semantic_navigation.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation.py",
+      "tests/verify_semantic_navigation_demand.py"
+    ],
+    "skills/_shared/itd_unit_lifecycle.py": [
+      "tests/verify_ledger_reconciliation.py"
+    ],
+    "skills/_shared/itd_verification_loop.py": [
+      "tests/verify_adjudication_channel.py",
+      "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_harness_demo_pilots.py",
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_reviewer_independence_policy.py",
+      "tests/verify_verification_loop.py"
+    ],
+    "skills/_shared/itd_verification_profiles.py": [
+      "tests/verify_verification_profiles.py",
+      "tests/verify_work_deadline_benchmark.py"
+    ],
+    "skills/adopt/SKILL.md": [
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "skills/adopt/references/agents-md-template.md": [
+      "tests/verify_host_adapters.py",
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "skills/adopt/references/codex-adoption.md": [
+      "tests/verify_host_adapters.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/adopt/references/codex-project-hooks.json": [
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_cost_gate.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_graduated_trust.py",
+      "tests/verify_host_adapters.py",
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "skills/adopt/references/project-settings-template.json": [
+      "tests/verify_completion_signals_powershell.py",
+      "tests/verify_cost_gate.py",
+      "tests/verify_external_write_gate.py",
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/adopt/scripts/itd_adopt.py": [
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py"
+    ],
+    "skills/adopt/scripts/itd_context_map.py": [
+      "tests/verify_adopt_context.py",
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "skills/autopilot/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/blueprint/SKILL.md": [
+      "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "skills/blueprint/references/document-templates.md": [
+      "tests/verify_live_model_benchmark.py"
+    ],
+    "skills/blueprint/scripts/itd_design_provenance.py": [
+      "tests/verify_blueprint_provenance_reviewer.py"
+    ],
+    "skills/browser-check/playwright/run.js": [
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "skills/bugfix/SKILL.md": [
+      "tests/verify_operating_loops.py"
+    ],
+    "skills/caveman/SKILL.md": [
+      "tests/verify_fable_snippets.py"
+    ],
+    "skills/cross-review/SKILL.md": [
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_review_autoping.py"
+    ],
+    "skills/deploy/SKILL.md": [
+      "tests/verify_predeploy_independent_review.py"
+    ],
+    "skills/deploy/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/deploy/scripts/itd_predeploy_gate.py": [
+      "tests/verify_predeploy_gate.py",
+      "tests/verify_predeploy_independent_review.py"
+    ],
+    "skills/github-workflow/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/goal/SKILL.md": [
+      "tests/verify_fable_snippets.py"
+    ],
+    "skills/goal/scripts/itd_goal_report.py": [
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_goal_tools.py",
+      "tests/verify_work_deadline_runtime.py"
+    ],
+    "skills/goal/scripts/itd_goal_score.py": [
+      "tests/verify_goal_five_star.py"
+    ],
+    "skills/goal/scripts/itd_goal_verify.py": [
+      "tests/verify_goal_bounded_autonomy.py",
+      "tests/verify_goal_tools.py",
+      "tests/verify_goal_verify_shell.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_verify_signal_and_watchdog.py",
+      "tests/verify_work_deadline_runtime.py"
+    ],
+    "skills/infra/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/migrate-prod/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/migrate/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/perf/SKILL.md": [
+      "tests/verify_refute_fleet.py"
+    ],
+    "skills/refactor/references/worktree-isolation.md": [
+      "tests/verify_feature_ledger_fallbacks.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    "skills/retro/SKILL.md": [
+      "tests/verify_feature_ledger_adoptions.py",
+      "tests/verify_retro_abstention_review.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "skills/retro/scripts/itd_learning_loop.py": [
+      "tests/verify_learning_loop.py"
+    ],
+    "skills/retro/scripts/itd_ledger_abstentions.py": [
+      "tests/verify_feature_ledger_adoptions.py",
+      "tests/verify_retro_abstention_review.py"
+    ],
+    "skills/retro/scripts/itd_retro_scan.py": [
+      "tests/verify_retro_scan.py"
+    ],
+    "skills/retro/scripts/itd_review_import.py": [
+      "tests/verify_review_import.py"
+    ],
+    "skills/review/SKILL.md": [
+      "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_review_autoping.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_report_file.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_stall_fallback.py"
+    ],
+    "skills/review/references/meta-review-checklist.md": [
+      "tests/verify_review_cache.py"
+    ],
+    "skills/review/references/review-checklist.md": [
+      "tests/verify_review_cache.py"
+    ],
+    "skills/review/scripts/itd_review_cache.py": [
+      "tests/verify_adjudication_channel.py",
+      "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_dod_gate.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py"
+    ],
+    "skills/security-audit/SKILL.md": [
+      "tests/verify_refute_fleet.py"
+    ],
+    "skills/security-audit/references/security-checklist.md": [
+      "tests/verify_tool_trust_inventory.py"
+    ],
+    "skills/session-save/SKILL.md": [
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
+    "skills/task/PIV_LITE_ROUTE.json": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_piv_lite.py"
+    ],
+    "skills/task/SKILL.md": [
+      "tests/verify_harness_demo_absorption.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_proportionality_benchmark.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_stall_fallback.py",
+      "tests/verify_task_contract_advisory.py",
+      "tests/verify_task_deployment_baseline.py",
+      "tests/verify_task_piv_lite.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "skills/task/references/routing-matrix.md": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_piv_lite.py"
+    ],
+    "skills/task/scripts/itd_unit_log.py": [
+      "tests/verify_ledger_reconciliation.py",
+      "tests/verify_unit_log.py"
+    ],
+    "skills/test/SKILL.md": [
+      "tests/verify_refute_fleet.py"
+    ],
+    "skills/tool-sync/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "starters/api-fastapi/files/app/services/core.py": [
+      "tests/verify_goal_five_star.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/build_impact_graph.py": [
+      "tests/verify_verification_profiles.py"
+    ],
+    "tests/fixtures/fixture-03-cli-tool/live-prompt.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/ledger-reconciliation/GOAL-axis1.json": [
+      "tests/verify_ledger_reconciliation.py"
+    ],
+    "tests/fixtures/ledger-reconciliation/GOAL-axis2.json": [
+      "tests/verify_ledger_reconciliation.py"
+    ],
+    "tests/fixtures/live-model-evidence/latest.json": [
+      "tests/verify_harness_docs_freshness.py",
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/CLAUDE_CODE_GUIDE.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/IMPLEMENTATION_PLAN.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PRD.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/PROJECT_ARCHITECTURE.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/output/STRATEGIC_PLAN.md": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/run-report.json": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/fixtures/live-model-evidence/runs/20260728T135617Z-d0b19052/transcript.jsonl.gz": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/gen_phase2_contracts.py": [
+      "tests/verify_snapshot.py"
+    ],
+    "tests/helpers/platform_runtime_probe.py": [
+      "tests/verify_cross_platform_runtime.py"
+    ],
+    "tests/meta_review.py": [
+      "tests/verify_hook_count_words.py",
+      "tests/verify_narration_final.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_runall_drift.py",
+      "tests/verify_triggers.py",
+      "tests/verify_worktree_hook_safety.py"
+    ],
+    "tests/run-all.sh": [
+      "tests/verify_cost_gate.py",
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_machine_oracle.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_quick_regression.py",
+      "tests/verify_review_broker_deployment.py",
+      "tests/verify_review_evidence.py",
+      "tests/verify_runall_drift.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_tool_trust_inventory.py",
+      "tests/verify_verification_profiles.py"
+    ],
+    "tests/run-independent-review-efficacy.py": [
+      "tests/verify_independent_review_efficacy.py"
+    ],
+    "tests/run-live-model-benchmark.py": [
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_tree_pin_debris.py"
+    ],
+    "tests/verification_loop_fixture.py": [
+      "tests/verify_dod_gate.py",
+      "tests/verify_review_cache.py",
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_risk_score.py"
+    ],
+    "tests/verify_adopt_context.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_all_hard_gate_host_parity.py": [
+      "tests/verify_bypass_friction.py"
+    ],
+    "tests/verify_api_reviewer.py": [
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "tests/verify_commit_completeness_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_completion_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_completion_policy_calibration.py": [
+      "tests/verify_verification_profiles.py"
+    ],
+    "tests/verify_cost_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_diagnostics_pilot.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_dod_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_endpoint_regex.py": [
+      "tests/verify_snapshot.py"
+    ],
+    "tests/verify_free_reviewer_producer.py": [
+      "tests/verify_scrubber_precision.py"
+    ],
+    "tests/verify_fresh_session_worktree.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_gate_taxonomy.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_goal_tools.py": [
+      "tests/verify_snapshot.py"
+    ],
+    "tests/verify_graduated_trust.py": [
+      "tests/verify_harness_conformance.py"
+    ],
+    "tests/verify_harness_conformance.py": [
+      "tests/verify_harness_docs_freshness.py"
+    ],
+    "tests/verify_harness_demo_absorption.py": [
+      "tests/verify_harness_demo_portable.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_harness_demo_capture_schema.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_harness_demo_pilots.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation_demand.py"
+    ],
+    "tests/verify_harness_demo_portable.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_semantic_navigation_demand.py"
+    ],
+    "tests/verify_harness_map_fixtures.py": [
+      "tests/verify_completion_gate.py",
+      "tests/verify_control_quality.py",
+      "tests/verify_redteam_multihost.py"
+    ],
+    "tests/verify_hook_depth.py": [
+      "tests/verify_commit_completeness_gate.py"
+    ],
+    "tests/verify_host_adapters.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_incremental_diagnostics.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_independent_review_efficacy.py": [
+      "tests/verify_quick_regression.py",
+      "tests/verify_review_evidence.py"
+    ],
+    "tests/verify_live_model_benchmark.py": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_tree_pin_debris.py"
+    ],
+    "tests/verify_machine_oracle.py": [
+      "tests/verify_quick_regression.py"
+    ],
+    "tests/verify_narration_final.py": [
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_verdict_contract.py"
+    ],
+    "tests/verify_operating_loops.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_operating_loops_release.py": [
+      "tests/verify_external_reviewer_release.py"
+    ],
+    "tests/verify_pii_egress.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_predeploy_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_quick_regression.py": [
+      "tests/verify_machine_oracle.py"
+    ],
+    "tests/verify_registration_and_counts.py": [
+      "tests/verify_hook_table_completeness.py"
+    ],
+    "tests/verify_retro_scan.py": [
+      "tests/verify_ledger_reconciliation.py"
+    ],
+    "tests/verify_review_autoping.py": [
+      "tests/verify_refute_fleet.py"
+    ],
+    "tests/verify_review_cache.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_review_sentinel_diffbind.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_routing.py": [
+      "tests/verify_triggers.py"
+    ],
+    "tests/verify_semantic_navigation.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_semantic_navigation_demand.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_session_hygiene_quality.py": [
+      "tests/verify_fail_closed_hygiene.py"
+    ],
+    "tests/verify_skill_completeness_gate.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_skill_enforcement.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_snapshot.py": [
+      "tests/verify_endpoint_regex.py",
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_runall_drift.py"
+    ],
+    "tests/verify_state_hardening.py": [
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_strict_completion_policy.py": [
+      "tests/verify_completion_adversarial_corpus.py"
+    ],
+    "tests/verify_task_piv_lite.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_triggers.py": [
+      "tests/verify_routing.py"
+    ],
+    "tests/verify_verdict_contract.py": [
+      "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_verification_loop.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_work_deadline_contract.py": [
+      "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_worktree_hook_safety.py": [
+      "tests/verify_skill_completeness_gate.py"
+    ]
+  }
+}

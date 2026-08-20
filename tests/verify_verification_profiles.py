@@ -440,6 +440,417 @@ r, payload = invoke_mutant((
 check("mutation guard kills noisy no-input behavior",
       r.returncode == 0 and bool(r.stdout), r.stdout + r.stderr)
 
+# ---------------------------------------------------------------------------
+# LPD-002 R6: the impact map is data in the repository, fed to impact_closure
+# as impactGraph; completeness and proportionality are judged by the engine.
+# ---------------------------------------------------------------------------
+IMPACT_MAP = ROOT / ".itd" / "IMPACT_GRAPH.json"
+BUILDER = ROOT / "tests" / "build_impact_graph.py"
+SELF = "tests/verify_verification_profiles.py"
+SELECTOR = "skills/_shared/itd_verification_profiles.py"
+
+
+def audit_request(map_path: Path = IMPACT_MAP) -> dict:
+    return {"operation": "impact-audit", "impactGraphPath": str(map_path),
+            "root": str(ROOT)}
+
+
+def map_select(changed: list[str], known: bool = True, risk: str = "medium",
+               map_path: Path = IMPACT_MAP) -> dict:
+    request = {
+        "operation": "select", "profile": "targeted", "risk": risk, "signals": [],
+        "impactKnown": known, "changed": changed, "requestedCapabilities": [],
+    }
+    if known:
+        request["impactGraphPath"] = str(map_path)
+    return request
+
+
+MUTANT_COUNTER = [0]
+
+
+def mutated_map(td: Path, mutate) -> Path:
+    """Write a mutated map INSIDE the repository root (containment is enforced
+    by the engine since the PUB3 security finding), under a git-ignored dir."""
+    document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
+    mutate(document)
+    MUTANT_COUNTER[0] += 1
+    path = td / f"IMPACT_GRAPH-{MUTANT_COUNTER[0]}.json"
+    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+check("impact map is committed data, not inferred at run time", IMPACT_MAP.is_file())
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", ".itd/IMPACT_GRAPH.json"],
+    cwd=str(ROOT), capture_output=True, timeout=30)
+check("impact map is tracked by git, not a worktree leftover",
+      tracked.returncode == 0,
+      tracked.stderr.decode("utf-8", "replace"))
+document = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))
+check("impact map names its generator and schema",
+      document.get("schemaVersion") == "1"
+      and document.get("generator") == "tests/build_impact_graph.py"
+      and BUILDER.is_file())
+check("impact map declares the suite universe and the owned source globs",
+      (document.get("universe") or {}).get("suites") == "tests/verify_*.py"
+      and (document.get("universe") or {}).get("owned") == ["skills/_shared/*.py", "hooks/*.sh"])
+
+all_suites = sorted(
+    p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").glob("verify_*.py"))
+owned_files = sorted(
+    p.relative_to(ROOT).as_posix()
+    for pattern in ("skills/_shared/*.py", "hooks/*.sh") for p in ROOT.glob(pattern))
+r, payload = invoke(audit_request())
+check("impact audit passes on the committed map and the live tree",
+      r.returncode == 0 and payload.get("status") == "PASS"
+      and payload.get("verified") is True, r.stdout + r.stderr)
+check("completeness: every tests/verify_*.py suite appears in the map",
+      payload.get("suites") == len(all_suites) and len(all_suites) >= 151
+      and payload.get("unattachedSuites") == [], r.stdout)
+check("completeness: every skills/_shared/*.py and hooks/*.sh has an owning suite",
+      payload.get("owned") == len(owned_files) and payload.get("orphanOwned") == [],
+      r.stdout)
+check("completeness: no stale node or target survives in the map",
+      payload.get("staleNodes") == [] and payload.get("staleTargets") == [], r.stdout)
+check("proportionality: no node's closure reaches the full suite set",
+      payload.get("saturatedNodes") == []
+      and 0 < payload.get("maxClosure", 0) < payload.get("fullSet", 0), r.stdout)
+r, payload_cli = invoke(audit_request(), subprocess_mode=True)
+check("impact audit is reachable through the CLI with the same verdict",
+      r.returncode == 0 and payload_cli.get("status") == "PASS"
+      and payload_cli.get("edges") == payload.get("edges"), r.stdout + r.stderr)
+
+r, payload = invoke(map_select([SELECTOR]))
+selected = [node for node in payload.get("impactClosure") or [] if node in all_suites]
+check("the committed map is fed to impact_closure as impactGraph",
+      r.returncode == 0 and payload.get("route") == "working_deadline.targeted"
+      and SELF in selected, r.stdout + r.stderr)
+check("proportionality: a point change selects strictly fewer suites than the full set",
+      0 < len(selected) < len(all_suites), f"{len(selected)}/{len(all_suites)}")
+r, payload = invoke(map_select(["hooks/completion-stop.sh"]))
+check("an owned hook resolves to its owning suite through the map",
+      r.returncode == 0
+      and "tests/verify_completion_policy_calibration.py" in (payload.get("impactClosure") or []),
+      r.stdout + r.stderr)
+r, payload = invoke(map_select([SELECTOR], known=False))
+check("impactKnown:false exits to the strict release path without the map",
+      r.returncode == 0 and payload.get("route") == "strict.release"
+      and "unknown impact requires strict release" in (payload.get("reasons") or [])
+      and payload.get("impactClosure") == [SELECTOR], r.stdout + r.stderr)
+both = map_select([SELECTOR])
+both["impactGraph"] = {SELECTOR: [SELF]}
+r, payload = invoke(both)
+check("inline graph and map path are mutually exclusive",
+      r.returncode == 1 and "mutually exclusive" in payload.get("why", ""), r.stdout)
+both_unknown = dict(both, impactKnown=False)
+r, payload = invoke(both_unknown)
+check("the exclusivity rule holds even when impact is unknown",
+      r.returncode == 1 and "mutually exclusive" in payload.get("why", ""), r.stdout)
+unknown_missing_map = map_select([SELECTOR], known=False)
+unknown_missing_map["impactGraphPath"] = str(ROOT / "does-not-exist" / "IMPACT_GRAPH.json")
+r, payload = invoke(unknown_missing_map)
+check("unknown impact never loads the map, even when the path is given and missing",
+      r.returncode == 0 and payload.get("route") == "strict.release"
+      and payload.get("impactClosure") == [SELECTOR], r.stdout + r.stderr)
+r, payload = invoke_mutant((
+    ("    reject_ambiguous_graph(request)\n    if request.get(\"impactKnown\") is not True:",
+     "    if request.get(\"impactKnown\") is not True:"),
+), both_unknown)
+check("mutation guard kills the early-return bypass of the exclusivity rule",
+      r.returncode == 0 and payload.get("route") == "strict.release", r.stdout + r.stderr)
+
+import shutil as _shutil
+_scratch = ROOT / ".itd" / f"tmp-impact-oracle-{os.getpid()}"
+_scratch.mkdir(parents=True, exist_ok=True)
+try:
+    tmp = _scratch
+    def drop_edges_to_self(doc):
+        for targets in doc["generated"].values():
+            if SELF in targets:
+                targets.remove(SELF)
+        doc["declared"] = {}
+    r, payload = invoke(audit_request(mutated_map(tmp, drop_edges_to_self)))
+    check("mutation: removing every edge to a suite fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("unattachedSuites") == [SELF], r.stdout + r.stderr)
+
+    def drop_owned_node(doc):
+        doc["generated"].pop("hooks/completion-stop.sh")
+        doc["declared"] = {}
+    r, payload = invoke(audit_request(mutated_map(tmp, drop_owned_node)))
+    check("mutation: removing an owned source's edges fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and "hooks/completion-stop.sh" in (payload.get("orphanOwned") or []),
+          r.stdout + r.stderr)
+
+    def everything_adjacent(doc):
+        doc["generated"] = {node: list(all_suites) for node in doc["generated"]}
+    r, payload = invoke(audit_request(mutated_map(tmp, everything_adjacent)))
+    check("mutation: declaring every node adjacent to every suite fails proportionality",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and len(payload.get("saturatedNodes") or []) == len(document["generated"])
+          and payload.get("unattachedSuites") == [] and payload.get("orphanOwned") == [],
+          r.stdout + r.stderr)
+
+    def stale_node(doc):
+        doc["generated"]["skills/_shared/itd_ghost.py"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, stale_node)))
+    check("mutation: a node that no longer exists fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("staleNodes") == ["skills/_shared/itd_ghost.py"], r.stdout)
+
+    def stale_target(doc):
+        doc["generated"][SELECTOR].append("tests/verify_ghost.py")
+    r, payload = invoke(audit_request(mutated_map(tmp, stale_target)))
+    check("mutation: an edge to a missing suite fails completeness",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("staleTargets") == ["tests/verify_ghost.py"], r.stdout)
+
+    def declared_edge(doc):
+        doc["declared"] = {"docs/WORKING_DEADLINE_MODE.md": [SELF]}
+    declared_path = mutated_map(tmp, declared_edge)
+    r, payload = invoke(map_select(["docs/WORKING_DEADLINE_MODE.md"], map_path=declared_path))
+    check("hand-declared edges merge into the generated graph",
+          r.returncode == 0 and SELF in (payload.get("impactClosure") or []), r.stdout)
+
+    def laundered_coverage(doc):
+        doc["generated"].pop("hooks/completion-stop.sh")
+        doc["declared"] = {
+            "hooks/completion-stop.sh": ["docs/WORKING_DEADLINE_MODE.md"],
+            "docs/WORKING_DEADLINE_MODE.md": [SELF],
+        }
+    r, payload = invoke(audit_request(mutated_map(tmp, laundered_coverage)))
+    check("mutation: covering an owned source through a non-suite intermediate fails",
+          r.returncode == 0 and payload.get("status") == "FAIL"
+          and payload.get("nonSuiteTargets") == ["docs/WORKING_DEADLINE_MODE.md"]
+          and payload.get("orphanOwned") == [], r.stdout + r.stderr)
+
+    def absolute_suites_pattern(doc):
+        doc["universe"]["suites"] = "/etc/*"
+    r, payload = invoke(audit_request(mutated_map(tmp, absolute_suites_pattern)))
+    check("an absolute universe pattern fails closed",
+          r.returncode == 1 and "root-relative glob" in payload.get("why", ""),
+          r.stdout)
+
+    def escaping_owned_pattern(doc):
+        doc["universe"]["owned"] = ["../*/secrets/*.py"]
+    r, payload = invoke(audit_request(mutated_map(tmp, escaping_owned_pattern)))
+    check("an escaping owned pattern fails closed",
+          r.returncode == 1 and "root-relative glob" in payload.get("why", ""),
+          r.stdout)
+
+    def select_escaping_declared(doc):
+        doc["declared"] = {"../outside.py": [SELF]}
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, select_escaping_declared)))
+    check("select fails closed on a map with an escaping node",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+
+    evil_name = f"verify_evil_{os.getpid()}"
+    evil_dir = ROOT / "tests" / evil_name
+    evil_rel = f"tests/{evil_name}/payload.py"
+    evil_dir.mkdir(exist_ok=False)
+    fake = evil_dir / "payload.py"
+    fake.write_text("print('not a suite')\n", encoding="utf-8")
+    def select_slash_crossing_target(doc):
+        doc["declared"] = {SELECTOR: [evil_rel]}
+    try:
+        r, payload = invoke(map_select([SELECTOR],
+                                       map_path=mutated_map(tmp, select_slash_crossing_target)))
+    finally:
+        fake.unlink(missing_ok=True)
+        try:
+            evil_dir.rmdir()
+        except OSError:
+            pass
+    check("a nested path satisfying the pattern only via slash-crossing match is rejected",
+          r.returncode == 1 and "is not a suite" in payload.get("why", ""), r.stdout)
+
+
+    def select_non_suite_target(doc):
+        doc["declared"] = {SELECTOR: ["docs/WORKING_DEADLINE_MODE.md"]}
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, select_non_suite_target)))
+    check("select fails closed on a map edge to a non-suite",
+          r.returncode == 1
+          and "is not a suite" in payload.get("why", ""), r.stdout)
+
+    nonrepo = tmp / "not-a-repo"
+    nonrepo.mkdir(exist_ok=True)
+    (nonrepo / "IMPACT_GRAPH.json").write_bytes(IMPACT_MAP.read_bytes())
+    nonrepo_request = {
+        "operation": "impact-audit", "root": str(nonrepo),
+        "impactGraphPath": str(nonrepo / "IMPACT_GRAPH.json"),
+    }
+    with tempfile.TemporaryDirectory() as td2:
+        req_path = Path(td2) / "request.json"
+        req_path.write_text(json.dumps(nonrepo_request), encoding="utf-8")
+        result = subprocess.run(
+            [PY, str(RUNTIME), "--input", str(req_path)], cwd=str(nonrepo),
+            capture_output=True, encoding="utf-8", errors="replace",
+            env={**os.environ, "PYTHONUTF8": "1"}, timeout=30)
+    check("the engine refuses to run from a directory that is not a repository",
+          result.returncode == 1
+          and "not running from a repository" in result.stdout, result.stdout)
+
+    def nul_node(doc):
+        doc["generated"]["\u0000"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, nul_node)))
+    check("a NUL-carrying graph node fails closed, not with a raw ValueError",
+          r.returncode == 1 and "NUL byte" in payload.get("why", ""), r.stdout)
+
+    nul_path = audit_request()
+    nul_path["impactGraphPath"] = ".itd/\u0000map.json"
+    r, payload = invoke(nul_path)
+    check("a NUL-carrying map path fails closed",
+          r.returncode == 1 and "NUL byte" in payload.get("why", ""), r.stdout)
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    import build_impact_graph as big
+    alias_text = "from services.review_broker import server as srv\nimport json, hashlib\n"
+    alias_candidates = big.import_candidates(alias_text)
+    check("an import alias never fabricates a module edge",
+          "services/review_broker/server" in alias_candidates
+          and "services/review_broker/srv" not in alias_candidates,
+          str(alias_candidates))
+    check("comma-separated imports resolve every module, not only the first",
+          "json" in alias_candidates and "hashlib" in alias_candidates,
+          str(alias_candidates))
+    check("generator suite matching is the glob, not a name-charset regex",
+          big.is_suite("tests/verify_http.v2.py") is True
+          and big.is_suite("tests/verify_x/payload.py") is False
+          and big.is_suite("tests/helpers.py") is False)
+
+    def missing_declared(doc):
+        doc.pop("declared")
+    r, payload = invoke(audit_request(mutated_map(tmp, missing_declared)))
+    check("a map without the declared section fails closed",
+          r.returncode == 1 and "section is missing" in payload.get("why", ""),
+          r.stdout)
+
+    def missing_generated(doc):
+        doc.pop("generated")
+    r, payload = invoke(map_select([SELECTOR],
+                                   map_path=mutated_map(tmp, missing_generated)))
+    check("select refuses a map without the generated section",
+          r.returncode == 1 and "section is missing" in payload.get("why", ""),
+          r.stdout)
+
+    def broken_glob(doc):
+        doc["universe"]["suites"] = "tests/**broken.py"
+    r, payload = invoke(audit_request(mutated_map(tmp, broken_glob)))
+    check("an invalid glob grammar fails closed, not with a raw ValueError",
+          r.returncode == 1
+          and "not a valid glob pattern" in payload.get("why", ""), r.stdout)
+
+    def stamped_generator(doc):
+        doc["generator"] = "someone-else.py"
+    stamped_path = mutated_map(tmp, stamped_generator)
+    drift = subprocess.run(
+        [PY, str(BUILDER), "--check", "--path", str(stamped_path)],
+        cwd=str(ROOT), capture_output=True, encoding="utf-8",
+        errors="replace", timeout=120, env={**os.environ, "PYTHONUTF8": "1"})
+    check("--check flags drift in generator-owned document fields, not only edges",
+          drift.returncode == 1 and drift.stdout.startswith("DRIFT"),
+          drift.stdout + drift.stderr)
+
+    ambiguous_audit = audit_request()
+    ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}
+    r, payload = invoke(ambiguous_audit)
+    check("impact-audit refuses both graph sources at once",
+          r.returncode == 1 and "mutually exclusive" in payload.get("why", ""),
+          r.stdout)
+
+    def wrong_schema(doc):
+        doc["schemaVersion"] = "2"
+    r, payload = invoke(audit_request(mutated_map(tmp, wrong_schema)))
+    check("an unsupported map schema fails closed",
+          r.returncode == 1 and "schemaVersion" in payload.get("why", ""), r.stdout)
+
+    empty_root = tmp / "no-suites"
+    empty_root.mkdir(exist_ok=True)
+    (empty_root / "IMPACT_GRAPH.json").write_bytes(IMPACT_MAP.read_bytes())
+    empty_request = audit_request(empty_root / "IMPACT_GRAPH.json")
+    empty_request["root"] = str(empty_root)
+    r, payload = invoke(empty_request)
+    check("an audit root without suites fails closed instead of passing vacuously",
+          r.returncode == 1 and "no suites match" in payload.get("why", ""), r.stdout)
+
+    # Engine mutants: each completeness/proportionality guard is load-bearing.
+    r, payload = invoke_mutant((
+        ("unattached = [suite for suite in suites if suite not in targets_seen]",
+         "unattached = []"),
+    ), audit_request(mutated_map(tmp, drop_edges_to_self)))
+    check("mutation guard kills unattached-suite blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+    r, payload = invoke_mutant((
+        ("if not (set(walk_closure([node], graph)) & suite_set)]", "if False]"),
+    ), audit_request(mutated_map(tmp, drop_owned_node)))
+    check("mutation guard kills orphan-owned blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+    r, payload = invoke_mutant((
+        ("if reached >= len(suites):", "if False:"),
+    ), audit_request(mutated_map(tmp, everything_adjacent)))
+    check("mutation guard kills saturation blindness",
+          r.returncode == 0 and payload.get("status") == "PASS", r.stdout + r.stderr)
+
+    outside_request = audit_request()
+    outside_request["impactGraphPath"] = "../outside-map.json"
+    r, payload = invoke(outside_request)
+    check("a map path that escapes the root fails closed",
+          r.returncode == 1 and "escapes the declared root" in payload.get("why", ""),
+          r.stdout)
+
+    foreign_root = audit_request()
+    foreign_root["root"] = tempfile.gettempdir()
+    r, payload = invoke(foreign_root)
+    check("a root outside the working repository fails closed",
+          r.returncode == 1
+          and "escapes the working repository" in payload.get("why", ""), r.stdout)
+
+    link_name = ".itd/" + tmp.name + "/escape-link.py"
+    symlink_supported = True
+    try:
+        (tmp / "escape-link.py").symlink_to(Path(tempfile.gettempdir()))
+    except OSError:
+        symlink_supported = False
+    if symlink_supported:
+        def symlinked_node(doc):
+            doc["generated"][link_name] = [SELF]
+        r, payload = invoke(audit_request(mutated_map(tmp, symlinked_node)))
+        check("a symlinked node that resolves outside the root fails closed",
+              r.returncode == 1
+              and "outside the repository root" in payload.get("why", ""), r.stdout)
+    else:
+        check("a symlinked node that resolves outside the root fails closed",
+              True, "symlinks unsupported on this host; guard exercised on POSIX")
+
+    def escaping_node(doc):
+        doc["generated"]["../outside.py"] = [SELF]
+    r, payload = invoke(audit_request(mutated_map(tmp, escaping_node)))
+    check("a graph node outside the repository root fails closed",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+
+    def absolute_target(doc):
+        doc["generated"][SELECTOR] = [str(ROOT / SELF)]
+    r, payload = invoke(audit_request(mutated_map(tmp, absolute_target)))
+    check("an absolute graph target fails closed",
+          r.returncode == 1
+          and "outside the repository root" in payload.get("why", ""), r.stdout)
+finally:
+    _shutil.rmtree(_scratch, ignore_errors=True)
+
+fresh = subprocess.run(
+    [PY, str(BUILDER), "--check"], cwd=str(ROOT), capture_output=True,
+    encoding="utf-8", errors="replace", timeout=120,
+    env={**os.environ, "PYTHONUTF8": "1"})
+check("the committed map is fresh against the tracked tree (regenerate to fix)",
+      fresh.returncode == 0 and fresh.stdout.startswith("FRESH"),
+      fresh.stdout + fresh.stderr)
+
 runtime_marker = "skills/_shared/itd_verification_profiles.py"
 for path in (TASK_SKILL, HELPERS, DOC):
     text = path.read_text(encoding="utf-8")
