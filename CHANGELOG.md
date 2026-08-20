@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.99.0] - 2026-08-20
+
 ### Added
 - **Proportional suites from a declared impact map (LPD-002 R6, the last point
   of the plan; source LPD-001 M3)** — the graph that `impact_closure`
