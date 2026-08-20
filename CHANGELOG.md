@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The LPD-002 debt session (A1-A9) closes the plan's own route debts**
+  (owner decision 2026-08-20: debts before GENG-S02; format follows S9 -
+  one reviewed unit per debt cluster, full Verification Loop per commit).
+  - **A2, completion gate stale evaluator** (`hooks/completion_lib.py`,
+    oracle 15 -> 43): display/write commands are never runtime signals
+    (statement-aware split over `&&`/`||`/`;`/newline with a heredoc stop;
+    awk `system()`/sed `s///e` count as exec; diff/comm stay verification);
+    latest-per-command displacement keys on `normalize_command_key`
+    (quote-aware, escape-aware); signals carry the git head and a
+    foreign-head signal is stale entirely (neither blocks nor proves); bare
+    FAILED/FAIL markers are case-sensitive - "0 failed" in a success summary
+    is no longer a failure. Measured root of every-commit COMPLETION_BYPASS
+    in the R5/R6 sessions.
+  - **A5+A1+A7, review evidence cluster** (`itd_review_evidence.py`,
+    producer; oracle 34 -> 43): the ledger-close class accepts extra ledger
+    files only when declared in `ledgerFiles` of the BASE STATE (declaration
+    precedes the close, `.itd-memory/` namespace, modifications only);
+    criterion ownership is an explicit `unitId` field (prefix matching is
+    legacy fallback and never captures foreign-unitId criteria); one staged
+    inventory per `freeze_packet`. The three signed efficacy legs were
+    re-minted live (verifier PASSED, hostParityVerified, falseBlock 0.0).
+  - **A3+A9, route hardening**: the checker's validate-side tree guard is
+    mutation-pinned (a forged `inspectedTree` with a recomputed receipt
+    digest is rejected by the tree guard specifically); a red suite in
+    `tests/run-all.sh` prints its own FAIL lines so flakes keep the failing
+    check's name.
+  - **A8, authority snapshot**: written minting procedure
+    (docs/VERIFICATION_LOOP.md) plus `scripts/itd_authority_check.py` -
+    fail-closed byte-parity in both directions (DIVERGED/MISSING with
+    WHY+FIX), oracle registered in run-all; the live replay named 3
+    silently-drifted modules and a fresh snapshot was minted from merged
+    main per the procedure.
+  - **A4 closed by re-measurement** (the efficacy legs pin only
+    producer+runner+manifest; the live-pin root stays deferred by owner
+    decision), **A6 closed as doctrine** (helpers.md paragraph 14a: stage by
+    explicit list only; exact-binding already fails a candidate carrying
+    foreign files).
+
 ## [1.99.0] - 2026-08-20
 
 ### Added
