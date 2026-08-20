@@ -180,7 +180,9 @@ def load_impact_graph_document(path: Path) -> dict[str, Any]:
             f"Regenerate the map with schemaVersion {IMPACT_GRAPH_SCHEMA_VERSION!r}.",
         )
     universe = require_object(document.get("universe"), "impactGraph.universe")
-    require_string(universe.get("suites"), "impactGraph.universe.suites")
+    validate_universe_pattern(
+        require_string(universe.get("suites"), "impactGraph.universe.suites"),
+        "impactGraph.universe.suites")
     owned = universe.get("owned")
     if (not isinstance(owned, list) or not owned
             or any(not isinstance(item, str) or not item for item in owned)):
@@ -188,9 +190,23 @@ def load_impact_graph_document(path: Path) -> dict[str, Any]:
             "impactGraph.universe.owned must be a non-empty list of glob patterns",
             "Declare which source globs must each have an owning suite.",
         )
+    for pattern in owned:
+        validate_universe_pattern(pattern, "impactGraph.universe.owned")
     validate_graph_shape(document.get("generated", {}), "impactGraph.generated")
     validate_graph_shape(document.get("declared", {}), "impactGraph.declared")
     return document
+
+
+def validate_universe_pattern(pattern: str, field: str) -> None:
+    """Universe globs are root-relative and non-escaping; anything else would
+    let a malformed map glob outside root and crash past the fail-closed
+    contract (PUB6 finding)."""
+    parts = Path(pattern).parts
+    if Path(pattern).is_absolute() or ".." in parts:
+        raise DecisionError(
+            f"{field} must be a root-relative glob without '..': {pattern}",
+            "Declare universe patterns relative to the audited repository root.",
+        )
 
 
 def merged_impact_graph(document: dict[str, Any]) -> dict[str, list[str]]:
@@ -364,6 +380,7 @@ def resolve_root(request: dict[str, Any]) -> Path:
 
 
 def run_impact_audit(request: dict[str, Any]) -> dict[str, Any]:
+    reject_ambiguous_graph(request)
     root = resolve_root(request)
     path = resolve_under(root, request.get("impactGraphPath"), "impactGraphPath")
     document = load_impact_graph_document(path)

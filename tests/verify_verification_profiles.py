@@ -626,6 +626,27 @@ try:
           and payload.get("nonSuiteTargets") == ["docs/WORKING_DEADLINE_MODE.md"]
           and payload.get("orphanOwned") == [], r.stdout + r.stderr)
 
+    def absolute_suites_pattern(doc):
+        doc["universe"]["suites"] = "/etc/*"
+    r, payload = invoke(audit_request(mutated_map(tmp, absolute_suites_pattern)))
+    check("an absolute universe pattern fails closed",
+          r.returncode == 1 and "root-relative glob" in payload.get("why", ""),
+          r.stdout)
+
+    def escaping_owned_pattern(doc):
+        doc["universe"]["owned"] = ["../*/secrets/*.py"]
+    r, payload = invoke(audit_request(mutated_map(tmp, escaping_owned_pattern)))
+    check("an escaping owned pattern fails closed",
+          r.returncode == 1 and "root-relative glob" in payload.get("why", ""),
+          r.stdout)
+
+    ambiguous_audit = audit_request()
+    ambiguous_audit["impactGraph"] = {SELECTOR: [SELF]}
+    r, payload = invoke(ambiguous_audit)
+    check("impact-audit refuses both graph sources at once",
+          r.returncode == 1 and "mutually exclusive" in payload.get("why", ""),
+          r.stdout)
+
     def wrong_schema(doc):
         doc["schemaVersion"] = "2"
     r, payload = invoke(audit_request(mutated_map(tmp, wrong_schema)))
