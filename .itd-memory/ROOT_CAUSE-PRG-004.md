@@ -21,3 +21,8 @@ and defines the only acceptable read-only evidence. The runner rejects a
 fixture that omits the directive before dispatch; a temporary-fixture mutation
 executes that real preflight. Acceptance still requires a real current-tree
 live PASS rather than prompt inspection alone.
+
+The supported Claude transport has a separate boundary: its native `Skill`
+tool forks without the non-interactive product brief. The prompt therefore
+requires direct main-session execution of the same local skill/reference with
+built-in Write/Edit; runner preflight and a second fixture mutation pin it.

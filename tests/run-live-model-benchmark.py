@@ -49,6 +49,13 @@ CODEX_WRITE_BOUNDARY_DIRECTIVE = (
     "does not prove that the workspace is read-only; report a read-only blocker only\n"
     "if the native file-edit tool itself returns a write denial."
 )
+CLAUDE_INLINE_WORKFLOW_DIRECTIVE = (
+    "When the candidate transport is Claude Code, do not invoke the native `Skill`\n"
+    "tool or fork this workflow: that fork does not retain this non-interactive\n"
+    "product brief. Stay in the main session, read the same repository-local\n"
+    "`SKILL.md` and reference directly, and create the documents with the built-in\n"
+    "`Write`/`Edit` tools."
+)
 CAPTURE_LIMIT_EXIT_CODE = 86
 # Devil's Advocate runs as a harness-orchestrated SECOND fresh session (S3,
 # BACKLOG 2026-08-13): headless transports do not spawn Claude-native
@@ -426,6 +433,8 @@ def fixture_prompt(fixture_dir: Path) -> str:
         raise ValueError("live prompt does not explicitly invoke the ITD blueprint skill")
     if CODEX_WRITE_BOUNDARY_DIRECTIVE not in text:
         raise ValueError("live prompt omits the Codex-native write boundary")
+    if CLAUDE_INLINE_WORKFLOW_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the Claude inline-workflow boundary")
     return text
 
 

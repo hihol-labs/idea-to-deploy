@@ -881,6 +881,27 @@ def main() -> int:
     check("mutation: omitted Codex write boundary fails closed",
           prompt_names_codex_write_boundary
           and mutation_guarded)
+    claude_inline_directive = getattr(
+        runner_module, "CLAUDE_INLINE_WORKFLOW_DIRECTIVE", "")
+    prompt_names_claude_inline_boundary = (
+        claude_inline_directive in live_prompt)
+    check("live prompt names the Claude inline-workflow boundary",
+          prompt_names_claude_inline_boundary)
+    mutated_claude_prompt = live_prompt.replace(
+        claude_inline_directive, "", 1)
+    claude_mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-claude-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_claude_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            claude_mutation_guarded = (
+                "Claude inline-workflow boundary" in str(exc))
+    check("mutation: omitted Claude inline-workflow boundary fails closed",
+          prompt_names_claude_inline_boundary
+          and claude_mutation_guarded)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

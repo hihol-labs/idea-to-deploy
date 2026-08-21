@@ -13,6 +13,12 @@ PowerShell write commands. A command-safety rejection of a shell inspection
 does not prove that the workspace is read-only; report a read-only blocker only
 if the native file-edit tool itself returns a write denial.
 
+When the candidate transport is Claude Code, do not invoke the native `Skill`
+tool or fork this workflow: that fork does not retain this non-interactive
+product brief. Stay in the main session, read the same repository-local
+`SKILL.md` and reference directly, and create the documents with the built-in
+`Write`/`Edit` tools.
+
 The adversarial (Devil's Advocate) review is NOT part of this session: the
 external harness runs the real `devils-advocate` agent definition in a
 separate fresh session after this one and validates its artifact. Do not

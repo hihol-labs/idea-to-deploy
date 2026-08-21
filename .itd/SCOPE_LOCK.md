@@ -11,10 +11,11 @@ receipt. Source-tree doctor был GREEN, installed runtime последоват
 `UNVERIFIED`, поэтому PR нельзя было разместить.
 
 После закрытия PRG-003 CI PR #225 потребовал новый current-tree live evidence.
-Четыре bounded run показали второй release-blocker: Codex-модели читали
+Bounded run показали второй release-blocker: Codex-модели читали
 repository-local blueprint, но после command-safety отказов PowerShell ложно
-объявляли workspace read-only и не использовали native `apply_patch`; Claude
-Skill fork терял product prompt. PRG-004 разрешает только Codex-ветвь корня:
+объявляли workspace read-only; после первой prompt-починки native `apply_patch`
+сам подтвердил внешний sandbox denial. Claude Skill fork терял product prompt.
+PRG-004 разрешает только host-boundary инструкции и их preflight:
 
 - `tests/fixtures/fixture-03-cli-tool/live-prompt.md`;
 - `tests/run-live-model-benchmark.py` (только fail-closed prompt preflight);

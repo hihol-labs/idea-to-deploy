@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks on WSL and native Windows; ITD CLI 112; Git hooks 30.
   The live Codex fixture also pins the native `apply_patch` write boundary so
   a declined PowerShell command cannot be misreported as a read-only workspace.
+  Claude live runs stay in the prompt-bearing main session instead of a native
+  Skill fork that loses the pre-approved product brief.
 
 ## [1.100.0] - 2026-08-21
 
