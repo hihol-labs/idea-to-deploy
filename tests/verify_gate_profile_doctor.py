@@ -50,6 +50,28 @@ def rejects(fn, label: str) -> None:
         raise AssertionError(f"{label}: mutation passed")
 
 
+def installed_version(codex: str, claude: str) -> str:
+    """Probe the real manifest parser against an isolated installed root."""
+    with tempfile.TemporaryDirectory(prefix="itd-installed-version-") as raw:
+        root = Path(raw)
+        for directory, version in (
+            (".codex-plugin", codex),
+            (".claude-plugin", claude),
+        ):
+            target = root / directory / "plugin.json"
+            target.parent.mkdir()
+            target.write_text(
+                json.dumps({"name": "idea-to-deploy", "version": version}),
+                encoding="utf-8",
+            )
+        previous = gate.INSTALL_ROOT
+        gate.INSTALL_ROOT = root
+        try:
+            return gate.installed_version()
+        finally:
+            gate.INSTALL_ROOT = previous
+
+
 def row(root: Path, protection: str) -> dict[str, Any]:
     local = protection == "local-review"
     app_check = protection == "app-check"
@@ -83,6 +105,47 @@ def registry(root: Path, protection: str) -> dict[str, Any]:
 
 
 def main() -> int:
+    check(
+        installed_version("1.99.0", "1.99.0") == "1.99.0",
+        "equal canonical host versions expose their release identity",
+    )
+    check(
+        installed_version(
+            "1.99.0+codex.20260820171321", "1.99.0"
+        ) == "1.99.0",
+        "trusted Codex cachebuster does not split the release identity",
+    )
+    check(
+        installed_version(
+            "1.99.0+codex.local-20260820-171321", "1.99.0"
+        ) == "1.99.0",
+        "documented manual Codex cachebuster stays compatible",
+    )
+    for codex, claude, label in (
+        ("1.99.1+codex.20260820171321", "1.99.0", "core drift"),
+        ("1.99.0-rc.1", "1.99.0-rc.1", "prerelease"),
+        ("1.99.0+other.token", "1.99.0", "foreign Codex metadata"),
+        ("1.99.0", "1.99.0+codex.token", "reversed host suffix"),
+        ("1.99.0+other.token", "1.99.0+other.token", "shared metadata"),
+        ("1.99", "1.99", "malformed version"),
+        ("01.99.0+codex.token", "1.99.0", "leading-zero component"),
+        ("1.99.0+codex.good+evil", "1.99.0", "multiple suffixes"),
+        ("1.94.9", "1.94.9", "below minimum"),
+    ):
+        rejects(
+            lambda codex=codex, claude=claude: installed_version(
+                codex, claude
+            ),
+            f"installed version rejects {label}",
+        )
+    for malformed in (None, 195, []):
+        rejects(
+            lambda malformed=malformed: gate._installed_release_identity(
+                malformed, "codex"
+            ),
+            "release identity rejects a non-string version",
+        )
+
     with tempfile.TemporaryDirectory(prefix="itd-profile-doctor-") as raw:
         root = Path(raw)
         gate.write_provenance_private_key(root / "signing.key", PRIVATE_KEY)

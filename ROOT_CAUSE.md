@@ -231,3 +231,79 @@ reviewer identity field before phase-one creation or verification. Regression
 tests must cover producer creation, independently re-signed receipt
 verification, and broker admission with a matching padded key authorization;
 all must fail before an App token or GitHub API call.
+
+## Pre-PR gate version-identity regression (PRG-001)
+
+Recorded: 2026-08-21
+
+### Summary
+
+`installed_version()` compared raw Codex and Claude manifest strings before
+deriving their release identity, so the trusted Codex cachebuster required by
+local plugin reinstall made `1.99.0+codex.*` incompatible with `1.99.0`.
+
+### Reproduction
+
+- Live WSL and Windows `itd gate doctor --all` returned `UNVERIFIED` with
+  `Codex/Claude ITD versions differ` for the pair
+  `1.99.0+codex.20260820171321` / `1.99.0`.
+
+### Evidence
+
+- Release oracles remained green (mandatory route 83, Verification Loop 87,
+  push adjudication 17, Git hooks 30, doctor 44, CLI 112, producer 249), proving
+  the failure was deployment integration rather than reviewer semantics.
+- Live negative canaries blocked both an unguarded push and a guarded push with
+  stale evidence; stale exact-candidate rejection is intentional and excluded
+  from the fix.
+
+### Fix Hypothesis
+
+- Parse both manifests into a closed release identity and allow only the exact
+  host metadata form `+codex.<token>` on the Codex manifest; preserve strict
+  rejection of other metadata, prereleases, malformed versions and core drift.
+
+### Regression Tests
+
+- `tests/verify_gate_profile_doctor.py` — trusted cachebuster parity plus
+  hostile version mutations.
+
+## Mutable installed-wrapper regression (PRG-002)
+
+Recorded: 2026-08-21
+
+### Summary
+
+`itd_install_cli.py` and `itd_install_git_hooks.py` resolved their input script
+inside the development checkout and serialized that mutable absolute path into
+the global wrapper. The wrapper therefore changed behavior when the checkout
+changed and stopped working if it moved, even though installation had reported
+success.
+
+### Reproduction
+
+- WSL pre-push wrapper executed
+  `/home/hihol/projects/idea-to-deploy/scripts/itd_pre_push.py`.
+- Windows pre-push wrapper executed the same development checkout through UNC.
+- Moving or editing that checkout after installation changed/broke the live
+  global command without reinstalling it.
+
+### Evidence
+
+- Both installer `install()` functions call `script.resolve()` and pass that
+  source path directly to `wrapper()`; no runtime snapshot is materialized.
+- Live negative push canaries work today, but their executable code is the
+  active development tree rather than the released installed artifact.
+
+### Fix Hypothesis
+
+Materialize a closed minimal runtime tree atomically under the host data root,
+bind its declared file hashes and aggregate digest in a manifest, refuse any
+existing tamper, and generate both wrappers against scripts inside that
+content-addressed snapshot.
+
+### Regression Test
+
+- `tests/verify_itd_runtime_install.py` fails on checkout-bound wrappers and
+  passes only when snapshot creation, idempotence, tamper refusal, closed file
+  inventory and CLI/pre-push wrapper binding are proven.

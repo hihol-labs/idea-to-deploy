@@ -37,12 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL1100",
-    "goal": "Release v1.100.0 — the LPD-002 debt session ships",
-    "status": "in_progress",
-    "startedAt": "2026-08-21T13:28:12Z",
+    "id": "PRG-002",
+    "goal": "Install CLI and pre-push from one content-bound runtime snapshot",
+    "status": "verified",
+    "startedAt": "2026-08-21T12:27:51Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "high",
+    "completedAt": "2026-08-21T15:38:17Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +573,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Сессия долгов LPD-002 (A1-A9) ЗАКРЫТА: PR #221 MERGED, main e7bf0f3, ветка удалена, sync выполнен на WSL и Windows (оба на e7bf0f3). Публикация прошла по owner-исключению: транспорт cross-vendor ревьюера (openai-subscription) лежал — PUB9 вернул UNAVAILABLE на всех попытках, itd pr create отказал 'current local independent review is not valid', поэтому push/PR выполнил владелец, а мерж — я по его команде при зелёном CI (Gate 1 meta-review SUCCESS, windows-verify SUCCESS). Каждый коммит ветки нёс machine-квитанцию, свежего sonnet-чекера и adjudication на точное дерево; PUB9 machine — 7/7 оракулов PASSED. NEXT: (1) релиз v1.100.0 по docs/RELEASE_RUNBOOK.md; (2) GENG-S02 (baseline-телеметрия уже снята в .itd-memory/telemetry-snapshots/2026-08-20-pre-debts/); (3) follow-up из BACKLOG: cross-vendor ревью ветки долгов так и не получило вердикта — прогнать post-merge на main, когда транспорт поднимется."
+  "nextAction": "PRG-002 in progress on codex/pre-pr-review-gate-fixes rebased onto v1.100.0: finish exact machine/checker/adjudication for the content-bound installed runtime, commit the unit, publish/merge the bugfix PR, then release v1.100.1 and roll it out to Codex/Claude on native WSL and Windows with live gate-doctor/pre-push canaries."
 }

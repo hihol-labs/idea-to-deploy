@@ -1,4 +1,34 @@
-# Scope Lock — сессия долгов LPD-002 (A1-A9), ветка fix/lpd002-debts
+# Scope Lock — immutable installed ITD gate runtime (PRG-002)
+
+## Current Task
+
+После verified PRG-001 (`e69d020`) второй WIP=1 bugfix устраняет mutable
+checkout binding глобальных CLI/pre-push wrappers.
+
+- **Allowed code:** `scripts/itd_install_runtime.py`,
+  `scripts/itd_install_cli.py`, `scripts/itd_install_git_hooks.py`.
+- **Allowed tests:** `tests/verify_itd_runtime_install.py`, точечные installer
+  tests, регистрация нового oracle в `tests/run-all.sh` и механически
+  регенерированный `.itd/IMPACT_GRAPH.json`.
+- **Allowed docs/bookkeeping:** installer/release runbook, CHANGELOG/BACKLOG,
+  этот scope, acceptance, STATE и task/root-cause contracts.
+- Runtime snapshot содержит только закрытый объявленный набор нужных файлов,
+  materializes атомарно в host-data каталоге `<release>-<digest>`, а wrappers
+  называют только его script path. Повторная установка сверяет bytes; tamper
+  и неполный snapshot блокируются, не перезаписываются молча.
+
+## Forbidden Change Areas
+
+- Не менять PRG-001 version parser, exact-HEAD/stale-receipt проверки, route
+  cardinality, keyring/provenance и `--require-mandatory-route`.
+- Не заявлять `PROTECTED` для `local-review` и не включать App/ruleset/broker
+  server enforcement в этот bugfix.
+- Не копировать весь репозиторий, live evidence, `.git`, `.itd-memory`, secrets
+  или candidate-controlled файлы в runtime.
+
+---
+
+## Previous verified scope — LPD-002 debts (A1-A9)
 
 ## Current Task
 

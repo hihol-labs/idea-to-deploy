@@ -44,6 +44,13 @@ PROFILE_PATH = Path(__file__).with_name("GATE_DEPLOYMENT_PROFILES.json")
 INSTALL_ROOT = Path(__file__).resolve().parents[2]
 MIN_GATE_VERSION = (1, 95, 0)
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+RELEASE_VERSION_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
+)
+CODEX_CACHEBUSTER_VERSION_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"\+codex\.([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$"
+)
 OWNER_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 CLAIM_ORDER = {
     "UNVERIFIED": 0,
@@ -215,11 +222,32 @@ def load_gate_profiles() -> dict[str, Any]:
     return root
 
 
+def _installed_release_identity(
+    version: object, host: str,
+) -> tuple[str, tuple[int, int, int]]:
+    if not isinstance(version, str):
+        raise GateError(
+            "UNVERIFIED",
+            f"installed {host} ITD version is not a trusted release identity",
+        )
+    match = RELEASE_VERSION_RE.fullmatch(version)
+    if match is None and host == "codex":
+        match = CODEX_CACHEBUSTER_VERSION_RE.fullmatch(version)
+    if match is None:
+        raise GateError(
+            "UNVERIFIED",
+            f"installed {host} ITD version is not a trusted release identity",
+        )
+    numbers = tuple(map(int, match.groups()[:3]))
+    canonical = ".".join(str(item) for item in numbers)
+    return canonical, numbers
+
+
 def installed_version() -> str:
-    versions: list[str] = []
-    for relative in (
-        ".codex-plugin/plugin.json",
-        ".claude-plugin/plugin.json",
+    identities: list[tuple[str, tuple[int, int, int]]] = []
+    for host, relative in (
+        ("codex", ".codex-plugin/plugin.json"),
+        ("claude", ".claude-plugin/plugin.json"),
     ):
         path = INSTALL_ROOT / relative
         try:
@@ -236,18 +264,15 @@ def installed_version() -> str:
             raise GateError(
                 "UNVERIFIED", f"installed ITD manifest is invalid: {relative}"
             )
-        versions.append(value["version"])
-    if len(set(versions)) != 1:
+        identities.append(_installed_release_identity(value["version"], host))
+    if len({identity[0] for identity in identities}) != 1:
         raise GateError("UNVERIFIED", "Codex/Claude ITD versions differ")
-    match = re.fullmatch(
-        r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-+][A-Za-z0-9.-]+)?",
-        versions[0],
-    )
-    if not match or tuple(map(int, match.groups())) < MIN_GATE_VERSION:
+    version, numbers = identities[0]
+    if numbers < MIN_GATE_VERSION:
         raise GateError(
             "UNVERIFIED", "installed ITD is older than required 1.95.0"
         )
-    return versions[0]
+    return version
 
 
 class _DataBlob(ctypes.Structure):
