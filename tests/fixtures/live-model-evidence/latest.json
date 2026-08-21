@@ -4,21 +4,21 @@
   "evidencePurpose": "workflow-output-quality",
   "independentReviewEvidence": false,
   "status": "PASS",
-  "observedAt": "2026-08-21T07:15:39Z",
+  "observedAt": "2026-08-21T07:46:24Z",
   "provider": "openai",
   "fixture": "fixture-03-cli-tool",
   "candidateModelRequested": "provider-default",
   "reason": "live candidate passed independent snapshot oracle",
   "source": {
-    "revision": "9df4c2a062225c9657bb4ccca4a40ae362db6a92",
+    "revision": "a94737fe98eb9e214762e98017bede4b4a38774a",
     "workingTreeDirty": false,
     "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "methodologyTreeSha256": "sha256:ebd1e832f7bb4852db7e1072e9fb23f47d589b6e26bd577849830792042e9c85"
+    "methodologyTreeSha256": "sha256:a4ab64b76492555f9bc4b4a604b6aae89d539fc5a2b7609b4b931ae8aa8ffd32"
   },
   "runner": "tests/run-live-model-benchmark.py",
-  "runId": "20260821T071539Z-f4f22f9f",
-  "runReport": "tests/fixtures/live-model-evidence/runs/20260821T071539Z-f4f22f9f/run-report.json",
-  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260821T071539Z-f4f22f9f",
+  "runId": "20260821T074624Z-b550f076",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260821T074624Z-b550f076/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260821T074624Z-b550f076",
   "candidate": {
     "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
     "exitCode": 0,
@@ -48,8 +48,8 @@
         "isError": false,
         "captureLimitBytes": 8388608,
         "transcriptRedactionCount": 0,
-        "transcriptBytes": 49441,
-        "transcriptSha256": "sha256:ad95e8a6759d7d9735791bbecf970939751734e94ade423ae56a23c32f432397"
+        "transcriptBytes": 75444,
+        "transcriptSha256": "sha256:f1f40940d6223ef1654b9e11e5ec32dbbc26efbe8fbe8d5e3ec141363c31c69e"
       },
       {
         "attempt": 2,
@@ -58,22 +58,22 @@
         "timedOut": false,
         "liveResultEvents": 1,
         "isError": false,
-        "captureLimitBytes": 8339167,
+        "captureLimitBytes": 8313164,
         "transcriptRedactionCount": 0,
-        "transcriptBytes": 75820,
-        "transcriptSha256": "sha256:f6646858402c63d6baec4bb33996f4ae71fd4add79ade945639a063f97bc5d46"
+        "transcriptBytes": 125363,
+        "transcriptSha256": "sha256:77ea9dfd541b04f0b8b803d06658997684e7004e639e6a999956baaefe631278"
       }
     ],
     "workspaceTransport": "native-temp",
     "approvalPolicy": "never-no-escalation",
     "hookPolicy": "disabled",
     "captureLimitBytes": 8388608,
-    "transcriptBytes": 125261,
+    "transcriptBytes": 200807,
     "transcriptSanitized": true,
     "transcriptRedactionCount": 0,
-    "transcriptSha256": "sha256:2380a1da28b379e0b98169ed49898a284e3c90420f5281a2189f95e2f4f22f9f",
-    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260821T071539Z-f4f22f9f/transcript.jsonl.gz",
-    "transcriptGzipSha256": "sha256:bcbe02670999b15a30f67969f8b65713be5fd578a5e811c539562d6d6d60e245"
+    "transcriptSha256": "sha256:2edde9db2ec6f4bf5a6738f469dd922361542eca7e2e8f26c003282cb550f076",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260821T074624Z-b550f076/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:1b22417af8dd3165e1705820aed1b57d9202014b52a8662a6529f3f47b918477"
   },
   "harnessInvocation": {
     "mode": "repository-local-adopted-project",
@@ -85,10 +85,10 @@
     "projectHooks": ".codex/hooks.json",
     "transcriptProvesSkillLoad": true,
     "hookExecution": "disabled-for-live-model-evidence",
-    "methodologyTreeSha256": "sha256:ebd1e832f7bb4852db7e1072e9fb23f47d589b6e26bd577849830792042e9c85"
+    "methodologyTreeSha256": "sha256:a4ab64b76492555f9bc4b4a604b6aae89d539fc5a2b7609b4b931ae8aa8ffd32"
   },
   "artifacts": {
-    "outputDir": "tests/fixtures/live-model-evidence/runs/20260821T071539Z-f4f22f9f/output",
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260821T074624Z-b550f076/output",
     "requiredFiles": [
       "STRATEGIC_PLAN.md",
       "PROJECT_ARCHITECTURE.md",
@@ -98,13 +98,13 @@
       "CLAUDE.md"
     ],
     "sha256": {
-      "STRATEGIC_PLAN.md": "sha256:4e33102407381f81639d4453a4dfc45ddbcfe109c87b72c88c416f07ea5d7615",
-      "PROJECT_ARCHITECTURE.md": "sha256:5d422789b897d709210e7cbb33c8c7b25e27329afb5979ff41feaddfe9e1cab0",
-      "PRD.md": "sha256:c3205e1b6f0dea9b3275d43d05d620e3257ffeb0fd0938f9925deffe45726752",
-      "IMPLEMENTATION_PLAN.md": "sha256:edc8084350700ec0114849cdf35d5dd46ca844aa47344bcb31d84ca4feaeb902",
-      "CLAUDE_CODE_GUIDE.md": "sha256:63f3054aceff68526e9be2428c5dec347bf0021cbdf70e60b66f2673b21e704e",
-      "CLAUDE.md": "sha256:f6831afab65ef279376a5ac27a8c2a6bbd7539e5aa1f37476c9f8f9cbe5b781a",
-      "DEVILS_ADVOCATE_REVIEW.md": "sha256:5b089e9ebe8a45b465e087c8cfc9c4ede8deef6fd2047445b77fd33b6eb035a3"
+      "STRATEGIC_PLAN.md": "sha256:5aa71d502d6aaedbeb0871e1cd8bd6509aa23a998cc28e02d03149dc437f8907",
+      "PROJECT_ARCHITECTURE.md": "sha256:6d223522d151b0facdde4a810d574fd02a554a24839eafb9000e5f6c456d6f69",
+      "PRD.md": "sha256:ddb4f3fa56c12e6fedc3a58d888364eefa36a81a15ba3de5d534e20094b8beb1",
+      "IMPLEMENTATION_PLAN.md": "sha256:4baaa4c24aed87341687f4d0265706c0bf630dcc132ab7fb18aed927996916c1",
+      "CLAUDE_CODE_GUIDE.md": "sha256:41d576fbc3a6e146e0cbd3f2ef2ae04abfbc7df5aa8248b04712691639eac8fd",
+      "CLAUDE.md": "sha256:37a66257af09640cea2ab3ec288e93d0f997d9c4409ab96dcbe854a2df27ad0c",
+      "DEVILS_ADVOCATE_REVIEW.md": "sha256:a8c6ef385f31adadcee5a21678853944f72c0d6e63601b5cdf9e909113b8849c"
     }
   },
   "independentVerdict": {
@@ -119,8 +119,8 @@
     "agentPath": "agents/devils-advocate.md",
     "agentSha256": "sha256:ee08e71de63ebcddcc8673ef6fa61d35789a9810d5ce8290f9da2ff72d05344f",
     "artifact": "DEVILS_ADVOCATE_REVIEW.md",
-    "artifactSha256": "sha256:5b089e9ebe8a45b465e087c8cfc9c4ede8deef6fd2047445b77fd33b6eb035a3",
-    "artifactBytes": 15872,
+    "artifactSha256": "sha256:a8c6ef385f31adadcee5a21678853944f72c0d6e63601b5cdf9e909113b8849c",
+    "artifactBytes": 17189,
     "exitCode": 0,
     "resultSubtype": null,
     "isError": false,
@@ -137,6 +137,6 @@
     "fixtureContract": "sha256:3f092bdf1d20065fa6acfe464262ab5bee16daadd561fbb8f32e0eb2a3ae65b7",
     "codexAdapterTemplate": "sha256:5fd95566ad36468a43bb6ef4e35471c8aac4f133d37f017a952737a8746f9298",
     "agentsTemplate": "sha256:af0b59d7a879d5c0a5e5b1218aa11141dab3312e7ed975b7bb39a07759df5c21",
-    "methodologyTree": "sha256:ebd1e832f7bb4852db7e1072e9fb23f47d589b6e26bd577849830792042e9c85"
+    "methodologyTree": "sha256:a4ab64b76492555f9bc4b4a604b6aae89d539fc5a2b7609b4b931ae8aa8ffd32"
   }
 }
