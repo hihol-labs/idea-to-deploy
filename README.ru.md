@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.99.0](https://img.shields.io/badge/Version-1.99.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.100.0](https://img.shields.io/badge/Version-1.100.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
