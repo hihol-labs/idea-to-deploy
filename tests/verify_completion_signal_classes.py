@@ -197,6 +197,19 @@ def main():
           cl.display_only_command('NOTE="a b" pytest -q') is False)
     check("A2: кавычный аргумент не подменяет голову сегмента (PUB5)",
           cl.display_only_command('grep "pytest failed" log.txt'))
+    check("A2: опции обёртки env -i не подменяют голову — display жив (PUB6)",
+          cl.display_only_command('env -i FOO=x grep -n fail tests/run-all.sh')
+          and cl.classify_bash('env -i FOO=x grep -n fail tests/run-all.sh',
+                               {"stdout": "12: fail", "exitCode": 0}) is None)
+    check("A2: time -p перед реальной командой — не display (PUB6)",
+          cl.display_only_command('time -p pytest -q') is False)
+    check("A2: экранированный делимитер <<\\EOF распознан — хвост виден (PUB6)",
+          cl.display_only_command('cat <<\\EOF\ndata\nEOF\npytest -q') is False
+          and cl.display_only_command('cat <<\\EOF\npytest inside\nEOF'))
+    check("A2: кавычный делимитер с пробелом <<'END MARK' распознан (PUB6)",
+          cl.display_only_command("cat <<'END MARK'\nx\nEND MARK\npytest -q")
+          is False
+          and cl.display_only_command("cat <<'END MARK'\npytest inside\nEND MARK"))
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",

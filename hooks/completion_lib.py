@@ -543,10 +543,15 @@ def _split_top(command: str, statements: bool) -> list[str]:
             # ведущие табы; нетерминированный heredoc поглощает остаток.
             nl = command.find("\n", i)
             line_rest = command[i:nl if nl != -1 else n]
+            # Формы слова-делимитера (находка PUB6): голое слово, `\EOF`
+            # (экранированный первый символ), `'END MARK'` / "END MARK"
+            # (кавычки допускают пробелы). Делимитер — слово после снятия
+            # кавычек/экранирования.
             delims = [(m.group(1) == "-",
-                       m.group(3))
+                       m.group(2) or m.group(3) or m.group(4) or m.group(5))
                       for m in re.finditer(
-                          r"<<(-?)\s*(['\"]?)([^\s'\"<>|&;()]+)\2",
+                          r"<<(-?)\s*(?:\\(\S+)|'([^']+)'|\"([^\"]+)\""
+                          r"|([^\s'\"<>|&;()]+))",
                           line_rest)]
             if not delims or nl == -1:
                 cur.append(command[i:])
@@ -630,6 +635,11 @@ def _segment_head_token(segment: str) -> str:
         if _ASSIGNMENT_RE.match(tok):
             continue  # префиксные VAR=val (значение может быть в кавычках)
         if tok in {"env", "command", "nohup", "time"}:
+            continue
+        if tok.startswith("-"):
+            # Опция обёртки (`env -i`, `time -p`) — не голова команды
+            # (находка PUB6); до головы встречаются только обёртки,
+            # присваивания и их опции.
             continue
         return tok.rsplit("/", 1)[-1].lower()
     return ""
