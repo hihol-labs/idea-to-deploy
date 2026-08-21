@@ -121,7 +121,7 @@
   statement-aware разрез с heredoc-стопом; normalize_command_key с
   escape-aware кавычками; head-привязка сигналов (стейл целиком); diff/comm —
   verification; case-sensitive FAILED/FAIL — «0 failed» больше не провал);
-  оракул 15 -> 61 (43 на закрытии A2; +8 в hd-раундах cross-vendor ревью: heredoc-терминаторы, двойной heredoc, here-string; +3 PUB4: общий класс слов-делимитеров).** Исходный текст:
+  оракул 15 -> 65 (43 на закрытии A2; +8 в hd-раундах cross-vendor ревью: heredoc-терминаторы, двойной heredoc, here-string; +3 PUB4: общий класс слов-делимитеров).** Исходный текст:
   Красный L2-сигнал от прогона ДО перечеканки efficacy-ног остался в вердикте
   с evidence из текста heredoc (`cat > HANDOFF-R1.md`), и свежий зелёный
   `run-all --quick` его не перевесил -> коммит только через `COMPLETION_BYPASS`.

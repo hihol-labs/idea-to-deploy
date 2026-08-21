@@ -631,21 +631,27 @@ _ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
 def _segment_head_token(segment: str) -> str:
+    skip_operand = False
     for tok in _shell_words(segment.strip()):
+        if skip_operand:
+            skip_operand = False
+            continue  # операнд опции обёртки (`env -u CI`, `time -f '%E'`)
         if _ASSIGNMENT_RE.match(tok):
             continue  # префиксные VAR=val (значение может быть в кавычках)
         if tok in {"env", "command", "nohup", "time"}:
             continue
         if tok.startswith("-"):
             # Опция обёртки (`env -i`, `time -p`) — не голова команды
-            # (находка PUB6); до головы встречаются только обёртки,
-            # присваивания и их опции.
+            # (находка PUB6); опции с отдельным аргументом тянут за собой
+            # операнд (находка PUB7): env -u/-C/-S, time -f/-o.
+            if tok in {"-u", "-C", "-S", "-f", "-o"}:
+                skip_operand = True
             continue
         return tok.rsplit("/", 1)[-1].lower()
     return ""
 
 
-_EXEC_MARKER_RE = re.compile(r"system\(|/e([^\w]|$)")
+_EXEC_MARKER_RE = re.compile(r"system\s*\(|/e([^\w]|$)")
 
 
 def _display_segment(segment: str) -> bool:

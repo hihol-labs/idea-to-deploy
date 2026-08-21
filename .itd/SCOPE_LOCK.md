@@ -27,13 +27,14 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   head консервативно блокирует. По находке cross-vendor PUB2: heredoc
   КОНЕЧЕН — разрез стейтментов распознаёт делимитер и продолжается после
   терминатора (`cat <<EOF…EOF` + `pytest` больше не глотается). Оракул:
-  `tests/verify_completion_signal_classes.py` (15 -> 61 проверки, RED-first —
+  `tests/verify_completion_signal_classes.py` (15 -> 65 проверок, RED-first —
   оба display-кейса воспроизведены на старом коде; 43 на закрытии A2,
   +8 в hd-раундах: двойной heredoc, отступленный псевдо-терминатор,
   here-string; +3 PUB4: делимитер — общее слово, не только [A-Za-z0-9_];
   +3 PUB5: quote-aware голова сегмента — кавычный VAR-префикс с пробелами;
   +4 PUB6: опции обёрток env/time не голова; формы делимитера \\EOF и
-  кавычные с пробелом).
+  кавычные с пробелом; +4 PUB7: system ( с пробелом — исполнение;
+  операнды опций env -u/-C/-S и time -f/-o).
 - **LPD002-A517 (кластер itd_review_evidence)** — `skills/_shared/
   itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
   ОБЪЯВЛЕННЫЕ в STATE (не произвольный третий путь); A1 выбор критериев
@@ -65,8 +66,8 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   (сьют 17 -> 20; по PUB4 dummy-.git отбит: чекаут валидируется самим git rev-parse --show-toplevel, worktree-файл .git легитимен только настоящий). Вторая находка PUB3 (medium): бухгалтерия счётчика
   оракула A2 сведена к фактическому значению суммы во всех леджерах
   (контракт A2 / ACCEPTANCE / BACKLOG / CHANGELOG / этот файл); после
-  PUB4/PUB5/PUB6-регрессий фактическое значение — 61, все места обновлены
-  вместе.
+  PUB4/PUB5/PUB6/PUB7-регрессий фактическое значение — 65, все места
+  обновлены вместе.
 - **A4, A6 — реклассификация без кода**: A4 опровергнут замером R6 (ноги
   пинят только `itd_free_reviewer_producer.py` + раннер + манифест; корень
   live-пина отложен решением владельца — memory
@@ -110,6 +111,21 @@ S11 «model-visible means logged», а не текстовый файл с ра�
 heredoc-делимитера принимает формы `\\EOF` (экранирование) и кавычные с
 пробелами (`'END MARK'`) — нераспознанный делимитер больше не превращает
 хвост в display-поглощение. Оракул 57 -> 61.
+
+## PUB7 (cross-vendor, gpt-5.6-terra) — разбор находок
+
+- РЕАЛЬНАЯ (high, completion_lib): `_EXEC_MARKER_RE` матчил только литеральный
+  `system(` — awk допускает пробел перед скобкой; `system\\s*\\(` + регрессия.
+- РЕАЛЬНАЯ (medium, completion_lib): опции обёрток с отдельным аргументом
+  (`env -u CI`, `time -f '%E'`) делали операнд головой сегмента — операнд
+  теперь пропускается (env -u/-C/-S, time -f/-o) + 3 регрессии. Оракул 61->65.
+- ЛОЖНАЯ (medium, itd_review_evidence «extra-леджер без проверки M»):
+  `modifiedPaths` — это строки со статусом M у продюсера
+  (itd_free_reviewer_producer.py:913), а политика требует
+  `set(modified) == changed` (itd_review_evidence.py:212) — added/deleted/
+  type-changed extra-строка меняет равенство и класс отклоняется; оракул уже
+  прибивает ровно этот сценарий проверкой `a5-extra-file-must-be-a-modification`
+  (tests/verify_review_evidence.py:459). Код не менялся.
 
 ## Явно вне скоупа
 

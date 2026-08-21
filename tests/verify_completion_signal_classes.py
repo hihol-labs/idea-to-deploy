@@ -210,6 +210,18 @@ def main():
           cl.display_only_command("cat <<'END MARK'\nx\nEND MARK\npytest -q")
           is False
           and cl.display_only_command("cat <<'END MARK'\npytest inside\nEND MARK"))
+    check("A2: awk system ( с пробелом — исполнение, не display (PUB7)",
+          cl.display_only_command("awk 'BEGIN { system (\"pytest -q\") }'")
+          is False
+          and cl.display_only_command("awk '{print $1}' file.txt"))
+    check("A2: операнд опции env -u не голова — display жив (PUB7)",
+          cl.display_only_command("env -u CI cat notes.md")
+          and cl.classify_bash("env -u CI cat notes.md",
+                               {"stdout": "", "exitCode": 0}) is None)
+    check("A2: операнд опции time -f не голова (PUB7)",
+          cl.display_only_command("time -f '%E' cat file"))
+    check("A2: env -u перед реальной командой — не display (PUB7)",
+          cl.display_only_command("env -u CI pytest -q") is False)
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",
