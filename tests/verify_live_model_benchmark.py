@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -847,6 +848,11 @@ def main() -> int:
     )
     check("live prompt explicitly names the oracle-required CLI interface heading",
           prompt_names_architecture_cli_heading)
+    codex_write_directive = getattr(
+        runner_module, "CODEX_WRITE_BOUNDARY_DIRECTIVE", "")
+    prompt_names_codex_write_boundary = codex_write_directive in live_prompt
+    check("live prompt names the Codex-native write boundary",
+          prompt_names_codex_write_boundary)
     mutated_prompt = (
         live_prompt.replace(f"`{required_outputs[0]}`", "", 1)
         if required_outputs else live_prompt
@@ -863,6 +869,182 @@ def main() -> int:
     check("mutation: omitted CLI interface heading fails closed",
           prompt_names_architecture_cli_heading
           and architecture_cli_heading_directive not in mutated_architecture_prompt)
+    mutated_write_prompt = live_prompt.replace(codex_write_directive, "", 1)
+    mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-prompt-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_write_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            mutation_guarded = "Codex-native write boundary" in str(exc)
+    check("mutation: omitted Codex write boundary fails closed",
+          prompt_names_codex_write_boundary
+          and mutation_guarded)
+    claude_inline_directive = getattr(
+        runner_module, "CLAUDE_INLINE_WORKFLOW_DIRECTIVE", "")
+    prompt_names_claude_inline_boundary = (
+        claude_inline_directive in live_prompt)
+    check("live prompt names the Claude inline-workflow boundary",
+          prompt_names_claude_inline_boundary)
+    mutated_claude_prompt = live_prompt.replace(
+        claude_inline_directive, "", 1)
+    claude_mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-claude-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_claude_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            claude_mutation_guarded = (
+                "Claude inline-workflow boundary" in str(exc))
+    check("mutation: omitted Claude inline-workflow boundary fails closed",
+          prompt_names_claude_inline_boundary
+          and claude_mutation_guarded)
+    guide_literal_directive = getattr(
+        runner_module, "GUIDE_CARDINALITY_LITERAL_DIRECTIVE", "")
+    prompt_names_guide_literal = guide_literal_directive in live_prompt
+    check("live prompt pins the guide cardinality literal",
+          prompt_names_guide_literal)
+    mutated_guide_prompt = live_prompt.replace(
+        guide_literal_directive, "", 1)
+    guide_mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-guide-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_guide_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            guide_mutation_guarded = (
+                "guide cardinality literal boundary" in str(exc))
+    check("mutation: omitted guide cardinality literal fails closed",
+          prompt_names_guide_literal and guide_mutation_guarded)
+    prd_story_format_directive = getattr(
+        runner_module, "PRD_USER_STORY_FORMAT_DIRECTIVE", "")
+    prompt_names_story_format = prd_story_format_directive in live_prompt
+    check("live prompt pins the PRD user-story line format",
+          prompt_names_story_format)
+    mutated_story_format_prompt = live_prompt.replace(
+        prd_story_format_directive, "", 1)
+    story_format_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-story-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_story_format_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            story_format_guarded = (
+                "PRD user-story format boundary" in str(exc))
+    check("mutation: omitted PRD user-story format fails closed",
+          prompt_names_story_format and story_format_guarded)
+    anthropic_args = argparse.Namespace(
+        resolved_provider="anthropic", model="sonnet")
+    anthropic_prompt = "line one\nline two with product context"
+    with tempfile.TemporaryDirectory(prefix="itd-live-stdin-") as raw:
+        transport_root = Path(raw)
+        with mock.patch.object(
+                runner_module, "bounded_subprocess") as bounded:
+            bounded.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="", stderr="")
+            _, anthropic_family = runner_module.run_candidate(
+                anthropic_args, "claude", transport_root, transport_root,
+                anthropic_prompt, timeout_seconds=30,
+                attempt_budget="2.50", candidate_project=str(transport_root),
+                capture_limit_bytes=4096)
+    anthropic_command = bounded.call_args.args[0]
+    anthropic_kwargs = bounded.call_args.kwargs
+    check("Claude live prompt travels through stdin",
+          anthropic_kwargs.get("input_text") == anthropic_prompt
+          and anthropic_prompt not in anthropic_command
+          and anthropic_family
+          == "claude -p --stdin --repository-local-itd"
+          and "--plugin-dir" not in anthropic_command)
+    setting_index = (
+        anthropic_command.index("--setting-sources")
+        if "--setting-sources" in anthropic_command else -1)
+    check("Claude live transport excludes ambient user settings and MCP",
+          setting_index >= 0
+          and anthropic_command[setting_index + 1] == "project"
+          and "--strict-mcp-config" in anthropic_command
+          and "user" not in anthropic_command)
+    mutated_anthropic_command = [*anthropic_command, anthropic_prompt]
+    check("mutation: Claude positional prompt is rejected by the transport contract",
+          anthropic_prompt in mutated_anthropic_command
+          and anthropic_prompt not in anthropic_command)
+    with mock.patch.object(runner_module.subprocess, "run") as oracle_run:
+        oracle_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr="")
+        runner_module.run_snapshot_oracle(
+            Path("fixture-root"), Path("output-root"))
+    oracle_kwargs = oracle_run.call_args.kwargs
+    check("snapshot oracle diagnostics are forced to UTF-8",
+          oracle_kwargs.get("encoding") == "utf-8"
+          and oracle_kwargs.get("errors") == "replace"
+          and (oracle_kwargs.get("env") or {}).get("PYTHONUTF8") == "1")
+    mutated_oracle_env = dict(oracle_kwargs.get("env") or {})
+    mutated_oracle_env.pop("PYTHONUTF8", None)
+    check("mutation: missing snapshot-oracle UTF-8 pin is detected",
+          mutated_oracle_env.get("PYTHONUTF8") != "1"
+          and (oracle_kwargs.get("env") or {}).get("PYTHONUTF8") == "1")
+    opaque_token = "".join((
+        "Ab3dE5fG", "h7Jk9LmN", "pQrStUvW", "xYz01234",
+        "56789_-A", "BcDefGhI", "jKlMnOp9",
+    ))
+    sanitized_entropy, entropy_redactions = (
+        runner_module.redact_high_entropy_capture(
+            f'before "{opaque_token}" after'))
+    benign_hex = "0123456789abcdef" * 4
+    preserved_hex, hex_redactions = runner_module.redact_high_entropy_capture(
+        benign_hex)
+    base64_token = "".join((
+        "Ab3dE5fG", "+h7Jk9/L", "mNpQrStU", "vWxYz012",
+        "3456789=", "ABcDefGh", "IjKlMnOp",
+    ))
+    dotted_token = "".join((
+        "Ab3dE5fG", ".h7Jk9Lm", ".NpQrStU", ".vWxYz01",
+        "23456789", ".ABcDefG", "hIjKlMn9",
+    ))
+    sanitized_base64, base64_redactions = (
+        runner_module.redact_high_entropy_capture(base64_token))
+    sanitized_dotted, dotted_redactions = (
+        runner_module.redact_high_entropy_capture(dotted_token))
+    check("opaque high-entropy capture tokens are redacted",
+          entropy_redactions == 1
+          and opaque_token not in sanitized_entropy
+          and "[REDACTED-HIGH-ENTROPY]" in sanitized_entropy)
+    check("mutation: lowercase digest is not over-redacted",
+          hex_redactions == 0 and preserved_hex == benign_hex)
+    check("base64-punctuation high-entropy token is redacted",
+          base64_redactions == 1 and base64_token not in sanitized_base64)
+    check("dotted high-entropy token is redacted",
+          dotted_redactions == 1 and dotted_token not in sanitized_dotted)
+    with tempfile.TemporaryDirectory(prefix="itd-live-workspace-") as raw:
+        workspace = Path(raw)
+        trace_dir = workspace / ".claude" / "traces"
+        trace_dir.mkdir(parents=True)
+        trace = (
+            trace_dir
+            / "session-26456a05-e576-42e4-a943-cfe93ad4671b.jsonl")
+        trace.write_text("host trace\n", encoding="utf-8")
+        foreign_trace = trace_dir / "candidate.jsonl"
+        foreign_trace.write_text("candidate data\n", encoding="utf-8")
+        product = workspace / "PRODUCT.md"
+        product.write_text("product\n", encoding="utf-8")
+        snapshot_with_trace = runner_module.workspace_snapshot(workspace)
+    check("complete advocate snapshot includes Claude trace-like paths",
+          ".claude/traces/session-26456a05-e576-42e4-a943-cfe93ad4671b.jsonl"
+          in snapshot_with_trace
+          and ".claude/traces/candidate.jsonl" in snapshot_with_trace
+          and "PRODUCT.md" in snapshot_with_trace)
+    mutated_snapshot = dict(snapshot_with_trace)
+    mutated_snapshot.pop(
+        ".claude/traces/session-26456a05-e576-42e4-a943-cfe93ad4671b.jsonl")
+    check("mutation: omitted Claude trace-like path changes workspace state",
+          mutated_snapshot != snapshot_with_trace)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

@@ -9,16 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.100.1] - 2026-08-21
+
 ### Fixed
-- **Mandatory pre-PR local gate deployment reliability (PRG-001/002).**
+- **Mandatory pre-PR local gate deployment reliability (PRG-001/002/003).**
   Trusted Codex cachebusters (`X.Y.Z+codex.<token>`) now reconcile to the same
   release identity as the canonical Claude `X.Y.Z` manifest without accepting
   prereleases, foreign metadata, leading-zero/malformed components or core
   drift. Global CLI and pre-push installers no longer embed the mutable source
   checkout: they share one atomic, closed-inventory, content-addressed runtime,
   refuse existing tamper and launch its entry points with Python `-I -B`.
-  Regression evidence: gate-profile doctor 59 checks; runtime installer 26
+  The closed inventory includes the exact-context review-cache module, review
+  skill and both rubrics loaded transitively during receipt revalidation,
+  preventing source-green but installed-UNVERIFIED pre-push gates. Regression evidence: gate-profile
+  doctor 59 checks; runtime installer 28
   checks on WSL and native Windows; ITD CLI 112; Git hooks 30.
+  The live Codex fixture also pins the native `apply_patch` write boundary so
+  a declined PowerShell command cannot be misreported as a read-only workspace.
+  Claude live runs stay in the prompt-bearing main session instead of a native
+  Skill fork that loses the pre-approved product brief, and receive the full
+  multiline brief over stdin instead of a truncation-prone Windows argv.
+  Snapshot-oracle diagnostics are UTF-8-pinned on Windows for both live and
+  immutable reverify paths, so console cp1251 cannot replace a verdict.
+  The guide's case-sensitive cardinality-exhaustion contract is pinned to one
+  physical line in the live prompt and runner preflight.
+  Claude live phases load only project settings with strict MCP config, so
+  ambient user plugins cannot add trace debris; the complete advocate
+  workspace snapshot remains hash-bound.
+  Claude benchmark claims repository-local skill/reference reads directly and
+  no longer treats a failed native plugin manifest as activated.
+  PRD live-fixture stories are pinned to the oracle's exact `- As a ` line
+  format instead of relying on semantic prose alone.
+  Persisted live transcripts redact credential-like high-entropy opaque tokens
+  across URL-safe, base64 and dotted forms without rewriting lowercase content
+  digests.
 
 ## [1.100.0] - 2026-08-21
 

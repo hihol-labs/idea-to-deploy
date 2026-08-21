@@ -1,30 +1,67 @@
-# Scope Lock — immutable installed ITD gate runtime (PRG-002)
+# Scope Lock — PRG-004 / release v1.100.1
 
 ## Current Task
 
-После verified PRG-001 (`e69d020`) второй WIP=1 bugfix устраняет mutable
-checkout binding глобальных CLI/pre-push wrappers.
+Live native-Windows pre-push canary обнаружил release-blocker после PR #224:
+content-addressed runtime не включал транзитивную exact-context цепочку:
+`skills/review/scripts/itd_review_cache.py`, review skill и оба rubric-файла,
+которые загружаются по абсолютным путям при revalidation exact-candidate
+receipt. Source-tree doctor был GREEN, installed runtime последовательно
+нашёл отсутствующие cache module и meta rubric и fail-closed вернул
+`UNVERIFIED`, поэтому PR нельзя было разместить.
 
-- **Allowed code:** `scripts/itd_install_runtime.py`,
-  `scripts/itd_install_cli.py`, `scripts/itd_install_git_hooks.py`.
-- **Allowed tests:** `tests/verify_itd_runtime_install.py`, точечные installer
-  tests, регистрация нового oracle в `tests/run-all.sh` и механически
-  регенерированный `.itd/IMPACT_GRAPH.json`.
-- **Allowed docs/bookkeeping:** installer/release runbook, CHANGELOG/BACKLOG,
-  этот scope, acceptance, STATE и task/root-cause contracts.
-- Runtime snapshot содержит только закрытый объявленный набор нужных файлов,
-  materializes атомарно в host-data каталоге `<release>-<digest>`, а wrappers
-  называют только его script path. Повторная установка сверяет bytes; tamper
-  и неполный snapshot блокируются, не перезаписываются молча.
+После закрытия PRG-003 CI PR #225 потребовал новый current-tree live evidence.
+Bounded run показали второй release-blocker: Codex-модели читали
+repository-local blueprint, но после command-safety отказов PowerShell ложно
+объявляли workspace read-only; после первой prompt-починки native `apply_patch`
+сам подтвердил внешний sandbox denial. Claude Skill fork терял product prompt.
+PRG-004 разрешает только host-boundary инструкции и их preflight:
+
+- `tests/fixtures/fixture-03-cli-tool/live-prompt.md`;
+- `tests/run-live-model-benchmark.py` (только fail-closed prompt preflight);
+- `tests/verify_live_model_benchmark.py`;
+- generated `tests/fixtures/live-model-evidence/**` после реального run;
+- `.itd/{SCOPE_LOCK.md,ACCEPTANCE_CONTRACT.json,IMPACT_GRAPH.json}`;
+- `.itd-memory/{STATE.json,contracts/PRG-004.md,ROOT_CAUSE-PRG-004.md}`;
+- `CHANGELOG.md`.
+
+PRG-003 разрешает только корневое закрытие этого runtime inventory gap:
+
+- `scripts/itd_install_runtime.py`;
+- `tests/verify_itd_runtime_install.py`;
+- `docs/CODEX_ADAPTER.md`, `docs/RELEASE_RUNBOOK.md`;
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`, механически
+  регенерированный `.itd/IMPACT_GRAPH.json`;
+- `.itd-memory/STATE.json`, `.itd-memory/contracts/PRG-003.md`,
+  `.itd-memory/ROOT_CAUSE-PRG-003.md`;
+- `CHANGELOG.md`.
+
+Patch release также сохраняет уже проверенные канонические version surfaces:
+
+- `.claude-plugin/{plugin,marketplace}.json`, `.codex-plugin/plugin.json`;
+- `README.md`, `README.ru.md`, `CHANGELOG.md`;
+- `docs/HARNESS_CONFORMANCE_REPORT.md`, `docs/HARNESS_DOCS_STATE.json`,
+  `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`;
+- version canary `tests/verify_external_reviewer_release.py`;
+- этот release scope.
 
 ## Forbidden Change Areas
 
-- Не менять PRG-001 version parser, exact-HEAD/stale-receipt проверки, route
-  cardinality, keyring/provenance и `--require-mandatory-route`.
-- Не заявлять `PROTECTED` для `local-review` и не включать App/ruleset/broker
-  server enforcement в этот bugfix.
-- Не копировать весь репозиторий, live evidence, `.git`, `.itd-memory`, secrets
-  или candidate-controlled файлы в runtime.
+- Никаких reviewer/gate semantics, receipt/keyring, hook logic, broker/App или
+  version-parser изменений; generated evidence пишет только bounded runner.
+- PRG-004 не меняет sandbox/approval flags, model routing, fixture product
+  contract, snapshot oracle или pin policy; runner меняется только fail-closed
+  preflight-проверкой директив и переносом Claude prompt из Windows argv в
+  stdin, а также UTF-8 окружением запуска неизменённого snapshot oracle;
+  Claude transport исключает ambient user settings/MCP до model dispatch;
+  advocate snapshot остаётся полным и не игнорирует trace-like paths;
+  Claude не загружает непроверенный native plugin manifest, а читает
+  repository-local skill/reference напрямую;
+  generated evidence пишет только runner.
+- Не расширять runtime inventory за пределы доказанного path-loaded набора
+  exact-context review cache (module + skill + standard/meta rubrics).
+- Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.
+- Tag/release/rollout выполняются только после merge release PR и зелёного CI.
 
 ---
 

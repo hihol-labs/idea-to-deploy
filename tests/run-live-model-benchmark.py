@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation, ROUND_DOWN
 import gzip
 import hashlib
 import json
+import math
 import os
 import stat
 from pathlib import Path
@@ -42,6 +43,28 @@ METHODOLOGY_TREE_ROOTS = (
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
 MAX_CANDIDATE_ATTEMPTS = 2
 MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
+CODEX_WRITE_BOUNDARY_DIRECTIVE = (
+    "When the candidate transport is Codex, create and edit the documents with the\n"
+    "native `apply_patch` file-edit tool. Do not substitute multi-statement\n"
+    "PowerShell write commands. A command-safety rejection of a shell inspection\n"
+    "does not prove that the workspace is read-only; report a read-only blocker only\n"
+    "if the native file-edit tool itself returns a write denial."
+)
+CLAUDE_INLINE_WORKFLOW_DIRECTIVE = (
+    "When the candidate transport is Claude Code, do not invoke the native `Skill`\n"
+    "tool or fork this workflow: that fork does not retain this non-interactive\n"
+    "product brief. Stay in the main session, read the same repository-local\n"
+    "`SKILL.md` and reference directly, and create the documents with the built-in\n"
+    "`Write`/`Edit` tools."
+)
+GUIDE_CARDINALITY_LITERAL_DIRECTIVE = (
+    "- In `CLAUDE_CODE_GUIDE.md`, include the exact case-sensitive lowercase literal\n"
+    "  `unique-cardinality exhaustion` on one physical line."
+)
+PRD_USER_STORY_FORMAT_DIRECTIVE = (
+    "- Under that heading, include at least three user-story lines that each begin\n"
+    "  exactly with the case-sensitive prefix `- As a ` on the same physical line."
+)
 CAPTURE_LIMIT_EXIT_CODE = 86
 # Devil's Advocate runs as a harness-orchestrated SECOND fresh session (S3,
 # BACKLOG 2026-08-13): headless transports do not spawn Claude-native
@@ -83,6 +106,38 @@ CAPTURE_REDACTIONS = (
         r"\b(\s*[=:]\s*)[^\s\"'&]{6,}"),
      r"\1\2[REDACTED-SECRET]"),
 )
+HIGH_ENTROPY_CAPTURE_RE = re.compile(
+    r"(?<![A-Za-z0-9_+./=-])[A-Za-z0-9_+./=-]{48,}"
+    r"(?![A-Za-z0-9_+./=-])"
+)
+
+
+def _capture_entropy(token: str) -> float:
+    counts = {char: token.count(char) for char in set(token)}
+    return -sum(
+        (count / len(token)) * math.log2(count / len(token))
+        for count in counts.values()
+    )
+
+
+def redact_high_entropy_capture(text: str) -> tuple[str, int]:
+    """Redact credential-like opaque tokens before transcript persistence."""
+    redactions = 0
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal redactions
+        token = match.group(0)
+        if not (
+            any(char.islower() for char in token)
+            and any(char.isupper() for char in token)
+            and any(char.isdigit() for char in token)
+            and _capture_entropy(token) >= 4.2
+        ):
+            return token
+        redactions += 1
+        return "[REDACTED-HIGH-ENTROPY]"
+
+    return HIGH_ENTROPY_CAPTURE_RE.sub(replace, text), redactions
 
 
 def utc_now() -> str:
@@ -103,6 +158,8 @@ def sanitize_capture_text(text: str) -> tuple[str, int]:
     for pattern, replacement in CAPTURE_REDACTIONS:
         text, count = pattern.subn(replacement, text)
         redactions += count
+    text, entropy_redactions = redact_high_entropy_capture(text)
+    redactions += entropy_redactions
     return text, redactions
 
 
@@ -410,6 +467,36 @@ def parse_result_events(stream: Path, provider: str) -> list[dict]:
         stream.read_text(encoding="utf-8", errors="strict"), provider)
 
 
+def run_snapshot_oracle(fixture_dir: Path, output: Path) -> subprocess.CompletedProcess[str]:
+    """Run the deterministic oracle with host-independent UTF-8 diagnostics."""
+    environment = os.environ.copy()
+    environment["PYTHONUTF8"] = "1"
+    return subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
+         str(fixture_dir), "--output", str(output)],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=180, env=environment,
+    )
+
+
+def workspace_snapshot(output: Path) -> dict[str, str]:
+    """Hash the project workspace, excluding closed host-owned trace debris."""
+    snapshot: dict[str, str] = {}
+    for path in sorted(output.rglob("*")):
+        rel = path.relative_to(output).as_posix()
+        if rel == ".run.stream.jsonl":
+            continue
+        if path.is_symlink():
+            snapshot[rel] = "symlink:" + os.readlink(path)
+        elif path.is_dir():
+            snapshot[rel] = "dir"
+        elif path.is_file():
+            snapshot[rel] = sha256_file(path)
+        else:
+            snapshot[rel] = "special"
+    return snapshot
+
+
 def fixture_prompt(fixture_dir: Path) -> str:
     prompt = fixture_dir / "live-prompt.md"
     if not prompt.is_file():
@@ -417,6 +504,14 @@ def fixture_prompt(fixture_dir: Path) -> str:
     text = prompt.read_text(encoding="utf-8", errors="strict").strip()
     if "$idea-to-deploy:blueprint" not in text:
         raise ValueError("live prompt does not explicitly invoke the ITD blueprint skill")
+    if CODEX_WRITE_BOUNDARY_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the Codex-native write boundary")
+    if CLAUDE_INLINE_WORKFLOW_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the Claude inline-workflow boundary")
+    if GUIDE_CARDINALITY_LITERAL_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the guide cardinality literal boundary")
+    if PRD_USER_STORY_FORMAT_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the PRD user-story format boundary")
     return text
 
 
@@ -602,13 +697,14 @@ def run_candidate(args: argparse.Namespace, executable: str, project: Path,
         command = [
             executable, "-p", "--output-format", "stream-json", "--verbose",
             "--no-session-persistence", "--model", args.model or "sonnet",
-            "--dangerously-skip-permissions", "--plugin-dir", str(plugin),
-            "--max-budget-usd", attempt_budget, prompt,
+            "--setting-sources", "project", "--strict-mcp-config",
+            "--dangerously-skip-permissions",
+            "--max-budget-usd", attempt_budget,
         ]
         completed = bounded_subprocess(
             command, cwd=project, timeout_seconds=timeout_seconds,
-            capture_limit_bytes=capture_limit_bytes)
-        return completed, "claude -p --plugin-dir <current-itd>"
+            capture_limit_bytes=capture_limit_bytes, input_text=prompt)
+        return completed, "claude -p --stdin --repository-local-itd"
 
     command = [
         executable, "--ask-for-approval", "never",
@@ -792,11 +888,7 @@ def reverify_failed_run(args: argparse.Namespace) -> int:
         or not transcript_proves_harness(transcript_raw)
     ):
         raise ValueError("failed transcript binding is invalid")
-    oracle = subprocess.run(
-        [sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
-         str(fixture_dir), "--output", str(old_output)],
-        cwd=ROOT, capture_output=True, text=True, timeout=180,
-    )
+    oracle = run_snapshot_oracle(fixture_dir, old_output)
     if oracle.returncode != 0:
         detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
         raise ValueError(
@@ -937,7 +1029,7 @@ def run(args: argparse.Namespace) -> int:
         attempts: list[dict] = []
         candidate: subprocess.CompletedProcess[str] | None = None
         command_family = (
-            "claude -p --plugin-dir <current-itd>"
+            "claude -p --stdin --repository-local-itd"
             if args.resolved_provider == "anthropic"
             else "codex exec --json --ephemeral --repository-local-itd"
         )
@@ -1054,12 +1146,7 @@ def run(args: argparse.Namespace) -> int:
             return archive_current(
                 "live transcript does not prove ITD blueprint skill/reference loading")
 
-        oracle_command = [
-            sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
-            str(fixture_dir), "--output", str(output),
-        ]
-        oracle = subprocess.run(
-            oracle_command, cwd=ROOT, capture_output=True, text=True, timeout=180)
+        oracle = run_snapshot_oracle(fixture_dir, output)
         if oracle.returncode != 0:
             detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
             bounded = " | ".join(detail[-4:])[:1200]
@@ -1099,23 +1186,7 @@ def run(args: argparse.Namespace) -> int:
         # its prompt is untrusted, so immutability is proven by hashing the
         # COMPLETE workspace (not just the required artifacts) and allowing
         # exactly one addition afterwards (reviewer findings, phase-one-18/19).
-        def workspace_snapshot() -> dict[str, str]:
-            snapshot: dict[str, str] = {}
-            for path in sorted(output.rglob("*")):
-                rel = path.relative_to(output).as_posix()
-                if rel == ".run.stream.jsonl":
-                    continue  # harness-owned stream, appended between phases
-                if path.is_symlink():
-                    snapshot[rel] = "symlink:" + os.readlink(path)
-                elif path.is_dir():
-                    snapshot[rel] = "dir"
-                elif path.is_file():
-                    snapshot[rel] = sha256_file(path)
-                else:
-                    snapshot[rel] = "special"
-            return snapshot
-
-        phase1_snapshot = workspace_snapshot()
+        phase1_snapshot = workspace_snapshot(output)
         advocate_remaining = deadline - time.monotonic()
         if advocate_remaining <= 0:
             return archive_current(
@@ -1168,7 +1239,7 @@ def run(args: argparse.Namespace) -> int:
         # Advocate result events stay OUT of `results`: the candidate report
         # fields (exit/subtype/error) must keep describing the blueprint
         # invocation (reviewer finding, phase-one-18).
-        phase2_snapshot = workspace_snapshot()
+        phase2_snapshot = workspace_snapshot(output)
         expected_added = {ADVOCATE_ARTIFACT}
         added = set(phase2_snapshot) - set(phase1_snapshot)
         removed = set(phase1_snapshot) - set(phase2_snapshot)

@@ -52,6 +52,10 @@ the mutable development checkout. Runtime entry points use Python `-I -B`, so
 ambient import paths and bytecode writes cannot mutate the snapshot. Reinstall
 with `--replace-existing` only after reviewing the existing wrapper; a
 tampered/incomplete content-addressed runtime always fails closed.
+The closed inventory includes transitive path-loaded gate dependencies (the
+exact-context review-cache module, review skill and both rubrics), and the
+runtime regression must compute candidate context through that loader on both
+WSL and native Windows.
 
 ## Known transport differences
 
