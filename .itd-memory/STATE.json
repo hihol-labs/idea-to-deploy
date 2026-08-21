@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "PRG-003",
     "goal": "Close the installed runtime over its exact-context review-cache dependency",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-21T17:25:00Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-21T18:05:00Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +573,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "PRG-003 in progress on codex/release-v1.100.1: verify the exact runtime-inventory fix on WSL/native Windows, obtain a fresh bound independent review, publish/merge the release PR, tag v1.100.1, then finish Codex/Claude and CLI/pre-push rollout with live doctor/push canaries."
+  "nextAction": "PRG-003 verified on codex/release-v1.100.1: publish and merge the reviewed release PR, tag v1.100.1, then finish Codex/Claude and CLI/pre-push rollout with live WSL/native-Windows doctor and guarded-push canaries."
 }
