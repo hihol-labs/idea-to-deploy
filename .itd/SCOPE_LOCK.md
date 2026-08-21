@@ -1,30 +1,23 @@
-# Scope Lock — immutable installed ITD gate runtime (PRG-002)
+# Scope Lock — release v1.100.1
 
 ## Current Task
 
-После verified PRG-001 (`e69d020`) второй WIP=1 bugfix устраняет mutable
-checkout binding глобальных CLI/pre-push wrappers.
+Patch release публикует уже смерженный и CI-зелёный PR #224 (`96c3b32`) без
+поведенческих изменений. Разрешены только канонические version surfaces:
 
-- **Allowed code:** `scripts/itd_install_runtime.py`,
-  `scripts/itd_install_cli.py`, `scripts/itd_install_git_hooks.py`.
-- **Allowed tests:** `tests/verify_itd_runtime_install.py`, точечные installer
-  tests, регистрация нового oracle в `tests/run-all.sh` и механически
-  регенерированный `.itd/IMPACT_GRAPH.json`.
-- **Allowed docs/bookkeeping:** installer/release runbook, CHANGELOG/BACKLOG,
-  этот scope, acceptance, STATE и task/root-cause contracts.
-- Runtime snapshot содержит только закрытый объявленный набор нужных файлов,
-  materializes атомарно в host-data каталоге `<release>-<digest>`, а wrappers
-  называют только его script path. Повторная установка сверяет bytes; tamper
-  и неполный snapshot блокируются, не перезаписываются молча.
+- `.claude-plugin/{plugin,marketplace}.json`, `.codex-plugin/plugin.json`;
+- `README.md`, `README.ru.md`, `CHANGELOG.md`;
+- `docs/HARNESS_CONFORMANCE_REPORT.md`, `docs/HARNESS_DOCS_STATE.json`,
+  `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`;
+- version canary `tests/verify_external_reviewer_release.py`;
+- этот release scope.
 
 ## Forbidden Change Areas
 
-- Не менять PRG-001 version parser, exact-HEAD/stale-receipt проверки, route
-  cardinality, keyring/provenance и `--require-mandatory-route`.
-- Не заявлять `PROTECTED` для `local-review` и не включать App/ruleset/broker
-  server enforcement в этот bugfix.
-- Не копировать весь репозиторий, live evidence, `.git`, `.itd-memory`, secrets
-  или candidate-controlled файлы в runtime.
+- Никаких code/test logic, evidence, STATE, acceptance, hook, policy или
+  generated-artifact изменений.
+- Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.
+- Tag/release/rollout выполняются только после merge release PR и зелёного CI.
 
 ---
 

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.100.1] - 2026-08-21
+
 ### Fixed
 - **Mandatory pre-PR local gate deployment reliability (PRG-001/002).**
   Trusted Codex cachebusters (`X.Y.Z+codex.<token>`) now reconcile to the same
