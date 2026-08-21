@@ -23,6 +23,7 @@
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_depth.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_registration_and_counts.py",
       "tests/verify_retro_scan.py",
@@ -37,6 +38,7 @@
       "tests/verify_external_reviewer_release.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_operating_loops_release.py"
     ],
     ".dockerignore": [
@@ -895,8 +897,8 @@
       "tests/verify_external_reviewer_release.py",
       "tests/verify_gate_registry_isolation.py",
       "tests/verify_gate_registry_profiles.py",
-      "tests/verify_git_gate_hooks.py",
-      "tests/verify_itd_cli.py"
+      "tests/verify_itd_cli.py",
+      "tests/verify_itd_runtime_install.py"
     ],
     "scripts/itd_authority_check.py": [
       "tests/verify_authority_check.py"
@@ -919,10 +921,15 @@
       "tests/verify_github_app_manifest.py"
     ],
     "scripts/itd_install_cli.py": [
-      "tests/verify_git_gate_hooks.py"
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_itd_runtime_install.py"
     ],
     "scripts/itd_install_git_hooks.py": [
-      "tests/verify_git_gate_hooks.py"
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_itd_runtime_install.py"
+    ],
+    "scripts/itd_install_runtime.py": [
+      "tests/verify_itd_runtime_install.py"
     ],
     "scripts/itd_machine_oracle.py": [
       "tests/verify_api_reviewer.py",
@@ -941,7 +948,8 @@
     ],
     "scripts/itd_pre_push.py": [
       "tests/verify_gate_registry_profiles.py",
-      "tests/verify_git_gate_hooks.py"
+      "tests/verify_git_gate_hooks.py",
+      "tests/verify_itd_runtime_install.py"
     ],
     "scripts/sync-to-active.sh": [
       "tests/verify_completion_signals_powershell.py",

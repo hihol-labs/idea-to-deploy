@@ -15,6 +15,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "itd.py"
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+import itd_install_runtime as runtime_install  # noqa: E402
 
 
 class InstallError(RuntimeError):
@@ -156,12 +161,12 @@ def wrapper(python: Path, script: Path) -> bytes:
     if os.name == "nt":
         return (
             "@echo off\r\n"
-            f'"{python}" "{script}" %*\r\n'
+            f'"{python}" -I -B "{script}" %*\r\n'
         ).encode("utf-8")
     return (
         "#!/bin/sh\n"
         "set -eu\n"
-        f"exec {shlex.quote(python.as_posix())} "
+        f"exec {shlex.quote(python.as_posix())} -I -B "
         f"{shlex.quote(script.as_posix())} \"$@\"\n"
     ).encode("utf-8")
 
@@ -222,14 +227,24 @@ def install(
     replace_existing: bool,
     update_path: bool,
     python: Path | None = None,
-    script: Path = CLI,
+    script: Path | None = None,
+    source_root: Path = ROOT,
+    runtime_parent: Path | None = None,
 ) -> dict[str, object]:
     target = target.resolve()
-    script = script.resolve()
-    if not script.is_file():
-        raise InstallError("ITD CLI script is missing")
+    source_root = source_root.expanduser()
+    source_script = (source_root / "scripts" / "itd.py").resolve()
+    if script is not None and script.resolve() != source_script:
+        raise InstallError("ITD CLI script is outside the declared runtime")
     python, cryptography_version, runtime_source = select_runtime(python)
-    expected = wrapper(python, script)
+    try:
+        runtime = runtime_install.install_runtime(
+            source_root=source_root, runtime_parent=runtime_parent, apply=False
+        )
+    except runtime_install.RuntimeInstallError as exc:
+        raise InstallError(str(exc)) from exc
+    runtime_script = Path(str(runtime["runtimeRoot"])) / "scripts" / "itd.py"
+    expected = wrapper(python, runtime_script)
     if target.exists():
         try:
             existing = target.read_bytes()
@@ -246,12 +261,25 @@ def install(
         "python": str(python),
         "pythonSource": runtime_source,
         "cryptographyVersion": cryptography_version,
-        "script": str(script),
+        "sourceScript": str(source_script),
+        "script": str(runtime_script),
+        "runtimeRoot": runtime["runtimeRoot"],
+        "runtimeManifest": runtime["runtimeManifest"],
+        "runtimeSha256": runtime["runtimeSha256"],
+        "release": runtime["release"],
         "pathUpdateRequired": os.name == "nt",
         "pathUpdated": False,
     }
     if not apply:
         return result
+    try:
+        deployed = runtime_install.install_runtime(
+            source_root=source_root, runtime_parent=runtime_parent, apply=True
+        )
+    except runtime_install.RuntimeInstallError as exc:
+        raise InstallError(str(exc)) from exc
+    if deployed["runtimeRoot"] != result["runtimeRoot"]:
+        raise InstallError("runtime identity changed during CLI installation")
     atomic_write(target, expected)
     if update_path:
         result["pathUpdated"] = ensure_windows_user_path(target.parent)
@@ -275,6 +303,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--apply", action="store_true")
     result.add_argument("--replace-existing", action="store_true")
     result.add_argument("--no-path-update", action="store_true")
+    result.add_argument("--runtime-parent", type=Path)
     return result
 
 
@@ -287,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
             replace_existing=args.replace_existing,
             update_path=not args.no_path_update,
             python=args.python,
+            runtime_parent=args.runtime_parent,
         )
     except (InstallError, OSError) as exc:
         print(

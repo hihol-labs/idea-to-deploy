@@ -20,6 +20,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import itd_install_cli as cli_runtime  # noqa: E402
+import itd_install_runtime as runtime_install  # noqa: E402
 
 
 class InstallError(RuntimeError):
@@ -157,7 +158,7 @@ def wrapper(python: Path, script: Path) -> bytes:
         "if [ -x \"$local_hook\" ] && [ \"$local_hook\" != \"$0\" ]; then\n"
         "  \"$local_hook\" \"$@\"\n"
         "fi\n"
-        f"exec {python_value} {script_value} \"$@\"\n"
+        f"exec {python_value} -I -B {script_value} \"$@\"\n"
     ).encode("utf-8")
 
 
@@ -187,13 +188,25 @@ def install(
     apply: bool,
     replace_existing: bool,
     python: Path | None = None,
-    script: Path = PRE_PUSH,
+    script: Path | None = None,
+    source_root: Path = ROOT,
+    runtime_parent: Path | None = None,
 ) -> dict[str, object]:
     target = target.resolve()
-    script = script.resolve()
-    if not script.is_file():
-        raise InstallError("ITD hook script is missing")
+    source_root = source_root.expanduser()
+    source_script = (source_root / "scripts" / "itd_pre_push.py").resolve()
+    if script is not None and script.resolve() != source_script:
+        raise InstallError("ITD hook script is outside the declared runtime")
     python, cryptography_version, runtime_source = select_runtime(python)
+    try:
+        runtime = runtime_install.install_runtime(
+            source_root=source_root, runtime_parent=runtime_parent, apply=False
+        )
+    except runtime_install.RuntimeInstallError as exc:
+        raise InstallError(str(exc)) from exc
+    runtime_script = (
+        Path(str(runtime["runtimeRoot"])) / "scripts" / "itd_pre_push.py"
+    )
     current = git_config("--get", "core.hooksPath", check=False)
     current_path = Path(current).expanduser().resolve() if current else None
     if (
@@ -206,7 +219,7 @@ def install(
             "rerun with --replace-existing after preserving its hooks"
         )
     hook = target / "pre-push"
-    expected = wrapper(python, script)
+    expected = wrapper(python, runtime_script)
     if hook.exists():
         try:
             existing = hook.read_bytes()
@@ -225,9 +238,23 @@ def install(
         "python": str(python),
         "pythonSource": runtime_source,
         "cryptographyVersion": cryptography_version,
+        "sourceScript": str(source_script),
+        "script": str(runtime_script),
+        "runtimeRoot": runtime["runtimeRoot"],
+        "runtimeManifest": runtime["runtimeManifest"],
+        "runtimeSha256": runtime["runtimeSha256"],
+        "release": runtime["release"],
     }
     if not apply:
         return result
+    try:
+        deployed = runtime_install.install_runtime(
+            source_root=source_root, runtime_parent=runtime_parent, apply=True
+        )
+    except runtime_install.RuntimeInstallError as exc:
+        raise InstallError(str(exc)) from exc
+    if deployed["runtimeRoot"] != result["runtimeRoot"]:
+        raise InstallError("runtime identity changed during hook installation")
     atomic_write(hook, expected)
     git_config("core.hooksPath", target.as_posix())
     observed = git_config("--get", "core.hooksPath")
@@ -245,6 +272,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--python", type=Path)
     result.add_argument("--apply", action="store_true")
     result.add_argument("--replace-existing", action="store_true")
+    result.add_argument("--runtime-parent", type=Path)
     return result
 
 
@@ -256,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
             apply=args.apply,
             replace_existing=args.replace_existing,
             python=args.python,
+            runtime_parent=args.runtime_parent,
         )
     except (InstallError, OSError, UnicodeError) as exc:
         print(

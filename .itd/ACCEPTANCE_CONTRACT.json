@@ -2235,6 +2235,47 @@
           "gate-profile-doctor-oracle"
         ]
       }
+    },
+    {
+      "id": "PRG-002-1-runtime-snapshot-is-closed-and-content-bound",
+      "unitId": "PRG-002",
+      "criterion": "A shared stdlib-only installer materializes the exact closed runtime inventory needed by itd.py and itd_pre_push.py under a host-data directory named by canonical release identity plus aggregate SHA-256 prefix. A manifest binds every relative path/hash and the aggregate digest; creation is staged then atomically published, exact reuse is idempotent, and missing/extra/tampered existing content is refused rather than overwritten.",
+      "source": "Live WSL/Windows wrappers after v1.99.0 installation pointed to the mutable development checkout; changing or moving that checkout changed/broke the installed gate without reinstalling.",
+      "evidence": "RED: no itd_install_runtime.py existed and both installers serialized script.resolve() from the mutable checkout. GREEN: verify_itd_runtime_install 26/26 on WSL and native Windows proves closed inventory, release+digest path, manifest/file SHA binding, atomic install, idempotent reuse, preview/apply tamper refusal, extra file/directory and missing-file refusal, runtime-root and runtime-parent symlink/junction refusal, content-address change and real isolated CLI/pre-push execution without __pycache__. Terra r2 found the root-symlink and empty-directory gaps; r3 found redirected parent ancestors. All three were reproduced RED before repair.",
+      "verificationCommand": "python3 -I tests/verify_itd_runtime_install.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The globally installed gate executes a declared content-bound runtime snapshot, not the active development checkout.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "runtime-install-oracle"
+        ]
+      }
+    },
+    {
+      "id": "PRG-002-2-cli-and-prepush-share-snapshot",
+      "unitId": "PRG-002",
+      "criterion": "Both CLI and global pre-push installers call the same runtime materializer and serialize only the deployed snapshot script path. Wrapper bytes contain neither the source checkout nor repository-relative fallbacks; CLI and pre-push snapshots have the same release/digest identity on one host.",
+      "source": "Current installers independently resolve source scripts and embed those mutable absolute paths in shell/cmd wrappers.",
+      "evidence": "GREEN: runtime oracle proves CLI and pre-push return one runtimeRoot and wrapper bytes omit the source checkout while naming deployed entrypoints with -I -B. Existing suites remain green: verify_itd_cli 112/112; verify_git_gate_hooks 30/30 on WSL and native Windows. Release/Codex docs require native-host reinstall and preserve old content-addressed snapshots for rollback.",
+      "verificationCommand": "python3 -I tests/verify_itd_runtime_install.py && python3 -I tests/verify_itd_cli.py && python3 -I tests/verify_git_gate_hooks.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "All global entry points execute the same installed gate bytes.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "runtime-install-oracle",
+          "itd-cli-oracle",
+          "git-hooks-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2253,7 +2294,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PRG-001",
+    "unitId": "PRG-002",
     "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -2263,14 +2304,15 @@
       "requiredImpactClasses": [
         "correctness",
         "security",
-        "reconciliation"
+        "reconciliation",
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-21T00:00:00Z",
-    "scopeNote": "PRG-001: narrow trusted Codex cachebuster compatibility; stale receipt and runtime-wrapper work are excluded until their own unit."
+    "openedAt": "2026-08-21T12:30:00Z",
+    "scopeNote": "PRG-002: content-bound installed runtime shared by CLI and pre-push wrappers; version parser and review semantics are frozen."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

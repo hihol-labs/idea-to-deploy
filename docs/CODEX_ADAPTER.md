@@ -43,6 +43,16 @@ template from `skills/adopt/references/codex-project-hooks.json` to
 `.codex/hooks.json`, replace `{{ITD_ROOT}}` with the absolute methodology
 checkout path, then review it with `/hooks`.
 
+Host-global `itd` and Git `pre-push` are separate from bundled Codex lifecycle
+hooks. Install them with `scripts/itd_install_cli.py --apply` and
+`scripts/itd_install_git_hooks.py --apply` on each native host. Both commands
+materialize the same minimal content-addressed runtime under the host data
+directory and write wrappers that name only that snapshot; they never execute
+the mutable development checkout. Runtime entry points use Python `-I -B`, so
+ambient import paths and bytecode writes cannot mutate the snapshot. Reinstall
+with `--replace-existing` only after reviewing the existing wrapper; a
+tampered/incomplete content-addressed runtime always fails closed.
+
 ## Known transport differences
 
 - Codex `apply_patch` is normalized by the dispatcher. Bash and lifecycle

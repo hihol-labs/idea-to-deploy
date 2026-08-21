@@ -303,11 +303,10 @@ def installer_phase() -> None:
 
     with tempfile.TemporaryDirectory(prefix="itd-hook-install-") as raw:
         root = Path(raw)
-        script = root / "itd_pre_push.py"
         python = root / "python"
-        script.write_text("# fixture\n", encoding="utf-8")
         python.write_text("", encoding="utf-8")
         target = root / "hooks"
+        runtime_parent = root / "runtime"
         selected_runtime = (python.resolve(), "test-version", "explicit")
         parsed = installer.parser().parse_args(
             ["--python", str(python)]
@@ -326,7 +325,8 @@ def installer_phase() -> None:
                 apply=False,
                 replace_existing=False,
                 python=python,
-                script=script,
+                source_root=ROOT,
+                runtime_parent=runtime_parent,
             )
         check(
             preview["status"] == "PREVIEW"
@@ -357,7 +357,8 @@ def installer_phase() -> None:
                 apply=True,
                 replace_existing=False,
                 python=python,
-                script=script,
+                source_root=ROOT,
+                runtime_parent=runtime_parent,
             )
         wrapper = (target / "pre-push").read_text(encoding="utf-8")
         check(result["status"] == "INSTALLED", "installer applies")
@@ -380,7 +381,8 @@ def installer_phase() -> None:
                     apply=True,
                     replace_existing=False,
                     python=incompatible,
-                    script=script,
+                    source_root=ROOT,
+                    runtime_parent=root / "broken-runtime",
                 )
             except installer.InstallError:
                 check(
@@ -409,7 +411,8 @@ def installer_phase() -> None:
                     apply=False,
                     replace_existing=False,
                     python=python,
-                    script=script,
+                    source_root=ROOT,
+                    runtime_parent=runtime_parent,
                 )
             except installer.InstallError:
                 check(True, "existing global hooksPath is preserved")
@@ -420,19 +423,19 @@ def installer_phase() -> None:
 def cli_installer_phase() -> None:
     with tempfile.TemporaryDirectory(prefix="itd-cli-install-") as raw:
         root = Path(raw)
-        script = root / "itd.py"
         python = Path(sys.executable)
+        runtime_parent = root / "runtime"
         target = root / "bin" / (
             "itd.cmd" if cli_installer.os.name == "nt" else "itd"
         )
-        script.write_text("# fixture\n", encoding="utf-8")
         preview = cli_installer.install(
             target,
             apply=False,
             replace_existing=False,
             update_path=False,
             python=python,
-            script=script,
+            source_root=ROOT,
+            runtime_parent=runtime_parent,
         )
         check(
             preview["status"] == "PREVIEW" and not target.exists(),
@@ -444,14 +447,15 @@ def cli_installer_phase() -> None:
             replace_existing=False,
             update_path=False,
             python=python,
-            script=script,
+            source_root=ROOT,
+            runtime_parent=runtime_parent,
         )
         check(
             applied["status"] == "INSTALLED" and target.is_file(),
             "CLI installer applies exact runtime wrapper",
         )
         expected = cli_installer.wrapper(
-            python.resolve(), script.resolve()
+            python.resolve(), Path(applied["script"])
         )
         check(target.read_bytes() == expected, "CLI wrapper bytes are exact")
         target.write_text("foreign command\n", encoding="utf-8")
@@ -462,7 +466,8 @@ def cli_installer_phase() -> None:
                 replace_existing=False,
                 update_path=False,
                 python=python,
-                script=script,
+                source_root=ROOT,
+                runtime_parent=runtime_parent,
             )
         except cli_installer.InstallError:
             check(True, "CLI installer preserves a foreign command")
@@ -479,7 +484,8 @@ def cli_installer_phase() -> None:
                 replace_existing=False,
                 update_path=False,
                 python=incompatible,
-                script=script,
+                source_root=ROOT,
+                runtime_parent=root / "broken-runtime",
             )
         except cli_installer.InstallError:
             check(

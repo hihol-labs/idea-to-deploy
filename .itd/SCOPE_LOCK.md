@@ -1,25 +1,30 @@
-# Scope Lock — pre-PR independent-review gate reliability
+# Scope Lock — immutable installed ITD gate runtime (PRG-002)
 
 ## Current Task
 
-Решение владельца 2026-08-21: двумя последовательными WIP=1 bugfix-юнитами
-устранить измеренные дефекты live pre-PR gate, затем выпустить методологию и
-раскатать её на Codex/Claude Code в WSL и Windows.
+После verified PRG-001 (`e69d020`) второй WIP=1 bugfix устраняет mutable
+checkout binding глобальных CLI/pre-push wrappers.
 
-- **PRG-001 (active, high):** `skills/_shared/itd_gate_control.py` и
-  `tests/verify_gate_profile_doctor.py`. Доверенный Codex cachebuster
-  `+codex.<token>` не должен делать одинаковый release core несовместимым с
-  Claude manifest; другой core, prerelease, неизвестный metadata и malformed
-  version остаются fail-closed.
+- **Allowed code:** `scripts/itd_install_runtime.py`,
+  `scripts/itd_install_cli.py`, `scripts/itd_install_git_hooks.py`.
+- **Allowed tests:** `tests/verify_itd_runtime_install.py`, точечные installer
+  tests, регистрация нового oracle в `tests/run-all.sh` и механически
+  регенерированный `.itd/IMPACT_GRAPH.json`.
+- **Allowed docs/bookkeeping:** installer/release runbook, CHANGELOG/BACKLOG,
+  этот scope, acceptance, STATE и task/root-cause contracts.
+- Runtime snapshot содержит только закрытый объявленный набор нужных файлов,
+  materializes атомарно в host-data каталоге `<release>-<digest>`, а wrappers
+  называют только его script path. Повторная установка сверяет bytes; tamper
+  и неполный snapshot блокируются, не перезаписываются молча.
 
 ## Forbidden Change Areas
 
-- Не ослаблять exact-HEAD/stale-receipt проверки, route cardinality,
-  keyring/provenance и `--require-mandatory-route`.
+- Не менять PRG-001 version parser, exact-HEAD/stale-receipt проверки, route
+  cardinality, keyring/provenance и `--require-mandatory-route`.
 - Не заявлять `PROTECTED` для `local-review` и не включать App/ruleset/broker
   server enforcement в этот bugfix.
-- Не изменять CLI/pre-push installers или runtime wrappers до отдельного
-  verified-терминала PRG-001.
+- Не копировать весь репозиторий, live evidence, `.git`, `.itd-memory`, secrets
+  или candidate-controlled файлы в runtime.
 
 ---
 

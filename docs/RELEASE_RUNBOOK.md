@@ -51,6 +51,25 @@
    ```
    Windows-таргет автодетектится по пути (v1.73.1), интерпретатор
    harvest'ится из существующего settings.json.
+   После синка source-копий обязательно переустановить глобальные `itd` и
+   `pre-push` на КАЖДОМ нативном хосте — не запускать Windows installer из
+   WSL и наоборот:
+   ```bash
+   # WSL
+   python3 -I scripts/itd_install_cli.py --apply --replace-existing
+   python3 -I scripts/itd_install_git_hooks.py --apply --replace-existing
+   ```
+   ```powershell
+   # native Windows, из Windows source-копии релиза
+   & $ITD_PYTHON -I scripts/itd_install_cli.py --apply --replace-existing
+   & $ITD_PYTHON -I scripts/itd_install_git_hooks.py --apply --replace-existing
+   ```
+   Оба installer-а материализуют один закрытый runtime под host-data
+   `.../ITD/runtime/<release>-<digest16>` (WSL:
+   `~/.local/share/itd/runtime/...`), сверяют manifest и каждый SHA-256 и
+   атомарно переключают wrappers на его `scripts/itd.py` /
+   `scripts/itd_pre_push.py`. Старые content-addressed runtime-каталоги
+   остаются rollback-артефактами; удалять их во время релиза нельзя.
 7. Смоук на живом харнесе: новые/изменённые хуки проверяются реальным
    tool-вызовом (Claude Code подхватывает регистрации горячо, рестарт для
    хуков не нужен — проверено v1.75–v1.78.1).
@@ -83,6 +102,14 @@
   поведение прежнее (инсталловый валидатор). Имя плагина в манифесте рабочего
   каталога само по себе НЕ является пропуском: оно самопровозглашённое. Замер до починки: ~25 мин и два лишних перечеканенных
   маршрута на релиз v1.98.0.
+
+- **Global wrapper указывает на development checkout — ЗАКРЫТО (PRG-002).**
+  Симптом: изменение/перемещение канонического checkout меняло или ломало уже
+  установленный `itd`/`pre-push`; Windows wrapper вдобавок читал WSL checkout
+  через UNC. Теперь wrappers исполняют только общий атомарно установленный
+  content-addressed runtime с закрытым inventory и `-I -B`. Existing runtime
+  с missing/extra/changed bytes блокирует reinstall и не чинится поверх;
+  источник checkout в wrapper не сохраняется.
 
 - **Транспортный флейк GitHub как терминальный отказ — ЗАКРЫТО (LPD-002 R3).**
   Симптом (публикация R2, 2026-08-18): `itd pr create` дважды вернул
