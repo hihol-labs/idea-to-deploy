@@ -27,10 +27,11 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   head консервативно блокирует. По находке cross-vendor PUB2: heredoc
   КОНЕЧЕН — разрез стейтментов распознаёт делимитер и продолжается после
   терминатора (`cat <<EOF…EOF` + `pytest` больше не глотается). Оракул:
-  `tests/verify_completion_signal_classes.py` (15 -> 54 проверок, RED-first —
+  `tests/verify_completion_signal_classes.py` (15 -> 57 проверок, RED-first —
   оба display-кейса воспроизведены на старом коде; 43 на закрытии A2,
   +8 в hd-раундах: двойной heredoc, отступленный псевдо-терминатор,
-  here-string; +3 PUB4: делимитер — общее слово, не только [A-Za-z0-9_]).
+  here-string; +3 PUB4: делимитер — общее слово, не только [A-Za-z0-9_];
+  +3 PUB5: quote-aware голова сегмента — кавычный VAR-префикс с пробелами).
 - **LPD002-A517 (кластер itd_review_evidence)** — `skills/_shared/
   itd_review_evidence.py`: A5 класс ledger-close принимает леджер-файлы,
   ОБЪЯВЛЕННЫЕ в STATE (не произвольный третий путь); A1 выбор критериев
@@ -62,7 +63,7 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
   (сьют 17 -> 20; по PUB4 dummy-.git отбит: чекаут валидируется самим git rev-parse --show-toplevel, worktree-файл .git легитимен только настоящий). Вторая находка PUB3 (medium): бухгалтерия счётчика
   оракула A2 сведена к фактическому значению суммы во всех леджерах
   (контракт A2 / ACCEPTANCE / BACKLOG / CHANGELOG / этот файл); после
-  PUB4-регрессий фактическое значение — 54, все места обновлены вместе.
+  PUB4/PUB5-регрессий фактическое значение — 57, все места обновлены вместе.
 - **A4, A6 — реклассификация без кода**: A4 опровергнут замером R6 (ноги
   пинят только `itd_free_reviewer_producer.py` + раннер + манифест; корень
   live-пина отложен решением владельца — memory
@@ -84,6 +85,20 @@ adjudicate -> record). Тир: medium (правки гейтов ревью/comp
 `gzip -t` проходит, sha совпадает с `transcriptGzipSha256`); ревьюер видит
 его ПРОЗРАЧНЫМ ПРЕДСТАВЛЕНИЕМ продюсера (декодированный JSONL в дифе — фича
 S11 «model-visible means logged», а не текстовый файл с расширением .gz).
+
+## PUB5 (cross-vendor, gpt-5.6-terra) — разбор находок
+
+- РЕАЛЬНАЯ (medium, hooks/completion_lib.py): `_segment_head_token` резал по
+  пробелам — `NOTE="test output pending" cat >> HANDOFF.md` давал голову
+  `output` и display-подавление не срабатывало (RED воспроизведён). Закрыто
+  quote-aware разбиением `_shell_words` + `_ASSIGNMENT_RE`; оракул 54 -> 57.
+- ОПРОВЕРГНУТА (medium, run-report.json attemptCount=1 vs attempts=2):
+  attempt 2 несёт `phase: "devils-advocate"` — фичей S3 (merge 2a8da71,
+  PR #195) attemptCount НАМЕРЕННО считает только blueprint-попытки, а
+  attempts[] дополнительно хранит фазовые записи для точного покрытия
+  транскрипта (комментарий в рекордере, строки ~1257). Записанный артефакт
+  НЕ правится (фальсификация улики); корень «артефакт не самоописателен»
+  закрыт полем `attemptCountBasis` в рекордере для будущих записей.
 
 ## Явно вне скоупа
 

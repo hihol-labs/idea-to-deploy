@@ -1257,6 +1257,13 @@ def run(args: argparse.Namespace) -> int:
                 # attemptCount keeps its historical meaning (blueprint
                 # attempts); the devils-advocate phase entry stays in
                 # attempts[] only for exact transcript segment coverage.
+                # The basis field makes the artifact self-describing (PUB5:
+                # a reviewer read attemptCount=1 vs len(attempts)=2 as an
+                # inconsistency without access to this comment).
+                "attemptCountBasis":
+                    "blueprint attempts only; attempts[] additionally "
+                    "carries phase entries (e.g. devils-advocate) for "
+                    "exact transcript segment coverage",
                 "attemptCount": len([
                     item for item in attempts
                     if item.get("phase") != "devils-advocate"]),

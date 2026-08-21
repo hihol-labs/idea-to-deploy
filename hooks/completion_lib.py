@@ -590,10 +590,45 @@ def _split_pipeline(command: str) -> list[str]:
     return _split_top(command, statements=False)
 
 
+def _shell_words(segment: str) -> list[str]:
+    # Quote-aware разбиение на слова (находка PUB5: whitespace-split ломался
+    # на `NOTE="a b" cat` — «b"» становился головой сегмента).
+    words: list[str] = []
+    cur: list[str] = []
+    quote = ""
+    i, n = 0, len(segment)
+    while i < n:
+        ch = segment[i]
+        if ch == "\\" and quote != "'" and i + 1 < n:
+            cur.append(segment[i:i + 2])
+            i += 2
+            continue
+        if quote:
+            cur.append(ch)
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+            cur.append(ch)
+        elif ch.isspace():
+            if cur:
+                words.append("".join(cur))
+                cur = []
+        else:
+            cur.append(ch)
+        i += 1
+    if cur:
+        words.append("".join(cur))
+    return words
+
+
+_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
 def _segment_head_token(segment: str) -> str:
-    for tok in segment.strip().split():
-        if "=" in tok and not tok.startswith(("'", '"')):
-            continue  # префиксные VAR=val
+    for tok in _shell_words(segment.strip()):
+        if _ASSIGNMENT_RE.match(tok):
+            continue  # префиксные VAR=val (значение может быть в кавычках)
         if tok in {"env", "command", "nohup", "time"}:
             continue
         return tok.rsplit("/", 1)[-1].lower()

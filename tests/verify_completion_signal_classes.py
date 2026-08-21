@@ -189,6 +189,14 @@ def main():
           cl.display_only_command("cat <<'E-D'\nx\nE-D\npytest -q") is False)
     check("A2: делимитер с точкой EOF.txt распознан (PUB4)",
           cl.display_only_command("cat <<EOF.txt\nx\nEOF.txt\npytest -q") is False)
+    check("A2: кавычный VAR-префикс с пробелами — display-голова распознана (PUB5)",
+          cl.display_only_command('NOTE="test output pending" cat >> HANDOFF.md')
+          and cl.classify_bash('NOTE="test output pending" cat >> HANDOFF.md',
+                               {"stdout": "", "exitCode": 0}) is None)
+    check("A2: кавычный VAR-префикс перед реальной командой — не display (PUB5)",
+          cl.display_only_command('NOTE="a b" pytest -q') is False)
+    check("A2: кавычный аргумент не подменяет голову сегмента (PUB5)",
+          cl.display_only_command('grep "pytest failed" log.txt'))
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",
