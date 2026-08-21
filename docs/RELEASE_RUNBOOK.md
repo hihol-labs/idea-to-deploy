@@ -70,6 +70,10 @@
    атомарно переключают wrappers на его `scripts/itd.py` /
    `scripts/itd_pre_push.py`. Старые content-addressed runtime-каталоги
    остаются rollback-артефактами; удалять их во время релиза нельзя.
+   Закрытый inventory обязан включать и транзитивные path-loaded зависимости
+   гейта (`skills/review/scripts/itd_review_cache.py`); release-canary должен
+   запускать revalidation receipt из установленного runtime, а не только
+   `--help` и голый fail-closed pre-push.
 7. Смоук на живом харнесе: новые/изменённые хуки проверяются реальным
    tool-вызовом (Claude Code подхватывает регистрации горячо, рестарт для
    хуков не нужен — проверено v1.75–v1.78.1).

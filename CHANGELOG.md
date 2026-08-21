@@ -12,14 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.100.1] - 2026-08-21
 
 ### Fixed
-- **Mandatory pre-PR local gate deployment reliability (PRG-001/002).**
+- **Mandatory pre-PR local gate deployment reliability (PRG-001/002/003).**
   Trusted Codex cachebusters (`X.Y.Z+codex.<token>`) now reconcile to the same
   release identity as the canonical Claude `X.Y.Z` manifest without accepting
   prereleases, foreign metadata, leading-zero/malformed components or core
   drift. Global CLI and pre-push installers no longer embed the mutable source
   checkout: they share one atomic, closed-inventory, content-addressed runtime,
   refuse existing tamper and launch its entry points with Python `-I -B`.
-  Regression evidence: gate-profile doctor 59 checks; runtime installer 26
+  The closed inventory includes the exact-context review-cache module loaded
+  transitively during receipt revalidation, preventing source-green but
+  installed-UNVERIFIED pre-push gates. Regression evidence: gate-profile
+  doctor 59 checks; runtime installer 28
   checks on WSL and native Windows; ITD CLI 112; Git hooks 30.
 
 ## [1.100.0] - 2026-08-21

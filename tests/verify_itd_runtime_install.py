@@ -79,6 +79,11 @@ def main() -> int:
         actual_shared == set(runtime.RUNTIME_SHARED_FILES),
         "runtime declares every shared Python/policy file exactly",
     )
+    check(
+        runtime.RUNTIME_SKILL_FILES
+        == ("skills/review/scripts/itd_review_cache.py",),
+        "runtime declares the exact-context review-cache dependency",
+    )
     with tempfile.TemporaryDirectory(prefix="itd-runtime-install-") as raw:
         root = Path(raw).resolve()
         source = source_fixture(root)
@@ -284,6 +289,27 @@ def main() -> int:
         check(
             push_result.returncode == 1 and "BLOCKED:" in push_result.stderr,
             "installed real pre-push entrypoint runs and fails closed",
+        )
+        load_probe = (
+            "import importlib.util, pathlib, sys; "
+            "p=pathlib.Path(sys.argv[1]); "
+            "s=importlib.util.spec_from_file_location('runtime_loop', p); "
+            "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "m._review_cache_module()"
+        )
+        dependency_result = subprocess.run(
+            [
+                sys.executable, "-I", "-B", "-c", load_probe,
+                str(
+                    Path(real_cli["runtimeRoot"])
+                    / "skills" / "_shared" / "itd_verification_loop.py"
+                ),
+            ],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        check(
+            dependency_result.returncode == 0,
+            "installed verification loop loads its exact-context dependency",
         )
         check(
             not list(Path(real_cli["runtimeRoot"]).rglob("__pycache__")),

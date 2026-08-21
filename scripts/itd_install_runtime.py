@@ -57,6 +57,13 @@ RUNTIME_SHARED_FILES = (
     "itd_verification_loop.py",
     "itd_verification_profiles.py",
 )
+RUNTIME_SKILL_FILES = (
+    # itd_verification_loop loads this module by absolute path when it
+    # reconstructs and revalidates exact candidate context.  It is therefore
+    # part of the executable gate closure even though it is not under
+    # skills/_shared.
+    "skills/review/scripts/itd_review_cache.py",
+)
 RUNTIME_FILES = (
     ".codex-plugin/plugin.json",
     ".claude-plugin/plugin.json",
@@ -64,6 +71,7 @@ RUNTIME_FILES = (
     "scripts/itd_pre_push.py",
     "scripts/itd_machine_oracle.py",
     *(f"skills/_shared/{name}" for name in RUNTIME_SHARED_FILES),
+    *RUNTIME_SKILL_FILES,
 )
 
 

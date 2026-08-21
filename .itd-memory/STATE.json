@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "PRG-002",
-    "goal": "Install CLI and pre-push from one content-bound runtime snapshot",
-    "status": "verified",
-    "startedAt": "2026-08-21T12:27:51Z",
+    "id": "PRG-003",
+    "goal": "Close the installed runtime over its exact-context review-cache dependency",
+    "status": "in_progress",
+    "startedAt": "2026-08-21T17:25:00Z",
     "ledger": "STATE",
-    "riskTier": "high",
-    "completedAt": "2026-08-21T15:38:17Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -573,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "PRG-002 in progress on codex/pre-pr-review-gate-fixes rebased onto v1.100.0: finish exact machine/checker/adjudication for the content-bound installed runtime, commit the unit, publish/merge the bugfix PR, then release v1.100.1 and roll it out to Codex/Claude on native WSL and Windows with live gate-doctor/pre-push canaries."
+  "nextAction": "PRG-003 in progress on codex/release-v1.100.1: verify the exact runtime-inventory fix on WSL/native Windows, obtain a fresh bound independent review, publish/merge the release PR, tag v1.100.1, then finish Codex/Claude and CLI/pre-push rollout with live doctor/push canaries."
 }

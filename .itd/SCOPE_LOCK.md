@@ -1,9 +1,26 @@
-# Scope Lock — release v1.100.1
+# Scope Lock — PRG-003 / release v1.100.1
 
 ## Current Task
 
-Patch release публикует уже смерженный и CI-зелёный PR #224 (`96c3b32`) без
-поведенческих изменений. Разрешены только канонические version surfaces:
+Live native-Windows pre-push canary обнаружил release-blocker после PR #224:
+content-addressed runtime не включал транзитивный модуль
+`skills/review/scripts/itd_review_cache.py`, который
+`itd_verification_loop.py` загружает по абсолютному пути при revalidation
+exact-candidate receipt. Source-tree doctor был GREEN, installed runtime —
+fail-closed `UNVERIFIED`, поэтому PR нельзя было разместить.
+
+PRG-003 разрешает только корневое закрытие этого runtime inventory gap:
+
+- `scripts/itd_install_runtime.py`;
+- `tests/verify_itd_runtime_install.py`;
+- `docs/CODEX_ADAPTER.md`, `docs/RELEASE_RUNBOOK.md`;
+- `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json`, механически
+  регенерированный `.itd/IMPACT_GRAPH.json`;
+- `.itd-memory/STATE.json`, `.itd-memory/contracts/PRG-003.md`,
+  `.itd-memory/ROOT_CAUSE-PRG-003.md`;
+- `CHANGELOG.md`.
+
+Patch release также сохраняет уже проверенные канонические version surfaces:
 
 - `.claude-plugin/{plugin,marketplace}.json`, `.codex-plugin/plugin.json`;
 - `README.md`, `README.ru.md`, `CHANGELOG.md`;
@@ -14,8 +31,10 @@ Patch release публикует уже смерженный и CI-зелёны�
 
 ## Forbidden Change Areas
 
-- Никаких code/test logic, evidence, STATE, acceptance, hook, policy или
-  generated-artifact изменений.
+- Никаких reviewer/gate semantics, receipt/keyring, hook logic, broker/App,
+  version-parser или generated-evidence изменений.
+- Не расширять runtime inventory за пределы доказанной транзитивной
+  зависимости exact-context review cache.
 - Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.
 - Tag/release/rollout выполняются только после merge release PR и зелёного CI.
 
