@@ -2300,7 +2300,7 @@
     }
   ],
   "completion": {
-    "status": "in_progress",
+    "status": "verified",
     "selectedDeploymentProfile": "local-submission",
     "selectedProtectionProfile": "local-review",
     "implementationMerge": "234752828d463821814020bebf2cc3dc40399beb",
@@ -2316,7 +2316,7 @@
   },
   "activeFollowup": {
     "unitId": "PRG-003",
-    "status": "verified",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
