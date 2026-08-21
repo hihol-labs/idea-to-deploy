@@ -928,6 +928,21 @@ def main() -> int:
     check("mutation: Claude positional prompt is rejected by the transport contract",
           anthropic_prompt in mutated_anthropic_command
           and anthropic_prompt not in anthropic_command)
+    with mock.patch.object(runner_module.subprocess, "run") as oracle_run:
+        oracle_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr="")
+        runner_module.run_snapshot_oracle(
+            Path("fixture-root"), Path("output-root"))
+    oracle_kwargs = oracle_run.call_args.kwargs
+    check("snapshot oracle diagnostics are forced to UTF-8",
+          oracle_kwargs.get("encoding") == "utf-8"
+          and oracle_kwargs.get("errors") == "replace"
+          and (oracle_kwargs.get("env") or {}).get("PYTHONUTF8") == "1")
+    mutated_oracle_env = dict(oracle_kwargs.get("env") or {})
+    mutated_oracle_env.pop("PYTHONUTF8", None)
+    check("mutation: missing snapshot-oracle UTF-8 pin is detected",
+          mutated_oracle_env.get("PYTHONUTF8") != "1"
+          and (oracle_kwargs.get("env") or {}).get("PYTHONUTF8") == "1")
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

@@ -30,3 +30,9 @@ The live replay then exposed the transport root: the multiline product prompt
 was truncated by the Windows `.CMD` positional-argument path. Claude now reads
 that prompt from stdin; a direct `run_candidate` test pins stdin bytes and the
 absence of the prompt from argv.
+
+The first stdin run created all required outputs and exposed the final host
+boundary: `verify_snapshot.py` printed a Unicode failure marker through cp1251
+and crashed before returning its content verdict. Live and immutable reverify
+paths now share one oracle helper with `PYTHONUTF8=1`, explicit UTF-8 decoding
+and replacement-safe diagnostics.

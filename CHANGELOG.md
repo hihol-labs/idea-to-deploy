@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Claude live runs stay in the prompt-bearing main session instead of a native
   Skill fork that loses the pre-approved product brief, and receive the full
   multiline brief over stdin instead of a truncation-prone Windows argv.
+  Snapshot-oracle diagnostics are UTF-8-pinned on Windows for both live and
+  immutable reverify paths, so console cp1251 cannot replace a verdict.
 
 ## [1.100.0] - 2026-08-21
 

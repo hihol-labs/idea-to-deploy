@@ -424,6 +424,18 @@ def parse_result_events(stream: Path, provider: str) -> list[dict]:
         stream.read_text(encoding="utf-8", errors="strict"), provider)
 
 
+def run_snapshot_oracle(fixture_dir: Path, output: Path) -> subprocess.CompletedProcess[str]:
+    """Run the deterministic oracle with host-independent UTF-8 diagnostics."""
+    environment = os.environ.copy()
+    environment["PYTHONUTF8"] = "1"
+    return subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
+         str(fixture_dir), "--output", str(output)],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=180, env=environment,
+    )
+
+
 def fixture_prompt(fixture_dir: Path) -> str:
     prompt = fixture_dir / "live-prompt.md"
     if not prompt.is_file():
@@ -810,11 +822,7 @@ def reverify_failed_run(args: argparse.Namespace) -> int:
         or not transcript_proves_harness(transcript_raw)
     ):
         raise ValueError("failed transcript binding is invalid")
-    oracle = subprocess.run(
-        [sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
-         str(fixture_dir), "--output", str(old_output)],
-        cwd=ROOT, capture_output=True, text=True, timeout=180,
-    )
+    oracle = run_snapshot_oracle(fixture_dir, old_output)
     if oracle.returncode != 0:
         detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
         raise ValueError(
@@ -1072,12 +1080,7 @@ def run(args: argparse.Namespace) -> int:
             return archive_current(
                 "live transcript does not prove ITD blueprint skill/reference loading")
 
-        oracle_command = [
-            sys.executable, str(ROOT / "tests" / "verify_snapshot.py"),
-            str(fixture_dir), "--output", str(output),
-        ]
-        oracle = subprocess.run(
-            oracle_command, cwd=ROOT, capture_output=True, text=True, timeout=180)
+        oracle = run_snapshot_oracle(fixture_dir, output)
         if oracle.returncode != 0:
             detail = (oracle.stdout + "\n" + oracle.stderr).strip().splitlines()
             bounded = " | ".join(detail[-4:])[:1200]
