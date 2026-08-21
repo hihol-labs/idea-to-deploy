@@ -1,4 +1,29 @@
-# Scope Lock — сессия долгов LPD-002 (A1-A9), ветка fix/lpd002-debts
+# Scope Lock — pre-PR independent-review gate reliability
+
+## Current Task
+
+Решение владельца 2026-08-21: двумя последовательными WIP=1 bugfix-юнитами
+устранить измеренные дефекты live pre-PR gate, затем выпустить методологию и
+раскатать её на Codex/Claude Code в WSL и Windows.
+
+- **PRG-001 (active, high):** `skills/_shared/itd_gate_control.py` и
+  `tests/verify_gate_profile_doctor.py`. Доверенный Codex cachebuster
+  `+codex.<token>` не должен делать одинаковый release core несовместимым с
+  Claude manifest; другой core, prerelease, неизвестный metadata и malformed
+  version остаются fail-closed.
+
+## Forbidden Change Areas
+
+- Не ослаблять exact-HEAD/stale-receipt проверки, route cardinality,
+  keyring/provenance и `--require-mandatory-route`.
+- Не заявлять `PROTECTED` для `local-review` и не включать App/ruleset/broker
+  server enforcement в этот bugfix.
+- Не изменять CLI/pre-push installers или runtime wrappers до отдельного
+  verified-терминала PRG-001.
+
+---
+
+## Previous verified scope — LPD-002 debts (A1-A9)
 
 ## Current Task
 

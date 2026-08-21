@@ -231,3 +231,39 @@ reviewer identity field before phase-one creation or verification. Regression
 tests must cover producer creation, independently re-signed receipt
 verification, and broker admission with a matching padded key authorization;
 all must fail before an App token or GitHub API call.
+
+## Pre-PR gate version-identity regression (PRG-001)
+
+Recorded: 2026-08-21
+
+### Summary
+
+`installed_version()` compared raw Codex and Claude manifest strings before
+deriving their release identity, so the trusted Codex cachebuster required by
+local plugin reinstall made `1.99.0+codex.*` incompatible with `1.99.0`.
+
+### Reproduction
+
+- Live WSL and Windows `itd gate doctor --all` returned `UNVERIFIED` with
+  `Codex/Claude ITD versions differ` for the pair
+  `1.99.0+codex.20260820171321` / `1.99.0`.
+
+### Evidence
+
+- Release oracles remained green (mandatory route 83, Verification Loop 87,
+  push adjudication 17, Git hooks 30, doctor 44, CLI 112, producer 249), proving
+  the failure was deployment integration rather than reviewer semantics.
+- Live negative canaries blocked both an unguarded push and a guarded push with
+  stale evidence; stale exact-candidate rejection is intentional and excluded
+  from the fix.
+
+### Fix Hypothesis
+
+- Parse both manifests into a closed release identity and allow only the exact
+  host metadata form `+codex.<token>` on the Codex manifest; preserve strict
+  rejection of other metadata, prereleases, malformed versions and core drift.
+
+### Regression Tests
+
+- `tests/verify_gate_profile_doctor.py` — trusted cachebuster parity plus
+  hostile version mutations.
