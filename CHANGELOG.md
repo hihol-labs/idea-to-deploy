@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   multiline brief over stdin instead of a truncation-prone Windows argv.
   Snapshot-oracle diagnostics are UTF-8-pinned on Windows for both live and
   immutable reverify paths, so console cp1251 cannot replace a verdict.
+  The guide's case-sensitive cardinality-exhaustion contract is pinned to one
+  physical line in the live prompt and runner preflight.
 
 ## [1.100.0] - 2026-08-21
 

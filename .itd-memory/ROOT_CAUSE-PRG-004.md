@@ -36,3 +36,8 @@ boundary: `verify_snapshot.py` printed a Unicode failure marker through cp1251
 and crashed before returning its content verdict. Live and immutable reverify
 paths now share one oracle helper with `PYTHONUTF8=1`, explicit UTF-8 decoding
 and replacement-safe diagnostics.
+
+With diagnostics visible, Opus missed the case-sensitive content contract by
+capitalizing the only one-line occurrence and line-wrapping the lowercase
+phrase elsewhere. The fixture and runner preflight now pin one exact lowercase
+single-line `unique-cardinality exhaustion` occurrence in the guide.

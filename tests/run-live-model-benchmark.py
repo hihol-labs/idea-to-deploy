@@ -56,6 +56,10 @@ CLAUDE_INLINE_WORKFLOW_DIRECTIVE = (
     "`SKILL.md` and reference directly, and create the documents with the built-in\n"
     "`Write`/`Edit` tools."
 )
+GUIDE_CARDINALITY_LITERAL_DIRECTIVE = (
+    "- In `CLAUDE_CODE_GUIDE.md`, include the exact case-sensitive lowercase literal\n"
+    "  `unique-cardinality exhaustion` on one physical line."
+)
 CAPTURE_LIMIT_EXIT_CODE = 86
 # Devil's Advocate runs as a harness-orchestrated SECOND fresh session (S3,
 # BACKLOG 2026-08-13): headless transports do not spawn Claude-native
@@ -447,6 +451,8 @@ def fixture_prompt(fixture_dir: Path) -> str:
         raise ValueError("live prompt omits the Codex-native write boundary")
     if CLAUDE_INLINE_WORKFLOW_DIRECTIVE not in text:
         raise ValueError("live prompt omits the Claude inline-workflow boundary")
+    if GUIDE_CARDINALITY_LITERAL_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the guide cardinality literal boundary")
     return text
 
 

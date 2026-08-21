@@ -903,6 +903,25 @@ def main() -> int:
     check("mutation: omitted Claude inline-workflow boundary fails closed",
           prompt_names_claude_inline_boundary
           and claude_mutation_guarded)
+    guide_literal_directive = getattr(
+        runner_module, "GUIDE_CARDINALITY_LITERAL_DIRECTIVE", "")
+    prompt_names_guide_literal = guide_literal_directive in live_prompt
+    check("live prompt pins the guide cardinality literal",
+          prompt_names_guide_literal)
+    mutated_guide_prompt = live_prompt.replace(
+        guide_literal_directive, "", 1)
+    guide_mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-guide-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_guide_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            guide_mutation_guarded = (
+                "guide cardinality literal boundary" in str(exc))
+    check("mutation: omitted guide cardinality literal fails closed",
+          prompt_names_guide_literal and guide_mutation_guarded)
     anthropic_args = argparse.Namespace(
         resolved_provider="anthropic", model="sonnet")
     anthropic_prompt = "line one\nline two with product context"

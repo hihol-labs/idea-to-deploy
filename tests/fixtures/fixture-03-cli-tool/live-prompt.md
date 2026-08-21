@@ -54,6 +54,8 @@ Constraints and approved decisions:
   unscaled fraction.
 - Use the complete exit-code contract `0/1/2/3/4` in every implementation guide;
   code `4` means unique-cardinality exhaustion. Do not omit or remap code 4.
+- In `CLAUDE_CODE_GUIDE.md`, include the exact case-sensitive lowercase literal
+  `unique-cardinality exhaustion` on one physical line.
 
 Before ending, verify that all six required files exist in the project root:
 
