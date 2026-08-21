@@ -258,6 +258,26 @@ def main():
     check("A2: голый -- (конец опций) остаётся display (env-r6)",
           cl.display_only_command("grep -- pattern file")
           and cl.display_only_command("tail -20 log.txt | grep -n fail"))
+    check("A2: envelope — одиночный & (фон) НЕ display, pytest не глотается (PUB8B)",
+          cl.display_only_command("cat HANDOFF.md & pytest") is False
+          and cl.display_only_command("cat HANDOFF.md &") is False)
+    check("A2: дублирование дескриптора 2>&1 / >&2 / &>file — не оператор (PUB8B)",
+          cl.display_only_command("grep -n x f 2>&1 | tail -2")
+          and cl.display_only_command("echo msg >&2")
+          and cl.display_only_command("cat f &> out.txt"))
+    _cur = "aaaaaaa"
+    _red = {"ts": "t1", "kind": "test_run", "layer": 2, "outcome": "fail",
+            "command": "pytest -q", "evidence": "1 failed", "head": _cur}
+    _foreign_pass = dict(_red, ts="t2", outcome="pass", evidence="ok",
+                         head="bbbbbbb")
+    check("A2: чужой HEAD не вытесняет действующий красный той же команды (PUB8B)",
+          cl._layer_status([_red, _foreign_pass], 2, _cur)[0] == "fail",
+          str(cl._layer_status([_red, _foreign_pass], 2, _cur)))
+    _same_green = dict(_red, ts="t3", outcome="pass", evidence="3 passed")
+    check("A2: зелёный того же HEAD по-прежнему вытесняет красный (PUB8B)",
+          cl._layer_status([_red, _same_green], 2, _cur)[0] == "pass")
+    check("A2: сигналы только чужого HEAD -> unknown (PUB8B)",
+          cl._layer_status([_foreign_pass], 2, _cur)[0] == "unknown")
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",

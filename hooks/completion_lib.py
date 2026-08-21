@@ -557,6 +557,16 @@ def _split_top(command: str, statements: bool) -> list[str]:
                     segments.append("".join(cur)); cur = []
         elif statements and ch == "&" and i + 1 < n and command[i + 1] == "&":
             segments.append("".join(cur)); cur = []; i += 1
+        elif statements and ch == "&" and not (
+            command[i - 1:i] in (">", "<") or command[i + 1:i + 2] == ">"
+        ):
+            # Одиночный `&` — фоновый запуск: команда слева уходит в фон, а
+            # справа исполняется на переднем плане (находка PUB8B:
+            # `cat f & pytest` целиком считался display и глотал прогон).
+            # Асинхронность вне подмножества — объявляем разбор неуверенным.
+            # Дублирование дескриптора (`2>&1`, `>&2`, `<&3`) и `&>file` —
+            # редиректы, а не оператор: они остаются частью сегмента.
+            raise _UncertainShellParse(command[max(0, i - 20):i + 20])
         elif statements and ch in (";", "\n"):
             segments.append("".join(cur)); cur = []
         elif statements and ch in "<>" and command[i + 1:i + 2] == "(":
@@ -1168,22 +1178,25 @@ def _layer_status(signals: list, layer: int,
     rows = [s for s in signals if s.get("layer") == layer]
     if not rows:
         return "unknown", ""
-    latest: dict = {}
-    for s in rows:
-        # Идентичность — нормализованная команда: display-хвост пайпа не делает
-        # повтор «другой командой», иначе красный не вытесняется никогда (A2).
-        latest[normalize_command_key(s.get("command", ""))] = s
-    vals = list(latest.values())
     if current_head:
         # Сигнал, привязанный к ЧУЖОМУ HEAD, — стейл ЦЕЛИКОМ: дерева, на
         # котором он получен, больше нет — ни красный не блокирует, ни
         # зелёный не доказывает (находка чекера r5: асимметричный фильтр
         # давал false-green из стейл-pass). Сигнал БЕЗ head консервативен:
         # красный блокирует, зелёный засчитывается (legacy-семантика).
-        vals = [s for s in vals
+        # Фильтр стоит ДО выбора latest-на-команду (находка PUB8B): иначе
+        # чужой стейл-прогон вытеснял действующий красный своей команды и
+        # слой становился unknown вместо fail.
+        rows = [s for s in rows
                 if not s.get("head") or s.get("head") == current_head]
-    if not vals:
+    if not rows:
         return "unknown", ""
+    latest: dict = {}
+    for s in rows:
+        # Идентичность — нормализованная команда: display-хвост пайпа не делает
+        # повтор «другой командой», иначе красный не вытесняется никогда (A2).
+        latest[normalize_command_key(s.get("command", ""))] = s
+    vals = list(latest.values())
     fails = [s for s in vals if s.get("outcome") == "fail"]
     if fails:
         last = fails[-1]

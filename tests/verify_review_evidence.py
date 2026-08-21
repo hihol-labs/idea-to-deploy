@@ -483,6 +483,24 @@ check("a1-explicit-unitId-excludes-prefix-captured-foreign-criterion",
       and [r["criterionId"] for r in m.get("criteria", [])] == ["R1-own"],
       str(m)[:200])
 
+# Усиление по опровергнутой находке PUB8B: чужой критерий, несущий ЯВНЫЙ
+# чужой unitId и при этом совпадающий по префиксу, тоже исключён (базовая
+# фикстура поля не несёт, поэтому исходная проверка доказывала только
+# «явный набор побеждает префикс»).
+after_a1c = acceptance_fixture(unit="R1")
+own_c = copy.deepcopy(after_a1c["criteria"][0])
+own_c["id"] = "R1-own"
+own_c["unitId"] = "R1"
+foreign_c = copy.deepcopy(after_a1c["criteria"][0])
+foreign_c["id"] = "R1-SCRUB-1"
+foreign_c["unitId"] = "R1-SCRUB"
+after_a1c["criteria"] = [own_c, foreign_c]
+m = matrix_or_error(after_a1c, machine_fixture(unit="R1"))
+check("a1-explicit-foreign-unitId-excluded-despite-prefix-match",
+      isinstance(m, dict)
+      and [r["criterionId"] for r in m.get("criteria", [])] == ["R1-own"],
+      str(m)[:200])
+
 after_a1b = acceptance_fixture()
 m = matrix_or_error(after_a1b, machine_fixture())
 check("a1-legacy-prefix-fallback",
