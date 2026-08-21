@@ -483,11 +483,20 @@ def _current_unit(cwd: Path | None) -> str:
 # `file`/`type` остаются: это метаданные/пробы существования — тот же класс,
 # что ENV_PROBE_RE («проба окружения — не сигнал слоя»).
 DISPLAY_TOKENS = frozenset({
-    "cat", "echo", "printf", "grep", "rg", "egrep", "fgrep", "sed", "awk",
+    # sed/awk НАМЕРЕННО исключены (env-r5): это интерпретаторы скриптов,
+    # их exec-диалекты (s///e, голый e, system(), print|"cmd", getline,
+    # не-GNU варианты) неперечислимы — display-гарантию дать нельзя.
+    "cat", "echo", "printf", "grep", "rg", "egrep", "fgrep",
     "head", "tail", "cut", "tr", "wc", "ls", "sort", "uniq", "column",
     "stat", "less", "more", "file", "which", "type",
 })
 _TRAILING_REDIRECT_RE = re.compile(r"\s*(2>&1|[12]?>>?\s*\S+)\s*$")
+
+
+class _UncertainShellParse(Exception):
+    """Разбор вышел за поддерживаемое подмножество shell (envelope, PUB-серия):
+    вызывающий обязан считать команду НЕ-display — худший случай ложный
+    красный (снимается чистым перезапуском), никогда не ложное зелёное."""
 
 
 def _split_top(command: str, statements: bool) -> list[str]:
@@ -505,11 +514,33 @@ def _split_top(command: str, statements: bool) -> list[str]:
     while i < n:
         ch = command[i]
         if quote:
+            if statements and quote == '"' and (
+                ch == "`" or (ch == "$" and command[i + 1:i + 2] == "(")
+            ):
+                # Подстановка команды внутри "..." исполняет код (env-r3).
+                raise _UncertainShellParse(command[i:i + 40])
             cur.append(ch)
             if ch == quote:
                 quote = ""
             elif ch == "\\" and quote == '"' and i + 1 < n:
                 cur.append(command[i + 1]); i += 1
+        elif ch == "\\" and i + 1 < n:
+            # Экранирование ВНЕ кавычек: `\'` — литеральный апостроф, не
+            # открытие кавычки (checker envelope-r1: идиома `'...'\''...'`
+            # рассинхронизировала сканер и глотала && pytest).
+            cur.append(command[i:i + 2]); i += 2
+            continue
+        elif statements and (
+            ch == "`" or (ch == "$" and command[i + 1:i + 2] == "(")
+        ):
+            # `...` и $(...) — подстановка команды: внутри исполняется
+            # ПРОИЗВОЛЬНЫЙ код, display-подавление не имеет права гадать
+            # (env-r3: RESULT=$(pytest ...) глотал настоящий прогон).
+            raise _UncertainShellParse(command[i:i + 40])
+        elif statements and ch == "$" and command[i + 1:i + 2] in ("'", '"'):
+            # $'...' (ANSI-C) и $"..." (locale) — вне поддерживаемого
+            # подмножества: их escape-семантика другая, не гадаем.
+            raise _UncertainShellParse(command[i:i + 40])
         elif ch in ("'", '"'):
             quote = ch; cur.append(ch)
         elif ch == "|":
@@ -528,6 +559,9 @@ def _split_top(command: str, statements: bool) -> list[str]:
             segments.append("".join(cur)); cur = []; i += 1
         elif statements and ch in (";", "\n"):
             segments.append("".join(cur)); cur = []
+        elif statements and ch in "<>" and command[i + 1:i + 2] == "(":
+            # Подстановка процесса <(...) / >(...) исполняет код (env-r4).
+            raise _UncertainShellParse(command[i:i + 40])
         elif (statements and ch == "<" and i + 1 < n and command[i + 1] == "<"
               and command[i + 2:i + 3] == "<"):
             # Here-string `<<<слово` — операнд, не heredoc (hd-r2): тела нет,
@@ -553,10 +587,29 @@ def _split_top(command: str, statements: bool) -> list[str]:
                           r"<<(-?)\s*(?:\\(\S+)|'([^']+)'|\"([^\"]+)\""
                           r"|([^\s'\"<>|&;()]+))",
                           line_rest)]
+            # Хвост строки открытия heredoc с операторами стейтментов
+            # (`cat <<EOF && pytest`) — bash исполнит команду ПОСЛЕ heredoc;
+            # разрез этого не моделирует — вне envelope (checker env-r2).
+            q2 = ""
+            k = 0
+            while k < len(line_rest):
+                c2 = line_rest[k]
+                if q2:
+                    if c2 == q2:
+                        q2 = ""
+                    elif c2 == "\\" and q2 == '"':
+                        k += 1
+                elif c2 == "\\":
+                    k += 1
+                elif c2 in "'\"":
+                    q2 = c2
+                elif c2 in "&;|":
+                    raise _UncertainShellParse(line_rest[:40])
+                k += 1
             if not delims or nl == -1:
-                cur.append(command[i:])
-                i = n
-                break
+                # `<<` есть, а делимитер не распознан или тела нет — граница
+                # envelope: не гадаем, объявляем разбор неуверенным.
+                raise _UncertainShellParse(command[i:i + 40])
             cur.append(line_rest)
             j = nl
             unterminated = False
@@ -569,6 +622,7 @@ def _split_top(command: str, statements: bool) -> list[str]:
                     cur.append(command[j:line_end if line_end != -1 else n])
                     if line_end == -1:
                         j = n
+                        terminated = matched  # терминатор последней строкой без \n
                         break
                     j = line_end
                     if matched:
@@ -578,15 +632,19 @@ def _split_top(command: str, statements: bool) -> list[str]:
                     unterminated = not terminated
                     break
             i = j
-            if unterminated or i >= n:
-                if i < n:
-                    cur.append(command[i:])
+            if unterminated:
+                # Терминатор так и не встретился — вне envelope.
+                raise _UncertainShellParse(command[i:i + 40])
+            if i >= n:
                 i = n
                 break
             continue
         else:
             cur.append(ch)
         i += 1
+    if statements and quote:
+        # Кавычка не закрыта — разбор неуверенный (envelope).
+        raise _UncertainShellParse("unterminated quote")
     segments.append("".join(cur))
     return segments
 
@@ -651,17 +709,17 @@ def _segment_head_token(segment: str) -> str:
     return ""
 
 
-_EXEC_MARKER_RE = re.compile(r"system\s*\(|/e([^\w]|$)")
-
-
 def _display_segment(segment: str) -> bool:
     head = _segment_head_token(segment)
     if head not in DISPLAY_TOKENS:
         return False
-    # awk `system(...)` и sed `s///e` ИСПОЛНЯЮТ код — такой сегмент не
-    # display (находка чекера r2: реальный прогон не должен глотаться).
-    if head in {"awk", "sed"} and _EXEC_MARKER_RE.search(segment):
-        return False
+    # Длинные опции display-инструментов — неперечислимая поверхность
+    # argv-исполнителей (env-r6: sort --compress-program=PROG, rg --pre CMD;
+    # не-GNU варианты не перечислить). Любой токен `--...` (кроме голого
+    # `--`, завершающего разбор опций) снимает display-гарантию.
+    for w in _shell_words(segment.strip()):
+        if w.startswith("--") and w != "--":
+            return False
     return True
 
 
@@ -669,9 +727,18 @@ def display_only_command(command: str) -> bool:
     """True, когда КАЖДЫЙ стейтмент (&&, ||, ;, новая строка) и каждый
     сегмент его пайпа — display/write-инструмент."""
     segments: list[str] = []
-    for statement in _split_top(command, statements=True):
+    try:
+        statements = _split_top(command, statements=True)
+    except _UncertainShellParse:
+        return False  # envelope: неуверенный разбор никогда не display
+    for statement in statements:
         segments.extend(_split_pipeline(statement))
-    checked = [seg for seg in segments if _segment_head_token(seg)]
+    checked = []
+    for seg in segments:
+        if _segment_head_token(seg):
+            checked.append(seg)
+        elif _shell_words(seg.strip()):
+            return False  # слова есть, голова не распознана — не гадаем (env-r3)
     return bool(checked) and all(_display_segment(seg) for seg in checked)
 
 

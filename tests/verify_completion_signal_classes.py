@@ -138,15 +138,16 @@ def main():
     check("A2: настоящий хвостовой редирект по-прежнему отбрасывается",
           cl.normalize_command_key("pytest -q > out.log 2>&1")
           == cl.normalize_command_key("pytest -q"))
-    check("A2: awk с system() — не display (исполняет код)",
-          cl.display_only_command("awk '{system(\"pytest\")}' list.txt") is False)
-    check("A2: sed с s///e — не display (исполняет код)",
-          cl.display_only_command("sed 's/x/pytest/e' f") is False)
-    check("A2: обычные sed -n / awk-печать остаются display",
-          cl.display_only_command("sed -n 10,20p tests/run-all.sh")
-          and cl.display_only_command("awk '{print $1}' report.txt"))
-    check("A2: путь с /e2e не считается exec-маркером sed",
-          cl.display_only_command("sed -n 5p tests/e2e/run.sh"))
+    check("A2: awk/sed — интерпретаторы, НИКОГДА не display (env-r5)",
+          cl.display_only_command("awk '{system(\"pytest\")}' list.txt") is False
+          and cl.display_only_command("sed 's/x/pytest/e' f") is False
+          and cl.display_only_command("sed -n '1e pytest -q' f") is False
+          and cl.display_only_command("awk '{print | \"pytest\"}' f") is False)
+    check("A2: и обычные sed -n / awk-печать тоже не display (env-r5, цена гарантии)",
+          cl.display_only_command("sed -n 10,20p tests/run-all.sh") is False
+          and cl.display_only_command("awk '{print $1}' report.txt") is False)
+    check("A2: sed по пути /e2e — тоже не display (env-r5: sed вне display-набора)",
+          cl.display_only_command("sed -n 5p tests/e2e/run.sh") is False)
     s9x = cl.classify_bash("echo start && pytest tests/foo.py",
                            {"stdout": "1 failed", "exitCode": 1})
     check("A2: display-префикс с && не глотает настоящий прогон",
@@ -210,10 +211,9 @@ def main():
           cl.display_only_command("cat <<'END MARK'\nx\nEND MARK\npytest -q")
           is False
           and cl.display_only_command("cat <<'END MARK'\npytest inside\nEND MARK"))
-    check("A2: awk system ( с пробелом — исполнение, не display (PUB7)",
+    check("A2: awk system ( с пробелом — исполнение, не display (PUB7/env-r5)",
           cl.display_only_command("awk 'BEGIN { system (\"pytest -q\") }'")
-          is False
-          and cl.display_only_command("awk '{print $1}' file.txt"))
+          is False)
     check("A2: операнд опции env -u не голова — display жив (PUB7)",
           cl.display_only_command("env -u CI cat notes.md")
           and cl.classify_bash("env -u CI cat notes.md",
@@ -222,6 +222,42 @@ def main():
           cl.display_only_command("time -f '%E' cat file"))
     check("A2: env -u перед реальной командой — не display (PUB7)",
           cl.display_only_command("env -u CI pytest -q") is False)
+    check("A2: envelope — нетерминированный heredoc НЕ display (сигнал сохранён)",
+          cl.display_only_command("cat <<EOF\npytest never ends") is False)
+    check("A2: envelope — << без распознанного делимитера НЕ display",
+          cl.display_only_command("cat << |") is False)
+    check("A2: идиома апострофа '...'\\''...' не рвёт чётность — pytest виден (env-r1)",
+          cl.display_only_command("grep 'it'\\''s' f && pytest -q") is False
+          and cl.display_only_command("grep 'it'\\''s' f"))
+    check("A2: envelope — $'...' ANSI-C квотинг НЕ display (env-r1)",
+          cl.display_only_command("echo $'x\\'y' && pytest -q") is False)
+    check("A2: envelope — незакрытая кавычка НЕ display (env-r1)",
+          cl.display_only_command("cat 'unterminated") is False)
+    check("A2: heredoc с && в строке открытия НЕ display — pytest после тела виден (env-r2)",
+          cl.display_only_command("cat <<EOF && pytest -q\nx\nEOF") is False)
+    check("A2: heredoc с пайпом в строке открытия НЕ display (env-r2)",
+          cl.display_only_command("cat <<EOF | grep x\nx\nEOF") is False)
+    check("A2: envelope — $(pytest ...) в присваивании НЕ display, прогон виден (env-r3)",
+          cl.display_only_command(
+              'RESULT=$(pytest tests/ 2>&1); echo "$RESULT" | tail -20') is False)
+    check("A2: envelope — backtick-подстановка НЕ display (env-r3)",
+          cl.display_only_command('cat `pytest -q`') is False)
+    check("A2: сегмент со словами без распознанной головы НЕ display (env-r3)",
+          cl.display_only_command('FOO=1 tests/ ') is False
+          and cl.display_only_command('echo $HOME'))
+    check("A2: envelope — подстановка процесса <(...) НЕ display (env-r4)",
+          cl.display_only_command("cat <(pytest -q)") is False
+          and cl.display_only_command("cat f | tee >(pytest -q)") is False)
+    check("A2: обычные редиректы < и > остаются display (env-r4)",
+          cl.display_only_command("cat < file.txt")
+          and cl.display_only_command("grep x f > out.txt"))
+    check("A2: envelope — длинные опции display-инструментов НЕ display (env-r6)",
+          cl.display_only_command("sort --compress-program=pytest big.txt") is False
+          and cl.display_only_command("rg --pre pytest pat f") is False
+          and cl.display_only_command("grep --line-buffered x f") is False)
+    check("A2: голый -- (конец опций) остаётся display (env-r6)",
+          cl.display_only_command("grep -- pattern file")
+          and cl.display_only_command("tail -20 log.txt | grep -n fail"))
     hs = cl.classify_bash('cat <<<"hello" && pytest -q',
                           {"stdout": "1 failed", "exitCode": 1})
     check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",
