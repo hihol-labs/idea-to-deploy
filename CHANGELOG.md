@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The live Codex fixture also pins the native `apply_patch` write boundary so
   a declined PowerShell command cannot be misreported as a read-only workspace.
   Claude live runs stay in the prompt-bearing main session instead of a native
-  Skill fork that loses the pre-approved product brief.
+  Skill fork that loses the pre-approved product brief, and receive the full
+  multiline brief over stdin instead of a truncation-prone Windows argv.
 
 ## [1.100.0] - 2026-08-21
 

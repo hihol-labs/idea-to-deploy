@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -902,6 +903,31 @@ def main() -> int:
     check("mutation: omitted Claude inline-workflow boundary fails closed",
           prompt_names_claude_inline_boundary
           and claude_mutation_guarded)
+    anthropic_args = argparse.Namespace(
+        resolved_provider="anthropic", model="sonnet")
+    anthropic_prompt = "line one\nline two with product context"
+    with tempfile.TemporaryDirectory(prefix="itd-live-stdin-") as raw:
+        transport_root = Path(raw)
+        with mock.patch.object(
+                runner_module, "bounded_subprocess") as bounded:
+            bounded.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="", stderr="")
+            _, anthropic_family = runner_module.run_candidate(
+                anthropic_args, "claude", transport_root, transport_root,
+                anthropic_prompt, timeout_seconds=30,
+                attempt_budget="2.50", candidate_project=str(transport_root),
+                capture_limit_bytes=4096)
+    anthropic_command = bounded.call_args.args[0]
+    anthropic_kwargs = bounded.call_args.kwargs
+    check("Claude live prompt travels through stdin",
+          anthropic_kwargs.get("input_text") == anthropic_prompt
+          and anthropic_prompt not in anthropic_command
+          and anthropic_family
+          == "claude -p --stdin --plugin-dir <current-itd>")
+    mutated_anthropic_command = [*anthropic_command, anthropic_prompt]
+    check("mutation: Claude positional prompt is rejected by the transport contract",
+          anthropic_prompt in mutated_anthropic_command
+          and anthropic_prompt not in anthropic_command)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

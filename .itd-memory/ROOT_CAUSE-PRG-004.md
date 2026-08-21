@@ -26,3 +26,7 @@ The supported Claude transport has a separate boundary: its native `Skill`
 tool forks without the non-interactive product brief. The prompt therefore
 requires direct main-session execution of the same local skill/reference with
 built-in Write/Edit; runner preflight and a second fixture mutation pin it.
+The live replay then exposed the transport root: the multiline product prompt
+was truncated by the Windows `.CMD` positional-argument path. Claude now reads
+that prompt from stdin; a direct `run_candidate` test pins stdin bytes and the
+absence of the prompt from argv.

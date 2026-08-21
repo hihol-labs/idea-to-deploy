@@ -51,7 +51,8 @@ Patch release также сохраняет уже проверенные кан
   version-parser изменений; generated evidence пишет только bounded runner.
 - PRG-004 не меняет sandbox/approval flags, model routing, fixture product
   contract, snapshot oracle или pin policy; runner меняется только fail-closed
-  preflight-проверкой этой директивы; generated evidence пишет только runner.
+  preflight-проверкой директив и переносом Claude prompt из Windows argv в
+  stdin; generated evidence пишет только runner.
 - Не расширять runtime inventory за пределы доказанного path-loaded набора
   exact-context review cache (module + skill + standard/meta rubrics).
 - Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.

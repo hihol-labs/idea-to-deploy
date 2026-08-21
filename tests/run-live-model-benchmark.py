@@ -621,12 +621,12 @@ def run_candidate(args: argparse.Namespace, executable: str, project: Path,
             executable, "-p", "--output-format", "stream-json", "--verbose",
             "--no-session-persistence", "--model", args.model or "sonnet",
             "--dangerously-skip-permissions", "--plugin-dir", str(plugin),
-            "--max-budget-usd", attempt_budget, prompt,
+            "--max-budget-usd", attempt_budget,
         ]
         completed = bounded_subprocess(
             command, cwd=project, timeout_seconds=timeout_seconds,
-            capture_limit_bytes=capture_limit_bytes)
-        return completed, "claude -p --plugin-dir <current-itd>"
+            capture_limit_bytes=capture_limit_bytes, input_text=prompt)
+        return completed, "claude -p --stdin --plugin-dir <current-itd>"
 
     command = [
         executable, "--ask-for-approval", "never",
@@ -955,7 +955,7 @@ def run(args: argparse.Namespace) -> int:
         attempts: list[dict] = []
         candidate: subprocess.CompletedProcess[str] | None = None
         command_family = (
-            "claude -p --plugin-dir <current-itd>"
+            "claude -p --stdin --plugin-dir <current-itd>"
             if args.resolved_provider == "anthropic"
             else "codex exec --json --ephemeral --repository-local-itd"
         )
