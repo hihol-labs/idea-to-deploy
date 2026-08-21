@@ -49,6 +49,8 @@ Constraints and approved decisions:
 - Include at least three user stories and a 4–10 step implementation plan.
 - In `PRD.md`, place the user stories under the exact second-level heading
   `## User Stories` so the documented contract is explicit and replayable.
+- Under that heading, include at least three user-story lines that each begin
+  exactly with the case-sensitive prefix `- As a ` on the same physical line.
 - Define hourly request distribution as a percentage using the literal formula
   `100 × hourly_request_count / total_valid_requests`; do not describe it as an
   unscaled fraction.

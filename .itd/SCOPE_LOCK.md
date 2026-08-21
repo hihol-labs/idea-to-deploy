@@ -53,6 +53,10 @@ Patch release также сохраняет уже проверенные кан
   contract, snapshot oracle или pin policy; runner меняется только fail-closed
   preflight-проверкой директив и переносом Claude prompt из Windows argv в
   stdin, а также UTF-8 окружением запуска неизменённого snapshot oracle;
+  Claude transport исключает ambient user settings/MCP до model dispatch;
+  advocate snapshot остаётся полным и не игнорирует trace-like paths;
+  Claude не загружает непроверенный native plugin manifest, а читает
+  repository-local skill/reference напрямую;
   generated evidence пишет только runner.
 - Не расширять runtime inventory за пределы доказанного path-loaded набора
   exact-context review cache (module + skill + standard/meta rubrics).
