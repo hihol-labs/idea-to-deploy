@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drift. Global CLI and pre-push installers no longer embed the mutable source
   checkout: they share one atomic, closed-inventory, content-addressed runtime,
   refuse existing tamper and launch its entry points with Python `-I -B`.
-  The closed inventory includes the exact-context review-cache module loaded
-  transitively during receipt revalidation, preventing source-green but
-  installed-UNVERIFIED pre-push gates. Regression evidence: gate-profile
+  The closed inventory includes the exact-context review-cache module, review
+  skill and both rubrics loaded transitively during receipt revalidation,
+  preventing source-green but installed-UNVERIFIED pre-push gates. Regression evidence: gate-profile
   doctor 59 checks; runtime installer 28
   checks on WSL and native Windows; ITD CLI 112; Git hooks 30.
 

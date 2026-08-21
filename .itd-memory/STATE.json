@@ -39,11 +39,10 @@
   "currentUnit": {
     "id": "PRG-003",
     "goal": "Close the installed runtime over its exact-context review-cache dependency",
-    "status": "verified",
+    "status": "in_progress",
     "startedAt": "2026-08-21T17:25:00Z",
     "ledger": "STATE",
-    "riskTier": "high",
-    "completedAt": "2026-08-21T18:05:00Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -573,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "PRG-003 verified on codex/release-v1.100.1: publish and merge the reviewed release PR, tag v1.100.1, then finish Codex/Claude and CLI/pre-push rollout with live WSL/native-Windows doctor and guarded-push canaries."
+  "nextAction": "PRG-003 reopened by the installed-runtime doctor canary: include the complete path-loaded exact-context dependency set, prove candidate-context reconstruction on WSL/native Windows, then re-close, publish/merge, tag v1.100.1 and finish rollout."
 }

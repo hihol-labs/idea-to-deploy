@@ -1323,6 +1323,7 @@
       "tests/verify_review_import.py"
     ],
     "skills/review/SKILL.md": [
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_review_autoping.py",
       "tests/verify_review_cache.py",
@@ -1331,9 +1332,11 @@
       "tests/verify_stall_fallback.py"
     ],
     "skills/review/references/meta-review-checklist.md": [
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_review_cache.py"
     ],
     "skills/review/references/review-checklist.md": [
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_review_cache.py"
     ],
     "skills/review/scripts/itd_review_cache.py": [

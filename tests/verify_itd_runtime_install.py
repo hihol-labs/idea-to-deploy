@@ -81,8 +81,13 @@ def main() -> int:
     )
     check(
         runtime.RUNTIME_SKILL_FILES
-        == ("skills/review/scripts/itd_review_cache.py",),
-        "runtime declares the exact-context review-cache dependency",
+        == (
+            "skills/review/scripts/itd_review_cache.py",
+            "skills/review/SKILL.md",
+            "skills/review/references/review-checklist.md",
+            "skills/review/references/meta-review-checklist.md",
+        ),
+        "runtime declares the complete exact-context review dependency set",
     )
     with tempfile.TemporaryDirectory(prefix="itd-runtime-install-") as raw:
         root = Path(raw).resolve()
@@ -295,7 +300,7 @@ def main() -> int:
             "p=pathlib.Path(sys.argv[1]); "
             "s=importlib.util.spec_from_file_location('runtime_loop', p); "
             "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
-            "m._review_cache_module()"
+            "m.candidate_context(sys.argv[2], 'high')"
         )
         dependency_result = subprocess.run(
             [
@@ -304,12 +309,13 @@ def main() -> int:
                     Path(real_cli["runtimeRoot"])
                     / "skills" / "_shared" / "itd_verification_loop.py"
                 ),
+                str(ROOT),
             ],
             capture_output=True, text=True, timeout=30, check=False,
         )
         check(
             dependency_result.returncode == 0,
-            "installed verification loop loads its exact-context dependency",
+            "installed verification loop computes an exact candidate context",
         )
         check(
             not list(Path(real_cli["runtimeRoot"]).rglob("__pycache__")),

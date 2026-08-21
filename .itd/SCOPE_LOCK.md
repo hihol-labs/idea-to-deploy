@@ -3,11 +3,12 @@
 ## Current Task
 
 Live native-Windows pre-push canary обнаружил release-blocker после PR #224:
-content-addressed runtime не включал транзитивный модуль
-`skills/review/scripts/itd_review_cache.py`, который
-`itd_verification_loop.py` загружает по абсолютному пути при revalidation
-exact-candidate receipt. Source-tree doctor был GREEN, installed runtime —
-fail-closed `UNVERIFIED`, поэтому PR нельзя было разместить.
+content-addressed runtime не включал транзитивную exact-context цепочку:
+`skills/review/scripts/itd_review_cache.py`, review skill и оба rubric-файла,
+которые загружаются по абсолютным путям при revalidation exact-candidate
+receipt. Source-tree doctor был GREEN, installed runtime последовательно
+нашёл отсутствующие cache module и meta rubric и fail-closed вернул
+`UNVERIFIED`, поэтому PR нельзя было разместить.
 
 PRG-003 разрешает только корневое закрытие этого runtime inventory gap:
 
@@ -33,8 +34,8 @@ Patch release также сохраняет уже проверенные кан
 
 - Никаких reviewer/gate semantics, receipt/keyring, hook logic, broker/App,
   version-parser или generated-evidence изменений.
-- Не расширять runtime inventory за пределы доказанной транзитивной
-  зависимости exact-context review cache.
+- Не расширять runtime inventory за пределы доказанного path-loaded набора
+  exact-context review cache (module + skill + standard/meta rubrics).
 - Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.
 - Tag/release/rollout выполняются только после merge release PR и зелёного CI.
 

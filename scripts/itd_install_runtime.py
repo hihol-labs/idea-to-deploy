@@ -63,6 +63,9 @@ RUNTIME_SKILL_FILES = (
     # part of the executable gate closure even though it is not under
     # skills/_shared.
     "skills/review/scripts/itd_review_cache.py",
+    "skills/review/SKILL.md",
+    "skills/review/references/review-checklist.md",
+    "skills/review/references/meta-review-checklist.md",
 )
 RUNTIME_FILES = (
     ".codex-plugin/plugin.json",
