@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "PRG-002",
     "goal": "Install CLI and pre-push from one content-bound runtime snapshot",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-21T12:27:51Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-08-21T15:38:17Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
