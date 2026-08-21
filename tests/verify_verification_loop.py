@@ -681,6 +681,27 @@ check("adjudicator rejects an unstaged overlay introduced after checker evidence
       and "working tree differs from the staged candidate" in dirty_adj.stdout,
       dirty_adj.stdout)
 
+# LPD002-A3: чекер-квитанция с подделанным inspectedTree (чекер «наблюдал»
+# другое дерево, чем кандидат) отвергается на adjudicate — validate-сторона
+# гварда, парная к bind-стороне «working tree differs».
+import json as _a3json
+a3_root = fixture()
+a3_machine = machine(a3_root, "medium")
+a3_checker = checker(a3_root, "medium", "targeted")
+a3_checker_path = last_path(a3_checker)
+a3_doc = _a3json.loads(a3_checker_path.read_text(encoding="utf-8"))
+a3_doc["inspectedTree"] = "f" * 40
+_a3loop = load_loop_module()
+a3_doc.pop("receiptSha256", None)
+a3_doc["receiptSha256"] = _a3loop.sha256_bytes(_a3loop.canonical(a3_doc))
+a3_forged = a3_checker_path.with_name("a3-forged-checker.json")
+a3_forged.write_text(_a3json.dumps(a3_doc), encoding="utf-8")
+a3_adj = adjudicate(a3_root, "medium", last_path(a3_machine), a3_forged)
+check("adjudicator rejects a checker receipt observed on a foreign tree",
+      a3_adj.returncode != 0
+      and "not observed on the exact reviewed tree" in a3_adj.stdout,
+      a3_adj.stdout)
+
 # High/unknown: full checker must differ by model or provider.
 high = fixture()
 high_machine = machine(high, "high")

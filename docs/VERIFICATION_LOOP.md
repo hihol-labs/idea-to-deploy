@@ -261,3 +261,46 @@ efficacy evidence. Reviewer efficacy is measured separately by the frozen
 `benchmarks/independent-review-efficacy` corpus, using real no-tools keyless
 reports on both WSL and native Windows plus deterministic evidence/union
 canaries.
+
+## Authority snapshot: minting and byte-parity (LPD002-A8)
+
+The pre-PR producer runs from a snapshot OUTSIDE the repository
+(`~/.cache/itd-review-authority/<id>/`) and inserts its own directory into
+`sys.path`, so it judges candidates with the snapshot's modules — the gate
+behavior is frozen at minting time. Measured on R5: a pre-R5 snapshot would
+have judged a ledger-close candidate with the old gate and reproduced the
+exact circle R5 removed.
+
+**Minting procedure** (from the MERGED main, never from a working branch):
+
+1. Create `~/.cache/itd-review-authority/<UNIT>-<tree8>-a1/` where `<tree8>`
+   is the first 8 hex of the merged tree the modules are copied from.
+2. Copy every `skills/_shared/*.py` module and `skills/_shared/*.json`
+   policy byte-for-byte into the snapshot directory.
+3. Carry over the signing material unchanged from the previous snapshot:
+   `producer-ed25519.key` and `producer-keyring.json` (key id stays; the
+   keyring sha is what gate registration pins). Keys are snapshot-local by
+   design and are NOT part of parity.
+4. The boundary stands: the producer executes from the snapshot, outside the
+   repository checkout.
+
+**When to re-mint:** whenever a merged change alters review-gate behavior —
+any edit to `skills/_shared/itd_review_evidence.py`,
+`itd_free_reviewer_producer.py`, `itd_review_broker.py`, the review policies,
+or their dependencies. When in doubt, run the parity check.
+
+**Byte-parity check (fail-closed, run before trusting a producer receipt):**
+
+```bash
+python3 scripts/itd_authority_check.py --snapshot ~/.cache/itd-review-authority/<id>
+```
+
+Exit 0 — every snapshot module/policy is byte-identical to `skills/_shared/`
+(quiet). Exit 1 — divergence, each line names the file with WHY and FIX
+(re-mint from merged main). Exit 2 — input error, including a `--repo` that
+is not a git checkout: parity against a bare directory that merely contains
+`skills/_shared` proves nothing, so the check refuses it fail-closed. The
+check attests byte-parity against the checkout you point it at — the
+merged-main provenance comes from the minting procedure above and from
+running the check in the canonical checkout at gate registration. The oracle
+is `tests/verify_authority_check.py`.

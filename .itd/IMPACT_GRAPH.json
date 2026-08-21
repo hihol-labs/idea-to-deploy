@@ -203,6 +203,9 @@
       "tests/verify_feature_ledger_completeness.py",
       "tests/verify_operating_loops_release.py"
     ],
+    "HANDOFF.md": [
+      "tests/verify_completion_signal_classes.py"
+    ],
     "LAUNCH_PLAN.md": [
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_hook_depth.py",
@@ -402,6 +405,7 @@
       "tests/verify_session_hygiene_quality.py"
     ],
     "docs/VERIFICATION_LOOP.md": [
+      "tests/verify_authority_check.py",
       "tests/verify_mandatory_keyless_review.py"
     ],
     "docs/WORKING_DEADLINE_MODE.md": [
@@ -450,7 +454,8 @@
     ],
     "docs/examples/brownfield-piv/artifacts/checker.json": [
       "tests/verify_harness_demo_capture_schema.py",
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_verification_loop.py"
     ],
     "docs/examples/brownfield-piv/artifacts/context.json": [
       "tests/verify_harness_demo_capture_schema.py",
@@ -892,6 +897,9 @@
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_git_gate_hooks.py",
       "tests/verify_itd_cli.py"
+    ],
+    "scripts/itd_authority_check.py": [
+      "tests/verify_authority_check.py"
     ],
     "scripts/itd_external_outcomes.py": [
       "tests/verify_external_outcome_contract.py",
@@ -1428,6 +1436,7 @@
       "tests/verify_worktree_hook_safety.py"
     ],
     "tests/run-all.sh": [
+      "tests/verify_completion_signal_classes.py",
       "tests/verify_cost_gate.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_machine_oracle.py",

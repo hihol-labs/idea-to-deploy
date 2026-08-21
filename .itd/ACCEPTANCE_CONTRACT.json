@@ -2009,6 +2009,194 @@
           "verification-profiles-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD002-A2-1-display-commands-are-not-signals",
+      "criterion": "Команда, каждый сегмент пайпа которой начинается с display/write-инструмента (cat, echo, printf, grep/rg, head, tail, cut, tr, wc, ls, sort, uniq, column, stat, less, more, file, which, type; sed/awk НЕ входят — интерпретаторы с неперечислимыми exec-диалектами, env-r5; diff/comm — verification-инструменты, чекер r6), при этом ни один сегмент не несёт длинной опции `--...` (argv-исполнители, env-r6), а разбор команды не выходит за объявленный envelope, НЕ классифицируется как runtime-сигнал ни одного слоя, каким бы L2-паттернам (включая проектные l2_evidence_patterns) ни матчилась её строка или heredoc-тело. Настоящий прогон (bash tests/run-all.sh, pytest, в т.ч. с display-хвостом пайпа) остаётся сигналом. Сплит пайпа — quote-aware ('DONE|FAIL' не рвётся), `||` не является границей сегмента.",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED (воспроизведено на старом коде до правки): classify_bash('grep -n case tests/run-all.sh') -> test_run/L2 c evidence '42: esac'; classify_bash(heredoc 'cat >> HANDOFF.md' с текстом про тесты) -> test_run/L2. GREEN: оба -> None; настоящий run-all и пайп с display-хвостом остаются L2; verify_completion_signal_classes.py 15 -> 83 проверки, 83/0 (43 на закрытии A2; +8 в hd-раундах PUB3: heredoc-терминатор/двойной heredoc/отступленный псевдо-терминатор/here-string). Находка чекера r2: awk system() и sed s///e исполняют код — такие сегменты исключены из display-подавления (exec-маркеры), пути вида tests/e2e ложным маркером не являются. Находка чекера r4 (critical): сплит только по | — `echo x && pytest` глотался целиком; закрыто statement-aware разрезом (&&, ||, ;, \\n) со стоп-правилом на heredoc (<<) и тремя регрессиями + heredoc-регрессия. Находка чекера r6: diff/comm — verification-инструменты (exit-код = результат сравнения), исключены из display-набора. Плюс закрыта вторая половина долга «включая 0 failed» (живой RED): голые токены FAILED/FAIL стояли под re.I и матчили строчное 'failed' в сводке успеха — вынесены в case-sensitive FAIL_TOKEN_RE; верхнерегистровый FAILED остаётся провалом; соседние сьюты (gate/ledger/attribution/adversarial/control/watchdog) зелёные. Находка cross-vendor PUB2 (high): heredoc считался бесконечным — команда после терминатора глоталась; закрыто распознаванием делимитера (разрез продолжается после терминатора) + 2 регрессии.",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Показ текста не является его исполнением: display-команда не может ни зеленить, ни краснить слой.",
+        "impactClasses": [
+          "correctness",
+          "error-handling"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A2-2-command-identity-is-normalized",
+      "criterion": "Идентичность «latest-на-команду» в _layer_status — normalize_command_key(command): display-хвосты пайпа и хвостовые редиректы (2>&1, > file) отбрасываются, так что зелёный повтор той же команды с другим display-хвостом вытесняет прежний красный; красный ДРУГОЙ команды зелёным не вытесняется.",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED: красный 'bash tests/run-all.sh 2>&1 | grep FAIL' не вытеснялся зелёным 'bash tests/run-all.sh | tail -1' (разные сырые строки — измеренный корень вечного FAILED в R6). GREEN: ключи равны, слой pass; чужой красный сохраняется; проверка неравенства ключей разных команд. Находка чекера r1: срез хвостовых редиректов не был quote-aware — pytest -k \"x>5\" и -k \"x>99\" сливались в один ключ (over-displacement); закрыто проверкой чётности кавычек перед срезом + две проверки (кавычный '>' сохраняет различие; настоящий редирект отбрасывается). 32 checks. Находка чекера r3: наивная чётность считала экранированные кавычки (\\\\\") — over-merge; закрыто escape-aware сканером _inside_quotes + регрессия.",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Повтор той же проверки — та же проверка, как её вывод ни фильтруй.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A2-3-cross-head-red-is-stale",
+      "criterion": "Сигнал несёт поле head (короткий git HEAD на момент прогона, добавляется в classify_bash при доступном cwd). В _layer_status/compute_verdict сигнал с head, отличным от текущего HEAD, — стейл ЦЕЛИКОМ (ни fail не блокирует, ни pass не доказывает; стейл-fail + стейл-pass -> unknown); красный на текущем HEAD и красный БЕЗ поля head блокируют как раньше (консервативно), pass без head засчитывается (legacy).",
+      "source": "BACKLOG.md «P1 — найдено в сессии R5 / при доставке R6» и «P1 — дефекты маршрута R1»; решение владельца 2026-08-20 (сессия долгов до GENG-S02); замеры инцидентов: R1 (красный L2 от heredoc), R2 (evidence «esac» из grep), R5/R6 (COMPLETION_BYPASS на каждом коммите).",
+      "evidence": "RED: красный жил через границы коммитов вечно (R1: красный от прогона до перечеканки ног пережил фикс; каждый последующий коммит шёл через COMPLETION_BYPASS). GREEN: стейл-красный (head=aaaa при текущем bbbb) не блокирует; тот же head блокирует; legacy-сигнал без head блокирует. Находка чекера r5 (critical): фильтр был асимметричен — стейл-pass давал false-green при стейл-fail; закрыто фильтрацией всего набора по head + 4 регрессии (стейл-fail+стейл-pass -> unknown; стейл-pass -> unknown; свежий pass при стейл-fail -> pass; свежий fail при стейл-pass -> fail).",
+      "verificationCommand": "python3 -I tests/verify_completion_signal_classes.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Улика привязана к дереву, на котором получена, — принцип exact-candidate распространён на completion-сигналы.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "completion-signal-classes-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A517-1-state-declared-ledger-files",
+      "unitId": "LPD002-A517",
+      "criterion": "Класс ledger-close принимает сверх {STATE, контракт} дополнительные файлы ТОЛЬКО когда каждый: (а) объявлен в ledgerFiles БАЗОВОЙ версии STATE.json (декларация предшествует close — кандидат не может провезти путь, объявив его в собственном диффе; продюсер поставляет stateBefore из base-блоба); (б) лежит под .itd-memory/ без '..'; (в) является модификацией. Двухфайловый close без деклараций работает как прежде; необъявленный третий путь по-прежнему выбивает из класса.",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: реальный close плана LPD-002 трогал .itd-memory/LPD-002_UNIT_PLAN.json и выпадал из класса (отметка каталась со следующим delivery-коммитом R1..R6 — измеренный обход). GREEN: 7 проверок a5-* в verify_review_evidence (50 PASS-строк прогона; заявленные ранее 43 считали top-level check()-вызовы): declared-plan-file-rides; undeclared-expelled; no-stateBefore-refused; code-path-refused; traversal-refused; extra-must-be-M; two-file-close-unchanged.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Дополнительный леджер-файл едет с close только по предшествующей декларации в STATE, в леджер-неймспейсе и как модификация.",
+        "impactClasses": [
+          "correctness",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A517-2-criterion-ownership-is-explicit",
+      "unitId": "LPD002-A517",
+      "criterion": "Выбор критериев контракта для юнита: при наличии хотя бы одного критерия с явным unitId == юнит — авторитетен ТОЛЬКО явный набор (префикс не consultируется); префикс-фоллбэк остаётся для legacy-контрактов без поля и не захватывает критерии, несущие чужой unitId.",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: инцидент R1 — юнит R1 захватил исторический R1-SCRUB-1 по префиксу (UNVERIFIED по чужой записи, обходили переименованием). GREEN: a1-explicit-unitId-excludes-prefix-captured-foreign-criterion (матрица содержит только R1-own); a1-legacy-prefix-fallback.",
+      "verificationCommand": "python3 -I tests/verify_review_evidence.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Принадлежность критерия юниту — явное поле, а не совпадение префикса имён.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-evidence-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A517-3-single-staged-inventory",
+      "unitId": "LPD002-A517",
+      "criterion": "freeze_packet считает _staged_file_records ОДИН раз и передаёт инвентарь в has_transparent_path, _transparent_review_representation, _raw_review_file_chunks и _candidate_ledger_facts (records=…); чистые вызовы без инвентаря сохраняют прежнее поведение (records=None -> самостоятельный расчёт).",
+      "source": "BACKLOG P1 2026-08-19 (A5: третий путь close-коммита плана; A1: префикс-захват R1-SCRUB-1; A7: тройной _staged_file_records); решение владельца 2026-08-20 (сессия долгов).",
+      "evidence": "RED: три независимых вызова за один freeze_packet (строки ~1227/1249/1283 + внутри ledger facts). GREEN: threading через staged_records; verify_free_reviewer_producer 249/0; verify_machine_oracle, verify_verification_loop, verify_scrubber_precision и остальные владельцы карты зелёные.",
+      "verificationCommand": "python3 -I tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Инвентарь дифа — одна выборка на пакет, повторные git-обходы устранены без изменения решений.",
+        "impactClasses": [
+          "performance",
+          "correctness"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A39-1-inspected-tree-guard-is-pinned",
+      "unitId": "LPD002-A39",
+      "criterion": "Validate-сторона tree-гварда чекера покрыта оракулом: квитанция чекера с inspectedTree, отличным от candidate.reviewedTree, и КОРРЕКТНО пересчитанным receiptSha256 отвергается на adjudicate с 'checker was not observed on the exact reviewed tree' (не digest-гвардом); честные квитанции проходят.",
+      "source": "BACKLOG P1 R1-дефекты (A3: чекер сделал git stash при живом кандидате); BACKLOG P1 R5/R6 (A9: имя упавшей проверки не сохранилось, 90/1 невоспроизводим).",
+      "evidence": "RED: мутация-подделка без пересчёта digest ловилась более ранним digest-гвардом — tree-гвард был не покрыт (снятие прошло бы незаметно). GREEN: проверка 'adjudicator rejects a checker receipt observed on a foreign tree' в verify_verification_loop (87 -> 88), подделка с валидным digest отвергается именно tree-гвардом.",
+      "verificationCommand": "python3 -I tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Чекер, наблюдавший чужое дерево, не проходит адъюдикацию — и это свойство прибито мутацией, а не только кодом.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "verification-loop-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A39-2-runall-names-failures",
+      "unitId": "LPD002-A39",
+      "criterion": "Красный сьют в tests/run-all.sh печатает свои строки FAIL/FAILED (до 20) перед tail -6 — имя упавшей проверки сохраняется в логе, флейк воспроизводим.",
+      "source": "BACKLOG P1 R1-дефекты (A3: чекер сделал git stash при живом кандидате); BACKLOG P1 R5/R6 (A9: имя упавшей проверки не сохранилось, 90/1 невоспроизводим).",
+      "evidence": "RED: verify_state_hardening 90/1 на R5 — имя проверки потеряно (только tail -6), 5 прямых прогонов не воспроизвели. GREEN: grep -E '^(FAIL|FAILED)' | head -20 в run_py; verify_runall_drift 5/0; bash -n чист.",
+      "verificationCommand": "python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Провал называет себя по имени — иначе флейк неотличим от дефекта.",
+        "impactClasses": [
+          "error-handling",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A8-1-minting-procedure-is-documented",
+      "unitId": "LPD002-A8",
+      "criterion": "Процедура чеканки authority-снапшота задокументирована в docs/VERIFICATION_LOOP.md: источник — ТОЛЬКО merged main, состав (все skills/_shared/*.py и *.json политики байт-в-байт), перенос ключа/keyring без изменений, граница «продюсер вне репозитория», критерий перечеканки (любая merged-правка, меняющая поведение гейта ревью), команда проверки паритета.",
+      "source": "BACKLOG P1 2026-08-19 (A8, находка сессии R5: снапшот REL198 судил бы close-кандидата до-R5 гейтом); замер этой сессии: старый снапшот разошёлся на 3 модуля и с веткой, и с merged main.",
+      "evidence": "GREEN: раздел «Authority snapshot: minting and byte-parity (LPD002-A8)»; проверка документации входит в verify_authority_check (20/0 после PUB2/PUB3/PUB4 доукреплений); процедура исполнена живьём — LPD002-A8-62eea6bb-a1 перечеканен из origin/main, parity OK, keyring 1fa8afec… перенесён. Находка PUB2 (medium): док-проверка держала только 2 подстроки — теперь прибиты 5 деталей процедуры (merged main, byte-for-byte, key, keyring, re-mint trigger).",
+      "verificationCommand": "python3 -I tests/verify_authority_check.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Чеканка снапшота — воспроизводимая записанная процедура, а не устная традиция сессий.",
+        "impactClasses": [
+          "reconciliation",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "authority-check-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD002-A8-2-byte-parity-is-machine-checked",
+      "unitId": "LPD002-A8",
+      "criterion": "scripts/itd_authority_check.py проверяет байт-паритет каждого модуля/политики снапшота против skills/_shared fail-closed: exit 0 — тихий полный паритет; exit 1 — каждая дивергенция названа путём с WHY+FIX (включая snapshot-only файлы); exit 2 — input-ошибки (нет снапшота, не репозиторий); пустой снапшот против населённого гейта — тотальная дивергенция (exit 1, MISSING); подписные материалы (*.key, producer-keyring.json) — осознанный exempt; без аргументов — usage error, не implicit scan. Обратное направление тоже fail-closed: модуль/политика из skills/_shared, отсутствующие в снапшоте, флагаются MISSING.",
+      "source": "BACKLOG P1 2026-08-19 (A8, находка сессии R5: снапшот REL198 судил бы close-кандидата до-R5 гейтом); замер этой сессии: старый снапшот разошёлся на 3 модуля и с веткой, и с merged main.",
+      "evidence": "RED (живой): старый снапшот LPD002-R5-1139f855-a1 — DIVERGED itd_free_reviewer_producer.py, itd_review_evidence.py, itd_verification_profiles.py (последний разошёлся ещё с R6/main — дрейф был невидим). GREEN: verify_authority_check 20/0 (обе стороны: чистый паритет тих; дивергенция/orphan -> 1 c WHY/FIX; exempt ключей; 3 input-ошибки; usage error); сьют зарегистрирован в run-all (drift-guard 5/0). Находка чекера r1: полностью-orphan снапшот давал exit 2 вместо actionable 1 — закрыто (divergent учитывается в решении об input-error) + проверка. Находка чекера r2: repo-side модуль, отсутствующий в снапшоте, не флагался (обход по snapshot.iterdir) — закрыто обратным проходом по skills/_shared (MISSING) + проверка.",
+      "verificationCommand": "python3 -I tests/verify_authority_check.py && python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Дрейф замороженного гейта виден одной командой до того, как квитанция продюсера принята.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "authority-check-oracle",
+          "runall-drift-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2027,7 +2215,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD002-R6",
+    "unitId": "LPD002-A8",
     "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -2036,17 +2224,17 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
+        "security",
         "reconciliation",
-        "error-handling",
-        "generated-artifact-freshness"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-19T19:14:45Z",
-    "scopeNote": "LPD-002 R6 (последний пункт approved-плана, WIP=1, riskTier medium = checkerMode targeted, checkerRequired true, независимость требует другой сессии, но НЕ другой модели/провайдера; контуры static + targeted; minimumIndependentReviewers 1): карта 'путь исходника -> сьюты' становится данными репозитория (.itd/IMPACT_GRAPH.json) и подаётся в существующий impact_closure через impactGraphPath; движок получает операцию impact-audit — машинную полноту (каждый сьют достижим; каждый skills/_shared/*.py и hooks/*.sh имеет владеющий сьют; нет стейл-узлов; impactKnown:false -> strict) и пропорциональность (ни одно замыкание не покрывает полный набор); генератор tests/build_impact_graph.py строит generated из tracked-дерева и проверяет свежесть (--check). RED-прогон аудита нашёл две настоящие дыры (hooks/completion-stop.sh без сьюта; verify_review_broker_server без разрешимого ребра) — закрыты корнем. С delivery-коммитом R6 приезжают отметки закрытия R5 (план: R5 verified) и durable-запись R5 в .itd/DECISIONS.md — тот же шаблон R1 -> ... -> R5. Идентификатор юнита — LPD002-R6 (префиксный выбор критериев).",
-    "closedAt": "2026-08-20T13:40:19Z"
+    "openedAt": "2026-08-20T18:12:47Z",
+    "scopeNote": "Сессия долгов LPD-002, юнит 4 (A8): процедура чеканки authority-снапшота (runbook) + машинный байт-паритет (scripts/itd_authority_check.py + сьют, зарегистрированный в run-all). Живой replay нашёл 3 разошедшихся модуля; снапшот перечеканен из origin/main по новой процедуре. Ротация: LPD002-A39 закрыт в этом же delivery-диффе. Закрыт с STATE.currentUnit=verified одним терминальным состоянием (находка PUB4 reconciliation).",
+    "closedAt": "2026-08-20T20:55:00Z"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

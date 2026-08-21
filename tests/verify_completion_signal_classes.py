@@ -94,6 +94,239 @@ def main():
         v = cl.compute_verdict(Path(td), sigs)
         check("verdict: красный L2 блокирует как раньше", v.get("blocked"), str(v)[:200])
 
+    # 9) A2 (LPD-002 debts): display/write-команды — не runtime-сигнал, даже
+    # когда строка матчит проектный L2-паттерн; идентичность «latest-на-команду»
+    # нормализуется (display-хвосты пайпа не делают команду другой); красный от
+    # чужого HEAD — стейл, не вечный блок.
+    import json as _json
+    with tempfile.TemporaryDirectory() as td:
+        proj = Path(td)
+        (proj / ".claude" / "completion").mkdir(parents=True)
+        (proj / ".claude" / "completion" / "config.json").write_text(_json.dumps(
+            {"l2_evidence_patterns": ["tests/run-all\\.sh"]}), encoding="utf-8")
+        s9 = cl.classify_bash("grep -n case tests/run-all.sh",
+                              {"stdout": "42: esac", "exitCode": 0}, cwd=proj)
+        check("A2: display-команда (grep по файлу из L2-паттерна) — не сигнал",
+              s9 is None, str(s9))
+        s9 = cl.classify_bash(
+            "cat >> HANDOFF.md <<'EOF'\nbash tests/run-all.sh FAILED\nEOF",
+            {"stdout": "", "exitCode": 0}, cwd=proj)
+        check("A2: heredoc-запись с текстом про тесты — не сигнал",
+              s9 is None, str(s9))
+        s9 = cl.classify_bash("bash tests/run-all.sh --quick",
+                              {"stdout": "DONE fails:none", "exitCode": 0}, cwd=proj)
+        check("A2: настоящий прогон run-all остаётся сигналом L2/pass",
+              bool(s9) and s9.get("layer") == 2 and s9.get("outcome") == "pass",
+              str(s9))
+        s9 = cl.classify_bash("bash tests/run-all.sh 2>&1 | tail -2",
+                              {"stdout": "DONE fails:none", "exitCode": 0}, cwd=proj)
+        check("A2: пайп с display-хвостом сохраняет сигнал",
+              bool(s9) and s9.get("layer") == 2, str(s9))
+
+    k1 = cl.normalize_command_key("bash tests/run-all.sh 2>&1 | tail -2")
+    k2 = cl.normalize_command_key("bash tests/run-all.sh | grep -E 'DONE|FAIL' | head -3")
+    k3 = cl.normalize_command_key("bash tests/run-all.sh")
+    check("A2: display-хвост пайпа не меняет идентичность команды",
+          k1 == k2 == k3, f"{k1!r} {k2!r} {k3!r}")
+    check("A2: разные команды остаются разными ключами",
+          cl.normalize_command_key("pytest -q tests/a.py")
+          != cl.normalize_command_key("pytest -q tests/b.py"))
+    check("A2: '>' внутри кавычек — часть команды, не редирект",
+          cl.normalize_command_key('pytest -k "x>5"')
+          != cl.normalize_command_key('pytest -k "x>99"'),
+          cl.normalize_command_key('pytest -k "x>5"'))
+    check("A2: настоящий хвостовой редирект по-прежнему отбрасывается",
+          cl.normalize_command_key("pytest -q > out.log 2>&1")
+          == cl.normalize_command_key("pytest -q"))
+    check("A2: awk/sed — интерпретаторы, НИКОГДА не display (env-r5)",
+          cl.display_only_command("awk '{system(\"pytest\")}' list.txt") is False
+          and cl.display_only_command("sed 's/x/pytest/e' f") is False
+          and cl.display_only_command("sed -n '1e pytest -q' f") is False
+          and cl.display_only_command("awk '{print | \"pytest\"}' f") is False)
+    check("A2: и обычные sed -n / awk-печать тоже не display (env-r5, цена гарантии)",
+          cl.display_only_command("sed -n 10,20p tests/run-all.sh") is False
+          and cl.display_only_command("awk '{print $1}' report.txt") is False)
+    check("A2: sed по пути /e2e — тоже не display (env-r5: sed вне display-набора)",
+          cl.display_only_command("sed -n 5p tests/e2e/run.sh") is False)
+    s9x = cl.classify_bash("echo start && pytest tests/foo.py",
+                           {"stdout": "1 failed", "exitCode": 1})
+    check("A2: display-префикс с && не глотает настоящий прогон",
+          bool(s9x) and s9x.get("layer") == 2 and s9x.get("outcome") == "fail",
+          str(s9x))
+    check("A2: цепочка display-стейтментов остаётся подавленной",
+          cl.display_only_command("echo a; grep b f && tail -1 g"))
+    check("A2: `cat x || pytest y` — не display",
+          cl.display_only_command("cat x || pytest y") is False)
+    check("A2: diff — verification-инструмент, не display",
+          cl.display_only_command("diff expected.txt actual.txt") is False)
+    check("A2: '0 failed' в тексте — не провал (долг: подстрока failed зеленит/краснит)",
+          cl.outcome_from("=== 5 passed, 0 failed ===", None) != "fail"
+          and cl.outcome_from("=== 5 passed, 0 failed ===", 0) == "pass")
+    check("A2: верхнерегистровый FAILED остаётся провалом",
+          cl.outcome_from("FAILED tests/test_x.py::test_y", None) == "fail"
+          and cl.outcome_from("FAIL  some check", None) == "fail")
+    s9y = cl.classify_bash("cat <<EOF\nnotes about tests failed\nEOF\npytest -q tests/x.py",
+                           {"stdout": "1 failed", "exitCode": 1})
+    check("A2: команда ПОСЛЕ heredoc-терминатора не глотается",
+          bool(s9y) and s9y.get("layer") == 2 and s9y.get("outcome") == "fail",
+          str(s9y))
+    check("A2: heredoc с командой после терминатора — не display",
+          cl.display_only_command("cat <<EOF\ndata failed\nEOF\npytest -q") is False)
+    check("A2: heredoc-тело не режется на стейтменты",
+          cl.display_only_command(
+              "cat >> notes.md <<'EOF'\nbash tests/run-all.sh && pytest\nEOF"))
+    check("A2: два heredoc'а в одной команде — оба тела display (hd-r1)",
+          cl.display_only_command("cat <<A <<B\npytest inside\nA\nmore pytest\nB"))
+    check("A2: два heredoc'а + реальная команда после обоих тел — не display (hd-r1)",
+          cl.display_only_command("cat <<A <<B\nx\nA\ny\nB\npytest -q") is False)
+    check("A2: отступленный псевдо-терминатор НЕ закрывает plain <<EOF (hd-r1)",
+          cl.display_only_command("cat <<EOF\n  EOF\npytest hidden\nEOF"))
+    check("A2: <<- закрывается таб-отступленным терминатором, хвост виден (hd-r1)",
+          cl.display_only_command("cat <<-EOF\n\tdata\n\tEOF\npytest -q") is False)
+    check("A2: делимитер с дефисом END-1 распознан — хвост после терминатора виден (PUB4)",
+          cl.display_only_command("cat <<END-1\ndata\nEND-1\npytest -q") is False
+          and cl.display_only_command("cat <<END-1\npytest inside\nEND-1"))
+    check("A2: кавычный делимитер с дефисом <<'E-D' распознан (PUB4)",
+          cl.display_only_command("cat <<'E-D'\nx\nE-D\npytest -q") is False)
+    check("A2: делимитер с точкой EOF.txt распознан (PUB4)",
+          cl.display_only_command("cat <<EOF.txt\nx\nEOF.txt\npytest -q") is False)
+    check("A2: кавычный VAR-префикс с пробелами — display-голова распознана (PUB5)",
+          cl.display_only_command('NOTE="test output pending" cat >> HANDOFF.md')
+          and cl.classify_bash('NOTE="test output pending" cat >> HANDOFF.md',
+                               {"stdout": "", "exitCode": 0}) is None)
+    check("A2: кавычный VAR-префикс перед реальной командой — не display (PUB5)",
+          cl.display_only_command('NOTE="a b" pytest -q') is False)
+    check("A2: кавычный аргумент не подменяет голову сегмента (PUB5)",
+          cl.display_only_command('grep "pytest failed" log.txt'))
+    check("A2: опции обёртки env -i не подменяют голову — display жив (PUB6)",
+          cl.display_only_command('env -i FOO=x grep -n fail tests/run-all.sh')
+          and cl.classify_bash('env -i FOO=x grep -n fail tests/run-all.sh',
+                               {"stdout": "12: fail", "exitCode": 0}) is None)
+    check("A2: time -p перед реальной командой — не display (PUB6)",
+          cl.display_only_command('time -p pytest -q') is False)
+    check("A2: экранированный делимитер <<\\EOF распознан — хвост виден (PUB6)",
+          cl.display_only_command('cat <<\\EOF\ndata\nEOF\npytest -q') is False
+          and cl.display_only_command('cat <<\\EOF\npytest inside\nEOF'))
+    check("A2: кавычный делимитер с пробелом <<'END MARK' распознан (PUB6)",
+          cl.display_only_command("cat <<'END MARK'\nx\nEND MARK\npytest -q")
+          is False
+          and cl.display_only_command("cat <<'END MARK'\npytest inside\nEND MARK"))
+    check("A2: awk system ( с пробелом — исполнение, не display (PUB7/env-r5)",
+          cl.display_only_command("awk 'BEGIN { system (\"pytest -q\") }'")
+          is False)
+    check("A2: операнд опции env -u не голова — display жив (PUB7)",
+          cl.display_only_command("env -u CI cat notes.md")
+          and cl.classify_bash("env -u CI cat notes.md",
+                               {"stdout": "", "exitCode": 0}) is None)
+    check("A2: операнд опции time -f не голова (PUB7)",
+          cl.display_only_command("time -f '%E' cat file"))
+    check("A2: env -u перед реальной командой — не display (PUB7)",
+          cl.display_only_command("env -u CI pytest -q") is False)
+    check("A2: envelope — нетерминированный heredoc НЕ display (сигнал сохранён)",
+          cl.display_only_command("cat <<EOF\npytest never ends") is False)
+    check("A2: envelope — << без распознанного делимитера НЕ display",
+          cl.display_only_command("cat << |") is False)
+    check("A2: идиома апострофа '...'\\''...' не рвёт чётность — pytest виден (env-r1)",
+          cl.display_only_command("grep 'it'\\''s' f && pytest -q") is False
+          and cl.display_only_command("grep 'it'\\''s' f"))
+    check("A2: envelope — $'...' ANSI-C квотинг НЕ display (env-r1)",
+          cl.display_only_command("echo $'x\\'y' && pytest -q") is False)
+    check("A2: envelope — незакрытая кавычка НЕ display (env-r1)",
+          cl.display_only_command("cat 'unterminated") is False)
+    check("A2: heredoc с && в строке открытия НЕ display — pytest после тела виден (env-r2)",
+          cl.display_only_command("cat <<EOF && pytest -q\nx\nEOF") is False)
+    check("A2: heredoc с пайпом в строке открытия НЕ display (env-r2)",
+          cl.display_only_command("cat <<EOF | grep x\nx\nEOF") is False)
+    check("A2: envelope — $(pytest ...) в присваивании НЕ display, прогон виден (env-r3)",
+          cl.display_only_command(
+              'RESULT=$(pytest tests/ 2>&1); echo "$RESULT" | tail -20') is False)
+    check("A2: envelope — backtick-подстановка НЕ display (env-r3)",
+          cl.display_only_command('cat `pytest -q`') is False)
+    check("A2: сегмент со словами без распознанной головы НЕ display (env-r3)",
+          cl.display_only_command('FOO=1 tests/ ') is False
+          and cl.display_only_command('echo $HOME'))
+    check("A2: envelope — подстановка процесса <(...) НЕ display (env-r4)",
+          cl.display_only_command("cat <(pytest -q)") is False
+          and cl.display_only_command("cat f | tee >(pytest -q)") is False)
+    check("A2: обычные редиректы < и > остаются display (env-r4)",
+          cl.display_only_command("cat < file.txt")
+          and cl.display_only_command("grep x f > out.txt"))
+    check("A2: envelope — длинные опции display-инструментов НЕ display (env-r6)",
+          cl.display_only_command("sort --compress-program=pytest big.txt") is False
+          and cl.display_only_command("rg --pre pytest pat f") is False
+          and cl.display_only_command("grep --line-buffered x f") is False)
+    check("A2: голый -- (конец опций) остаётся display (env-r6)",
+          cl.display_only_command("grep -- pattern file")
+          and cl.display_only_command("tail -20 log.txt | grep -n fail"))
+    check("A2: envelope — одиночный & (фон) НЕ display, pytest не глотается (PUB8B)",
+          cl.display_only_command("cat HANDOFF.md & pytest") is False
+          and cl.display_only_command("cat HANDOFF.md &") is False)
+    check("A2: дублирование дескриптора 2>&1 / >&2 / &>file — не оператор (PUB8B)",
+          cl.display_only_command("grep -n x f 2>&1 | tail -2")
+          and cl.display_only_command("echo msg >&2")
+          and cl.display_only_command("cat f &> out.txt"))
+    _cur = "aaaaaaa"
+    _red = {"ts": "t1", "kind": "test_run", "layer": 2, "outcome": "fail",
+            "command": "pytest -q", "evidence": "1 failed", "head": _cur}
+    _foreign_pass = dict(_red, ts="t2", outcome="pass", evidence="ok",
+                         head="bbbbbbb")
+    check("A2: чужой HEAD не вытесняет действующий красный той же команды (PUB8B)",
+          cl._layer_status([_red, _foreign_pass], 2, _cur)[0] == "fail",
+          str(cl._layer_status([_red, _foreign_pass], 2, _cur)))
+    _same_green = dict(_red, ts="t3", outcome="pass", evidence="3 passed")
+    check("A2: зелёный того же HEAD по-прежнему вытесняет красный (PUB8B)",
+          cl._layer_status([_red, _same_green], 2, _cur)[0] == "pass")
+    check("A2: сигналы только чужого HEAD -> unknown (PUB8B)",
+          cl._layer_status([_foreign_pass], 2, _cur)[0] == "unknown")
+    hs = cl.classify_bash('cat <<<"hello" && pytest -q',
+                          {"stdout": "1 failed", "exitCode": 1})
+    check("A2: here-string <<< не глотает цепочку — сигнал pytest жив (hd-r2)",
+          bool(hs) and hs.get("layer") == 2 and hs.get("outcome") == "fail",
+          str(hs))
+    check("A2: here-string с display-цепочкой остаётся display (hd-r2)",
+          cl.display_only_command('cat <<<"hello" && ls'))
+    check("A2: экранированная кавычка не ломает чётность (разные команды != один ключ)",
+          cl.normalize_command_key('pytest -k "x\\">5"')
+          != cl.normalize_command_key('pytest -k "x\\">99"'),
+          cl.normalize_command_key('pytest -k "x\\">5"'))
+
+    red = {"ts": "t1", "kind": "test_run", "layer": 2, "outcome": "fail",
+           "command": "bash tests/run-all.sh 2>&1 | grep FAIL", "evidence": "1 failed"}
+    green = {"ts": "t2", "kind": "test_run", "layer": 2, "outcome": "pass",
+             "command": "bash tests/run-all.sh | tail -1", "evidence": "DONE fails:none"}
+    st, _ = cl._layer_status([red, green], 2)
+    check("A2: зелёный повтор той же команды с другим display-хвостом вытесняет красный",
+          st == "pass", st)
+    other_red = dict(red, command="python3 -I tests/verify_x.py")
+    st, _ = cl._layer_status([other_red, green], 2)
+    check("A2: красный ДРУГОЙ команды зелёным не вытесняется",
+          st == "fail", st)
+
+    stale = dict(red, head="aaaa1111")
+    st, _ = cl._layer_status([stale], 2, current_head="bbbb2222")
+    check("A2: красный от чужого HEAD — стейл, слой не в fail",
+          st != "fail", st)
+    st, _ = cl._layer_status([stale], 2, current_head="aaaa1111")
+    check("A2: красный на текущем HEAD блокирует как раньше",
+          st == "fail", st)
+    stale_pass = {"ts": "t3", "kind": "test_run", "layer": 2, "outcome": "pass",
+                  "command": "pytest -q other.py", "head": "aaaa1111",
+                  "evidence": "5 passed"}
+    st, _ = cl._layer_status([stale, stale_pass], 2, current_head="bbbb2222")
+    check("A2: стейл-fail + стейл-pass -> unknown, не false-green", st == "unknown", st)
+    st, _ = cl._layer_status([stale_pass], 2, current_head="bbbb2222")
+    check("A2: стейл-pass один не доказывает текущее дерево", st == "unknown", st)
+    fresh_pass = dict(stale_pass, head="bbbb2222")
+    st, _ = cl._layer_status([stale, fresh_pass], 2, current_head="bbbb2222")
+    check("A2: свежий pass при стейл-fail даёт pass", st == "pass", st)
+    fresh_fail = dict(red, head="bbbb2222")
+    st, _ = cl._layer_status([fresh_fail, stale_pass], 2, current_head="bbbb2222")
+    check("A2: свежий fail при стейл-pass блокирует", st == "fail", st)
+    legacy = dict(red)  # без поля head — консервативно блокирует
+    st, _ = cl._layer_status([legacy], 2, current_head="bbbb2222")
+    check("A2: сигнал без head консервативно остаётся блокирующим",
+          st == "fail", st)
+
     print(f"\n{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0
 

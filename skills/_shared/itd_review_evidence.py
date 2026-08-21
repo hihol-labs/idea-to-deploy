@@ -29,6 +29,7 @@ LEDGER_STATE_PATH = ".itd-memory/STATE.json"
 CLOSING_FOLLOWUP_FIELDS = frozenset({"status", "closedAt"})
 CANDIDATE_FACT_FIELDS = frozenset({
     "changedPaths", "modifiedPaths", "contractPath", "contractBefore",
+    "stateBefore",
 })
 
 
@@ -175,8 +176,35 @@ def ledger_close_policy(
     # unit's open, so any later STATE-only edit would inherit a stale unit's
     # coverage and be announced to the reviewer as a closing commit. Requiring
     # the contract in the diff is what makes the class mean "THIS diff closed it".
-    if changed != {LEDGER_STATE_PATH, contract_path}:
+    #
+    # LPD002-A5: a plan-driven unit's close also updates its plan ledger (the
+    # LPD-002 close measured this - the plan file was a third path and expelled
+    # the candidate from the class). Extra ledger files are allowed ONLY when
+    # ALL of the following hold, each fail-closed:
+    #   - the file is declared in ledgerFiles of the BASE STATE.json (the
+    #     declaration must PRECEDE the close - a candidate cannot smuggle a
+    #     path by declaring it in its own diff);
+    #   - the path lives under .itd-memory/ (ledger namespace, never code);
+    #   - the row is a modification, like the two mandatory files.
+    required = {LEDGER_STATE_PATH, contract_path}
+    if not required <= changed:
         return None
+    extra = changed - required
+    if extra:
+        state_before = facts.get("stateBefore")
+        if not isinstance(state_before, dict):
+            return None
+        declared = state_before.get("ledgerFiles")
+        if not isinstance(declared, list) or any(
+            not isinstance(item, str) for item in declared
+        ):
+            return None
+        declared_set = set(declared)
+        for path in extra:
+            if path not in declared_set:
+                return None
+            if not path.startswith(".itd-memory/") or ".." in path.split("/"):
+                return None
     # Both files must be MODIFIED, never added, deleted or type-changed. A close
     # edits a ledger that already exists; a candidate that creates or destroys
     # it is doing something else entirely and must not be announced to the
@@ -239,11 +267,23 @@ def coverage_matrix(
     criteria = acceptance.get("criteria")
     if not isinstance(criteria, list):
         raise ReviewEvidenceError("acceptance criteria are malformed")
-    active = [
+    # LPD002-A1: ownership is explicit when declared. A bare prefix match once
+    # captured a FOREIGN historical criterion (unit "R1" swallowed "R1-SCRUB-1").
+    # If ANY criterion carries an explicit unitId for this unit, the explicit
+    # set is authoritative and prefix matching is not consulted; the prefix
+    # fallback remains only for contracts predating the field.
+    explicit = [
+        item for item in criteria
+        if isinstance(item, dict)
+        and isinstance(item.get("id"), str)
+        and item.get("unitId") == unit_id
+    ]
+    active = explicit or [
         item for item in criteria
         if isinstance(item, dict)
         and isinstance(item.get("id"), str)
         and item["id"].startswith(unit_id + "-")
+        and "unitId" not in item
     ]
     if not active:
         raise ReviewEvidenceError("active unit has no acceptance criteria")

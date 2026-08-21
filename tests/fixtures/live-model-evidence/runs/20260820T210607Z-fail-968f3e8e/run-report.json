@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "itd-live-fixture-v1",
+  "evidencePurpose": "workflow-output-quality",
+  "independentReviewEvidence": false,
+  "status": "FAIL",
+  "observedAt": "2026-08-20T21:06:07Z",
+  "provider": "openai",
+  "fixture": "fixture-03-cli-tool",
+  "candidateModelRequested": "provider-default",
+  "reason": "independent snapshot oracle rejected live output:  | Failures: |   ❌ content_contracts[STRATEGIC_PLAN.md].section[Budget|Бюджет|Ресурсы|Бизнес-модель|Business model|Финанс] |        no section heading matches 'Budget|Бюджет|Ресурсы|Бизнес-модель|Business model|Финанс'",
+  "source": {
+    "revision": "d0bef10ff374b155ff54a41842bd11614841a8d1",
+    "workingTreeDirty": false,
+    "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "methodologyTreeSha256": "sha256:5e01d3e01f9d9418428bbeb143c44911e001a80b40194bfc4f1aa3f12ddf3ee0"
+  },
+  "runner": "tests/run-live-model-benchmark.py",
+  "runId": "20260820T210607Z-fail-968f3e8e",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260820T210607Z-fail-968f3e8e/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260820T210607Z-fail-968f3e8e",
+  "candidate": {
+    "commandFamily": "codex exec --json --ephemeral --repository-local-itd",
+    "exitCode": 0,
+    "liveResultEvents": 1,
+    "isError": false,
+    "attemptCount": 1,
+    "recoveryTriggered": false,
+    "attempts": [
+      {
+        "attempt": 1,
+        "exitCode": 0,
+        "timedOut": false,
+        "missingBefore": [
+          "STRATEGIC_PLAN.md",
+          "PROJECT_ARCHITECTURE.md",
+          "PRD.md",
+          "IMPLEMENTATION_PLAN.md",
+          "CLAUDE_CODE_GUIDE.md",
+          "CLAUDE.md"
+        ],
+        "missingAfter": [],
+        "liveResultEvents": 1,
+        "isError": false,
+        "captureLimitBytes": 8388608,
+        "transcriptRedactionCount": 0,
+        "transcriptBytes": 81931,
+        "transcriptSha256": "sha256:ed6a74b5061dbe868991554d97812ff9d78b714624bede4cf6ef1aff968f3e8e"
+      }
+    ],
+    "workspaceTransport": "native-temp",
+    "approvalPolicy": "never-no-escalation",
+    "hookPolicy": "disabled",
+    "captureLimitBytes": 8388608,
+    "transcriptBytes": 81931,
+    "transcriptSanitized": true,
+    "transcriptRedactionCount": 0,
+    "transcriptSha256": "sha256:ed6a74b5061dbe868991554d97812ff9d78b714624bede4cf6ef1aff968f3e8e",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260820T210607Z-fail-968f3e8e/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:bb05aac2360ce67f7e9298e4fe5e8da9bc81fe79a26753d347ba0eded50fc7a2"
+  },
+  "harnessInvocation": {
+    "mode": "repository-local-adopted-project",
+    "skill": "$idea-to-deploy:blueprint",
+    "transcriptProvesSkillLoad": true,
+    "hookExecution": "disabled-for-live-model-evidence",
+    "methodologyTreeSha256": "sha256:5e01d3e01f9d9418428bbeb143c44911e001a80b40194bfc4f1aa3f12ddf3ee0"
+  },
+  "failureArtifacts": {
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260820T210607Z-fail-968f3e8e/output",
+    "presentFiles": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "CLAUDE.md"
+    ],
+    "missingRequiredFiles": [],
+    "sha256": {
+      "STRATEGIC_PLAN.md": "sha256:c38ea6ddca9b89efd1f087c52c3021920e2303c90fdcbea44d0750be249e2165",
+      "PROJECT_ARCHITECTURE.md": "sha256:10c0b4f2b7f7f819bdda5577ae63adf17b5ec1b44d8c309d175fe7a60f5d37c4",
+      "PRD.md": "sha256:a7d366400bd8c16536339ad567f854af7eb8ebbdf1718328c326a1d728d2e7d6",
+      "IMPLEMENTATION_PLAN.md": "sha256:f8f802adc77cb02bc0d0c36a5e05989c84d7a9b3265b3742f822cec511c867bf",
+      "CLAUDE_CODE_GUIDE.md": "sha256:cb487b688af4584a37d71659c3d127be42f4b12a88337abd9c31b754bf60c592",
+      "CLAUDE.md": "sha256:c0cf2f35d47d6f599b1a7d569006aeb364358753030d3aaaeaea34e3918769cf"
+    }
+  },
+  "sourcePins": {
+    "benchmarkRunner": "sha256:2599857812000d1ce609f0749c3f5ce08bb330fcf5ed6567e43b36fa392e9981",
+    "candidateAdapter": "sha256:2599857812000d1ce609f0749c3f5ce08bb330fcf5ed6567e43b36fa392e9981",
+    "oracle": "sha256:3cdfa961238e0010172633a1ad655cc9c005cc6885751a878a9538f92aa33a89",
+    "fixturePrompt": "sha256:c05ab7ede6cae6c36ccc134d0e96f7e50bcfb478ccc8e15538bd7d33496daf04",
+    "fixtureContract": "sha256:3f092bdf1d20065fa6acfe464262ab5bee16daadd561fbb8f32e0eb2a3ae65b7",
+    "codexAdapterTemplate": "sha256:5fd95566ad36468a43bb6ef4e35471c8aac4f133d37f017a952737a8746f9298",
+    "agentsTemplate": "sha256:af0b59d7a879d5c0a5e5b1218aa11141dab3312e7ed975b7bb39a07759df5c21",
+    "methodologyTree": "sha256:5e01d3e01f9d9418428bbeb143c44911e001a80b40194bfc4f1aa3f12ddf3ee0"
+  },
+  "independentVerdict": {
+    "actor": "deterministic-external-oracle",
+    "oracle": "tests/verify_snapshot.py",
+    "exitCode": 1,
+    "status": "FAIL",
+    "candidateSelfReportAccepted": false
+  }
+}
