@@ -2297,6 +2297,27 @@
           "runtime-install-oracle"
         ]
       }
+    },
+    {
+      "id": "PRG-004-1-codex-live-write-boundary-is-explicit",
+      "unitId": "PRG-004",
+      "criterion": "The live blueprint fixture explicitly requires Codex candidates to create/edit documents through the native apply_patch file-edit tool, forbids multi-statement PowerShell write substitution, and permits a read-only conclusion only after the native file-edit tool itself returns a write denial. Runner preflight rejects omission before model dispatch, and the mutation executes that real preflight against a temporary fixture.",
+      "source": "Four current-tree release canaries on 2026-08-21: provider-default, gpt-5.6-sol and gpt-5.5 Codex runs read the repository-local blueprint skill but created zero files after command-safety declined PowerShell commands and the models falsely narrated a read-only workspace; the Claude Skill fork separately lost the pre-approved product prompt.",
+      "evidence": "RED: archived runs 20260821T185611Z-fail-0ffbb0c1, 20260821T190853Z-fail-bbd53382 and 20260821T192231Z-fail-67dc2a1d each exhausted two Codex attempts with all six outputs missing; transcripts contain no file_change item and a false read-only claim. Terra r3 rejected the first tautological mutation check. GREEN: runner preflight plus temporary-fixture mutation oracle 41/41. A separate clean-HEAD PRG-EVIDENCE follow-up must still produce the fresh live PASS before publication.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py --evidence .itd-memory/PRG-004-no-evidence.json",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The benchmark tells Codex how to cross the actual native file-write boundary and refuses a shell-policy rejection as evidence of a read-only filesystem.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "reconciliation",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-model-evidence-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2315,8 +2336,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PRG-003",
-    "status": "verified",
+    "unitId": "PRG-004",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2324,7 +2345,7 @@
       "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "security",
+        "compatibility",
         "reconciliation",
         "repository-hygiene"
       ],
@@ -2332,9 +2353,8 @@
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-21T17:25:00Z",
-    "scopeNote": "PRG-003: close only the complete path-loaded exact-context dependency set in the installed runtime inventory and prove candidate-context reconstruction on WSL/native Windows; review and gate semantics remain frozen.",
-    "closedAt": "2026-08-21T18:40:00Z"
+    "openedAt": "2026-08-21T19:25:00Z",
+    "scopeNote": "PRG-004: change only the live fixture's Codex write-boundary instruction and its mutation guard, then refresh generated live evidence; runtime/reviewer/gate semantics remain frozen."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

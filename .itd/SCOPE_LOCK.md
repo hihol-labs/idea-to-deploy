@@ -1,4 +1,4 @@
-# Scope Lock — PRG-003 / release v1.100.1
+# Scope Lock — PRG-004 / release v1.100.1
 
 ## Current Task
 
@@ -9,6 +9,20 @@ content-addressed runtime не включал транзитивную exact-con
 receipt. Source-tree doctor был GREEN, installed runtime последовательно
 нашёл отсутствующие cache module и meta rubric и fail-closed вернул
 `UNVERIFIED`, поэтому PR нельзя было разместить.
+
+После закрытия PRG-003 CI PR #225 потребовал новый current-tree live evidence.
+Четыре bounded run показали второй release-blocker: Codex-модели читали
+repository-local blueprint, но после command-safety отказов PowerShell ложно
+объявляли workspace read-only и не использовали native `apply_patch`; Claude
+Skill fork терял product prompt. PRG-004 разрешает только Codex-ветвь корня:
+
+- `tests/fixtures/fixture-03-cli-tool/live-prompt.md`;
+- `tests/run-live-model-benchmark.py` (только fail-closed prompt preflight);
+- `tests/verify_live_model_benchmark.py`;
+- generated `tests/fixtures/live-model-evidence/**` после реального run;
+- `.itd/{SCOPE_LOCK.md,ACCEPTANCE_CONTRACT.json,IMPACT_GRAPH.json}`;
+- `.itd-memory/{STATE.json,contracts/PRG-004.md,ROOT_CAUSE-PRG-004.md}`;
+- `CHANGELOG.md`.
 
 PRG-003 разрешает только корневое закрытие этого runtime inventory gap:
 
@@ -32,8 +46,11 @@ Patch release также сохраняет уже проверенные кан
 
 ## Forbidden Change Areas
 
-- Никаких reviewer/gate semantics, receipt/keyring, hook logic, broker/App,
-  version-parser или generated-evidence изменений.
+- Никаких reviewer/gate semantics, receipt/keyring, hook logic, broker/App или
+  version-parser изменений; generated evidence пишет только bounded runner.
+- PRG-004 не меняет sandbox/approval flags, model routing, fixture product
+  contract, snapshot oracle или pin policy; runner меняется только fail-closed
+  preflight-проверкой этой директивы; generated evidence пишет только runner.
 - Не расширять runtime inventory за пределы доказанного path-loaded набора
   exact-context review cache (module + skill + standard/meta rubrics).
 - Не переписывать историю `v1.100.0`; новый раздел — только `v1.100.1`.

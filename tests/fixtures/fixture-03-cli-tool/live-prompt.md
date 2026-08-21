@@ -7,6 +7,12 @@ questions or confirmation. Follow the actual workflow in
 template, and write the resulting project documents in the current project
 root. Do not implement product code.
 
+When the candidate transport is Codex, create and edit the documents with the
+native `apply_patch` file-edit tool. Do not substitute multi-statement
+PowerShell write commands. A command-safety rejection of a shell inspection
+does not prove that the workspace is read-only; report a read-only blocker only
+if the native file-edit tool itself returns a write denial.
+
 The adversarial (Devil's Advocate) review is NOT part of this session: the
 external harness runs the real `devils-advocate` agent definition in a
 separate fresh session after this one and validates its artifact. Do not

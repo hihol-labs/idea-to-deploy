@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "PRG-003",
-    "goal": "Close the installed runtime over its exact-context review-cache dependency",
-    "status": "verified",
-    "startedAt": "2026-08-21T17:25:00Z",
+    "id": "PRG-004",
+    "goal": "Make the live Codex benchmark use the native file-edit boundary",
+    "status": "in_progress",
+    "startedAt": "2026-08-21T19:25:00Z",
     "ledger": "STATE",
-    "riskTier": "high",
-    "completedAt": "2026-08-21T18:40:00Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -573,5 +572,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "PRG-003 verified with complete installed exact-context closure: publish/merge the reviewed release PR, tag v1.100.1, then finish Codex/Claude and CLI/pre-push rollout with live WSL/native-Windows doctor and guarded-push canaries."
+  "nextAction": "PRG-004 in progress: pin the Codex-native apply_patch write boundary in the live fixture prompt, prove its mutation guard, obtain a clean current-tree live PASS and independent review, then update PR #225, merge, release v1.100.1 and finish rollout."
 }

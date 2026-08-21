@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preventing source-green but installed-UNVERIFIED pre-push gates. Regression evidence: gate-profile
   doctor 59 checks; runtime installer 28
   checks on WSL and native Windows; ITD CLI 112; Git hooks 30.
+  The live Codex fixture also pins the native `apply_patch` write boundary so
+  a declined PowerShell command cannot be misreported as a read-only workspace.
 
 ## [1.100.0] - 2026-08-21
 

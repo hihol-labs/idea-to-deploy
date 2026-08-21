@@ -847,6 +847,11 @@ def main() -> int:
     )
     check("live prompt explicitly names the oracle-required CLI interface heading",
           prompt_names_architecture_cli_heading)
+    codex_write_directive = getattr(
+        runner_module, "CODEX_WRITE_BOUNDARY_DIRECTIVE", "")
+    prompt_names_codex_write_boundary = codex_write_directive in live_prompt
+    check("live prompt names the Codex-native write boundary",
+          prompt_names_codex_write_boundary)
     mutated_prompt = (
         live_prompt.replace(f"`{required_outputs[0]}`", "", 1)
         if required_outputs else live_prompt
@@ -863,6 +868,19 @@ def main() -> int:
     check("mutation: omitted CLI interface heading fails closed",
           prompt_names_architecture_cli_heading
           and architecture_cli_heading_directive not in mutated_architecture_prompt)
+    mutated_write_prompt = live_prompt.replace(codex_write_directive, "", 1)
+    mutation_guarded = False
+    with tempfile.TemporaryDirectory(prefix="itd-live-prompt-mutant-") as raw:
+        mutant_fixture = Path(raw)
+        (mutant_fixture / "live-prompt.md").write_text(
+            mutated_write_prompt, encoding="utf-8")
+        try:
+            runner_module.fixture_prompt(mutant_fixture)
+        except ValueError as exc:
+            mutation_guarded = "Codex-native write boundary" in str(exc)
+    check("mutation: omitted Codex write boundary fails closed",
+          prompt_names_codex_write_boundary
+          and mutation_guarded)
     check("missing external auth is explicit UNVERIFIED, never PASS",
           'status = "UNVERIFIED" if code == 3 else "FAIL"' in runner
           and "code=3" in runner and "resolve_provider(args)" in runner)

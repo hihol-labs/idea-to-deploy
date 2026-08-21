@@ -42,6 +42,13 @@ METHODOLOGY_TREE_ROOTS = (
 GENERATED_STATUS_PREFIXES = ("tests/fixtures/live-model-evidence/",)
 MAX_CANDIDATE_ATTEMPTS = 2
 MAX_TRANSCRIPT_BYTES = 8 * 1024 * 1024
+CODEX_WRITE_BOUNDARY_DIRECTIVE = (
+    "When the candidate transport is Codex, create and edit the documents with the\n"
+    "native `apply_patch` file-edit tool. Do not substitute multi-statement\n"
+    "PowerShell write commands. A command-safety rejection of a shell inspection\n"
+    "does not prove that the workspace is read-only; report a read-only blocker only\n"
+    "if the native file-edit tool itself returns a write denial."
+)
 CAPTURE_LIMIT_EXIT_CODE = 86
 # Devil's Advocate runs as a harness-orchestrated SECOND fresh session (S3,
 # BACKLOG 2026-08-13): headless transports do not spawn Claude-native
@@ -417,6 +424,8 @@ def fixture_prompt(fixture_dir: Path) -> str:
     text = prompt.read_text(encoding="utf-8", errors="strict").strip()
     if "$idea-to-deploy:blueprint" not in text:
         raise ValueError("live prompt does not explicitly invoke the ITD blueprint skill")
+    if CODEX_WRITE_BOUNDARY_DIRECTIVE not in text:
+        raise ValueError("live prompt omits the Codex-native write boundary")
     return text
 
 
