@@ -1,4 +1,82 @@
-# Scope Lock — GENG-S03 / reconciliation учёта
+# Scope Lock — GENG-S04B / дефекты VL-маршрута (claim id + checker preflight)
+
+## Current Task
+
+GENG-S04B (medium): закрыть два измеренных дефекта маршрута Verification Loop
+(BACKLOG «P1 — Found while closing S10-LEDGER»):
+
+- D1: рассогласование идентичности claim'а продюсер/review-cache — одна
+  live-ревью не обслуживает оба гейта; `validate_route_machine_binding`
+  требует побайтового совпадения machine receipt.
+- D2: `command_checker` отдаёт по одному UNVERIFIED за прогон на pre-flight
+  входах (report/prompt/phase-one/keyring/provenance).
+
+Разрешено:
+
+- `skills/_shared/itd_verification_loop.py` — ровно два фикса по плану
+  (route-binding bare<->claim той же exact-кандидатуры; агрегация pre-flight
+  нарушений checker в один LoopError);
+- `tests/verify_verification_loop.py`, `tests/verify_review_cache.py` —
+  RED-first репродукции + негативные мутации;
+- леджер: `.itd/{SCOPE_LOCK.md,ACCEPTANCE_CONTRACT.json}` (при необходимости),
+  `.itd-memory/{STATE.json,contracts/GENG-S04B.md}`, BACKLOG (галочки с
+  evidence), CHANGELOG `[Unreleased]`, `.itd/DECISIONS.md`.
+
+## Хард-стоп исполнен: D1 выброшен (решение владельца 2026-08-22)
+
+Юнит сокращён до **D2**. Мост claim-id (D1) реализован и снят: четыре раунда
+независимого ревью дали две находки high именно в нём (bare<->security-review;
+затем вложенные идентичности, ошибочно узаконенные замороженным
+перечислением). Правило «две bounded итерации без подтверждённого ROI ->
+остановка» из плана GE 2 Final применено: выигрыш D1 (один живой прогон ревью)
+меньше стоимости раундов. Дефект claim-id возвращён в BACKLOG как измеренный и
+незакрытый, с записанным кандидатом следующей попытки (разделение
+идентичностей внутри продюсера, а не вывод родства из строк постфактум).
+
+### Граница гарантии D2 и правило остановки (после PUB6)
+
+Гарантия pre-flight объявлена ЧЕСТНО, а не максимально: в одном прогоне
+называются все нарушения **независимо проверяемых** входов (report-путь,
+prompt-путь, разбор отчёта, каждая route-ссылка отдельно — резолв + форма).
+Проверка, которая ПО СУЩЕСТВУ требует валидности другого входа (верификация
+подписи невозможна без обеих ссылок; привязка артефактов — без разрешимых
+путей), выполняется после починки предпосылки. Это записано в самом тексте
+ошибки («checks that depend on a failed input follow once it is fixed»),
+поэтому обещание совпадает с поведением.
+
+Находка «проверка X не выполнена одновременно с Y» опровергается этой
+границей, если X зависит от Y по существу. Находкой остаётся: (а) два
+НЕЗАВИСИМЫХ входа, из которых назван только один; (б) текст гарантии,
+расходящийся с поведением.
+
+**Правило остановки D2 (тот же принцип, что применён к D1):** ещё одна
+подтверждённая находка класса «агрегация неполна» -> D2 шипается как есть
+с объявленной границей (она строго лучше исходного «один UNVERIFIED за
+прогон»), дальнейшие раунды не открываются.
+
+Оставшийся скоуп:
+
+- `skills/_shared/itd_verification_loop.py` — только агрегация pre-flight
+  `command_checker` + reporting-only `bind_artifacts` в
+  `validate_mandatory_route_evidence`. `validate_route_machine_binding`
+  байт-в-байт равна версии из `214ee2e`.
+- `tests/verify_verification_loop.py` — RED-first репродукция D2 и регрессии
+  PUB1/PUB2.
+- Леджер: BACKLOG, CHANGELOG `[Unreleased]`, `.itd/SCOPE_LOCK.md`,
+  `.itd-memory/{STATE.json,contracts/GENG-S04B.md}`.
+
+## Forbidden Change Areas
+
+- Любое ослабление привязки маршрута к machine-квитанции: побайтовое
+  равенство в `validate_route_machine_binding` восстановлено и НЕ трогается.
+- Тексты существующих одиночных сообщений LoopError не меняются (их пинят
+  сьюты); агрегат D2 только объединяет их.
+- Продюсер `itd_free_reviewer_producer.py`, брокер, хуки, скиллы — не
+  трогаются. GENG-код — вне скоупа (не раньше S07/A1 при GO).
+
+---
+
+## Previous verified scope — GENG-S03 / reconciliation учёта
 
 ## Current Task
 

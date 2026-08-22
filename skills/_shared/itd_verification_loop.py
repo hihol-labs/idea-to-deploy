@@ -1562,36 +1562,120 @@ def command_checker(args: argparse.Namespace) -> int:
     context = candidate_context(repo, risk, args.candidate_mode)
     inspected_tree = assert_checkout_matches_candidate(repo, context)
     root = receipt_root(repo, policy)
-    report_rel = relative_artifact(repo, Path(args.report), root / "reports", "checker report")
-    prompt_rel = relative_artifact(repo, Path(args.prompt_file), root / "prompts", "checker prompt")
-    report_path, prompt_path = repo / report_rel, repo / prompt_rel
-    verdict = parse_report(report_path.read_text(encoding="utf-8", errors="replace"))
     checker = {"provider": args.checker_provider.strip(),
                "model": args.checker_model.strip(),
                "session": args.checker_session.strip()}
     maker = {"provider": args.maker_provider.strip(),
              "model": args.maker_model.strip(),
              "session": args.maker_session.strip()}
+    # Pre-flight: validate every independent input in one pass so a caller
+    # learns ALL violations from a single run instead of one UNVERIFIED per
+    # run (measured: three wasted checker runs on GENG-S03, 2026-08-22).
+    violations: list[LoopError] = []
+    report_rel = prompt_rel = None
+    try:
+        report_rel = relative_artifact(
+            repo, Path(args.report), root / "reports", "checker report")
+    except LoopError as exc:
+        violations.append(exc)
+    try:
+        prompt_rel = relative_artifact(
+            repo, Path(args.prompt_file), root / "prompts", "checker prompt")
+    except LoopError as exc:
+        violations.append(exc)
+    # A resolvable report is parsed here, not after the block: a malformed
+    # report is an independent violation and must not wait for another run.
+    verdict = None
+    if report_rel is not None:
+        try:
+            verdict = parse_report(
+                (repo / report_rel).read_text(encoding="utf-8", errors="replace"))
+        except LoopError as exc:
+            violations.append(exc)
+    mandatory_route = None
     if bool(args.phase_one_receipt) != bool(args.producer_keyring):
-        raise LoopError(
+        violations.append(LoopError(
             "mandatory route receipt/keyring pair is incomplete",
             "Provide both --phase-one-receipt and --producer-keyring, or neither for non-publication diagnostics.",
+        ))
+    elif args.phase_one_receipt:
+        # phase-one and keyring are INDEPENDENT inputs: resolve each on its own
+        # so two bad paths are named together instead of one run apiece.
+        references: dict[str, dict[str, str]] = {}
+        reference_shape_ok = True
+        for field, raw, label in (
+            ("phaseOne", args.phase_one_receipt, "phase-one route receipt"),
+            ("producerKeyring", args.producer_keyring,
+             "phase-one producer keyring"),
+        ):
+            try:
+                resolved_path = secure_dependency_path(repo, root, raw, label)
+                references[field] = dependency(repo, root, resolved_path, label)
+            except LoopError as exc:
+                violations.append(exc)
+                reference_shape_ok = False
+                continue
+            # Each resolved reference is shape-checked on its own, so a broken
+            # counterpart cannot hide it.  Cross-input checks (signature
+            # verification, candidate binding) genuinely need BOTH inputs and
+            # are reported once their prerequisites resolve.
+            try:
+                value = read_json(resolved_path, label)
+            except LoopError as exc:
+                violations.append(exc)
+                reference_shape_ok = False
+                continue
+            if field == "producerKeyring":
+                try:
+                    _phase_one_public_keys(value)
+                except LoopError as exc:
+                    violations.append(exc)
+                    reference_shape_ok = False
+            elif not isinstance(value, dict):
+                violations.append(LoopError(
+                    f"{label} is not an object",
+                    "Regenerate the receipt through the keyless producer.",
+                ))
+                reference_shape_ok = False
+        if len(references) == 2 and reference_shape_ok:
+            mandatory_route = {
+                "kind": "itd-mandatory-keyless-route-v1",
+                "phaseOne": references["phaseOne"],
+                "producerKeyring": references["producerKeyring"],
+            }
+            try:
+                validate_mandatory_route_evidence(
+                    mandatory_route, repo=repo, policy=policy,
+                    context=context, maker=maker, checker=checker,
+                    report_path=(repo / report_rel) if report_rel else None,
+                    prompt_path=(repo / prompt_rel) if prompt_rel else None,
+                    candidate_mode=args.candidate_mode,
+                    expected_repository=None,
+                    expected_producer_keyring_sha256=None,
+                    bind_artifacts=(
+                        report_rel is not None and prompt_rel is not None
+                        and verdict is not None),
+                )
+            except LoopError as exc:
+                violations.append(exc)
+                mandatory_route = None
+    if len(violations) == 1:
+        raise violations[0]
+    if violations:
+        # Declared guarantee (honest, not maximal): every INDEPENDENTLY
+        # checkable input is reported in this run.  A check that genuinely
+        # needs another input to be valid first — signature verification needs
+        # both route references, artifact binding needs resolvable artifacts —
+        # is reported once its prerequisite resolves.  Claiming more would be
+        # false: those checks cannot run at all until then.
+        raise LoopError(
+            "checker pre-flight found "
+            f"{len(violations)} violations "
+            "(checks that depend on a failed input follow once it is fixed): "
+            + " | ".join(exc.why for exc in violations),
+            " | ".join(exc.fix for exc in violations),
         )
-    mandatory_route = None
-    if args.phase_one_receipt:
-        phase_path = secure_dependency_path(
-            repo, root, args.phase_one_receipt, "phase-one route receipt"
-        )
-        keyring_path = secure_dependency_path(
-            repo, root, args.producer_keyring, "phase-one producer keyring"
-        )
-        mandatory_route = {
-            "kind": "itd-mandatory-keyless-route-v1",
-            "phaseOne": dependency(repo, root, phase_path, "phase-one route receipt"),
-            "producerKeyring": dependency(
-                repo, root, keyring_path, "phase-one producer keyring"
-            ),
-        }
+    report_path, prompt_path = repo / report_rel, repo / prompt_rel
     payload = {
         "version": RECEIPT_VERSION,
         "kind": "checker",
@@ -1731,10 +1815,16 @@ def _phase_one_public_keys(value: object) -> dict[str, str]:
 def validate_mandatory_route_evidence(
     route: object, *, repo: Path, policy: dict[str, Any],
     context: dict[str, Any], maker: dict[str, str], checker: dict[str, str],
-    report_path: Path, prompt_path: Path, candidate_mode: str,
+    report_path: Path | None, prompt_path: Path | None, candidate_mode: str,
     expected_repository: str | None,
     expected_producer_keyring_sha256: str | None,
+    bind_artifacts: bool = True,
 ) -> dict[str, Any]:
+    # bind_artifacts=False is a REPORTING-ONLY mode used by the checker
+    # pre-flight when the report/prompt paths themselves are already invalid:
+    # every route violation that does not need those bytes is still surfaced in
+    # the same run.  That path always raises afterwards, so a receipt can never
+    # be minted from a partially validated route.
     if (
         not isinstance(route, dict)
         or set(route) != {"kind", "phaseOne", "producerKeyring"}
@@ -1860,16 +1950,23 @@ def validate_mandatory_route_evidence(
                 "mandatory route target does not name the committed HEAD",
                 "Bind phase one to the exact submission commit before guarded publication.",
             )
-    report = parse_report(report_path.read_text(encoding="utf-8", errors="replace"))
-    if (
-        signed["report"] != report
-        or signed["reportSha256"] != sha256_bytes(free.canonical_bytes(report))
-        or signed["promptSha256"] != sha256_file(prompt_path)
-    ):
-        raise LoopError(
-            "mandatory route prompt/report artifacts are foreign",
-            "Use the exact artifacts emitted by the signed producer run.",
-        )
+    if bind_artifacts:
+        if report_path is None or prompt_path is None:
+            raise LoopError(
+                "mandatory route artifacts are unavailable",
+                "Persist the exact checker report and prompt before binding the route.",
+            )
+        report = parse_report(
+            report_path.read_text(encoding="utf-8", errors="replace"))
+        if (
+            signed["report"] != report
+            or signed["reportSha256"] != sha256_bytes(free.canonical_bytes(report))
+            or signed["promptSha256"] != sha256_file(prompt_path)
+        ):
+            raise LoopError(
+                "mandatory route prompt/report artifacts are foreign",
+                "Use the exact artifacts emitted by the signed producer run.",
+            )
     if (
         signed["maker"] != maker
         or any(signed["reviewer"].get(field) != checker[field]

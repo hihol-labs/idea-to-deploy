@@ -1,0 +1,20 @@
+{
+ "confirmedBy": "hihol (владелец проекта)",
+ "confirmation": "I adjudicated every finding of checker receipt 6f0176b95852837dbd4e681728dd0e819cbe670152bb48eb4d516fcf19c7ef28 and accept the recorded dispositions",
+ "checkerReceiptSha256": "6f0176b95852837dbd4e681728dd0e819cbe670152bb48eb4d516fcf19c7ef28",
+ "dispositions": [
+  {
+   "findingSha256": "1a34b38d44508580db44288109cc308c17098407eec337c460cb8a1485511016",
+   "finding": {
+    "category": "correctness",
+    "confidence": "high",
+    "file": "skills/_shared/itd_verification_loop.py",
+    "line": 1623,
+    "severity": "medium",
+    "summary": "The phase-one reference is only checked for being a JSON object before route validation is skipped when the keyring has any shape error. Thus a malformed phase-one receipt (for example `{\"kind\":\"not-a-route\"}`) plus a malformed keyring reports only the keyring violation; the phase receipt’s independently checkable form is hidden until a later run, contrary to the declared per-route-reference aggregation guarantee."
+   },
+   "class": "accepted-trade-off",
+   "rationale": "Тот же остаток, что адъюдицирован по треку юнита: правило остановки D2 (.itd/SCOPE_LOCK.md, решение владельца 2026-08-22). Fail-closed сохранён — агрегация только собирает отказы. Внесён в BACKLOG."
+  }
+ ]
+}
