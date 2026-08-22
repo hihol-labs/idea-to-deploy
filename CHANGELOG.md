@@ -31,6 +31,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   предпосылки.
 
 ### Changed
+- **GATE G0 закрыт вердиктом владельца (GENG-S05, accounting only).** Программа
+  GENG в редакции A->B->C НЕ стартует: **GENG-B — NO-GO** (потолок кэша по 743
+  квитанциям / 134 юнитам: медиана 0.00 мин/юнит, p90 0.80, максимум 29.0 при
+  пороге 30; 0 из 134 юнитов берут порог; DoD §8 «срок окупаемости
+  положительный» не выполняется до старта), **GENG-A — NO-GO** как следствие
+  (по конструкции не закрывает ни одной измеренной минуты), **GENG-C** сведён
+  к одному bounded-эксперименту (12 пар, default-off, без A и B) как обычный
+  `/task`-юнит. S06 (ADR-010) и S07 не открываются; **ADR-010 не создаётся** —
+  он был предусмотрен только для ветки GO. Остальное конвертировано в план
+  сокращения **LPD-003** с четырьмя приоритетами по замеру: `run-all` как
+  машинный оракул -> fail-fast + targeted-профиль (859 из 1054 мин = 82%
+  машинного слоя, класс false-green); сужение `METHODOLOGY_TREE_ROOTS`;
+  правила остановки в формулировке «находки в САМОЙ правке -> выбросить
+  правку» (а не по счётчику раундов); консолидация сьютов по impact-карте.
+  Записано: `.itd/DECISIONS.md` (вердикт с числами и тремя поправками к
+  прежнему чтению замера), статус-нота в ADR-009, BACKLOG «P1 — GENG»
+  переписан (A/B закрыты решением, GENG-000…010 в icebox), LAUNCH_PLAN
+  Block J (результат G0 + каркас LPD-003). Review 2026-09-28 сохраняется.
+  Пакет решения и замеры остаются вне репо:
+  `~/.claude/geng/S05/G0_DECISION_PACKAGE.md` (+ `cacheable_ceiling.py`),
+  `~/.claude/geng/S02/BASELINE_G0.md`, `~/.claude/geng/S04/BASELINE_POST_R6.md`,
+  `~/.claude/geng/S04b/ROUNDS.md`. Ни один gate/hook/skill не тронут.
 - **GENG-S03 reconciliation (accounting only):** LAUNCH_PLAN Block I closed as
   DONE (HDX-001…014 verified 2026-07-27 per GOAL.json — header was stale);
   LPD-002 recorded as done in LAUNCH_PLAN (R1–R6 v1.99.0, debts A1–A9 v1.100.0);

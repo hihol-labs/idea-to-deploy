@@ -14,6 +14,22 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — предсуществующие красные оракулы (найдено в GENG-S05, 2026-08-22)
+
+Оба воспроизведены на ЧИСТОМ HEAD (`git stash` -> идентичный вывод), к правкам
+S04B/S05 отношения не имеют. Второй — ещё один пример класса LPD-003-1:
+объявленный вход оракула недостижим в среде.
+
+- [ ] `tests/verify_operating_loops_release.py`: `FAIL: plugin manifests are not
+  synchronized at v1.94.0` — VERSION захардкожен на v1.94.0, манифесты репо на
+  v1.100.1. Сьют не зарегистрирован в run-all, поэтому дрейф не ловился.
+- [ ] `tests/verify_harness_demo_absorption.py --phase contract|all`:
+  `fatal: bad object cfdd5ae845d8efbf1853dfcd81d17fbb7238d9a2` — объект
+  запинен в `tests/verify_harness_demo_absorption.py:167` и
+  `docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json:20`, но локально недостижим
+  (`git cat-file -t` -> could not get object info). Проверка падает ДО ассерта
+  по `LAUNCH_PLAN`, то есть содержимое Block J этим сьютом не проверено.
+
 ## P1 — остаток агрегации checker pre-flight (GENG-S04B, 2026-08-22)
 
 Принято как trade-off решением владельца (правило остановки в SCOPE_LOCK);
@@ -655,32 +671,45 @@ adjudication; each was deliberately kept out of those bounded slices.
   `test_close_survives_spawn_pressure` (red on pre-fix code via stash run).
   Details: `tests/ROOT_CAUSE-s2-oracle-nondeterminism.md`.
 
-## P1 — GENG: Graph Contract Layer (ADR-009, accepted 2026-08-10)
+## P1 — GENG: остался один bounded-эксперимент (GATE G0, вердикт 2026-08-22)
 
-Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md).
+Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md) (статус-нота
+2026-08-22). Запись вердикта: `.itd/DECISIONS.md` (2026-08-22). Пакет решения с
+числами (вне репо): `~/.claude/geng/S05/G0_DECISION_PACKAGE.md`.
 
-> **Статус 2026-08-22 (reconciliation GENG-S03):** программа исполняется по
-> «Плану GE 2 Final» (решение владельца 2026-08-21) — value-gated вариант:
-> сначала измерение G0 (S02 baseline снят 2026-08-22, артефакт вне репо:
-> `~/.claude/geng/S02/BASELINE_G0.md`; контрактное определение re-proof —
-> раунд-уровень, решение владельца 2026-08-22), GO/NO-GO на S05; при GO —
-> ADR-010 (S06) переписывает эту секцию. Текст GENG-000…GENG-010 ниже —
-> исторический (variant B, 2026-08-07), до ADR-010 не исполняется.
-> GENG-кода в репо нет; появление — не раньше S07/A1.
+> **GATE G0 пройден с вердиктом NO-GO по B и A (владелец, 2026-08-22).**
+> Программа GENG в редакции A->B->C не стартует; S06 (ADR-010) и S07 (леджер
+> пула) не открываются; ADR-010 не создаётся — он был предусмотрен только для
+> ветки GO. Числа: потолок кэша по 743 квитанциям / 134 юнитам — медиана 0.00
+> мин/юнит, p90 0.80, максимум 29.0 при пороге 30; 0 из 134 юнитов берут порог.
+> A не закрывает ни одной измеренной минуты по конструкции (роадмап §3).
+> Review 2026-09-28 сохраняется.
 
-Program GENG-000…GENG-010 (variant B, approved 2026-08-07; full unit text
-enters the repo as a /goal ledger at GENG-000 start). Ordered after the queued
-GPG follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
+- [ ] **GENG-C-EXP — один bounded-эксперимент, default-off.** 12 пар,
+  БЕЗ A и B, как обычный `/task`-юнит (не программа, не `/goal`-леджер).
+  Вопрос, который он проверяет и который не измерен ничем: находят ли N
+  параллельных независимых ревьюеров на ОДНОМ кандидате то, что сейчас
+  приходит в раундах 2..N. Контрпример из S04b: минимум 2 находки из 6 (обе
+  high) порождены предыдущим фиксом — параллельно их найти было нельзя, их
+  тогда не существовало. Выход: да/нет с числами, а не новая программа.
+  Никакого GENG-кода в маршруте по умолчанию.
 
-- [ ] GENG-000 Harness Readiness Freeze — first GENG unit via /goal; imports
-  the program text from the originating sessions into the unit ledger.
-- [ ] GENG-003 carries the amended exit criterion: content-addressed node
-  receipts with downstream-only invalidation; final integration oracle always
-  over the single exact candidate (ADR-009, amendment 3).
-- [ ] GENG-004 (Codex Shadow Mode) is entry-gated on a dedicated Codex
-  isolated-transport stability check (repeated clean passes; U8's adjudicated
-  closure does not itself certify stability — transport root cause unknown);
-  serial fallback stays first-class until then (ADR-009, amendment 2).
+**Закрыто решением, не исполнением:**
+
+- ~~GENG-B (кэш узловых квитанций)~~ — NO-GO по замеру (потолок 0.8 мин/юнит
+  p90 против порога 30; DoD §8 «срок окупаемости положительный» не выполняется
+  до старта: ~40-60 ч ACTIVE подготовки против ~0.8 ч/мес экономии).
+- ~~GENG-A (security boundary / авторизация `graphDigest`)~~ — NO-GO как
+  следствие: нужна только при исполнении графа.
+- ~~GENG-000…GENG-010 (variant B, 2026-08-07)~~ — в icebox, см. ниже.
+- ~~GENG-004 (Codex Shadow Mode) и его transport-entry-gate~~ — не наступает:
+  входит в закрытую программу.
+
+**Куда ушла измеренная боль — LPD-003** (см. LAUNCH_PLAN «Block J»):
+run-all как оракул (859.4 из 1053.8 мин машинного слоя = 82%) -> fail-fast +
+targeted; сужение `METHODOLOGY_TREE_ROOTS`; правила остановки «находки в САМОЙ
+правке -> выбросить правку»; консолидация сьютов по impact-карте. Транспорт
+(62% ACTIVE в post-R6 выборке S04) — вне GENG по определению плана.
 
 ## P2 — Conditional
 
@@ -698,6 +727,12 @@ GPG follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 - A bundled Python-only code-navigation MCP.
 - New `plan`, `implement`, `validate`, or `review` lifecycle skills duplicating the
   current pipeline.
+- **GENG-000…GENG-010 (Graph Contract Layer, variant B, approved 2026-08-07)** —
+  закрыто вердиктом GATE G0 2026-08-22 (B/A NO-GO по замеру). Исторический текст
+  программы остаётся в ADR-009 и в originating-сессиях; в репо как леджер не
+  импортируется. Переоткрытие возможно только новым измерением: порог берётся,
+  если появится класс юнитов с устранимым re-proof >=30 мин/юнит при неизменных
+  входах (сегодня таких 0 из 134).
 
 ## P1 — Recorded in S8 publication route (2026-08-15)
 
