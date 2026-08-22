@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "itd-live-fixture-v1",
+  "evidencePurpose": "workflow-output-quality",
+  "independentReviewEvidence": false,
+  "status": "FAIL",
+  "observedAt": "2026-08-22T18:07:25Z",
+  "provider": "anthropic",
+  "fixture": "fixture-03-cli-tool",
+  "candidateModelRequested": "claude-opus-5",
+  "reason": "live candidate failed: {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"api_error_status\":401,\"duration_ms\":1516,\"duration_api_ms\":0,\"num_turns\":1,\"result\":\"Failed to authenticate. API Error: 401 OAuth access token has been revoked.\",\"stop_reason\":\"stop_sequence\",\"session_id\":\"26ed7b7e-4224-4cf9-b46a-4b1244c96d3a\",\"total_cost_usd\":0,\"usage\":{\"input_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":0,\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0},\"inference_geo\":\"\",\"iterations\":[],\"speed\":\"standard\"},\"modelUsage\":{},\"permission_denials\":[],\"terminal_reason\":\"completed\",\"fast_mode_state\":\"off\",\"uuid\":\"c68dcbe4-c97b-4f36-b773-f4fdd1450883\"}",
+  "source": {
+    "revision": "961f1be0d2efe1311930ce2cc0824d1ed7a85c41",
+    "workingTreeDirty": false,
+    "workingTreeStatusSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "methodologyTreeSha256": "sha256:04b511d261ed1d1f9a9592e53728dc16c5645551e143ee2267197a58973a67a8"
+  },
+  "runner": "tests/run-live-model-benchmark.py",
+  "runId": "20260822T180725Z-fail-f9ee9c09",
+  "runReport": "tests/fixtures/live-model-evidence/runs/20260822T180725Z-fail-f9ee9c09/run-report.json",
+  "runArtifactDir": "tests/fixtures/live-model-evidence/runs/20260822T180725Z-fail-f9ee9c09",
+  "candidate": {
+    "commandFamily": "claude -p --stdin --repository-local-itd",
+    "exitCode": 1,
+    "liveResultEvents": 1,
+    "isError": true,
+    "attemptCount": 1,
+    "recoveryTriggered": false,
+    "attempts": [
+      {
+        "attempt": 1,
+        "exitCode": 1,
+        "timedOut": false,
+        "missingBefore": [
+          "STRATEGIC_PLAN.md",
+          "PROJECT_ARCHITECTURE.md",
+          "PRD.md",
+          "IMPLEMENTATION_PLAN.md",
+          "CLAUDE_CODE_GUIDE.md",
+          "CLAUDE.md"
+        ],
+        "missingAfter": [
+          "STRATEGIC_PLAN.md",
+          "PROJECT_ARCHITECTURE.md",
+          "PRD.md",
+          "IMPLEMENTATION_PLAN.md",
+          "CLAUDE_CODE_GUIDE.md",
+          "CLAUDE.md"
+        ],
+        "liveResultEvents": 1,
+        "isError": true,
+        "captureLimitBytes": 8388608,
+        "transcriptRedactionCount": 0,
+        "transcriptBytes": 3467,
+        "transcriptSha256": "sha256:21374ad217e9895a599337e6f54cf648d270e1e2e48ed6bad80a69faf9ee9c09"
+      }
+    ],
+    "workspaceTransport": "native-temp",
+    "approvalPolicy": "never-no-escalation",
+    "hookPolicy": "disabled",
+    "captureLimitBytes": 8388608,
+    "transcriptBytes": 3467,
+    "transcriptSanitized": true,
+    "transcriptRedactionCount": 0,
+    "transcriptSha256": "sha256:21374ad217e9895a599337e6f54cf648d270e1e2e48ed6bad80a69faf9ee9c09",
+    "transcriptArtifact": "tests/fixtures/live-model-evidence/runs/20260822T180725Z-fail-f9ee9c09/transcript.jsonl.gz",
+    "transcriptGzipSha256": "sha256:d7cd0aa7d86a312afaff856744bc8cc693d5c4fb638ebce4e454e0d3b802a95d"
+  },
+  "harnessInvocation": {
+    "mode": "repository-local-adopted-project",
+    "skill": "$idea-to-deploy:blueprint",
+    "transcriptProvesSkillLoad": false,
+    "hookExecution": "disabled-for-live-model-evidence",
+    "methodologyTreeSha256": "sha256:04b511d261ed1d1f9a9592e53728dc16c5645551e143ee2267197a58973a67a8"
+  },
+  "failureArtifacts": {
+    "outputDir": "tests/fixtures/live-model-evidence/runs/20260822T180725Z-fail-f9ee9c09/output",
+    "presentFiles": [],
+    "missingRequiredFiles": [
+      "STRATEGIC_PLAN.md",
+      "PROJECT_ARCHITECTURE.md",
+      "PRD.md",
+      "IMPLEMENTATION_PLAN.md",
+      "CLAUDE_CODE_GUIDE.md",
+      "CLAUDE.md"
+    ],
+    "sha256": {}
+  },
+  "sourcePins": {
+    "benchmarkRunner": "sha256:3f1d55bb6e4cac2d0f55b60dbfc4f4f400a4e5bed8ebadedececc66d56b6aab6",
+    "candidateAdapter": "sha256:3f1d55bb6e4cac2d0f55b60dbfc4f4f400a4e5bed8ebadedececc66d56b6aab6",
+    "oracle": "sha256:3cdfa961238e0010172633a1ad655cc9c005cc6885751a878a9538f92aa33a89",
+    "fixturePrompt": "sha256:8f0e4ff221cdace0f7fd6ad2689bdae2813700732b954fb8aca382ae2f4a6709",
+    "fixtureContract": "sha256:3f092bdf1d20065fa6acfe464262ab5bee16daadd561fbb8f32e0eb2a3ae65b7",
+    "codexAdapterTemplate": "sha256:5fd95566ad36468a43bb6ef4e35471c8aac4f133d37f017a952737a8746f9298",
+    "agentsTemplate": "sha256:af0b59d7a879d5c0a5e5b1218aa11141dab3312e7ed975b7bb39a07759df5c21",
+    "methodologyTree": "sha256:04b511d261ed1d1f9a9592e53728dc16c5645551e143ee2267197a58973a67a8"
+  }
+}

@@ -1,0 +1,20 @@
+{
+ "confirmedBy": "hihol (владелец проекта)",
+ "confirmation": "I adjudicated every finding of checker receipt e4c5659284ee6e98bc82f09ef57c2c946cc5905d76b90f74b0f81d0487966d57 and accept the recorded dispositions",
+ "checkerReceiptSha256": "e4c5659284ee6e98bc82f09ef57c2c946cc5905d76b90f74b0f81d0487966d57",
+ "dispositions": [
+  {
+   "findingSha256": "1a34b38d44508580db44288109cc308c17098407eec337c460cb8a1485511016",
+   "finding": {
+    "category": "correctness",
+    "confidence": "high",
+    "file": "skills/_shared/itd_verification_loop.py",
+    "line": 1623,
+    "severity": "medium",
+    "summary": "The phase-one reference is only checked for being a JSON object before route validation is skipped when the keyring has any shape error. Thus a malformed phase-one receipt (for example `{\"kind\":\"not-a-route\"}`) plus a malformed keyring reports only the keyring violation; the phase receipt’s independently checkable form is hidden until a later run, contrary to the declared per-route-reference aggregation guarantee."
+   },
+   "class": "accepted-trade-off",
+   "rationale": "Находка верна и НЕ опровергается: структурный разбор phase-one независим от keyring. Не закрывается в этом юните по заранее объявленному правилу остановки D2 (.itd/SCOPE_LOCK.md; решение владельца 2026-08-22 в ответ на прямой вопрос). За 7 живых раундов ревью класс отрезает всё более узкие углы: PUB1 — маршрут не проверялся вовсе; PUB6 — одна ссылка прятала соседа; PUB7 — структура phase-one при уже сломанном keyring. Поведение fail-closed: агрегация только собирает отказы и никогда не выдаёт квитанцию, поэтому остаток не создаёт ложного зелёного. Возвращён в BACKLOG как измеренный."
+  }
+ ]
+}

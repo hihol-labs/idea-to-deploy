@@ -1171,5 +1171,167 @@ if TEMPLATE.is_file():
         refused = True
     check("checker prompt counter-example stays a rejected verdict", refused)
 
+
+# --- GENG-S04B D2: checker pre-flight reports every violation at once ---
+# Measured incident (GENG-S03 2026-08-22): three wasted checker runs, one
+# UNVERIFIED per run (report path, then prompt path, then provenance).
+pre_root = fixture()
+pre_machine = machine(pre_root, "medium")
+stray_report = pre_root / ".itd-memory" / "verification-loop" / "stray-report.md"
+stray_prompt = pre_root / ".itd-memory" / "verification-loop" / "stray-prompt.md"
+stray_report.parent.mkdir(parents=True, exist_ok=True)
+stray_report.write_text("# stray\n", encoding="utf-8")
+stray_prompt.write_text("stray\n", encoding="utf-8")
+pre_flight = run([
+    "checker", "--root", str(pre_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(stray_report), "--prompt-file", str(stray_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+], pre_root)
+check("checker pre-flight names every violation in one run (D2)",
+      pre_flight.returncode != 0
+      and "checker report escapes" in pre_flight.stdout
+      and "checker prompt escapes" in pre_flight.stdout,
+      pre_flight.stdout + pre_flight.stderr)
+
+# Reviewer finding PUB1 (medium): a bad artifact path must not hide route
+# violations — they belong to the same run, not the next one.
+route_gap_root = fixture()
+route_gap_machine = machine(route_gap_root, "medium")
+gap_evidence = route_gap_root / ".itd-memory" / "verification-loop"
+gap_stray = gap_evidence / "stray-report.md"
+gap_stray.parent.mkdir(parents=True, exist_ok=True)
+gap_stray.write_text("# stray\n", encoding="utf-8")
+gap_prompt, _gap_report = artifacts(route_gap_root)
+gap_phase = gap_evidence / "receipts" / "gap-phase-one.json"
+gap_keyring = gap_evidence / "keys" / "gap-keyring.json"
+gap_phase.parent.mkdir(parents=True, exist_ok=True)
+gap_keyring.parent.mkdir(parents=True, exist_ok=True)
+gap_phase.write_text(json.dumps({"kind": "not-a-route"}), encoding="utf-8")
+gap_keyring.write_text(json.dumps({}), encoding="utf-8")
+route_gap = run([
+    "checker", "--root", str(route_gap_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(gap_stray), "--prompt-file", str(gap_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+    "--phase-one-receipt", str(gap_phase),
+    "--producer-keyring", str(gap_keyring),
+], route_gap_root)
+check("bad artifact path never hides a route violation (PUB1)",
+      route_gap.returncode != 0
+      and "pre-flight found 2 violations" in route_gap.stdout
+      and "checker report escapes" in route_gap.stdout
+      and "keyring is malformed" in route_gap.stdout,
+      route_gap.stdout + route_gap.stderr)
+
+# Reviewer finding PUB2 (medium x2): phase-one and keyring are independent
+# inputs, and a malformed report is its own violation — neither may wait for
+# another run.
+indep_root = fixture()
+machine(indep_root, "medium")
+indep_evidence = indep_root / ".itd-memory" / "verification-loop"
+indep_prompt, indep_report = artifacts(indep_root)
+indep_stray_phase = indep_evidence.parent / "outside-phase.json"
+indep_stray_keyring = indep_evidence.parent / "outside-keyring.json"
+indep_stray_phase.write_text("{}", encoding="utf-8")
+indep_stray_keyring.write_text("{}", encoding="utf-8")
+indep_flight = run([
+    "checker", "--root", str(indep_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(indep_report), "--prompt-file", str(indep_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+    "--phase-one-receipt", str(indep_stray_phase),
+    "--producer-keyring", str(indep_stray_keyring),
+], indep_root)
+check("phase-one and keyring violations surface together (PUB2)",
+      indep_flight.returncode != 0
+      and "pre-flight found 2 violations" in indep_flight.stdout
+      and indep_flight.stdout.count("escapes the Verification Loop") == 2,
+      indep_flight.stdout + indep_flight.stderr)
+
+malformed_root = fixture()
+machine(malformed_root, "medium")
+malformed_prompt, malformed_report = artifacts(malformed_root)
+malformed_report.write_text("# Review\n\nno verdict block\n", encoding="utf-8")
+malformed_stray_prompt = (
+    malformed_root / ".itd-memory" / "verification-loop" / "stray-prompt.md")
+malformed_stray_prompt.write_text("stray\n", encoding="utf-8")
+malformed_flight = run([
+    "checker", "--root", str(malformed_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(malformed_report),
+    "--prompt-file", str(malformed_stray_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+], malformed_root)
+check("malformed report is named alongside a bad prompt path (PUB2)",
+      malformed_flight.returncode != 0
+      and "pre-flight found 2 violations" in malformed_flight.stdout
+      and "checker prompt escapes" in malformed_flight.stdout,
+      malformed_flight.stdout + malformed_flight.stderr)
+
+# Reviewer finding PUB6 (medium): a broken reference must not hide a malformed
+# resolved counterpart — each route input is shape-checked independently.
+shape_root = fixture()
+machine(shape_root, "medium")
+shape_prompt, shape_report = artifacts(shape_root)
+shape_evidence = shape_root / ".itd-memory" / "verification-loop"
+shape_bad_keyring = shape_evidence / "keys" / "bad-keyring.json"
+shape_bad_keyring.parent.mkdir(parents=True, exist_ok=True)
+shape_bad_keyring.write_text(json.dumps({"k": 7}), encoding="utf-8")
+shape_outside_phase = shape_evidence.parent / "outside-phase.json"
+shape_outside_phase.write_text("{}", encoding="utf-8")
+shape_flight = run([
+    "checker", "--root", str(shape_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(shape_report), "--prompt-file", str(shape_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+    "--phase-one-receipt", str(shape_outside_phase),
+    "--producer-keyring", str(shape_bad_keyring),
+], shape_root)
+check("a broken reference never hides a malformed counterpart (PUB6)",
+      shape_flight.returncode != 0
+      and "pre-flight found 2 violations" in shape_flight.stdout
+      and "escapes the Verification Loop" in shape_flight.stdout
+      and "key" in shape_flight.stdout,
+      shape_flight.stdout + shape_flight.stderr)
+
+check("aggregate names its dependency-ordered guarantee (PUB6)",
+      "depend on a failed input" in shape_flight.stdout,
+      shape_flight.stdout)
+
+# Single violation keeps the exact historical message.
+single_root = fixture()
+machine(single_root, "medium")
+single_prompt, _single_report = artifacts(single_root)
+single_flight = run([
+    "checker", "--root", str(single_root), "--unit-id", "U-loop",
+    "--risk-tier", "medium", "--mode", "targeted",
+    "--report", str(stray_report), "--prompt-file", str(single_prompt),
+    "--maker-provider", "openai", "--maker-model", "gpt-maker",
+    "--maker-session", "maker-session",
+    "--checker-provider", "openai", "--checker-model", "gpt-checker",
+    "--checker-session", "checker-session",
+], single_root)
+check("single pre-flight violation keeps the historical message",
+      single_flight.returncode != 0
+      and "checker report escapes" in single_flight.stdout
+      and "checker prompt escapes" not in single_flight.stdout,
+      single_flight.stdout)
+
 print(f"\n{PASSED} passed, {FAILED} failed")
 raise SystemExit(1 if FAILED else 0)
