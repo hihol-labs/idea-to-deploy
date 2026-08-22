@@ -145,7 +145,7 @@ Rollout is default-on for acceptance semantics, while the checker cost remains
 risk-proportional. The honest-orchestrator threat boundary is explicit; no
 same-principal cryptographic/model-identity guarantee is claimed.
 
-## Block I — Harness-demo UX absorption — P0/P1/P2 — 🚧 RELEASE ACCEPTANCE (HDX-001…013 verified; HDX-014 active)
+## Block I — Harness-demo UX absorption — P0/P1/P2 — ✅ DONE (HDX-001…014 verified; HDX-014 verified 2026-07-27, GOAL.json)
 
 Decision: [ADR-004](docs/adr/ADR-004-harness-demo-ux-absorption.md).
 Review date: **2026-08-30**.
@@ -214,6 +214,13 @@ Success metrics:
   "context-design step for agent products" follow-up on top of `context-mode-setup`.- **P2 (deferred):** analyze Day 5 (Spec-Driven Production) of the series. Day 3
   (Context Engineering) — ✅ done in v1.32.0 (Block E above).- **Series complete.** Day 1 (v1.31.0, Blocks A/D/C/B), Day 3 (v1.32.0, Block E),
   Day 5 (v1.33.0, Block F) all ported. No further whitepaper days outstanding.
+- **LPD-002 (review-route debts) — done:** R1–R6 delivered (v1.99.0, PR #216–#220),
+  debts A1–A9 closed (v1.100.0, PR #221–#223); accounting in BACKLOG «P1 — найдено
+  в сессии R5» and `.itd-memory/contracts/LPD002-*.md`.
+- **GENG program:** runs per «План GE 2 Final» (owner, 2026-08-21) — value-gated:
+  G0 measurement first (S02 baseline done 2026-08-22, artifact outside the repo:
+  `~/.claude/geng/S02/BASELINE_G0.md`), GO/NO-GO at S05, ADR-010 only at GO (S06).
+  A dedicated LAUNCH_PLAN block appears at S06, not before.
 - **Marketing (free win):** use the whitepaper as external validation in
   `docs/competitive-analysis.md` / promo ("structure scales, vibes don't", "agent =
   model + harness") — the user's portfolio *is* the agentic-engineering thesis.

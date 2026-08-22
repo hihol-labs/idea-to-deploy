@@ -1,4 +1,36 @@
-# Scope Lock — PRG-004 / release v1.100.1
+# Scope Lock — GENG-S03 / reconciliation учёта
+
+## Current Task
+
+GENG-S03 (план GE 2 Final §2, risk low): reconciliation бухгалтерии после
+закрытия LPD-002 (v1.99.0/v1.100.0) и релиза v1.100.1 (PRG-004 verified,
+PR #225 merged, tag раскатан). Разрешены ТОЛЬКО учётные правки:
+
+- `LAUNCH_PLAN.md` (статус Block I: HDX-001…014 verified 2026-07-27 по
+  GOAL.json; строки о LPD-002 done и GENG-программе);
+- `BACKLOG.md` (статус-нота секции P1 GENG: программа идёт по «Плану GE 2
+  Final», текст GENG-000…010 исторический до ADR-010/S06);
+- `.itd/DECISIONS.md` (append: решения владельца 2026-08-21/22 и результат
+  S02);
+- `.itd-memory/STATE.json` (рукой — только `nextAction`; `currentUnit`/events
+  пишет штатный `itd_unit_log.py` при activate/verified GENG-S03);
+- `.itd-memory/contracts/GENG-S03.md` (контракт юнита);
+- `CHANGELOG.md` `[Unreleased]`;
+- этот файл (`.itd/SCOPE_LOCK.md`) — объявление скоупа юнита.
+
+## Forbidden Change Areas
+
+- Никакого кода: hooks/, skills/, tests/, scripts/ не трогаются вовсе.
+- Никакого GENG-кода (contracts/validator/cache/graph) — он появляется не
+  раньше S07/A1 и только при GO на S05 + ADR-010 (S06).
+- GOAL.json не трогается (расхождений не найдено).
+- Запрет «GENG — только после сессии долгов» из предыдущего скоупа снят:
+  сессия долгов закрыта (v1.100.0), GENG-S02 (read-only замер) выполнен,
+  эта сессия — S03 того же плана.
+
+---
+
+## Previous verified scope — PRG-004 / release v1.100.1
 
 ## Current Task
 

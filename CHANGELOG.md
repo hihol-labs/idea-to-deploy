@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GENG-S03 reconciliation (accounting only):** LAUNCH_PLAN Block I closed as
+  DONE (HDX-001…014 verified 2026-07-27 per GOAL.json — header was stale);
+  LPD-002 recorded as done in LAUNCH_PLAN (R1–R6 v1.99.0, debts A1–A9 v1.100.0);
+  BACKLOG P1 GENG section annotated: the program follows the value-gated
+  «План GE 2 Final» (owner decision 2026-08-21), the ADR-009 GENG-000…010 text
+  is historical until ADR-010 (S06); owner decisions of 2026-08-21/22 (LPD-003
+  reduction as an equal alternative; round-level re-proof definition for GATE
+  G0) appended to `.itd/DECISIONS.md`; `STATE.json.nextAction` moved off the
+  already-completed v1.100.1 release steps to GENG-S04. No gate/hook/skill
+  logic touched.
+
 ## [1.100.1] - 2026-08-21
 
 ### Fixed

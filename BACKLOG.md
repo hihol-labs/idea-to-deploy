@@ -617,10 +617,20 @@ adjudication; each was deliberately kept out of those bounded slices.
 
 ## P1 — GENG: Graph Contract Layer (ADR-009, accepted 2026-08-10)
 
-Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md). Program
-GENG-000…GENG-010 (variant B, approved 2026-08-07; full unit text enters the
-repo as a /goal ledger at GENG-000 start). Ordered after the queued GPG
-follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
+Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md).
+
+> **Статус 2026-08-22 (reconciliation GENG-S03):** программа исполняется по
+> «Плану GE 2 Final» (решение владельца 2026-08-21) — value-gated вариант:
+> сначала измерение G0 (S02 baseline снят 2026-08-22, артефакт вне репо:
+> `~/.claude/geng/S02/BASELINE_G0.md`; контрактное определение re-proof —
+> раунд-уровень, решение владельца 2026-08-22), GO/NO-GO на S05; при GO —
+> ADR-010 (S06) переписывает эту секцию. Текст GENG-000…GENG-010 ниже —
+> исторический (variant B, 2026-08-07), до ADR-010 не исполняется.
+> GENG-кода в репо нет; появление — не раньше S07/A1.
+
+Program GENG-000…GENG-010 (variant B, approved 2026-08-07; full unit text
+enters the repo as a /goal ledger at GENG-000 start). Ordered after the queued
+GPG follow-ups (U6/U16/U17); no GENG code before GENG-000 is started as a unit.
 
 - [ ] GENG-000 Harness Readiness Freeze — first GENG unit via /goal; imports
   the program text from the originating sessions into the unit ledger.
