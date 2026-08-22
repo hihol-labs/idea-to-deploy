@@ -1,6 +1,6 @@
 # LAUNCH PLAN — idea-to-deploy: New-SDLC / Vibe-Coding enrichment
 
-**Last reviewed:** 2026-07-16
+**Last reviewed:** 2026-08-22 (GATE G0 verdict, GENG-S05)
 **Source:** Google whitepaper *The New SDLC With Vibe Coding* (Day 1; Osmani, Saboo,
 Kartakis; 2026). Decision record: [ADR-001](docs/adr/ADR-001-no-own-runtime.md).
 
@@ -207,6 +207,81 @@ Success metrics:
 - current Harness Conformance and Practical Effectiveness internal axes remain green;
   external adoption remains UNVERIFIED until independent evidence exists.
 
+## Block J — GATE G0 result and LPD-003 reduction plan — P1 — вердикт 2026-08-22
+
+**Результат G0 (владелец, 2026-08-22): NO-GO по GENG-B и GENG-A; GENG-C — один
+bounded-эксперимент; остальное — в LPD-003.** Программа GENG в редакции
+A->B->C не стартует; S06 (ADR-010) и S07 (леджер пула) не открываются;
+ADR-010 не создаётся (предусматривался только для ветки GO). Review 2026-09-28
+сохраняется. Decision record: [ADR-009](docs/adr/ADR-009-graph-contract-layer.md)
+(статус-нота 2026-08-22) + `.itd/DECISIONS.md` (2026-08-22).
+
+Числа, на которых вынесен вердикт (пакет решения `~/.claude/geng/S05/
+G0_DECISION_PACKAGE.md`, воспроизводимо `python3 cacheable_ceiling.py`):
+
+| Показатель | Значение | Порог гейта |
+|---|---|---|
+| Потолок кэша, медиана | 0.00 мин/юнит | >=30 мин/юнит |
+| Потолок кэша, p90 | 0.80 мин/юнит | — |
+| Потолок кэша, максимум | 29.0 мин/юнит | — |
+| Юнитов, берущих порог | **0 из 134** (743 квитанции) | >=50% (медиана) |
+| Машинный слой всего | 1053.8 мин | — |
+| Из них `run-all` | 859.4 мин (**82%**), в т.ч. 128.2 мин с rc!=0 | — |
+| Транспорт (post-R6, S04) | 62% ACTIVE | вне GENG |
+
+Три поправки к прежнему чтению замера (все против GO, подробности в
+`.itd/DECISIONS.md`): (1) полный `run-all` на каждом кандидате — дефект
+ОБЪЯВЛЕНИЯ оракула, а не структурная необходимость (impact-замыкание
+`itd_verification_loop.py` — 13 сьютов из 153, медиана по репо 2);
+(2) re-proof не независимое свидетельство — 87.5% адресуемого пула по
+построению, «ИЛИ» в формуле гейта считает один показатель дважды;
+(3) гейт на медиане, а стоимость хвостовая — top-10 юнитов = 66% всей
+проверочной работы, медианный юнит ~1.2 мин машинного доказательства.
+
+**Что остаётся от GENG:** один `/task`-юнит **GENG-C-EXP** — 12 пар,
+default-off, без A и B. Проверяет единственный неизмеренный вопрос: находят ли
+N параллельных независимых ревьюеров на ОДНОМ кандидате то, что сейчас
+приходит в раундах 2..N. Учёт — в BACKLOG «P1 — GENG», не отдельная программа.
+
+### LPD-003 — каркас (приоритеты по замеру, не по вкусу)
+
+Единицы работы объявляются как обычные `/task`-юниты по одному (WIP=1);
+каждая закрывается замером ДО/ПОСЛЕ на том же машинном слое, что дал числа G0.
+
+- [ ] **LPD-003-1 — `run-all` как машинный оракул -> fail-fast +
+  targeted-профиль.** P0 внутри LPD-003. 859 мин истории = 82% машинного слоя;
+  класс дефекта — false-green: `.itd/VERIFICATION_CONTRACT.json` объявляет
+  run-all read-only входом. Acceptance: полный прогон перестаёт быть входом по
+  умолчанию для точечной правки; targeted-профиль выбирается по impact-карте;
+  оракул полноты сохраняется (targeted не может «пройти» мимо реальной дыры);
+  замер машинных минут на сопоставимой выборке юнитов падает.
+- [ ] **LPD-003-2 — сузить `METHODOLOGY_TREE_ROOTS` до фактически влияющих
+  путей.** Трижды подтверждено на живых юнитах: правка одного файла в
+  `skills/` стоит живого прогона внешней модели и раунда ревью. Acceptance:
+  корни объявлены по измеренному влиянию, а не по каталогу; правка, не
+  влияющая на маршрут, не поднимает живой внешний прогон; понижение объявлено
+  явно и не превращается в false-green (сужение доказывается, а не заявляется).
+- [ ] **LPD-003-3 — правила остановки в формулировке «находки в САМОЙ правке
+  -> выбросить правку».** НЕ по счётчику раундов — анти-Goodhart: в S04b PUB5
+  дал PASSED, а PUB6/7/8 нашли ещё три реальных дефекта; ограничение по числу
+  раундов остановило бы маршрут на зелёном при трёх живых дефектах.
+  Acceptance: критерий остановки сформулирован над содержанием находок, а не
+  над их количеством; проверен на записанной истории S04b/R6/GPG-001.
+- [ ] **LPD-003-4 — консолидация сьютов по impact-карте.** 151 сьют, 341 узел,
+  932 ребра, maxClosure 36/151 (`.itd-memory/STATE.json`). Acceptance:
+  сокращение числа сьютов без потери покрытия по карте; карта остаётся
+  генерируемой, `--check` продолжает делать дрейф видимым.
+
+**Вне LPD-003 по определению:** транспорт (62% ACTIVE в post-R6 выборке) —
+крупнейший пожиратель, но не лечится ни графом, ни маршрутом проверки;
+human-блокировки — лечатся батчингом вопросов.
+
+**Ограничения честности замера.** Квитанции покрывают только машинный слой
+(живое ревью и чекер не хронометрируются, а это главная стоимость
+feature-юнитов); у R5/R6 и S10/S11 квитанций нет — S02 считался по трейсам;
+~30-38% старых `reviewedTree` собраны GC. Все три недобора работают В ПОЛЬЗУ
+GO, и порог всё равно не берётся с запасом в 30+ раз.
+
 ## Backlog / next
 
 - **P2 (deferred):** analyze Day 3 (Context Engineering) and Day 5 (Spec-Driven
@@ -217,10 +292,17 @@ Success metrics:
 - **LPD-002 (review-route debts) — done:** R1–R6 delivered (v1.99.0, PR #216–#220),
   debts A1–A9 closed (v1.100.0, PR #221–#223); accounting in BACKLOG «P1 — найдено
   в сессии R5» and `.itd-memory/contracts/LPD002-*.md`.
-- **GENG program:** runs per «План GE 2 Final» (owner, 2026-08-21) — value-gated:
-  G0 measurement first (S02 baseline done 2026-08-22, artifact outside the repo:
-  `~/.claude/geng/S02/BASELINE_G0.md`), GO/NO-GO at S05, ADR-010 only at GO (S06).
-  A dedicated LAUNCH_PLAN block appears at S06, not before.
+- **GENG program — closed at GATE G0 (owner verdict 2026-08-22):** NO-GO on
+  GENG-B and GENG-A, GENG-C reduced to one bounded `/task` unit (GENG-C-EXP),
+  the rest converted into the LPD-003 reduction plan. See **Block J** above;
+  ADR-010 is NOT created (it was foreseen for the GO branch only). Measurement
+  artifacts stay outside the repo: `~/.claude/geng/S05/G0_DECISION_PACKAGE.md`
+  (+ `cacheable_ceiling.py`), `~/.claude/geng/S02/BASELINE_G0.md`,
+  `~/.claude/geng/S04/BASELINE_POST_R6.md`, `~/.claude/geng/S04b/ROUNDS.md`.
+- **LPD-003 (reduction plan):** four measured priorities — fail-fast + targeted
+  instead of `run-all` as the oracle; narrower `METHODOLOGY_TREE_ROOTS`;
+  stop rules phrased over findings-in-the-edit, not round counts; suite
+  consolidation by impact map. Units are taken one at a time (WIP=1).
 - **Marketing (free win):** use the whitepaper as external validation in
   `docs/competitive-analysis.md` / promo ("structure scales, vibes don't", "agent =
   model + harness") — the user's portfolio *is* the agentic-engineering thesis.
