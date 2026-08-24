@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD003-1",
     "goal": "run-all как машинный оракул: host-input дефект в изолированном дереве + fail-fast + targeted-профиль по IMPACT_GRAPH; замер снятия дублей",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-23T09:09:16Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-24T13:06:22Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
