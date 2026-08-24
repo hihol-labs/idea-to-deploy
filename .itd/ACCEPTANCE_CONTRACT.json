@@ -2418,7 +2418,7 @@
   },
   "activeFollowup": {
     "unitId": "LPD003-1",
-    "status": "in_progress",
+    "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2434,7 +2434,9 @@
       "adjudicator": "sealed-host-union"
     },
     "openedAt": "2026-08-23T09:09:16Z",
-    "scopeNote": "LPD003-1: run-all как машинный оракул — класс BLOCKED для host-owned входа, --fail-fast, targeted-профиль по аудированной карте, периметр селектора и целостность карты. Границы правок заморожены в .itd/SCOPE_LOCK.md; гейты не ослабляются, приёмка остаётся за Verification Loop."
+    "scopeNote": "LPD003-1: run-all как машинный оракул — класс BLOCKED для host-owned входа, --fail-fast, targeted-профиль по аудированной карте, периметр селектора и целостность карты. Границы правок заморожены в .itd/SCOPE_LOCK.md; гейты не ослабляются, приёмка остаётся за Verification Loop.",
+    "closedAt": "2026-08-24T13:06:22Z",
+    "closureEvidence": "PR #230 merged 2586130 (squash); machine 5/5 exit 0, cross-vendor gpt-5.6-terra PASSED findings=[] unverified=[], adjudication PASSED, Gate 1 + windows-verify pass"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
