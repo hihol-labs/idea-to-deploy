@@ -1,0 +1,246 @@
+{
+  "schema": "itd-stop-rule-history-v1",
+  "unit": "GPG-001-broker-policy",
+  "subject": "Слайс политики брокера ревью: skills/_shared/REVIEW_BROKER_POLICY.json и REVIEW_BROKER_RUNTIME.schema.json.",
+  "orderSource": "Порядок восстановлен из mtime артефактов на этом хосте 2026-08-24 и ЗАФИКСИРОВАН здесь списком: mtime не переживает клон. Терминал правила от порядка не зависит (это свойство множества), от порядка зависит только раунд срабатывания.",
+  "recordedDecision": {
+    "terminal": "CLOSE",
+    "atRound": "bp20",
+    "what": "Слайс доведён до PASSED и отгружен; последний записанный раунд серии — bp20, и он PASSED. Программа GPG-001 закрыта, релиз v1.95.0 раскатан.",
+    "source": ".itd-memory/session_2026-08-01_3.md",
+    "sourceInTree": true
+  },
+  "rounds": [
+    {
+      "id": "bp01",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra.json",
+        "sha256": "eae3eedb3fc90f6aed421158c751e9a290ecb510c2158c271fa1afb6fa80e73a",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp02",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-235cc16c.json",
+        "sha256": "aaa4ea52819629b914d24d79b7f99466c382a03f364d6446268e93a9810e6b73",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-235cc16c.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp03",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-6d1ab178.json",
+        "sha256": "fdcebaa0a4d090612bd067821e7916f4e5afa311fda335dc1e7f0b5cb190bf27",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-6d1ab178.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp04",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-5486ed5c.json",
+        "sha256": "5b27e0637760397512a4b47e78feea06a4a5da79ec324605b65e39816840b4b0",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-5486ed5c.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp05",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-da49c6d6.json",
+        "sha256": "0cc6d9ff410ae3ae317d257705277acbf38c1b819ae7499789b91a2652464212",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-da49c6d6.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp06",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-ce56f703.json",
+        "sha256": "bac66fc96cabe987ac18f0cfe06c36ae56a560b63ffcf0ba21e6446342534ecd",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-ce56f703.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp07",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-deb080b6.json",
+        "sha256": "ab16ecd9f3705ca2b59e9d116a4b452621a8a1c42b33dfa371c38d2edb15c8d2",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-deb080b6.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp08",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-416680d8.json",
+        "sha256": "4eeca87618926b1586fa651002a417fc320b5da4c331e1a7bb745ef28cb61df9",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-416680d8.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp09",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-785a6c8b.json",
+        "sha256": "b59949b1c0f4f5b2d3b7143369be4468365e8d4eef13b18cd98bc08b6d407215",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-785a6c8b.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp10",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-0f48da57.json",
+        "sha256": "d290835bcd7aa915c158b554a37500ed369de73a6f882cc807710e7dfbd53bc5",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-0f48da57.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp11",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-88919fcf.json",
+        "sha256": "0ad2dc6b2240d5a3f7cf7a2bab49afc2570c3948300670bc36cc5cc7ae80802c",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-88919fcf.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp12",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-f63bfa1a.json",
+        "sha256": "c69d87d2c10012b00faf66c60d03395db621de1628d382c2410d932250f117cf",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-f63bfa1a.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp13",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-af1fbafa.json",
+        "sha256": "c566e9f87d343aff9198acf64f7ae7bf12e071c283aaa3b4a8bf8e1ceba8e817",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-af1fbafa.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp14",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-803dd506.json",
+        "sha256": "102610a88a7642786f88591fbab19c8a66b541e54e8b0c116edaedefefacc359",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-803dd506.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp15",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-cdfbd912.json",
+        "sha256": "568f499d6ecdc3aebfb145e1d9ffd3cc984e8c1d65fd224be265212cf1df4feb",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-cdfbd912.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp16",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-2085c448.json",
+        "sha256": "4fa6d73fb243741066dd4a98c725a2738c142eb68f00b4d26a1d4d9c9fcae697",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-2085c448.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp17",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-a080cd62.json",
+        "sha256": "bb7d48ea8e99d4654cffdddc10da1654cdac5285b93fca846443701221a7528d",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-a080cd62.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp18",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-309e5101.json",
+        "sha256": "679ba1fa768e9b94d297c7115f651d1d307ebb29f1e63c8b2b49fffad48ede9f",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-309e5101.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp19",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-320973bf.json",
+        "sha256": "597444665806d21aaafde973f3f7fb96cafa2bc419056754512c85c8d6e1e196",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-320973bf.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    },
+    {
+      "id": "bp20",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-328e5ebc.json",
+        "sha256": "c509b499122e6724121ce639262f6091965e58753980512b6cec6208c62c1c66",
+        "originalPath": ".itd-memory/verification-loop/reports/GPG-001-broker-policy-terra-328e5ebc.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      }
+    }
+  ],
+  "expected": {
+    "terminal": "RECURRENCE_UNCONFIRMED",
+    "note": "Повтор механизма в записи ВИДЕН, но запись не устанавливает, что между раундами менялся кандидат: журналов промптов по этой серии нет. Правило говорит именно это и вердикта не выносит — расхождение с фактическим решением (серия была доведена до PASSED и отгружена) остаётся неразрешённым по уликам, а не разрешается в пользу удобной стороны."
+  },
+  "divergence": {
+    "kind": "recurrence-visible-but-unconfirmed",
+    "what": "Ключи REVIEW_BROKER_RUNTIME.schema.json::input-validation и ::path-safety дают находки более чем в одном раунде серии из двадцати: рукописная regex-валидация путей и координат в JSON-схеме.",
+    "whyUnconfirmed": "Личности кандидата у раундов нет: ревью шло иерархическим API-маршрутом до введения журнала промптов, а отчёт ревьюера кандидата не называет. Значит по этой записи нельзя отличить повтор после попытки фикса от двух взглядов на один неисправленный кандидат.",
+    "measuredCost": "Что запись всё-таки показывает: пять отчётов серии не содержат ни file, ни category — такие находки правило в повторы не засчитывает и склеивать отказывается. Отчёт без этих полей стоит считать дефектом формы отчёта, потому что он делает содержание находки неанализируемым."
+  },
+  "candidateSource": "Журналов промптов по этой серии в дереве нет (ревью шло иерархическим API-маршрутом до введения журнала), поэтому личность кандидата у раундов НЕ УСТАНОВЛЕНА. Правило обязано сказать это прямо, а не выдать вердикт."
+}

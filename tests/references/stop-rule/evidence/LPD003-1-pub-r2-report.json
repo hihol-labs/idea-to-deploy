@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "category": "error-handling",
+      "confidence": "high",
+      "file": "scripts/itd_regression_select.py",
+      "line": 230,
+      "severity": "low",
+      "summary": "`load_patterns()` calls `document.get()` without first requiring the decoded JSON root to be an object. A syntactically valid rules file whose root is `[]`, a string, or `null` raises uncaught AttributeError, yielding exit 1/traceback instead of the documented fail-closed STRICT result (exit 3 with WHY/FIX). Validate `document` is a dict and raise StrictRequired."
+    },
+    {
+      "category": "error-handling",
+      "confidence": "high",
+      "file": "scripts/itd_regression_select.py",
+      "line": 230,
+      "severity": "low",
+      "summary": "`load_patterns()` calls `document.get()` without requiring the decoded JSON root to be an object. A syntactically valid rules file rooted in an array, string, or null raises an uncaught AttributeError instead of producing the documented fail-closed STRICT result (exit 3 with WHY/FIX). Validate that `document` is a dict and raise `StrictRequired` otherwise."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

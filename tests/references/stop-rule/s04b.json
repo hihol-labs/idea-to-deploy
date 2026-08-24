@@ -1,0 +1,151 @@
+{
+  "schema": "itd-stop-rule-history-v1",
+  "unit": "GENG-S04B",
+  "subject": "Кластер дефектов VL-маршрута: D1 — мост claim-id, D2 — агрегация пре-флайта чекера.",
+  "orderSource": "Номер раунда в имени артефакта (PUB1..PUB10) — порядок задан самим продюсером, не восстановлен из mtime.",
+  "recordedDecision": {
+    "terminal": "REDESIGN_OR_DISCARD",
+    "atRound": "PUB4",
+    "what": "Владелец исполнил заранее принятый хард-стоп: D1 выброшен целиком, validate_route_machine_binding восстановлена байт-в-байт из 214ee2e; юнит сокращён до D2.",
+    "source": "~/.claude/geng/S04b/ROUNDS.md, раздел «PUB4 и исполнение хард-стопа (2026-08-22)»",
+    "sourceInTree": false,
+    "sourceNote": "Документ не архивируется в дереве: это host-local запись замера (~/.claude/geng/**) либо журнал сессии, не внесённый в репозиторий. Ссылка остаётся прозой и машинной уликой НЕ считается."
+  },
+  "rounds": [
+    {
+      "id": "PUB1",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB1-report.json",
+        "sha256": "50c3142a6321a7f1d357264d5434bda55bbfc9a0a45430d7665fb14e8c91aa8e",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB1-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2: агрегация пре-флайта коротит на первой же ошибке пути",
+      "candidate": "9e2cd70d7a1a0c16"
+    },
+    {
+      "id": "PUB2",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB2-report.json",
+        "sha256": "486461915e30112eb70513eac173450e4a90c7dc774fcad84cd830082be19343",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB2-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2: тот же короткий замыкатель на phase-one/keyring",
+      "candidate": "df626464b4d89f11"
+    },
+    {
+      "id": "PUB3",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB3-report.json",
+        "sha256": "9b8039766780e2c5e9301de665876477963606487f9786aaed465bbc0c0fcaff",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB3-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D1: мост считает голый unit взаимозаменяемым с :security-review",
+      "candidate": "574cf8f3cd2a3e45"
+    },
+    {
+      "id": "PUB4",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB4-report.json",
+        "sha256": "0a9ae6d6a768f52a2affee6e465d76d40f7742454764c4564e10b8dbc63d8ad3",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB4-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D1: тот же предикат принимает вложенные идентичности; замороженное перечисление узаконило ошибку",
+      "candidate": "2c7841a2d26e67b0"
+    },
+    {
+      "id": "PUB5",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB5-report.json",
+        "sha256": "fab04fa5f376e679dde07714d203773820751166a55a98f301a125e19654b3a6",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB5-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "чистый PASS уже после выброса D1 — но механизм D2 к этому моменту повторился дважды",
+      "candidate": "79214b18db6c03d1"
+    },
+    {
+      "id": "PUB6",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB6-report.json",
+        "sha256": "75873d853d4cb8eba36a9d07d3564d3ede1c92d34ea1cdd9291e77415216378f",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB6-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2 снова",
+      "candidate": "cffc3fd340552543"
+    },
+    {
+      "id": "PUB7",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB7-report.json",
+        "sha256": "811c3d654d5a1bf8b806e4fa14ac9b77f8ba7ac37a3ca30b52a94a8c88891417",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB7-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2 снова",
+      "candidate": "d8f1c4ebcb51203b"
+    },
+    {
+      "id": "PUB8",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB8-report.json",
+        "sha256": "62b453f0a4d25dca54c08487f2f0293b4e9db9af16cd23a0f9f34e0e6fd49649",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB8-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2 снова",
+      "candidate": "6fb1fb845825505a"
+    },
+    {
+      "id": "PUB10",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/GENG-S04B-PUB10-report.json",
+        "sha256": "44172c29efb7e3dd085c3c5da78f974ff12cb0f11ea9cc8c433ef4be86778e32",
+        "originalPath": ".itd-memory/verification-loop/reports/GENG-S04B-PUB10-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "D2 снова, уже шестой раз, плюс дыра в собственном регрессионном тесте",
+      "candidate": "2c917d920c42b276"
+    }
+  ],
+  "expected": {
+    "terminal": "REDESIGN_OR_DISCARD",
+    "atRound": "PUB4",
+    "mechanism": "skills/_shared/itd_verification_loop.py::security",
+    "note": "Совпадает с записанным решением владельца."
+  },
+  "divergence": {
+    "kind": "second-mechanism-not-recognised",
+    "what": "Тот же критерий взводится второй раз на PUB6 — механизм skills/_shared/itd_verification_loop.py::correctness (агрегация пре-флайта, D2). Владелец его повтором не признал.",
+    "measuredCost": "PUB7, PUB8, PUB10 — три дополнительных раунда на том же механизме; закрыт он был структурной переделкой (коммит 0c842ed, «checker pre-flight names every independently checkable violation»), а не очередной точечной заплатой."
+  },
+  "knownGaps": [
+    {
+      "id": "PUB9",
+      "why": "между PUB8 и PUB10 нумерация продюсера пропускает раунд; ни отчёта, ни записи о его терминале в дереве нет"
+    }
+  ],
+  "candidateSource": "Личность кандидата раунда — sha256 журнала промптов этого раунда (.itd-memory/verification-loop/*-prompt*.ledger.jsonl), первые 16 hex, вычислено на этом хосте 2026-08-24. Промпт строится продюсером из диффа кандидата, поэтому разные значения означают разные кандидаты. Сами журналы в дерево НЕ архивируются (по 130-510 КБ каждый), поэтому значение здесь объявлено, а не пересчитывается оракулом."
+}

@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1988,
+      "severity": "high",
+      "summary": "The bridge predicate accepts any string as `bare`, so it authorizes nested identities such as `U-loop:general-review` <-> `U-loop:general-review:general-review` (and even empty <-> `:general-review`). This violates the frozen closed envelope of only a bare unit and its single `:general-review` claim, allowing a non-bare claim identity to borrow a route receipt. The added ENVELOPE test explicitly blesses these invalid pairs."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "category": "documentation-consistency",
+      "confidence": "high",
+      "file": ".itd-memory/contracts/LPD003-1.md",
+      "line": 12,
+      "severity": "low",
+      "summary": "The contract says verify_targeted_regression had 98/0 checks “at publication”, while the added 2026-08-23 decision records 80 checks at publication. The contradictory immutable-record claims make the published verification baseline ambiguous."
+    },
+    {
+      "category": "specification-compliance",
+      "confidence": "high",
+      "file": "tests/run-all.sh",
+      "line": 259,
+      "severity": "high",
+      "summary": "`--targeted --quick` permits a selector strict result (unknown path or malformed/empty map) to fall back to CORE only. The acceptance contract requires strict to trigger the full run, so this combination can omit FULL suites precisely when bounded selection is untrustworthy. Make strict fallback unconditionally execute the full mirror, or reject this flag combination."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

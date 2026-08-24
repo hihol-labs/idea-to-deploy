@@ -21,6 +21,14 @@
       "why": "Per-unit task contracts are created for every unit, so they cannot be static nodes. The advisory oracle is the only suite that reads the contracts directory; the DoD hook reads it at runtime and is covered through that suite."
     },
     {
+      "pattern": ".itd-memory/session_*.md",
+      "effect": "suites",
+      "suites": [
+        "verify_stop_rule"
+      ],
+      "why": "Журналы сессий — источник провенанса класса narrative для историй, чьи отчёты вырезаны prune-политикой (LPD002-R6). Правка журнала, на который ссылается история, обязана поднимать оракул: иначе пересказ разошёлся бы с источником молча."
+    },
+    {
       "pattern": ".itd-memory/verification-loop/**",
       "effect": "no-impact",
       "why": "Receipts, prompts and reports are evidence produced BY a run, never input to a suite: no suite reads this directory, which is why the generator records no node under it. The rule fails closed the moment that stops being true."
@@ -29,11 +37,6 @@
       "pattern": ".itd-memory/dispositions-*.json",
       "effect": "no-impact",
       "why": "Per-round reviewer dispositions are run artefacts; no suite reads them. Checked against the generated map, not asserted."
-    },
-    {
-      "pattern": ".itd-memory/session_*.md",
-      "effect": "no-impact",
-      "why": "Session memory files are written for humans and the next session; no suite reads an individual session file."
     },
     {
       "pattern": ".itd-memory/hygiene/**",

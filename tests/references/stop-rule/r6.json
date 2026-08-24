@@ -1,0 +1,282 @@
+{
+  "schema": "itd-stop-rule-history-v1",
+  "unit": "LPD002-R6",
+  "subject": "Impact-карта репозитория: генератор tests/build_impact_graph.py, операция impact-audit, подача карты в impact_closure.",
+  "fidelity": "coarse",
+  "fidelityNote": "Отчёты ревьюера по этому юниту вырезаны из дерева ЗАПИСАННОЙ prune-политикой (превзойдённая живая запись уходит из PR, иначе иерархический разрез не вмещает несколько декодированных транскриптов — измеренный отказ PUB5). Механизмы переписаны из журнала сессии дословно по названиям и НЕ перегруппированы задним числом. Это пересказ, а не машинная улика.",
+  "orderSource": "Порядок раундов задан нумерацией продюсера в журнале сессии 2026-08-20 и подтверждается именами ledger-артефактов LPD002-R6-PUB*.",
+  "recordedDecision": {
+    "terminal": "CLOSE",
+    "atRound": "PUB13",
+    "what": "Маршрут доведён до чистого PASS на тринадцатом раунде; кандидат опубликован PR #218, смержен d659941, отрелизен v1.99.0 и раскатан на оба хоста. Регрессий по нему с тех пор не записано.",
+    "source": ".itd-memory/session_2026-08-20.md",
+    "sourceInTree": true
+  },
+  "knownGaps": [
+    {
+      "id": "PUB2",
+      "why": "ledger-артефакт промпта есть, вердикт в журнале не назван: раунд был перекрыт PUB2b"
+    },
+    {
+      "id": "PUB9b",
+      "why": "ledger-артефакт промпта есть, отдельного вердикта в журнале нет"
+    }
+  ],
+  "rounds": [
+    {
+      "id": "PUB1",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 34
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "exclusivity в impact_closure",
+            "defectClass": "correctness"
+          }
+        ]
+      },
+      "candidate": "2c0c94030dcf2aa9"
+    },
+    {
+      "id": "PUB2b",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 34
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "бухгалтерия мутантов",
+            "defectClass": "test-coverage"
+          }
+        ]
+      },
+      "candidate": "4a202b04c7088bf2"
+    },
+    {
+      "id": "PUB3",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 35
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "containment корня, .git и symlink",
+            "defectClass": "security"
+          }
+        ]
+      },
+      "candidate": "95c9eaef1cee00a4"
+    },
+    {
+      "id": "PUB4",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 35
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "nonSuiteTargets и tracked-карта",
+            "defectClass": "correctness"
+          }
+        ]
+      },
+      "candidate": "62b82de9d8175864"
+    },
+    {
+      "id": "PUB5",
+      "terminal": "precondition",
+      "outcome": "UNVERIFIED",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "Иерархический разрез ревью не вместил несколько декодированных транскриптов живых записей — маршрут отказал до вердикта; отсюда и родилась постоянная prune-политика."
+    },
+    {
+      "id": "PUB6",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 36
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "universe-паттерны и guard в audit",
+            "defectClass": "correctness"
+          }
+        ]
+      },
+      "candidate": "87ec69d47ba47da6"
+    },
+    {
+      "id": "PUB7",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 36
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "validate_path_graph в select и граница .git",
+            "defectClass": "security"
+          }
+        ]
+      },
+      "candidate": "b1b99d75b9525161"
+    },
+    {
+      "id": "PUB8",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 37
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "NUL fail-closed и разбор импортов через ast",
+            "defectClass": "error-handling"
+          },
+          {
+            "surface": "направление рёбер карты",
+            "defectClass": "correctness",
+            "refuted": true,
+            "summary": "Опровергнута фактами в SCOPE_LOCK, правкой улик не закрывалась.",
+            "why": "Опровергнута фактами в .itd/SCOPE_LOCK.md; улики под неё не правились (запись журнала 2026-08-20)."
+          }
+        ]
+      },
+      "candidate": "e5cde521fa1e10b1"
+    },
+    {
+      "id": "PUB9",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 39
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "fnmatch и пересечение слэша",
+            "defectClass": "security",
+            "summary": "Эксплойт воспроизведён."
+          }
+        ]
+      },
+      "candidate": "e77ae0b23e0e9861"
+    },
+    {
+      "id": "PUB10",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 40
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "предикат is_suite как глоб",
+            "defectClass": "correctness"
+          },
+          {
+            "surface": "pid-уникальный тестовый путь",
+            "defectClass": "test-coverage"
+          }
+        ]
+      },
+      "candidate": "84b3e3f1dfbc4a5f"
+    },
+    {
+      "id": "PUB11",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 40
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "safe_glob и полный drift-check",
+            "defectClass": "security"
+          }
+        ]
+      },
+      "candidate": "ed694d700f667507"
+    },
+    {
+      "id": "PUB12",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 41
+      },
+      "declared": {
+        "verdict": "BLOCKED",
+        "mechanisms": [
+          {
+            "surface": "явные секции карты",
+            "defectClass": "correctness"
+          }
+        ]
+      },
+      "candidate": "3df2bf4859d00270"
+    },
+    {
+      "id": "PUB13",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-20.md",
+        "line": 41
+      },
+      "declared": {
+        "verdict": "PASSED",
+        "mechanisms": []
+      },
+      "candidate": "6b13c6c43022eaf2"
+    }
+  ],
+  "expected": {
+    "terminal": "CLOSE",
+    "atRound": "PUB13",
+    "note": "Совпадает с записанным решением: ни один механизм не повторился, потолок раундов не применялся."
+  },
+  "antiGoodhart": {
+    "claim": "Любой потолок раундов остановил бы этот маршрут на живых дефектах.",
+    "capOf3": "остановка на PUB3 — впереди оставались containment .git-границы (PUB7), воспроизведённый эксплойт fnmatch (PUB9) и ещё шесть реальных находок",
+    "capOf8": "остановка на PUB8 — впереди оставался воспроизведённый эксплойт PUB9"
+  },
+  "candidateSource": "Личность кандидата раунда — sha256 журнала промптов этого раунда (.itd-memory/verification-loop/*-prompt*.ledger.jsonl), первые 16 hex, вычислено на этом хосте 2026-08-24. Промпт строится продюсером из диффа кандидата, поэтому разные значения означают разные кандидаты. Сами журналы в дерево НЕ архивируются (по 130-510 КБ каждый), поэтому значение здесь объявлено, а не пересчитывается оракулом."
+}
