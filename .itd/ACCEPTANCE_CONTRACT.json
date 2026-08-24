@@ -2318,6 +2318,87 @@
           "live-model-evidence-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD003-1-1-blocked-class-for-host-owned-input",
+      "unitId": "LPD003-1",
+      "criterion": "Отсутствующий host-owned вход (`.itd-memory/host-inputs/*.sha256`, git-ignored и потому недостижимый в изолированном дереве продюсера по построению) печатается как отдельный класс BLOCKED с WHY и точной FIX-командой, а не как FAIL сьюта; код выхода остаётся ненулевым, поэтому класс не может быть прочитан как зелёный. Классификация одинакова в `tests/run-all.sh` и `tests/verify_quick_regression.py`, и это равенство проверяется машинно.",
+      "source": "Замер GATE G0: 34 прогона в истории квитанций были false-red именно по этой причине — изоляция материализует только tracked staged tree, а пин лежит вне его. С подложенным пином тот же сьют давал rc=0.",
+      "evidence": "GREEN на дереве кандидата: изолированный machine-прогон (candidate-mode staged, unit LPD003-1, riskTier medium) отработал пять оракулов с exit 0 — targeted-regression-oracle, machine-oracle-parity, runall-drift-oracle, verification-profiles-oracle, quick-regression-oracle; host-owned пин объявлен через declaredInputs и захеширован. Полное зеркало `bash tests/run-all.sh` — DONE fails:none. RED-first: три обратные мутации (вернуть публичный --graph; ослабить каноническую проверку путей карты до «непустая строка»; вернуть прежний разбор `--` в run-all.sh) валят ровно свои проверки — 1, 5 и 3 красных. Точное дерево и цифры — в машинной квитанции юнита, а не в этом тексте: агрегат, вписанный сюда руками, протухает от следующего же прогона.",
+      "verificationCommand": "python3 -I tests/verify_machine_oracle.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Недостающий вход хоста — это отдельный класс, а не красный сьют, и обе точки входа классифицируют его одинаково.",
+        "impactClasses": [
+          "correctness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "machine-oracle-parity",
+          "quick-regression-oracle",
+          "targeted-regression-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-1-2-fail-fast-stops-at-the-first-red-suite",
+      "unitId": "LPD003-1",
+      "criterion": "`--fail-fast` (и `ITD_RUNALL_FAIL_FAST=1`) останавливает прогон на первом красном сьюте, включая ветку «файл сьюта отсутствует» и три хвостовые проверки полного профиля. Остаток прогона не выполняется и не выдаётся за улику: печатается имя сьюта-виновника и `stopped-early`.",
+      "source": "Замер GATE G0: красный прогон доигрывался до конца и стоил 128 из 859 минут машинного слоя.",
+      "evidence": "GREEN на дереве кандидата: изолированный machine-прогон (candidate-mode staged, unit LPD003-1, riskTier medium) отработал пять оракулов с exit 0 — targeted-regression-oracle, machine-oracle-parity, runall-drift-oracle, verification-profiles-oracle, quick-regression-oracle; host-owned пин объявлен через declaredInputs и захеширован. Полное зеркало `bash tests/run-all.sh` — DONE fails:none. RED-first: три обратные мутации (вернуть публичный --graph; ослабить каноническую проверку путей карты до «непустая строка»; вернуть прежний разбор `--` в run-all.sh) валят ровно свои проверки — 1, 5 и 3 красных. Точное дерево и цифры — в машинной квитанции юнита, а не в этом тексте: агрегат, вписанный сюда руками, протухает от следующего же прогона.",
+      "verificationCommand": "python3 -I tests/verify_targeted_regression.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Первый красный сьют завершает прогон, а отсутствующий файл сьюта — такой же красный, как упавший.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "targeted-regression-oracle",
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-1-3-targeted-selection-is-bounded-and-honestly-named",
+      "unitId": "LPD003-1",
+      "criterion": "`--targeted` берёт набор сьютов транзитивным замыканием по аудированной карте `.itd/IMPACT_GRAPH.json` плюс правила `.itd/IMPACT_PATTERNS.json`; неизвестный путь, битая или пустая карта уводят в strict: набор НЕ сужается, и прогоняется ровно тот профиль, который был запрошен — полное зеркало по умолчанию, CORE при `--quick`. Профиль, который реально будет прогнан, называется в выводе; strict означает «не сужать запрошенное», а не «поднять запрошенное до полного зеркала». Границы гарантии печатаются: `OUTSIDE-MIRROR` (связан картой, но зеркало его не гоняет — назван, не прогнан), `NO-IMPACT by rule` (поимённо), `MIRROR-COVERAGE` в полном прогоне. Правка, целиком объяснённая правилами no-impact, отказывается выдавать пустой зелёный прогон за улику.",
+      "source": "Замер GATE G0: полный прогон был входом по умолчанию для любой правки и составлял 82% машинного слоя. Правила no-impact судятся машинно против сгенерированной карты, поэтому «влияния нет» — проверяемое утверждение.",
+      "evidence": "GREEN на дереве кандидата: изолированный machine-прогон (candidate-mode staged, unit LPD003-1, riskTier medium) отработал пять оракулов с exit 0 — targeted-regression-oracle, machine-oracle-parity, runall-drift-oracle, verification-profiles-oracle, quick-regression-oracle; host-owned пин объявлен через declaredInputs и захеширован. Полное зеркало `bash tests/run-all.sh` — DONE fails:none. RED-first: три обратные мутации (вернуть публичный --graph; ослабить каноническую проверку путей карты до «непустая строка»; вернуть прежний разбор `--` в run-all.sh) валят ровно свои проверки — 1, 5 и 3 красных. Точное дерево и цифры — в машинной квитанции юнита, а не в этом тексте: агрегат, вписанный сюда руками, протухает от следующего же прогона.",
+      "verificationCommand": "python3 -I tests/verify_targeted_regression.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Сужение прогона либо доказано картой, либо не происходит; каждая граница гарантии названа в выводе.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "targeted-regression-oracle",
+          "verification-profiles-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-1-4-selector-perimeter-and-map-integrity",
+      "unitId": "LPD003-1",
+      "criterion": "Селектор судит только тот репозиторий, в котором лежит: карта, правила и зеркало выводятся из расположения самого скрипта, и ни один публичный вход не называет читаемый им файл (`--graph`/`--root`/`--rules` отсутствуют, их передача — ошибка ввода). Целостность карты: узел и цель ребра обязаны быть каноническими repo-relative POSIX-путями — traversal, абсолютный путь, обратный слэш и сегмент-точка уводят в strict. Путь, начинающийся с дефисов, доходит до селектора через `run-all.sh` после `--` и не переразбирается как флаг оболочки.",
+      "source": "Решение владельца 2026-08-24 (`.itd/DECISIONS.md`): тринадцать заходов независимого продюсера дали тринадцать BLOCKED, все находки одной формы — «произвольный вызывающий подаёт своё дерево или свою карту и сужает прогон». Периметр убран целиком, вместо закрытия по одной находке за заход.",
+      "evidence": "GREEN на дереве кандидата: изолированный machine-прогон (candidate-mode staged, unit LPD003-1, riskTier medium) отработал пять оракулов с exit 0 — targeted-regression-oracle, machine-oracle-parity, runall-drift-oracle, verification-profiles-oracle, quick-regression-oracle; host-owned пин объявлен через declaredInputs и захеширован. Полное зеркало `bash tests/run-all.sh` — DONE fails:none. RED-first: три обратные мутации (вернуть публичный --graph; ослабить каноническую проверку путей карты до «непустая строка»; вернуть прежний разбор `--` в run-all.sh) валят ровно свои проверки — 1, 5 и 3 красных. Точное дерево и цифры — в машинной квитанции юнита, а не в этом тексте: агрегат, вписанный сюда руками, протухает от следующего же прогона.",
+      "verificationCommand": "python3 -I tests/verify_targeted_regression.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "У селектора нет публичной поверхности, называющей читаемый файл, а неканоническое ребро карты не может сузить прогон.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "targeted-regression-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2336,26 +2417,24 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PRG-004",
-    "status": "verified",
+    "unitId": "LPD003-1",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "compatibility",
-        "reconciliation",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-21T19:25:00Z",
-    "scopeNote": "PRG-004: change only the live fixture's Codex write-boundary instruction and its mutation guard, then refresh generated live evidence; runtime/reviewer/gate semantics remain frozen.",
-    "closedAt": "2026-08-22T00:50:00Z"
+    "openedAt": "2026-08-23T09:09:16Z",
+    "scopeNote": "LPD003-1: run-all как машинный оракул — класс BLOCKED для host-owned входа, --fail-fast, targeted-профиль по аудированной карте, периметр селектора и целостность карты. Границы правок заморожены в .itd/SCOPE_LOCK.md; гейты не ослабляются, приёмка остаётся за Verification Loop."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

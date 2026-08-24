@@ -45,6 +45,11 @@ def main() -> int:
         print("DONE fails:quick-profile")
         return 1
     failures: list[str] = []
+    # Отсутствующий host-owned вход — ОТДЕЛЬНЫЙ класс, а не красный сьют: тот
+    # же контракт, что и в run_py() внутри run-all.sh (LPD-003-1). Классы
+    # различаются машинно, код выхода остаётся ненулевым в обоих случаях —
+    # тихий пропуск был бы false-green.
+    blocked: list[str] = []
     for name in names:
         verifier = ROOT / "tests" / f"{name}.py"
         if not NAME_RE.fullmatch(name) or not verifier.is_file():
@@ -57,10 +62,15 @@ def main() -> int:
             if not (ROOT / value).is_file()
         ]
         if missing_input:
-            failures.append(name)
+            blocked.append(name)
             print(
-                f"FAIL {name} host-owned input is not provisioned: "
-                + " ".join(missing_input),
+                f"BLOCKED {name} host-owned input is not provisioned: "
+                + " ".join(missing_input)
+                + "\n  WHY: the value belongs to the host, and .itd-memory/ is"
+                " git-ignored, so an isolated candidate tree never carries it."
+                "\n  FIX: provision it on this host, or declare it into the"
+                " isolated oracle run: itd_verification_loop.py machine"
+                " --input " + " --input ".join(missing_input),
                 file=sys.stderr,
             )
             continue
@@ -96,8 +106,9 @@ def main() -> int:
                     f"FAIL {name} exit={result['exitCode']}\n{diagnostic}",
                     file=sys.stderr,
                 )
-    print("DONE fails:" + (" ".join(failures) if failures else "none"))
-    return 1 if failures else 0
+    print("DONE fails:" + (" ".join(failures) if failures else "none")
+          + (" blocked:" + " ".join(blocked) if blocked else ""))
+    return 1 if failures or blocked else 0
 
 
 if __name__ == "__main__":
