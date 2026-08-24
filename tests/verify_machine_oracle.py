@@ -990,6 +990,25 @@ def required_workflow_phase() -> None:
         and all(f'"{value}"' in body for value in table_values),
         "aggregator host-input values are the ones run-all.sh authors",
     )
+    # Имена и флаги совпадают — но КЛАСС исхода тоже обязан: если один
+    # вызывающий печатает отсутствующий host-вход как FAIL, а другой как
+    # BLOCKED, один из них снова неотличим от сломанного кандидата (находка
+    # ревьюера, LPD-003-1). Обе копии обязаны использовать класс BLOCKED и
+    # держать его отдельно от списка падений.
+    check(
+        "BLOCKED" in body and "blocked=" in body,
+        "run-all.sh classifies a missing host input as BLOCKED, not a failure",
+    )
+    check(
+        "BLOCKED" in quick and "blocked.append" in quick
+        and "failures.append" in quick,
+        "aggregator classifies a missing host input as BLOCKED, not a failure",
+    )
+    check(
+        "or blocked" in quick or "failures or blocked" in quick,
+        "aggregator still exits non-zero on a blocked input (no false green)",
+    )
+
     # Every declared required file must be one of the values actually passed,
     # otherwise the fail-closed branch guards a path the verifier never reads.
     check(

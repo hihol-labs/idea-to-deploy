@@ -144,10 +144,15 @@
       "tests/verify_verification_loop.py"
     ],
     ".itd/DECISIONS.md": [
-      "tests/verify_independent_review_efficacy.py"
+      "tests/verify_independent_review_efficacy.py",
+      "tests/verify_targeted_regression.py"
     ],
     ".itd/IMPACT_GRAPH.json": [
+      "tests/verify_targeted_regression.py",
       "tests/verify_verification_profiles.py"
+    ],
+    ".itd/IMPACT_PATTERNS.json": [
+      "tests/verify_targeted_regression.py"
     ],
     ".itd/REVIEW_EFFICACY_KEYRING.json": [
       "tests/verify_gate_registry_binding.py",
@@ -750,7 +755,8 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_live_model_benchmark.py",
-      "tests/verify_strict_completion_policy.py"
+      "tests/verify_strict_completion_policy.py",
+      "tests/verify_targeted_regression.py"
     ],
     "hooks/completion-signals.sh": [
       "tests/verify_completion_signals_powershell.py",
@@ -951,6 +957,9 @@
       "tests/verify_git_gate_hooks.py",
       "tests/verify_itd_runtime_install.py"
     ],
+    "scripts/itd_regression_select.py": [
+      "tests/verify_targeted_regression.py"
+    ],
     "scripts/sync-to-active.sh": [
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_cost_gate.py",
@@ -962,7 +971,8 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_registration_and_counts.py",
       "tests/verify_review_cache.py",
-      "tests/verify_sync_manifest.py"
+      "tests/verify_sync_manifest.py",
+      "tests/verify_targeted_regression.py"
     ],
     "scripts/validate_state.py": [
       "tests/verify_goal_bounded_autonomy.py",
@@ -974,10 +984,12 @@
       "tests/verify_work_deadline_runtime.py"
     ],
     "scripts/verify-sync-to-active.sh": [
-      "tests/verify_sync_manifest.py"
+      "tests/verify_sync_manifest.py",
+      "tests/verify_targeted_regression.py"
     ],
     "scripts/verify_skill_profiles.py": [
-      "tests/verify_runall_drift.py"
+      "tests/verify_runall_drift.py",
+      "tests/verify_targeted_regression.py"
     ],
     "services/review_broker/Dockerfile": [
       "tests/verify_review_broker_deployment.py"
@@ -1183,8 +1195,10 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_predeploy_independent_review.py",
       "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_quick_regression.py",
       "tests/verify_review_cache.py",
       "tests/verify_reviewer_independence_policy.py",
+      "tests/verify_targeted_regression.py",
       "tests/verify_verification_loop.py"
     ],
     "skills/_shared/itd_verification_profiles.py": [
@@ -1445,6 +1459,7 @@
       "tests/verify_narration_final.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_runall_drift.py",
+      "tests/verify_targeted_regression.py",
       "tests/verify_triggers.py",
       "tests/verify_worktree_hook_safety.py"
     ],
@@ -1460,6 +1475,7 @@
       "tests/verify_review_evidence.py",
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
+      "tests/verify_targeted_regression.py",
       "tests/verify_tool_trust_inventory.py",
       "tests/verify_verification_profiles.py"
     ],
@@ -1490,7 +1506,8 @@
       "tests/verify_harness_map_fixtures.py"
     ],
     "tests/verify_completion_gate.py": [
-      "tests/verify_harness_map_fixtures.py"
+      "tests/verify_harness_map_fixtures.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_completion_policy_calibration.py": [
       "tests/verify_verification_profiles.py"
@@ -1556,7 +1573,8 @@
     ],
     "tests/verify_independent_review_efficacy.py": [
       "tests/verify_quick_regression.py",
-      "tests/verify_review_evidence.py"
+      "tests/verify_review_evidence.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_live_model_benchmark.py": [
       "tests/verify_operating_loops_release.py",
@@ -1581,8 +1599,12 @@
     "tests/verify_predeploy_gate.py": [
       "tests/verify_harness_map_fixtures.py"
     ],
+    "tests/verify_push_gate_adjudicated.py": [
+      "tests/verify_targeted_regression.py"
+    ],
     "tests/verify_quick_regression.py": [
-      "tests/verify_machine_oracle.py"
+      "tests/verify_machine_oracle.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_registration_and_counts.py": [
       "tests/verify_hook_table_completeness.py"
@@ -1594,13 +1616,17 @@
       "tests/verify_refute_fleet.py"
     ],
     "tests/verify_review_cache.py": [
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_review_sentinel_diffbind.py": [
       "tests/verify_harness_map_fixtures.py"
     ],
     "tests/verify_routing.py": [
       "tests/verify_triggers.py"
+    ],
+    "tests/verify_runall_drift.py": [
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_semantic_navigation.py": [
       "tests/verify_operating_loops_release.py"
@@ -1620,14 +1646,19 @@
     "tests/verify_snapshot.py": [
       "tests/verify_endpoint_regex.py",
       "tests/verify_live_model_benchmark.py",
-      "tests/verify_runall_drift.py"
+      "tests/verify_runall_drift.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_state_hardening.py": [
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_operating_loops_release.py"
     ],
     "tests/verify_strict_completion_policy.py": [
-      "tests/verify_completion_adversarial_corpus.py"
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_targeted_regression.py"
+    ],
+    "tests/verify_task_contract_advisory.py": [
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_task_piv_lite.py": [
       "tests/verify_operating_loops_release.py"
@@ -1639,7 +1670,8 @@
       "tests/verify_harness_map_fixtures.py"
     ],
     "tests/verify_verification_loop.py": [
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_targeted_regression.py"
     ],
     "tests/verify_work_deadline_contract.py": [
       "tests/verify_operating_loops_release.py"

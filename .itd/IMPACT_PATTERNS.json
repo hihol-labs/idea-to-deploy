@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1",
+  "purpose": "Impact rules for paths that are created per unit/run and therefore can never be enumerated as nodes in .itd/IMPACT_GRAPH.json. Each rule is machine-checked by tests/verify_targeted_regression.py: a 'suites' rule must name suites that exist and that the mirror runs; a 'no-impact' rule is only valid while the generated map links NO path of that shape to any suite - the moment a suite starts reading such a path, the generator records it and the rule fails closed.",
+  "consumer": "scripts/itd_regression_select.py",
+  "rules": [
+    {
+      "pattern": "tests/fixtures/live-model-evidence/runs/*/**",
+      "effect": "suites",
+      "suites": [
+        "verify_live_model_benchmark",
+        "verify_harness_docs_freshness"
+      ],
+      "why": "Recorded live-model runs are replayed by the benchmark oracle; each run directory is generated per recording and cannot be a static node. The named suites are exactly the ones the generator attached to the already-recorded run directories."
+    },
+    {
+      "pattern": ".itd-memory/contracts/*.md",
+      "effect": "suites",
+      "suites": [
+        "verify_task_contract_advisory"
+      ],
+      "why": "Per-unit task contracts are created for every unit, so they cannot be static nodes. The advisory oracle is the only suite that reads the contracts directory; the DoD hook reads it at runtime and is covered through that suite."
+    },
+    {
+      "pattern": ".itd-memory/verification-loop/**",
+      "effect": "no-impact",
+      "why": "Receipts, prompts and reports are evidence produced BY a run, never input to a suite: no suite reads this directory, which is why the generator records no node under it. The rule fails closed the moment that stops being true."
+    },
+    {
+      "pattern": ".itd-memory/dispositions-*.json",
+      "effect": "no-impact",
+      "why": "Per-round reviewer dispositions are run artefacts; no suite reads them. Checked against the generated map, not asserted."
+    },
+    {
+      "pattern": ".itd-memory/session_*.md",
+      "effect": "no-impact",
+      "why": "Session memory files are written for humans and the next session; no suite reads an individual session file."
+    },
+    {
+      "pattern": ".itd-memory/hygiene/**",
+      "effect": "no-impact",
+      "why": "Hygiene records are produced by the hygiene tool; no suite reads an individual record."
+    }
+  ]
+}
