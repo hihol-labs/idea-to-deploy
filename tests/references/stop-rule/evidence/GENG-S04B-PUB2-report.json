@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "category": "error-handling",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1590,
+      "severity": "medium",
+      "summary": "Pre-flight aggregation still short-circuits phase-one/keyring validation: if `secure_dependency_path` for the phase-one receipt raises, execution skips validation of `--producer-keyring`, so a run with both paths invalid reports only the phase-one violation and requires another run. This violates the stated one-run aggregation for independent phase-one/keyring inputs."
+    },
+    {
+      "category": "error-handling",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1621,
+      "severity": "medium",
+      "summary": "A malformed report is parsed only after the aggregated pre-flight block. When another pre-flight violation exists (for example an invalid prompt path), `bind_artifacts=False` skips report parsing and the command returns only that other violation; fixing it then reveals the malformed report on a later run. Report validation therefore is not fully aggregated as required."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

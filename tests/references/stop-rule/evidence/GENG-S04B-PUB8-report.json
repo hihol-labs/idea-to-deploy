@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1623,
+      "severity": "medium",
+      "summary": "A malformed-but-object phase-one receipt is not structurally validated when the keyring has a shape error: the code only checks `isinstance(value, dict)` before skipping `validate_mandatory_route_evidence`, so the independently checkable phase-one defect is hidden and only the keyring violation is reported."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

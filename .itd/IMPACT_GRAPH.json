@@ -124,10 +124,20 @@
       "tests/verify_review_evidence.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_state_hardening.py",
+      "tests/verify_stop_rule.py",
       "tests/verify_strict_completion_policy.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_unit_log.py",
       "tests/verify_v147_fixes.py"
+    ],
+    ".itd-memory/session_2026-08-01_3.md": [
+      "tests/verify_stop_rule.py"
+    ],
+    ".itd-memory/session_2026-08-20.md": [
+      "tests/verify_stop_rule.py"
+    ],
+    ".itd-memory/session_2026-08-23.md": [
+      "tests/verify_stop_rule.py"
     ],
     ".itd/ACCEPTANCE_CONTRACT.json": [
       "tests/verify_adjudication_channel.py",
@@ -140,11 +150,13 @@
       "tests/verify_review_evidence.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py",
+      "tests/verify_stop_rule.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
     ],
     ".itd/DECISIONS.md": [
       "tests/verify_independent_review_efficacy.py",
+      "tests/verify_stop_rule.py",
       "tests/verify_targeted_regression.py"
     ],
     ".itd/IMPACT_GRAPH.json": [
@@ -175,6 +187,9 @@
       "tests/verify_task_piv_lite.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
+    ],
+    ".itd/STOP_RULE_POLICY.json": [
+      "tests/verify_stop_rule.py"
     ],
     ".itd/VERIFICATION_CONTRACT.json": [
       "tests/verify_completion_adversarial_corpus.py",
@@ -960,6 +975,9 @@
     "scripts/itd_regression_select.py": [
       "tests/verify_targeted_regression.py"
     ],
+    "scripts/itd_stop_rule.py": [
+      "tests/verify_stop_rule.py"
+    ],
     "scripts/sync-to-active.sh": [
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_cost_gate.py",
@@ -1408,6 +1426,7 @@
       "tests/verify_operating_loops_release.py"
     ],
     "tests/build_impact_graph.py": [
+      "tests/verify_stop_rule.py",
       "tests/verify_verification_profiles.py"
     ],
     "tests/fixtures/fixture-03-cli-tool/live-prompt.md": [
@@ -1462,6 +1481,120 @@
       "tests/verify_targeted_regression.py",
       "tests/verify_triggers.py",
       "tests/verify_worktree_hook_safety.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB1-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB10-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB2-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB3-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB4-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB5-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB6-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB7-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GENG-S04B-PUB8-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-0f48da57.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-2085c448.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-235cc16c.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-309e5101.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-320973bf.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-328e5ebc.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-416680d8.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-5486ed5c.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-6d1ab178.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-785a6c8b.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-803dd506.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-88919fcf.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-a080cd62.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-af1fbafa.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-cdfbd912.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-ce56f703.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-da49c6d6.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-deb080b6.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra-f63bfa1a.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/GPG-001-broker-policy-terra.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/LPD003-1-pub-r10-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/LPD003-1-pub-r2-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/LPD003-1-pub-r3-report.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/gpg-001-broker-policy.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/lpd003-1-2026-08-23.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/lpd003-1-publication.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/r6-coarse-grouping.derived.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/r6.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/s04b.json": [
+      "tests/verify_stop_rule.py"
     ],
     "tests/run-all.sh": [
       "tests/verify_completion_signal_classes.py",

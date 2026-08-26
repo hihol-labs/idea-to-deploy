@@ -1,0 +1,227 @@
+{
+  "schema": "itd-stop-rule-history-v1",
+  "unit": "LPD003-1-2026-08-23",
+  "subject": "Тринадцать заходов продюсера по кандидату LPD-003-1 до того, как была заведена приёмочная бухгалтерия юнита.",
+  "orderSource": "Хронология записана в журнале сессии 2026-08-23 и в счётчике .itd-memory/verification-loop/LPD003-1-count-findings.py.",
+  "policyBinding": {
+    "ledgerUnit": "LPD003-1",
+    "contractUnit": "PRG-004",
+    "criteriaPresent": false,
+    "source": ".itd-memory/session_2026-08-24_2.md, раздел «Главная находка сессии»",
+    "note": "activeFollowup указывал на закрытый чужой юнит PRG-004 со статусом verified и riskTier high; критериев с префиксом LPD003-1 в контракте не существовало (132 критерия, 0 наших). Кандидат контракт не трогал — проверено git show --stat.",
+    "sourceInTree": false,
+    "sourceNote": "Документ не архивируется в дереве: это host-local запись замера (~/.claude/geng/**) либо журнал сессии, не внесённый в репозиторий. Ссылка остаётся прозой и машинной уликой НЕ считается."
+  },
+  "recordedDecision": {
+    "terminal": "ROUTE_DEFECT",
+    "atRound": null,
+    "what": "Владелец остановил цикл после тринадцатого BLOCKED подряд. Корневая причина найдена только в следующей сессии: ревью шло по политике чужого юнита. После заведения бухгалтерии тот же кандидат прошёл маршрут до чистого PASS.",
+    "source": ".itd-memory/session_2026-08-23.md",
+    "sourceInTree": true
+  },
+  "rounds": [
+    {
+      "id": "PUB1",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB2",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB3",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB4",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB5",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB6",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB7",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB8",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB9",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB10",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB11",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB12",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    },
+    {
+      "id": "PUB13",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "narrative",
+        "path": ".itd-memory/session_2026-08-23.md",
+        "line": 88
+      },
+      "note": "Вердикт зафиксирован журналом сессии; содержание раунда не сохранено.",
+      "declared": {
+        "verdict": "BLOCKED",
+        "contentRecorded": false,
+        "why": "Отчёты этих заходов в дереве не сохранены; журнал фиксирует только их число и общий вердикт."
+      }
+    }
+  ],
+  "expected": {
+    "terminal": "ROUTE_DEFECT",
+    "note": "Правило отказывается разбирать содержание раундов: вердикты вынесены по политике чужого юнита и о кандидате не свидетельствуют."
+  },
+  "seriesNote": "ДВЕ РАЗНЫЕ СЕРИИ, числа не противоречат друг другу: эта история — серия РЕВЬЮ ДОСТАВКИ 2026-08-23 (13 заходов продюсера, 13 BLOCKED, вердикты выносились по политике чужого юнита PRG-004 — см. policyBinding; цитата «13 заходов = 13 BLOCKED» из session_2026-08-23.md об этой серии). Серия ПУБЛИКАЦИИ 2026-08-24 записана отдельной историей lpd003-1-publication.json: десять заходов, три вердикта (два BLOCKED, один PASSED), остальные семь — поломки маршрута.",
+  "orderProvenance": {
+    "class": "artifact-list"
+  }
+}

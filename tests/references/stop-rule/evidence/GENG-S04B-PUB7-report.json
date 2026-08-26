@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1623,
+      "severity": "medium",
+      "summary": "The phase-one reference is only checked for being a JSON object before route validation is skipped when the keyring has any shape error. Thus a malformed phase-one receipt (for example `{\"kind\":\"not-a-route\"}`) plus a malformed keyring reports only the keyring violation; the phase receipt’s independently checkable form is hidden until a later run, contrary to the declared per-route-reference aggregation guarantee."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

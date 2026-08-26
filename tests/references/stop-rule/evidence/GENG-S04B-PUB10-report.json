@@ -1,0 +1,54 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1592,
+      "severity": "medium",
+      "summary": "When exactly one of --phase-one-receipt and --producer-keyring is supplied, the pair-incomplete violation is recorded but neither supplied reference is resolved or shape-checked. Thus an independently checkable bad supplied path/JSON/keyring is still hidden until a later run, contradicting the stated per-input pre-flight aggregation guarantee."
+    },
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1623,
+      "severity": "medium",
+      "summary": "A phase-one receipt is only checked to be a JSON object before cross-route validation is skipped for a malformed keyring. A malformed route object plus malformed keyring consequently reports only the keyring violation, although the phase-one form is independently checkable."
+    },
+    {
+      "category": "test-coverage",
+      "confidence": "high",
+      "file": "tests/verify_verification_loop.py",
+      "line": 1214,
+      "severity": "medium",
+      "summary": "The PUB1 regression intentionally supplies three independently malformed pre-flight inputs: an escaping report, a malformed phase-one receipt (`{\"kind\":\"not-a-route\"}`), and a malformed keyring. It then asserts exactly two violations and only checks report/keyring messages. This contradicts the frozen D2 guarantee that every route reference is independently resolved and shape-checked; a checker that silently omits malformed phase-one receipt validation will pass this regression."
+    },
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1592,
+      "severity": "medium",
+      "summary": "When exactly one of --phase-one-receipt and --producer-keyring is supplied, the pair-incomplete violation is recorded but neither supplied reference is resolved or shape-checked. This omits an independently checkable pre-flight violation contrary to the declared D2 guarantee."
+    },
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1623,
+      "severity": "medium",
+      "summary": "A malformed phase-one receipt route form is not reported when the keyring is malformed, although receipt form validation is independently checkable. The checker consequently aggregates only the keyring violation."
+    },
+    {
+      "category": "test-coverage",
+      "confidence": "high",
+      "file": "tests/verify_verification_loop.py",
+      "line": 1214,
+      "severity": "medium",
+      "summary": "The PUB1 regression supplies malformed report, phase-one receipt, and keyring inputs but asserts only two violations and does not require the receipt-form violation, allowing the incomplete aggregation behavior to pass."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

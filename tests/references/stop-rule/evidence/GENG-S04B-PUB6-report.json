@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1629,
+      "severity": "medium",
+      "summary": "Pre-flight aggregation still short-circuits structural route validation. If one phase/keyring reference fails resolution, `len(references) != 2` skips `validate_mandatory_route_evidence`, so a simultaneously malformed resolved counterpart is omitted until a later run. Even with both references present, that validator raises on its first structural defect and this caller appends only that one error. This violates D2's requirement to report independent phase-one/keyring/route-evidence violations in one checker run."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

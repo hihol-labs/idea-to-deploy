@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1992,
+      "severity": "high",
+      "summary": "The bridge treats a bare unit as interchangeable with both `:general-review` and `:security-review`. Thus a route bound to `U-loop:security-review` can authorize adjudication for bare `U-loop`, allowing a security-claim receipt to satisfy the publication identity despite the frozen requirement that general/security cross-claim use remains rejected. The tests cover general↔security directly but not bare↔security."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

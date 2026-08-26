@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": "high",
+      "file": "skills/_shared/itd_verification_loop.py",
+      "line": 1605,
+      "severity": "medium",
+      "summary": "D2 does not actually aggregate every pre-flight violation: mandatory-route validation is executed only when both report_rel and prompt_rel are valid. If either artifact path escapes while phase-one/keyring/provenance is also invalid, the checker reports only the artifact-path violations and never validates or includes the route violation, requiring another run. This contradicts the stated one-pass aggregation for report/prompt/phase-one/keyring/provenance."
+    }
+  ],
+  "unverified": [],
+  "verdict": "BLOCKED"
+}

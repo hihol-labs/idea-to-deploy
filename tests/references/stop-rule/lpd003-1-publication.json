@@ -1,0 +1,142 @@
+{
+  "schema": "itd-stop-rule-history-v1",
+  "unit": "LPD003-1-publication",
+  "subject": "Публикация кандидата LPD-003-1 (targeted-профиль run-all).",
+  "orderSource": "Хронология заходов записана в session_2026-08-24_2.md по ходу сессии.",
+  "recordedDecision": {
+    "terminal": "CLOSE",
+    "atRound": "r10",
+    "what": "Обе находки закрыты корнем, заход r10 с --unit-checkpoint дал чистый PASS, кандидат опубликован PR #230 и смержен 2586130.",
+    "source": ".itd-memory/session_2026-08-24_2.md",
+    "sourceInTree": false,
+    "sourceNote": "Документ не архивируется в дереве: это host-local запись замера (~/.claude/geng/**) либо журнал сессии, не внесённый в репозиторий. Ссылка остаётся прозой и машинной уликой НЕ считается."
+  },
+  "rounds": [
+    {
+      "id": "r1",
+      "terminal": "precondition",
+      "outcome": "UNVERIFIED",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "Критерии приёмки были в статусе pending: продюсер требует passed. Отказ бухгалтерии, не суждение о кандидате."
+    },
+    {
+      "id": "r2-aborted",
+      "terminal": "transport",
+      "outcome": "ABORTED",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "Заход оборван завершением процесса сессии: ledger записан, отчёта нет."
+    },
+    {
+      "id": "r2",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/LPD003-1-pub-r2-report.json",
+        "sha256": "8daf4fac32caa3b3c6c28e039848a626721724a1d35d4b00d5cee517cff110bf",
+        "originalPath": ".itd-memory/verification-loop/reports/LPD003-1-pub-r2-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "load_patterns() не проверяет, что корень JSON — объект",
+      "candidate": "3f5a26d6ca4c588c"
+    },
+    {
+      "id": "r3",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/LPD003-1-pub-r3-report.json",
+        "sha256": "f06266ccab82d5fdceed4d8a403b5202e6859c3300b2ebaed20be56f6b2d9b6d",
+        "originalPath": ".itd-memory/verification-loop/reports/LPD003-1-pub-r3-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "протухший агрегат в контракте + strict против --quick",
+      "candidate": "e468f3b0fd661e55"
+    },
+    {
+      "id": "r4",
+      "terminal": "transport",
+      "outcome": "UNAVAILABLE",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "Reconnecting... 2/5 (request timed out) на промпте полной ветки"
+    },
+    {
+      "id": "r5",
+      "terminal": "transport",
+      "outcome": "UNAVAILABLE",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "тот же таймаут"
+    },
+    {
+      "id": "r6",
+      "terminal": "transport",
+      "outcome": "UNAVAILABLE",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "тот же таймаут; корень найден позже — дифф 196 КБ уходил на иерархический маршрут без --unit-checkpoint"
+    },
+    {
+      "id": "r7-argument",
+      "terminal": "precondition",
+      "outcome": "UNVERIFIED",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "--unit-id машинной квитанции не совпал с activeFollowup.unitId"
+    },
+    {
+      "id": "push-timeout",
+      "terminal": "transport",
+      "outcome": "TIMEOUT",
+      "provenance": {
+        "class": "absent"
+      },
+      "note": "itd pr create: git timed out after 1200s на охраняемом pre-push хуке, сеть отвечала мгновенно"
+    },
+    {
+      "id": "r10",
+      "terminal": "verdict",
+      "provenance": {
+        "class": "report",
+        "path": "tests/references/stop-rule/evidence/LPD003-1-pub-r10-report.json",
+        "sha256": "fab04fa5f376e679dde07714d203773820751166a55a98f301a125e19654b3a6",
+        "originalPath": ".itd-memory/verification-loop/reports/LPD003-1-pub-r10-report.json",
+        "archived": "Оригинал лежит в git-ignored рабочей области и удаляется prune-политикой; байт-копия заархивирована в дереве, sha256 тот же."
+      },
+      "note": "чистый PASS с --unit-checkpoint",
+      "candidate": "136f2ff02232b15d"
+    }
+  ],
+  "expected": {
+    "terminal": "CLOSE",
+    "atRound": "r10",
+    "counters": {
+      "verdict": 3,
+      "precondition": 2,
+      "transport": 5
+    },
+    "note": "Наивный счётчик заходов прочитал бы здесь десять, из них девять «незакрывшихся». Вердиктов было три, из них BLOCKED — два."
+  },
+  "candidateSource": {
+    "kind": "prompt-ledger-diff-sha256",
+    "prefix": "LPD003-1-pub",
+    "directories": [
+      ".itd-memory/verification-loop",
+      ".itd-memory/verification-loop/prompts"
+    ],
+    "archived": false,
+    "note": "Личность кандидата раунда — sha256 ТОЛЬКО участков диффа внутри журнала промптов этого раунда (байты между BEGIN/END UNTRUSTED REVIEW DIFF и BEGIN/END UNTRUSTED DIFF UNIT), первые 16 hex. Обёртка промпта — инструкции, схема вердикта, объявления покрытия — в хеш НЕ входит: она меняется от правок маршрута, а не кандидата. Вычисляется общей функцией scripts/itd_stop_rule.py:candidate_identity_from_ledger, поэтому оракул пересчитывает значение тем же кодом. Журналы (130-510 КБ каждый) в дерево не архивируются: они принадлежат хосту, и в изолированном дереве машинной ноги их нет по построению."
+  },
+  "seriesNote": "Серия ПУБЛИКАЦИИ 2026-08-24: десять заходов, три вердикта (два BLOCKED, один PASSED). НЕ путать с серией ревью доставки 2026-08-23 (13 заходов, 13 BLOCKED, чужая политика PRG-004) — та записана отдельной историей lpd003-1-2026-08-23.json.",
+  "orderProvenance": {
+    "class": "artifact-list"
+  }
+}
