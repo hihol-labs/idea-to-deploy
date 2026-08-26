@@ -18,12 +18,13 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-08-26",
       "evidence": [
         "tests/verify_routing.py",
         "tests/verify_triggers.py"
       ],
-      "priorities": []
+      "priorities": [],
+      "notes": "Re-reviewed 2026-08-26: every evidence oracle re-run fresh, all exit 0 (session LPD-003-3 close)."
     },
     {
       "id": "completion-and-verification",
@@ -33,7 +34,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-21",
+      "reviewedAt": "2026-08-26",
       "evidence": [
         "docs/completion-gate.md",
         "tests/verify_completion_gate.py",
@@ -41,7 +42,8 @@
         "tests/verify_live_model_benchmark.py",
         "tests/verify_verification_loop.py"
       ],
-      "priorities": []
+      "priorities": [],
+      "notes": "Re-reviewed 2026-08-26: every evidence oracle re-run fresh, all exit 0 (session LPD-003-3 close)."
     },
     {
       "id": "state-and-continuity",
@@ -51,14 +53,15 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-08-26",
       "evidence": [
         "tests/verify_state_hardening.py",
         "tests/verify_host_neutral_memory.py",
         "tests/verify_fresh_session_resume.py",
         "skills/session-save/SKILL.md"
       ],
-      "priorities": []
+      "priorities": [],
+      "notes": "Re-reviewed 2026-08-26: every evidence oracle re-run fresh, all exit 0 (session LPD-003-3 close)."
     },
     {
       "id": "host-adapters",
@@ -68,7 +71,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-08-26",
       "evidence": [
         "docs/HOST_ADAPTER_CONTRACT.md",
         "tests/verify_host_adapters.py",
@@ -76,7 +79,8 @@
       ],
       "priorities": [
         "Keep adapter parity verified while Codex support settles."
-      ]
+      ],
+      "notes": "Re-reviewed 2026-08-26: every evidence oracle re-run fresh, all exit 0 (session LPD-003-3 close)."
     },
     {
       "id": "session-hygiene-and-quality-lifecycle",
@@ -86,7 +90,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-07-16",
+      "reviewedAt": "2026-08-26",
       "evidence": [
         "docs/templates/itd/SESSION_EXIT_CONTRACT.json",
         "tests/verify_session_hygiene_quality.py",
@@ -95,7 +99,8 @@
       ],
       "priorities": [
         "Collect one month of weekly/monthly cycle evidence before promoting to A."
-      ]
+      ],
+      "notes": "Re-reviewed 2026-08-26: every evidence oracle re-run fresh, all exit 0 (session LPD-003-3 close)."
     },
     {
       "id": "harness-engineering-conformance",
