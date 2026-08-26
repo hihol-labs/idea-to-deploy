@@ -14,6 +14,17 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — гейт коммита не видит plumbing-рефы (найдено ревьюером ledger-close LPD-003-3, 2026-08-26)
+
+`hooks/check-review-before-commit.sh` матчит фасад `git commit`; путь
+`git commit-tree` + `git update-ref` обновляет ветку без проверки кэша ревью.
+Проявлено инцидентом owner-publish PR #232 (записан в DECISIONS как разовое
+исполнение приказа, не процедура). Рецепт: (а) расширить матчер гейта на
+plumbing-команды, меняющие refs/heads/*; (б) добавить ШТАТНЫЙ owner-escape —
+подписанная запись решения владельца, которую гейт принимает вместо кэша
+ревью, — чтобы легитимному приказу не требовался обход, а обход не имел тихой
+формы.
+
 ## P1 — surface-growth treadmill: измеренный пробел правила остановки (LPD-003-3, 2026-08-25)
 
 Замер живой серии ревью самого LPD-003-3 (сессия 2026-08-25): **13 вердиктов
