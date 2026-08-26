@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD003-3",
     "goal": "Правило остановки над содержанием находок: классификация терминалов, ключ механизма, повтор -> редизайн; проверено реплеем записанных историй S04b/R6/GPG-001",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-24T13:59:56Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-26T08:48:51Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
