@@ -39,8 +39,12 @@ LPD003-3 (medium): цикл независимого ревью останавл
   `CHANGELOG.md`, `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`,
   `.itd/ACCEPTANCE_CONTRACT.json`, `.itd-memory/STATE.json`,
   `.itd-memory/contracts/LPD003-3.md`.
-- `.itd-memory/session_2026-08-20.md`, `.itd-memory/session_2026-08-23.md` —
-  внесены в дерево как ЦИТИРУЕМЫЕ источники провенанса, без правок содержания.
+- `.itd-memory/session_2026-08-20.md`, `.itd-memory/session_2026-08-23.md`,
+  `.itd-memory/session_2026-08-01_3.md` — внесены в дерево как ЦИТИРУЕМЫЕ
+  источники провенанса, без правок содержания. Третий файл — записанный
+  документ, на который ссылается `orderSource` истории GPG-001
+  (`tests/references/stop-rule/gpg-001-broker-policy.json`): без него провенанс
+  одной из трёх обязательных историй не проверяется машинно.
 
 ## Forbidden Change Areas
 

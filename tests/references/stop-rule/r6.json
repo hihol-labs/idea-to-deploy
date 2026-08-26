@@ -40,7 +40,7 @@
           }
         ]
       },
-      "candidate": "2c0c94030dcf2aa9"
+      "candidate": "aedfc480cc053d8a"
     },
     {
       "id": "PUB2b",
@@ -59,7 +59,7 @@
           }
         ]
       },
-      "candidate": "4a202b04c7088bf2"
+      "candidate": "4df084c1c156304a"
     },
     {
       "id": "PUB3",
@@ -78,7 +78,7 @@
           }
         ]
       },
-      "candidate": "95c9eaef1cee00a4"
+      "candidate": "1eb49ef2e927ccd7"
     },
     {
       "id": "PUB4",
@@ -97,7 +97,7 @@
           }
         ]
       },
-      "candidate": "62b82de9d8175864"
+      "candidate": "45225a56cf4d0334"
     },
     {
       "id": "PUB5",
@@ -125,7 +125,7 @@
           }
         ]
       },
-      "candidate": "87ec69d47ba47da6"
+      "candidate": "871b92de1222af7b"
     },
     {
       "id": "PUB7",
@@ -144,7 +144,7 @@
           }
         ]
       },
-      "candidate": "b1b99d75b9525161"
+      "candidate": "e176b55aa5a5237c"
     },
     {
       "id": "PUB8",
@@ -170,7 +170,7 @@
           }
         ]
       },
-      "candidate": "e5cde521fa1e10b1"
+      "candidate": "413048bbbd843b5c"
     },
     {
       "id": "PUB9",
@@ -190,7 +190,7 @@
           }
         ]
       },
-      "candidate": "e77ae0b23e0e9861"
+      "candidate": "dddfed07e83e2f14"
     },
     {
       "id": "PUB10",
@@ -213,7 +213,7 @@
           }
         ]
       },
-      "candidate": "84b3e3f1dfbc4a5f"
+      "candidate": "7a194cf9d6b9ff16"
     },
     {
       "id": "PUB11",
@@ -232,7 +232,7 @@
           }
         ]
       },
-      "candidate": "ed694d700f667507"
+      "candidate": "266ea2b8792c6f3f"
     },
     {
       "id": "PUB12",
@@ -251,7 +251,7 @@
           }
         ]
       },
-      "candidate": "3df2bf4859d00270"
+      "candidate": "14d649c066e45cb5"
     },
     {
       "id": "PUB13",
@@ -265,7 +265,7 @@
         "verdict": "PASSED",
         "mechanisms": []
       },
-      "candidate": "6b13c6c43022eaf2"
+      "candidate": "4e7c92d62b5cd75e"
     }
   ],
   "expected": {
@@ -278,5 +278,17 @@
     "capOf3": "остановка на PUB3 — впереди оставались containment .git-границы (PUB7), воспроизведённый эксплойт fnmatch (PUB9) и ещё шесть реальных находок",
     "capOf8": "остановка на PUB8 — впереди оставался воспроизведённый эксплойт PUB9"
   },
-  "candidateSource": "Личность кандидата раунда — sha256 журнала промптов этого раунда (.itd-memory/verification-loop/*-prompt*.ledger.jsonl), первые 16 hex, вычислено на этом хосте 2026-08-24. Промпт строится продюсером из диффа кандидата, поэтому разные значения означают разные кандидаты. Сами журналы в дерево НЕ архивируются (по 130-510 КБ каждый), поэтому значение здесь объявлено, а не пересчитывается оракулом."
+  "candidateSource": {
+    "kind": "prompt-ledger-diff-sha256",
+    "prefix": "LPD002-R6",
+    "directories": [
+      ".itd-memory/verification-loop",
+      ".itd-memory/verification-loop/prompts"
+    ],
+    "archived": false,
+    "note": "Личность кандидата раунда — sha256 ТОЛЬКО участков диффа внутри журнала промптов этого раунда (байты между BEGIN/END UNTRUSTED REVIEW DIFF и BEGIN/END UNTRUSTED DIFF UNIT), первые 16 hex. Обёртка промпта — инструкции, схема вердикта, объявления покрытия — в хеш НЕ входит: она меняется от правок маршрута, а не кандидата. Вычисляется общей функцией scripts/itd_stop_rule.py:candidate_identity_from_ledger, поэтому оракул пересчитывает значение тем же кодом. Журналы (130-510 КБ каждый) в дерево не архивируются: они принадлежат хосту, и в изолированном дереве машинной ноги их нет по построению."
+  },
+  "orderProvenance": {
+    "class": "artifact-list"
+  }
 }

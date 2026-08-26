@@ -156,6 +156,7 @@
     ],
     ".itd/DECISIONS.md": [
       "tests/verify_independent_review_efficacy.py",
+      "tests/verify_stop_rule.py",
       "tests/verify_targeted_regression.py"
     ],
     ".itd/IMPACT_GRAPH.json": [
@@ -1586,7 +1587,7 @@
     "tests/references/stop-rule/lpd003-1-publication.json": [
       "tests/verify_stop_rule.py"
     ],
-    "tests/references/stop-rule/r6-coarse-grouping.json": [
+    "tests/references/stop-rule/r6-coarse-grouping.derived.json": [
       "tests/verify_stop_rule.py"
     ],
     "tests/references/stop-rule/r6.json": [

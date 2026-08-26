@@ -15,7 +15,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -33,7 +35,6 @@ POLICY_FILE = ".itd/STOP_RULE_POLICY.json"
 HISTORY_FILES = {
     "s04b": "tests/references/stop-rule/s04b.json",
     "r6": "tests/references/stop-rule/r6.json",
-    "r6-coarse-grouping": "tests/references/stop-rule/r6-coarse-grouping.json",
     "gpg-001-broker-policy": "tests/references/stop-rule/gpg-001-broker-policy.json",
     "lpd003-1-publication": "tests/references/stop-rule/lpd003-1-publication.json",
     "lpd003-1-2026-08-23": "tests/references/stop-rule/lpd003-1-2026-08-23.json",
@@ -120,7 +121,9 @@ def synthetic(rounds: list[dict], **extra) -> dict:
         "schema": rule.HISTORY_SCHEMA,
         "unit": "synthetic",
         "orderSource": "синтетическая история оракула",
-        "candidateSource": "id раунда — синтетические раунды моделируют перечеканенного кандидата",
+        "orderProvenance": {"class": "artifact-list"},
+        "candidateSource": {"kind": "synthetic",
+                            "note": "id раунда — синтетические раунды моделируют перечеканенного кандидата"},
         "rounds": rounds,
     }
     document.update(extra)
@@ -144,7 +147,9 @@ def narrative_round(round_id: str, verdict: str, mechanisms: list[dict],
         "terminal": "verdict",
         "provenance": {"class": "narrative", "path": SYNTHETIC_SOURCE,
                        "line": SYNTHETIC_LINE},
-        "candidate": candidate if candidate is not None else f"cand-{round_id}",
+        # Каноническая форма личности: 16 hex, детерминированно из подписи.
+        "candidate": candidate if candidate is not None
+        else hashlib.sha256(f"cand-{round_id}".encode()).hexdigest()[:16],
         "declared": {"verdict": verdict, "mechanisms": mechanisms},
     }
 
@@ -189,6 +194,39 @@ for name, mutate in (
     ("distinctRounds=1", lambda p: p["mechanismKey"].__setitem__("distinctRoundsRequired", 1)),
     ("ключ по severity", lambda p: p["mechanismKey"].__setitem__("default", ["file", "severity"])),
     ("схема подменена", lambda p: p.__setitem__("schema", "something-else")),
+    ("статус не advisory", lambda p: p.__setitem__("status", "gate")),
+    ("введён потолок раундов", lambda p: p.__setitem__("maxRounds", 3)),
+    ("потолок спрятан в примечании",
+     lambda p: p.__setitem__("note", "roundCap is 5")),
+    ("порядок применения переставлен",
+     lambda p: p.__setitem__("precedence", ["CLOSE", "ROUTE_DEFECT",
+                                            "REDESIGN_OR_DISCARD",
+                                            "RECURRENCE_UNCONFIRMED",
+                                            "ROUTE_REPAIR", "CONTINUE"])),
+    ("вердикт объявлен транспортом",
+     lambda p: p["terminalClasses"]["transport"].__setitem__(
+         "values", ["UNAVAILABLE", "TIMEOUT", "ABORTED", "BLOCKED"])),
+    ("транспорт объявлен считаемым",
+     lambda p: p["terminalClasses"]["transport"].__setitem__("counts", True)),
+    ("вердикты объявлены несчитаемыми",
+     lambda p: p["terminalClasses"]["verdict"].__setitem__("counts", False)),
+    ("привязка бухгалтерии обезоружена",
+     lambda p: p["policyBinding"].__setitem__("ledgerPath", "")),
+    # Ослабление привязки ПО ЗНАЧЕНИЮ: проверка непустоты строки это пропускала,
+    # и критерии в статусе pending считались бы выровненными — при том что
+    # продюсер отказывает по ним терминалом класса precondition.
+    ("требуемый статус критериев ослаблен до pending",
+     lambda p: p["policyBinding"].__setitem__("requireCriteriaStatus", "pending")),
+    ("требуемый статус критериев обнулён",
+     lambda p: p["policyBinding"].__setitem__("requireCriteriaStatus", None)),
+    ("требуемый статус критериев убран",
+     lambda p: p["policyBinding"].pop("requireCriteriaStatus", None)),
+    ("требование префикса выключено",
+     lambda p: p["policyBinding"].__setitem__("requireCriteriaPrefix", False)),
+    ("требование префикса подменено истинным не-булевым",
+     lambda p: p["policyBinding"].__setitem__("requireCriteriaPrefix", 1)),
+    ("требование префикса убрано",
+     lambda p: p["policyBinding"].pop("requireCriteriaPrefix", None)),
 ):
     checks += 1
     mutated = copy.deepcopy(policy)
@@ -213,6 +251,22 @@ for name, mutate in (
 # ---------------------------------------------------------------------------
 
 HISTORIES = tuple(HISTORY_FILES)
+# Грубая группировка ключа — не вторая история, а тот же R6 под другим ключом.
+# Хранить её отдельным файлом значило бы держать почти дословную копию записи:
+# два источника правды об одних и тех же раундах расходятся молча.
+COARSE_OVERLAY = "tests/references/stop-rule/r6-coarse-grouping.derived.json"
+
+
+def coarse_r6() -> dict:
+    overlay = json.loads((ROOT / COARSE_OVERLAY).read_text(encoding="utf-8"))
+    document = load("r6")
+    document = copy.deepcopy(document)
+    document["unit"] = overlay["unit"]
+    document["subject"] = overlay["subject"]
+    document["mergeKeys"] = overlay["mergeKeys"]
+    document["expected"] = overlay["expected"]
+    document.pop("antiGoodhart", None)
+    return document
 
 decisions: dict[str, dict] = {}
 for name in HISTORIES:
@@ -276,9 +330,17 @@ check("r6: опровергнутая находка не засчитана в 
       len(r6["refuted"]) == 1, str(r6["refuted"]))
 
 # Чувствительность к зернистости ключа измерена, а не спрятана.
+coarse_document = coarse_r6()
+coarse_decision = rule.decide(coarse_document, policy, ROOT)
+decisions["r6-coarse-grouping"] = coarse_decision
 check("r6: грубая группировка переворачивает терминал — и это объявлено",
-      decisions["r6-coarse-grouping"]["terminal"] == "REDESIGN_OR_DISCARD"
-      and r6["terminal"] == "CLOSE")
+      coarse_decision["terminal"] == coarse_document["expected"]["terminal"] == "REDESIGN_OR_DISCARD"
+      and r6["terminal"] == "CLOSE", coarse_decision["terminal"])
+check("грубая группировка срабатывает на объявленном раунде",
+      coarse_decision["atRound"] == coarse_document["expected"]["atRound"],
+      f"{coarse_decision['atRound']} != {coarse_document['expected']['atRound']}")
+check("расхождение грубой группировки с записанным решением объявлено",
+      bool(str(coarse_document["expected"].get("note") or "").strip()))
 
 
 # ---------------------------------------------------------------------------
@@ -294,12 +356,16 @@ for cap in (3, 8):
     check(f"анти-Goodhart: на первых {cap} раундах R6 правило говорит CONTINUE",
           decision["terminal"] == "CONTINUE", decision["terminal"])
 
-# Терминал не зависит от порядка раундов.
+# Терминалы ПОВТОРА не зависят от порядка раундов (повтор — свойство
+# множества); терминалы ЗАКРЫТИЯ зависят от ХВОСТА по построению — CLOSE
+# требует, чтобы последним суждением был чистый PASSED, и это проверено выше
+# («срыв маршрута ПОСЛЕ зелёного не закрывает маршрут»). Прежняя формулировка
+# «терминал не зависит от порядка» переобещала (находка ревьюера r28).
 gpg_history = load("gpg-001-broker-policy")
 shuffled = copy.deepcopy(gpg_history)
 shuffled["rounds"] = list(reversed(shuffled["rounds"]))
 shuffled_decision = rule.decide(shuffled, policy, ROOT)
-check("порядок раундов не меняет терминал",
+check("порядок раундов не меняет терминал повтора",
       shuffled_decision["terminal"] == gpg["terminal"])
 check("порядок раундов меняет только раунд срабатывания",
       shuffled_decision["atRound"] != gpg["atRound"],
@@ -395,6 +461,13 @@ rejects("механизм без класса дефекта",
         synthetic([narrative_round("a", "BLOCKED", [{"surface": "s"}])]), policy)
 rejects("вердикт вне словаря политики",
         synthetic([narrative_round("a", "MAYBE", [])]), policy)
+rejects("группа слияния из повторённого ключа",
+        synthetic([narrative_round("a", "PASSED", [])],
+                  mergeKeys=[{"label": "x", "members": [["f", "c"], ["f", "c"]]}]), policy)
+check("политика объявляет личность кандидата необязательной и называет цену отсутствия",
+      policy["candidateIdentity"].get("optional") is True
+      and "requiredFor" not in policy["candidateIdentity"]
+      and bool(str(policy["candidateIdentity"].get("optionalNote") or "").strip()))
 rejects("группа слияния из одного ключа",
         synthetic([narrative_round("a", "PASSED", [])],
                   mergeKeys=[{"label": "x", "members": [["f", "c"]]}]), policy)
@@ -404,26 +477,26 @@ rejects("РАЗДЕЛЕНИЕ ключа между двумя группами"
                              {"label": "y", "members": [["f", "c"], ["h", "c"]]}]), policy)
 rejects("criteriaPresent непустой строкой вместо булева",
         synthetic([narrative_round("a", "PASSED", [])],
-                  policyBinding={"ledgerUnit": "A", "contractUnit": "A",
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic",
                                  "criteriaPresent": "да"}), policy)
 rejects("criteriaPresent числом",
         synthetic([narrative_round("a", "PASSED", [])],
-                  policyBinding={"ledgerUnit": "A", "contractUnit": "A",
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic",
                                  "criteriaPresent": 1}), policy)
 rejects("дефект привязки не отменяет проверку провенанса раундов",
-        synthetic([{"id": "a", "terminal": "verdict", "candidate": "c1",
+        synthetic([{"id": "a", "terminal": "verdict", "candidate": "d0f631ca1ddba8db",
                     "provenance": {"class": "report", "path": EVIDENCE_FILES[0],
                                    "sha256": "0" * 64}}],
-                  policyBinding={"ledgerUnit": "A", "contractUnit": "B",
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "other-unit",
                                  "criteriaPresent": True}), policy)
 rejects("дефект привязки не отменяет проверку исхода раунда",
         synthetic([{"id": "a", "terminal": "transport", "outcome": "LOOKS_FINE",
                     "provenance": {"class": "absent"}}],
-                  policyBinding={"ledgerUnit": "A", "contractUnit": "B",
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "other-unit",
                                  "criteriaPresent": True}), policy)
 rejects("привязка политики без поля criteriaPresent",
         synthetic([narrative_round("a", "PASSED", [])],
-                  policyBinding={"ledgerUnit": "A", "contractUnit": "A"}), policy)
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic"}), policy)
 
 # Диспозиции находок: снятие со счёта повторов обязано быть обоснованным.
 s04b_for_dispositions = load("s04b")
@@ -486,19 +559,19 @@ rejects("раунд предусловия с транспортным исхо�
 # Вердикт, чьё содержание не сохранилось, остаётся законным — но только с
 # цитатой записи и объявленной причиной.
 unrecorded_verdict = synthetic([{
-    "id": "a", "terminal": "verdict", "candidate": "cand-a",
+    "id": "a", "terminal": "verdict", "candidate": "985299dad5005202",
     "provenance": {"class": "narrative", "path": SYNTHETIC_SOURCE, "line": SYNTHETIC_LINE},
     "declared": {"verdict": "BLOCKED", "contentRecorded": False,
                  "why": "отчёт не сохранён"}}])
 check("вердикт с цитатой и объявленной утратой содержания принимается и виден отдельно",
       rule.decide(unrecorded_verdict, policy, ROOT)["contentMissing"] == ["a"])
 rejects("утрата содержания без основания",
-        synthetic([{"id": "a", "terminal": "verdict", "candidate": "c",
+        synthetic([{"id": "a", "terminal": "verdict", "candidate": "2e7d2c03a9507ae2",
                     "provenance": {"class": "narrative", "path": SYNTHETIC_SOURCE,
                                    "line": SYNTHETIC_LINE},
                     "declared": {"verdict": "BLOCKED", "contentRecorded": False}}]), policy)
 rejects("утрата содержания вместе с объявленными механизмами",
-        synthetic([{"id": "a", "terminal": "verdict", "candidate": "c",
+        synthetic([{"id": "a", "terminal": "verdict", "candidate": "2e7d2c03a9507ae2",
                     "provenance": {"class": "narrative", "path": SYNTHETIC_SOURCE,
                                    "line": SYNTHETIC_LINE},
                     "declared": {"verdict": "BLOCKED", "contentRecorded": False,
@@ -506,7 +579,7 @@ rejects("утрата содержания вместе с объявленны�
                                                                "defectClass": "c"}]}}]),
         policy)
 rejects("contentRecorded нелогического типа",
-        synthetic([{"id": "a", "terminal": "verdict", "candidate": "c",
+        synthetic([{"id": "a", "terminal": "verdict", "candidate": "2e7d2c03a9507ae2",
                     "provenance": {"class": "narrative", "path": SYNTHETIC_SOURCE,
                                    "line": SYNTHETIC_LINE},
                     "declared": {"verdict": "BLOCKED", "contentRecorded": "no"}}]), policy)
@@ -526,9 +599,9 @@ rejects("нелогический флаг диспозиции в переск�
 # Повтор без установленной смены кандидата вердикта не выносит.
 same_candidate = [
     narrative_round("a", "BLOCKED", [mechanism("одна поверхность", "correctness")],
-                    candidate="cand-x"),
+                    candidate="149403d6237fdb69"),
     narrative_round("b", "BLOCKED", [mechanism("одна поверхность", "correctness")],
-                    candidate="cand-x"),
+                    candidate="149403d6237fdb69"),
 ]
 same_candidate_decision = rule.decide(synthetic(same_candidate), policy, ROOT)
 check("повтор на ОДНОМ кандидате даёт RECURRENCE_UNCONFIRMED, а не вердикт",
@@ -578,8 +651,15 @@ pass_then_transport = synthetic([
     narrative_round("a", "PASSED", []),
     {"id": "t1", "terminal": "transport", "outcome": "TIMEOUT",
      "provenance": {"class": "absent"}}])
-check("чистый PASS не превращается в ROUTE_REPAIR из-за последующего срыва",
-      rule.decide(pass_then_transport, policy, ROOT)["terminal"] == "CLOSE")
+check("срыв маршрута ПОСЛЕ зелёного не закрывает маршрут",
+      rule.decide(pass_then_transport, policy, ROOT)["terminal"] == "ROUTE_REPAIR",
+      rule.decide(pass_then_transport, policy, ROOT)["terminal"])
+check("закрытие остаётся, когда последний раунд и есть чистый PASS",
+      rule.decide(synthetic([
+          {"id": "t1", "terminal": "transport", "outcome": "TIMEOUT",
+           "provenance": {"class": "absent"}},
+          narrative_round("a", "PASSED", []),
+      ]), policy, ROOT)["terminal"] == "CLOSE")
 
 check("политика перечисляет оба новых терминала в порядке применения",
       policy["precedence"] == ["ROUTE_DEFECT", "REDESIGN_OR_DISCARD",
@@ -675,6 +755,567 @@ check("статус критериев считается по всем крит
       binding["statusSatisfied"] == (binding["criteriaTotal"] > 0
                                      and binding["criteriaMatchingStatus"] == binding["criteriaTotal"]))
 
+# Личности кандидатов пересчитываются из журналов промптов там, где журнал
+# есть на хосте: объявленное значение обязано совпасть с вычисленным.
+recomputed = 0
+for history_name in HISTORIES:
+    document = load(history_name)
+    source = document.get("candidateSource") or {}
+    if source.get("kind") != "prompt-ledger-diff-sha256":
+        continue
+    prefix = source["prefix"]
+    for entry in document["rounds"]:
+        declared_candidate = entry.get("candidate")
+        if not declared_candidate:
+            continue
+        # Тот же поиск, что у правила: две копии разошлись бы молча, и сверка
+        # смотрела бы не в те файлы, что пересчёт.
+        ledger = rule.round_ledger_path(source, str(entry["id"]), ROOT)
+        if ledger is None:
+            continue
+        recomputed += 1
+        checks += 1
+        computed = rule.candidate_identity_from_ledger(ledger)
+        if computed != declared_candidate:
+            failures.append(
+                f"{history_name}/{entry['id']}: объявленная личность кандидата "
+                f"не совпадает с пересчитанной из {ledger.name}"
+            )
+        checks += 1
+        if declared_candidate == rule.sha256_of(ledger)[:16]:
+            failures.append(
+                f"{history_name}/{entry['id']}: личность равна хешу ВСЕГО журнала — "
+                f"обёртка промпта не должна входить в идентичность кандидата"
+            )
+# Журналы промптов принадлежат ХОСТУ: они git-ignored и в изолированном дереве
+# машинной ноги отсутствуют по построению. Требовать их наличия значило бы
+# делать оракул false-red там, где он обязан быть зелёным (класс LPD-003-1).
+# Поэтому проверяется совпадение КАЖДОГО присутствующего журнала, а количество
+# объявляется отдельной строкой, а не порогом.
+declared_candidates = sum(
+    1 for name in HISTORIES for entry in load(name)["rounds"]
+    if entry.get("candidate")
+)
+# ТОЧНОЕ число, а не порог: «>= 20» пропускал бы тихую потерю четырёх личностей
+# при правке историй (находка ревьюера, раунд r20). Правишь истории — правь
+# константу той же правкой, это и есть смысл точного равенства.
+check("объявленные личности кандидатов есть у каждого записанного раунда",
+      declared_candidates == 24, str(declared_candidates))
+# Полнота: в истории с журнальным источником КАЖДЫЙ вердикт-раунд с
+# машинным отчётом обязан объявлять личность — молчаливый пропуск раунда
+# делал бы его невидимым для сверки смены кандидата.
+for history_name in HISTORIES:
+    document = load(history_name)
+    if (document.get("candidateSource") or {}).get("kind") != "prompt-ledger-diff-sha256":
+        continue
+    for entry in document["rounds"]:
+        if entry.get("terminal") != "verdict":
+            continue
+        if (entry.get("provenance") or {}).get("class") != "report":
+            continue
+        checks += 1
+        if not entry.get("candidate"):
+            failures.append(
+                f"{history_name}/{entry.get('id')}: вердикт с машинным отчётом "
+                f"не объявил личность кандидата"
+            )
+available_ledgers = sum(
+    1 for name in HISTORIES
+    if (load(name).get("candidateSource") or {}).get("kind") == "prompt-ledger-diff-sha256"
+    for entry in load(name)["rounds"]
+    if entry.get("candidate")
+    and rule.round_ledger_path(load(name)["candidateSource"], str(entry["id"]), ROOT) is not None
+)
+# Каждый ДОСТУПНЫЙ журнал обязан быть пересчитан: available == recomputed
+# отличает «журналов нет по построению» (изоляция, класс LPD-003-1) от
+# «журналы есть, но сверка их пропустила» (false-green, находка r20).
+check("каждый доступный журнал промптов пересчитан",
+      recomputed == available_ledgers,
+      f"available={available_ledgers} recomputed={recomputed}")
+print(f"CANDIDATE IDENTITIES: declared={declared_candidates} "
+      f"available-ledgers={available_ledgers} "
+      f"recomputed-from-host-ledgers={recomputed}"
+      + ("" if recomputed else
+         "  (журналы промптов host-owned и git-ignored: в изолированном дереве"
+         " их нет по построению — это класс, а не красный)"))
+# Ключевая гарантия исправления: личность нечувствительна к обёртке промпта и
+# чувствительна к диффу. Проверяется на собранных журналах, а не на записи.
+def synthetic_ledger(directory: Path, diff_text: str, wrapper: str) -> Path:
+    written = directory / "ledger.jsonl"
+    written.write_text("\n".join(json.dumps({
+        "entry": "itd-prompt-ledger-entry-v1", "kind": "unit", "unitIndex": index,
+        "prompt": (f"{wrapper}\nBEGIN UNTRUSTED DIFF UNIT\n{chunk}"
+                   f"END UNTRUSTED DIFF UNIT\n{wrapper}\n"),
+    }, ensure_ascii=False) for index, chunk in enumerate(diff_text.split("|"))) + "\n",
+        encoding="utf-8")
+    return written
+
+
+for label, diff_text, wrapper in (("base", "diff-one\n|diff-two\n", "instructions v1"),
+                                  ("wrapper", "diff-one\n|diff-two\n", "COMPLETELY OTHER WRAPPER"),
+                                  ("diff", "diff-one\n|diff-CHANGED\n", "instructions v1")):
+    with tempfile.TemporaryDirectory(prefix="itd-stop-rule-ledger-") as scratch:
+        written = synthetic_ledger(Path(scratch), diff_text, wrapper)
+        globals()[f"identity_{label}"] = rule.candidate_identity_from_ledger(written)
+check("личность не меняется от правки обёртки промпта",
+      identity_base == identity_wrapper, f"{identity_base} != {identity_wrapper}")
+check("личность меняется от правки диффа",
+      identity_base != identity_diff, f"{identity_base} == {identity_diff}")
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-ledger-") as scratch:
+    wrapper_only = Path(scratch) / "ledger.jsonl"
+    wrapper_only.write_text(json.dumps({
+        "entry": "itd-prompt-ledger-entry-v1", "kind": "integration",
+        "prompt": "инструкции ревьюеру без единого участка диффа\n",
+    }, ensure_ascii=False) + "\n", encoding="utf-8")
+    check("личность не выдумывается из журнала без участков диффа",
+          rule.candidate_identity_from_ledger(wrapper_only) is None,
+          str(rule.candidate_identity_from_ledger(wrapper_only)))
+check("нежурнальный файл личности не даёт",
+      rule.candidate_identity_from_ledger(ROOT / "tests" / "verify_stop_rule.py") is None)
+
+# Замер, который прежний (по всему журналу) хеш прятал: в S04b раунды PUB5 и
+# PUB6 судили ОДИН И ТОТ ЖЕ кандидат — первый дал PASSED, второй BLOCKED.
+s04b_candidates = {entry["id"]: entry.get("candidate")
+                   for entry in load("s04b")["rounds"] if entry.get("candidate")}
+check("S04b: PUB5 и PUB6 стоят на одном кандидате",
+      s04b_candidates.get("PUB5") == s04b_candidates.get("PUB6")
+      and s04b_candidates.get("PUB5") is not None,
+      f"{s04b_candidates.get('PUB5')} vs {s04b_candidates.get('PUB6')}")
+
+# Точка ПРИМЕНЕНИЯ, а не только загрузки: критерии активного юнита в статусе
+# pending обязаны давать невыровненную привязку, иначе правило обещало бы то,
+# в чём маршрут откажет.
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-binding-") as scratch:
+    fake_root = Path(scratch)
+    (fake_root / ".itd").mkdir()
+    (fake_root / ".itd-memory").mkdir()
+    (fake_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(json.dumps({
+        "activeFollowup": {"unitId": "UNIT-7"},
+        "criteria": [{"id": "UNIT-7-1-example", "status": "pending"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    (fake_root / ".itd-memory" / "STATE.json").write_text(json.dumps({
+        "currentUnit": {"id": "UNIT-7"},
+    }, ensure_ascii=False), encoding="utf-8")
+    pending_binding = rule.live_policy_binding(policy, fake_root)
+    check("критерии в статусе pending не дают выровненной привязки",
+          pending_binding["statusSatisfied"] is False
+          and pending_binding["aligned"] is False,
+          str(pending_binding))
+    (fake_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(json.dumps({
+        "activeFollowup": {"unitId": "UNIT-7"},
+        "criteria": [{"id": "UNIT-7-1-example", "status": "passed"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    passed_binding = rule.live_policy_binding(policy, fake_root)
+    check("те же критерии в статусе passed привязку выравнивают",
+          passed_binding["aligned"] is True, str(passed_binding))
+    # Граница префикса: критерий чужого юнита UNIT-70 своим не считается.
+    (fake_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(json.dumps({
+        "activeFollowup": {"unitId": "UNIT-7"},
+        "criteria": [{"id": "UNIT-70-1-foreign", "status": "passed"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    # Вторая линия, независимая от заморозки: если ослабленная политика придёт
+    # в точку применения МИМО load_policy, выравнивания всё равно не будет.
+    smuggled = copy.deepcopy(policy)
+    smuggled["policyBinding"]["requireCriteriaStatus"] = None
+    (fake_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(json.dumps({
+        "activeFollowup": {"unitId": "UNIT-7"},
+        "criteria": [{"id": "UNIT-7-1-example", "status": "pending"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    smuggled_binding = rule.live_policy_binding(smuggled, fake_root)
+    check("ослабленная мимо load_policy привязка не выравнивается",
+          smuggled_binding["statusSatisfied"] is False
+          and smuggled_binding["aligned"] is False,
+          str(smuggled_binding))
+    (fake_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(json.dumps({
+        "activeFollowup": {"unitId": "UNIT-7"},
+        "criteria": [{"id": "UNIT-70-1-foreign", "status": "passed"}],
+    }, ensure_ascii=False), encoding="utf-8")
+    foreign_binding = rule.live_policy_binding(policy, fake_root)
+    check("критерий соседнего юнита UNIT-70 не засчитывается юниту UNIT-7",
+          foreign_binding["criteriaPresent"] is False
+          and foreign_binding["aligned"] is False,
+          str(foreign_binding))
+
+# Ключ механизма обязан зависеть от НАЗВАННОГО механизма, а не от написания:
+# иначе повтор снимается пробелом или регистром, то есть ровно тем действием,
+# против которого правило и написано (находка ревьюера, раунд r18).
+check("краевые пробелы не создают нового механизма",
+      rule.raw_key({"file": "a.py", "category": " security"})
+      == rule.raw_key({"file": "a.py", "category": "security"}))
+check("внутренние пробелы схлопываются",
+      rule.raw_key({"file": "a.py", "category": "input  validation"})
+      == rule.raw_key({"file": "a.py", "category": "input validation"}))
+check("регистр категории не создаёт нового механизма",
+      rule.raw_key({"file": "a.py", "category": "Security"})
+      == rule.raw_key({"file": "a.py", "category": "security"}))
+check("регистр ПУТИ механизмы не склеивает",
+      rule.raw_key({"file": "A.py", "category": "security"})
+      != rule.raw_key({"file": "a.py", "category": "security"}),
+      "на регистрозависимой ФС это разные файлы")
+check("краевые пробелы пути не создают нового механизма",
+      rule.raw_key({"file": " a.py ", "category": "security"})
+      == rule.raw_key({"file": "a.py", "category": "security"}))
+check("разные механизмы остаются разными",
+      rule.raw_key({"file": "a.py", "category": "security"})
+      != rule.raw_key({"file": "a.py", "category": "correctness"}))
+
+# Объявленное слияние обязано совпадать с ключом находки байт в байт ПОСЛЕ
+# нормализации: две копии канонизации разошлись бы молча.
+merge_map = rule.build_merge_map({"mergeKeys": [{
+    "label": "группа", "members": [[" a.py ", " Security"], ["b.py", "path safety"]],
+}]})
+check("член mergeKeys нормализуется так же, как ключ находки",
+      rule.mechanism_of({"file": "a.py", "category": "security"}, merge_map) == "группа",
+      str(merge_map))
+try:
+    rule.build_merge_map({"mergeKeys": [{
+        "label": "мнимая пара", "members": [["a.py", "security"], ["a.py", " Security "]],
+    }]})
+except rule.StopRuleError:
+    check("два написания одного ключа группой из двух не делают", True)
+else:
+    check("два написания одного ключа группой из двух не делают", False)
+
+# Поведенческая проверка целиком: повтор, записанный в двух написаниях, обязан
+# опознаваться как ОДИН механизм и давать останов.
+def whitespace_history() -> dict:
+    base = load("s04b")
+    rounds = []
+    for index, spelling in enumerate((" security", "Security")):
+        rounds.append({
+            "id": f"w{index + 1}", "terminal": "verdict",
+            "candidate": f"{index + 1:016x}",
+            "provenance": {"class": "narrative",
+                           "path": ".itd/DECISIONS.md", "line": 1},
+            "declared": {"verdict": "BLOCKED", "mechanisms": [
+                {"surface": "scripts/x.py", "defectClass": spelling},
+            ]},
+        })
+    return {"schema": base["schema"], "unit": "WS-1",
+            "orderSource": "синтетическая проверка написаний",
+        "orderProvenance": {"class": "artifact-list"},
+            "candidateSource": {"kind": "declared", "archived": False,
+                                "note": "синтетика"},
+            "policyBinding": {"contractUnit": "WS-1", "ledgerUnit": "WS-1",
+                              "criteriaPresent": True},
+            "rounds": rounds}
+
+
+whitespace_decision = rule.decide(whitespace_history(), policy, ROOT)
+check("повтор в двух написаниях опознан как один механизм",
+      whitespace_decision["terminal"] == "REDESIGN_OR_DISCARD",
+      whitespace_decision["terminal"])
+
+# Редизайн после r19: закрытые словари проверяются и во внутренних функциях,
+# личность кандидата имеет формат, объявленное сверяется с журналом.
+# Путь и строка НАСТОЯЩИЕ: единственной причиной отказа обязано быть членство
+# класса, иначе проверка проходила бы за счёт несуществующего файла и мутация
+# «снять membership» переживала бы её молча.
+try:
+    rule.validate_provenance({"class": "forged", "path": ".itd/DECISIONS.md",
+                              "line": 1}, "verdict", "direct", ROOT)
+except rule.StopRuleError as exc:
+    check("validate_provenance сам отвергает неизвестный класс",
+          "must be one of" in str(exc), str(exc))
+else:
+    check("validate_provenance сам отвергает неизвестный класс", False)
+
+for bad in ("z" * 16, "AB12CD34EF56AB12", "abc", "cand-x"):
+    checks += 1
+    try:
+        rule.decide(synthetic([narrative_round(
+            "a", "BLOCKED", [mechanism("a.py", "x")], candidate=bad)]),
+            policy, ROOT)
+    except rule.StopRuleError as exc:
+        # Причина отказа обязана быть именно форматом личности.
+        if "16 lowercase hex" not in str(exc):
+            failures.append(f"личность {bad!r} отвергнута не форматом: {exc}")
+    else:
+        failures.append(f"личность {bad!r} принята — а это не вывод "
+                        f"candidate_identity_from_ledger")
+
+# Сверка объявленной личности с журналом: подделка — отказ, отсутствие — счёт.
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-idcheck-") as scratch:
+    scratch_root = Path(scratch)
+    (scratch_root / "ledgers").mkdir()
+    (scratch_root / ".itd").mkdir()
+    (scratch_root / ".itd" / "DECISIONS.md").write_text(
+        "строка для пересказного провенанса\n", encoding="utf-8")
+    written = synthetic_ledger(scratch_root / "ledgers", "diff-x\n|diff-y\n", "w")
+    named = scratch_root / "ledgers" / "U-r1-prompt.md.ledger.jsonl"
+    written.rename(named)
+    true_identity = rule.candidate_identity_from_ledger(named)
+    forged_identity = ("0" * 16 if true_identity != "0" * 16 else "1" * 16)
+    id_history = {
+        "schema": rule.HISTORY_SCHEMA, "unit": "U", "orderSource": "t",
+        "orderProvenance": {"class": "artifact-list"},
+        "candidateSource": {"kind": "prompt-ledger-diff-sha256", "prefix": "U",
+                            "directories": ["ledgers"], "archived": False,
+                            "note": "t"},
+        "policyBinding": {"contractUnit": "U", "ledgerUnit": "U",
+                          "criteriaPresent": True},
+        "rounds": [{"id": "r1", "terminal": "verdict",
+                    "candidate": forged_identity,
+                    "provenance": {"class": "narrative",
+                                   "path": ".itd/DECISIONS.md", "line": 1},
+                    "declared": {"verdict": "BLOCKED", "mechanisms": [
+                        {"surface": "a.py", "defectClass": "x"}]}}],
+    }
+    try:
+        rule.decide(id_history, policy, scratch_root)
+    except rule.StopRuleError:
+        check("личность, опровергнутая журналом, роняет разбор", True)
+    else:
+        check("личность, опровергнутая журналом, роняет разбор", False)
+    id_history["rounds"][0]["candidate"] = true_identity
+    verified_decision = rule.decide(id_history, policy, scratch_root)
+    check("совпавшая личность засчитана как проверенная",
+          verified_decision["candidateIdentities"]
+          == {"declared": 1, "verified": 1, "unverifiable": 0},
+          str(verified_decision["candidateIdentities"]))
+    # r26: вердикт-раунд без объявленной личности при ДОСТУПНОМ журнале — отказ.
+    id_history["rounds"][0].pop("candidate")
+    try:
+        rule.decide(id_history, policy, scratch_root)
+    except rule.StopRuleError as exc:
+        check("умолчание личности при доступном журнале — отказ",
+              "declares no candidate" in str(exc), str(exc))
+    else:
+        check("умолчание личности при доступном журнале — отказ", False)
+    id_history["rounds"][0]["candidate"] = true_identity
+    named.unlink()
+    # Без журнала то же умолчание законно: журналы host-owned (класс LPD-003-1).
+    id_history["rounds"][0].pop("candidate")
+    no_ledger_no_declared = rule.decide(id_history, policy, scratch_root)
+    check("умолчание личности без журнала — не отказ",
+          isinstance(no_ledger_no_declared, dict))
+    id_history["rounds"][0]["candidate"] = true_identity
+    absent_decision = rule.decide(id_history, policy, scratch_root)
+    check("отсутствие журнала — host-owned класс, а не отказ",
+          absent_decision["candidateIdentities"]
+          == {"declared": 1, "verified": 0, "unverifiable": 1},
+          str(absent_decision["candidateIdentities"]))
+
+# Ключи provenanceClasses политики совпадают с классами кода один в один:
+# документированный ключ, прочитанный как класс, обязан БЫТЬ классом — иначе
+# история по докам законна, а кодом отвергается (находка ревьюера, раунд r21).
+check("классы провенанса политики и кода совпадают",
+      tuple(sorted(policy["provenanceClasses"])) == tuple(sorted(rule.PROVENANCE_CLASSES)),
+      f"{sorted(policy['provenanceClasses'])} vs {sorted(rule.PROVENANCE_CLASSES)}")
+
+# Контрактные скаляры политики заморожены декларативной картой (r24):
+for label, mutate_scalar in (
+    ("порог различимых раундов поднят до 3",
+     lambda p: p["mechanismKey"].__setitem__("distinctRoundsRequired", 3)),
+    ("порог различимых раундов подан строкой",
+     lambda p: p["mechanismKey"].__setitem__("distinctRoundsRequired", "2")),
+    ("порог различимых раундов подан булевым",
+     lambda p: p["mechanismKey"].__setitem__("distinctRoundsRequired", True)),
+):
+    checks += 1
+    mutated = copy.deepcopy(policy)
+    mutate_scalar(mutated)
+    with tempfile.TemporaryDirectory(prefix="itd-stop-rule-") as scratch:
+        written = Path(scratch) / "mutated-policy.json"
+        written.write_text(json.dumps(mutated, ensure_ascii=False), encoding="utf-8")
+        try:
+            rule.load_policy(written)
+        except rule.StopRuleError:
+            pass
+        else:
+            failures.append(f"мутация политики принята: {label}")
+
+# Незакрытый BEGIN-маркер журнала — отказ, а не частичный хеш и не None (r24).
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-ledger-") as scratch:
+    broken = Path(scratch) / "ledger.jsonl"
+    broken.write_text(json.dumps({
+        "entry": "itd-prompt-ledger-entry-v1", "kind": "unit", "unitIndex": 0,
+        "prompt": ("w\nBEGIN UNTRUSTED DIFF UNIT\nfull-one\n"
+                   "END UNTRUSTED DIFF UNIT\nw\n"
+                   "BEGIN UNTRUSTED DIFF UNIT\ntruncated-tail"),
+    }, ensure_ascii=False) + "\n", encoding="utf-8")
+    try:
+        rule.candidate_identity_from_ledger(broken)
+    except rule.StopRuleError as exc:
+        check("незакрытый сегмент диффа в журнале — отказ, а не частичный хеш",
+              "unterminated" in str(exc), str(exc))
+    else:
+        check("незакрытый сегмент диффа в журнале — отказ, а не частичный хеш", False)
+
+# Находки r25: привязка называет юнит СВОЕЙ истории; секции политики — объекты.
+rejects("привязка объявляет чужую пару одинаковых юнитов",
+        synthetic([narrative_round("a", "BLOCKED", [mechanism("a.py", "x")])],
+                  policyBinding={"ledgerUnit": "FOREIGN-9", "contractUnit": "FOREIGN-9",
+                                 "criteriaPresent": True}), policy)
+rejects("голый startswith не делает LPD003-30 серией юнита LPD003-3",
+        synthetic([narrative_round("a", "BLOCKED", [mechanism("a.py", "x")])],
+                  unit="synthetic0",
+                  policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic",
+                                 "criteriaPresent": True}), policy)
+for section_name in ("mechanismKey", "terminalClasses", "policyBinding"):
+    checks += 1
+    mutated = copy.deepcopy(policy)
+    mutated[section_name] = None
+    with tempfile.TemporaryDirectory(prefix="itd-stop-rule-") as scratch:
+        written = Path(scratch) / "mutated-policy.json"
+        written.write_text(json.dumps(mutated, ensure_ascii=False), encoding="utf-8")
+        try:
+            rule.load_policy(written)
+        except rule.StopRuleError:
+            pass
+        except AttributeError:
+            failures.append(f"null-секция {section_name} даёт AttributeError, а не StopRuleError")
+        else:
+            failures.append(f"null-секция {section_name} принята")
+
+# r31: сегменты хешируются в порядке ПОЯВЛЕНИЯ, а не по виду маркера.
+def mixed_ledger(directory: Path, order: list) -> Path:
+    written = directory / "ledger.jsonl"
+    prompt = "w\n" + "".join(
+        f"BEGIN UNTRUSTED {marker}\n{chunk}END UNTRUSTED {marker}\n"
+        for marker, chunk in order)
+    written.write_text(json.dumps({
+        "entry": "itd-prompt-ledger-entry-v1", "kind": "unit", "unitIndex": 0,
+        "prompt": prompt}, ensure_ascii=False) + "\n", encoding="utf-8")
+    return written
+
+
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-mixed-") as scratch:
+    forward = rule.candidate_identity_from_ledger(mixed_ledger(
+        Path(scratch), [("DIFF UNIT", "one\n"), ("REVIEW DIFF", "two\n"),
+                        ("DIFF UNIT", "three\n")]))
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-mixed-") as scratch:
+    reordered = rule.candidate_identity_from_ledger(mixed_ledger(
+        Path(scratch), [("DIFF UNIT", "one\n"), ("DIFF UNIT", "three\n"),
+                        ("REVIEW DIFF", "two\n")]))
+with tempfile.TemporaryDirectory(prefix="itd-stop-rule-mixed-") as scratch:
+    same_content_plain = rule.candidate_identity_from_ledger(mixed_ledger(
+        Path(scratch), [("DIFF UNIT", "one\n"), ("DIFF UNIT", "two\n"),
+                        ("DIFF UNIT", "three\n")]))
+check("личность смешанного журнала считается в порядке появления",
+      forward == same_content_plain, f"{forward} != {same_content_plain}")
+check("перестановка сегментов меняет личность",
+      forward != reordered)
+
+# r31: битые live-леджеры -> StopRuleError, а не трейсбэк.
+for label, contract_text in (("не-JSON", "{broken"), ("корень-список", "[]")):
+    checks += 1
+    with tempfile.TemporaryDirectory(prefix="itd-stop-rule-badjson-") as scratch:
+        bad_root = Path(scratch)
+        (bad_root / ".itd").mkdir()
+        (bad_root / ".itd-memory").mkdir()
+        (bad_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
+            contract_text, encoding="utf-8")
+        (bad_root / ".itd-memory" / "STATE.json").write_text(
+            json.dumps({"currentUnit": {"id": "U"}}), encoding="utf-8")
+        try:
+            rule.live_policy_binding(policy, bad_root)
+        except rule.StopRuleError:
+            pass
+        except Exception as exc:
+            failures.append(f"битый контракт ({label}) дал {type(exc).__name__}, "
+                            f"а не StopRuleError")
+        else:
+            failures.append(f"битый контракт ({label}) принят")
+
+# r32: идентификаторы юнита в live-леджерах типизированы, str(None)-коэрция
+# «None» == «None» больше не выравнивает привязку без активного юнита.
+for label, contract_doc, ledger_doc in (
+    ("оба юнита отсутствуют",
+     {"activeFollowup": {}, "criteria": [{"id": "None-1", "status": "passed"}]},
+     {"currentUnit": {}}),
+    ("юнит леджера null",
+     {"activeFollowup": {"unitId": "U-1"}, "criteria": []},
+     {"currentUnit": {"id": None}}),
+    ("юнит контракта пустая строка",
+     {"activeFollowup": {"unitId": "  "}, "criteria": []},
+     {"currentUnit": {"id": "U-1"}}),
+):
+    checks += 1
+    with tempfile.TemporaryDirectory(prefix="itd-stop-rule-liveunit-") as scratch:
+        live_root = Path(scratch)
+        (live_root / ".itd").mkdir()
+        (live_root / ".itd-memory").mkdir()
+        (live_root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
+            json.dumps(contract_doc, ensure_ascii=False), encoding="utf-8")
+        (live_root / ".itd-memory" / "STATE.json").write_text(
+            json.dumps(ledger_doc, ensure_ascii=False), encoding="utf-8")
+        try:
+            rule.live_policy_binding(policy, live_root)
+        except rule.StopRuleError:
+            pass
+        else:
+            failures.append(f"живая привязка без активного юнита принята: {label}")
+
+# r33: недоверенные candidateSource.directories заперты под root.
+for label, escape_dirs in (
+    ("абсолютный каталог", ["/etc"]),
+    ("traversal", ["../../.."]),
+):
+    checks += 1
+    escape_history = {
+        "schema": rule.HISTORY_SCHEMA, "unit": "ESC-1", "orderSource": "t",
+        "orderProvenance": {"class": "artifact-list"},
+        "candidateSource": {"kind": "prompt-ledger-diff-sha256", "prefix": "passwd",
+                            "directories": escape_dirs, "archived": False,
+                            "note": "t"},
+        "policyBinding": {"contractUnit": "ESC-1", "ledgerUnit": "ESC-1",
+                          "criteriaPresent": True},
+        "rounds": [{"id": "r1", "terminal": "verdict",
+                    "candidate": "0" * 16,
+                    "provenance": {"class": "narrative",
+                                   "path": SYNTHETIC_SOURCE,
+                                   "line": SYNTHETIC_LINE},
+                    "declared": {"verdict": "BLOCKED", "mechanisms": [
+                        {"surface": "a.py", "defectClass": "x"}]}}],
+    }
+    try:
+        rule.decide(escape_history, policy, ROOT)
+    except rule.StopRuleError as exc:
+        if "escapes the repository root" not in str(exc):
+            failures.append(f"выход за root ({label}) отвергнут не границей: {exc}")
+    else:
+        failures.append(f"candidateSource с выходом за root принят: {label}")
+
+# r33: --root управляет и путём политики по умолчанию.
+cli_probe = subprocess.run(
+    [sys.executable, "-I", str(ROOT / "scripts" / "itd_stop_rule.py"),
+     "--root", tempfile.gettempdir(), "--check-binding"],
+    capture_output=True, text=True)
+cli_error = cli_probe.stderr + cli_probe.stdout
+check("--root без своей политики падает именно на политике этого root",
+      cli_probe.returncode != 0 and "Traceback" not in cli_error
+      and "policy is missing" in cli_error,
+      cli_error[-200:])
+
+# r34: источник порядка проверяется машинно.
+rejects("история без orderProvenance",
+        {k: v for k, v in synthetic([narrative_round("a", "PASSED", [])]).items()
+         if k != "orderProvenance"}, policy)
+rejects("orderProvenance с неизвестным классом",
+        synthetic([narrative_round("a", "PASSED", [])],
+                  orderProvenance={"class": "vibes"}), policy)
+rejects("recorded-document без path",
+        synthetic([narrative_round("a", "PASSED", [])],
+                  orderProvenance={"class": "recorded-document", "line": 1}), policy)
+order_doc_missing = synthetic([narrative_round("a", "PASSED", [])],
+                              orderProvenance={"class": "recorded-document",
+                                               "path": "no/such/file.md",
+                                               "line": 1})
+try:
+    rule.decide(order_doc_missing, policy, ROOT)
+except rule.StopRuleError as exc:
+    check("recorded-document с несуществующим документом отвергается в decide",
+          "missing" in str(exc) or "orderProvenance" in str(exc), str(exc))
+else:
+    check("recorded-document с несуществующим документом отвергается в decide", False)
+check("gpg-001 объявляет recorded-document с документом серии",
+      (load("gpg-001-broker-policy").get("orderProvenance") or {}).get("class")
+      == "recorded-document")
+
+check("история без установленных личностей объявляет это видом none",
+      (load("gpg-001-broker-policy").get("candidateSource") or {}).get("kind") == "none")
+
 # Матрица провенанса: гарантия одинакова для ВСЕХ комбинаций
 # (класс терминала x класс провенанса). Прежняя форма разводила проверки по
 # отдельным ранним выходам, и каждая новая комбинация давала новую щель —
@@ -682,10 +1323,23 @@ check("статус критериев считается по всем крит
 for terminal_class, outcome in (("verdict", "BLOCKED"),
                                 ("precondition", "UNVERIFIED"),
                                 ("transport", "UNAVAILABLE")):
-    base = {"id": "m", "terminal": terminal_class, "outcome": outcome,
-            "candidate": "cand-m",
-            "declared": {"verdict": outcome,
-                         "mechanisms": [{"surface": "s", "defectClass": "c"}]}}
+    # База схемно-валидна для СВОЕГО класса: личность и вердикт-содержание
+    # несут только вердикты. Прежняя база с cand-m и verdict-полями у всех
+    # классов падала ДО проверяемого условия — вся матрица была ложной
+    # гарантией (находка ревьюера, раунд r21). Валидность базы доказана ниже
+    # позитивным прогоном: та же база с ЦЕЛЫМ провенансом принимается.
+    if terminal_class == "verdict":
+        base = {"id": "m", "terminal": terminal_class,
+                "candidate": "717a92394559df85",
+                "declared": {"verdict": outcome,
+                             "mechanisms": [{"surface": "s", "defectClass": "c"}]}}
+    else:
+        base = {"id": "m", "terminal": terminal_class, "outcome": outcome}
+    intact = {**base, "provenance": {"class": "narrative",
+                                     "path": SYNTHETIC_SOURCE,
+                                     "line": SYNTHETIC_LINE}}
+    check(f"{terminal_class}: база матрицы валидна с целым провенансом",
+          isinstance(rule.decide(synthetic([intact]), policy, ROOT), dict))
     rejects(f"{terminal_class}: пересказ без документа",
             synthetic([{**base, "provenance": {"class": "narrative", "line": 1}}]), policy)
     rejects(f"{terminal_class}: пересказ без строки",
@@ -748,12 +1402,12 @@ rejects_on_load("кандидаты без candidateSource",
                                             [mechanism("s", "correctness")])]})
 rejects_on_load("решение ссылается на несуществующий раунд",
                 {"schema": rule.HISTORY_SCHEMA, "unit": "x", "orderSource": "s",
-                 "candidateSource": "c",
+                 "candidateSource": {"kind": "synthetic"},
                  "recordedDecision": {"terminal": "CLOSE", "atRound": "nope"},
                  "rounds": [narrative_round("a", "PASSED", [])]})
 rejects_on_load("recordedDecision не объект",
                 {"schema": rule.HISTORY_SCHEMA, "unit": "x", "orderSource": "s",
-                 "candidateSource": "c", "recordedDecision": "CLOSE",
+                 "candidateSource": {"kind": "synthetic"}, "recordedDecision": "CLOSE",
                  "rounds": [narrative_round("a", "PASSED", [])]})
 
 # Обратная сторона той же гарантии: ссылка на ОБЪЯВЛЕННЫЙ пробел законна —
@@ -761,7 +1415,8 @@ rejects_on_load("recordedDecision не объект",
 checks += 1
 accepted_gap = {
     "schema": rule.HISTORY_SCHEMA, "unit": "x", "orderSource": "s",
-    "candidateSource": "c",
+    "orderProvenance": {"class": "artifact-list"},
+    "candidateSource": {"kind": "synthetic"},
     "knownGaps": [{"id": "PUB9", "why": "артефакта нет"}],
     "recordedDecision": {"terminal": "CLOSE", "atRound": "PUB9"},
     "rounds": [narrative_round("a", "PASSED", [])],
@@ -903,19 +1558,19 @@ check("живая привязка: расхождение вычисляетс�
 
 route_defect_history = synthetic(
     [narrative_round("a", "PASSED", [])],
-    policyBinding={"ledgerUnit": "A", "contractUnit": "B", "criteriaPresent": True})
+    policyBinding={"ledgerUnit": "synthetic", "contractUnit": "other-unit", "criteriaPresent": True})
 check("чужой юнит в контракте даёт ROUTE_DEFECT",
       rule.decide(route_defect_history, policy, ROOT)["terminal"] == "ROUTE_DEFECT")
 
 no_criteria_history = synthetic(
     [narrative_round("a", "PASSED", [])],
-    policyBinding={"ledgerUnit": "A", "contractUnit": "A", "criteriaPresent": False})
+    policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic", "criteriaPresent": False})
 check("отсутствие критериев юнита тоже даёт ROUTE_DEFECT",
       rule.decide(no_criteria_history, policy, ROOT)["terminal"] == "ROUTE_DEFECT")
 
 aligned_history = synthetic(
     [narrative_round("a", "PASSED", [])],
-    policyBinding={"ledgerUnit": "A", "contractUnit": "A", "criteriaPresent": True})
+    policyBinding={"ledgerUnit": "synthetic", "contractUnit": "synthetic", "criteriaPresent": True})
 check("совпадающая привязка не мешает обычному решению",
       rule.decide(aligned_history, policy, ROOT)["terminal"] == "CLOSE")
 

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -37,6 +38,52 @@ HISTORY_SCHEMA = "itd-stop-rule-history-v1"
 POLICY_SCHEMA = "itd-stop-rule-policy-v1"
 
 TERMINAL_CLASSES = ("verdict", "precondition", "transport")
+EXPECTED_PRECEDENCE = ["ROUTE_DEFECT", "REDESIGN_OR_DISCARD", "RECURRENCE_UNCONFIRMED",
+                       "ROUTE_REPAIR", "CLOSE", "CONTINUE"]
+# Значения привязки, замороженные ПО ЗНАЧЕНИЮ, а не по непустоте. Проверка
+# «строка не пуста» пропускала ослабленную политику: requireCriteriaStatus:
+# null делал statusSatisfied тривиально истинным, и критерии в статусе pending
+# считались бы выровненными — при том что продюсер отказывает по ним терминалом
+# класса precondition. requireCriteriaPrefix вообще был объявлен и не проверен
+# (находка независимого ревьюера, раунд r15).
+EXPECTED_BINDING_INVARIANTS = {
+    "requireCriteriaPrefix": True,
+    "requireCriteriaStatus": "passed",
+}
+
+# Контрактные скаляры политики, замороженные ПО ЗНАЧЕНИЮ, одной декларативной
+# картой (путь -> ожидаемое значение; сравнение по типу И по значению). Форма
+# «замораживать поля по одному по мере находок» ломалась дважды: r15 нашёл
+# незамороженный policyBinding, r24 — distinctRoundsRequired, принимавший
+# любое >= 2 (политика с 3 глушила бы REDESIGN_OR_DISCARD на втором
+# различимом раунде вопреки R1). Это повтор одного механизма по нашему же
+# правилу, поэтому меняется форма: новый контрактный скаляр добавляется в
+# карту, а не в новую if-ветку.
+EXPECTED_POLICY_SCALARS = {
+    ("status",): "advisory",
+    ("mechanismKey", "mergeOnly"): True,
+    ("mechanismKey", "distinctRoundsRequired"): 2,
+    ("policyBinding", "requireCriteriaPrefix"): True,
+    ("policyBinding", "requireCriteriaStatus"): "passed",
+}
+
+
+def frozen_scalar_violation(document: dict, path: tuple, expected) -> str | None:
+    node = document
+    for part in path:
+        node = node.get(part) if isinstance(node, dict) else None
+        if node is None:
+            break
+    if type(node) is not type(expected) or node != expected:
+        return (f"policy {'.'.join(path)} must be {expected!r}, got {node!r}: "
+                f"контрактное значение заморожено по типу и по значению")
+    return None
+
+EXPECTED_TERMINAL_VALUES = {
+    "verdict": ["PASSED", "PASSED_WITH_WARNINGS", "BLOCKED"],
+    "precondition": ["UNVERIFIED"],
+    "transport": ["UNAVAILABLE", "TIMEOUT", "ABORTED"],
+}
 PROVENANCE_CLASSES = ("report", "narrative", "absent")
 
 
@@ -66,13 +113,55 @@ def load_policy(path: Path | None = None) -> dict:
                     "policyBinding", "provenanceClasses"):
         if section not in document:
             raise StopRuleError(f"policy has no {section!r} section")
+        # precedence — список; остальные обязательные секции — объекты.
+        # Малформленная, но парсибельная политика ({"mechanismKey": null})
+        # обязана давать документированный StopRuleError, а не AttributeError
+        # с трейсбэком (находка ревьюера, раунд r25).
+        expected_shape = list if section == "precedence" else dict
+        if not isinstance(document[section], expected_shape):
+            raise StopRuleError(
+                f"policy section {section!r} must be "
+                f"{'a list' if expected_shape is list else 'an object'}"
+            )
     key = document["mechanismKey"]
     if key.get("default") != ["file", "category"]:
         raise StopRuleError("policy mechanismKey.default must stay (file, category)")
-    if key.get("mergeOnly") is not True:
-        raise StopRuleError("policy mechanismKey.mergeOnly must stay true")
-    if int(key.get("distinctRoundsRequired", 0)) < 2:
-        raise StopRuleError("policy mechanismKey.distinctRoundsRequired must be >= 2")
+    for path, expected in EXPECTED_POLICY_SCALARS.items():
+        violation = frozen_scalar_violation(document, path, expected)
+        if violation is not None:
+            raise StopRuleError(violation)
+
+    # Статус advisory заморожен картой EXPECTED_POLICY_SCALARS: превращение
+    # правила в гейт — отдельное решение владельца, а не правка политики.
+    text = json.dumps(document, ensure_ascii=False)
+    for forbidden in ("maxRounds", "roundCap", "maxAttempts", "roundLimit"):
+        if forbidden in text:
+            raise StopRuleError(
+                f"policy declares {forbidden!r}: потолок раундов запрещён по "
+                f"построению — он останавливает сходящийся маршрут на зелёном"
+            )
+    if document.get("precedence") != EXPECTED_PRECEDENCE:
+        raise StopRuleError(
+            f"policy precedence must be {EXPECTED_PRECEDENCE}, got "
+            f"{document.get('precedence')!r}"
+        )
+    for name, expected in EXPECTED_TERMINAL_VALUES.items():
+        section = document["terminalClasses"].get(name)
+        if not isinstance(section, dict) or list(section.get("values") or []) != expected:
+            raise StopRuleError(
+                f"policy terminalClasses.{name}.values must be {expected}"
+            )
+        counts = section.get("counts")
+        if counts is not (name == "verdict"):
+            raise StopRuleError(
+                f"policy terminalClasses.{name}.counts must be {name == 'verdict'}"
+            )
+    binding = document["policyBinding"]
+    for field in ("contractPath", "contractUnitField", "ledgerPath", "ledgerUnitField"):
+        if not str(binding.get(field) or "").strip():
+            raise StopRuleError(f"policy policyBinding.{field} is missing")
+    # requireCriteriaPrefix / requireCriteriaStatus заморожены картой
+    # EXPECTED_POLICY_SCALARS выше — вторая копия проверки разошлась бы молча.
     return document
 
 
@@ -104,13 +193,15 @@ def load_history(path: Path) -> dict:
         and str(entry.get("candidate") or "").strip()
         for entry in document["rounds"]
     )
-    if supplies_candidate and not str(document.get("candidateSource") or "").strip():
+    source = document.get("candidateSource")
+    if supplies_candidate and not (isinstance(source, dict) and str(source.get("kind") or "").strip()):
         raise StopRuleError(
             f"history supplies candidate identity without candidateSource: {path}\n"
             f"  WHY: смена кандидата — это то, ради чего повтор вообще считается "
             f"повтором. Две выдуманные строки без объявленного происхождения "
             f"взвели бы REDESIGN_OR_DISCARD на пустом месте.\n"
-            f"  FIX: объявить candidateSource — из чего выведены личности раундов."
+            f"  FIX: объявить candidateSource как объект с полем kind — из чего "
+            f"выведены личности раундов и можно ли их пересчитать."
         )
 
     gaps = document.get("knownGaps", [])
@@ -147,6 +238,10 @@ def load_history(path: Path) -> dict:
             f"history must declare orderSource: порядок, восстановленный не из "
             f"артефактов, не переживает клон и обязан быть объявлен: {path}"
         )
+    # orderSource — пояснение для человека; машинно проверяется orderProvenance:
+    # свободный текст мог цитировать несуществующий источник порядка, и решение
+    # опиралось бы на непроверяемое утверждение (находка ревьюера, раунд r34).
+    validate_order_provenance_shape(document, path)
     return document
 
 
@@ -295,7 +390,16 @@ def validate_provenance(provenance: dict, terminal: str, round_id: str,
     отказ формы, а не три отдельных дефекта, поэтому проверка сведена в одно
     место, а ветвление ниже решает только, ЧТО извлекать.
     """
-    provenance_class = provenance["class"]
+    provenance_class = provenance.get("class")
+    # Членство проверяется и ЗДЕСЬ, а не только в read_round: внутренняя функция
+    # не имеет права полагаться на дисциплину вызывающего. Находка r19 про класс
+    # "forged" не воспроизвелась через публичный вход (read_round отвергает до
+    # этой точки), но её defense-in-depth часть честна — без этой проверки новый
+    # вызывающий унаследовал бы открытую else-ветку.
+    if provenance_class not in PROVENANCE_CLASSES:
+        raise StopRuleError(
+            f"round {round_id}: provenance.class must be one of {PROVENANCE_CLASSES}"
+        )
     if provenance_class == "absent":
         if terminal == "verdict":
             raise StopRuleError(
@@ -350,9 +454,15 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
     provenance_class = provenance["class"]
 
     candidate = entry.get("candidate")
-    if candidate is not None and (not isinstance(candidate, str) or not candidate.strip()):
+    if candidate is not None and (
+            not isinstance(candidate, str) or not CANDIDATE_IDENTITY_RE.fullmatch(candidate)):
+        # Любая непустая строка личностью не является: две выдуманные строки
+        # выглядели бы как доказанная смена кандидата и ложно взводили бы
+        # REDESIGN_OR_DISCARD (находка ревьюера, раунд r19). Формат — ровно то,
+        # что печатает candidate_identity_from_ledger: 16 строчных hex.
         raise StopRuleError(
-            f"round {round_id}: candidate identity must be a non-empty string"
+            f"round {round_id}: candidate identity must be 16 lowercase hex digits "
+            f"(the exact output of candidate_identity_from_ledger), got {candidate!r}"
         )
 
     # Провенанс судится один раз, для любого раунда, до всякого ветвления.
@@ -487,6 +597,262 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
     return record
 
 
+ORDER_PROVENANCE_CLASSES = ("artifact-list", "recorded-document")
+
+
+def validate_order_provenance_shape(document: dict, where) -> dict:
+    """Форма orderProvenance — одна проверка для load_history и decide.
+
+    decide() принимает и не сериализованные истории (реплей, синтетика
+    оракула), поэтому полагаться только на load_history нельзя: история,
+    пришедшая мимо него, обходила бы требование машинного источника порядка.
+    """
+    order = document.get("orderProvenance")
+    if not isinstance(order, dict) or order.get("class") not in ORDER_PROVENANCE_CLASSES:
+        raise StopRuleError(
+            f"history must declare orderProvenance.class as one of "
+            f"{ORDER_PROVENANCE_CLASSES}: {where}\n"
+            f"  artifact-list — порядок зафиксирован самим списком rounds, чьи "
+            f"артефакты лежат в дереве и проверяются пораундовым провенансом;\n"
+            f"  recorded-document — порядок восстановлен вне артефактов (например "
+            f"из host-local mtime) и зафиксирован списком, а записанный документ "
+            f"серии объявляется полями path/line и проверяется машинно."
+        )
+    if order["class"] == "recorded-document":
+        if not isinstance(order.get("path"), str) or not order["path"].strip():
+            raise StopRuleError(
+                f"orderProvenance.class=recorded-document needs path: {where}"
+            )
+        if not isinstance(order.get("line"), int) or isinstance(order.get("line"), bool):
+            raise StopRuleError(
+                f"orderProvenance.class=recorded-document needs an integer line: {where}"
+            )
+    return order
+
+DIFF_MARKERS = ("REVIEW DIFF", "DIFF UNIT")
+
+
+def require_unit_identifier(value, what: str) -> str:
+    """Идентификатор юнита обязан быть непустой строкой — ОДНИМ валидатором.
+
+    Класс «поле привязки не типизировано» ломался дважды: r25 нашёл его на
+    replay-пути (check_policy_binding принимал произвольные равные строки),
+    r32 — на live-пути (str(None) давал "None", и критерий с id "None"
+    выравнивал привязку без активного юнита). По собственному правилу это
+    повтор механизма, поэтому меняется форма: оба пути зовут этот валидатор,
+    и новый путь чтения привязки не может пропустить типизацию иначе как
+    мимо него.
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise StopRuleError(f"{what} must be a non-empty string, got {value!r}")
+    return value
+
+
+def read_json_document(path: Path, what: str) -> dict:
+    """Единственная точка чтения JSON-документов правила — fail-closed.
+
+    Класс «точка чтения входа не завёрнута» ломался дважды: r25 нашёл
+    незащищённое разыменование секций в load_policy, r31 — сырые json.loads в
+    live_policy_binding, ронявшие --check-binding трейсбэком на битом файле.
+    По собственному правилу это повтор механизма, поэтому меняется форма:
+    каждое чтение идёт через эту функцию, и новая точка чтения не может
+    появиться незавёрнутой иначе как мимо неё.
+    """
+    path = Path(path)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise StopRuleError(f"{what} is unreadable: {path}: {exc}") from exc
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise StopRuleError(f"{what} is not valid JSON: {path}: {exc}") from exc
+    if not isinstance(document, dict):
+        raise StopRuleError(f"{what} root must be an object: {path}")
+    return document
+
+CANDIDATE_IDENTITY_RE = re.compile(r"[0-9a-f]{16}")
+
+LEDGER_SUFFIXES = ("-prompt.md.ledger.jsonl", "-prompt-1.md.ledger.jsonl",
+                   "-prompt-2.md.ledger.jsonl")
+
+
+def round_ledger_path(source: dict, round_id: str, root: Path) -> Path | None:
+    """Журнал промптов раунда по объявленному candidateSource, если он на хосте.
+
+    Одна реализация на правило и оракул: две копии поиска разошлись бы молча,
+    и сверка личностей смотрела бы не в те файлы, что пересчёт.
+    """
+    prefix = str(source.get("prefix") or "").strip()
+    directories = source.get("directories")
+    if not prefix or not isinstance(directories, list):
+        return None
+    resolved_root = root.resolve()
+    for directory in directories:
+        if not isinstance(directory, str) or not directory.strip():
+            continue
+        for suffix in LEDGER_SUFFIXES:
+            probe = (root / directory / f"{prefix}-{round_id}{suffix}").resolve()
+            # Каталоги и префикс приходят из НЕДОВЕРЕННОЙ истории: абсолютный
+            # путь или traversal читал бы и хешировал файлы вне репозитория —
+            # та же граница, что у report/narrative-провенанса (находка
+            # ревьюера, раунд r33).
+            try:
+                probe.relative_to(resolved_root)
+            except ValueError as exc:
+                raise StopRuleError(
+                    f"candidateSource escapes the repository root: {probe}"
+                ) from exc
+            if probe.is_file():
+                return probe
+    return None
+
+
+def verify_declared_candidates(history: dict, root: Path) -> dict:
+    """Сверить объявленные личности кандидатов с журналами промптов на хосте.
+
+    Несовпадение — отказ, а не предупреждение: объявленная личность, которую
+    журнал опровергает, означает подложную или протухшую запись, и решение о
+    повторе по ней было бы решением по выдумке (находка ревьюера, раунд r19).
+    Отсутствие журнала отказом НЕ является: журналы принадлежат хосту и
+    git-ignored, в изолированном дереве машинной ноги их нет по построению —
+    требовать их значило бы сделать реплей false-red (класс LPD-003-1).
+    Счёт проверенных и непроверяемых личностей возвращается и печатается.
+    """
+    source = history.get("candidateSource")
+    counts = {"declared": 0, "verified": 0, "unverifiable": 0}
+    if not isinstance(source, dict) or source.get("kind") != "prompt-ledger-diff-sha256":
+        return counts
+    for entry in history.get("rounds") or []:
+        if not isinstance(entry, dict):
+            continue
+        declared = entry.get("candidate")
+        if not isinstance(declared, str) or not declared.strip():
+            # Вердикт-раунд БЕЗ объявленной личности при ДОСТУПНОМ журнале —
+            # отказ: журнал доказывает личность, и умолчание истории тихо
+            # деградировало бы доказуемый повтор в RECURRENCE_UNCONFIRMED
+            # (находка ревьюера, раунд r26). Нев-вердиктные раунды личность
+            # не несут по построению.
+            if entry.get("terminal") == "verdict":
+                withheld = round_ledger_path(source, str(entry.get("id")), root)
+                if withheld is not None:
+                    raise StopRuleError(
+                        f"round {entry.get('id')}: a prompt ledger is available "
+                        f"({withheld}) but the history declares no candidate "
+                        f"identity — бухгалтерия неконсистентна"
+                    )
+            continue
+        counts["declared"] += 1
+        ledger = round_ledger_path(source, str(entry.get("id")), root)
+        if ledger is None:
+            counts["unverifiable"] += 1
+            continue
+        computed = candidate_identity_from_ledger(ledger)
+        if computed != declared:
+            raise StopRuleError(
+                f"round {entry.get('id')}: declared candidate identity {declared!r} "
+                f"does not match the ledger-derived {computed!r} from {ledger}"
+            )
+        counts["verified"] += 1
+    return counts
+
+
+def candidate_identity_from_ledger(path: Path, digits: int = 16) -> str | None:
+    """Личность кандидата = хеш ТОЛЬКО участков диффа в журнале промптов.
+
+    Хешировать журнал целиком нельзя: в нём лежит и обёртка промпта —
+    инструкции ревьюеру, схема вердикта, объявления покрытия. Обёртка меняется
+    от правок маршрута, а не кандидата, и тогда неизменный кандидат выглядел бы
+    изменившимся, а невыясненный повтор ложно взводил бы REDESIGN_OR_DISCARD
+    (находка независимого ревьюера, раунд r14).
+
+    Берутся байты между BEGIN/END UNTRUSTED <маркер> в порядке следования
+    записей; записи-интеграции диффа не несут и в хеш не входят. None, если
+    журнала нет или в нём не нашлось ни одного участка диффа: выдумывать
+    личность из пустоты правило не станет.
+    """
+    if not path.is_file():
+        return None
+    segments: list[str] = []
+    for line in path.open("r", encoding="utf-8", errors="replace"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            return None
+        prompt = entry.get("prompt")
+        if not isinstance(prompt, str):
+            continue
+        # Оба вида маркеров ищутся ОДНИМ сканом по позиции появления: обход
+        # «сначала все REVIEW DIFF, потом все DIFF UNIT» дал бы журналу со
+        # смешанными формами другой порядок сегментов и другую личность —
+        # контракт «хеш сегментов в порядке следования» нарушался бы молча
+        # (находка ревьюера, раунд r31).
+        cursor = 0
+        while True:
+            found = None
+            for marker in DIFF_MARKERS:
+                opening = f"BEGIN UNTRUSTED {marker}\n"
+                start = prompt.find(opening, cursor)
+                if start >= 0 and (found is None or start < found[0]):
+                    found = (start, marker, opening)
+            if found is None:
+                break
+            start, marker, opening = found
+            start += len(opening)
+            closing = f"END UNTRUSTED {marker}\n"
+            end = prompt.find(closing, start)
+            if end < 0:
+                # Открывающий маркер без закрывающего — отказ, а не обрыв
+                # набора: хеш частичного набора связывал бы личность не со
+                # всем кандидатом, а молчаливый None превращал бы порчу
+                # журнала в «личность не установлена» и пропускал сверку
+                # (находка ревьюера, раунд r24).
+                raise StopRuleError(
+                    f"prompt ledger {path} has an unterminated "
+                    f"BEGIN UNTRUSTED {marker} segment"
+                )
+            segments.append(prompt[start:end])
+            cursor = end + len(closing)
+    if not segments:
+        return None
+    digest = hashlib.sha256()
+    for segment in segments:
+        digest.update(segment.encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()[:digits]
+
+
+def canonical_key_part(value: str, *, fold: bool) -> str:
+    """Каноническая форма составляющей ключа механизма.
+
+    Обрезаются краевые пробелы и схлопываются внутренние: ключ обязан зависеть
+    от НАЗВАННОГО механизма, а не от того, как ревьюер расставил пробелы.
+    Категория дополнительно приводится к нижнему регистру — это ярлык класса
+    дефекта, и `Security` с `security` называют одно и то же. Путь файла НЕ
+    сворачивается по регистру: на регистрозависимой файловой системе `A.py` и
+    `a.py` — разные файлы, и склеивать их значило бы объявлять повтор там, где
+    его нет.
+
+    Нормализация всегда СЛИВАЕТ написания и никогда не разделяет — то же
+    направление, что у mergeKeys, поэтому обойти повтор перезаписью нельзя.
+    """
+    collapsed = " ".join(value.split())
+    return collapsed.casefold() if fold else collapsed
+
+
+def normalized_key(file_part: str, category_part: str) -> tuple[str, str]:
+    """Единственная точка построения ключа — и для находок, и для mergeKeys.
+
+    Две копии этой нормализации разошлись бы молча: объявленное слияние
+    перестало бы совпадать с ключом находки, и повтор снова стал бы невидим.
+    """
+    return (canonical_key_part(file_part, fold=False),
+            canonical_key_part(category_part, fold=True))
+
+
 def raw_key(finding: dict) -> tuple[str, str] | None:
     """Ключ механизма или None, если находка не назвала ни поверхность, ни класс.
 
@@ -494,6 +860,11 @@ def raw_key(finding: dict) -> tuple[str, str] | None:
     отчётов без file/category давали бы ложный повтор и правило остановило бы
     маршрут на пустом месте (замер: пять таких отчётов в серии GPG-001
     broker-policy).
+
+    Возвращается КАНОНИЧЕСКАЯ форма. Прежняя версия проверяла непустоту через
+    `.strip()`, но отдавала строки как есть, поэтому `" security"` и
+    `"security"` были разными механизмами и повтор не опознавался — вместо
+    REDESIGN_OR_DISCARD правило говорило CONTINUE (находка ревьюера, раунд r18).
     """
     file_part = finding.get("file")
     category_part = finding.get("category")
@@ -501,7 +872,7 @@ def raw_key(finding: dict) -> tuple[str, str] | None:
         return None
     if not isinstance(category_part, str) or not category_part.strip():
         return None
-    return (file_part, category_part)
+    return normalized_key(file_part, category_part)
 
 
 def build_merge_map(history: dict) -> dict:
@@ -526,13 +897,25 @@ def build_merge_map(history: dict) -> dict:
                 f"mergeKeys[{index}] ({label}) needs at least two members: "
                 f"группа из одного ключа — это переименование, а не слияние"
             )
+        seen_members: set[tuple[str, str]] = set()
         for member in members:
             if (not isinstance(member, list) or len(member) != 2
                     or not all(isinstance(part, str) and part.strip() for part in member)):
                 raise StopRuleError(
                     f"mergeKeys[{index}] ({label}) member must be a [file, category] pair"
                 )
-            key = (member[0], member[1])
+            # Та же каноническая форма, что у находок: иначе объявленный член
+            # `" security"` не совпал бы с ключом находки `"security"`, и
+            # слияние молча не применилось бы. Проверка повтора членов идёт
+            # ПОСЛЕ нормализации — два написания одного ключа группой из двух
+            # не делают.
+            key = normalized_key(member[0], member[1])
+            if key in seen_members:
+                raise StopRuleError(
+                    f"mergeKeys[{index}] ({label}) repeats member {key} — повтор "
+                    f"одного ключа не делает группу слиянием двух"
+                )
+            seen_members.add(key)
             if key in mapping and mapping[key] != label:
                 raise StopRuleError(
                     f"mechanism key {key} is claimed by two groups "
@@ -579,6 +962,22 @@ def check_policy_binding(history: dict, policy: dict, root: Path) -> dict | None
     for field in ("ledgerUnit", "contractUnit", "criteriaPresent"):
         if field not in binding:
             raise StopRuleError(f"policyBinding has no {field!r}")
+    for field in ("ledgerUnit", "contractUnit"):
+        require_unit_identifier(binding[field], f"policyBinding.{field}")
+    # Привязка обязана называть юнит СВОЕЙ истории: без этой сверки история
+    # активного юнита могла объявить пару одинаковых чужих строк с
+    # criteriaPresent=true и обойти ROUTE_DEFECT — вердикты чужой бухгалтерии
+    # интерпретировались бы как свои (находка ревьюера, раунд r25).
+    history_unit = str(history.get("unit") or "")
+    ledger_unit = binding["ledgerUnit"]
+    # Имя истории — либо сам юнит, либо серия юнита (<unitId>-<суффикс>): та же
+    # дефисная граница, что у критериев приёмки. Голый startswith считал бы
+    # историю LPD003-30 серией юнита LPD003-3.
+    if history_unit != ledger_unit and not history_unit.startswith(ledger_unit + "-"):
+        raise StopRuleError(
+            f"policyBinding.ledgerUnit {ledger_unit!r} does not name this "
+            f"history's unit {history_unit!r} (ни сам юнит, ни его серия)"
+        )
     if not isinstance(binding["criteriaPresent"], bool):
         raise StopRuleError(
             "policyBinding.criteriaPresent must be a boolean — истинное значение "
@@ -615,23 +1014,29 @@ def live_policy_binding(policy: dict, root: Path) -> dict:
         raise StopRuleError(f"acceptance contract is missing: {contract_path}")
     if not ledger_path.is_file():
         raise StopRuleError(f"state ledger is missing: {ledger_path}")
-    contract = json.loads(contract_path.read_text(encoding="utf-8"))
-    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
-    contract_unit = ((contract.get("activeFollowup") or {}).get("unitId"))
-    ledger_unit = ((ledger.get("currentUnit") or {}).get("id"))
+    contract = read_json_document(contract_path, "acceptance contract")
+    ledger = read_json_document(ledger_path, "state ledger")
+    contract_unit = require_unit_identifier(
+        (contract.get("activeFollowup") or {}).get("unitId"),
+        "activeFollowup.unitId")
+    ledger_unit = require_unit_identifier(
+        (ledger.get("currentUnit") or {}).get("id"),
+        "currentUnit.id")
     # Префикс сравнивается по границе идентификатора: голый startswith считал бы
     # критерии юнита LPD003-30 своими для активного LPD003-3.
-    unit_prefix = str(ledger_unit)
+    unit_prefix = ledger_unit
     criteria = [c for c in (contract.get("criteria") or [])
                 if str(c.get("id", "")) == unit_prefix
                 or str(c.get("id", "")).startswith(unit_prefix + "-")]
-    wanted = binding_policy.get("requireCriteriaStatus")
+    # Значение заморожено load_policy; читается отсюда, чтобы объявленное в
+    # политике и применяемое в коде оставались ОДНИМ фактом, а не двумя.
+    wanted = binding_policy["requireCriteriaStatus"]
     passed = [c for c in criteria if c.get("status") == wanted]
     # Требуемый статус критериев объявлен политикой и потому обязан входить в
     # вердикт привязки: продюсер отказывает терминалом класса precondition, если
     # критерий активного юнита ещё pending, — значит «выровнено» при pending
     # было бы обещанием, которого маршрут не сдержит.
-    status_satisfied = wanted is None or (bool(criteria) and len(passed) == len(criteria))
+    status_satisfied = bool(criteria) and len(passed) == len(criteria)
     return {
         "ledgerUnit": ledger_unit,
         "contractUnit": contract_unit,
@@ -674,11 +1079,26 @@ def decide(history: dict, policy: dict, root: Path) -> dict:
         seen_ids.add(record["id"])
     counters, provenance_counters = count_terminals(rounds)
     attempts = len(rounds)
+    # Сверка объявленных личностей с журналами — ДО интерпретации повторов:
+    # решение о смене кандидата по опровергнутой журналом личности было бы
+    # решением по выдумке. Несовпадение роняет разбор; отсутствие журнала —
+    # host-owned класс, только счёт.
+    identity_counts = verify_declared_candidates(history, root)
+    order_provenance = validate_order_provenance_shape(history, history.get("unit"))
+    if order_provenance.get("class") == "recorded-document":
+        # Тот же валидатор, что у пересказа раундов: документ в дереве,
+        # строка существует — источник порядка проверяется машинно, а не
+        # принимается на слово (находка ревьюера, раунд r34).
+        validate_narrative_provenance(
+            {"class": "narrative", "path": order_provenance["path"],
+             "line": order_provenance["line"]},
+            "orderProvenance", root)
 
     decision = {
         "unit": history["unit"],
         "counters": counters,
         "provenance": provenance_counters,
+        "candidateIdentities": identity_counts,
         "attempts": attempts,
         "orderSource": history["orderSource"],
         "regressions": [],
@@ -829,8 +1249,14 @@ def decide(history: dict, policy: dict, root: Path) -> dict:
     # CONTINUE, то есть звала на новый раунд вместо ремонта того, что сломалось.
     broken_route = [r for r in rounds if r["terminal"] != "verdict"]
     trailing_break = rounds[-1] if rounds and rounds[-1]["terminal"] != "verdict" else None
-    closing_pass = last_verdict is not None and last_verdict["verdict"] == "PASSED"
-    if broken_route and (last_verdict is None or (trailing_break is not None and not closing_pass)):
+    # Закрытие — свойство ПОСЛЕДНЕГО раунда, а не последнего вердикта. Срыв
+    # маршрута после зелёного означает, что маршрут не доигран: объявлять его
+    # закрытым значило бы прятать оставшуюся работу за более ранним PASSED.
+    final_round = rounds[-1] if rounds else None
+    closing_pass = (final_round is not None
+                    and final_round["terminal"] == "verdict"
+                    and final_round["verdict"] == "PASSED")
+    if broken_route and (last_verdict is None or trailing_break is not None):
         blocker = trailing_break or broken_route[-1]
         klass = blocker["terminal"]
         decision["terminal"] = "ROUTE_REPAIR"
@@ -954,7 +1380,12 @@ def main(argv: list[str] | None = None) -> int:
 
     root = Path(args.root).resolve()
     try:
-        policy = load_policy(Path(args.policy) if args.policy else None)
+        # Политика по умолчанию берётся от --root, а не от расположения этого
+        # файла: --root /fixture судил бы чужие леджеры по политике вызывающего
+        # репозитория и мог дать ложное «выровнено» (находка ревьюера, r33).
+        policy = load_policy(
+            Path(args.policy) if args.policy
+            else Path(args.root) / ".itd" / "STOP_RULE_POLICY.json")
         if args.check_binding:
             binding = live_policy_binding(policy, root)
             if args.json:
