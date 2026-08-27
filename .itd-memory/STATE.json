@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD003-2",
     "goal": "Сузить METHODOLOGY_TREE_ROOTS по ИЗМЕРЕННОМУ влиянию: правка, не влияющая на маршрут live-бенчмарка, не поднимает живой внешний прогон; сужение доказано замером, не заявлено",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-26T17:41:26Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-27T09:40:38Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
