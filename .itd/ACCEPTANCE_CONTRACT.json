@@ -2590,7 +2590,7 @@
   },
   "activeFollowup": {
     "unitId": "LPD003-2",
-    "status": "in_progress",
+    "status": "verified",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2606,7 +2606,9 @@
       "adjudicator": "sealed-host-union"
     },
     "openedAt": "2026-08-26T12:20:00Z",
-    "scopeNote": "LPD003-2: пин live-бенчмарка сужается до измеренного влияния (статическая замкнутость исполняемой поверхности + динамика записанных транскриптов); ложная инвалидация устранена и доказана мутацией; drift-защита сохранена; один источник правды набора. Переход потребует ровно один live re-pin на чистом дереве кандидата."
+    "scopeNote": "LPD003-2: пин live-бенчмарка сужается до измеренного влияния (статическая замкнутость исполняемой поверхности + динамика записанных транскриптов); ложная инвалидация устранена и доказана мутацией; drift-защита сохранена; один источник правды набора. Переход потребует ровно один live re-pin на чистом дереве кандидата.",
+    "closedAt": "2026-08-27T12:35:00Z",
+    "closureEvidence": "Улика закрытия СУБЪЕКТА юнита: доставка LPD003-2 опубликована PR #235, squash-merge 8727749; полный producer-маршрут — r7 PASSED (доставка) и pub11 PASSED (публикация), оба findings=[]; пин сужен с ~231 файла десяти корней до 60 файлов измеренной исполняемой поверхности; ложная инвалидация устранена и доказана мутациями в обе стороны; свежий live re-pin на чистом дереве PASS; оракул 85/0. Настоящий ledger-close кандидат — отдельная бухгалтерская запись поверх base 8727749 со своей машинной ногой; его цифры живут в его квитанции, а не здесь."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
