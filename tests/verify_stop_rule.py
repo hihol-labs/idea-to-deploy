@@ -1554,7 +1554,8 @@ for field in ("ledgerUnit", "contractUnit", "criteriaPresent", "aligned"):
     check(f"живая привязка: поле {field} присутствует", field in binding)
 check("живая привязка: расхождение вычисляется, а не декларируется",
       binding["aligned"] == (binding["contractUnit"] == binding["ledgerUnit"]
-                            and bool(binding["criteriaPresent"])))
+                            and bool(binding["criteriaPresent"])
+                            and bool(binding["statusSatisfied"])))
 
 route_defect_history = synthetic(
     [narrative_round("a", "PASSED", [])],

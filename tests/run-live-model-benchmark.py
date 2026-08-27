@@ -358,15 +358,19 @@ def methodology_files() -> list[Path]:
 
 
 def methodology_tree_sha256() -> str:
-    digest = hashlib.sha256()
-    for path in methodology_files():
-        relative = path.relative_to(ROOT).as_posix().encode("utf-8")
-        content = path.read_bytes()
-        digest.update(len(relative).to_bytes(8, "big"))
-        digest.update(relative)
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return "sha256:" + digest.hexdigest()
+    # LPD-003-2: пин сужен до измеренного влияния и живёт ОДНИМ модулем
+    # (tests/itd_benchmark_pin.py) на раннер и оракул. METHODOLOGY_TREE_ROOTS
+    # выше остаётся материалом прогона (весь плагин копируется в проект), но
+    # хеш инвалидации привязан к исполняемой поверхности, а не к каталогам
+    # целиком: правка скилла, который бенчмарк не исполняет, больше не
+    # требует живого перепрогона. Дрейф поведения ловится оракулом динамики:
+    # новый транскрипт, читающий файл вне пина, делает оракул красным.
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(
+        "itd_benchmark_pin", ROOT / "tests" / "itd_benchmark_pin.py")
+    _pin = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_pin)
+    return _pin.tree_sha256(ROOT)
 
 
 def source_pins(fixture_dir: Path, provider: str) -> dict[str, str]:
@@ -621,6 +625,30 @@ def copy_path(source: Path, target: Path) -> None:
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+
+
+# Статическая исполняемая поверхность прогона — объявлена У МЕСТА, где она
+# создаётся (этой функцией и промптами ног), и сверяется оракулом с static-
+# половиной карты причин пина: расхождение декларации и пина — красный.
+# Файлы ниже раннер вшивает в исполняемые артефакты проекта или в промпт:
+#   AGENTS.md, манифесты плагина — идентичность плагина в проекте и промпте;
+#   docs/templates/itd -> копия .itd (исполняемые контракты/скрипты проекта);
+#   docs/templates/itd-memory -> схемы состояния, которые валидатор читает;
+#   host-adapter контракт/карта -> промпт ноги;
+#   agents-md-template.md -> AGENTS.md проекта;
+#   codex-project-hooks.json + hooks/codex-dispatch.py -> хуки проекта.
+STATIC_EXECUTABLE_SURFACE = (
+    "AGENTS.md",
+    ".claude-plugin",
+    ".codex-plugin",
+    "docs/templates/itd",
+    "docs/templates/itd-memory",
+    "docs/HOST_ADAPTER_CONTRACT.md",
+    "docs/host-adapters.json",
+    "skills/adopt/references/agents-md-template.md",
+    "skills/adopt/references/codex-project-hooks.json",
+    "hooks/codex-dispatch.py",
+)
 
 
 def prepare_adopted_project(workspace: Path) -> tuple[Path, Path]:
