@@ -110,17 +110,17 @@ jobs:
         env:
           PYTHONUTF8: "0"
         run: python tests/verify_init_contracts.py
-      - name: Cost-tracker ledger isolation + context sensor gate (v1.71.0)
-        run: python tests/verify_cost_tracker.py
+      - name: Token telemetry + cost-tracker isolation and context sensor (LPD003-4 consolidated)
+        run: python tests/verify_observed_token_telemetry.py
       - name: Review report-file + finish-line interruption doc-contract (v1.72.0)
         run: python tests/verify_review_report_file.py
       - name: ACID state-hardening (atomic writes, ledger lock, errors.log, state-guard, reconciliation) (v1.75.0)
         run: python tests/verify_state_hardening.py
       - name: run-all.sh vs workflows drift-guard (v1.79.1)
         run: python tests/verify_runall_drift.py
-      - name: Cost-tracker gate on legacy encoding (v1.71.0)
+      - name: Token telemetry gate on legacy encoding (LPD003-4 consolidated)
         # Same rationale as the v1.68.1 step above: the Cyrillic context-hint
         # emit crashes only under the locale codepage (review finding C1).
         env:
           PYTHONUTF8: "0"
-        run: python tests/verify_cost_tracker.py
+        run: python tests/verify_observed_token_telemetry.py

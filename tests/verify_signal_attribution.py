@@ -9,6 +9,12 @@
   - append_signal проставляет sig["unit"] из GOAL.currentUnitId активной цели
   - без активной цели / чужой cwd — поле unit отсутствует (не мусорит)
 
+Консолидация LPD003-4: сюда же перенесены проверки бывшего
+verify_completion_ledger (тот же предмет — completion_lib):
+
+  - леджер сигналов ограничен (не append-only-forever), свежие сигналы
+    переживают prune и остаются читаемыми штатным путём
+
 Self-contained, stdlib only. Run: python3 tests/verify_signal_attribution.py
 """
 import json
@@ -94,8 +100,44 @@ def main():
                 .read_text(encoding="utf-8").splitlines() if l.strip()]
         check("без цели -> нет unit-поля", rows and "unit" not in rows[-1], str(rows))
 
+    ledger_bounded_checks()
+
     print(f"\n{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0
+
+
+def ledger_bounded_checks():
+    """Перенесено из verify_completion_ledger (LPD003-4): леджер сигналов
+    ограничен, а не append-only-forever. Малые cap'ы — чтобы prune сработал
+    быстро и детерминированно; исходные значения восстанавливаются, чтобы
+    секция не влияла на соседние проверки."""
+    saved = (cl.LEDGER_SOFT_BYTES, cl.MAX_LEDGER_LINES)
+    cl.LEDGER_SOFT_BYTES = 2000
+    cl.MAX_LEDGER_LINES = 40
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            N = 400
+            for i in range(N):
+                cl.append_signal(d, "sess", {"i": i, "kind": "test_run", "layer": 2, "outcome": "pass"})
+
+            lines = cl.signals_path(d).read_text(encoding="utf-8").splitlines()
+            # bounded: never the full N; stays near the cap (allow headroom until the size gate trips)
+            check("ledger is bounded (not append-only)", len(lines) < N // 2,
+                  "have %d lines for %d appends" % (len(lines), N))
+            check("ledger near the cap", len(lines) <= cl.MAX_LEDGER_LINES * 2,
+                  "have %d lines, cap %d" % (len(lines), cl.MAX_LEDGER_LINES))
+
+            # recency retained: the last appended signal survives pruning
+            last = json.loads(lines[-1])
+            check("most-recent signal retained after prune", last.get("i") == N - 1,
+                  "last i=%r" % last.get("i"))
+
+            # still readable by the normal path
+            sigs = cl.read_signals(d, "sess")
+            check("read_signals returns the bounded set", 0 < len(sigs) <= len(lines))
+    finally:
+        cl.LEDGER_SOFT_BYTES, cl.MAX_LEDGER_LINES = saved
 
 
 if __name__ == "__main__":

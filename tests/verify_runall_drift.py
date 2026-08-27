@@ -13,10 +13,17 @@ tests/run-all.sh.
 допустимо и лишь репортится). Anti-rot: парсер, ничего не нашедший, — это
 false-green, поэтому минимальные счётчики распарсенного зашиты assert'ами.
 
+Консолидация LPD003-4: этот же гард держит инварианты слияния сьютов по
+impact-карте (пары с идентичным покрытием, целиком в зеркале): донор удалён из
+дерева, из run-all и из CI; хранитель существует, исполняется зеркалом и
+привязан в карте; замер .itd-memory/measurements/LPD003-4-consolidation.json
+согласован с деревом и картой. Возврат донора или потеря хранителя — красный.
+
 Stdlib-only, кросс-платформенный (гоняется и в windows-verify).
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -101,8 +108,82 @@ def main() -> int:
     check("this guard is wired into CI", "verify_runall_drift" in ci)
     check("this guard is wired into run-all.sh", "verify_runall_drift" in local)
 
+    consolidation_invariants(ci, local)
+
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0
+
+
+# --- LPD003-4: инварианты консолидации сьютов по impact-карте ---------------
+# Пары «хранитель <- донор» с ИДЕНТИЧНЫМ множеством покрытия по сгенерированной
+# карте на entry-дереве 5b6e50f; обе стороны каждой пары жили в зеркале.
+CONSOLIDATED = {
+    "verify_signal_attribution": "verify_completion_ledger",
+    "verify_observed_token_telemetry": "verify_cost_tracker",
+    "verify_otel_export": "verify_otel_semconv",
+    "verify_no_bare_python3": "verify_py_launcher_encoding",
+    "verify_goal_tools": "verify_work_deadline_runtime",
+}
+MEASUREMENT = ROOT / ".itd-memory" / "measurements" / "LPD003-4-consolidation.json"
+IMPACT_MAP = ROOT / ".itd" / "IMPACT_GRAPH.json"
+
+
+def consolidation_invariants(ci: set, local: set) -> None:
+    tests_dir = ROOT / "tests"
+    try:
+        generated = json.loads(IMPACT_MAP.read_text(encoding="utf-8"))["generated"]
+    except Exception as exc:  # noqa: BLE001 — fail-closed на битой карте
+        generated = None
+        check("consolidation: impact map readable", False, str(exc))
+    attached = set()
+    if generated is not None:
+        for suites in generated.values():
+            attached.update(Path(s).name[:-3] for s in suites)
+
+    for keeper, donor in CONSOLIDATED.items():
+        check(f"consolidation: donor {donor} stays deleted",
+              not (tests_dir / f"{donor}.py").is_file())
+        check(f"consolidation: donor {donor} absent from run-all and CI",
+              donor not in local and donor not in ci)
+        check(f"consolidation: keeper {keeper} exists and runs in the mirror",
+              (tests_dir / f"{keeper}.py").is_file() and keeper in local)
+        if generated is not None:
+            check(f"consolidation: keeper {keeper} attached in the impact map",
+                  keeper in attached)
+
+    # Замер до/после — коммитнутый артефакт; сверяем fail-closed с деревом.
+    try:
+        m = json.loads(MEASUREMENT.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        check("consolidation: measurement artifact readable", False, str(exc))
+        return
+    pairs = {p["keeper"]: p["donor"] for p in m.get("pairs", [])}
+    check("consolidation: measurement records exactly these pairs",
+          pairs == CONSOLIDATED, str(pairs))
+    on_disk = len(list(tests_dir.glob("verify_*.py")))
+    check("consolidation: post-state suite count matches the tree",
+          m.get("post", {}).get("suitesOnDisk") == on_disk,
+          "recorded=%s actual=%d" % (m.get("post", {}).get("suitesOnDisk"), on_disk))
+    check("consolidation: node set preserved (pre == post)",
+          m.get("pre", {}).get("nodeSetSha256") == m.get("post", {}).get("nodeSetSha256")
+          and bool(m.get("pre", {}).get("nodeSetSha256")))
+    # Живая сверка замера с картой (находка pub2: равенство строк ВНУТРИ
+    # артефакта не доказывает соответствие карте — сфабрикованный артефакт
+    # прошёл бы). Предмет клейма «без потери покрытия» сверяется с ЖИВОЙ
+    # generated-секцией: каждый узел покрытия каждой пары обязан существовать
+    # в карте и быть покрыт именно хранителем этой пары. Полный node-set
+    # намеренно НЕ замораживается (карта легитимно растёт с деревом —
+    # анти-friction урок LPD003-2); замороженная часть — ровно слитое покрытие.
+    if generated is not None:
+        for p in m.get("pairs", []):
+            keeper_path = "tests/%s.py" % p.get("keeper")
+            nodes = p.get("coverage") or []
+            live_ok = bool(nodes) and all(
+                keeper_path in (generated.get(node) or []) for node in nodes)
+            check("consolidation: live map keeps %s covering %d merged node(s)"
+                  % (p.get("keeper"), len(nodes)), live_ok,
+                  "missing: %s" % [n for n in nodes
+                                   if keeper_path not in (generated.get(n) or [])])
 
 
 if __name__ == "__main__":

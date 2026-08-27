@@ -109,10 +109,7 @@ jobs:
       - name: Run session hygiene, quality ledger, and ablation behavioural proof
         run: python3 tests/verify_session_hygiene_quality.py
 
-      - name: Run cost-tracker ledger isolation + context sensor gate (v1.71.0, retro 2026-07-09)
-        run: python3 tests/verify_cost_tracker.py
-
-      - name: Verify observed token provenance and estimate separation
+      - name: Verify observed token provenance, cost-tracker isolation and context sensor (LPD003-4 consolidated)
         run: python3 tests/verify_observed_token_telemetry.py
 
       - name: Measure control coverage and false classifications
@@ -160,8 +157,8 @@ jobs:
       - name: Run completion-gate behavioural proof (v1.79.1)
         run: python3 tests/verify_completion_gate.py
 
-      - name: Run completion-ledger checks (v1.79.1)
-        run: python3 tests/verify_completion_ledger.py
+      - name: Run signal attribution + bounded completion-ledger checks (LPD003-4 consolidated)
+        run: python3 tests/verify_signal_attribution.py
 
       - name: Run no-bare-python3 gate (skills snippets via itd_py.sh launcher) (v1.83.0)
         run: python3 tests/verify_no_bare_python3.py
@@ -174,9 +171,6 @@ jobs:
 
       - name: Run frozen working-deadline A/B and no-regression benchmark (PE5-016)
         run: python3 tests/verify_work_deadline_benchmark.py
-
-      - name: Run py-launcher encoding contract (PYTHONIOENCODING/PYTHONUTF8 in itd_py.sh) (v1.85.0)
-        run: python3 tests/verify_py_launcher_encoding.py
 
       - name: Run unit-log harness writer contract (paired activated/verified, fail-closed) (v1.85.0)
         run: python3 tests/verify_unit_log.py

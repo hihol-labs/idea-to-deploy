@@ -119,7 +119,7 @@
     {
       "id": "PE5-011",
       "criterion": "Runtime режима working_deadline использует host-observed unit time: на 30 минутах выдаёт checkpoint, на 45 минутах ставит typed budget_exhausted/recovery_required до следующей дорогой попытки, сохраняет дешёвый handoff и никогда не маркирует partial work как done; verified-unit возвращается пользователю до активации следующего.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_work_deadline_runtime.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && bash tests/run-all.sh --quick",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && bash tests/run-all.sh --quick",
       "riskTier": "high",
       "status": "verified",
       "verifiedAt": "2026-07-16T11:29:30Z",

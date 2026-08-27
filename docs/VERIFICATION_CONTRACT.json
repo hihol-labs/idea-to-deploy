@@ -78,9 +78,9 @@
         "tests/verify_triggers.py",
         "tests/verify_verification_loop.py",
         "tests/verify_verification_profiles.py",
+        "tests/verify_goal_tools.py",
         "tests/verify_work_deadline_contract.py",
-        "tests/verify_work_deadline_docs.py",
-        "tests/verify_work_deadline_runtime.py"
+        "tests/verify_work_deadline_docs.py"
       ],
       "timeoutSeconds": 300,
       "expectedOutput": "DONE fails:none",

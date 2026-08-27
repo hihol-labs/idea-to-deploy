@@ -506,7 +506,9 @@ check("impact audit passes on the committed map and the live tree",
       r.returncode == 0 and payload.get("status") == "PASS"
       and payload.get("verified") is True, r.stdout + r.stderr)
 check("completeness: every tests/verify_*.py suite appears in the map",
-      payload.get("suites") == len(all_suites) and len(all_suites) >= 151
+      # floor 150 после консолидации LPD003-4 (155 -> 150); guard от пустого/
+      # обрушившегося glob, реальная полнота — равенство suites==len(all_suites)
+      payload.get("suites") == len(all_suites) and len(all_suites) >= 150
       and payload.get("unattachedSuites") == [], r.stdout)
 check("completeness: every skills/_shared/*.py and hooks/*.sh has an owning suite",
       payload.get("owned") == len(owned_files) and payload.get("orphanOwned") == [],

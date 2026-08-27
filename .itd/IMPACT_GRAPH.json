@@ -130,6 +130,9 @@
       "tests/verify_unit_log.py",
       "tests/verify_v147_fixes.py"
     ],
+    ".itd-memory/measurements/LPD003-4-consolidation.json": [
+      "tests/verify_runall_drift.py"
+    ],
     ".itd-memory/session_2026-08-01_3.md": [
       "tests/verify_stop_rule.py"
     ],
@@ -160,6 +163,7 @@
       "tests/verify_targeted_regression.py"
     ],
     ".itd/IMPACT_GRAPH.json": [
+      "tests/verify_runall_drift.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_verification_profiles.py"
     ],
@@ -785,7 +789,6 @@
     "hooks/completion_lib.py": [
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_completion_gate.py",
-      "tests/verify_completion_ledger.py",
       "tests/verify_completion_signal_classes.py",
       "tests/verify_control_quality.py",
       "tests/verify_init_contracts.py",
@@ -802,7 +805,6 @@
     "hooks/cost-tracker.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_cost_gate.py",
-      "tests/verify_cost_tracker.py",
       "tests/verify_efficiency_attribution.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_observed_token_telemetry.py",
@@ -965,8 +967,7 @@
     ],
     "scripts/itd_otel_export.py": [
       "tests/verify_operating_loops_release.py",
-      "tests/verify_otel_export.py",
-      "tests/verify_otel_semconv.py"
+      "tests/verify_otel_export.py"
     ],
     "scripts/itd_pre_push.py": [
       "tests/verify_gate_registry_profiles.py",
@@ -999,8 +1000,7 @@
       "tests/verify_init_contracts.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
-      "tests/verify_state_hardening.py",
-      "tests/verify_work_deadline_runtime.py"
+      "tests/verify_state_hardening.py"
     ],
     "scripts/verify-sync-to-active.sh": [
       "tests/verify_sync_manifest.py",
@@ -1175,8 +1175,7 @@
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
-      "tests/verify_practical_effectiveness.py",
-      "tests/verify_py_launcher_encoding.py"
+      "tests/verify_practical_effectiveness.py"
     ],
     "skills/_shared/itd_review_broker.py": [
       "tests/verify_external_reviewer_release.py",
@@ -1306,8 +1305,7 @@
     ],
     "skills/goal/scripts/itd_goal_report.py": [
       "tests/verify_goal_bounded_autonomy.py",
-      "tests/verify_goal_tools.py",
-      "tests/verify_work_deadline_runtime.py"
+      "tests/verify_goal_tools.py"
     ],
     "skills/goal/scripts/itd_goal_score.py": [
       "tests/verify_goal_five_star.py"
@@ -1318,8 +1316,7 @@
       "tests/verify_goal_verify_shell.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
-      "tests/verify_verify_signal_and_watchdog.py",
-      "tests/verify_work_deadline_runtime.py"
+      "tests/verify_verify_signal_and_watchdog.py"
     ],
     "skills/infra/agents/openai.yaml": [
       "tests/verify_host_adapters.py"
@@ -1673,6 +1670,7 @@
       "tests/verify_harness_map_fixtures.py"
     ],
     "tests/verify_goal_tools.py": [
+      "tests/verify_runall_drift.py",
       "tests/verify_snapshot.py"
     ],
     "tests/verify_graduated_trust.py": [
@@ -1726,11 +1724,20 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_verdict_contract.py"
     ],
+    "tests/verify_no_bare_python3.py": [
+      "tests/verify_runall_drift.py"
+    ],
+    "tests/verify_observed_token_telemetry.py": [
+      "tests/verify_runall_drift.py"
+    ],
     "tests/verify_operating_loops.py": [
       "tests/verify_operating_loops_release.py"
     ],
     "tests/verify_operating_loops_release.py": [
       "tests/verify_external_reviewer_release.py"
+    ],
+    "tests/verify_otel_export.py": [
+      "tests/verify_runall_drift.py"
     ],
     "tests/verify_pii_egress.py": [
       "tests/verify_harness_map_fixtures.py"
@@ -1775,6 +1782,9 @@
     ],
     "tests/verify_session_hygiene_quality.py": [
       "tests/verify_fail_closed_hygiene.py"
+    ],
+    "tests/verify_signal_attribution.py": [
+      "tests/verify_runall_drift.py"
     ],
     "tests/verify_skill_completeness_gate.py": [
       "tests/verify_harness_map_fixtures.py"
