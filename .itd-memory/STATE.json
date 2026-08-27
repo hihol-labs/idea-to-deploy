@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "LPD003-4",
     "goal": "Консолидация сьютов по impact-карте: число сьютов сокращено БЕЗ потери покрытия (слияния только внутри доказанных картой классов идентичного покрытия в зеркале), карта остаётся генерируемой, --check продолжает ловить дрейф",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-27T10:33:36Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-27T17:34:22Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +573,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "GENG-S04: post-R6 baseline (тот же разрез и раунд-уровневое определение re-proof на первом post-R6 юните), затем S05 GATE G0 (GO/NO-GO владельца). Релиз v1.100.1 закрыт: PR #225 merged, tag v1.100.1, rollout WSL+Windows."
+  "nextAction": "N6 (LPD-003-REMEASURE): перемер машинного слоя после N2+N4+N5 на том же разрезе, что G0, и вердикт владельца по GENG-B (само-авторизация исполнителю запрещена); затем блок 3: N7 ORACLE-DEBT (2 красных оракула + решение по 26 внезеркальным сьютам и 2 группам идентичного покрытия с их участием), N8 GENG-C-EXP, N9 RELEASE. LPD-003-4 закрыт: PR #237 merged 21573aa, юнит verified."
 }
