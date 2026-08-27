@@ -143,18 +143,33 @@ def methodology_tree_sha256() -> str:
 
 
 CD_TARGET_RE = re.compile(
-    r"\bcd\s+(?:\.\./)*\.itd-plugin(?:/([\w./\-]*))?(?=\s|$|[;&|)])")
+    r"\b(?:cd|pushd)\s+(?:--\s+)?['\"]?(?:\.\./)*\.itd-plugin"
+    r"(?:/([\w./\-]*))?['\"]?(?=\s|$|[;&|)])")
+# Любое упоминание .itd-plugin как самостоятельного пути (не префикса
+# .itd-plugin/...) рядом со сменой каталога — независимо от формы записи.
+CD_CONSERVATIVE_RE = re.compile(r"\.itd-plugin(?![\w/\-])")
+CD_VERB_RE = re.compile(r"\b(?:cd|pushd)\b")
 
 
 def cd_targets_in_command(command: str) -> set[str]:
-    """cd-цели внутри .itd-plugin в одной команде — с хвостовым слэшем и без.
+    """cd-цели внутри .itd-plugin в одной команде — fail-closed к форме записи.
 
-    `cd .itd-plugin` без слэша переводит последующие относительные чтения
-    внутрь плагина так же, как со слэшем; терять его значило терять эти чтения
-    из замера (находка ревьюера, pub4).
+    Сторож дважды ловился на перечислении форм шелла: pub4 — `cd .itd-plugin`
+    без слэша, pub6 — кавычки, `--`, `pushd`. По правилу остановки это повтор
+    механизма, поэтому сменена форма: точный паттерн покрывает известные
+    написания, а НЕРАСПОЗНАННАЯ команда, где рядом стоят смена каталога и
+    самостоятельный путь .itd-plugin, консервативно СЧИТАЕТСЯ переходом в
+    корень плагина (расширяет замер, никогда не сужает). Непонятная форма
+    больше не может молча ускользнуть — только заставить нас пересчитать
+    больше, чем нужно.
     """
-    return {(match.group(1) or "").rstrip("/")
-            for match in CD_TARGET_RE.finditer(command or "")}
+    command = command or ""
+    targets = {(match.group(1) or "").rstrip("/")
+               for match in CD_TARGET_RE.finditer(command)}
+    if (not targets and CD_VERB_RE.search(command)
+            and CD_CONSERVATIVE_RE.search(command)):
+        targets.add("")
+    return targets
 
 
 def measured_cd_targets() -> set[str]:
@@ -185,6 +200,16 @@ check("cd со слэшем и подкаталогом попадает в за
       cd_targets_in_command("cd .itd-plugin/skills/blueprint") == {"skills/blueprint"})
 check("похожий каталог не матчится",
       cd_targets_in_command("cd .itd-plugin-backup/x") == set())
+check("кавычки вокруг пути не прячут переход",
+      cd_targets_in_command('cd ".itd-plugin" && cat skills/x/SKILL.md') == {""})
+check("cd -- .itd-plugin не прячет переход",
+      cd_targets_in_command("cd -- .itd-plugin") == {""})
+check("pushd не прячет переход",
+      cd_targets_in_command("pushd .itd-plugin/skills") == {"skills"})
+check("нераспознанная форма рядом с cd считается переходом консервативно",
+      cd_targets_in_command("cd $PLUGIN_DIR # .itd-plugin resolved") == {""})
+check("упоминание без смены каталога переходом не считается",
+      cd_targets_in_command("echo .itd-plugin") == set())
 check("составная команда даёт обе цели",
       cd_targets_in_command("cd .itd-plugin; cd .itd-plugin/skills")
       == {"", "skills"})
