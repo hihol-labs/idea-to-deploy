@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "LPD003-4",
-    "goal": "Консолидация сьютов по impact-карте: число сьютов сокращено БЕЗ потери покрытия (слияния только внутри доказанных картой классов идентичного покрытия в зеркале), карта остаётся генерируемой, --check продолжает ловить дрейф",
+    "id": "LPD003-REMEASURE",
+    "goal": "N6: перемер машинного слоя после N2+N4+N5 на том же разрезе, что GATE G0; числа записаны, вердикт владельца по GENG-B зафиксирован в DECISIONS (само-авторизация запрещена)",
     "status": "verified",
-    "startedAt": "2026-08-27T10:33:36Z",
+    "startedAt": "2026-08-27T18:54:28Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-08-27T17:34:22Z"
+    "riskTier": "low",
+    "completedAt": "2026-08-27T19:26:21Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -573,5 +573,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "N6 (LPD-003-REMEASURE): перемер машинного слоя после N2+N4+N5 на том же разрезе, что G0, и вердикт владельца по GENG-B (само-авторизация исполнителю запрещена); затем блок 3: N7 ORACLE-DEBT (2 красных оракула + решение по 26 внезеркальным сьютам и 2 группам идентичного покрытия с их участием), N8 GENG-C-EXP, N9 RELEASE. LPD-003-4 закрыт: PR #237 merged 21573aa, юнит verified."
+  "nextAction": "N7 (ORACLE-DEBT): два предсуществующих красных оракула (verify_operating_loops_release пин v1.94.0; verify_harness_demo_absorption недостижимый git-объект) + решение по 26 внезеркальным сьютам и 2 группам идентичного покрытия с их участием; затем N8 GENG-C-EXP, N9 RELEASE. N6 закрыт: перемер на разрезе G0 выполнен, вердикт владельца NO-GO по GENG-B подтверждён (DECISIONS 2026-08-27)."
 }
