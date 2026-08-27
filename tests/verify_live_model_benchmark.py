@@ -142,6 +142,21 @@ def methodology_tree_sha256() -> str:
     return _pin.tree_sha256(ROOT)
 
 
+CD_TARGET_RE = re.compile(
+    r"\bcd\s+(?:\.\./)*\.itd-plugin(?:/([\w./\-]*))?(?=\s|$|[;&|)])")
+
+
+def cd_targets_in_command(command: str) -> set[str]:
+    """cd-цели внутри .itd-plugin в одной команде — с хвостовым слэшем и без.
+
+    `cd .itd-plugin` без слэша переводит последующие относительные чтения
+    внутрь плагина так же, как со слэшем; терять его значило терять эти чтения
+    из замера (находка ревьюера, pub4).
+    """
+    return {(match.group(1) or "").rstrip("/")
+            for match in CD_TARGET_RE.finditer(command or "")}
+
+
 def measured_cd_targets() -> set[str]:
     """Литеральные cd-цели внутри .itd-plugin из записанных транскриптов."""
     targets: set[str] = set()
@@ -160,11 +175,19 @@ def measured_cd_targets() -> set[str]:
                     item = event.get("item") or {}
                     if item.get("type") != "command_execution":
                         continue
-                    for match in re.finditer(
-                            r"\bcd\s+(?:\.\./)*\.itd-plugin/([\w./\-]*)",
-                            item.get("command") or ""):
-                        targets.add(match.group(1).rstrip("/"))
+                    targets.update(cd_targets_in_command(item.get("command")))
     return targets
+
+
+check("cd без хвостового слэша попадает в замер",
+      cd_targets_in_command("cd .itd-plugin && cat skills/blueprint/SKILL.md") == {""})
+check("cd со слэшем и подкаталогом попадает в замер",
+      cd_targets_in_command("cd .itd-plugin/skills/blueprint") == {"skills/blueprint"})
+check("похожий каталог не матчится",
+      cd_targets_in_command("cd .itd-plugin-backup/x") == set())
+check("составная команда даёт обе цели",
+      cd_targets_in_command("cd .itd-plugin; cd .itd-plugin/skills")
+      == {"", "skills"})
 
 
 def measured_transcript_reads() -> set[str]:
