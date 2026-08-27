@@ -1,0 +1,77 @@
+{
+  "unit": "LPD003-4",
+  "purpose": "Замер консолидации сьютов по impact-карте: слиты только пары с доказанно идентичным множеством покрытия по сгенерированной .itd/IMPACT_GRAPH.json, обе стороны которых исполнялись зеркалом run-all. Покрытие сохранено поимённо: узловое множество карты не изменилось.",
+  "measuredAt": "2026-08-27",
+  "entryTree": "5b6e50f48cced2bb62efa03a6ec1c01aacee9e9a",
+  "method": {
+    "identicalCoverageClasses": "Из generated-секции карты построено покрытие suite -> set(nodes); группы с равными множествами вычислены на entry-дереве. Всего 7 групп; 5 целиком в зеркале (слиты), 2 содержат внезеркальных участников и оставлены решению N7 по 26 внезеркальным сьютам.",
+    "outOfMirrorGroupsLeftToN7": [
+      ["tests/verify_external_outcome_evidence.py", "tests/verify_external_outcome_independence.py"],
+      ["tests/verify_brownfield_and_gate.py", "tests/verify_skill_enforcement.py"]
+    ],
+    "keeperChoice": "Хранитель пары — имя, на которое ссылаются контракты и генераторы (HARNESS_CONFORMANCE_CONTRACT, PRACTICAL_EFFECTIVENESS_CONTRACT, QUALITY.json, VERIFICATION_CONTRACT, gen_phase2_contracts.py, snapshot-фикстура); удалено имя с только историческими упоминаниями (CHANGELOG, ретро) — история не переписывалась."
+  },
+  "pairs": [
+    {
+      "keeper": "verify_signal_attribution",
+      "donor": "verify_completion_ledger",
+      "coverage": ["hooks/completion_lib.py"],
+      "coverageIdentical": true,
+      "mutationEvidence": "completion_lib.py: прунинг отключён (условие size > LEDGER_SOFT_BYTES -> False) -> хранитель rc=1, красная именно донорская проверка 'ledger is bounded (not append-only)'; файл восстановлен байт-в-байт (sha256 равен до/после)."
+    },
+    {
+      "keeper": "verify_observed_token_telemetry",
+      "donor": "verify_cost_tracker",
+      "coverage": ["hooks/cost-tracker.sh"],
+      "coverageIdentical": true,
+      "mutationEvidence": "cost-tracker.sh: маркер 'CONTEXT SENSOR' искажён -> хранитель rc=1, красная донорская 't5a: hint fires at >=60%'; восстановлен байт-в-байт."
+    },
+    {
+      "keeper": "verify_otel_export",
+      "donor": "verify_otel_semconv",
+      "coverage": ["scripts/itd_otel_export.py"],
+      "coverageIdentical": true,
+      "mutationEvidence": "itd_otel_export.py: атрибут gen_ai.operation.name переименован -> хранитель rc=1, красная донорская 'agent: gen_ai.operation.name invoke_agent'; восстановлен байт-в-байт."
+    },
+    {
+      "keeper": "verify_no_bare_python3",
+      "donor": "verify_py_launcher_encoding",
+      "coverage": ["skills/_shared/itd_py.sh"],
+      "coverageIdentical": true,
+      "mutationEvidence": "itd_py.sh: строка 'export PYTHONIOENCODING PYTHONUTF8' закомментирована -> хранитель rc=1, красная донорская 'launcher-encoding/default-env' (static-проверка осталась зелёной: подстрока живёт в комментарии — красной стала поведенческая); восстановлен байт-в-байт."
+    },
+    {
+      "keeper": "verify_goal_tools",
+      "donor": "verify_work_deadline_runtime",
+      "coverage": ["scripts/validate_state.py", "skills/goal/scripts/itd_goal_report.py", "skills/goal/scripts/itd_goal_verify.py"],
+      "coverageIdentical": true,
+      "mutationEvidence": "itd_goal_verify.py: гейт riskTier для working_deadline отключён (if risk not in allowed -> if False) -> хранитель rc=1, красная донорская 'post-activation high-risk signal exits before command execution'; восстановлен байт-в-байт.",
+      "mirrorNote": "Донор жил в CORE — хранитель verify_goal_tools переведён из FULL в CORE, quick-профиль не теряет поведенческого покрытия working_deadline."
+    }
+  ],
+  "pre": {
+    "suitesOnDisk": 155,
+    "mirrorSuites": 129,
+    "nodes": 393,
+    "edges": 1021,
+    "nodeSetSha256": "58752894a6553577",
+    "donorsAsMapNodes": 0
+  },
+  "post": {
+    "suitesOnDisk": 150,
+    "mirrorSuites": 124,
+    "nodes": 393,
+    "edges": 1014,
+    "nodeSetSha256": "58752894a6553577",
+    "checkOutput": "FRESH .itd/IMPACT_GRAPH.json nodes=393 edges=1014 suitesAttached=150"
+  },
+  "noLossProof": "Ни один донор не был узлом карты (donorsAsMapNodes=0), покрытие каждой пары идентично => узловое множество после регенерации карты обязано совпасть и совпало: sha256 отсортированного списка узлов равен до/после (58752894a6553577), nodes 393 == 393; исчезли только 7 донорских рёбер-дублей (1021 -> 1014). Узлов без сьютов: 0.",
+  "finalCommitted": {
+    "note": "После шага слияний добавлен durable-оракул консолидации в verify_runall_drift.py; его литеральные ссылки сделали узлами карты 4 keeper-файла и сам этот замер (артефакт стал tracked через add -f, и генератор увидел ссылку оракула на его путь — стейл-состояние 397 узлов на staged-дереве поймал независимый чекер claim1, находка F3). Дельта к шагу слияний — строгий superset: removed=[], added=[tests/verify_no_bare_python3.py, tests/verify_observed_token_telemetry.py, tests/verify_otel_export.py, tests/verify_signal_attribution.py, .itd-memory/measurements/LPD003-4-consolidation.json]. Покрытие только выросло.",
+    "nodes": 398,
+    "edges": 1021,
+    "nodeSetSha256": "bc6842aa73b2e54a",
+    "checkOutput": "FRESH .itd/IMPACT_GRAPH.json nodes=398 edges=1021 suitesAttached=150"
+  },
+  "durableOracle": "tests/verify_runall_drift.py (секция consolidation_invariants): доноры отсутствуют в дереве/run-all/CI, хранители существуют, исполняются зеркалом и привязаны в карте, замер сверен с деревом (число сьютов) и с картой (равенство node-set sha256)."
+}

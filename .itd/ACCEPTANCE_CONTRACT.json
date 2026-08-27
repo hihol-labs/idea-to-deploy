@@ -2571,6 +2571,63 @@
           "live-benchmark-pin-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD003-4-1-map-proven-merges",
+      "unitId": "LPD003-4",
+      "criterion": "Консолидация ведётся ТОЛЬКО по сгенерированной impact-карте: сливаются исключительно пары сьютов с доказанно ИДЕНТИЧНЫМ множеством покрываемых узлов, обе стороны которых исполняются зеркалом run-all. Пять пар (хранитель ← донор): verify_signal_attribution ← verify_completion_ledger; verify_observed_token_telemetry ← verify_cost_tracker; verify_otel_export ← verify_otel_semconv; verify_no_bare_python3 ← verify_py_launcher_encoding; verify_goal_tools ← verify_work_deadline_runtime. Число сьютов на диске 155 -> 150, зеркало 129 -> 124. Доноры удалены из дерева, из CORE/FULL run-all и из всех ссылающихся контрактов; каждый хранитель существует и привязан в карте хотя бы одним ребром. Оракул зеркальной бухгалтерии проверяет эти инварианты и краснеет при возврате донора.",
+      "source": "Мандат G0/N5 (LAUNCH_PLAN Block J, LPD-003-4): консолидация сьютов по impact-карте; 151 сьют, maxClosure 36/151. Классы идентичного покрытия вычислены из .itd/IMPACT_GRAPH.json на entry-дереве 5b6e50f: 7 групп, из них 5 целиком в зеркале; 2 группы с внезеркальными участниками оставлены решению N7.",
+      "evidence": "GREEN: пять пар слиты, доноры удалены из дерева/CORE/FULL/CI (meta-review и windows-verify шаги переведены на хранителей); диск 155 -> 150, зеркало 129 -> 124 (строка MIRROR-COVERAGE: 124 of 150). Донор goal-пары жил в CORE — хранитель verify_goal_tools переведён FULL -> CORE, quick не теряет working_deadline покрытие. Оракул: consolidation_invariants в verify_runall_drift.py, 28/0.",
+      "verificationCommand": "python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Слиты только пары, идентичность покрытия которых доказана картой, и только внутри зеркала.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-4-2-coverage-preserved",
+      "unitId": "LPD003-4",
+      "criterion": "Потери покрытия нет: замер ДО слияний фиксирует множество узлов карты и по каждой паре равенство множеств покрытия донора и хранителя; замер ПОСЛЕ показывает, что каждый узел, имевший покрытие до слияния, покрыт и после — исчезают только узлы самих файлов-доноров (их источники удалены вместе с файлами). Проверки доноров физически живут в хранителях и КУСАЮТСЯ: мутация предмета донорской проверки на кандидате делает хранителя красным (доказано на кандидате, записано в замере). Замер — артефакт .itd-memory/measurements/LPD003-4-consolidation.json, добавленный в git через add -f; оракул зеркальной бухгалтерии сверяет замер с деревом и картой fail-closed.",
+      "source": "Правило дома «доказано, не заявлено» (N4/LPD003-2); ловушка N2: фикс проверять ТЕМ ЖЕ путём, каким его найдёт продюсер — через run-all, а не только селектором.",
+      "evidence": "GREEN: узловое множество карты на шаге слияний не изменилось — sha256 отсортированного списка узлов равен до/после (58752894a6553577, 393 узла), donorsAsMapNodes=0, исчезли только 7 донорских рёбер-дублей (1021 -> 1014); последующий durable-оракул добавил узлами 4 хранителя и сам артефакт замера (строгий superset, removed=[]; финал 398 узлов). По каждой из 5 пар живая мутация предмета донорской проверки красит хранителя (rc=1, красная именно донорская проверка), восстановление байт-в-байт. Замер: .itd-memory/measurements/LPD003-4-consolidation.json (в git через add -f). Находки независимого чекера claim1 закрыты: short-circuit в verify_no_bare_python3 устранён (обе секции исполняются всегда), живая ссылка PE5-011 в GOAL.json переведена на хранителя, стейл карты после add -f артефакта устранён регенерацией. Находка продюсера pub2 закрыта: оракул сверяет замер с ЖИВОЙ картой — каждый узел покрытия каждой пары обязан быть покрыт хранителем в текущей generated-секции (сфабрикованный артефакт красен, доказано мутацией с восстановлением; полный node-set намеренно не заморожен — анти-friction урок LPD003-2). Полное зеркало run-all на финальном кандидате DONE fails:none EXIT 0.",
+      "verificationCommand": "python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Покрытие карты сохранено поимённо, донорские проверки живы в хранителях и доказанно кусаются.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-4-3-drift-still-visible",
+      "unitId": "LPD003-4",
+      "criterion": "Карта остаётся генерируемой и дрейф остаётся видимым: python3 tests/build_impact_graph.py --check печатает FRESH на кандидате; impact-audit движка (полнота: каждый сьют зеркальной вселенной привязан хотя бы одним ребром; unattached — красный) зелёный; правила .itd/IMPACT_PATTERNS.json не называют удалённых сьютов; targeted-селектор работает на пересгенерированной карте. Полное зеркало run-all остаётся DONE fails:none.",
+      "source": "Acceptance юнита (PLAN-REMAINING, строка N5): «карта остаётся генерируемой, --check продолжает делать дрейф видимым». Долг LPD-003-1 (валидатор no-impact-правил и перекрытие suites-правилом) — не наступить: правила паттернов проверены на кандидате.",
+      "evidence": "GREEN: build_impact_graph.py --check печатает FRESH (nodes=398 edges=1021 suitesAttached=150) на финальном staged-кандидате (стейл 397 после add -f артефакта замера пойман чекером claim1 и закрыт регенерацией); impact-audit зелёный — verify_verification_profiles 109/0 (стейл-пин floor >= 151 в проверке полноты обновлён на 150 с комментарием); правила .itd/IMPACT_PATTERNS.json доноров не называют — verify_targeted_regression 104/0; полное зеркало run-all на финальном кандидате DONE fails:none EXIT 0.",
+      "verificationCommand": "python3 -I tests/verify_verification_profiles.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Генерация и drift-защита карты не ослаблены консолидацией.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle",
+          "targeted-patterns"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2589,8 +2646,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD003-2",
-    "status": "verified",
+    "unitId": "LPD003-4",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2598,17 +2655,14 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "performance",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-26T12:20:00Z",
-    "scopeNote": "LPD003-2: пин live-бенчмарка сужается до измеренного влияния (статическая замкнутость исполняемой поверхности + динамика записанных транскриптов); ложная инвалидация устранена и доказана мутацией; drift-защита сохранена; один источник правды набора. Переход потребует ровно один live re-pin на чистом дереве кандидата.",
-    "closedAt": "2026-08-27T12:35:00Z",
-    "closureEvidence": "Улика закрытия СУБЪЕКТА юнита: доставка LPD003-2 опубликована PR #235, squash-merge 8727749; полный producer-маршрут — r7 PASSED (доставка) и pub11 PASSED (публикация), оба findings=[]; пин сужен с ~231 файла десяти корней до 60 файлов измеренной исполняемой поверхности; ложная инвалидация устранена и доказана мутациями в обе стороны; свежий live re-pin на чистом дереве PASS; оракул 85/0. Настоящий ledger-close кандидат — отдельная бухгалтерская запись поверх base 8727749 со своей машинной ногой; его цифры живут в его квитанции, а не здесь."
+    "openedAt": "2026-08-27T13:30:00Z",
+    "scopeNote": "LPD003-4: консолидация сьютов по impact-карте. Сливаются только пары с идентичным множеством покрытия по сгенерированной карте, целиком внутри зеркала run-all (5 пар, 155 -> 150 на диске, зеркало 129 -> 124); покрытие сохранено поимённо и доказано замером до/после плюс мутацией донорской проверки в хранителе; карта остаётся генерируемой, --check и impact-audit продолжают ловить дрейф. Две группы идентичного покрытия с внезеркальными участниками не трогаются — решение по 26 внезеркальным сьютам принадлежит N7. Предшественник LPD003-2 закрыт: PR #235 (8727749) + ledger-close PR #236 (5b6e50f), r7/pub11/close1 PASSED findings=[]."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

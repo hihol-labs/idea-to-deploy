@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "LPD003-2",
-    "goal": "Сузить METHODOLOGY_TREE_ROOTS по ИЗМЕРЕННОМУ влиянию: правка, не влияющая на маршрут live-бенчмарка, не поднимает живой внешний прогон; сужение доказано замером, не заявлено",
-    "status": "verified",
-    "startedAt": "2026-08-26T17:41:26Z",
+    "id": "LPD003-4",
+    "goal": "Консолидация сьютов по impact-карте: число сьютов сокращено БЕЗ потери покрытия (слияния только внутри доказанных картой классов идентичного покрытия в зеркале), карта остаётся генерируемой, --check продолжает ловить дрейф",
+    "status": "in_progress",
+    "startedAt": "2026-08-27T10:33:36Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-08-27T09:40:38Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",
