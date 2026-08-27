@@ -132,14 +132,18 @@ def git_ignored_relatives(relatives: list[str]) -> set[str]:
     return {item for item in result.stdout.decode("utf-8").split("\0") if item}
 
 
-def methodology_tree_sha256() -> str:
+def load_pin_module():
     # LPD-003-2: набор пина живёт одним модулем на раннер и оракул.
     import importlib.util as _ilu
     _spec = _ilu.spec_from_file_location(
         "itd_benchmark_pin", ROOT / "tests" / "itd_benchmark_pin.py")
-    _pin = _ilu.module_from_spec(_spec)
-    _spec.loader.exec_module(_pin)
-    return _pin.tree_sha256(ROOT)
+    module = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(module)
+    return module
+
+
+def methodology_tree_sha256() -> str:
+    return load_pin_module().tree_sha256(ROOT)
 
 
 CD_TARGET_RE = re.compile(
@@ -170,6 +174,50 @@ def cd_targets_in_command(command: str) -> set[str]:
             and CD_CONSERVATIVE_RE.search(command)):
         targets.add("")
     return targets
+
+
+def independent_pin_recomputation() -> tuple[list[str], str]:
+    """НЕЗАВИСИМЫЙ пересчёт файлов и хеша пина — намеренный дубль реализации.
+
+    Находка pub10 (security): tests/itd_benchmark_pin.py — одновременно
+    авторитет пина и реализация для раннера с оракулом; его порча ослабила бы
+    хеш у ВСЕХ потребителей согласованно, и сверки самоссылочно сходились бы.
+    Верификатор обязан считать САМ: обход и хеш здесь написаны заново и не
+    импортируют модуль пина. Это осознанное исключение из правила «один
+    источник правды»: расхождение двух реализаций — красный, и именно это
+    делает подделку модуля видимой. Корни при этом берутся из модуля, но
+    проверяются против внешних источников (декларация раннера, пересчитанный
+    замер) отдельными проверками ниже.
+    """
+    import subprocess
+    _pin = load_pin_module()
+    roots = [r for rs in _pin.BENCHMARK_PIN_REASONS.values() for r in rs]
+    files: list[Path] = []
+    for raw in sorted(set(roots)):
+        path = ROOT / raw
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(c for c in path.rglob("*")
+                         if c.is_file() and "__pycache__" not in c.parts
+                         and c.suffix != ".pyc")
+    relatives = sorted({f.relative_to(ROOT).as_posix() for f in files})
+    proc = subprocess.run(["git", "check-ignore", "-z", "--stdin"], cwd=ROOT,
+                          input="\0".join(relatives).encode() + b"\0",
+                          capture_output=True, timeout=60)
+    if proc.returncode not in (0, 1):
+        raise RuntimeError("git check-ignore failed in independent recomputation")
+    ignored = {i for i in proc.stdout.decode().split("\0") if i}
+    relatives = [r for r in relatives if r not in ignored]
+    digest = hashlib.sha256()
+    for rel in relatives:
+        content = (ROOT / rel).read_bytes()
+        encoded = rel.encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return relatives, "sha256:" + digest.hexdigest()
 
 
 def measured_cd_targets() -> set[str]:
@@ -1227,6 +1275,13 @@ def main() -> int:
     # static-половина сверяется с декларацией раннера У МЕСТА создания
     # поверхности (независимый вывод, а не самоссылка на карту причин);
     # каждый dynamic-корень обязан покрывать хотя бы один измеренный путь.
+    independent_files, independent_hash = independent_pin_recomputation()
+    _pin_module = load_pin_module()
+    check("independent recomputation agrees on the pinned file list",
+          independent_files == [p.relative_to(ROOT).as_posix()
+                                for p in _pin_module.pinned_files(ROOT)])
+    check("independent recomputation agrees on the pin hash",
+          independent_hash == _pin_module.tree_sha256(ROOT))
     check("static pin half equals the runner-declared executable surface",
           set(pin.BENCHMARK_PIN_REASONS["static"])
           == set(load_live_runner().STATIC_EXECUTABLE_SURFACE))
