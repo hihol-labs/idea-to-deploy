@@ -718,6 +718,7 @@
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_live_model_benchmark.py",
       "tests/verify_redteam_multihost.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py"
@@ -1356,6 +1357,7 @@
     ],
     "skills/review/SKILL.md": [
       "tests/verify_itd_runtime_install.py",
+      "tests/verify_live_model_benchmark.py",
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_review_autoping.py",
       "tests/verify_review_cache.py",
@@ -1398,6 +1400,7 @@
     ],
     "skills/task/SKILL.md": [
       "tests/verify_harness_demo_absorption.py",
+      "tests/verify_live_model_benchmark.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_proportionality_benchmark.py",
       "tests/verify_session_hygiene_quality.py",
@@ -1472,6 +1475,9 @@
     ],
     "tests/helpers/platform_runtime_probe.py": [
       "tests/verify_cross_platform_runtime.py"
+    ],
+    "tests/itd_benchmark_pin.py": [
+      "tests/verify_live_model_benchmark.py"
     ],
     "tests/meta_review.py": [
       "tests/verify_hook_count_words.py",

@@ -1,0 +1,29 @@
+{
+  "measuredAt": "2026-08-26",
+  "unit": "LPD003-2",
+  "successfulRuns": 52,
+  "method": "structural: command_execution items only; ls/find/tree prefixes excluded; substring-in-listing does not count",
+  "substringBaselineFiles": 240,
+  "pinFilesBefore": 231,
+  "structuralReads": {
+    "AGENTS.md": 20,
+    "_shared/subagent-contract.md": 2,
+    "agents/devils-advocate.md": 66,
+    "docs/templates/itd-memory/GOAL.example.json": 2,
+    "docs/templates/itd-memory/STATE.example.json": 10,
+    "docs/templates/itd-memory/STATE.json": 2,
+    "docs/templates/itd-memory/goal.schema.json": 2,
+    "docs/templates/itd-memory/session-state.schema.json": 10,
+    "hooks/validate_state_core.py": 18,
+    "hooks/wip-gate.sh": 2,
+    "references/document-templates.md": 6,
+    "scripts/validate_state.py": 2,
+    "skills/_shared/itd_operating_loops.py": 8,
+    "skills/_shared/itd_unit_lifecycle.py": 2,
+    "skills/_shared/subagent-contract.md": 42,
+    "skills/blueprint/../../references/document-templates.md": 2,
+    "skills/blueprint/SKILL.md": 296,
+    "skills/blueprint/agents/devils-advocate.md": 2,
+    "skills/blueprint/references/document-templates.md": 210
+  }
+}

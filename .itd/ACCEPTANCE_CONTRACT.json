@@ -2494,6 +2494,83 @@
           "stop-rule-oracle"
         ]
       }
+    },
+    {
+      "id": "LPD003-2-1-measured-impact-set",
+      "unitId": "LPD003-2",
+      "criterion": "Набор файлов, входящих в пин live-бенчмарка, выводится ЗАМЕРОМ, а не заявляется: статическая замкнутость исполняемой поверхности (всё, что prepare_adopted_project копирует в исполняемые артефакты проекта: шаблоны .itd, codex-хуки и их скрипты, agents-md-шаблон; blueprint SKILL.md с его прямыми references; advocate-агент; манифесты плагина) объединяется с динамикой записанных транскриптов успешных прогонов (пути .itd-plugin/*, реально встречающиеся в транскриптах). Оракул пересчитывает обе стороны и требует, чтобы пин-набор покрывал замер точно; расхождение — красный, а не предупреждение.",
+      "source": "Замер S8-амендмента (advisor 2026-08-12): в хеше 231 файл, бенчмарк исполняет ~10%, hooks отключены по построению. Трение измерено (feedback_live_benchmark_pin_friction): за одну сессию шесть ложных инвалидаций, каждая стоит ~10-минутный живой прогон.",
+      "evidence": "GREEN: замер записан артефактом .itd-memory/measurements/LPD003-2-transcript-impact.json (52 успешных прогона, 19 структурно читаемых файлов; substring-базлайн 240 показал, почему листинги не считаются чтением). Оракул пересчитывает динамику из записанных runs своей функцией measured_transcript_reads() и требует полного покрытия пином; каждый корень набора обоснован записанной причиной (static/dynamic) в BENCHMARK_PIN_REASONS. Пин сокращён 231 -> 60 файлов.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Пин привязан к измеренному влиянию, а не к каталогам целиком.",
+        "impactClasses": [
+          "correctness",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "live-benchmark-pin-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-2-2-false-invalidation-eliminated",
+      "unitId": "LPD003-2",
+      "criterion": "Правка файла методологии ВНЕ измеренного набора не меняет пин-хеш и не инвалидирует записанное evidence — доказано мутацией: временная правка репрезентативного файла вне набора (например, скилла, не участвующего в бенчмарке) оставляет sha неизменным; правка файла ВНУТРИ набора хеш меняет. Обе мутации живут в оракуле и кусаются.",
+      "source": "Прямой мандат G0/N4: «правка, не влияющая на маршрут, не поднимает живой внешний прогон; сужение доказано, не заявлено».",
+      "evidence": "GREEN: мутации в оракуле на mini-дереве (правка вне набора sha не меняет; внутри — меняет) плюс контрольный замер на РЕАЛЬНОМ дереве: skills/review/SKILL.md тронут — sha неизменен; skills/blueprint/SKILL.md тронут — sha сменился; оба восстановлены байт-в-байт. Репрезентативные горячие точки прежнего трения (skills/review, skills/task, hooks/check-review-before-commit.sh) проверяются оракулом как ВНЕ пина.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Ложная инвалидация устранена и это доказано мутацией в обе стороны.",
+        "impactClasses": [
+          "correctness",
+          "performance"
+        ],
+        "oracleIds": [
+          "live-benchmark-pin-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-2-3-route-integrity-preserved",
+      "unitId": "LPD003-2",
+      "criterion": "Сужение НЕ ослабляет маршрут: drift-защита пина работает по-прежнему (изменение файла внутри набора инвалидирует evidence), transcript_proves_harness и все прочие проверки verify_live_model_benchmark остаются зелёными, а транскрипт-динамика замера читается из записанных runs без сети. Полное зеркало run-all остаётся DONE fails:none.",
+      "source": "Ловушка #197 (память): live re-pin строго на чистом дереве; прежний контракт ловил дрейф — новый обязан ловить его на суженном наборе так же жёстко.",
+      "evidence": "GREEN: verify_live_model_benchmark --require-evidence 139/0 после живого re-pin (PASS, run 20260826T180035Z-283599ba, fixture-03, чистое staged-дерево); drift-защита жива — verify_tree_pin_debris переведён на пробу ВНУТРИ набора и зелёный; полное зеркало run-all DONE fails:none EXIT 0. Замер динамики читает только записанные runs, сети нет.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Сужение не открывает щель дрейфа и не трогает живой маршрут.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-benchmark-pin-oracle",
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "LPD003-2-4-single-source-of-truth",
+      "unitId": "LPD003-2",
+      "criterion": "Набор пина определяется ОДНОЙ реализацией, которую импортируют и раннер, и оракул: две копии списка корней (run-live-model-benchmark.py и verify_live_model_benchmark.py) заменяются общей, расхождение копий становится невозможным по построению, а не проверяемым постфактум.",
+      "source": "Сейчас METHODOLOGY_TREE_ROOTS продублирован в двух файлах (26 и 31 строки); класс «две копии расходятся молча» уже дважды ловился ревьюером в LPD-003-3 (round_ledger_path, canonical key).",
+      "evidence": "GREEN: набор живёт единственным модулем tests/itd_benchmark_pin.py; раннер и оракул импортируют его по file-location (работает под python -I), оракул сверяет равенство хешей обоих потребителей первой же проверкой. Дубли METHODOLOGY_TREE_ROOTS как источника ХЕША удалены; константа раннера осталась только материалом копирования плагина, что записано комментарием у точки использования.",
+      "verificationCommand": "python3 -I tests/verify_live_model_benchmark.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "У пина один источник правды на оба потребителя.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-benchmark-pin-oracle"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2512,8 +2589,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD003-3",
-    "status": "verified",
+    "unitId": "LPD003-2",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2521,17 +2598,15 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "reconciliation",
+        "performance",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-24T13:59:56Z",
-    "scopeNote": "LPD003-3: правило остановки над содержанием находок — классификация терминалов раунда, ключ механизма, повтор механизма -> редизайн/выброс, сходимость -> продолжать без потолка раундов, off-subject -> дефект маршрута, регрессия -> починка в корне. Advisory: правило считается и печатается, решение принимает владелец; гейтом оно этим юнитом не становится. Проверка — реплей записанных историй S04b/GPG-001/LPD003-1 (машинные отчёты) и R6 (пересказ, отчёты вырезаны prune-политикой).",
-    "closedAt": "2026-08-26T08:47:49Z",
-    "closureEvidence": "Улика закрытия СУБЪЕКТА юнита (не этого бухгалтерского кандидата): доставка LPD003-3 опубликована PR #232, squash-merge 8eec8b7 в main; машинная нога субъекта u30 PASSED на ЕГО дереве 287fa0d5 (base 386d4fe до сквоша), оракул 376/0, полное зеркало DONE fails:none; owner-published по варианту C (прецедент #189/#192), producer-серия остановлена после r35, две открытые medium r35 записаны в BACKLOG. Настоящий ledger-close кандидат — отдельная запись поверх base 8eec8b7 со СВОЕЙ машинной ногой; его дерево и цифры живут в его собственной квитанции, а не в этом тексте."
+    "openedAt": "2026-08-26T12:20:00Z",
+    "scopeNote": "LPD003-2: пин live-бенчмарка сужается до измеренного влияния (статическая замкнутость исполняемой поверхности + динамика записанных транскриптов); ложная инвалидация устранена и доказана мутацией; drift-защита сохранена; один источник правды набора. Переход потребует ровно один live re-pin на чистом дереве кандидата."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

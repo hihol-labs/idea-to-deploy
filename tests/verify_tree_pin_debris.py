@@ -16,7 +16,10 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBE_IGNORED = ROOT / "skills" / "_shared" / ".claude" / "traces" / "tree-pin-probe.json"
-PROBE_TRACKED_SHAPE = ROOT / "skills" / "_shared" / "tree-pin-probe.tmp"
+# LPD-003-2: пин сужен до измеренного влияния, поэтому non-vacuity проба
+# обязана лежать ВНУТРИ пин-набора — файл вне набора теперь по построению
+# пин не двигает (это и есть устранённая ложная инвалидация).
+PROBE_TRACKED_SHAPE = ROOT / "skills" / "blueprint" / "tree-pin-probe.tmp"
 CHECKS = 0
 
 

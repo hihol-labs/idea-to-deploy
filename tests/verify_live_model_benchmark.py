@@ -12,7 +12,7 @@ import importlib.util
 import io
 import json
 from decimal import Decimal
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
@@ -132,29 +132,217 @@ def git_ignored_relatives(relatives: list[str]) -> set[str]:
     return {item for item in result.stdout.decode("utf-8").split("\0") if item}
 
 
+def load_pin_module():
+    # LPD-003-2: набор пина живёт одним модулем на раннер и оракул.
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(
+        "itd_benchmark_pin", ROOT / "tests" / "itd_benchmark_pin.py")
+    module = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(module)
+    return module
+
+
 def methodology_tree_sha256() -> str:
+    return load_pin_module().tree_sha256(ROOT)
+
+
+CD_TARGET_RE = re.compile(
+    r"\b(?:cd|pushd)\s+(?:--\s+)?['\"]?(?:\.\./)*\.itd-plugin"
+    r"(?:/([\w./\-]*))?['\"]?(?=\s|$|[;&|)])")
+# Любое упоминание .itd-plugin как самостоятельного пути (не префикса
+# .itd-plugin/...) рядом со сменой каталога — независимо от формы записи.
+CD_CONSERVATIVE_RE = re.compile(r"\.itd-plugin(?![\w/\-])")
+CD_VERB_RE = re.compile(r"\b(?:cd|pushd)\b")
+
+
+def cd_targets_in_command(command: str) -> set[str]:
+    """cd-цели внутри .itd-plugin в одной команде — fail-closed к форме записи.
+
+    Сторож дважды ловился на перечислении форм шелла: pub4 — `cd .itd-plugin`
+    без слэша, pub6 — кавычки, `--`, `pushd`. По правилу остановки это повтор
+    механизма, поэтому сменена форма: точный паттерн покрывает известные
+    написания, а НЕРАСПОЗНАННАЯ команда, где рядом стоят смена каталога и
+    самостоятельный путь .itd-plugin, консервативно СЧИТАЕТСЯ переходом в
+    корень плагина (расширяет замер, никогда не сужает). Непонятная форма
+    больше не может молча ускользнуть — только заставить нас пересчитать
+    больше, чем нужно.
+    """
+    command = command or ""
+    targets = {(match.group(1) or "").rstrip("/")
+               for match in CD_TARGET_RE.finditer(command)}
+    if (not targets and CD_VERB_RE.search(command)
+            and CD_CONSERVATIVE_RE.search(command)):
+        targets.add("")
+    return targets
+
+
+def independent_pin_recomputation() -> tuple[list[str], str]:
+    """НЕЗАВИСИМЫЙ пересчёт файлов и хеша пина — намеренный дубль реализации.
+
+    Находка pub10 (security): tests/itd_benchmark_pin.py — одновременно
+    авторитет пина и реализация для раннера с оракулом; его порча ослабила бы
+    хеш у ВСЕХ потребителей согласованно, и сверки самоссылочно сходились бы.
+    Верификатор обязан считать САМ: обход и хеш здесь написаны заново и не
+    импортируют модуль пина. Это осознанное исключение из правила «один
+    источник правды»: расхождение двух реализаций — красный, и именно это
+    делает подделку модуля видимой. Корни при этом берутся из модуля, но
+    проверяются против внешних источников (декларация раннера, пересчитанный
+    замер) отдельными проверками ниже.
+    """
+    import subprocess
+    _pin = load_pin_module()
+    roots = [r for rs in _pin.BENCHMARK_PIN_REASONS.values() for r in rs]
     files: list[Path] = []
-    for raw in METHODOLOGY_TREE_ROOTS:
+    for raw in sorted(set(roots)):
         path = ROOT / raw
         if path.is_file():
             files.append(path)
         elif path.is_dir():
-            files.extend(candidate for candidate in path.rglob("*")
-                         if candidate.is_file() and "__pycache__" not in candidate.parts
-                         and candidate.suffix != ".pyc")
-    ignored = git_ignored_relatives(
-        [path.relative_to(ROOT).as_posix() for path in files])
-    files = [path for path in files
-             if path.relative_to(ROOT).as_posix() not in ignored]
+            files.extend(c for c in path.rglob("*")
+                         if c.is_file() and "__pycache__" not in c.parts
+                         and c.suffix != ".pyc")
+    relatives = sorted({f.relative_to(ROOT).as_posix() for f in files})
+    proc = subprocess.run(["git", "check-ignore", "-z", "--stdin"], cwd=ROOT,
+                          input="\0".join(relatives).encode() + b"\0",
+                          capture_output=True, timeout=60)
+    if proc.returncode not in (0, 1):
+        raise RuntimeError("git check-ignore failed in independent recomputation")
+    ignored = {i for i in proc.stdout.decode().split("\0") if i}
+    relatives = [r for r in relatives if r not in ignored]
     digest = hashlib.sha256()
-    for path in sorted(set(files), key=lambda item: item.relative_to(ROOT).as_posix()):
-        relative = path.relative_to(ROOT).as_posix().encode("utf-8")
-        content = path.read_bytes()
-        digest.update(len(relative).to_bytes(8, "big"))
-        digest.update(relative)
+    for rel in relatives:
+        content = (ROOT / rel).read_bytes()
+        encoded = rel.encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
         digest.update(len(content).to_bytes(8, "big"))
         digest.update(content)
-    return "sha256:" + digest.hexdigest()
+    return relatives, "sha256:" + digest.hexdigest()
+
+
+def measured_cd_targets() -> set[str]:
+    """Литеральные cd-цели внутри .itd-plugin из записанных транскриптов."""
+    targets: set[str] = set()
+    runs_dir = ROOT / "tests" / "fixtures" / "live-model-evidence" / "runs"
+    for run in sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []:
+        if not run.is_dir():
+            continue
+        # Тот же фильтр успешности, что у measured_transcript_reads: провальный
+        # прогон не имеет права ни расширять, ни ронять контракт замера
+        # (находка ревьюера, pub9).
+        report = run / "run-report.json"
+        if report.is_file():
+            try:
+                outcome = json.loads(report.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if str(outcome.get("status", "")).upper() != "PASS":
+                continue
+        elif "-fail-" in run.name:
+            continue
+        for transcript in sorted(run.rglob("transcript.jsonl.gz")):
+            with gzip.open(transcript, "rt", encoding="utf-8",
+                           errors="replace") as stream:
+                for line in stream:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    item = event.get("item") or {}
+                    if item.get("type") != "command_execution":
+                        continue
+                    targets.update(cd_targets_in_command(item.get("command")))
+    return targets
+
+
+check("cd без хвостового слэша попадает в замер",
+      cd_targets_in_command("cd .itd-plugin && cat skills/blueprint/SKILL.md") == {""})
+check("cd со слэшем и подкаталогом попадает в замер",
+      cd_targets_in_command("cd .itd-plugin/skills/blueprint") == {"skills/blueprint"})
+check("похожий каталог не матчится",
+      cd_targets_in_command("cd .itd-plugin-backup/x") == set())
+check("кавычки вокруг пути не прячут переход",
+      cd_targets_in_command('cd ".itd-plugin" && cat skills/x/SKILL.md') == {""})
+check("cd -- .itd-plugin не прячет переход",
+      cd_targets_in_command("cd -- .itd-plugin") == {""})
+check("pushd не прячет переход",
+      cd_targets_in_command("pushd .itd-plugin/skills") == {"skills"})
+check("нераспознанная форма рядом с cd считается переходом консервативно",
+      cd_targets_in_command("cd $PLUGIN_DIR # .itd-plugin resolved") == {""})
+check("упоминание без смены каталога переходом не считается",
+      cd_targets_in_command("echo .itd-plugin") == set())
+check("составная команда даёт обе цели",
+      cd_targets_in_command("cd .itd-plugin; cd .itd-plugin/skills")
+      == {"", "skills"})
+
+
+def measured_transcript_reads() -> set[str]:
+    """Динамика влияния: файлы, структурно читаемые записанными прогонами.
+
+    Считаются только события command_execution из транскриптов успешных runs;
+    упоминание в выводе ls/find/tree чтением не является — листинг каталога
+    упоминает всё дерево и делал бы замер тождественно пустым по смыслу
+    (substring-базлайн: 240 «упомянутых» файлов против 19 читаемых).
+    Относительные обращения из каталога скилла (references/...,
+    ../../references/...) нормализуются к repo-relative пути.
+    """
+    reads: set[str] = set()
+    runs_dir = ROOT / "tests" / "fixtures" / "live-model-evidence" / "runs"
+    for run in sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []:
+        if not run.is_dir():
+            continue
+        # Успешность прогона — записанный исход, а не имя каталога: провал с
+        # другим именем включался бы, успех с токеном в имени терялся бы
+        # (находка ревьюера r1). Имя остаётся резервом только для прогонов,
+        # записанных до появления run-report.json.
+        report = run / "run-report.json"
+        if report.is_file():
+            try:
+                outcome = json.loads(report.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if str(outcome.get("status", "")).upper() != "PASS":
+                continue
+        elif "-fail-" in run.name:
+            continue
+        for transcript in sorted(run.rglob("transcript.jsonl.gz")):
+            with gzip.open(transcript, "rt", encoding="utf-8",
+                           errors="replace") as stream:
+                for line in stream:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    item = event.get("item") or {}
+                    if item.get("type") != "command_execution":
+                        continue
+                    command = item.get("command") or ""
+                    for match in re.finditer(r"\.itd-plugin/([\w./\-]+)", command):
+                        raw = match.group(1).rstrip(".").rstrip("/")
+                        if "." not in raw.rsplit("/", 1)[-1]:
+                            continue
+                        # Префикс — непосредственно перед ЭТИМ совпадением, а
+                        # не до первого .itd-plugin в команде: составная
+                        # команда `ls .itd-plugin/a; cat .itd-plugin/b` иначе
+                        # роняла cat-чтение как листинг (находка ревьюера r1).
+                        prefix = command[max(0, match.start() - 30):match.start()]
+                        if re.search(r"\b(ls|find|tree)\b", prefix.split(";")[-1]
+                                     .split("&&")[-1].split("|")[-1]):
+                            continue
+                        normalized = PurePosixPath(
+                            re.sub(r"^(references/)", "skills/blueprint/\\1",
+                                   re.sub(r"^(_shared/)", "skills/\\1", raw)))
+                        parts: list[str] = []
+                        for part in normalized.parts:
+                            if part == "..":
+                                if parts:
+                                    parts.pop()
+                            elif part != ".":
+                                parts.append(part)
+                        candidate = "/".join(parts)
+                        if (ROOT / candidate).is_file():
+                            reads.add(candidate)
+    return reads
 
 
 def parse_time(raw: str) -> dt.datetime:
@@ -1063,6 +1251,102 @@ def main() -> int:
     check("generated live evidence cannot invalidate its own dirty-state pin",
           stable_git_status(synthetic_status)
           == expected_stable_status)
+    # ------------------------------------------------------------------
+    # LPD-003-2: пин сужен до измеренного влияния — сужение доказано.
+    # ------------------------------------------------------------------
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(
+        "itd_benchmark_pin", ROOT / "tests" / "itd_benchmark_pin.py")
+    pin = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(pin)
+
+    check("pin set is defined once and importable by both consumers",
+          load_live_runner().methodology_tree_sha256()
+          == methodology_tree_sha256())
+    roots = list(pin.BENCHMARK_PIN_ROOTS)
+    check("every pin root exists in the repository",
+          all((ROOT / raw).exists() for raw in roots),
+          str([raw for raw in roots if not (ROOT / raw).exists()]))
+    check("pin roots carry no duplicates",
+          len(roots) == len(set(roots)))
+    check("every pin root is justified by a recorded reason",
+          set(roots) == {r for rs in pin.BENCHMARK_PIN_REASONS.values() for r in rs})
+    # Находка r3: пин не имеет права нести необоснованные лишние корни.
+    # static-половина сверяется с декларацией раннера У МЕСТА создания
+    # поверхности (независимый вывод, а не самоссылка на карту причин);
+    # каждый dynamic-корень обязан покрывать хотя бы один измеренный путь.
+    independent_files, independent_hash = independent_pin_recomputation()
+    _pin_module = load_pin_module()
+    check("independent recomputation agrees on the pinned file list",
+          independent_files == [p.relative_to(ROOT).as_posix()
+                                for p in _pin_module.pinned_files(ROOT)])
+    check("independent recomputation agrees on the pin hash",
+          independent_hash == _pin_module.tree_sha256(ROOT))
+    check("static pin half equals the runner-declared executable surface",
+          set(pin.BENCHMARK_PIN_REASONS["static"])
+          == set(load_live_runner().STATIC_EXECUTABLE_SURFACE))
+
+    pinned = {p.relative_to(ROOT).as_posix() for p in pin.pinned_files(ROOT)}
+    measured = measured_transcript_reads()
+    uncovered = sorted(measured - pinned)
+    check("every structurally measured transcript read is covered by the pin",
+          not uncovered, str(uncovered)[:400])
+    check("the measurement itself is non-trivial (recorded runs are readable)",
+          len(measured) >= 10, f"measured={len(measured)}")
+    static_set = set(pin.BENCHMARK_PIN_REASONS["static"])
+    unjustified_dynamic = sorted(
+        root for root in pin.BENCHMARK_PIN_REASONS["dynamic"]
+        if not any(path == root or path.startswith(root + "/")
+                   for path in measured))
+    check("every dynamic pin root covers at least one measured read",
+          not unjustified_dynamic, str(unjustified_dynamic))
+    check("reason halves do not overlap",
+          not (static_set & set(pin.BENCHMARK_PIN_REASONS["dynamic"])))
+    # Находка r2: чтение после `cd .itd-plugin/...` с относительным операндом
+    # литеральным сканом невидимо. Общий парс произвольного shell неразрешим
+    # (урок ADR-008), поэтому сторож fail-closed по ЛИТЕРАЛЬНОЙ cd-цели:
+    # каждая cd-цель внутри плагина обязана быть покрыта пином как каталог —
+    # тогда любые относительные чтения внутри неё покрыты надмножеством.
+    # На записанных 52 прогонах cd-целей ноль (замер 2026-08-26); сторож
+    # взводится будущим re-record, а не остаётся пустым обещанием.
+    cd_targets = measured_cd_targets()
+    pinned_dirs = {raw for raw in pin.BENCHMARK_PIN_ROOTS
+                   if (ROOT / raw).is_dir()}
+    uncovered_cd = sorted(
+        target for target in cd_targets
+        if not any(target == d or target.startswith(d + "/")
+                   for d in pinned_dirs))
+    check("every recorded cd-target inside the plugin is pin-covered as a "
+          f"directory (cdTargets={len(cd_targets)})",
+          not uncovered_cd, str(uncovered_cd)[:300])
+    # Сужение реально: репрезентативные горячие точки прежнего трения — вне пина.
+    for outsider in ("skills/review/SKILL.md", "skills/task/SKILL.md",
+                     "hooks/check-review-before-commit.sh"):
+        check(f"non-executed surface stays out of the pin: {outsider}",
+              outsider not in pinned and (ROOT / outsider).is_file())
+    check("executed surface stays inside the pin",
+          "skills/blueprint/SKILL.md" in pinned
+          and "agents/devils-advocate.md" in pinned)
+
+    # Мутации по построению: правка вне набора хеш НЕ меняет, внутри — меняет.
+    with tempfile.TemporaryDirectory(prefix="itd-pin-mutation-") as scratch:
+        mini = Path(scratch)
+        subprocess.run(["git", "init", "-q", str(mini)], check=True)
+        inside = mini / "skills" / "blueprint"
+        inside.mkdir(parents=True)
+        (inside / "SKILL.md").write_text("inside\n", encoding="utf-8")
+        outside = mini / "skills" / "review"
+        outside.mkdir(parents=True)
+        (outside / "SKILL.md").write_text("outside\n", encoding="utf-8")
+        (mini / "AGENTS.md").write_text("agents\n", encoding="utf-8")
+        base_sha = pin.tree_sha256(mini)
+        (outside / "SKILL.md").write_text("outside CHANGED\n", encoding="utf-8")
+        check("editing a file OUTSIDE the pin does not invalidate the sha",
+              pin.tree_sha256(mini) == base_sha)
+        (inside / "SKILL.md").write_text("inside CHANGED\n", encoding="utf-8")
+        check("editing a file INSIDE the pin does invalidate the sha",
+              pin.tree_sha256(mini) != base_sha)
+
     if args.require_evidence:
         verify_evidence(args.evidence.resolve(), args.max_age_days)
     print(f"\n{passed} passed, {failed} failed")
