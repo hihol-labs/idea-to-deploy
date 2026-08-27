@@ -179,6 +179,19 @@ def measured_cd_targets() -> set[str]:
     for run in sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []:
         if not run.is_dir():
             continue
+        # Тот же фильтр успешности, что у measured_transcript_reads: провальный
+        # прогон не имеет права ни расширять, ни ронять контракт замера
+        # (находка ревьюера, pub9).
+        report = run / "run-report.json"
+        if report.is_file():
+            try:
+                outcome = json.loads(report.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if str(outcome.get("status", "")).upper() != "PASS":
+                continue
+        elif "-fail-" in run.name:
+            continue
         for transcript in sorted(run.rglob("transcript.jsonl.gz")):
             with gzip.open(transcript, "rt", encoding="utf-8",
                            errors="replace") as stream:
