@@ -1,0 +1,101 @@
+{
+  "unit": "LPD003-REMEASURE",
+  "purpose": "Замороженные числа перемера машинного слоя N6 на разрезе GATE G0 (дубль-критерий S05, оба варианта ключа амендмента, эры PRE/POST по merge LPD-003-1 #230 2026-08-24). Срез по createdAt < 2026-08-27T18:45Z — до активации юнита N6, чтобы квитанции его собственного маршрута не двигали публикуемый замер. Fail-closed сверка: LPD003-REMEASURE-check.py пересчитывает из квитанций и требует точного совпадения.",
+  "measuredAt": "2026-08-27",
+  "cutoffCreatedAt": "2026-08-27T18:45:00Z",
+  "eraSplit": "2026-08-24T00:00:00Z",
+  "g0Reference": {
+    "date": "2026-08-22",
+    "machineLayerMin": 1053.8,
+    "runallMin": 859.4,
+    "runallShare": "82%",
+    "amendmentCeilingMin": 698.4,
+    "unitsOver30": "6/135"
+  },
+  "eras": {
+    "PRE": {
+      "units": 189,
+      "totalMin": 1341.3,
+      "runallMin": 1050.3,
+      "ceilingNoRunallMin": 179.6,
+      "ceilingWithRunallMin": 891.5,
+      "perUnitNoRunall": {
+        "median": 0.0,
+        "max": 75.5,
+        "over30": 1
+      },
+      "perUnitWithRunall": {
+        "median": 0.0,
+        "max": 188.7,
+        "over30": 6
+      }
+    },
+    "POST": {
+      "units": 8,
+      "totalMin": 75.0,
+      "runallMin": 0.0,
+      "ceilingNoRunallMin": 59.3,
+      "ceilingWithRunallMin": 59.3,
+      "perUnitNoRunall": {
+        "median": 1.42,
+        "max": 27.9,
+        "over30": 0
+      },
+      "perUnitWithRunall": {
+        "median": 1.42,
+        "max": 27.9,
+        "over30": 0
+      }
+    }
+  },
+  "ownerVerdict": {
+    "date": "2026-08-27",
+    "decision": "GENG-B NO-GO подтверждён",
+    "provenance": "владельческий ответ в сессии f738736d-80ff-4dc4-a871-4f41965a6e74 (structured question, вариант 'Подтвердить NO-GO'); само-авторизация исполнителю запрещена мандатом G0"
+  },
+  "corpusClassification": "Файлы *-prompt*.json — промпт-транскрипты продюсера (сырые байты, не JSON, не квитанции) и классифицируются по роли; любой другой нечитаемый файл, квитанция machine-verification без валидного createdAt или прогон с битым таймстемпом — ошибка корпуса (fail-closed, exit 1).",
+  "declaredInvertedRuns": [
+    {
+      "file": "GPG-001-general-review-machine-080c4682dacc81a4.json",
+      "run": 2,
+      "seconds": -3.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "GPG-001-general-review-machine-63c31861ecbc9ac9.json",
+      "run": 0,
+      "seconds": -4.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "HDX-011-security-review-machine-0e6a3cc8b2b95a6d.json",
+      "run": 1,
+      "seconds": -1.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "HDX-011-security-review-machine-0e6a3cc8b2b95a6d.json",
+      "run": 4,
+      "seconds": -7.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "HDX-012-machine-0d3a125f4eca4107.json",
+      "run": 0,
+      "seconds": -2.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "HDX-013-machine-66ce85d296b79f3b.json",
+      "run": 1,
+      "seconds": -5.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    },
+    {
+      "file": "RLS-001-machine-c72cb18ae6f610af.json",
+      "run": 2,
+      "seconds": -4.0,
+      "why": "историческая инверсия clock-skew; вклад 0.0"
+    }
+  ]
+}
