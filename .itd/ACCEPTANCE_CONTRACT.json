@@ -2759,7 +2759,7 @@
   },
   "activeFollowup": {
     "unitId": "ORACLE-DEBT",
-    "status": "in_progress",
+    "status": "closed",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2775,7 +2775,8 @@
     },
     "openedAt": "2026-08-28T08:20:12Z",
     "scopeNote": "ORACLE-DEBT (N7): долговой юнит. Два объявленных предмета разошлись по природе — verify_operating_loops_release измерен зелёным на своём кандидате 172fca79 (не стейл-пин, а candidate-bound квитанция), verify_harness_demo_absorption красный по-настоящему (объявленный git-вход недостижим) и его ремонт закрыт changePolicy контракта: new-version-and-human-approval. Третий красный найден в зеркале (verify_harness_docs_freshness, протух по времени 2026-08-28) и закрыт как разблокировка. Решения по маршруту absorption v5, по судьбе релизного оракула, по 26 внезеркальным сьютам и по 2 группам идентичного покрытия — владельческие, вынесены пакетом. Тир поднят low -> medium машинным событием STATE 2026-08-28T08:20:12Z: юнит вырос из ремонта пинов в правку замороженного контракта (v5), маршрута оракула и состава зеркала. Поднятие ужесточает маршрут (независимый ревьюер обязателен), а не ослабляет его: на low продюсер отказывает по пропорциональности (\"low review requires zero independent reviewers\").",
-    "closedAt": ""
+    "closedAt": "2026-08-28T14:06:10Z",
+    "closure": "PR #241 merged 180e451. Оба долговых оракула разобраны по существу; класс сьютов вне зеркала назван машиночитаемо (tests/OUT_OF_MIRROR.json + fail-closed гард в verify_runall_drift.py, покрытие 124/150 -> 140/150); слияние пары идентичного покрытия опровергнуто мутацией, оба сьюта сохранены. Маршрут: чистого PASS обязательного cross-vendor продюсера НЕТ (7 заходов, все BLOCKED, все находки закрыты по корню); публикация owner-маршрутом по решению владельца, коммит — штатным adjudicated-маршрутом (машина PASSED + независимый свежий чекер PASSED + адъюдикация на дереве b2b25ebf). Два остатка чекера вынесены в BACKLOG P1, чтобы не менять дерево под квитанциями. Уточнение по улике (находка чекера ledger-close): «семь заходов» — счёт по журналу сессии; на диске сохранились отчёты r2-r7, то есть независимо подтверждаются ШЕСТЬ BLOCKED-заходов, артефакт r1 не сохранился. Существо утверждения («чистого PASS нет») подтверждается и шестью сохранившимися отчётами."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
