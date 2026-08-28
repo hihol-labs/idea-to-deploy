@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "LPD003-REMEASURE",
-    "goal": "N6: перемер машинного слоя после N2+N4+N5 на том же разрезе, что GATE G0; числа записаны, вердикт владельца по GENG-B зафиксирован в DECISIONS (само-авторизация запрещена)",
-    "status": "verified",
-    "startedAt": "2026-08-27T18:54:28Z",
+    "id": "ORACLE-DEBT",
+    "goal": "N7: закрыть два предсуществующих красных оракула и класс сьютов вне зеркала; тир поднят low -> medium (правка замороженного контракта v5 и состава зеркала требует независимого ревьюера)",
+    "status": "in_progress",
+    "startedAt": "2026-08-28T08:20:12Z",
     "ledger": "STATE",
-    "riskTier": "low",
-    "completedAt": "2026-08-27T19:26:21Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",

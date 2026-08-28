@@ -2647,6 +2647,99 @@
           "targeted-patterns"
         ]
       }
+    },
+    {
+      "id": "ORACLE-DEBT-1-mirror-unblocked",
+      "unitId": "ORACLE-DEBT",
+      "criterion": "Зеркало run-all снова зелёное: найденный в этой сессии красный tests/verify_harness_docs_freshness.py (протух 2026-08-28: reviewedAt 2026-07-28 при maxAgeDays 30) закрыт честным перепрогоном улик модуля harness-engineering-conformance, а не одним сдвигом даты. verify_harness_conformance.py --axis all на НЕЗАКОММИЧЕННОМ кандидате даёт 4/5, и единственный красный H4-R2 — структурный: живая улика бенчмарка пиненна к ЧИСТОМУ дереву, поэтому на грязном дереве красное ровно одно утверждение «dirty-state digest is pinned». 5/5 достижимо только на коммитнутом чистом дереве после живой перечеканки улики — это обязательство шага публикации, а не предусловие кандидата.",
+      "source": "Блокер обнаружен при замере внезеркального класса (N7); прецедент процедуры — PR #234 (a0be0d8, session-close hygiene).",
+      "evidence": "GREEN: python3 -I tests/verify_harness_docs_freshness.py exit 0 (0 FAIL) после перепрогона улик модуля harness-engineering-conformance; verify_harness_conformance --axis all 4/5, где единственный красный H4-R2 воспроизводимо зелёный на ЧИСТОМ чекауте 5731c77 (verify_live_model_benchmark --require-evidence --max-age-days 30: exit 0, 154 passed/0 failed), то есть артефакт грязного дерева, а не устаревшая улика. Раунд r7 (BLOCKED, high): прежний текст критерия обещал 5/5 на кандидате, а улика фиксировала 4/5 — внутреннее противоречие, критерий переписан по факту. Замер 2026-08-28 на кандидате 47d3f0d9: verify_harness_conformance --axis all EXIT 1, SCORE 4/5, красный только H4.H4-R2; его источник verify_live_model_benchmark --require-evidence --max-age-days 30 -> EXIT 1, 153 passed / 1 failed, единственная красная строка «dirty-state digest is pinned» (H1/H2/H3/H5 зелёные). Живая перечеканка на чистом дереве — шаг публикации.",
+      "verificationCommand": "python3 -I tests/verify_harness_docs_freshness.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Дата ревью обновлена только после фактического перепрогона улик модуля.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "harness-docs-freshness"
+        ]
+      }
+    },
+    {
+      "id": "ORACLE-DEBT-2-class-measured",
+      "unitId": "ORACLE-DEBT",
+      "criterion": "Класс «сьюты вне зеркала» измерен целиком и заморожен машиночитаемо. Счёт ведётся в ДВУХ явных конвенциях, потому что они расходятся на один сьют: по объявленным спискам CORE/FULL на входе 150 на диске / 124 в зеркале / 26 снаружи, а строго по РЕАЛЬНО исполненному (зеркало гоняет verify_snapshot хвостовой проверкой run_tail) — 125 в зеркале / 25 снаружи; после юнита строго 141 / 9. У каждой из 26 строк записаны rc, длительность и класс причины; оба предсуществующих красных оракула разобраны до корня (candidate-bound против недостижимого объявленного входа); варианты решения подготовлены владельцу без само-авторизации.",
+      "source": "PLAN-REMAINING строка N7 + BACKLOG P1 «сьюты вне зеркала run-all» (замер LPD-003-1, аннотация LPD-003-4).",
+      "evidence": "GREEN: .itd-memory/measurements/ORACLE-DEBT-n7.json содержит все 26 строк счёта по CORE/FULL с rc, длительностью и классом; там же зафиксирована КОРРЕКЦИЯ счёта, найденная новым оракулом (зеркало исполняет verify_snapshot хвостовой проверкой run_tail --all, поэтому строгий счёт на entry-дереве 5731c77 = 125 в зеркале / 25 вне). Оба долговых оракула разобраны до корня. Раунд ревью r2 (BLOCKED) нашёл в чекере замера две реальные дыры: (high) числа входа принимались только по сумме, entryCommit не резолвился; (medium) требовалось 26 строк, но не то, что это ИМЕННО внезеркальное множество входа. Закрыто: вход объявлен поимённо (entryState.mirrorExecuted/outsideMirrorExecuted/outsideMirrorByCoreFull), проверяются разбиение диска, равенство чисел длинам списков и совпадение строк замера с внезеркальным множеством входа; при доступной истории добавлена сверка с git show <entryCommit>:tests/run-all.sh и дайджестом. RED-first: подмена имени в mirrorExecuted и подмена строки замера дают rc=1 (по 2 красных проверки), после восстановления файла байт-в-байт снова 15 checks, 0 failed. Само-описание чекера исправлено: он больше не называет себя пересчётом входа. Раунд r4 (BLOCKED) нашёл ещё две реальные: (medium) чекер не пересчитывал опубликованные агрегаты (mirror/outsideMirror и разбивку по классам) и не проверял форму строк — подменённый набор с верным числом зелёных прошёл бы; (medium) строгий парсер зеркала отбрасывал только строки-комментарии, поэтому СТРОЧНЫЙ комментарий вида `cmd # tests/verify_new.py` объявлял бы сьют прогоняемым и обходил гард неклассифицированных. Закрыто: разбор через shlex(comments=True) только исполняемых вызовов run_tail/run_py (нечитаемая строка, называющая сьют, — красная), закрытая форма строки замера, класс из закрытого перечня, согласованность rc<->class и пересчёт ВСЕХ опубликованных агрегатов из строк. RED-first: подмена агрегата rc=1; подмена класса строки rc=1 (2 красных); незарегистрированный сьют остаётся красным ДАЖЕ со строчным комментарием, который раньше его прятал. После восстановления дерева байт-в-байт: чекер 21 checks 0 failed, drift-оракул 77 passed 0 failed. Раунд r5 (BLOCKED) нашёл ещё две: (high) entryState.commit не был привязан к верхнеуровневому entryCommit записи — подменённое недостижимое значение уводило усиление в ТИХИЙ пропуск; (medium) перечень классов реестра не был пинен, он брался из самого реестра, поэтому дописанный класс легализовал бы любое исключение. Закрыто: привязка entryCommit, недостижимый коммит входа там, где объектная база ЕСТЬ, теперь красный (пропуск разрешён только в изоляте и печатается строкой NOTE), перечень классов пинен в самом оракуле (APPROVED_CLASSES), поля строки реестра ограничены, дубли имён запрещены. RED-first: подмена entryState.commit rc=1; дописанный класс + переклассифицированный сьют rc=1. После восстановления: чекер 23 checks 0 failed, drift-оракул 95 passed 0 failed. Раунд r6 (medium): outsideMirrorByCoreFull проверялся лишь как надмножество строгого множества, поэтому подмена одного имени (штатная разница — хвостовой run_tail) проходила. Закрыто: в усилении отдельно разбираются исторические CORE/FULL, и множество обязано равняться диску минус они. Раунд r7 (medium): текст критерия называл только 124/26, хотя сам замер уже нёс строгую поправку 125/25 и 141/9 — обе конвенции внесены в критерий явно.",
+      "verificationCommand": "python3 -c \"import json;d=json.load(open('.itd-memory/measurements/ORACLE-DEBT-n7.json'));assert d['counts']['outsideMirror']==len(d['suites'])==26 and d['counts']['greenStandalone']==16;print('OK')\"",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Числа класса воспроизводимы из дерева и не заявлены на глаз.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "oracle-debt-measurement"
+        ]
+      }
+    },
+    {
+      "id": "ORACLE-DEBT-3-release-oracle-classified",
+      "unitId": "ORACLE-DEBT",
+      "criterion": "Красный tests/verify_operating_loops_release.py закрыт по существу: показано машинно, что он зелёный на своём пиненном кандидате и красный на любом другом ПО ПОСТРОЕНИЮ, и это объявлено машиночитаемо вместе с командой воспроизведения. Файл сьюта не изменён — историческая релизная квитанция не переписана.",
+      "source": "BACKLOG P1 «предсуществующие красные оракулы» + решение владельца 2026-08-28.",
+      "evidence": "GREEN: на кандидате 172fca79d7db3a1e12c9cb240146660c9481c2f2 (worktree, plugin.json 1.94.0) `--phase candidate` -> exit 0, {\"phase\":\"candidate\",\"status\":\"PASSED\",\"version\":\"1.94.0\",\"declaredFiles\":96,\"contractMutationGuards\":6}; на main тот же прогон exit 1. Строка реестра tests/OUT_OF_MIRROR.json несёт класс candidate-bound, pinnedCandidate и команду; git diff по tests/verify_operating_loops_release.py пуст.",
+      "verificationCommand": "python3 -I tests/verify_runall_drift.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Исключение сьюта из зеркала именовано и воспроизводимо, а не молчаливо.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "runall-drift-oracle"
+        ]
+      }
+    },
+    {
+      "id": "ORACLE-DEBT-4-absorption-route-repaired",
+      "unitId": "ORACLE-DEBT",
+      "criterion": "Проверка исторического v2-ремонта в tests/verify_harness_demo_absorption.py исполнима в любой среде и не ослаблена: маршрут через запечатанную фикстуру проверяет те же base/accepted tree, changedPaths и acceptedRepairSeal, git остаётся усилением при резолвящихся объектах, а каждое новое поле контракта v5 прибито мутацией (RED-first).",
+      "source": "changePolicy контракта: new-version-and-human-approval. Одобрение владельца получено 2026-08-28 и захешировано в historicalRouteApprovalProvenance.",
+      "evidence": "GREEN: --phase contract exit 0 {\"mutationGuards\": 38, \"status\": \"PASSED\"}; так же зелёные context/facade/diagnostics/navigation. Четыре новых гарда (missing_historical_route_approval, historical_route_scope_expansion, historical_route_fixture_digest_drift, historical_route_git_fallback_weakened) сначала были вакуумными и валили оракул — закрыто переносом сверки дайджеста фикстуры в значение контракта. tests/verify_harness_demo_portable.py остаётся зелёным (exit 0, frozenMutationGuards 38). ОСТАТОК: --phase isolation красная — квитанции пилотов HDX-009 привязаны к живым внешним worktree; записано в BACKLOG отдельным долгом, зелёным не объявляется. Раунд r6 (BLOCKED, high): провенанс одобрения был САМОЗАВЕРЯЮЩИМ — правка userInstruction/approvedChange вместе с их хешами и пересчёт печати контракта прошли бы все проверки. Закрыто пином дайджестов ВНЕ документа (V5_INSTRUCTION_SHA256, V5_CHANGE_SHA256 в самом оракуле, который запечатан .sha256 и входит в ревью кандидата). RED-first: переписанное одобрение с согласованным хешем и перечеканенной печатью -> EXIT 2 «v5 historical-route approval instruction hash mismatch»; после восстановления снова PASSED. Свойство самозаверения есть и у блоков v2/v3/v4 — это предсуществующий класс, закрывать его для всех версий в этом юните не стал (расширение скоупа), записано в BACKLOG.",
+      "verificationCommand": "python3 -I tests/verify_harness_demo_absorption.py --phase contract",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Маршрут проверки заменён без ослабления гарантий и с владельческим одобрением.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "harness-demo-absorption",
+          "harness-demo-portable"
+        ]
+      }
+    },
+    {
+      "id": "ORACLE-DEBT-5-merge-refuted-by-mutation",
+      "unitId": "ORACLE-DEBT",
+      "criterion": "Решение по группам идентичного покрытия принято ПО УЛИКЕ, а не по карте: слияние выполняется только если мутация покрываемого узла валит хранителя той же проверкой, что и донора. Для пары brownfield_and_gate/skill_enforcement улика получена и слияние опровергнуто; донор сохранён и возвращён в зеркало.",
+      "source": "Остаток LPD-003-4 (§outOfMirrorGroupsLeftToN7) + решение владельца 2026-08-28.",
+      "evidence": "GREEN: мутация hooks/check-skills.sh:569 (маркер itd-profile: brownfield перестаёт распознаваться) -> донор verify_brownfield_and_gate rc=1 (21 passed, 3 failed), хранитель verify_skill_enforcement rc=0 (18 passed, 0 failed); хук восстановлен байт-в-байт (sha256 до == после). Оба сьюта зелёные на восстановленном дереве (24/0 и 18/0). Пара external_outcome не трогается: оба имени — отдельные evidence-строки замороженного PRACTICAL_EFFECTIVENESS_CONTRACT.",
+      "verificationCommand": "python3 -I tests/verify_brownfield_and_gate.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Консолидация не выполнена там, где улика её опровергает.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "brownfield-and-gate",
+          "skill-enforcement"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2665,23 +2758,24 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LPD003-REMEASURE",
-    "status": "verified",
+    "unitId": "ORACLE-DEBT",
+    "status": "in_progress",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "low",
+      "riskTier": "medium",
       "requiredImpactClasses": [
+        "correctness",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-27T18:54:28Z",
-    "scopeNote": "LPD003-REMEASURE (N6): record-юнит с однокандидатным жизненным циклом — открытие и закрытие в ОДНОМ кандидате, потому что весь deliverable юнита и есть эта durable-запись (перемер машинного слоя на разрезе G0 + владельческий вердикт NO-GO по GENG-B). Кода нет; замер вне репо (~/.claude/geng/N6, конвенция S02-S05). Предшественник LPD003-4 закрыт: PR #237 (21573aa) + ledger-close #238 (87b5f93) + BACKLOG-запись #239 (fa94a5d), r5/pub7/close5/blog3 PASSED findings=[].",
-    "closedAt": "2026-08-27T19:26:21Z"
+    "openedAt": "2026-08-28T08:20:12Z",
+    "scopeNote": "ORACLE-DEBT (N7): долговой юнит. Два объявленных предмета разошлись по природе — verify_operating_loops_release измерен зелёным на своём кандидате 172fca79 (не стейл-пин, а candidate-bound квитанция), verify_harness_demo_absorption красный по-настоящему (объявленный git-вход недостижим) и его ремонт закрыт changePolicy контракта: new-version-and-human-approval. Третий красный найден в зеркале (verify_harness_docs_freshness, протух по времени 2026-08-28) и закрыт как разблокировка. Решения по маршруту absorption v5, по судьбе релизного оракула, по 26 внезеркальным сьютам и по 2 группам идентичного покрытия — владельческие, вынесены пакетом. Тир поднят low -> medium машинным событием STATE 2026-08-28T08:20:12Z: юнит вырос из ремонта пинов в правку замороженного контракта (v5), маршрута оракула и состава зеркала. Поднятие ужесточает маршрут (независимый ревьюер обязателен), а не ослабляет его: на low продюсер отказывает по пропорциональности (\"low review requires zero independent reviewers\").",
+    "closedAt": ""
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

@@ -545,10 +545,12 @@
       "tests/verify_operating_loops.py"
     ],
     "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json": [
+      "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_demo_portable.py",
       "tests/verify_operating_loops_release.py"
     ],
     "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256": [
+      "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_demo_portable.py",
       "tests/verify_operating_loops_release.py"
     ],
@@ -1425,6 +1427,9 @@
       "tests/verify_goal_five_star.py",
       "tests/verify_operating_loops_release.py"
     ],
+    "tests/OUT_OF_MIRROR.json": [
+      "tests/verify_runall_drift.py"
+    ],
     "tests/build_impact_graph.py": [
       "tests/verify_stop_rule.py",
       "tests/verify_verification_profiles.py"
@@ -1691,6 +1696,7 @@
       "tests/verify_semantic_navigation_demand.py"
     ],
     "tests/verify_harness_demo_portable.py": [
+      "tests/verify_harness_demo_absorption.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_semantic_navigation_demand.py"
     ],

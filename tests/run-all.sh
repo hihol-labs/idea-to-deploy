@@ -211,7 +211,13 @@ verify_harness_map_fixtures verify_runall_drift \
 verify_no_bare_python3 \
 verify_unit_log verify_goal_verify_shell \
 verify_project_checks verify_review_import verify_work_deadline_benchmark verify_authority_check verify_targeted_regression \
-verify_stop_rule"
+verify_stop_rule \
+verify_adopt_context verify_brownfield_and_gate verify_commit_completeness_gate \
+verify_cost_gate verify_cross_review_precommit verify_endpoint_regex \
+verify_fresh_session_worktree verify_harness_demo_capture_schema \
+verify_harness_demo_portable verify_incremental_diagnostics \
+verify_mandatory_keyless_review verify_pii_egress verify_redteam_multihost \
+verify_semantic_navigation verify_skill_completeness_gate verify_task_piv_lite"
 
 # --- targeted-профиль (--targeted) ------------------------------------------
 # Набор берётся из аудированной карты воздействия одним селектором; strict
