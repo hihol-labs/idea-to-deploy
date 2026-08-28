@@ -1,0 +1,20 @@
+# C10 — Валидация владельческого одобрения v5 в tests/verify_harness_demo_absorption.py.
+
+```python
+    route = contract.get("historicalRouteApprovalProvenance") or {}
+    require(route.get("kind") == "host-observed-user-turn"
+            and route.get("threadId") and route.get("observedAt"),
+            "v5 historical-route approval provenance is missing")
+    route_instruction = route.get("userInstruction") or ""
+    require(route_instruction
+            and hashlib.sha256(route_instruction.encode("utf-8")).hexdigest() ==
+            route.get("instructionSha256"),
+            "v5 historical-route approval instruction hash mismatch")
+    route_change = route.get("approvedChange") or ""
+    require("sealed portable fixture" in route_change
+            and "git delta stays an optional strengthening check" in route_change
+            and "guarantees are unchanged" in route_change
+            and hashlib.sha256(route_change.encode("utf-8")).hexdigest() ==
+            route.get("approvedChangeSha256"),
+            "v5 approval does not bind the exact historical-route change")
+```

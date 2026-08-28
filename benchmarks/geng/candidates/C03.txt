@@ -1,0 +1,28 @@
+# C03 — Валидация владельческого одобрения v5 в tests/verify_harness_demo_absorption.py.
+
+```python
+V5_INSTRUCTION_SHA256 = "e40f2aa42e2fa545b94d2ea2df976fc12e4bbe4c54d493b85655cd1ade503be2"
+V5_CHANGE_SHA256 = "77d5e73d62d289b30b4c3ebd752eb4bf90e3d0411c7d93419f9a093227321883"
+
+    route = contract.get("historicalRouteApprovalProvenance") or {}
+    require(route.get("kind") == "host-observed-user-turn"
+            and route.get("threadId") and route.get("observedAt"),
+            "v5 historical-route approval provenance is missing")
+    # Дайджесты одобрения ПИНЯТСЯ ЗДЕСЬ, а не только пересчитываются из самого
+    # контракта: пересчёт из значений документа самозаверяющий — правка текста
+    # вместе с его хешем прошла бы все проверки (находка ревьюера r6, high).
+    # Литерал в оракуле делает подмену видимой: оракул сам запечатан
+    # docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256 и входит в ревью кандидата.
+    route_instruction = route.get("userInstruction") or ""
+    require(route_instruction
+            and hashlib.sha256(route_instruction.encode("utf-8")).hexdigest() ==
+            route.get("instructionSha256") == V5_INSTRUCTION_SHA256,
+            "v5 historical-route approval instruction hash mismatch")
+    route_change = route.get("approvedChange") or ""
+    require("sealed portable fixture" in route_change
+            and "git delta stays an optional strengthening check" in route_change
+            and "guarantees are unchanged" in route_change
+            and hashlib.sha256(route_change.encode("utf-8")).hexdigest() ==
+            route.get("approvedChangeSha256") == V5_CHANGE_SHA256,
+            "v5 approval does not bind the exact historical-route change")
+```

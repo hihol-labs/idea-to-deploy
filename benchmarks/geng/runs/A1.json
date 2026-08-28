@@ -1,0 +1,14 @@
+[
+  {"id": "C01", "verdict": "PASSED", "finding": ""},
+  {"id": "C02", "verdict": "PASSED", "finding": ""},
+  {"id": "C03", "verdict": "PASSED", "finding": ""},
+  {"id": "C04", "verdict": "PASSED", "finding": ""},
+  {"id": "C05", "verdict": "BLOCKED", "finding": "Line 29 `check(..., name not in local)` compares the full filename (with `.py`, from `Path(suite).name`) against `local`, which holds bare suite names without `.py`; the two can never be equal so the check is vacuously always True regardless of whether the suite is actually mirrored."},
+  {"id": "C06", "verdict": "BLOCKED", "finding": "In `expect_rejected`, the code returns normally both when `ContractError` is caught (line 10-11) and when it falls through after the try/except (line 11 `return`), so a mutation that is wrongly ACCEPTED (no exception raised) is never reported as a vacuous guard — the function can never fail."},
+  {"id": "C07", "verdict": "PASSED", "finding": ""},
+  {"id": "C08", "verdict": "BLOCKED", "finding": "The second `check(...)` (line 19-22) titled \"the CORE/FULL outside set is the historical one\" tests only `entry_outside_cf <= on_disk`; the freshly computed `historical_core_full` is used solely inside the diff-message formatting, never in the pass/fail boolean, so the r6 name-substitution fix the comment claims is decorative and the weak subset check it was meant to replace still gates the result."},
+  {"id": "C09", "verdict": "BLOCKED", "finding": "The comment/verify_*.py scan (lines 13-18) only skips lines whose stripped text starts with `#` and otherwise regex-matches `tests/(verify_\\w+)\\.py` anywhere on the line, so a trailing inline comment like `cmd  # tests/verify_new.py` gets counted as executed even though it is not — the exact false-mirror-coverage hole named in C01's r4 comment, reintroduced here."},
+  {"id": "C10", "verdict": "BLOCKED", "finding": "Lines 10-11 and 17-18 compare the recomputed sha256 only against `route.get(\"instructionSha256\")` / `route.get(\"approvedChangeSha256\")`, both fields stored in the same contract document, with no comparison to an out-of-document pinned literal — the check is self-authenticating, so editing the approved text together with its stored hash passes."},
+  {"id": "C11", "verdict": "BLOCKED", "finding": "The `reproduce` check (lines 12-14) only requires `why` and `reproduce` to be non-empty and omits the placeholder-rejection guard (`\"<\" not in reproduce and \">\" not in reproduce`) and the phase-required concrete-phase check present in the sibling excerpts, so a non-executable template like `cmd --phase <phase>` passes as a valid reproduce command."},
+  {"id": "C12", "verdict": "PASSED", "finding": ""}
+]

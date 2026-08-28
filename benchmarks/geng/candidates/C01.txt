@@ -1,0 +1,42 @@
+# C01 — mirror_executed из tests/verify_runall_drift.py: строгий парсер того, что зеркало run-all реально исполняет.
+
+```python
+def mirror_executed() -> tuple[set, list[str]]:
+    """Имена сьютов, которые зеркало РЕАЛЬНО исполняет, и нечитаемые строки.
+
+    Общий парсер runall_covered() ловит любое слово verify_* в файле, включая
+    комментарии, — для реестра этого мало: упоминание в комментарии не есть
+    прогон, и такая нестрогость прятала бы настоящую дыру в покрытии.
+
+    Хвостовые проверки берутся ТОЛЬКО из исполняемых вызовов, разобранных
+    shlex'ом с comments=True. Отбрасывать одни лишь строки-комментарии
+    недостаточно: строчный комментарий вида `cmd  # tests/verify_new.py`
+    объявил бы сьют прогоняемым и обошёл бы гард неклассифицированных
+    (находка ревьюера r4). Строка, которую shlex не разобрал, не игнорируется
+    молча — она возвращается наверх и краснеет, если называет сьют.
+    """
+    text = RUNALL.read_text(encoding="utf-8")
+    names: set = set()
+    for variable in ("CORE", "FULL"):
+        match = re.search(rf'^{variable}="(.*?)"', text, re.M | re.S)
+        if match:
+            names.update(word for word in match.group(1).split()
+                         if word.startswith("verify_"))
+    unparsed: list[str] = []
+    for line in text.splitlines():
+        try:
+            tokens = shlex.split(line, comments=True)
+        except ValueError:
+            if "tests/verify_" in line:
+                unparsed.append(line.strip()[:120])
+            continue
+        if not tokens or tokens[0] not in ("run_tail", "run_py"):
+            continue
+        for token in tokens[1:]:
+            hit = re.fullmatch(r"tests/(verify_\w+)\.py", token)
+            if hit:
+                names.add(hit.group(1))
+    return names, unparsed
+
+
+```

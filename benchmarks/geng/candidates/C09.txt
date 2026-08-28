@@ -1,0 +1,21 @@
+# C09 — mirror_executed из tests/verify_runall_drift.py: строгий парсер того, что зеркало run-all реально исполняет.
+
+```python
+def mirror_executed():
+    """Имена сьютов, которые зеркало реально исполняет, и нечитаемые строки."""
+    text = RUNALL.read_text(encoding="utf-8")
+    names = set()
+    for variable in ("CORE", "FULL"):
+        match = re.search(rf'^{variable}="(.*?)"', text, re.M | re.S)
+        if match:
+            names.update(word for word in match.group(1).split()
+                         if word.startswith("verify_"))
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for hit in re.finditer(r"tests/(verify_\w+)\.py", line):
+            names.add(hit.group(1))
+    return names, []
+
+```

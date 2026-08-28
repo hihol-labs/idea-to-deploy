@@ -1,0 +1,23 @@
+# C08 — Усиление entry-состояния в чекере замера ORACLE-DEBT-check.py.
+
+```python
+        if shown.returncode == 0:
+            historical = mirror_executed(shown.stdout)[0] & on_disk
+            check("entry (strengthening): declaration matches run-all.sh at the entry commit",
+                  historical == entry_mirror and on_disk - historical == entry_outside,
+                  "declared-but-not-historical: %s" % sorted(entry_mirror ^ historical))
+            # Множество по CORE/FULL проверялось лишь как надмножество строгого,
+            # поэтому подмена одного имени (единственная штатная разница —
+            # хвостовой run_tail) проходила незамеченной (находка r6).
+            historical_core_full: set = set()
+            for variable in ("CORE", "FULL"):
+                match = re.search(rf'^{variable}="(.*?)"', shown.stdout, re.M | re.S)
+                if match:
+                    historical_core_full.update(
+                        word for word in match.group(1).split()
+                        if word.startswith("verify_"))
+            check("entry (strengthening): the CORE/FULL outside set is the historical one",
+                  entry_outside_cf <= on_disk,
+                  "difference: %s"
+                  % sorted(entry_outside_cf ^ (on_disk - (historical_core_full & on_disk))))
+```

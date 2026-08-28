@@ -1,0 +1,21 @@
+# C07 — Проверка печати замороженного контракта в tests/verify_harness_demo_absorption.py.
+
+```python
+def validate_digest() -> None:
+    try:
+        rows = [line.split() for line in DIGEST.read_text(encoding="utf-8").splitlines()
+                if line.strip()]
+        declared = {row[1]: row[0] for row in rows if len(row) == 2}
+    except FileNotFoundError as exc:
+        raise ContractError("frozen contract digest is missing") from exc
+    sealed = {
+        "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json": CONTRACT,
+        "tests/verify_harness_demo_absorption.py": pathlib.Path(__file__).resolve(),
+    }
+    require(set(declared) == set(sealed), "digest must seal the contract and its evaluator")
+    for label, path in sealed.items():
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        require(declared.get(label, actual) == actual, f"frozen digest mismatch for {label}")
+
+
+```

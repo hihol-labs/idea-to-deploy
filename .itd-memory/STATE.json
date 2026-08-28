@@ -37,14 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ORACLE-DEBT",
-    "goal": "N7: закрыть два предсуществующих красных оракула и класс сьютов вне зеркала; тир поднят low -> medium (правка замороженного контракта v5 и состава зеркала требует независимого ревьюера)",
-    "status": "verified",
-    "startedAt": "2026-08-28T08:20:12Z",
+    "id": "GENG-C-EXP",
+    "goal": "N8: bounded-эксперимент GENG-C — находят ли N параллельных независимых ревьюеров на ОДНОМ замороженном кандидате то, что исторически приходило в последовательных раундах 2..N; 12 пар, default-off, без GENG-A и GENG-B; метрики — латентность и доля ложных PASSED, снимаемых N-of-M кворумом",
+    "status": "in_progress",
+    "startedAt": "2026-08-28T15:08:46Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-08-28T14:06:10Z",
-    "evidence": " Уточнение по улике (находка чекера ledger-close): «семь заходов» — счёт по журналу сессии; на диске сохранились отчёты r2-r7, то есть независимо подтверждаются ШЕСТЬ BLOCKED-заходов, артефакт r1 не сохранился. Существо утверждения («чистого PASS нет») подтверждается и шестью сохранившимися отчётами."
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",

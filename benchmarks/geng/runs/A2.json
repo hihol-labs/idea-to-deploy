@@ -1,0 +1,14 @@
+[
+  {"id": "C07", "verdict": "PASSED", "finding": ""},
+  {"id": "C02", "verdict": "PASSED", "finding": ""},
+  {"id": "C11", "verdict": "BLOCKED", "finding": "The reproduce-command check (lines 12-14) only requires a non-empty string and lacks the placeholder-rejection guard, so a template value like 'cmd --phase <phase>' passes as if it actually reproduced the failure."},
+  {"id": "C05", "verdict": "BLOCKED", "finding": "Line 29 checks 'name not in local' but name still carries the '.py' suffix while local holds bare verify_* names, so the membership test can never match and the not-already-in-mirror guard always passes vacuously."},
+  {"id": "C09", "verdict": "BLOCKED", "finding": "The comment filter only skips lines whose stripped text starts with '#' (line 15-16), so a trailing inline comment like 'cmd  # tests/verify_new.py' still matches the regex on line 17-18 and gets added to the executed set even though it was never actually run."},
+  {"id": "C01", "verdict": "PASSED", "finding": ""},
+  {"id": "C12", "verdict": "PASSED", "finding": ""},
+  {"id": "C08", "verdict": "BLOCKED", "finding": "historical_core_full is computed (lines 12-18) specifically to catch a CORE/FULL name swap, but the check's boolean condition on line 20 is just 'entry_outside_cf <= on_disk', which never references historical_core_full (it appears only in the failure message), so the swap it claims to detect cannot actually fail the check."},
+  {"id": "C03", "verdict": "PASSED", "finding": ""},
+  {"id": "C10", "verdict": "BLOCKED", "finding": "Lines 9-11 and 16-18 verify the computed sha256 only against 'route.get(\"instructionSha256\")'/'approvedChangeSha256' from the same document, with no external pinned literal, so an attacker editing both the text field and its stored hash together still passes (self-authenticating check)."},
+  {"id": "C06", "verdict": "BLOCKED", "finding": "expect_rejected's fall-through path (line 11) just 'return's when validate_contract_value fails to raise on a mutated/violating candidate, so a real fail-open in the validator is silently accepted as a passing test instead of being flagged."},
+  {"id": "C04", "verdict": "PASSED", "finding": ""}
+]
