@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -109,9 +110,134 @@ def main() -> int:
     check("this guard is wired into run-all.sh", "verify_runall_drift" in local)
 
     consolidation_invariants(ci, local)
+    out_of_mirror_invariants(local)
 
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0
+
+
+# --- N7/ORACLE-DEBT: закрытый реестр сьютов вне зеркала ----------------------
+# Пока класс существует, «DONE fails:none» не равно «прогнано всё». Реестр
+# делает исключение ИМЕНОВАННЫМ: у каждого внезеркального сьюта обязаны быть
+# класс из закрытого перечня, причина и команда воспроизведения. Новый сьют,
+# не попавший ни в зеркало, ни в реестр, валит этот оракул — тихого выпадения
+# из покрытия больше нет.
+OUT_OF_MIRROR = ROOT / "tests" / "OUT_OF_MIRROR.json"
+# Политика владельца от 2026-08-28: ровно четыре причины быть вне зеркала.
+APPROVED_CLASSES = {"phase-required", "candidate-bound",
+                    "external-evidence-absent", "mirror-runner"}
+ROW_FIELDS = {"suite", "class", "why", "reproduce", "pinnedCandidate",
+              "measuredEvidence", "precondition"}
+
+
+def mirror_executed() -> tuple[set, list[str]]:
+    """Имена сьютов, которые зеркало РЕАЛЬНО исполняет, и нечитаемые строки.
+
+    Общий парсер runall_covered() ловит любое слово verify_* в файле, включая
+    комментарии, — для реестра этого мало: упоминание в комментарии не есть
+    прогон, и такая нестрогость прятала бы настоящую дыру в покрытии.
+
+    Хвостовые проверки берутся ТОЛЬКО из исполняемых вызовов, разобранных
+    shlex'ом с comments=True. Отбрасывать одни лишь строки-комментарии
+    недостаточно: строчный комментарий вида `cmd  # tests/verify_new.py`
+    объявил бы сьют прогоняемым и обошёл бы гард неклассифицированных
+    (находка ревьюера r4). Строка, которую shlex не разобрал, не игнорируется
+    молча — она возвращается наверх и краснеет, если называет сьют.
+    """
+    text = RUNALL.read_text(encoding="utf-8")
+    names: set = set()
+    for variable in ("CORE", "FULL"):
+        match = re.search(rf'^{variable}="(.*?)"', text, re.M | re.S)
+        if match:
+            names.update(word for word in match.group(1).split()
+                         if word.startswith("verify_"))
+    unparsed: list[str] = []
+    for line in text.splitlines():
+        try:
+            tokens = shlex.split(line, comments=True)
+        except ValueError:
+            if "tests/verify_" in line:
+                unparsed.append(line.strip()[:120])
+            continue
+        if not tokens or tokens[0] not in ("run_tail", "run_py"):
+            continue
+        for token in tokens[1:]:
+            hit = re.fullmatch(r"tests/(verify_\w+)\.py", token)
+            if hit:
+                names.add(hit.group(1))
+    return names, unparsed
+
+
+def out_of_mirror_invariants(local: set) -> None:
+    tests_dir = ROOT / "tests"
+    executed, unparsed = mirror_executed()
+    check("out-of-mirror: every run-all line that names a suite is parseable",
+          not unparsed, "unparseable: %s" % unparsed[:3])
+    check("out-of-mirror: the strict mirror parser finds a non-trivial set",
+          len(executed) >= 30, "parsed only %d" % len(executed))
+    check("out-of-mirror: strict parser never exceeds the loose one",
+          executed <= local, "not covered by the loose parser: %s"
+          % sorted(executed - local))
+    local = executed
+    on_disk = {p.name for p in tests_dir.glob("verify_*.py")}
+    outside = {name for name in on_disk if name[:-3] not in local}
+    try:
+        registry = json.loads(OUT_OF_MIRROR.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 — fail-closed на битом реестре
+        check("out-of-mirror: registry readable", False, str(exc))
+        return
+    check("out-of-mirror: registry version is pinned", registry.get("version") == 1)
+    classes = registry.get("classes")
+    # Перечень классов пинится ЗДЕСЬ, а не берётся из самого реестра: иначе
+    # достаточно было бы дописать в реестр новый класс и увести под него любой
+    # исключённый сьют — политика владельца проверялась бы сама собой
+    # (находка ревьюера r5). Расширение перечня — правка этого оракула.
+    check("out-of-mirror: the class vocabulary is exactly the approved one",
+          isinstance(classes, dict) and set(classes) == APPROVED_CLASSES,
+          "registry=%s" % sorted(classes) if isinstance(classes, dict) else repr(classes)[:80])
+    rows = registry.get("suites")
+    check("out-of-mirror: registry lists suites", isinstance(rows, list) and bool(rows))
+    if not isinstance(rows, list) or not isinstance(classes, dict):
+        return
+    registered: set = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            check("out-of-mirror: every row is an object", False, repr(row)[:120])
+            continue
+        suite = str(row.get("suite") or "")
+        name = Path(suite).name
+        check(f"out-of-mirror: {suite} exists in the tree",
+              suite.startswith("tests/") and (ROOT / suite).is_file())
+        check(f"out-of-mirror: {suite} names a class from the approved vocabulary",
+              row.get("class") in APPROVED_CLASSES)
+        check(f"out-of-mirror: {suite} carries only known fields",
+              set(row) <= ROW_FIELDS, "unexpected: %s" % sorted(set(row) - ROW_FIELDS))
+        # Непустой reproduce ещё ничего не воспроизводит: строка вида
+        # `--phase <phase>` проходила проверку на непустоту и обещала зелёный
+        # результат шаблоном, который не исполняется (находка ревьюера r7).
+        reproduce = str(row.get("reproduce") or "").strip()
+        check(f"out-of-mirror: {suite} states a reason and a reproduce command",
+              bool(str(row.get("why") or "").strip()) and bool(reproduce))
+        check(f"out-of-mirror: {suite} reproduce is executable, not a placeholder",
+              "<" not in reproduce and ">" not in reproduce
+              and name in reproduce,
+              "reproduce: %s" % reproduce[:120])
+        if row.get("class") == "phase-required":
+            phase = reproduce.split("--phase", 1)[-1].strip().split()[0] \
+                if "--phase" in reproduce else ""
+            check(f"out-of-mirror: {suite} names a concrete phase",
+                  bool(phase) and phase.isidentifier(),
+                  "phase token: %r" % phase)
+        check(f"out-of-mirror: {suite} is not silently also in the mirror",
+              name[:-3] not in local)
+        check(f"out-of-mirror: {suite} is listed once", name not in registered)
+        registered.add(name)
+    unclassified = sorted(outside - registered)
+    check("out-of-mirror: every suite outside the mirror is classified",
+          not unclassified, "unclassified: %s" % unclassified)
+    stale = sorted(registered - outside)
+    check("out-of-mirror: the registry names no suite the mirror already runs",
+          not stale, "stale rows: %s" % stale)
 
 
 # --- LPD003-4: инварианты консолидации сьютов по impact-карте ---------------

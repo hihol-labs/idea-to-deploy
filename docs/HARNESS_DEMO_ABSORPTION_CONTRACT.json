@@ -1,6 +1,6 @@
 {
-  "version": 4,
-  "id": "harness-demo-ux-absorption-v4",
+  "version": 5,
+  "id": "harness-demo-ux-absorption-v5",
   "frozenAt": "2026-07-27T05:10:09Z",
   "approvalProvenance": {
     "kind": "host-observed-user-turn",
@@ -71,7 +71,10 @@
     "wip": 1,
     "ownedRuntime": false,
     "newLifecycleSkills": 0,
-    "canonicalState": [".itd", ".itd-memory"],
+    "canonicalState": [
+      ".itd",
+      ".itd-memory"
+    ],
     "authoritativeMarkdownState": false,
     "authoritativeSentinelState": false,
     "completionAuthority": "verification-loop-v1 exact staged candidate",
@@ -80,13 +83,21 @@
     "bundledLanguageSpecificNavigationServer": false
   },
   "thresholds": {
-    "generatedContextIndexes": {"required": 1, "unsupportedClaims": 0},
-    "capturedExampleReplays": {"passed": 1, "required": 1},
+    "generatedContextIndexes": {
+      "required": 1,
+      "unsupportedClaims": 0
+    },
+    "capturedExampleReplays": {
+      "passed": 1,
+      "required": 1
+    },
     "publicLifecycleSkills": {
       "root": "skills",
       "population": "top-level-directories-containing-SKILL.md",
       "reservedNamePrefix": "_",
-      "reservedSkillDirectories": ["_shared"],
+      "reservedSkillDirectories": [
+        "_shared"
+      ],
       "baseline": 40,
       "baselineNames": [
         "adopt",
@@ -168,65 +179,140 @@
     "semanticNavigation": {
       "demandGateRequired": true,
       "notActivatedIsValidDecision": true,
-      "requiredLanguages": ["python", "typescript"],
-      "operations": ["definitions", "references", "outline"],
+      "requiredLanguages": [
+        "python",
+        "typescript"
+      ],
+      "operations": [
+        "definitions",
+        "references",
+        "outline"
+      ],
       "plainTextFallbackRequired": true,
       "coverageDeclarationRequired": true,
       "confidenceDeclarationRequired": true
     }
   },
   "units": [
-    {"id": "HDX-001", "phase": "contract", "deliverable": "accepted strategy and frozen mutation-tested contract"},
-    {"id": "HDX-002", "phase": "context", "deliverable": "source-backed generated context index in /adopt"},
-    {"id": "HDX-003", "phase": "facade", "deliverable": "captured-run schema and replay oracle"},
-    {"id": "HDX-004", "phase": "facade", "deliverable": "PIV-lite route through existing lifecycle skills"},
-    {"id": "HDX-005", "phase": "facade", "deliverable": "populated reproducible brownfield example"},
-    {"id": "HDX-006", "phase": "diagnostics", "deliverable": "default-off advisory diagnostics kit"},
-    {"id": "HDX-007", "phase": "diagnostics", "deliverable": "30-run labeled A/B diagnostic decision"},
-    {"id": "HDX-008", "phase": "isolation", "deliverable": "fail-closed fresh-session worktree kit"},
-    {"id": "HDX-009", "phase": "isolation", "deliverable": "real project pilot A"},
-    {"id": "HDX-010", "phase": "isolation", "deliverable": "real project pilot B"},
-    {"id": "HDX-011", "phase": "isolation", "deliverable": "real project pilot C and 3/3 decision"},
-    {"id": "HDX-012", "phase": "navigation", "deliverable": "multi-language semantic-navigation demand decision"},
-    {"id": "HDX-013", "phase": "navigation", "deliverable": "conditional provider-neutral semantic navigation or explicit not_activated record"},
-    {"id": "HDX-014", "phase": "all", "deliverable": "exact-candidate release verification"}
+    {
+      "id": "HDX-001",
+      "phase": "contract",
+      "deliverable": "accepted strategy and frozen mutation-tested contract"
+    },
+    {
+      "id": "HDX-002",
+      "phase": "context",
+      "deliverable": "source-backed generated context index in /adopt"
+    },
+    {
+      "id": "HDX-003",
+      "phase": "facade",
+      "deliverable": "captured-run schema and replay oracle"
+    },
+    {
+      "id": "HDX-004",
+      "phase": "facade",
+      "deliverable": "PIV-lite route through existing lifecycle skills"
+    },
+    {
+      "id": "HDX-005",
+      "phase": "facade",
+      "deliverable": "populated reproducible brownfield example"
+    },
+    {
+      "id": "HDX-006",
+      "phase": "diagnostics",
+      "deliverable": "default-off advisory diagnostics kit"
+    },
+    {
+      "id": "HDX-007",
+      "phase": "diagnostics",
+      "deliverable": "30-run labeled A/B diagnostic decision"
+    },
+    {
+      "id": "HDX-008",
+      "phase": "isolation",
+      "deliverable": "fail-closed fresh-session worktree kit"
+    },
+    {
+      "id": "HDX-009",
+      "phase": "isolation",
+      "deliverable": "real project pilot A"
+    },
+    {
+      "id": "HDX-010",
+      "phase": "isolation",
+      "deliverable": "real project pilot B"
+    },
+    {
+      "id": "HDX-011",
+      "phase": "isolation",
+      "deliverable": "real project pilot C and 3/3 decision"
+    },
+    {
+      "id": "HDX-012",
+      "phase": "navigation",
+      "deliverable": "multi-language semantic-navigation demand decision"
+    },
+    {
+      "id": "HDX-013",
+      "phase": "navigation",
+      "deliverable": "conditional provider-neutral semantic navigation or explicit not_activated record"
+    },
+    {
+      "id": "HDX-014",
+      "phase": "all",
+      "deliverable": "exact-candidate release verification"
+    }
   ],
   "phases": [
     {
       "id": "contract",
       "unitId": "HDX-001",
       "criterion": "The approved strategy, immutable thresholds, negative invariants, and mutation guards pass before behavior changes.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase contract"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase contract"
+      ]
     },
     {
       "id": "context",
       "unitId": "HDX-002",
       "criterion": "Adoption emits source-backed conditional context views whose freshness is validated and whose authority is derived-only.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase context"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase context"
+      ]
     },
     {
       "id": "facade",
       "unitId": "HDX-005",
       "criterion": "A reproducible captured run and a PIV-lite route reuse the existing lifecycle and completion authority.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase facade"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase facade"
+      ]
     },
     {
       "id": "diagnostics",
       "unitId": "HDX-007",
       "criterion": "Default-off incremental diagnostics meet the frozen latency/noise thresholds and remain advisory.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase diagnostics"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase diagnostics"
+      ]
     },
     {
       "id": "isolation",
       "unitId": "HDX-011",
       "criterion": "Three fresh-session isolated pilots pass with exact-candidate receipts and no shared mutable fallback.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase isolation"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase isolation"
+      ]
     },
     {
       "id": "navigation",
       "unitId": "HDX-013",
       "criterion": "A frozen demand gate returns activated or not_activated; only an activated gate requires provider-neutral Python and TypeScript semantic navigation with honest degradation.",
-      "evidence": ["sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase navigation"]
+      "evidence": [
+        "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase navigation"
+      ]
     },
     {
       "id": "all",
@@ -275,6 +361,32 @@
     "accepted_repair_seal_drift",
     "missing_security_repair_approval",
     "security_repair_scope_expansion",
-    "legacy_unbound_isolation_fixture"
-  ]
+    "legacy_unbound_isolation_fixture",
+    "missing_historical_route_approval",
+    "historical_route_scope_expansion",
+    "historical_route_fixture_digest_drift",
+    "historical_route_git_fallback_weakened"
+  ],
+  "historicalRouteApprovalProvenance": {
+    "kind": "host-observed-user-turn",
+    "threadId": "6d1a0ed5-04db-427b-8e84-ebdcdf3d4767",
+    "observedAt": "2026-08-28T07:47:14Z",
+    "userInstruction": "делай все что рекомендуешь",
+    "instructionSha256": "e40f2aa42e2fa545b94d2ea2df976fc12e4bbe4c54d493b85655cd1ade503be2",
+    "approvedChange": "contract v5: validate the accepted historical v2 repair from the sealed portable fixture docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json instead of two unreachable git tree objects; the git delta stays an optional strengthening check that runs only when both objects resolve; the proved guarantees are unchanged - same base tree, accepted tree, allowed changed paths and blob seals.",
+    "approvedChangeSha256": "77d5e73d62d289b30b4c3ebd752eb4bf90e3d0411c7d93419f9a093227321883",
+    "baseCandidateTree": "cb62cf14a840a1260c275580cb6c5ef9e052acb7",
+    "allowedChangedPaths": [
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json",
+      "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256",
+      "tests/verify_harness_demo_absorption.py"
+    ],
+    "scopeBinding": "verification-loop-v1 exact candidate; the historical repair is validated from the sealed fixture, never from an unreachable object database",
+    "historicalRepairFixture": {
+      "path": "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json",
+      "sealPath": "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256",
+      "sha256": "0d13a572baed939784f0fea4b299338e5ff6f9eeb6742f3547d212f457af90c0"
+    },
+    "gitDeltaPolicy": "strengthening-only: when both tree objects resolve the observed delta and blob bytes must additionally match the seal; unreachable objects never weaken the sealed-fixture route"
+  }
 }

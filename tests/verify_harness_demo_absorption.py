@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import copy
 import hashlib
 import json
@@ -22,6 +24,18 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "HARNESS_DEMO_ABSORPTION_CONTRACT.json"
 DIGEST = ROOT / "docs" / "HARNESS_DEMO_ABSORPTION_CONTRACT.sha256"
 ADR = ROOT / "docs" / "adr" / "ADR-004-harness-demo-ux-absorption.md"
+# Исторический v2-ремонт жил в двух staged-деревьях незакоммиченных кандидатов;
+# в объектной базе их нет ни в одном чекауте, поэтому git-маршрут проверки был
+# неисполним по построению, а не «протух». Тот же ремонт уже проверяется без git
+# в tests/verify_harness_demo_portable.py по этой запечатанной фикстуре —
+# контракт v5 переносит сюда ровно тот маршрут (решение владельца 2026-08-28).
+# Владельческое одобрение v5 (2026-08-28), пиненное вне документа: текст
+# инструкции и текст утверждённого изменения. Пересчёт хеша ИЗ контракта сам по
+# себе ничего не доказывает — эти два литерала и есть якорь.
+V5_INSTRUCTION_SHA256 = "e40f2aa42e2fa545b94d2ea2df976fc12e4bbe4c54d493b85655cd1ade503be2"
+V5_CHANGE_SHA256 = "77d5e73d62d289b30b4c3ebd752eb4bf90e3d0411c7d93419f9a093227321883"
+REPAIR_FIXTURE = ROOT / "docs" / "harness-demo-pilots" / "HISTORICAL_REPAIR_FIXTURE.json"
+REPAIR_FIXTURE_SEAL = ROOT / "docs" / "harness-demo-pilots" / "HISTORICAL_REPAIR_FIXTURE.sha256"
 PLAN = ROOT / "LAUNCH_PLAN.md"
 BACKLOG = ROOT / "BACKLOG.md"
 PHASES = ("contract", "context", "facade", "diagnostics", "isolation", "navigation")
@@ -135,8 +149,8 @@ def validate_isolation_refutations() -> None:
 
 
 def validate_contract_value(contract: dict) -> None:
-    require(contract.get("version") == 4, "contract.version must remain 4")
-    require(contract.get("id") == "harness-demo-ux-absorption-v4", "contract id drifted")
+    require(contract.get("version") == 5, "contract.version must remain 5")
+    require(contract.get("id") == "harness-demo-ux-absorption-v5", "contract id drifted")
     approval = contract.get("approvalProvenance") or {}
     require(approval.get("kind") == "host-observed-user-turn"
             and approval.get("threadId") == "019f9eb9-6a10-70d0-8500-a8b74d46335a"
@@ -233,6 +247,56 @@ def validate_contract_value(contract: dict) -> None:
             and security_repair.get("successorDeltaPolicy") ==
             "successor HDX candidates are bound by Scope Lock and need not contain only the three historical repair files",
             "v4 security-repair scope or successor policy drifted")
+    # v5: маршрут проверки исторического ремонта. Провенанс НЕ обязан совпадать
+    # по threadId с v2/v3/v4 — одобрение дано в другой сессии (2026-08-28), и
+    # подделка равенства была бы ложной привязкой.
+    route = contract.get("historicalRouteApprovalProvenance") or {}
+    require(route.get("kind") == "host-observed-user-turn"
+            and route.get("threadId") and route.get("observedAt"),
+            "v5 historical-route approval provenance is missing")
+    # Дайджесты одобрения ПИНЯТСЯ ЗДЕСЬ, а не только пересчитываются из самого
+    # контракта: пересчёт из значений документа самозаверяющий — правка текста
+    # вместе с его хешем прошла бы все проверки (находка ревьюера r6, high).
+    # Литерал в оракуле делает подмену видимой: оракул сам запечатан
+    # docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256 и входит в ревью кандидата.
+    route_instruction = route.get("userInstruction") or ""
+    require(route_instruction
+            and hashlib.sha256(route_instruction.encode("utf-8")).hexdigest() ==
+            route.get("instructionSha256") == V5_INSTRUCTION_SHA256,
+            "v5 historical-route approval instruction hash mismatch")
+    route_change = route.get("approvedChange") or ""
+    require("sealed portable fixture" in route_change
+            and "git delta stays an optional strengthening check" in route_change
+            and "guarantees are unchanged" in route_change
+            and hashlib.sha256(route_change.encode("utf-8")).hexdigest() ==
+            route.get("approvedChangeSha256") == V5_CHANGE_SHA256,
+            "v5 approval does not bind the exact historical-route change")
+    require(route.get("allowedChangedPaths") == [
+        "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json",
+        "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.sha256",
+        "tests/verify_harness_demo_absorption.py",
+    ] and route.get("scopeBinding") ==
+            "verification-loop-v1 exact candidate; the historical repair is validated "
+            "from the sealed fixture, never from an unreachable object database",
+            "v5 historical-route scope binding drifted or expanded")
+    route_fixture = route.get("historicalRepairFixture") or {}
+    require(route_fixture.get("path")
+            == "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json"
+            and route_fixture.get("sealPath")
+            == "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256"
+            and re.fullmatch(r"[0-9a-f]{64}", str(route_fixture.get("sha256") or "")),
+            "v5 historical-route fixture declaration is incomplete")
+    # Объявленный дайджест обязан совпадать с фикстурой в дереве прямо здесь:
+    # иначе подмена числа в контракте была бы видна только ниже по маршруту, а
+    # мутационный гейт над значением контракта остался бы пустым.
+    require(route_fixture.get("sha256")
+            == hashlib.sha256(REPAIR_FIXTURE.read_bytes()).hexdigest(),
+            "v5 historical-route fixture digest does not match the sealed fixture")
+    require(route.get("gitDeltaPolicy") ==
+            "strengthening-only: when both tree objects resolve the observed delta and "
+            "blob bytes must additionally match the seal; unreachable objects never "
+            "weaken the sealed-fixture route",
+            "v5 git-delta policy drifted")
     require((contract.get("source") or {}).get("reviewedCommit") ==
             "0eef0112daeaf3b5067d39b030ca33e53bf4c61b",
             "upstream reviewed commit must stay pinned")
@@ -384,6 +448,9 @@ def validate_contract_value(contract: dict) -> None:
         "accepted_repair_seal_drift",
         "missing_security_repair_approval", "security_repair_scope_expansion",
         "legacy_unbound_isolation_fixture",
+        "missing_historical_route_approval", "historical_route_scope_expansion",
+        "historical_route_fixture_digest_drift",
+        "historical_route_git_fallback_weakened",
     }
     require(set(contract.get("mutationGuards") or []) == expected_guards,
             "mutation guard inventory is incomplete")
@@ -458,6 +525,17 @@ def validate_mutations(contract: dict) -> int:
         ("legacy_unbound_isolation_fixture",
          lambda c: c["thresholds"]["sealedIsolationFixture"].__setitem__(
              "legacyFourFieldPacketAllowed", True)),
+        ("missing_historical_route_approval",
+         lambda c: c.__setitem__("historicalRouteApprovalProvenance", {})),
+        ("historical_route_scope_expansion",
+         lambda c: c["historicalRouteApprovalProvenance"]["allowedChangedPaths"].append(
+             "tests/verify_harness_demo_portable.py")),
+        ("historical_route_fixture_digest_drift",
+         lambda c: c["historicalRouteApprovalProvenance"]["historicalRepairFixture"]
+         .__setitem__("sha256", "0" * 64)),
+        ("historical_route_git_fallback_weakened",
+         lambda c: c["historicalRouteApprovalProvenance"].__setitem__(
+             "gitDeltaPolicy", "skip the seal when the objects are unreachable")),
     ]
     for label, mutate in mutations:
         expect_rejected(contract, mutate, label)
@@ -501,20 +579,84 @@ def validate_public_skill_population(contract: dict) -> None:
             "actual public lifecycle skill delta is not zero")
 
 
+def git_object_resolves(name: str) -> bool:
+    if not re.fullmatch(r"[0-9a-f]{40}", name or ""):
+        return False
+    probe = run(["git", "cat-file", "-t", name])
+    return probe.returncode == 0 and probe.stdout.strip() == "tree"
+
+
 def validate_accepted_repair(contract: dict) -> None:
+    """Проверить исторический v2-ремонт по запечатанной фикстуре (контракт v5).
+
+    Объявленный ранее вход — два git-дерева staged-кандидатов — недостижим в
+    любой среде: коммитов у них не было. Обязательный маршрут теперь один и
+    исполним везде: фикстура + её печать + те же дайджесты, что в контракте.
+    git остаётся ТОЛЬКО усилением и никогда не ослабляет проверку.
+    """
     repair = contract.get("repairApprovalProvenance") or {}
+    declared = (contract.get("historicalRouteApprovalProvenance")
+                or {}).get("historicalRepairFixture") or {}
+    require(declared.get("path") == "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json"
+            and declared.get("sealPath")
+            == "docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.sha256",
+            "v5 historical route does not declare the sealed repair fixture")
+    try:
+        raw = REPAIR_FIXTURE.read_bytes()
+        seal_line = REPAIR_FIXTURE_SEAL.read_text(encoding="ascii")
+    except (OSError, ValueError) as exc:
+        raise ContractError(
+            f"sealed historical repair fixture is unreadable: {exc}") from exc
+    digest = hashlib.sha256(raw).hexdigest()
+    require(digest == declared.get("sha256"),
+            "sealed historical repair fixture differs from the contract-declared digest")
+    require(seal_line == f"{digest}  HISTORICAL_REPAIR_FIXTURE.json\n",
+            "sealed historical repair fixture seal differs")
+    try:
+        fixture = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError(
+            f"sealed historical repair fixture is not valid JSON: {exc}") from exc
+    require(isinstance(fixture, dict) and set(fixture) == {
+        "version", "kind", "baseCandidateTree", "acceptedRepairCandidateTree",
+        "changedPaths", "acceptedBlobs",
+    } and fixture.get("version") == 1
+        and fixture.get("kind") == "accepted-historical-repair-fixture",
+        "sealed historical repair fixture contract is not closed")
+    changed = fixture.get("changedPaths")
+    blobs = fixture.get("acceptedBlobs")
+    require(fixture.get("baseCandidateTree") == repair.get("baseCandidateTree")
+            and fixture.get("acceptedRepairCandidateTree")
+            == repair.get("acceptedRepairCandidateTree")
+            and changed == repair.get("allowedChangedPaths")
+            and isinstance(blobs, dict) and set(blobs) == set(changed or []),
+            "sealed historical repair fixture does not match the frozen repair")
+    seal = repair.get("acceptedRepairSeal") or {}
+    require(set(seal) == set(blobs),
+            "historical v2 repair seal inventory is incomplete")
+    contents: dict[str, bytes] = {}
+    for relative in changed:
+        item = blobs.get(relative)
+        require(isinstance(item, dict) and set(item) == {"sha256", "encoding", "content"}
+                and item.get("encoding") == "base64",
+                f"historical v2 repair blob metadata is invalid: {relative}")
+        try:
+            blob = base64.b64decode(str(item.get("content")), validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ContractError(
+                f"historical v2 repair blob is not valid base64: {relative}") from exc
+        require(hashlib.sha256(blob).hexdigest() == item.get("sha256") == seal.get(relative),
+                f"historical v2 repair blob seal mismatch: {relative}")
+        contents[relative] = blob
     base_tree = str(repair.get("baseCandidateTree") or "")
     accepted_tree = str(repair.get("acceptedRepairCandidateTree") or "")
-    delta = run([
-        "git", "diff", "--name-only", base_tree, accepted_tree, "--",
-    ])
+    if not (git_object_resolves(base_tree) and git_object_resolves(accepted_tree)):
+        return
+    delta = run(["git", "diff", "--name-only", base_tree, accepted_tree, "--"])
     require_exit(delta, 0, "historical v2 repair delta")
     observed = [row for row in delta.stdout.splitlines() if row]
-    require(observed == repair.get("allowedChangedPaths"),
+    require(observed == changed,
             "historical v2 repair delta exceeds or misses the approved paths")
-    seal = repair.get("acceptedRepairSeal") or {}
-    require(set(seal) == set(observed),
-            "historical v2 repair seal inventory is incomplete")
     for relative in observed:
         try:
             result = subprocess.run(
@@ -523,9 +665,8 @@ def validate_accepted_repair(contract: dict) -> None:
         except (OSError, subprocess.SubprocessError) as exc:
             raise ContractError(
                 f"cannot read historical v2 repair blob {relative}: {exc}") from exc
-        require(result.returncode == 0
-                and hashlib.sha256(result.stdout).hexdigest() == seal.get(relative),
-                f"historical v2 repair blob seal mismatch: {relative}")
+        require(result.returncode == 0 and result.stdout == contents[relative],
+                f"reachable historical v2 repair object differs from the seal: {relative}")
 
 
 def validate_context() -> None:

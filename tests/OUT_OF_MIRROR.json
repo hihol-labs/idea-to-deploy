@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "purpose": "Закрытый реестр сьютов tests/verify_*.py, которые НЕ гоняются зеркалом tests/run-all.sh. Пока класс существует, строка DONE fails:none не означает «прогнано всё» — MIRROR-COVERAGE печатает границу, а этот файл называет причину каждого исключения поимённо и даёт команду, воспроизводящую зелёный (или объясняющую, почему зелёного нет). Оракул: tests/verify_runall_drift.py (секция out_of_mirror_invariants) — неклассифицированный внезеркальный сьют красный.",
+  "decidedAt": "2026-08-28",
+  "decision": "Решение владельца N7 (ORACLE-DEBT): 16 измеренно зелёных сьютов возвращены в зеркало; оставшиеся классифицированы здесь.",
+  "classes": {
+    "phase-required": "Безусловный запуск падает на argparse (rc=2): сьюту нужен явный --phase или позиционный аргумент. Зелёный воспроизводим командой из reproduce.",
+    "candidate-bound": "Улики сьюта привязаны к конкретному кандидату (дерево, квитанции, релизный пин). На любом другом дереве красный ПО ПОСТРОЕНИЮ, а не из-за дефекта.",
+    "external-evidence-absent": "Вход сьюта — внешние согласованные улики, которых в репозитории нет и не должно быть синтетически. Блокер не технический.",
+    "mirror-runner": "Сьют сам запускает зеркало; включение в зеркало дало бы рекурсию."
+  },
+  "suites": [
+    {
+      "suite": "tests/verify_diagnostics_pilot.py",
+      "class": "phase-required",
+      "why": "Требует --phase; без аргумента argparse завершает rc=2, что читается как ложный красный.",
+      "reproduce": "python3 -I tests/verify_diagnostics_pilot.py --phase observations",
+      "precondition": "Фазы labels и results дополнительно требуют размеченной телеметрии пилотного прогона; без неё они красные по построению."
+    },
+    {
+      "suite": "tests/verify_operating_loops.py",
+      "class": "phase-required",
+      "why": "Требует --phase; без аргумента argparse завершает rc=2.",
+      "reproduce": "python3 -I tests/verify_operating_loops.py --phase all"
+    },
+    {
+      "suite": "tests/verify_harness_demo_absorption.py",
+      "class": "phase-required",
+      "why": "Требует --phase. После ремонта маршрута исторического ремонта (контракт v5) фазы contract/context/facade/diagnostics/navigation зелёные; фаза isolation остаётся красной по другой причине — её квитанции пилотов HDX-009 привязаны к живым внешним worktree, состояние которых с июля ушло вперёд (класс candidate-bound внутри фазы).",
+      "reproduce": "python3 -I tests/verify_harness_demo_absorption.py --phase contract"
+    },
+    {
+      "suite": "tests/verify_operating_loops_release.py",
+      "class": "candidate-bound",
+      "why": "Одноразовая релизная квитанция v1.94.0: пинены VERSION, ветка codex/operating-loops-v1, sha256 тогдашних .itd/ACCEPTANCE_CONTRACT.json и .itd/SCOPE_LOCK.md и состав 96 объявленных файлов. На своём кандидате зелёная, на любом другом дереве красная по построению.",
+      "pinnedCandidate": "172fca79d7db3a1e12c9cb240146660c9481c2f2",
+      "reproduce": "git worktree add --detach /tmp/itd-oplr 172fca79d7db3a1e12c9cb240146660c9481c2f2 && python3 -I /tmp/itd-oplr/tests/verify_operating_loops_release.py --phase candidate",
+      "measuredEvidence": "exit 0, {\"phase\":\"candidate\",\"status\":\"PASSED\",\"version\":\"1.94.0\",\"declaredFiles\":96} (замер N7, 2026-08-28)",
+      "precondition": "Зелёный по построению только на своём пиненном релизном кандидате."
+    },
+    {
+      "suite": "tests/verify_harness_demo_pilots.py",
+      "class": "candidate-bound",
+      "why": "Проверяет adjudication-квитанции конкретного кандидата: на чужом дереве возвращает UNVERIFIED «receipt does not match the exact current candidate».",
+      "reproduce": "python3 -I tests/verify_harness_demo_pilots.py",
+      "precondition": "Зелёный только на дереве кандидата, для которого выпущены квитанции; на любом другом UNVERIFIED."
+    },
+    {
+      "suite": "tests/verify_semantic_navigation_demand.py",
+      "class": "candidate-bound",
+      "why": "Тот же класс: провенанс пилота упирается в квитанцию своего кандидата.",
+      "reproduce": "python3 -I tests/verify_semantic_navigation_demand.py",
+      "precondition": "Зелёный только на дереве кандидата, для которого выпущены квитанции; на любом другом UNVERIFIED."
+    },
+    {
+      "suite": "tests/verify_external_outcome_evidence.py",
+      "class": "external-evidence-absent",
+      "why": "Вход — docs/evidence/external-outcomes/INDEX.json с согласованными реальными записями внешних пилотов; их нет (блокер PE5-008/009), а синтетическая подмена прямо запрещена контрактом эффективности.",
+      "reproduce": "python3 -I tests/verify_external_outcome_evidence.py",
+      "precondition": "Зелёный только после появления согласованных внешних записей об исходе; сейчас их нет."
+    },
+    {
+      "suite": "tests/verify_external_outcome_independence.py",
+      "class": "external-evidence-absent",
+      "why": "Тот же вход и тот же блокер; отдельная ось контракта эффективности (независимость источника), поэтому имя самостоятельное.",
+      "reproduce": "python3 -I tests/verify_external_outcome_independence.py",
+      "precondition": "Зелёный только после появления согласованных внешних записей об исходе; сейчас их нет."
+    },
+    {
+      "suite": "tests/verify_quick_regression.py",
+      "class": "mirror-runner",
+      "why": "Сам исполняет tests/run-all.sh; включение в зеркало дало бы рекурсию зеркала внутри зеркала.",
+      "reproduce": "python3 -I tests/verify_quick_regression.py"
+    }
+  ],
+  "note": "verify_snapshot в реестр НЕ входит: зеркало исполняет его хвостовой проверкой run_tail snapshot ... --all. Это поймал сам оракул при первом прогоне — прежний счёт «26 внезеркальных» брал только списки CORE/FULL и не видел run_tail; строгий счёт на entry-дереве 5731c77 даёт 25."
+}

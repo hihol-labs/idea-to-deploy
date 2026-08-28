@@ -1,0 +1,480 @@
+{
+  "unit": "ORACLE-DEBT",
+  "purpose": "N7: замер двух предсуществующих красных оракулов и всего внезеркального класса run-all",
+  "measuredAt": "2026-08-28",
+  "entryCommit": "5731c7705b13e555c2887320af0e9c661535e4e8",
+  "method": {
+    "outOfMirror": "множество tests/verify_*.py на диске минус объединение CORE+FULL из tests/run-all.sh (нормализация суффикса .py)",
+    "run": "timeout 900 python3 -I tests/<suite>.py на чистом main без флагов; rc и последняя строка записаны как есть",
+    "limits": "измерен ТОЛЬКО безусловный запуск без флагов; зелёный rc здесь не доказывает, что сьют пригоден для зеркала на любом хосте/в CI",
+    "countingCorrection": "Первый счёт «26 внезеркальных» брал только списки CORE/FULL. Новый оракул (tests/verify_runall_drift.py, mirror_executed) поймал ошибку: зеркало исполняет verify_snapshot хвостовой проверкой run_tail ... --all. Строгий счёт исполняемых сьютов на entry-дереве 5731c77 даёт 125 в зеркале и 25 вне него; после решения владельца — 141 и 9."
+  },
+  "counts": {
+    "onDisk": 150,
+    "mirror": 124,
+    "outsideMirror": 26,
+    "greenStandalone": 16,
+    "phaseRequired": 4,
+    "candidateBound": 3,
+    "externalEvidenceAbsent": 2,
+    "mirrorRunner": 1,
+    "greenSecondsTotal": 75,
+    "outsideMirrorStrictEntry": 25,
+    "mirrorStrictEntry": 125,
+    "outsideMirrorStrictPost": 9,
+    "mirrorStrictPost": 141
+  },
+  "suites": [
+    {
+      "suite": "tests/verify_adopt_context.py",
+      "rc": 0,
+      "seconds": 1,
+      "lastLine": "{\"cases\": 8, \"posixSymlinkCases\": 3, \"status\": \"PASSED\", \"windowsJunctionCases\": 0}",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_brownfield_and_gate.py",
+      "rc": 0,
+      "seconds": 2,
+      "lastLine": "24 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_commit_completeness_gate.py",
+      "rc": 0,
+      "seconds": 1,
+      "lastLine": "3 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_cost_gate.py",
+      "rc": 0,
+      "seconds": 0,
+      "lastLine": "verify_cost_gate: PASSED (11/11; pre-attempt stop + low-risk fast path)",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_cross_review_precommit.py",
+      "rc": 0,
+      "seconds": 2,
+      "lastLine": "10 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_diagnostics_pilot.py",
+      "rc": 2,
+      "seconds": 0,
+      "lastLine": "verify_diagnostics_pilot.py: error: the following arguments are required: --phase",
+      "class": "phase-required"
+    },
+    {
+      "suite": "tests/verify_endpoint_regex.py",
+      "rc": 0,
+      "seconds": 0,
+      "lastLine": "11 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_external_outcome_evidence.py",
+      "rc": 1,
+      "seconds": 0,
+      "lastLine": "FAILED: external outcome evidence | WHY: index is missing: /home/hihol/projects/idea-to-deploy/docs/evidence/external-outcomes/INDEX.json | FIX: run opt-in pilots and write consent",
+      "class": "external-evidence-absent"
+    },
+    {
+      "suite": "tests/verify_external_outcome_independence.py",
+      "rc": 1,
+      "seconds": 0,
+      "lastLine": "FAILED: external outcome evidence | WHY: index is missing: /home/hihol/projects/idea-to-deploy/docs/evidence/external-outcomes/INDEX.json | FIX: run opt-in pilots and write consent",
+      "class": "external-evidence-absent"
+    },
+    {
+      "suite": "tests/verify_fresh_session_worktree.py",
+      "rc": 0,
+      "seconds": 4,
+      "lastLine": "{\"boundedObjectReader\": \"PASSED\", \"finalizeRefutations\": 4, \"positiveCycles\": 1, \"postCreateCleanup\": \"PASSED\", \"prepareRefutations\": 16, \"sharedMutableFallbacks\": 0, \"status\": \"PA",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_harness_demo_absorption.py",
+      "rc": 2,
+      "seconds": 0,
+      "lastLine": "verify_harness_demo_absorption.py: error: the following arguments are required: --phase",
+      "class": "phase-required"
+    },
+    {
+      "suite": "tests/verify_harness_demo_capture_schema.py",
+      "rc": 0,
+      "seconds": 2,
+      "lastLine": "{\"negativeCases\": 17, \"replays\": 1, \"status\": \"PASSED\"}",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_harness_demo_pilots.py",
+      "rc": 1,
+      "seconds": 0,
+      "lastLine": "{\"status\": \"FAILED\", \"why\": \"adjudication check failed: {\\\"fix\\\": \\\"Any candidate change invalidates evidence; rerun verifier/checker.\\\", \\\"status\\\": \\\"UNVERIFIED\\\", \\\"why\\\": \\\"rec",
+      "class": "candidate-bound"
+    },
+    {
+      "suite": "tests/verify_harness_demo_portable.py",
+      "rc": 0,
+      "seconds": 3,
+      "lastLine": "{\"episodes\": 3, \"frozenFixture\": \"PASSED\", \"frozenMutationGuards\": 34, \"historicalRepairFixture\": \"PASSED\", \"oversizedGuards\": 4, \"portableMutationGuard\": \"PASSED\", \"portableSemant",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_incremental_diagnostics.py",
+      "rc": 0,
+      "seconds": 3,
+      "lastLine": "{\"cases\": 21, \"completionEvidence\": false, \"defaultOn\": false, \"status\": \"PASSED\"}",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_mandatory_keyless_review.py",
+      "rc": 0,
+      "seconds": 0,
+      "lastLine": "{\"checks\": 83, \"paidApiCalls\": 0, \"route\": [\"openai-subscription\"], \"status\": \"PASSED\"}",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_operating_loops.py",
+      "rc": 2,
+      "seconds": 0,
+      "lastLine": "verify_operating_loops.py: error: the following arguments are required: --phase",
+      "class": "phase-required"
+    },
+    {
+      "suite": "tests/verify_operating_loops_release.py",
+      "rc": 1,
+      "seconds": 0,
+      "lastLine": "FAIL: plugin manifests are not synchronized at v1.94.0",
+      "class": "candidate-bound"
+    },
+    {
+      "suite": "tests/verify_pii_egress.py",
+      "rc": 0,
+      "seconds": 2,
+      "lastLine": "verify_pii_egress: PASSED",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_quick_regression.py",
+      "rc": 1,
+      "seconds": 232,
+      "lastLine": "DONE fails:verify_harness_docs_freshness",
+      "class": "mirror-runner"
+    },
+    {
+      "suite": "tests/verify_redteam_multihost.py",
+      "rc": 0,
+      "seconds": 42,
+      "lastLine": "8 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_semantic_navigation.py",
+      "rc": 0,
+      "seconds": 13,
+      "lastLine": "{\"boundaryGuards\": 15, \"fallback\": \"semantic:false\", \"languages\": [\"python\", \"typescript\"], \"operations\": [\"definitions\", \"references\", \"outline\"], \"realPilotChecks\": 9, \"status\": ",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_semantic_navigation_demand.py",
+      "rc": 1,
+      "seconds": 1,
+      "lastLine": "{\"status\": \"FAILED\", \"why\": \"pilot provenance failed: {\\\"status\\\": \\\"FAILED\\\", \\\"why\\\": \\\"adjudication check failed: {\\\\\\\"fix\\\\\\\": \\\\\\\"Any candidate change invalidates evidence; re",
+      "class": "candidate-bound"
+    },
+    {
+      "suite": "tests/verify_skill_completeness_gate.py",
+      "rc": 0,
+      "seconds": 0,
+      "lastLine": "4 passed, 0 failed",
+      "class": "green-standalone"
+    },
+    {
+      "suite": "tests/verify_snapshot.py",
+      "rc": 2,
+      "seconds": 1,
+      "lastLine": "verify_snapshot.py: error: fixture_dir is required unless --all is given",
+      "class": "phase-required"
+    },
+    {
+      "suite": "tests/verify_task_piv_lite.py",
+      "rc": 0,
+      "seconds": 0,
+      "lastLine": "{\"mutationCases\": 15, \"publicLifecycleSkills\": 40, \"stages\": [\"plan\", \"implement\", \"validate\", \"review\"], \"status\": \"PASSED\"}",
+      "class": "green-standalone"
+    }
+  ],
+  "redOracle1": {
+    "suite": "tests/verify_operating_loops_release.py",
+    "backlogClaim": "стейл-пин VERSION=1.94.0 при манифестах репо 1.100.1",
+    "measured": "сьют — candidate-bound релизная квитанция: на своём пиненном кандидате 172fca79d7db3a1e12c9cb240146660c9481c2f2 (plugin.json 1.94.0) `--phase candidate` даёт exit 0 и status PASSED; на любом другом дереве красный ПО ПОСТРОЕНИЮ (пинены sha256 .itd/ACCEPTANCE_CONTRACT.json и .itd/SCOPE_LOCK.md того кандидата, ветка codex/operating-loops-v1, состав EXPECTED_CHANGED)",
+    "evidence": "exit 0, {\"phase\":\"candidate\",\"status\":\"PASSED\",\"version\":\"1.94.0\",\"declaredFiles\":96,\"contractMutationGuards\":6}",
+    "conclusion": "ремонт пина невозможен без переписывания исторической релизной квитанции; класс тот же, что verify_harness_demo_pilots / verify_semantic_navigation_demand"
+  },
+  "redOracle2": {
+    "suite": "tests/verify_harness_demo_absorption.py --phase all",
+    "measured": "validate_accepted_repair исполняет git diff по двум ДЕРЕВЬЯМ-кандидатам, которых нет в объектной базе: cfdd5ae845d8efbf1853dfcd81d17fbb7238d9a2, e6690162c45d8cf5c5bcebccd83a9aebb8d11bd3 (и 0d48fdd6893ec90e0712c03917306cde6eb35d27 в v4-провенансе) — git cat-file -t: could not get object info",
+    "whyUnfixableInPlace": "это staged-деревья незакоммиченных кандидатов; из трёх запечатанных блобов полное дерево не восстановимо",
+    "existingRoute": "tests/verify_harness_demo_portable.py:255 validate_portable_accepted_repair уже проверяет тот же исторический ремонт без git — по запечатанной фикстуре docs/harness-demo-pilots/HISTORICAL_REPAIR_FIXTURE.json (+ .sha256), сверяя те же base/accepted tree, changedPaths и acceptedRepairSeal; сьют зелёный (exit 0)",
+    "gate": "docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json changePolicy = new-version-and-human-approval: изменённый оракул требует новой версии контракта, дайджеста, юнита цели и ЯВНОГО одобрения владельца"
+  },
+  "redOracle3FoundThisSession": {
+    "suite": "tests/verify_harness_docs_freshness.py",
+    "inMirror": true,
+    "measured": "красный на чистом main 2026-08-28: docs/HARNESS_DOCS_STATE.json reviewedAt=2026-07-28 при maxAgeDays=30 -> возраст 31 день, freshness window violated; вчера сьют был зелёным",
+    "sideEffect": "verify_harness_conformance --axis all падал 3/5 (H5-R2 = эта свежесть; H4-R2 = live-улика)",
+    "h4Truth": "H4-R2 (verify_live_model_benchmark --require-evidence --max-age-days 30) красный ТОЛЬКО из-за грязного рабочего дерева: на чистом чекауте 5731c77 exit 0, 154 passed/0 failed; улика observedAt 2026-08-27T08:14:46Z не устарела",
+    "repair": "перепрогон улик модуля harness-engineering-conformance + reviewedAt -> 2026-08-28 в docs/HARNESS_DOCS_STATE.json и docs/QUALITY.json (верхний уровень + строка модуля), прецедент PR #234"
+  },
+  "identicalCoverageGroupsLeftToN7": [
+    {
+      "group": [
+        "tests/verify_external_outcome_evidence.py",
+        "tests/verify_external_outcome_independence.py"
+      ],
+      "coverage": [
+        "docs/harness-demo-pilots/INDEX.json",
+        "scripts/itd_external_outcomes.py"
+      ],
+      "bothRed": "index is missing: docs/evidence/external-outcomes/INDEX.json (внешние пилоты — блокер PE5-008/009, не технический)",
+      "contractRefs": "ОБА имени объявлены отдельными evidence-строками docs/PRACTICAL_EFFECTIVENESS_CONTRACT.json (разные оси: outcome vs independence)",
+      "mechanicalMerge": false,
+      "why": "у пары нет донора без контрактных ссылок — слияние потребовало бы правки замороженного контракта эффективности, то есть это не консолидация, а смена контракта"
+    },
+    {
+      "group": [
+        "tests/verify_brownfield_and_gate.py",
+        "tests/verify_skill_enforcement.py"
+      ],
+      "coverage": [
+        "hooks/check-skills.sh",
+        "hooks/check-tool-skill.sh"
+      ],
+      "state": "verify_skill_enforcement в зеркале (CORE/FULL) и объявлен в docs/HARNESS_TRUST_POLICY.json; verify_brownfield_and_gate вне зеркала, зелёный автономно (2 с), контрактных ссылок нет",
+      "mechanicalMerge": true,
+      "why": "форма ровно как у пяти слитых пар LPD-003-4: хранитель = контрактное имя (verify_skill_enforcement), донор = имя только с историческими упоминаниями",
+      "required": "перед слиянием нужна мутационная улика: искажение hooks/check-skills.sh и hooks/check-tool-skill.sh должно валить ХРАНИТЕЛЯ той же проверкой, что и донора (метод LPD-003-4)"
+    }
+  ],
+  "ownerDecisionsApplied": {
+    "decidedAt": "2026-08-28",
+    "releaseOracle": "объявлен candidate-bound в tests/OUT_OF_MIRROR.json с пиненным кандидатом и командой воспроизведения; файл сьюта не тронут",
+    "absorptionContract": "контракт v5 одобрен владельцем; маршрут исторического ремонта переведён на запечатанную фикстуру, git оставлен усилением",
+    "outOfMirrorClass": "16 измеренно зелёных возвращены в зеркало; остальные объявлены в реестре; оракул валит неклассифицированный внезеркальный сьют",
+    "identicalCoverageGroups": "слияние второй пары ОПРОВЕРГНУТО мутационной уликой (см. mergeRefutation); первая пара не трогается по контрактным ссылкам"
+  },
+  "absorptionAfterRepair": {
+    "greenPhases": [
+      "contract",
+      "context",
+      "facade",
+      "diagnostics",
+      "navigation"
+    ],
+    "redPhase": "isolation",
+    "redWhy": "квитанции пилотов HDX-009 привязаны к живым внешним worktree; проверка возвращает UNVERIFIED «receipt does not match the exact current candidate». Это ДРУГОЙ класс (candidate-bound), а не тот недостижимый git-объект, ради которого делался ремонт.",
+    "evidence": "contract/context/facade/diagnostics/navigation EXIT=0 mutationGuards=38; isolation EXIT=2"
+  },
+  "mergeRefutation": {
+    "pair": [
+      "tests/verify_brownfield_and_gate.py",
+      "tests/verify_skill_enforcement.py"
+    ],
+    "method": "мутация hooks/check-skills.sh:569 — распознавание маркера itd-profile: brownfield сломано (регексп больше не матчит); оба сьюта прогнаны на мутанте, файл восстановлен байт-в-байт (sha256 до == после).",
+    "result": "донор verify_brownfield_and_gate rc=1 (21 passed, 3 failed); хранитель verify_skill_enforcement rc=0 (18 passed, 0 failed)",
+    "conclusion": "идентичное покрытие ПО КАРТЕ не равно идентичному покрытию ПО ПОВЕДЕНИЮ: хранитель проверяет счётчик/сентинел/bypass того же хука, донор — маршрутизацию триггеров, подавление greenfield-подсказок по профилю, автодетект и read-only fast-path. Слияние потеряло бы покрытие; по методу LPD-003-4 оно НЕ выполняется.",
+    "consequence": "донор оставлен и добавлен в зеркало (2 с); критерий консолидации требует мутационной улики на КАЖДОЙ паре, и здесь она опровергает слияние"
+  },
+  "entryState": {
+    "commit": "5731c7705b13e555c2887320af0e9c661535e4e8",
+    "runAllSha256": "b02548f1adb5b2e2a9bc6692f1cd74db585e29cf6ca8f6b903408aa77d6b2f74",
+    "suitesOnDisk": 150,
+    "mirrorExecuted": [
+      "verify_adjudication_channel",
+      "verify_agent_review_sentinel",
+      "verify_all_hard_gate_host_parity",
+      "verify_api_reviewer",
+      "verify_api_reviewer_curl_transport",
+      "verify_authority_check",
+      "verify_blueprint_provenance_reviewer",
+      "verify_bypass_friction",
+      "verify_completion_adversarial_corpus",
+      "verify_completion_gate",
+      "verify_completion_policy_calibration",
+      "verify_completion_signal_classes",
+      "verify_completion_signals_powershell",
+      "verify_control_quality",
+      "verify_copilot_reviewer",
+      "verify_cross_platform_runtime",
+      "verify_dod_coverage",
+      "verify_dod_gate",
+      "verify_efficiency_attribution",
+      "verify_execution_trace_outcome",
+      "verify_external_outcome_contract",
+      "verify_external_pilot_collection",
+      "verify_external_reviewer_release",
+      "verify_external_write_gate",
+      "verify_fable_snippets",
+      "verify_fail_closed_hygiene",
+      "verify_feature_ledger",
+      "verify_feature_ledger_adoptions",
+      "verify_feature_ledger_completeness",
+      "verify_feature_ledger_fallbacks",
+      "verify_free_reviewer_producer",
+      "verify_fresh_session_resume",
+      "verify_gate_control",
+      "verify_gate_profile_doctor",
+      "verify_gate_registry_binding",
+      "verify_gate_registry_isolation",
+      "verify_gate_registry_profiles",
+      "verify_gate_taxonomy",
+      "verify_git_gate_hooks",
+      "verify_github_app_manifest",
+      "verify_goal_bounded_autonomy",
+      "verify_goal_five_star",
+      "verify_goal_tools",
+      "verify_goal_verify_shell",
+      "verify_graduated_trust",
+      "verify_harness_conformance",
+      "verify_harness_docs_freshness",
+      "verify_harness_map_fixtures",
+      "verify_hook_count_words",
+      "verify_hook_depth",
+      "verify_hook_table_completeness",
+      "verify_host_adapters",
+      "verify_host_neutral_memory",
+      "verify_independent_review_efficacy",
+      "verify_init_contracts",
+      "verify_itd_cli",
+      "verify_itd_runtime_install",
+      "verify_learning_loop",
+      "verify_ledger_reconciliation",
+      "verify_live_model_benchmark",
+      "verify_machine_oracle",
+      "verify_model_policy_hint",
+      "verify_model_risk_monotonic",
+      "verify_narration_final",
+      "verify_no_bare_python3",
+      "verify_observed_token_telemetry",
+      "verify_operational_cold_start",
+      "verify_operational_continuation",
+      "verify_otel_export",
+      "verify_platform_tmp_and_new_hooks",
+      "verify_practical_effectiveness",
+      "verify_predeploy_gate",
+      "verify_predeploy_independent_review",
+      "verify_project_checks",
+      "verify_proportionality_benchmark",
+      "verify_push_gate_adjudicated",
+      "verify_refute_fleet",
+      "verify_registration_and_counts",
+      "verify_retro_abstention_review",
+      "verify_retro_scan",
+      "verify_review_autoping",
+      "verify_review_broker",
+      "verify_review_broker_deployment",
+      "verify_review_broker_operator",
+      "verify_review_broker_policy",
+      "verify_review_broker_primitives",
+      "verify_review_broker_server",
+      "verify_review_cache",
+      "verify_review_evalset",
+      "verify_review_evidence",
+      "verify_review_import",
+      "verify_review_report_file",
+      "verify_review_sentinel_diffbind",
+      "verify_reviewer_independence_policy",
+      "verify_reviewer_provider_freshness",
+      "verify_risk_score",
+      "verify_routing",
+      "verify_runall_drift",
+      "verify_scrubber_precision",
+      "verify_session_hygiene_quality",
+      "verify_signal_attribution",
+      "verify_skill_enforcement",
+      "verify_snapshot",
+      "verify_source_read_contract",
+      "verify_stall_fallback",
+      "verify_state_hardening",
+      "verify_stop_rule",
+      "verify_strict_completion_policy",
+      "verify_sync_manifest",
+      "verify_targeted_regression",
+      "verify_task_contract_advisory",
+      "verify_task_deployment_baseline",
+      "verify_tool_trust_inventory",
+      "verify_tree_pin_debris",
+      "verify_triggers",
+      "verify_unit_log",
+      "verify_v147_fixes",
+      "verify_verdict_contract",
+      "verify_verification_loop",
+      "verify_verification_profiles",
+      "verify_verify_signal_and_watchdog",
+      "verify_work_deadline_benchmark",
+      "verify_work_deadline_contract",
+      "verify_work_deadline_docs",
+      "verify_worktree_hook_safety"
+    ],
+    "outsideMirrorExecuted": [
+      "verify_adopt_context",
+      "verify_brownfield_and_gate",
+      "verify_commit_completeness_gate",
+      "verify_cost_gate",
+      "verify_cross_review_precommit",
+      "verify_diagnostics_pilot",
+      "verify_endpoint_regex",
+      "verify_external_outcome_evidence",
+      "verify_external_outcome_independence",
+      "verify_fresh_session_worktree",
+      "verify_harness_demo_absorption",
+      "verify_harness_demo_capture_schema",
+      "verify_harness_demo_pilots",
+      "verify_harness_demo_portable",
+      "verify_incremental_diagnostics",
+      "verify_mandatory_keyless_review",
+      "verify_operating_loops",
+      "verify_operating_loops_release",
+      "verify_pii_egress",
+      "verify_quick_regression",
+      "verify_redteam_multihost",
+      "verify_semantic_navigation",
+      "verify_semantic_navigation_demand",
+      "verify_skill_completeness_gate",
+      "verify_task_piv_lite"
+    ],
+    "outsideMirrorByCoreFull": [
+      "verify_adopt_context",
+      "verify_brownfield_and_gate",
+      "verify_commit_completeness_gate",
+      "verify_cost_gate",
+      "verify_cross_review_precommit",
+      "verify_diagnostics_pilot",
+      "verify_endpoint_regex",
+      "verify_external_outcome_evidence",
+      "verify_external_outcome_independence",
+      "verify_fresh_session_worktree",
+      "verify_harness_demo_absorption",
+      "verify_harness_demo_capture_schema",
+      "verify_harness_demo_pilots",
+      "verify_harness_demo_portable",
+      "verify_incremental_diagnostics",
+      "verify_mandatory_keyless_review",
+      "verify_operating_loops",
+      "verify_operating_loops_release",
+      "verify_pii_egress",
+      "verify_quick_regression",
+      "verify_redteam_multihost",
+      "verify_semantic_navigation",
+      "verify_semantic_navigation_demand",
+      "verify_skill_completeness_gate",
+      "verify_snapshot",
+      "verify_task_piv_lite"
+    ],
+    "note": "Списки заморожены поимённо, чтобы числа входа не принимались только по сумме (находка ревьюера r2, high). outsideMirrorByCoreFull — множество, по которому реально гонялся замер 26 строк; outsideMirrorExecuted (25) строже и вычитает хвостовой run_tail."
+  }
+}
