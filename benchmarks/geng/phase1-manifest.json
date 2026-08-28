@@ -1,0 +1,165 @@
+{
+  "unit": "GENG-C-EXP",
+  "phase": 1,
+  "writtenBeforeRuns": true,
+  "population": "subagent-checker (вариант B владельца; НЕ обязательный cross-vendor продюсер)",
+  "design": "4 независимых чекера, каждый судит все 12 кандидатов в СВОЁМ фиксированном порядке; чекер A1 = контрольная рука (одиночный заход), A2-A4 = кворумная рука (2-из-3). Ограничение объявлено: внутри одного чекера вердикты по разным кандидатам коррелированы (carryover); митигируется различными порядками предъявления.",
+  "orders": {
+    "A1": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07",
+      "C08",
+      "C09",
+      "C10",
+      "C11",
+      "C12"
+    ],
+    "A2": [
+      "C07",
+      "C02",
+      "C11",
+      "C05",
+      "C09",
+      "C01",
+      "C12",
+      "C08",
+      "C03",
+      "C10",
+      "C06",
+      "C04"
+    ],
+    "A3": [
+      "C12",
+      "C06",
+      "C03",
+      "C09",
+      "C04",
+      "C10",
+      "C02",
+      "C08",
+      "C05",
+      "C11",
+      "C01",
+      "C07"
+    ],
+    "A4": [
+      "C05",
+      "C10",
+      "C01",
+      "C08",
+      "C12",
+      "C03",
+      "C06",
+      "C11",
+      "C09",
+      "C02",
+      "C07",
+      "C04"
+    ]
+  },
+  "candidates": [
+    {
+      "id": "C01",
+      "class": "clean",
+      "defectPresent": false,
+      "defectDescription": null,
+      "file": "benchmarks/geng/candidates/C01.txt",
+      "sha256": "238d5d6e8d63cd822f4c95432b335b665bfff23490b79672670389cc56053ea8"
+    },
+    {
+      "id": "C02",
+      "class": "clean",
+      "defectPresent": false,
+      "defectDescription": null,
+      "file": "benchmarks/geng/candidates/C02.txt",
+      "sha256": "904c9d8eede457c1e670c21563939028acc19f4fb0cf519ca68b44a7e93ffcb2"
+    },
+    {
+      "id": "C03",
+      "class": "clean",
+      "defectPresent": false,
+      "defectDescription": null,
+      "file": "benchmarks/geng/candidates/C03.txt",
+      "sha256": "ae9bb52303ea47fdbdd70958db6171ab875373003b3c2c0d86e6c39bd169fc1f"
+    },
+    {
+      "id": "C04",
+      "class": "clean",
+      "defectPresent": false,
+      "defectDescription": null,
+      "file": "benchmarks/geng/candidates/C04.txt",
+      "sha256": "e6e05637ce57dfe61e24777ad88150a5d1e30b3dd5f9ba576aa5ae580eac4736"
+    },
+    {
+      "id": "C05",
+      "class": "seeded",
+      "defectPresent": true,
+      "defectDescription": "Проверка 'not silently also in the mirror' сравнивает имя С РАСШИРЕНИЕМ .py с множеством имён БЕЗ расширения — условие всегда истинно, гард вакуумный.",
+      "file": "benchmarks/geng/candidates/C05.txt",
+      "sha256": "b089f9087aa27e993947c10261998d2efb35c5e724cf6866e94b7c9b61c5c892"
+    },
+    {
+      "id": "C06",
+      "class": "seeded",
+      "defectPresent": true,
+      "defectDescription": "expect_rejected: финальный raise заменён на return — мутация, которую валидатор НЕ отверг, проходит молча, все гарды вакуумные.",
+      "file": "benchmarks/geng/candidates/C06.txt",
+      "sha256": "9dae978a69adef92c6bffa51311b715a85bbaae17fcef65646ab9cfaf08b93c8"
+    },
+    {
+      "id": "C07",
+      "class": "seeded",
+      "defectPresent": true,
+      "defectDescription": "validate_digest: declared.get(label, actual) — отсутствующая строка дайджеста по умолчанию равна фактическому хешу, печать перестаёт ловить пропуски.",
+      "file": "benchmarks/geng/candidates/C07.txt",
+      "sha256": "f61aecb2ec721a1a04040ff70924465c0b5a91153fa6314837b0768f6f5e6ae1"
+    },
+    {
+      "id": "C08",
+      "class": "seeded",
+      "defectPresent": true,
+      "defectDescription": "Сверка внезеркального множества ослаблена с равенства до подмножества on_disk — подмена любого имени проходит.",
+      "file": "benchmarks/geng/candidates/C08.txt",
+      "sha256": "a5c40c37fe9f151ce14f82980804c6d699e0600e7e5a6974920bd42664b03022"
+    },
+    {
+      "id": "C09",
+      "class": "reconstructed",
+      "defectPresent": true,
+      "defectDescription": "r4.H: срезаются только строки-комментарии целиком; строчный комментарий 'cmd # tests/verify_x.py' объявляет сьют исполняемым.",
+      "file": "benchmarks/geng/candidates/C09.txt",
+      "sha256": "1bd999db4aeffb1e56cfae1577bc6001667484871ea71f79cc15986a3d063cfb"
+    },
+    {
+      "id": "C10",
+      "class": "reconstructed",
+      "defectPresent": true,
+      "defectDescription": "r6.L: провенанс самозаверяющий — хеши пересчитываются из значений самого документа, правка текста вместе с хешем проходит.",
+      "file": "benchmarks/geng/candidates/C10.txt",
+      "sha256": "caef071d88f54496d005126437ddca3a6ec47a1cd6fae0fd18ac684f82f77939"
+    },
+    {
+      "id": "C11",
+      "class": "reconstructed",
+      "defectPresent": true,
+      "defectDescription": "r7.O: reproduce проверяется только на непустоту — плейсхолдер '--phase <phase>' проходит как команда воспроизведения.",
+      "file": "benchmarks/geng/candidates/C11.txt",
+      "sha256": "fdbe1b72bb618ca8fe9b09f343229fb4a031e6cdee24255a178f51fc8c9e6c7d"
+    },
+    {
+      "id": "C12",
+      "class": "reconstructed",
+      "defectPresent": true,
+      "defectDescription": "r6.K: множество по CORE/FULL не привязано к историческим спискам — подмена имени сьюта при том же счёте проходит.",
+      "file": "benchmarks/geng/candidates/C12.txt",
+      "sha256": "6ddf12ef44ee2f436af7d3e260890b0a50cbdf4de4570d7ad8fda75904c973bf",
+      "excludedFromMetrics": true,
+      "exclusionReason": "invalid excerpt: текст обрывается ПЕРЕД CORE/FULL-чеком, несущим заявленный дефект r6.K; показанный чек корректен, PASSED ревьюеров — правильный вердикт по показанному тексту. Найдено независимым чекером кандидата (r1 BLOCKED, high); байты кандидата не менялись — исключение объявлено, не скрыто."
+    }
+  ]
+}

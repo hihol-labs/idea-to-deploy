@@ -1,0 +1,267 @@
+{
+  "unit": "GENG-C-EXP",
+  "phase": 0,
+  "protocol": ".itd-memory/measurements/GENG-C-EXP-protocol.md",
+  "corpus": {
+    "series": "ORACLE-DEBT r2-r7 (N7)",
+    "rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "promptBytes": {
+      "r2": 527035,
+      "r3": 546878,
+      "r4": 547405,
+      "r5": 560293,
+      "r6": 569825,
+      "r7": 583224
+    },
+    "allCandidatesDistinct": true,
+    "promptSha256": {
+      "r2": "e14a4a0d783b91d19d5cdf1dc4025cecf0df581e2400d292a55a154bf5585063",
+      "r3": "f14fa10ec307c2a1ac1db8da6bc1ab4138826b64fc6a7272caf79cc91f0601cc",
+      "r4": "2909023ec623f8291c340e9edd15b74dd643658cd371814d2def92a16ceb2e38",
+      "r5": "51db102de7b6f5f9ceeb0d650bfb69b523fbf1d754abaa66f5a509554a622b17",
+      "r6": "36ce6bf6e6fce38f3731f94f6004ba6a4cb673bd688307ca30f09825f36459f1",
+      "r7": "907668cf0a56f20741c6630d024d7f9d7b44b98ee1d1ad97c18cbbc7b10f1925"
+    }
+  },
+  "findings": [
+    {
+      "id": "r2.A",
+      "round": 2,
+      "severity": "high",
+      "family": "entryCommit-binding",
+      "anchors": [
+        "entryCommit"
+      ],
+      "summary": "fail-closed пересчёт не резолвит entryCommit",
+      "previousRound": null,
+      "class": "BASELINE",
+      "anchorsHit": null
+    },
+    {
+      "id": "r2.B",
+      "round": 2,
+      "severity": "medium",
+      "family": "row-identity",
+      "anchors": [
+        "outsideMirror"
+      ],
+      "summary": "26 строк не привязаны к именам внезеркальных сьютов",
+      "previousRound": null,
+      "class": "BASELINE",
+      "anchorsHit": null
+    },
+    {
+      "id": "r3.C",
+      "round": 3,
+      "severity": "medium",
+      "family": "scope-path",
+      "anchors": [
+        "ORACLE-DEBT-check.py"
+      ],
+      "summary": "новый чекер вне замороженного списка путей SCOPE_LOCK",
+      "previousRound": 2,
+      "class": "PRE",
+      "anchorsHit": [
+        "ORACLE-DEBT-check.py"
+      ]
+    },
+    {
+      "id": "r3.D",
+      "round": 3,
+      "severity": "medium",
+      "family": "row-schema",
+      "anchors": [
+        "seconds",
+        "duration"
+      ],
+      "summary": "строки замера не обязаны нести длительность и класс",
+      "previousRound": 2,
+      "class": "PRE",
+      "anchorsHit": [
+        "seconds"
+      ]
+    },
+    {
+      "id": "r3.E",
+      "round": 3,
+      "severity": "low",
+      "family": "entryCommit-binding",
+      "anchors": [
+        "entryState"
+      ],
+      "summary": "entryState.commit не обязан равняться entryCommit",
+      "previousRound": 2,
+      "class": "NEW",
+      "anchorsHit": []
+    },
+    {
+      "id": "r3.F",
+      "round": 3,
+      "severity": "medium",
+      "family": "class-vocabulary",
+      "anchors": [
+        "classes"
+      ],
+      "summary": "словарь классов не пинится, принимается любой непустой",
+      "previousRound": 2,
+      "class": "PRE",
+      "anchorsHit": [
+        "classes"
+      ]
+    },
+    {
+      "id": "r4.G",
+      "round": 4,
+      "severity": "medium",
+      "family": "aggregates",
+      "anchors": [
+        "counts",
+        "phaseRequired"
+      ],
+      "summary": "агрегаты counts/категории не пересчитываются из строк",
+      "previousRound": 3,
+      "class": "PRE",
+      "anchorsHit": [
+        "counts",
+        "phaseRequired"
+      ]
+    },
+    {
+      "id": "r4.H",
+      "round": 4,
+      "severity": "medium",
+      "family": "mirror-parser",
+      "anchors": [
+        "mirror_executed"
+      ],
+      "summary": "mirror_executed срезает только строки-комментарии целиком",
+      "previousRound": 3,
+      "class": "PRE",
+      "anchorsHit": [
+        "mirror_executed"
+      ]
+    },
+    {
+      "id": "r5.I",
+      "round": 5,
+      "severity": "high",
+      "family": "entryCommit-binding",
+      "anchors": [
+        "entryState"
+      ],
+      "summary": "entryState.commit не привязан к entryCommit/базе кандидата",
+      "previousRound": 4,
+      "class": "PRE",
+      "anchorsHit": [
+        "entryState"
+      ]
+    },
+    {
+      "id": "r5.J",
+      "round": 5,
+      "severity": "medium",
+      "family": "class-vocabulary",
+      "anchors": [
+        "classes"
+      ],
+      "summary": "словарь классов по-прежнему не пинится",
+      "previousRound": 4,
+      "class": "PRE",
+      "anchorsHit": [
+        "classes"
+      ]
+    },
+    {
+      "id": "r6.K",
+      "round": 6,
+      "severity": "medium",
+      "family": "corefull-binding",
+      "anchors": [
+        "outsideMirrorByCoreFull"
+      ],
+      "summary": "outsideMirrorByCoreFull не привязан к историческим CORE/FULL",
+      "previousRound": 5,
+      "class": "PRE",
+      "anchorsHit": [
+        "outsideMirrorByCoreFull"
+      ]
+    },
+    {
+      "id": "r6.L",
+      "round": 6,
+      "severity": "high",
+      "family": "provenance",
+      "anchors": [
+        "historicalRouteApprovalProvenance"
+      ],
+      "summary": "провенанс одобрения v5 самозаверяющий",
+      "previousRound": 5,
+      "class": "PRE",
+      "anchorsHit": [
+        "historicalRouteApprovalProvenance"
+      ]
+    },
+    {
+      "id": "r7.M",
+      "round": 7,
+      "severity": "high",
+      "family": "acceptance-overclaim",
+      "anchors": [
+        "verify_harness_conformance"
+      ],
+      "summary": "критерий обещает 5/5, улика показывает 4/5",
+      "previousRound": 6,
+      "class": "PRE",
+      "anchorsHit": [
+        "verify_harness_conformance"
+      ]
+    },
+    {
+      "id": "r7.N",
+      "round": 7,
+      "severity": "medium",
+      "family": "count-convention",
+      "anchors": [
+        "ORACLE-DEBT-2-class-measured"
+      ],
+      "summary": "критерий называет 124/26 против строгих 125/25 замера",
+      "previousRound": 6,
+      "class": "PRE",
+      "anchorsHit": [
+        "ORACLE-DEBT-2-class-measured"
+      ]
+    },
+    {
+      "id": "r7.O",
+      "round": 7,
+      "severity": "medium",
+      "family": "registry-reproduce",
+      "anchors": [
+        "--phase <phase>"
+      ],
+      "summary": "реестр обещает воспроизведение плейсхолдером",
+      "previousRound": 6,
+      "class": "PRE",
+      "anchorsHit": [
+        "--phase <phase>"
+      ]
+    }
+  ],
+  "counts": {
+    "BASELINE": 2,
+    "PRE": 12,
+    "NEW": 1
+  },
+  "preShareOfDecidable": 0.923,
+  "familiesRepeated": [
+    "class-vocabulary",
+    "entryCommit-binding"
+  ]
+}

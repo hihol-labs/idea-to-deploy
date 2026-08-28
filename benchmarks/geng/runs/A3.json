@@ -1,0 +1,14 @@
+[
+  {"id": "C12", "verdict": "PASSED", "finding": ""},
+  {"id": "C06", "verdict": "BLOCKED", "finding": "expect_rejected() returns silently on both the except-ContractError path and the fallthrough after a successful (non-rejecting) validate_contract_value call, so a mutation that the validator fails to reject never raises — the guard is vacuous and always 'passes'."},
+  {"id": "C03", "verdict": "PASSED", "finding": ""},
+  {"id": "C09", "verdict": "BLOCKED", "finding": "mirror_executed only skips whole-line comments (stripped.startswith('#')) and then regex-matches tests/verify_\\w+\\.py anywhere on the remaining lines, so a trailing inline comment like `cmd  # tests/verify_new.py` gets counted as executed even though nothing runs it."},
+  {"id": "C04", "verdict": "PASSED", "finding": ""},
+  {"id": "C10", "verdict": "BLOCKED", "finding": "instructionSha256/approvedChangeSha256 checks (lines 10-11, 17-18) recompute the hash from userInstruction/approvedChange and compare only against route.get(\"instructionSha256\")/route.get(\"approvedChangeSha256\") from the same document, with no pinned literal to anchor against — a self-authenticating check where editing the text and its declared hash together still passes."},
+  {"id": "C02", "verdict": "PASSED", "finding": ""},
+  {"id": "C08", "verdict": "BLOCKED", "finding": "the added check's boolean condition `entry_outside_cf <= on_disk` never references historical_core_full (it appears only in the failure message), so the check named 'the CORE/FULL outside set is the historical one' does not actually verify equality/derivation against the historical CORE/FULL parse and can pass even under a name substitution."},
+  {"id": "C05", "verdict": "BLOCKED", "finding": "line `check(..., name not in local)` compares the extension-included basename (name = Path(suite).name, e.g. 'verify_foo.py') against `local`, which (per the sibling suite-name sets built elsewhere in this file) holds extension-stripped suite names, so the membership test can never be true and the 'not silently also in the mirror' guard is vacuous."},
+  {"id": "C11", "verdict": "BLOCKED", "finding": "the reason/reproduce check only requires row['reproduce'] to be a non-empty string (bool(...).strip()) with no check that it is executable rather than a placeholder, so a value like `... --phase <phase>` passes despite never actually reproducing anything."},
+  {"id": "C01", "verdict": "PASSED", "finding": ""},
+  {"id": "C07", "verdict": "PASSED", "finding": ""}
+]

@@ -1,0 +1,10 @@
+# C12 — Усиление entry-состояния в чекере замера ORACLE-DEBT-check.py.
+
+```python
+        if shown.returncode == 0:
+            historical = mirror_executed(shown.stdout)[0] & on_disk
+            check("entry (strengthening): declaration matches run-all.sh at the entry commit",
+                  historical == entry_mirror and on_disk - historical == entry_outside,
+                  "declared-but-not-historical: %s" % sorted(entry_mirror ^ historical))
+
+```

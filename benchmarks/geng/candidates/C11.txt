@@ -1,0 +1,19 @@
+# C11 — Проверки строк реестра OUT_OF_MIRROR.json в tests/verify_runall_drift.py.
+
+```python
+        suite = str(row.get("suite") or "")
+        name = Path(suite).name
+        check(f"out-of-mirror: {suite} exists in the tree",
+              suite.startswith("tests/") and (ROOT / suite).is_file())
+        check(f"out-of-mirror: {suite} names a class from the approved vocabulary",
+              row.get("class") in APPROVED_CLASSES)
+        check(f"out-of-mirror: {suite} carries only known fields",
+              set(row) <= ROW_FIELDS, "unexpected: %s" % sorted(set(row) - ROW_FIELDS))
+        check(f"out-of-mirror: {suite} states a reason and a reproduce command",
+              bool(str(row.get("why") or "").strip())
+              and bool(str(row.get("reproduce") or "").strip()))
+        check(f"out-of-mirror: {suite} is not silently also in the mirror",
+              name[:-3] not in local)
+        check(f"out-of-mirror: {suite} is listed once", name not in registered)
+        registered.add(name)
+```

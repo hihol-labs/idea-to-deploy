@@ -1,0 +1,14 @@
+[
+  {"id": "C05", "verdict": "BLOCKED", "finding": "Line 29 `name not in local` compares the extension-bearing Path(suite).name (e.g. 'verify_foo.py') against `local`, whose entries are extension-less suite names, so the comparison is always true and the 'not silently also in the mirror' guard never fires."},
+  {"id": "C10", "verdict": "BLOCKED", "finding": "instructionSha256/approvedChangeSha256 are recomputed from route_instruction/route_change and compared only against hash fields stored in that same document, with no externally pinned literal, so a self-authenticating edit of text plus its stored hash passes."},
+  {"id": "C01", "verdict": "PASSED", "finding": ""},
+  {"id": "C08", "verdict": "BLOCKED", "finding": "The added check's boolean predicate `entry_outside_cf <= on_disk` never references the freshly computed `historical_core_full` (used only in the diagnostic message), so it cannot detect the CORE/FULL name substitution the check claims to guard against."},
+  {"id": "C12", "verdict": "PASSED", "finding": ""},
+  {"id": "C03", "verdict": "PASSED", "finding": ""},
+  {"id": "C06", "verdict": "BLOCKED", "finding": "Line 11 `return` after the try/except executes whenever validate_contract_value did NOT raise ContractError, so a mutation the validator fails to reject is silently treated as a passing guard instead of raising."},
+  {"id": "C11", "verdict": "BLOCKED", "finding": "The reproduce-command check only requires `bool(reproduce)` non-empty, with no placeholder/executability check, so an unfilled template like '--phase <phase>' satisfies it without ever being a runnable command."},
+  {"id": "C09", "verdict": "BLOCKED", "finding": "Only full-comment lines (`stripped.startswith('#')`) are skipped before the whole-line regex scan, so a trailing inline comment naming a suite (e.g. `cmd arg  # tests/verify_new.py`) is still counted as executed, and `unparsed` is unconditionally returned as `[]`."},
+  {"id": "C02", "verdict": "PASSED", "finding": ""},
+  {"id": "C07", "verdict": "PASSED", "finding": ""},
+  {"id": "C04", "verdict": "PASSED", "finding": ""}
+]

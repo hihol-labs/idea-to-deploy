@@ -1,0 +1,20 @@
+# C06 — Гард мутаций замороженного контракта: expect_rejected + начало списка мутаций.
+
+```python
+def expect_rejected(base: dict, mutate: Callable[[dict], None], label: str) -> None:
+    candidate = copy.deepcopy(base)
+    mutate(candidate)
+    try:
+        validate_contract_value(candidate)
+    except ContractError:
+        return
+    return
+
+
+def validate_mutations(contract: dict) -> int:
+    mutations: list[tuple[str, Callable[[dict], None]]] = [
+        ("owned_runtime", lambda c: c["invariants"].__setitem__("ownedRuntime", True)),
+        ("wip_above_one", lambda c: c["invariants"].__setitem__("wip", 2)),
+        ...  # (остальные мутации той же формы опущены для краткости)
+
+```

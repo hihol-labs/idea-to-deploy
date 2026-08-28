@@ -1,0 +1,32 @@
+# C02 — Проверки строк реестра OUT_OF_MIRROR.json в tests/verify_runall_drift.py.
+
+```python
+        suite = str(row.get("suite") or "")
+        name = Path(suite).name
+        check(f"out-of-mirror: {suite} exists in the tree",
+              suite.startswith("tests/") and (ROOT / suite).is_file())
+        check(f"out-of-mirror: {suite} names a class from the approved vocabulary",
+              row.get("class") in APPROVED_CLASSES)
+        check(f"out-of-mirror: {suite} carries only known fields",
+              set(row) <= ROW_FIELDS, "unexpected: %s" % sorted(set(row) - ROW_FIELDS))
+        # Непустой reproduce ещё ничего не воспроизводит: строка вида
+        # `--phase <phase>` проходила проверку на непустоту и обещала зелёный
+        # результат шаблоном, который не исполняется (находка ревьюера r7).
+        reproduce = str(row.get("reproduce") or "").strip()
+        check(f"out-of-mirror: {suite} states a reason and a reproduce command",
+              bool(str(row.get("why") or "").strip()) and bool(reproduce))
+        check(f"out-of-mirror: {suite} reproduce is executable, not a placeholder",
+              "<" not in reproduce and ">" not in reproduce
+              and name in reproduce,
+              "reproduce: %s" % reproduce[:120])
+        if row.get("class") == "phase-required":
+            phase = reproduce.split("--phase", 1)[-1].strip().split()[0] \
+                if "--phase" in reproduce else ""
+            check(f"out-of-mirror: {suite} names a concrete phase",
+                  bool(phase) and phase.isidentifier(),
+                  "phase token: %r" % phase)
+        check(f"out-of-mirror: {suite} is not silently also in the mirror",
+              name[:-3] not in local)
+        check(f"out-of-mirror: {suite} is listed once", name not in registered)
+        registered.add(name)
+```
