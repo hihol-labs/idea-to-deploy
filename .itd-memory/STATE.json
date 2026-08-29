@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "INSTALL-HARDENING",
     "goal": "P2 из RETRO-2026-08-29 (сужен, P3 в BACKLOG): хуки не роняют байткод в установленный content-addressed runtime, и отказ inventory называет конкретный лишний путь плюс FIX во всех строгих ветках",
-    "status": "in_progress",
-    "startedAt": "2026-08-29T12:51:46Z",
+    "status": "verified",
+    "startedAt": "2026-08-29T14:48:27Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-08-29T14:48:28Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +573,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "План 2026-08-23 закрыт ЦЕЛИКОМ (N1-N9). Релиз v1.101.0 опубликован (PR #245, merge 24698e2, tag v1.101.0) и раскатан на четыре цели одним runtime 1.101.0-6ba753846c92ffba. /retro записан: docs/retros/RETRO-2026-08-29.md, восемь кандидатов P1-P8 ЖДУТ РЕШЕНИЯ ВЛАДЕЛЬЦА и в BACKLOG не заведены. Дальше только решением владельца: P1 (repo-first для pre-push - валит публикацию каждого релиза), P2 (__pycache__ блокирует reinstall), P3 (cp1251 settings.json на Windows), SURFACE_TREADMILL, BACKLOG P1 (plumbing-гейт), PE5-008/009 (внешний блокер)."
+  "nextAction": "INSTALL-HARDENING закрыт: PR #247 merged 0d1e9d8, юнит verified, WIP свободен. P2 из RETRO-2026-08-29 закрыт по корню (хуки не пишут байткод в установленный runtime; отказ inventory называет путь и FIX). P3 (кодировка settings.json) выведен в BACKLOG после срабатывания стоп-правила над содержанием, работа сохранена патчем .itd-memory/p3-settings-encoding-attempt.patch. Дальше по решению владельца: RSI (кандидат PILOT P0-1, enum схемы вердикта), P1 ретро (repo-first для pre-push), либо юнит на машинную сверку индекс/SCOPE_LOCK/контракт/леджер (класс сработал трижды за юнит: r6, r9, r10; текст кандидата — в скрэтчпаде p1-scope-consistency-root.md)."
 }
