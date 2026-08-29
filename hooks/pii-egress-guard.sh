@@ -153,7 +153,15 @@ def load_external_gate():
     if spec is None:
         raise RuntimeError("cannot load external-write gate")
     module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
+    # Never leave bytecode next to the loaded gate: when it resolves to the
+    # installed content-addressed runtime, a stray .pyc blocks the next
+    # reinstall ("installed runtime directory inventory drifted").
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
     return module
 
 

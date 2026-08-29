@@ -1,0 +1,199 @@
+diff --git a/scripts/sync-to-active.sh b/scripts/sync-to-active.sh
+index 177a4eb..7a1e73e 100755
+--- a/scripts/sync-to-active.sh
++++ b/scripts/sync-to-active.sh
+@@ -589,17 +589,41 @@ fi
+ # Check if current settings.json hooks already matches desired. Compare only the
+ # ITD-managed event keys — foreign keys (e.g. a SessionStart hook registered by
+ # another plugin) are preserved by the merge below and must not read as "drift".
++# settings.json is not always UTF-8: a Windows profile whose path carries
++# non-ASCII (C:/Users/Дмитрий/...) stores it in the ANSI code page. Decoding it
++# as UTF-8 raised UnicodeDecodeError and hook registration silently did not
++# happen (measured 2026-08-29). Read it in its own encoding; report a broken
++# file distinctly from a missing one, so a codec failure can never read as
++# "drift".
+ current_hooks=$($PYBIN -c "
+ import json, sys
+ KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop')
++ENCODINGS = ('utf-8', 'cp1251', 'cp1252')
+ try:
+-    with open('$SETTINGS') as f:
+-        data = json.load(f)
+-    h = data.get('hooks', {})
+-    print(json.dumps({k: h.get(k) for k in KEYS}, sort_keys=True))
++    raw = open('$SETTINGS', 'rb').read()
++except FileNotFoundError:
++    print('ERROR:missing')
++    sys.exit(0)
+ except Exception as e:
+     print('ERROR:' + str(e))
+     sys.exit(0)
++data = None
++# A BOM is part of the file's identity: utf-8-sig also decodes BOM-less UTF-8,
++# so probing it first would relabel every ordinary file and the write-back would
++# prepend a BOM nobody asked for. Detect the BOM by its bytes instead.
++if raw.startswith(b'\xef\xbb\xbf'):
++    ENCODINGS = ('utf-8-sig',) + ENCODINGS
++for enc in ENCODINGS:
++    try:
++        data = json.loads(raw.decode(enc))
++        break
++    except (UnicodeDecodeError, ValueError):
++        continue
++if data is None:
++    print('ERROR:undecodable settings.json (tried ' + ', '.join(ENCODINGS) + ')')
++    sys.exit(0)
++h = data.get('hooks', {}) if isinstance(data, dict) else {}
++print(json.dumps({k: h.get(k) for k in KEYS}, sort_keys=True))
+ " 2>/dev/null || echo "ERROR")
+ 
+ desired_normalized=$(echo "$EFFECTIVE_HOOKS" | $PYBIN -c "
+@@ -631,8 +655,31 @@ else
+     $PYBIN - "$SETTINGS" <<PYEOF
+ import json, sys
+ path = sys.argv[1]
+-with open(path) as f:
+-    data = json.load(f)
++# Same rule as the drift probe above: decode in the file's own encoding and
++# write it back in that SAME encoding. Transcoding someone's settings.json is a
++# side effect nobody asked for, so an ITD hook command that cannot be encoded
++# back is a hard, explained failure rather than a silent codec switch.
++ENCODINGS = ('utf-8', 'cp1251', 'cp1252')
++raw = open(path, 'rb').read()
++# Keep the BOM state: utf-8-sig decodes BOM-less UTF-8 as well, so it is used
++# only when the bytes actually carry a BOM (reviewer finding, 2026-08-29).
++if raw.startswith(b'\xef\xbb\xbf'):
++    ENCODINGS = ('utf-8-sig',) + ENCODINGS
++data = None
++for _enc in ENCODINGS:
++    try:
++        data = json.loads(raw.decode(_enc))
++        encoding = _enc
++        break
++    except (UnicodeDecodeError, ValueError):
++        continue
++if data is None:
++    sys.stderr.write(
++        "WHY: settings.json is neither valid UTF-8 nor a supported ANSI code "
++        "page (" + ", ".join(ENCODINGS) + ").\\n"
++        "FIX: re-save it as UTF-8, or fix the JSON, then rerun the sync.\\n"
++    )
++    raise SystemExit(1)
+ _itd = $EFFECTIVE_HOOKS
+ # Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
+ # SessionStart hook registered by another plugin such as context-mode). ITD owns
+@@ -641,9 +688,18 @@ _itd = $EFFECTIVE_HOOKS
+ data.setdefault('hooks', {})
+ for _k, _v in _itd.items():
+     data['hooks'][_k] = _v
+-with open(path, 'w') as f:
+-    json.dump(data, f, indent=2, ensure_ascii=False)
+-    f.write('\n')
++rendered = json.dumps(data, indent=2, ensure_ascii=False) + '\n'
++try:
++    payload = rendered.encode(encoding)
++except UnicodeEncodeError as exc:
++    sys.stderr.write(
++        "WHY: a hook command cannot be encoded back into the file's own "
++        "encoding (" + encoding + "): " + str(exc) + "\\n"
++        "FIX: re-save settings.json as UTF-8, then rerun the sync.\\n"
++    )
++    raise SystemExit(1)
++with open(path, 'wb') as f:
++    f.write(payload)
+ PYEOF
+     ok "settings.json hooks updated (backup: $(basename "$bak"))"
+   fi
+diff --git a/tests/verify_sync_manifest.py b/tests/verify_sync_manifest.py
+index 46d40d4..ad2673a 100644
+--- a/tests/verify_sync_manifest.py
++++ b/tests/verify_sync_manifest.py
+@@ -111,6 +111,88 @@ def main() -> int:
+ 
+     # 5. The manifest stays on the verify-sync surface, so a future edit that
+     #    drops it from the sync script fails loudly instead of silently.
++    # 4. settings.json is not always UTF-8. On a Windows profile whose path
++    #    carries Cyrillic (C:/Users/Дмитрий/...) the file is cp1251, and step
++    #    5/6 died with "UnicodeDecodeError: 'utf-8' codec can't decode byte
++    #    0xc4 in position 868" — hook registration silently did not happen
++    #    (measured 2026-08-29). The sync must read the file in its own encoding
++    #    and write it back in the SAME one, never transcoding it behind the
++    #    operator's back.
++    with tempfile.TemporaryDirectory(prefix="itd-sync-cp1251-") as raw:
++        install = Path(raw) / "cp1251-install"
++        install.mkdir(parents=True)
++        legacy = {
++            "hooks": {
++                "SessionStart": [
++                    {"hooks": [{"type": "command",
++                                "command": "\"C:/Users/Дмитрий/AppData/Local/"
++                                           "foreign/plugin.exe\""}]}
++                ]
++            },
++            "model": "opusplan",
++        }
++        settings = install / "settings.json"
++        settings.write_bytes(
++            json.dumps(legacy, indent=2, ensure_ascii=False).encode("cp1251")
++        )
++        run_sync(install, apply=True)
++
++        written = settings.read_bytes()
++        check(b"\xc4\xec\xe8\xf2\xf0\xe8\xe9" in written,
++              "settings.json was transcoded away from its original cp1251")
++        decoded = json.loads(written.decode("cp1251"))
++        check(decoded["model"] == "opusplan",
++              "unrelated settings keys did not survive the cp1251 merge")
++        foreign = decoded["hooks"]["SessionStart"][0]["hooks"][0]["command"]
++        check("Дмитрий" in foreign,
++              "the foreign SessionStart hook lost its non-ASCII path")
++        for event in ("UserPromptSubmit", "PreToolUse"):
++            check(decoded["hooks"].get(event),
++                  f"ITD did not register {event} in a cp1251 settings.json")
++
++    # 4b. "Same encoding" includes the BOM. utf-8-sig decodes BOM-less UTF-8
++    #     too, so probing it first labels every ordinary file utf-8-sig and the
++    #     write-back silently prepends a BOM (reviewer finding, 2026-08-29).
++    #     A file without a BOM must stay without one; a file with a BOM keeps it.
++    for label, prefix in (("bom-less", b""), ("bom", b"\xef\xbb\xbf")):
++        with tempfile.TemporaryDirectory(prefix=f"itd-sync-{label}-") as raw:
++            install = Path(raw) / "install"
++            install.mkdir(parents=True)
++            settings = install / "settings.json"
++            settings.write_bytes(
++                prefix + json.dumps({"model": "opusplan"}, indent=2).encode("utf-8")
++            )
++            run_sync(install, apply=True)
++            written = settings.read_bytes()
++            check(written.startswith(b"\xef\xbb\xbf") == bool(prefix),
++                  f"a {label} settings.json did not keep its BOM state")
++            decoded = json.loads(written.decode("utf-8-sig"))
++            check(decoded["model"] == "opusplan",
++                  f"a {label} settings.json lost unrelated keys")
++            check(decoded["hooks"].get("PreToolUse"),
++                  f"ITD did not register hooks in a {label} settings.json")
++
++    # 5. A settings.json that no supported encoding parses must fail loudly with
++    #    WHY+FIX. Before this unit a codec failure was swallowed into "ERROR"
++    #    and read downstream as ordinary drift, which is how the Windows
++    #    breakage stayed invisible for a whole release.
++    with tempfile.TemporaryDirectory(prefix="itd-sync-broken-") as raw:
++        install = Path(raw) / "broken-install"
++        install.mkdir(parents=True)
++        (install / "settings.json").write_bytes(b'{"hooks": {,,,}\xff')
++        environment = dict(os.environ)
++        environment["CLAUDE_HOME"] = str(install)
++        completed = subprocess.run(
++            ["bash", str(SYNC)], cwd=str(ROOT), env=environment,
++            capture_output=True, timeout=600,
++        )
++        output = (completed.stdout + completed.stderr).decode("utf-8", "replace")
++        check("WHY:" in output and "FIX:" in output,
++              "an unparsable settings.json does not explain WHY and FIX: "
++              + output[-300:])
++        check("drift" not in output.lower().split("WHY:")[0][-200:],
++              "an unparsable settings.json is still reported as drift")
++
+     verify_source = VERIFY_SYNC.read_text(encoding="utf-8")
+     check(".claude-plugin/plugin.json" in verify_source,
+           "verify-sync-to-active.sh does not police the plugin manifest")

@@ -285,18 +285,40 @@ def validate_runtime(
     for path in root.rglob("*"):
         relative = path.relative_to(root).as_posix()
         if path.is_symlink():
-            raise RuntimeInstallError("installed runtime contains a symlink")
+            raise RuntimeInstallError(
+                f"installed runtime contains a symlink: {relative}. "
+                "FIX: remove it, or reinstall into a clean runtime root"
+            )
         if path.is_dir():
             if relative not in declared_directories:
+                # Name the offending path: an unnamed "drifted" costs a manual
+                # hunt (measured 2026-08-29 on a stray __pycache__), and the
+                # runtime is deliberately not repaired in place.
                 raise RuntimeInstallError(
-                    "installed runtime directory inventory drifted"
+                    "installed runtime directory inventory drifted: "
+                    f"{relative}. FIX: remove the undeclared directory, or "
+                    "reinstall into a clean runtime root"
                 )
         elif path.is_file():
             actual_paths.add(relative)
         else:
-            raise RuntimeInstallError("installed runtime contains a special file")
+            raise RuntimeInstallError(
+                f"installed runtime contains a special file: {relative}. "
+                "FIX: remove it, or reinstall into a clean runtime root"
+            )
     if actual_paths != declared_paths:
-        raise RuntimeInstallError("installed runtime file inventory drifted")
+        extra = sorted(actual_paths - declared_paths)
+        missing = sorted(declared_paths - actual_paths)
+        detail = "; ".join(
+            part for part in (
+                ("extra: " + ", ".join(extra)) if extra else "",
+                ("missing: " + ", ".join(missing)) if missing else "",
+            ) if part
+        )
+        raise RuntimeInstallError(
+            f"installed runtime file inventory drifted: {detail}. "
+            "FIX: reinstall into a clean runtime root"
+        )
     for row in files:
         if not isinstance(row, dict) or set(row) != {"path", "bytes", "sha256"}:
             raise RuntimeInstallError("installed runtime file row is invalid")

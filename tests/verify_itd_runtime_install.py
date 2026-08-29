@@ -54,6 +54,20 @@ def rejects(fn, label: str) -> None:
     raise AssertionError(label)
 
 
+def rejects_naming(fn, needles: tuple[str, ...], label: str) -> None:
+    """Refusal must name the offending path and a FIX, not just say 'drifted'."""
+    global CHECKS
+    CHECKS += 1
+    try:
+        fn()
+    except runtime.RuntimeInstallError as exc:
+        message = str(exc)
+        if all(needle in message for needle in needles):
+            return
+        raise AssertionError(f"{label}: {message}") from None
+    raise AssertionError(label)
+
+
 def source_fixture(root: Path) -> Path:
     source = root / "source"
     for relative in runtime.RUNTIME_FILES:
@@ -70,7 +84,74 @@ def source_fixture(root: Path) -> Path:
     return source
 
 
+HOOKS_LOADING_INSTALLED_MODULES = (
+    ("check-review-before-commit.sh", "load_cache_module"),
+    ("check-dod-before-commit.sh", "security_review_was_done"),
+    ("pii-egress-guard.sh", "load_external_gate"),
+)
+
+# A hook runs from its own shebang, so the interpreter writes bytecode unless the
+# hook forbids it. When the loaded module lives in the installed runtime, that
+# .pyc lands INSIDE the content-addressed directory and the next reinstall dies
+# on "installed runtime directory inventory drifted" (measured 2026-08-29:
+# skills/review/scripts/__pycache__/itd_review_cache.cpython-312.pyc, 39 files
+# against 38 in the manifest). The guarantee is behavioural: loading a module
+# out of a runtime-shaped directory must leave that directory byte-identical.
+BYTECODE_PROBE = """
+import importlib.machinery, importlib.util, sys
+target = sys.argv[1]
+loader = importlib.machinery.SourceFileLoader("itd_bytecode_probe", target)
+spec = importlib.util.spec_from_loader("itd_bytecode_probe", loader)
+module = importlib.util.module_from_spec(spec)
+loader.exec_module(module)
+"""
+
+
+def bytecode_written_by(source: str, module_path: Path, directory: Path) -> bool:
+    """Run `source` in a child WITHOUT -B and report whether it left bytecode."""
+    for stale in directory.rglob("__pycache__"):
+        for item in stale.iterdir():
+            item.unlink()
+        stale.rmdir()
+    subprocess.run(
+        [sys.executable, "-I", "-c", source, str(module_path)],
+        capture_output=True, text=True, timeout=30, check=False,
+        cwd=str(directory),
+    )
+    return bool(list(directory.rglob("__pycache__")))
+
+
 def main() -> int:
+    for hook_name, symbol in HOOKS_LOADING_INSTALLED_MODULES:
+        hook_source = (ROOT / "hooks" / hook_name).read_text(encoding="utf-8")
+        check(
+            symbol in hook_source,
+            f"{hook_name} still loads an installed module through {symbol}",
+        )
+        check(
+            "sys.dont_write_bytecode" in hook_source,
+            f"{hook_name} forbids bytecode writes around the installed module load",
+        )
+
+    with tempfile.TemporaryDirectory(prefix="itd-bytecode-") as raw:
+        probe_root = Path(raw).resolve()
+        module_path = probe_root / "skills" / "review" / "scripts" / "probe_mod.py"
+        module_path.parent.mkdir(parents=True)
+        module_path.write_text("VALUE = 1\n", encoding="utf-8")
+        # The unguarded loader is the defect: it proves the probe detects the
+        # failure mode, so the guarded assertion below cannot pass vacuously.
+        check(
+            bytecode_written_by(BYTECODE_PROBE, module_path, probe_root),
+            "the probe detects bytecode written by an unguarded module load",
+        )
+        check(
+            not bytecode_written_by(
+                "import sys\nsys.dont_write_bytecode = True\n" + BYTECODE_PROBE,
+                module_path, probe_root,
+            ),
+            "forbidding bytecode keeps the runtime-shaped directory unchanged",
+        )
+
     actual_shared = {
         path.name for path in (ROOT / "skills" / "_shared").iterdir()
         if path.is_file() and path.suffix in {".py", ".json"}
@@ -161,6 +242,16 @@ def main() -> int:
             "extra runtime file is refused",
         )
         extra.unlink()
+        named = runtime_root / "foreign-named.py"
+        named.write_text("foreign\n", encoding="utf-8")
+        rejects_naming(
+            lambda: runtime.install_runtime(
+                source_root=source, runtime_parent=parent, apply=True
+            ),
+            ("foreign-named.py", "FIX"),
+            "extra-file refusal names the offending path and a FIX",
+        )
+        named.unlink()
         extra_dir = runtime_root / "empty-extra-directory"
         extra_dir.mkdir()
         rejects(
@@ -170,6 +261,69 @@ def main() -> int:
             "extra runtime directory is refused",
         )
         extra_dir.rmdir()
+        # The real 2026-08-29 failure: bytecode written by a hook that loaded a
+        # module out of the installed runtime. The directory check must fire and
+        # must say WHICH directory, otherwise the operator hunts it by hand.
+        cache_dir = runtime_root / "skills" / "review" / "scripts" / "__pycache__"
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "itd_review_cache.cpython-312.pyc").write_bytes(b"\x00")
+        rejects_naming(
+            lambda: runtime.install_runtime(
+                source_root=source, runtime_parent=parent, apply=True
+            ),
+            ("__pycache__", "FIX"),
+            "stray bytecode refusal names the __pycache__ directory and a FIX",
+        )
+        (cache_dir / "itd_review_cache.cpython-312.pyc").unlink()
+        cache_dir.rmdir()
+        missing_probe = runtime_root / "skills" / "review" / "SKILL.md"
+        missing_bytes = missing_probe.read_bytes()
+        missing_probe.chmod(0o600)
+        missing_probe.unlink()
+        rejects_naming(
+            lambda: runtime.install_runtime(
+                source_root=source, runtime_parent=parent, apply=True
+            ),
+            ("missing:", "skills/review/SKILL.md"),
+            "missing-file refusal names what disappeared",
+        )
+        missing_probe.write_bytes(missing_bytes)
+        missing_probe.chmod(0o400)
+        # Reviewer finding r4: the diagnostic contract must cover EVERY strict
+        # refusal branch, not the two that were easy to reach. A symlink and a
+        # special file are refused just as hard, so they must name the path and
+        # a FIX too — otherwise the operator is back to hunting by hand.
+        link = runtime_root / "stray-link"
+        link.symlink_to(runtime_root / "scripts" / "itd.py")
+        rejects_naming(
+            lambda: runtime.install_runtime(
+                source_root=source, runtime_parent=parent, apply=True
+            ),
+            ("stray-link", "FIX"),
+            "symlink refusal names the offending path and a FIX",
+        )
+        link.unlink()
+        # Reviewer finding r8: os.mkfifo is Unix-only, and this suite also runs
+        # on native Windows. Name the platform boundary instead of crashing on
+        # it — the guarantee is exercised wherever a real special file can be
+        # created, and the skip is printed, never silent.
+        if hasattr(os, "mkfifo"):
+            fifo = runtime_root / "stray-fifo"
+            os.mkfifo(fifo)
+            rejects_naming(
+                lambda: runtime.install_runtime(
+                    source_root=source, runtime_parent=parent, apply=True
+                ),
+                ("stray-fifo", "FIX"),
+                "special-file refusal names the offending path and a FIX",
+            )
+            fifo.unlink()
+        else:
+            print(
+                "SKIP  special-file refusal: os.mkfifo is unavailable on this "
+                "platform; the symlink branch above still covers the "
+                "path+FIX contract"
+            )
         real_is_symlink = Path.is_symlink
         with mock.patch.object(
             Path,

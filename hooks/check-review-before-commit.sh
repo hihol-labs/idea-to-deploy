@@ -132,7 +132,17 @@ def load_cache_module(cwd: Path):
     if spec is None:
         return None
     module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
+    # The hook runs from its own shebang, so the interpreter would write
+    # __pycache__ next to the loaded file. When that file is the INSTALLED
+    # validator, the .pyc lands inside the content-addressed runtime and the
+    # next reinstall dies on "installed runtime directory inventory drifted"
+    # (measured 2026-08-29). The install stays byte-exact by never producing it.
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
     return module
 
 
