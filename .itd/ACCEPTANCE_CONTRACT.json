@@ -2818,15 +2818,15 @@
     {
       "id": "REL1101-4-rollout-hash-verified",
       "criterion": "scripts/sync-to-active.sh прогнан на WSL и на native Windows, глобальные itd/pre-push переустановлены на КАЖДОМ хосте, совпадение проверено по хешам, а не по факту запуска.",
-      "status": "pending",
-      "evidence": "PENDING BY CONSTRUCTION: предмет исполняется ПОСЛЕ мержа релиза (раскатка на оба хоста и /retro), поэтому судить его публикацией кандидата нечем. Вынесен под unitId REL1101-POSTMERGE, чтобы не выдавать невыполненное за пройденное и не блокировать публикацию тем, что публикацией не проверяется.",
+      "status": "passed",
+      "evidence": "GREEN: раскатка подтверждена ХЕШАМИ, а не фактом запуска. Глобальные itd и pre-push переустановлены на обоих нативных хостах и исполняют ОДИН content-addressed runtime 1.101.0-6ba753846c92ffba (runtimeSha256 6ba753846c92ffba546f7d4a435adbdab9df8aa76de49448670c7c233e801ddf идентичен на WSL и native Windows). Четыре цели на 1.101.0: Claude WSL (coreDigest 1821baa26c3c9584, 187 файлов), Claude Windows (9e0999ea509140b7, 188), Codex WSL и Codex Windows (0bb3d4a3301e5351, 186 - байт-в-байт). Единственная дельта Claude WSL/Windows названа: реликт hooks/require-independent-review-before-pr.sh, которого нет в репо и который НЕ зарегистрирован в settings.json (не исполняется); записан кандидатом P8 в RETRO-2026-08-29. Шаг 5/6 Windows-синка упал на cp1251-кодировке settings.json - регистрация хуков не менялась (33 unchanged), дефект записан кандидатом P3, не замолчан. verify-sync-to-active.sh: drift OK (30 registered + 0 exempt).",
       "unitId": "REL1101-POSTMERGE"
     },
     {
       "id": "REL1101-5-retro-recorded",
       "criterion": "/retro по сессии 2026-08-23 проведён: факты взяты из харнеса (не из памяти сессии), каждое предложение ссылается на улику, мерж предложений оставлен человеку.",
-      "status": "pending",
-      "evidence": "PENDING BY CONSTRUCTION: предмет исполняется ПОСЛЕ мержа релиза (раскатка на оба хоста и /retro), поэтому судить его публикацией кандидата нечем. Вынесен под unitId REL1101-POSTMERGE, чтобы не выдавать невыполненное за пройденное и не блокировать публикацию тем, что публикацией не проверяется.",
+      "status": "passed",
+      "evidence": "GREEN: docs/retros/RETRO-2026-08-29.md. Факты взяты из харнеса (itd_retro_scan.py --json, вставлен как есть) плюс Step 1b по абстенциям реестра (пять абстенций остаются abstain - внешнего safe-use сигнала нет). Восемь предложений P1-P8, каждое с машинной уликой боевого маршрута этой сессии; предложения, обоснованные собственными метриками (vcrGlobal 1.0, bypassPerSession 8.0, класс ~unclassified), отклонены по анти-Гудхарту явно. Методология этим прогоном не изменена, в BACKLOG кандидаты не заведены - решение оставлено владельцу.",
       "unitId": "REL1101-POSTMERGE"
     }
   ],
@@ -2847,7 +2847,7 @@
   },
   "activeFollowup": {
     "unitId": "REL1101",
-    "status": "open",
+    "status": "closed",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
