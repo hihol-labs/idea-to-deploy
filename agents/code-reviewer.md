@@ -58,7 +58,10 @@ you notice — including uncertain, low-severity, and "probably fine but worth a
 look" ones. Do NOT self-censor a finding because you are not sure it is real or
 because it feels minor; that filtering happens **downstream**, not in your head:
 
-- each finding carries a `severity` (`critical` / `important` / `minor`) AND a
+- each finding carries a `severity` (`critical` / `important` / `minor`), a
+  `category` — exactly one of `correctness`, `incomplete-fix`, `test-coverage`, `documentation-accuracy`, `unsupported-claim`, `swallowed-diagnostic`, `over-inclusive-input`, `duplication`, `dead-code`, `naming-collision`, `readability`, `performance`, `security` — declared in
+  `skills/_shared/VERDICT_TAXONOMY.json` (a value outside that vocabulary is not
+  dropped silently: it is quarantined and counted), AND a
   `confidence` (`high` / `medium` / `low`) — a low-confidence Critical is still
   reported, flagged `confidence: low`, so the refute pass (below) can adjudicate
   it instead of you silently dropping it;
@@ -153,6 +156,7 @@ Schema (findings array may be empty, but must be present):
   "verdict": "PASSED | PASSED_WITH_WARNINGS | BLOCKED",
   "findings": [
     { "severity": "critical|important|minor",
+    "category": "correctness",
       "confidence": "high|medium|low",
       "file": "path/to/file",
       "line": 42,

@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
@@ -251,7 +252,7 @@ def main() -> int:
     # --- v1.86.0: review-findings ledger (persist on valid verdict) ---------
     json_cat = ('```json\n{"verdict": "PASSED_WITH_WARNINGS", "findings": '
                 '[{"severity": "important", "confidence": "high", '
-                '"category": "assumed-producer-shape", '
+                '"category": "correctness", '
                 '"file": "hooks/x.sh", "line": 10, "summary": "y"}], '
                 '"unverified": []}\n```')
     payload = make_layout("Вердикт: PASSED_WITH_WARNINGS.\n\n" + json_cat,
@@ -272,7 +273,7 @@ def main() -> int:
     check("ledger record mirrors producer shape (verdict/category/file)",
           rec.get("verdict") == "PASSED_WITH_WARNINGS"
           and (rec.get("findings") or [{}])[0].get("category")
-          == "assumed-producer-shape"
+          == "correctness"
           and (rec.get("findings") or [{}])[0].get("file") == "hooks/x.sh",
           json.dumps(rec, ensure_ascii=False)[:200])
     p2 = run_hook(payload, extra_env={"TMPDIR": str(iso)})
@@ -287,6 +288,9 @@ def main() -> int:
     TMPDIRS.append(noitd)
     iso2 = Path(tempfile.mkdtemp(prefix="vc-iso2-"))
     TMPDIRS.append(iso2)
+    payload["cwd"] = str(noitd)
+    payload = make_layout("Вердикт: PASSED_WITH_WARNINGS.\n\n" + json_cat,
+                          "agent-direct")
     payload["cwd"] = str(noitd)
     p3 = run_hook(payload, extra_env={"TMPDIR": str(iso2)})
     check("without .itd-memory findings go to the global tmp ledger",
@@ -323,6 +327,310 @@ def main() -> int:
     check("review-shaped BLOCKED SubagentStop also cannot mint cache",
           not blocked(blocked_proc) and not cache_path.exists(),
           (blocked_proc.stdout or "") + (blocked_proc.stderr or ""))
+
+    # --- PILOT-P01: закрытые словари схемы вердикта (RSI v4 §5) -------------
+    TAX = json.loads((ROOT / "skills" / "_shared"
+                      / "VERDICT_TAXONOMY.json").read_text(encoding="utf-8"))
+    CATS = TAX["category"]["values"]
+
+    def fresh_project():
+        proj = Path(tempfile.mkdtemp(prefix="vc-pilot-"))
+        TMPDIRS.append(proj)
+        (proj / ".itd-memory").mkdir()
+        iso = Path(tempfile.mkdtemp(prefix="vc-pilot-iso-"))
+        TMPDIRS.append(iso)
+        return proj, iso
+
+    def write_verdict(proj, iso, findings_json, extra_env=None):
+        text = ("Вердикт: PASSED_WITH_WARNINGS.\n\n```json\n"
+                '{"verdict": "PASSED_WITH_WARNINGS", "findings": '
+                + findings_json + ', "unverified": []}\n```')
+        payload = make_layout(text, "agent-direct")
+        payload["cwd"] = str(proj)
+        env = {"TMPDIR": str(iso)}
+        env.update(extra_env or {})
+        return run_hook(payload, extra_env=env)
+
+    def read_counter(proj):
+        return _tax_mod.rejected_summary("", directory=proj / ".itd-memory")
+
+    def fresh_project_reuse(proj):
+        iso = Path(tempfile.mkdtemp(prefix="vc-pilot-iso2-"))
+        TMPDIRS.append(iso)
+        return proj, iso
+
+    def ledger_lines(proj, name):
+        f = proj / ".itd-memory" / name
+        return (f.read_text(encoding="utf-8").splitlines()
+                if f.is_file() else [])
+
+    sys.path.insert(0, str(ROOT / "skills" / "_shared"))
+    import itd_verdict_taxonomy as _tax_mod
+
+    VALID_F = ('[{"severity": "important", "category": "correctness", '
+               '"file": "a.py", "summary": "s"}]')
+
+    proj, iso = fresh_project()
+    write_verdict(proj, iso, VALID_F)
+    rec = json.loads(ledger_lines(proj, "review-findings.jsonl")[0])
+    check("accepted record carries taxonomyVersion + source provenance",
+          rec.get("taxonomyVersion") == TAX["taxonomyVersion"]
+          and rec.get("source") == "subagent-verdict"
+          and bool(str(rec.get("lineage") or "").strip()),
+          json.dumps(rec, ensure_ascii=False)[:200])
+
+    # невалидная category: канонический леджер не растёт, запись не теряется
+    proj, iso = fresh_project()
+    r = write_verdict(proj, iso, '[{"severity": "important", '
+                      '"category": "made-up-class", "file": "a.py", '
+                      '"summary": "s"}]')
+    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
+    entry = json.loads(rejected[0]) if rejected else {}
+    check("invalid category is rejected on write, not admitted",
+          not blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
+          and len(rejected) == 1,
+          "canon=%d rejected=%d" % (
+              len(ledger_lines(proj, "review-findings.jsonl")), len(rejected)))
+    check("rejected record is kept whole with a machine-readable reason",
+          any(x.startswith("category[0]") for x in entry.get("reasons", []))
+          and entry.get("record", {}).get("findings", [{}])[0].get("summary") == "s",
+          json.dumps(entry, ensure_ascii=False)[:220])
+    counter = proj / ".itd-memory" / "review-findings-rejected.count.jsonl"
+    cdata = read_counter(proj)
+    check("rejection counter records the total and the reason class",
+          counter.is_file() and cdata.get("total") == 1
+          and cdata.get("byReason", {}).get("category") == 1,
+          json.dumps(cdata, ensure_ascii=False)[:200])
+    # Форма счётчика без read-modify-write. Гарантия заявляет ОДНОВРЕМЕННЫХ
+    # писателей, значит проверка обязана их инстанцировать: N процессов
+    # стартуют по общему барьеру и пишут через тот же модуль.
+    conc = Path(tempfile.mkdtemp(prefix="vc-conc-"))
+    TMPDIRS.append(conc)
+    (conc / ".itd-memory").mkdir()
+    writers, rounds = 8, 12
+    worker = (
+        "import sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "import itd_verdict_taxonomy as t\n"
+        "start = float(sys.argv[2])\n"
+        "while time.time() < start:\n"
+        "    pass\n"
+        "for i in range(%d):\n"
+        "    t.bump_rejected_counter('', ['category[0]:%%d' %% i,],\n"
+        "                            directory=%r)\n"
+        % (str(ROOT / "skills" / "_shared"), rounds,
+           str(conc / ".itd-memory")))
+    barrier = time.time() + 1.5
+    procs = [subprocess.Popen([PY, "-c", worker, str(n), str(barrier)])
+             for n in range(writers)]
+    for pr in procs:
+        pr.wait(timeout=60)
+    total = read_counter(conc).get("total")
+    check("concurrent writers cannot lose a rejection (real parallel writers)",
+          total == writers * rounds,
+          "expected %d, got %r" % (writers * rounds, total))
+
+    # severity вне словаря
+    proj, iso = fresh_project()
+    write_verdict(proj, iso, '[{"severity": "blocker", "category": '
+                  '"correctness", "file": "a.py", "summary": "s"}]')
+    check("invalid severity is rejected on write",
+          not ledger_lines(proj, "review-findings.jsonl")
+          and len(ledger_lines(proj, "review-findings-rejected.jsonl")) == 1)
+
+    # unspecified разрешена импортёру, но НЕ ревьюеру: он всегда градуирует сам
+    proj, iso = fresh_project()
+    write_verdict(proj, iso, '[{"severity": "unspecified", "category": '
+                  '"correctness", "file": "a.py", "summary": "s"}]')
+    check("severity unspecified is invalid for a subagent verdict",
+          not ledger_lines(proj, "review-findings.jsonl")
+          and len(ledger_lines(proj, "review-findings-rejected.jsonl")) == 1)
+
+    # словарь недоступен -> карантин с явной причиной, а не тихий пропуск
+    proj, iso = fresh_project()
+    r = write_verdict(proj, iso, VALID_F,
+                      {"ITD_VERDICT_TAXONOMY": str(proj / "nope.json")})
+    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
+    check("unavailable taxonomy quarantines the record and never blocks",
+          not blocked(r) and r.returncode == 0
+          and not ledger_lines(proj, "review-findings.jsonl")
+          and len(rejected) == 1
+          and "taxonomy-unavailable" in rejected[0])
+
+    # модуль словарей не загрузился -> запись всё равно не теряется
+    proj, iso = fresh_project()
+    r = write_verdict(proj, iso, VALID_F,
+                      {"ITD_VERDICT_TAXONOMY_MODULE": str(proj / "nope.py")})
+    check("unloadable taxonomy module still quarantines instead of dropping",
+          not blocked(r) and r.returncode == 0
+          and not ledger_lines(proj, "review-findings.jsonl")
+          and len(ledger_lines(proj, "review-findings-rejected.jsonl")) == 1)
+    # несчитанное отклонение — тот же молчаливый дроп, только с копией
+    check("the emergency quarantine path counts its rejection too",
+          read_counter(proj).get("total") == 1
+          and read_counter(proj).get("byReason", {}).get(
+              "taxonomy-unavailable") == 1,
+          json.dumps(read_counter(proj), ensure_ascii=False)[:200])
+
+    # испорченная находка не отфильтровывается в «чистую» пустую запись
+    proj, iso = fresh_project()
+    r = write_verdict(proj, iso, '["bad", {"severity": "minor", '
+                      '"category": "correctness", "file": "a.py", '
+                      '"summary": "s"}]')
+    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
+    check("a non-object finding cannot be filtered into a clean record",
+          not blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
+          and len(rejected) == 1 and "not-an-object" in rejected[0],
+          (rejected[0][:160] if rejected else "no quarantine"))
+
+    # структурно битый, но парсящийся словарь — тоже «валидировать нечем»
+    proj, iso = fresh_project()
+    broken = proj / "broken-taxonomy.json"
+    broken.write_text(json.dumps({**TAX, "category": {
+        **TAX["category"], "bySource": ["not", "a", "mapping"]}}),
+        encoding="utf-8")
+    r = write_verdict(proj, iso, VALID_F,
+                      {"ITD_VERDICT_TAXONOMY": str(broken)})
+    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
+    check("structurally corrupt taxonomy quarantines instead of dropping",
+          not blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
+          and len(rejected) == 1 and "taxonomy-unavailable" in rejected[0],
+          (rejected[0][:160] if rejected else "no quarantine"))
+
+    # словарь, расширяющий сам себя через bySource, не является валидным
+    proj, iso = fresh_project()
+    widened = proj / "widened-taxonomy.json"
+    widened.write_text(json.dumps({**TAX, "severity": {
+        **TAX["severity"], "bySource": {
+            **TAX["severity"]["bySource"],
+            "subagent-verdict": ["critical", "blocker"]}}}), encoding="utf-8")
+    r = write_verdict(proj, iso, VALID_F,
+                      {"ITD_VERDICT_TAXONOMY": str(widened)})
+    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
+    check("a bySource entry cannot widen the closed vocabulary",
+          not ledger_lines(proj, "review-findings.jsonl")
+          and len(rejected) == 1 and "taxonomy-unavailable" in rejected[0],
+          (rejected[0][:160] if rejected else "no quarantine"))
+
+    # карантин — улика: он не имеет права затирать собственные старые записи
+    quar_dir = Path(tempfile.mkdtemp(prefix="vc-quar-"))
+    TMPDIRS.append(quar_dir)
+    first = {"source": "subagent-verdict", "lineage": "first-record",
+             "findings": [{"severity": "minor", "category": "made-up",
+                           "summary": "F" * 400}]}
+    for n in range(400):
+        _tax_mod.admit("", dict(first, lineage="rec-%d" % n),
+                       directory=quar_dir)
+    qtext = (quar_dir / "review-findings-rejected.jsonl").read_text(
+        encoding="utf-8")
+    check("the quarantine never discards the evidence it exists to keep",
+          "rec-0" in qtext and "rec-399" in qtext
+          and len(qtext.splitlines()) == 400
+          and _tax_mod.rejected_summary("", directory=quar_dir)["total"] == 400,
+          "lines=%d size=%d" % (len(qtext.splitlines()), len(qtext)))
+
+    # инвариант воронки: неожиданная ошибка внутри admit не теряет запись
+    admit_dir = Path(tempfile.mkdtemp(prefix="vc-admit-"))
+    TMPDIRS.append(admit_dir)
+    hostile = {"source": "subagent-verdict", "lineage": "x",
+               "findings": [{"severity": "minor", "category": "correctness"}]}
+    accepted, reasons = _tax_mod.admit(
+        "", hostile, {"taxonomyVersion": 1}, directory=admit_dir)
+    quarantined = (admit_dir / "review-findings-rejected.jsonl")
+    check("an unexpected error inside admit names a reason and quarantines",
+          accepted is False
+          and any(r.startswith("admit-error:") for r in reasons)
+          and quarantined.is_file(),
+          "%r / %s" % (reasons, quarantined.exists()))
+
+    # forward-only: легаси-строки без taxonomyVersion не переписываются
+    proj, iso = fresh_project()
+    legacy = ('{"ts": "2026-01-01T00:00:00+00:00", "project": "x", '
+              '"verdict": "BLOCKED", "findings": [{"severity": "", '
+              '"category": null, "file": "old.py", "summary": "legacy"}]}')
+    canon = proj / ".itd-memory" / "review-findings.jsonl"
+    canon.write_text(legacy + "\n", encoding="utf-8")
+    write_verdict(proj, iso, VALID_F)
+    lines = ledger_lines(proj, "review-findings.jsonl")
+    check("legacy records are normalized on read, never rewritten on write",
+          len(lines) == 2 and lines[0] == legacy)
+
+    # подсказка продюсеру называет словарь — иначе category снова придёт null
+    proj, iso = fresh_project()
+    payload = make_layout(VERDICT_NO_JSON_RU, "agent-direct")
+    payload["cwd"] = str(proj)
+    br = run_hook(payload, extra_env={"TMPDIR": str(iso)})
+    reason = ""
+    try:
+        reason = json.loads(br.stdout or "{}").get("reason", "")
+    except Exception:
+        pass
+    check("block reason names category and the whole closed vocabulary",
+          blocked(br) and '"category"' in reason
+          and all(c in reason for c in CATS),
+          reason[-160:])
+
+    # Словарь живёт в одном месте. Проверка считает, сколько РАЗНЫХ значений
+    # перечня встречается в файле литералами: дрейфующая копия неизбежно тянет
+    # за собой несколько значений, тогда как писателю законно нужно не больше
+    # одного собственного константного значения (импортёру — "unclassified").
+    VOCAB = set(CATS) | {"unclassified"}
+    copies = []
+    for f in (ROOT / "hooks" / "verdict-contract.sh",
+              ROOT / "skills" / "retro" / "scripts" / "itd_review_import.py",
+              ROOT / "skills" / "retro" / "scripts" / "itd_retro_scan.py",
+              ROOT / "skills" / "_shared" / "itd_verdict_taxonomy.py"):
+        text = f.read_text(encoding="utf-8")
+        hits = sorted(v for v in VOCAB if '"' + v + '"' in text or "'" + v + "'" in text)
+        if len(hits) > 1:
+            copies.append((f.name, hits))
+    check("no writer/reader keeps its own copy of the vocabulary",
+          not copies, "; ".join("%s: %s" % (n, h) for n, h in copies))
+
+    # документация схемы не расходится с файлом словарей
+    for doc in (ROOT / "skills" / "review" / "SKILL.md",
+                ROOT / "agents" / "code-reviewer.md"):
+        txt = doc.read_text(encoding="utf-8")
+        check("schema doc lists the exact vocabulary: " + doc.name,
+              all(c in txt for c in CATS),
+              ", ".join(c for c in CATS if c not in txt))
+
+    # --- модуль словарей: прямые юнит-проверки правил ------------------------
+    itd_verdict_taxonomy = _tax_mod
+    tx = itd_verdict_taxonomy.load_taxonomy()
+    check("module loads the same taxonomy the tests read",
+          tx is not None and tx["taxonomyVersion"] == TAX["taxonomyVersion"])
+    ok = {"source": "subagent-verdict", "lineage": "agent-transcript-42",
+          "findings": [{"severity": "minor", "category": "correctness"}]}
+    check("validator accepts a well-formed reviewer record",
+          itd_verdict_taxonomy.validate_record(ok, tx) == [])
+    bad_src = dict(ok, source="github")
+    check("a source outside the vocabulary is a reason, not a pass",
+          any(r.startswith("source:")
+              for r in itd_verdict_taxonomy.validate_record(bad_src, tx)))
+    ext_unclassified = {"source": "external-github-review",
+                        "lineage": "https://api.github.com/…/968",
+                        "findings": [{"severity": "unspecified",
+                                      "category": "unclassified"}]}
+    check("unclassified/unspecified are valid ONLY for the external importer",
+          itd_verdict_taxonomy.validate_record(ext_unclassified, tx) == []
+          and itd_verdict_taxonomy.validate_record(
+              dict(ext_unclassified, source="subagent-verdict"), tx) != [])
+    check("provenance without a lineage is rejected, not admitted",
+          any(r.startswith("lineage:")
+              for r in itd_verdict_taxonomy.validate_record(
+                  {k: v for k, v in ok.items() if k != "lineage"}, tx)))
+    check("a source whose bySource entry is missing fails closed",
+          any(r.startswith("taxonomy:bySource-missing-for")
+              for r in itd_verdict_taxonomy.validate_record(
+                  ok, {**tx, "severity": {**tx["severity"], "bySource": {}}})))
+    check("legacy free-form values map into the closed vocabulary on read",
+          itd_verdict_taxonomy.normalize_category("sql-performance", tx) == "performance"
+          and itd_verdict_taxonomy.normalize_category("assumed-producer-shape", tx) == "correctness"
+          and itd_verdict_taxonomy.normalize_severity("", tx) == "unspecified"
+          and itd_verdict_taxonomy.normalize_severity("high", tx) == "critical")
+    check("an unknown legacy value stays unmapped instead of being invented",
+          itd_verdict_taxonomy.normalize_category("никогда-не-виданный", tx) is None)
 
     # --- cleanup ------------------------------------------------------------
     for d in TMPDIRS:

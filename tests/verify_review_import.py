@@ -55,17 +55,54 @@ with tempfile.TemporaryDirectory() as mem:
           f"rc={r.returncode} n={len(recs)} out={r.stdout!r}")
     m = next((x for x in recs if x["pr"] == "968"), None)
     check("schema-fields", m is not None and m["verdict"] == "EXTERNAL_REVIEW"
-          and m["findings"][0]["severity"] == "external" and "summary" in m["findings"][0],
+          and m["findings"][0]["severity"] == "unspecified"
+          and "summary" in m["findings"][0], f"rec={m}")
+    # PILOT-P01: провенанс и версия словаря штампуются на записи
+    check("provenance-and-taxonomy-version",
+          m is not None and m["source"] == "external-github-review"
+          and m["taxonomyVersion"] == 1 and m["lineage"].endswith("/968"),
           f"rec={m}")
-    check("category-migration-numbers", m is not None and m["findings"][0]["category"] == "migration-numbers",
+    check("category-migration-numbers", m is not None
+          and m["findings"][0]["category"] == "naming-collision",
           f"cat={m and m['findings'][0]['category']}")
     s = next((x for x in recs if x["pr"] == "1049"), None)
-    check("category-sql-performance", s is not None and s["findings"][0]["category"] == "sql-performance")
+    check("category-sql-performance",
+          s is not None and s["findings"][0]["category"] == "performance")
+
+    # непонятый комментарий помечается честно, а не выдумывает класс
+    unmatched = [{"id": 201, "created_at": "2026-07-04T10:00:00Z",
+                  "issue_url": "https://api.github.com/repos/x/y/issues/1051",
+                  "user": {"login": "partner"},
+                  "body": "Спасибо, посмотрю на следующей неделе."}]
+    ru = subprocess.run(
+        [sys.executable, SCRIPT, "--stdin", "--project", "probe", "--dir", mem],
+        input=json.dumps(unmatched), capture_output=True, text=True, timeout=30)
+    recs_u = [json.loads(l) for l in open(ledger, encoding="utf-8")]
+    u = next((x for x in recs_u if x["pr"] == "1051"), None)
+    check("unmatched-comment-is-unclassified",
+          ru.returncode == 0 and u is not None
+          and u["findings"][0]["category"] == "unclassified",
+          f"rec={u}")
 
     r2 = run_import(mem)
     recs2 = [json.loads(l) for l in open(ledger, encoding="utf-8")]
-    check("dedup-rerun-zero", "imported 0" in r2.stdout and len(recs2) == 2,
+    check("dedup-rerun-zero", "imported 0" in r2.stdout and len(recs2) == 3,
           f"out={r2.stdout!r} n={len(recs2)}")
+
+# словарь недоступен -> импортёр ничего не теряет и ничего не подсовывает
+with tempfile.TemporaryDirectory() as mem:
+    env = dict(os.environ, ITD_VERDICT_TAXONOMY=os.path.join(mem, "nope.json"))
+    r3 = subprocess.run(
+        [sys.executable, SCRIPT, "--stdin", "--project", "probe", "--dir", mem],
+        input=json.dumps(FIXTURE), capture_output=True, text=True, timeout=30,
+        env=env)
+    canon = os.path.join(mem, "review-findings.jsonl")
+    quarantine = os.path.join(mem, "review-findings-rejected.jsonl")
+    check("unavailable-taxonomy-quarantines-import",
+          r3.returncode == 0 and not os.path.exists(canon)
+          and os.path.exists(quarantine)
+          and "taxonomy-unavailable" in open(quarantine, encoding="utf-8").read(),
+          f"rc={r3.returncode} out={r3.stdout!r}")
 
 if fails:
     print("FAILED:", " ".join(fails))

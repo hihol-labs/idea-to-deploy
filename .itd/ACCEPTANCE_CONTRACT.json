@@ -2895,7 +2895,45 @@
         "oracleIds": [
           "free-reviewer-producer"
         ]
-      }
+      },
+      "id": "PILOT-P01-1-closed-vocabularies-are-one-source",
+      "criterion": "Словари category/source/severity объявлены ровно в одном машиночитаемом месте (skills/_shared/VERDICT_TAXONOMY.json, taxonomyVersion 1); оба писателя и читатель берут значения оттуда, а не из собственных копий.",
+      "source": "ADVISORY-RSI-2026-08-27-v4 §5 PILOT P0-1.",
+      "evidence": "Мутация словаря в файле меняет поведение записи в обоих писателях; дублирующий литерал перечня в коде отсутствует.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py",
+      "status": "pending"
+    },
+    {
+      "id": "PILOT-P01-2-invalid-record-is-rejected-on-write",
+      "criterion": "Запись с невалидной category, невалидной/пустой source или невалидной severity не попадает в канонический леджер; severity unspecified недопустима для source subagent-verdict.",
+      "source": "ADVISORY-RSI-2026-08-27-v4 §5: «схема отклоняет запись с невалидной category, пустым/невалидным source, невалидной severity».",
+      "evidence": "Мутация, снимающая любую из трёх проверок, краснит оракул; валидная запись проходит и несёт taxonomyVersion+source.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py",
+      "status": "pending"
+    },
+    {
+      "id": "PILOT-P01-3-rejection-is-counted-not-dropped",
+      "criterion": "Отклонённая запись целиком сохраняется в review-findings-rejected.jsonl с машиночитаемой причиной, и счётчик причин растёт; недоступная таксономия даёт причину taxonomy-unavailable, а не тихий пропуск.",
+      "source": "ADVISORY-RSI-2026-08-27-v4 §5: «счётчик отклонённых в леджере (без молчаливого дропа)».",
+      "evidence": "Мутация «отклонять без записи в карантин» краснит оракул; фикстура с битым файлом словарей кладёт запись в карантин и не роняет хук.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py",
+      "status": "pending"
+    },
+    {
+      "id": "PILOT-P01-4-legacy-is-normalized-not-rewritten",
+      "criterion": "130 записей без taxonomyVersion остаются байт-в-байт нетронутыми; читатель /retro сводит их к enum через legacyMapping и показывает счётчик отклонённых.",
+      "source": "ADVISORY-RSI-2026-08-27-v4 §5: «rollback: поле optional, forward-only валидация» + taxonomy_version/mapping.",
+      "evidence": "Мутация, переписывающая легаси-запись, краснит оракул; майнинг классов на легаси-фикстуре даёт enum-значения.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_retro_scan.py",
+      "status": "pending"
+    },
+    {
+      "id": "PILOT-P01-5-producers-are-told-the-vocabulary",
+      "criterion": "Retry-текст хука и документация схемы (skills/review/SKILL.md, agents/code-reviewer.md) называют category обязательной и перечисляют допустимые значения; расхождение текста и файла словарей ловится машинно.",
+      "source": "Замер 2026-08-29: 114/130 findings без category, потому что REASON её не просил.",
+      "evidence": "Мутация, убирающая category из REASON или расходящая перечень в доках со словарём, краснит оракул.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py",
+      "status": "pending"
     }
   ],
   "completion": {

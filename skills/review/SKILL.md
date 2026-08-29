@@ -337,7 +337,7 @@ empty. Schema:
   "findings": [
     { "severity": "critical|important|minor",
       "confidence": "high|medium|low",
-      "category": "kebab-case-defect-class",
+      "category": "correctness",
       "file": "path/to/file",
       "line": 42,
       "summary": "one-line statement of the defect" }
@@ -346,14 +346,23 @@ empty. Schema:
 }
 ```
 
-`category` (v1.86.0, optional but strongly encouraged) — короткий kebab-case
-класс дефекта (`assumed-producer-shape`, `missing-null-check`,
-`fk-resolve-order`, `unbounded-query`, …). Харнес складывает findings валидных
-вердиктов в `.itd-memory/review-findings.jsonl` (писатель —
-`verdict-contract.sh`), а `/retro` майнит повторяющиеся категории в
-кандидаты-автопроверки (пункт 4 Harness Engineering: «новый тип ошибки на
-review → автоматическая проверка»). Без category класс восстанавливается
-грубым фингерпринтом по summary — назови класс сам, это точнее.
+`category` (v1.86.0; с PILOT P0-1 — **обязательное поле с закрытым словарём**) — ровно одно значение из перечня:
+
+- `correctness` — The code does the wrong thing: bad logic, wrong order, wrong predicate, wrong serialization.
+- `incomplete-fix` — The change does not close what it claims to close; part of the stated subject is left undone.
+- `test-coverage` — A guarantee is unproven: no test, no mutation, or the test cannot fail.
+- `documentation-accuracy` — Docs, comments or contracts disagree with the code they describe.
+- `unsupported-claim` — A claim is stronger than its evidence (a PASSED without a receipt, a count without a measurement).
+- `swallowed-diagnostic` — An error, a failure or a refusal is lost silently instead of being named.
+- `over-inclusive-input` — Input, scope or a match is wider than needed: over-broad regex, unbounded read, extra files.
+- `duplication` — The same logic exists in two places and can drift apart.
+- `dead-code` — Code, a rule or a branch that nothing can reach or that nothing consumes.
+- `naming-collision` — Two things claim one identifier: ADR numbers, migration numbers, ids, paths.
+- `readability` — Structure or naming makes the code harder to follow than it needs to be.
+- `performance` — Avoidable slowness or resource cost: missing index, seq scan, N+1, unbounded loop.
+- `security` — Secret exposure, missing authorization, injection, unsafe path, weakened gate.
+
+Словарь объявлен в `skills/_shared/VERDICT_TAXONOMY.json` (`taxonomyVersion`); писатель леджера — `verdict-contract.sh` — проверяет значения НА ЗАПИСИ. Находка вне словаря не теряется и не попадает в канонический леджер: она уходит в `.itd-memory/review-findings-rejected.jsonl` со счётчиком причин — именно этот счётчик измеряет промах словаря и питает следующую версию таксономии. `severity` — `critical|important|minor` (`unspecified` доступна только импортёру внешних ревью, не ревьюеру). `/retro` майнит повторяющиеся категории в кандидаты-автопроверки (пункт 4 Harness Engineering: «новый тип ошибки на review → автоматическая проверка»); легаси-записи без `taxonomyVersion` нормализуются на чтении через `legacyMapping` и не переписываются.
 
 > **High-velocity report add-ons (Day-5, optional — not new checks).** For fast-moving
 > teams the report may additionally surface a **Bundled Summary + Risk Assessment** (one

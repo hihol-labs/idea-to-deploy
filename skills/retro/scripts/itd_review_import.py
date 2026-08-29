@@ -28,9 +28,17 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FINDINGS_FILE = "review-findings.jsonl"
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
+import itd_verdict_taxonomy as taxonomy  # noqa: E402  (путь резолвится выше)
+
+FINDINGS_FILE = taxonomy.FINDINGS_FILE
+SOURCE_EXTERNAL = "external-github-review"
+UNCLASSIFIED = "unclassified"
+SEVERITY_UNSPECIFIED = "unspecified"
 STATE_FILE = "review-import.state.json"
 
+# Ключи правил — исторические имена классов; в леджер идёт значение закрытого
+# словаря (skills/_shared/VERDICT_TAXONOMY.json), полученное через legacyMapping.
 CATEGORY_RULES = [
     ("migration-numbers", re.compile(r"миграци\w*.{0,80}(номер|заня|переимен)|номер\w*.{0,40}миграци", re.I | re.S)),
     ("sql-performance", re.compile(r"statement_timeout|seq.?scan|индекс\w*|CONCURRENTLY|медленн", re.I)),
@@ -44,11 +52,13 @@ def clip(s, n: int = 200) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def classify(body: str):
+def classify(body: str, tax=None):
+    """Категория из закрытого словаря или `unclassified` — импортёр не ревьюер
+    и не выносит суждение о чужом тексте, поэтому честно помечает непонятое."""
     for cat, rx in CATEGORY_RULES:
         if rx.search(body or ""):
-            return cat
-    return None
+            return taxonomy.normalize_category(cat, tax) or UNCLASSIFIED
+    return UNCLASSIFIED
 
 
 def gh_fetch(repo: str, pages: int, exclude: str) -> list:
@@ -80,7 +90,7 @@ def gh_fetch(repo: str, pages: int, exclude: str) -> list:
     return out
 
 
-def normalize(c: dict, project: str) -> dict | None:
+def normalize(c: dict, project: str, tax=None) -> dict | None:
     body = (c.get("body") or "").strip()
     if not body:
         return None
@@ -90,12 +100,13 @@ def normalize(c: dict, project: str) -> dict | None:
         "ts": c.get("created_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "project": project,
         "verdict": "EXTERNAL_REVIEW",
-        "source": "github",
+        "source": SOURCE_EXTERNAL,
+        "lineage": clip(url or c.get("html_url") or str(c.get("id") or ""), 200),
         "pr": pr,
         "author": (c.get("user") or {}).get("login") or "",
         "findings": [{
-            "severity": "external",
-            "category": classify(body),
+            "severity": SEVERITY_UNSPECIFIED,
+            "category": classify(body, tax),
             "file": clip(c.get("path") or "", 160),
             "summary": clip(body),
         }],
@@ -136,28 +147,37 @@ def main() -> int:
             seen = set()
 
     ledger = mem / FINDINGS_FILE
+    tax = taxonomy.load_taxonomy()
+    cwd = str(mem.parent)
     imported = 0
+    rejected = 0
     by_cat: dict = {}
-    with ledger.open("a", encoding="utf-8") as fh:
-        for c in comments:
-            cid = str(c.get("id") or "")
-            if not cid or cid in seen:
-                continue
-            rec = normalize(c, project)
-            if rec is None:
-                seen.add(cid)
-                continue
-            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    for c in comments:
+        cid = str(c.get("id") or "")
+        if not cid or cid in seen:
+            continue
+        rec = normalize(c, project, tax)
+        if rec is None:
             seen.add(cid)
-            imported += 1
-            cat = rec["findings"][0]["category"] or "(без категории)"
-            by_cat[cat] = by_cat.get(cat, 0) + 1
+            continue
+        accepted, reasons = taxonomy.admit(cwd, rec, tax, directory=mem)
+        seen.add(cid)
+        if not accepted:
+            rejected += 1
+            continue
+        imported += 1
+        cat = rec["findings"][0]["category"]
+        by_cat[cat] = by_cat.get(cat, 0) + 1
 
     tmp = state_p.with_suffix(".json.tmp")
     tmp.write_text(json.dumps({"imported": sorted(seen)}, ensure_ascii=False), encoding="utf-8")
     tmp.replace(state_p)
 
     print(f"imported {imported} внешних ревью-записей в {ledger}")
+    if rejected:
+        print(f"rejected {rejected} записей словарём -> "
+              f"{taxonomy.rejected_path(cwd, tax, mem)} (счётчик "
+              f"{taxonomy.rejected_count_path(cwd, mem).name})")
     for cat, n in sorted(by_cat.items(), key=lambda kv: -kv[1]):
         print(f"  {cat}: {n}")
     return 0

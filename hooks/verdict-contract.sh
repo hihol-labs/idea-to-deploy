@@ -45,6 +45,7 @@ and appends the JSON block.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -71,7 +72,7 @@ ALLOWED_VERDICTS = {
 # Fenced ```json … ``` blocks (the canonical transport).
 FENCED_JSON_RE = re.compile(r"```json\s*(.+?)```", re.IGNORECASE | re.DOTALL)
 
-REASON = (
+REASON_HEAD = (
     "WHY: финальный review-вердикт не содержит обязательного машиночитаемого "
     "JSON-контракта.\nFIX: добавь fenced JSON с verdict, findings и unverified "
     "по схеме ниже.\n\n"
@@ -80,11 +81,27 @@ REASON = (
     "фенсированный блок ```json … ``` с объектом: {\"verdict\": "
     "\"PASSED|PASSED_WITH_WARNINGS|BLOCKED\", \"findings\": [ {\"severity\": "
     "\"critical|important|minor\", \"confidence\": \"high|medium|low\", "
+    "\"category\": \"<одно значение из перечня ниже>\", "
     "\"file\": \"путь\", \"line\": N, \"summary\": \"одна строка\"} ], "
     "\"unverified\": [\"…\"] }. Массив findings может быть пустым, но должен "
     "присутствовать. Это машиночитаемый контракт (нативный ReportFindings — "
     "лишь опциональный транспорт), не убирай его."
 )
+CATEGORY_HINT = (
+    "\n\nПоле category ОБЯЗАТЕЛЬНО у каждой находки и берётся из закрытого "
+    "перечня (PILOT P0-1): %s. Находка вне перечня не отбрасывается молча — "
+    "она уходит в карантин леджера, поэтому выбери ближайшее значение."
+)
+
+
+def reason_text() -> str:
+    """Перечень категорий берётся из ЖИВОГО файла словарей, а не из копии в
+    тексте: расхождение подсказки и контракта невозможно по построению."""
+    mod = load_taxonomy_module()
+    tax = mod.load_taxonomy() if mod is not None else None
+    if not tax:
+        return REASON_HEAD
+    return REASON_HEAD + CATEGORY_HINT % ", ".join(tax["category"]["values"])
 
 
 def env_int(name: str, default: int) -> int:
@@ -217,28 +234,81 @@ def has_valid_json_verdict(text: str) -> bool:
 # единственная точка, где валидный вердикт уже распарсен.
 # ---------------------------------------------------------------------------
 
-FINDINGS_FILE = "review-findings.jsonl"
-FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
+SOURCE_SUBAGENT = "subagent-verdict"
+
+
 def _clip(s, n: int = 200) -> str:
     s = str(s or "")
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def findings_ledger_path(cwd: str) -> Path:
-    """Проектный .itd-memory, иначе глобальный tmp-леджер (как SKILL_BYPASS)."""
-    if cwd:
-        mem = Path(cwd) / ".itd-memory"
-        if mem.is_dir():
-            return mem / FINDINGS_FILE
-    return Path(tempfile.gettempdir()) / f"claude-{FINDINGS_FILE}"
+def load_taxonomy_module():
+    """Общий валидатор из skills/_shared. `hooks/` и `skills/` — сиблинги и в
+    репо, и в установке (~/.claude), поэтому резолв один. Байткод рядом с
+    модулем НЕ пишется: установленный runtime content-addressed, лишний
+    __pycache__ — дрейф инвентаря (урок INSTALL-HARDENING, PR #247)."""
+    mod_path = (Path(__file__).resolve().parent.parent
+                / "skills" / "_shared" / "itd_verdict_taxonomy.py")
+    env = os.environ.get("ITD_VERDICT_TAXONOMY_MODULE", "").strip()
+    if env:
+        mod_path = Path(env)
+    prev = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "itd_verdict_taxonomy_hook", str(mod_path))
+        if spec is None or spec.loader is None:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+    finally:
+        sys.dont_write_bytecode = prev
+
+
+def _fallback_reject(cwd: str, rec: dict) -> None:
+    """Модуль словарей не загрузился. Запись всё равно не теряется: карантин
+    пишется здесь минимальным кодом. Дублируется ТОЛЬКО добавление строки —
+    ни словарь, ни правила валидации тут не повторяются."""
+    try:
+        mem = Path(cwd) / ".itd-memory" if cwd else None
+        if mem and mem.is_dir():
+            path = mem / "review-findings-rejected.jsonl"
+        else:
+            path = (Path(tempfile.gettempdir())
+                    / "claude-review-findings-rejected.jsonl")
+        entry = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                 "reasons": ["taxonomy-unavailable"], "record": rec}
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        # Отклонение считается и на аварийном пути: несчитанное отклонение —
+        # это тот же молчаливый дроп, только с сохранённой копией.
+        counter = path.with_name(
+            path.name.replace("review-findings-rejected.jsonl",
+                              "review-findings-rejected.count.jsonl"))
+        with counter.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": entry["ts"],
+                                 "reasons": entry["reasons"]},
+                                ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 
 def persist_findings(cwd: str, key: str, obj: dict) -> None:
-    """Append одного вердикта в леджер. Best-effort: никогда не raises и не
-    влияет на block/silent-решение хука. Дедуп — content-sentinel в tmp (тот же
-    финал может доехать до SubagentStop повторно через main-fallback)."""
+    """Append одного вердикта в леджер ЧЕРЕЗ закрытые словари (PILOT P0-1):
+    невалидная запись не попадает в канонический леджер и не пропадает —
+    уходит в карантин со счётчиком. Best-effort: никогда не raises и не влияет
+    на block/silent-решение хука. Дедуп — content-sentinel в tmp (тот же финал
+    может доехать до SubagentStop повторно через main-fallback)."""
     try:
-        findings = [f for f in (obj.get("findings") or []) if isinstance(f, dict)]
+        # Никакой фильтрации ДО валидации: выбросив здесь не-объект, писатель
+        # превратил бы испорченный вердикт в «чистую» запись с пустым списком
+        # находок. Всё, что пришло, доезжает до валидатора и либо принимается,
+        # либо целиком уходит в карантин с названной причиной.
+        findings = obj.get("findings")
+        findings = findings if isinstance(findings, list) else []
         digest = hashlib.md5(
             (key + json.dumps(obj, sort_keys=True, ensure_ascii=False))
             .encode("utf-8", "replace")).hexdigest()[:12]
@@ -249,27 +319,26 @@ def persist_findings(cwd: str, key: str, obj: dict) -> None:
             "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "project": Path(cwd).name if cwd else "",
             "verdict": str(obj.get("verdict", "")).strip().upper(),
+            "source": SOURCE_SUBAGENT,
+            "lineage": _clip(key, 200),
             "findings": [{
                 "severity": _clip(f.get("severity"), 20),
                 "category": _clip(f.get("category"), 60) or None,
                 "file": _clip(f.get("file"), 160),
                 "summary": _clip(f.get("summary")),
-            } for f in findings],
+            } if isinstance(f, dict) else f for f in findings],
         }
-        p = findings_ledger_path(cwd)
-        with p.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        if p.stat().st_size > FINDINGS_SOFT_BYTES:
-            tail = p.read_text(encoding="utf-8", errors="replace")[-FINDINGS_SOFT_BYTES // 2:]
-            tmp = p.with_suffix(".tmp")
-            tmp.write_text(tail, encoding="utf-8")
-            os.replace(tmp, p)
+        mod = load_taxonomy_module()
+        if mod is None:
+            _fallback_reject(cwd, rec)
+        else:
+            mod.admit(cwd, rec)
         try:
             sentinel.write_text("1")
         except Exception:
             pass
     except Exception:
-        pass
+        pass  # леджер — побочный эффект: он не может уронить сессию
 
 
 def take_ping_slot(key: str, max_pings: int) -> bool:
@@ -315,7 +384,8 @@ def main() -> int:
         return 0
     # M-C10 marker — declared hook event, do not remove (same convention as
     # narration-final.sh): {"hookEventName": "SubagentStop"}
-    print(json.dumps({"decision": "block", "reason": REASON}, ensure_ascii=False))
+    print(json.dumps({"decision": "block", "reason": reason_text()},
+                     ensure_ascii=False))
     return 0
 
 

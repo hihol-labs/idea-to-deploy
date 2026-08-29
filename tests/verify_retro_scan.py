@@ -122,6 +122,13 @@ def main() -> int:
                              "category": "assumed-producer-shape",
                              "file": "src/c.ts", "summary": "again"}]}),
         ]))
+        # счётчик отклонённых — append-only журнал (у записи нет фазы
+        # read-modify-write, поэтому два писателя не теряют обновления)
+        write(mem_a / "review-findings-rejected.count.jsonl", "\n".join([
+            json.dumps({"ts": "t1", "reasons": ["category[0]:'x'"]}),
+            json.dumps({"ts": "t2", "reasons": ["category[0]:'y'"]}),
+            json.dumps({"ts": "t3", "reasons": ["severity[0]:'z'"]}),
+        ]))
         write(tmp / "claude-review-findings.jsonl", json.dumps(
             {"ts": "t3", "project": "other", "verdict": "PASSED_WITH_WARNINGS",
              "findings": [{"severity": "minor", "category": None,
@@ -154,8 +161,15 @@ def main() -> int:
         check("review-findings ledger surfaced (reviews/findings/classes)",
               "Находки /review" in out and "ревью 3" in out
               and "находок 4" in out, out[-900:])
-        check("explicit category repeated → candidate class ×2",
-              "`assumed-produce" in out and "×2" in out, out[-900:])
+        # PILOT-P01: легаси-category сводится к закрытому словарю ПРИ ЧТЕНИИ
+        check("legacy category is normalized to the closed vocabulary on read",
+              "`correctness` ×2" in out and "assumed-produce" not in out,
+              out[-900:])
+        check("taxonomy version surfaced with the findings section",
+              "словарь v1" in out, out[-900:])
+        check("vocabulary misses are visible, not silent",
+              "Отклонено словарём: 3" in out and "category×2" in out,
+              out[-900:])
         check("category-less findings grouped by ~fingerprint across ledgers",
               "`~missing-null-check-loader` ×2" in out, out[-900:])
 
@@ -279,6 +293,20 @@ def main() -> int:
             missing = False
         check("instruction registry missing → registryMissing fact", missing,
               r.stdout[:300])
+
+        # PILOT-P01: прогон, где ВСЕ записи отклонены, не создаёт канонический
+        # леджер — счётчик всё равно обязан быть виден, иначе молчание прячет
+        # ровно тот факт, ради которого карантин заведён
+        allrej = Path(td) / "allrej"
+        (allrej / "proj" / ".itd-memory").mkdir(parents=True)
+        write(allrej / "proj" / ".itd-memory" / "review-findings-rejected.count.jsonl",
+              json.dumps({"ts": "t1", "reasons": ["taxonomy-unavailable"]}))
+        rtmp = Path(td) / "allrej-tmp"
+        rtmp.mkdir()
+        r = run(str(allrej), "--tmp-dir", str(rtmp), cwd=Path(td))
+        check("all-rejected run still surfaces the rejection counter",
+              r.returncode == 0 and "Отклонено словарём: 1" in r.stdout
+              and "taxonomy-unavailable" in r.stdout, r.stdout[-500:])
 
         # 3) empty workspace is a clean run, not a crash
         empty = Path(td) / "empty"
