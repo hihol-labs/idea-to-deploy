@@ -2764,6 +2764,70 @@
       "criterion": "Вердикт юнита не переобещает: фаза 0 даёт ФИЗИЧЕСКУЮ ВОЗМОЖНОСТЬ параллельного веера, а не доказательство, что веер эти находки выдаст; ограничения якорной классификации названы; default-off сохранён — никакого поведения по умолчанию не вводится.",
       "status": "passed",
       "evidence": "GREEN: вердикт не переобещает — подмена популяции объявлена в результатах и ограничениях; PRE названа физической возможностью, не доказательством; carryover и грубость якорей названы; default-off сохранён, GENG-код в маршрут не добавлен; в актив записан класс «дефект-отсутствие» как систематический промах ревьюера фрагмента. Раунд r1 независимого чекера кандидата (BLOCKED): C12 оказался invalid excerpt (обрезан до дефектного блока) — исключён из метрик с объявленной причиной, агрегаты пересчитаны (0.25 -> 0.143 по валидной популяции 11/12), вывод NOT MET устойчив; заодно чекер замера научен пересчитывать latency-ногу из wallSeconds кворумной руки, а не доверять опубликованному met."
+    },
+    {
+      "id": "REL1101-1-version-pins",
+      "criterion": "Все девять live-пинов версии переведены 1.100.1 -> 1.101.0 и ни один синтетический/исторический пин не тронут (verify_itd_runtime_install.py остаётся на своей фикстуре, историческая строка в ACCEPTANCE_CONTRACT не переписывается).",
+      "status": "passed",
+      "evidence": "GREEN: девять live-пинов переведены на 1.101.0 (.claude-plugin/plugin.json, marketplace.json, .codex-plugin/plugin.json, README.md и README.ru.md badge, HARNESS_DOCS_STATE.pluginVersion, HARNESS_CONFORMANCE_REPORT header, RELEASE_CANDIDATE_CONTRACT.version, VERSION в tests/verify_external_reviewer_release.py); grep по 1.100.1 в этих файлах пуст. Синтетическая фикстура tests/verify_itd_runtime_install.py (1.100.0) и историческая строка канарейки в этом контракте намеренно не тронуты. Машинно: release-pin, meta-review, counts, gate-taxonomy, drift, docs-freshness exit 0 на дереве 90b24067 (квитанция REL1101-machine-pub3.json).",
+      "reviewEvidence": {
+        "claim": "Девять live-пинов версии переведены на 1.101.0, синтетическая фикстура и историческая строка канарейки не тронуты; счётчики скиллов/хуков и таксономия гейтов остались согласованными.",
+        "impactClasses": [
+          "compatibility",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "release-pin",
+          "meta-review",
+          "counts",
+          "gate-taxonomy"
+        ]
+      }
+    },
+    {
+      "id": "REL1101-2-changelog-covers-cycle",
+      "criterion": "CHANGELOG [1.101.0] покрывает каждый PR цикла #226-#244: либо содержательной записью, либо явной пометкой accounting-only; ни один PR не остаётся неупомянутым.",
+      "status": "passed",
+      "evidence": "GREEN: раздел [1.101.0] - 2026-08-28 содержит записи по #226-#230, #232, #234, #235, #237, #239, #240, #241, #243; шесть ledger-close PR (#231, #233, #236, #238, #242, #244) объявлены accounting-only прямо в шапке раздела, а не оставлены неупомянутыми. Ни один PR цикла не остался без упоминания.",
+      "reviewEvidence": {
+        "claim": "Раздел CHANGELOG [1.101.0] покрывает каждый PR цикла #226-#244, шесть ledger-close объявлены accounting-only; свежесть документации и отсутствие дрейфа зеркала подтверждены машинно.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "docs-freshness",
+          "drift"
+        ]
+      }
+    },
+    {
+      "id": "REL1101-3-live-evidence-rerecorded",
+      "criterion": "Улика live-бенчмарка перечеканена на ЧИСТОМ коммитнутом дереве релиза (dirty-status ломает Gate 1 — урок PR #193); оракул с --require-evidence зелёный на этом же дереве.",
+      "status": "passed",
+      "evidence": "GREEN: fixture-03-cli-tool через провайдера openai, запуск на ЧИСТОМ коммитнутом дереве бампа (run 20260828T204332Z-96f4163f, status PASS). verify_live_model_benchmark.py --require-evidence: 154 passed / 0 failed на коммитнутом дереве релиза (до перечеканки было 150/4 - красным был methodologyTree и зависящие от него проверки). Улика влита в тот же коммит: пин не покрывает ни одного файла под tests/fixtures/live-model-evidence/, а его dirty-state проверка сверяется с ТЕКУЩИМ деревом, которое после коммита чисто.",
+      "reviewEvidence": {
+        "claim": "Живая улика бенчмарка перечеканена на чистом коммитнутом дереве релиза и снова аттестует его: 154/0 против 150/4 до перечеканки.",
+        "impactClasses": [
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "live-benchmark"
+        ]
+      }
+    },
+    {
+      "id": "REL1101-4-rollout-hash-verified",
+      "criterion": "scripts/sync-to-active.sh прогнан на WSL и на native Windows, глобальные itd/pre-push переустановлены на КАЖДОМ хосте, совпадение проверено по хешам, а не по факту запуска.",
+      "status": "pending",
+      "evidence": "PENDING BY CONSTRUCTION: предмет исполняется ПОСЛЕ мержа релиза (раскатка на оба хоста и /retro), поэтому судить его публикацией кандидата нечем. Вынесен под unitId REL1101-POSTMERGE, чтобы не выдавать невыполненное за пройденное и не блокировать публикацию тем, что публикацией не проверяется.",
+      "unitId": "REL1101-POSTMERGE"
+    },
+    {
+      "id": "REL1101-5-retro-recorded",
+      "criterion": "/retro по сессии 2026-08-23 проведён: факты взяты из харнеса (не из памяти сессии), каждое предложение ссылается на улику, мерж предложений оставлен человеку.",
+      "status": "pending",
+      "evidence": "PENDING BY CONSTRUCTION: предмет исполняется ПОСЛЕ мержа релиза (раскатка на оба хоста и /retro), поэтому судить его публикацией кандидата нечем. Вынесен под unitId REL1101-POSTMERGE, чтобы не выдавать невыполненное за пройденное и не блокировать публикацию тем, что публикацией не проверяется.",
+      "unitId": "REL1101-POSTMERGE"
     }
   ],
   "completion": {
@@ -2782,25 +2846,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GENG-C-EXP",
-    "status": "closed",
+    "unitId": "REL1101",
+    "status": "open",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "low",
       "requiredImpactClasses": [
-        "measurement-integrity",
-        "repository-hygiene"
+        "generated-artifact-freshness",
+        "repository-hygiene",
+        "compatibility"
       ],
-      "minimumIndependentReviewers": 1,
+      "minimumIndependentReviewers": 0,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-28T16:03:11Z",
-    "scopeNote": "GENG-C-EXP (N8): bounded-эксперимент без GENG-A/B. Фаза 0 — ретроспективная PRE/NEW-декомпозиция серии N7 по байтам промптов; фаза 1 — живой прогон 12 пар, стартует только по отдельному решению владельца. Никакого default-on поведения.",
-    "closedAt": "2026-08-28",
-    "resolution": "N8 закрыт PR #243 (9d49c78)"
+    "openedAt": "2026-08-28T20:05:00Z"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }
