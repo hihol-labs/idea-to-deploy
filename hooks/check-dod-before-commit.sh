@@ -130,7 +130,15 @@ def security_review_was_done() -> bool:
         if spec is None:
             return False
         module = importlib.util.module_from_spec(spec)
-        loader.exec_module(module)
+        # Never leave bytecode next to the loaded validator: when it resolves to
+        # the installed content-addressed runtime, a stray .pyc blocks the next
+        # reinstall ("installed runtime directory inventory drifted").
+        previous = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            loader.exec_module(module)
+        finally:
+            sys.dont_write_bytecode = previous
         return bool(module.cache_allows(Path.cwd(), kind="security"))
     except Exception:
         return False

@@ -2828,6 +2828,40 @@
       "status": "passed",
       "evidence": "GREEN: docs/retros/RETRO-2026-08-29.md. Факты взяты из харнеса (itd_retro_scan.py --json, вставлен как есть) плюс Step 1b по абстенциям реестра (пять абстенций остаются abstain - внешнего safe-use сигнала нет). Восемь предложений P1-P8, каждое с машинной уликой боевого маршрута этой сессии; предложения, обоснованные собственными метриками (vcrGlobal 1.0, bypassPerSession 8.0, класс ~unclassified), отклонены по анти-Гудхарту явно. Методология этим прогоном не изменена, в BACKLOG кандидаты не заведены - решение оставлено владельцу.",
       "unitId": "REL1101-POSTMERGE"
+    },
+    {
+      "id": "INSTALL-HARDENING-1-no-bytecode-in-runtime",
+      "criterion": "Ни один хук, грузящий модуль через SourceFileLoader, не оставляет .pyc внутри установленного content-addressed runtime: поведенческая проверка на фикстуре-runtime, мутация «снять запрет» краснеет.",
+      "status": "passed",
+      "evidence": "GREEN: три хука (check-review-before-commit.sh, check-dod-before-commit.sh, pii-egress-guard.sh) выставляют sys.dont_write_bytecode вокруг exec_module и восстанавливают прежнее значение в finally. Поведенческая проба в tests/verify_itd_runtime_install.py запускает загрузку модуля в дочернем процессе БЕЗ -B: незащищённая загрузка оставляет __pycache__ (проба доказывает, что детектор работает), защищённая — нет. RED-first подтверждён: до правки сьют падал на «check-review-before-commit.sh forbids bytecode writes around the installed module load».",
+      "reviewEvidence": {
+        "claim": "три хука (check-review-before-commit",
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "runtime-install",
+          "hook-depth"
+        ]
+      }
+    },
+    {
+      "id": "INSTALL-HARDENING-2-inventory-error-names-path",
+      "criterion": "Ошибка дрейфа inventory называет КОНКРЕТНЫЙ лишний путь и FIX; при этом ни одно правило сверки не ослаблено — лишний файл, лишний каталог, симлинк и подмена байтов по-прежнему блокируют reinstall (каждое подтверждено мутацией).",
+      "status": "passed",
+      "evidence": "GREEN: отказы называют конкретный путь и FIX (лишний каталог, лишний файл с перечнем extra/missing, спецфайл). Мутация «вернуть безымянное installed runtime directory inventory drifted» роняет сьют на проверке «stray bytecode refusal names the __pycache__ directory and a FIX». Правила сверки не ослаблены: подмена байтов, лишний файл, лишний каталог, симлинк и пропавший файл по-прежнему отвергаются (каждое — своя проверка сьюта, 39 checks против 30 до юнита). Находка ревьюера r4 (medium, correctness) закрыта: контракт диагностики распространён на ВСЕ строгие ветки отказа, а не только на достижимые двумя простыми мутациями — symlink теперь называет путь и FIX, спецфайл получил FIX. Проверки на живых объектах (symlink и FIFO внутри runtime), мутация «вернуть безымянный symlink-отказ» краснеет; сьют 39 -> 41 проверка. Находка ревьюера r8 (medium) закрыта: проверка спецфайла шла через os.mkfifo, которого нет на нативном Windows, где этот же сьют исполняется — сьют упал бы с AttributeError до проверки гарантии. Ветка ограничена платформами с mkfifo и печатает SKIP с причиной; измерено: 41 проверка там, где mkfifo есть, 40 и видимый SKIP там, где его нет, оба прогона PASSED.",
+      "reviewEvidence": {
+        "claim": "отказы называют конкретный путь и FIX (лишний каталог, лишний файл с перечнем extra/missing, спецфайл)",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "runtime-install",
+          "drift"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2846,23 +2880,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL1101",
-    "status": "closed",
+    "unitId": "INSTALL-HARDENING",
+    "status": "open",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "low",
+      "riskTier": "medium",
       "requiredImpactClasses": [
-        "generated-artifact-freshness",
-        "repository-hygiene",
-        "compatibility"
+        "correctness",
+        "host-parity",
+        "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 0,
+      "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     },
-    "openedAt": "2026-08-28T20:05:00Z"
+    "openedAt": "2026-08-29T09:20:00Z"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

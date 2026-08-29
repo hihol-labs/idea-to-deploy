@@ -709,6 +709,7 @@
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_dod_gate.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_project_checks.py",
       "tests/verify_task_contract_advisory.py"
     ],
@@ -724,6 +725,7 @@
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_redteam_multihost.py",
       "tests/verify_review_cache.py",
@@ -866,6 +868,7 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_pii_egress.py"
     ],
     "hooks/pre-flight-check.sh": [
@@ -1034,6 +1037,7 @@
       "tests/verify_external_pilot_collection.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_gate_registry_profiles.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops.py",
       "tests/verify_predeploy_independent_review.py",
