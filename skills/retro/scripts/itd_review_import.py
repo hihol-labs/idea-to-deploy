@@ -32,9 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
 import itd_verdict_taxonomy as taxonomy  # noqa: E402  (путь резолвится выше)
 
 FINDINGS_FILE = taxonomy.FINDINGS_FILE
-SOURCE_EXTERNAL = "external-github-review"
-UNCLASSIFIED = "unclassified"
-SEVERITY_UNSPECIFIED = "unspecified"
+# Ключ писателя — это его личность, а не значение словаря; сами значения
+# (source/severity/category по умолчанию) приходят из VERDICT_TAXONOMY.json,
+# иначе импортёр держал бы вторую копию контракта и пережил бы его rename.
+WRITER_KEY = "external-github-review"
 STATE_FILE = "review-import.state.json"
 
 # Ключи правил — исторические имена классов; в леджер идёт значение закрытого
@@ -52,13 +53,15 @@ def clip(s, n: int = 200) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def classify(body: str, tax=None):
-    """Категория из закрытого словаря или `unclassified` — импортёр не ревьюер
-    и не выносит суждение о чужом тексте, поэтому честно помечает непонятое."""
+def classify(body: str, tax=None, defaults=None):
+    """Категория из закрытого словаря или писательское значение по умолчанию —
+    импортёр не ревьюер и не выносит суждение о чужом тексте, поэтому честно
+    помечает непонятое тем значением, которое словарь ему для этого выдал."""
+    fallback = (defaults or {}).get("category")
     for cat, rx in CATEGORY_RULES:
         if rx.search(body or ""):
-            return taxonomy.normalize_category(cat, tax) or UNCLASSIFIED
-    return UNCLASSIFIED
+            return taxonomy.normalize_category(cat, tax) or fallback
+    return fallback
 
 
 def gh_fetch(repo: str, pages: int, exclude: str) -> list:
@@ -90,7 +93,7 @@ def gh_fetch(repo: str, pages: int, exclude: str) -> list:
     return out
 
 
-def normalize(c: dict, project: str, tax=None) -> dict | None:
+def normalize(c: dict, project: str, tax=None, defaults=None) -> dict | None:
     body = (c.get("body") or "").strip()
     if not body:
         return None
@@ -100,13 +103,13 @@ def normalize(c: dict, project: str, tax=None) -> dict | None:
         "ts": c.get("created_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "project": project,
         "verdict": "EXTERNAL_REVIEW",
-        "source": SOURCE_EXTERNAL,
+        "source": (defaults or {}).get("source"),
         "lineage": clip(url or c.get("html_url") or str(c.get("id") or ""), 200),
         "pr": pr,
         "author": (c.get("user") or {}).get("login") or "",
         "findings": [{
-            "severity": SEVERITY_UNSPECIFIED,
-            "category": classify(body, tax),
+            "severity": (defaults or {}).get("severity"),
+            "category": classify(body, tax, defaults),
             "file": clip(c.get("path") or "", 160),
             "summary": clip(body),
         }],
@@ -148,6 +151,7 @@ def main() -> int:
 
     ledger = mem / FINDINGS_FILE
     tax = taxonomy.load_taxonomy()
+    defaults = taxonomy.writer_defaults(WRITER_KEY, tax)
     cwd = str(mem.parent)
     imported = 0
     rejected = 0
@@ -156,7 +160,7 @@ def main() -> int:
         cid = str(c.get("id") or "")
         if not cid or cid in seen:
             continue
-        rec = normalize(c, project, tax)
+        rec = normalize(c, project, tax, defaults)
         if rec is None:
             seen.add(cid)
             continue

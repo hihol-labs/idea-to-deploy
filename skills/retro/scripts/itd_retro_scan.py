@@ -259,6 +259,11 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
     no ledger exists anywhere (section stays absent, как другие источники)."""
     paths = [m / taxonomy.FINDINGS_FILE for m in mems]
     paths.append(tmp_dir / ("claude-" + taxonomy.FINDINGS_FILE))
+    # Переполненный леджер РОТИРУЕТСЯ (писатель не имеет права стирать легаси),
+    # поэтому читатель обязан видеть и отротированные поколения: иначе история
+    # исчезает из майнинга ровно в тот момент, когда её стало много.
+    paths = [g for p in paths
+             for g in (p, *sorted(p.parent.glob(p.name + ".[0-9]*")))]
     paths = [p for p in paths if p.is_file()]
     rejected = {"total": 0, "byReason": {}}
     for d in list(mems) + [tmp_dir]:

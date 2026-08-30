@@ -32,6 +32,9 @@ REJECTED_FILE = "review-findings-rejected.jsonl"
 REJECTED_COUNT_FILE = "review-findings-rejected.count.jsonl"
 FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
 REASON_TAXONOMY_UNAVAILABLE = "taxonomy-unavailable"
+# Источник-ревьюер: он всегда судит сам, поэтому послабления
+# externalOnly к нему не применяются ни при каком словаре.
+SOURCE_REVIEWER = "subagent-verdict"
 
 
 def taxonomy_path() -> Path:
@@ -48,7 +51,10 @@ def load_taxonomy(path: Path | None = None):
     отправить запись в карантин, а не принять её и не выбросить."""
     try:
         data = json.loads((path or taxonomy_path()).read_text(encoding="utf-8"))
-        if not isinstance(data["taxonomyVersion"], int):
+        # bool — подкласс int в Python, поэтому `taxonomyVersion: true`
+        # прошёл бы голую isinstance-проверку и был бы проштампован в записи.
+        if (isinstance(data["taxonomyVersion"], bool)
+                or not isinstance(data["taxonomyVersion"], int)):
             return None
         for key in ("source", "severity", "category"):
             if not isinstance(data[key]["values"], list) or not data[key]["values"]:
@@ -65,18 +71,53 @@ def load_taxonomy(path: Path | None = None):
             # семантически испорченный файл расширял бы «закрытый» перечень,
             # оставаясь синтаксически валидным. Исключение для не-ревьюеров
             # объявлено ДАННЫМИ (externalOnly), а не зашито в коде.
-            permitted = set(data[key]["values"]) | set(
-                data[key].get("externalOnly") or [])
-            for allowed in by.values():
+            declared = set(data[key]["values"])
+            external_only = data[key].get("externalOnly") or []
+            if not isinstance(external_only, list):
+                return None
+            # Послабление externalOnly принадлежит ТОЛЬКО не-ревьюерам: иначе
+            # словарь, положивший лишнее значение в externalOnly и в
+            # bySource.subagent-verdict, расширял бы закрытый перечень ревьюера,
+            # оставаясь валидным.
+            for value in external_only:
+                if not isinstance(value, str) or not value.strip():
+                    return None
+                if value in declared:
+                    return None
+            for source_key, allowed in by.items():
                 if not isinstance(allowed, list) or not allowed:
                     return None
+                permitted = declared
+                if source_key != SOURCE_REVIEWER:
+                    permitted = declared | set(external_only)
                 if not set(allowed) <= permitted:
                     return None
         legacy = data["legacyMapping"]
         for key in ("category", "severity"):
-            if not isinstance(legacy[key], dict):
+            table = legacy[key]
+            if not isinstance(table, dict):
                 return None
-        if not str(data["rejection"]["file"]).strip():
+            # Цель отображения обязана быть значением словаря: иначе чтение
+            # легаси возвращало бы строки вне закрытого перечня, и /retro
+            # показывал бы как «сведённые» те значения, которых в словаре нет.
+            allowed = set(data[key]["values"]) | set(
+                data[key].get("externalOnly") or [])
+            for source_value, target in table.items():
+                # Пустой ключ легитимен: именно так выглядит легаси-severity ""
+                # в 13 существующих записях. Проверяется ЦЕЛЬ отображения.
+                if not isinstance(source_value, str):
+                    return None
+                if target not in allowed:
+                    return None
+        rej_file = str(data["rejection"]["file"]).strip()
+        # Голое имя файла и заведомо не канонический леджер: иначе испорченный
+        # словарь направил бы карантин прямо в приёмный журнал.
+        if (not rej_file or rej_file in (FINDINGS_FILE, REJECTED_COUNT_FILE)
+                or rej_file != Path(rej_file).name
+                or rej_file.startswith(".")):
+            return None
+        defaults = data.get("writerDefaults")
+        if defaults is not None and not isinstance(defaults, dict):
             return None
         return data
     except Exception:
@@ -161,13 +202,26 @@ def rejected_count_path(cwd: str, directory=None) -> Path:
 
 
 def _append_bounded(path: Path, line: str) -> None:
+    """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
+    его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
+    трогать; ротация сохраняет их в соседнем поколении."""
     with path.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
     if path.stat().st_size > FINDINGS_SOFT_BYTES:
-        tail = path.read_text(encoding="utf-8", errors="replace")[-FINDINGS_SOFT_BYTES // 2:]
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(tail, encoding="utf-8")
-        os.replace(tmp, path)
+        # Ротация — ТОЛЬКО атомарное переименование в свободное поколение.
+        # Обнуление файла на месте теряло бы запись, которую параллельный
+        # писатель успел дописать между чтением размера и очисткой; при
+        # переименовании его дозапись остаётся в переименованном файле.
+        for generation in range(1, 1000):
+            candidate = path.with_name("%s.%d" % (path.name, generation))
+            try:
+                claim = os.open(str(candidate),
+                                os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                continue
+            os.close(claim)
+            os.replace(path, candidate)
+            break
 
 
 def bump_rejected_counter(cwd: str, reasons, directory=None) -> None:
@@ -213,8 +267,13 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         return False, [REASON_TAXONOMY_UNAVAILABLE]
     try:
         rec = dict(rec or {})
-        rec["taxonomyVersion"] = taxonomy["taxonomyVersion"]
+        # Штамп версии ставится ТОЛЬКО при приёме: пометив запись до
+        # валидации, карантин хранил бы уже изменённый вход, а он обязан
+        # сохранять ровно то, что пришло.
+        supplied = rec.get("taxonomyVersion")
         reasons = validate_record(rec, taxonomy)
+        if supplied is not None and supplied != taxonomy["taxonomyVersion"]:
+            reasons = reasons + ["taxonomyVersion:%r" % (supplied,)]
     except Exception as exc:
         # Инвариант «запись не теряется» держится ОДНОЙ воронкой, а не
         # перечислением веток: любая неожиданная ошибка разбора или словаря
@@ -227,6 +286,8 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         reject(cwd, rec, reasons, taxonomy, directory)
         return False, reasons
     try:
+        rec = dict(rec)
+        rec["taxonomyVersion"] = taxonomy["taxonomyVersion"]
         _append_bounded(canonical_path(cwd, directory),
                         json.dumps(rec, ensure_ascii=False))
     except Exception as exc:
@@ -234,6 +295,16 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         reject(cwd, rec, reasons, None, directory)
         return False, reasons
     return True, []
+
+
+def writer_defaults(source: str, tax=None):
+    """Значения, которыми писатель заполняет поля, если не может судить сам.
+    Берутся из словаря: литерал в писателе был бы второй копией контракта."""
+    taxonomy = tax if tax is not None else load_taxonomy()
+    if taxonomy is None:
+        return {}
+    got = (taxonomy.get("writerDefaults") or {}).get(source)
+    return dict(got) if isinstance(got, dict) else {}
 
 
 def normalize_category(value, tax=None):
@@ -276,6 +347,11 @@ def rejected_summary(cwd: str, directory=None) -> dict:
         try:
             entry = json.loads(raw)
         except Exception:
+            continue
+        # Валидный JSON, но не объект (`null`, `[]`) — тоже испорченная строка:
+        # обещание «битая строка теряет одну запись» не должно превращаться в
+        # падение всего /retro на .get().
+        if not isinstance(entry, dict):
             continue
         total += 1
         for r in (entry.get("reasons") or ["unspecified"]):

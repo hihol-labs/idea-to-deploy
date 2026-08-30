@@ -84,6 +84,38 @@ with tempfile.TemporaryDirectory() as mem:
           and u["findings"][0]["category"] == "unclassified",
           f"rec={u}")
 
+    # Писательские значения приходят из словаря. Проверка должна РАЗЛИЧАТЬ
+    # словарь и литерал, поэтому подсовывается словарь с другими значениями:
+    # захардкоженный писатель выдаст свои и покраснеет.
+    TAX = json.load(open(os.path.join(ROOT, "skills", "_shared",
+                                      "VERDICT_TAXONOMY.json"),
+                         encoding="utf-8"))
+    swapped = dict(TAX)
+    swapped["writerDefaults"] = dict(TAX["writerDefaults"])
+    swapped["writerDefaults"]["external-github-review"] = {
+        "source": "manual-entry", "severity": "minor",
+        "category": "readability"}
+    tax2 = os.path.join(mem, "swapped-taxonomy.json")
+    with open(tax2, "w", encoding="utf-8") as fh:
+        json.dump(swapped, fh, ensure_ascii=False)
+    mem2 = tempfile.mkdtemp()
+    r_sw = subprocess.run(
+        [sys.executable, SCRIPT, "--stdin", "--project", "probe",
+         "--dir", mem2],
+        input=json.dumps(FIXTURE + unmatched), capture_output=True, text=True,
+        timeout=30, env=dict(os.environ, ITD_VERDICT_TAXONOMY=tax2))
+    recs_sw = [json.loads(l) for l in
+               open(os.path.join(mem2, "review-findings.jsonl"),
+                    encoding="utf-8")] \
+        if os.path.exists(os.path.join(mem2, "review-findings.jsonl")) else []
+    sw = next((x for x in recs_sw if x["pr"] == "1051"), None)
+    check("writer values follow the taxonomy, not the writer's own literals",
+          r_sw.returncode == 0 and sw is not None
+          and sw["source"] == "manual-entry"
+          and sw["findings"][0]["severity"] == "minor"
+          and sw["findings"][0]["category"] == "readability",
+          f"rec={sw} out={r_sw.stdout!r}")
+
     r2 = run_import(mem)
     recs2 = [json.loads(l) for l in open(ledger, encoding="utf-8")]
     check("dedup-rerun-zero", "imported 0" in r2.stdout and len(recs2) == 3,

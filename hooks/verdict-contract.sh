@@ -296,6 +296,20 @@ def _fallback_reject(cwd: str, rec: dict) -> None:
         pass
 
 
+def _project_finding(f):
+    """Клип известных полей БЕЗ отбрасывания остальных: карантин обязан
+    показывать то, что ревьюер прислал, поэтому `line`, `confidence` и любые
+    будущие поля доезжают до него, а не исчезают в проекции писателя."""
+    if not isinstance(f, dict):
+        return f
+    out = dict(f)
+    out["severity"] = _clip(f.get("severity"), 20)
+    out["category"] = _clip(f.get("category"), 60) or None
+    out["file"] = _clip(f.get("file"), 160)
+    out["summary"] = _clip(f.get("summary"))
+    return out
+
+
 def persist_findings(cwd: str, key: str, obj: dict) -> None:
     """Append одного вердикта в леджер ЧЕРЕЗ закрытые словари (PILOT P0-1):
     невалидная запись не попадает в канонический леджер и не пропадает —
@@ -308,7 +322,6 @@ def persist_findings(cwd: str, key: str, obj: dict) -> None:
         # находок. Всё, что пришло, доезжает до валидатора и либо принимается,
         # либо целиком уходит в карантин с названной причиной.
         findings = obj.get("findings")
-        findings = findings if isinstance(findings, list) else []
         digest = hashlib.md5(
             (key + json.dumps(obj, sort_keys=True, ensure_ascii=False))
             .encode("utf-8", "replace")).hexdigest()[:12]
@@ -321,12 +334,8 @@ def persist_findings(cwd: str, key: str, obj: dict) -> None:
             "verdict": str(obj.get("verdict", "")).strip().upper(),
             "source": SOURCE_SUBAGENT,
             "lineage": _clip(key, 200),
-            "findings": [{
-                "severity": _clip(f.get("severity"), 20),
-                "category": _clip(f.get("category"), 60) or None,
-                "file": _clip(f.get("file"), 160),
-                "summary": _clip(f.get("summary")),
-            } if isinstance(f, dict) else f for f in findings],
+            "findings": ([_project_finding(f) for f in findings]
+                         if isinstance(findings, list) else findings),
         }
         mod = load_taxonomy_module()
         if mod is None:

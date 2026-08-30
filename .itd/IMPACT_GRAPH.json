@@ -1103,6 +1103,7 @@
       "tests/verify_review_broker_policy.py"
     ],
     "skills/_shared/VERDICT_TAXONOMY.json": [
+      "tests/verify_review_import.py",
       "tests/verify_verdict_contract.py"
     ],
     "skills/_shared/VERIFICATION_LOOP_POLICY.json": [

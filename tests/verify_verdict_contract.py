@@ -383,7 +383,7 @@ def main() -> int:
     proj, iso = fresh_project()
     r = write_verdict(proj, iso, '[{"severity": "important", '
                       '"category": "made-up-class", "file": "a.py", '
-                      '"summary": "s"}]')
+                      '"line": 7, "confidence": "high", "summary": "s"}]')
     rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
     entry = json.loads(rejected[0]) if rejected else {}
     check("invalid category is rejected on write, not admitted",
@@ -391,6 +391,11 @@ def main() -> int:
           and len(rejected) == 1,
           "canon=%d rejected=%d" % (
               len(ledger_lines(proj, "review-findings.jsonl")), len(rejected)))
+    check("the quarantined record keeps the fields the reviewer submitted",
+          (entry.get("record", {}).get("findings") or [{}])[0].get("line") == 7
+          and (entry.get("record", {}).get("findings") or [{}])[0]
+          .get("confidence") == "high",
+          json.dumps(entry, ensure_ascii=False)[:220])
     check("rejected record is kept whole with a machine-readable reason",
           any(x.startswith("category[0]") for x in entry.get("reasons", []))
           and entry.get("record", {}).get("findings", [{}])[0].get("summary") == "s",
@@ -483,6 +488,84 @@ def main() -> int:
           and len(rejected) == 1 and "not-an-object" in rejected[0],
           (rejected[0][:160] if rejected else "no quarantine"))
 
+    # карантин обязан хранить ровно то, что пришло, включая чужой штамп версии
+    stamp_dir = Path(tempfile.mkdtemp(prefix="vc-stamp-"))
+    TMPDIRS.append(stamp_dir)
+    incoming = {"source": "subagent-verdict", "lineage": "L",
+                "taxonomyVersion": 99,
+                "findings": [{"severity": "minor", "category": "nope"}]}
+    accepted, reasons = _tax_mod.admit("", incoming, directory=stamp_dir)
+    kept = json.loads((stamp_dir / "review-findings-rejected.jsonl")
+                      .read_text(encoding="utf-8").splitlines()[0])["record"]
+    check("a rejected record keeps its own taxonomyVersion, unaltered",
+          accepted is False and kept.get("taxonomyVersion") == 99
+          and any(r.startswith("taxonomyVersion:") for r in reasons),
+          json.dumps(kept, ensure_ascii=False)[:200])
+
+    # словарь не может направить карантин в канонический леджер
+    proj, iso = fresh_project()
+    aimed = proj / "aimed-taxonomy.json"
+    aimed.write_text(json.dumps({**TAX, "rejection": {
+        **TAX["rejection"], "file": "review-findings.jsonl"}}),
+        encoding="utf-8")
+    write_verdict(proj, iso, VALID_F, {"ITD_VERDICT_TAXONOMY": str(aimed)})
+    check("a taxonomy cannot aim the quarantine at the canonical ledger",
+          not ledger_lines(proj, "review-findings.jsonl")
+          and len(ledger_lines(proj, "review-findings-rejected.jsonl")) == 1)
+
+    # переполнение канонического леджера РОТИРУЕТ его, а не стирает легаси
+    rot = Path(tempfile.mkdtemp(prefix="vc-rot-"))
+    TMPDIRS.append(rot)
+    legacy_line = json.dumps({"ts": "old", "project": "p", "verdict": "BLOCKED",
+                              "findings": [{"severity": "", "category": None,
+                                            "file": "legacy.py",
+                                            "summary": "L" * 100}]})
+    (rot / "review-findings.jsonl").write_text(legacy_line + "\n",
+                                               encoding="utf-8")
+    big = {"source": "subagent-verdict", "lineage": "L",
+           "findings": [{"severity": "minor", "category": "correctness",
+                         "summary": "B" * 500}]}
+    for n in range(300):
+        _tax_mod.admit("", dict(big, lineage="n-%d" % n), directory=rot)
+    rotated = rot / "review-findings.jsonl.1"
+    generations = sorted(rot.glob("review-findings.jsonl.[0-9]*"))
+    kept = "".join(g.read_text(encoding="utf-8") for g in generations) \
+        + (rot / "review-findings.jsonl").read_text(encoding="utf-8")
+    check("an overflowing canonical ledger rotates instead of erasing legacy",
+          bool(generations) and legacy_line in kept
+          and kept.count("\"lineage\": \"n-") == 300,
+          "generations=%d kept=%d" % (len(generations), kept.count("n-")))
+
+    # ротация под ОДНОВРЕМЕННЫМИ писателями не теряет принятую запись
+    conc2 = Path(tempfile.mkdtemp(prefix="vc-rot-conc-"))
+    TMPDIRS.append(conc2)
+    rot_worker = (
+        "import sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "import itd_verdict_taxonomy as t\n"
+        "start = float(sys.argv[2])\n"
+        "while time.time() < start:\n"
+        "    pass\n"
+        "for i in range(40):\n"
+        "    t.admit('', {'source': 'subagent-verdict',\n"
+        "                 'lineage': '%%s-%%d' %% (sys.argv[1], i),\n"
+        "                 'findings': [{'severity': 'minor',\n"
+        "                               'category': 'correctness',\n"
+        "                               'summary': 'X' * 700}]},\n"
+        "             directory=%r)\n"
+        % (str(ROOT / "skills" / "_shared"), str(conc2)))
+    barrier2 = time.time() + 1.5
+    procs2 = [subprocess.Popen([PY, "-c", rot_worker, "w%d" % n, str(barrier2)])
+              for n in range(6)]
+    for pr in procs2:
+        pr.wait(timeout=120)
+    everything = "".join(
+        g.read_text(encoding="utf-8")
+        for g in sorted(conc2.glob("review-findings.jsonl*")))
+    check("rotation under concurrent writers loses no accepted record",
+          everything.count('"lineage": "w') == 6 * 40,
+          "kept=%d expected=%d" % (everything.count('"lineage": "w'), 240))
+
     # структурно битый, но парсящийся словарь — тоже «валидировать нечем»
     proj, iso = fresh_project()
     broken = proj / "broken-taxonomy.json"
@@ -511,6 +594,23 @@ def main() -> int:
           not ledger_lines(proj, "review-findings.jsonl")
           and len(rejected) == 1 and "taxonomy-unavailable" in rejected[0],
           (rejected[0][:160] if rejected else "no quarantine"))
+
+    # послабление externalOnly не может протечь в словарь ревьюера
+    proj, iso = fresh_project()
+    leaked = proj / "leaked-taxonomy.json"
+    leaked.write_text(json.dumps({**TAX, "category": {
+        **TAX["category"],
+        "externalOnly": TAX["category"]["externalOnly"] + ["evil"],
+        "bySource": {**TAX["category"]["bySource"],
+                     "subagent-verdict":
+                         TAX["category"]["bySource"]["subagent-verdict"]
+                         + ["evil"]}}}), encoding="utf-8")
+    r = write_verdict(proj, iso, '[{"severity": "minor", "category": "evil", '
+                      '"file": "a.py", "summary": "s"}]',
+                      {"ITD_VERDICT_TAXONOMY": str(leaked)})
+    check("externalOnly cannot widen the reviewer's own vocabulary",
+          not ledger_lines(proj, "review-findings.jsonl")
+          and len(ledger_lines(proj, "review-findings-rejected.jsonl")) == 1)
 
     # карантин — улика: он не имеет права затирать собственные старые записи
     quar_dir = Path(tempfile.mkdtemp(prefix="vc-quar-"))
@@ -542,6 +642,21 @@ def main() -> int:
           and any(r.startswith("admit-error:") for r in reasons)
           and quarantined.is_file(),
           "%r / %s" % (reasons, quarantined.exists()))
+
+    # Не-список findings не доезжает до писателя: контракт вердикта его не
+    # признаёт, поэтому в канонический леджер он попасть не может ни при каком
+    # состоянии словаря (писатель при этом ничего не приводит к пустому списку).
+    proj, iso = fresh_project()
+    text = ("Вердикт: PASSED_WITH_WARNINGS.\n\n```json\n"
+            '{"verdict": "PASSED_WITH_WARNINGS", "findings": "none", '
+            '"unverified": []}\n```')
+    payload = make_layout(text, "agent-direct")
+    payload["cwd"] = str(proj)
+    r = run_hook(payload, extra_env={"TMPDIR": str(iso)})
+    check("a non-list findings verdict is blocked and never reaches the ledger",
+          blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
+          and not ledger_lines(proj, "review-findings-rejected.jsonl"),
+          (r.stdout or "")[:160])
 
     # forward-only: легаси-строки без taxonomyVersion не переписываются
     proj, iso = fresh_project()
@@ -597,6 +712,12 @@ def main() -> int:
 
     # --- модуль словарей: прямые юнит-проверки правил ------------------------
     itd_verdict_taxonomy = _tax_mod
+    def _load_from(data):
+        f = Path(tempfile.mkdtemp(prefix="vc-tax-")) / "t.json"
+        TMPDIRS.append(f.parent)
+        f.write_text(json.dumps(data), encoding="utf-8")
+        return _tax_mod.load_taxonomy(f)
+
     tx = itd_verdict_taxonomy.load_taxonomy()
     check("module loads the same taxonomy the tests read",
           tx is not None and tx["taxonomyVersion"] == TAX["taxonomyVersion"])
@@ -624,6 +745,25 @@ def main() -> int:
           any(r.startswith("taxonomy:bySource-missing-for")
               for r in itd_verdict_taxonomy.validate_record(
                   ok, {**tx, "severity": {**tx["severity"], "bySource": {}}})))
+    check("a boolean taxonomyVersion is not accepted as an integer",
+          _load_from({**TAX, "taxonomyVersion": True}) is None)
+    bad_counter = Path(tempfile.mkdtemp(prefix="vc-cnt-"))
+    TMPDIRS.append(bad_counter)
+    (bad_counter / "review-findings-rejected.count.jsonl").write_text(
+        "null\n[]\n" + json.dumps({"ts": "t", "reasons": ["category[0]:x"]})
+        + "\n", encoding="utf-8")
+    check("a non-object counter line loses only itself, not the whole scan",
+          _tax_mod.rejected_summary("", directory=bad_counter)
+          == {"total": 1, "byReason": {"category": 1}},
+          repr(_tax_mod.rejected_summary("", directory=bad_counter)))
+    check("legacyMapping targets outside the vocabulary make it unavailable",
+          _load_from({**TAX, "legacyMapping": {
+              **TAX["legacyMapping"],
+              "category": {**TAX["legacyMapping"]["category"],
+                           "old": "not-a-value"}}}) is None
+          and _load_from(TAX) is not None,
+          "mapping target not validated")
+
     check("legacy free-form values map into the closed vocabulary on read",
           itd_verdict_taxonomy.normalize_category("sql-performance", tx) == "performance"
           and itd_verdict_taxonomy.normalize_category("assumed-producer-shape", tx) == "correctness"

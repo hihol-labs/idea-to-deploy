@@ -122,6 +122,12 @@ def main() -> int:
                              "category": "assumed-producer-shape",
                              "file": "src/c.ts", "summary": "again"}]}),
         ]))
+        # отротированное поколение остаётся видимым читателю
+        write(mem_a / "review-findings.jsonl.1", json.dumps(
+            {"ts": "t0", "project": "alpha", "verdict": "BLOCKED",
+             "findings": [{"severity": "critical", "category": "dead-code",
+                           "file": "src/rot.ts", "summary": "rotated away"}]}))
+
         # счётчик отклонённых — append-only журнал (у записи нет фазы
         # read-modify-write, поэтому два писателя не теряют обновления)
         write(mem_a / "review-findings-rejected.count.jsonl", "\n".join([
@@ -159,12 +165,14 @@ def main() -> int:
               out.split("Незакрытые гейты")[-1][:200], out[-500:])
         check("VCR<1 project named", "alpha" in out, out[:400])
         check("review-findings ledger surfaced (reviews/findings/classes)",
-              "Находки /review" in out and "ревью 3" in out
-              and "находок 4" in out, out[-900:])
+              "Находки /review" in out and "ревью 4" in out
+              and "находок 5" in out, out[-900:])
         # PILOT-P01: легаси-category сводится к закрытому словарю ПРИ ЧТЕНИИ
         check("legacy category is normalized to the closed vocabulary on read",
               "`correctness` ×2" in out and "assumed-produce" not in out,
               out[-900:])
+        check("rotated ledger generations stay visible to the reader",
+              "ревью 4" in out and "находок 5" in out, out[-900:])
         check("taxonomy version surfaced with the findings section",
               "словарь v1" in out, out[-900:])
         check("vocabulary misses are visible, not silent",
