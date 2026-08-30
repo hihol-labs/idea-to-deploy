@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -167,6 +168,7 @@ def make_review_repo() -> Path:
 # --- fixtures ---------------------------------------------------------------
 JSON_OK = ('```json\n{"verdict": "PASSED_WITH_WARNINGS", "findings": '
            '[{"severity": "important", "confidence": "high", '
+           '"category": "correctness", '
            '"file": "hooks/x.sh", "line": 10, "summary": "y"}], '
            '"unverified": []}\n```')
 VERDICT_NO_JSON_EN = ("## Review findings\n\n- Important: X\n\n"
@@ -179,7 +181,8 @@ VERDICT_WITH_JSON = ("## Review findings\n\nВердикт: PASSED_WITH_WARNINGS
                      + JSON_OK)
 VERDICT_WITH_INLINE_JSON = ('FINAL STATUS: BLOCKED\n\nМашиночитаемо: '
                             '{"verdict": "BLOCKED", "findings": '
-                            '[{"severity": "critical"}]} — конец.')
+                            '[{"severity": "critical", '
+                            '"category": "security"}]} — конец.')
 NON_REVIEW_TESTS = ("Сгенерировал 12 юнит-тестов, прогнал — all 12 tests "
                     "passed, покрытие 94%.")
 NON_REVIEW_BARE = ("Задача выполнена. Итоговое состояние: PASSED. "
@@ -379,21 +382,32 @@ def main() -> int:
           and bool(str(rec.get("lineage") or "").strip()),
           json.dumps(rec, ensure_ascii=False)[:200])
 
-    # невалидная category: канонический леджер не растёт, запись не теряется
+    # Невалидная category теперь останавливается ГЕЙТОМ — субагента просят
+    # исправить, пока он ещё может.
+    proj_g, iso_g = fresh_project()
+    r_g = write_verdict(proj_g, iso_g, '[{"severity": "important", '
+                        '"category": "made-up-class", "file": "a.py", '
+                        '"summary": "s"}]')
+    check("a category outside the vocabulary is blocked at the retry gate",
+          blocked(r_g) and not ledger_lines(proj_g, "review-findings.jsonl"),
+          (r_g.stdout or "")[:160])
+
+    # Писательский путь проверяется случаем, который гейт пропускает, а схема
+    # леджера отвергает: severity гейт не проверяет.
     proj, iso = fresh_project()
-    r = write_verdict(proj, iso, '[{"severity": "important", '
-                      '"category": "made-up-class", "file": "a.py", '
+    r = write_verdict(proj, iso, '[{"severity": "blocker", '
+                      '"category": "correctness", "file": "a.py", '
                       '"line": 7, "confidence": "high", "summary": "s"}]')
     rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
     entry = json.loads(rejected[0]) if rejected else {}
-    check("invalid category is rejected on write, not admitted",
+    check("a gate-passing but schema-invalid record is rejected on write",
           not blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
           and len(rejected) == 1,
           "canon=%d rejected=%d" % (
               len(ledger_lines(proj, "review-findings.jsonl")), len(rejected)))
     check("submitted values reach the quarantine untruncated",
           (entry.get("record", {}).get("findings") or [{}])[0]
-          .get("category") == "made-up-class",
+          .get("severity") == "blocker",
           json.dumps(entry, ensure_ascii=False)[:200])
     check("the quarantined record keeps the fields the reviewer submitted",
           (entry.get("record", {}).get("findings") or [{}])[0].get("line") == 7
@@ -401,14 +415,14 @@ def main() -> int:
           .get("confidence") == "high",
           json.dumps(entry, ensure_ascii=False)[:220])
     check("rejected record is kept whole with a machine-readable reason",
-          any(x.startswith("category[0]") for x in entry.get("reasons", []))
+          any(x.startswith("severity[0]") for x in entry.get("reasons", []))
           and entry.get("record", {}).get("findings", [{}])[0].get("summary") == "s",
           json.dumps(entry, ensure_ascii=False)[:220])
     counter = proj / ".itd-memory" / "review-findings-rejected.count.jsonl"
     cdata = read_counter(proj)
     check("rejection counter records the total and the reason class",
           counter.is_file() and cdata.get("total") == 1
-          and cdata.get("byReason", {}).get("category") == 1,
+          and cdata.get("byReason", {}).get("severity") == 1,
           json.dumps(cdata, ensure_ascii=False)[:200])
     # Форма счётчика без read-modify-write. Гарантия заявляет ОДНОВРЕМЕННЫХ
     # писателей, значит проверка обязана их инстанцировать: N процессов
@@ -439,7 +453,7 @@ def main() -> int:
           total == writers * rounds,
           "expected %d, got %r" % (writers * rounds, total))
 
-    # severity вне словаря
+    # severity вне словаря (тот же писательский путь, отдельная гарантия)
     proj, iso = fresh_project()
     write_verdict(proj, iso, '[{"severity": "blocker", "category": '
                   '"correctness", "file": "a.py", "summary": "s"}]')
@@ -481,16 +495,25 @@ def main() -> int:
               "taxonomy-unavailable") == 1,
           json.dumps(read_counter(proj), ensure_ascii=False)[:200])
 
-    # испорченная находка не отфильтровывается в «чистую» пустую запись
+    # Испорченная находка не доезжает до писателя: контракт вердикта её не
+    # признаёт, поэтому субагента просят исправить, пока он ещё может, а не
+    # молча кладут запись в карантин.
     proj, iso = fresh_project()
     r = write_verdict(proj, iso, '["bad", {"severity": "minor", '
                       '"category": "correctness", "file": "a.py", '
                       '"summary": "s"}]')
-    rejected = ledger_lines(proj, "review-findings-rejected.jsonl")
-    check("a non-object finding cannot be filtered into a clean record",
-          not blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
-          and len(rejected) == 1 and "not-an-object" in rejected[0],
-          (rejected[0][:160] if rejected else "no quarantine"))
+    check("a non-object finding is blocked, not filtered into a clean record",
+          blocked(r) and not ledger_lines(proj, "review-findings.jsonl")
+          and not ledger_lines(proj, "review-findings-rejected.jsonl"),
+          (r.stdout or "")[:160])
+    # Та же строгость и для отсутствующей категории: гейт повтора требует то
+    # же, что и схема леджера.
+    proj, iso = fresh_project()
+    r = write_verdict(proj, iso, '[{"severity": "minor", "file": "a.py", '
+                      '"summary": "no category here"}]')
+    check("a finding without a category is blocked while it can still be fixed",
+          blocked(r) and not ledger_lines(proj, "review-findings.jsonl"),
+          (r.stdout or "")[:160])
 
     # карантин обязан хранить ровно то, что пришло, включая чужой штамп версии
     stamp_dir = Path(tempfile.mkdtemp(prefix="vc-stamp-"))
@@ -542,6 +565,29 @@ def main() -> int:
     check("the canonical path exists immediately after a rotation",
           victim.is_file() and victim.read_text(encoding="utf-8") == ""
           and (direct / "review-findings.jsonl.1").is_file())
+    # Сбой ПОСЛЕ переименования не имеет права стереть поколение с историей.
+    keep = Path(tempfile.mkdtemp(prefix="vc-keep-"))
+    TMPDIRS.append(keep)
+    victim2 = keep / "review-findings.jsonl"
+    victim2.write_text("history\n" + "y" * (70 * 1024), encoding="utf-8")
+    real_open = os.open
+
+    def failing_open(path, flags, *a, **k):
+        if str(path) == str(victim2) and (flags & os.O_CREAT):
+            raise OSError(28, "No space left on device")
+        return real_open(path, flags, *a, **k)
+
+    os.open = failing_open
+    try:
+        _tax_mod._rotate_oversized(victim2)
+    finally:
+        os.open = real_open
+    survivors = sorted(keep.glob("review-findings.jsonl.[0-9]"))
+    check("a failure after the rename never destroys the rotated history",
+          len(survivors) == 1
+          and "history" in survivors[0].read_text(encoding="utf-8"),
+          "survivors=%d" % len(survivors))
+
     # Чужая гонка (леджер уже отротирован кем-то) не имеет права стать ошибкой.
     gone = direct / "vanished.jsonl"
     raised = None
@@ -594,6 +640,32 @@ def main() -> int:
           not rejected_conc.exists(),
           rejected_conc.read_text(encoding="utf-8")[:200]
           if rejected_conc.exists() else "")
+
+    # одна гигантская находка не имеет права расти без предела: усечение
+    # названо причиной, а не выдано за целую запись
+    big_dir = Path(tempfile.mkdtemp(prefix="vc-big-"))
+    TMPDIRS.append(big_dir)
+    huge = {"source": "subagent-verdict", "lineage": "L",
+            "findings": [{"severity": "minor", "category": "correctness",
+                          "summary": "Z" * 40000}]}
+    accepted, reasons = _tax_mod.admit("", huge, directory=big_dir)
+    kept = json.loads((big_dir / "review-findings-rejected.jsonl")
+                      .read_text(encoding="utf-8").splitlines()[0])
+    check("an oversized record is rejected with its true size named",
+          accepted is False
+          and any(r.startswith("record:too-large:") for r in reasons)
+          and not (big_dir / "review-findings.jsonl").exists(),
+          json.dumps(reasons, ensure_ascii=False))
+    # Предел закрывает КАНОНИЧЕСКИЙ вход, но карантин хранит запись целиком:
+    # оба требования выполняются, потому что файл держит ротация, не усечение.
+    check("the oversized record itself is kept whole in the quarantine",
+          kept["record"]["findings"][0]["summary"] == "Z" * 40000,
+          str(len(kept["record"]["findings"][0].get("summary", ""))))
+    check("host-state reasons are retryable, content reasons are not",
+          _tax_mod.is_transient(["taxonomy-unavailable"])
+          and _tax_mod.is_transient(["admit-error:TypeError"])
+          and not _tax_mod.is_transient(["category[0]:'x'"])
+          and not _tax_mod.is_transient(reasons))
 
     # структурно битый, но парсящийся словарь — тоже «валидировать нечем»
     proj, iso = fresh_project()
@@ -650,8 +722,16 @@ def main() -> int:
     for n in range(400):
         _tax_mod.admit("", dict(first, lineage="rec-%d" % n),
                        directory=quar_dir)
-    qtext = (quar_dir / "review-findings-rejected.jsonl").read_text(
-        encoding="utf-8")
+    # Улика живёт во ВСЕХ поколениях: файл ограничен ротацией, а не усечением,
+    # поэтому ни одна отклонённая запись не исчезает.
+    qtext = "".join(
+        g.read_text(encoding="utf-8")
+        for g in sorted(quar_dir.glob("review-findings-rejected.jsonl*")))
+    check("the quarantine file itself is bounded by rotation, not by growth",
+          bool(sorted(quar_dir.glob("review-findings-rejected.jsonl.[0-9]*")))
+          and (quar_dir / "review-findings-rejected.jsonl").stat().st_size
+          <= 64 * 1024,
+          str(sorted(x.name for x in quar_dir.iterdir())))
     check("the quarantine never discards the evidence it exists to keep",
           "rec-0" in qtext and "rec-399" in qtext
           and len(qtext.splitlines()) == 400
@@ -667,6 +747,32 @@ def main() -> int:
             break
     else:
         bogus = None
+    unser = Path(tempfile.mkdtemp(prefix="vc-unser-"))
+    TMPDIRS.append(unser)
+    acc_u, rea_u = _tax_mod.admit(
+        "", {"source": "subagent-verdict", "lineage": "L",
+             "findings": [{"severity": "minor", "category": "correctness",
+                           "summary": {"unserializable"}}]},
+        directory=unser)
+    check("an unserializable record still reaches the quarantine",
+          acc_u is False
+          and (unser / "review-findings-rejected.jsonl").is_file()
+          and "unserializable" in (unser / "review-findings-rejected.jsonl")
+          .read_text(encoding="utf-8"),
+          "%r" % (rea_u,))
+    ro = Path(tempfile.mkdtemp(prefix="vc-ro-"))
+    TMPDIRS.append(ro)
+    (ro / "review-findings-rejected.jsonl").mkdir()
+    raised_io = None
+    try:
+        acc_io, rea_io = _tax_mod.admit(
+            "", {"source": "subagent-verdict", "lineage": "L",
+                 "findings": [{"severity": "nope", "category": "correctness"}]},
+            directory=ro)
+    except Exception as exc:
+        raised_io = exc
+    check("an unwritable quarantine never crashes the writer",
+          raised_io is None and acc_io is False, repr(raised_io))
     check("a non-object record is rejected, never coerced into one",
           bogus is None
           and not (coerce_dir / "review-findings.jsonl").exists()
@@ -682,6 +788,33 @@ def main() -> int:
     accepted, reasons = _tax_mod.admit(
         "", hostile, {"taxonomy_version": 1}, directory=admit_dir)
     quarantined = (admit_dir / "review-findings-rejected.jsonl")
+    named = Path(tempfile.mkdtemp(prefix="vc-named-"))
+    TMPDIRS.append(named)
+    custom = {**TAX, "rejection": {**TAX["rejection"],
+                                   "file": "custom-rejected.jsonl"}}
+    _tax_mod.admit("", {"source": "subagent-verdict", "lineage": "L",
+                        "findings": [{"severity": "minor",
+                                      "category": "nope"}]},
+                   custom, directory=named)
+    # Аварийная ветка проверяется на ЧИСТОМ каталоге: иначе проверка лишь
+    # подтверждала бы, что файл создан предыдущей, обычной веткой отказа.
+    named2 = Path(tempfile.mkdtemp(prefix="vc-named2-"))
+    TMPDIRS.append(named2)
+    (named2 / "review-findings.jsonl").mkdir()
+    accepted_n, reasons_n = _tax_mod.admit(
+        "", {"source": "subagent-verdict", "lineage": "L",
+             "findings": [{"severity": "minor", "category": "correctness"}]},
+        custom, directory=named2)
+    admit_error_entry = ((named2 / "custom-rejected.jsonl").read_text(
+        encoding="utf-8") if (named2 / "custom-rejected.jsonl").is_file() else "")
+    check("every rejection path honours the configured quarantine name",
+          (named / "custom-rejected.jsonl").is_file()
+          and not (named / "review-findings-rejected.jsonl").exists()
+          and accepted_n is False
+          and any(r.startswith("admit-error:") for r in reasons_n)
+          and "admit-error:" in admit_error_entry
+          and not (named2 / "review-findings-rejected.jsonl").exists(),
+          "%r / %s" % (reasons_n, sorted(x.name for x in named2.iterdir())))
     check("an unexpected error inside admit names a reason and quarantines",
           accepted is False
           and any(r.startswith("admit-error:") for r in reasons)
@@ -748,12 +881,32 @@ def main() -> int:
           not copies, "; ".join("%s: %s" % (n, h) for n, h in copies))
 
     # документация схемы не расходится с файлом словарей
-    for doc in (ROOT / "skills" / "review" / "SKILL.md",
-                ROOT / "agents" / "code-reviewer.md"):
-        txt = doc.read_text(encoding="utf-8")
-        check("schema doc lists the exact vocabulary: " + doc.name,
-              all(c in txt for c in CATS),
-              ", ".join(c for c in CATS if c not in txt))
+    # Точная сверка в обе стороны: документ обязан назвать каждое значение
+    # словаря и не имеет права называть отсутствующие — иначе устаревшая
+    # категория живёт в доке, а проверка остаётся зелёной.
+    # Сверка по СПИСКУ, который документ объявляет, а не по вхождению строк:
+    # прежняя проверка ловила лишнее значение, только если оно оказывалось в
+    # legacyMapping, то есть произвольная лишняя категория проходила мимо.
+    skill_listed = re.findall(r"^- `([a-z0-9-]+)` — ",
+                              (ROOT / "skills" / "review" / "SKILL.md")
+                              .read_text(encoding="utf-8"), re.M)
+    check("schema doc lists the exact vocabulary: SKILL.md",
+          skill_listed == CATS, "listed=%s" % (skill_listed,))
+    agent_txt = (ROOT / "agents" / "code-reviewer.md").read_text(encoding="utf-8")
+    agent_line = agent_txt[agent_txt.index("`category` — exactly one of"):]
+    agent_listed = re.findall(r"`([a-z0-9-]+)`",
+                              agent_line[:agent_line.index("declared in")])
+    check("schema doc lists the exact vocabulary: code-reviewer.md",
+          agent_listed[1:] == CATS, "listed=%s" % (agent_listed[1:],))
+
+    # Доки против кода внутри самого модуля: имя файла счётчика названо и
+    # прозой, и константой — они обязаны совпадать.
+    module_text = (ROOT / "skills" / "_shared"
+                   / "itd_verdict_taxonomy.py").read_text(encoding="utf-8")
+    check("module prose names the same counter file as its constant",
+          "review-findings-rejected.count.json;" not in module_text
+          and _tax_mod.REJECTED_COUNT_FILE in module_text,
+          _tax_mod.REJECTED_COUNT_FILE)
 
     # --- модуль словарей: прямые юнит-проверки правил ------------------------
     itd_verdict_taxonomy = _tax_mod
@@ -790,6 +943,81 @@ def main() -> int:
           any(r.startswith("taxonomy:bySource-missing-for")
               for r in itd_verdict_taxonomy.validate_record(
                   ok, {**tx, "severity": {**tx["severity"], "bySource": {}}})))
+    huge_bad = {"source": "subagent-verdict", "lineage": "L",
+                "findings": [{"severity": "minor", "category": "made-up",
+                              "summary": "Q" * 60000}]}
+    big2 = Path(tempfile.mkdtemp(prefix="vc-bigbad-"))
+    TMPDIRS.append(big2)
+    accepted2, reasons2 = _tax_mod.admit("", huge_bad, directory=big2)
+    quar2 = (big2 / "review-findings-rejected.jsonl").read_text(encoding="utf-8")
+    check("an oversized INVALID record is refused the canonical ledger too",
+          accepted2 is False
+          and any(r.startswith("record:too-large:") for r in reasons2)
+          and not (big2 / "review-findings.jsonl").exists()
+          and "Q" * 60000 in quar2, "quarantine bytes=%d" % len(quar2))
+    idem = Path(tempfile.mkdtemp(prefix="vc-idem-"))
+    TMPDIRS.append(idem)
+    same = {"source": "subagent-verdict", "lineage": "L",
+            "findings": [{"severity": "minor", "category": "made-up"}]}
+    for _ in range(4):
+        _tax_mod.admit("", dict(same), directory=idem)
+    q_lines = (idem / "review-findings-rejected.jsonl").read_text(
+        encoding="utf-8").splitlines()
+    check("the same rejection is recorded once, not once per retry",
+          len(q_lines) == 1
+          and _tax_mod.rejected_summary("", directory=idem)["total"] == 1,
+          "lines=%d" % len(q_lines))
+    other = dict(same, findings=[{"severity": "nope", "category": "made-up"}])
+    _tax_mod.admit("", other, directory=idem)
+    check("a different rejection class is still recorded separately",
+          len((idem / "review-findings-rejected.jsonl")
+              .read_text(encoding="utf-8").splitlines()) == 2)
+    # Точность СЧЁТА не зависит от гонки: параллельные писатели могут
+    # проскочить предзапись-дедуп, но одна и та же отклонённая запись
+    # засчитывается ровно один раз.
+    race = Path(tempfile.mkdtemp(prefix="vc-idem-race-"))
+    TMPDIRS.append(race)
+    dup_worker = (
+        "import sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "import itd_verdict_taxonomy as t\n"
+        "start = float(sys.argv[1])\n"
+        "while time.time() < start:\n"
+        "    pass\n"
+        "for _ in range(15):\n"
+        "    t.admit('', {'source': 'subagent-verdict', 'lineage': 'same',\n"
+        "                 'findings': [{'severity': 'minor',\n"
+        "                               'category': 'made-up'}]},\n"
+        "             directory=%r)\n" % (str(ROOT / "skills" / "_shared"), str(race)))
+    barrier3 = time.time() + 1.5
+    procs3 = [subprocess.Popen([PY, "-c", dup_worker, str(barrier3)])
+              for _ in range(8)]
+    for pr in procs3:
+        pr.wait(timeout=120)
+    summary_race = _tax_mod.rejected_summary("", directory=race)
+    # Детерминированно: дубли в журнале счётчика (как их оставила бы гонка,
+    # проскочившая предзапись-дедуп) не должны раздувать измерение.
+    dupdir = Path(tempfile.mkdtemp(prefix="vc-dupcount-"))
+    TMPDIRS.append(dupdir)
+    (dupdir / "review-findings-rejected.count.jsonl").write_text(
+        "\n".join(json.dumps({"ts": "t", "reasons": ["category[0]:'x'"],
+                              "identity": "abc"}) for _ in range(5)) + "\n",
+        encoding="utf-8")
+    check("duplicate counter lines for one identity count once",
+          _tax_mod.rejected_summary("", directory=dupdir)
+          == {"total": 1, "byReason": {"category": 1}},
+          repr(_tax_mod.rejected_summary("", directory=dupdir)))
+    check("the rejection count is exact even when writers race",
+          summary_race.get("total") == 1
+          and summary_race.get("byReason", {}).get("category") == 1,
+          json.dumps(summary_race, ensure_ascii=False))
+    check("a non-string quarantine filename is not coerced into one",
+          _load_from({**TAX, "rejection": {**TAX["rejection"], "file": []}})
+          is None)
+    check("the record limit is declared in the taxonomy, not hidden in code",
+          _load_from({**TAX, "limits": {"maxRecordBytes": 10}}) is None
+          and TAX["limits"]["maxRecordBytes"] >= 1024
+          and _load_from(TAX) is not None)
     check("a boolean, zero or negative taxonomy_version is not a version",
           _load_from({**TAX, "taxonomy_version": True}) is None
           and _load_from({**TAX, "taxonomy_version": 0}) is None

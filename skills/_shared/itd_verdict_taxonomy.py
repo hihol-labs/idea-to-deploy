@@ -14,12 +14,13 @@ review-findings ledger:
     проверяются, они нормализуются только на чтении через legacyMapping;
   * отклонение != потеря: невалидная запись целиком уходит в карантин
     review-findings-rejected.jsonl с машиночитаемой причиной, счётчик причин
-    ведётся в review-findings-rejected.count.json;
+    ведётся в review-findings-rejected.count.jsonl;
   * недоступный/битый файл словарей — это ПРИЧИНА taxonomy-unavailable, а не
     молчаливый пропуск и не тихая запись в канонический леджер.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -32,6 +33,18 @@ REJECTED_FILE = "review-findings-rejected.jsonl"
 REJECTED_COUNT_FILE = "review-findings-rejected.count.jsonl"
 FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
 REASON_TAXONOMY_UNAVAILABLE = "taxonomy-unavailable"
+REASON_TOO_LARGE = "record:too-large"
+MAX_RECORD_BYTES_DEFAULT = 16 * 1024
+# Причины, которые говорят о СОСТОЯНИИ ХОСТА, а не о самой записи: при них
+# писателю имеет смысл повторить попытку позже. Всё остальное - свойство
+# содержимого, повтор ничего не изменит.
+TRANSIENT_REASON_PREFIXES = (REASON_TAXONOMY_UNAVAILABLE, "admit-error:")
+
+
+def is_transient(reasons) -> bool:
+    """True, если отказ вызван состоянием хоста и повтор осмыслен."""
+    return any(str(r).startswith(TRANSIENT_REASON_PREFIXES)
+               for r in (reasons or []))
 # Источник-ревьюер: он всегда судит сам, поэтому послабления
 # externalOnly к нему не применяются ни при каком словаре.
 SOURCE_REVIEWER = "subagent-verdict"
@@ -119,13 +132,28 @@ def load_taxonomy(path: Path | None = None):
                     return None
                 if target not in allowed:
                     return None
-        rej_file = str(data["rejection"]["file"]).strip()
+        rej_file_raw = data["rejection"]["file"]
+        # Именно строка, а не то, что можно привести к строке: `[]` не должен
+        # превращаться в имя файла "[]" и молча стать карантином.
+        if not isinstance(rej_file_raw, str):
+            return None
+        rej_file = rej_file_raw.strip()
         # Голое имя файла и заведомо не канонический леджер: иначе испорченный
         # словарь направил бы карантин прямо в приёмный журнал.
         if (not rej_file or rej_file in (FINDINGS_FILE, REJECTED_COUNT_FILE)
                 or rej_file != Path(rej_file).name
                 or rej_file.startswith(".")):
             return None
+        limits = data.get("limits")
+        if limits is not None:
+            if not isinstance(limits, dict):
+                return None
+            cap = limits.get("maxRecordBytes")
+            # Предел объявляется данными, но не может быть объявлен настолько
+            # малым, что ни одна нормальная находка в него не влезет.
+            if cap is not None and (isinstance(cap, bool)
+                                    or not isinstance(cap, int) or cap < 1024):
+                return None
         defaults = data.get("writerDefaults")
         if defaults is not None:
             if not isinstance(defaults, dict):
@@ -253,18 +281,25 @@ def _rotate_oversized(path: Path) -> None:
         os.close(claim)
         try:
             os.replace(path, candidate)
+        except OSError:
+            # Переименование НЕ состоялось: заявка пуста, её можно снять.
+            # Кто-то отротировал раньше; запись уже дописана и durable,
+            # ротация — только уборка, поэтому её сбой не станет отказом.
+            try:
+                candidate.unlink()
+            except OSError:
+                pass
+            return
+        # Дальше candidate содержит ВЕСЬ леджер, и удалять его нельзя ни при
+        # какой ошибке: отдельный try, иначе неудача пересоздания (ENOSPC)
+        # стирала бы историю, которую ротация только что сохранила.
+        try:
             # Канонический путь обязан существовать сразу после ротации:
             # потребитель, читающий только его, иначе увидел бы «леджера нет»
             # вместо «леджер пуст, история в поколениях».
             os.close(os.open(str(path), os.O_CREAT | os.O_WRONLY, 0o600))
         except OSError:
-            # Кто-то отротировал раньше: снять свою пустую заявку и уйти.
-            # Запись УЖЕ дописана и durable, ротация — только уборка, поэтому
-            # её сбой не имеет права стать отказом.
-            try:
-                candidate.unlink()
-            except OSError:
-                pass
+            pass
         return
 
 
@@ -278,7 +313,8 @@ def _append_bounded(path: Path, line: str) -> None:
         _rotate_oversized(path)
 
 
-def bump_rejected_counter(cwd: str, reasons, directory=None) -> None:
+def bump_rejected_counter(cwd: str, reasons, directory=None,
+                          identity: str = "") -> None:
     """Счётчик отклонённых переживает урезание карантина по размеру, поэтому он
     отдельный файл. Форма — append-only JSONL: у записи НЕТ фазы
     read-modify-write, поэтому два писателя (хук и импортёр) не могут ни
@@ -288,25 +324,59 @@ def bump_rejected_counter(cwd: str, reasons, directory=None) -> None:
     line = json.dumps({
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "reasons": [str(r) for r in (reasons or ["unspecified"])],
+        "identity": identity,
     }, ensure_ascii=False)
     with p.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
 
 
+def _identity_present(path: Path, identity: str) -> bool:
+    """Есть ли уже такая пара (запись, классы причин) в текущем поколении.
+    Поиск по подстроке достаточен: identity — шестнадцатеричный дайджест."""
+    try:
+        return identity in path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
 def reject(cwd: str, rec, reasons, tax=None, directory=None) -> Path:
     """Запись не принята — но и не потеряна: целиком уходит в карантин."""
     path = rejected_path(cwd, tax, directory)
+    classes = sorted({str(r).split(":", 1)[0].split("[", 1)[0]
+                      for r in (reasons or [])})
+    try:
+        payload = json.dumps(rec, ensure_ascii=False, sort_keys=True, default=repr)
+    except Exception:
+        payload = repr(rec)
+    identity = hashlib.sha256(
+        ("|".join(classes) + "\u0000" + payload).encode("utf-8", "replace")).hexdigest()
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "reasons": list(reasons),
+        "identity": identity,
         "record": rec,
     }
-    # Осознанный размен: карантин НЕ урезается по размеру. Он и есть улика
-    # промаха словаря; выбрасывая старую половину, он уничтожал бы ровно то,
-    # ради чего заведён. Ограничение размера остаётся у канонического леджера.
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    bump_rejected_counter(cwd, reasons, directory)
+    # Идемпотентность: та же запись, отклонённая по тем же классам причин, не
+    # дописывается второй раз. Повтор временного отказа (пока чинят словарь)
+    # обязан быть возможен, но он не должен раздувать улику и счётчик.
+    if _identity_present(path, identity):
+        return path
+    # Ввод-вывод карантина не имеет права уронить писателя: переполненный или
+    # недоступный на запись каталог — это состояние хоста, а не повод сорвать
+    # сессию. Отказ уже возвращён вызывающему как результат admit().
+    # Карантин никогда не УСЕКАЕТ запись — он и есть улика; размер файла
+    # держит та же ротация, что и у канонического леджера.
+    # default=repr: reject принимает ЛЮБОЙ вход, включая несериализуемый.
+    # Без него сериализация карантина падала бы ровно на той записи, ради
+    # сохранения которой карантин и существует.
+    try:
+        _append_bounded(path, json.dumps(entry, ensure_ascii=False, default=repr))
+    except Exception:
+        pass
+    try:
+        bump_rejected_counter(cwd, reasons, directory, identity)
+    except Exception:
+        pass
     return path
 
 
@@ -323,6 +393,24 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         # Никакого приведения типа: dict(rec or {}) превращал бы не-объект
         # (None, список пар) в валидное отображение и тем самым обходил
         # собственную проверку record:not-an-object.
+        # Предел на ОДНУ запись проверяется ДО валидации: иначе огромная
+        # НЕВАЛИДНАЯ запись уходила бы в карантин целиком, и ограничение
+        # действовало бы ровно на тех записях, которые и так в порядке.
+        cap = int((taxonomy.get("limits") or {}).get("maxRecordBytes")
+                  or MAX_RECORD_BYTES_DEFAULT)
+        try:
+            encoded = json.dumps(rec, ensure_ascii=False, default=repr).encode("utf-8")
+        except Exception:
+            encoded = repr(rec).encode("utf-8", "replace")
+        if len(encoded) > cap:
+            # Предел закрывает вход в КАНОНИЧЕСКИЙ леджер. В карантин запись
+            # уходит ЦЕЛИКОМ: «леджер ограничен» и «отклонённая запись
+            # сохранена полностью» не противоречат друг другу, потому что
+            # размер карантина держит РОТАЦИЯ, а не усечение записи.
+            # Ротация сохраняет, усечение уничтожает.
+            reasons = ["%s:%d" % (REASON_TOO_LARGE, len(encoded))]
+            reject(cwd, rec, reasons, taxonomy, directory)
+            return False, reasons
         if not isinstance(rec, dict):
             reasons = ["record:not-an-object"]
             reject(cwd, rec, reasons, taxonomy, directory)
@@ -341,7 +429,9 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         # даёт названную причину и карантин, а не тихий дроп через общий
         # except писателя (r4: структурно битый, но парсящийся словарь).
         reasons = ["admit-error:%s" % type(exc).__name__]
-        reject(cwd, rec, reasons, None, directory)
+        # taxonomy, а не None: словарь загружен и валиден, поэтому даже
+        # аварийный отказ обязан писать в НАСТРОЕННЫЙ файл карантина.
+        reject(cwd, rec, reasons, taxonomy, directory)
         return False, reasons
     if reasons:
         reject(cwd, rec, reasons, taxonomy, directory)
@@ -353,7 +443,9 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
                         json.dumps(rec, ensure_ascii=False))
     except Exception as exc:
         reasons = ["admit-error:%s" % type(exc).__name__]
-        reject(cwd, rec, reasons, None, directory)
+        # taxonomy, а не None: словарь загружен и валиден, поэтому даже
+        # аварийный отказ обязан писать в НАСТРОЕННЫЙ файл карантина.
+        reject(cwd, rec, reasons, taxonomy, directory)
         return False, reasons
     return True, []
 
@@ -397,6 +489,7 @@ def rejected_summary(cwd: str, directory=None) -> dict:
     p = rejected_count_path(cwd, directory)
     total = 0
     by_reason: dict = {}
+    counted: set = set()
     try:
         text = p.read_text(encoding="utf-8", errors="replace")
     except Exception:
@@ -414,6 +507,17 @@ def rejected_summary(cwd: str, directory=None) -> dict:
         # падение всего /retro на .get().
         if not isinstance(entry, dict):
             continue
+        # Счёт ведётся по РАЗЛИЧНЫМ личностям записи, а не по строкам журнала.
+        # Предзапись-дедуп — это чтение-и-дозапись, то есть под конкуренцией
+        # он в принципе не может быть точным; измерение же точно по
+        # построению, без блокировок: одна и та же отклонённая запись с теми
+        # же классами причин считается один раз, сколько бы писателей ни
+        # записали её одновременно.
+        identity = entry.get("identity")
+        key_id = identity if isinstance(identity, str) and identity else ("#%d" % total)
+        if key_id in counted:
+            continue
+        counted.add(key_id)
         total += 1
         for r in (entry.get("reasons") or ["unspecified"]):
             key = str(r).split(":", 1)[0].split("[", 1)[0] or "unspecified"

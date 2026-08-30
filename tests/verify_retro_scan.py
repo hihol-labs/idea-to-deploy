@@ -128,6 +128,12 @@ def main() -> int:
              "findings": [{"severity": "critical", "category": "dead-code",
                            "file": "src/rot.ts", "summary": "rotated away"}]}))
 
+        # посторонний файл с цифрой в суффиксе — не поколение леджера
+        write(mem_a / "review-findings.jsonl.1.bak", json.dumps(
+            {"ts": "tX", "project": "alpha", "verdict": "BLOCKED",
+             "findings": [{"severity": "critical", "category": "security",
+                           "file": "src/bak.ts", "summary": "from a backup"}]}))
+
         # счётчик отклонённых — append-only журнал (у записи нет фазы
         # read-modify-write, поэтому два писателя не теряют обновления)
         write(mem_a / "review-findings-rejected.count.jsonl", "\n".join([
@@ -173,6 +179,9 @@ def main() -> int:
               out[-900:])
         check("rotated ledger generations stay visible to the reader",
               "ревью 4" in out and "находок 5" in out, out[-900:])
+        check("a non-generation file with a digit suffix is not ingested",
+              "`security`" not in out and "from a backup" not in out,
+              out[-900:])
         check("taxonomy version surfaced with the findings section",
               "словарь v1" in out, out[-900:])
         check("vocabulary misses are visible, not silent",

@@ -175,13 +175,53 @@ def resolve_final_text(transcript_path: str) -> tuple[str, str]:
     return "", ""
 
 
+_REVIEWER_CATEGORIES: list | None = None
+_REVIEWER_CATEGORIES_READ = False
+
+
+def _reviewer_categories():
+    """Словарь категорий ревьюера или None, если словарь недоступен. None —
+    это fail-open ДЛЯ ГЕЙТА: ломать сессию из-за недоступного словаря нельзя,
+    запись всё равно уедет в карантин с названной причиной."""
+    global _REVIEWER_CATEGORIES, _REVIEWER_CATEGORIES_READ
+    if _REVIEWER_CATEGORIES_READ:
+        return _REVIEWER_CATEGORIES
+    _REVIEWER_CATEGORIES_READ = True
+    mod = load_taxonomy_module()
+    tax = mod.load_taxonomy() if mod is not None else None
+    if tax:
+        values = tax["category"].get("bySource", {}).get(SOURCE_SUBAGENT)
+        if isinstance(values, list) and values:
+            _REVIEWER_CATEGORIES = list(values)
+    return _REVIEWER_CATEGORIES
+
+
 def _valid_verdict_object(obj) -> bool:
     if not isinstance(obj, dict):
         return False
     v = obj.get("verdict")
     if not isinstance(v, str) or v.strip().upper() not in ALLOWED_VERDICTS:
         return False
-    return isinstance(obj.get("findings"), list)
+    findings = obj.get("findings")
+    if not isinstance(findings, list):
+        return False
+    # Гейт повтора обязан требовать то же, что и схема леджера. Иначе вердикт
+    # без category считается валидным здесь, субагент уходит, а запись молча
+    # уезжает в карантин — то есть модель НЕ получает шанс дать категорию
+    # тогда, когда ещё может её дать.
+    allowed = _reviewer_categories()
+    for f in findings:
+        if not isinstance(f, dict):
+            return False
+        category = f.get("category")
+        if not isinstance(category, str) or not category.strip():
+            return False
+        # Гейт проверяет ИМЕННО тот словарь, который применит леджер: иначе
+        # опечатка проходит контракт, субагент уходит, и запись отправляется
+        # в карантин уже тогда, когда исправить её некому.
+        if allowed is not None and category not in allowed:
+            return False
+    return True
 
 
 def _inline_verdict_objects(text: str):

@@ -164,7 +164,7 @@
   },
   "rejection": {
     "file": "review-findings-rejected.jsonl",
-    "note": "A record that fails validation is NOT dropped and NOT admitted to the canonical ledger: it is appended here with the reason, and the counter file records how often each reason fired. The quarantine is the measured evidence for a taxonomy_version 2 rename/split/merge. The quarantine is append-only and is NOT size-truncated: discarding old rejections would destroy the very evidence it exists to keep. The counter is a separate append-only journal, so a huge quarantine still cannot lose a count. The file name is a bare basename validated on load: a corrupted taxonomy must not be able to aim the quarantine at the canonical ledger."
+    "note": "A record that fails validation is NOT dropped and NOT admitted to the canonical ledger: it is appended here with the reason, and the counter file records how often each reason fired. The quarantine is the measured evidence for a taxonomy_version 2 rename/split/merge. The quarantine keeps every rejected record whole and never truncates one; the FILE is bounded by rotation into numbered generations, exactly like the canonical ledger. A repeated rejection of the same record for the same reason classes is skipped before the write when a previous entry is visible, but that check is a read-then-append and cannot be exact under concurrent writers. The MEASUREMENT is exact by construction instead: the counter is aggregated by distinct record identity, so the same rejection counts once no matter how many writers recorded it. Nothing is ever lost; at worst a duplicate line appears, bounded by rotation."
   },
   "writerDefaults": {
     "external-github-review": {
@@ -177,5 +177,9 @@
       "severity": "unspecified",
       "category": "unclassified"
     }
+  },
+  "limits": {
+    "maxRecordBytes": 16384,
+    "note": "A record larger than maxRecordBytes is not admitted to the canonical ledger: reason record:too-large. The quarantine still stores it IN FULL - the two requirements (a bounded ledger, a rejected record kept whole) are not in conflict, because the quarantine file is bounded by ROTATION, not by truncating a record. Rotation preserves; truncation destroys."
   }
 }

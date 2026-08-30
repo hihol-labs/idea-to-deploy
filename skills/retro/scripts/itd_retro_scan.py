@@ -262,8 +262,17 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
     # Переполненный леджер РОТИРУЕТСЯ (писатель не имеет права стирать легаси),
     # поэтому читатель обязан видеть и отротированные поколения: иначе история
     # исчезает из майнинга ровно в тот момент, когда её стало много.
-    paths = [g for p in paths
-             for g in (p, *sorted(p.parent.glob(p.name + ".[0-9]*")))]
+    def _generations(base: Path):
+        # Строго числовой суффикс: `.1.bak` или `.2-old` — посторонние файлы,
+        # а не поколения леджера, и подмешивать их в статистику нельзя.
+        found = []
+        for cand in base.parent.glob(base.name + ".*"):
+            tail = cand.name[len(base.name) + 1:]
+            if tail.isdigit():
+                found.append((int(tail), cand))
+        return [c for _, c in sorted(found)]
+
+    paths = [g for p in paths for g in (p, *_generations(p))]
     paths = [p for p in paths if p.is_file()]
     rejected = {"total": 0, "byReason": {}}
     for d in list(mems) + [tmp_dir]:

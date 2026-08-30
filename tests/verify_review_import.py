@@ -144,6 +144,39 @@ with tempfile.TemporaryDirectory() as mem:
           r_bad.returncode == 0 and r_ok.returncode == 0 and len(recs_r) == 2,
           f"n={len(recs_r)} bad={r_bad.stdout!r} ok={r_ok.stdout!r}")
 
+# отказ по СОДЕРЖАНИЮ не повторяется каждый прогон
+with tempfile.TemporaryDirectory() as mem:
+    narrow = json.load(open(os.path.join(ROOT, "skills", "_shared",
+                                         "VERDICT_TAXONOMY.json"),
+                            encoding="utf-8"))
+    narrow["category"]["bySource"]["external-github-review"] = ["correctness"]
+    narrow["writerDefaults"]["external-github-review"]["category"] = "correctness"
+    npath = os.path.join(mem, "narrow.json")
+    with open(npath, "w", encoding="utf-8") as fh:
+        json.dump(narrow, fh, ensure_ascii=False)
+    env_n = dict(os.environ, ITD_VERDICT_TAXONOMY=npath)
+    bad = [{"id": 301, "created_at": "2026-07-05T10:00:00Z",
+            "issue_url": "https://api.github.com/repos/x/y/issues/1052",
+            "user": {"login": "partner"},
+            "body": "Отчёт не укладывался в statement_timeout, добавил индекс."}]
+    for _ in range(2):
+        subprocess.run([sys.executable, SCRIPT, "--stdin", "--project", "probe",
+                        "--dir", mem], input=json.dumps(bad),
+                       capture_output=True, text=True, timeout=30, env=env_n)
+    quarantine = os.path.join(mem, "review-findings-rejected.jsonl")
+    lines = (open(quarantine, encoding="utf-8").read().splitlines()
+             if os.path.exists(quarantine) else [])
+    r2n = subprocess.run([sys.executable, SCRIPT, "--stdin", "--project",
+                          "probe", "--dir", mem], input=json.dumps(bad),
+                         capture_output=True, text=True, timeout=30, env=env_n)
+    check("a content rejection is not re-quarantined on every rerun",
+          len(lines) == 1, f"lines={len(lines)}")
+    # Отказ по СОДЕРЖАНИЮ повтором не изменится, поэтому он не пересдаётся
+    # валидатору вовсе: это экономия работы, а карантин и так идемпотентен.
+    check("a content rejection is not re-submitted to the validator either",
+          "rejected 0" in r2n.stdout or "rejected" not in r2n.stdout,
+          f"out={r2n.stdout!r}")
+
 # словарь недоступен -> импортёр ничего не теряет и ничего не подсовывает
 with tempfile.TemporaryDirectory() as mem:
     env = dict(os.environ, ITD_VERDICT_TAXONOMY=os.path.join(mem, "nope.json"))
