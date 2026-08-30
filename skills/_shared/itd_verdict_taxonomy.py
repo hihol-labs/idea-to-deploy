@@ -10,7 +10,7 @@ review-findings ledger:
 
 Инварианты (ADVISORY-RSI-2026-08-27-v4 §5 PILOT):
   * словари объявлены ровно в одном месте — VERDICT_TAXONOMY.json рядом;
-  * валидация forward-only: записи БЕЗ taxonomyVersion не переписываются и не
+  * валидация forward-only: записи БЕЗ taxonomy_version не переписываются и не
     проверяются, они нормализуются только на чтении через legacyMapping;
   * отклонение != потеря: невалидная запись целиком уходит в карантин
     review-findings-rejected.jsonl с машиночитаемой причиной, счётчик причин
@@ -51,10 +51,12 @@ def load_taxonomy(path: Path | None = None):
     отправить запись в карантин, а не принять её и не выбросить."""
     try:
         data = json.loads((path or taxonomy_path()).read_text(encoding="utf-8"))
-        # bool — подкласс int в Python, поэтому `taxonomyVersion: true`
+        # bool — подкласс int в Python, поэтому `taxonomy_version: true`
         # прошёл бы голую isinstance-проверку и был бы проштампован в записи.
-        if (isinstance(data["taxonomyVersion"], bool)
-                or not isinstance(data["taxonomyVersion"], int)):
+        # bool — подкласс int, а 0 и отрицательные значения не являются
+        # версией: и то и другое проштамповалось бы в записи как «валидное».
+        version = data["taxonomy_version"]
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
             return None
         for key in ("source", "severity", "category"):
             if not isinstance(data[key]["values"], list) or not data[key]["values"]:
@@ -63,9 +65,17 @@ def load_taxonomy(path: Path | None = None):
             for v in data[key]["values"]:
                 if not isinstance(v, str) or not v.strip():
                     return None
+        declared_sources = set(data["source"]["values"])
         for key in ("severity", "category"):
             by = data[key]["bySource"]
             if not isinstance(by, dict) or not by:
+                return None
+            # Политика обязана существовать для КАЖДОГО объявленного источника
+            # и не для посторонних: иначе словарь без записи, например, для
+            # manual-entry принимался бы, а писатель с этим источником не имел
+            # бы ни одного разрешённого значения — отказ выглядел бы дефектом
+            # писателя, а не испорченного словаря.
+            if set(by) != declared_sources:
                 return None
             # Значения bySource обязаны лежать в объявленном словаре: иначе
             # семантически испорченный файл расширял бы «закрытый» перечень,
@@ -117,8 +127,24 @@ def load_taxonomy(path: Path | None = None):
                 or rej_file.startswith(".")):
             return None
         defaults = data.get("writerDefaults")
-        if defaults is not None and not isinstance(defaults, dict):
-            return None
+        if defaults is not None:
+            if not isinstance(defaults, dict):
+                return None
+            # Значение по умолчанию, недопустимое для своего же источника,
+            # обрекало бы писателя на вечный карантин.
+            for source_name, values in defaults.items():
+                if source_name not in declared_sources:
+                    return None
+                if not isinstance(values, dict):
+                    return None
+                if values.get("source") not in (None, source_name):
+                    return None
+                for key in ("severity", "category"):
+                    value = values.get(key)
+                    if value is None:
+                        continue
+                    if value not in data[key]["bySource"].get(source_name, []):
+                        return None
         return data
     except Exception:
         return None
@@ -201,27 +227,55 @@ def rejected_count_path(cwd: str, directory=None) -> Path:
     return _name(_dir(cwd, directory), REJECTED_COUNT_FILE)
 
 
+def _size_or_zero(path: Path) -> int:
+    """Размер файла или 0, если его уже отротировал параллельный писатель."""
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def _rotate_oversized(path: Path) -> None:
+    """Отротировать переполненный леджер атомарным переименованием в свободное
+    поколение. Отдельная функция, а не ветка внутри записи, потому что её
+    поведение — часть контракта («ничего не теряется, канонический путь на
+    месте, чужая гонка не отменяет запись») и должно проверяться напрямую, а
+    не через удачно случившуюся гонку."""
+    for generation in range(1, 1000):
+        candidate = path.with_name("%s.%d" % (path.name, generation))
+        try:
+            claim = os.open(str(candidate),
+                            os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            continue
+        except OSError:
+            return
+        os.close(claim)
+        try:
+            os.replace(path, candidate)
+            # Канонический путь обязан существовать сразу после ротации:
+            # потребитель, читающий только его, иначе увидел бы «леджера нет»
+            # вместо «леджер пуст, история в поколениях».
+            os.close(os.open(str(path), os.O_CREAT | os.O_WRONLY, 0o600))
+        except OSError:
+            # Кто-то отротировал раньше: снять свою пустую заявку и уйти.
+            # Запись УЖЕ дописана и durable, ротация — только уборка, поэтому
+            # её сбой не имеет права стать отказом.
+            try:
+                candidate.unlink()
+            except OSError:
+                pass
+        return
+
+
 def _append_bounded(path: Path, line: str) -> None:
     """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
     его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
     трогать; ротация сохраняет их в соседнем поколении."""
     with path.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
-    if path.stat().st_size > FINDINGS_SOFT_BYTES:
-        # Ротация — ТОЛЬКО атомарное переименование в свободное поколение.
-        # Обнуление файла на месте теряло бы запись, которую параллельный
-        # писатель успел дописать между чтением размера и очисткой; при
-        # переименовании его дозапись остаётся в переименованном файле.
-        for generation in range(1, 1000):
-            candidate = path.with_name("%s.%d" % (path.name, generation))
-            try:
-                claim = os.open(str(candidate),
-                                os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            except FileExistsError:
-                continue
-            os.close(claim)
-            os.replace(path, candidate)
-            break
+    if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
+        _rotate_oversized(path)
 
 
 def bump_rejected_counter(cwd: str, reasons, directory=None) -> None:
@@ -266,14 +320,21 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         reject(cwd, rec, [REASON_TAXONOMY_UNAVAILABLE], None, directory)
         return False, [REASON_TAXONOMY_UNAVAILABLE]
     try:
-        rec = dict(rec or {})
+        # Никакого приведения типа: dict(rec or {}) превращал бы не-объект
+        # (None, список пар) в валидное отображение и тем самым обходил
+        # собственную проверку record:not-an-object.
+        if not isinstance(rec, dict):
+            reasons = ["record:not-an-object"]
+            reject(cwd, rec, reasons, taxonomy, directory)
+            return False, reasons
+        rec = dict(rec)
         # Штамп версии ставится ТОЛЬКО при приёме: пометив запись до
         # валидации, карантин хранил бы уже изменённый вход, а он обязан
         # сохранять ровно то, что пришло.
-        supplied = rec.get("taxonomyVersion")
+        supplied = rec.get("taxonomy_version")
         reasons = validate_record(rec, taxonomy)
-        if supplied is not None and supplied != taxonomy["taxonomyVersion"]:
-            reasons = reasons + ["taxonomyVersion:%r" % (supplied,)]
+        if supplied is not None and supplied != taxonomy["taxonomy_version"]:
+            reasons = reasons + ["taxonomy_version:%r" % (supplied,)]
     except Exception as exc:
         # Инвариант «запись не теряется» держится ОДНОЙ воронкой, а не
         # перечислением веток: любая неожиданная ошибка разбора или словаря
@@ -287,7 +348,7 @@ def admit(cwd: str, rec, tax=None, directory=None) -> tuple:
         return False, reasons
     try:
         rec = dict(rec)
-        rec["taxonomyVersion"] = taxonomy["taxonomyVersion"]
+        rec["taxonomy_version"] = taxonomy["taxonomy_version"]
         _append_bounded(canonical_path(cwd, directory),
                         json.dumps(rec, ensure_ascii=False))
     except Exception as exc:

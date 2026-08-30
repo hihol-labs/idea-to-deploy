@@ -297,17 +297,11 @@ def _fallback_reject(cwd: str, rec: dict) -> None:
 
 
 def _project_finding(f):
-    """Клип известных полей БЕЗ отбрасывания остальных: карантин обязан
-    показывать то, что ревьюер прислал, поэтому `line`, `confidence` и любые
-    будущие поля доезжают до него, а не исчезают в проекции писателя."""
-    if not isinstance(f, dict):
-        return f
-    out = dict(f)
-    out["severity"] = _clip(f.get("severity"), 20)
-    out["category"] = _clip(f.get("category"), 60) or None
-    out["file"] = _clip(f.get("file"), 160)
-    out["summary"] = _clip(f.get("summary"))
-    return out
+    """Находка доезжает до валидатора БЕЗ изменений. Раньше писатель клипал
+    severity/category/file/summary, и карантин хранил уже усечённое значение —
+    то есть не то, что прислал ревьюер, хотя контракт обещает обратное. Размер
+    держит ротация леджера, а укорачивание для показа делает читатель."""
+    return f
 
 
 def persist_findings(cwd: str, key: str, obj: dict) -> None:

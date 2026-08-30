@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory() as mem:
     # PILOT-P01: провенанс и версия словаря штампуются на записи
     check("provenance-and-taxonomy-version",
           m is not None and m["source"] == "external-github-review"
-          and m["taxonomyVersion"] == 1 and m["lineage"].endswith("/968"),
+          and m["taxonomy_version"] == 1 and m["lineage"].endswith("/968"),
           f"rec={m}")
     check("category-migration-numbers", m is not None
           and m["findings"][0]["category"] == "naming-collision",
@@ -92,8 +92,11 @@ with tempfile.TemporaryDirectory() as mem:
                          encoding="utf-8"))
     swapped = dict(TAX)
     swapped["writerDefaults"] = dict(TAX["writerDefaults"])
+    # Значения отличаются от привычных, но остаются допустимыми ДЛЯ СВОЕГО
+    # источника: словарь, в котором дефолт не разрешён собственному писателю,
+    # с r19 считается испорченным и не грузится вовсе.
     swapped["writerDefaults"]["external-github-review"] = {
-        "source": "manual-entry", "severity": "minor",
+        "source": "external-github-review", "severity": "minor",
         "category": "readability"}
     tax2 = os.path.join(mem, "swapped-taxonomy.json")
     with open(tax2, "w", encoding="utf-8") as fh:
@@ -111,7 +114,7 @@ with tempfile.TemporaryDirectory() as mem:
     sw = next((x for x in recs_sw if x["pr"] == "1051"), None)
     check("writer values follow the taxonomy, not the writer's own literals",
           r_sw.returncode == 0 and sw is not None
-          and sw["source"] == "manual-entry"
+          and sw["source"] == "external-github-review"
           and sw["findings"][0]["severity"] == "minor"
           and sw["findings"][0]["category"] == "readability",
           f"rec={sw} out={r_sw.stdout!r}")
@@ -120,6 +123,26 @@ with tempfile.TemporaryDirectory() as mem:
     recs2 = [json.loads(l) for l in open(ledger, encoding="utf-8")]
     check("dedup-rerun-zero", "imported 0" in r2.stdout and len(recs2) == 3,
           f"out={r2.stdout!r} n={len(recs2)}")
+
+# отклонённый комментарий не помечается обработанным: после починки словаря
+# повторный импорт обязан его подобрать
+with tempfile.TemporaryDirectory() as mem:
+    broken = os.path.join(mem, "broken.json")
+    with open(broken, "w", encoding="utf-8") as fh:
+        fh.write("{ not json")
+    r_bad = subprocess.run(
+        [sys.executable, SCRIPT, "--stdin", "--project", "probe", "--dir", mem],
+        input=json.dumps(FIXTURE), capture_output=True, text=True, timeout=30,
+        env=dict(os.environ, ITD_VERDICT_TAXONOMY=broken))
+    r_ok = subprocess.run(
+        [sys.executable, SCRIPT, "--stdin", "--project", "probe", "--dir", mem],
+        input=json.dumps(FIXTURE), capture_output=True, text=True, timeout=30)
+    canon = os.path.join(mem, "review-findings.jsonl")
+    recs_r = [json.loads(l) for l in open(canon, encoding="utf-8")] \
+        if os.path.exists(canon) else []
+    check("a rejected comment is retried after the taxonomy is repaired",
+          r_bad.returncode == 0 and r_ok.returncode == 0 and len(recs_r) == 2,
+          f"n={len(recs_r)} bad={r_bad.stdout!r} ok={r_ok.stdout!r}")
 
 # словарь недоступен -> импортёр ничего не теряет и ничего не подсовывает
 with tempfile.TemporaryDirectory() as mem:

@@ -282,7 +282,7 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
             return None
         return {"reviewsLogged": 0, "findingsTotal": 0, "classesTotal": 0,
                 "repeatClasses": [],
-                "taxonomyVersion": (tax or {}).get("taxonomyVersion"),
+                "taxonomy_version": (tax or {}).get("taxonomy_version"),
                 "rejectedByVocabulary": rejected}
     reviews = 0
     classes: dict[str, dict] = {}
@@ -307,7 +307,7 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
                      key=lambda c: -c["count"])[:10]
     return {"reviewsLogged": reviews, "findingsTotal": total,
             "classesTotal": len(classes), "repeatClasses": repeats,
-            "taxonomyVersion": (tax or {}).get("taxonomyVersion"),
+            "taxonomy_version": (tax or {}).get("taxonomy_version"),
             "rejectedByVocabulary": rejected}
 
 
@@ -599,8 +599,8 @@ def render_markdown(r: dict) -> str:
         out.append("")
         out.append(f"**Находки /review (леджер):** ревью {rf['reviewsLogged']}, "
                    f"находок {rf['findingsTotal']}, классов {rf['classesTotal']}"
-                   + (f", словарь v{rf['taxonomyVersion']}"
-                      if rf.get("taxonomyVersion") else ""))
+                   + (f", словарь v{rf['taxonomy_version']}"
+                      if rf.get("taxonomy_version") else ""))
         rej = rf.get("rejectedByVocabulary") or {}
         if rej.get("total"):
             by = ", ".join(f"{k}×{v}" for k, v in

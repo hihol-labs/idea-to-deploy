@@ -1,6 +1,6 @@
 {
-  "taxonomyVersion": 1,
-  "purpose": "Closed vocabularies for the review-findings ledger (PILOT P0-1, ADVISORY-RSI-2026-08-27-v4 §5). One machine-readable source shared by every writer (hooks/verdict-contract.sh, skills/retro/scripts/itd_review_import.py) and by the reader (skills/retro/scripts/itd_retro_scan.py). Validation is forward-only: records written before taxonomyVersion 1 are never rewritten, they are normalized on read through legacyMapping.",
+  "taxonomy_version": 1,
+  "purpose": "Closed vocabularies for the review-findings ledger (PILOT P0-1, ADVISORY-RSI-2026-08-27-v4 §5). One machine-readable source shared by every writer (hooks/verdict-contract.sh, skills/retro/scripts/itd_review_import.py) and by the reader (skills/retro/scripts/itd_retro_scan.py). Validation is forward-only: records written before taxonomy_version 1 are never rewritten, they are normalized on read through legacyMapping.",
   "createdAt": "2026-08-29",
   "source": {
     "values": [
@@ -130,7 +130,7 @@
     ]
   },
   "legacyMapping": {
-    "note": "Applied on READ to records without taxonomyVersion. Never rewrites the ledger.",
+    "note": "Applied on READ to records without taxonomy_version. Never rewrites the ledger.",
     "category": {
       "documentation-accuracy": "documentation-accuracy",
       "test-coverage": "test-coverage",
@@ -164,7 +164,7 @@
   },
   "rejection": {
     "file": "review-findings-rejected.jsonl",
-    "note": "A record that fails validation is NOT dropped and NOT admitted to the canonical ledger: it is appended here with the reason, and the counter file records how often each reason fired. The quarantine is the measured evidence for a taxonomyVersion 2 rename/split/merge. The quarantine is append-only and is NOT size-truncated: discarding old rejections would destroy the very evidence it exists to keep. The counter is a separate append-only journal, so a huge quarantine still cannot lose a count. The file name is a bare basename validated on load: a corrupted taxonomy must not be able to aim the quarantine at the canonical ledger."
+    "note": "A record that fails validation is NOT dropped and NOT admitted to the canonical ledger: it is appended here with the reason, and the counter file records how often each reason fired. The quarantine is the measured evidence for a taxonomy_version 2 rename/split/merge. The quarantine is append-only and is NOT size-truncated: discarding old rejections would destroy the very evidence it exists to keep. The counter is a separate append-only journal, so a huge quarantine still cannot lose a count. The file name is a bare basename validated on load: a corrupted taxonomy must not be able to aim the quarantine at the canonical ledger."
   },
   "writerDefaults": {
     "external-github-review": {

@@ -373,8 +373,8 @@ def main() -> int:
     proj, iso = fresh_project()
     write_verdict(proj, iso, VALID_F)
     rec = json.loads(ledger_lines(proj, "review-findings.jsonl")[0])
-    check("accepted record carries taxonomyVersion + source provenance",
-          rec.get("taxonomyVersion") == TAX["taxonomyVersion"]
+    check("accepted record carries taxonomy_version + source provenance",
+          rec.get("taxonomy_version") == TAX["taxonomy_version"]
           and rec.get("source") == "subagent-verdict"
           and bool(str(rec.get("lineage") or "").strip()),
           json.dumps(rec, ensure_ascii=False)[:200])
@@ -391,6 +391,10 @@ def main() -> int:
           and len(rejected) == 1,
           "canon=%d rejected=%d" % (
               len(ledger_lines(proj, "review-findings.jsonl")), len(rejected)))
+    check("submitted values reach the quarantine untruncated",
+          (entry.get("record", {}).get("findings") or [{}])[0]
+          .get("category") == "made-up-class",
+          json.dumps(entry, ensure_ascii=False)[:200])
     check("the quarantined record keeps the fields the reviewer submitted",
           (entry.get("record", {}).get("findings") or [{}])[0].get("line") == 7
           and (entry.get("record", {}).get("findings") or [{}])[0]
@@ -492,14 +496,14 @@ def main() -> int:
     stamp_dir = Path(tempfile.mkdtemp(prefix="vc-stamp-"))
     TMPDIRS.append(stamp_dir)
     incoming = {"source": "subagent-verdict", "lineage": "L",
-                "taxonomyVersion": 99,
+                "taxonomy_version": 99,
                 "findings": [{"severity": "minor", "category": "nope"}]}
     accepted, reasons = _tax_mod.admit("", incoming, directory=stamp_dir)
     kept = json.loads((stamp_dir / "review-findings-rejected.jsonl")
                       .read_text(encoding="utf-8").splitlines()[0])["record"]
-    check("a rejected record keeps its own taxonomyVersion, unaltered",
-          accepted is False and kept.get("taxonomyVersion") == 99
-          and any(r.startswith("taxonomyVersion:") for r in reasons),
+    check("a rejected record keeps its own taxonomy_version, unaltered",
+          accepted is False and kept.get("taxonomy_version") == 99
+          and any(r.startswith("taxonomy_version:") for r in reasons),
           json.dumps(kept, ensure_ascii=False)[:200])
 
     # словарь не может направить карантин в канонический леджер
@@ -528,6 +532,25 @@ def main() -> int:
     for n in range(300):
         _tax_mod.admit("", dict(big, lineage="n-%d" % n), directory=rot)
     rotated = rot / "review-findings.jsonl.1"
+    # Ротация проверяется НАПРЯМУЮ: через полный прогон её последствия
+    # маскирует следующая дозапись, которая сама воссоздаёт файл.
+    direct = Path(tempfile.mkdtemp(prefix="vc-rotdirect-"))
+    TMPDIRS.append(direct)
+    victim = direct / "review-findings.jsonl"
+    victim.write_text("x" * (70 * 1024) + "\n", encoding="utf-8")
+    _tax_mod._rotate_oversized(victim)
+    check("the canonical path exists immediately after a rotation",
+          victim.is_file() and victim.read_text(encoding="utf-8") == ""
+          and (direct / "review-findings.jsonl.1").is_file())
+    # Чужая гонка (леджер уже отротирован кем-то) не имеет права стать ошибкой.
+    gone = direct / "vanished.jsonl"
+    raised = None
+    try:
+        _tax_mod._rotate_oversized(gone)
+    except Exception as exc:
+        raised = exc
+    check("a rotation whose ledger already vanished is not an error",
+          raised is None, repr(raised))
     generations = sorted(rot.glob("review-findings.jsonl.[0-9]*"))
     kept = "".join(g.read_text(encoding="utf-8") for g in generations) \
         + (rot / "review-findings.jsonl").read_text(encoding="utf-8")
@@ -546,7 +569,7 @@ def main() -> int:
         "start = float(sys.argv[2])\n"
         "while time.time() < start:\n"
         "    pass\n"
-        "for i in range(40):\n"
+        "for i in range(90):\n"
         "    t.admit('', {'source': 'subagent-verdict',\n"
         "                 'lineage': '%%s-%%d' %% (sys.argv[1], i),\n"
         "                 'findings': [{'severity': 'minor',\n"
@@ -556,15 +579,21 @@ def main() -> int:
         % (str(ROOT / "skills" / "_shared"), str(conc2)))
     barrier2 = time.time() + 1.5
     procs2 = [subprocess.Popen([PY, "-c", rot_worker, "w%d" % n, str(barrier2)])
-              for n in range(6)]
+              for n in range(10)]
     for pr in procs2:
         pr.wait(timeout=120)
     everything = "".join(
         g.read_text(encoding="utf-8")
         for g in sorted(conc2.glob("review-findings.jsonl*")))
     check("rotation under concurrent writers loses no accepted record",
-          everything.count('"lineage": "w') == 6 * 40,
-          "kept=%d expected=%d" % (everything.count('"lineage": "w'), 240))
+          everything.count('"lineage": "w') == 10 * 90,
+          "kept=%d expected=%d" % (everything.count('"lineage": "w'), 900))
+    # Гонка ротации не имеет права превратить принятую запись в отклонённую.
+    rejected_conc = conc2 / "review-findings-rejected.jsonl"
+    check("a rotation race never reclassifies an accepted record as rejected",
+          not rejected_conc.exists(),
+          rejected_conc.read_text(encoding="utf-8")[:200]
+          if rejected_conc.exists() else "")
 
     # структурно битый, но парсящийся словарь — тоже «валидировать нечем»
     proj, iso = fresh_project()
@@ -629,13 +658,29 @@ def main() -> int:
           and _tax_mod.rejected_summary("", directory=quar_dir)["total"] == 400,
           "lines=%d size=%d" % (len(qtext.splitlines()), len(qtext)))
 
+    # не-объект не приводится к объекту, а отклоняется как не-объект
+    coerce_dir = Path(tempfile.mkdtemp(prefix="vc-coerce-"))
+    TMPDIRS.append(coerce_dir)
+    for bogus in ([("source", "subagent-verdict")], None, "text"):
+        accepted, reasons = _tax_mod.admit("", bogus, directory=coerce_dir)
+        if accepted or "record:not-an-object" not in reasons:
+            break
+    else:
+        bogus = None
+    check("a non-object record is rejected, never coerced into one",
+          bogus is None
+          and not (coerce_dir / "review-findings.jsonl").exists()
+          and len((coerce_dir / "review-findings-rejected.jsonl")
+                  .read_text(encoding="utf-8").splitlines()) == 3,
+          "last=%r" % (bogus,))
+
     # инвариант воронки: неожиданная ошибка внутри admit не теряет запись
     admit_dir = Path(tempfile.mkdtemp(prefix="vc-admit-"))
     TMPDIRS.append(admit_dir)
     hostile = {"source": "subagent-verdict", "lineage": "x",
                "findings": [{"severity": "minor", "category": "correctness"}]}
     accepted, reasons = _tax_mod.admit(
-        "", hostile, {"taxonomyVersion": 1}, directory=admit_dir)
+        "", hostile, {"taxonomy_version": 1}, directory=admit_dir)
     quarantined = (admit_dir / "review-findings-rejected.jsonl")
     check("an unexpected error inside admit names a reason and quarantines",
           accepted is False
@@ -658,7 +703,7 @@ def main() -> int:
           and not ledger_lines(proj, "review-findings-rejected.jsonl"),
           (r.stdout or "")[:160])
 
-    # forward-only: легаси-строки без taxonomyVersion не переписываются
+    # forward-only: легаси-строки без taxonomy_version не переписываются
     proj, iso = fresh_project()
     legacy = ('{"ts": "2026-01-01T00:00:00+00:00", "project": "x", '
               '"verdict": "BLOCKED", "findings": [{"severity": "", '
@@ -720,7 +765,7 @@ def main() -> int:
 
     tx = itd_verdict_taxonomy.load_taxonomy()
     check("module loads the same taxonomy the tests read",
-          tx is not None and tx["taxonomyVersion"] == TAX["taxonomyVersion"])
+          tx is not None and tx["taxonomy_version"] == TAX["taxonomy_version"])
     ok = {"source": "subagent-verdict", "lineage": "agent-transcript-42",
           "findings": [{"severity": "minor", "category": "correctness"}]}
     check("validator accepts a well-formed reviewer record",
@@ -745,8 +790,15 @@ def main() -> int:
           any(r.startswith("taxonomy:bySource-missing-for")
               for r in itd_verdict_taxonomy.validate_record(
                   ok, {**tx, "severity": {**tx["severity"], "bySource": {}}})))
-    check("a boolean taxonomyVersion is not accepted as an integer",
-          _load_from({**TAX, "taxonomyVersion": True}) is None)
+    check("a boolean, zero or negative taxonomy_version is not a version",
+          _load_from({**TAX, "taxonomy_version": True}) is None
+          and _load_from({**TAX, "taxonomy_version": 0}) is None
+          and _load_from({**TAX, "taxonomy_version": -1}) is None
+          and _load_from(TAX) is not None)
+    check("the record field is named exactly as the frozen scope requires",
+          "taxonomyVersion" not in (ROOT / "skills" / "_shared"
+                                    / "itd_verdict_taxonomy.py")
+          .read_text(encoding="utf-8"))
     bad_counter = Path(tempfile.mkdtemp(prefix="vc-cnt-"))
     TMPDIRS.append(bad_counter)
     (bad_counter / "review-findings-rejected.count.jsonl").write_text(
@@ -756,6 +808,22 @@ def main() -> int:
           _tax_mod.rejected_summary("", directory=bad_counter)
           == {"total": 1, "byReason": {"category": 1}},
           repr(_tax_mod.rejected_summary("", directory=bad_counter)))
+    # Источник БЕЗ writerDefaults: иначе неполноту поймала бы проверка
+    # дефолтов, и правило про полноту политики осталось бы недоказанным.
+    incomplete = {**TAX, "category": {**TAX["category"], "bySource": {
+        k: v for k, v in TAX["category"]["bySource"].items()
+        if k != "subagent-verdict"}}}
+    bad_default = {**TAX, "writerDefaults": {
+        **TAX["writerDefaults"],
+        "external-github-review": {"source": "external-github-review",
+                                   "severity": "critical",
+                                   "category": "correctness",
+                                   "bogus": "unclassified"}}}
+    bad_default["writerDefaults"]["external-github-review"]["severity"] = "nope"
+    check("a policy missing for a declared source makes the taxonomy unusable",
+          _load_from(incomplete) is None)
+    check("a writer default invalid for its own source is not accepted",
+          _load_from(bad_default) is None and _load_from(TAX) is not None)
     check("legacyMapping targets outside the vocabulary make it unavailable",
           _load_from({**TAX, "legacyMapping": {
               **TAX["legacyMapping"],

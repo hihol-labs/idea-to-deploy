@@ -165,10 +165,14 @@ def main() -> int:
             seen.add(cid)
             continue
         accepted, reasons = taxonomy.admit(cwd, rec, tax, directory=mem)
-        seen.add(cid)
         if not accepted:
+            # Дедуп помечает только то, что РАЗОБРАНО до конца. Отметив
+            # отклонённое, импортёр навсегда терял бы комментарий: временно
+            # недоступный или испорченный словарь один раз отправлял бы его в
+            # карантин, а повторный импорт после починки его бы уже не видел.
             rejected += 1
             continue
+        seen.add(cid)
         imported += 1
         cat = rec["findings"][0]["category"]
         by_cat[cat] = by_cat.get(cat, 0) + 1
