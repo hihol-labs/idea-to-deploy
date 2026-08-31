@@ -3649,6 +3649,159 @@ def main() -> int:
         finally:
             producer.set_transport_failure_log(None)
 
+    # REVIEWER-DEFAULT-SOL: the standby reviewer is a transport remedy only.
+    # Sol leads because the broker already routes an Anthropic maker to it;
+    # the default in this file and that routing table must never drift apart.
+    broker_policy = json.loads(
+        (ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json").read_text(encoding="utf-8")
+    )
+    external_policy = json.loads(
+        (ROOT / "skills/_shared/EXTERNAL_REVIEW_POLICY.json").read_text(encoding="utf-8")
+    )
+    provider_models = {
+        row["id"]: row["model"] for row in external_policy["providers"]
+    }
+    default_match = re.search(
+        r'"--reviewer-model",\s*default="([^"]+)"', PRODUCER.read_text(encoding="utf-8")
+    )
+    check(default_match is not None, "the reviewer-model default is unreadable")
+    default_model = default_match.group(1)
+    check(default_model == "gpt-5.6-sol",
+          "the default independent reviewer is no longer Sol")
+    # The declared default lives in two entry points; a drift guard that
+    # watched only one would let the other silently keep the old reviewer.
+    recorder_match = re.search(
+        r'"--model",\s*default="([^"]+)"',
+        (ROOT / "tests/run-independent-review-efficacy.py").read_text(encoding="utf-8"),
+    )
+    check(recorder_match is not None,
+          "the efficacy recorder model default is unreadable")
+    check(recorder_match.group(1) == default_model,
+          "the efficacy recorder default drifted from the producer default")
+    claude_route = broker_policy["routing"]["claudeMaker"]
+    check(len(claude_route) == 2,
+          "the Anthropic-maker route lost its ordered primary/standby pair")
+    check(provider_models[claude_route[0]] == default_model,
+          "the broker's preferred Anthropic-maker reviewer drifted from the default")
+    check(
+        provider_models[claude_route[1]]
+        == producer.OPENAI_REVIEW_MODEL_ALTERNATES[default_model],
+        "the broker's standby reviewer is not the declared alternate",
+    )
+    # Boundary: an OpenAI maker keeps its forced opposite, and an unknown or
+    # mixed maker still has no automatic route at all.
+    check(broker_policy["routing"]["solMaker"] == ["openai-responses-terra"],
+          "the Sol-maker route stopped forcing Terra")
+    check(broker_policy["routing"]["terraMaker"] == ["openai-responses"],
+          "the Terra-maker route stopped forcing Sol")
+    check(broker_policy["routing"]["unknownMaker"] == [],
+          "an unknown maker gained an automatic reviewer route")
+
+    check(
+        producer.alternate_openai_reviewer_model(
+            "claude-opus-5", "gpt-5.6-sol", maker_provider="anthropic-subscription",
+        ) == "gpt-5.6-terra",
+        "an Anthropic maker lost its Terra standby",
+    )
+    # An OpenAI maker's reviewer is already the opposite model, so the standby
+    # resolves back to the model in hand and no swap is offered.
+    check(
+        producer.alternate_openai_reviewer_model(
+            "gpt-5.6-sol", "gpt-5.6-terra",
+        ) == "gpt-5.6-terra",
+        "a Sol maker was offered a standby outside its forced pairing",
+    )
+
+    def transport_failure(status: str, verdict_observed: object) -> Exception:
+        evidence = {} if verdict_observed is None else {
+            "verdictObserved": verdict_observed
+        }
+        return producer.FreeReviewError(status, "transport", evidence=evidence)
+
+    check(
+        producer.transport_fallback_permitted(
+            transport_failure("UNAVAILABLE", False), "gpt-5.6-sol", "gpt-5.6-terra",
+        ),
+        "a verdict-free transport outage refused the standby reviewer",
+    )
+    for refused_status in ("BLOCKED", "UNVERIFIED", "PASSED"):
+        check(
+            not producer.transport_fallback_permitted(
+                transport_failure(refused_status, False),
+                "gpt-5.6-sol", "gpt-5.6-terra",
+            ),
+            f"a {refused_status} outcome was allowed to shop for another reviewer",
+        )
+    check(
+        not producer.transport_fallback_permitted(
+            transport_failure("UNAVAILABLE", True), "gpt-5.6-sol", "gpt-5.6-terra",
+        ),
+        "a failure after a returned verdict still swapped the reviewer",
+    )
+    check(
+        not producer.transport_fallback_permitted(
+            transport_failure("UNAVAILABLE", None), "gpt-5.6-sol", "gpt-5.6-terra",
+        ),
+        "an unstated verdict observation defaulted to swapping the reviewer",
+    )
+    check(
+        not producer.transport_fallback_permitted(
+            transport_failure("UNAVAILABLE", False), "gpt-5.6-sol", "gpt-5.6-sol",
+        ),
+        "the standby reviewer was allowed to repeat the failed model",
+    )
+    check(
+        not producer.transport_fallback_permitted(
+            RuntimeError("transport"), "gpt-5.6-sol", "gpt-5.6-terra",
+        ),
+        "an untyped failure was treated as a transport outage",
+    )
+
+    tracker = producer.TransportAttempt()
+    check(tracker.verdict_observed is False,
+          "a fresh transport attempt started as if a verdict existed")
+    stamped = tracker.stamp(producer.FreeReviewError("UNAVAILABLE", "outage"))
+    check(stamped.evidence["verdictObserved"] is False,
+          "a verdict-free outage was not stamped as such")
+    check(producer.transport_fallback_permitted(
+              stamped, "gpt-5.6-sol", "gpt-5.6-terra"),
+          "the stamped verdict-free outage refused the standby reviewer")
+    tracker.mark_verdict()
+    stamped_after = tracker.stamp(producer.FreeReviewError("UNAVAILABLE", "outage"))
+    check(stamped_after.evidence["verdictObserved"] is True,
+          "a failure after a returned verdict was stamped as verdict-free")
+    check(not producer.transport_fallback_permitted(
+              stamped_after, "gpt-5.6-sol", "gpt-5.6-terra"),
+          "a stamped post-verdict failure still swapped the reviewer")
+    check(producer.TransportAttempt().stamp(RuntimeError("x")).__class__ is RuntimeError,
+          "an untyped failure was rewritten by the transport stamp")
+
+    identity_sha = "b" * 64
+    degraded_identity = {
+        "provider": "openai-subscription",
+        "model": "gpt-5.6-terra",
+        "session": "s1",
+        "transportExecutableSha256": identity_sha,
+        "degradedFrom": "gpt-5.6-sol",
+    }
+    check(
+        producer._reviewer_identity(dict(degraded_identity))["degradedFrom"]
+        == "gpt-5.6-sol",
+        "a degraded reviewer leg lost its declared origin",
+    )
+    for broken in (
+        {**degraded_identity, "degradedFrom": "gpt-5.6-terra"},
+        {**degraded_identity, "degradedFrom": "claude-opus-5"},
+        {**degraded_identity, "unexpected": "x"},
+    ):
+        try:
+            producer._reviewer_identity(broken)
+        except producer.FreeReviewError:
+            pass
+        else:
+            raise AssertionError("a malformed degraded reviewer leg was accepted")
+        checks += 1
+
     source = PRODUCER.read_text(encoding="utf-8")
     check("api.openai.com" not in source and "OPENAI_API_KEY" not in source,
           "producer contains a paid API dispatch path")

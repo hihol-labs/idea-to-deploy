@@ -3022,6 +3022,75 @@ def select_openai_reviewer_model(
     return alternate
 
 
+def alternate_openai_reviewer_model(
+    maker_model: str, current_model: str, *,
+    maker_provider: str = "openai-subscription",
+) -> str:
+    """Name the standby reviewer the independence class still permits.
+
+    Returns an empty string when no distinct standby exists. An OpenAI maker
+    already has its reviewer forced to the opposite model, so the standby
+    resolves back to the model in hand and the caller declines to swap.
+    """
+    if not isinstance(current_model, str):
+        raise FreeReviewError("UNVERIFIED", "OpenAI standby selection is malformed")
+    candidate = OPENAI_REVIEW_MODEL_ALTERNATES.get(current_model.strip().casefold())
+    if not candidate:
+        return ""
+    try:
+        return select_openai_reviewer_model(
+            maker_model, candidate, maker_provider=maker_provider,
+        )
+    except FreeReviewError:
+        return ""
+
+
+class TransportAttempt:
+    """Bookkeeping for one reviewer transport attempt.
+
+    Kept at module scope so the rule that a returned verdict freezes the
+    reviewer leg is provable on its own, not only through a live transport.
+    """
+
+    def __init__(self) -> None:
+        self.verdict_observed = False
+
+    def mark_verdict(self) -> None:
+        self.verdict_observed = True
+
+    def stamp(self, failure: object) -> object:
+        """Record on the failure whether a verdict had already been produced."""
+        if not isinstance(failure, FreeReviewError):
+            return failure
+        evidence = dict(failure.evidence or {})
+        evidence["verdictObserved"] = self.verdict_observed
+        failure.evidence = evidence
+        return failure
+
+
+def transport_fallback_permitted(
+    failure: object, primary_model: str, alternate_model: str,
+) -> bool:
+    """Allow the standby reviewer only when no verdict was ever produced.
+
+    The swap is a transport remedy, never a second opinion: a returned
+    verdict — BLOCKED included — closes the leg on the model that issued it,
+    so the route can never shop for a friendlier reviewer.
+    """
+    if not isinstance(failure, FreeReviewError):
+        return False
+    if failure.status != "UNAVAILABLE":
+        return False
+    evidence = failure.evidence
+    if not isinstance(evidence, dict) or evidence.get("verdictObserved") is not False:
+        return False
+    if not isinstance(primary_model, str) or not isinstance(alternate_model, str):
+        return False
+    primary = primary_model.strip().casefold()
+    alternate = alternate_model.strip().casefold()
+    return bool(alternate) and bool(primary) and alternate != primary
+
+
 def trusted_executable(
     executable: str, expected_sha256: str, search_path: str | None,
 ) -> tuple[Path, str, bytes]:
@@ -3740,17 +3809,29 @@ def reviewer_independence_level(
 
 
 def _reviewer_identity(value: object) -> dict[str, str]:
-    row = exact_dict(
-        value,
-        {"provider", "model", "session", "transportExecutableSha256"},
-        "reviewer identity",
-    )
+    base = {"provider", "model", "session", "transportExecutableSha256"}
+    # A degraded leg carries one extra declared field and stays closed; the
+    # stamp is what makes the standby reviewer legible instead of silent.
+    fields = base | {"degradedFrom"} if (
+        isinstance(value, dict) and "degradedFrom" in value
+    ) else base
+    row = exact_dict(value, fields, "reviewer identity")
     if any(not isinstance(row[field], str) or not row[field].strip() for field in row):
         raise FreeReviewError("UNVERIFIED", "reviewer identity is incomplete")
     if any(row[field] != row[field].strip() for field in row):
         raise FreeReviewError("UNVERIFIED", "reviewer identity is not canonical")
     if not SHA256_RE.fullmatch(row["transportExecutableSha256"]):
         raise FreeReviewError("UNVERIFIED", "reviewer transport executable is unbound")
+    degraded_from = row.get("degradedFrom")
+    if degraded_from is not None:
+        if degraded_from.casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES:
+            raise FreeReviewError(
+                "UNVERIFIED", "degraded reviewer origin is outside the Sol/Terra pair"
+            )
+        if degraded_from.casefold() == row["model"].strip().casefold():
+            raise FreeReviewError(
+                "UNVERIFIED", "degraded reviewer origin equals the acting reviewer"
+            )
     return row  # type: ignore[return-value]
 
 
@@ -5322,7 +5403,7 @@ def parser() -> argparse.ArgumentParser:
     review.add_argument("--maker-provider", required=True)
     review.add_argument("--maker-model", required=True)
     review.add_argument("--maker-session", required=True)
-    review.add_argument("--reviewer-model", default="gpt-5.6-terra")
+    review.add_argument("--reviewer-model", default="gpt-5.6-sol")
     review.add_argument("--codex", default="codex")
     review.add_argument("--codex-sha256", required=True)
     review.add_argument("--claude", default="claude")
@@ -5448,37 +5529,69 @@ def main(argv: list[str] | None = None) -> int:
                     args.maker_model, args.reviewer_model,
                     maker_provider=args.maker_provider,
                 )
-                def runner(
-                    review_value: str, schema: dict[str, Any], parser_value: Any,
-                ) -> tuple[dict[str, Any], str, str]:
+
+                def attempt(model: str) -> tuple[Any, ...]:
                     nonlocal selected_prompt_artifact
-                    # Bind a negative diagnostic to the exact direct, unit, or
-                    # integration call even when the transport raises before
-                    # run_packet_review can assemble its final bundle.
-                    selected_prompt_artifact = review_value
-                    return run_codex_review(
-                        review_value, executable=args.codex, model=reviewer_model,
-                        expected_executable_sha256=args.codex_sha256,
-                        expected_proxy_sha256=args.proxy_sha256,
-                        report_schema=schema, report_parser=parser_value,
+                    # A verdict, once the transport hands one back, freezes the
+                    # reviewer leg: no later failure may swap the model.
+                    tracker = TransportAttempt()
+
+                    def runner(
+                        review_value: str, schema: dict[str, Any], parser_value: Any,
+                    ) -> tuple[dict[str, Any], str, str]:
+                        nonlocal selected_prompt_artifact
+                        # Bind a negative diagnostic to the exact direct, unit, or
+                        # integration call even when the transport raises before
+                        # run_packet_review can assemble its final bundle.
+                        selected_prompt_artifact = review_value
+                        outcome = run_codex_review(
+                            review_value, executable=args.codex, model=model,
+                            expected_executable_sha256=args.codex_sha256,
+                            expected_proxy_sha256=args.proxy_sha256,
+                            report_schema=schema, report_parser=parser_value,
+                        )
+                        tracker.mark_verdict()
+                        return outcome
+
+                    try:
+                        return run_packet_review(
+                            packet, runner, prompt_ledger=prompt_ledger,
+                            **route_checkpoint_kwargs(
+                                "openai-subscription", model, args.codex_sha256,
+                            )
+                        )
+                    except FreeReviewError as failure:
+                        raise tracker.stamp(failure)  # type: ignore[misc]
+
+                try:
+                    review_result = attempt(reviewer_model)
+                    degraded_from = ""
+                except FreeReviewError as primary_failure:
+                    alternate = alternate_openai_reviewer_model(
+                        args.maker_model, reviewer_model,
+                        maker_provider=args.maker_provider,
                     )
-                review_result = run_packet_review(
-                    packet, runner, prompt_ledger=prompt_ledger,
-                    **route_checkpoint_kwargs(
-                        "openai-subscription", reviewer_model, args.codex_sha256,
-                    )
-                )
+                    if not transport_fallback_permitted(
+                        primary_failure, reviewer_model, alternate,
+                    ):
+                        raise
+                    review_result = attempt(alternate)
+                    degraded_from = reviewer_model
+                    reviewer_model = alternate
                 selected_prompt_artifact = review_result[3]
                 report, session, observed_model = review_result[:3]
                 selected_prompt_artifacts["openai-subscription"] = (
                     selected_prompt_artifact
                 )
-                return report, {
+                identity = {
                     "provider": "openai-subscription",
                     "model": observed_model,
                     "session": session,
                     "transportExecutableSha256": args.codex_sha256,
                 }
+                if degraded_from:
+                    identity["degradedFrom"] = degraded_from
+                return report, identity
 
             def anthropic_adapter(value: str) -> tuple[dict[str, Any], dict[str, str]]:
                 nonlocal selected_prompt_artifact
