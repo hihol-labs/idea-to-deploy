@@ -2862,6 +2862,40 @@
           "drift"
         ]
       }
+    },
+    {
+      "id": "REVIEWER-DEFAULT-SOL-1-default-matches-policy",
+      "criterion": "Дефолтный независимый ревьюер для anthropic-мейкера — gpt-5.6-sol, и этот дефолт машинно сверяется с головой routing.claudeMaker брокерской политики через EXTERNAL_REVIEW_POLICY; terra объявлен запасным вторым элементом. Обратное направление (openai-мейкер) и unknownMaker не изменены.",
+      "status": "passed",
+      "evidence": "GREEN: verify_free_reviewer_producer 250 -> 277 checks PASSED. Мутации летальны: «дефолт обратно на terra», «маршрут claudeMaker теряет запасного», «расхождение политики и замораживающей схемы», «unknown maker получает автомаршрут». Границы закрыты отдельными проверками: solMaker -> [openai-responses-terra], terraMaker -> [openai-responses], unknownMaker -> [].",
+      "reviewEvidence": {
+        "claim": "дефолт продюсера равен голове claudeMaker-маршрута, запасной равен объявленному альтернату, обратное направление и unknown-маршрут не тронуты",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer",
+          "review-broker-policy",
+          "independent-review-efficacy"
+        ]
+      }
+    },
+    {
+      "id": "REVIEWER-DEFAULT-SOL-2-transport-only-fallback",
+      "criterion": "Автоматический переход на запасного ревьюера разрешён ТОЛЬКО когда вердикта не было вообще (UNAVAILABLE); любой полученный вердикт, включая BLOCKED, закрывает ногу на выдавшей его модели. Деградация видима: нога несёт объявленное degradedFrom, личность ревьюера остаётся закрытой, происхождение обязано принадлежать паре Sol/Terra и отличаться от действующей модели.",
+      "status": "passed",
+      "evidence": "GREEN: правило доказано на модульном уровне (TransportAttempt вынесен из замыкания). Мутации летальны: «fallback игнорирует статус отказа», «fallback игнорирует уже полученный вердикт», «запасной повторяет отказавшую модель», «полученный вердикт не записывается», «штамп всегда заявляет отсутствие вердикта», «происхождение деградации равно действующей модели», «происхождение вне пары Sol/Terra», «запасной минует класс независимости». Итог батареи 12/12 летальны.",
+      "reviewEvidence": {
+        "claim": "подмена модели — транспортное средство, а не второе мнение: verdict shopping невозможен, а деградация всегда объявлена",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer"
+        ]
+      }
     }
   ],
   "completion": {
@@ -2880,8 +2914,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "INSTALL-HARDENING",
-    "status": "closed",
+    "unitId": "REVIEWER-DEFAULT-SOL",
+    "status": "open",
+    "openedAt": "2026-08-31",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -2895,10 +2930,7 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "openedAt": "2026-08-29T09:20:00Z",
-    "closedAt": "2026-08-29T14:48:29Z",
-    "closedBy": "PR #247 merged 0d1e9d8; this candidate records the unit's STATE transition to verified. Timestamps: the unit's lifecycle was reopened and re-verified at 14:48:27/14:48:28Z while an earlier accounting detour (INSTALL-HARDENING-CLOSE, superseded) was undone, so this closure is stamped after it."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted."
 }

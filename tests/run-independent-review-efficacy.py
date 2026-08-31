@@ -412,7 +412,7 @@ def main() -> int:
     parser.add_argument("--proxy-sha256", required=True)
     parser.add_argument("--maker-model", required=True)
     parser.add_argument("--maker-provider", default="openai-subscription")
-    parser.add_argument("--model", default="gpt-5.6-terra")
+    parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--signing-key", type=Path, required=True)
     parser.add_argument("--key-id", required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
