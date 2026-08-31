@@ -326,8 +326,9 @@ def bump_rejected_counter(cwd: str, reasons, directory=None,
         "reasons": [str(r) for r in (reasons or ["unspecified"])],
         "identity": identity,
     }, ensure_ascii=False)
-    with p.open("a", encoding="utf-8") as fh:
-        fh.write(line + "\n")
+    # Тот же механизм, что у леджера и карантина: файл ограничен РОТАЦИЕЙ, а
+    # читатель собирает все поколения, поэтому счёт остаётся полным.
+    _append_bounded(p, line)
 
 
 def _identity_present(path: Path, identity: str) -> bool:
@@ -490,10 +491,25 @@ def rejected_summary(cwd: str, directory=None) -> dict:
     total = 0
     by_reason: dict = {}
     counted: set = set()
+    generations = []
     try:
-        text = p.read_text(encoding="utf-8", errors="replace")
+        for cand in p.parent.glob(p.name + ".*"):
+            tail = cand.name[len(p.name) + 1:]
+            if tail.isdigit():
+                generations.append((int(tail), cand))
+    except OSError:
+        generations = []
+    text = ""
+    for _, cand in sorted(generations):
+        try:
+            text += cand.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+    try:
+        text += p.read_text(encoding="utf-8", errors="replace")
     except Exception:
-        return {}
+        if not text:
+            return {}
     for raw in text.splitlines():
         raw = raw.strip()
         if not raw:

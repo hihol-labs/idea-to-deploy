@@ -727,6 +727,25 @@ def main() -> int:
     qtext = "".join(
         g.read_text(encoding="utf-8")
         for g in sorted(quar_dir.glob("review-findings-rejected.jsonl*")))
+    # Ротация счётчика проверяется детерминированно: файл предварительно
+    # переполняется, одна дозапись обязана его отротировать, а читатель —
+    # собрать все поколения, иначе «ограничен» означало бы «теряет счёт».
+    cnt = Path(tempfile.mkdtemp(prefix="vc-cntrot-"))
+    TMPDIRS.append(cnt)
+    cnt_file = cnt / "review-findings-rejected.count.jsonl"
+    prefill = [json.dumps({"ts": "t", "reasons": ["category[0]:x"],
+                           "identity": "old-%d" % n}) for n in range(2000)]
+    cnt_file.write_text("\n".join(prefill) + "\n", encoding="utf-8")
+    before_ids = len(prefill)
+    _tax_mod.bump_rejected_counter("", ["severity[0]:y"], directory=cnt,
+                                   identity="fresh-one")
+    rotated_cnt = sorted(cnt.glob("review-findings-rejected.count.jsonl.[0-9]*"))
+    total_cnt = _tax_mod.rejected_summary("", directory=cnt)
+    check("the counter journal rotates and every generation is still counted",
+          bool(rotated_cnt)
+          and cnt_file.stat().st_size <= 64 * 1024
+          and total_cnt["total"] == before_ids + 1,
+          "rotated=%d total=%r" % (len(rotated_cnt), total_cnt.get("total")))
     check("the quarantine file itself is bounded by rotation, not by growth",
           bool(sorted(quar_dir.glob("review-findings-rejected.jsonl.[0-9]*")))
           and (quar_dir / "review-findings-rejected.jsonl").stat().st_size
