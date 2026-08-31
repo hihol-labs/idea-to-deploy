@@ -1,4 +1,29 @@
-# SCOPE_LOCK — REVIEWER-DEFAULT-SOL (открыт 2026-08-31)
+# SCOPE_LOCK — REVIEWER-DEFAULT-SOL, релизная фаза v1.102.0 (2026-08-31)
+
+## ФАЗА КАНДИДАТА: релизный коммит
+Фичевый кандидат этого юнита УЖЕ смержен: PR #249, squash `f55ef21`,
+после полного маршрута (машинные квитанции, cross-vendor продюсер gpt-5.6-sol
+PASSED findings=[], независимый checker PASSED, CI зелёный). Текущий кандидат
+— ТОЛЬКО релизный коммит v1.102.0 поверх базы `f55ef21` (origin/main), по
+конвенции репо (бамп версии идёт отдельным PR ПОСЛЕ мержа реализации).
+
+Разрешённые области релизного коммита — исчерпывающе:
+- `CHANGELOG.md` — запись `[1.102.0]`;
+- `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json` — поле version;
+- `README.md`, `README.ru.md` — бейдж Version;
+- `docs/HARNESS_DOCS_STATE.json` — pluginVersion;
+- `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json` — version;
+- `docs/HARNESS_CONFORMANCE_REPORT.md` — строка версии пакета;
+- `tests/verify_external_reviewer_release.py` — ТОЛЬКО константа VERSION;
+- `.itd/SCOPE_LOCK.md` — сам этот файл: декларация релизной фазы (без неё
+  скоуп-контракт запрещал бы собственный кандидат).
+Никаких правок логики, политик и остальной леджерной бухгалтерии в этом
+кандидате нет; единственный изменяемый контрактный файл — сам SCOPE_LOCK.
+
+Ниже — скоуп фичевой фазы, сохранён как контекст юнита (его исключение
+«бамп версии — в релизный коммит» относилось к фичевому кандидату и
+ИСПОЛНЕНО: реализация ушла в #249 без бампа, бамп — здесь).
 
 ## Предмет
 Дефолтный независимый ревьюер для anthropic-мейкера переводится с
