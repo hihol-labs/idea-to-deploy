@@ -39,10 +39,12 @@
   "currentUnit": {
     "id": "REVIEWER-DEFAULT-SOL",
     "goal": "Дефолтный независимый ревьюер для anthropic-мейкера переведён на gpt-5.6-sol в соответствии с брокерской политикой; terra остаётся объявленным запасным, переход на него разрешён только при отсутствии вердикта и всегда помечается в квитанции",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-31T16:19:22Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-01T14:20:00Z",
+    "evidence": "Feature PR #249 merged f55ef21 (producer gpt-5.6-sol PASS findings=[], checker PASSED, adjudication, oracle 279 checks, mutations 13/13 lethal, full mirror DONE fails:none, efficacy WSL+Windows+u12 re-minted detection 1.0 false-blocks 0.0). Release PR #250 merged bf84fc5, tag v1.102.0; live benchmark re-pinned on the release tree (154/0); rollout hash-verified on BOTH hosts: runtime 1.102.0-bca5a6de1683d098, sha256 bca5a6de1683d098285acc7f4335f962aa784c9f4667d75cf4652e6bd4722413 (WSL ~/.local/share/itd/runtime, Windows %LOCALAPPDATA%/ITD/runtime)."
   },
   "gateResults": {
     "acceptanceContract": "passed",

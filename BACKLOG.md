@@ -14,6 +14,42 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — release-bump вне install-source чекаута: круг двух валидаторов (REVIEWER-DEFAULT-SOL, 2026-09-01)
+
+Реестр гейта и commit-гейт прогоняют проверку ИНСТАЛЛОВЫМ валидатором
+(`itd_verification_loop` / `itd_review_cache`), который берёт
+`methodologyVersion` из manifest'а СВОЕГО INSTALL_ROOT. Для release-bump
+кандидата, готовящегося НЕ в install-source чекауте (worktree), квитанции
+repo-валидатора несут новую версию, инсталлового — старую: каждая валидна
+только у чеканившего. Repo-first (LPD-002 R2) покрывает только чекаут из
+`~/.claude/.itd-install-source.json`. Обход в v1.102.0: релизная цепочка
+целиком чеканилась инсталловым loop'ом + разовый флип провенанса на worktree
+для commit-гейта (бэкап/восстановление). Корневой фикс — кандидат в юнит
+вместе с «P1 ретро: repo-first для pre-push»: repo-first должен либо
+принимать доверенный worktree того же репозитория, либо контекст не должен
+включать версию из manifest'а валидатора.
+
+## P2 — коллизия имён: `automatedCliFallbackAllowed` vs модельный fallback CLI-продюсера (2026-09-01)
+
+`routing.automatedCliFallbackAllowed: false` — инвариант про запрет падения
+центрального App/брокера с API-маршрута на CLI-транспорт
+(`verify_api_reviewer.py`, release-инвариант `verify_external_reviewer_release.py`).
+После REVIEWER-DEFAULT-SOL в CLI-продюсере появился МОДЕЛЬНЫЙ fallback
+sol→terra (только транспортный, внутри того же CLI) — другой объект, но имя
+флага читается как его запрет: независимый sol-ревьюер один раз выдал
+ложную находку именно на этом. Переименовать флаг (например
+`brokerApiToCliFallbackAllowed`) или задокументировать разграничение рядом с
+флагом в политике и схеме.
+
+## P2 — каждый релиз обязан перечеканивать live-benchmark (повтор класса, 2026-09-01)
+
+`feedback_live_benchmark_pin_friction` сработал и на v1.102.0: Gate 1 пинит
+улику к дереву, бамп меняет дерево, re-record обязателен и должен ехать
+ОТДЕЛЬНЫМ коммитом после скоуп-правок (dirty-state пин оракула исключает
+только `tests/fixtures/live-model-evidence/`). Порядок теперь задокументирован
+в SCOPE_LOCK релизной фазы v1.102.0; кандидат на автоматизацию — шаг
+RELEASE_RUNBOOK, который сам гоняет рекордер и коммитит улику.
+
 ## P1 — `sync-to-active.sh` и не-UTF-8 `settings.json` (выведен из INSTALL-HARDENING, 2026-08-29)
 
 Шаг 5/6 читает `settings.json` без `encoding` и пишет обратно UTF-8. На
