@@ -2895,13 +2895,15 @@
         "oracleIds": [
           "free-reviewer-producer"
         ]
-      },
+      }
+    },
+    {
       "id": "PILOT-P01-1-closed-vocabularies-are-one-source",
       "criterion": "Словари category/source/severity объявлены ровно в одном машиночитаемом месте (skills/_shared/VERDICT_TAXONOMY.json, taxonomy_version 1); оба писателя и читатель берут значения оттуда, а не из собственных копий.",
-      "source": "ADVISORY-RSI-2026-08-27-v4 §5 PILOT P0-1.",
+      "status": "pending",
       "evidence": "Мутация словаря в файле меняет поведение записи в обоих писателях; дублирующий литерал перечня в коде отсутствует.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py",
-      "status": "pending"
+      "source": "ADVISORY-RSI-2026-08-27-v4 §5 PILOT P0-1.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_verdict_contract.py"
     },
     {
       "id": "PILOT-P01-2-invalid-record-is-rejected-on-write",
