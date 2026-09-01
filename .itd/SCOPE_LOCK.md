@@ -17,7 +17,14 @@ PASSED findings=[], независимый checker PASSED, CI зелёный). �
 - `docs/HARNESS_CONFORMANCE_REPORT.md` — строка версии пакета;
 - `tests/verify_external_reviewer_release.py` — ТОЛЬКО константа VERSION;
 - `.itd/SCOPE_LOCK.md` — сам этот файл: декларация релизной фазы (без неё
-  скоуп-контракт запрещал бы собственный кандидат).
+  скоуп-контракт запрещал бы собственный кандидат);
+- `tests/fixtures/live-model-evidence/latest.json` и
+  `tests/fixtures/live-model-evidence/runs/**` — свежая live-улика бенчмарка:
+  Gate 1 пинит улику к содержимому дерева методологии, бамп версии меняет
+  дерево, поэтому КАЖДЫЙ релиз обязан перечеканить live-прогон на чистом
+  релизном дереве (fixture-03-cli-tool; класс задокументирован,
+  feedback_live_benchmark_pin_friction). Улика машинно-генерирована рекордером
+  и проверена оракулом verify_live_model_benchmark (154 checks, хэши выходов).
 Никаких правок логики, политик и остальной леджерной бухгалтерии в этом
 кандидате нет; единственный изменяемый контрактный файл — сам SCOPE_LOCK.
 
