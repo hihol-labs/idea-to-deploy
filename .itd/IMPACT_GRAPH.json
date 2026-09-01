@@ -130,6 +130,14 @@
       "tests/verify_unit_log.py",
       "tests/verify_v147_fixes.py"
     ],
+    ".itd-memory/events.jsonl": [
+      "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_gate.py",
+      "tests/verify_completion_policy_calibration.py",
+      "tests/verify_ledger_reconciliation.py",
+      "tests/verify_operational_continuation.py",
+      "tests/verify_strict_completion_policy.py"
+    ],
     ".itd-memory/measurements/LPD003-4-consolidation.json": [
       "tests/verify_runall_drift.py"
     ],
