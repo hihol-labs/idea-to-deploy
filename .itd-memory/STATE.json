@@ -39,10 +39,14 @@
   "currentUnit": {
     "id": "REVIEWER-DEFAULT-SOL",
     "goal": "Дефолтный независимый ревьюер для anthropic-мейкера переведён на gpt-5.6-sol в соответствии с брокерской политикой; terra остаётся объявленным запасным, переход на него разрешён только при отсутствии вердикта и всегда помечается в квитанции",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-08-31T16:19:22Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-01T19:53:52Z",
+    "evidence": "PR #249 merged f55ef21; release PR #250 merged bf84fc5 = v1.102.0 in main; acceptance criteria passed",
+    "note": "ledger-close by the PILOT-P01 session (unit handed over by the owner). startedAt is the value tracked in main's STATE.json. backfilledAt = the backfill-activation event this checkout needed because its local events.jsonl never saw the original activation (that journal lived in the deleted worktree). PILOT-P01 activation belongs to its own branch.",
+    "backfilledAt": "2026-09-01T19:53:52Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,5 +576,5 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "INSTALL-HARDENING закрыт: PR #247 merged 0d1e9d8, юнит verified, WIP свободен. P2 из RETRO-2026-08-29 закрыт по корню (хуки не пишут байткод в установленный runtime; отказ inventory называет путь и FIX). P3 (кодировка settings.json) выведен в BACKLOG после срабатывания стоп-правила над содержанием, работа сохранена патчем .itd-memory/p3-settings-encoding-attempt.patch. Дальше по решению владельца: RSI (кандидат PILOT P0-1, enum схемы вердикта), P1 ретро (repo-first для pre-push), либо юнит на машинную сверку индекс/SCOPE_LOCK/контракт/леджер (класс сработал трижды за юнит: r6, r9, r10; текст кандидата — в скрэтчпаде p1-scope-consistency-root.md)."
+  "nextAction": "REVIEWER-DEFAULT-SOL закрыт ledger-close. WIP свободен; следующий юнит PILOT-P01 активируется в своей ветке feat/pilot-p01-verdict-taxonomy."
 }
