@@ -1097,7 +1097,8 @@ def main() -> int:
     state = {"left": 2}
 
     def flaky_open(self, *a, **k):
-        if self == target and state["left"] > 0:
+        mode = a[0] if a else k.get("mode", "r")
+        if self == target and "a" in mode and state["left"] > 0:
             state["left"] -= 1
             raise PermissionError(13, "sharing violation (simulated)")
         return real_open(self, *a, **k)
@@ -1138,7 +1139,8 @@ def main() -> int:
 
     def half_open(self, *a, **k):
         fh = real_open(self, *a, **k)
-        if self == target:
+        mode = a[0] if a else k.get("mode", "r")
+        if self == target and "a" in mode:
             wrapped["n"] += 1
             return HalfThenFail(fh)
         return fh
@@ -1160,9 +1162,26 @@ def main() -> int:
           and len(after_text) - len(before_text) == half,
           "opens=%d delta=%d half=%d" % (wrapped["n"],
                                          len(after_text) - len(before_text), half))
+    # После упавшей посреди строки записи следующая дозапись обязана начать
+    # НОВУЮ строку: фрагмент изолирован и пропускается читателем, новая
+    # запись целая, дубля нет.
+    _tax_mod._append_bounded(target, '{"probe": 4}')
+    lines_after = target.read_text(encoding="utf-8").split("\n")
+    parsed, broken = [], []
+    for ln in lines_after:
+        if not ln.strip():
+            continue
+        try:
+            parsed.append(json.loads(ln))
+        except ValueError:
+            broken.append(ln)
+    check("the next append starts a fresh line after a mid-write failure",
+          len(broken) == 1 and any(x.get("probe") == 4 for x in parsed)
+          and sum(1 for x in parsed if x.get("probe") == 4) == 1,
+          "broken=%r parsed=%d" % (broken[:1], len(parsed)))
     check("an exhausted retry surfaces the error instead of dropping",
           raised_sv is not None
-          and target.read_text(encoding="utf-8").count("probe") == 1)
+          and not any(x.get("probe") == 2 for x in parsed))
 
     # --- cleanup ------------------------------------------------------------
     for d in TMPDIRS:

@@ -304,6 +304,19 @@ def _rotate_oversized(path: Path) -> None:
         return
 
 
+def _needs_line_break(path: Path) -> bool:
+    """True, если файл непуст и не кончается переводом строки."""
+    try:
+        size = path.stat().st_size
+        if size == 0:
+            return False
+        with path.open("rb") as raw:
+            raw.seek(size - 1)
+            return raw.read(1) != b"\n"
+    except OSError:
+        return False
+
+
 def _append_bounded(path: Path, line: str) -> None:
     """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
     его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
@@ -331,6 +344,13 @@ def _append_bounded(path: Path, line: str) -> None:
     if fh is None:
         raise last_error
     with fh:
+        # JSONL-инвариант держится на ЗАПИСИ, а не на удаче: если прошлая
+        # дозапись упала посреди строки (Windows sharing violation, ENOSPC),
+        # её фрагмент остаётся, но новая запись начинается с новой строки.
+        # Фрагмент читатели пропускают как непарсящуюся строку; повторять
+        # запись нельзя — иначе частично зафиксированная строка удвоилась бы.
+        if _needs_line_break(path):
+            fh.write("\n")
         fh.write(line + "\n")
     if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
         _rotate_oversized(path)
