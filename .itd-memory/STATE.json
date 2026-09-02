@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "PILOT-P01",
     "goal": "PILOT P0-1 из ADVISORY-RSI-2026-08-27-v4 §5: закрытые enum category/source/severity в схеме вердикта — валидация на записи без молчаливого дропа, счётчик отклонённых, taxonomy_version + mapping легаси; forward-only",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-02T08:17:47Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-02T12:59:21Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
