@@ -1087,6 +1087,43 @@ def main() -> int:
     check("an unknown legacy value stays unmapped instead of being invented",
           itd_verdict_taxonomy.normalize_category("никогда-не-виданный", tx) is None)
 
+    # Windows sharing violation: дозапись обязана пережить переходный
+    # PermissionError (другой писатель переименовывает файл при ротации).
+    # Детерминированно: первые два открытия падают, третье проходит.
+    sv = Path(tempfile.mkdtemp(prefix="vc-sharing-"))
+    TMPDIRS.append(sv)
+    target = sv / "review-findings.jsonl"
+    real_open = Path.open
+    state = {"left": 2}
+
+    def flaky_open(self, *a, **k):
+        if self == target and state["left"] > 0:
+            state["left"] -= 1
+            raise PermissionError(13, "sharing violation (simulated)")
+        return real_open(self, *a, **k)
+
+    Path.open = flaky_open
+    try:
+        _tax_mod._append_bounded(target, "{\"probe\": 1}")
+    finally:
+        Path.open = real_open
+    check("a transient sharing violation does not lose the append",
+          state["left"] == 0
+          and target.read_text(encoding="utf-8").count("probe") == 1)
+    # Исчерпанный повтор поднимает ошибку, а не теряет запись молча.
+    state["left"] = 10 ** 6
+    Path.open = flaky_open
+    raised_sv = None
+    try:
+        _tax_mod._append_bounded(target, "{\"probe\": 2}")
+    except PermissionError as exc:
+        raised_sv = exc
+    finally:
+        Path.open = real_open
+    check("an exhausted retry surfaces the error instead of dropping",
+          raised_sv is not None
+          and target.read_text(encoding="utf-8").count("probe") == 1)
+
     # --- cleanup ------------------------------------------------------------
     for d in TMPDIRS:
         shutil.rmtree(d, ignore_errors=True)

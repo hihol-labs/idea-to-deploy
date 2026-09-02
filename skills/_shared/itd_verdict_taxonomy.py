@@ -24,6 +24,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -307,8 +308,24 @@ def _append_bounded(path: Path, line: str) -> None:
     """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
     его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
     трогать; ротация сохраняет их в соседнем поколении."""
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(line + "\n")
+    # Windows отвечает PermissionError (sharing violation), пока другой
+    # писатель переименовывает файл при ротации: это переходное состояние,
+    # а не отказ. Ограниченный повтор снимает его; исчерпанный повтор
+    # поднимает ошибку наверх, где воронка admit() назовёт её причиной,
+    # а не потеряет запись молча. (windows-verify на PR #253: 69/96 дозаписей
+    # и 736/900 записей под ротацией без повтора.)
+    last_error = None
+    for _attempt in range(50):
+        try:
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+            last_error = None
+            break
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(0.01)
+    if last_error is not None:
+        raise last_error
     if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
         _rotate_oversized(path)
 
