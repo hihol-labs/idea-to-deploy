@@ -1179,6 +1179,32 @@ def main() -> int:
           len(broken) == 1 and any(x.get("probe") == 4 for x in parsed)
           and sum(1 for x in parsed if x.get("probe") == 4) == 1,
           "broken=%r parsed=%d" % (broken[:1], len(parsed)))
+    # Сбой ПРОБЫ конца файла не имеет права приклеить новую запись к чужому
+    # фрагменту: при недоступном чтении разделитель пишется всегда.
+    frag = sv / "fragment.jsonl"
+    frag.write_text('{"partial": ', encoding="utf-8")   # без перевода строки
+
+    def probe_fails(self, *a, **k):
+        mode = a[0] if a else k.get("mode", "r")
+        if self == frag and "rb" in mode:
+            raise PermissionError(13, "probe read blocked (simulated)")
+        return real_open(self, *a, **k)
+
+    Path.open = probe_fails
+    try:
+        _tax_mod._append_bounded(frag, '{"probe": 5}')
+    finally:
+        Path.open = real_open
+    frag_lines = [ln for ln in frag.read_text(encoding="utf-8").split("\n") if ln.strip()]
+    ok_lines = []
+    for ln in frag_lines:
+        try:
+            ok_lines.append(json.loads(ln))
+        except ValueError:
+            pass
+    check("a failed end-of-file probe still separates the new record",
+          any(x.get("probe") == 5 for x in ok_lines),
+          repr(frag_lines[:3]))
     check("an exhausted retry surfaces the error instead of dropping",
           raised_sv is not None
           and not any(x.get("probe") == 2 for x in parsed))

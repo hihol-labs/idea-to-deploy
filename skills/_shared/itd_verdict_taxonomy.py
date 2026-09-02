@@ -305,16 +305,26 @@ def _rotate_oversized(path: Path) -> None:
 
 
 def _needs_line_break(path: Path) -> bool:
-    """True, если файл непуст и не кончается переводом строки."""
+    """True, если файл непуст и не кончается переводом строки.
+
+    Сбой самой пробы (sharing violation на Windows, любой OSError кроме
+    отсутствия файла) трактуется КОНСЕРВАТИВНО — «разделитель нужен»:
+    лишняя пустая строка для JSONL безвредна, а склейка новой записи с
+    чужим фрагментом ломает обе."""
     try:
         size = path.stat().st_size
-        if size == 0:
-            return False
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    if size == 0:
+        return False
+    try:
         with path.open("rb") as raw:
             raw.seek(size - 1)
             return raw.read(1) != b"\n"
     except OSError:
-        return False
+        return True
 
 
 def _append_bounded(path: Path, line: str) -> None:
