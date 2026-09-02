@@ -48,7 +48,11 @@ PILOT P0-1 из `.itd-memory/ADVISORY-RSI-2026-08-27-v4.md` §5 — единст
 - Леджерная бухгалтерия юнита: `.itd-memory/STATE.json`,
   `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md`, `.itd/DECISIONS.md`,
   `.itd-memory/contracts/PILOT-P01.md`, `.itd/IMPACT_GRAPH.json` (производный:
-  регенерируется `tests/build_impact_graph.py`, руками не правится).
+  регенерируется `tests/build_impact_graph.py`, руками не правится),
+  `.itd-memory/events.jsonl` (append-only журнал: каждый переход юнита
+  дописывает в него событие, поэтому он неотделим от бухгалтерии закрытия;
+  объявлен в `ledgerFiles` базового STATE, чтобы кандидат закрытия оставался
+  в своём классе).
 
 ## Явно вне скоупа
 - **Слепой семантический протокол и порог >=8/10** — юнит PILOT-P02.

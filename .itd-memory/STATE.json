@@ -572,5 +572,8 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "INSTALL-HARDENING закрыт: PR #247 merged 0d1e9d8, юнит verified, WIP свободен. P2 из RETRO-2026-08-29 закрыт по корню (хуки не пишут байткод в установленный runtime; отказ inventory называет путь и FIX). P3 (кодировка settings.json) выведен в BACKLOG после срабатывания стоп-правила над содержанием, работа сохранена патчем .itd-memory/p3-settings-encoding-attempt.patch. Дальше по решению владельца: RSI (кандидат PILOT P0-1, enum схемы вердикта), P1 ретро (repo-first для pre-push), либо юнит на машинную сверку индекс/SCOPE_LOCK/контракт/леджер (класс сработал трижды за юнит: r6, r9, r10; текст кандидата — в скрэтчпаде p1-scope-consistency-root.md)."
+  "nextAction": "INSTALL-HARDENING закрыт: PR #247 merged 0d1e9d8, юнит verified, WIP свободен. P2 из RETRO-2026-08-29 закрыт по корню (хуки не пишут байткод в установленный runtime; отказ inventory называет путь и FIX). P3 (кодировка settings.json) выведен в BACKLOG после срабатывания стоп-правила над содержанием, работа сохранена патчем .itd-memory/p3-settings-encoding-attempt.patch. Дальше по решению владельца: RSI (кандидат PILOT P0-1, enum схемы вердикта), P1 ретро (repo-first для pre-push), либо юнит на машинную сверку индекс/SCOPE_LOCK/контракт/леджер (класс сработал трижды за юнит: r6, r9, r10; текст кандидата — в скрэтчпаде p1-scope-consistency-root.md).",
+  "ledgerFiles": [
+    ".itd-memory/events.jsonl"
+  ]
 }
