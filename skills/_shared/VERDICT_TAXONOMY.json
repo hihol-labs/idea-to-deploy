@@ -1,0 +1,185 @@
+{
+  "taxonomy_version": 1,
+  "purpose": "Closed vocabularies for the review-findings ledger (PILOT P0-1, ADVISORY-RSI-2026-08-27-v4 §5). One machine-readable source shared by every writer (hooks/verdict-contract.sh, skills/retro/scripts/itd_review_import.py) and by the reader (skills/retro/scripts/itd_retro_scan.py). Validation is forward-only: records written before taxonomy_version 1 are never rewritten, they are normalized on read through legacyMapping.",
+  "createdAt": "2026-08-29",
+  "source": {
+    "values": [
+      "subagent-verdict",
+      "external-github-review",
+      "manual-entry"
+    ],
+    "meaning": {
+      "subagent-verdict": "A review subagent's own machine-readable verdict, persisted by hooks/verdict-contract.sh.",
+      "external-github-review": "A GitHub PR review comment normalized by skills/retro/scripts/itd_review_import.py.",
+      "manual-entry": "A record appended by hand or by a one-off script; the writer must still name a lineage."
+    }
+  },
+  "severity": {
+    "values": [
+      "critical",
+      "important",
+      "minor",
+      "unspecified"
+    ],
+    "bySource": {
+      "subagent-verdict": [
+        "critical",
+        "important",
+        "minor"
+      ],
+      "external-github-review": [
+        "critical",
+        "important",
+        "minor",
+        "unspecified"
+      ],
+      "manual-entry": [
+        "critical",
+        "important",
+        "minor",
+        "unspecified"
+      ]
+    },
+    "note": "unspecified means 'the writer could not grade it', not a grade. A review subagent always grades its own findings, so unspecified is invalid for subagent-verdict.",
+    "externalOnly": []
+  },
+  "category": {
+    "values": [
+      "correctness",
+      "incomplete-fix",
+      "test-coverage",
+      "documentation-accuracy",
+      "unsupported-claim",
+      "swallowed-diagnostic",
+      "over-inclusive-input",
+      "duplication",
+      "dead-code",
+      "naming-collision",
+      "readability",
+      "performance",
+      "security"
+    ],
+    "meaning": {
+      "correctness": "The code does the wrong thing: bad logic, wrong order, wrong predicate, wrong serialization.",
+      "incomplete-fix": "The change does not close what it claims to close; part of the stated subject is left undone.",
+      "test-coverage": "A guarantee is unproven: no test, no mutation, or the test cannot fail.",
+      "documentation-accuracy": "Docs, comments or contracts disagree with the code they describe.",
+      "unsupported-claim": "A claim is stronger than its evidence (a PASSED without a receipt, a count without a measurement).",
+      "swallowed-diagnostic": "An error, a failure or a refusal is lost silently instead of being named.",
+      "over-inclusive-input": "Input, scope or a match is wider than needed: over-broad regex, unbounded read, extra files.",
+      "duplication": "The same logic exists in two places and can drift apart.",
+      "dead-code": "Code, a rule or a branch that nothing can reach or that nothing consumes.",
+      "naming-collision": "Two things claim one identifier: ADR numbers, migration numbers, ids, paths.",
+      "readability": "Structure or naming makes the code harder to follow than it needs to be.",
+      "performance": "Avoidable slowness or resource cost: missing index, seq scan, N+1, unbounded loop.",
+      "security": "Secret exposure, missing authorization, injection, unsafe path, weakened gate.",
+      "unclassified": "The writer is not a reviewer and did not classify the text (an imported external comment). Never valid for subagent-verdict: a review subagent classifies its own finding."
+    },
+    "bySource": {
+      "subagent-verdict": [
+        "correctness",
+        "incomplete-fix",
+        "test-coverage",
+        "documentation-accuracy",
+        "unsupported-claim",
+        "swallowed-diagnostic",
+        "over-inclusive-input",
+        "duplication",
+        "dead-code",
+        "naming-collision",
+        "readability",
+        "performance",
+        "security"
+      ],
+      "external-github-review": [
+        "correctness",
+        "incomplete-fix",
+        "test-coverage",
+        "documentation-accuracy",
+        "unsupported-claim",
+        "swallowed-diagnostic",
+        "over-inclusive-input",
+        "duplication",
+        "dead-code",
+        "naming-collision",
+        "readability",
+        "performance",
+        "security",
+        "unclassified"
+      ],
+      "manual-entry": [
+        "correctness",
+        "incomplete-fix",
+        "test-coverage",
+        "documentation-accuracy",
+        "unsupported-claim",
+        "swallowed-diagnostic",
+        "over-inclusive-input",
+        "duplication",
+        "dead-code",
+        "naming-collision",
+        "readability",
+        "performance",
+        "security",
+        "unclassified"
+      ]
+    },
+    "note": "values — словарь ревьюера (13). bySource добавляет unclassified тем писателям, которые физически не выносят суждение о чужом тексте; это честная пометка «не классифицировано», а не лазейка для ревьюера.",
+    "externalOnly": [
+      "unclassified"
+    ]
+  },
+  "legacyMapping": {
+    "note": "Applied on READ to records without taxonomy_version. Never rewrites the ledger.",
+    "category": {
+      "documentation-accuracy": "documentation-accuracy",
+      "test-coverage": "test-coverage",
+      "missing-test-coverage": "test-coverage",
+      "adr-number-collision": "naming-collision",
+      "migration-numbers": "naming-collision",
+      "unsupported-evidentiary-claim": "unsupported-claim",
+      "dead-code": "dead-code",
+      "readability": "readability",
+      "correctness": "correctness",
+      "fragile-predicate": "correctness",
+      "serialization": "correctness",
+      "incomplete-candidate": "incomplete-fix",
+      "incomplete-fix": "incomplete-fix",
+      "swallowed-diagnostic": "swallowed-diagnostic",
+      "duplicated-parser": "duplication",
+      "over-inclusive-input": "over-inclusive-input",
+      "sql-performance": "performance",
+      "assumed-producer-shape": "correctness",
+      "missing-null-check": "correctness",
+      "fk-resolve-order": "correctness",
+      "unbounded-query": "performance"
+    },
+    "severity": {
+      "": "unspecified",
+      "external": "unspecified",
+      "low": "minor",
+      "medium": "important",
+      "high": "critical"
+    }
+  },
+  "rejection": {
+    "file": "review-findings-rejected.jsonl",
+    "note": "A record that fails validation is NOT dropped and NOT admitted to the canonical ledger: it is appended here with the reason, and the counter file records how often each reason fired. The quarantine is the measured evidence for a taxonomy_version 2 rename/split/merge. The quarantine keeps every rejected record whole and never truncates one; the FILE is bounded by rotation into numbered generations, exactly like the canonical ledger. A repeated rejection of the same record for the same reason classes is skipped before the write when a previous entry is visible, but that check is a read-then-append and cannot be exact under concurrent writers. The MEASUREMENT is exact by construction instead: the counter is aggregated by distinct record identity, so the same rejection counts once no matter how many writers recorded it. Nothing is ever lost; at worst a duplicate line appears, bounded by rotation."
+  },
+  "writerDefaults": {
+    "external-github-review": {
+      "source": "external-github-review",
+      "severity": "unspecified",
+      "category": "unclassified"
+    },
+    "manual-entry": {
+      "source": "manual-entry",
+      "severity": "unspecified",
+      "category": "unclassified"
+    }
+  },
+  "limits": {
+    "maxRecordBytes": 16384,
+    "note": "A record larger than maxRecordBytes is not admitted to the canonical ledger: reason record:too-large. The quarantine still stores it IN FULL - the two requirements (a bounded ledger, a rejected record kept whole) are not in conflict, because the quarantine file is bounded by ROTATION, not by truncating a record. Rotation preserves; truncation destroys."
+  }
+}

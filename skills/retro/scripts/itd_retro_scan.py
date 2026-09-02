@@ -82,6 +82,7 @@ def read_json(path: Path) -> dict:
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
 import itd_unit_lifecycle as LIFECYCLE  # noqa: E402
+import itd_verdict_taxonomy as taxonomy  # noqa: E402
 
 
 def scan_project(mem: Path) -> dict:
@@ -237,12 +238,13 @@ _FP_STOP = {"the", "and", "for", "not", "with", "was", "были", "без", "д
             "при", "это", "что", "как", "или"}
 
 
-def _finding_class(f: dict) -> str:
-    """Класс дефекта: явная category, иначе грубый фингерпринт по summary
-    (помечен `~` — приближение, не самоназвание)."""
+def _finding_class(f: dict, tax=None) -> str:
+    """Класс дефекта: category, сведённая к закрытому словарю (легаси-значения
+    переводятся legacyMapping ПРИ ЧТЕНИИ, леджер не переписывается), иначе
+    грубый фингерпринт по summary (помечен `~` — приближение, не самоназвание)."""
     cat = str(f.get("category") or "").strip().lower()
     if cat:
-        return cat
+        return taxonomy.normalize_category(cat, tax) or cat
     toks = re.findall(r"[a-zа-яё0-9_]{3,}", str(f.get("summary") or "").lower())
     toks = [t for t in toks if t not in _FP_STOP][:4]
     return ("~" + "-".join(toks)) if toks else "~unclassified"
@@ -255,11 +257,42 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
     hooks/verdict-contract.sh — {"ts","project","verdict","findings":[{severity,
     category,file,summary}]} (producer-first, урок v1.46.0). Returns None when
     no ledger exists anywhere (section stays absent, как другие источники)."""
-    paths = [m / "review-findings.jsonl" for m in mems]
-    paths.append(tmp_dir / "claude-review-findings.jsonl")
+    paths = [m / taxonomy.FINDINGS_FILE for m in mems]
+    paths.append(tmp_dir / ("claude-" + taxonomy.FINDINGS_FILE))
+    # Переполненный леджер РОТИРУЕТСЯ (писатель не имеет права стирать легаси),
+    # поэтому читатель обязан видеть и отротированные поколения: иначе история
+    # исчезает из майнинга ровно в тот момент, когда её стало много.
+    def _generations(base: Path):
+        # Строго числовой суффикс: `.1.bak` или `.2-old` — посторонние файлы,
+        # а не поколения леджера, и подмешивать их в статистику нельзя.
+        found = []
+        for cand in base.parent.glob(base.name + ".*"):
+            tail = cand.name[len(base.name) + 1:]
+            if tail.isdigit():
+                found.append((int(tail), cand))
+        return [c for _, c in sorted(found)]
+
+    paths = [g for p in paths for g in (p, *_generations(p))]
     paths = [p for p in paths if p.is_file()]
+    rejected = {"total": 0, "byReason": {}}
+    for d in list(mems) + [tmp_dir]:
+        summary = taxonomy.rejected_summary("", directory=d)
+        if not summary:
+            continue
+        rejected["total"] += int(summary.get("total") or 0)
+        for k, v in (summary.get("byReason") or {}).items():
+            rejected["byReason"][k] = rejected["byReason"].get(k, 0) + int(v)
+    tax = taxonomy.load_taxonomy()
     if not paths:
-        return None
+        # прогон, где ВСЕ записи отклонены (например taxonomy-unavailable),
+        # не создаёт канонический леджер: молчать здесь значило бы прятать
+        # ровно тот счётчик, ради которого он заведён.
+        if not rejected["total"]:
+            return None
+        return {"reviewsLogged": 0, "findingsTotal": 0, "classesTotal": 0,
+                "repeatClasses": [],
+                "taxonomy_version": (tax or {}).get("taxonomy_version"),
+                "rejectedByVocabulary": rejected}
     reviews = 0
     classes: dict[str, dict] = {}
     total = 0
@@ -270,18 +303,21 @@ def scan_review_findings(mems: list[Path], tmp_dir: Path) -> dict | None:
                 if not isinstance(f, dict):
                     continue
                 total += 1
-                key = _finding_class(f)
+                key = _finding_class(f, tax)
                 c = classes.setdefault(
                     key, {"class": key, "count": 0, "severities": {}, "examples": []})
                 c["count"] += 1
-                sev = str(f.get("severity") or "?").lower()
+                sev = (taxonomy.normalize_severity(f.get("severity"), tax)
+                       or str(f.get("severity") or "?").lower())
                 c["severities"][sev] = c["severities"].get(sev, 0) + 1
                 if len(c["examples"]) < 2:
                     c["examples"].append(clip(str(f.get("file") or ""), 60))
     repeats = sorted((c for c in classes.values() if c["count"] >= 2),
                      key=lambda c: -c["count"])[:10]
     return {"reviewsLogged": reviews, "findingsTotal": total,
-            "classesTotal": len(classes), "repeatClasses": repeats}
+            "classesTotal": len(classes), "repeatClasses": repeats,
+            "taxonomy_version": (tax or {}).get("taxonomy_version"),
+            "rejectedByVocabulary": rejected}
 
 
 
@@ -571,7 +607,17 @@ def render_markdown(r: dict) -> str:
     if rf:
         out.append("")
         out.append(f"**Находки /review (леджер):** ревью {rf['reviewsLogged']}, "
-                   f"находок {rf['findingsTotal']}, классов {rf['classesTotal']}")
+                   f"находок {rf['findingsTotal']}, классов {rf['classesTotal']}"
+                   + (f", словарь v{rf['taxonomy_version']}"
+                      if rf.get("taxonomy_version") else ""))
+        rej = rf.get("rejectedByVocabulary") or {}
+        if rej.get("total"):
+            by = ", ".join(f"{k}×{v}" for k, v in
+                           sorted((rej.get("byReason") or {}).items()))
+            out.append(f"Отклонено словарём: {rej['total']}"
+                       + (f" ({by})" if by else "")
+                       + " — записи в review-findings-rejected.jsonl, "
+                         "промах словаря = вход в следующую версию таксономии.")
         if rf["repeatClasses"]:
             out.append("Повторяющиеся классы — кандидаты в автопроверки "
                        "(пункт 4: review-находка → hook/тест; `~` = фингерпринт "

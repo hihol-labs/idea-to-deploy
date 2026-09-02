@@ -271,7 +271,8 @@
       "tests/verify_operating_loops_release.py"
     ],
     "agents/code-reviewer.md": [
-      "tests/verify_review_report_file.py"
+      "tests/verify_review_report_file.py",
+      "tests/verify_verdict_contract.py"
     ],
     "agents/devils-advocate.md": [
       "tests/verify_live_model_benchmark.py"
@@ -1101,6 +1102,10 @@
       "tests/verify_external_reviewer_release.py",
       "tests/verify_review_broker_policy.py"
     ],
+    "skills/_shared/VERDICT_TAXONOMY.json": [
+      "tests/verify_review_import.py",
+      "tests/verify_verdict_contract.py"
+    ],
     "skills/_shared/VERIFICATION_LOOP_POLICY.json": [
       "tests/verify_review_cache.py",
       "tests/verify_verification_loop.py"
@@ -1217,6 +1222,9 @@
     ],
     "skills/_shared/itd_unit_lifecycle.py": [
       "tests/verify_ledger_reconciliation.py"
+    ],
+    "skills/_shared/itd_verdict_taxonomy.py": [
+      "tests/verify_verdict_contract.py"
     ],
     "skills/_shared/itd_verification_loop.py": [
       "tests/verify_adjudication_channel.py",
@@ -1363,10 +1371,12 @@
       "tests/verify_retro_abstention_review.py"
     ],
     "skills/retro/scripts/itd_retro_scan.py": [
-      "tests/verify_retro_scan.py"
+      "tests/verify_retro_scan.py",
+      "tests/verify_verdict_contract.py"
     ],
     "skills/retro/scripts/itd_review_import.py": [
-      "tests/verify_review_import.py"
+      "tests/verify_review_import.py",
+      "tests/verify_verdict_contract.py"
     ],
     "skills/review/SKILL.md": [
       "tests/verify_itd_runtime_install.py",
@@ -1376,7 +1386,8 @@
       "tests/verify_review_cache.py",
       "tests/verify_review_report_file.py",
       "tests/verify_review_sentinel_diffbind.py",
-      "tests/verify_stall_fallback.py"
+      "tests/verify_stall_fallback.py",
+      "tests/verify_verdict_contract.py"
     ],
     "skills/review/references/meta-review-checklist.md": [
       "tests/verify_itd_runtime_install.py",

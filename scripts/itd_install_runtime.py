@@ -36,6 +36,7 @@ RUNTIME_SHARED_FILES = (
     "REVIEW_BROKER_POLICY.json",
     "REVIEW_BROKER_POLICY.schema.json",
     "REVIEW_BROKER_RUNTIME.schema.json",
+    "VERDICT_TAXONOMY.json",
     "VERIFICATION_LOOP_POLICY.json",
     "WORKING_DEADLINE_POLICY.json",
     "itd_captured_run.py",
@@ -54,6 +55,7 @@ RUNTIME_SHARED_FILES = (
     "itd_reviewer_independence.py",
     "itd_semantic_navigation.py",
     "itd_unit_lifecycle.py",
+    "itd_verdict_taxonomy.py",
     "itd_verification_loop.py",
     "itd_verification_profiles.py",
 )
