@@ -314,18 +314,24 @@ def _append_bounded(path: Path, line: str) -> None:
     # поднимает ошибку наверх, где воронка admit() назовёт её причиной,
     # а не потеряет запись молча. (windows-verify на PR #253: 69/96 дозаписей
     # и 736/900 записей под ротацией без повтора.)
+    # Повторяется ТОЛЬКО открытие: sharing violation возникает на нём. Если
+    # повторять и запись, строка, упавшая после частичной фиксации байтов,
+    # была бы дописана дважды. Сама запись выполняется один раз, а её ошибка
+    # уходит наверх как есть.
+    fh = None
     last_error = None
     for _attempt in range(50):
         try:
-            with path.open("a", encoding="utf-8") as fh:
-                fh.write(line + "\n")
+            fh = path.open("a", encoding="utf-8")
             last_error = None
             break
         except PermissionError as exc:
             last_error = exc
             time.sleep(0.01)
-    if last_error is not None:
+    if fh is None:
         raise last_error
+    with fh:
+        fh.write(line + "\n")
     if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
         _rotate_oversized(path)
 

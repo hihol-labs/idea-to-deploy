@@ -1120,6 +1120,46 @@ def main() -> int:
         raised_sv = exc
     finally:
         Path.open = real_open
+    # Ошибка самой записи (после успешного открытия) НЕ повторяется —
+    # иначе частично записанная строка дублировалась бы. Обёртка вокруг
+    # настоящего файла пишет половину и падает; TextIOWrapper неизменяем,
+    # поэтому подменяется результат Path.open, а не метод класса.
+    class HalfThenFail:
+        def __init__(self, inner):
+            self.inner = inner; self.calls = 0
+        def write(self, data):
+            self.calls += 1
+            self.inner.write(data[: len(data) // 2]); self.inner.flush()
+            raise PermissionError(13, "write failed mid-way (simulated)")
+        def __enter__(self): return self
+        def __exit__(self, *a): self.inner.close(); return False
+
+    wrapped = {"n": 0}
+
+    def half_open(self, *a, **k):
+        fh = real_open(self, *a, **k)
+        if self == target:
+            wrapped["n"] += 1
+            return HalfThenFail(fh)
+        return fh
+
+    before_text = target.read_text(encoding="utf-8")
+    Path.open = half_open
+    raised_w = None
+    try:
+        _tax_mod._append_bounded(target, "{\"probe\": 3}")
+    except PermissionError as exc:
+        raised_w = exc
+    finally:
+        Path.open = real_open
+    after_text = target.read_text(encoding="utf-8")
+    half = len('{"probe": 3}' + "\n") // 2
+    check("a failed write is not retried, so a partial line is never duplicated",
+          raised_w is not None and wrapped["n"] == 1
+          and after_text.startswith(before_text)
+          and len(after_text) - len(before_text) == half,
+          "opens=%d delta=%d half=%d" % (wrapped["n"],
+                                         len(after_text) - len(before_text), half))
     check("an exhausted retry surfaces the error instead of dropping",
           raised_sv is not None
           and target.read_text(encoding="utf-8").count("probe") == 1)
