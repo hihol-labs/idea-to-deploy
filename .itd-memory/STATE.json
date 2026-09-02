@@ -37,14 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REVIEWER-DEFAULT-SOL",
-    "goal": "Дефолтный независимый ревьюер для anthropic-мейкера переведён на gpt-5.6-sol в соответствии с брокерской политикой; terra остаётся объявленным запасным, переход на него разрешён только при отсутствии вердикта и всегда помечается в квитанции",
-    "status": "verified",
-    "startedAt": "2026-08-31T16:19:22Z",
+    "id": "PILOT-P01",
+    "goal": "PILOT P0-1 из ADVISORY-RSI-2026-08-27-v4 §5: закрытые enum category/source/severity в схеме вердикта — валидация на записи без молчаливого дропа, счётчик отклонённых, taxonomy_version + mapping легаси; forward-only",
+    "status": "in_progress",
+    "startedAt": "2026-09-02T08:17:47Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-09-01T14:20:00Z",
-    "evidence": "Feature PR #249 merged f55ef21 (producer gpt-5.6-sol PASS findings=[], checker PASSED, adjudication, oracle 279 checks, mutations 13/13 lethal, full mirror DONE fails:none, efficacy WSL+Windows+u12 re-minted detection 1.0 false-blocks 0.0). Release PR #250 merged bf84fc5, tag v1.102.0; live benchmark re-pinned on the release tree (154/0); rollout hash-verified on BOTH hosts: runtime 1.102.0-bca5a6de1683d098, sha256 bca5a6de1683d098285acc7f4335f962aa784c9f4667d75cf4652e6bd4722413 (WSL ~/.local/share/itd/runtime, Windows %LOCALAPPDATA%/ITD/runtime)."
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",
