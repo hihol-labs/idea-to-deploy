@@ -28,11 +28,25 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:  # POSIX: советующая блокировка всего файла
+    import fcntl
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None
+try:  # Windows: байтовая блокировка на дескрипторе
+    import msvcrt
+except ImportError:  # pragma: no cover - POSIX
+    msvcrt = None
+
 TAXONOMY_FILE = "VERDICT_TAXONOMY.json"
 FINDINGS_FILE = "review-findings.jsonl"
 REJECTED_FILE = "review-findings-rejected.jsonl"
 REJECTED_COUNT_FILE = "review-findings-rejected.count.jsonl"
 FINDINGS_SOFT_BYTES = 64 * 1024  # bound как у errors.log: на переполнении — хвост
+# Windows: байт для блокировки лежит далеко за любым реальным EOF, чтобы
+# обязательная (mandatory) байтовая блокировка не мешала читателям леджера.
+LOCK_OFFSET = 1 << 60
+LOCK_WAIT_SECONDS = 30.0
+OPEN_RETRIES = 50
 REASON_TAXONOMY_UNAVAILABLE = "taxonomy-unavailable"
 REASON_TOO_LARGE = "record:too-large"
 MAX_RECORD_BYTES_DEFAULT = 16 * 1024
@@ -327,43 +341,137 @@ def _needs_line_break(path: Path) -> bool:
         return True
 
 
-def _append_bounded(path: Path, line: str) -> None:
-    """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
-    его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
-    трогать; ротация сохраняет их в соседнем поколении."""
-    # Windows отвечает PermissionError (sharing violation), пока другой
-    # писатель переименовывает файл при ротации: это переходное состояние,
-    # а не отказ. Ограниченный повтор снимает его; исчерпанный повтор
-    # поднимает ошибку наверх, где воронка admit() назовёт её причиной,
-    # а не потеряет запись молча. (windows-verify на PR #253: 69/96 дозаписей
-    # и 736/900 записей под ротацией без повтора.)
-    # Повторяется ТОЛЬКО открытие: sharing violation возникает на нём. Если
-    # повторять и запись, строка, упавшая после частичной фиксации байтов,
-    # была бы дописана дважды. Сама запись выполняется один раз, а её ошибка
-    # уходит наверх как есть.
-    fh = None
+def _open_retrying(opener):
+    """Открыть с ограниченным повтором на PermissionError.
+
+    Windows отвечает PermissionError (sharing violation), пока другой
+    писатель переименовывает файл при ротации: это переходное состояние,
+    а не отказ. Исчерпанный повтор поднимает ошибку наверх, где воронка
+    admit() назовёт её причиной, а не потеряет запись молча. (windows-verify
+    на PR #253: 69/96 дозаписей и 736/900 записей под ротацией без повтора.)
+    Повторяется ТОЛЬКО открытие: если повторять и запись, строка, упавшая
+    после частичной фиксации байтов, была бы дописана дважды."""
     last_error = None
-    for _attempt in range(50):
+    for _attempt in range(OPEN_RETRIES):
         try:
-            fh = path.open("a", encoding="utf-8")
-            last_error = None
-            break
+            return opener()
         except PermissionError as exc:
             last_error = exc
             time.sleep(0.01)
-    if fh is None:
-        raise last_error
-    with fh:
-        # JSONL-инвариант держится на ЗАПИСИ, а не на удаче: если прошлая
-        # дозапись упала посреди строки (Windows sharing violation, ENOSPC),
-        # её фрагмент остаётся, но новая запись начинается с новой строки.
-        # Фрагмент читатели пропускают как непарсящуюся строку; повторять
-        # запись нельзя — иначе частично зафиксированная строка удвоилась бы.
-        if _needs_line_break(path):
-            fh.write("\n")
-        fh.write(line + "\n")
-    if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
-        _rotate_oversized(path)
+    raise last_error
+
+
+def _lock_fd(fd: int) -> None:
+    """Исключительная блокировка дозаписи на ДЕСКРИПТОРЕ леджера.
+
+    Зачем: на Windows режим O_APPEND в CRT не атомарен — `_write` делает
+    `lseek(END)` и `WriteFile` двумя шагами, и два процесса пишут по одному
+    смещению, затирая друг друга без единой ошибки (windows-verify на PR #253
+    после повторов открытия: 24/96 отклонений и 151/900 принятых записей
+    потеряны молча, карантин пуст). POSIX O_APPEND атомарен, но та же
+    блокировка делает пробу конца файла и запись одним шагом.
+
+    Блокировку снимает ОС при закрытии дескриптора или смерти процесса —
+    висящего lock-состояния после падения не бывает."""
+    # Один и тот же ограниченный дедлайн на обеих платформах: живой процесс,
+    # не отпускающий блокировку, не имеет права подвесить писателя навечно —
+    # исчерпанный дедлайн поднимает OSError, и admit() назовёт его причиной
+    # (находка ревьюера lock2: блокирующий flock на POSIX против 30 с на
+    # Windows). Неблокирующая попытка с коротким сном вместо LK_LOCK/LOCK_EX:
+    # LK_LOCK повторяет раз в секунду, под десятком писателей это минуты.
+    if msvcrt is not None:
+        os.lseek(fd, LOCK_OFFSET, os.SEEK_SET)
+        attempt = lambda: msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # noqa: E731
+    elif fcntl is not None:
+        attempt = lambda: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # noqa: E731
+    else:  # pragma: no cover - ни одной поддерживаемой блокировки
+        return
+    deadline = time.monotonic() + LOCK_WAIT_SECONDS
+    while True:
+        try:
+            attempt()
+            return
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.001)
+
+
+def _unlock_fd(fd: int) -> None:
+    if msvcrt is not None:
+        try:
+            os.lseek(fd, LOCK_OFFSET, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+    elif fcntl is not None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+
+
+def _lock_path(path: Path) -> Path:
+    """Identity блокировки — ОТДЕЛЬНЫЙ файл, который никогда не переименовывают.
+
+    Блокировка на самом леджере привязана к inode, а ротация меняет, на какой
+    inode указывает путь: на POSIX ждущий писатель брал бы блокировку на
+    старое поколение, пока новый писатель уже пишет в новое, и ротация шла бы
+    параллельно с дозаписью (находка ревьюера lock1). Скрытое имя — чтобы файл
+    не попадал под глобы читателей `review-findings.jsonl*`; каталог
+    `.itd-memory/` игнорируется git, файл пустой и переживает сессии."""
+    return path.with_name("." + path.name + ".lock")
+
+
+def _acquire_ledger_lock(path: Path) -> int:
+    fd = _open_retrying(
+        lambda: os.open(str(_lock_path(path)), os.O_RDWR | os.O_CREAT, 0o600))
+    try:
+        _lock_fd(fd)
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _release_ledger_lock(fd: int) -> None:
+    try:
+        _unlock_fd(fd)
+    finally:
+        os.close(fd)
+
+
+def _append_bounded(path: Path, line: str) -> None:
+    """Дописать строку и, при переполнении, ОТРОТИРОВАТЬ файл, а не обрезать
+    его. Обрезание удаляло бы легаси-записи, которые контракт обещает не
+    трогать; ротация сохраняет их в соседнем поколении.
+
+    Проба конца файла, запись И ротация идут под одной блокировкой
+    (`_lock_path`): писатели не пересекаются ни между собой, ни с
+    переименованием. Сама запись открывается как раньше (`Path.open`),
+    поэтому её сбои (sharing violation, полузапись) видны и проверяемы по
+    отдельности."""
+    lock = _acquire_ledger_lock(path)
+    try:
+        fh = _open_retrying(lambda: path.open("a", encoding="utf-8"))
+        with fh:
+            # JSONL-инвариант держится на ЗАПИСИ, а не на удаче: если прошлая
+            # дозапись упала посреди строки (sharing violation, ENOSPC), её
+            # фрагмент остаётся, но новая запись начинается с новой строки.
+            # Фрагмент читатели пропускают как непарсящуюся строку; повторять
+            # запись нельзя — иначе частично зафиксированная строка удвоилась бы.
+            if _needs_line_break(path):
+                fh.write("\n")
+            fh.write(line + "\n")
+        # Ротация — после закрытия собственного дескриптора записи (на Windows
+        # он блокировал бы переименование), но ЕЩЁ под блокировкой: никто не
+        # дописывает в файл, который переименовывают. Чужой читатель может
+        # держать файл открытым — тогда переименование не состоится, а
+        # следующая дозапись повторит попытку.
+        if _size_or_zero(path) > FINDINGS_SOFT_BYTES:
+            _rotate_oversized(path)
+    finally:
+        _release_ledger_lock(lock)
 
 
 def bump_rejected_counter(cwd: str, reasons, directory=None,

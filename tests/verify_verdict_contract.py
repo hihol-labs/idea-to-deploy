@@ -452,6 +452,150 @@ def main() -> int:
     check("concurrent writers cannot lose a rejection (real parallel writers)",
           total == writers * rounds,
           "expected %d, got %r" % (writers * rounds, total))
+    # Дозапись СЕРИАЛИЗОВАНА блокировкой: на Windows O_APPEND в CRT не
+    # атомарен (lseek(END) + WriteFile), и два процесса затирали друг друга
+    # без ошибки (24/96 и 151/900 на windows-verify). Identity блокировки —
+    # отдельный lock-файл, а не inode леджера: ротация переименовывает
+    # леджер, и блокировка на inode переставала связывать писателей (lock1).
+    # Детерминированно и кросс-платформенно: чужой процесс держит блокировку
+    # заданное время, леджер под ним ПЕРЕИМЕНОВАН и пересоздан (как при
+    # ротации), наша дозапись всё равно обязана дождаться снятия.
+    hold = Path(tempfile.mkdtemp(prefix="vc-lock-"))
+    TMPDIRS.append(hold)
+    held = hold / "review-findings.jsonl"
+    held.write_text('{"lineage": "before"}\n', encoding="utf-8")
+    marker = hold / "held.marker"
+    hold_seconds = 2.0
+    holder = (
+        "import sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "from pathlib import Path\n"
+        "import itd_verdict_taxonomy as t\n"
+        "fd = t._acquire_ledger_lock(Path(%r))\n"
+        "open(%r, 'w').close()\n"
+        "time.sleep(%r)\n"
+        "t._release_ledger_lock(fd)\n"
+        % (str(ROOT / "skills" / "_shared"), str(held), str(marker),
+           hold_seconds))
+    hp = subprocess.Popen([PY, "-c", holder])
+    wait_until = time.time() + 30
+    while not marker.exists() and time.time() < wait_until:
+        time.sleep(0.005)
+    os.replace(held, held.with_name("review-findings.jsonl.1"))
+    held.write_text("", encoding="utf-8")
+    t0 = time.monotonic()
+    _tax_mod._append_bounded(held, '{"probe": "locked"}')
+    waited = time.monotonic() - t0
+    hp.wait(timeout=60)
+    check("an append waits for the ledger lock even after the ledger was renamed",
+          marker.exists() and waited >= hold_seconds / 2
+          and held.read_text(encoding="utf-8").count("locked") == 1,
+          "waited=%.3fs hold=%.1fs marker=%s" % (waited, hold_seconds,
+                                                 marker.exists()))
+    # Ротация под чужой блокировкой ждёт её снятия и не теряет ни легаси, ни
+    # новую запись: леджер уже за порогом, писатель обязан дописать и
+    # отротировать только после того, как держатель отпустил блокировку.
+    over = hold / "over.jsonl"
+    legacy_over = '{"lineage": "legacy-over"}'
+    over.write_text((legacy_over + "\n") * (_tax_mod.FINDINGS_SOFT_BYTES // len(legacy_over) + 2),
+                    encoding="utf-8")
+    marker2 = hold / "held2.marker"
+    holder2 = holder.replace(repr(str(held)), repr(str(over))).replace(
+        repr(str(marker)), repr(str(marker2)))
+    hp2 = subprocess.Popen([PY, "-c", holder2])
+    wait_until = time.time() + 30
+    while not marker2.exists() and time.time() < wait_until:
+        time.sleep(0.005)
+    t0 = time.monotonic()
+    _tax_mod._append_bounded(over, '{"probe": "rotated"}')
+    waited2 = time.monotonic() - t0
+    hp2.wait(timeout=60)
+    gens = sorted(hold.glob("over.jsonl.[0-9]*"))
+    everything = "".join(g.read_text(encoding="utf-8") for g in gens) \
+        + over.read_text(encoding="utf-8")
+    check("rotation waits for the ledger lock and keeps every record",
+          marker2.exists() and waited2 >= hold_seconds / 2 and len(gens) == 1
+          and everything.count("legacy-over") == _tax_mod.FINDINGS_SOFT_BYTES // len(legacy_over) + 2
+          and everything.count('"rotated"') == 1 and over.stat().st_size == 0,
+          "waited=%.3fs gens=%d canon=%d" % (waited2, len(gens), over.stat().st_size))
+    # Ротация идёт ПОД блокировкой, а не после неё: соперник, дождавшийся
+    # блокировки, застаёт леджер уже отротированным (канонический пуст).
+    # Детерминированно: ротация в этом процессе замедлена, соперник берёт
+    # блокировку ровно в это окно и записывает увиденный размер.
+    slow = hold / "slow.jsonl"
+    slow.write_text((legacy_over + "\n") * (_tax_mod.FINDINGS_SOFT_BYTES // len(legacy_over) + 2),
+                    encoding="utf-8")
+    go = hold / "go.marker"
+    seen = hold / "seen.size"
+    rival = (
+        "import os, sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "from pathlib import Path\n"
+        "import itd_verdict_taxonomy as t\n"
+        "deadline = time.time() + 30\n"
+        "while not os.path.exists(%r) and time.time() < deadline:\n"
+        "    time.sleep(0.002)\n"
+        "fd = t._acquire_ledger_lock(Path(%r))\n"
+        "size = os.stat(%r).st_size\n"
+        "t._release_ledger_lock(fd)\n"
+        "open(%r, 'w').write(str(size))\n"
+        % (str(ROOT / "skills" / "_shared"), str(go), str(slow), str(slow),
+           str(seen)))
+    rp = subprocess.Popen([PY, "-c", rival])
+    real_rotate = _tax_mod._rotate_oversized
+
+    def slow_rotate(path):
+        time.sleep(1.0)
+        real_rotate(path)
+
+    _tax_mod._rotate_oversized = slow_rotate
+    try:
+        go.write_text("", encoding="utf-8")
+        _tax_mod._append_bounded(slow, '{"probe": "slow"}')
+    finally:
+        _tax_mod._rotate_oversized = real_rotate
+    rp.wait(timeout=60)
+    seen_size = int(seen.read_text(encoding="utf-8") or "-1") if seen.exists() else -1
+    check("a rival that wins the lock finds the ledger already rotated",
+          seen_size == 0 and sorted(hold.glob("slow.jsonl.[0-9]*")),
+          "seen=%d gens=%d" % (seen_size, len(list(hold.glob("slow.jsonl.[0-9]*")))))
+    # Дедлайн блокировки ОДИН на обеих платформах: держатель, не отпускающий
+    # блокировку дольше дедлайна, получает от писателя ошибку, а не вечное
+    # ожидание (lock2: блокирующий flock на POSIX против 30 с на Windows).
+    stuck = hold / "stuck.jsonl"
+    marker3 = hold / "held3.marker"
+    stuck_hold = 3.0
+    holder3 = holder.replace(repr(str(held)), repr(str(stuck))).replace(
+        repr(str(marker)), repr(str(marker3))).replace(
+        repr(hold_seconds), repr(stuck_hold))
+    hp3 = subprocess.Popen([PY, "-c", holder3])
+    wait_until = time.time() + 30
+    while not marker3.exists() and time.time() < wait_until:
+        time.sleep(0.005)
+    bounded = (
+        "import sys, time\n"
+        "sys.path.insert(0, %r)\n"
+        "from pathlib import Path\n"
+        "import itd_verdict_taxonomy as t\n"
+        "t.LOCK_WAIT_SECONDS = 0.5\n"
+        "t0 = time.monotonic()\n"
+        "try:\n"
+        "    t._append_bounded(Path(%r), '{\"probe\": \"stuck\"}')\n"
+        "    outcome = 'appended'\n"
+        "except OSError as exc:\n"
+        "    outcome = 'raised:' + type(exc).__name__\n"
+        "print('%%s %%.3f' %% (outcome, time.monotonic() - t0))\n"
+        % (str(ROOT / "skills" / "_shared"), str(stuck)))
+    bp = subprocess.run([PY, "-c", bounded], capture_output=True, text=True,
+                        timeout=60)
+    hp3.wait(timeout=60)
+    outcome, _, elapsed = (bp.stdout.strip().partition(" ")
+                           if bp.stdout.strip() else ("", "", "99"))
+    check("a writer gives up on a stuck ledger lock after the bounded wait",
+          outcome.startswith("raised:") and float(elapsed) < stuck_hold
+          and "stuck" not in (stuck.read_text(encoding="utf-8")
+                              if stuck.exists() else ""),
+          "outcome=%r elapsed=%s stderr=%s" % (outcome, elapsed, bp.stderr[-200:]))
 
     # severity вне словаря (тот же писательский путь, отдельная гарантия)
     proj, iso = fresh_project()
