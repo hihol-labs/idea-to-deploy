@@ -1,0 +1,547 @@
+{
+ "schema": "itd-transcript-findings-v1",
+ "source": "session transcript 5acc195c: stdout of the producer wrapper, rewritten by machine",
+ "unit": "PILOT-P02",
+ "note": "declaredFindings — число, объявленное продюсером (unit+integration дубли); findings — дедуплицированы по идентичности (file, line, category), первая по порядку выдержка summary сохранена",
+ "rounds": [
+  {
+   "round": "r6",
+   "verdict": "BLOCKED",
+   "declaredFindings": 8,
+   "unverified": 2,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 650,
+     "summary": "CLI does not validate that the decoded answers document is an object. JSON values such as null, a number, or a list can trigger uncaught TypeError in score() (for example during membership checks), escaping both exception handlers and producing a traceback instead of the required machine-readable REFUSED result.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 395,
+     "summary": "Seal validation assumes every item is a mapping before calling entry.get(), and worksheet() indexes seal fields directly without validating the seal first. Structurally malformed or tampered seal JSON can therefore raise AttributeError, KeyError, or TypeError rather than ProtocolError, violating the fail-closed, machine-readable refusal behavior promised for edited seals.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 573,
+     "summary": "The one-attempt marker is created with O_EXCL before its verdict payload is successfully written. If writing, flushing, closing, or the process fails after creation, an empty or partial verdict file permanently consumes the attempt; a subsequent valid score is refused even though no verdict was durably produced. This conflicts with the stated rule that a refused/unsuccessful measurement does not s",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "minor",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 307,
+     "summary": "An explicit --seed is accepted as any nonempty string and is not constrained to sample.seedBytes, while generated seeds honor that field. This makes the frozen seedBytes contract only partially enforced and permits arbitrarily short or repeatedly selected seeds for the actual CLI sampling path.",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T15:47:15.457Z"
+  },
+  {
+   "round": "r10",
+   "verdict": "BLOCKED",
+   "declaredFindings": 12,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "repository-hygiene",
+     "file": ".itd/SCOPE_LOCK.md",
+     "line": 47,
+     "summary": "The scope lock declares `.itd-memory/contracts/PILOT-P02.md` as part of this unit's ledger bookkeeping, but the exhaustive candidate FILE_INVENTORY contains no such path. The candidate therefore leaves the newly activated unit without its declared durable unit contract; either add the contract or remove/correct the ledger declaration.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "minor",
+     "category": "evidence-integrity",
+     "file": ".itd/ACCEPTANCE_CONTRACT.json",
+     "line": 3090,
+     "summary": "Criterion PILOT-P02-6's evidence text is internally false: `type(value) is int` rejects booleans (`type(True) is bool`), despite the text claiming `true` would pass because bool inherits int. That inheritance issue applies to `isinstance(value, int)`, not exact-type comparison. Correct the evidence wording so the frozen acceptance record accurately describes the tested guard.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "high",
+     "category": "correctness/specification-compliance",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 552,
+     "summary": "_publish_verdict falls back from the hard-link publication path to creating and streaming directly into the target verdict file. Readers can therefore observe a partial verdict, and process failure can leave a target that consumes the sole attempt. This directly violates the acceptance requirement that only complete, fsynced content appear atomically; unsupported hard-link semantics should cause a",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 593,
+     "summary": "score assumes sealed is a mapping and immediately calls sealed.get; worksheet reaches the same assumption in _verify_seal. A syntactically valid seal JSON whose top level is a list, string, or null raises AttributeError, which main does not catch, producing a traceback instead of the required machine-readable REFUSED response for a structurally damaged seal.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "correctness/data-validation",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 287,
+     "summary": "eligible accepts every truthy author category without checking that it belongs to the vocabulary for that finding's source. A stamped malformed finding can enter the sample, yet score permits only vocabulary answers, making agreement impossible and counting corrupted input as a genuine disagreement rather than refusing the measurement.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 581,
+     "summary": "The atomic-publication oracle does not establish the acceptance claim that the verdict is complete and durable before it appears at the target name. `watching_link` records only whether the destination existed before `os.link`; it neither inspects/parses the source at link time nor verifies that `os.fsync` occurred before publication. An implementation could link a partially written temporary inod",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T16:01:44.132Z"
+  },
+  {
+   "round": "r14",
+   "verdict": "BLOCKED",
+   "declaredFindings": 8,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "high",
+     "category": "correctness/security",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 365,
+     "summary": "The caller may choose any valid `--seed`, and a seal has no immutable commitment outside its self-consistent seed/items data. An operator can grind seeds until `_draw` selects favorable findings, or replace a seed and recompute `items`; `_verify_seal` will accept the result. This defeats the required random-selection/tamper-evidence property despite detecting a seed edit whose items were not recom",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "error-handling/specification-compliance",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 166,
+     "summary": "`load_protocol` checks `onFail.action` and `onFail.then` only for truthiness, but `score` concatenates them as strings. A behavior-defining contract containing truthy non-string values loads successfully and later raises `TypeError` on a failed score instead of producing the required machine-readable refusal. Both fields should be validated as non-empty strings during protocol loading.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "correctness/edge-case",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 303,
+     "summary": "Population identity assumes `(lineage,index)` is unique but never enforces it. Duplicate ledger rows or reused lineage values create duplicate `ref`s; a draw containing both is rejected only after sealing, while a draw containing one can have worksheet lookup silently resolve a different duplicate because the pool is converted to a dict by `ref`. Reject duplicate refs while constructing the popula",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 604,
+     "summary": "The atomic-publication test records every os.fsync call as an indistinguishable marker and only asserts that some fsync precedes os.link. An implementation could fsync an unrelated file or directory, leave the verdict source inode unsynced, and still pass. Capture the fd passed to fsync, resolve/compare its inode with the source passed to os.link, and require that specific inode to have been fsync",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T16:21:23.987Z"
+  },
+  {
+   "round": "r15",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/BLIND_PROTOCOL.json",
+     "line": 43,
+     "summary": "The retry contract says a failed attempt may use “a new seal and a new sample,” but the same contract derives the seed solely from protocolDigest+population, making a new seal over unchanged population reproduce the identical sample. Unless itd_blind_protocol.py requires a materially changed population before resealing, an operator can recreate the same frozen sample and retry owner answers, defea",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "specification-compliance",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 174,
+     "summary": "`sample.seedBytes` accepts every positive integer, but `_derive_seed` later truncates a single SHA-256 hexadecimal digest and therefore cannot produce more than 32 bytes. For example, a contract declaring `seedBytes: 64` loads successfully yet silently yields only 32 bytes, violating the requirement that behavior-defining contract fields either match the implementation or fail closed. Reject value",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 645,
+     "summary": "Malformed-seal scoring checks reuse `spend`, for which a successful score has already published the one-attempt verdict. Each check accepts any `ProtocolError`, so `score()` can refuse because the seal was already scored rather than because the malformed structure was validated; a regression that checks the attempt before validating `items`/`population` could therefore pass this oracle. Use a fres",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T16:34:46.779Z"
+  },
+  {
+   "round": "r19",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "high",
+     "category": "correctness/tamper-evidence",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 444,
+     "summary": "Seal verification reduces both sealed and live populations to only {ref,digest}, while the digest covers only the finding object and omits the row-level source. Changing a sampled row's source after sealing—when its category is valid for both sources—therefore passes _verify_seal but changes the per-position vocabulary used by worksheet() and score(). This violates the closed measurement window an",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 805,
+     "summary": "The onFail mutation tests cover only truthy non-string values for onFail.action. They never mutate onFail.then and never test empty strings, so a loader that validates action correctly but accepts a truthy non-string then—or accepts an empty action/then—would keep this oracle green even though the acceptance contract requires both fields to be non-empty strings and failing-score construction could",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "specification-compliance",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 850,
+     "summary": "The strict-contract mutation matrix does not cover several behavior-defining frozen fields, notably sample.size, scoring.threshold, and population requirements/source selection. The initial assertions only inspect the canonical contract, so an implementation that silently honors or ignores changed values for these fields can pass the suite, contrary to the fail-closed requirement that every behavi",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T16:44:49.105Z"
+  },
+  {
+   "round": "r23",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "medium",
+     "category": "correctness/tamper-evidence",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 393,
+     "summary": "The seal binds the protocol and eligible findings but not VERDICT_TAXONOMY.json. Changing category meanings or source vocabularies after sealing can alter the worksheet and scoring rules without invalidating the seal when the sampled findings remain eligible. Include a taxonomy digest in the seal and verify it in worksheet() and score().",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 286,
+     "summary": "A structurally malformed ledger row with an unhashable source (for example, a list or object) raises TypeError at `source not in sources`; main() does not catch TypeError, so one bad JSONL row produces a traceback instead of a machine-readable refusal or being skipped. Validate source as a string before set membership.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "minor",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 380,
+     "summary": "The sampled-record tamper test unconditionally assigns category \"performance\". If the deterministically selected first item already has that category, no mutation occurs and the test expects a refusal from unchanged data, making the oracle dependent on the current draw. Select a category guaranteed to differ from the original value.",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T16:54:19.574Z"
+  },
+  {
+   "round": "r28",
+   "verdict": "BLOCKED",
+   "declaredFindings": 4,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "specification-compliance",
+     "file": ".itd/ACCEPTANCE_CONTRACT.json",
+     "line": 3104,
+     "summary": "Criterion PILOT-P02-6 declares only `sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py` as its verification command, although the criterion requires run-all registration, runtime-manifest coverage, and drift verification. The cited evidence and oracle IDs instead rely on `runtime-install` and `runall-drift`; therefore rerunning the criterion's authoritative command cannot establish the co",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 91,
+     "summary": "load_protocol does not validate population.ledger. A missing, null, or non-path-compatible value is accepted during the promised fail-closed load, then _ledger_paths raises an uncaught KeyError/TypeError instead of ProtocolError (the CLI only converts OSError/ValueError), violating strict contract loading and machine-readable refusal behavior.",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T17:06:12.913Z"
+  },
+  {
+   "round": "r38",
+   "verdict": "BLOCKED",
+   "declaredFindings": 8,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "high",
+     "category": "correctness/security",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 541,
+     "summary": "Taxonomy verification has a TOCTOU gap: `_verify_seal()` hashes one fresh load, but `eligible()` and the later `_vocabulary()` calls repeatedly reload the file. A concurrent replacement can therefore produce a mixed-version population or change the per-item vocabulary after its sealed digest was accepted, instead of refusing the measurement as required. Load and validate one taxonomy snapshot and ",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "high",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 515,
+     "summary": "Seal validation is not fail-closed for several valid-JSON corruptions. For example, an item whose `ref` is a list or object raises `TypeError` in the set comprehension; a forged seal over a live population shorter than `sample.size` can exhaust `_draw()` and divide by zero; missing `protocolDigest` causes `worksheet()` to raise `KeyError`, and missing `sealedAt` causes `score()` to do likewise. Th",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 662,
+     "summary": "The one-attempt namespace is keyed only by the first 16 hexadecimal seed characters. Distinct population seals with the same prefix are treated as the same attempt; this is especially practical because the accepted configurable `seedBytes` range includes one byte, yielding only 256 verdict names. Key verdicts by the full population/seal digest so a different population cannot inherit another seal'",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 565,
+     "summary": "The concurrent-score oracle uses a wall-clock deadline 1.5 seconds after sequential process creation, but has no readiness handshake. On a slow or heavily loaded host, early children can pass the deadline and finish scoring before later children are spawned, so a broken check-then-write implementation may still produce exactly one SCORED result and pass. Use a parent-controlled barrier reached by ",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T17:25:26.317Z"
+  },
+  {
+   "round": "r41",
+   "verdict": "BLOCKED",
+   "declaredFindings": 4,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "medium",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 537,
+     "summary": "Malformed but valid-JSON taxonomy structures can escape the fail-closed protocol as uncaught exceptions. `_load_taxonomy()` returns any JSON value without validating that it is an object, then `_vocabulary()` calls `taxonomy.get`; a list, scalar, or null therefore raises AttributeError, which `main()` does not catch. Likewise, non-string entries in `bySource` can reach `\", \".join(missing)` and rai",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "test-coverage",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 963,
+     "summary": "The taxonomy snapshot regression test counts loader calls for seal and worksheet only, but never invokes score under the counting loader. A score implementation that reloads the taxonomy after validating its sealed digest—reopening the documented TOCTOU window—would still pass this oracle, despite the acceptance evidence claiming that every phase loads exactly one snapshot.",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T17:55:37.802Z"
+  },
+  {
+   "round": "r44",
+   "verdict": "BLOCKED",
+   "declaredFindings": 2,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "medium",
+     "category": "correctness / tamper-evidence",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 693,
+     "summary": "The verdict identity is documented as the full seal digest but hashes only protocolDigest, taxonomyDigest, populationDigest, and seed. `sealedAt` is neither authenticated nor semantically validated, yet is copied into the final verdict. Before the first scoring attempt, an operator can alter this evidentiary timestamp and still obtain a valid verdict, violating the claimed seal tamper-evidence. Bi",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T18:01:57.559Z"
+  },
+  {
+   "round": "r47",
+   "verdict": "BLOCKED",
+   "declaredFindings": 2,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "medium",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 752,
+     "summary": "`score()` snapshots and verifies the live population only once, then performs answer validation and verdict construction before publishing. A concurrent ledger append or modification after `eligible()`/`_verify_seal()` but before `_publish_verdict()` can therefore produce a final verdict for a population that is no longer live, contrary to the closed-window/current-population guarantee. Revalidate",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T18:08:17.900Z"
+  },
+  {
+   "round": "r51",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/BLIND_PROTOCOL.json",
+     "line": 55,
+     "summary": "The protocol explicitly leaves a TOCTOU window between the final population check and verdict publication. A concurrent ledger append in that interval can produce a successfully published verdict for a population that is already stale, contradicting the acceptance requirement that scoring bind to the live population. An operational instruction that the window remain closed is not enforceable tampe",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "specification-compliance",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 87,
+     "summary": "Strict protocol validation uses ordinary equality for integer-valued fields. Consequently `protocol_version: true` or `1.0` is accepted as version 1, `attempts.perSeal: true` or `1.0` is accepted at line 203, and with `sample.size: 1`, `scoring.outOf: true` is accepted at line 189. These malformed behavior descriptors should fail closed; require `type(value) is int` before comparing them.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "medium",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 558,
+     "summary": "Seal item `ref` values are inserted into a set without first requiring strings. A valid JSON seal containing an item such as `{\"id\":\"item-01\",\"ref\":[],\"digest\":\"x\"}` raises `TypeError: unhashable type: 'list'`, which is neither converted to `ProtocolError` nor caught by the CLI. This violates the requirement that structurally damaged seals and non-string references produce a named machine-readable",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T19:10:40.772Z"
+  },
+  {
+   "round": "r53",
+   "verdict": "BLOCKED",
+   "declaredFindings": 2,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 701,
+     "summary": "`score()` loads the protocol and taxonomy only before scoring, then its locked pre-publication `_verify_seal()` reuses those in-memory snapshots. A concurrent edit to `BLIND_PROTOCOL.json` or `VERDICT_TAXONOMY.json` after that load but before verdict publication is therefore not detected, so a verdict can be published while the live protocol/taxonomy differs from the state it c",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T19:21:11.557Z"
+  },
+  {
+   "round": "r58",
+   "verdict": "BLOCKED",
+   "declaredFindings": 2,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 637,
+     "summary": "_publish_verdict() fsyncs the temporary file before os.link(), but never fsyncs the verdict directory after creating the hard link. A system crash can therefore lose the published directory entry even though score() returned success, reopening the supposedly single-use seal for another attempt. Fsync the parent directory after linking (with an appropriate cross-platform refusal",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T19:36:58.256Z"
+  },
+  {
+   "round": "r59",
+   "verdict": "BLOCKED",
+   "declaredFindings": 4,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "minor",
+     "category": "repository-hygiene",
+     "file": "BACKLOG.md",
+     "line": 19,
+     "summary": "The new backlog entry describes directory fsync as an open defect on an older tree and says the candidate remains uncommitted, while this exact candidate’s acceptance evidence and protocol limitations state that directory fsync is implemented and verified. Keeping the superseded finding presented as current makes the repository’s authoritative status records contradictory; mark it resolved/histori",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 584,
+     "summary": "После успешного os.link() ошибка _sync_directory() попадает в общий except OSError и превращается в REFUSED, но уже опубликованный целевой verdict не удаляется. Таким образом неуспешный вызов score фактически расходует единственную попытку, а повтор получает «вердикт уже вынесен»; сообщение вдобавок ошибочно утверждает, что файловая система не поддерживает жёсткие ссылки. Следует отделить ошибку с",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T20:03:59.498Z"
+  },
+  {
+   "round": "r62",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "repository-hygiene",
+     "file": ".itd/DECISIONS.md",
+     "line": 2238,
+     "summary": "The latest PILOT-P02 decision records two findings as still open and says no commit exists, while the same candidate's BACKLOG explicitly says there are no open findings and its events ledger records owner-authorized candidate commits. This leaves the authoritative decision ledger materially contradictory about candidate readiness and publication state; append a superseding decision that reconcile",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 462,
+     "summary": "`_load_taxonomy` validates only the taxonomy's top-level object, while `_vocabulary` assumes truthy `category`, `meaning`, and `bySource` values are mappings and calls `.get()` on them. A valid JSON taxonomy such as `{\"category\":[]}` or `{\"category\":{\"meaning\":[]}}` therefore raises uncaught `AttributeError` instead of the required named `ProtocolError`/REFUSED result. Validate each nested contain",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "low",
+     "category": "tests",
+     "file": "tests/verify_blind_protocol.py",
+     "line": 1040,
+     "summary": "The ledger-lock test uses a fixed two-second sleep and infers locking from elapsed wall time (`waited_lock >= hold_s / 2`). After the holder creates its marker, scheduler delay can let most or all of the sleep expire before the scorer starts, producing a false failure even when `score()` correctly acquires the writers' lock. Use a two-way synchronization: keep the holder blocked until the scoring",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T20:12:17.334Z"
+  },
+  {
+   "round": "r65",
+   "verdict": "BLOCKED",
+   "declaredFindings": 6,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "minor",
+     "category": "repository-hygiene",
+     "file": "BACKLOG.md",
+     "line": 26,
+     "summary": "The current review-series accounting contradicts the later authoritative decision record: BACKLOG says 21 completed reviews and about 48 findings, while the superseding entry in .itd/DECISIONS.md says 22 reviews and about 50 findings. Because these figures justify the proposed machine stop-rule follow-up, the ledger should use one reconciled count.",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 425,
+     "summary": "worksheet() never compares sealed.protocolDigest with protocol_digest(protocol). Unlike score(), it can therefore accept a seal after the protocol changes and emit a worksheet using the new visibleFields/honestMarking while retaining the old protocolDigest, so the worksheet is falsely attributed to the sealed protocol. Verify the protocol digest before using any protocol-contro",
+     "summaryExcerpt": true
+    },
+    {
+     "severity": "minor",
+     "category": "error-handling",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 622,
+     "summary": "score() formats unexpected answer keys with `\", \".join(sorted(extra))` without validating that keys are strings. A direct caller can supply a dict containing integer or mixed-type extra keys, causing TypeError instead of ProtocolError and violating the function's machine-readable refusal behavior. Validate keys or stringify them before sorting/joining.",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T20:20:33.377Z"
+  },
+  {
+   "round": "r70",
+   "verdict": "BLOCKED",
+   "declaredFindings": 2,
+   "unverified": 0,
+   "findings": [
+    {
+     "severity": "important",
+     "category": "correctness",
+     "file": "skills/_shared/itd_blind_protocol.py",
+     "line": 688,
+     "summary": "Final protocol/taxonomy validation is not atomic with verdict publication. `score()` rereads both files while holding only the ledger-writer lock, but protocol and taxonomy writers are not shown to participate in that lock; either file can therefore be replaced after its final digest check and before `_publish_verdict()`, allowing scoring to succeed while th",
+     "summaryExcerpt": true
+    }
+   ],
+   "observedAt": "2026-09-02T20:36:34.646Z"
+  }
+ ],
+ "summaryPolicy": "summary — УСЕЧЁННАЯ выдержка: stdout обёртки продюсера резался при выводе (cut -c1-400), полные отчёты утрачены вместе с временным каталогом сессии. Идентичность находки в этой записи — (file, line, category); summary служит только ориентиром и в дедупликации не участвует."
+}

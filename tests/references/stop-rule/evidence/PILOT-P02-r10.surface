@@ -1,0 +1,89 @@
+diff --git a/.itd/ACCEPTANCE_CONTRACT.json b/.itd/ACCEPTANCE_CONTRACT.json
+index 975014e..7fd0e64 100644
+--- a/.itd/ACCEPTANCE_CONTRACT.json
++++ b/.itd/ACCEPTANCE_CONTRACT.json
+@@ -2999 +2999 @@
+@@ -3001 +3001 @@
+@@ -3017 +3017 @@
+@@ -3019 +3019 @@
+@@ -3034 +3034 @@
+@@ -3036 +3036 @@
+@@ -3051 +3051 @@
+@@ -3053 +3053 @@
+@@ -3068 +3068 @@
+@@ -3070 +3070 @@
+@@ -3088 +3088 @@
+diff --git a/skills/_shared/BLIND_PROTOCOL.json b/skills/_shared/BLIND_PROTOCOL.json
+index f82c410..823fdea 100644
+--- a/skills/_shared/BLIND_PROTOCOL.json
++++ b/skills/_shared/BLIND_PROTOCOL.json
+@@ -43 +43,2 @@
+diff --git a/skills/_shared/itd_blind_protocol.py b/skills/_shared/itd_blind_protocol.py
+index 404df42..f00e5db 100644
+--- a/skills/_shared/itd_blind_protocol.py
++++ b/skills/_shared/itd_blind_protocol.py
+@@ -20,0 +21 @@ import json
+@@ -26,0 +28,8 @@ SEAL_DIR = ".itd-memory/blind-protocol"
+@@ -75 +84,4 @@ def load_protocol(root) -> dict:
+@@ -77 +89,2 @@ def load_protocol(root) -> dict:
+@@ -98,0 +112 @@ def load_protocol(root) -> dict:
+@@ -104,2 +118,4 @@ def load_protocol(root) -> dict:
+@@ -134,0 +151,52 @@ def load_protocol(root) -> dict:
+@@ -180 +248,5 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -191 +263,2 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -196,6 +268,0 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -205,6 +272,19 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -213 +293 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -240,0 +321,13 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -248 +341 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -251,0 +345,2 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -254 +349,6 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -259,0 +360 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -261 +362,3 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -266 +369,82 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -289 +473,6 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -292,3 +481,7 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -295,0 +489,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -297 +492 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -300,3 +495,6 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -306,0 +505,4 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -310,2 +512,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -313,2 +515,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -318,0 +521,48 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -337,2 +587,4 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -340,6 +592,6 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -358,7 +609,0 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -369,2 +614,2 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -372,3 +617,15 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -378 +635 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -380 +637 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -403,5 +660,26 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -463,0 +742,5 @@ def main(argv=None) -> int:
+diff --git a/tests/verify_blind_protocol.py b/tests/verify_blind_protocol.py
+index b26cf71..7da46f0 100644
+--- a/tests/verify_blind_protocol.py
++++ b/tests/verify_blind_protocol.py
+@@ -27,0 +28 @@ import json
+@@ -28,0 +30 @@ import sys
+@@ -32,0 +35 @@ ROOT = Path(__file__).resolve().parents[1]
+@@ -91,0 +95,11 @@ def full_rows(n: int = 12) -> list[dict]:
+@@ -112 +126 @@ def main() -> int:
+@@ -118,0 +133,17 @@ def main() -> int:
+@@ -136 +167 @@ def main() -> int:
+@@ -139 +170 @@ def main() -> int:
+@@ -141 +172 @@ def main() -> int:
+@@ -154,3 +185,3 @@ def main() -> int:
+@@ -162,2 +193,2 @@ def main() -> int:
+@@ -170 +201 @@ def main() -> int:
+@@ -175 +206,2 @@ def main() -> int:
+@@ -204,0 +237,44 @@ def main() -> int:
+@@ -211 +287 @@ def main() -> int:
+@@ -285,0 +362,109 @@ def main() -> int:
+@@ -297,0 +483,182 @@ def main() -> int:
+@@ -325 +692 @@ def main() -> int:
+@@ -327 +694 @@ def main() -> int:
+diff --git a/tests/verify_runall_drift.py b/tests/verify_runall_drift.py
+index 55cf2b3..bfce9ca 100644
+--- a/tests/verify_runall_drift.py
++++ b/tests/verify_runall_drift.py
+@@ -297 +297,3 @@ def consolidation_invariants(ci: set, local: set) -> None:

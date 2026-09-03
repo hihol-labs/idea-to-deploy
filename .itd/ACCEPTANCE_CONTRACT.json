@@ -2993,6 +2993,110 @@
           "runall-drift"
         ]
       }
+    },
+    {
+      "id": "STOPRULE-1-1-r4-window-criterion",
+      "criterion": "Политика 1.1.0 объявляет R7 SURFACE_TREADMILL (окно windowRounds вердикт-раундов, все BLOCKED, каждая засчитанная находка в добавленных строках) с прецедентом после терминалов повтора и перед ROUTE_REPAIR; ослабление окна, контекста, проекций, требования BLOCKED или порядка отвергается загрузчиком.",
+      "source": "Пробел назван после LPD-003-3 (BACKLOG P1), второе наблюдение — PILOT-P02 (r41..r65 на 100% в добавленном коде (кроме r51: 2/3)).",
+      "evidence": "Синтетический позитив во временном корне взводит SURFACE_TREADMILL; 12 мутаций политики отвергаются; 12 мутаций кода правила краснят оракул (12/12 летальны). r7: окно заморожено по значению (ровно 5), любое изменение отвергается загрузчиком. r8: FIX терминала честно называет ручной маршрут ADR-007 и относит составление диспозиций к STOPRULE-2. r10: windowNote политики описывает окно хронологически по всем вердикт-раундам. r12: правило получило уникальный идентификатор R7-surface-treadmill (R4 занят регрессиями). c1: полное окно R7 на живых деревьях (5 кандидатов, пересчёт 5/5, личности verified, терминал взведён) — пробел, названный независимым чекером, закрыт тестом. GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "критерий R7 сформулирован над содержанием окна и не является потолком раундов",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-1-2-surface-evidence",
+      "criterion": "Улика поверхности — файл в дереве класса diff-hunks (проекция full или hunk-headers вывода git diff -U0), sha256 сверяется, baseTree обязан совпадать с surfaceBaseline серии, деревья — 40-hex; при живых объектах git проекция пересчитывается и сверяется байт в байт; улика у не-вердиктного раунда, контекстная строка в full-проекции, содержательные строки в проекции заголовков, искажённый hunk — отказ.",
+      "source": "Полные диффы серии P02 — 1.8 МБ; проекция заголовков — 114 КБ при той же точности добавленных диапазонов.",
+      "evidence": "Отказы на подмене sha, чужой базе, отсутствии базы, не-hex деревьях, контексте и искажениях проверены оракулом; P02: 18/18 проекций пересчитаны по живым деревьям на хосте. r1: удалённый файл (+++ /dev/null) разбирается, '+' внутри удалённого файла — отказ. r2: full-проекция сверяет содержимое hunk с заголовком строка в строку (недолив и перелив — отказ). r4: живой объект улики обязан быть типа tree (объект другого типа — отказ), сбой пересчёта — контролируемый отказ; лаборатория на временном git-репо. r5: сбой исполнения git (нет бинаря, таймаут, порча) — контролируемый отказ, непроверяемым считается только отсутствующий объект. r6: отсутствие объекта — по машинному выводу cat-file --batch-check (без разбора локализованного stderr), оба дерева улики судятся независимо. r8: внутри недолитого hunk строки '+++ '/'--- ' — содержимое, а не заголовки (как в git). r9: удалённый файл с непустой новой стороной отвергается и в проекции заголовков. r10: структурная связка diff --git -> --- -> +++ -> hunks обязательна (архив из одних +++/@@ — отказ), путь +++ сверяется с секцией; байты вне UTF-8 при пересчёте — контролируемый отказ. r11: путь из строки diff --git не извлекается — она сверяется с операндами a/OLD b/NEW из ---/+++ (пути с ' b/', переименования, новые и удалённые файлы). r12: операнды с git-квотингом (табы, кавычки, октальные байты) декодируются, строка diff --git сверяется в сыром виде. r13: hunks внутри секции обязаны строго возрастать с обеих сторон без пересечений, секция файла — один раз; проекция заголовков строится по состоянию hunk (содержимое '+++ x' не заголовок). r14: уникальность секций — по декодированному пути каждой стороны; репозиторий определяется git rev-parse (linked worktree с .git-файлом проверяется живьём); архив декодируется строго, байты вне UTF-8 — отказ. r15: rev-parse с exit 0 и не-true выводом — контролируемый отказ. r16: дифф читается по LF (U+2028/U+0085 не разделители); все вызовы git — с локалью C. r17: октальный escape выше одного байта в квотированном пути — отказ, не усечение. r18: добавленная поверхность хранится интервалами (гигантский hunk не материализуется), практический предел координат 1e8. r20: проекция идентичных деревьев — ровно пустая строка, сверяется с пустой уликой. r21: невозможные координаты hunk (положительный диапазон с нулевого старта) — отказ. r23: заголовок hunk заякорен на конец строки (мусор после @@ — отказ, function-context допустим). r24: полнота секций diff --git на каждом переходе и в конце архива (голая секция, --- без +++ — отказ; metadata-only — законна). GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "недостающая или подложная улика поверхности не может взвести терминал",
+        "impactClasses": [
+          "reconciliation",
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-1-3-fail-closed-toward-continue",
+      "criterion": "Находка без строки, в файле вне диффа или вне добавленных диапазонов не считается лежащей на добавленной поверхности; раунд без засчитанных находок (все refuted/regression) не поддерживает поток; PASSED внутри окна снимает критерий; окно короче политики или без улики хотя бы у одного раунда — критерий не проверяем; цифры поверхности печатаются при любом терминале.",
+      "source": "Направление fail-closed выбрано, потому что правило advisory и ложный терминал решения владельца дороже пропущенного.",
+      "evidence": "Каждое условие покрыто отдельной проверкой оракула и мутацией кода (снятие проверки пустого раунда, BLOCKED, недостающей улики, локализации — летальны). r1: цифры поверхности считаются и при ROUTE_DEFECT. r2: секция поверхности печатается при любом решении, и без улик — с причиной. r9: окно хронологическое по всем вердикт-раундам (раунд без содержания остаётся в хвосте как «нет улики»); знаменатель диагностики — все локализованные находки, поддержка R7 — только живые (r70 = 0/1). r20: тест гигантского hunk без порога по времени — форма интервала вместо секундомера. GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "критерий не взводится на неполной улике",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-1-4-hierarchical-reports-and-lines",
+      "criterion": "Отчёт иерархического маршрута продюсера (unitCalls[].report + integrationReport) читается как union находок без дублей по (file, line, category, summary), вердикт из интеграции; плоский отчёт читается как прежде; строка находки (report и narrative) — None либо целое >= 1, иное отвергается.",
+      "source": "Отчёты серии P02 были иерархическими; прежний парсер видел только плоский findings.",
+      "evidence": "Оракул: дедуп, сохранение строки, отказы на отсутствии integrationReport, unitCalls не списке, строке-строке и булевой строке. r1: ключ дедупа включает тип строки (True != 1), булева копия не прячется за валидной. GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "иерархический отчёт не теряет находки юнита",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-1-5-reviewed-tree-candidates",
+      "criterion": "candidateSource kind=reviewed-tree: личность раунда — 16-hex префикс surface.candidateTree; несовпадение отвергается; при живом дереве личность verified, иначе unverifiable (считается, не замалчивается).",
+      "source": "Журналы промптов серии P02 утрачены; деревья кандидатов уцелели в машинных квитанциях.",
+      "evidence": "Оракул: отказ на личности не-префиксе; синтетика без git — declared=5, unverifiable=5; P02 на хосте — 18 verified. r1: функция сама требует 16 lowercase hex, не полагаясь на read_round. GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "личность кандидата выводится из улики, а не объявляется",
+        "impactClasses": [
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-1-6-pilot-p02-replay",
+      "criterion": "История tests/references/stop-rule/pilot-p02.json (73 захода: 21 вердикт, 1 предусловие, 4 транспорта, 47 объявленных пробелов; 18 вердиктов с содержанием класса narrative из транскрипта + машинная поверхность) реплеится в REDESIGN_OR_DISCARD на r14 по ключу tests/verify_blind_protocol.py::test-coverage, расхождение с решением владельца объявлено; цифры поверхности совпадают с записанным замером; контроли R6/S04b/LPD003-1 не меняют терминал.",
+      "source": "Независимый замер по транскрипту до реплея: тот же ключ, r10 -> r14.",
+      "evidence": "Оракул 472/0: реплей всех шести историй, мутации истории P02 (подмена sha, снятие базы, перенос строки, снятие опровержения r70) дают ожидаемые изменения. r4: текст цели в STATE согласован со скоупом (LPD-003-3 исключена). r6: явное событие unit-scope в events.jsonl супер-седирует текст активации. r11: тест снятия опровержения r70 проверяет счётчик живых находок (counted 0 -> 1). r13: исторические идентификаторы LPD002-R4-* восстановлены по main после переименования R4->R7 (задело дефисные токены). r14: тексты фикстуры согласованы (r41..r65 с оговоркой r51 2/3; идентификатор R7). r15: оговорка r51 во всех долговечных текстах; STATE/событие — R7; summary в записи помечены как усечённые выдержки (идентичность — file/line/category). r16: находки записи дедуплицированы по идентичности (file, line, category): 79 -> 47, цифры замера пересчитаны (r6 1/4, r51 2/3). GREEN на дереве кандидата 2026-09-03.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "вторая точка данных пробела записана машинно и воспроизводима",
+        "impactClasses": [
+          "repository-hygiene",
+          "reconciliation"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3011,9 +3115,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PILOT-P01",
-    "status": "closed",
-    "openedAt": "2026-08-29",
+    "unitId": "STOPRULE-1",
+    "status": "open",
+    "openedAt": "2026-09-03",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -3021,14 +3125,13 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "host-parity",
-        "repository-hygiene"
+        "repository-hygiene",
+        "reconciliation"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-02"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -3040,6 +3143,15 @@
       "rootCause": ".itd/SCOPE_LOCK.md",
       "closedAt": "2026-09-01",
       "closureEvidence": "PR #249 merged f55ef21; release PR #250 merged bf84fc5 = v1.102.0; STATE verified by #251 818436d"
+    },
+    {
+      "unitId": "PILOT-P01",
+      "status": "closed",
+      "openedAt": "2026-08-29",
+      "closedAt": "2026-09-02",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd/SCOPE_LOCK.md",
+      "closureEvidence": "PR #253 merged 486ad77 (r6 clean cross-vendor PASS + adjudication); ledger-close #254 merged 03aaa85; STATE verified"
     }
   ]
 }

@@ -1,0 +1,98 @@
+diff --git a/.itd-memory/contracts/PILOT-P02.md b/.itd-memory/contracts/PILOT-P02.md
+new file mode 100644
+index 0000000..6104e8b
+--- /dev/null
++++ b/.itd-memory/contracts/PILOT-P02.md
+@@ -0,0 +1,38 @@
+diff --git a/.itd/ACCEPTANCE_CONTRACT.json b/.itd/ACCEPTANCE_CONTRACT.json
+index 975014e..55c476e 100644
+--- a/.itd/ACCEPTANCE_CONTRACT.json
++++ b/.itd/ACCEPTANCE_CONTRACT.json
+@@ -2999 +2999 @@
+@@ -3001 +3001 @@
+@@ -3017 +3017 @@
+@@ -3019 +3019 @@
+@@ -3034 +3034 @@
+@@ -3036 +3036 @@
+@@ -3051 +3051 @@
+@@ -3053 +3053 @@
+@@ -3068 +3068 @@
+@@ -3070 +3070 @@
+@@ -3088 +3088 @@
+diff --git a/skills/_shared/BLIND_PROTOCOL.json b/skills/_shared/BLIND_PROTOCOL.json
+index f82c410..41befdf 100644
+--- a/skills/_shared/BLIND_PROTOCOL.json
++++ b/skills/_shared/BLIND_PROTOCOL.json
+@@ -9,2 +9,5 @@
+@@ -19 +22,5 @@
+@@ -43 +50,2 @@
+diff --git a/skills/_shared/itd_blind_protocol.py b/skills/_shared/itd_blind_protocol.py
+index 404df42..e9b505f 100644
+--- a/skills/_shared/itd_blind_protocol.py
++++ b/skills/_shared/itd_blind_protocol.py
+@@ -20,0 +21 @@ import json
+@@ -26,0 +28,8 @@ SEAL_DIR = ".itd-memory/blind-protocol"
+@@ -75 +84,4 @@ def load_protocol(root) -> dict:
+@@ -77 +89,2 @@ def load_protocol(root) -> dict:
+@@ -98,0 +112 @@ def load_protocol(root) -> dict:
+@@ -104,2 +118,4 @@ def load_protocol(root) -> dict:
+@@ -134,0 +151,53 @@ def load_protocol(root) -> dict:
+@@ -180 +249,5 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -191 +264,2 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -196,6 +269,0 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -205,6 +273,26 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -213 +301 @@ def eligible(root, protocol: dict) -> list[dict]:
+@@ -240,0 +329,13 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -248 +349 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -251,0 +353,2 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -254 +357,6 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -259,0 +368 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -261 +370,3 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -266 +377,89 @@ def seal(root, protocol: dict, seed: str | None = None) -> dict:
+@@ -289 +488,6 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -292,3 +496,7 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -295,0 +504,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -297 +507 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -300,3 +510,6 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -306,0 +520,4 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -310,2 +527,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -313,2 +530,2 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -318,0 +536,42 @@ def worksheet(root, protocol: dict, sealed: dict) -> dict:
+@@ -331,0 +591,7 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -337,2 +603,4 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -340,6 +608,6 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -358,7 +625,0 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -369,2 +630,2 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -372,3 +633,15 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -378 +651 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -380 +653 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -403,5 +676,26 @@ def score(root, protocol: dict, sealed: dict, answers: dict) -> dict:
+@@ -463,0 +758,5 @@ def main(argv=None) -> int:
+diff --git a/tests/verify_blind_protocol.py b/tests/verify_blind_protocol.py
+index b26cf71..cb38d40 100644
+--- a/tests/verify_blind_protocol.py
++++ b/tests/verify_blind_protocol.py
+@@ -27,0 +28 @@ import json
+@@ -28,0 +30 @@ import sys
+@@ -32,0 +35 @@ ROOT = Path(__file__).resolve().parents[1]
+@@ -91,0 +95,11 @@ def full_rows(n: int = 12) -> list[dict]:
+@@ -112 +126 @@ def main() -> int:
+@@ -118,0 +133,17 @@ def main() -> int:
+@@ -136 +167 @@ def main() -> int:
+@@ -139 +170 @@ def main() -> int:
+@@ -141 +172 @@ def main() -> int:
+@@ -154,3 +185,3 @@ def main() -> int:
+@@ -162,2 +193,2 @@ def main() -> int:
+@@ -170 +201 @@ def main() -> int:
+@@ -175 +206,2 @@ def main() -> int:
+@@ -204,0 +237,44 @@ def main() -> int:
+@@ -211 +287 @@ def main() -> int:
+@@ -285,0 +362,109 @@ def main() -> int:
+@@ -297,0 +483,249 @@ def main() -> int:
+@@ -325 +759 @@ def main() -> int:
+@@ -327 +761 @@ def main() -> int:
+diff --git a/tests/verify_runall_drift.py b/tests/verify_runall_drift.py
+index 55cf2b3..bfce9ca 100644
+--- a/tests/verify_runall_drift.py
++++ b/tests/verify_runall_drift.py
+@@ -297 +297,3 @@ def consolidation_invariants(ci: set, local: set) -> None:

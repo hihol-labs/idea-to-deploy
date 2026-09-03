@@ -38,6 +38,7 @@ HISTORY_FILES = {
     "gpg-001-broker-policy": "tests/references/stop-rule/gpg-001-broker-policy.json",
     "lpd003-1-publication": "tests/references/stop-rule/lpd003-1-publication.json",
     "lpd003-1-2026-08-23": "tests/references/stop-rule/lpd003-1-2026-08-23.json",
+    "pilot-p02": "tests/references/stop-rule/pilot-p02.json",
 }
 # Улики, на которые опираются истории, перечислены литералами по той же
 # причине — и заодно это отдельная гарантия: набор улик ОБЪЯВЛЕН, а не
@@ -77,12 +78,32 @@ EVIDENCE_FILES = (
     "tests/references/stop-rule/evidence/LPD003-1-pub-r10-report.json",
     "tests/references/stop-rule/evidence/LPD003-1-pub-r2-report.json",
     "tests/references/stop-rule/evidence/LPD003-1-pub-r3-report.json",
+    "tests/references/stop-rule/evidence/PILOT-P02-r6.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r10.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r14.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r15.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r19.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r23.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r28.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r38.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r41.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r44.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r47.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r51.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r53.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r58.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r59.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r62.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r65.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-r70.surface",
+    "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
 )
 
 # Документы, на которые истории ссылаются как на ЗАПИСЬ решения. Тоже
 # литералами: иначе impact-карта видит один цитируемый журнал и не видит
 # другой, и targeted-прогон пропускает оракул при правке второго.
 SOURCE_FILES = (
+    ".itd/DECISIONS.md",
     ".itd-memory/session_2026-08-01_3.md",
     ".itd-memory/session_2026-08-20.md",
     ".itd-memory/session_2026-08-23.md",
@@ -663,8 +684,8 @@ check("закрытие остаётся, когда последний раун
 
 check("политика перечисляет оба новых терминала в порядке применения",
       policy["precedence"] == ["ROUTE_DEFECT", "REDESIGN_OR_DISCARD",
-                               "RECURRENCE_UNCONFIRMED", "ROUTE_REPAIR",
-                               "CLOSE", "CONTINUE"],
+                               "RECURRENCE_UNCONFIRMED", "SURFACE_TREADMILL",
+                               "ROUTE_REPAIR", "CLOSE", "CONTINUE"],
       json.dumps(policy["precedence"], ensure_ascii=False))
 
 # Нев-вердиктный раунд не может числиться машинной уликой.
@@ -800,7 +821,7 @@ declared_candidates = sum(
 # при правке историй (находка ревьюера, раунд r20). Правишь истории — правь
 # константу той же правкой, это и есть смысл точного равенства.
 check("объявленные личности кандидатов есть у каждого записанного раунда",
-      declared_candidates == 24, str(declared_candidates))
+      declared_candidates == 42, str(declared_candidates))
 # Полнота: в истории с журнальным источником КАЖДЫЙ вердикт-раунд с
 # машинным отчётом обязан объявлять личность — молчаливый пропуск раунда
 # делал бы его невидимым для сверки смены кандидата.
@@ -1462,6 +1483,10 @@ for history_name in HISTORIES:
         source = (entry.get("provenance") or {}).get("path")
         if source:
             cited_evidence.add(source)
+        # Улика поверхности (R7) — такая же улика: архив, sha256, литерал в списке.
+        surface_path = (entry.get("surface") or {}).get("path")
+        if surface_path:
+            cited_evidence.add(surface_path)
 check("набор улик объявлен целиком: ни одной незаявленной ссылки",
       cited_evidence <= declared_evidence,
       json.dumps(sorted(cited_evidence - declared_evidence), ensure_ascii=False))
@@ -1577,6 +1602,868 @@ check("совпадающая привязка не мешает обычном�
 
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# R7 — SURFACE_TREADMILL (STOPRULE-1): улика поверхности, окно, прецедент.
+# Позитив — синтетический (машинные диффы во временном корне); замер серии
+# PILOT-P02 воспроизводится по архивным проекциям hunks и живым деревьям.
+# ---------------------------------------------------------------------------
+TREADMILL = policy["surfaceTreadmill"]
+WINDOW = int(TREADMILL["windowRounds"])
+check("policy: SURFACE_TREADMILL после терминалов повтора и перед ROUTE_REPAIR",
+      policy["precedence"].index("RECURRENCE_UNCONFIRMED")
+      < policy["precedence"].index("SURFACE_TREADMILL")
+      < policy["precedence"].index("ROUTE_REPAIR"),
+      json.dumps(policy["precedence"], ensure_ascii=False))
+check("policy: окно R7 заморожено по значению — ровно 5 вердикт-раундов",
+      WINDOW == rule.APPROVED_WINDOW_ROUNDS == 5 and type(WINDOW) is int)
+check("policy: улика поверхности снимается командой с -U0",
+      TREADMILL["contextLines"] == 0 and "-U0" in TREADMILL["evidenceCommand"])
+check("policy: недостающая улика не взводит терминал, окно требует BLOCKED",
+      TREADMILL["unlocatedFinding"] == "not-on-added-surface"
+      and TREADMILL["requireBlockedWindow"] is True)
+for name, mutate in (
+    ("окно R7 = 1", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", 1)),
+    ("окно R7 = 3 — ослабление внутри «диапазона»", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", 3)),
+    ("окно R7 = 7 — ужесточение тоже не молча", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", 7)),
+    ("окно R7 = 99 — это потолок", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", 99)),
+    ("окно R7 — булево", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", True)),
+    ("окно R7 — строка", lambda p: p["surfaceTreadmill"].__setitem__("windowRounds", "5")),
+    ("контекст диффа ослаблен", lambda p: p["surfaceTreadmill"].__setitem__("contextLines", 3)),
+    ("недостающая улика объявлена добавленной поверхностью",
+     lambda p: p["surfaceTreadmill"].__setitem__("unlocatedFinding", "on-added-surface")),
+    ("окно без требования BLOCKED",
+     lambda p: p["surfaceTreadmill"].__setitem__("requireBlockedWindow", False)),
+    ("класс улики подменён", lambda p: p["surfaceTreadmill"].__setitem__("evidenceClass", "narrative")),
+    ("проекции урезаны", lambda p: p["surfaceTreadmill"].__setitem__("projections", ["full"])),
+    ("секция R7 удалена", lambda p: p.pop("surfaceTreadmill")),
+    ("SURFACE_TREADMILL убран из прецедента", lambda p: p["precedence"].remove("SURFACE_TREADMILL")),
+    ("SURFACE_TREADMILL поставлен выше REDESIGN_OR_DISCARD",
+     lambda p: p.__setitem__("precedence", ["ROUTE_DEFECT", "SURFACE_TREADMILL",
+                                            "REDESIGN_OR_DISCARD", "RECURRENCE_UNCONFIRMED",
+                                            "ROUTE_REPAIR", "CLOSE", "CONTINUE"])),
+):
+    checks += 1
+    mutated = copy.deepcopy(policy)
+    mutate(mutated)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "policy.json"
+        path.write_text(json.dumps(mutated, ensure_ascii=False), encoding="utf-8")
+        try:
+            rule.load_policy(path)
+        except rule.StopRuleError:
+            continue
+    failures.append(f"policy R7 mutation accepted: {name}")
+
+BASE_TREE = "a" * 40
+
+
+def tree_id(round_id: str) -> str:
+    return hashlib.sha256(f"tree-{round_id}".encode()).hexdigest()[:40]
+
+
+def full_diff(files: dict) -> str:
+    """Полный вывод `git diff -U0` для файлов с добавленными диапазонами."""
+    out = []
+    for path, ranges in files.items():
+        out += [f"diff --git a/{path} b/{path}", f"--- a/{path}", f"+++ b/{path}"]
+        for start, end in ranges:
+            count = end - start + 1
+            out.append(f"@@ -{start - 1},0 +{start},{count} @@")
+            out += ["+line"] * count
+    return "\n".join(out) + "\n"
+
+
+def header_projection(text: str) -> str:
+    return "\n".join(line for line in text.splitlines()
+                     if line.startswith(rule.SURFACE_HEADER_PREFIXES)) + "\n"
+
+
+def sha_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+class SurfaceLab:
+    """Временный корень: журнал для пересказа и улики поверхности."""
+
+    def __init__(self, tmp: Path):
+        self.root = tmp
+        (tmp / "journal.md").write_text("journal\n", encoding="utf-8")
+        (tmp / "evidence").mkdir()
+
+    def round(self, round_id, verdict, mechanisms, diff_files=None, *,
+              projection="full", candidate=None, base=BASE_TREE):
+        entry = {
+            "id": round_id, "terminal": "verdict",
+            "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
+            "candidate": candidate or hashlib.sha256(f"cand-{round_id}".encode()).hexdigest()[:16],
+            "declared": {"verdict": verdict, "mechanisms": mechanisms},
+        }
+        if diff_files is not None:
+            text = full_diff(diff_files)
+            if projection == "hunk-headers":
+                text = header_projection(text)
+            entry["surface"] = self.evidence(round_id, text, projection, base)
+        return entry
+
+    def evidence(self, round_id, text, projection="full", base=BASE_TREE):
+        rel = f"evidence/{round_id}-{sha_text(text)[:8]}.diff"
+        (self.root / rel).write_text(text, encoding="utf-8")
+        return {"class": "diff-hunks", "projection": projection, "path": rel,
+                "sha256": sha_text(text), "baseTree": base, "candidateTree": tree_id(round_id)}
+
+    def history(self, rounds, **extra):
+        document = synthetic(rounds, surfaceBaseline={"tree": BASE_TREE})
+        document.update(extra)
+        return document
+
+    def decide(self, rounds, **extra):
+        return rule.decide(self.history(rounds, **extra), policy, self.root)
+
+    def rejects(self, name, rounds, **extra):
+        global checks
+        checks += 1
+        try:
+            rule.decide(self.history(rounds, **extra), policy, self.root)
+        except rule.StopRuleError:
+            return
+        failures.append(f"{name}: вход принят, хотя обязан быть отвергнут")
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    lab = SurfaceLab(Path(tmp))
+
+    def treadmill(count=WINDOW, projection="full"):
+        return [lab.round(f"t{k}", "BLOCKED",
+                          [mechanism(f"f{k}.py", "correctness", line=10 + k)],
+                          {f"f{k}.py": [(10 + k, 12 + k)]}, projection=projection)
+                for k in range(count)]
+
+    armed = lab.decide(treadmill())
+    check("R7: окно BLOCKED-раундов с находками только на добавленной поверхности взводит SURFACE_TREADMILL",
+          armed["terminal"] == "SURFACE_TREADMILL" and armed["atRound"] == f"t{WINDOW - 1}",
+          f"{armed['terminal']} @ {armed['atRound']}")
+    check("R7: диагностика поверхности объявляет evaluated и terminalArmed",
+          armed["surface"]["evaluated"] is True and armed["surface"]["terminalArmed"] is True)
+    check("R7: рендер называет поверхность и ADR-007",
+          "ПОВЕРХНОСТЬ" in rule.render(armed) and "ADR-007" in armed["fix"])
+    check("R7: FIX не обещает составления диспозиций правилом — оно отнесено к STOPRULE-2",
+          "STOPRULE-2" in armed["fix"] and "adjudicate" in armed["fix"]
+          and "правило составляет" not in armed["fix"], armed["fix"])
+    check("R7: во временном корне без git улика помечена непересчитанной, а не проверенной",
+          all(item["verifiedAgainstTrees"] is False for item in armed["surface"]["rounds"]))
+    headers = lab.decide(treadmill(projection="hunk-headers"))
+    check("R7: проекция заголовков hunks даёт тот же терминал",
+          headers["terminal"] == "SURFACE_TREADMILL", headers["terminal"])
+    # Один буфер (pub1): хеш и разбор судят ОДНИ И ТЕ ЖЕ байты. Улика, чей
+    # второй read вернул бы другую поверхность, не должна на решение влиять —
+    # иначе между sha256 и разбором есть окно подмены.
+    real_artifact = rule.repository_artifact
+
+    class TwoFaced:
+        """Файл, который при повторном чтении отдаёт ДРУГУЮ поверхность."""
+
+        def __init__(self, path):
+            self._path = path
+            self._served = False
+
+        def read_bytes(self):
+            if not self._served:
+                self._served = True
+                return self._path.read_bytes()
+            return full_diff({"other.py": [(1, 3)]}).encode()
+
+    def two_faced(rel, round_id, root, label):
+        artifact = real_artifact(rel, round_id, root, label)
+        return TwoFaced(artifact) if label == "surface evidence" else artifact
+
+    rule.repository_artifact = two_faced
+    try:
+        toctou = lab.decide(treadmill())
+    finally:
+        rule.repository_artifact = real_artifact
+    check("улика поверхности читается один раз: подмена байтов после sha не меняет разбор",
+          toctou["terminal"] == "SURFACE_TREADMILL", toctou["terminal"])
+    rounds = treadmill()
+    rounds[2]["declared"]["mechanisms"][0]["line"] = 3
+    off = lab.decide(rounds)
+    check("R7: одна находка на исходной поверхности снимает критерий",
+          off["terminal"] == "CONTINUE" and off["surface"]["evaluated"] is True
+          and "t2" in off["surface"]["why"], f"{off['terminal']}: {off['surface']['why']}")
+    rounds = treadmill()
+    del rounds[1]["declared"]["mechanisms"][0]["line"]
+    check("R7: находка без строки не считается лежащей на добавленной поверхности",
+          lab.decide(rounds)["terminal"] == "CONTINUE")
+    rounds = treadmill()
+    rounds[3]["declared"]["mechanisms"][0]["surface"] = "other.py"
+    check("R7: файл вне диффа — не добавленная поверхность",
+          lab.decide(rounds)["terminal"] == "CONTINUE")
+    short = lab.decide(treadmill(WINDOW - 1))
+    check("R7: окно короче политики не взводит и называет причину",
+          short["terminal"] == "CONTINUE" and "меньше окна" in short["surface"]["why"],
+          short["surface"]["why"])
+    rounds = treadmill()
+    rounds[1]["declared"]["verdict"] = "PASSED"
+    rounds[1]["declared"]["mechanisms"] = []
+    passed_inside = lab.decide(rounds)
+    check("R7: PASSED внутри окна — поток дошёл до нуля, это не treadmill",
+          passed_inside["terminal"] == "CONTINUE" and "не-BLOCKED" in passed_inside["surface"]["why"],
+          passed_inside["surface"]["why"])
+    check("R7: PASSED последним раундом закрывает маршрут, а не взводит",
+          lab.decide(treadmill() + [lab.round("z", "PASSED", [])])["terminal"] == "CLOSE")
+    # Окно хронологическое (r9): свежий PASSED без содержания не выпадает из
+    # хвоста, и старый BLOCKED не занимает его место.
+    contentless_pass = {"id": "p", "terminal": "verdict",
+                        "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
+                        "declared": {"verdict": "PASSED", "contentRecorded": False,
+                                     "why": "отчёт не сохранился"}}
+    trailing_pass = lab.decide(treadmill() + [contentless_pass])
+    check("R7: PASSED без содержания в конце окна снимает критерий, а не выпадает из него",
+          trailing_pass["terminal"] != "SURFACE_TREADMILL"
+          and not trailing_pass["surface"]["terminalArmed"],
+          f"{trailing_pass['terminal']}: {trailing_pass['surface']['why']}")
+    contentless_block = dict(contentless_pass, id="b",
+                             declared={"verdict": "BLOCKED", "contentRecorded": False,
+                                       "why": "отчёт не сохранился"})
+    inner_block = lab.decide(treadmill()[:4] + [contentless_block])
+    check("R7: BLOCKED без содержания в окне — нет улики, критерий не проверяем",
+          inner_block["terminal"] == "CONTINUE" and "b" in inner_block["surface"]["why"],
+          inner_block["surface"]["why"])
+    rounds = treadmill()
+    rounds[4].pop("surface")
+    missing = lab.decide(rounds)
+    check("R7: раунд окна без улики поверхности — критерий не проверяем",
+          missing["terminal"] == "CONTINUE" and "нет улики" in missing["surface"]["why"],
+          missing["surface"]["why"])
+    rounds = treadmill()
+    rounds[1] = lab.round("t1", "BLOCKED", [mechanism("f0.py", "correctness", line=10)],
+                          {"f0.py": [(10, 12)], "f1.py": [(11, 13)]})
+    recurrence = lab.decide(rounds)
+    check("R7 ниже R1: тот же ключ на добавленной поверхности при смене кандидата — REDESIGN_OR_DISCARD",
+          recurrence["terminal"] == "REDESIGN_OR_DISCARD", recurrence["terminal"])
+    check("R7: цифры поверхности печатаются и при терминале повтора",
+          len(recurrence["surface"]["rounds"]) == WINDOW
+          and "ПОВЕРХНОСТЬ" in rule.render(recurrence))
+    rounds = treadmill()
+    rounds[4]["declared"]["mechanisms"][0].update(refuted=True, why="опровергнута фактами")
+    refuted = lab.decide(rounds)
+    check("R7: раунд, где все находки опровергнуты, не поддерживает поток",
+          refuted["terminal"] == "CONTINUE" and "без засчитанных" in refuted["surface"]["why"],
+          refuted["surface"]["why"])
+    trailing = treadmill() + [{"id": "x", "terminal": "transport", "outcome": "UNAVAILABLE",
+                               "provenance": {"class": "absent"}}]
+    check("R7 выше ROUTE_REPAIR: хвостовой срыв транспорта не прячет treadmill",
+          lab.decide(trailing)["terminal"] == "SURFACE_TREADMILL")
+    # Отказы улики поверхности.
+    rounds = treadmill(); rounds[0]["surface"]["sha256"] = "0" * 64
+    lab.rejects("улика поверхности с чужим sha256", rounds)
+    rounds = treadmill(); rounds[0]["surface"]["baseTree"] = "b" * 40
+    lab.rejects("улика поверхности от чужой базы", rounds)
+    lab.rejects("улика поверхности без базы серии", treadmill(), surfaceBaseline=None)
+    lab.rejects("база серии не 40-hex", treadmill(), surfaceBaseline={"tree": "abc"})
+    rounds = treadmill(); rounds[0]["surface"]["candidateTree"] = "xyz"
+    lab.rejects("дерево кандидата не 40-hex", rounds)
+    rounds = treadmill(); rounds[0]["surface"]["projection"] = "narrative"
+    lab.rejects("неизвестная проекция улики", rounds)
+    rounds = treadmill(); rounds[0]["surface"]["class"] = "report"
+    lab.rejects("неизвестный класс улики поверхности", rounds)
+    rounds = treadmill(); rounds[0]["surface"]["path"] = "../outside.diff"
+    lab.rejects("улика поверхности вне репозитория", rounds)
+    rounds = treadmill()
+    lab.rejects("улика поверхности у не-вердиктного раунда",
+                rounds + [{"id": "x", "terminal": "transport", "outcome": "UNAVAILABLE",
+                           "provenance": {"class": "absent"}, "surface": rounds[0]["surface"]}])
+    text = full_diff({"f0.py": [(10, 12)]}).replace("+line\n", " context\n", 1)
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text)
+    lab.rejects("строка контекста в full-проекции — улика снята не с -U0", rounds)
+    # Удалённый файл в диффе — законная улика (r1): hunk без новой стороны.
+    deletion = ("diff --git a/gone.py b/gone.py\n--- a/gone.py\n+++ /dev/null\n"
+                "@@ -1,2 +0,0 @@\n-x\n-y\n") + full_diff({"f0.py": [(10, 12)]})
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", deletion)
+    check("улика с удалённым файлом разбирается, критерий взводится",
+          lab.decide(rounds)["terminal"] == "SURFACE_TREADMILL")
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", header_projection(deletion), "hunk-headers")
+    check("проекция заголовков с удалённым файлом разбирается",
+          lab.decide(rounds)["terminal"] == "SURFACE_TREADMILL")
+    rounds = treadmill()
+    rounds[0]["surface"] = lab.evidence("t0", deletion.replace("-y\n", "+z\n", 1))
+    lab.rejects("добавленная строка внутри удалённого файла", rounds)
+    rounds = treadmill()
+    rounds[0]["surface"] = lab.evidence(
+        "t0", header_projection(deletion).replace("+0,0", "+0,2"), "hunk-headers")
+    lab.rejects("проекция заголовков: удалённый файл с новыми строками в заголовке", rounds)
+    text = full_diff({"f0.py": [(10, 12)]})
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text, "hunk-headers")
+    lab.rejects("содержательные строки в проекции заголовков", rounds)
+    text = full_diff({"f0.py": [(10, 12)]}).replace("@@ -9,0 +10,3 @@", "@@ garbage @@")
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text)
+    lab.rejects("искажённый заголовок hunk", rounds)
+    text = "@@ -9,0 +10,3 @@\n+line\n+line\n+line\n"
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text)
+    lab.rejects("hunk без заголовка файла", rounds)
+    # Структурная связка (r10): без diff --git/--- проекция не является выводом git.
+    for name, text in (
+        ("проекция из одних +++/@@", "+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("diff --git без ---", "diff --git a/f0.py b/f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("+++ с чужим путём", "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/other.py\n@@ -9,0 +10,3 @@\n"),
+        ("--- дважды", "diff --git a/f0.py b/f0.py\n--- a/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("diff --git с чужими операндами", "diff --git a/f0.py b/zzz.py\n--- a/f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("операнд без a/", "diff --git f0.py b/f0.py\n--- f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("--- с чужим префиксом той же длины", "diff --git a/f0.py b/f0.py\n--- zzf0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"),
+        ("+++ с чужим префиксом той же длины", "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ zzf0.py\n@@ -9,0 +10,3 @@\n"),
+    ):
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text, "hunk-headers")
+        lab.rejects(name, rounds)
+    # Путь с подстрокой " b/" и переименование разбираются по ---/+++ (r11).
+    spaced = ("diff --git a/x b/y.py b/x b/y.py\n--- a/x b/y.py\n+++ b/x b/y.py\n"
+              "@@ -0,0 +1,2 @@\n+a\n+b\n")
+    check("путь с подстрокой ' b/' разбирается по заголовкам ---/+++",
+          rule.surface_lines(rule.parse_diff_surface(spaced, projection="full", where="t")) == {"x b/y.py": {1, 2}})
+    renamed = ("diff --git a/old.py b/new.py\nsimilarity index 90%\nrename from old.py\n"
+               "rename to new.py\n--- a/old.py\n+++ b/new.py\n@@ -0,0 +1,1 @@\n+a\n")
+    check("переименование: операнды diff --git совпадают с ---/+++",
+          rule.surface_lines(rule.parse_diff_surface(renamed, projection="full", where="t")) == {"new.py": {1}})
+    new_file = "diff --git a/n.py b/n.py\nnew file mode 100644\n--- /dev/null\n+++ b/n.py\n@@ -0,0 +1,1 @@\n+a\n"
+    check("новый файл: операнды сверяются по +++",
+          rule.surface_lines(rule.parse_diff_surface(new_file, projection="full", where="t")) == {"n.py": {1}})
+    # Гигантский hunk (r18): интервалы вместо множеств, предел координат.
+    huge = "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -0,0 +1,50000000 @@\n"
+    huge_added = rule.parse_diff_surface(huge, projection="hunk-headers", where="t")
+    # Без порога по времени (r20: флейк на нагруженном хосте): отсутствие
+    # материализации доказывается формой результата — один интервал, а не
+    # множество из 50 млн элементов.
+    check("hunk на 50 млн строк разбирается интервалом без материализации",
+          huge_added == {"f0.py": [[1, 50_000_000]]}
+          and isinstance(huge_added["f0.py"][0], list)
+          and rule.on_added_surface(huge_added, "f0.py", 49_999_999)
+          and not rule.on_added_surface(huge_added, "f0.py", 50_000_001),
+          repr(huge_added.get("f0.py")))
+    rounds = treadmill()
+    rounds[0]["surface"] = lab.evidence("t0", huge.replace("+1,50000000", "+1,900000000"), "hunk-headers")
+    lab.rejects("hunk за практическим пределом строк", rounds)
+    # Невозможные координаты (r21): положительный диапазон с нулевого старта.
+    for name, header in (("новая сторона +0,2", "@@ -0,0 +0,2 @@"),
+                         ("старая сторона -0,1", "@@ -0,1 +1,0 @@")):
+        impossible = f"diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n{header}\n"
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", impossible, "hunk-headers")
+        lab.rejects(f"невозможные координаты hunk: {name}", rounds)
+    for name, header in (("мусор после @@", "@@ -0,0 +1,2 @@garbage"),
+                         ("двойной пробел перед контекстом", "@@ -0,0 +1,2 @@  x"),):
+        malformed_tail = f"diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n{header}\n"
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", malformed_tail, "hunk-headers")
+        if name == "двойной пробел перед контекстом":
+            continue  # `@@  x` — пробел + контекст " x": законно по грамматике git
+        lab.rejects(f"заголовок hunk: {name}", rounds)
+    # Полнота секций (r24): голая секция и `---` без `+++` — отказ; metadata-only — законна.
+    good = "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@\n"
+    for name, text in (
+        ("голая секция в конце архива", good + "diff --git a/z.py b/z.py\n"),
+        ("голая секция между секциями", "diff --git a/z.py b/z.py\n" + good),
+        ("--- без +++ в конце", good + "diff --git a/z.py b/z.py\nindex 0000000..1111111 100644\n--- a/z.py\n"),
+        ("--- без +++ перед следующей секцией",
+         "diff --git a/z.py b/z.py\nindex 0000000..1111111 100644\n--- a/z.py\n" + good),
+    ):
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text, "hunk-headers")
+        lab.rejects(f"неполная секция: {name}", rounds)
+    for name, text in (
+        ("служебная строка вне секции", "index 0000000..1111111 100644\n" + good),
+        ("секция только с index", good + "diff --git a/z.py b/z.py\nindex 0000000..1111111 100644\n"),
+        ("новый файл со старой стороной hunk",
+         "diff --git a/n.py b/n.py\nnew file mode 100644\n--- /dev/null\n+++ b/n.py\n@@ -1,5 +1,5 @@\n"),
+    ):
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text, "hunk-headers")
+        lab.rejects(f"структура секции: {name}", rounds)
+    new_full = "diff --git a/n.py b/n.py\nnew file mode 100644\n--- /dev/null\n+++ b/n.py\n@@ -1,2 +1,2 @@\n-a\n-b\n+c\n+d\n"
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", new_full)
+    lab.rejects("новый файл с удалёнными строками в full-проекции", rounds)
+    mode_only = good + "diff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n"
+    check("секция только со сменой режима (без ---/+++) — законный вывод git",
+          rule.parse_diff_surface(mode_only, projection="hunk-headers", where="t") == {"f0.py": [[10, 12]]})
+    with_context = "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -9,0 +10,3 @@ def parse():\n"
+    check("function-context после @@ принимается",
+          rule.parse_diff_surface(with_context, projection="hunk-headers", where="t") == {"f0.py": [[10, 12]]})
+    boundary = "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -0,0 +1,1 @@\n"
+    check("нулевая координата при нулевой длине законна (вставка в пустой файл)",
+          rule.parse_diff_surface(boundary, projection="hunk-headers", where="t") == {"f0.py": [[1, 1]]})
+    adjacent = ("diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n"
+                "@@ -9,0 +10,3 @@\n@@ -12,0 +13,2 @@\n")
+    check("смежные hunks сливаются в один интервал без потери строк",
+          rule.parse_diff_surface(adjacent, projection="hunk-headers", where="t") == {"f0.py": [[10, 14]]}
+          and rule.surface_lines(rule.parse_diff_surface(adjacent, projection="hunk-headers", where="t"))
+          == {"f0.py": {10, 11, 12, 13, 14}})
+    # Порядок hunks (r13): дубли, перекрытие, обратный порядок, повтор секции.
+    ordered = full_diff({"f0.py": [(10, 12), (20, 21)]})
+    check("hunks по возрастанию принимаются",
+          rule.surface_lines(rule.parse_diff_surface(ordered, projection="full", where="t")) == {"f0.py": {10, 11, 12, 20, 21}})
+    for name, text in (
+        ("hunks в обратном порядке", full_diff({"f0.py": [(20, 21), (10, 12)]})),
+        ("перекрывающиеся hunks", full_diff({"f0.py": [(10, 12), (12, 13)]})),
+        ("дубль hunk", full_diff({"f0.py": [(10, 12), (10, 12)]})),
+        ("секция файла дважды", full_diff({"f0.py": [(10, 12)]}) + full_diff({"f0.py": [(20, 21)]})),
+        ("один путь назначения из двух секций-переименований",
+         "diff --git a/old1.py b/t.py\n--- a/old1.py\n+++ b/t.py\n@@ -0,0 +1,1 @@\n+a\n"
+         "diff --git a/old2.py b/t.py\n--- a/old2.py\n+++ b/t.py\n@@ -0,0 +2,1 @@\n+b\n"),
+        ("путь удалён и добавлен в разных секциях",
+         "diff --git a/t.py b/t.py\n--- a/t.py\n+++ /dev/null\n@@ -1,1 +0,0 @@\n-a\n"
+         "diff --git a/t.py b/t.py\nnew file mode 100644\n--- /dev/null\n+++ b/t.py\n@@ -0,0 +1,1 @@\n+b\n"),
+    ):
+        checks += 1
+        try:
+            rule.parse_diff_surface(text, projection="full", where="t")
+            failures.append(f"{name}: принято, хотя обязано быть отвергнуто")
+        except rule.StopRuleError:
+            pass
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", header_projection(text), "hunk-headers")
+        lab.rejects(f"{name} (проекция заголовков)", rounds)
+    # Проекция заголовков по состоянию hunk (r13): содержимое `+++ x` не заголовок.
+    lookalike_full = ("diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n"
+                      "@@ -9,1 +10,3 @@\n--- y\n+a\n+++ b\n+c\n")
+    projected = rule.project_hunk_headers(lookalike_full)
+    check("проекция заголовков не берёт содержимое, похожее на заголовок",
+          projected == "diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n@@ -9,1 +10,3 @@\n"
+          and rule.surface_lines(rule.parse_diff_surface(projected, projection="hunk-headers", where="t")) == {"f0.py": {10, 11, 12}},
+          repr(projected))
+    # LF-разбор (r16): U+2028/U+0085 внутри добавленной строки — не разделители.
+    unicode_line = full_diff({"f0.py": [(10, 10)]}).replace("+line\n", "+a\u2028b\u0085c\n", 1)
+    check("U+2028/U+0085 внутри добавленной строки не рвут hunk",
+          rule.surface_lines(rule.parse_diff_surface(unicode_line, projection="full", where="t")) == {"f0.py": {10}})
+    check("проекция заголовков тоже читает дифф по LF",
+          rule.project_hunk_headers(unicode_line) == header_projection(unicode_line))
+    # git-квотинг операндов (r12): табы, кавычки, октальные байты.
+    quoted_tab = ('diff --git "a/f\\tx.py" "b/f\\tx.py"\n--- "a/f\\tx.py"\n+++ "b/f\\tx.py"\n'
+                  "@@ -0,0 +1,1 @@\n+a\n")
+    check("квотированный путь с табом декодируется",
+          rule.surface_lines(rule.parse_diff_surface(quoted_tab, projection="full", where="t")) == {"f\tx.py": {1}})
+    quoted_octal = ('diff --git "a/\\303\\251.py" "b/\\303\\251.py"\n--- "a/\\303\\251.py"\n'
+                    '+++ "b/\\303\\251.py"\n@@ -0,0 +1,1 @@\n+a\n')
+    check("квотированный путь с октальными байтами декодируется в UTF-8",
+          rule.surface_lines(rule.parse_diff_surface(quoted_octal, projection="full", where="t")) == {"\u00e9.py": {1}})
+    quoted_new = ('diff --git "a/q\\"x.py" "b/q\\"x.py"\nnew file mode 100644\n--- /dev/null\n'
+                  '+++ "b/q\\"x.py"\n@@ -0,0 +1,1 @@\n+a\n')
+    check("новый квотированный файл: сторона a/ выводится с сохранением квотинга",
+          rule.surface_lines(rule.parse_diff_surface(quoted_new, projection="full", where="t")) == {'q"x.py': {1}})
+    for name, text in (
+        ("незакрытая кавычка", 'diff --git "a/x.py "b/x.py"\n--- "a/x.py\n+++ "b/x.py"\n@@ -0,0 +1,1 @@\n+a\n'),
+        ("неизвестный escape", 'diff --git "a/\\qx.py" "b/\\qx.py"\n--- "a/\\qx.py"\n+++ "b/\\qx.py"\n@@ -0,0 +1,1 @@\n+a\n'),
+        ("октальный escape выше одного байта", 'diff --git "a/\\541.py" "b/\\541.py"\n--- "a/\\541.py"\n+++ "b/\\541.py"\n@@ -0,0 +1,1 @@\n+a\n'),
+        ("квотированные операнды diff --git не совпадают с заголовками",
+         'diff --git "a/f\\tx.py" "b/f\\ty.py"\n--- "a/f\\tx.py"\n+++ "b/f\\tx.py"\n@@ -0,0 +1,1 @@\n+a\n'),
+    ):
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text)
+        lab.rejects(name, rounds)
+    check("policy: окно описано хронологически, без исключения раундов без содержания",
+          "ХРОНОЛОГИЧЕСКОМ" in TREADMILL["windowNote"] and "с сохранённым содержанием" not in TREADMILL["windowNote"])
+    for value in (0, -1, True, "10", 1.5):
+        rounds = treadmill()
+        rounds[0]["declared"]["mechanisms"][0]["line"] = value
+        lab.rejects(f"строка находки пересказа {value!r}", rounds)
+    # Содержимое, похожее на заголовок (r8): `+++ x` внутри недолитого hunk —
+    # добавленная строка `++ x`, `--- y` — удалённая `-- y`; путь не подменяется.
+    lookalike = ("diff --git a/f0.py b/f0.py\n--- a/f0.py\n+++ b/f0.py\n"
+                 "@@ -9,1 +10,3 @@\n--- y\n+a\n+++ b\n+c\n")
+    rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", lookalike)
+    lookalike_decision = lab.decide(rounds)
+    check("строки '+++ '/'--- ' внутри hunk — содержимое, критерий взводится",
+          lookalike_decision["terminal"] == "SURFACE_TREADMILL",
+          f"{lookalike_decision['terminal']}: {lookalike_decision['surface']['why']}")
+    check("строки-двойники заголовков не подменяют путь файла",
+          rule.surface_lines(rule.parse_diff_surface(lookalike, projection="full", where="t")) == {"f0.py": {10, 11, 12}})
+    # Полнота hunk (r2): содержимое обязано совпасть с заголовком строка в строку.
+    base_text = full_diff({"f0.py": [(10, 12)]})
+    for name, text in (
+        ("недолитый hunk (EOF)", base_text.replace("+line\n+line\n+line\n", "+line\n+line\n")),
+        ("перелитый hunk", base_text.replace("+line\n+line\n+line\n", "+line\n" * 4)),
+        ("недолитый hunk перед следующим файлом",
+         base_text.replace("+line\n+line\n+line\n", "+line\n") + full_diff({"z.py": [(1, 1)]})),
+        ("удалённая строка сверх заголовка", base_text.replace("+line\n", "-gone\n+line\n", 1)),
+        ("удалённый файл с новыми строками в заголовке",
+         "diff --git a/g.py b/g.py\n--- a/g.py\n+++ /dev/null\n@@ -1,1 +0,1 @@\n-x\n" + base_text),
+    ):
+        rounds = treadmill(); rounds[0]["surface"] = lab.evidence("t0", text)
+        lab.rejects(name, rounds)
+    # Живые деревья (r4): объект улики обязан быть типа tree, коммит — отказ;
+    # настоящие деревья — пересчёт проекции и verified.
+    with tempfile.TemporaryDirectory() as git_tmp:
+        repo = Path(git_tmp)
+
+        def git(*args):
+            return subprocess.run(["git", "-C", str(repo), *args], check=True,
+                                  capture_output=True, text=True).stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "oracle@example.invalid")
+        git("config", "user.name", "oracle")
+        (repo / "f0.py").write_text("a\nb\nc\n", encoding="utf-8")
+        git("add", "-A")
+        base_tree = git("write-tree")
+        git("commit", "-q", "-m", "base")
+        (repo / "f0.py").write_text("a\nb\nc\nd\ne\n", encoding="utf-8")
+        git("add", "-A")
+        cand_tree = git("write-tree")
+        git("commit", "-q", "-m", "cand")
+        head = git("rev-parse", "HEAD")
+        (repo / "journal.md").write_text("journal\n", encoding="utf-8")
+        projection = rule.surface_projection(repo, base_tree, cand_tree, "hunk-headers")
+        (repo / "ev.surface").write_text(projection, encoding="utf-8")
+        live_round = {"id": "g", "terminal": "verdict",
+                      "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
+                      "candidate": cand_tree[:16],
+                      "surface": {"class": "diff-hunks", "projection": "hunk-headers", "path": "ev.surface",
+                                  "sha256": sha_text(projection), "baseTree": base_tree, "candidateTree": cand_tree},
+                      "declared": {"verdict": "BLOCKED", "mechanisms": [mechanism("f0.py", "correctness", line=4)]}}
+        live = rule.decide(synthetic([live_round], surfaceBaseline={"tree": base_tree},
+                                     candidateSource={"kind": "reviewed-tree"}), policy, repo)
+        live_item = live["surface"]["rounds"][0]
+        check("живые деревья: проекция пересчитана и сверена, личность verified",
+              live_item["verifiedAgainstTrees"] is True and live_item["onAdded"] == 1
+              and live["candidateIdentities"] == {"declared": 1, "verified": 1, "unverifiable": 0},
+              json.dumps([live_item, live["candidateIdentities"]]))
+        empty_projection = rule.surface_projection(repo, cand_tree, cand_tree, "hunk-headers")
+        (repo / "empty.surface").write_bytes(b"")
+        same_round = copy.deepcopy(live_round)
+        same_round["surface"].update(path="empty.surface", sha256=sha_text(""), baseTree=cand_tree)
+        same_decision = rule.decide(synthetic([same_round], surfaceBaseline={"tree": cand_tree},
+                                              candidateSource={"kind": "reviewed-tree"}), policy, repo)
+        check("идентичные деревья: проекция пуста байт в байт и сверяется с пустой уликой",
+              empty_projection == "" and same_decision["surface"]["rounds"][0]["verifiedAgainstTrees"] is True
+              and same_decision["surface"]["rounds"][0]["onAdded"] == 0,
+              repr(empty_projection))
+        check("живой репозиторий: отсутствующий объект — None без разбора stderr",
+              rule.git_object_type(repo, "f" * 40) is None)
+        # Linked worktree (r14): `.git` — файл, объекты доступны.
+        linked = Path(git_tmp) / "linked"
+        git("worktree", "add", "-q", "--detach", str(linked))
+        check("linked worktree: `.git`-файл не мешает живой проверке дерева",
+              (linked / ".git").is_file() and rule.git_object_type(linked, cand_tree) == "tree",
+              str(rule.git_object_type(linked, cand_tree)))
+        absent_base = copy.deepcopy(live_round)
+        absent_base["surface"]["baseTree"] = "f" * 40
+        absent_base["surface"]["candidateTree"] = head
+        absent_base["candidate"] = head[:16]
+        checks += 1
+        try:
+            rule.decide(synthetic([absent_base], surfaceBaseline={"tree": "f" * 40},
+                                  candidateSource={"kind": "synthetic"}), policy, repo)
+            failures.append("при отсутствующей базе дерево кандидата не проверено на тип")
+        except rule.StopRuleError:
+            pass
+        # Полное окно R7 на живых деревьях: 5 последовательных кандидатов, каждый
+        # добавляет строки, находки — только в добавленном; улики пересчитаны по
+        # деревьям, личности verified, терминал взведён (пробел, названный чекером c1).
+        window_rounds = []
+        content = "a\nb\nc\nd\ne\n"
+        for k in range(WINDOW):
+            content += f"w{k}\n"
+            (repo / "f0.py").write_text(content, encoding="utf-8")
+            git("add", "-A")
+            step_tree = git("write-tree")
+            git("commit", "-q", "-m", f"w{k}")
+            step_projection = rule.surface_projection(repo, base_tree, step_tree, "hunk-headers")
+            (repo / f"w{k}.surface").write_text(step_projection, encoding="utf-8")
+            window_rounds.append({
+                "id": f"w{k}", "terminal": "verdict",
+                "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
+                "candidate": step_tree[:16],
+                "surface": {"class": "diff-hunks", "projection": "hunk-headers", "path": f"w{k}.surface",
+                            "sha256": sha_text(step_projection), "baseTree": base_tree, "candidateTree": step_tree},
+                "declared": {"verdict": "BLOCKED",
+                             "mechanisms": [mechanism("f0.py", f"class-{k}", line=6 + k)]},
+            })
+        live_window = rule.decide(synthetic(window_rounds, surfaceBaseline={"tree": base_tree},
+                                            candidateSource={"kind": "reviewed-tree"}), policy, repo)
+        check("R7 на живых деревьях: полное окно, пересчёт 5/5, личности verified, терминал взведён",
+              live_window["terminal"] == "SURFACE_TREADMILL"
+              and all(item["verifiedAgainstTrees"] is True for item in live_window["surface"]["rounds"])
+              and live_window["candidateIdentities"] == {"declared": WINDOW, "verified": WINDOW, "unverifiable": 0},
+              f"{live_window['terminal']} {live_window['candidateIdentities']} {live_window['surface']['why']}")
+        git("reset", "-q", "--hard", "HEAD~" + str(WINDOW))
+        forged = copy.deepcopy(live_round)
+        forged["candidate"] = head[:16]
+        forged["surface"]["candidateTree"] = head
+        checks += 1
+        try:
+            rule.decide(synthetic([forged], surfaceBaseline={"tree": base_tree},
+                                  candidateSource={"kind": "reviewed-tree"}), policy, repo)
+            failures.append("объект-коммит принят как дерево кандидата")
+        except rule.StopRuleError:
+            pass
+        tampered_text = projection.replace("+4,2", "+1,5")
+        check("лаборатория: проекция содержит ожидаемый hunk", tampered_text != projection)
+        (repo / "ev2.surface").write_text(tampered_text, encoding="utf-8")
+        tampered = copy.deepcopy(live_round)
+        tampered["surface"].update(path="ev2.surface", sha256=sha_text(tampered_text))
+        checks += 1
+        try:
+            rule.decide(synthetic([tampered], surfaceBaseline={"tree": base_tree},
+                                  candidateSource={"kind": "reviewed-tree"}), policy, repo)
+            failures.append("подложная проекция с верным sha прошла мимо пересчёта по деревьям")
+        except rule.StopRuleError:
+            pass
+    # Сбой исполнения git (r5) — отказ, а не «непроверяемо».
+    with tempfile.TemporaryDirectory() as git_tmp:
+        repo = Path(git_tmp)
+        (repo / ".git").mkdir()
+        real_run = rule.subprocess.run
+
+        class RepoYes:
+            returncode = 0
+            stdout = "true\n"
+            stderr = ""
+
+        def fake_git(response):
+            """Подмена subprocess.run: rev-parse отвечает «репозиторий есть»,
+            остальное — заданный ответ или исключение."""
+            def run(args, *rest, **kwargs):
+                if "rev-parse" in args:
+                    return RepoYes()
+                if isinstance(response, BaseException):
+                    raise response
+                return response
+            return run
+
+        class Broken:
+            returncode = 129
+            stdout = ""
+            stderr = "fatal: index file corrupt"
+
+        for name, fake in (
+            ("git недоступен", fake_git(OSError("no git"))),
+            ("git завис", fake_git(rule.subprocess.TimeoutExpired("git", 30))),
+            ("репозиторий повреждён", fake_git(Broken())),
+        ):
+            rule.subprocess.run = fake
+            try:
+                checks += 1
+                try:
+                    rule.require_live_tree(repo, "a" * 40, "test")
+                    failures.append(f"{name}: сбой проверки принят как «объекта нет»")
+                except rule.StopRuleError:
+                    pass
+            finally:
+                rule.subprocess.run = real_run
+
+        rule.subprocess.run = fake_git(UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"))
+        try:
+            checks += 1
+            try:
+                rule.surface_projection(repo, "a" * 40, "b" * 40, "full")
+                failures.append("байты вне UTF-8 при пересчёте не дали контролируемого отказа")
+            except rule.StopRuleError:
+                pass
+        finally:
+            rule.subprocess.run = real_run
+
+        class Missing:
+            returncode = 0
+            stdout = "a" * 40 + " missing\n"
+            stderr = ""
+
+        rule.subprocess.run = fake_git(Missing())
+        try:
+            check("отсутствующий объект остаётся непроверяемым, а не отказом (batch-check)",
+                  rule.require_live_tree(repo, "a" * 40, "test") is False)
+        finally:
+            rule.subprocess.run = real_run
+
+        captured_env = {}
+
+        def capture_env(args, *rest, **kwargs):
+            captured_env["env"] = kwargs.get("env")
+            return RepoYes()
+
+        rule.subprocess.run = capture_env
+        try:
+            rule.git_repository_present(repo)
+        finally:
+            rule.subprocess.run = real_run
+        check("git вызывается со стабильной локалью C (диагностики разбираются по тексту)",
+              (captured_env.get("env") or {}).get("LC_ALL") == "C"
+              and (captured_env.get("env") or {}).get("LANG") == "C")
+
+        class RepoOdd:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        rule.subprocess.run = lambda args, *rest, **kwargs: RepoOdd()
+        try:
+            checks += 1
+            try:
+                rule.require_live_tree(repo, "a" * 40, "test")
+                failures.append("rev-parse с exit 0 и пустым выводом принят как «репозитория нет»")
+            except rule.StopRuleError:
+                pass
+        finally:
+            rule.subprocess.run = real_run
+
+        class Odd:
+            returncode = 0
+            stdout = "b" * 40 + " tree 10\n"
+            stderr = ""
+
+        rule.subprocess.run = fake_git(Odd())
+        try:
+            checks += 1
+            try:
+                rule.require_live_tree(repo, "a" * 40, "test")
+                failures.append("ответ batch-check про другой oid принят")
+            except rule.StopRuleError:
+                pass
+        finally:
+            rule.subprocess.run = real_run
+    # Архив вне UTF-8 (r14) — отказ, а не подмена символами.
+    rounds = treadmill()
+    # Невалидные байты ВНУТРИ содержательной строки: с errors="replace" такой
+    # архив разбирался бы как валидный дифф.
+    bad_bytes = full_diff({"f0.py": [(10, 12)]}).encode("utf-8").replace(b"+line\n", b"+\xff\xfe\n", 1)
+    rel = "evidence/bad-utf8.diff"
+    (lab.root / rel).write_bytes(bad_bytes)
+    rounds[0]["surface"] = {"class": "diff-hunks", "projection": "full", "path": rel,
+                            "sha256": hashlib.sha256(bad_bytes).hexdigest(),
+                            "baseTree": BASE_TREE, "candidateTree": tree_id("t0")}
+    lab.rejects("улика поверхности вне UTF-8", rounds)
+    check("рендер печатает секцию поверхности и без улик — с причиной",
+          "ПОВЕРХНОСТЬ" in rule.render(rule.decide(synthetic([
+              narrative_round("a", "BLOCKED", [mechanism("s", "correctness")])]), policy, ROOT)))
+    # Личности kind=reviewed-tree выводятся из улики поверхности.
+    lab.rejects("reviewed-tree: личность не является префиксом candidateTree",
+                treadmill(), candidateSource={"kind": "reviewed-tree"})
+    unnamed = treadmill()
+    for entry in unnamed:
+        entry["candidate"] = tree_id(entry["id"])[:16]
+    del unnamed[2]["candidate"]
+    lab.rejects("reviewed-tree: раунд с уликой поверхности без объявленной личности",
+                unnamed, candidateSource={"kind": "reviewed-tree"})
+    tied = [lab.round(f"t{k}", "BLOCKED", [mechanism(f"f{k}.py", "correctness", line=10 + k)],
+                      {f"f{k}.py": [(10 + k, 12 + k)]}, candidate=tree_id(f"t{k}")[:16])
+            for k in range(WINDOW)]
+    tied_decision = lab.decide(tied, candidateSource={"kind": "reviewed-tree"})
+    check("reviewed-tree: личности из улик приняты и без git считаются непроверяемыми",
+          tied_decision["candidateIdentities"] == {"declared": WINDOW, "verified": 0,
+                                                   "unverifiable": WINDOW},
+          json.dumps(tied_decision["candidateIdentities"]))
+    # Иерархический отчёт продюсера: union находок без дублей, вердикт из интеграции.
+    finding_a = {"file": "f.py", "line": 7, "category": "correctness", "severity": "important", "summary": "a"}
+    finding_b = {"file": "g.py", "line": 9, "category": "security", "severity": "minor", "summary": "b"}
+    hierarchical = {"kind": "hierarchical", "unitCalls": [{"report": {"findings": [finding_a]}}],
+                    "integrationReport": {"verdict": "BLOCKED", "findings": [finding_a, finding_b]}}
+
+    def report_round(document, round_id="h"):
+        text = json.dumps(document, ensure_ascii=False)
+        rel = f"evidence/{round_id}-{sha_text(text)[:8]}.json"
+        (lab.root / rel).write_text(text, encoding="utf-8")
+        return {"id": round_id, "terminal": "verdict",
+                "provenance": {"class": "report", "path": rel, "sha256": sha_text(text)}}
+
+    record = rule.read_round(report_round(hierarchical), 0, policy, lab.root)
+    check("иерархический отчёт: находки юнита и интеграции объединены без дублей",
+          [f["file"] for f in record["findings"]] == ["f.py", "g.py"] and record["verdict"] == "BLOCKED",
+          json.dumps(record["findings"], ensure_ascii=False))
+    check("иерархический отчёт: строка находки сохранена для критерия поверхности",
+          [f["line"] for f in record["findings"]] == [7, 9])
+    for name, document in (
+        ("иерархический отчёт без integrationReport",
+         {"unitCalls": [{"report": {"findings": [finding_a]}}]}),
+        ("иерархический отчёт с unitCalls не списком",
+         {"unitCalls": {}, "integrationReport": {"verdict": "BLOCKED", "findings": [finding_a]}}),
+        ("иерархический отчёт с unitCalls[].report не объектом",
+         {"unitCalls": [{"report": []}], "integrationReport": {"verdict": "BLOCKED", "findings": [finding_a]}}),
+        ("плоский отчёт со строкой находки не целым",
+         {"verdict": "BLOCKED", "findings": [dict(finding_a, line="7")]}),
+        ("плоский отчёт со строкой находки булевой",
+         {"verdict": "BLOCKED", "findings": [dict(finding_a, line=True)]}),
+    ):
+        checks += 1
+        try:
+            rule.read_round(report_round(document, "bad"), 0, policy, lab.root)
+        except rule.StopRuleError:
+            continue
+        failures.append(f"{name}: вход принят, хотя обязан быть отвергнут")
+    checks += 1
+    try:
+        # Интеграция читается первой: валидная единица идёт раньше булевой копии.
+        rule.read_round(report_round({"unitCalls": [{"report": {"findings": [dict(finding_a, line=True)]}}],
+                                      "integrationReport": {"verdict": "BLOCKED",
+                                                            "findings": [dict(finding_a, line=1)]}},
+                                     "bool-dup"), 0, policy, lab.root)
+        failures.append("иерархический отчёт: булева строка спряталась за единицей в дедупе")
+    except rule.StopRuleError:
+        pass
+    checks += 1
+    try:
+        rule.verify_reviewed_tree_candidates(
+            {"rounds": [{"id": "x", "terminal": "verdict", "candidate": tree_id("x")[:3],
+                         "surface": {"candidateTree": tree_id("x")}}]}, lab.root,
+            {"declared": 0, "verified": 0, "unverifiable": 0})
+        failures.append("reviewed-tree: личность короче 16 hex принята как префикс")
+    except rule.StopRuleError:
+        pass
+    route_defect = lab.decide(treadmill(), policyBinding={"ledgerUnit": "synthetic",
+                                                          "contractUnit": "other",
+                                                          "criteriaPresent": True})
+    check("цифры поверхности считаются и при ROUTE_DEFECT",
+          route_defect["terminal"] == "ROUTE_DEFECT"
+          and len(route_defect.get("surface", {}).get("rounds", [])) == WINDOW
+          and "ПОВЕРХНОСТЬ" in rule.render(route_defect), route_defect["terminal"])
+    flat = rule.read_round(report_round({"verdict": "BLOCKED", "findings": [finding_b]}, "flat"),
+                           0, policy, lab.root)
+    check("плоский отчёт читается как прежде, строка находки доступна",
+          flat["findings"][0]["line"] == 9 and flat["verdict"] == "BLOCKED")
+
+# Реплей PILOT-P02: терминал сверен с независимым замером по транскрипту.
+p02_history = load("pilot-p02")
+p02 = decisions["pilot-p02"]
+p02_evidenced = [item for item in p02["surface"]["rounds"] if item["evidence"]]
+check("pilot-p02: R1 взводится на r14 по ключу test-coverage — совпадает с замером",
+      p02["terminal"] == "REDESIGN_OR_DISCARD" and p02["atRound"] == "r14"
+      and p02.get("mechanism") == "tests/verify_blind_protocol.py::test-coverage",
+      f"{p02['terminal']} @ {p02['atRound']} {p02.get('mechanism')}")
+check("pilot-p02: поверхность измерена у всех 18 вердиктов с содержанием",
+      len(p02_evidenced) == 18, str(len(p02_evidenced)))
+check("pilot-p02: цифры поверхности совпадают с записанным замером (r70 — 0/1, опровержение знаменатель не трогает)",
+      {item["round"]: f"{item['onAdded']}/{item['located']}" for item in p02_evidenced}
+      == p02_history["measured"]["onAddedSurface"]
+      and p02_history["measured"]["onAddedSurface"]["r70"] == "0/1",
+      json.dumps({item["round"]: f"{item['onAdded']}/{item['located']}" for item in p02_evidenced}))
+check("pilot-p02: R7 не взводится — в окне раунд r70 без засчитанных находок",
+      p02["surface"]["evaluated"] is True and p02["surface"]["terminalArmed"] is False
+      and "r70" in p02["surface"]["why"], p02["surface"]["why"])
+check("pilot-p02: строки находок помечены пересказом, не машинной уликой",
+      all(item["narrativeLines"] for item in p02_evidenced))
+check("pilot-p02: личности кандидатов выведены из улик поверхности",
+      p02["candidateIdentities"]["declared"] == 18, json.dumps(p02["candidateIdentities"]))
+check("pilot-p02: полная раскладка терминалов — 21 вердикт, 1 предусловие, 4 транспорта, 26 заходов, 47 пробелов",
+      p02["counters"] == {"verdict": 21, "precondition": 1, "transport": 4}
+      and p02["attempts"] == 26 and len(p02["knownGaps"]) == 47,
+      json.dumps(p02["counters"]))
+p02_recomputed = sum(1 for item in p02_evidenced if item["verifiedAgainstTrees"] is True)
+print(f"PILOT-P02 SURFACE: проекции пересчитаны по живым деревьям {p02_recomputed}/18 "
+      f"(0 на клоне без loose-объектов — ожидаемо)")
+mutated_p02 = copy.deepcopy(p02_history)
+mutated_p02["rounds"][[r["id"] for r in mutated_p02["rounds"]].index("r62")]["surface"]["sha256"] = "0" * 64
+rejects("pilot-p02: подмена sha улики поверхности отвергается", mutated_p02, policy)
+mutated_p02 = copy.deepcopy(p02_history)
+mutated_p02.pop("surfaceBaseline")
+rejects("pilot-p02: история с уликами поверхности без базы серии отвергается", mutated_p02, policy)
+mutated_p02 = copy.deepcopy(p02_history)
+r62 = mutated_p02["rounds"][[r["id"] for r in mutated_p02["rounds"]].index("r62")]
+r62["declared"]["mechanisms"][0]["line"] = 1
+moved = rule.decide(mutated_p02, policy, ROOT)
+moved_r62 = next(item for item in moved["surface"]["rounds"] if item["round"] == "r62")
+check("pilot-p02: перенос строки находки на исходную поверхность меняет цифру раунда",
+      moved_r62["onAdded"] == 2 and moved_r62["counted"] == 3, json.dumps(moved_r62))
+mutated_p02 = copy.deepcopy(p02_history)
+r70 = mutated_p02["rounds"][[r["id"] for r in mutated_p02["rounds"]].index("r70")]
+r70["declared"]["mechanisms"][0].pop("refuted"); r70["declared"]["mechanisms"][0].pop("why")
+unrefuted = rule.decide(mutated_p02, policy, ROOT)
+unrefuted_r70 = next(item for item in unrefuted["surface"]["rounds"] if item["round"] == "r70")
+refuted_r70 = next(item for item in p02["surface"]["rounds"] if item["round"] == "r70")
+check("pilot-p02: без опровержения r70 его находка становится засчитанной и лежит на исходной поверхности",
+      unrefuted_r70["counted"] == 1 and unrefuted_r70["liveOffSurface"] == 1
+      and refuted_r70["counted"] == 0 and refuted_r70["located"] == 1
+      and "r70 0/1" in unrefuted["surface"]["why"]
+      and "без засчитанных" not in unrefuted["surface"]["why"],
+      json.dumps([unrefuted_r70, refuted_r70, unrefuted["surface"]["why"]], ensure_ascii=False))
 
 print(f"LIVE BINDING: ledger={binding['ledgerUnit']} contract={binding['contractUnit']} "
       f"criteria={binding['criteriaTotal']} passed={binding['criteriaMatchingStatus']} "

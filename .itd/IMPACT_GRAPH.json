@@ -1611,6 +1611,63 @@
     "tests/references/stop-rule/evidence/LPD003-1-pub-r3-report.json": [
       "tests/verify_stop_rule.py"
     ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r10.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r14.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r15.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r19.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r23.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r28.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r38.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r41.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r44.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r47.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r51.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r53.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r58.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r59.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r6.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r62.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r65.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-r70.surface": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json": [
+      "tests/verify_stop_rule.py"
+    ],
     "tests/references/stop-rule/gpg-001-broker-policy.json": [
       "tests/verify_stop_rule.py"
     ],
@@ -1618,6 +1675,9 @@
       "tests/verify_stop_rule.py"
     ],
     "tests/references/stop-rule/lpd003-1-publication.json": [
+      "tests/verify_stop_rule.py"
+    ],
+    "tests/references/stop-rule/pilot-p02.json": [
       "tests/verify_stop_rule.py"
     ],
     "tests/references/stop-rule/r6-coarse-grouping.derived.json": [
