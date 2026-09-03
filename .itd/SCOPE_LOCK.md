@@ -60,3 +60,6 @@ treadmill не имеет права перекрывать REDESIGN; хвост
   `.itd/IMPACT_GRAPH.json`, `BACKLOG.md`
 - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`,
   `.itd-memory/contracts/STOPRULE-1.md`
+
+## Статус 2026-09-03 — ЗАКРЫТ
+PR #255 merged `ae95ca1` (дерево `23b71493`). Публикация: продюсер pub2 — чистый PASS (gpt-5.6-sol, committed-head), adjudication PASSED, CI Gate 1 + windows-verify pass. Юнит verified в STATE; остаток класса — STOPRULE-2 (BACKLOG).
