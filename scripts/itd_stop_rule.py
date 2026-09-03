@@ -28,7 +28,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -39,7 +41,71 @@ POLICY_SCHEMA = "itd-stop-rule-policy-v1"
 
 TERMINAL_CLASSES = ("verdict", "precondition", "transport")
 EXPECTED_PRECEDENCE = ["ROUTE_DEFECT", "REDESIGN_OR_DISCARD", "RECURRENCE_UNCONFIRMED",
-                       "ROUTE_REPAIR", "CLOSE", "CONTINUE"]
+                       "SURFACE_TREADMILL", "ROUTE_REPAIR", "CLOSE", "CONTINUE"]
+# Улика поверхности (R7): проекция `git diff -U0` база серии -> кандидат раунда.
+SURFACE_CLASSES = ("diff-hunks",)
+SURFACE_PROJECTIONS = ("full", "hunk-headers")
+SURFACE_COMMAND = ("git", "diff", "-U0", "--no-color", "--no-ext-diff")
+
+
+def git_env() -> dict:
+    """Окружение для git: локаль C, чтобы диагностики были стабильны
+    (`not a git repository` разбирается по тексту — r16)."""
+    env = dict(os.environ)
+    env["LC_ALL"] = "C"
+    env["LANG"] = "C"
+    env["LANGUAGE"] = "C"
+    return env
+SURFACE_HEADER_PREFIXES = (
+    "diff --git ", "--- ", "+++ ", "@@ ", "new file mode ", "deleted file mode ",
+    "index ", "similarity ", "dissimilarity ", "rename ", "copy ", "old mode ",
+    "new mode ", "Binary files ",
+)
+# Служебные строки, которые сами по себе делают секцию без ---/+++ законной:
+# смена режима, переименование/копия без правок, бинарь, а также пустой
+# новый/удалённый файл (git печатает его как `new file mode` + `index` без
+# ---/+++). `index` в этом списке НЕТ: сама по себе она сопровождает
+# содержательную секцию, и секция из одной `index` неполна (pub1).
+SECTION_COMPLETING_PREFIXES = (
+    "old mode ", "new mode ", "similarity ", "dissimilarity ", "rename ", "copy ",
+    "Binary files ", "new file mode ", "deleted file mode ",
+)
+# Заякорен с обеих сторон: после закрывающего `@@` — либо конец строки, либо
+# пробел и function-context; `@@ ... @@garbage` — не заголовок git (r23).
+HUNK_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: .*)?$")
+TREE_ID_RE = re.compile(r"[0-9a-f]{40}")
+# Практический предел координат hunk: заголовок с миллиардом строк — не
+# проекция реального диффа, а подложный архив (r18).
+MAX_DIFF_LINE = 100_000_000
+
+
+def add_interval(intervals: list, start: int, end: int) -> None:
+    """Добавить [start, end] к отсортированному списку интервалов файла;
+    смежный с последним — сливается. Ничего не материализуется."""
+    if intervals and intervals[-1][1] + 1 >= start:
+        intervals[-1][1] = max(intervals[-1][1], end)
+    else:
+        intervals.append([start, end])
+
+
+def on_added_surface(added: dict, path, line) -> bool:
+    """Лежит ли строка файла в добавленных интервалах."""
+    if not isinstance(path, str) or not isinstance(line, int):
+        return False
+    for start, end in added.get(path, ()):
+        if start <= line <= end:
+            return True
+    return False
+
+
+def surface_lines(added: dict) -> dict:
+    """Материализованное множество строк — ТОЛЬКО для малых поверхностей
+    (оракул, диагностика); на подложных гигантах не вызывается."""
+    return {path: {line for start, end in intervals for line in range(start, end + 1)}
+            for path, intervals in added.items()}
+# Окно R7 заморожено ПО ЗНАЧЕНИЮ, как и прочие скаляры политики: диапазон
+# «3..20» пропускал ослабление 5 -> 3 молча (находка ревьюера, r7).
+APPROVED_WINDOW_ROUNDS = 5
 # Значения привязки, замороженные ПО ЗНАЧЕНИЮ, а не по непустоте. Проверка
 # «строка не пуста» пропускала ослабленную политику: requireCriteriaStatus:
 # null делал statusSatisfied тривиально истинным, и критерии в статусе pending
@@ -65,6 +131,11 @@ EXPECTED_POLICY_SCALARS = {
     ("mechanismKey", "distinctRoundsRequired"): 2,
     ("policyBinding", "requireCriteriaPrefix"): True,
     ("policyBinding", "requireCriteriaStatus"): "passed",
+    ("surfaceTreadmill", "evidenceClass"): "diff-hunks",
+    ("surfaceTreadmill", "contextLines"): 0,
+    ("surfaceTreadmill", "requireBlockedWindow"): True,
+    ("surfaceTreadmill", "unlocatedFinding"): "not-on-added-surface",
+    ("surfaceTreadmill", "windowRounds"): APPROVED_WINDOW_ROUNDS,
 }
 
 
@@ -133,6 +204,13 @@ def load_policy(path: Path | None = None) -> dict:
 
     # Статус advisory заморожен картой EXPECTED_POLICY_SCALARS: превращение
     # правила в гейт — отдельное решение владельца, а не правка политики.
+    treadmill = document.get("surfaceTreadmill")
+    if not isinstance(treadmill, dict):
+        raise StopRuleError("policy has no 'surfaceTreadmill' section")
+    if list(treadmill.get("projections") or []) != list(SURFACE_PROJECTIONS):
+        raise StopRuleError(
+            f"policy surfaceTreadmill.projections must be {list(SURFACE_PROJECTIONS)}"
+        )
     text = json.dumps(document, ensure_ascii=False)
     for forbidden in ("maxRounds", "roundCap", "maxAttempts", "roundLimit"):
         if forbidden in text:
@@ -379,6 +457,674 @@ def validate_narrative_provenance(provenance: dict, round_id: str, root: Path) -
         )
 
 
+def finding_line(value, round_id: str, position: int):
+    """Строка находки: None либо целое >= 1. Иное — отказ, а не молчаливый None.
+
+    Строка нужна только критерию поверхности (R7); в ключ механизма она не
+    входит (дрейф строк внутри одного механизма — замер S04b).
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise StopRuleError(
+            f"round {round_id}: finding #{position} line must be a positive "
+            f"integer or absent, got {value!r}"
+        )
+    return value
+
+
+def repository_artifact(rel, round_id: str, root: Path, what: str) -> Path:
+    """Артефакт улики: путь внутри репозитория, файл на месте."""
+    if not isinstance(rel, str) or not rel.strip():
+        raise StopRuleError(f"round {round_id}: {what} needs a path")
+    artifact = (root / rel).resolve()
+    try:
+        artifact.relative_to(root.resolve())
+    except ValueError as exc:
+        raise StopRuleError(
+            f"round {round_id}: {what} path escapes the repository: {rel}"
+        ) from exc
+    if not artifact.is_file():
+        raise StopRuleError(f"round {round_id}: {what} artifact is missing: {rel}")
+    return artifact
+
+
+GIT_QUOTE_ESCAPES = {"a": 7, "b": 8, "t": 9, "n": 10, "v": 11, "f": 12, "r": 13,
+                     "\\": 92, '"': 34}
+
+
+def git_unquote(raw: str, where: str) -> str:
+    """Снять квотинг git с операнда пути (`"a/f\\tx"`, `\\303\\251` — октали).
+
+    git квотит пути с табами, кавычками, обратной косой и (при обычном
+    core.quotePath) не-ASCII байтами; без декодера живые проекции таких путей
+    отвергались бы, и критерий поверхности был бы неприменим к ним (r12).
+    Неквотированный операнд возвращается как есть.
+    """
+    if not raw.startswith('"'):
+        return raw
+    if len(raw) < 2 or not raw.endswith('"'):
+        raise StopRuleError(f"{where}: unterminated quoted path operand {raw!r}")
+    body = raw[1:-1]
+    out = bytearray()
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char != "\\":
+            out.extend(char.encode("utf-8"))
+            index += 1
+            continue
+        index += 1
+        if index >= len(body):
+            raise StopRuleError(f"{where}: dangling escape in quoted path operand {raw!r}")
+        char = body[index]
+        if char in GIT_QUOTE_ESCAPES:
+            out.append(GIT_QUOTE_ESCAPES[char])
+            index += 1
+            continue
+        octal = body[index:index + 3]
+        if len(octal) == 3 and all(digit in "01234567" for digit in octal):
+            value = int(octal, 8)
+            if value > 0o377:
+                # git кодирует байты 000..377; усечение `& 0xFF` нормализовало
+                # бы подложный операнд в другой путь (r17).
+                raise StopRuleError(
+                    f"{where}: octal escape \\{octal} exceeds one byte in quoted path {raw!r}"
+                )
+            out.append(value)
+            index += 3
+            continue
+        raise StopRuleError(f"{where}: unknown escape in quoted path operand {raw!r}")
+    return out.decode("utf-8", errors="surrogateescape")
+
+
+def swap_diff_side(raw: str, source: str, target: str, where: str) -> str:
+    """`b/…` -> `a/…` (и обратно) с сохранением квотинга — для /dev/null-стороны."""
+    if raw.startswith('"' + source + "/"):
+        return '"' + target + "/" + raw[len(source) + 2:]
+    if raw.startswith(source + "/"):
+        return target + "/" + raw[len(source) + 1:]
+    raise StopRuleError(f"{where}: diff operand {raw!r} does not name the {source}/ side")
+
+
+def diff_lines(text: str) -> list[str]:
+    """Строки диффа — ТОЛЬКО по LF: `str.splitlines()` считает разделителями
+    U+0085/U+2028/U+2029 и рвал бы валидную добавленную строку на фантомные
+    (r16). Завершающий LF не порождает пустой строки; CR остаётся в строке."""
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
+def parse_diff_surface(text: str, *, projection: str, where: str) -> dict:
+    """Добавленные строки НОВОЙ стороны по файлам из вывода `git diff -U0`.
+
+    full — считаются '+'-строки; hunk-headers — новая сторона заголовка
+    `@@ -a,b +c,d @@` целиком (при -U0 контекста нет, поэтому весь диапазон
+    добавлен либо изменён). Строка контекста в full-проекции — отказ: улика,
+    снятая не с -U0, завышала бы добавленную поверхность и взводила бы
+    терминал там, где его нет.
+    """
+    if projection not in SURFACE_PROJECTIONS:
+        raise StopRuleError(f"{where}: projection must be one of {SURFACE_PROJECTIONS}")
+    added: dict[str, list] = {}   # путь -> отсортированные интервалы [start, end]
+    current: str | None = None
+    deleted = False          # файл удалён: hunk законен, добавленных строк нет
+    in_hunk = False
+    new_line: int | None = None
+    # Структурная связка вывода git (r10): каждая секция файла обязана идти
+    # `diff --git a/X b/X` -> `--- ` -> `+++ ` -> hunks. Архив из одних
+    # `+++`/`@@` — не проекция git-вывода, а самоподписанный набор диапазонов,
+    # и при недоступных объектах он прошёл бы как «непроверяемый».
+    # Из строки `diff --git a/OLD b/NEW` путь НЕ извлекается: git не квотит
+    # пробелы, и путь с подстрокой " b/" делал бы разбор неоднозначным (r11).
+    # Авторитетны заголовки `---`/`+++`; строка diff --git обязана быть
+    # ровно их конкатенацией — это и есть структурная связка секции.
+    diff_operands: str | None = None
+    minus_target: str | None = None
+    seen_plus = False
+    section_meta = False   # в секции была хотя бы одна служебная строка
+    # Порядок hunks внутри секции: git выдаёт их по возрастанию с обеих
+    # сторон и без пересечений. Самоподписанный архив с дублями, перекрытием
+    # или обратным порядком помечал бы произвольные строки добавленными (r13).
+    prev_old: tuple[int, int] | None = None
+    prev_new: tuple[int, int] | None = None
+    # Уникальность секций — по декодированному пути КАЖДОЙ стороны, а не по
+    # сырой паре операндов: `a/old1 b/t` и `a/old2 b/t` оба добавляли бы
+    # диапазоны в t (r14).
+    seen_paths: set[str] = set()
+    # Счётчики полноты hunk (full-проекция): содержимое обязано дать РОВНО
+    # столько старых и новых строк, сколько объявил заголовок. Иначе
+    # подложная улика с самоподписанным sha (при недоступных объектах git)
+    # могла бы задать произвольные диапазоны недолитым или перелитым hunk (r2).
+    old_left = 0
+    new_left = 0
+    hunk_at = 0
+
+    def close_section(at_line: int) -> None:
+        """Секция `diff --git` обязана быть полной: либо `---`+`+++` (с hunks
+        или без), либо только служебные строки без hunks (смена режима,
+        переименование без правок). Голая секция или `---` без `+++` —
+        подложный хвост архива, а не вывод git (r24)."""
+        if diff_operands is None:
+            return
+        if minus_target is not None and not seen_plus:
+            raise StopRuleError(
+                f"{where}: diff section {diff_operands!r} has '---' without '+++' "
+                f"before line {at_line}"
+            )
+        if not seen_plus and not section_meta:
+            raise StopRuleError(
+                f"{where}: bare diff section {diff_operands!r} without headers "
+                f"before line {at_line} — не проекция вывода git"
+            )
+
+    def close_hunk() -> None:
+        # Единственная точка проверки полноты: недолив (остаток > 0) и перелив
+        # (остаток < 0) ловятся здесь же — отдельные встроенные проверки были
+        # бы избыточны и непроверяемы мутацией.
+        if projection == "full" and in_hunk and (old_left != 0 or new_left != 0):
+            raise StopRuleError(
+                f"{where}: hunk at line {hunk_at} does not match its header — "
+                f"old lines off by {old_left}, new lines off by {new_left} "
+                f"(положительное — недолив, отрицательное — перелив)"
+            )
+
+    for number, line in enumerate(diff_lines(text), 1):
+        # Внутри недолитого hunk full-проекции строки '+'/'-' — СОДЕРЖИМОЕ,
+        # даже если выглядят как заголовок: добавленная строка `++ x` даётся
+        # git как `+++ x`, удалённая `-- y` — как `--- y`. Заголовок возможен
+        # только когда счётчики hunk исчерпаны — ровно так различает их git (r8).
+        if (projection == "full" and in_hunk and (old_left > 0 or new_left > 0)
+                and line[:1] in "+-"):
+            if line.startswith("+"):
+                if current is None or new_line is None:
+                    raise StopRuleError(
+                        f"{where}: added line inside a deleted file at line {number} — "
+                        f"новая сторона удалённого файла пуста"
+                    )
+                add_interval(added[current], new_line, new_line)
+                new_line += 1
+                new_left -= 1
+            else:
+                old_left -= 1
+            continue
+        if line.startswith("diff --git "):
+            close_hunk()
+            close_section(number)
+            diff_operands = line[len("diff --git "):]
+            minus_target = None
+            seen_plus = False
+            section_meta = False
+            prev_old = None
+            prev_new = None
+            current = None
+            deleted = False
+            in_hunk = False
+            new_line = None
+            continue
+        if line.startswith("--- "):
+            close_hunk()
+            if diff_operands is None or minus_target is not None:
+                raise StopRuleError(
+                    f"{where}: '---' header without its diff --git section at line {number}"
+                )
+            minus_target = line[4:].split("\t")[0]
+            in_hunk = False
+            continue
+        if line.startswith("+++ "):
+            close_hunk()
+            if diff_operands is None or minus_target is None or seen_plus:
+                raise StopRuleError(
+                    f"{where}: '+++' header without the preceding diff --git/--- pair "
+                    f"at line {number} — архив не является проекцией вывода git"
+                )
+            seen_plus = True
+            target = line[4:].split("\t")[0]
+            if minus_target == "/dev/null" and target == "/dev/null":
+                raise StopRuleError(f"{where}: both diff sides are /dev/null at line {number}")
+            here = f"{where} line {number}"
+            minus_path = git_unquote(minus_target, here) if minus_target != "/dev/null" else None
+            plus_path = git_unquote(target, here) if target != "/dev/null" else None
+            if minus_path is not None and not minus_path.startswith("a/"):
+                raise StopRuleError(f"{where}: '---' operand must start with a/ at line {number}")
+            if plus_path is not None and not plus_path.startswith("b/"):
+                raise StopRuleError(f"{where}: '+++' operand must start with b/ at line {number}")
+            # Строка diff --git сверяется в СЫРОМ (квотированном) виде: git
+            # квотит каждый операнд так же, как заголовки ---/+++.
+            raw_old = minus_target if minus_path is not None else swap_diff_side(target, "b", "a", here)
+            raw_new = target if plus_path is not None else swap_diff_side(minus_target, "a", "b", here)
+            for side_path in {path[2:] for path in (minus_path, plus_path) if path is not None}:
+                if side_path in seen_paths:
+                    raise StopRuleError(
+                        f"{where}: path {side_path!r} appears in more than one diff "
+                        f"section at line {number}"
+                    )
+                seen_paths.add(side_path)
+            if diff_operands != f"{raw_old} {raw_new}":
+                raise StopRuleError(
+                    f"{where}: diff --git operands {diff_operands!r} do not match the "
+                    f"---/+++ headers ({minus_target!r}, {target!r}) at line {number}"
+                )
+            if plus_path is None:
+                current = None
+                deleted = True
+            else:
+                current = plus_path[2:]
+                deleted = False
+                added.setdefault(current, [])
+            in_hunk = False
+            new_line = None
+            continue
+        if line.startswith("@@"):
+            close_hunk()
+            match = HUNK_RE.match(line)
+            if match is None:
+                raise StopRuleError(f"{where}: malformed hunk header at line {number}: {line!r}")
+            if not seen_plus:
+                raise StopRuleError(f"{where}: hunk before a +++ header at line {number}")
+            if current is None and not deleted:
+                raise StopRuleError(f"{where}: hunk before a +++ header at line {number}")
+            old_start = int(match.group(1))
+            old_left = int(match.group(2)) if match.group(2) is not None else 1
+            start = int(match.group(3))
+            count = int(match.group(4)) if match.group(4) is not None else 1
+            for side, side_start, side_count in (("old", old_start, old_left), ("new", start, count)):
+                if side_count > 0 and side_start < 1:
+                    # `+0,2` невозможен для git: положительный диапазон начинается
+                    # с 1; нулевая координата законна только при нулевой длине (r21).
+                    raise StopRuleError(
+                        f"{where}: hunk at line {number} has an impossible {side}-side "
+                        f"start {side_start} for a non-empty range"
+                    )
+            if max(old_start + old_left, start + count) > MAX_DIFF_LINE:
+                raise StopRuleError(
+                    f"{where}: hunk at line {number} exceeds the practical line limit "
+                    f"{MAX_DIFF_LINE} — это не проекция реального диффа"
+                )
+            new_left = count
+            for label, previous, current_range in (
+                ("old", prev_old, (old_start, old_left)),
+                ("new", prev_new, (start, count)),
+            ):
+                if previous is not None:
+                    floor = previous[0] + max(previous[1], 1)
+                    if current_range[0] < floor:
+                        raise StopRuleError(
+                            f"{where}: hunk at line {number} is out of order or overlaps "
+                            f"the previous one on the {label} side "
+                            f"({current_range[0]} < {floor}) — вывод git строго возрастает"
+                        )
+            prev_old = (old_start, old_left)
+            prev_new = (start, count)
+            in_hunk = True
+            hunk_at = number
+            if minus_target == "/dev/null" and old_left:
+                # Новый файл: старой стороны нет, `-1,5` невозможен (pub1).
+                raise StopRuleError(
+                    f"{where}: new file declares {old_left} old line(s) at line {number}"
+                )
+            if current is None:
+                # Удалённый файл: новая сторона пуста (+0,0). Проверяется по
+                # заголовку в ЛЮБОЙ проекции: в hunk-headers содержимого нет,
+                # и close_hunk этот случай не видит (r9).
+                if count:
+                    raise StopRuleError(
+                        f"{where}: deleted file declares {count} new line(s) at line "
+                        f"{number} — новая сторона удалённого файла пуста"
+                    )
+                new_line = None
+            elif projection == "hunk-headers":
+                if count:
+                    add_interval(added[current], start, start + count - 1)
+                new_line = None
+            else:
+                new_line = start
+            continue
+        if line.startswith(SURFACE_HEADER_PREFIXES):
+            if diff_operands is None:
+                raise StopRuleError(
+                    f"{where}: metadata line outside a diff section at line {number}"
+                )
+            close_hunk()
+            in_hunk = False
+            if line.startswith(SECTION_COMPLETING_PREFIXES):
+                section_meta = True
+            continue
+        if projection == "hunk-headers":
+            raise StopRuleError(
+                f"{where}: projection hunk-headers must not carry content lines "
+                f"(line {number}): {line[:60]!r}"
+            )
+        if not in_hunk:
+            raise StopRuleError(f"{where}: content line outside a hunk at line {number}")
+        if line.startswith("+"):
+            if current is None or new_line is None:
+                raise StopRuleError(
+                    f"{where}: added line inside a deleted file at line {number} — "
+                    f"новая сторона удалённого файла пуста"
+                )
+            add_interval(added[current], new_line, new_line)
+            new_line += 1
+            new_left -= 1
+        elif line.startswith("-"):
+            old_left -= 1
+        elif line.startswith("\\"):
+            continue
+        else:
+            raise StopRuleError(
+                f"{where}: context or unrecognised line inside a -U0 diff at line "
+                f"{number}: {line[:60]!r} — улика обязана быть снята командой "
+                f"{' '.join(SURFACE_COMMAND)}"
+            )
+    close_hunk()
+    close_section(len(diff_lines(text)) + 1)
+    return added
+
+
+def git_repository_present(root: Path) -> bool:
+    """Есть ли у корня репозиторий — отвечает сам git (`rev-parse`), а не
+    наличие каталога `.git`: в linked worktree `.git` — файл (r14). Любой
+    сбой исполнения — контролируемый отказ, как и в cat-file."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True, text=True, timeout=30, env=git_env())
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise StopRuleError(
+            f"git rev-parse could not run in {root}: {exc} — живая проверка не состоялась"
+        ) from exc
+    if result.returncode == 0:
+        answer = result.stdout.strip()
+        if answer == "true":
+            return True
+        # exit 0 с любым другим выводом — не «репозитория нет», а сбой
+        # исполнения (обёртка, порча): контролируемый отказ (r15).
+        raise StopRuleError(
+            f"git rev-parse answered unexpectedly in {root}: {answer[:60]!r}"
+        )
+    if result.returncode == 128 and "not a git repository" in result.stderr:
+        return False
+    raise StopRuleError(
+        f"git rev-parse failed in {root} (exit {result.returncode}): "
+        f"{result.stderr.strip()[:200]}"
+    )
+
+
+def git_object_type(root: Path, oid: str) -> str | None:
+    """Тип объекта git; None ТОЛЬКО если репозитория или объекта нет.
+
+    Используется `cat-file --batch-check`: его вывод машинный и не зависит от
+    локали и версии — `<oid> missing` для отсутствующего объекта, иначе
+    `<oid> <type> <size>` (r6: разбор английской строки stderr был хрупок).
+    Сбой исполнения (нет git, таймаут, права, I/O, порча репозитория) — это
+    не «объекта нет», а «проверка не состоялась»: контролируемый отказ, иначе
+    самоподписанный архив принимался бы как непроверяемый ровно тогда, когда
+    проверить его нельзя (r5).
+    """
+    if not git_repository_present(root):
+        return None
+    try:
+        result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch-check"],
+                                input=oid + "\n", capture_output=True, text=True,
+                                timeout=30, env=git_env())
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise StopRuleError(
+            f"git cat-file could not run for {oid[:12]}: {exc} — живая проверка "
+            f"дерева не состоялась, улика не считается непроверяемой"
+        ) from exc
+    if result.returncode != 0:
+        raise StopRuleError(
+            f"git cat-file failed for {oid[:12]} (exit {result.returncode}): "
+            f"{result.stderr.strip()[:200]} — репозиторий не отвечает, а не объект отсутствует"
+        )
+    fields = result.stdout.strip().split()
+    if len(fields) == 2 and fields[0] == oid and fields[1] == "missing":
+        return None
+    if len(fields) == 3 and fields[0] == oid and fields[1]:
+        return fields[1]
+    raise StopRuleError(
+        f"git cat-file --batch-check answered unexpectedly for {oid[:12]}: "
+        f"{result.stdout.strip()[:120]!r}"
+    )
+
+
+def require_live_tree(root: Path, oid: str, what: str) -> bool:
+    """Живой объект обязан быть ДЕРЕВОМ: коммит или blob с валидным диффом
+    подменяли бы личность кандидата (r4). Отсутствующий объект — не отказ, а
+    «непроверяемо» (клон без loose-объектов)."""
+    kind = git_object_type(root, oid)
+    if kind is None:
+        return False
+    if kind != "tree":
+        raise StopRuleError(
+            f"{what} {oid[:12]} is a git {kind}, not a tree — деревом кандидата "
+            f"может быть только объект типа tree"
+        )
+    return True
+
+
+def git_object_exists(root: Path, oid: str) -> bool:
+    return git_object_type(root, oid) is not None
+
+
+def surface_projection(root: Path, base: str, candidate: str, projection: str) -> str:
+    """Пересчитать улику поверхности из живых объектов git — байт в байт."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *SURFACE_COMMAND[1:], base, candidate],
+            capture_output=True, timeout=120, check=True, env=git_env())
+        stdout = result.stdout.decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
+        # Байты вне UTF-8 в путях или содержимом — тоже контролируемый отказ,
+        # а не трассировка (r10): архив хешируется как UTF-8 текст.
+        raise StopRuleError(
+            f"surface projection {base[:12]}..{candidate[:12]} could not be "
+            f"recomputed from the live trees: {exc}"
+        ) from exc
+    if projection == "full":
+        return stdout
+    return project_hunk_headers(stdout)
+
+
+def project_hunk_headers(full_text: str) -> str:
+    """Проекция заголовков из полного `-U0` диффа — с учётом состояния hunk.
+
+    Отбор по одному префиксу строки ошибался на содержимом, похожем на
+    заголовок: добавленная строка `++ x` даётся git как `+++ x` и попадала
+    бы в проекцию как структурный заголовок (r13). Пока hunk не долит по
+    счётчикам, строки '+'/'-' — содержимое и в проекцию не идут.
+    """
+    kept: list[str] = []
+    old_left = 0
+    new_left = 0
+    in_hunk = False
+    for line in diff_lines(full_text):
+        if in_hunk and (old_left > 0 or new_left > 0) and line[:1] in "+-":
+            if line.startswith("+"):
+                new_left -= 1
+            else:
+                old_left -= 1
+            continue
+        if line.startswith("@@"):
+            match = HUNK_RE.match(line)
+            if match is None:
+                raise StopRuleError(f"live diff has a malformed hunk header: {line!r}")
+            old_left = int(match.group(2)) if match.group(2) is not None else 1
+            new_left = int(match.group(4)) if match.group(4) is not None else 1
+            in_hunk = True
+            kept.append(line)
+            continue
+        if line.startswith("\\"):
+            continue
+        if line.startswith(SURFACE_HEADER_PREFIXES):
+            in_hunk = False
+            kept.append(line)
+            continue
+        raise StopRuleError(f"live diff has an unexpected line outside hunks: {line[:60]!r}")
+    if not kept:
+        # Идентичные деревья: git выдаёт ноль байт, и проекция обязана быть
+        # ровно пустой — иначе пустая улика не сверится байт в байт (r20).
+        return ""
+    return "\n".join(kept) + "\n"
+
+
+def validate_surface_evidence(surface, round_id: str, root: Path,
+                              baseline_tree: str | None) -> dict | None:
+    """Улика поверхности раунда: класс, проекция, деревья, sha, разбор hunks.
+
+    Если оба дерева живы в объектной базе — проекция пересчитывается и
+    сверяется с архивом; расхождение — отказ. Без объектов улика
+    непроверяема (клон без loose-объектов), и это считается отдельно.
+    """
+    if surface is None:
+        return None
+    if not isinstance(surface, dict):
+        raise StopRuleError(f"round {round_id}: surface must be an object")
+    if surface.get("class") not in SURFACE_CLASSES:
+        raise StopRuleError(
+            f"round {round_id}: surface.class must be one of {SURFACE_CLASSES}"
+        )
+    projection = surface.get("projection")
+    if projection not in SURFACE_PROJECTIONS:
+        raise StopRuleError(
+            f"round {round_id}: surface.projection must be one of {SURFACE_PROJECTIONS}"
+        )
+    for field in ("baseTree", "candidateTree"):
+        value = surface.get(field)
+        if not isinstance(value, str) or not TREE_ID_RE.fullmatch(value):
+            raise StopRuleError(
+                f"round {round_id}: surface.{field} must be a 40-hex git tree id"
+            )
+    if baseline_tree is None:
+        raise StopRuleError(
+            f"round {round_id}: surface evidence needs history.surfaceBaseline.tree — "
+            f"без базы серии «добавленная поверхность» не определена"
+        )
+    if surface["baseTree"] != baseline_tree:
+        raise StopRuleError(
+            f"round {round_id}: surface.baseTree {surface['baseTree'][:12]} is not the "
+            f"series baseline {baseline_tree[:12]} — диффы от разных баз несравнимы"
+        )
+    rel = surface.get("path")
+    artifact = repository_artifact(rel, round_id, root, "surface evidence")
+    declared_sha = surface.get("sha256")
+    # Байты читаются ОДИН раз: хеш, пересчёт и разбор судят один и тот же
+    # буфер — повторное открытие давало окно подмены между ними (pub1).
+    payload = artifact.read_bytes()
+    actual_sha = hashlib.sha256(payload).hexdigest()
+    if not isinstance(declared_sha, str) or declared_sha != actual_sha:
+        raise StopRuleError(
+            f"round {round_id}: surface sha256 mismatch for {rel}\n"
+            f"  declared={declared_sha!r}\n  actual={actual_sha!r}"
+        )
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        # Байты вне UTF-8 — отказ, а не подмена «replacement»-символами:
+        # подменённая проекция участвовала бы в сопоставлении путей (r14).
+        raise StopRuleError(
+            f"round {round_id}: surface evidence {rel} is not valid UTF-8: {exc}"
+        ) from exc
+    added = parse_diff_surface(text, projection=projection,
+                               where=f"round {round_id} surface {rel}")
+    verified = None
+    # Оба объекта судятся НЕЗАВИСИМО (без короткого замыкания): отсутствующая
+    # база не освобождает дерево кандидата от проверки типа (r6, контур).
+    base_live = require_live_tree(root, surface["baseTree"], f"round {round_id} surface.baseTree")
+    candidate_live = require_live_tree(root, surface["candidateTree"],
+                                       f"round {round_id} surface.candidateTree")
+    if base_live and candidate_live:
+        recomputed = surface_projection(root, surface["baseTree"],
+                                        surface["candidateTree"], projection)
+        if hashlib.sha256(recomputed.encode("utf-8")).hexdigest() != actual_sha:
+            raise StopRuleError(
+                f"round {round_id}: surface evidence {rel} does not match the "
+                f"projection recomputed from the live trees — архив подложен "
+                f"или снят другой командой"
+            )
+        verified = True
+    else:
+        verified = False
+    return {
+        "added": added,
+        "projection": projection,
+        "path": rel,
+        "candidateTree": surface["candidateTree"],
+        "verifiedAgainstTrees": verified,
+    }
+
+
+def report_findings(document: dict, round_id: str, rel: str) -> tuple[list, object]:
+    """Находки и вердикт отчёта — плоского или иерархического.
+
+    Иерархический маршрут продюсера пишет `unitCalls[].report` и
+    `integrationReport`; находки объединяются и дедуплицируются по
+    (file, line, category, summary), вердикт берётся из интеграции.
+    Проход интеграции не имеет права стирать улику юнита — union, не выбор.
+    """
+    if "unitCalls" in document or "integrationReport" in document:
+        integration = document.get("integrationReport")
+        if not isinstance(integration, dict):
+            raise StopRuleError(
+                f"round {round_id}: hierarchical report needs integrationReport as an "
+                f"object: {rel}"
+            )
+        calls = document.get("unitCalls")
+        if not isinstance(calls, list):
+            raise StopRuleError(
+                f"round {round_id}: hierarchical report needs unitCalls as a list: {rel}"
+            )
+        sources = [("integrationReport", integration)]
+        for index, call in enumerate(calls):
+            if not isinstance(call, dict) or not isinstance(call.get("report"), dict):
+                raise StopRuleError(
+                    f"round {round_id}: unitCalls[{index}].report must be an object: {rel}"
+                )
+            sources.append((f"unitCalls[{index}].report", call["report"]))
+        merged: list = []
+        seen: set = set()
+        for label, report in sources:
+            findings = report.get("findings")
+            if findings is None:
+                findings = []
+            if not isinstance(findings, list):
+                raise StopRuleError(
+                    f"round {round_id}: {label}.findings must be a list: {rel}"
+                )
+            for position, finding in enumerate(findings):
+                if not isinstance(finding, dict):
+                    raise StopRuleError(
+                        f"round {round_id}: {label} finding #{position} is not an object"
+                    )
+                line_value = finding.get("line")
+                # Тип входит в ключ: Python считает True == 1, и невалидная
+                # булева строка пряталась бы за валидной единицей (r1).
+                key = (finding.get("file"), type(line_value).__name__, line_value,
+                       finding.get("category"), finding.get("summary"))
+                try:
+                    hash(key)
+                except TypeError as exc:
+                    raise StopRuleError(
+                        f"round {round_id}: {label} finding #{position} has "
+                        f"unhashable fields"
+                    ) from exc
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged.append(finding)
+        return merged, integration.get("verdict")
+    findings = document.get("findings")
+    if findings is None:
+        findings = []
+    if not isinstance(findings, list):
+        raise StopRuleError(
+            f"round {round_id}: report findings must be a list: {rel}"
+        )
+    return findings, document.get("verdict")
+
+
 def validate_provenance(provenance: dict, terminal: str, round_id: str,
                         root: Path) -> Path | None:
     """Единственная точка проверки провенанса — ДО ветвления по классу терминала.
@@ -427,7 +1173,8 @@ def validate_provenance(provenance: dict, terminal: str, round_id: str,
     return None
 
 
-def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
+def read_round(entry: dict, index: int, policy: dict, root: Path,
+               baseline_tree: str | None = None) -> dict:
     """Разобрать один раунд, вернув нормализованную запись.
 
     Всё, что нельзя проверить, останавливает разбор: молчаливый пропуск
@@ -467,6 +1214,13 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
 
     # Провенанс судится один раз, для любого раунда, до всякого ветвления.
     artifact = validate_provenance(provenance, terminal, round_id, root)
+    surface_entry = entry.get("surface")
+    if surface_entry is not None and terminal != "verdict":
+        raise StopRuleError(
+            f"round {round_id}: terminal class {terminal!r} cannot carry surface "
+            f"evidence — поверхность судится только в вердикт-раунде"
+        )
+    surface = validate_surface_evidence(surface_entry, round_id, root, baseline_tree)
 
     record = {
         "id": round_id,
@@ -476,6 +1230,7 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
         "findings": [],
         "contentAvailable": provenance_class != "absent",
         "candidate": candidate,
+        "surface": surface,
         "note": entry.get("note", ""),
     }
 
@@ -496,13 +1251,7 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
             raise StopRuleError(
                 f"round {round_id}: report root must be an object: {provenance['path']}"
             )
-        findings = document.get("findings")
-        if findings is None:
-            findings = []
-        if not isinstance(findings, list):
-            raise StopRuleError(
-                f"round {round_id}: report findings must be a list: {provenance['path']}"
-            )
+        findings, verdict = report_findings(document, round_id, provenance["path"])
         parsed = []
         for position, finding in enumerate(findings):
             if not isinstance(finding, dict):
@@ -511,13 +1260,14 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
                 )
             parsed.append({
                 "file": finding.get("file"),
+                "line": finding_line(finding.get("line"), round_id, position),
                 "category": finding.get("category"),
                 "severity": finding.get("severity"),
                 "summary": (finding.get("summary") or "")[:400],
             })
         for finding_index, flags in apply_dispositions(entry, len(parsed), round_id):
             parsed[finding_index].update(flags)
-        record["verdict"] = document.get("verdict")
+        record["verdict"] = verdict
         record["findings"] = parsed
     else:
         declared = entry.get("declared")
@@ -577,6 +1327,7 @@ def read_round(entry: dict, index: int, policy: dict, root: Path) -> dict:
                     )
             record["findings"].append({
                 "file": mechanism["surface"],
+                "line": finding_line(mechanism.get("line"), round_id, position),
                 "category": mechanism["defectClass"],
                 "severity": mechanism.get("severity"),
                 "summary": (mechanism.get("summary") or "")[:400],
@@ -721,6 +1472,8 @@ def verify_declared_candidates(history: dict, root: Path) -> dict:
     """
     source = history.get("candidateSource")
     counts = {"declared": 0, "verified": 0, "unverifiable": 0}
+    if isinstance(source, dict) and source.get("kind") == "reviewed-tree":
+        return verify_reviewed_tree_candidates(history, root, counts)
     if not isinstance(source, dict) or source.get("kind") != "prompt-ledger-diff-sha256":
         return counts
     for entry in history.get("rounds") or []:
@@ -754,6 +1507,50 @@ def verify_declared_candidates(history: dict, root: Path) -> dict:
                 f"does not match the ledger-derived {computed!r} from {ledger}"
             )
         counts["verified"] += 1
+    return counts
+
+
+def verify_reviewed_tree_candidates(history: dict, root: Path, counts: dict) -> dict:
+    """Личность кандидата = 16-hex префикс reviewedTree машинной квитанции.
+
+    Она обязана совпадать с surface.candidateTree того же раунда — иначе
+    бухгалтерия внутренне противоречива. Живое дерево в объектной базе
+    подтверждает личность; на клоне без loose-объектов она непроверяема,
+    и это считается, а не замалчивается.
+    """
+    for entry in history.get("rounds") or []:
+        if not isinstance(entry, dict):
+            continue
+        declared = entry.get("candidate")
+        if not isinstance(declared, str) or not declared.strip():
+            if isinstance(entry.get("surface"), dict):
+                # Улика поверхности несёт candidateTree, значит личность
+                # выводима — умолчание было бы несогласованной бухгалтерией (pub1).
+                raise StopRuleError(
+                    f"round {entry.get('id')}: surface evidence names a candidateTree "
+                    f"but the round declares no candidate identity"
+                )
+            continue
+        counts["declared"] += 1
+        if not CANDIDATE_IDENTITY_RE.fullmatch(declared):
+            # Проверяется и здесь, не только в read_round: функция не имеет
+            # права полагаться на дисциплину вызывающего (класс r19).
+            raise StopRuleError(
+                f"round {entry.get('id')}: candidate identity must be 16 lowercase "
+                f"hex digits, got {declared!r}"
+            )
+        surface = entry.get("surface")
+        tree = surface.get("candidateTree") if isinstance(surface, dict) else None
+        if not isinstance(tree, str) or not tree.startswith(declared):
+            raise StopRuleError(
+                f"round {entry.get('id')}: candidate identity {declared!r} is not the "
+                f"prefix of the round's surface.candidateTree {tree!r} — личность "
+                f"kind=reviewed-tree выводится из улики поверхности, а не объявляется"
+            )
+        if require_live_tree(root, tree, f"round {entry.get('id')} surface.candidateTree"):
+            counts["verified"] += 1
+        else:
+            counts["unverifiable"] += 1
     return counts
 
 
@@ -1066,11 +1863,136 @@ def count_terminals(rounds: list[dict]) -> tuple[dict, dict]:
     return counters, provenance_counters
 
 
+def surface_baseline(history: dict) -> str | None:
+    baseline = history.get("surfaceBaseline")
+    if baseline is None:
+        return None
+    if not isinstance(baseline, dict):
+        raise StopRuleError("surfaceBaseline must be an object")
+    tree = baseline.get("tree")
+    if not isinstance(tree, str) or not TREE_ID_RE.fullmatch(tree):
+        raise StopRuleError("surfaceBaseline.tree must be a 40-hex git tree id")
+    return tree
+
+
+def evaluate_surface_treadmill(rounds: list[dict], policy: dict) -> dict:
+    """R7: окно последних windowRounds вердикт-раундов с содержанием.
+
+    Критерий взводится, только если каждый раунд окна BLOCKED, у каждого есть
+    улика поверхности и КАЖДАЯ засчитанная находка (не regression, не refuted)
+    имеет строку, лежащую в добавленных диапазонах своей улики. Любая
+    недостающая улика или находка на исходной поверхности снимает критерий —
+    fail-closed в сторону CONTINUE. Числа печатаются всегда.
+    """
+    window = int(policy["surfaceTreadmill"]["windowRounds"])
+    per_round: list[dict] = []
+    for record in rounds:
+        if record["terminal"] != "verdict":
+            continue
+        # Раунд без сохранённого содержания ОСТАЁТСЯ в хронологическом окне:
+        # выкинуть его значило бы подтянуть в хвост более старый BLOCKED и
+        # взвести терминал мимо свежего PASSED (r9). Улики у него нет.
+        surface = record.get("surface") if record["contentAvailable"] else None
+
+        def locatable(finding: dict) -> bool:
+            return (isinstance(finding.get("line"), int)
+                    and isinstance(finding.get("file"), str))
+
+        def on_surface(finding: dict) -> bool:
+            return (surface is not None
+                    and on_added_surface(surface["added"], finding.get("file"), finding.get("line")))
+
+        findings = record["findings"] if record["contentAvailable"] else []
+        # Диагностика считается по ВСЕМ находкам (знаменатель не зависит от
+        # диспозиций — замер серии не переписывается опровержением), а
+        # поддержка R7 — только по живым (не refuted, не regression).
+        located = [finding for finding in findings if locatable(finding)]
+        on_added = sum(1 for finding in located if on_surface(finding))
+        live = [finding for finding in findings
+                if not is_refuted(finding) and not is_regression(finding)]
+        live_unlocated = sum(1 for finding in live if not locatable(finding))
+        live_off_surface = sum(1 for finding in live
+                               if locatable(finding) and not on_surface(finding))
+        per_round.append({
+            "round": record["id"],
+            "verdict": record["verdict"],
+            "content": record["contentAvailable"],
+            "evidence": surface is not None,
+            "projection": surface["projection"] if surface else None,
+            "verifiedAgainstTrees": surface["verifiedAgainstTrees"] if surface else None,
+            "counted": len(live),
+            "located": len(located),
+            "onAdded": on_added,
+            "liveUnlocated": live_unlocated,
+            "liveOffSurface": live_off_surface,
+            "narrativeLines": bool(
+                record["provenance"] == "narrative"
+                and any(locatable(finding) for finding in findings)),
+        })
+    report = {
+        "windowRounds": window,
+        "rounds": per_round,
+        "evaluated": False,
+        "terminalArmed": False,
+        "atRound": None,
+        "why": "",
+    }
+    tail = per_round[-window:]
+    if len(tail) < window:
+        report["why"] = (
+            f"вердикт-раундов с содержанием {len(per_round)} — меньше окна {window}"
+        )
+        return report
+    missing = [item["round"] for item in tail if not item["evidence"]]
+    if missing:
+        report["why"] = (
+            f"нет улики поверхности (или содержания) у раундов окна "
+            f"{', '.join(missing)} — критерий не проверяем"
+        )
+        return report
+    not_blocked = [item["round"] for item in tail if item["verdict"] != "BLOCKED"]
+    if not_blocked:
+        report["why"] = (
+            f"в окне есть не-BLOCKED раунды {', '.join(not_blocked)} — поток "
+            f"доходил до нуля, это не treadmill"
+        )
+        return report
+    report["evaluated"] = True
+    empty = [item["round"] for item in tail if item["counted"] == 0]
+    off_surface = [
+        f"{item['round']} {item['onAdded']}/{item['located']}"
+        for item in tail
+        if item["counted"] and (item["liveUnlocated"] or item["liveOffSurface"])
+    ]
+    if empty or off_surface:
+        reasons = []
+        if empty:
+            reasons.append(
+                f"без засчитанных находок (все опровергнуты или регрессии): "
+                f"{', '.join(empty)} — потока в этом раунде нет"
+            )
+        if off_surface:
+            reasons.append(
+                f"находки вне добавленной поверхности или без строки: "
+                f"{', '.join(off_surface)} — серия ещё судит исходный код"
+            )
+        report["why"] = "; ".join(reasons)
+        return report
+    report["terminalArmed"] = True
+    report["atRound"] = tail[-1]["round"]
+    report["why"] = (
+        f"последние {window} вердиктов ({', '.join(item['round'] for item in tail)}) "
+        f"все BLOCKED, и каждая их находка лежит в коде, добавленном самой серией"
+    )
+    return report
+
+
 def decide(history: dict, policy: dict, root: Path) -> dict:
     # Разбор идёт ПЕРВЫМ и всегда: любой раунд любой истории проходит проверку
     # провенанса, исхода и содержания, даже если ниже выяснится, что вердикты
     # этой истории интерпретировать нельзя.
-    rounds = [read_round(entry, index, policy, root)
+    baseline_tree = surface_baseline(history)
+    rounds = [read_round(entry, index, policy, root, baseline_tree)
               for index, entry in enumerate(history["rounds"])]
     seen_ids: set[str] = set()
     for record in rounds:
@@ -1115,6 +2037,10 @@ def decide(history: dict, policy: dict, root: Path) -> dict:
 
     # R3 идёт первым: если ревью судило по политике чужого юнита, содержание
     # раундов о кандидате не свидетельствует и разбирать его нечестно.
+    # Цифры поверхности считаются ВСЕГДА и печатаются при любом терминале,
+    # включая ROUTE_DEFECT: это замер серии, а не только условие R7. Сам
+    # терминал R7 применяется ниже, на своём месте в прецеденте.
+    decision["surface"] = evaluate_surface_treadmill(rounds, policy)
     route_defect = check_policy_binding(history, policy, root)
     if route_defect is not None:
         decision["terminal"] = "ROUTE_DEFECT"
@@ -1241,6 +2167,26 @@ def decide(history: dict, policy: dict, root: Path) -> dict:
         )
         return decision
 
+    surface_report = decision["surface"]
+    if surface_report["terminalArmed"]:
+        decision["terminal"] = "SURFACE_TREADMILL"
+        decision["atRound"] = surface_report["atRound"]
+        decision["why"] = (
+            "Ни один механизм не повторился, но " + surface_report["why"]
+            + ": поток находок стабилен, а поверхность растёт с каждой правкой — "
+              "серия оплачивает дефекты собственных правок, а не кандидата."
+        )
+        decision["fix"] = (
+            "Остановиться и вынести решение владельцу. Маршрут ADR-007 сейчас "
+            "ручной: владелец составляет диспозиции по каждой находке чекера "
+            "(`checker --accept-adjudicated-route`, затем `adjudicate "
+            "--dispositions <file>`) и подтверждает одной закрытой фразой; "
+            "автоматическое составление диспозиций правилом — STOPRULE-2, здесь "
+            "его нет. Альтернатива: переделать последнюю правку формой, не "
+            "добавляющей поверхности. Следующий раунд того же вида купит "
+            "следующую находку в следующей правке."
+        )
+        return decision
     verdict_rounds = [r for r in rounds if r["terminal"] == "verdict"]
     last_verdict = verdict_rounds[-1] if verdict_rounds else None
 
@@ -1329,6 +2275,30 @@ def render(decision: dict) -> str:
         )
     else:
         lines.append(f"ПРОВЕНАНС машинных отчётов {provenance['report']}")
+    surface = decision.get("surface")
+    if surface is not None:
+        evidenced = [item for item in surface["rounds"] if item["evidence"]]
+        figures = (", ".join(f"{item['round']} {item['onAdded']}/{item['located']}"
+                             for item in evidenced)
+                   if evidenced else "улик поверхности нет ни у одного раунда")
+        lines.append(
+            "ПОВЕРХНОСТЬ окно {w}: ".format(w=surface["windowRounds"]) + figures
+            + (f" — {surface['why']}" if surface["why"] and not surface["terminalArmed"] else "")
+        )
+        unverified = [item["round"] for item in evidenced
+                      if item["verifiedAgainstTrees"] is False]
+        if unverified:
+            lines.append(
+                "  улика поверхности раундов {ids} не пересчитана: деревьев нет в "
+                "объектной базе — архив проверен только по sha256".format(
+                    ids=", ".join(unverified))
+            )
+        narrative = [item["round"] for item in evidenced if item["narrativeLines"]]
+        if narrative:
+            lines.append(
+                "  строки находок раундов {ids} переписаны из журнала — не "
+                "машинная улика".format(ids=", ".join(narrative))
+            )
     for gap in decision.get("knownGaps", []):
         lines.append(
             f"ПРОБЕЛ    {gap['id']}: {gap['why']} — класс терминала неизвестен, "

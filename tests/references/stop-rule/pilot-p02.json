@@ -1,0 +1,1107 @@
+{
+ "schema": "itd-stop-rule-history-v1",
+ "unit": "PILOT-P02",
+ "subject": "Слепой семантический протокол приёмки (setup-юнит): контракт, модуль, оракул. Серия cross-vendor ревью gpt-5.6-sol 2026-09-02, r1..r73.",
+ "seriesNote": "73 захода обёртки продюсера, 21 вердикт (все BLOCKED), 0 чистых PASS. Содержание 18 вердиктов восстановлено машинно из stdout обёртки в транскрипте сессии (severity, category, file, line, summary); журналы промптов, JSON-отчёты и логи заходов лежали во временном каталоге сессии и утрачены 2026-09-03 — поэтому раунды класса narrative, а не report. Summary механизмов — усечённые выдержки (stdout обёртки резался при выводе); идентичность находки — (file, line, category). Кандидат заморожен в .itd-memory/PILOT-P02-frozen-candidate.patch (дерево 4cd424d4).",
+ "orderSource": "нумерация заходов обёртки продюсера (rN) и время наблюдения вердикта в транскрипте сессии; порядок задан номерами",
+ "orderProvenance": {
+  "class": "recorded-document",
+  "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+  "line": 1
+ },
+ "candidateSource": {
+  "kind": "reviewed-tree",
+  "note": "личность раунда — 16-hex префикс candidate.reviewedTree машинной квитанции, действовавшей на момент захода (последняя квитанция PILOT-P02-machine-* до времени наблюдения вердикта); она же surface.candidateTree. Деревья живы в объектной базе хоста (loose-объекты git write-tree); на клоне без них личность непроверяема и считается unverifiable."
+ },
+ "surfaceBaseline": {
+  "tree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+  "note": "reviewedTree первой машинной квитанции серии (2026-09-02T15:06:15Z) — кандидат захода r1, до первой правки по находкам"
+ },
+ "rounds": [
+  {
+   "id": "r1",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 1
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "contentRecorded": false,
+    "why": "в транскрипте сохранилась только итоговая строка «BLOCKED»; отчёт лежал во временном каталоге сессии и утрачен"
+   },
+   "note": "вердикт без содержания"
+  },
+  {
+   "id": "r3",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 1
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "contentRecorded": false,
+    "why": "в транскрипте сохранилась только итоговая строка «BLOCKED»; отчёт лежал во временном каталоге сессии и утрачен"
+   },
+   "note": "вердикт без содержания"
+  },
+  {
+   "id": "r4",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 1
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "contentRecorded": false,
+    "why": "в транскрипте сохранилась только итоговая строка «BLOCKED»; отчёт лежал во временном каталоге сессии и утрачен"
+   },
+   "note": "вердикт без содержания"
+  },
+  {
+   "id": "r6",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 8
+   },
+   "candidate": "7783674932a73b03",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r6.surface",
+    "sha256": "b296524f32e425367e31cc5899fcd78c0cfffd5e74a88113d50605cb16cd0ce8",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "7783674932a73b0371961ae2727b1a200aa12ca8"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "CLI does not validate that the decoded answers document is an object. JSON values such as null, a number, or a list can trigger uncaught TypeError in score() (for example during membership checks), escaping both exception handlers and producing a traceback instead of the required machine-readable REFUSED result.",
+      "line": 650
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "Seal validation assumes every item is a mapping before calling entry.get(), and worksheet() indexes seal fields directly without validating the seal first. Structurally malformed or tampered seal JSON can therefore raise AttributeError, KeyError, or TypeError rather than ProtocolError, violating the fail-closed, machine-readable refusal behavior promised for edited seals.",
+      "line": 395
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "The one-attempt marker is created with O_EXCL before its verdict payload is successfully written. If writing, flushing, closing, or the process fails after creation, an empty or partial verdict file permanently consumes the attempt; a subsequent valid score is refused even though no verdict was durably produced. This conflicts with the stated rule that a refused/unsuccessful measurement does not s",
+      "line": 573
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "minor",
+      "summary": "An explicit --seed is accepted as any nonempty string and is not constrained to sample.seedBytes, while generated seeds honor that field. This makes the frozen seedBytes contract only partially enforced and permits arbitrarily short or repeatedly selected seeds for the actual CLI sampling path.",
+      "line": 307
+     }
+    ]
+   },
+   "note": "4 находок из stdout обёртки продюсера; продюсер объявил 8 (дубли unit+integration)"
+  },
+  {
+   "id": "r10",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 49
+   },
+   "candidate": "69a5553d13bbd885",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r10.surface",
+    "sha256": "2245767627d5bc4924e7fd719aaf635fa23de6ffb1a76f47801b1a971f2d9215",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "69a5553d13bbd88565080905b37f6d80f35b918b"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": ".itd/SCOPE_LOCK.md",
+      "defectClass": "repository-hygiene",
+      "severity": "important",
+      "summary": "The scope lock declares `.itd-memory/contracts/PILOT-P02.md` as part of this unit's ledger bookkeeping, but the exhaustive candidate FILE_INVENTORY contains no such path. The candidate therefore leaves the newly activated unit without its declared durable unit contract; either add the contract or remove/correct the ledger declaration.",
+      "line": 47
+     },
+     {
+      "surface": ".itd/ACCEPTANCE_CONTRACT.json",
+      "defectClass": "evidence-integrity",
+      "severity": "minor",
+      "summary": "Criterion PILOT-P02-6's evidence text is internally false: `type(value) is int` rejects booleans (`type(True) is bool`), despite the text claiming `true` would pass because bool inherits int. That inheritance issue applies to `isinstance(value, int)`, not exact-type comparison. Correct the evidence wording so the frozen acceptance record accurately describes the tested guard.",
+      "line": 3090
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/specification-compliance",
+      "severity": "high",
+      "summary": "_publish_verdict falls back from the hard-link publication path to creating and streaming directly into the target verdict file. Readers can therefore observe a partial verdict, and process failure can leave a target that consumes the sole attempt. This directly violates the acceptance requirement that only complete, fsynced content appear atomically; unsupported hard-link semantics should cause a",
+      "line": 552
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "medium",
+      "summary": "score assumes sealed is a mapping and immediately calls sealed.get; worksheet reaches the same assumption in _verify_seal. A syntactically valid seal JSON whose top level is a list, string, or null raises AttributeError, which main does not catch, producing a traceback instead of the required machine-readable REFUSED response for a structurally damaged seal.",
+      "line": 593
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/data-validation",
+      "severity": "medium",
+      "summary": "eligible accepts every truthy author category without checking that it belongs to the vocabulary for that finding's source. A stamped malformed finding can enter the sample, yet score permits only vocabulary answers, making agreement impossible and counting corrupted input as a genuine disagreement rather than refusing the measurement.",
+      "line": 287
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "The atomic-publication oracle does not establish the acceptance claim that the verdict is complete and durable before it appears at the target name. `watching_link` records only whether the destination existed before `os.link`; it neither inspects/parses the source at link time nor verifies that `os.fsync` occurred before publication. An implementation could link a partially written temporary inod",
+      "line": 581
+     }
+    ]
+   },
+   "note": "6 находок из stdout обёртки продюсера; продюсер объявил 12 (дубли unit+integration)"
+  },
+  {
+   "id": "r14",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 106
+   },
+   "candidate": "7e0ed72ccc2082e6",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r14.surface",
+    "sha256": "d42202a5ac57dd2a8aba60e742bfe5c69d4c0e792e6cb8d123bc2d1460c97619",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "7e0ed72ccc2082e610b92e89e92ef53885d23524"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/security",
+      "severity": "high",
+      "summary": "The caller may choose any valid `--seed`, and a seal has no immutable commitment outside its self-consistent seed/items data. An operator can grind seeds until `_draw` selects favorable findings, or replace a seed and recompute `items`; `_verify_seal` will accept the result. This defeats the required random-selection/tamper-evidence property despite detecting a seed edit whose items were not recom",
+      "line": 365
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling/specification-compliance",
+      "severity": "medium",
+      "summary": "`load_protocol` checks `onFail.action` and `onFail.then` only for truthiness, but `score` concatenates them as strings. A behavior-defining contract containing truthy non-string values loads successfully and later raises `TypeError` on a failed score instead of producing the required machine-readable refusal. Both fields should be validated as non-empty strings during protocol loading.",
+      "line": 166
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/edge-case",
+      "severity": "medium",
+      "summary": "Population identity assumes `(lineage,index)` is unique but never enforces it. Duplicate ledger rows or reused lineage values create duplicate `ref`s; a draw containing both is rejected only after sealing, while a draw containing one can have worksheet lookup silently resolve a different duplicate because the pool is converted to a dict by `ref`. Reject duplicate refs while constructing the popula",
+      "line": 303
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "The atomic-publication test records every os.fsync call as an indistinguishable marker and only asserts that some fsync precedes os.link. An implementation could fsync an unrelated file or directory, leave the verdict source inode unsynced, and still pass. Capture the fd passed to fsync, resolve/compare its inode with the source passed to os.link, and require that specific inode to have been fsync",
+      "line": 604
+     }
+    ]
+   },
+   "note": "4 находок из stdout обёртки продюсера; продюсер объявил 8 (дубли unit+integration)"
+  },
+  {
+   "id": "r15",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 147
+   },
+   "candidate": "c4e450f86bffcc43",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r15.surface",
+    "sha256": "d0256d00269701766b27d142fe327dec79b4d82cf92549907bba8143c2abf41d",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "c4e450f86bffcc431796ca1d7f88c9adf045ba73"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/BLIND_PROTOCOL.json",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "The retry contract says a failed attempt may use “a new seal and a new sample,” but the same contract derives the seed solely from protocolDigest+population, making a new seal over unchanged population reproduce the identical sample. Unless itd_blind_protocol.py requires a materially changed population before resealing, an operator can recreate the same frozen sample and retry owner answers, defea",
+      "line": 43
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "specification-compliance",
+      "severity": "medium",
+      "summary": "`sample.seedBytes` accepts every positive integer, but `_derive_seed` later truncates a single SHA-256 hexadecimal digest and therefore cannot produce more than 32 bytes. For example, a contract declaring `seedBytes: 64` loads successfully yet silently yields only 32 bytes, violating the requirement that behavior-defining contract fields either match the implementation or fail closed. Reject value",
+      "line": 174
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "Malformed-seal scoring checks reuse `spend`, for which a successful score has already published the one-attempt verdict. Each check accepts any `ProtocolError`, so `score()` can refuse because the seal was already scored rather than because the malformed structure was validated; a regression that checks the attempt before validating `items`/`population` could therefore pass this oracle. Use a fres",
+      "line": 645
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r19",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 180
+   },
+   "candidate": "8cbb1d88645ab7bb",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r19.surface",
+    "sha256": "3935d11efd2da28addeed99886b8d9f02cc78a2d2bab8cdb584734ef53a34f8c",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "8cbb1d88645ab7bb7f378fe8def1dca94d67cf29"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/tamper-evidence",
+      "severity": "high",
+      "summary": "Seal verification reduces both sealed and live populations to only {ref,digest}, while the digest covers only the finding object and omits the row-level source. Changing a sampled row's source after sealing—when its category is valid for both sources—therefore passes _verify_seal but changes the per-position vocabulary used by worksheet() and score(). This violates the closed measurement window an",
+      "line": 444
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "The onFail mutation tests cover only truthy non-string values for onFail.action. They never mutate onFail.then and never test empty strings, so a loader that validates action correctly but accepts a truthy non-string then—or accepts an empty action/then—would keep this oracle green even though the acceptance contract requires both fields to be non-empty strings and failing-score construction could",
+      "line": 805
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "specification-compliance",
+      "severity": "important",
+      "summary": "The strict-contract mutation matrix does not cover several behavior-defining frozen fields, notably sample.size, scoring.threshold, and population requirements/source selection. The initial assertions only inspect the canonical contract, so an implementation that silently honors or ignores changed values for these fields can pass the suite, contrary to the fail-closed requirement that every behavi",
+      "line": 850
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r23",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 213
+   },
+   "candidate": "f57c6d4c19de62fe",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r23.surface",
+    "sha256": "dd9d8907cf6ace3a6d2ba84f6f751d4b050cb23c6003c1f633bfe756c0bc850e",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "f57c6d4c19de62feb8de4c304e8a630fbd981f3b"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/tamper-evidence",
+      "severity": "medium",
+      "summary": "The seal binds the protocol and eligible findings but not VERDICT_TAXONOMY.json. Changing category meanings or source vocabularies after sealing can alter the worksheet and scoring rules without invalidating the seal when the sampled findings remain eligible. Include a taxonomy digest in the seal and verify it in worksheet() and score().",
+      "line": 393
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "medium",
+      "summary": "A structurally malformed ledger row with an unhashable source (for example, a list or object) raises TypeError at `source not in sources`; main() does not catch TypeError, so one bad JSONL row produces a traceback instead of a machine-readable refusal or being skipped. Validate source as a string before set membership.",
+      "line": 286
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "minor",
+      "summary": "The sampled-record tamper test unconditionally assigns category \"performance\". If the deterministically selected first item already has that category, no mutation occurs and the test expects a refusal from unchanged data, making the oracle dependent on the current draw. Select a category guaranteed to differ from the original value.",
+      "line": 380
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r28",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 246
+   },
+   "candidate": "c4a8face549cc443",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r28.surface",
+    "sha256": "dca27d1b96ba1c15d2a92a5f963f97d09ec9301e4c6a3449377ee9911bcef02f",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "c4a8face549cc4430163cc7d4d57ec526123d0e3"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": ".itd/ACCEPTANCE_CONTRACT.json",
+      "defectClass": "specification-compliance",
+      "severity": "important",
+      "summary": "Criterion PILOT-P02-6 declares only `sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py` as its verification command, although the criterion requires run-all registration, runtime-manifest coverage, and drift verification. The cited evidence and oracle IDs instead rely on `runtime-install` and `runall-drift`; therefore rerunning the criterion's authoritative command cannot establish the co",
+      "line": 3104
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "medium",
+      "summary": "load_protocol does not validate population.ledger. A missing, null, or non-path-compatible value is accepted during the promised fail-closed load, then _ledger_paths raises an uncaught KeyError/TypeError instead of ProtocolError (the CLI only converts OSError/ValueError), violating strict contract loading and machine-readable refusal behavior.",
+      "line": 91
+     }
+    ]
+   },
+   "note": "2 находок из stdout обёртки продюсера; продюсер объявил 4 (дубли unit+integration)"
+  },
+  {
+   "id": "r35",
+   "terminal": "precondition",
+   "outcome": "UNVERIFIED",
+   "provenance": {
+    "class": "absent"
+   },
+   "note": "дрейф рабочего дерева относительно квитанции: продюсер отказал до ревьюера"
+  },
+  {
+   "id": "r38",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 271
+   },
+   "candidate": "3d856e35788bc7f9",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r38.surface",
+    "sha256": "f4324d0e6e9b910f37a884b0bb6bfc9d1511d265c7cf18c5fb1b06587b91b513",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "3d856e35788bc7f9ab5376f48d5c5bda629171d6"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness/security",
+      "severity": "high",
+      "summary": "Taxonomy verification has a TOCTOU gap: `_verify_seal()` hashes one fresh load, but `eligible()` and the later `_vocabulary()` calls repeatedly reload the file. A concurrent replacement can therefore produce a mixed-version population or change the per-item vocabulary after its sealed digest was accepted, instead of refusing the measurement as required. Load and validate one taxonomy snapshot and ",
+      "line": 541
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "high",
+      "summary": "Seal validation is not fail-closed for several valid-JSON corruptions. For example, an item whose `ref` is a list or object raises `TypeError` in the set comprehension; a forged seal over a live population shorter than `sample.size` can exhaust `_draw()` and divide by zero; missing `protocolDigest` causes `worksheet()` to raise `KeyError`, and missing `sealedAt` causes `score()` to do likewise. Th",
+      "line": 515
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "medium",
+      "summary": "The one-attempt namespace is keyed only by the first 16 hexadecimal seed characters. Distinct population seals with the same prefix are treated as the same attempt; this is especially practical because the accepted configurable `seedBytes` range includes one byte, yielding only 256 verdict names. Key verdicts by the full population/seal digest so a different population cannot inherit another seal'",
+      "line": 662
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "The concurrent-score oracle uses a wall-clock deadline 1.5 seconds after sequential process creation, but has no readiness handshake. On a slow or heavily loaded host, early children can pass the deadline and finish scoring before later children are spawned, so a broken check-then-write implementation may still produce exactly one SCORED result and pass. Use a parent-controlled barrier reached by ",
+      "line": 565
+     }
+    ]
+   },
+   "note": "4 находок из stdout обёртки продюсера; продюсер объявил 8 (дубли unit+integration)"
+  },
+  {
+   "id": "r41",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 312
+   },
+   "candidate": "832c14d2f6050a68",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r41.surface",
+    "sha256": "689007cfc1c690325a5dd2b8c4be8c526e1b77a9b5fb7f68ee96083873c03496",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "832c14d2f6050a682f0c363fe667e7e245ab2b98"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "medium",
+      "summary": "Malformed but valid-JSON taxonomy structures can escape the fail-closed protocol as uncaught exceptions. `_load_taxonomy()` returns any JSON value without validating that it is an object, then `_vocabulary()` calls `taxonomy.get`; a list, scalar, or null therefore raises AttributeError, which `main()` does not catch. Likewise, non-string entries in `bySource` can reach `\", \".join(missing)` and rai",
+      "line": 537
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "test-coverage",
+      "severity": "important",
+      "summary": "The taxonomy snapshot regression test counts loader calls for seal and worksheet only, but never invokes score under the counting loader. A score implementation that reloads the taxonomy after validating its sealed digest—reopening the documented TOCTOU window—would still pass this oracle, despite the acceptance evidence claiming that every phase loads exactly one snapshot.",
+      "line": 963
+     }
+    ]
+   },
+   "note": "2 находок из stdout обёртки продюсера; продюсер объявил 4 (дубли unit+integration)"
+  },
+  {
+   "id": "r44",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 337
+   },
+   "candidate": "49b838508b81d526",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r44.surface",
+    "sha256": "3c9cc80792ea82c11a3ae5a837512c9df5a60d2a4c570ba9a11e16e2ca8f1221",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "49b838508b81d526268643ab46f2ca8dc7cdb66d"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness / tamper-evidence",
+      "severity": "medium",
+      "summary": "The verdict identity is documented as the full seal digest but hashes only protocolDigest, taxonomyDigest, populationDigest, and seed. `sealedAt` is neither authenticated nor semantically validated, yet is copied into the final verdict. Before the first scoring attempt, an operator can alter this evidentiary timestamp and still obtain a valid verdict, violating the claimed seal tamper-evidence. Bi",
+      "line": 693
+     }
+    ]
+   },
+   "note": "1 находок из stdout обёртки продюсера; продюсер объявил 2 (дубли unit+integration)"
+  },
+  {
+   "id": "r47",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 354
+   },
+   "candidate": "6d1f68ba54365666",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r47.surface",
+    "sha256": "eb0cbb5a1a65a5d91e8fe5cdb113822587d5eb0bf16d2bd83bc35e8ff430b362",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "6d1f68ba5436566690dfe9708e3273936dbe17d9"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "medium",
+      "summary": "`score()` snapshots and verifies the live population only once, then performs answer validation and verdict construction before publishing. A concurrent ledger append or modification after `eligible()`/`_verify_seal()` but before `_publish_verdict()` can therefore produce a final verdict for a population that is no longer live, contrary to the closed-window/current-population guarantee. Revalidate",
+      "line": 752
+     }
+    ]
+   },
+   "note": "1 находок из stdout обёртки продюсера; продюсер объявил 2 (дубли unit+integration)"
+  },
+  {
+   "id": "r51",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 371
+   },
+   "candidate": "18b729c1f08c8796",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r51.surface",
+    "sha256": "e000563b62140aa68cd61fc7004259b33a7093c3cdc61825125932fa8132df70",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "18b729c1f08c8796404ee188d63975832caea392"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/BLIND_PROTOCOL.json",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "The protocol explicitly leaves a TOCTOU window between the final population check and verdict publication. A concurrent ledger append in that interval can produce a successfully published verdict for a population that is already stale, contradicting the acceptance requirement that scoring bind to the live population. An operational instruction that the window remain closed is not enforceable tampe",
+      "line": 55
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "specification-compliance",
+      "severity": "medium",
+      "summary": "Strict protocol validation uses ordinary equality for integer-valued fields. Consequently `protocol_version: true` or `1.0` is accepted as version 1, `attempts.perSeal: true` or `1.0` is accepted at line 203, and with `sample.size: 1`, `scoring.outOf: true` is accepted at line 189. These malformed behavior descriptors should fail closed; require `type(value) is int` before comparing them.",
+      "line": 87
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "medium",
+      "summary": "Seal item `ref` values are inserted into a set without first requiring strings. A valid JSON seal containing an item such as `{\"id\":\"item-01\",\"ref\":[],\"digest\":\"x\"}` raises `TypeError: unhashable type: 'list'`, which is neither converted to `ProtocolError` nor caught by the CLI. This violates the requirement that structurally damaged seals and non-string references produce a named machine-readable",
+      "line": 558
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r53",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 404
+   },
+   "candidate": "4ab043c969b2dbc2",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r53.surface",
+    "sha256": "7ee3a995a74d13e5d6b9d839f4307388965077103b704d90d4ac8c582d0405eb",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "4ab043c969b2dbc2c59656dfd7ee01da00f45495"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "`score()` loads the protocol and taxonomy only before scoring, then its locked pre-publication `_verify_seal()` reuses those in-memory snapshots. A concurrent edit to `BLIND_PROTOCOL.json` or `VERDICT_TAXONOMY.json` after that load but before verdict publication is therefore not detected, so a verdict can be published while the live protocol/taxonomy differs from the state it c",
+      "line": 701
+     }
+    ]
+   },
+   "note": "1 находок из stdout обёртки продюсера; продюсер объявил 2 (дубли unit+integration)"
+  },
+  {
+   "id": "r56",
+   "terminal": "transport",
+   "outcome": "UNAVAILABLE",
+   "provenance": {
+    "class": "absent"
+   },
+   "note": "транспорт ревьюера недоступен"
+  },
+  {
+   "id": "r58",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 421
+   },
+   "candidate": "af555e57df0d8695",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r58.surface",
+    "sha256": "b30cab5228040266c8be90a4d89eb601d2ef98434ab346c4e08a7f4e15521218",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "af555e57df0d86958c01bfe80f9f999f794f53e1"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "_publish_verdict() fsyncs the temporary file before os.link(), but never fsyncs the verdict directory after creating the hard link. A system crash can therefore lose the published directory entry even though score() returned success, reopening the supposedly single-use seal for another attempt. Fsync the parent directory after linking (with an appropriate cross-platform refusal",
+      "line": 637
+     }
+    ]
+   },
+   "note": "1 находок из stdout обёртки продюсера; продюсер объявил 2 (дубли unit+integration)"
+  },
+  {
+   "id": "r59",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 438
+   },
+   "candidate": "6f8d717914511a68",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r59.surface",
+    "sha256": "ec7466068dfd32fea8e8896ae520d3ebe1e8e1fe9647d356073c705659621f75",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "6f8d717914511a682a069a7b4feae3181ae7128b"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "BACKLOG.md",
+      "defectClass": "repository-hygiene",
+      "severity": "minor",
+      "summary": "The new backlog entry describes directory fsync as an open defect on an older tree and says the candidate remains uncommitted, while this exact candidate’s acceptance evidence and protocol limitations state that directory fsync is implemented and verified. Keeping the superseded finding presented as current makes the repository’s authoritative status records contradictory; mark it resolved/histori",
+      "line": 19
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "important",
+      "summary": "После успешного os.link() ошибка _sync_directory() попадает в общий except OSError и превращается в REFUSED, но уже опубликованный целевой verdict не удаляется. Таким образом неуспешный вызов score фактически расходует единственную попытку, а повтор получает «вердикт уже вынесен»; сообщение вдобавок ошибочно утверждает, что файловая система не поддерживает жёсткие ссылки. Следует отделить ошибку с",
+      "line": 584
+     }
+    ]
+   },
+   "note": "2 находок из stdout обёртки продюсера; продюсер объявил 4 (дубли unit+integration)"
+  },
+  {
+   "id": "r62",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 463
+   },
+   "candidate": "4bc5867a484c3d8a",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r62.surface",
+    "sha256": "d3dceabc9525f8a55f890ac416dd1c2336656e194dcfcaffe9e78e2d42ff924d",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "4bc5867a484c3d8a4564f9473ddaf1471e5b2185"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": ".itd/DECISIONS.md",
+      "defectClass": "repository-hygiene",
+      "severity": "important",
+      "summary": "The latest PILOT-P02 decision records two findings as still open and says no commit exists, while the same candidate's BACKLOG explicitly says there are no open findings and its events ledger records owner-authorized candidate commits. This leaves the authoritative decision ledger materially contradictory about candidate readiness and publication state; append a superseding decision that reconcile",
+      "line": 2238
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "important",
+      "summary": "`_load_taxonomy` validates only the taxonomy's top-level object, while `_vocabulary` assumes truthy `category`, `meaning`, and `bySource` values are mappings and calls `.get()` on them. A valid JSON taxonomy such as `{\"category\":[]}` or `{\"category\":{\"meaning\":[]}}` therefore raises uncaught `AttributeError` instead of the required named `ProtocolError`/REFUSED result. Validate each nested contain",
+      "line": 462
+     },
+     {
+      "surface": "tests/verify_blind_protocol.py",
+      "defectClass": "tests",
+      "severity": "low",
+      "summary": "The ledger-lock test uses a fixed two-second sleep and infers locking from elapsed wall time (`waited_lock >= hold_s / 2`). After the holder creates its marker, scheduler delay can let most or all of the sleep expire before the scorer starts, producing a false failure even when `score()` correctly acquires the writers' lock. Use a two-way synchronization: keep the holder blocked until the scoring",
+      "line": 1040
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r65",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 496
+   },
+   "candidate": "bf80ae4a0cf2df42",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r65.surface",
+    "sha256": "0c0210e4dbba0fcf00aad47edb7f0761876ef0462c2b5f6c0ae04ea0c017bfab",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "bf80ae4a0cf2df4227fac8abb4c2949b5ca843cf"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "BACKLOG.md",
+      "defectClass": "repository-hygiene",
+      "severity": "minor",
+      "summary": "The current review-series accounting contradicts the later authoritative decision record: BACKLOG says 21 completed reviews and about 48 findings, while the superseding entry in .itd/DECISIONS.md says 22 reviews and about 50 findings. Because these figures justify the proposed machine stop-rule follow-up, the ledger should use one reconciled count.",
+      "line": 26
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "worksheet() never compares sealed.protocolDigest with protocol_digest(protocol). Unlike score(), it can therefore accept a seal after the protocol changes and emit a worksheet using the new visibleFields/honestMarking while retaining the old protocolDigest, so the worksheet is falsely attributed to the sealed protocol. Verify the protocol digest before using any protocol-contro",
+      "line": 425
+     },
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "error-handling",
+      "severity": "minor",
+      "summary": "score() formats unexpected answer keys with `\", \".join(sorted(extra))` without validating that keys are strings. A direct caller can supply a dict containing integer or mixed-type extra keys, causing TypeError instead of ProtocolError and violating the function's machine-readable refusal behavior. Validate keys or stringify them before sorting/joining.",
+      "line": 622
+     }
+    ]
+   },
+   "note": "3 находок из stdout обёртки продюсера; продюсер объявил 6 (дубли unit+integration)"
+  },
+  {
+   "id": "r69",
+   "terminal": "transport",
+   "outcome": "UNAVAILABLE",
+   "provenance": {
+    "class": "absent"
+   },
+   "note": "транспорт ревьюера недоступен"
+  },
+  {
+   "id": "r70",
+   "terminal": "verdict",
+   "provenance": {
+    "class": "narrative",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-transcript-findings.json",
+    "line": 529
+   },
+   "candidate": "4074da1876618f81",
+   "surface": {
+    "class": "diff-hunks",
+    "projection": "hunk-headers",
+    "path": "tests/references/stop-rule/evidence/PILOT-P02-r70.surface",
+    "sha256": "a949768ca7d32a80c82e065e207967e4cb9c6c1e7dc263cf4df1d3941aa7f339",
+    "baseTree": "9dc40da37ed797d81ed8cb41fa5c740b5cab0ae5",
+    "candidateTree": "4074da1876618f81e5b12700a76203e822b244d5"
+   },
+   "declared": {
+    "verdict": "BLOCKED",
+    "mechanisms": [
+     {
+      "surface": "skills/_shared/itd_blind_protocol.py",
+      "defectClass": "correctness",
+      "severity": "important",
+      "summary": "Final protocol/taxonomy validation is not atomic with verdict publication. `score()` rereads both files while holding only the ledger-writer lock, but protocol and taxonomy writers are not shown to participate in that lock; either file can therefore be replaced after its final digest check and before `_publish_verdict()`, allowing scoring to succeed while th",
+      "line": 688,
+      "refuted": true,
+      "why": "отклонена владельцем 2026-09-02 (.itd/DECISIONS.md в замороженном патче): находка требует, чтобы писатели протокола и таксономии делили блокировку леджера, но таких писателей не существует — оба файла контракты, меняются только правкой в репозитории"
+     }
+    ]
+   },
+   "note": "1 находок из stdout обёртки продюсера; продюсер объявил 2 (дубли unit+integration)"
+  },
+  {
+   "id": "r72",
+   "terminal": "transport",
+   "outcome": "UNAVAILABLE",
+   "provenance": {
+    "class": "absent"
+   },
+   "note": "транспорт ревьюера недоступен"
+  },
+  {
+   "id": "r73",
+   "terminal": "transport",
+   "outcome": "UNAVAILABLE",
+   "provenance": {
+    "class": "absent"
+   },
+   "note": "транспорт ревьюера недоступен"
+  }
+ ],
+ "knownGaps": [
+  {
+   "id": "r2",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r5",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r7",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r8",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r9",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r11",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r12",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r13",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r16",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r17",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r18",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r20",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r21",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r22",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r24",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r25",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r26",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r27",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r29",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r30",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r31",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r32",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r33",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r34",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r36",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r37",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r39",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r40",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r42",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r43",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r45",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r46",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r48",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r49",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r50",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r52",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r54",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r55",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r57",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r60",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r61",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r63",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r64",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r66",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r67",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r68",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  },
+  {
+   "id": "r71",
+   "why": "класс терминала не сохранился: журнал захода лежал во временном каталоге сессии, утраченном при продолжении 2026-09-03; итоговой строки для него в транскрипте нет"
+  }
+ ],
+ "recordedDecision": {
+  "terminal": "OWNER_STOP",
+  "atRound": "r70",
+  "what": "Владелец остановил серию после r70: кандидат заморожен патчем, машинное стоп-правило вынесено в отдельный юнит STOPRULE-1 с решением «правило составляет диспозиции, человек подписывает» (ADR-007).",
+  "source": ".itd/DECISIONS.md",
+  "sourceInTree": true
+ },
+ "divergence": {
+  "kind": "rule-not-in-route",
+  "what": "Правило в маршрут ревью не вшито и по ходу серии не запускалось; терминал ниже вычислен задним числом по восстановленной записи.",
+  "measuredCost": "заходы после раунда срабатывания до r70 — оплачены без машинного сигнала остановки"
+ },
+ "measured": {
+  "onAddedSurface": {
+   "r6": "1/4",
+   "r10": "4/6",
+   "r14": "2/4",
+   "r15": "2/3",
+   "r19": "3/3",
+   "r23": "2/3",
+   "r28": "1/2",
+   "r38": "3/4",
+   "r41": "2/2",
+   "r44": "1/1",
+   "r47": "1/1",
+   "r51": "2/3",
+   "r53": "1/1",
+   "r58": "1/1",
+   "r59": "2/2",
+   "r62": "3/3",
+   "r65": "3/3",
+   "r70": "0/1"
+  },
+  "what": "доля засчитанных находок раунда (без refuted/regression), лежащих в строках, добавленных относительно базы серии, по проекции hunks git diff -U0; r41..r65 — 100% (кроме r51: 2/3), r6 — 1/4: серия начала с исходного кода и к середине судила только собственные правки",
+  "windowVerdict": "без засчитанных находок (все опровергнуты или регрессии): r70 — потока в этом раунде нет"
+ },
+ "expected": {
+  "terminal": "REDESIGN_OR_DISCARD",
+  "atRound": "r14",
+  "mechanism": "tests/verify_blind_protocol.py::test-coverage",
+  "note": "Расходится с записанным решением владельца (OWNER_STOP на r70): правило в маршрут вшито не было. Терминал совпадает с независимым замером по транскрипту до реплея: ключ tests/verify_blind_protocol.py::test-coverage впервые в r10, повтор при сменившемся кандидате в r14. R7 (SURFACE_TREADMILL) не взводится: в окне последних пяти вердиктов раунд r70 не имеет засчитанных находок (единственная опровергнута), а его находка лежала на исходной поверхности."
+ }
+}
