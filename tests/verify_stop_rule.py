@@ -188,8 +188,12 @@ def mechanism(surface: str, defect_class: str, **extra) -> dict:
 policy = rule.load_policy(ROOT / POLICY_FILE)
 binding = rule.live_policy_binding(policy, ROOT)
 
-check("policy: статус advisory объявлен",
-      policy.get("status") == "advisory", str(policy.get("status")))
+check("policy: статус decides-with-human-confirmation объявлен (1.2.0)",
+      policy.get("status") == "decides-with-human-confirmation" and policy.get("version") == "1.2.0",
+      f"{policy.get('status')} {policy.get('version')}")
+check("policy: терминалы подтверждения человеком — REDESIGN_OR_DISCARD и SURFACE_TREADMILL",
+      policy["humanConfirmation"]["terminals"] == ["REDESIGN_OR_DISCARD", "SURFACE_TREADMILL"]
+      and policy["humanConfirmation"]["placeholder"] == rule.DRAFT_PLACEHOLDER)
 check("policy: ключ механизма — (file, category)",
       policy["mechanismKey"]["default"] == ["file", "category"])
 check("policy: слияние ключей разрешено, разделение — нет",
@@ -215,7 +219,16 @@ for name, mutate in (
     ("distinctRounds=1", lambda p: p["mechanismKey"].__setitem__("distinctRoundsRequired", 1)),
     ("ключ по severity", lambda p: p["mechanismKey"].__setitem__("default", ["file", "severity"])),
     ("схема подменена", lambda p: p.__setitem__("schema", "something-else")),
-    ("статус не advisory", lambda p: p.__setitem__("status", "gate")),
+    ("статус объявлен гейтом", lambda p: p.__setitem__("status", "gate")),
+    ("статус откачен в advisory", lambda p: p.__setitem__("status", "advisory")),
+    ("терминалы подтверждения подменены",
+     lambda p: p["humanConfirmation"].__setitem__("terminals", ["CONTINUE"])),
+    ("плейсхолдер черновика подменён",
+     lambda p: p["humanConfirmation"].__setitem__("placeholder", "accepted-trade-off")),
+    # r4: составитель и подписант — замороженные скаляры, а не примечание.
+    ("составителем объявлен человек", lambda p: p["humanConfirmation"].__setitem__("drafts", "human")),
+    ("подписантом объявлено правило", lambda p: p["humanConfirmation"].__setitem__("signs", "rule")),
+    ("подписант удалён", lambda p: p["humanConfirmation"].pop("signs")),
     ("введён потолок раундов", lambda p: p.__setitem__("maxRounds", 3)),
     ("потолок спрятан в примечании",
      lambda p: p.__setitem__("note", "roundCap is 5")),
@@ -1747,9 +1760,152 @@ with tempfile.TemporaryDirectory() as tmp:
           armed["surface"]["evaluated"] is True and armed["surface"]["terminalArmed"] is True)
     check("R7: рендер называет поверхность и ADR-007",
           "ПОВЕРХНОСТЬ" in rule.render(armed) and "ADR-007" in armed["fix"])
-    check("R7: FIX не обещает составления диспозиций правилом — оно отнесено к STOPRULE-2",
-          "STOPRULE-2" in armed["fix"] and "adjudicate" in armed["fix"]
-          and "правило составляет" not in armed["fix"], armed["fix"])
+    check("R7: FIX называет маршрут: правило составляет диспозиции, человек подписывает",
+          "--emit-dispositions" in armed["fix"] and "adjudicate" in armed["fix"]
+          and "правило составляет" in armed["fix"] and "STOPRULE-2" not in armed["fix"], armed["fix"])
+    # --emit-dispositions (STOPRULE-2): черновик ADR-007 по BLOCKED-квитанции.
+    sys.path.insert(0, str(ROOT / "skills" / "_shared"))
+    import itd_verification_loop as loop
+    finding_a = {"file": "a.py", "line": 3, "category": "correctness", "severity": "medium", "summary": "a"}
+    finding_b = {"file": "b.py", "line": 7, "category": "security", "severity": "high", "summary": "b"}
+    blocked = {"verdict": "BLOCKED", "findings": [finding_a, finding_b, dict(finding_a)],
+               "unverified": ["не прогнан сьют x"]}
+    checker_file = lab.root / "checker-blocked.json"
+    checker_file.write_text(json.dumps(blocked, ensure_ascii=False), encoding="utf-8")
+    checker_sha = hashlib.sha256(checker_file.read_bytes()).hexdigest()
+    draft = rule.emit_dispositions(armed, checker_file, "lab.json")
+    digests = [row["findingSha256"] for row in draft["dispositions"]]
+    check("emit: по одной строке на уникальную находку и пункт unverified (дубль схлопнут)",
+          len(draft["dispositions"]) == 3 and len(set(digests)) == 3
+          and set(digests) == {loop.finding_digest(finding_a), loop.finding_digest(finding_b),
+                               loop.finding_digest("не прогнан сьют x")},
+          str(digests))
+    check("emit: подпись — точная фраза шаблона маршрута с sha256 квитанции чекера",
+          draft["confirmation"] == loop.CONFIRMATION_TEMPLATE.format(sha256=checker_sha)
+          and draft["checkerReceiptSha256"] == checker_sha)
+    check("emit: класс, основание и подписант — плейсхолдер, а не готовый ответ",
+          draft["confirmedBy"] == rule.DRAFT_PLACEHOLDER
+          and all(row["class"] == rule.DRAFT_PLACEHOLDER
+                  and row["rationale"].startswith(rule.DRAFT_PLACEHOLDER)
+                  and "SURFACE_TREADMILL" in row["rationale"] for row in draft["dispositions"]))
+    check("emit: набор ключей ровно тот, что принимает adjudicate --dispositions",
+          set(draft) == {"confirmedBy", "confirmation", "checkerReceiptSha256", "dispositions"})
+
+    def as_block(d):
+        return {**d, "confirmedAt": "2026-09-03T00:00:00Z"}
+
+    unfilled_rejected = False
+    try:
+        loop.validate_human_adjudication(as_block(draft), blocked, checker_sha)
+    except loop.LoopError:
+        unfilled_rejected = True
+    check("emit: незаполненный черновик валидатор маршрута отвергает (плейсхолдер — не класс)",
+          unfilled_rejected)
+    filled = json.loads(json.dumps(draft, ensure_ascii=False))
+    filled["confirmedBy"] = "владелец"
+    for row in filled["dispositions"]:
+        # Человек заполняет class и rationale, а evidence-плейсхолдер УБИРАЕТ:
+        # любой оставшийся плейсхолдер = неадъюдицированный черновик.
+        row["class"] = "accepted-trade-off"; row["rationale"] = "принято как компромисс"
+        row.pop("evidence")
+    filled_ok = True
+    try:
+        loop.validate_human_adjudication(as_block(filled), blocked, checker_sha)
+    except loop.LoopError as exc:
+        filled_ok = False; filled_err = str(exc)
+    check("emit: заполненный человеком черновик проходит validate_human_adjudication",
+          filled_ok, "" if filled_ok else filled_err)
+    check("плейсхолдер черновика правило берёт у валидатора маршрута (единство по построению)",
+          rule.DRAFT_PLACEHOLDER is loop.DRAFT_PLACEHOLDER
+          and "DRAFT_PLACEHOLDER = \"" not in (ROOT / "scripts" / "itd_stop_rule.py").read_text(encoding="utf-8"))
+
+    def rejected(mutate, name):
+        probe = json.loads(json.dumps(filled, ensure_ascii=False))
+        mutate(probe)
+        try:
+            loop.validate_human_adjudication(as_block(probe), blocked, checker_sha)
+        except loop.LoopError:
+            return True
+        failures.append(f"{name}: валидатор принял незаполненное поле"); return False
+
+    # c1: гарантия «плейсхолдер не принимается» обязана держаться на КАЖДОМ
+    # человеческом поле, а не только на class.
+    for name, mutate in (
+        ("confirmedBy остался плейсхолдером", lambda d: d.__setitem__("confirmedBy", rule.DRAFT_PLACEHOLDER)),
+        ("rationale остался плейсхолдером",
+         lambda d: d["dispositions"][0].__setitem__("rationale", draft["dispositions"][0]["rationale"])),
+        ("class=fixed при evidence-плейсхолдере",
+         lambda d: (d["dispositions"][1].__setitem__("class", "fixed"),
+                    d["dispositions"][1].__setitem__("evidence", draft["dispositions"][1]["evidence"]))),
+        ("class=refuted-by-evidence при evidence-плейсхолдере",
+         lambda d: (d["dispositions"][2].__setitem__("class", "refuted-by-evidence"),
+                    d["dispositions"][2].__setitem__("evidence", rule.DRAFT_PLACEHOLDER + " тут"))),
+    ):
+        checks += 1
+        rejected(mutate, f"валидатор маршрута отвергает: {name}")
+    missing = lab.root / "no-such-receipt.json"
+    refused = False
+    try:
+        rule.emit_dispositions(armed, missing, "lab.json")
+    except rule.StopRuleError:
+        refused = True
+    check("emit: отсутствующая квитанция — StopRuleError, а не traceback", refused)
+    for name, bad in (
+        # PASSED с находками: отвергается ИМЕННО вердиктом, а не пустотой (мутация s2-2).
+        ("вердикт PASSED с находками", {"verdict": "PASSED", "findings": [finding_a], "unverified": []}),
+        ("вердикт PASSED_WITH_WARNINGS с unverified",
+         {"verdict": "PASSED_WITH_WARNINGS", "findings": [], "unverified": ["x"]}),
+        # r3: не-список молча дал бы «находки» из ключей словаря или символов строки.
+        ("findings — словарь", {"verdict": "BLOCKED", "findings": {"file": "a.py"}, "unverified": []}),
+        ("unverified — строка", {"verdict": "BLOCKED", "findings": [], "unverified": "abc"}),
+        ("findings — число", {"verdict": "BLOCKED", "findings": 1, "unverified": []}),
+        ("BLOCKED без находок", {"verdict": "BLOCKED", "findings": [], "unverified": []}),
+    ):
+        bad_file = lab.root / "checker-bad.json"
+        bad_file.write_text(json.dumps(bad), encoding="utf-8")
+        refused = False
+        try:
+            rule.emit_dispositions(armed, bad_file, "lab.json")
+        except rule.StopRuleError:
+            refused = True
+        check(f"emit: квитанция «{name}» отвергается", refused)
+    continue_decision = lab.decide(treadmill(count=1))
+    refused = False
+    try:
+        rule.emit_dispositions(continue_decision, checker_file, "lab.json")
+    except rule.StopRuleError:
+        refused = True
+    check("emit: на терминале продолжения черновик не составляется",
+          continue_decision["terminal"] not in rule.OWNER_DECISION_TERMINALS and refused,
+          continue_decision["terminal"])
+    # CLI: --emit-dispositions пишет файл на терминале владельца, отказывает на CONTINUE.
+    history_file = lab.root / "history-armed.json"
+    history_file.write_text(json.dumps(lab.history(treadmill()), ensure_ascii=False), encoding="utf-8")
+    out_file = lab.root / "dispositions.json"
+    cli_args = ["--root", str(lab.root), "--policy", str(ROOT / POLICY_FILE), "--history", str(history_file),
+                "--emit-dispositions", str(checker_file), "--out", str(out_file)]
+    import contextlib, io
+    sink = io.StringIO()
+    with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        rc = rule.main(cli_args)
+    written = json.loads(out_file.read_text(encoding="utf-8")) if out_file.exists() else None
+    check("CLI --emit-dispositions: exit 0, файл записан, содержимое = черновик",
+          rc == 0 and written is not None and written["checkerReceiptSha256"] == checker_sha
+          and len(written["dispositions"]) == 3 and "DISPOSITIONS DRAFT" in sink.getvalue(),
+          f"rc={rc}")
+    history_file.write_text(json.dumps(lab.history(treadmill(count=1)), ensure_ascii=False), encoding="utf-8")
+    out_file.unlink()
+    sink = io.StringIO()
+    with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        rc = rule.main(cli_args)
+    check("CLI --emit-dispositions на CONTINUE: exit 2, файла нет, причина названа",
+          rc == 2 and not out_file.exists() and "DISPOSITIONS REFUSED" in sink.getvalue(), f"rc={rc}")
+    history_file.write_text(json.dumps(lab.history(treadmill()), ensure_ascii=False), encoding="utf-8")
+    sink = io.StringIO()
+    with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        rc = rule.main(cli_args[:-4] + ["--emit-dispositions", str(missing), "--out", str(out_file)])
+    check("CLI --emit-dispositions с отсутствующей квитанцией: exit 2, DISPOSITIONS REFUSED",
+          rc == 2 and not out_file.exists() and "DISPOSITIONS REFUSED" in sink.getvalue(), f"rc={rc}")
     check("R7: во временном корне без git улика помечена непересчитанной, а не проверенной",
           all(item["verifiedAgainstTrees"] is False for item in armed["surface"]["rounds"]))
     headers = lab.decide(treadmill(projection="hunk-headers"))

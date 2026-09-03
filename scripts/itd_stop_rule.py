@@ -17,8 +17,10 @@
 попытки фикса тот же механизм даёт находку снова, дефектна форма решения, а не
 экземпляр. Число раундов при этом не ограничивается ничем.
 
-Правило advisory: оно печатает терминал и основание, решение принимает
-владелец. Гейтом оно не является.
+Статус правила — decides-with-human-confirmation: оно решает остановку,
+печатает терминал и основание, а на терминалах решения владельца составляет
+черновик диспозиций ADR-007 (`--emit-dispositions`); класс, основание и
+подписант остаются за человеком. Гейтом оно не является.
 
 Контракт: `.itd/STOP_RULE_POLICY.json`.
 """
@@ -125,8 +127,31 @@ EXPECTED_BINDING_INVARIANTS = {
 # различимом раунде вопреки R1). Это повтор одного механизма по нашему же
 # правилу, поэтому меняется форма: новый контрактный скаляр добавляется в
 # карту, а не в новую if-ветку.
+# Терминалы, на которых решение принадлежит владельцу: правило СОСТАВЛЯЕТ
+# диспозиции ADR-007 по BLOCKED-квитанции чекера, человек ПОДПИСЫВАЕТ
+# (STOPRULE-2). ROUTE_DEFECT — поломка маршрута, а не суждение о находках:
+# диспозиций там не бывает.
+OWNER_DECISION_TERMINALS = ("REDESIGN_OR_DISCARD", "SURFACE_TREADMILL")
+
+
+def load_verification_loop():
+    """Общая библиотека маршрута — источник дайджеста находки, фразы подписи и
+    плейсхолдера черновика; правило их не переопределяет, иначе черновик и
+    валидатор разошлись бы (r3: единство по построению, а не по тесту)."""
+    shared = ROOT / "skills" / "_shared"
+    if str(shared) not in sys.path:
+        sys.path.insert(0, str(shared))
+    import itd_verification_loop  # noqa: WPS433
+    return itd_verification_loop
+
+
+DRAFT_PLACEHOLDER = load_verification_loop().DRAFT_PLACEHOLDER
+
 EXPECTED_POLICY_SCALARS = {
-    ("status",): "advisory",
+    ("status",): "decides-with-human-confirmation",
+    # Кто составляет и кто подписывает — контракт, а не примечание (r4).
+    ("humanConfirmation", "drafts"): "rule",
+    ("humanConfirmation", "signs"): "human",
     ("mechanismKey", "mergeOnly"): True,
     ("mechanismKey", "distinctRoundsRequired"): 2,
     ("policyBinding", "requireCriteriaPrefix"): True,
@@ -202,8 +227,9 @@ def load_policy(path: Path | None = None) -> dict:
         if violation is not None:
             raise StopRuleError(violation)
 
-    # Статус advisory заморожен картой EXPECTED_POLICY_SCALARS: превращение
-    # правила в гейт — отдельное решение владельца, а не правка политики.
+    # Статус decides-with-human-confirmation заморожен картой
+    # EXPECTED_POLICY_SCALARS: и откат в advisory, и превращение в гейт —
+    # отдельное решение владельца, а не правка политики.
     treadmill = document.get("surfaceTreadmill")
     if not isinstance(treadmill, dict):
         raise StopRuleError("policy has no 'surfaceTreadmill' section")
@@ -218,6 +244,15 @@ def load_policy(path: Path | None = None) -> dict:
                 f"policy declares {forbidden!r}: потолок раундов запрещён по "
                 f"построению — он останавливает сходящийся маршрут на зелёном"
             )
+    confirmation = document.get("humanConfirmation")
+    if (not isinstance(confirmation, dict)
+            or confirmation.get("terminals") != list(OWNER_DECISION_TERMINALS)
+            or confirmation.get("placeholder") != DRAFT_PLACEHOLDER):
+        raise StopRuleError(
+            f"policy humanConfirmation must name terminals {list(OWNER_DECISION_TERMINALS)} "
+            f"and placeholder {DRAFT_PLACEHOLDER!r}: на каких терминалах правило "
+            f"составляет диспозиции — контракт, а не подсказка"
+        )
     if document.get("precedence") != EXPECTED_PRECEDENCE:
         raise StopRuleError(
             f"policy precedence must be {EXPECTED_PRECEDENCE}, got "
@@ -2177,14 +2212,14 @@ def decide(history: dict, policy: dict, root: Path) -> dict:
               "серия оплачивает дефекты собственных правок, а не кандидата."
         )
         decision["fix"] = (
-            "Остановиться и вынести решение владельцу. Маршрут ADR-007 сейчас "
-            "ручной: владелец составляет диспозиции по каждой находке чекера "
-            "(`checker --accept-adjudicated-route`, затем `adjudicate "
-            "--dispositions <file>`) и подтверждает одной закрытой фразой; "
-            "автоматическое составление диспозиций правилом — STOPRULE-2, здесь "
-            "его нет. Альтернатива: переделать последнюю правку формой, не "
-            "добавляющей поверхности. Следующий раунд того же вида купит "
-            "следующую находку в следующей правке."
+            "Остановиться: правило составляет диспозиции ADR-007 по BLOCKED-"
+            "квитанции чекера (`--emit-dispositions <checker-receipt> --out "
+            "<file>`), владелец заполняет класс и основание каждой и подписывает "
+            "одной закрытой фразой; затем `checker --accept-adjudicated-route` и "
+            "`adjudicate --dispositions <file>`. Без подписи ничего не чеканится. "
+            "Альтернатива: переделать последнюю правку формой, не добавляющей "
+            "поверхности. Следующий раунд того же вида купит следующую находку "
+            "в следующей правке."
         )
         return decision
     verdict_rounds = [r for r in rounds if r["terminal"] == "verdict"]
@@ -2337,6 +2372,72 @@ def render(decision: dict) -> str:
     return "\n".join(lines)
 
 
+def emit_dispositions(decision: dict, checker_path: Path, history_label: str) -> dict:
+    """Черновик диспозиций ADR-007 по BLOCKED-квитанции чекера.
+
+    Правило СОСТАВЛЯЕТ строки — по одной на каждую находку и каждый пункт
+    unverified, дайджест тот же, что у валидатора маршрута; класс, основание
+    и подписанта заполняет ЧЕЛОВЕК. Плейсхолдер не является классом, поэтому
+    незаполненный черновик адъюдикация отвергает сама (fail-closed).
+    """
+    terminal = decision.get("terminal")
+    if terminal not in OWNER_DECISION_TERMINALS:
+        raise StopRuleError(
+            f"dispositions are drafted only on {list(OWNER_DECISION_TERMINALS)}, "
+            f"decision is {terminal!r}: на терминале продолжения правило не "
+            f"подсказывает «принять как компромисс»"
+        )
+    loop = load_verification_loop()
+    if not checker_path.is_file():
+        raise StopRuleError(f"checker receipt is missing: {checker_path}")
+    payload = checker_path.read_bytes()
+    try:
+        receipt = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StopRuleError(f"checker receipt {checker_path} is not JSON: {exc}") from exc
+    if not isinstance(receipt, dict) or receipt.get("verdict") != "BLOCKED":
+        raise StopRuleError(
+            f"checker receipt {checker_path} is not a BLOCKED verdict: чистый "
+            f"вердикт в диспозициях не нуждается"
+        )
+    for field in ("findings", "unverified"):
+        if field in receipt and not isinstance(receipt[field], list):
+            # dict/число/строка молча дали бы «находки» из ключей или символов (r3).
+            raise StopRuleError(
+                f"checker receipt {checker_path}: {field} must be a list, got "
+                f"{type(receipt[field]).__name__}"
+            )
+    targets = list(receipt.get("findings") or []) + list(receipt.get("unverified") or [])
+    if not targets:
+        raise StopRuleError(
+            f"checker receipt {checker_path} carries no findings to disposition"
+        )
+    # Хеш и разбор — один буфер; подпись владельца привязывается к этим байтам.
+    sha = hashlib.sha256(payload).hexdigest()
+    basis = f"терминал {terminal} на раунде {decision.get('atRound')}; история {history_label}"
+    rows = []
+    seen: set[str] = set()
+    for item in targets:
+        digest = loop.finding_digest(item)
+        if digest in seen:
+            # Валидатор требует ровно одну диспозицию на дайджест.
+            continue
+        seen.add(digest)
+        rows.append({
+            "findingSha256": digest,
+            "finding": item,
+            "class": DRAFT_PLACEHOLDER,
+            "rationale": f"{DRAFT_PLACEHOLDER}: класс и основание — решение владельца; {basis}",
+            "evidence": f"{DRAFT_PLACEHOLDER} при refuted-by-evidence / fixed",
+        })
+    return {
+        "confirmedBy": DRAFT_PLACEHOLDER,
+        "confirmation": loop.CONFIRMATION_TEMPLATE.format(sha256=sha),
+        "checkerReceiptSha256": sha,
+        "dispositions": rows,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Правило остановки цикла ревью над содержанием находок")
@@ -2346,7 +2447,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check-binding", action="store_true",
                         help="живая проверка приёмочной бухгалтерии активного юнита")
     parser.add_argument("--json", action="store_true", help="машинный вывод")
+    parser.add_argument("--emit-dispositions", metavar="CHECKER_RECEIPT",
+                        help="составить черновик диспозиций ADR-007 по BLOCKED-квитанции "
+                             "чекера (только на терминале решения владельца)")
+    parser.add_argument("--out", help="куда писать черновик диспозиций")
     args = parser.parse_args(argv)
+    if bool(args.emit_dispositions) != bool(args.out):
+        parser.error("--emit-dispositions и --out задаются вместе")
 
     root = Path(args.root).resolve()
     try:
@@ -2390,6 +2497,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"STOP-RULE INPUT REJECTED: {exc}", file=sys.stderr)
         return 2
 
+    if args.emit_dispositions:
+        try:
+            draft = emit_dispositions(decision, Path(args.emit_dispositions).resolve(),
+                                      Path(args.history).name)
+        except StopRuleError as exc:
+            print(render(decision))
+            print(f"DISPOSITIONS REFUSED: {exc}", file=sys.stderr)
+            return 2
+        out = Path(args.out)
+        out.write_text(json.dumps(draft, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(render(decision))
+        print(f"DISPOSITIONS DRAFT: {len(draft['dispositions'])} строк(и) -> {out}")
+        print(f"  подпись владельца = точная фраза: {draft['confirmation']}")
+        print(f"  заполнить: confirmedBy, class, rationale (evidence для refuted/fixed)")
+        return 0
     if args.json:
         print(json.dumps(decision, ensure_ascii=False, sort_keys=True, indent=2))
     else:

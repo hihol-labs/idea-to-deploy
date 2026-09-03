@@ -3097,6 +3097,76 @@
           "stop-rule"
         ]
       }
+    },
+    {
+      "id": "STOPRULE-2-1-emit-draft",
+      "criterion": "На терминале решения владельца (REDESIGN_OR_DISCARD, SURFACE_TREADMILL) `--emit-dispositions` составляет черновик ADR-007: по одной строке на уникальную находку и пункт unverified BLOCKED-квитанции чекера, дайджест = itd_verification_loop.finding_digest, подпись = точная фраза CONFIRMATION_TEMPLATE с sha256 квитанции (хеш и разбор — один буфер); набор ключей ровно тот, что принимает `adjudicate --dispositions`.",
+      "source": "SCOPE_LOCK STOPRULE-2 (решение владельца 2026-09-03: «правило составляет, человек подписывает»)",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "evidence": "GREEN: tests/verify_stop_rule.py 593/0 (564 -> 593); мутации 10/10 (mut_s2.py) + 4/4 по чекеру c1 (mut_s2b.py) + 2/2 по продюсеру r3 + 1/1 по r4 (drafts/signs заморожены) (тип findings/unverified, плейсхолдер по построению из itd_verification_loop) — все летальны",
+      "reviewEvidence": {
+        "claim": "черновик диспозиций составляется правилом по BLOCKED-квитанции и совместим с adjudicate --dispositions",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-2-2-human-signs",
+      "criterion": "Класс, основание и подписант черновика — плейсхолдер ЗАПОЛНИТЬ; validate_human_adjudication отвергает его в class (enum), confirmedBy, rationale и evidence (константа DRAFT_PLACEHOLDER одна на правило и маршрут); заполненный человеком черновик валидатор принимает. Правило не подсказывает класс диспозиции.",
+      "source": "SCOPE_LOCK STOPRULE-2 (решение владельца 2026-09-03: «правило составляет, человек подписывает»)",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "evidence": "GREEN: tests/verify_stop_rule.py 593/0 (564 -> 593); мутации 10/10 (mut_s2.py) + 4/4 по чекеру c1 (mut_s2b.py) + 2/2 по продюсеру r3 + 1/1 по r4 (drafts/signs заморожены) (тип findings/unverified, плейсхолдер по построению из itd_verification_loop) — все летальны",
+      "reviewEvidence": {
+        "claim": "плейсхолдер черновика не принимается валидатором маршрута ни в одном человеческом поле",
+        "impactClasses": [
+          "correctness",
+          "error-handling"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-2-3-fail-closed",
+      "criterion": "Черновик не составляется на терминале продолжения, на не-BLOCKED вердикте и на квитанции без находок (StopRuleError, CLI exit 2, файл не пишется).",
+      "source": "SCOPE_LOCK STOPRULE-2 (решение владельца 2026-09-03: «правило составляет, человек подписывает»)",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "evidence": "GREEN: tests/verify_stop_rule.py 593/0 (564 -> 593); мутации 10/10 (mut_s2.py) + 4/4 по чекеру c1 (mut_s2b.py) + 2/2 по продюсеру r3 + 1/1 по r4 (drafts/signs заморожены) (тип findings/unverified, плейсхолдер по построению из itd_verification_loop) — все летальны",
+      "reviewEvidence": {
+        "claim": "на терминале продолжения, не-BLOCKED вердикте, пустой или отсутствующей квитанции черновик не составляется",
+        "impactClasses": [
+          "error-handling"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
+    },
+    {
+      "id": "STOPRULE-2-4-policy-status",
+      "criterion": "Политика 1.2.0 объявляет status decides-with-human-confirmation и блок humanConfirmation (terminals, placeholder, drafts=rule, signs=human); откат статуса в advisory, объявление гейтом, подмена терминалов или плейсхолдера отвергаются загрузчиком; docs/VERIFICATION_LOOP.md согласован с кодом (статус, команда, R7 в порядке применения).",
+      "source": "SCOPE_LOCK STOPRULE-2 (решение владельца 2026-09-03: «правило составляет, человек подписывает»)",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule.py",
+      "status": "passed",
+      "evidence": "GREEN: tests/verify_stop_rule.py 593/0 (564 -> 593); мутации 10/10 (mut_s2.py) + 4/4 по чекеру c1 (mut_s2b.py) + 2/2 по продюсеру r3 + 1/1 по r4 (drafts/signs заморожены) (тип findings/unverified, плейсхолдер по построению из itd_verification_loop) — все летальны",
+      "reviewEvidence": {
+        "claim": "статус decides-with-human-confirmation и блок humanConfirmation заморожены; документация согласована с кодом",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "stop-rule"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3115,8 +3185,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "STOPRULE-1",
-    "status": "closed",
+    "unitId": "STOPRULE-2",
+    "status": "open",
     "openedAt": "2026-09-03",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -3125,14 +3195,13 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "repository-hygiene",
-        "reconciliation"
+        "error-handling",
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-03"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

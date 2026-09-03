@@ -42,6 +42,10 @@ ALLOWED_VERDICTS = {"PASSED", "PASSED_WITH_WARNINGS", "BLOCKED", "UNVERIFIED", "
 # human-adjudicated ADJUDICATED; the checker's own verdict is never rewritten.
 ADJUDICATION_OUTCOMES = ("PASSED", "ADJUDICATED")
 DISPOSITION_CLASSES = ("accepted-trade-off", "refuted-by-evidence", "fixed")
+# The stop rule drafts dispositions with this placeholder in every field a
+# human must author (confirmedBy, class, rationale, evidence); a draft that
+# still carries it anywhere was not adjudicated and can never mint.
+DRAFT_PLACEHOLDER = "ЗАПОЛНИТЬ"
 # The confirmation is a closed affirmative sentence binding the exact checker
 # receipt: arbitrary prose, negations, or a confirmation reused from another
 # receipt can never mint (ADR-007).
@@ -1230,6 +1234,9 @@ def validate_human_adjudication(block: Any, checker: dict[str, Any],
             raise LoopError(
                 f"human adjudication {field} is absent",
                 "Adjudication requires the explicit human confirmation; never mint without it.")
+    if DRAFT_PLACEHOLDER in block["confirmedBy"]:
+        raise LoopError("human adjudication confirmedBy is the unfilled draft placeholder",
+                        "Name the human who adjudicated; the stop rule's draft is not a signature.")
     if block.get("checkerReceiptSha256") != checker_sha256:
         raise LoopError("human adjudication binds another checker receipt",
                         "Adjudicate the exact BLOCKED checker receipt this mint depends on.")
@@ -1276,6 +1283,11 @@ def validate_human_adjudication(block: Any, checker: dict[str, Any],
                 not isinstance(row.get("evidence"), str) or not row["evidence"].strip()):
             raise LoopError("disposition evidence is absent",
                             "Name the evidence that refutes or fixes the finding.")
+        for field in ("rationale", "evidence"):
+            if isinstance(row.get(field), str) and DRAFT_PLACEHOLDER in row[field]:
+                raise LoopError(
+                    f"disposition {field} is the unfilled draft placeholder",
+                    "Replace the stop rule's draft text with the human's own wording.")
     if seen != expected:
         raise LoopError("a checker finding has no human disposition",
                         "Disposition every finding (accepted-trade-off, "
