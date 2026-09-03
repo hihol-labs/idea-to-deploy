@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "STOPRULE-1",
-    "goal": "STOPRULE-1: второй критерий стоп-правила SURFACE_TREADMILL (находки серии лежат в поверхности, добавленной самой серией) с машинной уликой поверхности (архивные проекции hunks база->кандидат, пересчёт по живым деревьям), парсером иерархических отчётов, kind reviewed-tree и фикстурой PILOT-P02 (narrative + машинная поверхность); синтетический позитив R7; контроли R6/S04b/LPD003-1 не меняют терминал. Фикстура LPD-003-3 исключена из скоупа: деревья её раундов не восстановимы (SCOPE_LOCK, BACKLOG).",
-    "status": "verified",
-    "startedAt": "2026-09-03T08:06:06Z",
+    "id": "STOPRULE-2",
+    "goal": "STOPRULE-2: правило составляет ADR-007-диспозиции по BLOCKED-квитанции чекера (--emit-dispositions) при терминале решения владельца, человек подписывает одной закрытой фразой; статус политики advisory -> decides-with-human-confirmation (1.1.0 -> 1.2.0) с обновлением замороженного скаляра и оракула; закрытие PILOT-P02 этим маршрутом (замороженный патч на свежей ветке от main, заход продюсера, диспозиции, подпись владельца, adjudicated-маршрут, PR).",
+    "status": "in_progress",
+    "startedAt": "2026-09-03T18:54:37Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-09-03T18:22:25Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",

@@ -1240,6 +1240,7 @@
       "tests/verify_quick_regression.py",
       "tests/verify_review_cache.py",
       "tests/verify_reviewer_independence_policy.py",
+      "tests/verify_stop_rule.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_verification_loop.py"
     ],

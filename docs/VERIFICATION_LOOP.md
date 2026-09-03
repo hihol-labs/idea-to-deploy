@@ -341,8 +341,15 @@ python3 scripts/itd_stop_rule.py --history tests/references/stop-rule/s04b.json
 правило говорит `RECURRENCE_UNCONFIRMED` и называет нехватку улики вместо
 вердикта, которого не заслужило.
 
+Второй сигнал — **беговая дорожка поверхности** (`SURFACE_TREADMILL`, R7):
+окно последних пяти вердикт-раундов целиком `BLOCKED`, и каждая засчитанная
+находка лежит в строках, которые серия сама добавила относительно своей базы.
+Улика — проекция hunks `git diff -U0` (класс `diff-hunks`), привязанная sha256
+и пересчитываемая по живым деревьям.
+
 Порядок применения: `ROUTE_DEFECT` -> `REDESIGN_OR_DISCARD` ->
-`RECURRENCE_UNCONFIRMED` -> `ROUTE_REPAIR` -> `CLOSE` -> `CONTINUE`.
+`RECURRENCE_UNCONFIRMED` -> `SURFACE_TREADMILL` -> `ROUTE_REPAIR` -> `CLOSE` ->
+`CONTINUE`.
 `ROUTE_REPAIR` — исход истории, в которой вердиктов нет вовсе или последним
 сорвался маршрут: чинить надо то, что сломалось, а не звать новый раунд.
 `ROUTE_DEFECT` идёт первым, потому что вердикты, вынесенные по политике чужого
@@ -353,7 +360,21 @@ python3 scripts/itd_stop_rule.py --history tests/references/stop-rule/s04b.json
 python3 scripts/itd_stop_rule.py --check-binding
 ```
 
-Правило **advisory**: оно печатает терминал, основание и поимённый список
-раундов; решение принимает владелец. Контракт — `.itd/STOP_RULE_POLICY.json`,
-оракул — `tests/verify_stop_rule.py`, записанные истории и байт-копии
-цитируемых отчётов — `tests/references/stop-rule/`.
+Статус правила — **decides-with-human-confirmation** (политика 1.2.0): оно
+решает ОСТАНОВКУ и печатает терминал, основание и поимённый список раундов; на
+терминалах решения владельца (`REDESIGN_OR_DISCARD`, `SURFACE_TREADMILL`) оно
+само составляет черновик диспозиций ADR-007 по BLOCKED-квитанции чекера:
+
+```bash
+python3 scripts/itd_stop_rule.py --history <history.json> \
+  --emit-dispositions <checker-receipt.json> --out <dispositions.json>
+```
+
+Черновик содержит по одной строке на каждую находку и пункт `unverified`
+(дайджест тот же, что у `validate_human_adjudication`) и точную фразу подписи
+с sha256 квитанции; класс, основание и подписант — плейсхолдер `ЗАПОЛНИТЬ`,
+который валидатор маршрута не принимает. Человек заполняет их и подписывает;
+затем `checker --accept-adjudicated-route` и `adjudicate --dispositions <file>`.
+Без подписи ничего не чеканится; гейтом правило не является. Контракт —
+`.itd/STOP_RULE_POLICY.json`, оракул — `tests/verify_stop_rule.py`, записанные
+истории и байт-копии цитируемых отчётов — `tests/references/stop-rule/`.
