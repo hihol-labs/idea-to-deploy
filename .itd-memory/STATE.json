@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "STOPRULE-1",
     "goal": "STOPRULE-1: второй критерий стоп-правила SURFACE_TREADMILL (находки серии лежат в поверхности, добавленной самой серией) с машинной уликой поверхности (архивные проекции hunks база->кандидат, пересчёт по живым деревьям), парсером иерархических отчётов, kind reviewed-tree и фикстурой PILOT-P02 (narrative + машинная поверхность); синтетический позитив R7; контроли R6/S04b/LPD003-1 не меняют терминал. Фикстура LPD-003-3 исключена из скоупа: деревья её раундов не восстановимы (SCOPE_LOCK, BACKLOG).",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-03T08:06:06Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-03T18:22:25Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "INSTALL-HARDENING закрыт: PR #247 merged 0d1e9d8, юнит verified, WIP свободен. P2 из RETRO-2026-08-29 закрыт по корню (хуки не пишут байткод в установленный runtime; отказ inventory называет путь и FIX). P3 (кодировка settings.json) выведен в BACKLOG после срабатывания стоп-правила над содержанием, работа сохранена патчем .itd-memory/p3-settings-encoding-attempt.patch. Дальше по решению владельца: RSI (кандидат PILOT P0-1, enum схемы вердикта), P1 ретро (repo-first для pre-push), либо юнит на машинную сверку индекс/SCOPE_LOCK/контракт/леджер (класс сработал трижды за юнит: r6, r9, r10; текст кандидата — в скрэтчпаде p1-scope-consistency-root.md).",
+  "nextAction": "STOPRULE-1 закрыт: PR #255 merged ae95ca1, юнит verified, WIP свободен. Next по решению владельца 2026-09-03: STOPRULE-2 — --emit-dispositions (правило составляет диспозиции ADR-007, человек подписывает одной фразой), статус политики advisory -> decides-with-human-confirmation, закрытие PILOT-P02 этим маршрутом; затем продолжение плана RSI.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]
