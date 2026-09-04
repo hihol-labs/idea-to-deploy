@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "STOPRULE-2",
-    "goal": "STOPRULE-2: правило составляет ADR-007-диспозиции по BLOCKED-квитанции чекера (--emit-dispositions) при терминале решения владельца, человек подписывает одной закрытой фразой; статус политики advisory -> decides-with-human-confirmation (1.1.0 -> 1.2.0) с обновлением замороженного скаляра и оракула; закрытие PILOT-P02 этим маршрутом (замороженный патч на свежей ветке от main, заход продюсера, диспозиции, подпись владельца, adjudicated-маршрут, PR).",
-    "status": "verified",
-    "startedAt": "2026-09-03T18:54:37Z",
+    "id": "PILOT-P02-CLOSE",
+    "goal": "PILOT-P02-CLOSE: закрытие PILOT-P02 (слепой семантический протокол >=8/10 из ADVISORY-RSI v4 §5: замороженный BLIND_PROTOCOL.json v1, машинерия itd_blind_protocol.py, оракул на запечатанных фикстурах, регистрация в зеркале и манифесте) маршрутом диспозиций STOPRULE-2: код замороженного кандидата (дерево 64d6b4bc, 20 заходов/46 находок, r58 и r59 закрыты в той же серии, открытых находок нет) на свежей ветке от main 75bd05c, заход продюсера, при BLOCKED — стоп-правило решает, --emit-dispositions, подпись владельца, adjudicated-маршрут, PR, ledger-close.",
+    "status": "in_progress",
+    "startedAt": "2026-09-04T07:35:10Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-09-03T20:16:07Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",
