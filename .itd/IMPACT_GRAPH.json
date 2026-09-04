@@ -1041,6 +1041,7 @@
       "tests/verify_review_broker_deployment.py"
     ],
     "services/review_broker/operator.py": [
+      "tests/verify_blind_protocol.py",
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_external_outcome_contract.py",
       "tests/verify_external_pilot_collection.py",
@@ -1060,6 +1061,9 @@
       "tests/verify_api_reviewer.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_review_broker_server.py"
+    ],
+    "skills/_shared/BLIND_PROTOCOL.json": [
+      "tests/verify_blind_protocol.py"
     ],
     "skills/_shared/EXTERNAL_REVIEW_POLICY.json": [
       "tests/verify_api_reviewer.py",
@@ -1103,6 +1107,7 @@
       "tests/verify_review_broker_policy.py"
     ],
     "skills/_shared/VERDICT_TAXONOMY.json": [
+      "tests/verify_blind_protocol.py",
       "tests/verify_review_import.py",
       "tests/verify_verdict_contract.py"
     ],
@@ -1130,6 +1135,9 @@
       "tests/verify_source_read_contract.py",
       "tests/verify_stall_fallback.py",
       "tests/verify_verification_profiles.py"
+    ],
+    "skills/_shared/itd_blind_protocol.py": [
+      "tests/verify_blind_protocol.py"
     ],
     "skills/_shared/itd_captured_run.py": [
       "tests/verify_harness_demo_capture_schema.py",
@@ -1224,6 +1232,7 @@
       "tests/verify_ledger_reconciliation.py"
     ],
     "skills/_shared/itd_verdict_taxonomy.py": [
+      "tests/verify_blind_protocol.py",
       "tests/verify_verdict_contract.py"
     ],
     "skills/_shared/itd_verification_loop.py": [
@@ -1729,6 +1738,9 @@
     ],
     "tests/verify_api_reviewer.py": [
       "tests/verify_external_reviewer_release.py"
+    ],
+    "tests/verify_blind_protocol.py": [
+      "tests/verify_stop_rule.py"
     ],
     "tests/verify_commit_completeness_gate.py": [
       "tests/verify_harness_map_fixtures.py"

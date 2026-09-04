@@ -287,9 +287,17 @@ def consolidation_invariants(ci: set, local: set) -> None:
     check("consolidation: measurement records exactly these pairs",
           pairs == CONSOLIDATED, str(pairs))
     on_disk = len(list(tests_dir.glob("verify_*.py")))
-    check("consolidation: post-state suite count matches the tree",
-          m.get("post", {}).get("suitesOnDisk") == on_disk,
-          "recorded=%s actual=%d" % (m.get("post", {}).get("suitesOnDisk"), on_disk))
+    recorded = m.get("post", {}).get("suitesOnDisk")
+    # Замер — ИСТОРИЧЕСКОЕ post-состояние того юнита, а не потолок дерева:
+    # равенство с текущим деревом запрещало бы добавить сьют вообще, и любая
+    # новая гарантия валила бы зеркало. Отмену самой консолидации ловят
+    # проверки доноров и узлового множества выше, поэтому здесь остаётся
+    # монотонность: число сьютов не имеет права УПАСТЬ ниже замеренного.
+    check("consolidation: the tree never falls below the measured post-state",
+          # type(...) is int, а не isinstance: bool наследует int, и
+          # значение true в артефакте прошло бы как валидный счёт.
+          type(recorded) is int and recorded >= 0 and on_disk >= recorded,
+          "recorded=%s actual=%d" % (recorded, on_disk))
     check("consolidation: node set preserved (pre == post)",
           m.get("pre", {}).get("nodeSetSha256") == m.get("post", {}).get("nodeSetSha256")
           and bool(m.get("pre", {}).get("nodeSetSha256")))
