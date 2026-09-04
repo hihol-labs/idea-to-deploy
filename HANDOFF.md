@@ -1,201 +1,145 @@
-# HANDOFF — release v1.97.0 (S5..S9 shipped together)
+# HANDOFF — REL-1.103.0 (релиз v1.103.0 + раскатка)
 
-> Пакет переписан 2026-08-16 после мержа PR #206. Предыдущая редакция описывала
-> закрытие четырёх харнес-долгов S9 и их публикацию; та работа завершена, её
-> факты живут в `.itd-memory/session_2026-08-16*.md` и в CHANGELOG 1.97.0.
+**Дата:** 2026-09-04 · **Ветка:** `chore/release-1.103.0` (база `origin/main` = `5169971`)
+**Юнит:** `REL-1.103.0`, riskTier `medium`, активирован в `GOAL.json` (39 юнитов, WIP=1).
+**Кандидат:** в ИНДЕКСЕ, НЕ закоммичен. Хеши дерева и имена квитанций в этом
+файле НЕ приводятся намеренно: они устаревают при каждой правке пакета, и
+трижды за сессию именно это ловил независимый ревьюер. Актуальное дерево —
+`git write-tree`; свежая квитанция — максимальный суффикс `-a*` в
+`.itd-memory/verification-loop/`.
 
-## 1. From → To
+## Что это за юнит
+Пункт 1 утверждённого владельцем порядка RSI (`memory/project_rsi_next_steps.md`,
+2026-09-04): релиз -> Q6 setup -> ROUTE-DEBTS. Релиз выпускает уже смерженные
+PR #253/#255/#257/#259 и является ПРЕДУСЛОВИЕМ наблюдения пилота: на хостах
+стоит runtime `1.102.0-bca5a6de` (до #253), поэтому писатели не штампуют
+`taxonomy_version` и популяция слепого протокола пуста.
 
-От сессии, закрывшей публикацию S9 (`c0475c17`), к сессии, которая доводит
-релиз v1.97.0 до раскатанного и просмоканного состояния.
+## ТЕКУЩИЙ СКОУП (сокращён 2026-09-04 решением владельца)
+Кандидат несёт РОВНО девятнадцать файлов, перечисленных ниже пунктами
+1-3; сверять их полным списком `git diff --cached --name-only`, а не
+этим текстом по памяти. Раскатка хостов идёт ПОСЛЕ мержа и файлов
+кандидата не добавляет.
 
-## 2. Текущее состояние — ФАКТЫ
+1. **Версия 1.102.0 -> 1.103.0** в `.claude-plugin/plugin.json`,
+   `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, бейджах
+   `README.md` / `README.ru.md`; пины, следующие за бампом:
+   `docs/HARNESS_DOCS_STATE.json`, `docs/HARNESS_CONFORMANCE_REPORT.md`,
+   `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`, `VERSION` в
+   `tests/verify_external_reviewer_release.py`.
+2. **CHANGELOG** — запись `[1.103.0] - 2026-09-04`.
+3. **Леджерная бухгалтерия — ВСЕ девять файлов** (первые пять из
+   git-ignored каталогов, только через **`git add -f`**):
+   `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (ДВА критерия:
+   `-1-version`, `-3-mirror`; `requiredImpactClasses` = correctness +
+   repository-hygiene), `.itd/DECISIONS.md`,
+   `.itd-memory/contracts/REL-1.103.0.md`, `.itd-memory/GOAL.json`,
+   `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`, `BACKLOG.md`,
+   `HANDOFF.md` (этот файл входит в кандидата сам).
+   Прежняя редакция называла три файла из девяти и при этом заявляла
+   исчерпывающее «РОВНО» — это нашёл cross-vendor ревьюер (r12).
 
-- `main` = `706d62a` (merge PR #206). Всё, что было в S5..S9, уже в main.
-- Ветка `chore/release-1.97.0` от `706d62a`: бамп версии в **девяти** пиновых
-  местах + запись CHANGELOG 1.97.0, собранная из 72 коммитов после v1.96.0.
-  Runbook называет четыре места, этого НЕ хватает; полный список:
-  `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
-  `.codex-plugin/plugin.json` (без него `verify_host_adapters` и
-  `verify_gate_control` красные — doctor читает оба манифеста), бейджи
-  `Version-1.97.0` в `README.md` и `README.ru.md`, `pluginVersion` в
-  `docs/HARNESS_DOCS_STATE.json`, `version` в
-  `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`, константа `VERSION` в
-  `tests/verify_external_reviewer_release.py` и строка «текущий пакет» в
-  `docs/HARNESS_CONFORMANCE_REPORT.md`.
-- Опубликованная версия до этого релиза — v1.96.0 (2026-08-09).
-- Реестр `~/.config/itd/gates.json` пришпилен к `S9`/`medium`, receipt
-  `.itd-memory/verification-loop/S9-PUBLISH-route-adjudication.json`. Но
-  **сейчас `itd gate doctor` отдаёт `UNVERIFIED`**, drift
-  `["local review: UNVERIFIED: local adjudication is stale, foreign, or
-  invalid"]`, `routeEvidence: null`, `routeIndependence: null` — и это не
-  порча реестра. `validate_local_adjudication`
-  (`skills/_shared/itd_gate_control.py:1518`) каждый раз перепроверяет
-  зарегистрированную квитанцию против текущего HEAD в режиме
-  `committed-head`, а он требует ровно одного родителя
-  (`skills/_shared/itd_free_reviewer_producer.py:962`,
-  «committed-head requires one exact single-parent commit»). HEAD `706d62a`
-  — merge-коммит PR #206 с двумя родителями, поэтому S9-квитанция стала
-  читаться как stale в тот момент, когда PR смержили, задолго до этого
-  кандидата. Практический вывод: **LOCAL_REVIEWED надо переустановить своей
-  publication-квитанцией** (раздел 3), и это сработает — релизный коммит
-  одно-родительский, в отличие от merge-головы под ним.
+**Свежесть провайдера-ревьюера в скоуп НЕ входит.** Она была выведена целиком
+после терминала стоп-правила (см. ниже): `.itd/REVIEW_PROVIDER_FRESHNESS.json`
+возвращён к состоянию `origin/main`, улик `PROVIDER_LIVE_*` в кандидате НЕТ.
 
-## 3. Маршрут публикации — рецепт, проверенный на S9 (2026-08-16)
+## Стоп-правило: терминалы и решения владельца
+Ни счётчики серии, ни ЧИСЛО терминалов здесь не дублируются - они устаревают
+быстрее файла (обе строки уже ловились ревьюером: счётчик заходов дважды, число
+терминалов один раз). Полный и действующий список решений владельца - в
+`.itd/DECISIONS.md` по дате 2026-09-04; ниже перечислены те, что нужны
+оператору прямо сейчас, без утверждения об их полноте. Действующие счётчики,
+повторяющиеся механизмы и терминал печатает
+`sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py --history
+.itd-memory/stop-rule/rel-1103-series.json --json` по истории
+`.itd-memory/stop-rule/rel-1103-series.json` (личности кандидатов считает
+`candidate_identity_from_ledger` — по участкам диффа, а не по журналу целиком).
 
-Публикация ЛЮБОЙ ветки требует своего committed-head claim; квитанции юнитов
-биндят свои staged-деревья и отвергаются с «receipt does not match the exact
-current candidate».
+1. **Терминал @ r5** — механизм
+   `.itd/ACCEPTANCE_CONTRACT.json::specification-compliance` дал находки в r3 и
+   r5 на разных кандидатах. **Решение владельца — вариант B:** свежесть
+   провайдера-ревьюера выходит из релиза целиком; корень (схема записи не умеет
+   привязывать улику собственной аттестации) записан долгом P1 в BACKLOG.
+   Отчеканенные подписанные улики живого исполнения обоих хостов лежат в
+   `.itd/PROVIDER_LIVE_WSL.json` и `.itd/PROVIDER_LIVE_WINDOWS.json` (вне
+   кандидата, каталог git-ignored) — будущему юниту чеканить заново не нужно.
+2. **Терминал после r8** — критерии приёмки были свободной прозой, а команды
+   проверки отдельными артефактами, и соответствие между ними ничем не
+   удерживалось. **Решение владельца — вариант A:** критерий утверждает РОВНО
+   то, что устанавливает его команда; всё прочее уходит в `evidence` с пометкой
+   «наблюдение, не утверждение».
+3. **Терминал после r12** — механизм
+   `.itd-memory/events.jsonl::repository-hygiene` дал находки в r4, r6 и r12 на
+   трёх разных кандидатах, то есть сломался снова уже после решения №2. Корень:
+   улика события ДОСЛОВНО копировала текст критерия, поэтому любая правка
+   критерия делала последнюю запись append-only журнала ложной. **Решение
+   владельца — вариант A (форма улики):** событие больше не копирует критерий,
+   а ссылается на него полем `criterionRef` (леджер + путь к полю) и записывает
+   только ЧТО изменилось и ПОЧЕМУ. Действующий текст критерия читается ровно из
+   одного места — `.itd-memory/GOAL.json`, `units[id=REL-1.103.0].criterion`.
 
-1. Бухгалтерия и коммиты доведены; дерево чистое, индекс == `HEAD^{tree}`.
-2. Критерии активного юнита обязаны существовать в
-   `.itd/ACCEPTANCE_CONTRACT.json` с префиксом `<activeFollowup.unitId>-`.
-   Их отсутствие роняет продюсера на `active unit has no acceptance criteria`
-   ещё до ревьюера.
-3. Машинная нога маршрута: `--unit-id <activeFollowup.unitId>` и
-   `--risk-tier <reviewPolicy.riskTier>` — `coverage_matrix` требует точного
-   равенства обоих. Оракулы (`id=команда`) обязаны покрыть `oracleIds` всех
-   критериев юнита, exit 0, на дереве кандидата.
-4. Продюсер запускается ИЗ КОПИИ вне репозитория (`candidate repository cannot
-   host the credential-bearing producer`), `--root` — на репо, `--base` —
-   РОДИТЕЛЬ HEAD (whole-branch база делает пакет шире машинного покрытия и
-   даёт critical на ровном месте), `--candidate-mode committed-head`.
-   Ключ: `~/.cache/itd-review-authority/GPG004-U8-1ed4cb5a-a1/producer-ed25519.key`,
-   key-id `gpg004-u8-producer-20260808` — именно его публичный ключ лежит в
-   зарегистрированном keyring `1fa8afec…`. Codex: pinned ELF
-   `…/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex`,
-   sha `2e863156…`, proxy-sha `01ba4719…` (sha256 от `"\n"` = прямой транспорт).
-   Чекпоинта у продюсера нет: обрыв транспорта стоит всю попытку.
-5. Чекер и adjudication чеканятся под ТУ ЖЕ машинную квитанцию, что подписана
-   в phase-one, и под её unit/tier — иначе `mandatory route receipt binds
-   another machine receipt`. Чекер получает `--phase-one-receipt` +
-   `--producer-keyring`.
-6. Проверка ровно как у гейта:
-   `itd_verification_loop.py check --candidate-mode committed-head
-   --require-mandatory-route --accept-adjudicated-route
-   --expected-repository … --expected-producer-keyring-sha256 … --receipt …`
-   → `{"outcome":"PASSED","routeIndependence":"cross-vendor"}`.
-7. `itd gate register-profile …` на новый receipt/unit/tier → `itd gate doctor`
-   → `itd pr create --maker-vendor anthropic --maker-model … --maker-session …`.
+## Состояние оракулов
+- Шесть оракулов версии краснели ДО правки и зелены ПОСЛЕ (наблюдённый
+  RED->GREEN): `verify_host_adapters`, `verify_external_reviewer_release`,
+  `verify_gate_control`, `verify_itd_runtime_install`, `verify_git_gate_hooks`,
+  `verify_harness_docs_freshness`.
+- Полное зеркало: ДВА красных, оба предшествуют кандидату и воспроизводятся на
+  чистом `origin/main` — `verify_ledger_reconciliation` (`vcr=1.0 blocked=0`) и
+  `verify_reviewer_provider_freshness` (истёк календарь записи).
+- Машинная квитанция чеканится СЕМЬЮ командами (без `reviewer-provider-freshness`:
+  он красный по построению и вне скоупа): `external-reviewer-release`,
+  `harness-docs-freshness`, `host-adapters`, `itd-runtime-install`,
+  `git-gate-hooks`, `gate-control`, `meta-review`.
+- Зеркала в квитанции НЕТ по измерению: изолированный оракул гоняет команду на
+  копии дерева без git-чекаута, где шесть checkout-bound сьютов красные по
+  построению.
 
-## 3b. Разблокировка маршрута: разрез юнитов раскрыт ревьюеру (2026-08-16)
+## Что дальше (по маршруту)
+1. Машинная квитанция (7 команд) -> независимый чекер (targeted) -> cross-vendor
+   продюсер `sol` -> adjudication.
+2. Коммит -> `itd pr create --timeout 3600` -> `gh pr ready` (**проверить
+   `isDraft` перед merge**) -> CI -> merge.
+3. Тег: `gh release create v1.103.0 --target "$(git rev-parse <merge-sha>)"`
+   (короткий SHA даёт `target_commitish is invalid`; прямой `git push` тега
+   блокируется гейтом — ожидаемо).
+4. Раскатка: `bash scripts/sync-to-active.sh`, затем
+   `CLAUDE_HOME=/mnt/c/Users/<user>/.claude bash scripts/sync-to-active.sh`;
+   после — переустановка `itd` и `pre-push` НА КАЖДОМ нативном хосте
+   (`scripts/itd_install_cli.py --apply --replace-existing`,
+   `scripts/itd_install_git_hooks.py --apply --replace-existing`).
+5. ОТК: `itd_goal_verify.py REL-1.103.0`. Его `verificationCommand` проверяет
+   meta_review, быстрое зеркало, что тег существует / указывает на коммит с
+   версией 1.103.0 / является предком `origin/main`, отсутствие дрейфа у ОБОИХ
+   CLAUDE_HOME-таргетов и наличие runtime `1.103.0-<digest>` на обоих хостах.
+6. ledger-close отдельным **чисто леджерным** PR (без кода).
 
-Публикация была дважды отвергнута продюсером с одной и той же находкой —
-«транскрипт обрывается на `item_4` в `in_progress`». На диске это ложь.
-Измерено на `prompts/S9-RELEASE-publish-prompt-r2.json`: unit 3 несёт
-`item.started item_4` без пары, `item.completed item_4` лежит в unit 4.
-Юниты режутся по байтовому бюджету на границах UTF-8-строк, а не по записям,
-поэтому парные события одной записи расходятся; unit-ревьюер сказал правду про
-свой кусок, а интеграция подняла это до утверждения о кандидате, потому что
-получала только хеш плана и не могла сверить границу.
+## Ловушки маршрута (проверены кровью в этой сессии)
+- Квитанция ИММУТАБЕЛЬНА: повторная чеканка в тот же файл даёт `UNVERIFIED`,
+  нужен новый attempt-файл (`-a2`, `-a3`, ...).
+- Отчёт и промпт чекера обязаны лежать в `verification-loop/reports/` и
+  `prompts/`, иначе pre-flight отказывает.
+- Цикл принимает у чекера только `PASSED` или `BLOCKED`;
+  `PASSED_WITH_WARNINGS` отвергается машинно.
+- `.itd/` исключён через `.git/info/exclude` -> файлы оттуда входят в кандидат
+  только через `git add -f`.
+- `--emit-dispositions` требует BLOCKED-квитанцию ЧЕКЕРА; продюсер для BLOCKED
+  квитанцию не чеканит по построению, поэтому по его вердикту черновик
+  диспозиций машинно не составляется.
+- Субагент-чекер упирается в лимит ходов, если ведёт пошаговую разведку: давай
+  явный бюджет и требуй писать отчёт заранее.
+- Любая правка пакета обнуляет привязанные к дереву квитанции: сначала вся
+  бухгалтерия, потом чеканка.
 
-Починка НЕ трогает разрез — резать по логическим границам значило бы привязать
-транспорт к формату данных. Разрез теперь раскрывается:
-`_bound_range_facts` выводит точную границу из манифеста юнита,
-`_unit_review_prompt` печатает `BOUND_RANGE_FACTS=` и общий
-`BOUND_RANGE_DISCLAIMER` (вывод о полноте артефакта из намеренно урезанного
-куска запрещён), `_integration_review_prompt` получает `unitBoundaries` по всем
-юнитам и обязан разрешить пограничное наблюдение против них.
 
-Правка продюсера обесценивает подписанные efficacy-ноги по построению — все три
-перечеканены живьём (`cleanFalseBlockRate` 0.0, детекция 1.0 на WSL, нативном
-Windows и cross-vendor). Windows-нога требует DPAPI-конверта
-`…keys/gpg003-local-producer-20260803.windows.key`, сырой 32-байтовый ключ там
-не принимается.
-
-## 3c. Состояние ветки на момент публикации (2026-08-16)
-
-`chore/release-1.97.0` несёт четыре коммита поверх `main` `706d62a`:
-
-| коммит | что | дерево кандидата |
-|---|---|---|
-| `fc2b738` | бамп девяти пиновых мест + запись CHANGELOG S5..S9 | `88f0f4c9` |
-| `e26b51b` | live re-record под тот бамп | `16201b44` |
-| `1e92f05` | раскрытие разреза юнитов ревьюеру (разблокировка маршрута) | `f457d61b` |
-| `6ccb4c1` | live re-record под правку продюсера | `febd23b5` |
-
-Каждый прошёл свой маршрут: изолированные машинные квитанции с оракулами,
-покрывающими `oracleIds` критериев S9-1..S9-7, свежий независимый чекер другой
-модели, две adjudication на точном дереве и запись в review-cache.
-
-Два замечания честности по этой сессии:
-
-- `claude -p` не аутентифицируется из подпроцесса (401, OAuth token revoked),
-  поэтому роль свежего чекера исполнял `gpt-5.6-terra` — cross-vendor, то есть
-  независимость не ниже прежней, а выше.
-- Продюсер отказывается принимать диф коммита фикстуры:
-  `canonical review diff line exceeds unit bound` — в записи есть JSONL-строка
-  длиннее лимита юнита. Это ограничение маршрута, не кандидата; записано в
-  BACKLOG, внутри релиза не чинится (правило: код маршрута ревью в этом релизе
-  заморожен). Поэтому claim публикации делается на этом документационном
-  коммите, как и в прецеденте S9.
-
-## 4. Что осталось по релизу v1.97.0
-
-1. **Re-record живого бенчмарка — ОБЯЗАТЕЛЕН и идёт ПОСЛЕДНЕЙ tracked-правкой.**
-   Бамп версии трогает три манифеста внутри `METHODOLOGY_TREE_ROOTS`
-   (`tests/verify_live_model_benchmark.py:26`), поэтому content-пин в
-   `tests/fixtures/live-model-evidence/latest.json` сгорает по построению.
-   `bash tests/run-all.sh` этого НЕ ловит: ни CORE, ни FULL не передают
-   `--require-evidence`. CI ловит — `.github/workflows/meta-review.yml:158`
-   зовёт `python3 tests/verify_live_model_benchmark.py --require-evidence
-   --max-age-days 30`, и на дереве `9be84549` это 104 passed / 4 failed
-   (content-пин, dirty-state digest, repository-local harness, source pin).
-   Найдено свежим чекером `claude-sonnet-5` на кандидате 2026-08-16
-   (отчёт `.itd-memory/verification-loop/reports/S9-RELEASE-gr-checker-report.md`,
-   verdict BLOCKED).
-
-   **Запись пина нельзя положить в тот же кандидат, что и бамп.** `stable_git_status`
-   (`tests/verify_live_model_benchmark.py:82-94`) вычёркивает из отпечатка
-   только `tests/fixtures/live-model-evidence/`, поэтому запись при 12 staged
-   файлах даст `workingTreeStatusSha256` от этих 12 строк, а после коммита
-   дерево чистое — и проверка `dirty-state digest is pinned` снова красная, уже
-   в CI. Отсюда порядок: (1) довести ВСЕ tracked-правки и закоммитить бамп
-   своим маршрутом ревью; (2) на чистом закоммиченном дереве прогнать live
-   re-record; (3) закоммитить фикстуру вторым маршрутом ревью — 12 файлов
-   фикстуры снова больше `MAX_FILES_WITHOUT_REVIEW`, коммит без своей квитанции
-   не пройдёт.
-
-   Форма второго шага — на выбор, обе с прецедентом, разницы по существу нет:
-   отдельный re-pin-коммит (`42c168f` — «on the clean committed tree», `59ad17d`,
-   `c7c0afa`, `a8b0885`, `de4f9c1`) либо `git commit --amend` фикстуры в коммит
-   бампа. Релиз v1.96.0 сделан вторым способом: `60db6bb` («chore: release
-   v1.96.0», манифесты уже 1.96.0, дерево чистое) → re-record на нём
-   (`latest.json` в `7f4b515` пишет `workingTreeDirty: false` и
-   `workingTreeStatusSha256` от пустого статуса, `revision 60db6bb`) → amend в
-   `7f4b515` (21 файл; `60db6bb` ему НЕ предок — коммит переписан) → squash-merge
-   в `f3795d5`. Что не работает ни в какой форме — запись, сделанная поверх
-   staged-кандидата.
-2. Полный `bash tests/run-all.sh` зелёным на ветке релиза, плюс отдельно
-   `verify_live_model_benchmark.py --require-evidence --max-age-days 30`
-   (в `run-all.sh` этого флага нет ни в CORE, ни в FULL — проверять руками).
-3. Маршрут коммита — СВОЙ у каждого из двух коммитов: 12 файлов >
-   `MAX_FILES_WITHOUT_REVIEW=2`, значит нужны машинные квитанции для `<unit>` и
-   `<unit>:general-review`, свежий чекер другой модели, две adjudication и
-   запись `itd_review_cache.py record`.
-4. Своя committed-head publication claim по разделу 3, затем `itd pr create`,
-   CI, merge.
-5. **Раскатка на ОБА инсталла** (иначе правки хуков и скиллов не активны):
-   `bash scripts/sync-to-active.sh`, затем то же с
-   `CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude`; после —
-   `bash scripts/verify-sync-to-active.sh`, drift обязан быть чистым.
-   2026-08-15 обнаружилось, что инсталл сидел на версии С ДЫРОЙ, которую тот
-   же срез и чинил, — это не формальность.
-6. Смоук изменённых хуков (`record-agent-skill.sh`, `completion-gate.sh`)
-   реальным tool-вызовом. Рестарт не нужен, регистрации подхватываются горячо.
-
-## 5. Грабли
-
-- `.itd/` в `.gitignore`, но файлы tracked → `git add -f`, иначе exit 1 рвёт
-  цепочку `&&`.
-- Completion-гейт классифицирует прогон по эху `EXIT: $?` и берёт ПОСЛЕДНИЙ
-  прогон на строку команды; зелёный L2-сигнал давай одиночной командой.
-- GitHub API моргает TLS — `gh` вызовы ретраить циклом; REST надёжнее GraphQL.
-- Правки строк с backticks — только Edit-тулом, не heredoc через двойной шелл.
-
-## 6. Открытые долги (BACKLOG)
-
-- Недетерминизм изолированного `quick`-агрегатора (S2 пин объясняет часть, но
-  не весь класс).
-- Пин live-evidence сгорает от любой правки `skills/`, `agents/`, `hooks/` —
-  один re-record в конце среза, на чистом дереве.
+## Единственный источник критерия и состояния
+- Критерий юнита — ТОЛЬКО `.itd-memory/GOAL.json`,
+  `units[id=REL-1.103.0].criterion`. Этот файл, `.itd/SCOPE_LOCK.md` и контракт
+  юнита на него ССЫЛАЮТСЯ и не пересказывают (решение владельца после
+  четвёртого терминала: механизм `GOAL.json::specification-compliance`
+  повторился в r8, r9, r13 — каждый раз расхождение между копиями факта).
+- Состояние серии — только вывод `itd_stop_rule.py --json` по истории.
+- Состояние дерева — `git write-tree`; свежайшая машинная квитанция — по
+  максимальному суффиксу `.itd-memory/verification-loop/REL-1.103.0-machine-a*.json`,
+  свежайшая квитанция чекера — `REL-1.103.0-checker-a*.json`.
+- Хешей дерева и имён квитанций в этом файле нет намеренно: он трижды устаревал
+  относительно дерева и был за это заблокирован ревьюером.
