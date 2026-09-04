@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "STOPRULE-2",
     "goal": "STOPRULE-2: правило составляет ADR-007-диспозиции по BLOCKED-квитанции чекера (--emit-dispositions) при терминале решения владельца, человек подписывает одной закрытой фразой; статус политики advisory -> decides-with-human-confirmation (1.1.0 -> 1.2.0) с обновлением замороженного скаляра и оракула; закрытие PILOT-P02 этим маршрутом (замороженный патч на свежей ветке от main, заход продюсера, диспозиции, подпись владельца, adjudicated-маршрут, PR).",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-03T18:54:37Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-03T20:16:07Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "STOPRULE-1 закрыт: PR #255 merged ae95ca1, юнит verified, WIP свободен. Next по решению владельца 2026-09-03: STOPRULE-2 — --emit-dispositions (правило составляет диспозиции ADR-007, человек подписывает одной фразой), статус политики advisory -> decides-with-human-confirmation, закрытие PILOT-P02 этим маршрутом; затем продолжение плана RSI.",
+  "nextAction": "STOPRULE-2 закрыт: PR #257 merged 6d38631, юнит verified, WIP свободен. Next по решению владельца 2026-09-03: закрытие PILOT-P02 маршрутом диспозиций (отдельный юнит PILOT-P02-CLOSE: свежая ветка от main, замороженный патч .itd-memory/PILOT-P02-frozen-candidate.patch по существу, заход продюсера, --emit-dispositions, подпись владельца, adjudicated-маршрут, PR); затем продолжение плана RSI.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]
