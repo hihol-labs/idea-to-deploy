@@ -60,3 +60,10 @@ BLOCKED-квитанции чекера (`--emit-dispositions <receipt> --out <f
   `.itd/IMPACT_GRAPH.json`, `BACKLOG.md`
 - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`,
   `.itd-memory/contracts/STOPRULE-2.md`
+
+## Статус 2026-09-04 — ЗАКРЫТ
+PR #257 merged `6d38631` (дерево `082de5ad`). Публикация — adjudicated-маршрут: правило
+остановило собственную серию (r3-r5, один ключ `scripts/itd_stop_rule.py::correctness`)
+на r4, составило диспозицию r5, владелец подписал `accepted-trade-off`, квитанция
+`ADJUDICATED`. Пункт 5 разреза (закрытие PILOT-P02) — следующим юнитом
+PILOT-P02-CLOSE: WIP=1 и собственный контракт приёмки P02.
