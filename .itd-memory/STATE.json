@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "PILOT-P02-CLOSE",
     "goal": "PILOT-P02-CLOSE: закрытие PILOT-P02 (слепой семантический протокол >=8/10 из ADVISORY-RSI v4 §5: замороженный BLIND_PROTOCOL.json v1, машинерия itd_blind_protocol.py, оракул на запечатанных фикстурах, регистрация в зеркале и манифесте) маршрутом диспозиций STOPRULE-2: код замороженного кандидата (дерево 64d6b4bc, 20 заходов/46 находок, r58 и r59 закрыты в той же серии, открытых находок нет) на свежей ветке от main 75bd05c, заход продюсера, при BLOCKED — стоп-правило решает, --emit-dispositions, подпись владельца, adjudicated-маршрут, PR, ledger-close.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-04T07:35:10Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-04T09:52:47Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "STOPRULE-2 закрыт: PR #257 merged 6d38631, юнит verified, WIP свободен. Next по решению владельца 2026-09-03: закрытие PILOT-P02 маршрутом диспозиций (отдельный юнит PILOT-P02-CLOSE: свежая ветка от main, замороженный патч .itd-memory/PILOT-P02-frozen-candidate.patch по существу, заход продюсера, --emit-dispositions, подпись владельца, adjudicated-маршрут, PR); затем продолжение плана RSI.",
+  "nextAction": "PILOT-P02-CLOSE закрыт: PR #259 merged bf692ab, юнит verified, WIP свободен. Обе диспозиции r6 закрыты в ledger-close (фраза контракта; именованный отказ score() в тесте, мутация летальна). Next по плану RSI (ADVISORY v4 §5, разрез setup -> observation -> decision): раскатка таксономии вердикта на хост (релизный юнит) как предусловие наблюдения, затем decision-юнит слепого протокола (печать, разметка владельца, порог 8/10).",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]

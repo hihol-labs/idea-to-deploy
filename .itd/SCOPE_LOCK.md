@@ -46,6 +46,8 @@
   узлового множества. Изменение минимально и не трогает других гарантий.
 - Леджерная бухгалтерия юнита: `.itd-memory/STATE.json`,
   `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/SCOPE_LOCK.md`, `.itd/DECISIONS.md`,
+  `BACKLOG.md` (факты маршрута и долги при ledger-close — прецедент STOPRULE-1/2;
+  заход close1 продюсера назвал отсутствие файла в этом списке),
   `.itd-memory/contracts/PILOT-P02-CLOSE.md`, `.itd/IMPACT_GRAPH.json` (производный:
   регенерируется `tests/build_impact_graph.py`, руками не правится),
   `.itd-memory/events.jsonl` (append-only журнал: каждый переход юнита
@@ -66,3 +68,11 @@
 далее — заход продюсера; при BLOCKED стоп-правило (`scripts/itd_stop_rule.py`)
 решает по истории серии, при терминале решения владельца правило составляет
 диспозиции (`--emit-dispositions`), владелец подписывает, adjudicated-маршрут, PR.
+
+## Статус 2026-09-04 — ЗАКРЫТ
+PR #259 merged `bf692ab` (дерево `af3d71b9`). Серия: r1-r3 отказы предусловий (префикс id
+критериев, детектор энтропии на длинных id, oracleIds без команды квитанции), r4-r6 BLOCKED
+(7 находок: 5 закрыты кодом/леджером с летальными мутациями, 2 low подписаны владельцем как
+accepted-trade-off и закрыты в ledger-close). Стоп-правило 1.2.0 остановило серию на r6
+(REDESIGN_OR_DISCARD: `contracts/PILOT-P02-CLOSE.md::specification-compliance` в r4 и r6).
+Второй живой прогон маршрута «правило составляет, человек подписывает».

@@ -3176,7 +3176,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py",
       "reviewEvidence": {
-        "claim": "протокол замера объявлен в одном файле, загружается fail-closed и хешируется; подмена протокола внутри окна замера отказывает скоринг",
+        "claim": "протокол замера объявлен в одном файле, загружается fail-closed и хешируется; подмена протокола внутри окна замера отказывает скоринг — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "correctness",
           "repository-hygiene"
@@ -3194,7 +3194,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py",
       "reviewEvidence": {
-        "claim": "в выборку попадают только записи со штампом версии, категорией и разрешённым источником; короткая популяция отказывает с названным счётом",
+        "claim": "в выборку попадают только записи со штампом версии, категорией и разрешённым источником; короткая популяция отказывает с названным счётом — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "correctness"
         ],
@@ -3211,7 +3211,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py",
       "reviewEvidence": {
-        "claim": "тот же seed даёт ту же выборку на переставленном леджере, повторов в выборке нет",
+        "claim": "тот же seed даёт ту же выборку на переставленном леджере, повторов в выборке нет — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "correctness"
         ],
@@ -3228,7 +3228,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py",
       "reviewEvidence": {
-        "claim": "лист показывает только объявленные видимые поля и предлагает словарь источника; externalOnly-значения разметчику не выдаются",
+        "claim": "лист показывает только объявленные видимые поля и предлагает словарь источника; externalOnly-значения разметчику не выдаются — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "correctness"
         ],
@@ -3245,7 +3245,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_blind_protocol.py",
       "reviewEvidence": {
-        "claim": "порог применяется, несостоявшийся замер отказывает вместо промаха, вердикт несёт честную маркировку и fail-путь, печать даёт tamper-evidence и одну попытку",
+        "claim": "порог применяется, несостоявшийся замер отказывает вместо промаха, вердикт несёт честную маркировку и fail-путь, печать даёт tamper-evidence и одну попытку — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "correctness",
           "repository-hygiene"
@@ -3263,7 +3263,7 @@
       "source": "ADVISORY-RSI-2026-08-27-v4 §5 (слепой протокол >= 8/10).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_runall_drift.py && sh skills/_shared/itd_py.sh tests/verify_itd_runtime_install.py",
       "reviewEvidence": {
-        "claim": "сьют зарегистрирован в зеркале, протокол и модуль объявлены в манифесте установленного runtime",
+        "claim": "сьют зарегистрирован в зеркале, протокол и модуль объявлены в манифесте установленного runtime — cross-vendor producer gpt-5.6-sol r4-r6; stop rule REDESIGN_OR_DISCARD @ r6; ADJUDICATED a2 (owner-signed)",
         "impactClasses": [
           "host-parity",
           "repository-hygiene"
@@ -3292,7 +3292,7 @@
   },
   "activeFollowup": {
     "unitId": "PILOT-P02-CLOSE",
-    "status": "open",
+    "status": "closed",
     "openedAt": "2026-09-04",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -3307,7 +3307,8 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    }
+    },
+    "closedAt": "2026-09-04"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
