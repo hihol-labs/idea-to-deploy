@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "PILOT-P02-CLOSE",
-    "goal": "PILOT-P02-CLOSE: закрытие PILOT-P02 (слепой семантический протокол >=8/10 из ADVISORY-RSI v4 §5: замороженный BLIND_PROTOCOL.json v1, машинерия itd_blind_protocol.py, оракул на запечатанных фикстурах, регистрация в зеркале и манифесте) маршрутом диспозиций STOPRULE-2: код замороженного кандидата (дерево 64d6b4bc, 20 заходов/46 находок, r58 и r59 закрыты в той же серии, открытых находок нет) на свежей ветке от main 75bd05c, заход продюсера, при BLOCKED — стоп-правило решает, --emit-dispositions, подпись владельца, adjudicated-маршрут, PR, ledger-close.",
-    "status": "verified",
-    "startedAt": "2026-09-04T07:35:10Z",
-    "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-09-04T09:52:47Z"
+    "id": "REL-1.103.0",
+    "goal": "REL-1.103.0: релиз v1.103.0 (таксономия вердикта PILOT-P01, стоп-правило 1.2.0 STOPRULE-1/2, машинерия слепого протокола PILOT-P02) по docs/RELEASE_RUNBOOK.md + раскатка обоих хостов для Claude и Codex; ledger-close отдельным леджерным PR. Переcверка записи свежести провайдера-ревьюера ВЫВЕДЕНА из юнита решением владельца 2026-09-04 после терминала стоп-правила REDESIGN_OR_DISCARD @ r5 и станет отдельным юнитом.",
+    "status": "in_progress",
+    "startedAt": "2026-09-04T12:07:03Z",
+    "ledger": "GOAL.json",
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "passed",

@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-07-27T12:49:18Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-04T19:48:43Z",
+  "currentUnitId": "REL-1.103.0",
   "units": [
     {
       "id": "PE5-001",
@@ -439,6 +439,17 @@
       "status": "verified",
       "verifiedAt": "2026-07-27T12:49:18Z",
       "evidence": "exit 0: DONE fails:none",
+      "skippedReason": "",
+      "blockedReason": ""
+    },
+    {
+      "id": "REL-1.103.0",
+      "criterion": "Команда юнита выходит 0, то есть машинно установлено ровно следующее: meta_review чист; последняя строка быстрого профиля зеркала дословно равна 'DONE fails: verify_reviewer_provider_freshness' - то есть падает ровно один сьют и никакой другой (о том, что этот сьют красен и на origin/main ДО кандидата, утверждает отдельный критерий приёмки REL-1.103.0-3-mirror, чья команда origin/main действительно читает; критерий юнита такого утверждения НЕ делает); версия 1.103.0 стоит во всех местах, которые перечисляет сама команда, и их число она же печатает; тег v1.103.0 указывает на коммит первой родительской цепочки origin/main, на котором версия появляется ВПЕРВЫЕ вдоль этой цепочки - сам коммит её несёт, первый родитель не несёт (утверждений про число родителей и форму слияния нет: репозиторий сливает и squash-ом, и merge-коммитом); ни один из ДВУХ CLAUDE_HOME-таргетов (WSL и /mnt/c/Users/Дмитрий/.claude) не имеет дрейфа; content-addressed каталог 1.103.0-<digest> со scripts/itd.py и skills/ присутствует И в ~/.local/share/itd/runtime, И в /mnt/c/Users/Дмитрий/AppData/Local/ITD/runtime. Больше критерий не утверждает ничего: номер PR и факт переустановки itd/pre-push фиксируются как НАБЛЮДЁННЫЕ факты в ledger-close. Свежесть провайдера-ревьюера в юнит не входит. ЭТОТ ТЕКСТ - ЕДИНСТВЕННЫЙ ИСТОЧНИК критерия: контракт юнита, SCOPE_LOCK и HANDOFF на него ССЫЛАЮТСЯ и не пересказывают.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick | tail -1 | grep -qx 'DONE fails: verify_reviewer_provider_freshness' && sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.103.0';J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text();places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: v in T('.claude-plugin/marketplace.json')),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: ('Version-'+v) in T('README.md')),('README.ru.md',lambda: ('Version-'+v) in T('README.ru.md')),('conformance',lambda: ('v'+v) in T('docs/HARNESS_CONFORMANCE_REPORT.md')),('rc-contract',lambda: v in T('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json')),('release-oracle',lambda: bool(re.search(r'VERSION = \\\"'+v+r'\\\"',T('tests/verify_external_reviewer_release.py')))),('changelog',lambda: ('## ['+v+']') in T('CHANGELOG.md'))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)))\" && sh skills/_shared/itd_py.sh -c \"import json,subprocess,sys;run=lambda a: subprocess.run(['git',*a],capture_output=True,text=True);v='1.103.0';r=run(['rev-parse','v'+v+'^{commit}']);sys.exit('tag v'+v+' does not exist yet') if r.returncode else None;tag=r.stdout.strip();g=lambda *a: (lambda x: x.stdout.strip() if x.returncode==0 else sys.exit('git '+' '.join(a)+' failed'))(run(list(a)));fp=g('rev-list','--first-parent','origin/main').split();sys.exit('tag v'+v+' is not on the first-parent chain of origin/main: '+tag) if tag not in fp else None;ver=lambda c: json.loads(g('show',c+':.claude-plugin/plugin.json'))['version'];sys.exit('tag commit does not carry '+v+': '+ver(tag)) if ver(tag)!=v else None;par=g('rev-list','--parents','-n','1',tag).split()[1:];sys.exit('first parent already carries '+v+': '+par[0]) if par and ver(par[0])==v else None;print('tag',tag,'first introduces',v,'on the first-parent chain; parents',len(par))\" && bash scripts/sync-to-active.sh --check && CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude bash scripts/sync-to-active.sh --check && sh skills/_shared/itd_py.sh -c \"import pathlib,sys;v='1.103.0';ok=lambda d: d.is_dir() and (d/'scripts'/'itd.py').is_file() and (d/'skills').is_dir();w=[p for p in pathlib.Path.home().joinpath('.local/share/itd/runtime').glob(v+'-*') if ok(p)];n=[p for p in pathlib.Path('/mnt/c/Users/Дмитрий/AppData/Local/ITD/runtime').glob(v+'-*') if ok(p)];sys.exit('rollout missing or invalid: wsl=%s windows=%s' % ([p.name for p in w],[p.name for p in n])) if not (w and n) else None;print('rollout',v,w[-1].name,n[-1].name)\"",
+      "riskTier": "medium",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
       "skippedReason": "",
       "blockedReason": ""
     }

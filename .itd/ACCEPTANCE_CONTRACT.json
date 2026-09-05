@@ -3273,6 +3273,48 @@
           "runtime-install"
         ]
       }
+    },
+    {
+      "id": "REL-1.103.0-1-version",
+      "criterion": "Команда критерия выходит 0, то есть строка 1.103.0 стоит во всех местах, которые команда перечисляет ПОИМЁННО и чьё число она же печатает: .claude-plugin/plugin.json, .codex-plugin/plugin.json, .claude-plugin/marketplace.json, docs/HARNESS_DOCS_STATE.json, бейджи README.md и README.ru.md, docs/HARNESS_CONFORMANCE_REPORT.md, docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json, VERSION в tests/verify_external_reviewer_release.py, заголовок ## [1.103.0] в CHANGELOG.md. Число мест в тексте критерия НЕ зашивается: прежняя редакция утверждала «9/9», тогда как команда проверяла десять - ложную бухгалтерию покрытия нашёл независимый ревьюер (r14). Больше критерий не утверждает НИЧЕГО.",
+      "source": "Релизный конвейер docs/RELEASE_RUNBOOK.md, пункты 1 и 4.",
+      "evidence": "УТВЕРЖДЕНИЕ критерия ровно одно и проверяется его командой: строка 1.103.0 стоит во всех местах, которые команда перечисляет поимённо; число мест печатает сама команда, в тексте оно не зашито. Исполнено 2026-09-04: rc=0, вывод 'version consistent 1.103.0 10/10 places'. ИСТОРИЯ (записана, а не скрыта): прежние редакции критерия И этого поля утверждали «девять мест» и хардкод «9/9», тогда как команда проверяла десять - README.md и README.ru.md считаются раздельно. Ложную бухгалтерию нашёл независимый ревьюер (r14), остаточную копию в этом поле - следующий заход (r15) и чекер свежей сессии. НАБЛЮДЕНИЯ (контекст, не утверждения критерия): до правки шесть оракулов краснели ровно на дрейфе версии (verify_host_adapters, verify_external_reviewer_release, verify_gate_control, verify_itd_runtime_install, verify_git_gate_hooks, verify_harness_docs_freshness) и позеленели после - наблюдённый RED->GREEN. Мутационного полотна у однострочных замен версии нет по природе правки.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.103.0';J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text();places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: v in T('.claude-plugin/marketplace.json')),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: ('Version-'+v) in T('README.md')),('README.ru.md',lambda: ('Version-'+v) in T('README.ru.md')),('conformance',lambda: ('v'+v) in T('docs/HARNESS_CONFORMANCE_REPORT.md')),('rc-contract',lambda: v in T('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json')),('release-oracle',lambda: bool(re.search(r'VERSION = \\\"'+v+r'\\\"',T('tests/verify_external_reviewer_release.py')))),('changelog',lambda: ('## ['+v+']') in T('CHANGELOG.md'))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)))\"",
+      "reviewEvidence": {
+        "claim": "Команда критерия сама перечисляет проверяемые места, сама считает их число и падает на любом расхождении; критерий не утверждает ничего сверх её выхода и не зашивает счётчик.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "harness-docs-freshness",
+          "external-reviewer-release",
+          "host-adapters",
+          "itd-runtime-install",
+          "git-gate-hooks",
+          "gate-control",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "REL-1.103.0-3-mirror",
+      "criterion": "Команда критерия выходит 0, то есть машинно установлено ровно две вещи: (1) быстрый профиль зеркала на дереве кандидата падает РОВНО на одном сьюте - verify_reviewer_provider_freshness - и ни на каком другом (последняя строка вывода дословно равна 'DONE fails: verify_reviewer_provider_freshness'); (2) этот же сьют красен и на чистом origin/main по его собственному правилу - в записи .itd/REVIEW_PROVIDER_FRESHNESS.json там checkedAt старше maxAgeDays. Иными словами кандидат НЕ вносит ни одного нового красного и этот единственный не чинит. Больше критерий не утверждает ничего: ни про полный прогон зеркала, ни про какие-либо иные красные.",
+      "source": "Пол методологии: релиз не выпускается на красном зеркале.",
+      "evidence": "УТВЕРЖДЕНИЕ критерия и есть выход его команды, проверено исполнением 2026-09-04: `bash tests/run-all.sh --quick` даёт rc=1 и последнюю строку 'DONE fails: verify_reviewer_provider_freshness' - ровно один сьют; `git show origin/main:.itd/REVIEW_PROVIDER_FRESHNESS.json` даёт checkedAt 2026-08-04 при maxAgeDays 30, возраст 31 день, то есть оракул красен на базе до всякого кандидата. ИСТОРИЯ ЭТОГО КРИТЕРИЯ (записана, а не скрыта): прежняя редакция утверждала 'DONE fails:none' и стояла passed; после того как решением владельца свежесть вышла из скоупа и checkedAt вернулся к 2026-08-04, это утверждение стало ложным, и я его не перепроверил - расхождение нашёл независимый чекер, вердикт BLOCKED. НАБЛЮДЕНИЕ вне утверждения критерия: полное зеркало даёт второй красный verify_ledger_reconciliation (vcr=1.0 blocked=0), воспроизведённый независимым чекером на чистом origin/main; в быстрый профиль этот сьют не входит, поэтому команда критерия его не касается. Зеркала нет в машинной квитанции по измерению: изолированный оракул исполняет команду на копии дерева без git-чекаута, где шесть checkout-bound сьютов красные по построению.",
+      "verificationCommand": "bash tests/run-all.sh --quick | tail -1 | grep -qx 'DONE fails: verify_reviewer_provider_freshness' && sh skills/_shared/itd_py.sh -c \"import datetime as dt,json,subprocess,sys;raw=subprocess.run(['git','show','origin/main:.itd/REVIEW_PROVIDER_FRESHNESS.json'],capture_output=True,text=True,check=True).stdout;r=json.loads(raw);age=(dt.datetime.now(dt.timezone.utc).date()-dt.date.fromisoformat(r['checkedAt'])).days;sys.exit('freshness is NOT expired on origin/main: age=%d maxAgeDays=%d' % (age,r['maxAgeDays'])) if age<=r['maxAgeDays'] else None;print('pre-existing on origin/main: checkedAt',r['checkedAt'],'age',age,'>',r['maxAgeDays'])\"",
+      "reviewEvidence": {
+        "claim": "Быстрый профиль падает ровно на одном сьюте, и этот сьют красен на origin/main до кандидата - обе половины проверяет команда критерия.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -3291,8 +3333,8 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PILOT-P02-CLOSE",
-    "status": "closed",
+    "unitId": "REL-1.103.0",
+    "status": "open",
     "openedAt": "2026-09-04",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
@@ -3301,14 +3343,12 @@
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "host-parity",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-04"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -3329,6 +3369,15 @@
       "selectedClaim": "LOCAL_REVIEWED",
       "rootCause": ".itd/SCOPE_LOCK.md",
       "closureEvidence": "PR #253 merged 486ad77 (r6 clean cross-vendor PASS + adjudication); ledger-close #254 merged 03aaa85; STATE verified"
+    },
+    {
+      "unitId": "PILOT-P02-CLOSE",
+      "status": "closed",
+      "openedAt": "2026-09-04",
+      "closedAt": "2026-09-04",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd/SCOPE_LOCK.md",
+      "closureEvidence": "PR #259 merged bf692ab (stop-rule 1.2.0 dispositions signed by the owner, ADJUDICATED); ledger-close #260 merged 5169971; GOAL unit verified"
     }
   ]
 }
