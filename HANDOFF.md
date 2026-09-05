@@ -107,10 +107,10 @@ PR #253/#255/#257/#259 и является ПРЕДУСЛОВИЕМ наблюд
    после — переустановка `itd` и `pre-push` НА КАЖДОМ нативном хосте
    (`scripts/itd_install_cli.py --apply --replace-existing`,
    `scripts/itd_install_git_hooks.py --apply --replace-existing`).
-5. ОТК: `itd_goal_verify.py REL-1.103.0`. Его `verificationCommand` проверяет
-   meta_review, быстрое зеркало, что тег существует / указывает на коммит с
-   версией 1.103.0 / является предком `origin/main`, отсутствие дрейфа у ОБОИХ
-   CLAUDE_HOME-таргетов и наличие runtime `1.103.0-<digest>` на обоих хостах.
+5. ОТК: `itd_goal_verify.py REL-1.103.0` исполняет единственную каноническую
+   `verificationCommand` из `.itd-memory/GOAL.json`; этот handoff её не
+   пересказывает. Postdeploy/OTK evidence хранится в
+   `.itd-memory/verification-loop/`.
 6. ledger-close отдельным **чисто леджерным** PR (без кода).
 
 ## Ловушки маршрута (проверены кровью в этой сессии)

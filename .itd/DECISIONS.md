@@ -2563,3 +2563,37 @@ surface-growth treadmill записан как пробел стоп-прави�
   пересказ критерия; отдельный юнит.
 - **Когда:** 2026-09-04 (юнит REL-1.103.0, стоп-правило 1.2.0, история
   `.itd-memory/stop-rule/rel-1103-series.json`).
+
+## 2026-09-05: owner signature is narrow; persist OTK before closing the follow-up
+
+- **Что:** owner signature for checker SHA
+  `f885498b8982f54cd34cc978d2bf055e687052831eabcfce27729976052d9195`
+  authorizes the ADR-007 accepted trade-off for the release route only. It does
+  not assert full transcript equality and is never reused for a later checker
+  or ledger candidate. The later postdeploy adjudication and OTK are separate
+  evidence. Because the merged base declares only `events.jsonl` in
+  `STATE.json.ledgerFiles`, the OTK-owned `GOAL.json` transition cannot join a
+  classified close without changing the class. Phase A therefore persists the
+  exact harness transition under the open active follow-up; Phase B is the
+  separate classified close.
+- **Почему:** leaving a tracked harness-owned verified state uncommitted would
+  make the canonical lifecycle ledger non-durable. Adding `GOAL.json` to the
+  close candidate without a preceding base declaration would mislabel an
+  ordinary candidate as routine bookkeeping. The split preserves WIP=1 and
+  requires fresh exact-candidate evidence for each candidate.
+- **Отвергнуто:** copying the owner signature to Phase A or B; claiming a full
+  transcript-equality proof; resetting or hand-editing a harness status,
+  timestamp, evidence, or decision; silently staging `GOAL.json` in the
+  classified Phase B close.
+- **Metadata normalization:** the new, unpublished harness event omitted the
+  required canonical `criterionRef`. Phase A retains the original bytes under
+  `.itd-memory/verification-loop/REL-1.103.0-otk-harness-event-original.json`
+  and adds only that reference; its id, timestamp, actor, decision, evidence,
+  and ledger remain harness output. This is host-added metadata normalization,
+  not a fabricated transition or a hand-edited status. The writer omission is
+  a separate code debt.
+- **Ограничение:** this records a release/ledger decision only. It neither
+  changes the sealed REL criterion nor opens the next roadmap unit.
+- **Ссылки:** `.itd-memory/verification-loop/REL-1.103.0-postdeploy-adjudication-a1.json`,
+  `.itd-memory/verification-loop/REL-1.103.0-otk.log`,
+  `skills/_shared/itd_review_evidence.py::ledger_close_policy`.
