@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "Q6-SETUP",
     "goal": "Q6 setup: frozen prospective read-only CMP protocol and post-merge campaign initialization",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-05T10:26:36Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-05T12:37:25Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Finish Q6-SETUP implementation and exact review, merge, then initialize the real campaign before harness verification. Observation stays outside WIP; do not start ROUTE-DEBTS or D3 decision in this unit.",
+  "nextAction": "Phase B ledger close pending; keep Q6 activeFollowup open and do not activate a next unit.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]

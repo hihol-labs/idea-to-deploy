@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-05T10:26:36Z",
-  "currentUnitId": "Q6-SETUP",
+  "updatedAt": "2026-09-05T12:37:25Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "PE5-001",
@@ -447,9 +447,9 @@
       "criterion": "Focused Q6 setup oracle exits 0; after the implementation is accepted and merged, the campaign validator exits 0 for the real exclusively created campaign and current declared context. These checks establish the preregistered instrument and campaign bindings only, never a D3 effectiveness result.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_cmp_protocol.py && sh skills/_shared/itd_py.sh benchmarks/cmp/cmp_protocol.py validate --campaign .itd-memory/experiments/q6-cmp/CAMPAIGN.json --current-context .itd-memory/experiments/q6-cmp/CONTEXT.json",
       "riskTier": "medium",
-      "status": "in_progress",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-05T12:37:25Z",
+      "evidence": "exit 0: OK",
       "skippedReason": "",
       "blockedReason": ""
     },
