@@ -124,3 +124,6 @@ jobs:
         env:
           PYTHONUTF8: "0"
         run: python tests/verify_observed_token_telemetry.py
+
+      - name: Run Q6 CMP setup contract
+        run: python tests/verify_cmp_protocol.py

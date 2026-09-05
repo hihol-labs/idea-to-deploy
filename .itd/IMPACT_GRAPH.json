@@ -9,7 +9,11 @@
       "hooks/*.sh"
     ]
   },
-  "declared": {},
+  "declared": {
+    "benchmarks/cmp/README.md": [
+      "tests/verify_cmp_protocol.py"
+    ]
+  },
   "generated": {
     ".claude-plugin/marketplace.json": [
       "tests/verify_external_reviewer_release.py",
@@ -276,6 +280,13 @@
     ],
     "agents/devils-advocate.md": [
       "tests/verify_live_model_benchmark.py"
+    ],
+    "benchmarks/cmp/PROTOCOL.json": [
+      "tests/verify_blind_protocol.py",
+      "tests/verify_cmp_protocol.py"
+    ],
+    "benchmarks/cmp/cmp_protocol.py": [
+      "tests/verify_cmp_protocol.py"
     ],
     "benchmarks/completion-adversarial/CORPUS.json": [
       "tests/verify_completion_adversarial_corpus.py"
@@ -1238,6 +1249,7 @@
     "skills/_shared/itd_verification_loop.py": [
       "tests/verify_adjudication_channel.py",
       "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_cmp_protocol.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_demo_pilots.py",

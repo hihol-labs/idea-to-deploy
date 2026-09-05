@@ -1,0 +1,118 @@
+{
+  "version": "q6-cmp-v1",
+  "scope": "read-only prospective CMP setup; no D3 decision or production consumer",
+  "formula": "Unique explicitly linked descendant cycles; first valid published primary machine receipt by createdAt then producerRunId. Existing producer schema and receiptSha256 required; PASSED=1, business FAILED=0; root excluded; no smoothing. Unavailable-shell precondition is missing evidence: stop rather than count zero or skip to a later outcome. Exit codes alone do not identify infrastructure failure.",
+  "lineage": "Explicit descriptor schemaVersion=1, identity=[project,ledger,unitId,activationEventId], parents=[identity,...]. Descriptor path named by snapshot.units[].lineagePath and bound in the FIRST primary receipt reviewedTree Git blob or actual file/directory declaredInputs manifest (producer input_snapshot algorithm). No inferred ancestry.",
+  "repository": {
+    "canonical": "idea-to-deploy",
+    "aliases": [
+      "/home/hihol/projects/idea-to-deploy",
+      "\\\\wsl.localhost\\Ubuntu-24.04\\home\\hihol\\projects\\idea-to-deploy"
+    ]
+  },
+  "freeze": {
+    "windowDays": 90,
+    "dataTimeoutDays": 180,
+    "exclusive": true,
+    "requiresCleanMergedSource": true,
+    "contextMustBeExplicit": true,
+    "staleOn": [
+      "vendor",
+      "model",
+      "harnessMajor",
+      "promptPolicyDigest"
+    ],
+    "campaignFile": "CAMPAIGN.json",
+    "labelsFile": "LABELS.json",
+    "schemaVersion": 1,
+    "labelSeal": "complete owner ratings integer0..4, first20 identities, campaignSha256, full snapshotSha256 and sealedAt; exclusive fixed-path publication after maturity and before numeric disclosure",
+    "integrityBoundary": "honest host/operator integrity; seals are checksums, not owner authentication or cryptographic blinding"
+  },
+  "cohort": {
+    "size": 20,
+    "order": "closedAt then identity",
+    "roots": "first20 verified no-parent cycles activated after freeze and closed strictly after freeze/before end; chosen before outcome or exposure",
+    "zeroOrMissing": "INSUFFICIENT_DATA",
+    "overlap": "reject",
+    "excludedUnitIds": [
+      "Q6-SETUP",
+      "Q6-DECISION"
+    ],
+    "ties": "close time then full identity; future Spearman uses average tied ranks",
+    "constantRanks": "INSUFFICIENT_DATA; rho undefined",
+    "censoring": "descendants without terminal closure inside window reported separately, never success/failure",
+    "missingEvidence": "visible fail-closed error, never imputed or omitted",
+    "randomization": "N/A observational association, no treatment; blind worksheet order shuffled using preregistered seed",
+    "presentationSeed": 20260905,
+    "carryover": "one root per lineage and pairwise disjoint descendant sets",
+    "sealedSplit": "formula frozen before all prospective observations; entire prospective cohort held out"
+  },
+  "humanRubric": {
+    "range": "0..4 ordinal",
+    "anchors": [
+      "net harmful",
+      "little demonstrated utility",
+      "limited or mixed utility",
+      "clear useful reuse",
+      "sustained broad reuse without unresolved severe regression"
+    ],
+    "allowlist": [
+      "blind id",
+      "bounded factual change summary",
+      "delivered-outcome/remaining-defect summaries",
+      "time window",
+      "source evidence references excluding first-machine outcomes"
+    ],
+    "excluded": [
+      "machine score/components/counts",
+      "first-machine outcome",
+      "model/provider label"
+    ]
+  },
+  "futureDecisionOnly": {
+    "rhoAtLeast": 0.6,
+    "permutation": {
+      "shuffles": 9999,
+      "seed": "q6-cmp-v1",
+      "p": "two-sided plus-one < 0.01"
+    },
+    "bootstrap": {
+      "shuffles": 9999,
+      "seed": "q6-cmp-v1",
+      "ci": "paired percentile 95% descriptive"
+    },
+    "power": "Fisher-z Gaussian approximation, N=20 rho=.6 alpha=.01; not an exact Spearman guarantee",
+    "attempts": "One decision attempt per frozen formula; future decision unit persists intent before numeric reveal; never retune against labels or retry the same formula/window",
+    "retry": "new preregistration and new prospective window, no historical reuse",
+    "negativeControl": "report mean Spearman rho across the same 9999 shuffled pairings; expected zero, not substitute for observed effect",
+    "consumerGate": "No operational ranking, reward, model routing or self-modification before separately accepted D3 decision",
+    "decisionImplementation": "Deferred; must consume this unchanged instrument/protocol and add a separate runner, not edit frozen formula"
+  },
+  "baseline": {
+    "cmpPairs": 0,
+    "goalVerifiedLast90Days": 37,
+    "qualifyingFlowEstimate": "not available",
+    "manualRankingBaseline": "N/A",
+    "benefitHypothesis": "30 min/month if later D3 validates",
+    "setupHours": 16,
+    "monthlyHours": 1,
+    "manualRankingBaselineReason": "No comparable formal ranking workflow existed before setup",
+    "flowPerMonthAllUnits": 12.333333333333334,
+    "paybackTargetMonthsAfterD3": 6,
+    "paybackStatus": "unmeasured hypothesis; measure comparable owner ranking effort at future decision",
+    "calendarBudgetDays": 90,
+    "dataTimeoutDays": 180,
+    "setupCI": "N/A deterministic software acceptance; future statistical methods specified separately",
+    "rollback": "archive campaign and stop using instrument; no lifecycle, production policy, model choice or rewards changed"
+  },
+  "privacy": {
+    "rawTraceRetentionDays": 90,
+    "aggregateRetention": "indefinite without trace text",
+    "handling": "Do not copy raw prompts/provider output/secrets into CMP source bundles. Apply source-side scrubbing before original receipts are sealed; never alter sealed evidence to hide omissions. Existing owner retention policy governs local raw material."
+  },
+  "sources": [
+    "https://arxiv.org/html/2510.21614v3",
+    "https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.spearmanr.html"
+  ],
+  "interpretation": "Unvalidated empirical ITD proxy inspired by descendant outcomes; not causal unlocking, HGM theorem reproduction, or demonstrated effectiveness."
+}

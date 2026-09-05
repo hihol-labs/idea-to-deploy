@@ -37,19 +37,18 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL-1.103.0",
-    "goal": "REL-1.103.0: релиз v1.103.0 (таксономия вердикта PILOT-P01, стоп-правило 1.2.0 STOPRULE-1/2, машинерия слепого протокола PILOT-P02) по docs/RELEASE_RUNBOOK.md + раскатка обоих хостов для Claude и Codex; ledger-close отдельным леджерным PR. Переcверка записи свежести провайдера-ревьюера ВЫВЕДЕНА из юнита решением владельца 2026-09-04 после терминала стоп-правила REDESIGN_OR_DISCARD @ r5 и станет отдельным юнитом.",
-    "status": "verified",
-    "startedAt": "2026-09-04T12:07:03Z",
+    "id": "Q6-SETUP",
+    "goal": "Q6 setup: frozen prospective read-only CMP protocol and post-merge campaign initialization",
+    "status": "in_progress",
+    "startedAt": "2026-09-05T10:26:36Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-05T08:32:00Z"
+    "riskTier": "medium"
   },
   "gateResults": {
-    "acceptanceContract": "passed",
-    "specComplianceReview": "passed",
-    "codeQualityReview": "passed",
-    "tests": "passed",
+    "acceptanceContract": "pending",
+    "specComplianceReview": "pending",
+    "codeQualityReview": "pending",
+    "tests": "pending",
     "tddRed": "passed",
     "tddGreen": "passed",
     "rootCause": "passed",
@@ -67,7 +66,7 @@
     "branchFinish": "pending",
     "learningPromotion": "n/a",
     "nextStepApproval": "approved",
-    "deploymentReadiness": "passed"
+    "deploymentReadiness": "pending"
   },
   "verificationHistory": [
     {
@@ -573,7 +572,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "REL-1.103.0 is ledger-closed by this classified candidate after Phase A PR #262 merged c904b73. Start Q6 only in a later session after this close is accepted; do not activate Q6 or any other unit in this ledger commit. The reviewer-provider freshness debt remains separately scoped.",
+  "nextAction": "Finish Q6-SETUP implementation and exact review, merge, then initialize the real campaign before harness verification. Observation stays outside WIP; do not start ROUTE-DEBTS or D3 decision in this unit.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]
