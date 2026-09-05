@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "REL-1.103.0",
     "goal": "REL-1.103.0: релиз v1.103.0 (таксономия вердикта PILOT-P01, стоп-правило 1.2.0 STOPRULE-1/2, машинерия слепого протокола PILOT-P02) по docs/RELEASE_RUNBOOK.md + раскатка обоих хостов для Claude и Codex; ledger-close отдельным леджерным PR. Переcверка записи свежести провайдера-ревьюера ВЫВЕДЕНА из юнита решением владельца 2026-09-04 после терминала стоп-правила REDESIGN_OR_DISCARD @ r5 и станет отдельным юнитом.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-04T12:07:03Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-05T08:32:00Z"
   },
   "gateResults": {
     "acceptanceContract": "passed",
@@ -66,7 +67,7 @@
     "branchFinish": "pending",
     "learningPromotion": "n/a",
     "nextStepApproval": "approved",
-    "deploymentReadiness": "pending"
+    "deploymentReadiness": "passed"
   },
   "verificationHistory": [
     {
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "PILOT-P02-CLOSE закрыт: PR #259 merged bf692ab, юнит verified, WIP свободен. Обе диспозиции r6 закрыты в ledger-close (фраза контракта; именованный отказ score() в тесте, мутация летальна). Next по плану RSI (ADVISORY v4 §5, разрез setup -> observation -> decision): раскатка таксономии вердикта на хост (релизный юнит) как предусловие наблюдения, затем decision-юнит слепого протокола (печать, разметка владельца, порог 8/10).",
+  "nextAction": "REL-1.103.0 verified by the harness after PR #261 merged as 6776ae4, v1.103.0 release, dual-host rollout, and medium postdeploy adjudication .itd-memory/verification-loop/REL-1.103.0-postdeploy-adjudication-a1.json. Keep WIP=1: Phase A persists the harness-owned GOAL transition under the still-open active followup; Phase B then performs the classified STATE + acceptance-contract close. Do not activate a new unit before both ledger PRs are accepted.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]

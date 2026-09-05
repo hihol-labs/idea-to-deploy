@@ -1336,3 +1336,33 @@ REL-1.103.0 сначала двигал `checkedAt` на основании ре
 краснеть, когда дата новее самой свежей улики. Тогда сдвиг даты без исполнения
 станет невозможен машинно, а не по договорённости. Оценка: S/M. Риск
 невмешательства: главное поле записи остаётся недоказуемым утверждением.
+
+## P1 — stop rule rejects a BLOCKED report containing only unverified contours (REL-1.103.0, 2026-09-05)
+
+The release route produced a structurally valid `BLOCKED` outcome with no
+findings and one cross-unit `unverified` contour. The stop-rule input
+classifier rejected it before it could express an outcome, so ADR-007 required
+an owner disposition instead of a typed rule result. Define and test the
+machine-readable treatment for `findings=[]` plus non-empty `unverified`;
+preserve fail-closed publication while allowing the rule to report its actual
+terminal state. Do not treat the current owner disposition as a general bypass.
+
+## P2 — native Windows diagnostic limitations remain outside the successful 1.103.0 rollout (REL-1.103.0, 2026-09-05)
+
+With `PYTHONUTF8=0`, the documentation-freshness path can still decode
+`docs/QUALITY.json` through cp1251 and fail. The native runtime-install test
+also retains the `WinError 1314` symlink-creation limitation. The released
+Claude/Codex rollout and its 42-file hash canary succeeded; those results do
+not repair or erase the two host diagnostics. Reproduce each on native Windows
+and choose a fail-closed or portable implementation in a separately scoped
+unit.
+
+## P1 — goal verifier omits `criterionRef` on its verified event (REL-1.103.0, 2026-09-05)
+
+The harness-generated `evt-goal-1788597120` carried the verified status and
+evidence but omitted the canonical criterion reference required by the frozen
+event form. Phase A preserves its original bytes in ignored verification-loop
+evidence and normalizes only the missing metadata before first publication; no
+committed event was rewritten. Update the goal-event writer and add a regression
+that requires `criterionRef` for verified transitions, so a later ledger does
+not need host-side metadata normalization.
