@@ -3371,8 +3371,9 @@
   },
   "activeFollowup": {
     "unitId": "Q6-SETUP",
-    "status": "open",
+    "status": "closed",
     "openedAt": "2026-09-05",
+    "closedAt": "2026-09-05T13:19:07Z",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
