@@ -573,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "REL-1.103.0 verified by the harness after PR #261 merged as 6776ae4, v1.103.0 release, dual-host rollout, and medium postdeploy adjudication .itd-memory/verification-loop/REL-1.103.0-postdeploy-adjudication-a1.json. Keep WIP=1: Phase A persists the harness-owned GOAL transition under the still-open active followup; Phase B then performs the classified STATE + acceptance-contract close. Do not activate a new unit before both ledger PRs are accepted.",
+  "nextAction": "REL-1.103.0 is ledger-closed by this classified candidate after Phase A PR #262 merged c904b73. Start Q6 only in a later session after this close is accepted; do not activate Q6 or any other unit in this ledger commit. The reviewer-provider freshness debt remains separately scoped.",
   "ledgerFiles": [
     ".itd-memory/events.jsonl"
   ]
