@@ -1,145 +1,24 @@
-# HANDOFF — REL-1.103.0 (релиз v1.103.0 + раскатка)
+# HANDOFF — ROUTE-DEBTS close (release 1.103.1 + native rollout + installed-proof + ledger-close + FOLLOWUP-A13)
 
-**Дата:** 2026-09-04 · **Ветка:** `chore/release-1.103.0` (база `origin/main` = `5169971`)
-**Юнит:** `REL-1.103.0`, riskTier `medium`, активирован в `GOAL.json` (39 юнитов, WIP=1).
-**Кандидат:** в ИНДЕКСЕ, НЕ закоммичен. Хеши дерева и имена квитанций в этом
-файле НЕ приводятся намеренно: они устаревают при каждой правке пакета, и
-трижды за сессию именно это ловил независимый ревьюер. Актуальное дерево —
-`git write-tree`; свежая квитанция — максимальный суффикс `-a*` в
-`.itd-memory/verification-loop/`.
+Дата: 2026-09-07. Ветка релиза: `chore/release-v1.103.1` (от origin/main 49e1c95).
+Леджерные черновики (DECISIONS/BACKLOG/events для ledger-close) лежат в
+`git stash` с меткой `route-debts-ledger-close-drafts` (снято с codex/route-debts).
 
-## Что это за юнит
-Пункт 1 утверждённого владельцем порядка RSI (`memory/project_rsi_next_steps.md`,
-2026-09-04): релиз -> Q6 setup -> ROUTE-DEBTS. Релиз выпускает уже смерженные
-PR #253/#255/#257/#259 и является ПРЕДУСЛОВИЕМ наблюдения пилота: на хостах
-стоит runtime `1.102.0-bca5a6de` (до #253), поэтому писатели не штампуют
-`taxonomy_version` и популяция слепого протокола пуста.
-
-## ТЕКУЩИЙ СКОУП (сокращён 2026-09-04 решением владельца)
-Кандидат несёт РОВНО девятнадцать файлов, перечисленных ниже пунктами
-1-3; сверять их полным списком `git diff --cached --name-only`, а не
-этим текстом по памяти. Раскатка хостов идёт ПОСЛЕ мержа и файлов
-кандидата не добавляет.
-
-1. **Версия 1.102.0 -> 1.103.0** в `.claude-plugin/plugin.json`,
-   `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, бейджах
-   `README.md` / `README.ru.md`; пины, следующие за бампом:
-   `docs/HARNESS_DOCS_STATE.json`, `docs/HARNESS_CONFORMANCE_REPORT.md`,
-   `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`, `VERSION` в
-   `tests/verify_external_reviewer_release.py`.
-2. **CHANGELOG** — запись `[1.103.0] - 2026-09-04`.
-3. **Леджерная бухгалтерия — ВСЕ девять файлов** (первые пять из
-   git-ignored каталогов, только через **`git add -f`**):
-   `.itd/SCOPE_LOCK.md`, `.itd/ACCEPTANCE_CONTRACT.json` (ДВА критерия:
-   `-1-version`, `-3-mirror`; `requiredImpactClasses` = correctness +
-   repository-hygiene), `.itd/DECISIONS.md`,
-   `.itd-memory/contracts/REL-1.103.0.md`, `.itd-memory/GOAL.json`,
-   `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`, `BACKLOG.md`,
-   `HANDOFF.md` (этот файл входит в кандидата сам).
-   Прежняя редакция называла три файла из девяти и при этом заявляла
-   исчерпывающее «РОВНО» — это нашёл cross-vendor ревьюер (r12).
-
-**Свежесть провайдера-ревьюера в скоуп НЕ входит.** Она была выведена целиком
-после терминала стоп-правила (см. ниже): `.itd/REVIEW_PROVIDER_FRESHNESS.json`
-возвращён к состоянию `origin/main`, улик `PROVIDER_LIVE_*` в кандидате НЕТ.
-
-## Стоп-правило: терминалы и решения владельца
-Ни счётчики серии, ни ЧИСЛО терминалов здесь не дублируются - они устаревают
-быстрее файла (обе строки уже ловились ревьюером: счётчик заходов дважды, число
-терминалов один раз). Полный и действующий список решений владельца - в
-`.itd/DECISIONS.md` по дате 2026-09-04; ниже перечислены те, что нужны
-оператору прямо сейчас, без утверждения об их полноте. Действующие счётчики,
-повторяющиеся механизмы и терминал печатает
-`sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py --history
-.itd-memory/stop-rule/rel-1103-series.json --json` по истории
-`.itd-memory/stop-rule/rel-1103-series.json` (личности кандидатов считает
-`candidate_identity_from_ledger` — по участкам диффа, а не по журналу целиком).
-
-1. **Терминал @ r5** — механизм
-   `.itd/ACCEPTANCE_CONTRACT.json::specification-compliance` дал находки в r3 и
-   r5 на разных кандидатах. **Решение владельца — вариант B:** свежесть
-   провайдера-ревьюера выходит из релиза целиком; корень (схема записи не умеет
-   привязывать улику собственной аттестации) записан долгом P1 в BACKLOG.
-   Отчеканенные подписанные улики живого исполнения обоих хостов лежат в
-   `.itd/PROVIDER_LIVE_WSL.json` и `.itd/PROVIDER_LIVE_WINDOWS.json` (вне
-   кандидата, каталог git-ignored) — будущему юниту чеканить заново не нужно.
-2. **Терминал после r8** — критерии приёмки были свободной прозой, а команды
-   проверки отдельными артефактами, и соответствие между ними ничем не
-   удерживалось. **Решение владельца — вариант A:** критерий утверждает РОВНО
-   то, что устанавливает его команда; всё прочее уходит в `evidence` с пометкой
-   «наблюдение, не утверждение».
-3. **Терминал после r12** — механизм
-   `.itd-memory/events.jsonl::repository-hygiene` дал находки в r4, r6 и r12 на
-   трёх разных кандидатах, то есть сломался снова уже после решения №2. Корень:
-   улика события ДОСЛОВНО копировала текст критерия, поэтому любая правка
-   критерия делала последнюю запись append-only журнала ложной. **Решение
-   владельца — вариант A (форма улики):** событие больше не копирует критерий,
-   а ссылается на него полем `criterionRef` (леджер + путь к полю) и записывает
-   только ЧТО изменилось и ПОЧЕМУ. Действующий текст критерия читается ровно из
-   одного места — `.itd-memory/GOAL.json`, `units[id=REL-1.103.0].criterion`.
-
-## Состояние оракулов
-- Шесть оракулов версии краснели ДО правки и зелены ПОСЛЕ (наблюдённый
-  RED->GREEN): `verify_host_adapters`, `verify_external_reviewer_release`,
-  `verify_gate_control`, `verify_itd_runtime_install`, `verify_git_gate_hooks`,
-  `verify_harness_docs_freshness`.
-- Полное зеркало: ДВА красных, оба предшествуют кандидату и воспроизводятся на
-  чистом `origin/main` — `verify_ledger_reconciliation` (`vcr=1.0 blocked=0`) и
-  `verify_reviewer_provider_freshness` (истёк календарь записи).
-- Машинная квитанция чеканится СЕМЬЮ командами (без `reviewer-provider-freshness`:
-  он красный по построению и вне скоупа): `external-reviewer-release`,
-  `harness-docs-freshness`, `host-adapters`, `itd-runtime-install`,
-  `git-gate-hooks`, `gate-control`, `meta-review`.
-- Зеркала в квитанции НЕТ по измерению: изолированный оракул гоняет команду на
-  копии дерева без git-чекаута, где шесть checkout-bound сьютов красные по
-  построению.
-
-## Что дальше (по маршруту)
-1. Машинная квитанция (7 команд) -> независимый чекер (targeted) -> cross-vendor
-   продюсер `sol` -> adjudication.
-2. Коммит -> `itd pr create --timeout 3600` -> `gh pr ready` (**проверить
-   `isDraft` перед merge**) -> CI -> merge.
-3. Тег: `gh release create v1.103.0 --target "$(git rev-parse <merge-sha>)"`
-   (короткий SHA даёт `target_commitish is invalid`; прямой `git push` тега
-   блокируется гейтом — ожидаемо).
-4. Раскатка: `bash scripts/sync-to-active.sh`, затем
-   `CLAUDE_HOME=/mnt/c/Users/<user>/.claude bash scripts/sync-to-active.sh`;
-   после — переустановка `itd` и `pre-push` НА КАЖДОМ нативном хосте
-   (`scripts/itd_install_cli.py --apply --replace-existing`,
-   `scripts/itd_install_git_hooks.py --apply --replace-existing`).
-5. ОТК: `itd_goal_verify.py REL-1.103.0` исполняет единственную каноническую
-   `verificationCommand` из `.itd-memory/GOAL.json`; этот handoff её не
-   пересказывает. Postdeploy/OTK evidence хранится в
-   `.itd-memory/verification-loop/`.
-6. ledger-close отдельным **чисто леджерным** PR (без кода).
-
-## Ловушки маршрута (проверены кровью в этой сессии)
-- Квитанция ИММУТАБЕЛЬНА: повторная чеканка в тот же файл даёт `UNVERIFIED`,
-  нужен новый attempt-файл (`-a2`, `-a3`, ...).
-- Отчёт и промпт чекера обязаны лежать в `verification-loop/reports/` и
-  `prompts/`, иначе pre-flight отказывает.
-- Цикл принимает у чекера только `PASSED` или `BLOCKED`;
-  `PASSED_WITH_WARNINGS` отвергается машинно.
-- `.itd/` исключён через `.git/info/exclude` -> файлы оттуда входят в кандидат
-  только через `git add -f`.
-- `--emit-dispositions` требует BLOCKED-квитанцию ЧЕКЕРА; продюсер для BLOCKED
-  квитанцию не чеканит по построению, поэтому по его вердикту черновик
-  диспозиций машинно не составляется.
-- Субагент-чекер упирается в лимит ходов, если ведёт пошаговую разведку: давай
-  явный бюджет и требуй писать отчёт заранее.
-- Любая правка пакета обнуляет привязанные к дереву квитанции: сначала вся
-  бухгалтерия, потом чеканка.
-
-
-## Единственный источник критерия и состояния
-- Критерий юнита — ТОЛЬКО `.itd-memory/GOAL.json`,
-  `units[id=REL-1.103.0].criterion`. Этот файл, `.itd/SCOPE_LOCK.md` и контракт
-  юнита на него ССЫЛАЮТСЯ и не пересказывают (решение владельца после
-  четвёртого терминала: механизм `GOAL.json::specification-compliance`
-  повторился в r8, r9, r13 — каждый раз расхождение между копиями факта).
-- Состояние серии — только вывод `itd_stop_rule.py --json` по истории.
-- Состояние дерева — `git write-tree`; свежайшая машинная квитанция — по
-  максимальному суффиксу `.itd-memory/verification-loop/REL-1.103.0-machine-a*.json`,
-  свежайшая квитанция чекера — `REL-1.103.0-checker-a*.json`.
-- Хешей дерева и имён квитанций в этом файле нет намеренно: он трижды устаревал
-  относительно дерева и был за это заблокирован ревьюером.
+## План (WIP=1, юнит ROUTE-DEBTS остаётся in_progress до installed-proof)
+1. Релиз 1.103.1: бамп 10 мест (plugin.json x2, marketplace, docs-state, README x2,
+   conformance, rc-contract, release-oracle VERSION, CHANGELOG) — СДЕЛАНО в рабочем дереве.
+   Оракулы: meta_review + run-all --quick (лог в scratchpad). Ревью: machine receipt
+   (unit-id ROUTE-DEBTS, risk high) + Sol producer по шаблону
+   `.itd-memory/verification-loop/ROUTE-DEBTS-run-sol-a14.py` -> adjudicate -> cache ->
+   commit -> `itd pr create` -> CI -> merge -> `gh release create v1.103.1 --target <full sha>`.
+2. Раскатка: `bash scripts/sync-to-active.sh`; `CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude bash scripts/sync-to-active.sh`;
+   WSL: `python3 -I scripts/itd_install_cli.py --apply --replace-existing` + `itd_install_git_hooks.py --apply --replace-existing`;
+   Windows: то же из Windows-python (`C:\Users\Дмитрий\AppData\Local\Programs\Python\Python312\python.exe`) через powershell;
+   Codex cache: `bash .itd-memory/refresh_codex_caches.sh all` (+ проверить `codex plugin list --marketplace personal --json` version 1.103.1).
+3. Installed-proof `.itd-memory/host-inputs/ROUTE-DEBTS/INSTALLED.json` (schema v2: version=2, release, runtimeSha256, hosts[Linux,Windows]);
+   на каждом хосте: machine receipt unit `ROUTE-DEBTS:deployment-canary` risk low с командой
+   `native=<sys.executable> -I -B tests/verify_route_debts.py --native-test-log <log>` (см. native_test_command),
+   adjudicate, снапшоты в host-inputs, revalidationLog = вывод `--native-proof`, cliWrapper/prePushWrapper/adapters rows.
+   Валидатор: tests/verify_route_debts.py validate_native_record / validate_native_canary / installed_proof.
+4. ОТК: `sh skills/_shared/itd_py.sh skills/goal/scripts/itd_goal_verify.py ROUTE-DEBTS --verification-receipt .itd-memory/verification-loop/ROUTE-DEBTS-adjudicated-a13.json`
+5. Ledger-close PR с новой ветки от main (stash pop + STATE/GOAL/events), затем /goal activate ROUTE-DEBTS-FOLLOWUP-A13 (поверхность из BACKLOG P1).
