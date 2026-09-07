@@ -1504,3 +1504,15 @@ canary from an NTFS clone of the same commit (`C:\itd-src\idea-to-deploy`,
 `core.autocrlf=false`); the record binds that clone as `sourceRepository`.
 Fix: compare a case-folded form only in the validator and keep the original
 spelling in argv, or reject case-sensitive shares with a named FIX.
+
+## P3 — review: the secret scrubber redacts ordinary identifiers named `token` (2026-09-07)
+
+`SECRET_PATTERNS` in `skills/_shared/itd_external_reviewer.py` redacts the value
+of any assignment whose name ends in `token`, so an ordinary local such as
+`token = self.w.HANDLE()` reaches the independent reviewer as
+`token = [REDACTED]`. Observed live on ROUTE-DEBTS-FOLLOWUP-A13: Sol-fa2 raised a
+high-severity NameError finding against code that runs green natively, and the
+candidate had to rename the local to stay reviewable. The redaction is correct
+for real credentials, so the fix is not to relax it blindly: prefer redacting
+only literal-looking values (quoted strings, long opaque runs) and leaving call
+expressions intact, with a RED-first regression on both shapes.

@@ -50,10 +50,83 @@ class _WindowsIO:
         self.k32.GetFileInformationByHandle.restype = w.BOOL
         self.k32.GetFileType.argtypes = [w.HANDLE]
         self.k32.GetFileType.restype = w.DWORD
+        self.k32.GetCurrentProcess.restype = w.HANDLE
+        self.k32.LocalFree.argtypes = [w.HGLOBAL]
+        self.k32.LocalFree.restype = w.HGLOBAL
+        self.adv = ctypes.WinDLL('advapi32', use_last_error=True)
+        self.adv.GetSecurityInfo.argtypes = [w.HANDLE, ctypes.c_int, w.DWORD,
+            ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+        self.adv.GetSecurityInfo.restype = w.DWORD
+        self.adv.GetLengthSid.argtypes = [ctypes.c_void_p]
+        self.adv.GetLengthSid.restype = w.DWORD
+        self.adv.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, ctypes.POINTER(w.HANDLE)]
+        self.adv.OpenProcessToken.restype = w.BOOL
+        self.adv.GetTokenInformation.argtypes = [w.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                                                 w.DWORD, ctypes.POINTER(w.DWORD)]
+        self.adv.GetTokenInformation.restype = w.BOOL
+        self._owner_identities = None
 
     def _check(self, status):
         if status < 0:
             raise ctypes.WinError(self.nt.RtlNtStatusToDosError(status))
+
+    def _sid_bytes(self, sid):
+        length = self.adv.GetLengthSid(sid)
+        if not length:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return ctypes.string_at(sid, length)
+
+    def _token_sid(self, token, information_class):
+        size = self.w.DWORD()
+        self.adv.GetTokenInformation(token, information_class, None, 0, ctypes.byref(size))
+        if not size.value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        buf = ctypes.create_string_buffer(size.value)
+        if not self.adv.GetTokenInformation(token, information_class, buf, size.value,
+                                            ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        # TOKEN_USER and TOKEN_OWNER both start with the SID pointer.
+        return self._sid_bytes(ctypes.cast(buf, ctypes.POINTER(ctypes.c_void_p))[0])
+
+    def owner_identities(self):
+        """The single SID a private object must carry: this process's user.
+
+        This is the exact parity of the POSIX rule ``st_uid == os.getuid()``.
+        The token's default owner is deliberately NOT accepted as well: on an
+        elevated token it is usually the Administrators group, and a file
+        created or planted by any other administrator carries that same group,
+        so accepting it would prove nothing about who owns the destination
+        (Sol-fa4).  The cost is named rather than hidden: under such a token
+        the objects this process creates are owned by that group, so a trusted
+        append refuses fail-closed, and the FIX is to run the ledger writer as
+        the owning user rather than to relax the check.
+        """
+        if self._owner_identities is None:
+            # Named ``process_handle`` and not ``token``: the review scrubber
+            # redacts the value of any assignment whose name ends in ``token``,
+            # which blinded an independent reviewer to this code path.
+            process_handle = self.w.HANDLE()
+            if not self.adv.OpenProcessToken(self.k32.GetCurrentProcess(), 0x8,
+                                             ctypes.byref(process_handle)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            try:
+                self._owner_identities = (self._token_sid(process_handle, 1),)
+            finally:
+                self.k32.CloseHandle(process_handle)
+        return self._owner_identities
+
+    def _owner_sid(self, handle):
+        owner, descriptor = ctypes.c_void_p(), ctypes.c_void_p()
+        # SE_FILE_OBJECT = 1, OWNER_SECURITY_INFORMATION = 1.
+        status = self.adv.GetSecurityInfo(handle, 1, 1, ctypes.byref(owner), None, None, None,
+                                          ctypes.byref(descriptor))
+        if status:
+            raise ctypes.WinError(status)
+        try:
+            return self._sid_bytes(owner)
+        finally:
+            self.k32.LocalFree(descriptor)
 
     def _info(self, handle, *, directory=False, private=False):
         info = self.FileInfo()
@@ -63,6 +136,11 @@ class _WindowsIO:
                 or bool(info.attributes & 0x10) != directory
                 or (private and info.links != 1)):
             raise RuntimeError('opened namespace object is not a safe directory/regular file')
+        # A single link proves nothing about who owns the destination: a
+        # foreign-owned file planted at a ledger path would still accept a
+        # trusted append (Sol-a13).  This is the POSIX st_uid rule's parity.
+        if private and self._owner_sid(handle) not in self.owner_identities():
+            raise RuntimeError('opened namespace object has a foreign owner')
         return info
 
     @staticmethod
@@ -231,6 +309,14 @@ class _WindowsIO:
             with self._fd(handle, os.O_WRONLY | os.O_APPEND) as fd:
                 os.lseek(fd, 0, os.SEEK_END)
                 self._write(fd, content)
+
+    @contextlib.contextmanager
+    def open_private_lock_fd(self, path):
+        with self._parent(path) as (parent, name):
+            # GENERIC_READ | GENERIC_WRITE | SYNCHRONIZE | FILE_READ_ATTRIBUTES.
+            handle = self._open(parent, name, create=True, access=0xC0100080, private=True)
+            with self._fd(handle, os.O_RDWR) as fd:
+                yield fd
 
     def durable_unlink(self, path):
         try:

@@ -1630,6 +1630,7 @@ def sol_a12_regressions(goal_module) -> None:
                 jmem.rmdir()
             print(f"SKIP native file-symlink ledger cases (privilege unavailable: {privilege}); junctioned cases proved", flush=True)
             print("PASS Sol-a12 anchored fail-closed Goal and task ledger reader regressions", flush=True)
+            sol_a13_regressions()
             return
         events_path.unlink()
         os.symlink(outside / "events.jsonl", events_path)
@@ -1658,6 +1659,139 @@ def sol_a12_regressions(goal_module) -> None:
         unit_log.append_event(mem, "T", "verified", "x", "GOAL.json")
         assert unit_log.has_event(mem, "T", "verified")
     print("PASS Sol-a12 anchored fail-closed Goal and task ledger reader regressions", flush=True)
+    sol_a13_regressions()
+
+
+def sol_a13_regressions() -> None:
+    """Sol-a13: the bounded STATE lock, the efficacy current view, Windows
+    private ownership and explicit criterion ownership are all fail-closed."""
+    unit_log = module("route_a13_unit_log", ROOT / "skills/task/scripts/itd_unit_log.py")
+    evidence = module("route_a13_review_evidence", ROOT / "skills/_shared/itd_review_evidence.py")
+    efficacy = module("route_a13_efficacy", ROOT / "tests/verify_independent_review_efficacy.py")
+
+    # 1. A criterion row that claims this unit but carries no usable id used to
+    # be dropped silently, so the selector fell back to legacy prefix matching
+    # and the prompt projection could review a different set from the evidence
+    # validator for the same unit.  Malformed explicit ownership fails closed.
+    legacy = {"id": "U-1-AC1", "criterion": "legacy"}
+    foreign = {"id": 7, "unitId": "U-2"}
+    for malformed in ({"id": 1, "unitId": "U-1"}, {"id": "", "unitId": "U-1"}, {"unitId": "U-1"}):
+        try:
+            evidence.active_criteria({"criteria": [malformed, legacy]}, "U-1")
+        except evidence.ReviewEvidenceError as exc:
+            assert "ownership" in str(exc), str(exc)
+        else:
+            raise AssertionError("malformed explicit criterion ownership fell back to prefix matching")
+    # A malformed row owned by ANOTHER unit stays that unit's problem.
+    assert evidence.active_criteria({"criteria": [foreign, legacy]}, "U-1") == [legacy]
+    explicit = {"id": "X", "unitId": "U-1"}
+    assert evidence.active_criteria({"criteria": [explicit, legacy]}, "U-1") == [explicit]
+
+    # 2. The bounded STATE writer lock is opened anchored and no-follow: a link
+    # or a second hard link at .STATE.write.lock would move the lock (and its
+    # initialising byte) into a foreign file while every writer still believed
+    # the STATE write was serialised.  Each backend names its own reason, so
+    # the refusal is required by name and never by bare failure.
+    named_refusal = ("no-link", "private", "not a safe directory/regular file", "foreign owner")
+    with tempfile.TemporaryDirectory(prefix="route-sol-a13-lock-") as td:
+        root = Path(td)
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        lock = mem / ".STATE.write.lock"
+        outside = root / "outside-lock"
+        outside.write_bytes(b"")
+        try:
+            os.symlink(outside, lock)
+        except OSError as exc:
+            print(f"SKIP native lock-symlink case (privilege unavailable: {exc})", flush=True)
+        else:
+            try:
+                with unit_log.state_write_lock(mem):
+                    pass
+            except (RuntimeError, OSError) as exc:
+                assert any(reason in str(exc) for reason in named_refusal), str(exc)
+            else:
+                raise AssertionError("bounded STATE lock was taken through a linked lock file")
+            assert outside.read_bytes() == b"", "linked lock target was initialised through the lock"
+            lock.unlink()
+        lock.write_bytes(b"\0")
+        hard = root / "lock-hardlink"
+        try:
+            os.link(lock, hard)
+        except OSError as exc:
+            print(f"SKIP native lock hard-link case: {exc}", flush=True)
+        else:
+            try:
+                with unit_log.state_write_lock(mem):
+                    pass
+            except (RuntimeError, OSError) as exc:
+                assert any(reason in str(exc) for reason in named_refusal), str(exc)
+            else:
+                raise AssertionError("bounded STATE lock accepted a multi-link lock file")
+            hard.unlink()
+        # The ordinary file still serialises, including the reentrant path.
+        with unit_log.state_write_lock(mem):
+            with unit_log.state_write_lock(mem):
+                pass
+
+    # 3. The current efficacy view is read through the anchored no-follow
+    # reader: a link planted at results/<name>.json would otherwise bind
+    # foreign bytes to a current-producer diagnostic entry of the archive.
+    with tempfile.TemporaryDirectory(prefix="route-sol-a13-efficacy-") as td:
+        root = Path(td)
+        results = root / "results"
+        results.mkdir()
+        payload = b'{"observation": "current"}'
+        (root / "outside.json").write_bytes(payload)
+        current = results / "semantic.json"
+        producer_sha = "b" * 64
+        history = {Path("history/semantic.json"): {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "classification": "diagnostic",
+            "sourceProducerSha256": producer_sha,
+        }}
+        try:
+            os.symlink(root / "outside.json", current)
+        except OSError as exc:
+            print(f"SKIP native efficacy current-view symlink case (privilege unavailable: {exc})", flush=True)
+        else:
+            try:
+                efficacy.validate_current_result_archive_binding(current, history, producer_sha)
+            except (RuntimeError, OSError) as exc:
+                assert "no-link" in str(exc) or "regular" in str(exc), str(exc)
+            else:
+                raise AssertionError("efficacy current view was read through a link")
+            current.unlink()
+        current.write_bytes(payload)
+        efficacy.validate_current_result_archive_binding(current, history, producer_sha)
+
+    # 4. A private Windows open must also prove ownership, mirroring the POSIX
+    # st_uid rule: the link count alone leaves a foreign-owned file planted at
+    # a ledger path acceptable as the destination of a trusted append.
+    if os.name != "nt":
+        print("SKIP Windows private-ownership case: the native adapter only loads on Windows; "
+              "the POSIX st_uid rule is enforced by _private_fd and exercised by the append cases",
+              flush=True)
+    else:
+        backend = module("route_a13_windows", ROOT / "skills/_shared/itd_safe_atomic_windows.py").backend()
+        with tempfile.TemporaryDirectory(prefix="route-sol-a13-owner-") as td:
+            target = Path(td) / "events.jsonl"
+            backend.durable_append_bytes(target, b"{}\n")
+            original = backend.owner_identities()
+            # SID of LocalSystem: a real, well-formed identity this process is not.
+            backend._owner_identities = (b"\x01\x01\x00\x00\x00\x00\x00\x05\x12\x00\x00\x00",)
+            try:
+                backend.durable_append_bytes(target, b"{}\n")
+            except RuntimeError as exc:
+                assert "owner" in str(exc), str(exc)
+            else:
+                raise AssertionError("Windows private append accepted a foreign-owned destination")
+            finally:
+                backend._owner_identities = original
+            backend.durable_append_bytes(target, b"{}\n")
+            assert target.read_bytes() == b"{}\n{}\n"
+    print("PASS Sol-a13 anchored STATE lock, efficacy current view, Windows ownership and "
+          "explicit criterion ownership regressions", flush=True)
 
 
 def run_suites(suites: tuple[str, ...]) -> bool:

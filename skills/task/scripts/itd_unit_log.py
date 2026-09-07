@@ -48,7 +48,7 @@ STATE_LOCK_WAIT_SECONDS = 5.0
 # в репо методологии и в установленном ~/.claude/skills.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
 import itd_unit_lifecycle as LC  # noqa: E402
-from itd_safe_atomic import atomic_replace_bytes, durable_append_bytes, ledger_events, read_ledger_snapshot  # noqa: E402
+from itd_safe_atomic import atomic_replace_bytes, durable_append_bytes, ledger_events, open_private_lock_fd, read_ledger_snapshot  # noqa: E402
 
 # Терминалы, которыми можно закрыть цикл вручную при реконсиляции.
 CLOSE_OUTCOMES = ("superseded", "abandoned", "blocked", "skipped")
@@ -290,22 +290,24 @@ def state_write_lock(mem: Path):
         finally:
             held[key] -= 1
         return
-    path = mem / ".STATE.write.lock"
-    handle = path.open("a+b")
-    try:
-        handle.seek(0, os.SEEK_END)
-        if handle.tell() == 0:
-            handle.write(b"\0")
-            handle.flush()
-        handle.seek(0)
+    # The lock file is opened anchored and no-follow, and proved regular,
+    # single-link and owned: a link or a second hard link planted at the lock
+    # pathname used to move both the lock and its initialising byte into a
+    # foreign file while every writer believed STATE writes were serialised
+    # (Sol-a13).
+    with open_private_lock_fd(mem / ".STATE.write.lock") as fd:
+        if os.lseek(fd, 0, os.SEEK_END) == 0:
+            os.write(fd, b"\0")
+            os.fsync(fd)
+        os.lseek(fd, 0, os.SEEK_SET)
         if os.name == "nt":
             import msvcrt
-            attempt = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-            unlock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            attempt = lambda: msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            unlock = lambda: msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
-            attempt = lambda: fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            unlock = lambda: fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            attempt = lambda: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            unlock = lambda: fcntl.flock(fd, fcntl.LOCK_UN)
         deadline = time.monotonic() + STATE_LOCK_WAIT_SECONDS
         while True:
             try:
@@ -322,8 +324,6 @@ def state_write_lock(mem: Path):
         finally:
             held.pop(key, None)
             unlock()
-    finally:
-        handle.close()
 
 
 def save_state_locked(mem: Path, state: dict) -> None:

@@ -48,14 +48,20 @@ def active_criteria(acceptance: dict[str, Any], unit_id: str) -> list[dict[str, 
     criteria = acceptance.get("criteria")
     if not isinstance(criteria, list):
         raise ReviewEvidenceError("acceptance criteria are malformed")
-    explicit = [
+    claimed = [
         item for item in criteria
-        if isinstance(item, dict)
-        and isinstance(item.get("id"), str)
-        and item.get("unitId") == unit_id
+        if isinstance(item, dict) and item.get("unitId") == unit_id
     ]
-    if explicit:
-        return explicit
+    # A row that claims this unit but carries no usable id used to be dropped
+    # silently, and the selector then fell back to legacy prefix matching, so
+    # the prompt projection and the evidence validator could review two
+    # different sets for the same unit (Sol-a13).  Fail closed instead.
+    if any(not isinstance(item.get("id"), str) or not item["id"].strip() for item in claimed):
+        raise ReviewEvidenceError(
+            f"acceptance criteria declare malformed explicit ownership for {unit_id}"
+        )
+    if claimed:
+        return claimed
     return [
         item for item in criteria
         if isinstance(item, dict)
