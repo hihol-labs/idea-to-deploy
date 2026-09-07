@@ -19,6 +19,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 from cryptography.hazmat.primitives import serialization
@@ -69,6 +70,7 @@ def git_fixture(root: Path) -> tuple[str, str, str]:
     shell(["git", "init", "-q"], root)
     shell(["git", "config", "user.name", "ITD Review Test"], root)
     shell(["git", "config", "user.email", "review@invalid"], root)
+    shell(["git", "remote", "add", "origin", "https://github.com/hihol-labs/idea-to-deploy.git"], root)
     (root / "service.py").write_text(
         "def decision():\n    return 'old'\n", encoding="utf-8"
     )
@@ -139,6 +141,7 @@ def ledger_close_fixture(
     shell(["git", "init", "-q"], root)
     shell(["git", "config", "user.name", "ITD Review Test"], root)
     shell(["git", "config", "user.email", "review@invalid"], root)
+    shell(["git", "remote", "add", "origin", "https://github.com/hihol-labs/idea-to-deploy.git"], root)
     (root / ".itd").mkdir()
     (root / ".itd-memory").mkdir()
     contract = root / LEDGER_CONTRACT_REL
@@ -200,8 +203,11 @@ def ledger_machine_receipt(
             "scopeContractHash": digest(scope.read_bytes()).hexdigest(),
             "acceptanceContractHash": digest(contract.read_bytes()).hexdigest(),
         },
+        "declaredInputs": [],
         "runs": [{
-            "id": "domain-oracle", "exitCode": 0, "executedTree": tree,
+            "id": "domain-oracle", "command": "true",
+            "commandSha256": digest(b"true").hexdigest(),
+            "exitCode": 0, "executedTree": tree,
         }],
     }), encoding="utf-8")
     return receipt
@@ -274,6 +280,32 @@ def main() -> int:
         checks += 1
         if not condition:
             raise AssertionError(message)
+
+    original_git = producer.git
+    try:
+        for origin in (
+            "https://github.com/Owner/Repo.git",
+            "ssh://git@github.com/Owner/Repo.git",
+            "git@github.com:Owner/Repo.git",
+        ):
+            producer.git = lambda *_args, _origin=origin, **_kwargs: _origin
+            check(producer._canonical_repository_from_origin(Path.cwd()) == "owner/repo",
+                  "canonical GitHub origin rejected: " + origin)
+        for origin in (
+            "https://evil.example/Owner/Repo.git",
+            "ssh://git@evil.example/Owner/Repo.git",
+            "git@evil.example:Owner/Repo.git",
+            "https://github.com.evil/Owner/Repo.git",
+            "https://user@github.com/Owner/Repo.git",
+        ):
+            producer.git = lambda *_args, _origin=origin, **_kwargs: _origin
+            try:
+                producer._canonical_repository_from_origin(Path.cwd())
+            except producer.FreeReviewError:
+                continue
+            raise AssertionError("unsafe origin accepted: " + origin)
+    finally:
+        producer.git = original_git
 
     # S7-U1: non-finite timeouts must be rejected before deadline arithmetic —
     # NaN slips through a `timeout <= 0` guard (both comparisons are False) and
@@ -1397,8 +1429,14 @@ def main() -> int:
         e2e_root = fixture / "s11-e2e"
         e2e_root.mkdir()
         e2e_key = e2e_root / "producer.key"
-        e2e_key.write_bytes(ledger_private)
-        e2e_key.chmod(0o600)
+        # Use the real platform key envelope writer.  Raw fixture bytes are
+        # intentionally refused by Windows' DPAPI loader and would bypass the
+        # same command path this end-to-end probe is meant to cover.
+        producer.gate.write_provenance_private_key(e2e_key, ledger_private)
+        check(
+            producer.gate.read_provenance_private_key(e2e_key) == ledger_private,
+            "the end-to-end fixture did not create a readable native provenance key",
+        )
         e2e_prompt = e2e_root / "prompt.md"
         e2e_report = e2e_root / "report.json"
         e2e_receipt = e2e_root / "phase-one.json"
@@ -1958,6 +1996,561 @@ def main() -> int:
                 "route checkpoint accepted an empty reviewer binding"
             )
         route_checkpoint.unlink(missing_ok=True)
+
+        # A negative integration observation is durable for its exact context,
+        # but must not poison a repaired candidate which reuses the normal
+        # checkpoint path.  The strict CLI checkpoint mode still permits a
+        # valid signed foreign context to roll over; malformed evidence does
+        # not get that exception.
+        negative_checkpoint = fixture / "negative-route-checkpoint.json"
+        negative_legacy = negative_checkpoint.with_name(
+            negative_checkpoint.name + ".negative-observation.json"
+        )
+
+        def blocking_integration_runner(calls: list):
+            def runner(prompt_text, report_schema, report_parser):
+                calls.append(prompt_text)
+                if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                    report = passed_unit_report()
+                else:
+                    report = {
+                        "verdict": "BLOCKED",
+                        "findings": [{
+                            "severity": "high", "confidence": "high",
+                            "category": "correctness", "file": "review.jsonl.gz",
+                            "line": 1,
+                            "summary": "Integration found a blocking defect.",
+                        }],
+                        "unverified": [],
+                    }
+                return (
+                    report_parser(report), f"negative-{len(calls)}",
+                    "subscription-model",
+                )
+            return runner
+
+        old_negative_calls: list = []
+        old_negative, _s1, _m1, _a1 = producer.run_packet_review(
+            large_packet, blocking_integration_runner(old_negative_calls),
+            checkpoint_path=negative_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+            checkpoint_refuse_invalid=True,
+        )
+        old_marker_bytes = negative_legacy.read_bytes()
+        old_checkpoint_bytes = negative_checkpoint.read_bytes()
+        old_checkpoint_archive = producer._foreign_route_checkpoint_archive_path(
+            negative_checkpoint, old_checkpoint_bytes
+        )
+        check(
+            old_negative["verdict"] == "BLOCKED"
+            and len(old_negative_calls) == unit_count + 1,
+            "negative hierarchical result did not create its legacy observation",
+        )
+
+        same_context_calls: list = []
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("negative-same", same_context_calls),
+                checkpoint_path=negative_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+                checkpoint_refuse_invalid=True,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "BLOCKED" and not same_context_calls
+                and negative_legacy.read_bytes() == old_marker_bytes,
+                "same-context negative observation was not preserved before dispatch",
+            )
+        else:
+            raise AssertionError("same-context negative observation was bypassed")
+
+        repaired_packet = json.loads(json.dumps(large_packet))
+        repaired_packet["candidate"]["tree"] = "f" * 40
+        repaired_calls: list = []
+        repaired_report, _s2, _m2, _a2 = producer.run_packet_review(
+            repaired_packet, make_counting_runner("negative-repaired", repaired_calls),
+            checkpoint_path=negative_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+            checkpoint_refuse_invalid=True,
+        )
+        check(
+            repaired_report == clean_verdict()
+            and len(repaired_calls) == unit_count + 1
+            and negative_legacy.read_bytes() == old_marker_bytes,
+            "valid foreign checkpoint context blocked repaired candidate or rewrote legacy evidence",
+        )
+        check(
+            not negative_checkpoint.exists()
+            and old_checkpoint_archive.read_bytes() == old_checkpoint_bytes,
+            "foreign signed checkpoint was not archived before clean rollover removed live path",
+        )
+
+        repaired_negative_calls: list = []
+        repaired_negative, _s3, _m3, _a3 = producer.run_packet_review(
+            repaired_packet, blocking_integration_runner(repaired_negative_calls),
+            checkpoint_path=negative_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        repaired_context = producer._route_checkpoint_context(
+            repaired_packet, repaired_packet["reviewRepresentation"]["reviewPlan"],
+            dict(route_binding),
+        )
+        repaired_history = producer._negative_observation_path(
+            negative_checkpoint, repaired_context
+        )
+        repaired_history_bytes = repaired_history.read_bytes()
+        check(
+            repaired_negative["verdict"] == "BLOCKED"
+            and repaired_history.exists()
+            and negative_legacy.read_bytes() == old_marker_bytes,
+            "changed-context negative result did not allocate immutable history",
+        )
+
+        repaired_same_calls: list = []
+        try:
+            producer.run_packet_review(
+                repaired_packet,
+                make_counting_runner("negative-repaired-same", repaired_same_calls),
+                checkpoint_path=negative_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "BLOCKED"
+                and not repaired_same_calls
+                and negative_legacy.read_bytes() == old_marker_bytes
+                and repaired_history.read_bytes() == repaired_history_bytes,
+                "same repaired context did not preserve both negative paths",
+            )
+        else:
+            raise AssertionError("repaired negative history was bypassed")
+
+        malformed_checkpoint = fixture / "malformed-negative-checkpoint.json"
+        malformed_negative = malformed_checkpoint.with_name(
+            malformed_checkpoint.name + ".negative-observation.json"
+        )
+        malformed_negative.write_bytes(b"not-json\n")
+        malformed_calls: list = []
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("negative-malformed", malformed_calls),
+                checkpoint_path=malformed_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and not malformed_calls
+                and malformed_negative.read_bytes() == b"not-json\n",
+                "malformed negative observation did not fail closed before dispatch",
+            )
+        else:
+            raise AssertionError("malformed negative observation was accepted")
+
+        bad_version_checkpoint = fixture / "bad-version-negative-checkpoint.json"
+        bad_version_negative = bad_version_checkpoint.with_name(
+            bad_version_checkpoint.name + ".negative-observation.json"
+        )
+        bad_version = json.loads(old_marker_bytes)
+        bad_version["version"] = True
+        bad_version_negative.write_text(json.dumps(bad_version), encoding="utf-8")
+        bad_version_calls: list = []
+        try:
+            producer.run_packet_review(
+                large_packet, make_counting_runner("negative-version", bad_version_calls),
+                checkpoint_path=bad_version_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED" and not bad_version_calls,
+                "boolean negative observation version was not rejected before dispatch",
+            )
+        else:
+            raise AssertionError("boolean negative observation version was accepted")
+
+        corrupt_checkpoint = fixture / "corrupt-rollover-checkpoint.json"
+        corrupt_legacy = corrupt_checkpoint.with_name(
+            corrupt_checkpoint.name + ".negative-observation.json"
+        )
+        corrupt_seed_calls: list = []
+        producer.run_packet_review(
+            large_packet, blocking_integration_runner(corrupt_seed_calls),
+            checkpoint_path=corrupt_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        corrupt_marker_bytes = corrupt_legacy.read_bytes()
+        corrupt_checkpoint.write_bytes(b"not-a-signed-checkpoint\n")
+        corrupt_calls: list = []
+        try:
+            producer.run_packet_review(
+                repaired_packet, make_counting_runner("negative-corrupt", corrupt_calls),
+                checkpoint_path=corrupt_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+                checkpoint_refuse_invalid=True,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and not corrupt_calls
+                and corrupt_legacy.read_bytes() == corrupt_marker_bytes,
+                "corrupt foreign checkpoint did not fail closed before dispatch",
+            )
+        else:
+            raise AssertionError("corrupt foreign checkpoint was accepted")
+
+        collision_checkpoint = fixture / "collision-rollover-checkpoint.json"
+        collision_legacy = collision_checkpoint.with_name(
+            collision_checkpoint.name + ".negative-observation.json"
+        )
+        collision_seed_calls: list = []
+        producer.run_packet_review(
+            large_packet, blocking_integration_runner(collision_seed_calls),
+            checkpoint_path=collision_checkpoint,
+            checkpoint_binding=dict(route_binding),
+            checkpoint_key_id="route-checkpoint-test",
+            checkpoint_private_key=route_key,
+        )
+        collision_marker_bytes = collision_legacy.read_bytes()
+        collision_raw = collision_checkpoint.read_bytes()
+        collision_archive = producer._foreign_route_checkpoint_archive_path(
+            collision_checkpoint, collision_raw
+        )
+        collision_archive.parent.mkdir(parents=True)
+        collision_archive.write_bytes(b"different preserved checkpoint bytes\n")
+        collision_calls: list = []
+        try:
+            producer.run_packet_review(
+                repaired_packet, make_counting_runner("negative-collision", collision_calls),
+                checkpoint_path=collision_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+                checkpoint_refuse_invalid=True,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED"
+                and not collision_calls
+                and collision_checkpoint.read_bytes() == collision_raw
+                and collision_legacy.read_bytes() == collision_marker_bytes
+                and collision_archive.read_bytes()
+                == b"different preserved checkpoint bytes\n",
+                "foreign checkpoint archive collision was not fail-closed and immutable",
+            )
+        else:
+            raise AssertionError("foreign checkpoint archive collision was accepted")
+
+        def seed_foreign_checkpoint(name: str) -> Path:
+            checkpoint = fixture / name
+            producer.run_packet_review(
+                large_packet, blocking_integration_runner([]),
+                checkpoint_path=checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+            return checkpoint
+
+        def resign_foreign_checkpoint(checkpoint: Path, mutate) -> None:
+            envelope = json.loads(checkpoint.read_text(encoding="utf-8"))
+            mutate(envelope["signed"])
+            envelope["signatureHex"] = producer.Ed25519PrivateKey.from_private_bytes(
+                route_key
+            ).sign(producer.canonical_bytes(envelope["signed"])).hex()
+            checkpoint.write_text(json.dumps(envelope), encoding="utf-8")
+
+        def rejects_foreign_checkpoint(checkpoint: Path, label: str) -> None:
+            original_bytes = checkpoint.read_bytes()
+            calls: list = []
+            try:
+                producer.run_packet_review(
+                    repaired_packet, make_counting_runner(label, calls),
+                    checkpoint_path=checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                    checkpoint_refuse_invalid=True,
+                )
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == "UNVERIFIED"
+                    and not calls
+                    and checkpoint.read_bytes() == original_bytes,
+                    label + " did not fail closed before dispatch",
+                )
+            else:
+                raise AssertionError(label + " was accepted")
+
+        wrong_kind_checkpoint = seed_foreign_checkpoint("wrong-kind-checkpoint.json")
+        resign_foreign_checkpoint(
+            wrong_kind_checkpoint,
+            lambda signed: signed.__setitem__("kind", "unsupported-checkpoint"),
+        )
+        rejects_foreign_checkpoint(
+            wrong_kind_checkpoint, "signed foreign checkpoint with wrong kind"
+        )
+
+        wrong_version_checkpoint = seed_foreign_checkpoint("wrong-version-checkpoint.json")
+        resign_foreign_checkpoint(
+            wrong_version_checkpoint,
+            lambda signed: signed.__setitem__("version", True),
+        )
+        rejects_foreign_checkpoint(
+            wrong_version_checkpoint, "signed foreign checkpoint with boolean version"
+        )
+
+        malformed_unit_checkpoint = seed_foreign_checkpoint("malformed-unit-checkpoint.json")
+        resign_foreign_checkpoint(
+            malformed_unit_checkpoint,
+            lambda signed: signed["units"][0].__setitem__("unit", {}),
+        )
+        rejects_foreign_checkpoint(
+            malformed_unit_checkpoint, "signed foreign checkpoint with malformed unit"
+        )
+
+        malformed_report_checkpoint = seed_foreign_checkpoint("malformed-report-checkpoint.json")
+        resign_foreign_checkpoint(
+            malformed_report_checkpoint,
+            lambda signed: signed["units"][0].__setitem__("report", {"verdict": "PASSED"}),
+        )
+        rejects_foreign_checkpoint(
+            malformed_report_checkpoint, "signed foreign checkpoint with malformed report"
+        )
+
+        # Context rollover compares complete legal producer contexts, rather
+        # than accepting a hand-mutated schema.  A second freeze supplies a
+        # real changed candidate binding; changing the reviewer transport hash
+        # is also legal and both must mismatch the preserved old marker.
+        (large_repo / "review.jsonl.gz").write_bytes(gzip.compress(
+            large_jsonl + b'{"event":"repaired"}\n', mtime=0
+        ))
+        shell(["git", "add", "review.jsonl.gz"], large_repo)
+        changed_tree = shell(["git", "write-tree"], large_repo)
+        changed_inputs = large_root / "changed-inputs"
+        changed_inputs.mkdir()
+        changed_scope, changed_acceptance, changed_machine = write_inputs(
+            changed_inputs, large_repo, large_parent, changed_tree,
+        )
+        frozen_changed_packet = producer.freeze_packet(
+            root=large_repo, base_commit=large_base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=changed_scope,
+            acceptance_file=changed_acceptance, machine_receipt=changed_machine,
+        )
+        frozen_changed_context = producer._route_checkpoint_context(
+            frozen_changed_packet,
+            frozen_changed_packet["reviewRepresentation"]["reviewPlan"],
+            dict(route_binding),
+        )
+        reviewer_changed_context = producer._route_checkpoint_context(
+            large_packet, large_packet["reviewRepresentation"]["reviewPlan"],
+            dict(route_binding, transportExecutableSha256="c" * 64),
+        )
+        check(
+            not producer._negative_observation_matches(
+                negative_legacy, frozen_changed_context,
+                checkpoint_path=negative_checkpoint,
+            )
+            and not producer._negative_observation_matches(
+                negative_legacy, reviewer_changed_context,
+                checkpoint_path=negative_checkpoint,
+            ),
+            "legal frozen candidate or reviewer hash change did not roll negative context",
+        )
+        malformed_context = json.loads(json.dumps(frozen_changed_context))
+        malformed_context["candidate"]["parentCommit"] = None
+        try:
+            producer._negative_observation_matches(
+                negative_legacy, malformed_context,
+                checkpoint_path=negative_checkpoint,
+            )
+        except producer.FreeReviewError as exc:
+            check(
+                exc.status == "UNVERIFIED",
+                "malformed negative context shape failed with the wrong status",
+            )
+        else:
+            raise AssertionError("malformed negative context shape was accepted")
+
+        if os.name != "nt":
+            archive_symlink_checkpoint = fixture / "archive-symlink-checkpoint.json"
+            archive_symlink_legacy = archive_symlink_checkpoint.with_name(
+                archive_symlink_checkpoint.name + ".negative-observation.json"
+            )
+            producer.run_packet_review(
+                large_packet, blocking_integration_runner([]),
+                checkpoint_path=archive_symlink_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+            outside_archive = fixture / "outside-archive"
+            outside_archive.mkdir()
+            archive_symlink_checkpoint.with_name(
+                archive_symlink_checkpoint.name + ".history"
+            ).symlink_to(outside_archive, target_is_directory=True)
+            archive_symlink_calls: list = []
+            try:
+                producer.run_packet_review(
+                    repaired_packet,
+                    make_counting_runner("archive-symlink", archive_symlink_calls),
+                    checkpoint_path=archive_symlink_checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                    checkpoint_refuse_invalid=True,
+                )
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == "UNVERIFIED"
+                    and not archive_symlink_calls
+                    and not list(outside_archive.iterdir())
+                    and archive_symlink_legacy.exists(),
+                    "archive intermediate symlink reached outside the checkpoint namespace",
+                )
+            else:
+                raise AssertionError("archive intermediate symlink was accepted")
+
+            marker_symlink_checkpoint = fixture / "marker-symlink-checkpoint.json"
+            producer.run_packet_review(
+                large_packet, blocking_integration_runner([]),
+                checkpoint_path=marker_symlink_checkpoint,
+                checkpoint_binding=dict(route_binding),
+                checkpoint_key_id="route-checkpoint-test",
+                checkpoint_private_key=route_key,
+            )
+            outside_marker = fixture / "outside-marker"
+            outside_marker.mkdir()
+            marker_symlink_checkpoint.with_name(
+                marker_symlink_checkpoint.name + ".negative-observation.json.history"
+            ).symlink_to(outside_marker, target_is_directory=True)
+            marker_symlink_calls: list = []
+            try:
+                producer.run_packet_review(
+                    repaired_packet,
+                    make_counting_runner("marker-symlink", marker_symlink_calls),
+                    checkpoint_path=marker_symlink_checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                )
+            except producer.FreeReviewError as exc:
+                check(
+                    exc.status == "UNVERIFIED"
+                    and not marker_symlink_calls
+                    and not list(outside_marker.iterdir()),
+                    "marker history symlink reached outside the checkpoint namespace",
+                )
+            else:
+                raise AssertionError("marker history symlink was accepted")
+
+        # Two same-context routes may both pass the initial guard.  Once the
+        # negative route publishes its immutable marker, the clean route must
+        # recheck it and refuse before it unlinks the checkpoint or returns a
+        # clean verdict.
+        concurrent_checkpoint = fixture / "concurrent-negative-checkpoint.json"
+        integration_barrier = threading.Barrier(2)
+        negative_written = threading.Event()
+        concurrent_results: dict[str, object] = {}
+        original_write_checkpoint = producer._write_route_checkpoint
+        original_write_negative = producer._write_negative_observation
+
+        def no_checkpoint_write(*_args, **_kwargs) -> None:
+            return None
+
+        def signal_negative(*args, **kwargs) -> None:
+            original_write_negative(*args, **kwargs)
+            negative_written.set()
+
+        def concurrent_runner(prompt_text, report_schema, report_parser):
+            if report_schema == producer.UNIT_VERDICT_SCHEMA:
+                report = passed_unit_report()
+            else:
+                integration_barrier.wait(timeout=10)
+                if threading.current_thread().name == "negative-review":
+                    report = {
+                        "verdict": "BLOCKED",
+                        "findings": [{
+                            "severity": "high", "confidence": "high",
+                            "category": "correctness", "file": "review.jsonl.gz",
+                            "line": 1, "summary": "Concurrent negative result.",
+                        }],
+                        "unverified": [],
+                    }
+                else:
+                    if not negative_written.wait(timeout=10):
+                        raise AssertionError("negative marker was not written")
+                    report = clean_verdict()
+            return (
+                report_parser(report),
+                # Native Windows Python 3.12 monotonic_ns() ticks every ~15.6 ms,
+                # so two unit calls in one thread could share a session id and
+                # trip the reviewer-session reuse guard before the negative
+                # marker was ever written; use entropy, not the clock.
+                f"concurrent-{threading.current_thread().name}-{os.urandom(8).hex()}",
+                "subscription-model",
+            )
+
+        def concurrent_target(name: str) -> None:
+            try:
+                concurrent_results[name] = producer.run_packet_review(
+                    large_packet, concurrent_runner,
+                    checkpoint_path=concurrent_checkpoint,
+                    checkpoint_binding=dict(route_binding),
+                    checkpoint_key_id="route-checkpoint-test",
+                    checkpoint_private_key=route_key,
+                )[0]
+            except Exception as exc:
+                concurrent_results[name] = exc
+
+        producer._write_route_checkpoint = no_checkpoint_write
+        producer._write_negative_observation = signal_negative
+        try:
+            negative_thread = threading.Thread(
+                target=concurrent_target, args=("negative",), name="negative-review"
+            )
+            clean_thread = threading.Thread(
+                target=concurrent_target, args=("clean",), name="clean-review"
+            )
+            negative_thread.start()
+            clean_thread.start()
+            negative_thread.join(20)
+            clean_thread.join(20)
+        finally:
+            producer._write_route_checkpoint = original_write_checkpoint
+            producer._write_negative_observation = original_write_negative
+        concurrent_marker = concurrent_checkpoint.with_name(
+            concurrent_checkpoint.name + ".negative-observation.json"
+        )
+        check(
+            not negative_thread.is_alive()
+            and not clean_thread.is_alive()
+            and isinstance(concurrent_results.get("negative"), dict)
+            and concurrent_results["negative"]["verdict"] == "BLOCKED"
+            and isinstance(concurrent_results.get("clean"), producer.FreeReviewError)
+            and concurrent_results["clean"].status == "BLOCKED"
+            and concurrent_marker.exists(),
+            "concurrent negative marker did not block clean finalization",
+        )
 
         hostile_binary_cases = (
             ("generic.bin", b"\x00\x01\x02", "undeclared binary"),
@@ -3224,6 +3817,8 @@ def main() -> int:
         shell(["git", "init", "-q"], repo2)
         shell(["git", "config", "user.name", "ITD Redact Test"], repo2)
         shell(["git", "config", "user.email", "review@invalid"], repo2)
+        shell(["git", "remote", "add", "origin",
+               "https://github.com/hihol-labs/idea-to-deploy.git"], repo2)
         (repo2 / "service.py").write_text(
             "def decision():\n    return 'old'\n", encoding="utf-8")
         shell(["git", "add", "service.py"], repo2)

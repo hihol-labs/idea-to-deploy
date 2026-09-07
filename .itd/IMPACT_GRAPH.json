@@ -48,6 +48,9 @@
     ".dockerignore": [
       "tests/verify_review_broker_deployment.py"
     ],
+    ".gitattributes": [
+      "tests/verify_risk_score.py"
+    ],
     ".github/workflows/external-review-gate.yml": [
       "tests/verify_api_reviewer.py",
       "tests/verify_external_reviewer_release.py",
@@ -88,12 +91,14 @@
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py",
+      "tests/verify_route_debts.py",
       "tests/verify_snapshot.py",
       "tests/verify_strict_completion_policy.py",
       "tests/verify_verification_loop.py"
     ],
     ".itd-memory/GOAL.json": [
       "tests/verify_efficiency_attribution.py",
+      "tests/verify_goal_tools.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
@@ -113,6 +118,7 @@
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_fresh_session_resume.py",
       "tests/verify_fresh_session_worktree.py",
+      "tests/verify_goal_tools.py",
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_host_adapters.py",
@@ -126,6 +132,7 @@
       "tests/verify_retro_scan.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_evidence.py",
+      "tests/verify_route_debts.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_state_hardening.py",
       "tests/verify_stop_rule.py",
@@ -165,6 +172,7 @@
       "tests/verify_review_evidence.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py",
+      "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
@@ -200,6 +208,7 @@
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py",
+      "tests/verify_route_debts.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
@@ -493,7 +502,8 @@
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_harness_demo_pilots.py",
       "tests/verify_operating_loops_release.py",
-      "tests/verify_predeploy_independent_review.py"
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_route_debts.py"
     ],
     "docs/examples/brownfield-piv/artifacts/checker-prompt.md": [
       "tests/verify_operating_loops_release.py"
@@ -511,6 +521,7 @@
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py",
       "tests/verify_verification_loop.py"
     ],
     "docs/examples/brownfield-piv/artifacts/metrics.json": [
@@ -909,7 +920,8 @@
       "tests/verify_verify_signal_and_watchdog.py"
     ],
     "hooks/risk-score.sh": [
-      "tests/verify_risk_score.py"
+      "tests/verify_risk_score.py",
+      "tests/verify_route_debts.py"
     ],
     "hooks/session-open-diagnostic.sh": [
       "tests/verify_fresh_session_resume.py",
@@ -947,7 +959,8 @@
       "tests/verify_gate_registry_isolation.py",
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_itd_cli.py",
-      "tests/verify_itd_runtime_install.py"
+      "tests/verify_itd_runtime_install.py",
+      "tests/verify_route_debts.py"
     ],
     "scripts/itd_authority_check.py": [
       "tests/verify_authority_check.py"
@@ -971,14 +984,17 @@
     ],
     "scripts/itd_install_cli.py": [
       "tests/verify_git_gate_hooks.py",
-      "tests/verify_itd_runtime_install.py"
+      "tests/verify_itd_runtime_install.py",
+      "tests/verify_route_debts.py"
     ],
     "scripts/itd_install_git_hooks.py": [
       "tests/verify_git_gate_hooks.py",
-      "tests/verify_itd_runtime_install.py"
+      "tests/verify_itd_runtime_install.py",
+      "tests/verify_route_debts.py"
     ],
     "scripts/itd_install_runtime.py": [
-      "tests/verify_itd_runtime_install.py"
+      "tests/verify_itd_runtime_install.py",
+      "tests/verify_route_debts.py"
     ],
     "scripts/itd_machine_oracle.py": [
       "tests/verify_api_reviewer.py",
@@ -997,7 +1013,8 @@
     "scripts/itd_pre_push.py": [
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_git_gate_hooks.py",
-      "tests/verify_itd_runtime_install.py"
+      "tests/verify_itd_runtime_install.py",
+      "tests/verify_route_debts.py"
     ],
     "scripts/itd_regression_select.py": [
       "tests/verify_targeted_regression.py"
@@ -1176,6 +1193,7 @@
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_reviewer_independence_policy.py",
       "tests/verify_reviewer_provider_freshness.py",
+      "tests/verify_route_debts.py",
       "tests/verify_scrubber_precision.py",
       "tests/verify_sync_manifest.py",
       "tests/verify_verification_loop.py"
@@ -1190,7 +1208,8 @@
       "tests/verify_gate_profile_doctor.py",
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_mandatory_keyless_review.py",
-      "tests/verify_push_gate_adjudicated.py"
+      "tests/verify_push_gate_adjudicated.py",
+      "tests/verify_route_debts.py"
     ],
     "skills/_shared/itd_harness_controls.py": [
       "tests/verify_tool_trust_inventory.py"
@@ -1228,11 +1247,18 @@
     ],
     "skills/_shared/itd_review_evidence.py": [
       "tests/verify_independent_review_efficacy.py",
-      "tests/verify_review_evidence.py"
+      "tests/verify_review_evidence.py",
+      "tests/verify_route_debts.py"
     ],
     "skills/_shared/itd_reviewer_independence.py": [
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_reviewer_independence_policy.py"
+    ],
+    "skills/_shared/itd_safe_atomic.py": [
+      "tests/verify_route_debts.py"
+    ],
+    "skills/_shared/itd_safe_atomic_windows.py": [
+      "tests/verify_route_debts.py"
     ],
     "skills/_shared/itd_semantic_navigation.py": [
       "tests/verify_operating_loops_release.py",
@@ -1261,6 +1287,7 @@
       "tests/verify_quick_regression.py",
       "tests/verify_review_cache.py",
       "tests/verify_reviewer_independence_policy.py",
+      "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_verification_loop.py"
@@ -1347,7 +1374,8 @@
       "tests/verify_host_adapters.py"
     ],
     "skills/goal/SKILL.md": [
-      "tests/verify_fable_snippets.py"
+      "tests/verify_fable_snippets.py",
+      "tests/verify_route_debts.py"
     ],
     "skills/goal/scripts/itd_goal_report.py": [
       "tests/verify_goal_bounded_autonomy.py",
@@ -1362,6 +1390,7 @@
       "tests/verify_goal_verify_shell.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
+      "tests/verify_route_debts.py",
       "tests/verify_verify_signal_and_watchdog.py"
     ],
     "skills/infra/agents/openai.yaml": [
@@ -1427,7 +1456,8 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
-      "tests/verify_risk_score.py"
+      "tests/verify_risk_score.py",
+      "tests/verify_verification_loop.py"
     ],
     "skills/security-audit/SKILL.md": [
       "tests/verify_refute_fleet.py"
@@ -1462,6 +1492,7 @@
     ],
     "skills/task/scripts/itd_unit_log.py": [
       "tests/verify_ledger_reconciliation.py",
+      "tests/verify_route_debts.py",
       "tests/verify_unit_log.py"
     ],
     "skills/test/SKILL.md": [
@@ -1472,7 +1503,8 @@
     ],
     "starters/api-fastapi/files/app/services/core.py": [
       "tests/verify_goal_five_star.py",
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py"
     ],
     "tests/OUT_OF_MIRROR.json": [
       "tests/verify_runall_drift.py"
@@ -1532,6 +1564,7 @@
       "tests/verify_hook_count_words.py",
       "tests/verify_narration_final.py",
       "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py",
       "tests/verify_runall_drift.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_triggers.py",
@@ -1742,6 +1775,9 @@
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py"
     ],
+    "tests/verify_adjudication_channel.py": [
+      "tests/verify_route_debts.py"
+    ],
     "tests/verify_adopt_context.py": [
       "tests/verify_operating_loops_release.py"
     ],
@@ -1752,6 +1788,7 @@
       "tests/verify_external_reviewer_release.py"
     ],
     "tests/verify_blind_protocol.py": [
+      "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py"
     ],
     "tests/verify_commit_completeness_gate.py": [
@@ -1777,15 +1814,23 @@
       "tests/verify_snapshot.py"
     ],
     "tests/verify_free_reviewer_producer.py": [
+      "tests/verify_route_debts.py",
       "tests/verify_scrubber_precision.py"
     ],
     "tests/verify_fresh_session_worktree.py": [
       "tests/verify_operating_loops_release.py"
     ],
+    "tests/verify_gate_control.py": [
+      "tests/verify_route_debts.py"
+    ],
     "tests/verify_gate_taxonomy.py": [
       "tests/verify_harness_map_fixtures.py"
     ],
+    "tests/verify_goal_bounded_autonomy.py": [
+      "tests/verify_route_debts.py"
+    ],
     "tests/verify_goal_tools.py": [
+      "tests/verify_route_debts.py",
       "tests/verify_runall_drift.py",
       "tests/verify_snapshot.py"
     ],
@@ -1820,7 +1865,8 @@
       "tests/verify_commit_completeness_gate.py"
     ],
     "tests/verify_host_adapters.py": [
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_incremental_diagnostics.py": [
       "tests/verify_operating_loops_release.py"
@@ -1829,6 +1875,12 @@
       "tests/verify_quick_regression.py",
       "tests/verify_review_evidence.py",
       "tests/verify_targeted_regression.py"
+    ],
+    "tests/verify_itd_cli.py": [
+      "tests/verify_route_debts.py"
+    ],
+    "tests/verify_itd_runtime_install.py": [
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_live_model_benchmark.py": [
       "tests/verify_operating_loops_release.py",
@@ -1880,15 +1932,23 @@
     ],
     "tests/verify_review_cache.py": [
       "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py",
       "tests/verify_targeted_regression.py"
+    ],
+    "tests/verify_review_evidence.py": [
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_review_sentinel_diffbind.py": [
       "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_risk_score.py": [
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_routing.py": [
       "tests/verify_triggers.py"
     ],
     "tests/verify_runall_drift.py": [
+      "tests/verify_route_debts.py",
       "tests/verify_targeted_regression.py"
     ],
     "tests/verify_semantic_navigation.py": [
@@ -1919,6 +1979,9 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_operating_loops_release.py"
     ],
+    "tests/verify_stop_rule.py": [
+      "tests/verify_route_debts.py"
+    ],
     "tests/verify_strict_completion_policy.py": [
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_targeted_regression.py"
@@ -1932,12 +1995,19 @@
     "tests/verify_triggers.py": [
       "tests/verify_routing.py"
     ],
+    "tests/verify_unit_log.py": [
+      "tests/verify_route_debts.py"
+    ],
     "tests/verify_verdict_contract.py": [
       "tests/verify_harness_map_fixtures.py"
     ],
     "tests/verify_verification_loop.py": [
       "tests/verify_operating_loops_release.py",
+      "tests/verify_route_debts.py",
       "tests/verify_targeted_regression.py"
+    ],
+    "tests/verify_verification_profiles.py": [
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_work_deadline_contract.py": [
       "tests/verify_operating_loops_release.py"

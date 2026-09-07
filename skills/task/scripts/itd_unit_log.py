@@ -29,20 +29,26 @@ VCR слеп). Ремонт слоя: инструкция → инструме�
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
 import json
 import os
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 EVIDENCE_MAX = 500
+_STATE_LOCKS = threading.local()
+STATE_LOCK_WAIT_SECONDS = 5.0
 
 # Единица учёта живёт в общем модуле: и писатель, и retro-скан обязаны видеть
 # ОДИН И ТОТ ЖЕ жизненный цикл (S10-LEDGER). Раскладка skills/_shared одинакова
 # в репо методологии и в установленном ~/.claude/skills.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
 import itd_unit_lifecycle as LC  # noqa: E402
+from itd_safe_atomic import atomic_replace_bytes, durable_append_bytes, ledger_events, read_ledger_snapshot  # noqa: E402
 
 # Терминалы, которыми можно закрыть цикл вручную при реконсиляции.
 CLOSE_OUTCOMES = ("superseded", "abandoned", "blocked", "skipped")
@@ -148,6 +154,20 @@ def die(msg: str, code: int = 2) -> int:
 
 def append_event(mem: Path, unit_id: str, decision: str, evidence: str,
                  ledger: str, actor: str = "harness") -> None:
+    events_path = mem / "events.jsonl"
+    # A failed append can leave a non-newline JSON fragment.  Appending the
+    # next event would concatenate it to that fragment; lifecycle parsing
+    # would then lose both terminal records while STATE could still advance.
+    # Preserve the bytes for recovery and refuse before another mutation.
+    # The tail is inspected through the shared anchored no-follow reader, so a
+    # link swapped in at this path cannot make the preflight inspect one file
+    # while durable_append_bytes appends to another (Sol-a12).
+    try:
+        tail = read_ledger_snapshot(events_path)
+    except (OSError, RuntimeError) as exc:
+        raise RuntimeError(f"events.jsonl tail cannot be safely read: {exc}") from exc
+    if tail and not tail.endswith(b"\n"):
+        raise RuntimeError("events.jsonl has a partial final record; preserved without append")
     evt = {
         "id": f"evt-unit-{int(time.time())}",
         "at": now_iso(),
@@ -161,43 +181,187 @@ def append_event(mem: Path, unit_id: str, decision: str, evidence: str,
         # разрешённым, тем же значением, по которому проверялся открытый цикл.
         "ledger": ledger,
     }
-    events = mem / "events.jsonl"
-    with events.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(evt, ensure_ascii=False) + "\n")
+    durable_append_bytes(events_path, (json.dumps(evt, ensure_ascii=False) + "\n").encode("utf-8"))
 
 
 def has_event(mem: Path, unit_id: str, decision: str) -> bool:
-    events = mem / "events.jsonl"
-    if not events.exists():
-        return False
-    for line in events.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            e = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    for e in ledger_events(mem / "events.jsonl"):
         if e.get("type") == "unit" and e.get("name") == unit_id and e.get("decision") == decision:
             return True
     return False
 
 
+def event_time(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def landed_terminal_event(mem: Path, current: dict, unit_id: str, ledger: str,
+                         decision: str, evidence: str, actor: str) -> dict | None:
+    """Return the latest exact terminal in the current activation epoch only."""
+    expected_evidence = evidence[:EVIDENCE_MAX]
+    relevant: list[dict] = []
+    # Recovery authority: anchored no-follow read, fail-closed on malformed
+    # records (Sol-a12); an absent ledger simply has no landed terminal.
+    for event in ledger_events(mem / "events.jsonl"):
+        if event.get("type") == "unit" and event.get("name") == unit_id and event.get("ledger") == ledger:
+            if (
+                not isinstance(event.get("decision"), str)
+                or event_time(event.get("at")) is None
+                or not isinstance(event.get("actor"), str)
+                or not isinstance(event.get("evidence"), str)
+            ):
+                return None
+            relevant.append(event)
+    if not relevant or relevant[-1].get("decision") != decision:
+        return None
+    terminal = relevant[-1]
+    if terminal.get("actor") != actor or terminal.get("evidence") != expected_evidence:
+        return None
+    activation_index = max(
+        (index for index, event in enumerate(relevant)
+         if event.get("decision") == "activated"),
+        default=-1,
+    )
+    if activation_index < 0 or activation_index >= len(relevant) - 1:
+        return None
+    activation = relevant[activation_index]
+    activation_at = event_time(activation.get("at"))
+    terminal_at = event_time(terminal.get("at"))
+    current_started = event_time(current.get("startedAt"))
+    if (
+        activation_at is None or terminal_at is None or current_started is None
+        or not activation_at <= current_started <= terminal_at
+    ):
+        return None
+    return terminal
+
+
+def recover_landed_terminal(mem: Path, unit_id: str, ledger: str,
+                            decision: str, evidence: str, actor: str) -> bool:
+    """Repair STATE only from one exact canonical terminal event already landed."""
+    state, state_sha256 = load_state_snapshot(mem)
+    current = state.get("currentUnit") or {}
+    if (
+        not state_describes(mem, current, unit_id, ledger)
+        or current.get("status") not in ("in_progress", "verifying", "recovery_required")
+    ):
+        return False
+    event = landed_terminal_event(
+        mem, current, unit_id, ledger, decision, evidence, actor
+    )
+    if event is None:
+        return False
+    current["status"] = decision
+    current["completedAt"] = event["at"]
+    state["currentUnit"] = current
+    save_state(mem, state, expected_sha256=state_sha256)
+    return True
+
+
 def load_state(mem: Path) -> dict:
+    raw = read_ledger_snapshot(mem / "STATE.json")
+    return json.loads(raw.decode("utf-8")) if raw else {}
+
+
+def load_state_snapshot(mem: Path) -> tuple[dict, str]:
+    """Read one STATE generation for a later lock-protected CAS write."""
+    # Anchored no-follow read: the generation hash authorizes a later CAS
+    # write, so a swapped STATE link must be refused here (Sol-a12).
+    raw = read_ledger_snapshot(mem / "STATE.json") or b""
+    return (json.loads(raw.decode("utf-8")) if raw else {},
+            hashlib.sha256(raw).hexdigest())
+
+
+@contextlib.contextmanager
+def state_write_lock(mem: Path):
+    """Bounded-lock STATE writers on each native Windows/POSIX backend."""
+    key = str(mem.resolve())
+    held = getattr(_STATE_LOCKS, "held", {})
+    if key in held:
+        held[key] += 1
+        try:
+            yield
+        finally:
+            held[key] -= 1
+        return
+    path = mem / ".STATE.write.lock"
+    handle = path.open("a+b")
+    try:
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+            attempt = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            unlock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            attempt = lambda: fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            unlock = lambda: fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        deadline = time.monotonic() + STATE_LOCK_WAIT_SECONDS
+        while True:
+            try:
+                attempt()
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+        try:
+            held[key] = 1
+            _STATE_LOCKS.held = held
+            yield
+        finally:
+            held.pop(key, None)
+            unlock()
+    finally:
+        handle.close()
+
+
+def save_state_locked(mem: Path, state: dict) -> None:
+    """Write STATE while ``state_write_lock`` is already held."""
     p = mem / "STATE.json"
-    if p.exists():
-        return json.loads(p.read_text(encoding="utf-8"))
-    return {}
+    atomic_replace_bytes(p, (json.dumps(state, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
 
 
-def save_state(mem: Path, state: dict) -> None:
-    """Атомарная запись (ACID-контракт v1.75.0: tmp + replace)."""
-    p = mem / "STATE.json"
-    tmp = p.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp, p)
+def save_state(mem: Path, state: dict, *, expected_sha256: str | None = None) -> None:
+    """Atomically replace STATE under the shared cross-process writer lock.
+
+    A lifecycle caller that read STATE before appending its canonical event
+    supplies that generation hash, so it fails instead of overwriting a
+    concurrent Goal or task transition.
+    """
+    with state_write_lock(mem):
+        if expected_sha256 is not None:
+            current = read_ledger_snapshot(mem / "STATE.json") or b""
+            if hashlib.sha256(current).hexdigest() != expected_sha256:
+                raise RuntimeError("STATE changed before lifecycle write; refusing overwrite")
+        save_state_locked(mem, state)
 
 
+def serialize_lifecycle_main(fn):
+    """Keep task WIP checks, event append, and STATE replacement one transaction."""
+    def wrapped() -> int:
+        probe = argparse.ArgumentParser(add_help=False)
+        probe.add_argument("--dir", default=".itd-memory")
+        args, _ = probe.parse_known_args()
+        mem = Path(args.dir)
+        if not mem.is_dir():
+            return fn()
+        with state_write_lock(mem):
+            return fn()
+    return wrapped
+
+
+@serialize_lifecycle_main
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["activate", "verified", "close", "backfill-activation"])
@@ -226,7 +390,7 @@ def main() -> int:
         return die(f"{mem} не существует — /task не создаёт .itd-memory (территория /adopt)")
 
     if a.command == "activate":
-        state = load_state(mem)
+        state, state_sha256 = load_state_snapshot(mem)
         cur = state.get("currentUnit") or {}
         if cur.get("id") and cur.get("id") != a.unit_id and cur.get("status") in ("in_progress", "verifying", "recovery_required"):
             return die(f"WIP=1: текущий unit {cur['id']} в статусе {cur['status']} — сначала доведи его", 1)
@@ -255,7 +419,7 @@ def main() -> int:
         state["currentUnit"] = {"id": a.unit_id, "goal": a.goal, "status": "in_progress",
                                 "startedAt": now_iso(), "ledger": ledger,
                                 "riskTier": a.risk_tier}
-        save_state(mem, state)
+        save_state(mem, state, expected_sha256=state_sha256)
         print(f"activated {a.unit_id}: {a.goal}")
         return 0
 
@@ -273,6 +437,11 @@ def main() -> int:
         # Проверять надо открытый цикл ИМЕННО В ТОМ леджере, которым будет
         # проштамповано событие: иначе терминал уедет в чужой леджер.
         if not LC.open_lifecycle_exists(mem, a.unit_id, ledger):
+            if recover_landed_terminal(
+                mem, a.unit_id, ledger, "verified", a.evidence, "harness"
+            ):
+                print(f"recovered verified {a.unit_id}")
+                return 0
             hint = ("backfill-activation" if not has_event(mem, a.unit_id, "activated")
                     else "activate")
             return die(
@@ -280,13 +449,13 @@ def main() -> int:
                 f"verified не пишется вне цикла (нужен `{hint} {a.unit_id}`)", 1)
         # Тот же порядок, что и в `close`: сначала событие, потом STATE.
         append_event(mem, a.unit_id, "verified", a.evidence, ledger)
-        state = load_state(mem)
+        state, state_sha256 = load_state_snapshot(mem)
         cur = state.get("currentUnit") or {}
         if state_describes(mem, cur, a.unit_id, ledger):
             cur["status"] = "verified"
             cur["completedAt"] = now_iso()
             state["currentUnit"] = cur
-            save_state(mem, state)
+            save_state(mem, state, expected_sha256=state_sha256)
         print(f"verified {a.unit_id}")
         return 0
 
@@ -305,6 +474,13 @@ def main() -> int:
         except LedgerAmbiguity as exc:
             return die(str(exc), 1)
         if not LC.open_lifecycle_exists(mem, a.unit_id, ledger):
+            evidence = f"close: {a.note}"
+            if recover_landed_terminal(
+                mem, a.unit_id, ledger, a.outcome, evidence,
+                "harness-reconciliation"
+            ):
+                print(f"recovered closed {a.unit_id} as {a.outcome}")
+                return 0
             return die(f"у {a.unit_id} нет открытого цикла в леджере {ledger} — "
                        f"закрывать нечего", 1)
         # Событие пишется ПЕРВЫМ: если append упадёт после сохранения STATE,
@@ -312,13 +488,13 @@ def main() -> int:
         # его открытым — реконсиляция стала бы неатомарной (ревьюер 2026-08-17).
         append_event(mem, a.unit_id, a.outcome, f"close: {a.note}", ledger,
                      actor="harness-reconciliation")
-        state = load_state(mem)
+        state, state_sha256 = load_state_snapshot(mem)
         cur = state.get("currentUnit") or {}
         if state_describes(mem, cur, a.unit_id, ledger):
             cur["status"] = a.outcome
             cur["completedAt"] = now_iso()
             state["currentUnit"] = cur
-            save_state(mem, state)
+            save_state(mem, state, expected_sha256=state_sha256)
         print(f"closed {a.unit_id} as {a.outcome}")
         return 0
 

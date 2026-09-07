@@ -229,6 +229,50 @@ the hashes and exits non-zero with `UNVERIFIED` on any missing, extra, or
 altered entry — model-visible means logged, checked by machine, not by prompt
 discipline.
 
+### Human adjudication approvals
+
+Legacy human adjudication remains v1: its four input keys bind the whole
+checker receipt SHA-256 and use the existing affirmative sentence. The loop
+does not reinterpret a v1 approval as v2.
+
+Use v2 only when exact-candidate approval is required. First prepare a draft
+from completed disposition rows; preparation prints JSON and never writes a
+receipt or authorizes a route:
+
+```bash
+sh "$SHD/itd_py.sh" "$VL" prepare-adjudication --root . \
+  --unit-id "$UNIT" --risk-tier "$RISK_TIER" --checker "$CHECKER_RECEIPT" \
+  --dispositions completed-dispositions.json --claim "$UNIT" \
+  --claim "$UNIT:general-review" > v2-approval-draft.json
+```
+
+The closed v2 draft has `version`, `confirmedBy`, `confirmation`,
+`checkerReceiptSha256`, `approvalBinding`, and `dispositions`. Replace only
+the `confirmedBy` draft placeholder after the human has reviewed the exact
+binding, then pass that file to `adjudicate --dispositions`. The minted block
+adds the harness timestamp; its human wording is retained verbatim.
+Preparation fails before emitting a draft if any checker target is missing,
+duplicated, malformed, or has an unknown disposition key; `confirmedAt` is a
+harness-minted field and is forbidden in the submitted draft.
+
+`approvalBinding` is domain-separated and order-sensitive. It binds the
+complete candidate context (`repository`, `baseCommit`, `reviewedTree`,
+`diffHash`, scope/acceptance/rubric hashes, methodology version, and risk),
+the Verification Loop policy SHA-256, the root unit, explicit claims, and the
+complete ordered checker target plus disposition content. Reordering a finding
+is semantic. Byte-identical repeated checker targets are deduplicated once in
+their first source position; all other rows remain distinct. Claims are closed: the root unit is mandatory and only its exact
+`<unit>:general-review` claim may be added. Security claims, wildcards,
+duplicates, foreign units, and a colon-bearing primary v2 unit fail closed.
+The exact `<unit>:general-review` claim derives that stored root primary unit
+only for its own validation; it does not create authority for security or any
+other subclaim.
+The required affirmation names the canonical binding digest. Any changed
+candidate, policy, risk, target, class, rationale, evidence, claim, or checker
+file invalidates approval. A new checker file may reuse an unchanged v2
+approval only when every machine/checker/route dependency separately validates
+again for that same complete binding.
+
 An external model is only a checker transport. The canonical keyless producer
 above prepares and validates the exact-candidate review and records
 host-observed maker/checker provenance. Any separately operated paid API

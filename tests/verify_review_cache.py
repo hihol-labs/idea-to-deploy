@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import hashlib
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -13,12 +15,19 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-
-import verification_loop_fixture
-from verification_loop_fixture import make_review_receipt
-
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+_FIXTURE_PATH = ROOT / "tests" / "verification_loop_fixture.py"
+_FIXTURE_SPEC = importlib.util.spec_from_file_location(
+    "verification_loop_fixture", _FIXTURE_PATH
+)
+assert _FIXTURE_SPEC and _FIXTURE_SPEC.loader
+verification_loop_fixture = importlib.util.module_from_spec(_FIXTURE_SPEC)
+sys.modules[_FIXTURE_SPEC.name] = verification_loop_fixture
+_FIXTURE_SPEC.loader.exec_module(verification_loop_fixture)
+make_review_receipt = verification_loop_fixture.make_review_receipt
+
 SCRIPT = ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 POLICY_PATH = ROOT / "skills" / "_shared" / "WORKING_DEADLINE_POLICY.json"
 CORPUS_PATH = ROOT / "benchmarks" / "working-deadline" / "CORPUS.json"
@@ -103,7 +112,8 @@ loader.exec_module(core)
 def receipt(repo: Path, kind: str = "general") -> Path:
     return make_review_receipt(
         repo, unit_id=core.detected_unit_id(repo),
-        risk_tier=core.detected_risk_tier(repo), kind=kind)
+        risk_tier=core.detected_risk_tier(repo), kind=kind,
+        command=f'"{sys.executable}" -c "pass"')
 
 
 # Deployment baseline: no command is a quiet no-op.
@@ -427,10 +437,68 @@ with tempfile.TemporaryDirectory(prefix="review-gate-source-") as td:
     gate = load_gate(install)
     check("commit gate detects the checkout this install was synced from",
           gate.methodology_checkout(repo) == repo.resolve())
+    candidate_validator = gate.cache_script_for(repo)
     check("commit gate loads the validator from the candidate checkout",
-          gate.cache_script_for(repo) == repo / CACHE_RELATIVE)
+          candidate_validator.is_file()
+          and candidate_validator.samefile(repo / CACHE_RELATIVE),
+          f"actual={candidate_validator!s} expected={repo / CACHE_RELATIVE!s}")
     check("review recorded by the candidate's validator unblocks its own commit",
           gate.review_was_done(repo))
+    if os.name == "nt":
+        unicode_count = box / "unicode-staged-count"
+        unicode_count.mkdir()
+        sh(["git", "init", "-q"], unicode_count)
+        sh(["git", "config", "core.quotepath", "false"], unicode_count)
+        for name in ("one.txt", "two.txt", "И.txt"):
+            write(unicode_count / name, "staged\n")
+        sh(["git", "add", "-A"], unicode_count)
+        previous_cwd = Path.cwd()
+        try:
+            os.chdir(unicode_count)
+            staged_unicode_count = gate.staged_file_count()
+        finally:
+            os.chdir(previous_cwd)
+        check("native commit gate counts UTF-8 Unicode staged filenames",
+              staged_unicode_count == 3, str(staged_unicode_count))
+    if os.name != "nt":
+        raw_count = box / "raw-z-count"
+        raw_count.mkdir()
+        sh(["git", "init", "-q"], raw_count)
+        for name in (b"line\nname", b"bad\xffname", b"plain"):
+            descriptor = os.open(os.fsencode(raw_count) + b"/" + name,
+                                 os.O_WRONLY | os.O_CREAT, 0o600)
+            os.close(descriptor)
+        sh(["git", "add", "-A"], raw_count)
+        previous_cwd = Path.cwd()
+        try:
+            os.chdir(raw_count)
+            raw_name_count = gate.staged_file_count()
+        finally:
+            os.chdir(previous_cwd)
+        check("commit gate raw-z counts newline and non-UTF8 staged names",
+              raw_name_count == 3, str(raw_name_count))
+
+    with mock.patch.object(gate.subprocess, "run", return_value=
+                           subprocess.CompletedProcess(["git"], 1, b"", b"fixture failure")):
+        unavailable_count = gate.staged_file_count()
+    check("failed staged query remains unknown rather than empty",
+          unavailable_count is None, str(unavailable_count))
+    with mock.patch.object(gate.subprocess, "run", side_effect=OSError("fixture I/O failure")):
+        unavailable_count = gate.staged_file_count()
+    check("staged query exception remains unknown rather than empty",
+          unavailable_count is None, str(unavailable_count))
+    out, err = io.StringIO(), io.StringIO()
+    denied = False
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            gate.emit_deny(None)
+        except SystemExit as exc:
+            denied = exc.code == 2
+    denial = json.loads(out.getvalue())["hookSpecificOutput"]
+    check("unknown staged scope denies without fabricating a file count",
+          denied and denial["permissionDecision"] == "deny"
+          and "не удалось безопасно прочитать" in denial["permissionDecisionReason"]
+          and "3 файлов" not in denial["permissionDecisionReason"], out.getvalue())
 
     # Canary A — forced installed-only reproduces the measured false block:
     # bumping the version in the tree is exactly what a release commit does.

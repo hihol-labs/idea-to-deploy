@@ -624,6 +624,41 @@ def work_deadline_runtime_checks() -> None:
         check("combined bounded/deadline stopped ledger validates", r.returncode == 0,
               r.stdout + r.stderr)
 
+    # GOAL transitions project to STATE through the task writer without a
+    # second lifecycle event; a foreign WIP is a hard preflight refusal.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        path = make_ledger(mem)
+        (mem / "STATE.json").write_text(json.dumps({"ledgerFiles": []}), encoding="utf-8")
+        r = run(VERIFY, "--goal", REL_GOAL, "--activate", "G-001", cwd=root)
+        state = load(mem / "STATE.json")
+        check("activation projects GOAL WIP into STATE and declares GOAL ledger",
+              r.returncode == 0 and state["currentUnit"]["id"] == "G-001"
+              and state["currentUnit"]["ledger"] == "GOAL.json"
+              and ".itd-memory/GOAL.json" in state["ledgerFiles"], r.stdout + r.stderr)
+        r = run(VERIFY, "--goal", REL_GOAL, "G-001", cwd=root)
+        state = load(mem / "STATE.json")
+        check("verified Goal transition projects one terminal STATE mirror",
+              r.returncode == 0 and state["currentUnit"]["status"] == "verified"
+              and len([e for e in events(mem) if e.get("name") == "G-001"
+                       and e.get("decision") == "verified"]) == 1, r.stdout + r.stderr)
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        path = make_ledger(mem)
+        foreign = {"currentUnit": {"id": "FOREIGN", "status": "in_progress",
+                                    "ledger": "STATE"}}
+        (mem / "STATE.json").write_text(json.dumps(foreign), encoding="utf-8")
+        before = path.read_bytes()
+        r = run(VERIFY, "--goal", REL_GOAL, "--activate", "G-001", cwd=root)
+        check("foreign active STATE rejects before Goal mutation",
+              r.returncode == 1 and path.read_bytes() == before
+              and load(mem / "STATE.json") == foreign, r.stdout + r.stderr)
+
 
 if __name__ == "__main__":
     sys.exit(main())

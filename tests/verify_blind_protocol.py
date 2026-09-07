@@ -1036,7 +1036,8 @@ def main() -> int:
             got_t2 = exc
         check("a non-object seal refuses by name: %s" % type(bad_seal).__name__,
               got_t is not None and got_t2 is not None
-              and "объектом" in str(got_t), repr(got_t)[:140])
+              and "объектом" in str(got_t) and "объектом" in str(got_t2),
+              "worksheet=%r; score=%r" % (got_t, got_t2))
 
     # r10: метка автора вне словаря источника — испорченный вход, а не
     # несогласие: разметчик выбирает только из словаря, поэтому совпадение
@@ -1514,7 +1515,8 @@ def main() -> int:
             got_t2 = exc
         check("a non-object seal refuses by name: %s" % type(bad_seal).__name__,
               got_t is not None and got_t2 is not None
-              and "объектом" in str(got_t), repr(got_t)[:140])
+              and "объектом" in str(got_t) and "объектом" in str(got_t2),
+              "worksheet=%r; score=%r" % (got_t, got_t2))
 
     # r10: метка автора вне словаря источника — испорченный вход, а не
     # несогласие: разметчик выбирает только из словаря, поэтому совпадение

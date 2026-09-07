@@ -4,19 +4,28 @@ from __future__ import annotations
 
 import json
 import os
+import importlib.machinery
+import importlib.util
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests"))
 from verification_loop_fixture import make_review_receipt
 
 
-ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "hooks" / "risk-score.sh"
 CACHE = ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 PY = sys.executable
+
+_hook_loader = importlib.machinery.SourceFileLoader("route_risk_hook", str(HOOK))
+_hook_spec = importlib.util.spec_from_loader("route_risk_hook", _hook_loader)
+assert _hook_spec and _hook_spec.loader
+_hook = importlib.util.module_from_spec(_hook_spec)
+_hook_spec.loader.exec_module(_hook)
 
 
 def state_path(session: str) -> Path:
@@ -97,7 +106,8 @@ def verdict(repo: Path, session: str, value: str, kind: str) -> int:
         write(repo / "change.txt", f"candidate for {session} {kind}\n")
         run_git(repo, "add", "change.txt")
         receipt = make_review_receipt(
-            repo, unit_id="R-1", risk_tier="medium", kind=kind)
+            repo, unit_id="R-1", risk_tier="medium", kind=kind,
+            command=f'{sys.executable} -c "pass"')
         receipt_args = ["--verification-receipt", str(receipt)]
     proc = subprocess.run(
         [PY, str(CACHE), "record", "--root", str(repo), "--session", session,
@@ -129,18 +139,34 @@ def main() -> int:
         return name
 
     try:
+        # Parser-only WSL grammar probes: no WSL executable is launched.
+        for command in (
+            "wsl --unsupported -- git status",
+            "wsl.exe --user root -- git status",
+            "wsl --distribution -- git status",
+            "wsl --cd -- git status",
+        ):
+            if _hook.read_only_bash(command):
+                failures.append(f"unknown or malformed WSL selector was read-only: {command}")
+        for command in (
+            "wsl -d Ubuntu-24.04 -- git --no-pager rev-parse --git-dir",
+            "wsl.exe --distribution Ubuntu-24.04 --cd /tmp -- git --no-pager rev-parse --is-inside-work-tree",
+        ):
+            if not _hook.read_only_bash(command):
+                failures.append(f"supported WSL selector lost read-only classification: {command}")
+
         session = use("risk-plain")
         if context(call(session, edit())):
             failures.append("plain edit escalated before threshold")
         if not all(not context(call(session, edit())) for _ in range(10)):
             failures.append("plain edits escalated before edit 12")
         msg = context(call(session, edit()))
-        if "successful bound /review verdict" not in msg:
+        if "current bound /review verdict" not in msg or "repair the current BLOCKED" not in msg:
             failures.append("plain edit 12 did not escalate to bound /review")
 
         session = use("risk-security")
         msg = accumulate(session, 3, "app/auth/login.py")
-        if "successful bound /security-audit verdict" not in msg:
+        if "current bound /security-audit verdict" not in msg:
             failures.append("three sensitive edits did not escalate to security audit")
 
         session = use("risk-marker")
@@ -192,7 +218,7 @@ def main() -> int:
             failures.append("post-gate fixture review failed")
         early = accumulate(session, 11)
         final = context(call(session, edit()))
-        if early or "successful bound /review verdict" not in final:
+        if early or "current bound /review verdict" not in final:
             failures.append("post-gate delta did not restart at exactly 12 edits")
 
         session = use("risk-lagging-baseline")
@@ -205,7 +231,7 @@ def main() -> int:
             failures.append("lagging-baseline fixture review failed")
         early = accumulate(session, 11)
         final = context(call(session, edit()))
-        if early or "successful bound /review verdict" not in final:
+        if early or "current bound /review verdict" not in final:
             failures.append("lagging baseline reused pre-gate risk as new delta")
 
         session = use("risk-read")
@@ -214,6 +240,53 @@ def main() -> int:
                                       "tool_input": {"file_path": "x.py"}})):
                 failures.append("read-only operations accrued risk")
                 break
+
+        session = use("risk-read-only-shell")
+        for command in (
+            "git --no-pager rev-parse --git-dir",
+            "wsl.exe -d Ubuntu-24.04 -- git --no-pager rev-parse --is-inside-work-tree",
+        ):
+            if context(call(session, {"tool_name": "Bash", "tool_input": {
+                    "command": command}})):
+                failures.append(f"read-only shell command accrued risk: {command}")
+        for command in (
+            "git status && rm -f sentinel",
+            "git diff > report.txt",
+            "git show $(git rev-parse HEAD)",
+            "git diff --output=report.txt",
+            "git diff --ext-diff",
+            "git ls-remote --upload-pack=./mutate .",
+            "git ls-remote --upload-pack ./mutate .",
+            "wsl.exe -d Ubuntu-24.04 -- git ls-remote --upload-pack=./mutate .",
+            "wsl.exe -d Ubuntu-24.04 -- bash -lc git status",
+            "git branch topic",
+        ):
+            before = read_state(session)["risk_score"]
+            call(session, {"tool_name": "Bash", "tool_input": {"command": command}})
+            if read_state(session)["risk_score"] <= before:
+                failures.append(f"shell mutation/unknown command was treated read-only: {command}")
+        with tempfile.TemporaryDirectory(prefix="risk-textconv-") as raw:
+            probe = Path(raw)
+            run_git(probe, "init", "-q")
+            run_git(probe, "config", "user.email", "risk@example.test")
+            run_git(probe, "config", "user.name", "Risk Test")
+            sentinel = probe / "executed-sentinel"
+            helper = probe / "textconv.py"
+            helper.write_text(
+                "import pathlib,sys\npathlib.Path(sys.argv[1]).write_text('ran')\n",
+                encoding="utf-8")
+            write(probe / ".gitattributes", "sample.txt diff=sentinel\n")
+            write(probe / "sample.txt", "sample\n")
+            run_git(probe, "add", ".")
+            run_git(probe, "commit", "-qm", "textconv fixture")
+            run_git(probe, "config", "diff.sentinel.textconv",
+                    f'"{PY}" "{helper}" "{sentinel}"')
+            subprocess.run(["git", "show", "HEAD"], cwd=probe, check=True,
+                           capture_output=True, text=True, encoding="utf-8")
+            if (_hook.read_only_bash("git show")
+                    or _hook.read_only_bash("git rev-parse --git-dir")
+                    or not sentinel.is_file()):
+                failures.append("configured external-diff probe was classified zero-risk")
 
         bad = subprocess.run([PY, str(HOOK)], input="not json", capture_output=True,
                              text=True, env=dict(os.environ,

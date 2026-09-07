@@ -287,6 +287,36 @@ def transport_phase() -> None:
     )
 
 
+def local_adjudication_phase() -> None:
+    """The actual validator child must not inherit imports or write bytecode."""
+    with tempfile.TemporaryDirectory(prefix="itd-local-adjudication-") as raw:
+        root = Path(raw).resolve()
+        receipt = root / "receipt.json"
+        receipt.write_text("{}\n", encoding="utf-8")
+        observed: list[dict[str, Any]] = []
+
+        def runner(command, **kwargs):
+            observed.append({"command": command, **kwargs})
+            return subprocess.CompletedProcess(
+                command, 0,
+                stdout=b'{"outcome":"PASSED"}\n', stderr=b"",
+            )
+
+        result = gate.validate_local_adjudication(
+            root, receipt, "R-1", "medium", REPOSITORY, "a" * 64,
+            runner=runner,
+        )
+        check(
+            result == {"routeEvidence": "signed-keyless-route"},
+            "local adjudication accepts its typed validator output",
+        )
+        command = observed[0]["command"]
+        check(
+            command[:3] == [sys.executable, "-I", "-B"],
+            "local adjudication child uses isolated no-bytecode Python",
+        )
+
+
 def doctor_phase() -> None:
     with tempfile.TemporaryDirectory(prefix="itd-gate-doctor-") as raw:
         root = Path(raw)
@@ -599,6 +629,7 @@ def main() -> int:
     ruleset_phase()
     registry_phase()
     transport_phase()
+    local_adjudication_phase()
     doctor_phase()
     readiness_phase()
     print(json.dumps({"checks": CHECKS, "status": "PASSED"}, sort_keys=True))

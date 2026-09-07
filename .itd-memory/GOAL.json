@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-05T12:37:25Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-05T15:52:09Z",
+  "currentUnitId": "ROUTE-DEBTS",
   "units": [
     {
       "id": "PE5-001",
@@ -461,6 +461,17 @@
       "status": "verified",
       "verifiedAt": "2026-09-05T08:32:00Z",
       "evidence": "exit 0: rollout 1.103.0 1.103.0-1cee4511e67c1771 1.103.0-1cee4511e67c1771",
+      "skippedReason": "",
+      "blockedReason": ""
+    },
+    {
+      "id": "ROUTE-DEBTS",
+      "criterion": "The ROUTE-DEBTS regression oracle exits 0, and the installed-proof check confirms the released fixes on WSL and Windows. Contract preflight, approval binding, lifecycle synchronization, bounded publication and repair-lane behavior retain fail-closed acceptance. Q6 frozen evidence is preserved and any context drift is recorded, never hidden.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/ROUTE-DEBTS/INSTALLED.json",
+      "riskTier": "high",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
       "skippedReason": "",
       "blockedReason": ""
     }

@@ -71,15 +71,23 @@ failed / invalid transition, 2 usage or ledger error, 3 typed bounded stop
 from __future__ import annotations
 
 import argparse
+import base64
+import contextlib
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
+from itd_safe_atomic import atomic_replace_bytes, durable_append_bytes, durable_unlink, ledger_events, read_ledger_snapshot, read_regular_snapshot  # noqa: E402
 
 GOAL_DEFAULT = Path(".itd-memory") / "GOAL.json"
 UNIT_STATUSES = (
@@ -100,6 +108,7 @@ OPTIONAL_POLICY_KEYS = (
     "enforceObservedTokens", "verificationStrategy", "maxCheckpointBytes",
 )
 RISK_TIERS = ("low", "medium", "high")
+JSON_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024
 WORKING_DEADLINE_PROFILE = "working_deadline"
 WORKING_DEADLINE_POLICY_PATH = (
     Path(__file__).resolve().parents[2] / "_shared" / "WORKING_DEADLINE_POLICY.json"
@@ -107,11 +116,73 @@ WORKING_DEADLINE_POLICY_PATH = (
 VERIFICATION_LOOP_PATH = (
     Path(__file__).resolve().parents[2] / "_shared" / "itd_verification_loop.py"
 )
+UNIT_LOG_PATH = Path(__file__).resolve().parents[2] / "task" / "scripts" / "itd_unit_log.py"
 CHECKPOINT_FIELDS = ("ready", "blocker", "remainder", "estimate")
 
 
 class VerificationReceiptError(ValueError):
     pass
+
+
+def strict_json_equal(left: object, right: object) -> bool:
+    """Compare JSON values without Python's bool/int or int/float coercion."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(strict_json_equal(left[key], right[key]) for key in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(strict_json_equal(a, b) for a, b in zip(left, right))
+    return left == right
+
+
+def contained_project_path(project_root: Path, raw: str | Path, label: str) -> Path:
+    """Bind a receipt path lexically inside the project without following links.
+
+    The path is never resolved: ``resolve()`` would follow a symlink or
+    junction first and let a later no-link check inspect only the target
+    (Sol-a7). Containment is decided on the unresolved components; the
+    anchored snapshot then refuses any link on the way to the leaf.
+    """
+    path = Path(raw)
+    if ".." in path.parts or not path.name:
+        raise VerificationReceiptError(f"{label} must stay inside the project")
+    if not path.is_absolute():
+        path = project_root / path
+    try:
+        relative = path.relative_to(project_root)
+    except ValueError as exc:
+        raise VerificationReceiptError(f"{label} must stay inside the project") from exc
+    if not relative.parts:
+        raise VerificationReceiptError(f"{label} must stay inside the project")
+    return path
+
+
+def stable_json_snapshot(path: Path, label: str) -> tuple[bytes, dict]:
+    """Read one bounded anchored no-follow regular JSON snapshot without blocking on FIFOs."""
+    try:
+        before = path.lstat()
+        reparse = bool(getattr(before, "st_file_attributes", 0) & 0x400)
+        if stat.S_ISLNK(before.st_mode) or reparse or not stat.S_ISREG(before.st_mode):
+            raise VerificationReceiptError(f"{label} is not a regular no-link file")
+        if before.st_size > JSON_SNAPSHOT_MAX_BYTES:
+            raise VerificationReceiptError(f"{label} exceeds the snapshot size limit")
+        # Every directory on the way and the leaf are opened without following
+        # links from a held parent (POSIX dir_fd chain / Windows relative
+        # NtCreateFile), so a link swapped in after validation is refused
+        # rather than read through; the read is bounded and non-blocking.
+        payload = read_regular_snapshot(path.absolute(), JSON_SNAPSHOT_MAX_BYTES)
+        current = path.lstat()
+        if ((current.st_dev, current.st_ino) != (before.st_dev, before.st_ino)
+                or stat.S_ISLNK(current.st_mode) or current.st_size != len(payload)):
+            raise VerificationReceiptError(f"{label} changed or exceeded its bound while reading")
+        value = json.loads(payload.decode("utf-8"))
+    except VerificationReceiptError:
+        raise
+    except Exception as exc:
+        raise VerificationReceiptError(f"{label} is unreadable") from exc
+    if not isinstance(value, dict):
+        raise VerificationReceiptError(f"{label} is not a JSON object")
+    return payload, value
 
 
 def die(msg: str, code: int = 2) -> None:
@@ -130,25 +201,31 @@ def validate_verification_receipt(goal_path: Path, receipt_path: str,
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     project_root = goal_path.resolve().parent.parent
-    path = Path(receipt_path)
-    if not path.is_absolute():
-        path = project_root / path
+    path = contained_project_path(project_root, receipt_path, "Verification Loop receipt")
+    relative = path.relative_to(project_root).as_posix()
     try:
         receipt = module.validate_adjudication(
             project_root, path, risk_tier, unit_id)
     except module.LoopError as exc:
         raise VerificationReceiptError(
             f"Verification Loop receipt UNVERIFIED: {exc.why}; FIX: {exc.fix}") from exc
-    try:
-        relative = path.resolve().relative_to(project_root).as_posix()
-    except ValueError as exc:
-        raise VerificationReceiptError(
-            "Verification Loop receipt must stay inside the project") from exc
+    adjudication_bytes, stable_receipt = stable_json_snapshot(path, "Verification Loop adjudication receipt")
+    if not strict_json_equal(stable_receipt, receipt):
+        raise VerificationReceiptError("Verification Loop adjudication receipt changed after validation")
+    machine_ref = receipt.get("dependencies", {}).get("machine", {})
+    machine_path = contained_project_path(
+        project_root, str(machine_ref.get("path") or ""), "Verification Loop machine receipt")
+    machine_bytes, machine = stable_json_snapshot(machine_path, "Verification Loop machine receipt")
+    if hashlib.sha256(machine_bytes).hexdigest() != str(machine_ref.get("sha256") or ""):
+        raise VerificationReceiptError("Verification Loop machine receipt changed after adjudication validation")
     return {
         "path": relative,
-        "sha256": hashlib.sha256(path.resolve().read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(adjudication_bytes).hexdigest(),
         "receiptSha256": str(receipt.get("receiptSha256") or ""),
         "outcome": str(receipt.get("outcome") or ""),
+        "machinePath": str(machine_ref.get("path") or ""),
+        "machineSha256": str(machine_ref.get("sha256") or ""),
+        "machine": machine,
     }
 
 
@@ -415,6 +492,7 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
                  stop_reason: str, detail: str,
                  budget_kind: str = "", observed: int | None = None) -> int:
     """Persist a typed stop without inventing a new open-unit status."""
+    projection = state_projection(goal_path, unit, "blocked")
     unit["status"] = "blocked"
     unit["blockedReason"] = f"{stop_reason}: {detail}"
     set_stop_reason(unit, stop_reason)
@@ -442,8 +520,9 @@ def bounded_stop(goal: dict, goal_path: Path, unit: dict,
             state["exhaustedBudget"]["observed"] = observed
     if goal.get("currentUnitId") == unit.get("id"):
         goal["currentUnitId"] = ""
-    save_goal(goal_path, goal)
-    append_event(goal_path, unit["id"], stop_reason, detail)
+    if not commit_goal_transition(goal, goal_path, unit, stop_reason, detail,
+                                  projection, state_decision="blocked"):
+        return 1
     print(f"STOPPED {unit['id']} [{stop_reason}] — {detail}")
     return BOUNDED_STOP_EXIT
 
@@ -526,7 +605,10 @@ def load_goal(path: Path) -> dict:
     if not path.is_file():
         die(f"goal ledger not found: {path}")
     try:
-        goal = json.loads(path.read_text(encoding="utf-8"))
+        raw = read_ledger_snapshot(path)
+        if raw is None:
+            die(f"goal ledger not found: {path}")
+        goal = json.loads(raw.decode("utf-8"))
     except Exception as e:
         die(f"{path}: not valid JSON ({e})")
     if not isinstance(goal.get("units"), list) or not goal["units"]:
@@ -536,14 +618,398 @@ def load_goal(path: Path) -> dict:
 
 def save_goal(path: Path, goal: dict) -> None:
     goal["updatedAt"] = now_iso()
-    path.write_text(json.dumps(goal, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
+    save_goal_bytes(path, goal_document_bytes(goal))
 
 
-def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str) -> None:
-    """Append a unit event (actor: harness) next to the ledger. Best-effort."""
+def goal_document_bytes(goal: dict) -> bytes:
+    return (json.dumps(goal, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+def save_goal_bytes(path: Path, content: bytes) -> None:
+    """Atomically replace a Goal document with already-bound bytes."""
+    atomic_replace_bytes(path, content)
+
+
+def unit_log_module():
+    """Load the task ledger's atomic STATE writer; do not duplicate it here."""
+    spec = importlib.util.spec_from_file_location("itd_goal_unit_log", UNIT_LOG_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("task STATE writer is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def state_projection(goal_path: Path, unit: dict, decision: str,
+                     *, writer: object | None = None) -> tuple[object, dict, str] | None:
+    """Preflight the STATE mirror without changing it or the goal ledger.
+
+    A missing STATE is a supported standalone/legacy goal ledger.  A live
+    foreign STATE is never overwritten by a GOAL transition.
+    """
+    mem = goal_path.parent
+    path = mem / "STATE.json"
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        die(f"cannot read STATE mirror: {exc}", 1)
+    writer = writer or unit_log_module()
+    # The mirror that authorizes a Goal transition is read like a receipt:
+    # no-follow, anchored and bounded, so a STATE link swapped in from
+    # outside the project cannot steer WIP or projection decisions (Sol-a10).
+    try:
+        raw, state = stable_json_snapshot(path, "STATE mirror")
+    except VerificationReceiptError as exc:
+        die(f"cannot read STATE mirror: {exc}", 1)
+    cur = state.get("currentUnit") or {}
+    active = cur.get("status") in ("in_progress", "verifying", "recovery_required")
+    foreign = (cur.get("id") and
+               (cur.get("id") != unit.get("id")
+                or cur.get("ledger") not in ("", None, goal_path.name)))
+    if foreign and (decision != "activated" or active):
+        die("WIP=1: STATE has a foreign current unit; refusing to change GOAL", 1)
+    if decision == "activated":
+        files = state.get("ledgerFiles")
+        if files is not None and (not isinstance(files, list)
+                                  or not all(isinstance(v, str) for v in files)):
+            die("STATE.ledgerFiles is malformed; refusing GOAL activation", 1)
+    return writer, state, hashlib.sha256(raw).hexdigest()
+
+
+def write_state_projection(projection: tuple[object, dict, str] | None, goal_path: Path,
+                           unit: dict, decision: str, event_at: str = "",
+                           *, lock_held: bool = False) -> None:
+    if projection is None:
+        return
+    writer, state, before_sha256 = projection
+    path = goal_path.parent / "STATE.json"
+    lock = contextlib.nullcontext() if lock_held else writer.state_write_lock(goal_path.parent)
+    with lock:
+        # The re-read under the lock uses the same anchored no-follow
+        # snapshot as the preflight: a STATE link swapped in after the first
+        # read would otherwise pass the hash check and the writer would then
+        # operate on the swapped namespace (Sol-a11).
+        try:
+            current_raw, _current_state = stable_json_snapshot(path, "STATE mirror")
+        except VerificationReceiptError as exc:
+            raise RuntimeError(f"cannot re-read STATE mirror for projection: {exc}") from exc
+        current_sha256 = hashlib.sha256(current_raw).hexdigest()
+        if current_sha256 != before_sha256:
+            raise RuntimeError("STATE mirror changed after projection; refusing overwrite")
+        cur = dict(state.get("currentUnit") or {})
+        if decision in ("activated", "regressed"):
+            cur.update({"id": unit["id"], "goal": unit.get("criterion") or "",
+                        "status": "in_progress", "ledger": goal_path.name,
+                        "riskTier": unit.get("riskTier") or "unknown"})
+            if not cur.get("startedAt") or decision == "activated":
+                cur["startedAt"] = event_at or now_iso()
+            cur.pop("completedAt", None)
+        else:
+            cur.update({"id": unit["id"], "goal": unit.get("criterion") or "",
+                        "status": decision, "ledger": goal_path.name,
+                        "riskTier": unit.get("riskTier") or "unknown",
+                        "completedAt": event_at or now_iso()})
+        state["currentUnit"] = cur
+        if decision == "activated":
+            files = state.get("ledgerFiles")
+            if files is None:
+                files = []
+            if not isinstance(files, list) or not all(isinstance(v, str) for v in files):
+                die("STATE.ledgerFiles is malformed; refusing GOAL activation", 1)
+            try:
+                canonical = goal_path.resolve().relative_to(goal_path.parent.parent.resolve()).as_posix()
+            except ValueError:
+                canonical = f"{goal_path.parent.name}/{goal_path.name}"
+            if canonical not in files:
+                files.append(canonical)
+            state["ledgerFiles"] = files
+        writer.save_state_locked(goal_path.parent, state)
+
+
+def receipt_binds_command(binding: dict, command: str) -> bool:
+    """The adjudicated machine evidence must contain this exact goal oracle."""
+    return any(run.get("command") == command
+               for run in binding.get("machine", {}).get("runs", [])
+               if isinstance(run, dict))
+
+
+GOAL_TRANSITION_RECOVERY = ".goal-transition-recovery.json"
+
+
+def transition_recovery_path(goal_path: Path) -> Path:
+    return goal_path.parent / GOAL_TRANSITION_RECOVERY
+
+
+def event_line(event: dict) -> bytes:
+    return (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def transition_event(goal_path: Path, unit_id: str, decision: str,
+                     evidence: str, transaction: str) -> dict:
+    return {
+        "id": f"evt-goal-{int(time.time())}-{transaction}",
+        "at": now_iso(),
+        "actor": "harness",
+        "type": "unit",
+        "name": unit_id,
+        "decision": decision,
+        "evidence": evidence[:EVIDENCE_MAX],
+        "ledger": goal_path.name,
+        # Binds a recovery record to this one append.  It is deliberately not
+        # an alternate authority for transitions: the JSONL event remains the
+        # canonical history and the record is removed once all three writes
+        # have completed.
+        "transaction": transaction,
+    }
+
+
+def save_transition_recovery(goal_path: Path, recovery: dict) -> None:
+    path = transition_recovery_path(goal_path)
+    atomic_replace_bytes(path, (json.dumps(recovery, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+
+
+def clear_transition_recovery(goal_path: Path) -> None:
+    durable_unlink(transition_recovery_path(goal_path))
+
+
+def load_transition_recovery(goal_path: Path) -> dict | None:
+    path = transition_recovery_path(goal_path)
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise RuntimeError(f"Goal transition recovery record is unreadable: {exc}") from exc
+    # Recovery instructions drive rollback or STATE projection, so they are
+    # read like a receipt: no-follow, anchored and bounded (Sol-a11).
+    try:
+        _raw, recovery = stable_json_snapshot(path, "Goal transition recovery record")
+    except VerificationReceiptError as exc:
+        raise RuntimeError(f"Goal transition recovery record is unreadable: {exc}") from exc
+    required = {"version", "transaction", "goalBefore", "goalBeforeSha256",
+                "goalAfter", "goalAfterSha256", "eventsBeforeSha256",
+                "eventsBeforeBytes", "event", "unitId", "decision", "stateDecision"}
+    if not isinstance(recovery, dict) or set(recovery) != required:
+        raise RuntimeError("Goal transition recovery record is malformed")
+    if (type(recovery["version"]) is not int or recovery["version"] != 1
+            or type(recovery["eventsBeforeBytes"]) is not int or recovery["eventsBeforeBytes"] < 0
+            or not all(isinstance(recovery[key], str) for key in required - {"version", "event", "eventsBeforeBytes"})
+            or not isinstance(recovery["event"], dict)):
+        raise RuntimeError("Goal transition recovery record has an unsupported version")
+    try:
+        if uuid.UUID(hex=recovery["transaction"]).hex != recovery["transaction"]:
+            raise ValueError("transaction")
+    except ValueError as exc:
+        raise RuntimeError("Goal transition recovery transaction is malformed") from exc
+    event = recovery["event"]
+    expected_event = {"id", "at", "actor", "type", "name", "decision",
+                      "evidence", "ledger", "transaction"}
+    if (set(event) != expected_event or event.get("transaction") != recovery["transaction"]
+            or event.get("name") != recovery["unitId"]
+            or event.get("ledger") != goal_path.name
+            or event.get("decision") != recovery["decision"]
+            or event.get("actor") != "harness" or event.get("type") != "unit"
+            or not all(isinstance(event[key], str) for key in expected_event)):
+        raise RuntimeError("Goal transition recovery event is malformed or unbound")
+    if recovery["stateDecision"] not in ("activated", "regressed", "verified", "blocked"):
+        raise RuntimeError("Goal transition recovery STATE decision is invalid")
+    decision = recovery["decision"]
+    if decision in ("activated", "regressed", "verified", "blocked"):
+        if recovery["stateDecision"] != decision:
+            raise RuntimeError("Goal transition recovery event/state decisions are inconsistent")
+    elif decision == "budget_exhausted":
+        if recovery["stateDecision"] != "blocked":
+            raise RuntimeError("Goal transition recovery budget stop must project blocked")
+    elif decision == "verification_unverified":
+        if recovery["stateDecision"] != "regressed":
+            raise RuntimeError("Goal transition recovery checker failure must project regressed")
+    else:
+        raise RuntimeError("Goal transition recovery decision is unsupported")
+    return recovery
+
+
+def event_with_transaction(goal_path: Path, transaction: str) -> dict | None:
+    # Recovery authority: anchored no-follow, fail-closed on malformed records.
+    for event in ledger_events(goal_path.parent / "events.jsonl"):
+        if event.get("transaction") == transaction:
+            return event
+    return None
+
+
+def recovery_goal(recovery: dict) -> tuple[bytes, bytes, dict, dict]:
+    try:
+        before = base64.b64decode(recovery["goalBefore"], validate=True)
+        after = base64.b64decode(recovery["goalAfter"], validate=True)
+        goal = json.loads(after.decode("utf-8"))
+    except Exception as exc:
+        raise RuntimeError("Goal transition recovery bytes are malformed") from exc
+    if (hashlib.sha256(before).hexdigest() != recovery["goalBeforeSha256"]
+            or hashlib.sha256(after).hexdigest() != recovery["goalAfterSha256"]):
+        raise RuntimeError("Goal transition recovery record hash mismatch")
+    unit = next((item for item in goal.get("units", [])
+                 if item.get("id") == recovery["unitId"]), None)
+    expected = "in_progress" if recovery["stateDecision"] in ("activated", "regressed") else recovery["stateDecision"]
+    if not isinstance(unit, dict) or unit.get("status") != expected:
+        raise RuntimeError("Goal transition recovery unit/status is not bound to the target state")
+    return before, after, goal, unit
+
+
+def recover_goal_transition(goal_path: Path, receipt_path: str = "",
+                            *, verified_context: bool = False,
+                            expected_unit_id: str | None = None,
+                            writer: object | None = None,
+                            lock_held: bool = False) -> str | None:
+    """Finish or roll back one interrupted Goal/event/STATE transaction.
+
+    A verified projection needs the existing current-candidate receipt unless
+    the same invocation just produced the verified transition.  The recovery
+    record is crash metadata, never independent verification authority.
+    """
+    recovery = load_transition_recovery(goal_path)
+    if recovery is None:
+        return None
+    before, after, goal, unit = recovery_goal(recovery)
+    if expected_unit_id is not None and unit["id"] != expected_unit_id:
+        raise RuntimeError("Goal transition recovery belongs to a different unit")
+    event = recovery["event"]
+    landed = event_with_transaction(goal_path, str(recovery["transaction"]))
+    current = read_ledger_snapshot(goal_path) or b""
+    if landed is None:
+        events = goal_path.parent / "events.jsonl"
+        current_events = read_ledger_snapshot(events) or b""
+        if (len(current_events) != recovery["eventsBeforeBytes"]
+                or hashlib.sha256(current_events).hexdigest() != recovery["eventsBeforeSha256"]):
+            raise RuntimeError("Goal event log changed after interrupted append; preserving append-only evidence")
+        # Preflight before rewriting Goal, even for rollback.
+        state_projection(goal_path, unit, str(recovery["stateDecision"]), writer=writer)
+        if current == after:
+            save_goal_bytes(goal_path, before)
+        elif current != before:
+            raise RuntimeError("Goal changed during an interrupted transition; refusing rollback")
+        clear_transition_recovery(goal_path)
+        return "rolled_back"
+    if landed != event:
+        raise RuntimeError("Goal event transaction does not match the recovery record")
+    # A parseable transaction is not proof that the append completed: a durable
+    # append can fail after writing the whole object without its newline, and a
+    # projection built on that would clear recovery while refuse_partial_tail
+    # then blocks every later append (Sol-a9). Prove the log is exactly the
+    # recorded pre-append bytes plus the one newline-terminated event line.
     events = goal_path.parent / "events.jsonl"
-    evt = {
+    current_events = read_ledger_snapshot(events) or b""
+    before_bytes = int(recovery["eventsBeforeBytes"])
+    line = event_line(event)
+    if (hashlib.sha256(current_events[:before_bytes]).hexdigest() != recovery["eventsBeforeSha256"]
+            or current_events[before_bytes:] != line):
+        if current_events[before_bytes:] == line[:-1]:
+            raise RuntimeError(
+                "Goal event append left a partial final record without its newline; "
+                "recovery evidence preserved, repair the event log before any projection")
+        raise RuntimeError("Goal event log does not end at the recorded append boundary; preserving recovery evidence")
+    if current_canonical_event(goal_path, unit["id"], recovery["decision"]) != event:
+        raise RuntimeError("Goal event is no longer the latest canonical transition")
+    if recovery["stateDecision"] == "verified" and not verified_context:
+        if not receipt_path.strip():
+            raise RuntimeError("verified transition recovery requires a fresh --verification-receipt")
+        try:
+            checked = validate_verification_receipt(goal_path, receipt_path,
+                                                    str(unit.get("riskTier") or "unknown"),
+                                                    str(unit["id"]))
+        except VerificationReceiptError as exc:
+            raise RuntimeError(f"verified transition recovery receipt is unverified: {exc}") from exc
+        if not receipt_binds_command(checked, str(unit.get("verificationCommand") or "")):
+            raise RuntimeError("verified transition recovery receipt lacks Goal verificationCommand")
+    projection = state_projection(goal_path, unit, str(recovery["stateDecision"]), writer=writer)
+    if current == before:
+        save_goal_bytes(goal_path, after)
+    elif current != after:
+        raise RuntimeError("Goal changed after a canonical event; refusing projection repair")
+    write_state_projection(projection, goal_path, unit,
+                           str(recovery["stateDecision"]), str(event.get("at") or ""),
+                           lock_held=lock_held)
+    clear_transition_recovery(goal_path)
+    return "projected"
+
+
+def commit_goal_transition(goal: dict, goal_path: Path, unit: dict, decision: str,
+                           evidence: str, projection: tuple[object, dict, str] | None,
+                           *, state_decision: str = "", verified_context: bool = False) -> bool:
+    """Commit Goal, canonical event, and STATE with bounded crash recovery."""
+    writer = unit_log_module()
+    with writer.state_write_lock(goal_path.parent):
+        # The initial preflight can be separated from this commit by a test or
+        # checker. Re-read under the same lock used by ordinary task lifecycle
+        # writes before creating any durable Goal/event recovery record.
+        fresh_projection = state_projection(goal_path, unit, state_decision or decision, writer=writer)
+        requested_state = None if projection is None else projection[2]
+        current_state = None if fresh_projection is None else fresh_projection[2]
+        if requested_state != current_state:
+            print("ERROR: STATE mirror changed after transition preflight; refusing stale Goal commit")
+            return False
+        projection = fresh_projection
+        if transition_recovery_path(goal_path).exists():
+            print("ERROR: unresolved Goal transition recovery; use --reconcile with current evidence")
+            return False
+        before = read_ledger_snapshot(goal_path) or b""
+        events_path = goal_path.parent / "events.jsonl"
+        events_before = read_ledger_snapshot(events_path) or b""
+        goal["updatedAt"] = now_iso()
+        after = goal_document_bytes(goal)
+        transaction = uuid.uuid4().hex
+        event = transition_event(goal_path, unit["id"], decision, evidence, transaction)
+        recovery = {
+            "version": 1,
+            "transaction": transaction,
+            "goalBefore": base64.b64encode(before).decode("ascii"),
+            "goalBeforeSha256": hashlib.sha256(before).hexdigest(),
+            "goalAfter": base64.b64encode(after).decode("ascii"),
+            "goalAfterSha256": hashlib.sha256(after).hexdigest(),
+            "eventsBeforeSha256": hashlib.sha256(events_before).hexdigest(),
+            "eventsBeforeBytes": len(events_before),
+            "event": event,
+            "unitId": unit["id"],
+            "decision": decision,
+            "stateDecision": state_decision or decision,
+        }
+        save_transition_recovery(goal_path, recovery)
+        try:
+            save_goal_bytes(goal_path, after)
+        except Exception as exc:
+            print(f"ERROR: Goal transition was not written: {exc}")
+            return False
+        try:
+            append_event(goal_path, unit["id"], decision, evidence, event=event)
+        except Exception as exc:
+            try:
+                recovered = recover_goal_transition(goal_path, verified_context=verified_context,
+                                                    writer=writer, lock_held=True)
+            except Exception as recovery_exc:
+                print(f"ERROR: canonical {decision} event append interrupted: {exc}; "
+                      f"recovery pending: {recovery_exc}")
+                return False
+            if recovered == "projected" and event_with_transaction(goal_path, transaction) == event:
+                print(f"recovered canonical {decision} event after append interruption")
+                return True
+            print(f"ERROR: canonical {decision} event append interrupted; Goal rolled back: {exc}")
+            return False
+        try:
+            write_state_projection(projection, goal_path, unit, state_decision or decision,
+                                   event["at"], lock_held=True)
+        except Exception as exc:
+            print(f"ERROR: STATE projection interrupted after canonical {decision} event: {exc}")
+            print("Use --reconcile with current verification evidence; recovery will not append another event.")
+            return False
+        clear_transition_recovery(goal_path)
+        return True
+
+
+def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str,
+                 *, event: dict | None = None) -> dict:
+    """Append the canonical event. Failure is fatal; callers must repair, not retry."""
+    events = goal_path.parent / "events.jsonl"
+    evt = event or {
         "id": f"evt-goal-{int(time.time())}",
         "at": now_iso(),
         "actor": "harness",
@@ -555,11 +1021,27 @@ def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str) ->
         # юнитов), поэтому событие несёт СВОЙ леджер (S10-LEDGER).
         "ledger": goal_path.name,
     }
+    refuse_partial_tail(events)
+    durable_append_bytes(events, event_line(evt))
+    return evt
+
+
+def refuse_partial_tail(events: Path) -> None:
+    """Refuse to append after an interrupted record (same rule as the task ledger).
+
+    A failed append can leave a JSON fragment without its newline. Appending
+    the next event would concatenate both records, the durable append would
+    still succeed and the transition could advance STATE while neither record
+    parses (Sol-a8). The tail is inspected through the shared anchored
+    no-follow ledger reader, so a link, junction or FIFO swapped in at this
+    path can neither redirect nor stall the preflight (Sol-a11/a12).
+    """
     try:
-        with events.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(evt, ensure_ascii=False) + "\n")
-    except Exception as e:
-        print(f"warning: could not append event to {events}: {e}")
+        payload = read_ledger_snapshot(events)
+    except (OSError, RuntimeError) as exc:
+        raise RuntimeError(f"events.jsonl tail cannot be safely read: {exc}") from exc
+    if payload and not payload.endswith(b"\n"):
+        raise RuntimeError("events.jsonl has a partial final record; preserved without append")
 
 
 def observe_working_deadline(
@@ -695,22 +1177,84 @@ def cmd_ack_handoff(goal: dict, goal_path: Path, unit: dict, reason: str) -> int
 
 def has_activation_event(goal_path: Path, unit_id: str) -> bool:
     """True если в events.jsonl уже есть activation-событие юнита."""
-    events = goal_path.parent / "events.jsonl"
-    try:
-        for line in events.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                evt = json.loads(line)
-            except Exception:
-                continue
-            if (evt.get("type") == "unit" and evt.get("name") == unit_id
-                    and str(evt.get("decision")).lower() == "activated"):
-                return True
-    except OSError:
-        pass
+    for evt in ledger_events(goal_path.parent / "events.jsonl"):
+        if (evt.get("type") == "unit" and evt.get("name") == unit_id
+                and str(evt.get("decision")).lower() == "activated"):
+            return True
     return False
+
+
+def current_canonical_event(goal_path: Path, unit_id: str, decision: str) -> dict | None:
+    # Transition authority: anchored no-follow read that refuses a malformed
+    # or partial record instead of skipping it (Sol-a12).
+    cycle: list[dict] = []
+    for evt in ledger_events(goal_path.parent / "events.jsonl"):
+        if not (evt.get("type") == "unit" and evt.get("actor") == "harness"
+                and evt.get("name") == unit_id and evt.get("ledger") == goal_path.name):
+            continue
+        if evt.get("decision") == "activated":
+            cycle = [evt]
+        elif cycle:
+            cycle.append(evt)
+    transitions = {"activated", "verified", "regressed", "blocked", "skipped",
+                   "budget_exhausted", "recovery_required", "goal_complete",
+                   "needs_reclassification", "verification_unverified"}
+    for evt in reversed(cycle):
+        if evt.get("decision") in transitions:
+            return evt if evt.get("decision") == decision else None
+    return None
+
+
+def cmd_reconcile(goal: dict, goal_path: Path, unit: dict, receipt_path: str) -> int:
+    """Recover the selected interrupted transition or repair its STATE mirror.
+
+    Reconciliation never creates canonical events or accepts prose as evidence.
+    """
+    if transition_recovery_path(goal_path).exists():
+        try:
+            outcome = recover_goal_transition(goal_path, receipt_path,
+                                              expected_unit_id=str(unit.get("id") or ""))
+        except Exception as exc:
+            die(f"reconcile cannot recover interrupted transition: {exc}", 1)
+        if outcome == "projected":
+            print(f"reconciled STATE from current canonical Goal event for {unit['id']}")
+            return 0
+        die("interrupted transition rolled back because no canonical event landed", 1)
+    event = current_canonical_event(goal_path, unit.get("id", ""), "verified")
+    if unit.get("status") != "verified" or event is None:
+        die("reconcile requires a verified Goal unit and its canonical verified event", 1)
+    if not receipt_path.strip():
+        die("reconcile requires a fresh --verification-receipt for the current candidate", 1)
+    try:
+        checked = validate_verification_receipt(
+            goal_path, receipt_path, str(unit.get("riskTier") or "unknown"),
+            str(unit["id"]))
+        if not receipt_binds_command(checked, str(unit.get("verificationCommand") or "")):
+            die("reconcile receipt lacks Goal verificationCommand", 1)
+    except VerificationReceiptError as exc:
+        die(f"reconcile receipt is unverified: {exc}", 1)
+    writer = unit_log_module()
+    with writer.state_write_lock(goal_path.parent):
+        event = current_canonical_event(goal_path, unit.get("id", ""), "verified")
+        if event is None:
+            die("reconcile requires the current canonical verified Goal event", 1)
+        projection = state_projection(goal_path, unit, "verified", writer=writer)
+        if projection is None:
+            print("NOOP reconcile: STATE.json is absent (standalone legacy Goal)")
+            return 0
+        _, state, _ = projection
+        cur = state.get("currentUnit") or {}
+        if (cur.get("id") == unit["id"] and cur.get("ledger") == goal_path.name
+                and cur.get("status") == "verified"):
+            print("NOOP reconcile: STATE already matches canonical verified Goal event")
+            return 0
+        try:
+            write_state_projection(projection, goal_path, unit, "verified",
+                                   str(event.get("at") or ""), lock_held=True)
+        except Exception as exc:
+            die(f"reconcile could not atomically repair STATE: {exc}", 1)
+    print(f"reconciled STATE from canonical verified Goal event for {unit['id']}")
+    return 0
 
 
 def find_unit(goal: dict, unit_id: str | None) -> dict:
@@ -766,6 +1310,7 @@ def decisive_line(output: str) -> str:
 
 def cmd_activate(goal: dict, goal_path: Path, unit: dict,
                  resume_reason: str = "", work_profile: str = "") -> int:
+    projection = state_projection(goal_path, unit, "activated")
     pending_handoff = handoff_state(goal)
     if pending_handoff and pending_handoff.get("required") is True:
         die(f"verified unit {pending_handoff.get('unitId')} requires result handoff "
@@ -774,6 +1319,22 @@ def cmd_activate(goal: dict, goal_path: Path, unit: dict,
         if work_profile and not is_working_deadline_unit(unit):
             die(f"{unit['id']}: cannot opt into working_deadline after legacy "
                 "activation; finish/reclassify the unit first", 1)
+        writer = unit_log_module()
+        with writer.state_write_lock(goal_path.parent):
+            event = current_canonical_event(goal_path, unit["id"], "activated")
+            projection = state_projection(goal_path, unit, "activated", writer=writer)
+            if projection is not None and event is not None:
+                _, state, _ = projection
+                cur = state.get("currentUnit") or {}
+                if not (cur.get("id") == unit["id"] and cur.get("ledger") == goal_path.name
+                        and cur.get("status") == "in_progress"):
+                    try:
+                        write_state_projection(projection, goal_path, unit, "activated",
+                                               str(event.get("at") or ""), lock_held=True)
+                    except Exception as exc:
+                        die(f"could not repair STATE from canonical activation event: {exc}", 1)
+                    print(f"repaired STATE from canonical activation event for {unit['id']}")
+                    return 0
         print(f"{unit['id']} is already in_progress — nothing to do")
         return 0
     if unit["status"] not in ("pending", "blocked", "recovery_required"):
@@ -886,9 +1447,9 @@ def cmd_activate(goal: dict, goal_path: Path, unit: dict,
     if was_recovery:
         unit["recoveryReason"] = ""
     goal["currentUnitId"] = unit["id"]
-    save_goal(goal_path, goal)
-    append_event(goal_path, unit["id"],
-                 "activated", unit.get("criterion") or "")
+    if not commit_goal_transition(goal, goal_path, unit, "activated",
+                                  unit.get("criterion") or "", projection):
+        return 1
     if bounded_resumed:
         append_event(goal_path, unit["id"], "budget_resumed",
                      resume_reason.strip())
@@ -904,6 +1465,7 @@ def cmd_block(goal: dict, goal_path: Path, unit: dict, reason: str) -> int:
         die("--block requires a non-empty --reason (fail-closed)", 1)
     if unit["status"] not in ("in_progress", "recovery_required", "pending"):
         die(f"cannot block {unit['id']} from status '{unit['status']}'", 1)
+    projection = state_projection(goal_path, unit, "blocked")
     unit["status"] = "blocked"
     unit["blockedReason"] = reason.strip()
     if bounded_policy(goal) is not None:
@@ -912,8 +1474,8 @@ def cmd_block(goal: dict, goal_path: Path, unit: dict, reason: str) -> int:
         (deadline_state(unit) or {})["stopReason"] = "blocked"
     if goal.get("currentUnitId") == unit["id"]:
         goal["currentUnitId"] = ""
-    save_goal(goal_path, goal)
-    append_event(goal_path, unit["id"], "blocked", reason.strip())
+    if not commit_goal_transition(goal, goal_path, unit, "blocked", reason.strip(), projection):
+        return 1
     print(f"blocked {unit['id']}: {reason.strip()}")
     return 0
 
@@ -990,6 +1552,7 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
     command = (unit.get("verificationCommand") or "").strip()
     if not command:
         die(f"{unit['id']} has an empty verificationCommand (fail-closed)", 1)
+    projection = state_projection(goal_path, unit, "regressed" if recheck else "verified")
 
     if is_working_deadline_unit(unit) and not recheck:
         deadline_rc = observe_working_deadline(
@@ -1003,6 +1566,11 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
     policy = bounded_policy(goal)
     verification_receipt: dict | None = None
     required_checker_mode = "machine_only"
+    explicit_risk = str(unit.get("riskTier") or "").lower()
+    if explicit_risk == "medium":
+        required_checker_mode = "targeted"
+    elif explicit_risk == "high":
+        required_checker_mode = "full"
     if policy is not None:
         approved_policy = policy.get("sealedPolicy")
         if (not isinstance(approved_policy, dict)
@@ -1063,6 +1631,13 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
 
     print(f"verifying {unit['id']}: {command}")
     sh = shutil.which("sh")
+    if sh is None and os.name == "nt":
+        # The native adapter deliberately never falls back to cmd.exe. Git
+        # Bash is the supported POSIX interpreter, but Codex's isolated Python
+        # launch does not necessarily inherit its bin directory on PATH.
+        git_bash = Path(r"C:\Program Files\Git\bin\sh.exe")
+        if git_bash.is_file() and not git_bash.is_symlink():
+            sh = str(git_bash)
     if sh is None:
         # POSIX-контракт (v1.87.0): без sh НЕ деградируем в cmd.exe тихо —
         # cmd.exe даёт ложные verified (см. Shell contract в шапке).
@@ -1080,6 +1655,16 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             output, rc = f"timeout after {timeout}s", 124
 
     evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
+    receipt_error = ""
+    if rc == 0 and verification_receipt_path.strip():
+        try:
+            verification_receipt = validate_verification_receipt(
+                goal_path, verification_receipt_path,
+                str(unit.get("riskTier") or "unknown"), str(unit["id"]))
+            if not receipt_binds_command(verification_receipt, command):
+                receipt_error = "receipt machine evidence does not contain Goal verificationCommand"
+        except VerificationReceiptError as exc:
+            receipt_error = str(exc)
 
     if policy is not None:
         # A checker is a second-stage gate over a machine-green candidate.  A
@@ -1087,17 +1672,10 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         # loop can learn, spend its attempt budget, and continue.  Requiring a
         # PASSED adjudication before running the oracle would make failed
         # attempts unobservable and deadlock the repair loop.
-        checker_error = ""
+        checker_error = receipt_error
         if rc == 0 and required_checker_mode in ("targeted", "full"):
             if not verification_receipt_path.strip():
                 checker_error = f"{required_checker_mode} checker receipt is missing"
-            else:
-                try:
-                    verification_receipt = validate_verification_receipt(
-                        goal_path, verification_receipt_path,
-                        str(unit.get("riskTier") or "unknown"), str(unit["id"]))
-                except VerificationReceiptError as exc:
-                    checker_error = str(exc)
         if checker_error:
             evidence = (evidence + "; checker UNVERIFIED: " + checker_error)[:EVIDENCE_MAX]
             record_attempt(unit, approach, command, "unverified", evidence,
@@ -1109,8 +1687,14 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                 unit["status"] = "in_progress"
                 goal["currentUnitId"] = unit["id"]
             set_stop_reason(unit, "")
-            save_goal(goal_path, goal)
-            append_event(goal_path, unit["id"], "verification_unverified", evidence)
+            if recheck:
+                if not commit_goal_transition(
+                        goal, goal_path, unit, "verification_unverified", evidence,
+                        projection, state_decision="regressed"):
+                    return 1
+            else:
+                save_goal(goal_path, goal)
+                append_event(goal_path, unit["id"], "verification_unverified", evidence)
             used = budgeted_attempt_count(unit)
             if used >= policy["maxAttemptsPerUnit"]:
                 return bounded_stop(
@@ -1124,6 +1708,24 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                        verification_receipt, recheck, tokens_used,
                        required_checker_mode)
 
+    # A supplied receipt is never decorative: validate it outside bounded mode
+    # too, and require it for explicitly classified medium/high legacy units.
+    if policy is None and rc == 0 and (verification_receipt_path.strip()
+                                       or required_checker_mode != "machine_only"):
+        if not verification_receipt_path.strip():
+            receipt_error = f"{required_checker_mode} checker receipt is missing"
+        if receipt_error:
+            if recheck:
+                unit["evidence"] = ""
+                unit["verifiedAt"] = ""
+                unit["status"] = "in_progress"
+                goal["currentUnitId"] = unit["id"]
+                if not commit_goal_transition(goal, goal_path, unit, "regressed",
+                                              evidence + "; checker UNVERIFIED", projection):
+                    return 1
+            print(f"UNVERIFIED {unit['id']} — {receipt_error}")
+            return 1
+
     # Runtime-сигнал верификации (GO-003): прогон становится наблюдаемым для
     # completion-gate независимо от исхода (pass/fail).
     write_verify_signal(goal_path, unit["id"], rc, command, evidence)
@@ -1132,21 +1734,27 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         unit["status"] = "verified"
         unit["verifiedAt"] = now_iso()
         unit["evidence"] = evidence
+        if verification_receipt is not None:
+            unit["verificationReceipt"] = {
+                key: value for key, value in verification_receipt.items() if key != "machine"
+            }
         if policy is not None:
             set_stop_reason(unit, "verified")
         if is_working_deadline_unit(unit):
             (deadline_state(unit) or {})["stopReason"] = "verified"
             require_result_handoff(goal, unit)
         goal["currentUnitId"] = ""
-        save_goal(goal_path, goal)
         # Инвариант леджера verified ⊆ activated: если activation-событие
         # потеряно (activated руками/другим путём), бэкфиллим его ДО verified —
         # иначе VCR-учёт видит юнит verified без активации (retro 2026-07-11 P3,
         # live: OneOfS U-2..U-5).
         if not has_activation_event(goal_path, unit["id"]):
+            # Historical hand-edited goals have no STATE lifecycle to mirror.
             append_event(goal_path, unit["id"], "activated",
                          "backfill при verify: activation-событие отсутствовало")
-        append_event(goal_path, unit["id"], "verified", evidence)
+        if not commit_goal_transition(goal, goal_path, unit, "verified", evidence, projection,
+                                      verified_context=True):
+            return 1
         print(f"VERIFIED {unit['id']} — {evidence}")
         print(open_units_summary(goal))
         return 0
@@ -1177,8 +1785,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                 goal.pop("handoffState", None)
         unit["status"] = "in_progress"
         goal["currentUnitId"] = unit["id"]
-        save_goal(goal_path, goal)
-        append_event(goal_path, unit["id"], "regressed", evidence)
+        if not commit_goal_transition(goal, goal_path, unit, "regressed", evidence, projection):
+            return 1
         print(f"REGRESSED {unit['id']} back to in_progress — {evidence}")
         return 1
 
@@ -1229,6 +1837,8 @@ def main() -> int:
                    help="observe/enforce the working_deadline timebox")
     p.add_argument("--ack-handoff", action="store_true",
                    help="acknowledge that a verified-unit result was handed off")
+    p.add_argument("--reconcile", action="store_true",
+                   help="recover the selected interrupted transition, or repair STATE from a canonical verified Goal event")
     p.add_argument("--reason", default="",
                    help="reason for --block/--budget-exhausted/budget resume")
     p.add_argument("--budget-kind", default="",
@@ -1260,13 +1870,15 @@ def main() -> int:
     actions = sum(bool(x) for x in
                   (args.seal, args.activate, args.block,
                    args.budget_exhausted, args.deadline_check,
-                   args.ack_handoff, args.recheck))
+                   args.ack_handoff, args.recheck, args.reconcile))
     if actions > 1:
         die("--seal, --activate, --block, --budget-exhausted, --deadline-check, "
-            "--ack-handoff and --recheck are mutually exclusive")
+            "--ack-handoff, --recheck and --reconcile are mutually exclusive")
     if args.work_profile and not args.activate:
         die("--work-profile is valid only with --activate")
 
+    if transition_recovery_path(args.goal).exists() and not args.reconcile:
+        die("interrupted Goal transition is pending; use --reconcile with current verification evidence", 1)
     goal = load_goal(args.goal)
     for u in goal["units"]:
         if u.get("status") not in UNIT_STATUSES:
@@ -1301,6 +1913,8 @@ def main() -> int:
         )
     if args.ack_handoff:
         return cmd_ack_handoff(goal, args.goal, unit, args.reason)
+    if args.reconcile:
+        return cmd_reconcile(goal, args.goal, unit, args.verification_receipt)
     return cmd_verify(goal, args.goal, unit, args.recheck, args.timeout,
                       args.approach, args.review_evidence,
                       args.verification_receipt, args.tokens_used,

@@ -130,7 +130,7 @@ def run(
     cwd: Path | None = None,
     input_bytes: bytes | None = None,
     env: dict[str, str] | None = None,
-    timeout: int = 120,
+    timeout: int | float = 120,
     check: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
     writer = None
@@ -224,6 +224,10 @@ def run_json(
 TRANSPORT_RETRY_ATTEMPTS = 5
 TRANSPORT_RETRY_BASE_SECONDS = 15
 TRANSPORT_RETRY_MAX_SECONDS = 30
+GUARDED_PUSH_ATTEMPTS = 2
+GUARDED_PUSH_ATTEMPT_SECONDS = 120
+GUARDED_PUSH_RECONCILIATION_SECONDS = 120
+GUARDED_PUSH_TERMINATION_GRACE_SECONDS = 10
 TRANSPORT_STATE_HINT = (
     "state may have applied; re-check with gh pr view before retrying"
 )
@@ -1103,9 +1107,130 @@ def guarded_push_environment(
 
 
 def guarded_push_timeout(value: int) -> int:
-    if type(value) is not int or value <= 0:
+    if type(value) is not int or value <= GUARDED_PUSH_TERMINATION_GRACE_SECONDS:
         raise gate.GateError("UNVERIFIED", "guarded push timeout is invalid")
-    return min(max(value, 300), 3600)
+    return min(value, 3600)
+
+
+def guarded_push_attempt_timeout(remaining: float) -> float:
+    """Bound one owned push attempt inside its independent overall budget."""
+    if remaining <= GUARDED_PUSH_TERMINATION_GRACE_SECONDS:
+        raise gate.GateError("UNAVAILABLE", "guarded push overall budget expired")
+    return min(
+        float(GUARDED_PUSH_ATTEMPT_SECONDS),
+        remaining - GUARDED_PUSH_TERMINATION_GRACE_SECONDS,
+    )
+
+
+def guarded_push_reconciliation(
+    root: Path,
+    branch: str,
+    *,
+    deadline: float,
+    initial_failure: gate.GateError,
+    sleep: Callable[[float], None],
+) -> str | None:
+    """Read an ambiguous push result without exceeding its overall budget."""
+    last = initial_failure
+    attempted = 0
+    for attempt in range(1, TRANSPORT_RETRY_ATTEMPTS + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= GUARDED_PUSH_TERMINATION_GRACE_SECONDS:
+            raise exhausted_transport(
+                "guarded Git push reconciliation", attempted, last
+            )
+        try:
+            observed = remote_branch_head(
+                root,
+                branch,
+                timeout=min(
+                    GUARDED_PUSH_RECONCILIATION_SECONDS,
+                    guarded_push_attempt_timeout(remaining),
+                ),
+            )
+        except gate.GateError as exc:
+            if not transport_failure(exc):
+                raise
+            last = exc
+            attempted = attempt
+            if attempt == TRANSPORT_RETRY_ATTEMPTS:
+                raise exhausted_transport(
+                    "guarded Git push reconciliation", attempt, last
+                ) from exc
+            remaining = deadline - time.monotonic()
+            if remaining <= GUARDED_PUSH_TERMINATION_GRACE_SECONDS:
+                raise exhausted_transport(
+                    "guarded Git push reconciliation", attempt, last
+                ) from exc
+            sleep(min(
+                retry_delay(attempt),
+                max(0, remaining - GUARDED_PUSH_TERMINATION_GRACE_SECONDS),
+            ))
+        else:
+            return observed
+    raise exhausted_transport("guarded Git push reconciliation", attempted, last)
+
+
+def guarded_push(
+    root: Path,
+    command: list[str],
+    *,
+    branch: str,
+    expected_remote_head: str | None,
+    local_head: str,
+    environment: dict[str, str],
+    overall_timeout: int,
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    """Push with bounded owned attempts and exact remote reconciliation.
+
+    `run` starts a new process group and delegates timeout cleanup to the
+    machine oracle's owned-tree terminator.  We never search for or kill a
+    process by name.  A transport failure is ambiguous, so the remote ref is
+    checked before a single bounded retry.
+    """
+    deadline = time.monotonic() + overall_timeout
+    last: gate.GateError | None = None
+    for attempt in range(1, GUARDED_PUSH_ATTEMPTS + 1):
+        try:
+            run(
+                command,
+                cwd=root,
+                env=environment,
+                timeout=guarded_push_attempt_timeout(deadline - time.monotonic()),
+            )
+            return
+        except gate.GateError as exc:
+            if not transport_failure(exc):
+                raise
+            last = exc
+        # An uncertain push may have reached origin.  Reconcile its exact ref
+        # before considering another mutation.  In particular, a transport
+        # failure while reading origin is still ambiguous, so only a successful
+        # exact read of the previous head can authorize another push.
+        observed = guarded_push_reconciliation(
+            root,
+            branch,
+            deadline=deadline,
+            initial_failure=last,
+            sleep=sleep,
+        )
+        if observed == local_head:
+            return
+        if observed != expected_remote_head:
+            raise gate.GateError(
+                "BLOCKED", "remote branch changed during guarded push"
+            )
+        if attempt < GUARDED_PUSH_ATTEMPTS:
+            remaining = deadline - time.monotonic()
+            if remaining <= GUARDED_PUSH_TERMINATION_GRACE_SECONDS:
+                break
+            sleep(min(
+                retry_delay(attempt),
+                max(0, remaining - GUARDED_PUSH_TERMINATION_GRACE_SECONDS),
+            ))
+    assert last is not None
+    raise exhausted_transport("guarded Git push", GUARDED_PUSH_ATTEMPTS, last)
 
 
 def remote_branch_head(root, branch, timeout=120):
@@ -1216,6 +1341,7 @@ def create_draft_pr(
 ):
     value = lookup_pull_request(root, repository, sleep=sleep)
     push_command = ["git", "push", "--set-upstream", "origin", "HEAD"]
+    expected_remote_head = None
     if value is None:
         # The push decision must follow the remote ref, not PR existence: a
         # branch whose delivery succeeded before the PR was created is already
@@ -1230,6 +1356,7 @@ def create_draft_pr(
             label="Git remote head listing",
             sleep=sleep,
         )
+        expected_remote_head = remote_head
         if remote_head == local_head:
             push_command = []
     else:
@@ -1241,6 +1368,7 @@ def create_draft_pr(
             )
         local_head = git(root, "rev-parse", "HEAD").lower()
         remote_head = str(current["headRefOid"]).lower()
+        expected_remote_head = remote_head
         if local_head != remote_head:
             remote_ref = f"refs/heads/{branch}"
             push_command = [
@@ -1254,19 +1382,20 @@ def create_draft_pr(
         else:
             push_command = []
     if push_command:
-        # A push is a mutation under the pre-push gate and is never retried
-        # blindly: a repeated push of an already-synced branch is an empty
-        # update stream, which the guard rejects by construction.
-        run(
+        guarded_push(
+            root,
             push_command,
-            cwd=root,
-            env=guarded_push_environment(
+            branch=branch,
+            expected_remote_head=expected_remote_head,
+            local_head=local_head,
+            environment=guarded_push_environment(
                 machine_receipt,
                 maker_vendor,
                 maker_model,
                 maker_session,
             ),
-            timeout=guarded_push_timeout(push_timeout_seconds),
+            overall_timeout=guarded_push_timeout(push_timeout_seconds),
+            sleep=sleep,
         )
     return draft(create_pull_request(root, repository, sleep=sleep))
 

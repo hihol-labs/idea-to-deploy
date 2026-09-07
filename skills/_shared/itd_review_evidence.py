@@ -37,6 +37,34 @@ class ReviewEvidenceError(ValueError):
     """The declared acceptance evidence cannot support an independent PASS."""
 
 
+def active_criteria(acceptance: dict[str, Any], unit_id: str) -> list[dict[str, Any]]:
+    """Return the active unit's criteria using the contract's ownership rule.
+
+    Explicit ownership wins whenever it exists for this unit.  Prefix matching
+    remains a compatibility path only for legacy criteria which do not declare
+    ``unitId``.  Keeping this selector shared prevents the prompt projection
+    from reviewing a different set from the evidence validator.
+    """
+    criteria = acceptance.get("criteria")
+    if not isinstance(criteria, list):
+        raise ReviewEvidenceError("acceptance criteria are malformed")
+    explicit = [
+        item for item in criteria
+        if isinstance(item, dict)
+        and isinstance(item.get("id"), str)
+        and item.get("unitId") == unit_id
+    ]
+    if explicit:
+        return explicit
+    return [
+        item for item in criteria
+        if isinstance(item, dict)
+        and isinstance(item.get("id"), str)
+        and item["id"].startswith(unit_id + "-")
+        and "unitId" not in item
+    ]
+
+
 def _closed_dict(value: object, fields: set[str], label: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != fields:
         raise ReviewEvidenceError(f"{label} is not a closed object")
@@ -264,27 +292,12 @@ def coverage_matrix(
             raise ReviewEvidenceError("machine oracle run identity is invalid")
         run_index[run_id] = run
 
-    criteria = acceptance.get("criteria")
-    if not isinstance(criteria, list):
-        raise ReviewEvidenceError("acceptance criteria are malformed")
     # LPD002-A1: ownership is explicit when declared. A bare prefix match once
     # captured a FOREIGN historical criterion (unit "R1" swallowed "R1-SCRUB-1").
     # If ANY criterion carries an explicit unitId for this unit, the explicit
     # set is authoritative and prefix matching is not consulted; the prefix
     # fallback remains only for contracts predating the field.
-    explicit = [
-        item for item in criteria
-        if isinstance(item, dict)
-        and isinstance(item.get("id"), str)
-        and item.get("unitId") == unit_id
-    ]
-    active = explicit or [
-        item for item in criteria
-        if isinstance(item, dict)
-        and isinstance(item.get("id"), str)
-        and item["id"].startswith(unit_id + "-")
-        and "unitId" not in item
-    ]
+    active = active_criteria(acceptance, unit_id)
     if not active:
         raise ReviewEvidenceError("active unit has no acceptance criteria")
     rows: list[dict[str, Any]] = []

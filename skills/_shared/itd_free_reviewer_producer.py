@@ -45,6 +45,7 @@ import itd_external_reviewer as scrubber  # noqa: E402
 import itd_gate_control as gate  # noqa: E402
 import itd_review_evidence as review_evidence  # noqa: E402
 import itd_reviewer_independence as independence  # noqa: E402
+import itd_safe_atomic as safe_atomic  # noqa: E402
 
 
 class _LazyModule:
@@ -1128,14 +1129,48 @@ def _machine_summary(
     runs = value.get("runs", [])
     if not isinstance(runs, list):
         raise FreeReviewError("UNVERIFIED", "machine evidence runs are malformed")
+    declared_inputs = value.get("declaredInputs", [])
+    if not isinstance(declared_inputs, list):
+        raise FreeReviewError("UNVERIFIED", "machine declared inputs are malformed")
+    clean_inputs: list[dict[str, str]] = []
+    for index, item in enumerate(declared_inputs):
+        if not isinstance(item, dict):
+            raise FreeReviewError("UNVERIFIED", "machine declared input is malformed")
+        path = item.get("path")
+        digest = item.get("sha256")
+        if (not isinstance(path, str) or not _safe_candidate_path(path)
+                or not isinstance(digest, str)
+                or not SHA256_RE.fullmatch(digest)):
+            raise FreeReviewError(
+                "UNVERIFIED", f"machine declared input {index} is invalid"
+            )
+        clean_inputs.append({"path": path, "sha256": digest})
+    if len({row["path"] for row in clean_inputs}) != len(clean_inputs):
+        raise FreeReviewError("UNVERIFIED", "machine declared input path is duplicated")
     bounded_runs = []
     for row in runs:
         if not isinstance(row, dict):
             raise FreeReviewError("UNVERIFIED", "machine evidence run is malformed")
+        command = row.get("command")
+        command_digest = row.get("commandSha256")
+        if (not isinstance(command, str) or not command
+                or not isinstance(command_digest, str)
+                or not SHA256_RE.fullmatch(command_digest)
+                or sha256_bytes(command.encode("utf-8")) != command_digest):
+            raise FreeReviewError("UNVERIFIED", "machine run command binding is invalid")
+        exit_code = row.get("exitCode")
+        if type(exit_code) is not int:
+            raise FreeReviewError("UNVERIFIED", "machine run exit code is invalid")
+        # Commands are evidence shown to a model.  Scrub them here, after
+        # verifying their digest against what actually executed; no size slice
+        # is taken, so the prompt never silently loses command material.
+        safe_command = _safe_review_text(command.encode("utf-8"), "machine command")
         bounded_runs.append({
             "id": row.get("id"),
+            "command": safe_command,
+            "commandSha256": command_digest,
             "executedTree": row.get("executedTree"),
-            "exitCode": row.get("exitCode"),
+            "exitCode": exit_code,
             "stdoutSha256": row.get("stdoutSha256"),
             "stderrSha256": row.get("stderrSha256"),
         })
@@ -1146,8 +1181,29 @@ def _machine_summary(
         "riskTier": value.get("riskTier"),
         "outcome": outcome,
         "candidate": expected,
+        "declaredInputs": clean_inputs,
         "runs": bounded_runs,
     }
+
+
+def _canonical_repository_from_origin(root: Path) -> str:
+    """Read the one repository identity Git itself declares for this checkout."""
+    try:
+        raw = str(git(root, "remote", "get-url", "origin")).strip()
+    except FreeReviewError as exc:
+        raise FreeReviewError(
+            "UNVERIFIED", "canonical Git origin is unavailable"
+        ) from exc
+    # Support the two normal GitHub spellings without accepting an arbitrary
+    # URL suffix as an owner/name assertion.
+    value = raw.removesuffix(".git").rstrip("/")
+    match = re.fullmatch(
+        r"(?:https://github\.com/|ssh://git@github\.com/|git@github\.com:)"
+        r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", value,
+    )
+    if match is None:
+        raise FreeReviewError("UNVERIFIED", "canonical Git origin is invalid")
+    return match.group(1).casefold()
 
 
 def freeze_packet(
@@ -1193,6 +1249,10 @@ def freeze_packet(
         "pullRequest": pull_request,
         "expectedHeadSha": expected_head_sha,
     })
+    if _canonical_repository_from_origin(root) != target["repository"].casefold():
+        raise FreeReviewError(
+            "UNVERIFIED", "review target repository differs from canonical Git origin"
+        )
     ancestry = run_bounded_process(
         ["git", "-C", str(root), "merge-base", "--is-ancestor", base, parent],
         timeout=30,
@@ -1287,6 +1347,19 @@ def freeze_packet(
         raise FreeReviewError("UNVERIFIED", "contract or machine JSON is invalid") from exc
     if not isinstance(acceptance_value, dict) or not isinstance(machine_value, dict):
         raise FreeReviewError("UNVERIFIED", "contract or machine receipt is not an object")
+    # Identifier-shaped values still pass through the same secret scrubber as
+    # every other contract byte.  If a long hyphenated criterion was changed
+    # by it, name the field rather than weakening the scrubber or silently
+    # treating the truncated value as ownership evidence.
+    criteria_value = acceptance_value.get("criteria")
+    if isinstance(criteria_value, list):
+        for row in criteria_value:
+            criterion_id = row.get("id") if isinstance(row, dict) else None
+            if isinstance(criterion_id, str) and "[REDACTED" in criterion_id:
+                raise FreeReviewError(
+                    "UNVERIFIED",
+                    "acceptance criterion ID was scrubbed; use a non-secret identifier and keep secret-like material outside identifiers",
+                )
     scope_sha = sha256_bytes(scope_raw)
     acceptance_sha = sha256_bytes(acceptance_raw)
     diff_sha = sha256_bytes(diff_raw)
@@ -1530,13 +1603,10 @@ def _reviewer_acceptance(packet: dict[str, Any]) -> dict[str, Any]:
         and unit_id.strip()
         and isinstance(criteria, list)
     ):
-        prefix = f"{unit_id.strip()}-"
-        selected = [
-            row for row in criteria
-            if isinstance(row, dict)
-            and isinstance(row.get("id"), str)
-            and row["id"].startswith(prefix)
-        ]
+        try:
+            selected = review_evidence.active_criteria(value, unit_id.strip())
+        except review_evidence.ReviewEvidenceError as exc:
+            raise FreeReviewError("UNVERIFIED", str(exc)) from exc
         if selected:
             result["activeFollowup"] = active
             result["criteria"] = selected
@@ -1565,8 +1635,14 @@ def _reviewer_machine_evidence(packet: dict[str, Any]) -> dict[str, Any]:
         "riskTier": evidence.get("riskTier"),
         "outcome": evidence.get("outcome"),
         "candidate": evidence.get("candidate"),
+        "declaredInputs": evidence.get("declaredInputs"),
         "runs": [
-            {"id": row.get("id"), "exitCode": row.get("exitCode")}
+            {
+                "id": row.get("id"), "command": row.get("command"),
+                "commandSha256": row.get("commandSha256"),
+                "executedTree": row.get("executedTree"),
+                "exitCode": row.get("exitCode"),
+            }
             for row in runs if isinstance(row, dict)
         ],
     }
@@ -2065,25 +2141,307 @@ def _route_checkpoint_context(
     }
 
 
+def _same_json_shape(value: Any, exemplar: Any) -> bool:
+    """Whether an untrusted JSON value has the closed shape of `exemplar`."""
+    if type(value) is not type(exemplar):
+        return False
+    if isinstance(exemplar, dict):
+        return (
+            set(value) == set(exemplar)
+            and all(_same_json_shape(value[key], exemplar[key]) for key in exemplar)
+        )
+    if isinstance(exemplar, list):
+        return len(value) == len(exemplar) and all(
+            _same_json_shape(item, expected)
+            for item, expected in zip(value, exemplar)
+        )
+    return True
+
+
+def _checkpoint_snapshot(path: Path, checkpoint_path: Path, label: str) -> bytes:
+    """Read a regular checkpoint-side artifact through the anchored backend."""
+    root = checkpoint_path.parent.absolute()
+    try:
+        return safe_atomic.read_regular_snapshot(
+            path.relative_to(root), MAX_INPUT_BYTES, root=root
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise FreeReviewError(
+            "UNVERIFIED", f"{label} is unsafe; preserved without dispatch"
+        ) from exc
+
+
+def _negative_observation_matches(
+    path: Path, context: dict[str, Any], *, checkpoint_path: Path,
+) -> bool:
+    """Validate a preserved negative observation and compare its exact context."""
+    try:
+        value = json.loads(_checkpoint_snapshot(
+            path, checkpoint_path, "hierarchical negative observation"
+        ).decode("utf-8"))
+        observation = exact_dict(value, {
+            "version", "kind", "checkpointContext", "integrationReport", "reviewer",
+        }, "hierarchical negative observation")
+        if (
+            type(observation["version"]) is not int
+            or observation["version"] != 1
+            or observation["kind"]
+            != "itd-keyless-hierarchical-negative-observation"
+            # v1 context is a closed producer record: fixed top-level keys,
+            # fixed candidate/reviewer objects, mandatory SHA1 parentCommit,
+            # and no nullable or variable-length list fields.  Shape drift is
+            # therefore malformed evidence; ordinary changed SHA values keep
+            # this shape and compare unequal below, allowing rollover.
+            or not _same_json_shape(observation["checkpointContext"], context)
+        ):
+            raise ValueError("negative observation is malformed")
+        _report(observation["integrationReport"])
+        reviewer = exact_dict(
+            observation["reviewer"], {"session", "model"},
+            "hierarchical negative observation reviewer",
+        )
+        if any(
+            not isinstance(item, str) or not item.strip() or item != item.strip()
+            for item in reviewer.values()
+        ):
+            raise ValueError("negative observation reviewer is malformed")
+        return observation["checkpointContext"] == context
+    except (
+        ValueError, KeyError, TypeError, UnicodeError, json.JSONDecodeError,
+        OSError, FreeReviewError,
+    ) as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation is invalid; preserved without dispatch",
+        ) from exc
+
+
+def _negative_observation_path(
+    checkpoint_path: Path, context: dict[str, Any],
+) -> Path:
+    """Return a fresh context namespace without replacing legacy evidence."""
+    root = checkpoint_path.parent.absolute()
+    relative = Path(checkpoint_path.name + ".negative-observation.json.history") / (
+        sha256_bytes(canonical_bytes(context))
+    ) / "observation.json"
+    try:
+        return safe_atomic.safe_namespace_path(root, relative)
+    except RuntimeError as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation namespace is unsafe; preserved without dispatch",
+        ) from exc
+
+
+def _guard_negative_observation(
+    checkpoint_path: Path, context: dict[str, Any],
+) -> Path:
+    """Refuse an exact prior negative outcome and select a fresh output path."""
+    root = checkpoint_path.parent.absolute()
+    try:
+        legacy = safe_atomic.safe_namespace_path(
+            root, Path(checkpoint_path.name + ".negative-observation.json")
+        )
+    except RuntimeError as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation namespace is unsafe; preserved without dispatch",
+        ) from exc
+    history = _negative_observation_path(checkpoint_path, context)
+    if legacy.exists() and _negative_observation_matches(
+        legacy, context, checkpoint_path=checkpoint_path
+    ):
+        raise FreeReviewError(
+            "BLOCKED",
+            "hierarchical negative checkpoint is preserved for this exact context; explicit review is required",
+        )
+    if history.exists():
+        if _negative_observation_matches(
+            history, context, checkpoint_path=checkpoint_path
+        ):
+            raise FreeReviewError(
+                "BLOCKED",
+                "hierarchical negative checkpoint is preserved for this exact context; explicit review is required",
+            )
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation history has a context collision",
+        )
+    return legacy if not legacy.exists() else history
+
+
+def _foreign_route_checkpoint_archive_path(path: Path, raw: bytes) -> Path:
+    """Content-addressed immutable location for a rolled-over checkpoint."""
+    root = path.parent.absolute()
+    relative = Path(path.name + ".history") / sha256_bytes(raw) / "checkpoint.json"
+    try:
+        return safe_atomic.safe_namespace_path(root, relative)
+    except RuntimeError as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "foreign route checkpoint archive namespace is unsafe; preserved without dispatch",
+        ) from exc
+
+
+def _archive_foreign_route_checkpoint(path: Path, raw: bytes) -> None:
+    """Retain foreign signed checkpoint bytes before their live path is reused."""
+    archive = _foreign_route_checkpoint_archive_path(path, raw)
+    try:
+        outcome = safe_atomic.write_immutable_bytes(
+            archive.relative_to(path.parent.absolute()), raw,
+            root=path.parent.absolute(),
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "foreign route checkpoint archive is unsafe; preserved without dispatch",
+        ) from exc
+    if outcome == "collision":
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "foreign route checkpoint archive collision; preserved without dispatch",
+        )
+    if outcome not in {"created", "existing-same"}:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "foreign route checkpoint archive outcome is invalid; preserved without dispatch",
+        )
+
+
+def _write_negative_observation(
+    path: Path, context: dict[str, Any], integration_report: dict[str, Any],
+    session: str, model: str, *, checkpoint_path: Path,
+) -> None:
+    """Create one immutable negative observation, preserving a racing result."""
+    value = {
+        "version": 1,
+        "kind": "itd-keyless-hierarchical-negative-observation",
+        "checkpointContext": context,
+        "integrationReport": integration_report,
+        "reviewer": {"session": session, "model": model},
+    }
+    payload = json.dumps(
+        value, ensure_ascii=False, indent=2, sort_keys=True
+    ).encode("utf-8") + b"\n"
+    root = checkpoint_path.parent.absolute()
+    try:
+        outcome = safe_atomic.write_immutable_bytes(
+            path.relative_to(root), payload, root=root
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation namespace is unsafe; preserved without dispatch",
+        ) from exc
+    if outcome == "created":
+        return
+    if outcome in {"existing-same", "collision"}:
+        if _negative_observation_matches(
+            path, context, checkpoint_path=checkpoint_path
+        ):
+            raise FreeReviewError(
+                "BLOCKED",
+                "hierarchical negative checkpoint is preserved for this exact context; explicit review is required",
+            )
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "hierarchical negative observation collision; preserved without dispatch",
+        )
+    raise FreeReviewError(
+        "UNVERIFIED",
+        "hierarchical negative observation outcome is invalid; preserved without dispatch",
+    )
+
+
+def _validate_foreign_route_checkpoint(
+    signed: dict[str, Any], context: dict[str, Any],
+) -> None:
+    """Validate a signed foreign checkpoint without binding it to new units."""
+    if (
+        type(signed["version"]) is not int
+        or signed["version"] != 1
+        or signed["kind"] != ROUTE_CHECKPOINT_KIND
+        or any(
+            not _same_json_shape(signed[field], context[field])
+            for field in context
+        )
+        or not isinstance(signed["updatedAt"], str)
+    ):
+        raise ValueError("foreign checkpoint context is malformed")
+    parse_time(signed["updatedAt"], "route checkpoint time")
+    rows = signed["units"]
+    if not isinstance(rows, list):
+        raise ValueError("foreign checkpoint units are malformed")
+    sessions: set[str] = set()
+    model_names: set[str] = set()
+    for raw_row in rows:
+        row = exact_dict(raw_row, {
+            "unit", "report", "session", "model",
+        }, "foreign hierarchical checkpoint row")
+        unit = exact_dict(row["unit"], {
+            "id", "index", "reviewDiffSha256", "reviewDiffBytes",
+            "reviewDiffStartByte", "reviewDiffEndByteExclusive", "paths",
+            "pathSegments",
+        }, "foreign hierarchical checkpoint unit")
+        start = unit["reviewDiffStartByte"]
+        end = unit["reviewDiffEndByteExclusive"]
+        if (
+            not isinstance(unit["id"], str) or not unit["id"]
+            or type(unit["index"]) is not int or unit["index"] < 1
+            or not isinstance(unit["reviewDiffSha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", unit["reviewDiffSha256"])
+            or type(start) is not int or type(end) is not int
+            or type(unit["reviewDiffBytes"]) is not int
+            or start < 0 or end <= start
+            or unit["reviewDiffBytes"] != end - start
+            or not isinstance(unit["paths"], list) or not unit["paths"]
+            or any(not isinstance(path, str) or not path for path in unit["paths"])
+            or not isinstance(unit["pathSegments"], dict)
+            or set(unit["pathSegments"]) != set(unit["paths"])
+        ):
+            raise ValueError("foreign checkpoint unit is malformed")
+        for segment in unit["pathSegments"].values():
+            if (
+                not isinstance(segment, dict)
+                or set(segment) != {"index", "count"}
+                or type(segment["index"]) is not int
+                or type(segment["count"]) is not int
+                or not 1 <= segment["index"] <= segment["count"]
+            ):
+                raise ValueError("foreign checkpoint path segment is malformed")
+        _unit_report(row["report"])
+        session = row["session"]
+        model = row["model"]
+        if any(
+            not isinstance(value, str) or not value.strip() or value != value.strip()
+            for value in (session, model)
+        ) or session in sessions:
+            raise ValueError("foreign checkpoint row provenance is malformed")
+        sessions.add(session)
+        model_names.add(model.casefold())
+    if len(model_names) > 1:
+        raise ValueError("foreign checkpoint rows change the reviewer model")
+
+
 def _load_route_checkpoint(
     path: Path, context: dict[str, Any],
     units: list[tuple[dict[str, Any], str]],
-    key_id: str, private_key: bytes,
+    key_id: str, private_key: bytes, *, refuse_invalid: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return the verified completed-unit prefix, or [] for a full restart.
+    """Return the verified completed-unit prefix or refuse before dispatch.
 
-    A checkpoint is a convenience, never an acceptance input: any anomaly —
-    bad envelope, bad signature, foreign or stale binding, a row that does
-    not match the frozen plan, a report that fails the unit contract —
-    silently discards the whole checkpoint and the route restarts from zero.
-    Nothing unverified is ever reused.
+    A durable checkpoint can contain observed negative reviewer evidence.
+    Replacing a malformed/stale one by restarting would erase that provenance,
+    so an anomaly is left byte-for-byte in place and the caller receives an
+    explicit fail-closed refusal before any new model request.
     """
     if not path.exists():
         return []
     try:
-        envelope = json.loads(read_regular(
-            path, "hierarchical route checkpoint", limit=MAX_INPUT_BYTES
-        ).decode("utf-8"))
+        raw = _checkpoint_snapshot(
+            path, path, "hierarchical route checkpoint"
+        )
+        envelope = json.loads(raw.decode("utf-8"))
         if not isinstance(envelope, dict) or set(envelope) != {
             "signed", "signatureHex",
         }:
@@ -2101,8 +2459,13 @@ def _load_route_checkpoint(
             raise ValueError("checkpoint signed payload is malformed")
         public = Ed25519PrivateKey.from_private_bytes(private_key).public_key()
         public.verify(bytes.fromhex(signature), canonical_bytes(signed))
+        _validate_foreign_route_checkpoint(signed, context)
         if any(signed[field] != context[field] for field in context):
-            raise ValueError("checkpoint binding is stale or foreign")
+            # A valid signature and closed envelope prove this belongs to a
+            # different candidate/context.  Retain its exact signed bytes
+            # before the live path can be reused or later unlinked.
+            _archive_foreign_route_checkpoint(path, raw)
+            return []
         age = dt.datetime.now(dt.timezone.utc) - parse_time(
             signed["updatedAt"], "route checkpoint time"
         )
@@ -2140,10 +2503,19 @@ def _load_route_checkpoint(
         if len(model_names) > 1:
             raise ValueError("checkpoint rows change the reviewer model")
         return clean
-    except (
-        ValueError, KeyError, TypeError, OSError,
-        InvalidSignature, FreeReviewError,
-    ):
+    except FreeReviewError as exc:
+        if "foreign route checkpoint archive" in exc.reason:
+            raise
+        if refuse_invalid:
+            raise FreeReviewError(
+                "UNVERIFIED", "hierarchical checkpoint is invalid; preserved without dispatch"
+            ) from exc
+        return []
+    except (ValueError, KeyError, TypeError, OSError, InvalidSignature) as exc:
+        if refuse_invalid:
+            raise FreeReviewError(
+                "UNVERIFIED", "hierarchical checkpoint is invalid; preserved without dispatch"
+            ) from exc
         return []
 
 
@@ -2166,6 +2538,7 @@ def run_packet_review(
     checkpoint_binding: dict[str, Any] | None = None,
     checkpoint_key_id: str | None = None,
     checkpoint_private_key: bytes | None = None,
+    checkpoint_refuse_invalid: bool = False,
     prompt_ledger: PromptLedger | None = None,
 ) -> tuple[dict[str, Any], str, str, str]:
     """Run one direct call or every frozen unit plus mandatory integration.
@@ -2222,9 +2595,13 @@ def run_packet_review(
         checkpoint_context = _route_checkpoint_context(
             packet, plan, checkpoint_binding
         )
+        negative_path = _guard_negative_observation(
+            checkpoint_path, checkpoint_context
+        )
         stored = _load_route_checkpoint(
             checkpoint_path, checkpoint_context, units,
             checkpoint_key_id, checkpoint_private_key,
+            refuse_invalid=checkpoint_refuse_invalid,
         )
     unit_calls: list[dict[str, Any]] = []
     sessions: list[str] = []
@@ -2284,9 +2661,26 @@ def run_packet_review(
     final_report = _aggregate_hierarchical_report(reports, integration_report)
     validate_review_prompt_artifact(packet, prompt_artifact, final_report)
     aggregate_session = sha256_bytes(canonical_bytes({"sessions": sessions}))
-    if checkpoint_enabled:
-        # The route is complete and validated; the checkpoint has served its
-        # purpose and must not survive to influence any later candidate.
+    if checkpoint_enabled and final_report["verdict"] != "PASSED":
+        # Preserve the integration outcome and its real provenance separately
+        # from the canonical verdict.  A later clean integration cannot erase
+        # this observed BLOCKED result for its exact context.  A later changed
+        # candidate uses a new history path rather than replacing these bytes.
+        _write_negative_observation(
+            negative_path, checkpoint_context, integration_report,
+            session.strip(), model.strip(), checkpoint_path=checkpoint_path,
+        )
+    if checkpoint_enabled and final_report["verdict"] == "PASSED":
+        # A clean route is complete and validated; a negative result remains
+        # durable.  Recheck after the final adapter response so a concurrent
+        # negative result cannot be hidden by unlinking the live checkpoint.
+        if negative_path.exists() and _negative_observation_matches(
+            negative_path, checkpoint_context, checkpoint_path=checkpoint_path
+        ):
+            raise FreeReviewError(
+                "BLOCKED",
+                "hierarchical negative checkpoint is preserved for this exact context; explicit review is required",
+            )
         with contextlib.suppress(OSError):
             checkpoint_path.unlink()
     return final_report, aggregate_session, models[0], prompt_artifact
@@ -5353,13 +5747,48 @@ def persist_review_diagnostic(
     report = _report(evidence["report"])
     reviewer = _reviewer_identity(evidence["reviewer"])
     attempts = verify_attempt_ledger(evidence["attempts"], reviewer["provider"])
+    # Allocate an immutable attempt namespace before writing any negative bytes.
+    # A later direct review (including a clean one at the requested output paths)
+    # cannot replace this observation or its prompt/report dependencies.
+    report_output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    attempt_dir = Path(tempfile.mkdtemp(
+        prefix=report_output.name + ".negative-", dir=report_output.parent))
+    prompt_output = attempt_dir / "prompt.txt"
+    report_output = attempt_dir / "report.json"
     write_text(prompt_output, prompt)
     write_json(report_output, report)
+    prompt_bytes = read_regular(prompt_output, "persisted diagnostic prompt")
+    report_bytes = read_regular(report_output, "persisted diagnostic report")
+    observation_path = report_output.with_name(report_output.name + ".observation.json")
+    observation = {
+        "version": 1,
+        "kind": "itd-free-review-negative-observation",
+        "observedAttemptClass": "reviewer-verdict",
+        "reviewer": reviewer,
+        "attempts": attempts,
+        "prompt": {
+            "path": str(prompt_output.resolve()),
+            "sha256": sha256_bytes(prompt_bytes),
+        },
+        "report": {
+            "path": str(report_output.resolve()),
+            "sha256": sha256_bytes(report_bytes),
+        },
+    }
+    write_json(observation_path, observation)
     return {
         "prompt": str(prompt_output.resolve()),
         "report": str(report_output.resolve()),
         "reviewer": reviewer["provider"],
+        # Keep the legacy provider string while retaining the observed identity
+        # and byte bindings in diagnostic metadata.  These are not a verdict
+        # and therefore cannot be mistaken for an authorizing receipt.
+        "reviewerIdentity": reviewer,
+        "promptSha256": observation["prompt"]["sha256"],
+        "reportSha256": observation["report"]["sha256"],
+        "observedAttemptClass": "reviewer-verdict",
         "attempts": attempts,
+        "observation": str(observation_path.resolve()),
     }
 
 
@@ -5500,19 +5929,23 @@ def main(argv: list[str] | None = None) -> int:
             # when the route ends without a receipt. main() detaches the sink in
             # its finally, so it never outlives this invocation.
             set_transport_failure_log(TransportFailureLog(transport_log))
-            route_checkpoint_key: bytes | None = None
-            if args.unit_checkpoint is not None:
-                route_checkpoint_key = gate.read_provenance_private_key(
-                    args.signing_key
+            # Hierarchical work always gets a private, deterministic resume
+            # file.  The explicit flag remains an override for callers that
+            # already manage a durable location.
+            checkpoint_path = args.unit_checkpoint
+            if checkpoint_path is None:
+                checkpoint_path = args.prompt_output.with_name(
+                    args.prompt_output.name + ".route-checkpoint.json"
                 )
+            route_checkpoint_key = gate.read_provenance_private_key(
+                args.signing_key
+            )
 
             def route_checkpoint_kwargs(
                 provider: str, requested_model: str, transport_sha256: str,
             ) -> dict[str, Any]:
-                if args.unit_checkpoint is None:
-                    return {}
                 return {
-                    "checkpoint_path": args.unit_checkpoint,
+                    "checkpoint_path": checkpoint_path,
                     "checkpoint_binding": {
                         "provider": provider,
                         "requestedModel": requested_model,
@@ -5521,6 +5954,7 @@ def main(argv: list[str] | None = None) -> int:
                     },
                     "checkpoint_key_id": args.key_id,
                     "checkpoint_private_key": route_checkpoint_key,
+                    "checkpoint_refuse_invalid": True,
                 }
 
             def openai_adapter(value: str) -> tuple[dict[str, Any], dict[str, str]]:

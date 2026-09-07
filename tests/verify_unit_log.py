@@ -10,6 +10,7 @@ G-004 (retro 2026-07-11): ручная запись unit-событий моде
   5. backfill-activation требует --note и отказывает при существующей паре.
 """
 import json
+import importlib.util
 import os
 import re
 import subprocess
@@ -31,6 +32,14 @@ def check(name, cond, detail=""):
 def run(mem, *args):
     return subprocess.run([sys.executable, SCRIPT, *args, "--dir", mem],
                           capture_output=True, text=True, timeout=30)
+
+
+def load_unit_log():
+    spec = importlib.util.spec_from_file_location("unit_log_recovery", SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 with tempfile.TemporaryDirectory() as mem:
@@ -119,6 +128,161 @@ tiers = tuple(re.findall(r'"([a-z]+)"', declared.group(1))) if declared else ()
 check("risk-tiers-match-proportionality-policy",
       set(tiers) == set(policy["riskRoutes"]) | {"unknown"},
       f"tiers={tiers} routes={sorted(policy['riskRoutes'])}")
+
+# A failed STATE replacement after a canonical terminal append must be
+# recoverable only by the exact same CLI request.  The second invocation uses
+# the actual argparse/main lifecycle, with save_state faulted once after the
+# event append; no synthetic event is inserted by the test.
+with tempfile.TemporaryDirectory() as mem:
+    module = load_unit_log()
+    original_argv = sys.argv[:]
+    original_save_state = module.save_state
+
+    def invoke(*args):
+        sys.argv = [SCRIPT, *args, "--dir", mem]
+        return module.main()
+
+    def fail_once(*_args, **_kwargs):
+        raise OSError("simulated STATE replacement failure")
+
+    try:
+        check("recovery-activate-verified",
+              invoke("activate", "R-verified", "--goal", "recover verified",
+                     "--risk-tier", "low") == 0)
+        module.save_state = fail_once
+        try:
+            invoke("verified", "R-verified", "--evidence", "exact proof")
+        except OSError:
+            failed_verified = True
+        else:
+            failed_verified = False
+        events = [json.loads(line) for line in open(
+            os.path.join(mem, "events.jsonl"), encoding="utf-8")]
+        state = json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+        check("verified-failure-lands-one-event-keeps-open-state",
+              failed_verified
+              and sum(e.get("decision") == "verified" for e in events) == 1
+              and state["currentUnit"]["status"] == "in_progress")
+        module.save_state = original_save_state
+        check("verified-recovery-refuses-different-evidence",
+              invoke("verified", "R-verified", "--evidence", "different proof") != 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "in_progress")
+        check("verified-exact-retry-recovers-state",
+              invoke("verified", "R-verified", "--evidence", "exact proof") == 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "verified")
+        events = [json.loads(line) for line in open(
+            os.path.join(mem, "events.jsonl"), encoding="utf-8")]
+        check("verified-recovery-never-duplicates-terminal-event",
+              sum(e.get("decision") == "verified" for e in events) == 1)
+
+        check("recovery-activate-close",
+              invoke("activate", "R-close", "--goal", "recover close",
+                     "--risk-tier", "low") == 0)
+        module.save_state = fail_once
+        try:
+            invoke("close", "R-close", "--outcome", "blocked", "--note", "exact close")
+        except OSError:
+            failed_close = True
+        else:
+            failed_close = False
+        module.save_state = original_save_state
+        check("close-recovery-refuses-different-note",
+              invoke("close", "R-close", "--outcome", "blocked",
+                     "--note", "different close") != 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "in_progress")
+        check("close-exact-retry-recovers-state",
+              failed_close
+              and invoke("close", "R-close", "--outcome", "blocked",
+                         "--note", "exact close") == 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "blocked")
+        events = [json.loads(line) for line in open(
+            os.path.join(mem, "events.jsonl"), encoding="utf-8")]
+        check("close-recovery-never-duplicates-terminal-event",
+              sum(e.get("decision") == "blocked" for e in events) == 1)
+
+        # A unique old terminal is not recoverable once a later activation
+        # epoch has landed its own terminal.  The stale retry must not project
+        # the old verified status over the newer open STATE.
+        check("recovery-activate-stale-epoch",
+              invoke("activate", "R-stale", "--goal", "old epoch",
+                     "--risk-tier", "low") == 0)
+        module.save_state = fail_once
+        try:
+            invoke("verified", "R-stale", "--evidence", "old proof")
+        except OSError:
+            stale_verified_failed = True
+        else:
+            stale_verified_failed = False
+        module.save_state = original_save_state
+        check("recovery-activate-newer-epoch",
+              stale_verified_failed
+              and invoke("activate", "R-stale", "--goal", "new epoch",
+                         "--risk-tier", "low") == 0)
+        module.save_state = fail_once
+        try:
+            invoke("close", "R-stale", "--outcome", "blocked", "--note", "new close")
+        except OSError:
+            stale_close_failed = True
+        else:
+            stale_close_failed = False
+        module.save_state = original_save_state
+        check("stale-old-terminal-retry-refused",
+              stale_close_failed
+              and invoke("verified", "R-stale", "--evidence", "old proof") != 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "in_progress")
+        check("latest-terminal-retry-recovers-current-epoch",
+              invoke("close", "R-stale", "--outcome", "blocked", "--note", "new close") == 0
+              and json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+              ["currentUnit"]["status"] == "blocked")
+
+        check("partial-append-activation",
+              invoke("activate", "R-partial", "--goal", "partial terminal",
+                     "--risk-tier", "low") == 0)
+        original_append = module.durable_append_bytes
+
+        def partial_append(path, _content):
+            with open(path, "ab") as handle:
+                handle.write(b'{"type":"unit"')
+                handle.flush()
+            raise OSError("simulated partial event append")
+
+        module.durable_append_bytes = partial_append
+        try:
+            invoke("verified", "R-partial", "--evidence", "partial proof")
+        except OSError:
+            partial_failed = True
+        else:
+            partial_failed = False
+        finally:
+            module.durable_append_bytes = original_append
+        state = json.load(open(os.path.join(mem, "STATE.json"), encoding="utf-8"))
+        events_path = os.path.join(mem, "events.jsonl")
+        partial_bytes = open(events_path, "rb").read()
+        try:
+            invoke("verified", "R-partial", "--evidence", "partial proof")
+        except RuntimeError:
+            partial_retry_refused = True
+        else:
+            partial_retry_refused = False
+        final_bytes = open(events_path, "rb").read()
+        check("partial-append-retry-preserves-tail-and-open-state",
+              partial_failed
+              and partial_retry_refused
+              and not partial_bytes.endswith(b"\n")
+              and final_bytes == partial_bytes
+              and state["currentUnit"]["status"] == "in_progress"
+              and b'"name": "R-partial", "decision": "verified"' not in final_bytes,
+              repr((partial_failed, partial_retry_refused,
+                    partial_bytes.endswith(b"\n"), final_bytes == partial_bytes,
+                    state["currentUnit"]["status"], final_bytes[-80:])))
+    finally:
+        module.save_state = original_save_state
+        sys.argv = original_argv
 
 if fails:
     print("FAILED:", " ".join(fails))

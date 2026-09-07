@@ -59,6 +59,9 @@ metadata:
   oracle, ведёт `attempts[]`, ограничивает attempts/wall-clock, принимает
   host-сигнал `--budget-exhausted --budget-kind tokens` и завершает typed stop
   с exit `3` вместо бесконечного retry.
+  `--reconcile G-00X` ремонтирует только отставшее `STATE.json` из уже
+  записанного canonical `verified` event и свежей exact-candidate квитанции;
+  он не создаёт новое событие и не принимает prose как evidence.
 - **`itd_goal_report.py`** — репортёр handoff: детерминированное саммари ИЗ
   леджера (прогресс, обратное давление, таблица юнитов, первое действие
   принимающей сессии, хвост событий). `/handoff` и `/session-save` вставляют

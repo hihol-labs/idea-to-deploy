@@ -1559,6 +1559,8 @@ def validate_local_adjudication(
         raise GateError("UNVERIFIED", "local review paths must be absolute")
     command = [
         sys.executable,
+        "-I",
+        "-B",
         str(Path(__file__).with_name("itd_verification_loop.py")),
         "check", "--root", str(checkout), "--unit-id", unit_id,
         "--risk-tier", risk_tier,
