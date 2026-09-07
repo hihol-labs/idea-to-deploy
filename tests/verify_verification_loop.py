@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "_shared" / "itd_verification_loop.py"
 POLICY = ROOT / "skills" / "_shared" / "VERIFICATION_LOOP_POLICY.json"
 FREE_PRODUCER = ROOT / "skills" / "_shared" / "itd_free_reviewer_producer.py"
+CACHE = ROOT / "skills" / "review" / "scripts" / "itd_review_cache.py"
 PASSED = 0
 FAILED = 0
 
@@ -280,6 +281,22 @@ policy = json.loads(POLICY.read_text(encoding="utf-8"))
 source = SCRIPT.read_text(encoding="utf-8")
 check("checkout probes tolerate native Windows access to WSL UNC worktrees",
       "CHECKOUT_PROBE_TIMEOUT_SECONDS = 60" in source)
+if os.name == "nt":
+    with tempfile.TemporaryDirectory(prefix="verification-loop-юникод-") as raw:
+        unicode_repo = Path(raw)
+        git(unicode_repo, "init", "-q")
+        cache_spec = importlib.util.spec_from_file_location("route_cache_utf8", CACHE)
+        assert cache_spec and cache_spec.loader
+        cache_module = importlib.util.module_from_spec(cache_spec)
+        cache_spec.loader.exec_module(cache_module)
+        try:
+            decoded_root = cache_module.repository_root(unicode_repo)
+            utf8_root_ok = decoded_root.samefile(unicode_repo)
+        except Exception as exc:
+            utf8_root_ok = False
+            decoded_root = str(exc)
+        check("native Windows cache decodes a Unicode Git root as UTF-8",
+              utf8_root_ok, str(decoded_root))
 check("machine producer selects a hash-bound host-owned shell transport",
       "GetSystemDirectoryW" in source
       and "pushd" in source and "{repo}" in source

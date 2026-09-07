@@ -36,7 +36,7 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
-        cwd=cwd, capture_output=True, text=True,
+        cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="strict",
     )
 
 
@@ -200,6 +200,18 @@ def adjudicate(root: Path, machine_path: Path, checker_path: Path,
     return run(args, root)
 
 
+def prepare_v2(root: Path, checker_path: Path, rows: list[dict],
+               unit: str = "U-v2", claims: list[str] | None = None):
+    path = root / ".itd-memory" / "v2-rows.json"
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    args = ["prepare-adjudication", "--root", str(root), "--unit-id", unit,
+            "--risk-tier", "medium", "--checker", str(checker_path),
+            "--dispositions", str(path)]
+    for claim in claims or [unit, unit + ":general-review"]:
+        args += ["--claim", claim]
+    return run(args, root)
+
+
 gate_only = "--gate" in sys.argv[1:]
 
 if not gate_only:
@@ -315,6 +327,144 @@ if not gate_only:
                        root)
         check("tampered checker dependency invalidates the receipt",
               reverify.returncode != 0, reverify.stdout + reverify.stderr)
+
+    # v2 binds the complete candidate context, the precise allowed claims and
+    # the ordered findings/dispositions.  Preparation is deterministic and is
+    # expressly non-authorizing until a human replaces its placeholder.
+    v2_root = fixture()
+    v2_machine = machine(v2_root, unit="U-v2")
+    v2_machine_path = last_path(v2_machine)
+    v2_checker_proc = checker(v2_root, "BLOCKED", "v2", unit="U-v2")
+    v2_checker_path = newest_receipt(v2_root, "checker")
+    check("v2 fixture checker is durable", v2_checker_path is not None,
+          v2_checker_proc.stdout + v2_checker_proc.stderr)
+    assert v2_checker_path is not None
+    v2_rows = dispositions_value(v2_checker_path)["dispositions"]
+    prepare_guards = {
+        "v2 prepare rejects empty disposition list": ([], "human dispositions are absent"),
+        "v2 prepare rejects missing target row": (v2_rows[:-1], "has no human disposition"),
+        "v2 prepare rejects duplicate target row": (
+            [v2_rows[0], v2_rows[0], v2_rows[1]], "duplicate disposition"),
+        "v2 prepare rejects non-object row": (["not-an-object"], "row is malformed"),
+        "v2 prepare names unknown row key": (
+            [{**v2_rows[0], "confirmedAt": "forbidden"}], "unknown confirmedAt"),
+    }
+    for name, (rows, diagnostic) in prepare_guards.items():
+        proc = prepare_v2(v2_root, v2_checker_path, rows)
+        check(name, proc.returncode != 0 and diagnostic in proc.stdout,
+              proc.stdout + proc.stderr)
+    v2_draft_proc = prepare_v2(v2_root, v2_checker_path, v2_rows)
+    check("v2 preparation is deterministic and non-authorizing",
+          v2_draft_proc.returncode == 0, v2_draft_proc.stdout + v2_draft_proc.stderr)
+    v2_draft = json.loads(v2_draft_proc.stdout) if v2_draft_proc.returncode == 0 else {}
+    v2_draft_again = prepare_v2(v2_root, v2_checker_path, v2_rows)
+    check("v2 preparation repeats byte-identically",
+          v2_draft_proc.stdout == v2_draft_again.stdout,
+          v2_draft_proc.stdout + v2_draft_again.stdout)
+    permuted_v2 = prepare_v2(v2_root, v2_checker_path, list(reversed(v2_rows)))
+    if permuted_v2.returncode == 0:
+        permutation_binding = json.loads(permuted_v2.stdout)["approvalBinding"]
+        permutation_ok = all(
+            row["findingSha256"] == row["disposition"]["findingSha256"]
+            for row in permutation_binding["targets"]
+        )
+    else:
+        permutation_ok = False
+    check("v2 permutation keeps each decision bound to its finding digest",
+          permutation_ok, permuted_v2.stdout + permuted_v2.stderr)
+    timestamped_draft = json.loads(json.dumps(v2_draft))
+    timestamped_draft["confirmedAt"] = "forbidden-on-draft"
+    timestamped = adjudicate(v2_root, v2_machine_path, v2_checker_path,
+                             timestamped_draft, name="v2-extra-confirmed-at",
+                             unit="U-v2")
+    check("v2 draft names forbidden confirmedAt key",
+          timestamped.returncode != 0 and "unknown confirmedAt" in timestamped.stdout,
+          timestamped.stdout + timestamped.stderr)
+    draft_mint = adjudicate(v2_root, v2_machine_path, v2_checker_path,
+                            v2_draft, name="v2-draft", unit="U-v2")
+    check("v2 draft placeholder cannot mint", draft_mint.returncode != 0,
+          draft_mint.stdout + draft_mint.stderr)
+    v2_draft["confirmedBy"] = "human-v2"
+    v2_good = adjudicate(v2_root, v2_machine_path, v2_checker_path,
+                         v2_draft, name="v2-good", unit="U-v2")
+    check("complete v2 approval mints", v2_good.returncode == 0,
+          v2_good.stdout + v2_good.stderr)
+    if v2_good.returncode == 0:
+        v2_receipt = last_path(v2_good)
+        v2_human = json.loads(v2_receipt.read_text(encoding="utf-8"))["humanAdjudication"]
+        check("v2 preserves the human confirmation verbatim",
+              v2_human.get("confirmation") == v2_draft.get("confirmation")
+              and v2_human.get("version") == "itd-human-adjudication-v2",
+              json.dumps(v2_human)[:300])
+        v2_check = run(["check", "--root", str(v2_root), "--unit-id", "U-v2",
+                        "--risk-tier", "medium", "--receipt", str(v2_receipt)], v2_root)
+        check("final adjudication revalidates v2 binding", v2_check.returncode == 0,
+              v2_check.stdout + v2_check.stderr)
+        # The same semantic approval may be consumed by the explicitly listed
+        # general-review claim, but only after its own machine/checker chain
+        # validates.  Its checker whole-file SHA changes; the candidate,
+        # binding and human affirmation do not.
+        general_claim = "U-v2:general-review"
+        general_machine_path = last_path(machine(v2_root, unit=general_claim))
+        checker(v2_root, "BLOCKED", "v2-general", unit=general_claim)
+        general_checker = newest_receipt(v2_root, "checker")
+        assert general_checker is not None
+        general_approval = json.loads(json.dumps(v2_draft))
+        general_approval["checkerReceiptSha256"] = hashlib.sha256(
+            general_checker.read_bytes()).hexdigest()
+        general_mint = adjudicate(v2_root, general_machine_path, general_checker,
+                                  general_approval, name="v2-general",
+                                  unit=general_claim)
+        check("same v2 approval mints final general-review adjudication",
+              general_mint.returncode == 0,
+              general_mint.stdout + general_mint.stderr)
+        if general_mint.returncode == 0:
+            general_check = run([
+                "check", "--root", str(v2_root), "--unit-id", general_claim,
+                "--risk-tier", "medium", "--receipt", str(last_path(general_mint)),
+            ], v2_root)
+            check("general-review receipt revalidates the same v2 approval",
+                  general_check.returncode == 0,
+                  general_check.stdout + general_check.stderr)
+        # A fresh checker file can reuse this approval only because its
+        # complete semantic report/candidate binding is unchanged; its whole
+        # file SHA remains independently revalidated.
+        checker(v2_root, "BLOCKED", "v2-reissued", unit="U-v2")
+        v2_reissued_checker = newest_receipt(v2_root, "checker")
+        assert v2_reissued_checker is not None
+        reissued = json.loads(json.dumps(v2_draft))
+        reissued["checkerReceiptSha256"] = hashlib.sha256(
+            v2_reissued_checker.read_bytes()).hexdigest()
+        reissued_mint = adjudicate(v2_root, v2_machine_path, v2_reissued_checker,
+                                   reissued, name="v2-reissued", unit="U-v2")
+        check("fresh checker receipt may reuse unchanged v2 approval",
+              reissued_mint.returncode == 0,
+              reissued_mint.stdout + reissued_mint.stderr)
+    for name, mutate in {
+        "v2 rejects foreign security claim": lambda value: value["approvalBinding"].update(
+            {"claims": ["U-v2", "U-v2:security-review"]}),
+        "v2 rejects duplicate claim": lambda value: value["approvalBinding"].update(
+            {"claims": ["U-v2", "U-v2"]}),
+        "v2 rejects changed risk binding": lambda value: value["approvalBinding"]["candidate"].update(
+            {"riskTier": "high"}),
+        "v2 rejects changed disposition evidence": lambda value: value["approvalBinding"]["targets"][0]["disposition"].update(
+            {"evidence": "different evidence"}),
+    }.items():
+        value = json.loads(json.dumps(v2_draft))
+        mutate(value)
+        proc = adjudicate(v2_root, v2_machine_path, v2_checker_path, value,
+                          name="v2-" + name.replace(" ", "-"), unit="U-v2")
+        check(name, proc.returncode != 0, proc.stdout + proc.stderr)
+    unknown_v2 = json.loads(json.dumps(v2_draft))
+    unknown_v2["version"] = "itd-human-adjudication-v99"
+    check("unknown approval version rejects", adjudicate(
+        v2_root, v2_machine_path, v2_checker_path, unknown_v2,
+        name="v2-unknown", unit="U-v2").returncode != 0)
+    colon_root = prepare_v2(v2_root, v2_checker_path, v2_rows,
+                            unit="U-v2:security-review",
+                            claims=["U-v2", "U-v2:general-review"])
+    check("security subclaim cannot masquerade as v2 primary unit",
+          colon_root.returncode != 0, colon_root.stdout + colon_root.stderr)
 
     # A clean review needs no adjudication: dispositions over PASSED refuse.
     clean_root = fixture()

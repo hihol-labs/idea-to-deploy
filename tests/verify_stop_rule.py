@@ -1721,7 +1721,9 @@ class SurfaceLab:
 
     def evidence(self, round_id, text, projection="full", base=BASE_TREE):
         rel = f"evidence/{round_id}-{sha_text(text)[:8]}.diff"
-        (self.root / rel).write_text(text, encoding="utf-8")
+        # The declared digest is over UTF-8 LF bytes. Text-mode Windows writes
+        # can translate newlines, so persist the exact hashed byte sequence.
+        (self.root / rel).write_bytes(text.encode("utf-8"))
         return {"class": "diff-hunks", "projection": projection, "path": rel,
                 "sha256": sha_text(text), "baseTree": base, "candidateTree": tree_id(round_id)}
 
@@ -2260,7 +2262,7 @@ with tempfile.TemporaryDirectory() as tmp:
         head = git("rev-parse", "HEAD")
         (repo / "journal.md").write_text("journal\n", encoding="utf-8")
         projection = rule.surface_projection(repo, base_tree, cand_tree, "hunk-headers")
-        (repo / "ev.surface").write_text(projection, encoding="utf-8")
+        (repo / "ev.surface").write_bytes(projection.encode("utf-8"))
         live_round = {"id": "g", "terminal": "verdict",
                       "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
                       "candidate": cand_tree[:16],
@@ -2315,7 +2317,7 @@ with tempfile.TemporaryDirectory() as tmp:
             step_tree = git("write-tree")
             git("commit", "-q", "-m", f"w{k}")
             step_projection = rule.surface_projection(repo, base_tree, step_tree, "hunk-headers")
-            (repo / f"w{k}.surface").write_text(step_projection, encoding="utf-8")
+            (repo / f"w{k}.surface").write_bytes(step_projection.encode("utf-8"))
             window_rounds.append({
                 "id": f"w{k}", "terminal": "verdict",
                 "provenance": {"class": "narrative", "path": "journal.md", "line": 1},
@@ -2345,7 +2347,7 @@ with tempfile.TemporaryDirectory() as tmp:
             pass
         tampered_text = projection.replace("+4,2", "+1,5")
         check("лаборатория: проекция содержит ожидаемый hunk", tampered_text != projection)
-        (repo / "ev2.surface").write_text(tampered_text, encoding="utf-8")
+        (repo / "ev2.surface").write_bytes(tampered_text.encode("utf-8"))
         tampered = copy.deepcopy(live_round)
         tampered["surface"].update(path="ev2.surface", sha256=sha_text(tampered_text))
         checks += 1
@@ -2507,7 +2509,7 @@ with tempfile.TemporaryDirectory() as tmp:
     def report_round(document, round_id="h"):
         text = json.dumps(document, ensure_ascii=False)
         rel = f"evidence/{round_id}-{sha_text(text)[:8]}.json"
-        (lab.root / rel).write_text(text, encoding="utf-8")
+        (lab.root / rel).write_bytes(text.encode("utf-8"))
         return {"id": round_id, "terminal": "verdict",
                 "provenance": {"class": "report", "path": rel, "sha256": sha_text(text)}}
 

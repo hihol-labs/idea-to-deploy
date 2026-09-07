@@ -37,7 +37,8 @@ def git_toplevel(cwd: Path) -> Path | None:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"], cwd=str(cwd),
-            capture_output=True, text=True, timeout=GIT_PROBE_TIMEOUT_SECONDS,
+            capture_output=True, text=True, encoding="utf-8", errors="strict",
+            timeout=GIT_PROBE_TIMEOUT_SECONDS,
         )
     except Exception:
         return None
@@ -156,22 +157,25 @@ def review_was_done(root: Path | None = None) -> bool:
         return False
 
 
-def staged_file_count() -> int:
+def staged_file_count() -> int | None:
+    """Return an exact raw-name count, or None when Git state is unknown."""
     try:
         result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only"],
-            capture_output=True, text=True, timeout=5,
+            ["git", "diff", "--cached", "--name-only", "-z"],
+            capture_output=True, timeout=5,
         )
         if result.returncode != 0:
-            return 0
-        return len([line for line in result.stdout.splitlines() if line.strip()])
+            return None
+        return len([name for name in result.stdout.split(b"\0") if name])
     except Exception:
-        return 0
+        return None
 
 
-def emit_deny(count: int) -> None:
+def emit_deny(count: int | None) -> None:
+    scope = (f"{count} файлов в staging" if count is not None
+             else "состав staging не удалось безопасно прочитать")
     msg = (
-        f"[REVIEW GATE] Коммит заблокирован: {count} файлов в staging, "
+        f"[REVIEW GATE] Коммит заблокирован: {scope}, "
         f"но нет успешного /review для exact current context.\n\n"
         f"WHY: cache должен совпадать по repository, base/tree, binary diff, "
         f"scope/acceptance contracts, rubric/version и risk tier; "
@@ -204,7 +208,7 @@ def main() -> int:
     if not GIT_COMMIT_RE.search(command):
         return 0
     count = staged_file_count()
-    if count <= MAX_FILES_WITHOUT_REVIEW:
+    if count is not None and count <= MAX_FILES_WITHOUT_REVIEW:
         return 0
     if review_was_done():
         return 0

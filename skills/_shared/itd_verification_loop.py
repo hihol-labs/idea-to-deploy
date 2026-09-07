@@ -51,6 +51,10 @@ DRAFT_PLACEHOLDER = "ЗАПОЛНИТЬ"
 # receipt can never mint (ADR-007).
 CONFIRMATION_TEMPLATE = ("I adjudicated every finding of checker receipt "
                          "{sha256} and accept the recorded dispositions")
+V2_ADJUDICATION_VERSION = "itd-human-adjudication-v2"
+V2_APPROVAL_DOMAIN = "itd-human-adjudication-binding-v2"
+V2_CONFIRMATION_TEMPLATE = ("I affirm exact v2 approval binding {sha256} and "
+                            "accept every recorded disposition")
 RISK_TIERS = {"low", "medium", "high", "unknown"}
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
@@ -1220,6 +1224,171 @@ def finding_digest(value: Any) -> str:
     return sha256_bytes(canonical(value))
 
 
+def adjudication_targets(checker: dict[str, Any]) -> list[Any]:
+    """Return checker targets in source order, deduplicating only exact bytes."""
+    targets = list(checker.get("findings") or []) + list(checker.get("unverified") or [])
+    result: list[Any] = []
+    seen: set[str] = set()
+    for target in targets:
+        digest = finding_digest(target)
+        if digest not in seen:
+            seen.add(digest)
+            result.append(target)
+    return result
+
+
+def validate_dispositions(checker: dict[str, Any], rows: Any) -> None:
+    """Shared ADR-007 row validation for v2 drafts and final minting."""
+    targets = list(checker.get("findings") or []) + list(checker.get("unverified") or [])
+    if not targets:
+        raise LoopError("BLOCKED review carries no findings to adjudicate",
+                        "Rerun the checker; a finding-free BLOCKED verdict is malformed evidence.")
+    if not isinstance(rows, list) or not rows:
+        raise LoopError("human dispositions are absent",
+                        "Disposition every checker finding or fix the candidate instead.")
+    required = {"findingSha256", "finding", "class", "rationale"}
+    expected = {finding_digest(item) for item in targets}
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise LoopError("a disposition row is malformed",
+                            "Each disposition must be a JSON object.")
+        missing = required - set(row)
+        extra = set(row) - (required | {"evidence"})
+        if missing or extra:
+            diagnostics = []
+            if missing:
+                diagnostics.append("missing " + ", ".join(sorted(missing)))
+            if extra:
+                diagnostics.append("unknown " + ", ".join(sorted(extra)))
+            raise LoopError("a disposition row is malformed: " + "; ".join(diagnostics),
+                            "Keep only findingSha256, finding, class, rationale and optional evidence.")
+        digest = row.get("findingSha256")
+        if digest not in expected or digest != finding_digest(row.get("finding")):
+            raise LoopError("a disposition names no checker finding",
+                            "Bind each disposition to the exact finding it adjudicates.")
+        if digest in seen:
+            raise LoopError("duplicate disposition for one finding",
+                            "Record exactly one human disposition per finding.")
+        seen.add(digest)
+        if row.get("class") not in DISPOSITION_CLASSES:
+            raise LoopError("disposition class is unknown",
+                            "Use accepted-trade-off, refuted-by-evidence or fixed.")
+        if not isinstance(row.get("rationale"), str) or not row["rationale"].strip():
+            raise LoopError("disposition rationale is absent",
+                            "State why the human accepted, refuted or fixed the finding.")
+        if row["class"] in ("refuted-by-evidence", "fixed") and (
+                not isinstance(row.get("evidence"), str) or not row["evidence"].strip()):
+            raise LoopError("disposition evidence is absent",
+                            "Name the evidence that refutes or fixes the finding.")
+        for field in ("rationale", "evidence"):
+            if isinstance(row.get(field), str) and DRAFT_PLACEHOLDER in row[field]:
+                raise LoopError(f"disposition {field} is the unfilled draft placeholder",
+                                "Replace the stop rule's draft text with the human's own wording.")
+    if seen != expected:
+        raise LoopError("a checker finding has no human disposition",
+                        "Disposition every checker finding (accepted-trade-off, "
+                        "refuted-by-evidence or fixed) or fix the candidate.")
+
+
+def v2_primary_unit(claim_id: str) -> str:
+    """Derive the sole v2 primary unit from an exact permitted claim."""
+    suffix = ":general-review"
+    if claim_id and ":" not in claim_id:
+        return claim_id
+    if claim_id.endswith(suffix):
+        primary = claim_id[:-len(suffix)]
+        if primary and ":" not in primary:
+            return primary
+    raise LoopError("v2 primary unit must not be a review subclaim",
+                    "Use a root unit or its exact :general-review claim; security and foreign subclaims are not primary units.")
+
+
+def v2_claims(primary_unit: str, claims: Any, current_claim: str) -> list[str]:
+    """Validate the deliberately tiny v2 approval authority set."""
+    if (not isinstance(claims, list) or any(not isinstance(x, str) for x in claims)
+            or len(set(claims)) != len(claims)):
+        raise LoopError("v2 approval claims are malformed",
+                        "Provide each explicit allowed claim exactly once.")
+    allowed = {primary_unit, primary_unit + ":general-review"}
+    if (not claims or set(claims) - allowed or primary_unit not in claims
+            or current_claim not in claims):
+        raise LoopError("v2 approval claims exceed the permitted unit authority",
+                        "Authorize the root unit and the exact current claim; only its general-review claim is optional.")
+    return claims
+
+
+def v2_binding(context: dict[str, Any], policy_sha: str, current_claim: str,
+               claims: Any, checker: dict[str, Any], dispositions: Any) -> dict[str, Any]:
+    """Build the closed, order-sensitive semantic approval binding.
+
+    Findings remain in checker order.  Reordering is a semantic change so a
+    human never unknowingly approves a differently presented review.
+    """
+    if not isinstance(dispositions, list):
+        raise LoopError("v2 approval dispositions are malformed",
+                        "Provide one complete disposition list.")
+    validate_dispositions(checker, dispositions)
+    targets = adjudication_targets(checker)
+    by_digest = {row["findingSha256"]: row for row in dispositions}
+    primary_unit = v2_primary_unit(current_claim)
+    return {
+        "domain": V2_APPROVAL_DOMAIN,
+        "candidate": context,
+        "policySha256": policy_sha,
+        "primaryUnit": primary_unit,
+        "claims": v2_claims(primary_unit, claims, current_claim),
+        "targets": [
+            {"findingSha256": finding_digest(target), "finding": target,
+             "disposition": row}
+            for target in targets
+            for row in (by_digest[finding_digest(target)],)
+        ],
+    }
+
+
+def validate_v2_human_adjudication(block: Any, checker: dict[str, Any],
+                                   checker_sha256: str, context: dict[str, Any],
+                                   policy_sha: str, unit_id: str) -> None:
+    fields = {"version", "confirmedBy", "confirmedAt", "confirmation",
+              "checkerReceiptSha256", "approvalBinding", "dispositions"}
+    if not isinstance(block, dict) or set(block) != fields:
+        raise LoopError("v2 human adjudication block is malformed",
+                        "Provide only the closed v2 adjudication fields.")
+    if block.get("version") != V2_ADJUDICATION_VERSION:
+        raise LoopError("human adjudication version is unknown",
+                        "Use legacy v1 without a version, or the exact supported v2 version.")
+    for field in ("confirmedBy", "confirmedAt", "confirmation"):
+        if not isinstance(block.get(field), str) or not block[field].strip():
+            raise LoopError(f"v2 human adjudication {field} is absent",
+                            "Record the explicit human confirmation before minting.")
+    if any(DRAFT_PLACEHOLDER in str(block.get(key, ""))
+           for key in ("confirmedBy", "confirmation")):
+        raise LoopError("v2 adjudication still contains a draft placeholder",
+                        "Replace every draft placeholder with the human's own entry.")
+    if block.get("checkerReceiptSha256") != checker_sha256:
+        raise LoopError("v2 human adjudication binds another checker receipt",
+                        "Use the whole-file SHA-256 of this exact checker receipt.")
+    binding = block.get("approvalBinding")
+    if not isinstance(binding, dict):
+        raise LoopError("v2 approval binding is malformed", "Provide the closed approvalBinding object.")
+    expected = v2_binding(context, policy_sha, unit_id, binding.get("claims"),
+                          checker, block.get("dispositions"))
+    if set(binding) != set(expected) or binding != expected:
+        raise LoopError("v2 approval binding does not match the exact candidate and findings",
+                        "Reprepare and affirm approval after any candidate, policy, claim or finding change.")
+    digest = sha256_bytes(canonical(binding))
+    if block.get("confirmation") != V2_CONFIRMATION_TEMPLATE.format(sha256=digest):
+        raise LoopError("v2 human confirmation is not the explicit affirmative statement",
+                        "Use the exact affirmative template naming the v2 approval binding digest.")
+    # Retain ADR-007's strict target/disposition validation before accepting
+    # the v2 binding that embeds those same rows.
+    legacy = {"confirmedBy": block["confirmedBy"], "confirmedAt": block["confirmedAt"],
+              "confirmation": CONFIRMATION_TEMPLATE.format(sha256=checker_sha256),
+              "checkerReceiptSha256": checker_sha256, "dispositions": block["dispositions"]}
+    validate_human_adjudication(legacy, checker, checker_sha256)
+
+
 def validate_human_adjudication(block: Any, checker: dict[str, Any],
                                 checker_sha256: str) -> None:
     """Fail-closed validation of a per-finding human adjudication (ADR-007)."""
@@ -1249,6 +1418,7 @@ def validate_human_adjudication(block: Any, checker: dict[str, Any],
     if checker.get("verdict") != "BLOCKED":
         raise LoopError("human adjudication over a non-BLOCKED review",
                         "A clean review needs no adjudication; mint plain PASSED evidence.")
+    validate_dispositions(checker, block.get("dispositions"))
     targets = list(checker.get("findings") or []) + list(checker.get("unverified") or [])
     if not targets:
         raise LoopError("BLOCKED review carries no findings to adjudicate",
@@ -1426,9 +1596,14 @@ def validate_adjudication_evidence(receipt: dict[str, Any], *, repo: Path, risk:
             accept_adjudicated_route=accept_adjudicated_route,
         )
         if adjudicated:
-            validate_human_adjudication(
-                receipt.get("humanAdjudication"), checker,
-                str(checker_ref.get("sha256") or ""))
+            human = receipt.get("humanAdjudication")
+            if isinstance(human, dict) and "version" in human:
+                validate_v2_human_adjudication(
+                    human, checker, str(checker_ref.get("sha256") or ""),
+                    receipt["candidate"], policy_sha, unit_id)
+            else:
+                validate_human_adjudication(
+                    human, checker, str(checker_ref.get("sha256") or ""))
         validate_route_machine_binding(verified_route, machine_path)
         return verified_route
     elif checker_ref is not None:
@@ -2035,21 +2210,47 @@ def command_adjudicate(args: argparse.Namespace) -> int:
             supplied = read_json(
                 (raw if raw.is_absolute() else repo / raw).resolve(),
                 "human dispositions")
-            allowed = {"confirmedBy", "confirmation",
-                       "checkerReceiptSha256", "dispositions"}
-            if not {"confirmedBy", "confirmation",
-                    "dispositions"} <= set(supplied) <= allowed:
-                raise LoopError("human dispositions file is malformed",
-                                "Provide confirmedBy, confirmation, checkerReceiptSha256 and dispositions.")
-            human_block = {
-                "confirmedBy": supplied.get("confirmedBy"),
-                "confirmedAt": now_iso(),
-                "confirmation": supplied.get("confirmation"),
-                "checkerReceiptSha256": supplied.get("checkerReceiptSha256"),
-                "dispositions": supplied.get("dispositions"),
-            }
-            validate_human_adjudication(human_block, checker,
-                                        sha256_file(checker_path))
+            if not isinstance(supplied, dict):
+                raise LoopError("human dispositions file is not an object",
+                                "Provide a JSON object in legacy v1 or closed v2 format.")
+            if "version" in supplied:
+                if supplied.get("version") != V2_ADJUDICATION_VERSION:
+                    raise LoopError("human adjudication version is unknown",
+                                    "Use legacy v1 without a version, or the exact supported v2 version.")
+                allowed = {"version", "confirmedBy", "confirmation",
+                           "checkerReceiptSha256", "approvalBinding", "dispositions"}
+                if set(supplied) != allowed:
+                    unknown = sorted(set(supplied) - allowed)
+                    missing = sorted(allowed - set(supplied))
+                    detail = []
+                    if unknown:
+                        detail.append("unknown " + ", ".join(unknown))
+                    if missing:
+                        detail.append("missing " + ", ".join(missing))
+                    raise LoopError("v2 human dispositions file is malformed: "
+                                    + "; ".join(detail),
+                                    "Provide exactly the closed v2 draft fields before minting.")
+                human_block = dict(supplied)
+                human_block["confirmedAt"] = now_iso()
+                validate_v2_human_adjudication(human_block, checker,
+                                               sha256_file(checker_path), context,
+                                               policy_sha, args.unit_id)
+            else:
+                allowed = {"confirmedBy", "confirmation",
+                           "checkerReceiptSha256", "dispositions"}
+                if not {"confirmedBy", "confirmation",
+                        "dispositions"} <= set(supplied) <= allowed:
+                    raise LoopError("human dispositions file is malformed",
+                                    "Provide confirmedBy, confirmation, checkerReceiptSha256 and dispositions.")
+                human_block = {
+                    "confirmedBy": supplied.get("confirmedBy"),
+                    "confirmedAt": now_iso(),
+                    "confirmation": supplied.get("confirmation"),
+                    "checkerReceiptSha256": supplied.get("checkerReceiptSha256"),
+                    "dispositions": supplied.get("dispositions"),
+                }
+                validate_human_adjudication(human_block, checker,
+                                            sha256_file(checker_path))
         verified_route = validate_checker(
             checker, repo=repo, risk=risk, unit_id=args.unit_id,
             policy=policy, policy_sha=policy_sha,
@@ -2123,6 +2324,44 @@ def command_adjudicate(args: argparse.Namespace) -> int:
         validate_adjudication(
             repo, output, risk, args.unit_id, args.candidate_mode)
     print(output.as_posix())
+    return 0
+
+
+def command_prepare_adjudication(args: argparse.Namespace) -> int:
+    """Emit a deterministic, non-authorizing v2 approval draft.
+
+    The caller supplies the completed disposition rows.  This command seals
+    their exact meaning into the candidate binding, but deliberately leaves
+    `confirmedBy` as a draft placeholder; only a later human-filled file can
+    be passed to `adjudicate`.
+    """
+    policy, policy_sha = load_policy()
+    repo = repository_root(args.root)
+    context = candidate_context(repo, args.risk_tier, args.candidate_mode)
+    root = receipt_root(repo, policy)
+    checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
+    checker = read_json(checker_path, "checker receipt")
+    source = Path(args.dispositions)
+    source = source if source.is_absolute() else repo / source
+    try:
+        raw = source.read_bytes()
+        if len(raw) > JSON_INPUT_MAX_BYTES:
+            raise ValueError("oversized")
+        dispositions = json.loads(raw.decode("utf-8"))
+    except Exception as exc:
+        raise LoopError("v2 draft dispositions are unreadable",
+                        "Provide one bounded JSON list of completed disposition rows.") from exc
+    binding = v2_binding(context, policy_sha, args.unit_id, args.claim,
+                         checker, dispositions)
+    digest = sha256_bytes(canonical(binding))
+    print(json.dumps({
+        "version": V2_ADJUDICATION_VERSION,
+        "confirmedBy": DRAFT_PLACEHOLDER,
+        "confirmation": V2_CONFIRMATION_TEMPLATE.format(sha256=digest),
+        "checkerReceiptSha256": sha256_file(checker_path),
+        "approvalBinding": binding,
+        "dispositions": dispositions,
+    }, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     return 0
 
 
@@ -2272,6 +2511,13 @@ def parser() -> argparse.ArgumentParser:
         "--attempt", type=int,
         help="optional assertion of the next durable attempt; allocation is automatic")
     adjudicate.add_argument("--output")
+    prepare = sub.add_parser("prepare-adjudication", parents=[common],
+                             help="emit a deterministic non-authorizing v2 human approval draft")
+    prepare.add_argument("--checker", required=True)
+    prepare.add_argument("--dispositions", required=True,
+                         help="JSON list of completed disposition rows")
+    prepare.add_argument("--claim", action="append", required=True,
+                         help="explicit allowed claim (root unit and optional root:general-review)")
     check = sub.add_parser("check", parents=[common])
     check.add_argument("--receipt", required=True)
     check.add_argument("--require-mandatory-route", action="store_true")
@@ -2310,6 +2556,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_checker(args)
         if args.action == "adjudicate":
             return command_adjudicate(args)
+        if args.action == "prepare-adjudication":
+            return command_prepare_adjudication(args)
         if args.action == "check":
             return command_check(args)
         if args.action == "mint-override":

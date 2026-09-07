@@ -1366,3 +1366,62 @@ evidence and normalizes only the missing metadata before first publication; no
 committed event was rewritten. Update the goal-event writer and add a regression
 that requires `criterionRef` for verified transitions, so a later ledger does
 not need host-side metadata normalization.
+
+## P2 — Windows CLI wrapper is written in UTF-8 but read by cmd.exe in the OEM code page (ROUTE-DEBTS, 2026-09-06)
+
+`scripts/itd_install_cli.py` renders `itd.cmd` as UTF-8. When the runtime root
+or interpreter path contains non-ASCII characters in long form (for example a
+Cyrillic user profile after `Path.resolve()` expands the 8.3 name), cmd.exe
+decodes the batch file in the OEM code page and the interpreter cannot open the
+mangled script path. Reproduced natively on the frozen a7 bytes and on the a8
+candidate (`ROUTE-DEBTS-probe-wrapper-codepage-a8.log`: UTF-8 long path rc 2,
+8.3 path or cp866 encoding rc 0); `tests/verify_itd_runtime_install.py` fails in
+that environment while the real rollout succeeds because `%LOCALAPPDATA%` is
+delivered in 8.3 form there. Out of ROUTE-DEBTS scope: fix the wrapper encoding
+(OEM code page or short-path binding) with a native regression in a separately
+scoped unit.
+
+## P2 — `run_packet_review` keeps a permissive `checkpoint_refuse_invalid=False` default (ROUTE-DEBTS, 2026-09-06)
+
+`skills/_shared/itd_free_reviewer_producer.py` documents a fail-closed
+checkpoint contract, but a direct `run_packet_review` caller that omits
+`checkpoint_refuse_invalid` still gets `_load_route_checkpoint(..., refuse_invalid=False)`,
+which returns an empty history for malformed, unreadable or wrongly signed
+evidence and lets the run restart over it. The shipped CLI passes `True`, so no
+runtime path dispatches permissively today. The property should be intrinsic
+whenever checkpointing is enabled (or the argument mandatory). Deferred from
+ROUTE-DEBTS because the current independent-review efficacy observations are
+bound to the exact producer bytes; fold it into the next producer re-record.
+
+## P3 — canonical origin normalization rejects `https://github.com/owner/repo.git/` (ROUTE-DEBTS, 2026-09-06)
+
+`skills/_shared/itd_free_reviewer_producer.py` strips the `.git` suffix before a
+trailing slash, so a valid GitHub origin written with a trailing slash is
+rejected by the repository regex (fail-closed, no misbinding). Strip trailing
+slashes first, then the optional `.git` suffix. Deferred with the other producer
+edits because the live efficacy observations are bound to the producer bytes.
+
+## P2 — `persist_review_diagnostic` stores a negative reviewer observation in a mutable mkdtemp directory (ROUTE-DEBTS, 2026-09-06)
+
+`skills/_shared/itd_free_reviewer_producer.py` describes the persisted
+prompt/report/observation of a BLOCKED review as immutable negative evidence,
+but writes them with ordinary helpers into an unanchored temporary directory,
+so a later local write or path substitution could replace or erase them and
+the observation hashes do not bind anything durable. The hierarchical negative
+observation path already uses `write_immutable_bytes`; route the diagnostic
+writer through the same anchored immutable namespace. Deferred by owner
+decision (2026-09-06, variant 1) because the live efficacy observations are
+bound to the exact producer bytes; fold it into the next producer re-record.
+
+## P2 — successful-route negative-observation check races concurrent immutable negative publication (ROUTE-DEBTS, Sol-a12, 2026-09-07)
+
+`skills/_shared/itd_free_reviewer_producer.py` (successful-route path near
+the negative-observation guard) checks `negative_path.exists()` and matches
+the observation without synchronizing with another process's immutable
+negative write. A concurrent BLOCKED review can publish exact-context negative
+evidence after the PASS process observed absence, while PASS still authorizes
+and removes the route checkpoint. Completion and negative publication need a
+shared context-scoped lock or an atomic state transition. Deferred by owner
+decision (2026-09-07, variant 1) for the same reason as the diagnostic
+immutability entry above: the live efficacy observations are bound to the
+exact producer bytes; fold both into the next producer re-record.

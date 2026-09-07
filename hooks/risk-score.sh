@@ -31,8 +31,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 import tempfile
+
+# Hook output is a JSON transport contract. Native Windows may select cp1251
+# for redirected stdout, which cannot encode the diagnostic's Unicode marker.
+# Emit the same UTF-8 JSON bytes on every host instead of dropping escalation.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict")
 
 RISK_THRESHOLD = 12  # accumulate this many points before escalating
 try:
@@ -56,6 +63,56 @@ RISKY_BASH = re.compile(
     r"\bmigrate\b|\bdeploy\b|\bprod\b|chmod\s+777|\b(curl|wget)\b|docker\s+(rm|prune)",
     re.IGNORECASE,
 )
+
+# A Bash request is normally a shell program, even when it looks harmless.
+# Only this small argv-shaped grammar is read-only.  In particular, a WSL
+# transport is accepted only when it reaches `git` directly; `wsl ... bash
+# -lc ...` remains an unknown shell program and keeps its conservative score.
+SHELL_SYNTAX = re.compile(r"(?:\$\(|`|&&|\|\||[;|<>]|[\r\n])")
+WSL_NAMES = {"wsl", "wsl.exe"}
+
+
+def read_only_git(argv: list[str]) -> bool:
+    """Closed argv grammar; Git transport helpers can execute arbitrary code."""
+    if len(argv) < 4 or argv[:2] != ["git", "--no-pager"]:
+        return False
+    subcommand, arguments = argv[2], argv[3:]
+    # Zero-risk is reserved for closed plumbing that cannot invoke repository
+    # diff, pager, filter, fsmonitor, or transport helpers. Porcelain and
+    # diff-producing commands remain conservative even when read-only.
+    permitted = {
+        "rev-parse": (("--git-dir",), ("--is-inside-work-tree",)),
+    }
+    return tuple(arguments) in permitted.get(subcommand, ())
+
+
+def read_only_bash(command: str) -> bool:
+    """Recognize a closed set of direct, read-only Git inspections."""
+    if not command or SHELL_SYNTAX.search(command) or "'" in command or '"' in command:
+        return False
+    try:
+        argv = shlex.split(command, posix=True)
+    except ValueError:
+        return False
+    if not argv:
+        return False
+    if argv[0].casefold() in WSL_NAMES:
+        index = 1
+        while index < len(argv) and argv[index] != "--":
+            item = argv[index]
+            if item in {"-d", "--distribution", "--cd"}:
+                if (index + 1 >= len(argv) or argv[index + 1] == "--"
+                        or argv[index + 1].startswith("-")):
+                    return False
+                index += 2
+            else:
+                # WSL management and unknown switches are never a read-only
+                # transport. The grammar accepts only explicit selectors.
+                return False
+        if index >= len(argv) - 1 or argv[index] != "--":
+            return False
+        argv = argv[index + 1:]
+    return read_only_git(argv)
 
 
 def session_id() -> str:
@@ -116,6 +173,8 @@ def risk_delta(tool: str, tool_input: dict) -> tuple[float, float]:
         return 1.0, 0.0
     if tool == "Bash":
         cmd = str(tool_input.get("command") or "")
+        if read_only_bash(cmd):
+            return 0.0, 0.0
         if RISKY_BASH.search(cmd):
             return (0.0, 3.0) if SENSITIVE.search(cmd) else (3.0, 0.0)
         return 0.5, 0.0
@@ -163,9 +222,10 @@ def main() -> int:
             f"[RISK BUDGET — escalation]\n"
             f"⚖️ Accumulated change-risk score {score:.0f} "
             f"(threshold {RISK_THRESHOLD}); {why}.\n\n"
-            f"Many individually-OK changes add up — idea-to-deploy's binary gates "
-            f"do not catch this drift. Before continuing or committing, pay the "
-            f"matching bucket down with a successful bound {target} verdict.\n\n"
+            f"You may repair the current BLOCKED candidate and run its tests; "
+            f"this advisory does not authorize publication, commit, or security "
+            f"acceptance. Pay the matching bucket down only with a current bound "
+            f"{target} verdict.\n\n"
             f"State: `cat {state_file()}`"
         )
         out = {

@@ -3352,6 +3352,63 @@
         ],
         "claim": "Host-adapter, meta-review, local/CI mirror registration and generated impact-map verification checks pass for this candidate."
       }
+    },
+    {
+      "id": "ROUTE-DEBTS-1",
+      "unitId": "ROUTE-DEBTS",
+      "criterion": "Approved route-debt regression and negative matrix passes",
+      "source": ".itd-memory/contracts/ROUTE-DEBTS.md",
+      "evidence": "Working 14-suite WSL aggregate passed. Focused native Goal62/runtime39/task-writer and five-operation real junction-swap checks passed. Held directory descriptors/handles bind namespace reads and writes; an exact latest-cycle terminal event repairs STATE after an interrupted task transition without duplicate events. Frozen native red proof reproduces the old append escape. Earlier Sol reports, failed transports and context-shape rebuttal are preserved. Exact staged machine and fresh mandatory Sol adjudication remain required; no deployment claim. Sol-a7 dispositions: a trusted append refuses a multi-link or foreign-owned destination on both hosts and adjudication/machine receipts are bound by unresolved contained paths read through anchored no-follow opens (both RED-first against the frozen a7 bytes); the criterion-ID scrub finding is rebutted by an executable regression on the unchanged producer bytes (scrubbed text is what the check inspects; every scrubber substitution carries the marker). WSL and native aggregates passed on the resulting candidate. Sol-a8 mechanisms closed: the Goal event writer refuses to append after a partial events.jsonl tail (task-ledger rule), the runtime inventory records links as their own kind instead of following them, and the hard-link append fixture is required evidence rather than a skip; each has a RED-first regression against the frozen a8 bytes. Sol-a9 closures: interrupted-append recovery projects only when the event log equals the recorded pre-append bytes plus the exact newline-terminated event line, and the active-wrapper proof binds the declared namespace entry as a regular no-link file read through an anchored snapshot; the permissive checkpoint default of direct producer calls is deferred with a rebuttal (BACKLOG P2). Sol-a10 closures: the STATE mirror that authorizes Goal transitions is read through the anchored no-follow snapshot, and the runtime inventory guards Path.is_junction; the producer origin normalization order is deferred (BACKLOG P3). Sol-a11 closures (owner variant 1): the STATE re-read under the projection lock, the transition recovery record and the events tail preflight are read no-follow through the anchored snapshot or a descriptor bound to the inspected inode; the producer diagnostic immutability finding is deferred (BACKLOG P2). Sol-a12 closures (owner variant 1): one shared anchored no-follow ledger reader, fail-closed on partial or malformed records, now serves every GOAL/STATE/events/recovery read of the Goal and task scripts; the efficacy current-result archive check binds to a current-producer diagnostic entry and rejects historical snapshots; the producer negative-observation race is deferred (BACKLOG P2).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Approved route-debt regression and negative matrix passes",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "route-regression"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-DEBTS-2",
+      "unitId": "ROUTE-DEBTS",
+      "criterion": "Host parity, metadata and impact registrations pass",
+      "source": ".itd-memory/contracts/ROUTE-DEBTS.md",
+      "evidence": "Host-adapters, meta-review, runall-drift and verification-profiles pass evidence is retained from prior working checks. Current staged candidate must regenerate the impact graph and pass route-host-metadata in its exact machine receipt. Independent adjudication and installed-host proof remain separate requirements.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py --host-metadata",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Host parity, metadata and impact registrations pass",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "route-host-metadata"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-DEBTS-3",
+      "unitId": "ROUTE-DEBTS",
+      "criterion": "Current real efficacy observations and immutable accepted history validate without rewriting prior observations",
+      "source": ".itd-memory/contracts/ROUTE-DEBTS.md: current live evidence for changed benchmark footprint; .itd/SCOPE_LOCK.md: preserve accepted evidence",
+      "evidence": "EF9 all27 real observations completed first invocation and full caller-pinned WSL/native validation passed on producer0f1b8759 and corrected corpusda858. All24 signed snapshots, including FAILED EF8, remain independently pinned. EF8 exposed a real bug in the clean percentile fixture; original corpus740a and actual Node red/green/full-test replay are retained. Only fixture implementation/regression assertions changed; cohort/labels/thresholds/frozenAt and Q6 remain fixed. No model-effectiveness improvement or candidate acceptance is inferred from historical observations.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_independent_review_efficacy.py --expected-keyring-sha256 dd4c6dea0fd05351ae5026d36635618573938c0fc1d8d0b49605866c18ddc5e2",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Current real efficacy observations and immutable accepted history validate without rewriting prior observations",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "review-efficacy"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3370,17 +3427,18 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "Q6-SETUP",
-    "status": "closed",
+    "unitId": "ROUTE-DEBTS",
+    "status": "open",
     "openedAt": "2026-09-05",
-    "closedAt": "2026-09-05T13:19:07Z",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "security",
+        "host-parity",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
@@ -3435,6 +3493,25 @@
         "adjudicator": "sealed-host-union"
       },
       "closedAt": "2026-09-05"
+    },
+    {
+      "unitId": "Q6-SETUP",
+      "status": "closed",
+      "openedAt": "2026-09-05",
+      "closedAt": "2026-09-05T13:19:07Z",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd/SCOPE_LOCK.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      }
     }
   ]
 }

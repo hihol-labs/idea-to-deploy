@@ -88,10 +88,15 @@ def load_policy() -> tuple[dict[str, Any], str]:
 
 
 def git(root: Path, *args: str, binary: bool = False) -> bytes | str:
-    result = subprocess.run(
-        ["git", *args], cwd=str(root), capture_output=True,
-        text=not binary, timeout=10,
-    )
+    options: dict[str, Any] = {
+        "cwd": str(root), "capture_output": True, "timeout": 10,
+    }
+    if not binary:
+        # Git emits repository paths as UTF-8. Native Windows' inherited ANSI
+        # code page can turn a Unicode checkout path into mojibake, leaving a
+        # later subprocess with an invalid cwd.
+        options.update(text=True, encoding="utf-8", errors="strict")
+    result = subprocess.run(["git", *args], **options)
     if result.returncode != 0:
         error = result.stderr if not binary else result.stderr.decode("utf-8", "replace")
         raise CacheError(

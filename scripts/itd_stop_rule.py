@@ -1881,6 +1881,58 @@ def live_policy_binding(policy: dict, root: Path) -> dict:
     }
 
 
+def machine_ready_binding(policy: dict, root: Path, receipt_path: Path) -> dict:
+    """Validate the same evidence-first contract the producer dispatches on.
+
+    ``--check-binding`` remains a deliberately static ledger check for existing
+    automation.  Callers that need to say an oracle is actually ready must opt
+    in and provide the immutable receipt; static alignment never implies it.
+    """
+    shared = root / "skills" / "_shared"
+    if str(shared) not in sys.path:
+        sys.path.insert(0, str(shared))
+    import itd_review_evidence as review_evidence  # noqa: WPS433
+    import itd_verification_loop as verification_loop  # noqa: WPS433
+    binding_policy = policy["policyBinding"]
+    contract = read_json_document(root / binding_policy["contractPath"], "acceptance contract")
+    receipt = read_json_document(receipt_path, "machine receipt")
+    followup = contract.get("activeFollowup")
+    if not isinstance(followup, dict):
+        raise StopRuleError("machine evidence is not ready: active followup is absent")
+    unit_id = followup.get("unitId")
+    review_policy = followup.get("reviewPolicy")
+    risk = review_policy.get("riskTier") if isinstance(review_policy, dict) else None
+    if not isinstance(unit_id, str) or not isinstance(risk, str):
+        raise StopRuleError("machine evidence is not ready: active unit/risk is absent")
+    # The shared Verification Loop validator binds the whole-file digest,
+    # current repository/candidate, risk, unit, policy and strict integer run
+    # exits.  Do not approximate this with coverage rows.
+    try:
+        loop_policy, loop_policy_sha = verification_loop.load_policy()
+        repo = verification_loop.repository_root(root)
+        verification_loop.validate_machine(
+            receipt, repo=repo, risk=risk, unit_id=unit_id,
+            policy=loop_policy, policy_sha=loop_policy_sha,
+        )
+    except verification_loop.LoopError as exc:
+        raise StopRuleError(f"machine evidence is not ready: {exc}") from exc
+    if receipt.get("verdict", receipt.get("outcome")) != "PASSED":
+        raise StopRuleError("machine evidence is not ready: machine verdict did not pass")
+    try:
+        matrix = review_evidence.coverage_matrix(contract, receipt)
+    except review_evidence.ReviewEvidenceError as exc:
+        raise StopRuleError(f"machine evidence is not ready: {exc}") from exc
+    if matrix is None:
+        raise StopRuleError("machine evidence is not ready: no active evidence-first policy")
+    return {
+        "machineReady": True,
+        "machineReceipt": str(receipt_path.resolve()),
+        "unitId": matrix["unitId"],
+        "riskTier": matrix["riskTier"],
+        "oracleIds": sorted({oracle for row in matrix["criteria"] for oracle in row["oracleIds"]}),
+    }
+
+
 def count_terminals(rounds: list[dict]) -> tuple[dict, dict]:
     """Счётчики классов по УЖЕ разобранным раундам.
 
@@ -2446,6 +2498,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=str(ROOT), help="корень репозитория")
     parser.add_argument("--check-binding", action="store_true",
                         help="живая проверка приёмочной бухгалтерии активного юнита")
+    parser.add_argument("--machine-ready", action="store_true",
+                        help="с --check-binding проверить переданный exact machine receipt")
+    parser.add_argument("--machine-receipt", metavar="PATH",
+                        help="immutable machine receipt for --machine-ready")
     parser.add_argument("--json", action="store_true", help="машинный вывод")
     parser.add_argument("--emit-dispositions", metavar="CHECKER_RECEIPT",
                         help="составить черновик диспозиций ADR-007 по BLOCKED-квитанции "
@@ -2454,6 +2510,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if bool(args.emit_dispositions) != bool(args.out):
         parser.error("--emit-dispositions и --out задаются вместе")
+    if args.machine_ready and (not args.check_binding or not args.machine_receipt):
+        parser.error("--machine-ready requires --check-binding and --machine-receipt")
+    if args.machine_receipt and not args.machine_ready:
+        parser.error("--machine-receipt is only valid with --machine-ready")
 
     root = Path(args.root).resolve()
     try:
@@ -2465,6 +2525,10 @@ def main(argv: list[str] | None = None) -> int:
             else Path(args.root) / ".itd" / "STOP_RULE_POLICY.json")
         if args.check_binding:
             binding = live_policy_binding(policy, root)
+            ready = None
+            if binding["aligned"] and args.machine_ready:
+                ready = machine_ready_binding(policy, root, Path(args.machine_receipt))
+                binding = {**binding, **ready}
             if args.json:
                 print(json.dumps(binding, ensure_ascii=False, sort_keys=True))
             else:
@@ -2488,7 +2552,7 @@ def main(argv: list[str] | None = None) -> int:
                               f"UNVERIFIED ещё до ревьюера.")
                         print("  FIX: довести критерии активного юнита до "
                               "требуемого статуса и повторить.")
-            return 0 if binding["aligned"] else 2
+            return 0 if binding["aligned"] and (not args.machine_ready or ready) else 2
         if not args.history:
             parser.error("нужен --history или --check-binding")
         history = load_history(Path(args.history))

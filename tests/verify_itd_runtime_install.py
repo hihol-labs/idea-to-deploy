@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import subprocess
@@ -42,6 +43,26 @@ def check(value: bool, label: str) -> None:
     CHECKS += 1
     if not value:
         raise AssertionError(label)
+
+
+def runtime_inventory(root: Path) -> dict[str, str]:
+    """Closed runtime inventory, including any unexpected files/directories."""
+    inventory: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        # A link is its own entry kind: following it would report a directory
+        # symlink as the directory and a file symlink as its target's hash,
+        # so a namespace/type mutation would look byte-for-byte unchanged.
+        is_junction = getattr(path, "is_junction", None)
+        if path.is_symlink() or (os.name == "nt" and is_junction is not None and is_junction()):
+            inventory[relative] = "link:" + os.readlink(path)
+        elif path.is_dir():
+            inventory[relative + "/"] = "directory"
+        elif path.is_file():
+            inventory[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+        else:
+            inventory[relative] = "special"
+    return inventory
 
 
 def rejects(fn, label: str) -> None:
@@ -294,15 +315,22 @@ def main() -> int:
         # special file are refused just as hard, so they must name the path and
         # a FIX too — otherwise the operator is back to hunting by hand.
         link = runtime_root / "stray-link"
-        link.symlink_to(runtime_root / "scripts" / "itd.py")
-        rejects_naming(
-            lambda: runtime.install_runtime(
-                source_root=source, runtime_parent=parent, apply=True
-            ),
-            ("stray-link", "FIX"),
-            "symlink refusal names the offending path and a FIX",
-        )
-        link.unlink()
+        try:
+            link.symlink_to(runtime_root / "scripts" / "itd.py")
+        except OSError as exc:
+            # Native Windows can deny symlink creation without Developer Mode
+            # or the privilege.  Keep the inventory/runtime execution proof
+            # live there and name this unavailable fixture explicitly.
+            print(f"SKIP  symlink refusal: native symlink fixture unavailable: {exc}")
+        else:
+            rejects_naming(
+                lambda: runtime.install_runtime(
+                    source_root=source, runtime_parent=parent, apply=True
+                ),
+                ("stray-link", "FIX"),
+                "symlink refusal names the offending path and a FIX",
+            )
+            link.unlink()
         # Reviewer finding r8: os.mkfifo is Unix-only, and this suite also runs
         # on native Windows. Name the platform boundary instead of crashing on
         # it — the guarantee is exercised wherever a real special file can be
@@ -425,6 +453,8 @@ def main() -> int:
             update_path=False, python=Path(sys.executable), source_root=ROOT,
             runtime_parent=real_parent,
         )
+        installed_root = Path(real_cli["runtimeRoot"])
+        before_runtime_execution = runtime_inventory(installed_root)
         help_command = (
             ["cmd.exe", "/d", "/c", str(real_target), "--help"]
             if os.name == "nt" else [str(real_target), "--help"]
@@ -472,8 +502,12 @@ def main() -> int:
             "installed verification loop computes an exact candidate context",
         )
         check(
-            not list(Path(real_cli["runtimeRoot"]).rglob("__pycache__")),
-            "isolated runtime execution writes no bytecode cache",
+            runtime_inventory(installed_root) == before_runtime_execution,
+            "installed runtime inventory is byte-for-byte unchanged after execution",
+        )
+        print(
+            "runtime inventory execution proof host="
+            + ("native-windows" if os.name == "nt" else "wsl-or-posix")
         )
 
     print(json.dumps({"checks": CHECKS, "status": "PASSED"}, sort_keys=True))

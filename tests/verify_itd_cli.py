@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -1049,16 +1050,43 @@ def remote_phase() -> None:
             "Draft update retains guarded push environment",
         )
         check(
-            push.call_args.kwargs["timeout"] == 600,
-            "Draft update carries the bounded CLI timeout through pre-push",
+            push.call_args.kwargs["timeout"] == cli.GUARDED_PUSH_ATTEMPT_SECONDS,
+            "Draft update uses the independent bounded push-attempt timeout",
         )
 
     check(
         cli.guarded_push_timeout(1200) == 1200
-        and cli.guarded_push_timeout(30) == 300
+        and cli.guarded_push_timeout(30) == 30
+        and cli.guarded_push_timeout(cli.GUARDED_PUSH_TERMINATION_GRACE_SECONDS + 1)
+        == cli.GUARDED_PUSH_TERMINATION_GRACE_SECONDS + 1
         and cli.guarded_push_timeout(9999) == 3600,
-        "guarded push timeout is bounded",
+        "guarded push timeout is bounded without inflating caller budget",
     )
+    fractional_attempts = (10.1, 10.5, 10.999)
+    check(
+        all(
+            0 < cli.guarded_push_attempt_timeout(remaining)
+            and cli.guarded_push_attempt_timeout(remaining)
+            + cli.GUARDED_PUSH_TERMINATION_GRACE_SECONDS <= remaining + 1e-12
+            and abs(
+                cli.guarded_push_attempt_timeout(remaining)
+                + cli.GUARDED_PUSH_TERMINATION_GRACE_SECONDS - remaining
+            ) < 1e-12
+            for remaining in fractional_attempts
+        )
+        and abs(cli.guarded_push_attempt_timeout(10.1) - 0.1) < 1e-12
+        and abs(cli.guarded_push_attempt_timeout(10.5) - 0.5) < 1e-12
+        and abs(cli.guarded_push_attempt_timeout(10.999) - 0.999) < 1e-12
+        and cli.guarded_push_attempt_timeout(40) == 30
+        and cli.guarded_push_attempt_timeout(1000) == cli.GUARDED_PUSH_ATTEMPT_SECONDS,
+        "guarded push attempt time preserves grace for fractional, normal, and capped budgets",
+    )
+    for invalid in (True, *range(cli.GUARDED_PUSH_TERMINATION_GRACE_SECONDS + 1)):
+        try:
+            cli.guarded_push_timeout(invalid)
+        except cli.gate.GateError:
+            continue
+        failures.append("guarded push accepted unusable timeout: " + repr(invalid))
 
     with (
         mock.patch.object(cli, "pr_view", side_effect=[response, response]),
@@ -1329,6 +1357,45 @@ def retry_phase() -> None:
             )
         else:
             raise AssertionError("missing binary must raise")
+    fractional = cli.run([sys.executable, "-c", "pass"], timeout=0.25)
+    check(
+        fractional.returncode == 0,
+        "owned process capture accepts a fractional timeout",
+    )
+
+    # The bounded runner owns a fresh process group.  A timed-out command that
+    # leaves a descendant holding its stdout pipe must finish promptly, while
+    # an unrelated process remains alive.  This uses the real process helper,
+    # not a POSIX-only mock, so native Windows exercises taskkill /T as well.
+    sentinel = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    child = (
+        "import subprocess,sys,time; "
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+        "time.sleep(60)"
+    )
+    started = time.monotonic()
+    try:
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.run([sys.executable, "-c", child], timeout=1),
+            "owned process tree times out",
+        )
+        check(
+            time.monotonic() - started < 15,
+            "owned process tree timeout has a finite elapsed bound",
+        )
+        check(sentinel.poll() is None, "owned tree cleanup preserves unrelated sentinel")
+    finally:
+        sentinel.terminate()
+        try:
+            sentinel.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            sentinel.kill()
+            sentinel.wait(timeout=10)
 
     # gh_json: the CLI wrapper distinguishes a missing gh from a silent one.
     sleeps.clear()
@@ -1531,25 +1598,237 @@ def retry_phase() -> None:
         else:
             raise AssertionError("422 create must raise")
     sleeps.clear()
+    # A timed-out push is ambiguous.  If its exact remote head landed, the
+    # mutation is not repeated and the normal PR lookup/create transition can
+    # continue.  This exercises the actual guarded-push producer path.
     with (
-        mock.patch.object(cli, "pr_view", return_value=None),
-        mock.patch.object(cli, "git", side_effect=["topic", HEAD]),
-        mock.patch.object(cli, "remote_branch_head", return_value=None),
+        mock.patch.object(cli, "pr_view", side_effect=[None, response]),
+        mock.patch.object(cli, "git", side_effect=["topic", HEAD, "topic"]),
+        mock.patch.object(cli, "remote_branch_head", side_effect=[None, HEAD]),
         mock.patch.object(cli, "run", side_effect=flake) as calls,
     ):
-        rejects(
-            "UNAVAILABLE",
-            lambda: cli.create_draft_pr(
-                Path("."), REPOSITORY, Path("receipt.json"),
-                "openai", "model", "session", sleep=sleeps.append,
-            ),
-            "push transport failure is UNAVAILABLE",
+        value = cli.create_draft_pr(
+            Path("."), REPOSITORY, Path("receipt.json"),
+            "openai", "model", "session", sleep=sleeps.append,
         )
         commands = [call.args[0] for call in calls.call_args_list]
         check(
-            commands == [["git", "push", "--set-upstream", "origin", "HEAD"]]
+            value == response
+            and commands == [["git", "push", "--set-upstream", "origin", "HEAD"]]
             and sleeps == [],
-            "guarded push is never retried blindly",
+            "uncertain push reconciles its exact landed remote head before retry",
+        )
+
+    # A remote that still has the old exact head permits one finite retry.
+    sleeps.clear()
+    push = ["git", "push", "--set-upstream", "origin", "HEAD"]
+    with (
+        mock.patch.object(cli, "git", return_value="topic"),
+        mock.patch.object(cli, "remote_branch_head", return_value=None) as remote,
+        mock.patch.object(cli, "run", side_effect=[flake, flake]) as calls,
+    ):
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None, local_head=HEAD,
+                environment={}, overall_timeout=300, sleep=sleeps.append,
+            ),
+            "bounded guarded push gives up after its retry budget",
+        )
+        check(
+            calls.call_count == cli.GUARDED_PUSH_ATTEMPTS
+            and remote.call_count == cli.GUARDED_PUSH_ATTEMPTS
+            and sleeps == [15],
+            "guarded push retries only after exact unchanged remote reconciliation",
+        )
+
+    # A read failure after an uncertain mutation is itself ambiguous.  It gets
+    # the bounded transport retry, but a landed local head still prevents any
+    # duplicate mutation.
+    query_flake = unavailable("UNAVAILABLE", "git timed out after 120s")
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "remote_branch_head", side_effect=[query_flake, HEAD]) as remote,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        cli.guarded_push(
+            Path("."), push, branch="topic", expected_remote_head=None,
+            local_head=HEAD, environment={}, overall_timeout=300, sleep=sleeps.append,
+        )
+        check(
+            calls.call_count == 1
+            and remote.call_count == 2
+            and sleeps == [15],
+            "transient reconciliation failure reaches landed head without another push",
+        )
+
+    # Only an authoritative observation of the unchanged old head permits the
+    # next owned mutation after a read retry.
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "remote_branch_head", side_effect=[query_flake, None]) as remote,
+        mock.patch.object(cli, "run", side_effect=[flake, None]) as calls,
+    ):
+        cli.guarded_push(
+            Path("."), push, branch="topic", expected_remote_head=None,
+            local_head=HEAD, environment={}, overall_timeout=300, sleep=sleeps.append,
+        )
+        check(
+            calls.call_count == 2
+            and remote.call_count == 2
+            and sleeps == [15, 15],
+            "only a successful unchanged-head read authorizes the bounded push retry",
+        )
+
+    # Exhausting reconciliation reads leaves the delivery state unknown and
+    # must never issue a second push.
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "remote_branch_head", side_effect=query_flake) as remote,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        try:
+            cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=300, sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            check(
+                exc.status == "UNAVAILABLE"
+                and "reconciliation" in exc.reason
+                and cli.TRANSPORT_STATE_HINT in exc.reason
+                and calls.call_count == 1
+                and remote.call_count == cli.TRANSPORT_RETRY_ATTEMPTS
+                and sleeps == [15, 30, 30, 30],
+                "exhausted reconciliation stays ambiguous and never repeats push",
+            )
+        else:
+            raise AssertionError("exhausted reconciliation must raise")
+
+    competitor = "d" * 40
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "remote_branch_head", return_value=competitor) as remote,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        rejects(
+            "BLOCKED",
+            lambda: cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=300, sleep=sleeps.append,
+            ),
+            "competitor remote head blocks instead of retrying the push",
+        )
+        check(
+            calls.call_count == 1 and remote.call_count == 1 and sleeps == [],
+            "competitor observation causes no further transport activity",
+        )
+
+    reconciliation_forbidden = unavailable(
+        "UNAVAILABLE", "git command failed: Bad credentials (HTTP 401)"
+    )
+    sleeps.clear()
+    with (
+        mock.patch.object(cli, "remote_branch_head", side_effect=reconciliation_forbidden) as remote,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        try:
+            cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=300, sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            check(
+                exc is reconciliation_forbidden
+                and calls.call_count == 1
+                and remote.call_count == 1
+                and sleeps == [],
+                "authentication reconciliation failure is raised once without a push retry",
+            )
+        else:
+            raise AssertionError("authentication reconciliation failure must raise")
+
+    # The original overall deadline also limits the time after a successful
+    # old-head read, leaving no budget for a second mutation.
+    sleeps.clear()
+    clock = iter([0.0, 0.0, 0.0, 1.0])
+    with (
+        mock.patch.object(cli, "time") as fake_time,
+        mock.patch.object(cli, "remote_branch_head", return_value=None) as remote,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+    ):
+        fake_time.monotonic.side_effect = lambda: next(clock)
+        rejects(
+            "UNAVAILABLE",
+            lambda: cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=11,
+                sleep=sleeps.append,
+            ),
+            "overall budget expires before a reconciled push retry",
+        )
+        check(
+            calls.call_count == 1 and remote.call_count == 1 and sleeps == [],
+            "deadline permits no second push after the reconciliation read",
+        )
+
+    # The caller's overall budget includes termination grace and remote
+    # reconciliation.  Once only the grace remains, no further remote child
+    # may be dispatched after an uncertain push.
+    clock = iter([0.0, 0.0, 1.0, 1.0])
+    with (
+        mock.patch.object(cli, "time") as fake_time,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+        mock.patch.object(cli, "remote_branch_head") as remote,
+    ):
+        fake_time.monotonic.side_effect = lambda: next(clock)
+        try:
+            cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=11,
+                sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            check(
+                exc.status == "UNAVAILABLE" and "after 0 attempts" in exc.reason,
+                "zero-read reconciliation reports the actual attempted query count",
+            )
+        else:
+            raise AssertionError("zero-read reconciliation must raise")
+        check(
+            calls.call_count == 1 and not remote.called,
+            "expired reconciliation budget dispatches neither remote probe nor retry",
+        )
+
+    # A reconciliation read that fails near the boundary can use only the
+    # remaining non-grace time for its pause.  That capped pause must not
+    # permit another query or another mutation after the grace boundary.
+    sleeps.clear()
+    clock = iter([0.0, 0.0, 0.0, 5.0, 10.0])
+    with (
+        mock.patch.object(cli, "time") as fake_time,
+        mock.patch.object(cli, "run", side_effect=flake) as calls,
+        mock.patch.object(cli, "remote_branch_head", side_effect=query_flake) as remote,
+    ):
+        fake_time.monotonic.side_effect = lambda: next(clock)
+        try:
+            cli.guarded_push(
+                Path("."), push, branch="topic", expected_remote_head=None,
+                local_head=HEAD, environment={}, overall_timeout=20,
+                sleep=sleeps.append,
+            )
+        except unavailable as exc:
+            check(
+                exc.status == "UNAVAILABLE" and "after 1 attempts" in exc.reason,
+                "near-boundary reconciliation failure remains typed ambiguous",
+            )
+        else:
+            raise AssertionError("near-boundary reconciliation must raise")
+        check(
+            calls.call_count == 1
+            and remote.call_count == 1
+            and sleeps == [5.0],
+            "capped reconciliation pause reaches grace without another query or push",
         )
     sleeps.clear()
     listing = type(

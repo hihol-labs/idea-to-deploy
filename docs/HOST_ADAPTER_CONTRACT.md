@@ -106,6 +106,24 @@ tokens`; it does not merely end a transcript and lose the stop reason. Manual
 absent. Background periodic automations remain read-only reporters; this
 continuation path is only for a user-approved, sealed bounded goal.
 
+## Native filesystem operations
+
+`skills/_shared/itd_safe_atomic.py` defines the shared durable replacement,
+append, immutable publication, and bounded snapshot contract. POSIX uses
+descriptor-relative traversal. Native Windows dispatches only the filesystem
+operations to `itd_safe_atomic_windows.py`: `NtCreateFile` opens children relative
+to retained directory handles, and `NtSetInformationFile` publishes or deletes
+the opened file without reconstructing a pathname. Reparse objects and
+nonregular leaf objects are rejected. Both modules belong to the installed
+runtime and adapter inventories. This boundary changes no lifecycle or review
+authority, and remains usable on native UNC checkouts.
+
+The Windows interface follows Microsoft's documented
+[relative NtCreateFile object names](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+and [file rename information](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information).
+Directory-swap regressions verify that replacing a pathname with a symlink or
+junction cannot redirect a held operation to a different directory.
+
 ## Parity rule
 
 A change to shared methodology behavior is complete only when:
