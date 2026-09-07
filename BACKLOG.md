@@ -1425,3 +1425,82 @@ shared context-scoped lock or an atomic state transition. Deferred by owner
 decision (2026-09-07, variant 1) for the same reason as the diagnostic
 immutability entry above: the live efficacy observations are bound to the
 exact producer bytes; fold both into the next producer re-record.
+
+## P1 — ROUTE-DEBTS-FOLLOWUP-A13: Sol-a13 findings deferred by owner decision (2026-09-07)
+
+Frozen surface for one bounded unit (no new sites added while the unit runs):
+1. `skills/task/scripts/itd_unit_log.py` state_write_lock opens `.STATE.write.lock`
+   by pathname (follows links); open it through the anchored no-follow
+   namespace helper and require a regular single-link file.
+2. `tests/verify_independent_review_efficacy.py` validate_current_result_archive_binding
+   reads `results/*.json` with read_bytes; read the current view through the
+   anchored no-follow reader.
+3. `skills/_shared/itd_safe_atomic_windows.py` private append checks
+   links == 1 only; add an owner check (handle owner SID vs process user SID)
+   to mirror the POSIX st_uid rule.
+4. `skills/_shared/itd_review_evidence.py` active_criteria ignores an explicit
+   row with matching unitId and a non-string id and falls back to legacy
+   prefix matching; fail closed on malformed explicit ownership.
+Plus the two P2 producer entries above (diagnostic immutability, negative-
+observation TOCTOU) when the producer is next re-recorded.
+
+## P2 — harness: runtime-signal collector emits layer-2 rows with empty evidence for redirected background runs (2026-09-07)
+
+`hooks/completion-signals.sh` recorded `evidence: ""`, `outcome: unknown` for
+`sh ... tests/verify_route_debts.py > log 2>&1` launched in a background
+Bash; the strict ledger validator in `hooks/completion-gate.sh` then fails the
+whole ledger ("runtime signal evidence is empty"), forcing COMPLETION_BYPASS
+even though the log holds the evidence. Either capture the redirect target's
+tail as evidence or skip emitting a runtime row when no evidence is observable
+(same class as S9-U3). Related: PreToolUse hooks run concurrently, so the
+completion gate's audit append to `.itd-memory/events.jsonl` races the review
+gate's exact-tree check on the same `git commit`; the audit append should go
+to an untracked ledger or the review gate should ignore that path.
+
+## P3 — docs: `confirmedBy` convention for human adjudication receipts (2026-09-07)
+
+`docs/VERIFICATION_LOOP.md` should tell open-source users how to fill
+`confirmedBy`: display name, role, public handle (for example
+`Dmitry Hihol (repository owner; GitHub HiH-DimaN)`); no e-mail, no session
+narrative (that belongs in DECISIONS and the disposition rationale).
+
+## P2 — route: `itd pr create` cannot validate receipts minted by a newer tree loop (2026-09-07)
+
+The installed `itd` validates the local-review registry receipt with the loop
+of its own runtime. When the candidate changes `itd_verification_loop.py`
+(PR #267 did), receipts minted by the tree loop fail with "receipt does not
+match the exact current candidate" and the publication receipt has to be
+re-minted with the installed runtime loop (REL-1.103.0 with 1.102.0, v1.103.1
+with 1.103.0). Either let the gate load the validator from the recorded
+install-source checkout (as `check-review-before-commit` already does) or
+document the re-mint step in the runbook. Also: `itd pr create` refuses to
+push a new head unless the PR is an open Draft, so a PR marked ready must be
+converted back to draft first.
+
+## P3 — live-model pin roots include the release manifests (2026-09-07)
+
+`.claude-plugin` and `.codex-plugin` are `BENCHMARK_PIN_ROOTS`, so every
+version bump invalidates the live-model evidence and costs one live run plus
+one more review round per release (v1.103.1: Sol-rel2 BLOCKED on the generated
+benchmark output, owner disposition needed). Consider pinning the manifests by
+schema rather than bytes, or excluding the version field from the pin.
+
+## P3 — installed runtime 1.103.0 has no `prepare-adjudication` (2026-09-07)
+
+The v2 human-adjudication draft is only produced by the newer tree loop; the
+installed 1.103.0 loop accepts only the v1 dispositions form. Fixed by the
+1.103.1 rollout; keep the v1 form documented as the fallback for hosts that
+lag behind.
+
+## P2 — route: native canary log path is lower-cased for Windows, which breaks case-sensitive shares (2026-09-07)
+
+`tests/verify_route_debts.py` `native_test_command` applies `os.path.normcase`
+to the native test-log path on Windows so a native producer and the native
+replay compare identical argv bytes. On a WSL checkout reached through
+`\\wsl.localhost` the share is case-sensitive, so the lower-cased path does
+not exist and the native run cannot open its log (`ROUTE-DEBTS-native-Windows-a1`
+FAILED with empty stdout). Worked around for v1.103.1 by producing the Windows
+canary from an NTFS clone of the same commit (`C:\itd-src\idea-to-deploy`,
+`core.autocrlf=false`); the record binds that clone as `sourceRepository`.
+Fix: compare a case-folded form only in the validator and keep the original
+spelling in argv, or reject case-sensitive shares with a named FIX.
