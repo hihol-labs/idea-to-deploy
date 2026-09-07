@@ -38,11 +38,12 @@
   },
   "currentUnit": {
     "id": "ROUTE-DEBTS",
-    "goal": "Repair the approved route debts and verify their released runtime behavior",
-    "status": "in_progress",
+    "goal": "The ROUTE-DEBTS regression oracle exits 0, and the installed-proof check confirms the released fixes on WSL and Windows. Contract preflight, approval binding, lifecycle synchronization, bounded publication and repair-lane behavior retain fail-closed acceptance. Q6 frozen evidence is preserved and any context drift is recorded, never hidden.",
+    "status": "verified",
     "startedAt": "2026-09-05T15:52:09Z",
     "ledger": "GOAL.json",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-09-07T17:51:01Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

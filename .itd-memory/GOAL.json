@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-05T15:52:09Z",
-  "currentUnitId": "ROUTE-DEBTS",
+  "updatedAt": "2026-09-07T17:51:01Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "PE5-001",
@@ -469,11 +469,19 @@
       "criterion": "The ROUTE-DEBTS regression oracle exits 0, and the installed-proof check confirms the released fixes on WSL and Windows. Contract preflight, approval binding, lifecycle synchronization, bounded publication and repair-lane behavior retain fail-closed acceptance. Q6 frozen evidence is preserved and any context drift is recorded, never hidden.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/ROUTE-DEBTS/INSTALLED.json",
       "riskTier": "high",
-      "status": "in_progress",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-07T17:51:01Z",
+      "evidence": "exit 0: PASS installed WSL/Windows runtime and Claude/Codex adapter evidence",
       "skippedReason": "",
-      "blockedReason": ""
+      "blockedReason": "",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/ROUTE-DEBTS-adjudication-close3.json",
+        "sha256": "66e06d1360e99d81d4629452dc223bb4e159e4d02c23db87058d05df02a1e7c5",
+        "receiptSha256": "fb8b4ef426a2dfa9ac8bb3bdc167afff47737818af2d7535c46d3fb15ba3fbb2",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/ROUTE-DEBTS-machine-close3.json",
+        "machineSha256": "b301a97582cc2771b36ec7553416c931cdbfd10e78dfea4eff299ebca1b6075f"
+      }
     }
   ],
   "handoffState": {
