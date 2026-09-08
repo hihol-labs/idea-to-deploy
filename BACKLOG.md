@@ -1509,7 +1509,7 @@ canary from an NTFS clone of the same commit (`C:\itd-src\idea-to-deploy`,
 Fix: compare a case-folded form only in the validator and keep the original
 spelling in argv, or reject case-sensitive shares with a named FIX.
 
-## P3 — review: the secret scrubber redacts ordinary identifiers named `token` (2026-09-07)
+## CLOSED 2026-09-08 (RSI-DEBT-1) — review: the secret scrubber redacts ordinary identifiers named `token` (2026-09-07)
 
 `SECRET_PATTERNS` in `skills/_shared/itd_external_reviewer.py` redacts the value
 of any assignment whose name ends in `token`, so an ordinary local such as
@@ -1545,3 +1545,69 @@ The bound receipt carries the exact command with exit code and stdout digest, so
 the proof exists, but the ledger should say so itself: record one line per
 top-level command, or the command plus its exit code and stdout digest. Observed
 live by Sol-c4 on the follow-up ledger close.
+
+## CLOSED 2026-09-08 (RSI-DEBT-1, Sol-r2 round) — review scrubber: a bare value containing `#` is redacted only up to the `#` (noted by the RSI-DEBT-1 subagent review)
+
+The bare-value rule's capture `[^\s#;,]{6,}` stops at `#`, `;` and `,`, so
+`token = fetch(abcd#efgh2026)` is scrubbed to `token = [REDACTED]#efgh2026)`
+and the tail after `#` stays readable in the reviewer text. The residual
+detector still flags the line (its bare run admits `#`), so the route refuses
+it fail-closed and no reviewer sees it; the partial leak is therefore a defect
+of the scrubbed text, not of the gate. Not introduced by RSI-DEBT-1 (the capture
+class is unchanged there, only wrapped in a named group). Fix candidate: widen
+the bare capture to the detector's run for the REDACTION step as well, with a
+RED-first case for the `#` tail and antipairs for `;`/`,` separated code.
+
+## P2 — review scrubber: a wrapper with whitespace leaks its tail past the detector (pre-existing, measured during RSI-DEBT-1, 2026-09-08)
+
+`password = wrap(hunter2 hunter2)` scrubs to `password = [REDACTED] hunter2)` and
+`token = $(printf abcd#efgh2026)` to `token = [REDACTED] abcd#efgh2026)`: the
+bare run of both readers stops at the space, the head is redacted, and the
+residual detector then skips the clean line because its value starts with
+`[REDACTED`, so the tail reaches the reviewer and the route does not refuse.
+Observed identically on the pre-RSI-DEBT-1 bytes; not introduced by that unit
+(its capture widening does not cross whitespace by design, route finding r6).
+Fix candidate: when a bare value was redacted, extend redaction to the rest of
+the same expression up to the closing bracket, or make the residual detector
+inspect the remainder of a line whose value starts with `[REDACTED`; RED-first
+on both shapes, antipair `wrap(a,b)` stays readable.
+
+## P3 2026-09-08 (route, observed on RSI-DEBT-1 r5) - verdict-contract hook persists a review verdict only when the final message carries prose `Verdict:`/`FINAL STATUS:`
+
+`hooks/verdict-contract.sh` scopes SubagentStop on `REVIEW_VERDICT_RE` (prose
+`Verdict:` / `FINAL STATUS:` / `PASSED_WITH_WARNINGS|UNVERIFIED`) before it looks
+for the fenced JSON block, so a code-reviewer final that ends with a valid fenced
+JSON verdict and no prose marker is silently skipped (fail-open): two r5 reviews of
+RSI-DEBT-1 (one BLOCKED with a real high finding, one PASSED) left no row in
+`.itd-memory/review-findings.jsonl`. The blind-protocol population therefore
+undercounts exactly the rows the contract asks for. Fix candidate: treat a parseable
+fenced `{"verdict": ...}` block as in scope on its own (the JSON is the contract; the
+prose line is transport). Until then the /review prompt must require the prose line.
+Out of RSI-DEBT-1 scope (hooks/), recorded only.
+
+## CLOSED 2026-09-08 (RSI-DEBT-1, Sol-r3 round) — review scrubber: all-letter or all-digit credentials as call arguments were neither neutralised nor flagged (subagent review noted the detector blind spot; Sol-r3 showed the r1 exemption turned it into reviewer exposure, so it was in scope after all)
+
+`_BENIGN_EXPRESSION_RE` admits identifier-shaped arguments, so `fetch(hunterhunterhunter)`
+and `fetch(123456789012)` are one benign expression for both readers; RSI-DEBT-1's
+argument neutralisation keys on letters+digits and leaves these two shapes alone.
+Both readers agree (no route disagreement), but both are wrong for a long all-letter
+or all-digit secret. Fix candidate: neutralise argument runs above a length bound or
+with high entropy regardless of character mix, with antipairs for long identifiers.
+
+Sol-r4 then found the first bound (eight letters) over-redacting ordinary identifiers;
+the bound moved to fourteen letters. A camelCase carve-out written for r4 was dropped
+after the r5 subagent review showed it let mixed-case passphrases through (case mixing
+is not a name signal). Residual, accepted and documented in `.itd/DECISIONS.md`: a
+letters-only secret of at most fourteen characters planted as a call argument stays
+readable to the reviewer (the detector never flagged that shape either), and a
+camelCase identifier longer than fourteen characters as a bare argument is neutralised.
+
+Stop rule 2026-09-08 (r5): `scripts/itd_stop_rule.py` over the recorded r1-r5 series returns
+REDESIGN_OR_DISCARD (security mechanism recurred r2/r3/r5 on three candidates). Owner decision
+pending (ADR-007 dispositions); the maker does not sign. Sol-r5 finding 2 (`;` swallowed the
+statement after a value) is closed in the same candidate: both bare runs stop at `;`.
+Route note (r6): the producer scrubs the candidate with the INSTALLED scrubber (authority
+REL1103), not the tree's; a prose example of the new boundary written into DECISIONS
+tripped the old detector and the producer refused fail-closed (UNVERIFIED, exit 4). Until
+the release ships the new class, candidate prose must not spell such shapes literally. Not a new unit: the site is closed at
+this bound, and a further round on it is the treadmill oscillation the stop rule names.

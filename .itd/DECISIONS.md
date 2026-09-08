@@ -2743,3 +2743,100 @@ surface-growth treadmill записан как пробел стоп-прави�
   adjudication-c3 (`8968d8da4ea9a0f6`), referenced by the unit's `verificationReceipt`. The summary defect
   is recorded as BACKLOG P3.
 
+## 2026-09-08: /review subagent returns to the ordinary-unit route (owner option a)
+- **Что:** before the commit of every ordinary unit the `/review` skill runs its
+  code-reviewer subagent, whose writer appends to `.itd-memory/review-findings.jsonl`
+  with `source: subagent-verdict` and the taxonomy stamp; the cross-vendor producer
+  stays the mandatory pre-PR check but does not replace it.
+- **Почему:** the blind semantic protocol (PILOT, ADVISORY v4 §5) counts only
+  `subagent-verdict` rows; the population stood at 8 stamped findings, all of
+  2026-09-04, and did not grow through ~20 producer rounds on 2026-09-07/08 because
+  producer reports go to `verification-loop/reports`, not to that ledger. Without
+  `/review` the pilot's decision unit never opens.
+- **Отвергнуто:** widening `population.sourceIn` to producer findings (option b): it
+  edits the frozen protocol and needs an owner-signed protocol change.
+- **Ссылки:** memory `feedback_review_subagent_in_route`, `project_rsi_next_steps`
+  (delta 2026-09-08); first application: RSI-DEBT-1.
+
+## 2026-09-08: RSI-DEBT-1 - scrub() judges bare values with the detector's own exemption
+- **Что:** the bare-value rule of the review scrubber keeps a value that is purely one
+  code expression (call, subscript, benign interpolation) exactly as
+  `contains_residual_credential` already exempted it, judged on the detector's own bare
+  run so a multi-argument call is one expression for both readers; quoted values and
+  every literal-looking run are redacted as before, and the substitution strings of
+  `SECRET_PATTERNS` stay untouched (the marker invariant of Sol-a7 holds).
+- **Почему:** `token = self.w.HANDLE()` reached the independent reviewer as
+  `token = [REDACTED]` and produced a false high NameError finding (Sol-fa2), a
+  measuring-instrument defect that would pollute the finding population the RSI plan
+  scores. RED-first on six code shapes and seven literal shapes; three mutations
+  (exemption dropped, exemption inverted, judged on the shorter capture) each fail the
+  oracle (`RSI-DEBT-1-mutations.log`).
+- **Отвергнуто:** widening `SAFE_REFERENCE_PATTERNS` with more call shapes (masks text
+  for the entropy and high-confidence detectors too and hides a literal argument inside
+  a masked call, as the S6 note records); a second grammar inside `scrub()` (two readers
+  would drift again).
+- **Ограничение:** whitespace inside call arguments stays outside the narrow grammar by
+  design (route finding r6), so `load(a, b)` is still redacted and flagged.
+- **Sol-r2 correction (same day):** the exemption alone re-exposed a credential planted as a call argument
+  (`fetch(hunter2hunter2)` is identifier-shaped for the grammar), which the pre-fix scrubber had redacted
+  wholesale. Two changes inside `scrub()`: the bare capture is now the detector's own run
+  (`[^ \t\r\n"'&]{6,}`), which also closes the pre-existing `abc#def123` escape, and inside a kept
+  expression every argument/index run of six or more characters mixing letters and digits is
+  neutralised in place (`fetch([REDACTED])`), so the callee chain stays readable and no credential shape
+  rides through. RED-first on three planted-argument shapes and the `#` escape; mutations M3 (capture
+  narrowed back) and M5 (neutralisation dropped) are lethal.
+- **Sol-r3 correction (same day):** an all-letter or all-digit credential planted as an argument
+  (`fetch(hunterhunterhunter)`, `lookup(123456789012)`) was redacted wholesale before the exemption and
+  would have reached the reviewer after it. Argument neutralisation now keys on shape, not only on a
+  letter/digit mix: letters with digits, a run of digits, or a run of letters longer than eight
+  characters without `_`/`.` are neutralised; short words and dotted or snake-case names stay readable.
+  The bias is deliberate: a false positive costs one argument's readability, a false negative leaks.
+  RED-first on both shapes; mutations M7/M8 (each rule dropped) are lethal.
+- **Sol-r4 correction (same day):** the r3 rule (letters longer than eight without a separator) was the
+  mirror finding of r3 on the same site: it redacted ordinary long identifiers (`fetch(configuration)`,
+  `cache[identifier]`, camelCase names), reintroducing the false positive this unit exists to close. A
+  letters-only run is now credential-shaped only when it is monocase, has no `_`/`.`, and is longer than
+  fourteen characters; camelCase (`[a-z][A-Z]`) counts as a name separator. The residual class is named
+  rather than hidden: a letters-only secret short enough to read as one word (<= 14 chars) rides
+  through as an argument; a dictionary word of that length is far more common in code than a
+  letters-only credential, and the pre-unit wholesale redaction was exactly the cost r4 objected to.
+  The two demands (r3: leak; r4: over-redaction) meet at this bound; a further round on the same
+  site would be the surface-treadmill oscillation the stop rule names. Antipairs pinned in
+  `SCRUB_INTACT`; mutation M11 (bound lowered to eight) lethal.
+- **Subagent r5 correction (same day):** the camelCase exemption written for r4 exempted any letters-only
+  run with one lowercase-to-uppercase transition from the fourteen-character bound, so a camelCase or
+  random-cased passphrase (`fetch(correctHorseBatteryStaple)`, `lookup(aBcDeFgHiJkLmNoP)`) rode through
+  unredacted and unflagged - a leak outside the documented residual. A camelCase passphrase has the
+  same shape as a camelCase identifier, so case mixing is not a name signal: the exemption is dropped,
+  and the fourteen-character bound applies to letters-only runs whatever their case. Cost accepted
+  under the unit's own bias: a camelCase identifier longer than fourteen characters used as a bare
+  call argument is shown as `REDACTED-ARGUMENT` (callee stays readable); `configValue`-sized names stay.
+  Three mixed-case credentials pinned in `SCRUB_REDACTED`; mutation M10 (exemption reintroduced) lethal.
+- **Sol-r5 (same day), finding 2 - `;` ends the bare run:** the widened capture swallowed a statement
+  terminator, so `token = fetch(config);` (C/JS style) was redacted wholesale - the incident class in
+  another syntax - and `token=abcdef;run()` hid `;run()`. `;` is a statement separator in every language
+  the reviewer reads and never part of a credential shape the corpus knows, so both bare runs (the
+  scrub capture and `RESIDUAL_CREDENTIAL_RE`) now stop there. The detector's class is changed in
+  lock-step on purpose: the r2 design makes the capture equal to the detector's run so that both readers
+  judge the same bytes; changing one alone makes the detector refuse text scrub() kept (M13 shows it).
+  This is the one place the candidate touches outside the letter of SCOPE_LOCK's two rules, recorded
+  here and in SCOPE_LOCK as the shared bare-run definition, not a new site. `#` stays inside the run
+  (abc#def123); a comment glued to a value without a space is swallowed with it - prose, not code.
+  Pinned: `fetch(configuration);` intact, `load(section); check(default)` intact, exact
+  `token=[REDACTED];run()`; mutations M12/M13 lethal. Named residual (subagent r6, minor): a value
+  whose first five characters are followed by a semicolon is too short for the run and stays as it
+  is - the pre-unit class `[^\s#;,]` behaved the same, so this is parity with main, not a regression.
+  (The literal shape is not written here: the installed 1.103.1 detector, which the producer runs,
+  keeps `;` inside its run and refused the r6 candidate on this very sentence - route note in BACKLOG.)
+- **Sol-r5 finding 1 and the stop rule - owner decision pending:** Sol-r5 rated the documented residual
+  (a letters-only argument of at most fourteen characters, `fetch(secretpassword)`) a high security
+  relaxation. `scripts/itd_stop_rule.py` over the recorded r1-r5 series
+  (`.itd-memory/verification-loop/RSI-DEBT-1-series-r1-r5-history.json`, provenance=report x5) returns
+  terminal REDESIGN_OR_DISCARD at r3: mechanism `itd_external_reviewer.py::security` recurred in r2, r3, r5
+  on three distinct candidates, `::correctness` in r4, r5. The maker's reading, offered to the owner and
+  not decided by the maker: the unit criterion in GOAL.json (owner-approved) says a call expression stays
+  intact, so `fetch(secretpassword)` is kept by the criterion itself; argument neutralisation is a
+  stricter layer added on Sol-r2/r3 findings, and r3<->r4<->r5 oscillate on the class no syntax
+  separates (`configuration` vs `secretpassword`). Per ADR-007 the dispositions are drafted by the
+  rule and signed by the owner; nothing here is signed.
+

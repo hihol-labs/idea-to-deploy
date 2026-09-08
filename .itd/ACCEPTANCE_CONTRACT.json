@@ -3447,6 +3447,44 @@
           "route-host-metadata"
         ]
       }
+    },
+    {
+      "id": "RSI-DEBT-1-1",
+      "unitId": "RSI-DEBT-1",
+      "criterion": "scrub() keeps a bare assignment value that is purely one code expression intact and still redacts every literal-looking value and every quoted value",
+      "source": ".itd-memory/contracts/RSI-DEBT-1.md; .itd/SCOPE_LOCK.md: two assignment-shaped rules only",
+      "evidence": "RED-first on the pre-fix bytes: all six code shapes (the recorded `token = self.w.HANDLE()` line, shlex.split(segment), tokens[position], parts[2], a comma-separated multi-argument call, prose quoting the line) were redacted while all seven literal shapes were redacted; GREEN after the fix: 44 checks, every code shape unchanged with zero redactions, every literal shape redacted. Three mutations each fail the oracle: exemption dropped (code redacted again), exemption inverted (JWT-shaped literal readable), judged on the rule's short capture (multi-argument call cut at the comma). The fix reuses the detector's own _BENIGN_EXPRESSION_RE on the detector's bare run, so both readers agree; SECRET_PATTERNS substitutions stay strings carrying [REDACTED] (Sol-a7 invariant, route aggregate exit 0); verify_free_reviewer_producer 302 checks PASSED. Sol-r2 then showed a credential planted as an identifier-shaped call argument rode through the exemption; the bare capture is now the detector's own run (closing the pre-existing abc#def123 escape as well) and credential-shaped arguments/indexes inside a kept expression are neutralised in place (fetch([REDACTED])). RED-first on three planted-argument shapes plus the '#' escape; five mutations lethal (exemption dropped/inverted, capture narrowed back, count arithmetic, neutralisation dropped). Sol-r3 showed all-letter/all-digit arguments rode through; neutralisation now keys on argument shape (letters+digits, digits, or a run of letters longer than fourteen without `_`/`.` whatever its case - Sol-r4 showed the eight-letter bound over-redacted ordinary identifiers such as fetch(configuration), so the bound moved; the r5 subagent review showed a camelCase carve-out let mixed-case passphrases such as fetch(correctHorseBatteryStaple) through, so case mixing is not a name signal; the residual <=14-letter class and the >14 camelCase-argument cost are recorded in DECISIONS), with name-shaped antipairs kept readable; Sol-r5 then showed the widened run swallowed a statement terminator (`token = fetch(config);` redacted wholesale, `;run()` hidden); both bare runs - the assignment rule and the residual detector, one shared definition - now stop at `;` (M12/M13 lethal). Thirteen mutations lethal in total (97 precision checks). The stop rule over r1-r5 is terminal REDESIGN_OR_DISCARD on the security mechanism (r2/r3/r5); the <=14-letter argument residual awaits the owner's ADR-007 disposition. The subagent review's critical finding (bracketed marker inside a subscript tripped the detector on scrub()'s own output) is closed by a bracket-free marker and a corpus-wide invariant that scrubbed text never trips the residual detector.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Bare code expressions survive scrub() unchanged; literal and quoted credentials are still redacted",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "scrubber-precision"
+        ]
+      }
+    },
+    {
+      "id": "RSI-DEBT-1-2",
+      "unitId": "RSI-DEBT-1",
+      "criterion": "The producer route that carries scrubbed text to the independent reviewer keeps its full regression suite green on the changed scrubber",
+      "source": ".itd-memory/contracts/RSI-DEBT-1.md",
+      "evidence": "verify_free_reviewer_producer exit 0 (302 checks, no live or paid calls) on the candidate; route aggregate exit 0 including the SECRET_PATTERNS marker invariant.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Producer transport is unaffected by the narrower bare-value redaction",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3465,25 +3503,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ROUTE-DEBTS-FOLLOWUP-A13",
-    "status": "closed",
-    "openedAt": "2026-09-07",
+    "unitId": "RSI-DEBT-1",
+    "status": "open",
+    "openedAt": "2026-09-08",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "security",
-        "host-parity"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-08",
-    "closure": "Unit verified by the Goal harness on 2026-09-08 (evt-goal-1788856474); code merged in PR #270 (7fb67d2); ledger closed by the follow-up PR."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

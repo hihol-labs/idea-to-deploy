@@ -1259,7 +1259,8 @@
       "tests/verify_route_debts.py"
     ],
     "skills/_shared/itd_safe_atomic_windows.py": [
-      "tests/verify_route_debts.py"
+      "tests/verify_route_debts.py",
+      "tests/verify_scrubber_precision.py"
     ],
     "skills/_shared/itd_semantic_navigation.py": [
       "tests/verify_operating_loops_release.py",

@@ -62,7 +62,17 @@ SECRET_PATTERNS = [
         r"(?i)(?<![A-Za-z0-9_])([\"']?)"
         r"([A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token))\1"
         r"([ \t]*[=:][ \t]*)"
-        r"(?![\"']|\[REDACTED)([^\s#;,]{6,})"
+        # The bare run is the residual detector's own run (RSI-DEBT-1): the
+        # former `[^\s#;,]{6,}` stopped at '#', ';' and ',', so a value such
+        # as abc#def123 was never six characters long and escaped whole, and
+        # a multi-argument call was cut at its first comma. ';' is a
+        # statement separator in every language the reviewer reads and
+        # never part of a credential shape the corpus knows, so both runs
+        # stop there (Sol-r5): `token = fetch(config);` keeps its call and
+        # `token=abcdef;run()` keeps `;run()` visible. '#' stays inside the
+        # run on purpose (abc#def123); a comment glued to a value without a
+        # space is swallowed with it, which hides prose, not code.
+        r"(?![\"']|\[REDACTED)(?P<bare>[^ \t\r\n\"'&;]{6,})"
     ), r"\1\2\1\3[REDACTED]"),
 ]
 SAFE_REFERENCE_PATTERNS = (
@@ -108,13 +118,50 @@ HIGH_CONFIDENCE_SECRET_RE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|"
     r"\bgh[pousr]_[A-Za-z0-9]{30,}\b|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b"
 )
+# Inside a bare code expression that scrub() keeps (RSI-DEBT-1), an argument
+# or subscript index that mixes letters and digits over six or more characters
+# is a credential shape, not a name: it is neutralised in place while the
+# callee chain stays readable (Sol-r2: `fetch(hunter2hunter2)`).
+_EXPRESSION_ARGUMENT_RE = re.compile(r"(?<=[(\[,])([^()\[\],]{6,})(?=[)\],])")
+
+
+def _neutralise_argument(match: re.Match[str]) -> str:
+    """Keep a name-shaped argument, neutralise a credential-shaped one.
+
+    Name-shaped: a word (`segment`, `configuration`), a dotted or snake-case
+    name (`self.value`, `default_timeout`), a short camelCase name
+    (`configValue`), or a small number (`group(1)`). Credential-shaped:
+    letters mixed with digits, a run of digits, or a run of letters longer
+    than fourteen characters with no `_`/`.` separator, whatever its case
+    (`hunterhunterhunter`, Sol-r3; `correctHorseBatteryStaple`, subagent r5:
+    case mixing is not a name signal, a camelCase passphrase has the same
+    shape as a camelCase identifier). The residual class is named, not
+    hidden: a letters-only secret short enough to read as one word (at most
+    fourteen characters) is kept, and a camelCase identifier longer than
+    that loses its readability as an argument while the callee stays. A
+    false positive costs one argument's readability; a false negative hands
+    the reviewer a credential the pre-RSI-DEBT-1 scrubber used to redact
+    wholesale.
+    """
+    value = match.group(1)
+    digits = any(c.isdigit() for c in value)
+    letters = any(c.isalpha() for c in value)
+    named = "_" in value or "." in value
+    if (digits and letters) or (digits and not letters) or (letters and not named and len(value) > 14):
+        # Bracket-free on purpose: `cache[[REDACTED]]` would no longer be one
+        # subscript for the detector's grammar, so the scrubbed text itself
+        # would refuse the route (subagent review of RSI-DEBT-1).
+        return "REDACTED-ARGUMENT"
+    return value
+
+
 RESIDUAL_CREDENTIAL_RE = re.compile(
     r"(?i)(?<![A-Za-z0-9_])([\"']?)"
     r"[A-Za-z0-9_]*(?:password|passwd|api[_-]?key|secret|token)\1"
     r"[ \t]*[=:][ \t]*"
     r"(?:"
     r"[\"'](?!\[REDACTED)(?P<quoted>[^\r\n\"']{6,})[\"']"
-    r"|(?![\"'\r\n]|\[REDACTED)(?P<bare>[^ \t\r\n\"'&]{6,})"
+    r"|(?![\"'\r\n]|\[REDACTED)(?P<bare>[^ \t\r\n\"'&;]{6,})"
     r"|\r?\n[ +\-]?[ \t]*"
     r"[\"'](?!\[REDACTED)(?P<continued>[^\r\n\"']{6,})[\"']"
     r")"
@@ -409,6 +456,51 @@ def scrub(text: str) -> tuple[str, int]:
     count = 0
     clean = masked
     for pattern, replacement in SECRET_PATTERNS:
+        if "bare" in pattern.groupindex:
+            # RSI-DEBT-1: the bare-value rule used to redact every run of six
+            # or more characters after a secret-named assignment, including
+            # ordinary code such as `token = self.w.HANDLE()`, so the reviewer
+            # saw `[REDACTED]` and raised a false NameError finding (Sol-fa2)
+            # while the residual-credential detector already exempted that
+            # very value. scrub() now applies the SAME bare code-expression
+            # exemption (calls, subscripts, benign interpolation; trailing
+            # backticks stripped as in prose); quoted values and every
+            # literal-looking run are redacted exactly as before, and the
+            # substitution strings of SECRET_PATTERNS stay untouched.
+            kept = 0
+            extra = 0
+
+            def redact_bare(match: re.Match[str], _template: str = replacement) -> str:
+                nonlocal kept, extra
+                bare = match.group("bare")
+                if _BENIGN_EXPRESSION_RE.fullmatch(bare.rstrip("`")):
+                    # The expression grammar admits identifier-shaped call
+                    # arguments and subscript indexes, so a credential planted
+                    # as `fetch(hunter2hunter2)` would ride through intact
+                    # (Sol-r2). The expression is kept, but every argument or
+                    # index run that looks like a credential rather than a
+                    # name is neutralised in place; the callee chain stays
+                    # readable. Each neutralised argument is one redaction.
+                    neutralised = 0
+
+                    def neutralise(argument: re.Match[str]) -> str:
+                        nonlocal neutralised
+                        replaced = _neutralise_argument(argument)
+                        neutralised += replaced != argument.group(1)
+                        return replaced
+
+                    scrubbed = _EXPRESSION_ARGUMENT_RE.sub(neutralise, bare)
+                    if neutralised:
+                        extra += neutralised - 1
+                        prefix = match.group(0)[: match.start("bare") - match.start()]
+                        return prefix + scrubbed
+                    kept += 1
+                    return match.group(0)
+                return match.expand(_template)
+
+            clean, changed = pattern.subn(redact_bare, clean)
+            count += changed - kept + extra
+            continue
         clean, changed = pattern.subn(replacement, clean)
         count += changed
     clean, changed = EMAIL_RE.subn("[REDACTED-EMAIL]", clean)
