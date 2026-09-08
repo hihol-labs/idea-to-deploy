@@ -1426,7 +1426,9 @@ decision (2026-09-07, variant 1) for the same reason as the diagnostic
 immutability entry above: the live efficacy observations are bound to the
 exact producer bytes; fold both into the next producer re-record.
 
-## P1 — ROUTE-DEBTS-FOLLOWUP-A13: Sol-a13 findings deferred by owner decision (2026-09-07)
+## CLOSED 2026-09-08 (PR #270 merged 7fb67d2 on 2026-09-07; unit verified by the Goal harness on 2026-09-08, evt-goal-1788856474) — ROUTE-DEBTS-FOLLOWUP-A13: Sol-a13 findings deferred by owner decision
+
+Closed on the frozen surface: findings 1, 2 and 4 structurally, finding 3 by the owner-adjudicated trade-off recorded in DECISIONS (token user or token default owner; DACL successor below). Kept for history:
 
 Frozen surface for one bounded unit (no new sites added while the unit runs):
 1. `skills/task/scripts/itd_unit_log.py` state_write_lock opens `.STATE.write.lock`
@@ -1457,6 +1459,8 @@ completion gate's audit append to `.itd-memory/events.jsonl` races the review
 gate's exact-tree check on the same `git commit`; the audit append should go
 to an untracked ledger or the review gate should ignore that path.
 
+
+Extension (2026-09-07, ROUTE-DEBTS-FOLLOWUP-A13): the bypass audit row is appended to the tracked `.itd-memory/events.jsonl` by the PreToolUse hook, concurrently with the review gate's exact-tree check, so the row must be parked outside the tree during the commit. Two such rows (commits 27b8b3f and f5b2c05) were lost when the session scratchpad was reset between sessions; the reasons survive only in the transcript's tool-call descriptions. The audit sink should be an untracked durable ledger (or the review gate should ignore that path), so that a bypass row never has to leave the repository to let the commit through.
 ## P3 — docs: `confirmedBy` convention for human adjudication receipts (2026-09-07)
 
 `docs/VERIFICATION_LOOP.md` should tell open-source users how to fill
@@ -1530,3 +1534,14 @@ the destination's DACL and require that no principal outside the trusted set
 holds write access, with RED-first fixtures for an inherited-ACE case and a
 foreign-writable case. Out of ROUTE-DEBTS-FOLLOWUP-A13 scope by construction:
 its frozen surface is the owner comparison.
+
+## P3 — goal harness: unit `evidence` keeps only the last stdout line of a compound verificationCommand (2026-09-08)
+
+`skills/goal/scripts/itd_goal_verify.py` stores the final stdout line as the unit's
+`evidence` and repeats it in the terminal event. For `A && B` commands (for
+example ROUTE-DEBTS-FOLLOWUP-A13: the route aggregate and the host-metadata
+gate) the ledger then names only B's last line and does not show that A ran.
+The bound receipt carries the exact command with exit code and stdout digest, so
+the proof exists, but the ledger should say so itself: record one line per
+top-level command, or the command plus its exit code and stdout digest. Observed
+live by Sol-c4 on the follow-up ledger close.

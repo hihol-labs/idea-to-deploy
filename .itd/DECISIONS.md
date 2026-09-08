@@ -2680,3 +2680,66 @@ surface-growth treadmill записан как пробел стоп-прави�
   `ROUTE-DEBTS-adjudication-pub3.json`, `ROUTE-DEBTS-v2-approval-signed-rel2.json`,
   `ROUTE-DEBTS-dispositions-signed-pub3.json`, `ROUTE-DEBTS-handoff-rel.md`,
   `.itd-memory/host-inputs/ROUTE-DEBTS/INSTALLED.json`.
+
+## 2026-09-07: ROUTE-DEBTS-FOLLOWUP-A13 - the four deferred Sol-a13 findings closed, one by owner-adjudicated trade-off
+- **Что:** the four findings deferred on 2026-09-07 are closed on the frozen
+  surface (commits `27b8b3f`, `f5b2c05`, `f4f9ae4`; PR #270). The bounded
+  STATE writer lock is taken through a new shared anchored no-follow
+  primitive (`open_private_lock_fd`, regular/single-link/owned); the current
+  efficacy view is read through the anchored reader; `active_criteria` fails
+  closed on a criterion row that claims the active unit without a usable id;
+  private Windows opens compare the object owner with the SIDs the process
+  token stamps on its own objects (token user and token default owner).
+- **Почему так, а не строже (owner decision, option A):** the reviewer asked
+  twice, in rounds fa4 and fb3, for the user-SID-only rule on the same site,
+  and that rule was implemented and measured between them: the Windows CI
+  runner failed the whole Goal harness suite with `foreign owner`, because an
+  elevated token owns its own new objects as a group. The stop rule returned
+  the owner-decision terminal `REDESIGN_OR_DISCARD` on
+  `itd_safe_atomic_windows.py::security` (series
+  `.itd-memory/stop-rule/followup-a13-series.json`, 8 rounds, surfaces
+  recomputed from live trees). The owner chose the measured trade-off: a
+  destination owned by a foreign user is now refused on both hosts, which the
+  pre-unit code never did; on a plain-user writer, the targeted deployment,
+  the two accepted identities coincide and the rule is exactly `st_uid`. The
+  residual exposure (another member of the same group on an elevated host) is
+  named in the code, in criterion `ROUTE-DEBTS-FOLLOWUP-A13-2` and as BACKLOG
+  P2 (only the destination's DACL can close it). Sol-fb3 and Sol-fp2 findings
+  are dispositioned `accepted-trade-off` through the ADR-007 channel with the
+  owner's signature; the fp2 `unverified` item (the re-pin invisible from a
+  committed-head diff) is `refuted-by-evidence` by commit `f5b2c05` and Gate 1.
+- **Evidence, observed not asserted:** RED-first on the pre-fix bytes for every
+  finding (lock byte written into a symlinked target, two-link lock accepted,
+  efficacy view read through a link, malformed row fell back to prefix
+  matching, no Windows ownership guarantee at all); 4 POSIX mutations and the
+  Windows ownership mutation each make the probe fail; aggregate,
+  host-metadata and efficacy oracles exit 0 on WSL, native aggregate rc=0 on
+  Windows; quick mirror's sole failure is the pre-existing excluded
+  `verify_reviewer_provider_freshness`.
+- **Цена, названа прямо:** eight review rounds. fa2 was a scrubber artefact
+  (`token = [REDACTED]`, BACKLOG P3); fa3 and fb1 were defects of the
+  SCOPE_LOCK wording written for this unit (it omitted the shared primitive's
+  module and forbade the mandatory re-pin) and were clarified, not widened;
+  fa4/fb3/fp2 are the oscillation above. Two `COMPLETION_BYPASS` audit rows
+  (commits `27b8b3f` and `f5b2c05`, reason: the known runtime-signal collector
+  defect, BACKLOG P2) were lost from the working copy: the rows were parked in
+  the session scratchpad while `events.jsonl` was restored for the exact-tree
+  review gate, and the scratchpad was reset between sessions. The bypass
+  reasons survive verbatim in the transcript's tool-call descriptions; the row
+  for `f4f9ae4` is retained. Parking audit rows outside the repository is the
+  defect: the collector item in BACKLOG P2 is extended with it.
+- **Отвергнуто:** B (DACL-based guarantee inside this unit: a new surface,
+  its own unit) and C (drop the Windows finding: throws away a real
+  improvement).
+- **Ссылки:** `.itd-memory/verification-loop/FOLLOWUP-A13-*` (fa1..fa5,
+  fb1..fb3, fp1, fp2, fp2b), `ROUTE-DEBTS-FOLLOWUP-a13-{mutations,windows-f3}.log`,
+  `.itd-memory/stop-rule/followup-a13-series.json`,
+  `.itd-memory/contracts/ROUTE-DEBTS-FOLLOWUP-A13.md`.
+- **Evidence string of the verified unit (Sol-c4):** the Goal harness records the LAST stdout line of the
+  verificationCommand as `evidence`, so a compound `A && B` command leaves only B's final line
+  (`PASS tests/verify_verification_profiles.py`). That field is harness-written and is not edited by hand.
+  The durable proof that both invocations ran is the adjudicated receipt the verifier bound: machine-c3 run
+  `goal-oracle` is the exact compound command, exit 0, stdout sha256 `6780aaf9020c4557`, inside
+  adjudication-c3 (`8968d8da4ea9a0f6`), referenced by the unit's `verificationReceipt`. The summary defect
+  is recorded as BACKLOG P3.
+
