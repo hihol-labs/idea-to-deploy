@@ -1572,6 +1572,33 @@ the same expression up to the closing bracket, or make the residual detector
 inspect the remainder of a line whose value starts with `[REDACTED`; RED-first
 on both shapes, antipair `wrap(a,b)` stays readable.
 
+## P1 2026-09-08 (route, observed on RSI-DEBT-1 cp1) - transparent review representation scrubs the diff text but not the per-file chunks
+
+`itd_free_reviewer_producer._transparent_review_representation` (taken when the staged diff
+carries a `.jsonl.gz` transparent file) returns `diff_text` after `scrub()` while the per-file
+`chunks` are built from the raw bytes, so `"".join(chunks) != diff_text` whenever the diff
+contains one redactable line and `itd_review_broker._review_units` refuses with
+"hierarchical review unit coverage is invalid" (UNVERIFIED, exit 4) before any model call.
+Reproduced with the installed authority modules (REL1103) and with the tree modules on
+branch fix/rsi-debt-1-scrubber vs main 4562550: first mismatch at offset 1150 inside the
+GOAL.json chunk (the unit criterion quotes `token = self.w.HANDLE()`, which the installed
+scrubber still redacts). The non-transparent path is consistent (chunks are cut from the
+scrubbed text). Fix: cut the transparent chunks from the scrubbed representation, or scrub
+each chunk with the same scrubber and assert the join. Effect: any committed-head
+cross-vendor round on a branch that carries a live-evidence re-pin plus a redactable line
+cannot be produced until the fix ships; RSI-DEBT-1 was published through the guarded route on the staged p1 adjudication bound to the same HEAD tree.
+
+Audit note: of the two COMPLETION_BYPASS commits on the unit branch (ecc6bc6, d0f7d02) only one audit row reached .itd-memory/events.jsonl (evt-completion-bypass-1788879168643122); the row for the re-pin commit was not written by the hook (same class as the a13 loss, BACKLOG P2 2026-09-07: the audit sink belongs outside the tree - RSI-DEBT-2).
+
+## P3 2026-09-08 (RSI-DEBT-1 follow-up, in-scope class) - prose quoting a call with punctuation after the closing backtick is still redacted
+
+`scrub()` strips only a trailing backtick before judging the bare run, so
+"`token = self.w.HANDLE()`." (backtick then period, the shape in
+.itd-memory/contracts/RSI-DEBT-1.md) is judged as `self.w.HANDLE().` and redacted wholesale,
+while "`...HANDLE()` is" (backtick then space) is kept. Fix: strip trailing backtick plus
+sentence punctuation before the benign check; pin both shapes in SCRUB_INTACT. Not folded into
+the unit: the owner disposition is bound to the r7 tree and the change would open r8.
+
 ## P3 2026-09-08 (route, observed on RSI-DEBT-1 r5) - verdict-contract hook persists a review verdict only when the final message carries prose `Verdict:`/`FINAL STATUS:`
 
 `hooks/verdict-contract.sh` scopes SubagentStop on `REVIEW_VERDICT_RE` (prose

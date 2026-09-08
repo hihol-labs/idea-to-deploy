@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "RSI-DEBT-1",
     "goal": "scrub() in skills/_shared/itd_external_reviewer.py redacts the value of an assignment whose name ends in password/passwd/api_key/secret/token only when that value looks like a literal (a quoted string or an opaque run), leaves call expressions such as `token = self.w.HANDLE()` intact, still redacts every real credential in the existing verify_scrubber_precision corpus, and both shapes are RED-first regressions.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-08T11:38:32Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-08T16:14:25Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

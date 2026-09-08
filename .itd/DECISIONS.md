@@ -2840,3 +2840,30 @@ surface-growth treadmill записан как пробел стоп-прави�
   separates (`configuration` vs `secretpassword`). Per ADR-007 the dispositions are drafted by the
   rule and signed by the owner; nothing here is signed.
 
+
+## 2026-09-08: RSI-DEBT-1 - owner option A on the stop-rule terminal, published through the guarded route
+
+**What.** The cross-vendor series r1-r7 on the review-scrubber unit ended on the stop-rule terminal
+REDESIGN_OR_DISCARD (mechanism `skills/_shared/itd_external_reviewer.py::security` in r2, r3, r5, r7 on four
+distinct candidates; `::correctness` in r4, r5; history `RSI-DEBT-1-series-r1-r7-history.json`, verdict
+`RSI-DEBT-1-series-r1-r7-stop-r7.json`). The owner chose option A, accepted-trade-off, on 2026-09-08:
+dispositions signed `Dmitry Hihol (repository owner; GitHub HiH-DimaN)` bound to the Sol-r7 checker
+receipts (root 3dc60b75, general 29214ebb) on tree b4ddac5d; root and general claims ADJUDICATED; commit
+ecc6bc6. Live evidence re-pinned in d0f7d02 (Sol-p1 PASSED, adjudication p1). Registry LOCAL_REVIEWED on the
+p1 adjudication; PR #272 created by `itd pr create`.
+
+**Why.** The unit criterion says a call expression after a secret-named assignment stays intact and every
+credential of the recorded corpus stays redacted; both hold. The residual the series oscillated on (a
+letters-only call argument of at most fourteen characters: `configuration` vs `secretpassword`) is a class no
+syntactic rule inside the frozen surface separates; each bound tried re-opened the mirror finding of the
+previous round. Argument neutralisation stays as a layer stricter than the criterion.
+
+**Rejected.** B (another form): no form decides that class. C (discard): the reviewer would keep raising false
+findings on `token = [REDACTED]` for ordinary code, the defect this unit exists to close.
+
+**Constraint.** A committed-head Sol round on this branch cannot be produced: the transparent review
+representation scrubs the diff text but not the per-file chunks (BACKLOG P1 2026-09-08), so the registry was
+fed the staged p1 adjudication bound to the same HEAD tree 4350a2b7 instead of a cp receipt.
+
+**Links.** DECISIONS entries of the same day (Sol-r2/r3/r4/r5, subagent r5), BACKLOG 2026-09-08 (verdict-hook
+prose marker, installed-scrubber prose trap, transparent-chunk defect, backtick-punctuation residual).
