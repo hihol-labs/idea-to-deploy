@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-08T11:38:32Z",
-  "currentUnitId": "RSI-DEBT-1",
+  "updatedAt": "2026-09-08T16:14:25Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "PE5-001",
@@ -507,11 +507,19 @@
       "riskTier": "medium",
       "criterion": "scrub() in skills/_shared/itd_external_reviewer.py redacts the value of an assignment whose name ends in password/passwd/api_key/secret/token only when that value looks like a literal (a quoted string or an opaque run), leaves call expressions such as `token = self.w.HANDLE()` intact, still redacts every real credential in the existing verify_scrubber_precision corpus, and both shapes are RED-first regressions.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
-      "status": "in_progress",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-08T16:14:25Z",
+      "evidence": "exit 0: {\"checks\": 302, \"liveExternalCalls\": 0, \"paidApiCalls\": 0, \"status\": \"PASSED\"}",
       "skippedReason": "",
-      "blockedReason": ""
+      "blockedReason": "",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/RSI-DEBT-1-adjudication-c2.json",
+        "sha256": "065db25b2b1ad4cbd91a464e87bb0efd8cd455de483f0c232444cd0113f5b44d",
+        "receiptSha256": "8fd010a62da2d164dedcc4a091b42807ed7786ac1e7331b0b99ace83a953cda9",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/RSI-DEBT-1-machine-c2.json",
+        "machineSha256": "50beaa8fcd1ef1c20678986dd6da303ea09a0c8a22ac850e374a2dbdcc758222"
+      }
     },
     {
       "id": "RSI-DEBT-2",
