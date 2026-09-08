@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-08T08:34:34Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-08T11:38:32Z",
+  "currentUnitId": "RSI-DEBT-1",
   "units": [
     {
       "id": "PE5-001",
@@ -501,6 +501,39 @@
         "machinePath": ".itd-memory/verification-loop/FOLLOWUP-A13-machine-c3.json",
         "machineSha256": "d069a8f1f7a05b8ea88ddcb8f4669c76ea7d75772b71e3f1262d145f06d8ce5f"
       }
+    },
+    {
+      "id": "RSI-DEBT-1",
+      "riskTier": "medium",
+      "criterion": "scrub() in skills/_shared/itd_external_reviewer.py redacts the value of an assignment whose name ends in password/passwd/api_key/secret/token only when that value looks like a literal (a quoted string or an opaque run), leaves call expressions such as `token = self.w.HANDLE()` intact, still redacts every real credential in the existing verify_scrubber_precision corpus, and both shapes are RED-first regressions.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": "",
+      "blockedReason": ""
+    },
+    {
+      "id": "RSI-DEBT-2",
+      "riskTier": "medium",
+      "criterion": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
+      "status": "pending",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": "",
+      "blockedReason": ""
+    },
+    {
+      "id": "RSI-DEBT-3",
+      "riskTier": "low",
+      "criterion": "itd_goal_verify.py records the unit evidence as one line per top-level command of an `A && B` verificationCommand in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, the terminal event repeats the same summary, a single command keeps its current form, and the compound case is a RED-first regression.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "status": "pending",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": "",
+      "blockedReason": ""
     }
   ],
   "handoffState": {

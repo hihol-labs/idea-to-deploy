@@ -3744,19 +3744,18 @@ def main() -> int:
         check(raw_marker not in safe and "[REDACTED" in safe,
               f"{label} was not neutralised before reaching the reviewer")
 
-    # fail-closed side: a credential the scrubber cannot neutralise refuses.
-    # The scrub() bare-value pattern stops at '#' ([^\s#;,]), the residual
-    # detector does not ([^ \t\r\n"'&]) — a literal password containing '#'
-    # is exactly the gap where only clean-text detection stands between the
-    # credential and the reviewer.
+    # A literal password containing '#' used to be the exact gap where only
+    # clean-text detection stood between the credential and the reviewer:
+    # the scrub() bare-value pattern stopped at '#' while the residual
+    # detector did not, so the route refused. RSI-DEBT-1 gave scrub() the
+    # detector's own bare run, so this shape is now neutralised like any
+    # other bare literal and the route proceeds with the redacted text; the
+    # fail-closed sentinel for a credential the scrubber cannot neutralise is
+    # the whitespace-split composite below.
     literal = "pass" + "word" + "=abcd#efgh2026\n"
-    try:
-        producer._safe_review_text(literal.encode("utf-8"), "candidate diff")
-    except producer.FreeReviewError:
-        checks += 1
-    else:
-        raise AssertionError(
-            "unneutralisable literal credential did not block the route")
+    safe = producer._safe_review_text(literal.encode("utf-8"), "candidate diff")
+    check("#efgh2026" not in safe and "[REDACTED" in safe,
+          "a '#'-bearing literal credential reached the reviewer unredacted")
 
     # --- whitespace-split credential (independent route finding r2) --------
     # A credential split by intra-line spaces evades the contiguous patterns;

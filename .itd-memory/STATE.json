@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ROUTE-DEBTS-FOLLOWUP-A13",
-    "goal": "The four Sol-a13 findings deferred by owner decision on 2026-09-07 are closed structurally with RED-first regressions on the frozen surface: (1) skills/task/scripts/itd_unit_log.py state_write_lock opens .STATE.write.lock through the anchored no-follow namespace helper and requires a regular single-link file; (2) tests/verify_independent_review_efficacy.py validate_current_result_archive_binding reads results/*.json through the anchored no-follow reader; (3) skills/_shared/itd_safe_atomic_windows.py private append checks the handle owner SID against the process user SID, mirroring the POSIX st_uid rule; (4) skills/_shared/itd_review_evidence.py active_criteria fails closed on an explicit row with matching unitId and a non-string id instead of falling back to legacy prefix matching. No new sites are added while the unit runs; the ROUTE-DEBTS regression oracle and portable host-metadata gates exit 0.",
-    "status": "verified",
-    "startedAt": "2026-09-07T18:06:57Z",
+    "id": "RSI-DEBT-1",
+    "goal": "scrub() in skills/_shared/itd_external_reviewer.py redacts the value of an assignment whose name ends in password/passwd/api_key/secret/token only when that value looks like a literal (a quoted string or an opaque run), leaves call expressions such as `token = self.w.HANDLE()` intact, still redacts every real credential in the existing verify_scrubber_precision corpus, and both shapes are RED-first regressions.",
+    "status": "in_progress",
+    "startedAt": "2026-09-08T11:38:32Z",
     "ledger": "GOAL.json",
-    "riskTier": "high",
-    "completedAt": "2026-09-08T08:34:34Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

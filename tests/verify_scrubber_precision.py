@@ -104,7 +104,122 @@ CREDENTIALS = [
 ]
 
 
+# --- RSI-DEBT-1: scrub() must agree with the detector on BARE code ----------
+# The detector already exempts a bare value that is purely one code
+# expression, but scrub() redacted every bare run of six or more characters
+# after a secret-named assignment, so an independent reviewer saw
+# `token = [REDACTED]` where the code said `token = self.w.HANDLE()` and
+# raised a false NameError finding (Sol-fa2, ROUTE-DEBTS-FOLLOWUP-A13).
+# Bare code stays intact; every literal shape below is still redacted.
+SCRUB_INTACT = [
+    # The recorded incident line (skills/_shared/itd_safe_atomic_windows.py).
+    "            " + _TOKEN_NAME + " = self.w.HANDLE()",
+    _TOKEN_NAME + " = shlex.split(segment)",
+    "    " + _TOKEN_NAME + " = tokens[position]",
+    "    " + _SECRET_NAME + " = parts[2]",
+    # A multi-argument call is one expression for the detector (its bare run
+    # admits commas), so scrub() must judge the same run and keep it.
+    _PW_NAME + " = config.load(section,default)",
+    # The recorded S6 incident line: a pure-digit argument is a name-shaped index.
+    "        " + _TOKEN_NAME + " = glued.group(1)",
+    # Name-shaped arguments survive: dotted and snake-case names, short words.
+    _TOKEN_NAME + " = handler.run(self.value)",
+    _SECRET_NAME + " = retry(default_timeout)",
+    # Sol-r4: ordinary long identifiers stay readable - a plain word and a
+    # short camelCase name are name-shaped even without `_` or `.`.
+    _TOKEN_NAME + " = fetch(configuration)",
+    _SECRET_NAME + " = cache[identifier]",
+    _PW_NAME + " = load(configValue)",
+    # Sol-r5: a statement terminator ends the bare run, so a C/JS-style line
+    # keeps its call and a second statement on the same line stays visible.
+    _TOKEN_NAME + " = fetch(configuration);",
+    _PW_NAME + " = load(section); check(default)",
+    # Prose quoting the incident line keeps its backtick tail.
+    "The line `" + _TOKEN_NAME + " = self.w.HANDLE()` is ordinary code.",
+]
+SCRUB_REDACTED = [
+    # Bare literals: an opaque run is redacted exactly as before.
+    _SECRET_NAME + "=" + "AKIA" + "IOSFODNN7EXAMPLE",
+    _TOKEN_NAME + "=" + "eyJhbGciOiJIUzI1NiJ9" + ".payload",
+    # Quoted values are string literals, call-lookalike or not.
+    _PW_NAME + " = " + _Q + "hunter2" + "hunter2" + _Q,
+    _TOKEN_NAME + " = " + _Q + "fetchKey()" + _Q,
+    # Expression wrappers that can carry a literal are not benign.
+    _TOKEN_NAME + " = fetch(abcd" + "#efgh2026)",
+    _PW_NAME + " = wrap(hunter2 " + "hunter2)",
+    _KEY_NAME + " = os.environ[" + _Q + "API_KEY" + _Q + "]",
+    # Whitespace inside call arguments leaves the narrow grammar (route
+    # finding r6): the detector flags it, so scrub() must redact it too.
+    _PW_NAME + " = config.load(section, default)",
+    # Sol-r2 (RSI-DEBT-1): a credential planted as a call argument or index
+    # rides inside an otherwise benign expression; the argument is
+    # neutralised in place while the callee chain stays readable.
+    _TOKEN_NAME + " = fetch(hunter2" + "hunter2)",
+    _SECRET_NAME + " = config.load(section,AKIA" + "IOSFODNN7EXAMPLE)",
+    _TOKEN_NAME + " = cache[eyJhbGciOiJIUzI1NiJ9" + "payload]",
+    # A value that was never six characters before its first "#" used to
+    # escape the bare rule whole; the bare run is now the detector's run.
+    _TOKEN_NAME + "=abc" + "#def123",
+    # Sol-r3: an all-letter or all-digit credential as an argument was
+    # redacted wholesale before the exemption; it must not ride through now.
+    _TOKEN_NAME + " = fetch(hunter" + "hunterhunter)",
+    _SECRET_NAME + " = lookup(1234" + "56789012)",
+    # Subagent r5: case mixing is not a name signal - a camelCase passphrase
+    # or a random-cased run longer than fourteen letters is still a credential.
+    _TOKEN_NAME + " = fetch(correctHorse" + "BatteryStaple)",
+    _TOKEN_NAME + " = fetch(Secret" + "PasswordXyz)",
+    _KEY_NAME + " = lookup(aBcDeFgH" + "iJkLmNoP)",
+    # Sol-r5: the run stops at ';', so the literal is redacted and the
+    # statement after it is not swallowed (exact pin below).
+    _TOKEN_NAME + "=abcdef" + "ghij;run()",
+]
+
+
 def main() -> int:
+    for sample in SCRUB_INTACT:
+        clean, redactions = reviewer.scrub(sample)
+        check(
+            clean == sample and redactions == 0,
+            f"scrub() redacted ordinary bare code: {sample!r} -> {clean!r}",
+        )
+    for sample in SCRUB_REDACTED:
+        clean, redactions = reviewer.scrub(sample)
+        value = sample.split("=", 1)[1].strip().strip(_Q + "'")
+        check(
+            redactions >= 1 and "REDACTED" in clean and value not in clean,
+            f"scrub() left a literal credential readable: {sample!r} -> {clean!r}",
+        )
+    # Each neutralised argument is one redaction (subagent review, e5ecf3e9).
+    two_args, two_count = reviewer.scrub(
+        _TOKEN_NAME + " = data[abcdef" + "123456,ghijkl" + "789012]"
+    )
+    check(
+        two_args == _TOKEN_NAME + " = data[REDACTED-ARGUMENT,REDACTED-ARGUMENT]"
+        and two_count == 2,
+        f"two neutralised arguments must count as two redactions: {two_args!r} {two_count}",
+    )
+    callee_kept, _ = reviewer.scrub(_TOKEN_NAME + " = fetch(hunter2" + "hunter2)")
+    check(
+        callee_kept == _TOKEN_NAME + " = fetch(REDACTED-ARGUMENT)",
+        f"neutralised argument did not keep the callee readable: {callee_kept!r}",
+    )
+    # Sol-r5: the bare run ends at ';', so the statement after a redacted
+    # literal stays visible instead of vanishing inside [REDACTED].
+    after_semicolon, _ = reviewer.scrub(_TOKEN_NAME + "=abcdef" + "ghij;run()")
+    check(
+        after_semicolon == _TOKEN_NAME + "=[REDACTED];run()",
+        f"statement after ';' was swallowed by the redaction: {after_semicolon!r}",
+    )
+    # The scrubbed text must never trip the residual detector itself: a
+    # neutralised subscript that reads cache[[REDACTED]] is not one subscript
+    # for the detector's grammar and would refuse the route on already-safe
+    # text (subagent review of RSI-DEBT-1). Pinned for the whole corpus.
+    for sample in SCRUB_INTACT + SCRUB_REDACTED:
+        clean, _ = reviewer.scrub(sample)
+        check(
+            not reviewer.contains_residual_credential(clean),
+            f"scrubbed output trips the residual detector: {sample!r} -> {clean!r}",
+        )
     for sample in BENIGN:
         check(
             not reviewer.contains_residual_credential(sample),
