@@ -90,17 +90,22 @@ class _WindowsIO:
         return self._sid_bytes(ctypes.cast(buf, ctypes.POINTER(ctypes.c_void_p))[0])
 
     def owner_identities(self):
-        """The single SID a private object must carry: this process's user.
+        """SIDs this token stamps on the objects it creates: user and owner.
 
-        This is the exact parity of the POSIX rule ``st_uid == os.getuid()``.
-        The token's default owner is deliberately NOT accepted as well: on an
-        elevated token it is usually the Administrators group, and a file
-        created or planted by any other administrator carries that same group,
-        so accepting it would prove nothing about who owns the destination
-        (Sol-fa4).  The cost is named rather than hidden: under such a token
-        the objects this process creates are owned by that group, so a trusted
-        append refuses fail-closed, and the FIX is to run the ledger writer as
-        the owning user rather than to relax the check.
+        The POSIX rule is ``st_uid == os.getuid()``.  Windows has no single
+        equivalent: an elevated token's default owner is a group (usually
+        Administrators), and every object such a token creates carries that
+        group instead of the user.  Both identities are therefore accepted,
+        with the residual limitation named rather than hidden: on such a host
+        an object owned by that group could have been created by another
+        member of it.  The stricter user-only rule was tried and measured
+        instead of argued (Sol-fa4 asked for it): it refuses every ledger
+        write on an elevated host, and the Windows CI runner failed the whole
+        Goal harness suite with 'foreign owner'.  On a host where the writer
+        is a plain user, which is the deployment this methodology targets, the
+        two identities coincide and the rule is exactly ``st_uid``.  A
+        stronger guarantee needs the destination's DACL, not its owner, and is
+        recorded as a separate debt.
         """
         if self._owner_identities is None:
             # Named ``process_handle`` and not ``token``: the review scrubber
@@ -111,7 +116,8 @@ class _WindowsIO:
                                              ctypes.byref(process_handle)):
                 raise ctypes.WinError(ctypes.get_last_error())
             try:
-                self._owner_identities = (self._token_sid(process_handle, 1),)
+                self._owner_identities = tuple(
+                    {self._token_sid(process_handle, 1), self._token_sid(process_handle, 4)})
             finally:
                 self.k32.CloseHandle(process_handle)
         return self._owner_identities

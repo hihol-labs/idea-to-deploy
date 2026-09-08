@@ -1516,3 +1516,17 @@ candidate had to rename the local to stay reviewable. The redaction is correct
 for real credentials, so the fix is not to relax it blindly: prefer redacting
 only literal-looking values (quoted strings, long opaque runs) and leaving call
 expressions intact, with a RED-first regression on both shapes.
+
+## P2 — Windows private opens prove owner, not write authority (2026-09-07)
+
+`_info(private=True)` in `skills/_shared/itd_safe_atomic_windows.py` accepts the
+token user SID and the token's default owner SID, because an elevated token
+stamps a group on the objects it creates and the user-only rule made every
+ledger write fail on such a host (measured: the Windows CI runner failed the
+whole Goal harness suite with `foreign owner`). The residual limitation is that
+on an elevated host another member of that group could have created the
+destination. The owner alone cannot express this; the check would have to read
+the destination's DACL and require that no principal outside the trusted set
+holds write access, with RED-first fixtures for an inherited-ACE case and a
+foreign-writable case. Out of ROUTE-DEBTS-FOLLOWUP-A13 scope by construction:
+its frozen surface is the owner comparison.
