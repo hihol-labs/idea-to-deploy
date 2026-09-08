@@ -69,11 +69,11 @@ def _win():
     return module.backend()
 
 
-def _private_fd(fd: int) -> None:
+def _private_fd(fd: int, label: str = "atomic temporary file") -> None:
     info = os.fstat(fd)
     if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
             or (hasattr(os, "getuid") and info.st_uid != os.getuid())):
-        raise RuntimeError("atomic temporary file is not private and regular")
+        raise RuntimeError(f"{label} is not private and regular")
 
 
 def _snapshot_at(parent_fd: int, leaf: str, max_bytes: int,
@@ -296,6 +296,39 @@ def durable_append_bytes(path: Path, content: bytes, *, root: Path | None = None
             os.fsync(fd)
         finally: os.close(fd)
         os.fsync(parent_fd)
+
+
+@contextmanager
+def open_private_lock_fd(path: Path):
+    """Yield an fd for a private lock file, opened anchored and no-follow.
+
+    The bounded cross-process STATE lock used to be taken through
+    ``Path.open("a+b")`` on a reconstructed pathname (Sol-a13): a symlink,
+    junction or second hard link planted at ``.STATE.write.lock`` moved both
+    the lock and its initialising byte into a foreign file, while every writer
+    still believed the STATE write was serialised.  The leaf is checked with
+    lstat for a named refusal, then opened from a held parent without
+    following links and proved regular, single-link and owned.
+    """
+    path = Path(path).absolute()
+    try:
+        before = path.lstat()
+    except FileNotFoundError:
+        before = None
+    if before is not None and (_link_or_reparse(before) or not stat.S_ISREG(before.st_mode)):
+        raise RuntimeError(f"lock {path.name} is not a regular no-link file")
+    if os.name == "nt":
+        with _win().open_private_lock_fd(path) as fd:
+            yield fd
+        return
+    flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK
+    with _posix_parent(path) as (parent_fd, leaf):
+        fd = os.open(leaf, flags, 0o600, dir_fd=parent_fd)
+        try:
+            _private_fd(fd, f"lock {path.name}")
+            yield fd
+        finally:
+            os.close(fd)
 
 
 def durable_unlink(path: Path) -> None:

@@ -1255,6 +1255,7 @@
       "tests/verify_reviewer_independence_policy.py"
     ],
     "skills/_shared/itd_safe_atomic.py": [
+      "tests/verify_independent_review_efficacy.py",
       "tests/verify_route_debts.py"
     ],
     "skills/_shared/itd_safe_atomic_windows.py": [
@@ -1874,6 +1875,7 @@
     "tests/verify_independent_review_efficacy.py": [
       "tests/verify_quick_regression.py",
       "tests/verify_review_evidence.py",
+      "tests/verify_route_debts.py",
       "tests/verify_targeted_regression.py"
     ],
     "tests/verify_itd_cli.py": [

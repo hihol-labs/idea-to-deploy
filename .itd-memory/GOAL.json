@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-07T17:51:01Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-07T18:06:57Z",
+  "currentUnitId": "ROUTE-DEBTS-FOLLOWUP-A13",
   "units": [
     {
       "id": "PE5-001",
@@ -482,6 +482,17 @@
         "machinePath": ".itd-memory/verification-loop/ROUTE-DEBTS-machine-close3.json",
         "machineSha256": "b301a97582cc2771b36ec7553416c931cdbfd10e78dfea4eff299ebca1b6075f"
       }
+    },
+    {
+      "id": "ROUTE-DEBTS-FOLLOWUP-A13",
+      "criterion": "The four Sol-a13 findings deferred by owner decision on 2026-09-07 are closed structurally with RED-first regressions on the frozen surface: (1) skills/task/scripts/itd_unit_log.py state_write_lock opens .STATE.write.lock through the anchored no-follow namespace helper and requires a regular single-link file; (2) tests/verify_independent_review_efficacy.py validate_current_result_archive_binding reads results/*.json through the anchored no-follow reader; (3) skills/_shared/itd_safe_atomic_windows.py private append checks the handle owner SID against the process user SID, mirroring the POSIX st_uid rule; (4) skills/_shared/itd_review_evidence.py active_criteria fails closed on an explicit row with matching unitId and a non-string id instead of falling back to legacy prefix matching. No new sites are added while the unit runs; the ROUTE-DEBTS regression oracle and portable host-metadata gates exit 0.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py && sh skills/_shared/itd_py.sh tests/verify_route_debts.py --host-metadata",
+      "riskTier": "high",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": "",
+      "blockedReason": ""
     }
   ],
   "handoffState": {

@@ -1504,3 +1504,29 @@ canary from an NTFS clone of the same commit (`C:\itd-src\idea-to-deploy`,
 `core.autocrlf=false`); the record binds that clone as `sourceRepository`.
 Fix: compare a case-folded form only in the validator and keep the original
 spelling in argv, or reject case-sensitive shares with a named FIX.
+
+## P3 — review: the secret scrubber redacts ordinary identifiers named `token` (2026-09-07)
+
+`SECRET_PATTERNS` in `skills/_shared/itd_external_reviewer.py` redacts the value
+of any assignment whose name ends in `token`, so an ordinary local such as
+`token = self.w.HANDLE()` reaches the independent reviewer as
+`token = [REDACTED]`. Observed live on ROUTE-DEBTS-FOLLOWUP-A13: Sol-fa2 raised a
+high-severity NameError finding against code that runs green natively, and the
+candidate had to rename the local to stay reviewable. The redaction is correct
+for real credentials, so the fix is not to relax it blindly: prefer redacting
+only literal-looking values (quoted strings, long opaque runs) and leaving call
+expressions intact, with a RED-first regression on both shapes.
+
+## P2 — Windows private opens prove owner, not write authority (2026-09-07)
+
+`_info(private=True)` in `skills/_shared/itd_safe_atomic_windows.py` accepts the
+token user SID and the token's default owner SID, because an elevated token
+stamps a group on the objects it creates and the user-only rule made every
+ledger write fail on such a host (measured: the Windows CI runner failed the
+whole Goal harness suite with `foreign owner`). The residual limitation is that
+on an elevated host another member of that group could have created the
+destination. The owner alone cannot express this; the check would have to read
+the destination's DACL and require that no principal outside the trusted set
+holds write access, with RED-first fixtures for an inherited-ACE case and a
+foreign-writable case. Out of ROUTE-DEBTS-FOLLOWUP-A13 scope by construction:
+its frozen surface is the owner comparison.

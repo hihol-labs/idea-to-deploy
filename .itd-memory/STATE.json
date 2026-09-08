@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ROUTE-DEBTS",
-    "goal": "The ROUTE-DEBTS regression oracle exits 0, and the installed-proof check confirms the released fixes on WSL and Windows. Contract preflight, approval binding, lifecycle synchronization, bounded publication and repair-lane behavior retain fail-closed acceptance. Q6 frozen evidence is preserved and any context drift is recorded, never hidden.",
-    "status": "verified",
-    "startedAt": "2026-09-05T15:52:09Z",
+    "id": "ROUTE-DEBTS-FOLLOWUP-A13",
+    "goal": "The four Sol-a13 findings deferred by owner decision on 2026-09-07 are closed structurally with RED-first regressions on the frozen surface: (1) skills/task/scripts/itd_unit_log.py state_write_lock opens .STATE.write.lock through the anchored no-follow namespace helper and requires a regular single-link file; (2) tests/verify_independent_review_efficacy.py validate_current_result_archive_binding reads results/*.json through the anchored no-follow reader; (3) skills/_shared/itd_safe_atomic_windows.py private append checks the handle owner SID against the process user SID, mirroring the POSIX st_uid rule; (4) skills/_shared/itd_review_evidence.py active_criteria fails closed on an explicit row with matching unitId and a non-string id instead of falling back to legacy prefix matching. No new sites are added while the unit runs; the ROUTE-DEBTS regression oracle and portable host-metadata gates exit 0.",
+    "status": "in_progress",
+    "startedAt": "2026-09-07T18:06:57Z",
     "ledger": "GOAL.json",
-    "riskTier": "high",
-    "completedAt": "2026-09-07T17:51:01Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",

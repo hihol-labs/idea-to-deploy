@@ -512,7 +512,15 @@ def validate_current_result_archive_binding(
     classified ``diagnostic`` and bind ``sourceProducerSha256`` to the
     producer bytes under test.
     """
-    raw = path.read_bytes()
+    # The current view is read through the shared anchored no-follow reader:
+    # a link planted at results/<name>.json would otherwise bind foreign bytes
+    # to a current-producer diagnostic entry of the immutable archive
+    # (Sol-a13).
+    raw = load_module(
+        "itd_safe_atomic_efficacy_reader", ROOT / "skills" / "_shared" / "itd_safe_atomic.py"
+    ).read_ledger_snapshot(path)
+    if raw is None:
+        raise AssertionError(f"current semantic efficacy result is missing: {path.name}")
     matches = [
         entry for relative, entry in history_entries.items()
         if relative.name == path.name and entry["sha256"] == sha256(raw)

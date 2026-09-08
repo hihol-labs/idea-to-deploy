@@ -3409,6 +3409,44 @@
           "review-efficacy"
         ]
       }
+    },
+    {
+      "id": "ROUTE-DEBTS-FOLLOWUP-A13-1",
+      "unitId": "ROUTE-DEBTS-FOLLOWUP-A13",
+      "criterion": "The bounded STATE writer lock and the efficacy current view are read and held through the anchored no-follow primitives, and malformed explicit criterion ownership fails closed instead of falling back to prefix matching",
+      "source": ".itd-memory/contracts/ROUTE-DEBTS-FOLLOWUP-A13.md: findings 1, 2 and 4; .itd/SCOPE_LOCK.md: frozen four-finding surface, no new sites",
+      "evidence": "RED-first on the pre-fix bytes, each observed rather than asserted: the lock was taken through a symlink and wrote its initialising byte into the foreign target, a second hard link at the lock path was accepted (nlink 2), the efficacy current view was read through a link and still bound to a current-producer diagnostic entry, and a criterion row naming this unit with a non-string id was dropped so the selector returned the legacy prefix set. GREEN after the repair with the same probe. Lethality of each guarantee is measured, not claimed: dropping the lock leaf pre-check, the private-lock proof, the anchored efficacy reader or the ownership refusal each makes the probe fail (ROUTE-DEBTS-FOLLOWUP-a13-mutations.log, 4/4 lethal). Aggregate, portable host-metadata and the efficacy oracle all exit 0; the quick mirror's sole failure is the pre-existing excluded verify_reviewer_provider_freshness.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Anchored no-follow STATE lock, anchored efficacy current view and fail-closed explicit criterion ownership",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "route-regression"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-DEBTS-FOLLOWUP-A13-2",
+      "unitId": "ROUTE-DEBTS-FOLLOWUP-A13",
+      "criterion": "A private Windows namespace open proves ownership as well as a single link, mirroring the POSIX st_uid rule, and the portable host-metadata gates stay green",
+      "source": ".itd-memory/contracts/ROUTE-DEBTS-FOLLOWUP-A13.md: finding 3; .itd/SCOPE_LOCK.md: frozen four-finding surface, no new sites",
+      "evidence": "Proved natively on Windows against the installed interpreter, because the adapter does not load on POSIX (the POSIX probe prints a named SKIP). On the pre-fix backend bytes the probe fails outright: the guarantee and its anchored lock entry point do not exist. On the candidate the probe passes, so the real GetSecurityInfo owner and the token user/owner SIDs agree for a destination this process created. Disabling only the ownership comparison makes the probe fail with 'Windows private append accepted a foreign-owned destination', so the guarantee is lethal by measurement (ROUTE-DEBTS-FOLLOWUP-a13-windows-f3.log). A foreign-owned fixture cannot be built on this host: the session is not elevated and icacls /setowner returns access denied, which is recorded rather than skipped silently. The accepted identities are the two SIDs this token stamps on objects it creates, the user and the token's default owner. Sol-fa4 asked for the user alone; that stricter rule was implemented and measured rather than argued, and the Windows CI runner then failed the whole Goal harness suite with 'foreign owner', because an elevated token owns its own new objects as a group. On the targeted deployment, a plain-user writer, the two identities coincide and the rule is exactly st_uid. The residual limitation is named in the code and carried as a debt: only the destination's DACL, not its owner, can distinguish members of that group.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py --host-metadata",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Windows private opens prove ownership, not only a single link",
+        "impactClasses": [
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "route-host-metadata"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3427,9 +3465,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ROUTE-DEBTS",
+    "unitId": "ROUTE-DEBTS-FOLLOWUP-A13",
     "status": "open",
-    "openedAt": "2026-09-05",
+    "openedAt": "2026-09-07",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
@@ -3438,8 +3476,7 @@
       "requiredImpactClasses": [
         "correctness",
         "security",
-        "host-parity",
-        "repository-hygiene"
+        "host-parity"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
