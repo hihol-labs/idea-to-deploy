@@ -3485,6 +3485,45 @@
           "free-reviewer-producer"
         ]
       }
+    },
+    {
+      "id": "RSI-ROUTE-P1-1",
+      "unitId": "RSI-ROUTE-P1",
+      "criterion": "The transparent review representation returns per-file chunks whose concatenation equals the scrubbed diff text it returns, so a candidate carrying a declared .jsonl.gz file plus one redactable line is partitioned by _review_units instead of being refused",
+      "source": ".itd-memory/contracts/RSI-ROUTE-P1.md; .itd/SCOPE_LOCK.md: _transparent_review_representation and its chunk builder only",
+      "evidence": "",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "pending",
+      "reviewEvidence": {
+        "claim": "Transparent-path chunks are cut from the scrubbed text, never from the raw bytes",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer"
+        ]
+      }
+    },
+    {
+      "id": "RSI-ROUTE-P1-2",
+      "unitId": "RSI-ROUTE-P1",
+      "criterion": "RED-first on the pre-fix bytes (refused with 'hierarchical review unit coverage is invalid') and GREEN on the candidate for the same fixture; a mutation that cuts chunks from the raw bytes again is lethal; the non-transparent path and every scrubber pin stay unchanged",
+      "source": ".itd-memory/contracts/RSI-ROUTE-P1.md",
+      "evidence": "",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py && sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py",
+      "status": "pending",
+      "reviewEvidence": {
+        "claim": "The fix is observed RED then GREEN and proved lethal by mutation without touching the scrubber",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "free-reviewer-producer",
+          "scrubber-precision"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3503,7 +3542,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "RSI-DEBT-1",
+    "unitId": "RSI-ROUTE-P1",
     "status": "open",
     "openedAt": "2026-09-08",
     "selectedClaim": "LOCAL_REVIEWED",

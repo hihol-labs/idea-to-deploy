@@ -1586,7 +1586,7 @@ scrubber still redacts). The non-transparent path is consistent (chunks are cut 
 scrubbed text). Fix: cut the transparent chunks from the scrubbed representation, or scrub
 each chunk with the same scrubber and assert the join. Effect: any committed-head
 cross-vendor round on a branch that carries a live-evidence re-pin plus a redactable line
-cannot be produced until the fix ships; RSI-DEBT-1 was published through the guarded route on the staged p1 adjudication bound to the same HEAD tree.
+cannot be produced until the fix ships; RSI-DEBT-1 was published through the guarded route on the staged p1 adjudication bound to the same HEAD tree. Tracked as unit RSI-ROUTE-P1 (activated 2026-09-08; owner order P1 -> REL-1.104.0 -> RSI-DEBT-2 -> RSI-DEBT-3).
 
 Audit note: of the two COMPLETION_BYPASS commits on the unit branch (ecc6bc6, d0f7d02) only one audit row reached .itd-memory/events.jsonl (evt-completion-bypass-1788879168643122); the row for the re-pin commit was not written by the hook (same class as the a13 loss, BACKLOG P2 2026-09-07: the audit sink belongs outside the tree - RSI-DEBT-2).
 
@@ -1638,3 +1638,29 @@ REL1103), not the tree's; a prose example of the new boundary written into DECIS
 tripped the old detector and the producer refused fail-closed (UNVERIFIED, exit 4). Until
 the release ships the new class, candidate prose must not spell such shapes literally. Not a new unit: the site is closed at
 this bound, and a further round on it is the treadmill oscillation the stop rule names.
+
+## P1 — main is red on two full-mirror suites (measured 2026-09-09, RSI-ROUTE-P1)
+
+Not introduced by any candidate. Measured on a **clean detached worktree of `cc425b1`**
+(merged `main`, no working-tree changes, no unit-activation artifacts):
+
+- `tests/verify_mandatory_keyless_review.py` -> `FileNotFoundError: /tmp/keyless-diagnostic-<rand>/prompt.md`
+  at `tests/verify_mandatory_keyless_review.py:213` (`prompt_path.read_bytes() == b"exact prompt"`).
+  The oracle expects a prompt artifact its own diagnostic run did not leave behind.
+- `tests/verify_ledger_reconciliation.py` -> `80 passed, 3 failed`:
+  - `verified: the event is appended before STATE is persisted` (`append_event@-1 save_state@-1`)
+  - `close: the event is appended before STATE is persisted` (`append_event@-1 save_state@-1`)
+  - `repo: blocked lifecycles are reported, not counted as misses`
+    (`vcr=1.0 blocked=0 verified=10 total=11`)
+  The `@-1` positions read as "the call was not located at all", i.e. the source-order
+  check no longer finds the shape it pins.
+
+Both suites run **only in the full mirror** (142 of 153), never in `--quick` — which is why
+the RSI-DEBT-1 series did not see them and why the RSI-ROUTE-P1 contract, written on the
+assumption of an otherwise-green mirror, names only `verify_reviewer_provider_freshness`
+as the allowed red.
+
+Owner decision 2026-09-09: keep RSI-ROUTE-P1 moving (its candidate adds no new red) and
+fix these separately. Do NOT fold them into that unit - a repair here touches
+`itd_unit_log.py`/hygiene source order and the keyless diagnostic harness, i.e. new sites
+outside its frozen scope.

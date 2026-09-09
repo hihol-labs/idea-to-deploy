@@ -1039,6 +1039,15 @@ def _transparent_review_representation(
             "UNVERIFIED", "transparent candidate review representation is unavailable"
         )
     logical_text = _safe_review_text(logical_raw, "transparent candidate diff")
+    # The reviewer reads the SCRUBBED text, so the per-file units have to be cut
+    # from that same text — exactly the way the ordinary route already cuts them
+    # from `_safe_review_text` output. Keeping the pre-scrub canonical chunks
+    # makes `"".join(chunks) != diff_text`, and the broker then refuses the whole
+    # candidate ("hierarchical review unit coverage is invalid") whenever a
+    # single line is redactable.
+    file_chunks = _raw_review_file_chunks(
+        logical_text, [{"path": path} for path, _chunk in file_chunks],
+    )
     policy_raw = read_regular(
         review_broker.POLICY_PATH, "transparent review policy"
     )
