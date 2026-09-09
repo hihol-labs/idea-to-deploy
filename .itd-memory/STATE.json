@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "RSI-DEBT-1",
-    "goal": "scrub() in skills/_shared/itd_external_reviewer.py redacts the value of an assignment whose name ends in password/passwd/api_key/secret/token only when that value looks like a literal (a quoted string or an opaque run), leaves call expressions such as `token = self.w.HANDLE()` intact, still redacts every real credential in the existing verify_scrubber_precision corpus, and both shapes are RED-first regressions.",
-    "status": "verified",
-    "startedAt": "2026-09-08T11:38:32Z",
+    "id": "RSI-ROUTE-P1",
+    "goal": "In skills/_shared/itd_free_reviewer_producer.py the transparent review representation (taken when the staged candidate carries a declared .jsonl.gz transparent file) returns per-file chunks cut from the SAME scrubbed diff text it returns, so ''.join(chunks) == diff_text holds and itd_review_broker._review_units accepts the candidate whenever the diff contains a redactable line; the non-transparent path keeps its existing consistency; RED-first: on the pre-fix bytes a candidate with one .jsonl.gz file plus one redactable line is refused with 'hierarchical review unit coverage is invalid', on the candidate it is accepted; a mutation that cuts the chunks from the raw bytes again fails the oracle.",
+    "status": "in_progress",
+    "startedAt": "2026-09-08T19:18:58Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-08T16:14:25Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

@@ -2867,3 +2867,78 @@ fed the staged p1 adjudication bound to the same HEAD tree 4350a2b7 instead of a
 
 **Links.** DECISIONS entries of the same day (Sol-r2/r3/r4/r5, subagent r5), BACKLOG 2026-09-08 (verdict-hook
 prose marker, installed-scrubber prose trap, transparent-chunk defect, backtick-punctuation residual).
+
+## 2026-09-08: unit order after RSI-DEBT-1 - RSI-ROUTE-P1 -> REL-1.104.0 -> RSI-DEBT-2 -> RSI-DEBT-3
+
+**What.** The owner confirmed the order on 2026-09-08. RSI-ROUTE-P1 (transparent review representation
+cuts its per-file chunks from the scrubbed diff text) and REL-1.104.0 (release plus WSL/Windows rollout
+with installed-proof and the review authority re-pinned) are inserted before RSI-DEBT-2 in GOAL.json;
+RSI-ROUTE-P1 is activated.
+
+**Why.** The RSI-DEBT-1 scrubber only takes effect for reviews after a release: the producer, the hooks and
+`itd pr create` run the installed authority (1.103.1). The transparent-chunk defect blocks the committed-head
+cross-vendor round on every branch that carries a live-evidence re-pin plus one redactable line, which is
+every unit touching `skills/`; its fix changes the producer, which is also pinned by the release, so both
+ship together. RSI-DEBT-2 (bypass audit sink) does not depend on the release and goes third.
+
+**Rejected.** Release first, P1 later (two releases for one fix); RSI-DEBT-2 first (plan order, but it
+would leave the main review route on a manual workaround for another unit).
+
+**Links.** BACKLOG P1 2026-09-08 (transparent chunks), BACKLOG P3 2026-09-08 (verdict-hook prose marker),
+DECISIONS 2026-09-08 (owner option A), GOAL.json units RSI-ROUTE-P1 / REL-1.104.0.
+
+## 2026-09-09 — RSI-ROUTE-P1 ships while two full-mirror suites stay red on main
+
+**Decision.** Keep RSI-ROUTE-P1 on its route and publish it, even though
+`bash tests/run-all.sh` ends with
+`DONE fails: verify_reviewer_provider_freshness verify_ledger_reconciliation
+verify_mandatory_keyless_review` while the unit contract allows only the first.
+The two extra reds are recorded as a separate BACKLOG defect, not folded into this unit.
+
+**Why.** They are not this candidate's. Measured on a clean detached worktree of `cc425b1`
+(merged main, no working-tree changes, no unit-activation artifacts) both suites fail
+identically: `verify_mandatory_keyless_review` with `FileNotFoundError` on its own
+diagnostic `prompt.md`, `verify_ledger_reconciliation` with `80 passed, 3 failed`
+(`append_event@-1 save_state@-1` twice, plus `vcr=1.0 blocked=0 verified=10 total=11`).
+Both run only in the full mirror (142 of 153), never in `--quick`, which is why the
+contract - written on the assumption of an otherwise-green mirror - names only
+`verify_reviewer_provider_freshness`.
+
+**Alternatives rejected.** Repairing them inside RSI-ROUTE-P1 would touch the hygiene
+source order and the keyless diagnostic harness, i.e. new sites outside the frozen scope
+(the surface treadmill the stop rule names), and would mix two unrelated defects in one
+diff. Freezing the candidate uncommitted until they are fixed risks losing it across
+session restarts, which already happened twice in this session.
+
+**Consequence.** The delivery commit carries an explicit `COMPLETION_BYPASS` naming the
+two pre-existing reds and this record; the completion gate is not silently satisfied.
+
+**Links.** BACKLOG P1 2026-09-09 (main is red on two full-mirror suites),
+`.itd-memory/HANDOFF-RSI-ROUTE-P1.md`, GOAL.json unit RSI-ROUTE-P1.
+
+## 2026-09-09 — dispositions for review round r4 (RSI-ROUTE-P1)
+
+**Finding 1 — ACCEPTED and fixed, wider than reported.** r4 flagged that the `in_progress`
+unit `RSI-ROUTE-P1` in `.itd-memory/GOAL.json` carried
+`evidence: "exit 0: rollout 1.103.0 ..."` and `verifiedAt: "2026-09-05T08:32:00Z"` - a
+rollout result belonging to ROUTE-DEBTS, dated three days before the unit existed. Measured:
+the same residue was on `REL-1.104.0` (`pending`) too, so the defect covered both units
+inserted in the 2026-09-08 activation, not one. Both were cleared to the canonical empty
+shape (`evidence: ""`, `verifiedAt: ""`) that every other pending unit already uses;
+`tests/verify_goal_tools.py` -> `62 passed, 0 failed`, and a re-scan finds no non-verified
+unit carrying evidence. A not-yet-verified unit must never present verification evidence -
+that is the exact false-completion class this methodology exists to prevent.
+
+**Finding 2 — REFUTED by measurement, no change made.** r4 read the SCOPE_LOCK clause
+"the re-pin therefore lands after the code commit" as covering the efficacy legs bundled in
+this candidate. It does not. That clause is about **live-model evidence**:
+`tests/fixtures/live-model-evidence/**`, CI Gate 1's `fixture-03-cli-tool` pin, which binds
+to the tree of `skills/`+`hooks/`+`agents/` and therefore must be recorded on the clean
+committed tree as its own follow-on commit. Measurement:
+`git diff --cached --name-only | grep -c live-model-evidence` -> `0`; that path is not in
+this candidate at all, and its separate commit is still pending as planned.
+The `benchmarks/independent-review-efficacy/` legs are a different artifact with the opposite
+constraint: they bind `producerSha256`, so they must travel WITH the producer change - split
+them off and `verify_independent_review_efficacy` fails closed with
+"current semantic efficacy result is archived only as a historical or foreign-producer
+observation". Recorded here so the same conflation is not re-raised as a finding next round.

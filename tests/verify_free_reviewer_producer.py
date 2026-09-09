@@ -696,6 +696,96 @@ def main() -> int:
             large_packet, prompt_artifact, final_report,
         )
 
+        # RSI-ROUTE-P1: the transparent route hands the reviewer the SCRUBBED
+        # text, so its per-file units have to be cut from that same text. Cut
+        # from the pre-scrub canonical bytes they no longer join to the reviewed
+        # diff, and the broker then refuses every candidate that carries a
+        # declared transparent blob together with a single redactable line.
+        redacted_root = fixture / "redacted-transparent"
+        redacted_repo = redacted_root / "repo"
+        redacted_repo.mkdir(parents=True)
+        redacted_base, redacted_parent, _ = git_fixture(redacted_repo)
+        redacted_rows = []
+        for index in range(5000):
+            row = {"event": index, "payload": "x" * 24}
+            if index == 1234:
+                row["contact"] = "ops.person@example.com"
+            redacted_rows.append(
+                json.dumps(row, separators=(",", ":")).encode("utf-8") + b"\n"
+            )
+        (redacted_repo / "review.jsonl.gz").write_bytes(
+            gzip.compress(b"".join(redacted_rows), mtime=0)
+        )
+        shell(["git", "add", "review.jsonl.gz"], redacted_repo)
+        redacted_tree = shell(["git", "write-tree"], redacted_repo)
+        redacted_inputs = redacted_root / "inputs"
+        redacted_inputs.mkdir()
+        redacted_scope, redacted_acceptance, redacted_machine = write_inputs(
+            redacted_inputs, redacted_repo, redacted_parent, redacted_tree,
+        )
+        redacted_diff_text, redacted_representation, redacted_chunks = (
+            producer._transparent_review_representation(
+                redacted_repo, redacted_base,
+            )
+        )
+        check(
+            "ops.person@example.com" not in redacted_diff_text
+            and "[REDACTED-EMAIL]" in redacted_diff_text
+            and redacted_representation["transparentFileCount"] == 1,
+            "sealed transparent fixture carries no redacted line",
+        )
+        check(
+            "".join(chunk for _path, chunk in redacted_chunks)
+            == redacted_diff_text
+            and [path for path, _chunk in redacted_chunks]
+            == ["branch.py", "review.jsonl.gz", "service.py"],
+            "transparent review units are not cut from the reviewed text",
+        )
+        # The only difference between the reviewed text and the canonical bytes
+        # is this redaction, so restoring it reconstructs the pre-fix chunks
+        # exactly — the hash binding proves that rather than assuming it.
+        mutant_chunks = [
+            (path, chunk.replace("[REDACTED-EMAIL]", "ops.person@example.com"))
+            for path, chunk in redacted_chunks
+        ]
+        check(
+            hashlib.sha256(
+                "".join(chunk for _path, chunk in mutant_chunks).encode("utf-8")
+            ).hexdigest() == redacted_representation["reviewDiffSha256"],
+            "the mutant units are not the pre-fix canonical review bytes",
+        )
+        try:
+            producer.review_broker._review_units(
+                redacted_diff_text, mutant_chunks,
+                producer.review_broker.load_policy(),
+            )
+        except producer.review_broker.BrokerError as exc:
+            mutant_reason = exc.reason
+        else:
+            mutant_reason = ""
+        check(
+            mutant_reason == "hierarchical review unit coverage is invalid",
+            "raw-byte transparent review units are not refused by the broker",
+        )
+        redacted_packet = producer.freeze_packet(
+            root=redacted_repo, base_commit=redacted_base,
+            repository="hihol-labs/idea-to-deploy", pull_request=None,
+            expected_head_sha=None, scope_file=redacted_scope,
+            acceptance_file=redacted_acceptance,
+            machine_receipt=redacted_machine,
+        )
+        redacted_plan = (
+            redacted_packet["reviewRepresentation"]["reviewPlan"]
+        )
+        check(
+            redacted_packet["reviewRepresentation"]["reviewMode"]
+            == "hierarchical"
+            and 1 < redacted_plan["unitCount"] <= 16
+            and "ops.person@example.com" not in redacted_packet["diff"],
+            "a redactable line still refuses the transparent hierarchical "
+            "candidate",
+        )
+
         # A bound unit is cut by a byte budget at line boundaries alone, so the
         # paired records of one JSONL entry land in adjacent units.  The unit
         # checker then truthfully reports its own slice as ending mid-record;
