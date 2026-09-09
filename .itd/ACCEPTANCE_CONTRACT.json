@@ -3317,6 +3317,49 @@
       "status": "passed"
     },
     {
+      "id": "REL-1.104.0-1-version",
+      "criterion": "Команда критерия выходит 0, то есть строка 1.104.0 стоит во всех местах, которые команда перечисляет ПОИМЁННО и чьё число она же печатает: .claude-plugin/plugin.json, .codex-plugin/plugin.json, .claude-plugin/marketplace.json, docs/HARNESS_DOCS_STATE.json, бейджи README.md и README.ru.md, docs/HARNESS_CONFORMANCE_REPORT.md, docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json, VERSION в tests/verify_external_reviewer_release.py, заголовок ## [1.104.0] в CHANGELOG.md. Число мест в тексте критерия не зашивается: его печатает сама команда. Больше критерий не утверждает ничего - ни про тег, ни про публикацию, ни про раскатку.",
+      "source": "Релизный конвейер docs/RELEASE_RUNBOOK.md, пункты 1 и 4.",
+      "evidence": "Утверждение критерия ровно одно и проверяется его командой. Исполнено 2026-09-09 на дереве ветки chore/release-1.104.0 (база origin/main 22d6468): rc=0, вывод 'version consistent 1.104.0 10/10 places'. Наблюдения вне утверждения критерия: sh skills/_shared/itd_py.sh tests/meta_review.py даёт FINAL STATUS: PASSED, Critical (0) на том же дереве. Мутационного полотна у однострочных замен версии нет по природе правки: каждая замена выполнена с проверкой ровно одного вхождения старой строки в файле, иначе скрипт бампа падал.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.104.0';J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text();places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: v in T('.claude-plugin/marketplace.json')),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: ('Version-'+v) in T('README.md')),('README.ru.md',lambda: ('Version-'+v) in T('README.ru.md')),('conformance',lambda: ('v'+v) in T('docs/HARNESS_CONFORMANCE_REPORT.md')),('rc-contract',lambda: v in T('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json')),('release-oracle',lambda: bool(re.search(r'VERSION = \\\"'+v+r'\\\"',T('tests/verify_external_reviewer_release.py')))),('changelog',lambda: ('## ['+v+']') in T('CHANGELOG.md'))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)))\"",
+      "reviewEvidence": {
+        "claim": "Команда критерия сама перечисляет проверяемые места, сама считает их число и падает на любом расхождении; критерий не утверждает ничего сверх её выхода и не зашивает счётчик.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "harness-docs-freshness",
+          "external-reviewer-release",
+          "host-adapters",
+          "itd-runtime-install",
+          "git-gate-hooks",
+          "gate-control",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "REL-1.104.0-3-mirror",
+      "criterion": "Команда критерия выходит 0, то есть машинно установлено ровно две вещи: (1) быстрый профиль зеркала на дереве кандидата падает РОВНО на одном сьюте - verify_reviewer_provider_freshness - и ни на каком другом (последняя строка вывода дословно равна 'DONE fails: verify_reviewer_provider_freshness'); (2) этот же сьют красен и на чистом origin/main по его собственному правилу - в записи .itd/REVIEW_PROVIDER_FRESHNESS.json там checkedAt старше maxAgeDays. Иными словами кандидат не вносит ни одного нового красного и этот единственный не чинит. Больше критерий не утверждает ничего: ни про полный прогон зеркала, ни про какие-либо иные красные.",
+      "source": "Пол методологии: релиз не выпускается на красном зеркале.",
+      "evidence": "Утверждение критерия и есть выход его команды, проверено исполнением 2026-09-09 на дереве ветки chore/release-1.104.0: `bash tests/run-all.sh --quick` даёт rc=1 и последнюю строку 'DONE fails: verify_reviewer_provider_freshness' - ровно один сьют; `git show origin/main:.itd/REVIEW_PROVIDER_FRESHNESS.json` даёт checkedAt 2026-08-04 при maxAgeDays 30, возраст 36 дней, то есть оракул красен на базе до всякого кандидата. Как это попадает в exact-tree улику: изолированный машинный оракул не может гнать зеркало сам (копия дерева без git-чекаута, checkout-bound сьюты красные по построению), поэтому полный вывод зеркала, прогнанного на хосте на точном staged-дереве кандидата, и sidecar с этим деревом, кодом выхода, последней строкой и наблюдением свежести origin/main лежат в объявленном host input .itd-memory/host-inputs/REL-1.104.0/source-pub4/ (quick.log, quick.json, expected-tree.txt); машинная команда quick-mirror (quick_mirror_check.py в том же input) проверяет sha256 лога против sidecar, последнюю строку лога дословно, равенство дерева sidecar ожидаемому и арифметику свежести; квитанция хеш-привязывает input целиком, а её reviewedTree сверяется с expected-tree.txt. Найдено независимым ревьюером Sol (rel1, high): прежняя редакция мапила строку только на meta-review, который зеркало не доказывает. Второй заход того же ревьюера (pub1, high): улика лежала в .itd-memory/host-inputs/REL-1.104.0-source-rel2/, вне пути, который SCOPE_LOCK разрешает для host inputs; улика перенесена под разрешённый путь, скоуп не расширялся. Наблюдение вне утверждения критерия, перенесённое из RSI-ROUTE-P1: полное зеркало даёт два предсуществующих красных - verify_mandatory_keyless_review и verify_ledger_reconciliation - замеренных на чистом main в detached-worktree и отслеживаемых как отдельный дефект BACKLOG (P1 2026-09-09); в быстрый профиль они не входят.",
+      "verificationCommand": "bash tests/run-all.sh --quick | tail -1 | grep -qx 'DONE fails: verify_reviewer_provider_freshness' && sh skills/_shared/itd_py.sh -c \"import datetime as dt,json,subprocess,sys;raw=subprocess.run(['git','show','origin/main:.itd/REVIEW_PROVIDER_FRESHNESS.json'],capture_output=True,text=True,check=True).stdout;r=json.loads(raw);age=(dt.datetime.now(dt.timezone.utc).date()-dt.date.fromisoformat(r['checkedAt'])).days;sys.exit('freshness is NOT expired on origin/main: age=%d maxAgeDays=%d' % (age,r['maxAgeDays'])) if age<=r['maxAgeDays'] else None;print('pre-existing on origin/main: checkedAt',r['checkedAt'],'age',age,'>',r['maxAgeDays'])\"",
+      "reviewEvidence": {
+        "claim": "Быстрый профиль падает ровно на одном сьюте, и этот сьют красен на origin/main до кандидата - обе половины проверяет команда критерия.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "quick-mirror",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
       "id": "Q6-SETUP-1",
       "criterion": "Focused CMP setup behavior tests pass: exclusive real-time source-bound freeze, hash/context checks, actual ITD evidence reconciliation and prospective read-only scoring safeguards.",
       "source": "Approved Q6 setup contract; ADVISORY-RSI-2026-08-27-v4",
@@ -3542,17 +3585,16 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "RSI-ROUTE-P1",
+    "unitId": "REL-1.104.0",
     "status": "open",
-    "openedAt": "2026-09-08",
+    "openedAt": "2026-09-09",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "security",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,

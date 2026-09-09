@@ -2964,3 +2964,32 @@ is written to `.itd-memory/events.jsonl`. The override is a machine-local unbloc
 and `docs/completion-gate.md`, or make the review gate ignore the bypass-audit path, so the
 audit stays durable and the deadlock cannot recur. Until then a fresh clone of this repository
 behaves as before, deadlock included.
+
+## 2026-09-09 — the goal ledger is split in two after the last three units
+
+**Decision (owner, 2026-09-09).** Execute the remaining work in the order
+`REL-1.104.0` -> `RSI-DEBT-2` -> `RSI-DEBT-3`, one unit per session. Then, as its own unit,
+split the accounting into two goals: an internal-quality goal that closes immediately once
+those three are verified, and an external-validation goal that stays open until real
+independent operators exist.
+
+**Why.** `PE5-008` (external adoption/outcome evidence) and `PE5-009` (the six-axis
+aggregator that depends on it) cannot be closed by any code. The reporter counts `blocked` as
+an open status (`OPEN_STATUSES` in `skills/goal/scripts/itd_goal_report.py`), so after the
+last three units the goal would sit permanently at 45 of 47 verified with backpressure 2 and
+never reach a terminal state. A goal that can never finish stops being read, and the goal is
+the driver of the self-improvement loop. Splitting gives the internal work a real finish while
+keeping the external gate exactly as strict as it is now.
+
+**Rejected: delete the adoption axis.** `docs/PRACTICAL_EFFECTIVENESS_CONTRACT.json` is frozen
+with six ordered axes summing to weight 100, and its `changePolicy.mode` is
+`new-version-and-human-approval`. Removing the axis turns `verify_practical_effectiveness.py`
+red and makes the claim "5.0/5.0 across six axes" false. Adoption is also the only axis whose
+evidence comes from outside the methodology; without it the score would mean "I tested myself
+and I am satisfied", which is exactly the synthetic substitution the goal statement forbids.
+
+**Constraint carried into the split.** Thresholds move verbatim - at least 3 independent
+projects, 2 independent operators, 30 comparable units, 30 observation days, records fresher
+than 90 days and postdating the 2026-07-15 freeze, zero critical regressions, and the bans on
+the methodology repository, fixtures and author-affiliated self-report. The split changes the
+unit of accounting, never the bar. The old ledger stays as history; nothing is deleted.

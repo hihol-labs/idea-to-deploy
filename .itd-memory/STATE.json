@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "RSI-ROUTE-P1",
-    "goal": "In skills/_shared/itd_free_reviewer_producer.py the transparent review representation (taken when the staged candidate carries a declared .jsonl.gz transparent file) returns per-file chunks cut from the SAME scrubbed diff text it returns, so ''.join(chunks) == diff_text holds and itd_review_broker._review_units accepts the candidate whenever the diff contains a redactable line; the non-transparent path keeps its existing consistency; RED-first: on the pre-fix bytes a candidate with one .jsonl.gz file plus one redactable line is refused with 'hierarchical review unit coverage is invalid', on the candidate it is accepted; a mutation that cuts the chunks from the raw bytes again fails the oracle.",
-    "status": "verified",
-    "startedAt": "2026-09-08T19:18:58Z",
+    "id": "REL-1.104.0",
+    "goal": "Release 1.104.0 ships the RSI-DEBT-1 scrubber and the RSI-ROUTE-P1 producer fix: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails: verify_reviewer_provider_freshness', the version 1.104.0 stands in every place the command enumerates, the tag v1.104.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published, and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.104.0/INSTALLED.json (runtime 1.104.0 installed for Claude and Codex on both hosts, review authority re-pinned to the released producer and scrubber) accepted by tests/verify_route_debts.py --installed-proof.",
+    "status": "in_progress",
+    "startedAt": "2026-09-09T16:09:07Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-09T15:03:25Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",
