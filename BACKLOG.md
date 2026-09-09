@@ -1705,3 +1705,14 @@ candidate defect; together they cost most of a session.
    signal that no green run can displace (see 2), which is what triggered the deadlock in 1.
    Fix candidates: state the prohibition in the checker prompt template, and have the gate treat
    a signal whose command mutates tracked source as a diagnostic rather than a layer verdict.
+
+5. **`itd_unit_log.py activate` persists STATE and the event but not GOAL — same class as 3,
+   worse form** (measured 2026-09-09 while activating REL-1.104.0). `activate REL-1.104.0
+   --risk-tier high --ledger GOAL.json` appended the activation event and moved
+   `STATE.json.currentUnit` to the new unit, while `GOAL.json` kept `currentUnitId:
+   "RSI-ROUTE-P1"` and left the unit at `pending`. The state validator fired immediately:
+   `WIP=1 violated -- both STATE.currentUnit ('REL-1.104.0') and GOAL.json ('RSI-ROUTE-P1')
+   are active`. The task-level unit log has no business half-writing a Goal ledger: either it
+   updates `currentUnitId` and the unit status too, or it refuses a `--ledger GOAL.json`
+   activation and points at `skills/goal/scripts/itd_goal_verify.py <unit> --activate`, which
+   does the transition correctly. Recovered here by running the Goal activator afterwards.
