@@ -523,14 +523,14 @@
     },
     {
       "blockedReason": "",
-      "evidence": "",
+      "evidence": "exit 0: {\"checks\": 307, \"liveExternalCalls\": 0, \"paidApiCalls\": 0, \"status\": \"PASSED\"} and {\"checks\": 97, \"status\": \"PASSED\"}; PR #274 merged eb6d61c",
       "skippedReason": "",
-      "verifiedAt": "",
+      "verifiedAt": "2026-09-09T15:03:25Z",
       "id": "RSI-ROUTE-P1",
       "riskTier": "medium",
       "criterion": "In skills/_shared/itd_free_reviewer_producer.py the transparent review representation (taken when the staged candidate carries a declared .jsonl.gz transparent file) returns per-file chunks cut from the SAME scrubbed diff text it returns, so ''.join(chunks) == diff_text holds and itd_review_broker._review_units accepts the candidate whenever the diff contains a redactable line; the non-transparent path keeps its existing consistency; RED-first: on the pre-fix bytes a candidate with one .jsonl.gz file plus one redactable line is refused with 'hierarchical review unit coverage is invalid', on the candidate it is accepted; a mutation that cuts the chunks from the raw bytes again fails the oracle.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py && sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py",
-      "status": "in_progress"
+      "status": "verified"
     },
     {
       "blockedReason": "",
