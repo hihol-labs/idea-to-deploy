@@ -3491,9 +3491,9 @@
       "unitId": "RSI-ROUTE-P1",
       "criterion": "The transparent review representation returns per-file chunks whose concatenation equals the scrubbed diff text it returns, so a candidate carrying a declared .jsonl.gz file plus one redactable line is partitioned by _review_units instead of being refused",
       "source": ".itd-memory/contracts/RSI-ROUTE-P1.md; .itd/SCOPE_LOCK.md: _transparent_review_representation and its chunk builder only",
-      "evidence": "",
+      "evidence": "verify_free_reviewer_producer exit 0 (307 checks, 0 live and 0 paid calls) on the candidate; the sealed redacted-transparent fixture asserts \"\".join(chunks) == diff_text and the declared .jsonl.gz plus one redactable line is partitioned as hierarchical by freeze_packet instead of being refused.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
-      "status": "pending",
+      "status": "passed",
       "reviewEvidence": {
         "claim": "Transparent-path chunks are cut from the scrubbed text, never from the raw bytes",
         "impactClasses": [
@@ -3510,9 +3510,9 @@
       "unitId": "RSI-ROUTE-P1",
       "criterion": "RED-first on the pre-fix bytes (refused with 'hierarchical review unit coverage is invalid') and GREEN on the candidate for the same fixture; a mutation that cuts chunks from the raw bytes again is lethal; the non-transparent path and every scrubber pin stay unchanged",
       "source": ".itd-memory/contracts/RSI-ROUTE-P1.md",
-      "evidence": "",
+      "evidence": "RED observed live on the pre-fix bytes: the same sealed fixture is refused with 'hierarchical review unit coverage is invalid'; GREEN on the candidate. Removing the patch turns the oracle red with 'transparent review units are not cut from the reviewed text', so the raw-bytes mutation is lethal. verify_free_reviewer_producer exit 0 (307 checks) and verify_scrubber_precision exit 0 (97 checks, untouched).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py && sh skills/_shared/itd_py.sh tests/verify_scrubber_precision.py",
-      "status": "pending",
+      "status": "passed",
       "reviewEvidence": {
         "claim": "The fix is observed RED then GREEN and proved lethal by mutation without touching the scrubber",
         "impactClasses": [
