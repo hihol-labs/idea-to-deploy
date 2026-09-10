@@ -1801,3 +1801,41 @@ candidate must sit on a path Windows git trusts over UNC (registered in the Wind
 ownership") and outside this repository (otherwise `verify_host_neutral_memory` goes red); and
 the installed runtime accumulates `__pycache__` while the oracle replays through it, which the
 next `validate_runtime` reports as "installed runtime directory inventory drifted".
+
+## P1 2026-09-10 (accepted from retro 2026-09-10) - the installed runtime poisons its own inventory with bytecode
+
+**Source: retro 2026-09-10, proposal P4. Owner accepted into the backlog on 2026-09-10.**
+
+Signal, measured three times in one session on both hosts: the oracle replays through the
+installed runtime, Python writes `__pycache__` beside the modules it imports there, and the next
+`validate_runtime` reports `installed runtime directory inventory drifted: scripts/__pycache__`
+on WSL and `skills/_shared/__pycache__` plus `skills/review/scripts/__pycache__` on Windows.
+Every mint of the REL-1.104.0 installed-proof had to clear those directories by hand first; the
+runner `.itd-memory/verification-loop/REL-1.104.0-run-machine-close2.py` carries the workaround
+as a pre-flight step, which is exactly the sign it belongs in the product instead.
+
+Fix directions, either is enough: exclude the single name `__pycache__` from the runtime
+inventory in `scripts/itd_install_runtime.py`, or bind `sys.dont_write_bytecode` in the wrappers
+that `scripts/itd_install_cli.py` and `scripts/itd_install_git_hooks.py` render, so nothing is
+written into the runtime at all. RED-first either way: a mutation that puts a genuinely foreign
+file in the runtime must still be reported as drift. Effort S.
+
+## P1 2026-09-10 (accepted from retro 2026-09-10) - VCR counts an owner-route close as machine-verified
+
+**Source: retro 2026-09-10, proposal P2. Owner accepted into the backlog on 2026-09-10.**
+
+Signal, straight from the scan of 2026-09-10: `VCR глобально: 1.0 (12 verified из 12 жизненных
+циклов)`, while the event ledger holds eleven `verified` events with actor `harness` and one with
+actor `human-owner`. The owner-route close of REL-1.104.0 entered the numerator beside eleven
+machine-verified units, so the headline number cannot distinguish a machine proof from a human
+attestation - the one distinction this goal exists to measure.
+
+Fix: `skills/retro/scripts/itd_retro_scan.py` and `skills/_shared/itd_metrics.py` split the count
+into `verified(machine)` and `verified(owner-route)` by the event actor, and VCR is computed from
+the machine half alone; the owner-route half stays visible as its own line rather than being
+hidden or dropped. Effort S.
+
+Note on direction: this change lowers the reported number. That is deliberate - it is the
+anti-Goodhart case, a proposal that makes our own metric worse in order to make it true. The
+count of owner-route closes to date is four in the series (LPD-003-3, N7, N8, REL-1.104.0),
+which is the signal that made the blindness worth fixing rather than tolerating.
