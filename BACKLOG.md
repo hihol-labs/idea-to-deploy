@@ -1716,3 +1716,88 @@ candidate defect; together they cost most of a session.
    updates `currentUnitId` and the unit status too, or it refuses a `--ledger GOAL.json`
    activation and points at `skills/goal/scripts/itd_goal_verify.py <unit> --activate`, which
    does the transition correctly. Recovered here by running the Goal activator afterwards.
+
+## P2 2026-09-10 (route, observed on the REL-1.104.0 ledger-close) - five harness defects measured while closing the release unit
+
+None of these is a defect of the release candidate; all were measured on the merged head
+4d19a16 and its ledger-close branch, and each has a concrete reproduction.
+
+1. **A goal receipt cannot be assembled from per-suite machine runs.**
+   `receipt_binds_command` in `skills/goal/scripts/itd_goal_verify.py` accepts a receipt only if
+   one machine run's `command` equals the unit's `verificationCommand` byte for byte. Every one
+   of the thirty-odd `REL-1.104.0-machine-*` receipts of the release cycle splits the oracle into
+   per-suite `oracle=` runs, so none of them binds the goal claim, and the 2026-09-09 plan "goal
+   verifier with the goal1/pin2 receipt" would have been rejected for that reason as well as for
+   the candidate mismatch. Fix candidates: let the machine producer accept `--goal-unit <id>` and
+   copy the sealed command itself, or make `receipt_binds_command` accept a receipt whose runs
+   cover every `&&`-joined leg of the command in order. RED-first on both shapes.
+2. **The isolated oracle has no GitHub remote.** `isolated_candidate` clones the local checkout
+   with `git clone --shared`, so `origin` points at a filesystem path and `gh release view` inside
+   the oracle fails with "none of the git remotes configured for this repository point to a known
+   GitHub host". The 2026-09-10 machine receipt passed that leg only because `GH_REPO` was
+   exported around the producer, and the receipt records neither the variable nor its value: an
+   environment dependency invisible in the evidence. Fix: record the declared environment in the
+   run record (name and sha256 of the value), or have the oracle pass `--repo` explicitly.
+3. **The isolated mirror blocks a suite the host runs.** `bash tests/run-all.sh --quick` in the
+   isolated candidate ends with `DONE fails: verify_reviewer_provider_freshness blocked:
+   verify_independent_review_efficacy` because the host-owned keyring digest
+   `.itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256` is git-ignored and not copied.
+   The mirror's own BLOCKED message names the fix (`--input` that file), but the goal unit's
+   sealed criterion compares the last line exactly, so the machine leg of the receipt is red until
+   the input is declared. Fix: document the declared-input set of the quick mirror next to the
+   criterion template, or make the machine producer read a per-repository default input list.
+4. **`--installed-proof` reports the wrong reason on a dirty tree.** `assert_checkout_matches_
+   candidate` raises "working tree differs from the staged candidate" before `validate_common`
+   compares the candidate, so a stale canary on a dirty checkout reads as a hygiene problem. The
+   2026-09-10 session concluded "only the dirty tree" and the deeper mismatch (canaries bound to
+   563a5dd4, main on ea3dedc1 after #277) surfaced a session later. Fix: compare the recorded
+   candidate against HEAD's tree first and report both facts.
+5. **Session scratchpad drafts do not survive a restart.** The ledger-close drafts of 2026-09-09
+   (`scratchpad/ledger-close-drafts.md`) were written to the Claude Code session scratchpad,
+   which is per-session and evicted on restart; nothing of them survived, and the 2026-09-10
+   probe logs written there were lost mid-session the same way. Rule for the runbook: drafts and
+   logs that a later session needs live under `.itd-memory/` (git-ignored), never in the
+   scratchpad.
+
+Addendum to P2 2026-09-06 (Windows CLI wrapper in the OEM code page): the 1.104.0 Windows
+canary records only with the long interpreter path and a UTF-8 console (`chcp 65001`); the
+condition is recorded in `.itd/DECISIONS.md` 2026-09-10 and stays a precondition of every
+Windows rollout proof until this item ships.
+
+## P1 2026-09-10 (route, blocks any goal claim whose oracle runs the quick mirror) - `verify_review_broker` fails only inside an isolated staged-tree candidate
+
+Measured on the REL-1.104.0 ledger-close candidate (branch `chore/ledger-close-1.104.0`, HEAD
+`0a1673a`, staged tree `c8027f0f` - the candidate as it stood before this very entry was staged;
+the unit's own closing evidence names the later tree `dee8abbf`, which is the same candidate plus
+the ledger-close package), five runs across four configurations:
+
+| where | how | last line |
+| --- | --- | --- |
+| host checkout | `bash tests/run-all.sh --quick` | `DONE fails: verify_reviewer_provider_freshness` |
+| isolated candidate | same mirror | `DONE fails: verify_reviewer_provider_freshness verify_review_broker` |
+| isolated candidate | `verify_review_broker.py` alone | `{"checks": 741, "status": "PASSED"}` (twice) |
+| host checkout | `verify_review_broker.py` alone | `{"checks": 741, "status": "PASSED"}` |
+
+The failing assertion is `free receipt reaches broker success:
+{'receiptId': None, 'receipt': None, 'status': 'UNVERIFIED', 'conclusion': 'action_required',
+'checkRunId': 101}` at `tests/verify_review_broker.py:2816` (`free_review_phase`). So the suite
+depends on something the isolated candidate lacks *and* that only matters when the mirror has
+already run the preceding suites in the same working tree; standalone it is green there.
+
+Ruled out by measurement: the git-ignored host-owned `.itd/` files (copying all six changes
+nothing), `TMPDIR` location (a TMPDIR inside the repository turns `verify_host_neutral_memory`
+red, but the broker stays red with `TMPDIR=/tmp` too), and the installed runtime drift
+(restored to released bytes before these runs).
+
+Effect: `sh skills/_shared/itd_verification_loop.py machine` cannot mint a PASSED receipt for
+any claim whose oracle contains the quick mirror, because the machine producer always executes
+in `isolated-staged-tree` mode. REL-1.104.0 is blocked on exactly this. Fix direction: find the
+mirror-order dependency in `free_review_phase` and either declare its input or make the phase
+self-contained; RED-first with the mirror run inside an isolated candidate.
+
+Two environment facts measured alongside, worth keeping next to the runbook: the isolated
+candidate must sit on a path Windows git trusts over UNC (registered in the Windows global
+`safe.directory`, otherwise the Windows half of `--installed-proof` dies on "detected dubious
+ownership") and outside this repository (otherwise `verify_host_neutral_memory` goes red); and
+the installed runtime accumulates `__pycache__` while the oracle replays through it, which the
+next `validate_runtime` reports as "installed runtime directory inventory drifted".

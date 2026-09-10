@@ -2993,3 +2993,99 @@ projects, 2 independent operators, 30 comparable units, 30 observation days, rec
 than 90 days and postdating the 2026-07-15 freeze, zero critical regressions, and the bans on
 the methodology repository, fixtures and author-affiliated self-report. The split changes the
 unit of accounting, never the bar. The old ledger stays as history; nothing is deleted.
+
+## 2026-09-10 — the Windows rollout proof of 1.104.0 is conditional on a UTF-8 console
+
+**Decision.** The native Windows deployment canary of REL-1.104.0 is accepted as recorded,
+and the two environment conditions under which it records are written down as part of the
+evidence instead of being left implicit: the interpreter path in its long form
+(`C:\Users\Дмитрий\AppData\Local\Programs\Python\Python312\python.exe` - the installer
+expands an 8.3 path back to the long form when it binds `sys.executable` into `itd.cmd`)
+and a UTF-8 console (`chcp 65001`) for the shell that executes the wrapper.
+
+**Why.** `scripts/itd_install_cli.py` renders `itd.cmd` as UTF-8, and cmd.exe in the OEM
+code page (866) cannot open a wrapper whose path contains Cyrillic characters. The four
+recording attempts of 2026-09-09 measured the space: a1 (long path, OEM console) and a2
+(short path, OEM console) failed with "system cannot find the path"; a3 (short path, UTF-8
+console) failed with "active wrapper bytes differ" because the wrapper was built from the long
+path while the canary presented the short one; only a4 (long path, UTF-8 console) recorded.
+`tests/verify_itd_runtime_install.py` has carried this check since 2026-08-21 (#224), so the
+1.103.1 rollout of 2026-09-07 must also have run in a UTF-8 console; that was not written down
+then, which is exactly why it is written down now.
+
+**Consequence.** Until BACKLOG P2 2026-09-06 (wrapper encoding) ships in its own unit, every
+Windows rollout proof carries this precondition, and a canary that fails from an OEM console is
+an environment mismatch, not a regression of the release. The condition is not a code change
+and stays outside the SCOPE_LOCK of REL-1.104.0.
+
+**Rejected: patch the wrapper inside the release.** The release unit forbids behavioural code
+changes, and the wrapper fix needs a native RED-first regression of its own; it belongs to a
+separately scoped unit.
+
+## 2026-09-10 — the installed-proof of a release is re-recorded on the ledger-close candidate
+
+**Decision.** When a follow-up commit lands on `main` between the release merge and the
+ledger-close (here PR #277 over the release merge df95089), the native canaries are re-recorded
+on the ledger-close candidate itself - the staged tree over the branch commit that carries the
+ledger-close - and the goal verifier runs on that exact candidate before the ledger-close
+commit is made. The oracle is not rewritten and the stale receipts are not edited.
+
+**Why.** `tests/verify_route_debts.py --installed-proof` validates each host canary against the
+exact current candidate (`validate_native_canary` -> `validate_common`: base commit, reviewed
+tree, diff hash, contract hashes). The 1.104.0 canaries were recorded on tree 563a5dd4; after
+#277 `main` stands on ea3dedc1, so the unit's verificationCommand cannot exit 0 on any checkout
+of `main` regardless of a clean or dirty tree. The 2026-09-10 diagnosis "only the dirty tree"
+was incomplete: the dirty-tree probe runs first and hid the candidate mismatch behind it.
+
+**Precedent.** ROUTE-DEBTS closed the same way (#269): canaries Linux-a3/Windows-a3 on the
+staged ledger-close candidate 892c0254 over the release merge 36f8a37, verifier on that tree,
+then the ledger-close commit. The post-verification commit changes the tree again by
+construction (the verifier writes GOAL.json and events.jsonl); a later `--recheck` of such a
+unit is expected to report the candidate mismatch, and that is a property of exact-candidate
+binding, not a regression.
+
+**Rejected: run the verifier on a checkout of df95089.** The tree would match the canaries,
+but `GOAL.json` at df95089 still carries the pre-#277 oracle form that #277 replaced because
+mutants passed it; evidence recorded with the weaker oracle would contradict the sealed oracle
+on `main`.
+
+## 2026-09-10 — REL-1.104.0 closes through the owner route, and the isolation defect becomes the next unit
+
+**Decision (owner, 2026-09-10).** Close `REL-1.104.0` through the owner route now, recording
+honestly that no independent-reviewer receipt was obtained, and open `BROKER-ISOLATION` as the
+next unit, ahead of `RSI-DEBT-2`.
+
+**What the owner route waives here, precisely.** Only the adjudicated receipt. The unit's own
+sealed `verificationCommand` is still executed by the harness on the host checkout, and every
+leg of it is green: `meta_review` clean, the quick mirror's last line exactly
+`DONE fails: verify_reviewer_provider_freshness`, the version consistent in all ten enumerated
+places, the tag on the first `origin/main` first-parent commit carrying it, the GitHub release
+published, both installs synced, runtime `1.104.0-16dcdb41c6518106` present on WSL and Windows,
+and `--installed-proof` accepting the re-recorded canaries. What could not be produced is the
+machine receipt, because the producer executes the oracle in `isolated-staged-tree` mode and
+`verify_review_broker` fails there - see BACKLOG P1 2026-09-10, six producer attempts.
+
+**Why now and not after the fix.** Fixing the broker suite edits `tests/`, which changes the
+candidate tree, and every tree change invalidates the native canaries by construction - the
+cost measured twice today. Closing the bookkeeping first and fixing on a fresh branch avoids
+paying the canary cycle again. The ledger also stops diverging from a release that is already
+published and rolled out.
+
+**Why the fix goes next and not later.** The producer always runs the oracle in isolation, so
+every future unit whose oracle contains the quick mirror hits the same wall. Left in the
+backlog it turns the owner route from an exception into the norm, which erodes exactly the axis
+this goal measures. This is the fourth owner-route close in the series (LPD-003-3, N7, N8, and
+now this one); the count belongs in the next retro as a signal, not as a habit.
+
+**Recorded honestly in the ledger.** The `verified` transition for this unit carries actor
+`human-owner`, not `harness`, and its evidence names the host run plus the blocking backlog
+item. A reader can tell owner-route closes from machine-verified ones by the actor field alone.
+
+**Two bookkeeping details of this close, stated so they are not read as drift.** The three
+`completion_bypass` rows carried into `.itd-memory/events.jsonl` in this package are the audit
+rows of session `b5362194` that the 2026-09-09 machine-local override wrote to
+`.claude/completion/bypass-audit.jsonl` instead of the tracked ledger; carrying them here is the
+explicit ledger-close step that entry promised, not new bypasses. They are carried byte for byte, epoch timestamps and all, rather than reformatted to the ISO-8601 shape the rest of the ledger uses: an audit row is evidence, and rewriting its fields to look tidier would change it. And the tree named in the
+unit's evidence (`dee8abbf`) is the tree that was actually verified, while the committed tree
+differs by the `verified` writes themselves - the same by-construction property recorded in the
+installed-proof decision above.
