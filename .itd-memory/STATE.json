@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "REL-1.104.0",
     "goal": "Release 1.104.0 ships the RSI-DEBT-1 scrubber and the RSI-ROUTE-P1 producer fix: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails: verify_reviewer_provider_freshness', the version 1.104.0 stands in every place the command enumerates, the tag v1.104.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published, and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.104.0/INSTALLED.json (runtime 1.104.0 installed for Claude and Codex on both hosts, review authority re-pinned to the released producer and scrubber) accepted by tests/verify_route_debts.py --installed-proof.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-09T16:09:07Z",
     "ledger": "GOAL.json",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-09-10T17:04:16Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Implement and verify ROUTE-DEBTS; preserve Q6 campaign and record prompt-context staleness; no later unit activation.",
+  "nextAction": "Activate BROKER-ISOLATION: make verify_review_broker pass inside an isolated staged-tree candidate under the quick mirror, RED-first, before RSI-DEBT-2.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
