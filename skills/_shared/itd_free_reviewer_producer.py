@@ -215,6 +215,18 @@ def _check_unit_paths_against_headers(
 MAX_UNIT_SUMMARY_BYTES = 4 * 1024
 MAX_EXECUTABLE_BYTES = 384 * 1024 * 1024
 MAX_LIVE_AGE_SECONDS = 300
+# Разные шаги двухфазной квитанции читают СТЕННЫЕ часы (`datetime.now`), и
+# порядок отметок — не свойство протокола, а свойство хоста: на WSL2 системные
+# часы шагают НАЗАД при ресинке с Windows (замер 2026-09-10: два шага, -2.5 c и
+# -5.4 c, за 45 секунд). Нулевой допуск на порядок делал верный маршрут
+# случайно красным (~8% прогонов `tests/verify_review_broker.py`), а в проде
+# фазы вообще минтятся разными процессами и хостами, где расхождение часов
+# ожидаемо. Значение взято не с потолка: та же политика брокера уже выдаёт
+# ровно 60 секунд допуска на часы в `github.appAuthentication.jwtClockSkewSeconds`
+# (а на provenance — 300). 60 c на порядок больше наблюдаемого шага и впятеро
+# меньше окна свежести, поэтому суммарная валидность остаётся ограниченной:
+# MAX_LIVE_AGE_SECONDS + MAX_CLOCK_SKEW_SECONDS.
+MAX_CLOCK_SKEW_SECONDS = 60
 PRODUCER_ID = "itd-free-reviewer-producer-v1"
 MANDATORY_REVIEW_ROUTE = (
     "openai-subscription",
@@ -4601,7 +4613,11 @@ def _phase_two_receipt(
     live_row = _live(live, verified["target"], verified["candidate"])
     issued = issued_at or now_iso()
     issued_time = parse_time(issued, "phase-two issuedAt")
-    if issued_time < parse_time(live_row["observedAt"], "live observedAt"):
+    observed_time = parse_time(live_row["observedAt"], "live observedAt")
+    # Наблюдение приходит от брокера, а эта отметка ставится здесь: между ними
+    # часы хоста успевают шагнуть назад, и нулевой допуск отказывал верной
+    # квитанции на этапе минта. Допуск тот же объявленный и ограниченный.
+    if (observed_time - issued_time).total_seconds() > MAX_CLOCK_SKEW_SECONDS:
         raise FreeReviewError("UNVERIFIED", "phase two predates live observation")
     signed = {
         "version": 1,
@@ -4660,7 +4676,7 @@ def github_app_phase_two_receipt(
     observed_time = parse_time(observed, "live observedAt")
     phase_one_time = parse_time(verified["issuedAt"], "phase-one issuedAt")
     if (
-        observed_time < phase_one_time
+        (phase_one_time - observed_time).total_seconds() > MAX_CLOCK_SKEW_SECONDS
         or (observed_time - phase_one_time).total_seconds() > MAX_LIVE_AGE_SECONDS
     ):
         raise FreeReviewError("UNVERIFIED", "phase one is stale for live binding")
@@ -4782,7 +4798,9 @@ def verify_two_phase(
     current = now or dt.datetime.now(dt.timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=dt.timezone.utc)
-    if issued < observed or current < observed or (
+    if (observed - issued).total_seconds() > MAX_CLOCK_SKEW_SECONDS or (
+        observed - current
+    ).total_seconds() > MAX_CLOCK_SKEW_SECONDS or (
         current - observed
     ).total_seconds() > MAX_LIVE_AGE_SECONDS:
         raise FreeReviewError("UNVERIFIED", "live observation is stale or chronological invalid")

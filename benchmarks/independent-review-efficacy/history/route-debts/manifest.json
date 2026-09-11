@@ -245,6 +245,60 @@
       "sourceGitBlobSha1": null,
       "classification": "diagnostic",
       "sizeBytes": 10731
+    },
+    {
+      "path": "diagnostic-ec40a183/wsl.json",
+      "sha256": "2013428a7d098fba3551807a948e7a8b4441dfea0e5b201021e9c8f1dd83be4a",
+      "sourceProducerSha256": "ec40a1839e8f9dce72a578a90b65932d7ddfdf4664a3013a075913bed60a66bd",
+      "observedAt": "2026-09-10T20:55:26Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 11314
+    },
+    {
+      "path": "diagnostic-ec40a183/windows.json",
+      "sha256": "08fb0c40be8659e5eba0dae60b76f6395c439ac7a25c94b0ce5e9c533b6cc8f6",
+      "sourceProducerSha256": "ec40a1839e8f9dce72a578a90b65932d7ddfdf4664a3013a075913bed60a66bd",
+      "observedAt": "2026-09-10T21:01:28Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 9614
+    },
+    {
+      "path": "diagnostic-ec40a183/u12-cross-vendor-wsl.json",
+      "sha256": "6e72a38eae1f1bbd1b24dd1f8dbeeba33da4a5377bdd17b1c68f9e275b31aa7f",
+      "sourceProducerSha256": "ec40a1839e8f9dce72a578a90b65932d7ddfdf4664a3013a075913bed60a66bd",
+      "observedAt": "2026-09-10T20:57:40Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10597
+    },
+    {
+      "path": "diagnostic-7a7ef0d9/wsl.json",
+      "sha256": "be7dbee594e3f976857db0f8ed4c520a7b47f0c74157eb3142499184f47d4b6a",
+      "sourceProducerSha256": "7a7ef0d9f3479af867bc9272b1864585bebb9c2774a28ae8e10c426c515ae3cc",
+      "observedAt": "2026-09-11T09:29:32Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10835
+    },
+    {
+      "path": "diagnostic-7a7ef0d9/windows.json",
+      "sha256": "1feb2fec8e73b7c0a118bef61403729456685a77fa133c0c973cb2a8754a9acf",
+      "sourceProducerSha256": "7a7ef0d9f3479af867bc9272b1864585bebb9c2774a28ae8e10c426c515ae3cc",
+      "observedAt": "2026-09-11T09:36:02Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10874
+    },
+    {
+      "path": "diagnostic-7a7ef0d9/u12-cross-vendor-wsl.json",
+      "sha256": "4c6dea93d8eb8733f1e9fd60295f613a2b330fddf689fdd3e44fe77945043852",
+      "sourceProducerSha256": "7a7ef0d9f3479af867bc9272b1864585bebb9c2774a28ae8e10c426c515ae3cc",
+      "observedAt": "2026-09-11T09:32:08Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10651
     }
   ]
 }

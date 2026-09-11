@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
+import datetime as dt
 import gzip
 import importlib.util
 import json
@@ -2916,6 +2917,173 @@ def free_review_phase() -> None:
         "PR mutation after phase two reached a stale success publication",
     )
     race_store.close()
+
+    # Обе фазы читают СТЕННЫЕ часы, и на WSL2 они шагают НАЗАД при ресинке с
+    # Windows (замер 2026-09-10: шаги -2.5 c и -5.4 c за 45 секунд). Пока
+    # порядок отметок требовался строго, верный маршрут падал случайно
+    # (~8% прогонов этого сьюта) с «phase one is stale for live binding» —
+    # красный без дефекта кандидата. Допуск объявлен и ограничен
+    # free.MAX_CLOCK_SKEW_SECONDS; проверки ниже детерминированы, потому что
+    # шаг часов подставляется, а не ожидается.
+    issued_at = free.parse_time(
+        phase_one["signed"]["issuedAt"], "phase-one issuedAt"
+    )
+
+    def iso_at(moment: dt.datetime) -> str:
+        return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    def bind_with_clock_at(
+        moment: dt.datetime, issue_moment: dt.datetime | None = None
+    ) -> dict[str, Any]:
+        """Bind with the live observation stamped at `moment`.
+
+        `issue_moment` additionally substitutes the clock the producer uses for
+        the phase-two stamp. Without it that stamp comes from the real wall
+        clock, so the distance between observation and stamp would depend on how
+        long the run takes - which is exactly the nondeterminism this unit
+        removes, and it must not be reintroduced by the regression itself.
+        """
+        skew_store, _ = running_store()
+        skew_runtime = broker.ReviewBroker(
+            broker.load_policy(), skew_store, FakeGitHub(), FakeAuth(), None
+        )
+        real_now_iso = broker.now_iso
+        real_free_now_iso = free.now_iso
+        broker.now_iso = lambda: iso_at(moment)
+        if issue_moment is not None:
+            free.now_iso = lambda: iso_at(issue_moment)
+        try:
+            return skew_runtime.bind_free_review(
+                coordinates(), phase_one=phase_one,
+                producer_keys=producer_keyring,
+                app_key_id="app-receipt-key", app_private_key=app_private,
+            )
+        finally:
+            broker.now_iso = real_now_iso
+            free.now_iso = real_free_now_iso
+            skew_store.close()
+
+    tolerated = bind_with_clock_at(issued_at - dt.timedelta(seconds=5))
+    check(
+        tolerated["status"] == "PASSED",
+        "a backward host clock step inside the declared skew broke a valid "
+        f"binding: {tolerated}",
+    )
+    beyond = bind_with_clock_at(
+        issued_at - dt.timedelta(seconds=free.MAX_CLOCK_SKEW_SECONDS + 5)
+    )
+    check(
+        beyond["status"] == "UNVERIFIED",
+        "a live observation minted beyond the declared skew was accepted: "
+        f"{beyond}",
+    )
+    # Отметка выпуска ставится вместе с наблюдением, иначе первым сработал бы
+    # mint-guard порядка, и окно свежести осталось бы непроверенным.
+    stale_moment = issued_at + dt.timedelta(seconds=free.MAX_LIVE_AGE_SECONDS + 5)
+    aged = bind_with_clock_at(stale_moment, issue_moment=stale_moment)
+    check(
+        aged["status"] == "UNVERIFIED",
+        f"the freshness window itself stopped rejecting a stale phase one: {aged}",
+    )
+
+    verify_keys = {
+        "producer_keys": {"producer-key": free.b64url(producer_public)},
+        "app_keys": {"app-receipt-key": free.b64url(app_public)},
+    }
+    # Отдельная граница: отметка ВЫПУСКА фазы два против живого наблюдения.
+    # Её минтит продюсер своими часами, а наблюдение приходит от брокера, то
+    # есть расходиться они могут независимо от часов верификатора. Без этих
+    # двух проверок сравнение `(observed - issued)` можно было бы удалить, и
+    # ни один тест не покраснел бы (находка независимого ревьюера).
+    issue_base = issued_at + dt.timedelta(seconds=1)
+    ahead = bind_with_clock_at(
+        issue_base + dt.timedelta(seconds=5), issue_moment=issue_base
+    )
+    check(
+        ahead["status"] == "PASSED",
+        f"observation ahead of the phase-two stamp within the skew was refused: {ahead}",
+    )
+    ahead_observed = free.parse_time(
+        ahead["receipt"]["signed"]["live"]["observedAt"], "live observedAt"
+    )
+    tolerated_issue = free.verify_two_phase(
+        ahead["receipt"], now=ahead_observed, **verify_keys
+    )
+    check(
+        tolerated_issue["status"] == "PASSED",
+        "an issue stamp inside the declared skew rejected a valid receipt",
+    )
+    beyond_binding = bind_with_clock_at(
+        issue_base + dt.timedelta(seconds=free.MAX_CLOCK_SKEW_SECONDS + 5),
+        issue_moment=issue_base,
+    )
+    check(
+        beyond_binding["status"] == "UNVERIFIED",
+        "minting accepted an observation beyond the declared skew ahead of its "
+        f"own phase-two stamp: {beyond_binding}",
+    )
+    # Минт закрывает только честный путь. Проверка на стороне верификатора
+    # держит ту же границу для квитанции, пришедшей извне: пересобираем живую
+    # отметку за границей допуска и переподписываем App-ключом.
+    tampered_signed = copy.deepcopy(ahead["receipt"]["signed"])
+    tampered_signed["live"]["observedAt"] = iso_at(
+        free.parse_time(tampered_signed["issuedAt"], "phase-two issuedAt")
+        + dt.timedelta(seconds=free.MAX_CLOCK_SKEW_SECONDS + 5)
+    )
+    tampered = {
+        "signed": tampered_signed,
+        "signature": free.b64url(
+            app_key.sign(free.canonical_bytes(tampered_signed))
+        ),
+    }
+    try:
+        free.verify_two_phase(
+            tampered,
+            now=free.parse_time(
+                tampered_signed["live"]["observedAt"], "live observedAt"
+            ),
+            **verify_keys,
+        )
+    except free.FreeReviewError as exc:
+        if exc.status != "UNVERIFIED":
+            raise AssertionError(
+                "issue stamp beyond the declared skew: expected UNVERIFIED, "
+                f"got {exc.status}"
+            ) from exc
+    else:
+        raise AssertionError(
+            "a re-signed receipt whose observation sits beyond the declared "
+            "skew after its phase-two stamp was accepted"
+        )
+    observed_at = free.parse_time(
+        result["receipt"]["signed"]["live"]["observedAt"], "live observedAt"
+    )
+    late = free.verify_two_phase(
+        result["receipt"], now=observed_at - dt.timedelta(seconds=5),
+        **verify_keys,
+    )
+    check(
+        late["status"] == "PASSED",
+        "a verifier clock inside the declared skew rejected a valid receipt",
+    )
+    try:
+        free.verify_two_phase(
+            result["receipt"],
+            now=observed_at - dt.timedelta(
+                seconds=free.MAX_CLOCK_SKEW_SECONDS + 5
+            ),
+            **verify_keys,
+        )
+    except free.FreeReviewError as exc:
+        if exc.status != "UNVERIFIED":
+            raise AssertionError(
+                "verifier clock beyond the declared skew: expected UNVERIFIED, "
+                f"got {exc.status}"
+            ) from exc
+    else:
+        raise AssertionError(
+            "a verifier clock beyond the declared skew accepted the receipt"
+        )
 
 
 def main() -> int:

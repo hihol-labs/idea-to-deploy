@@ -3,7 +3,7 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-10T17:04:16Z",
+  "updatedAt": "2026-09-11T13:11:32Z",
   "currentUnitId": "",
   "units": [
     {
@@ -548,11 +548,19 @@
       "criterion": "tests/verify_review_broker.py passes inside an isolated staged-tree candidate under the quick mirror, not only standalone and not only on the host checkout: a new oracle runs bash tests/run-all.sh --quick inside a materialised isolated candidate and asserts its last line is exactly the sealed line, and the mirror-order dependency of free_review_phase is either declared as an input or removed. RED-first: the pre-fix bytes make the new oracle red on the same candidate.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py && sh skills/_shared/itd_py.sh tests/verify_isolated_candidate_mirror.py",
       "riskTier": "medium",
-      "status": "pending",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-11T13:11:32Z",
+      "evidence": "exit 0: {\"candidate\": \"/home/hihol/.cache/itd-isolated-tmp/verify-isolated-candidate-mirror-623903\", \"lastLine\": \"DONE fails: verify_reviewer_provider_freshness\", \"status\": \"PASSED\", \"tree\": \"e6a0c47a",
       "blockedReason": "",
-      "skippedReason": ""
+      "skippedReason": "",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/BROKER-ISOLATION/adjudication-a3.json",
+        "sha256": "fb40a9e881e75a154f85e353ed10abe256f25390d7a7906c6e88085f4a60eeee",
+        "receiptSha256": "27ec0fac99d627c93ae8607e00bed83af1df50c5c9b8904e06b6532d3d3d469d",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/BROKER-ISOLATION/machine-a11.json",
+        "machineSha256": "c8737b70ca4a001be2715cab8c82b55d5c03dbaa5bb52fb62b803e9933e8061f"
+      }
     },
     {
       "id": "RSI-DEBT-2",
