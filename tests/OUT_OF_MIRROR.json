@@ -77,6 +77,13 @@
       "class": "mirror-runner",
       "why": "Aggregate runs the focused suites already covered by the mirror; host metadata mode invokes mirror drift validation and installed mode requires real per-host evidence.",
       "reproduce": "python3 -I -B tests/verify_route_debts.py"
+    },
+    {
+      "suite": "tests/verify_isolated_candidate_mirror.py",
+      "class": "mirror-runner",
+      "why": "Сам исполняет tests/run-all.sh --quick внутри изолированного staged-tree кандидата; включение в зеркало дало бы зеркало внутри зеркала.",
+      "reproduce": "python3 -I tests/verify_isolated_candidate_mirror.py",
+      "precondition": "Кандидат материализуется вне репозитория (по умолчанию ~/.cache/itd-isolated-tmp): внутри .itd-memory/ краснеет verify_host_neutral_memory."
     }
   ],
   "note": "verify_snapshot в реестр НЕ входит: зеркало исполняет его хвостовой проверкой run_tail snapshot ... --all. Это поймал сам оракул при первом прогоне — прежний счёт «26 внезеркальных» брал только списки CORE/FULL и не видел run_tail; строгий счёт на entry-дереве 5731c77 даёт 25."

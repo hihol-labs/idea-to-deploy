@@ -1281,6 +1281,7 @@
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_demo_pilots.py",
+      "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_operating_loops_release.py",
@@ -1509,6 +1510,7 @@
       "tests/verify_route_debts.py"
     ],
     "tests/OUT_OF_MIRROR.json": [
+      "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_runall_drift.py"
     ],
     "tests/build_impact_graph.py": [
@@ -1750,6 +1752,7 @@
       "tests/verify_completion_signal_classes.py",
       "tests/verify_cost_gate.py",
       "tests/verify_external_reviewer_release.py",
+      "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_continuation.py",
@@ -1870,6 +1873,9 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_route_debts.py"
     ],
+    "tests/verify_host_neutral_memory.py": [
+      "tests/verify_isolated_candidate_mirror.py"
+    ],
     "tests/verify_incremental_diagnostics.py": [
       "tests/verify_operating_loops_release.py"
     ],
@@ -1933,6 +1939,12 @@
     "tests/verify_review_autoping.py": [
       "tests/verify_refute_fleet.py"
     ],
+    "tests/verify_review_broker.py": [
+      "tests/verify_isolated_candidate_mirror.py"
+    ],
+    "tests/verify_review_broker_policy.py": [
+      "tests/verify_isolated_candidate_mirror.py"
+    ],
     "tests/verify_review_cache.py": [
       "tests/verify_operating_loops_release.py",
       "tests/verify_route_debts.py",
@@ -1943,6 +1955,9 @@
     ],
     "tests/verify_review_sentinel_diffbind.py": [
       "tests/verify_harness_map_fixtures.py"
+    ],
+    "tests/verify_reviewer_provider_freshness.py": [
+      "tests/verify_isolated_candidate_mirror.py"
     ],
     "tests/verify_risk_score.py": [
       "tests/verify_route_debts.py"

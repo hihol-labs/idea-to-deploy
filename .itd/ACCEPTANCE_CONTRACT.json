@@ -3567,6 +3567,63 @@
           "scrubber-precision"
         ]
       }
+    },
+    {
+      "id": "BROKER-ISOLATION-1",
+      "unitId": "BROKER-ISOLATION",
+      "criterion": "The free two-phase receipt survives a bounded backward step of the host wall clock at every chronology check it owns: phase one against the live observation, the phase-two stamp against that observation at mint time, and both the issue stamp and the verifier clock at verification. An observation inside MAX_CLOCK_SKEW_SECONDS still binds, one beyond it is UNVERIFIED, and the freshness window itself still rejects a stale phase one.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Measured on the host: datetime.now(utc) stepped backwards twice in 45 seconds (-2.478 s, -5.366 s), and the strict ordering made tests/verify_review_broker.py red in roughly 8% of runs (1 of 12 standalone runs, 1 of 26 and 1 of 47 in-process iterations) with 'phase one is stale for live binding'. Four sites carried the same zero-tolerance assumption; the fourth ('phase two predates live observation') was found by the added regressions, not by reading. RED-first: with the pre-fix producer bytes and the new checks in place, two consecutive runs fail on 'a backward host clock step inside the declared skew broke a valid binding'. GREEN after the fix: 835 checks PASSED, up from 741. Every step is substituted, not awaited, so the regressions are deterministic.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_broker.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The clock-skew tolerance is bounded, declared, and its boundary is proved in both directions",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "broker-regressions"
+        ]
+      }
+    },
+    {
+      "id": "BROKER-ISOLATION-2",
+      "unitId": "BROKER-ISOLATION",
+      "criterion": "The quick mirror is verified inside a materialised isolated staged-tree candidate outside the repository, and its last line equals the sealed line byte for byte. The oracle refuses to be vacuous: it fails closed when verify_review_broker leaves the mirror, when it is itself added to the mirror, or when the candidate would be materialised inside the repository.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Observed on this unit's candidate through its bound machine receipt under .itd-memory/verification-loop/BROKER-ISOLATION/: the oracle reports PASSED with lastLine 'DONE fails: verify_reviewer_provider_freshness' from a candidate materialised under ~/.cache/itd-isolated-tmp. The exact tree is the one named by that receipt rather than repeated here, because a tree hash written into this row goes stale the moment the candidate is restaged and would then present a different tree as the proof. Contrast before the fix: on the same package the oracle reported the mirror line 'DONE fails: verify_verification_profiles verify_reviewer_provider_freshness verify_independent_review_efficacy'. Declared mirror-runner in tests/OUT_OF_MIRROR.json; verify_runall_drift 121 passed, 0 failed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_isolated_candidate_mirror.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The isolated-candidate mirror is measured, not assumed, and the oracle cannot pass vacuously",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "isolated-candidate-mirror"
+        ]
+      }
+    },
+    {
+      "id": "BROKER-ISOLATION-3",
+      "unitId": "BROKER-ISOLATION",
+      "criterion": "The efficacy legs are re-minted live against the FINAL producer bytes rather than left invalid: all three current results are archived as diagnostics of the producer sha256 the candidate ships, and the suite passes on the host pin. Every superseded re-mint stays in the immutable history as its own diagnostic folder rather than being rewritten.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "The producer was edited twice in this unit, so the pin was invalidated twice and the legs were re-minted twice, live. First series at producerSha256 ec40a183 (2026-09-10T20:55:26Z wsl, 20:57:40Z u12-cross-vendor-wsl with maker claude-opus-5, 21:01:28Z native windows), archived as diagnostic-ec40a183. FINAL series at producerSha256 7a7ef0d9 - the bytes this candidate ships - on 2026-09-11 (09:29:32Z wsl, 09:32:08Z u12-cross-vendor-wsl, 09:36:02Z native windows), archived as diagnostic-7a7ef0d9 and pinned as the current results. All six runs PASSED with cleanFalseBlockRate 0.0, criticalHighDetection 1.0 and hostParityVerified true; tests/verify_independent_review_efficacy.py is green on the host pin against 7a7ef0d9.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_independent_review_efficacy.py --expected-keyring-sha256-file .itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Changing the producer invalidates the efficacy pin by construction, and the legs were re-earned live instead of being weakened",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "independent-review-efficacy"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3585,14 +3642,14 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.104.0",
-    "status": "closed",
-    "openedAt": "2026-09-09",
+    "unitId": "BROKER-ISOLATION",
+    "status": "open",
+    "openedAt": "2026-09-11",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd/SCOPE_LOCK.md",
+    "rootCause": "skills/_shared/itd_free_reviewer_producer.py",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "repository-hygiene"
@@ -3600,9 +3657,7 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-10T17:04:16Z",
-    "closureEvidence": "owner route 2026-09-10: harness host run of the sealed verificationCommand passed every leg on staged tree dee8abbf, refusing only with 'full checker receipt is missing'; no independent-reviewer receipt - the isolated producer is blocked by BACKLOG P1 2026-09-10, scheduled as unit BROKER-ISOLATION"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

@@ -1764,7 +1764,7 @@ canary records only with the long interpreter path and a UTF-8 console (`chcp 65
 condition is recorded in `.itd/DECISIONS.md` 2026-09-10 and stays a precondition of every
 Windows rollout proof until this item ships.
 
-## P1 2026-09-10 (route, blocks any goal claim whose oracle runs the quick mirror) - `verify_review_broker` fails only inside an isolated staged-tree candidate
+## P1 2026-09-10 (route, blocks any goal claim whose oracle runs the quick mirror) - `verify_review_broker` fails only inside an isolated staged-tree candidate - CLOSED 2026-09-11 (BROKER-ISOLATION); the cause recorded below was WRONG
 
 Measured on the REL-1.104.0 ledger-close candidate (branch `chore/ledger-close-1.104.0`, HEAD
 `0a1673a`, staged tree `c8027f0f` - the candidate as it stood before this very entry was staged;
@@ -1801,6 +1801,35 @@ candidate must sit on a path Windows git trusts over UNC (registered in the Wind
 ownership") and outside this repository (otherwise `verify_host_neutral_memory` goes red); and
 the installed runtime accumulates `__pycache__` while the oracle replays through it, which the
 next `validate_runtime` reports as "installed runtime directory inventory drifted".
+
+**Закрыто юнитом BROKER-ISOLATION; причина, записанная выше, не подтвердилась.**
+Ни изоляция, ни порядок зеркала ни при чём: `verify_review_broker` - это флейк
+частотой ~8%, воспроизводимый и на хостовом чекауте (12 прогонов подряд - один
+красный; 26 итераций внутрипроцессной петли - один красный). Красная строка
+внутри кандидата и зелёная на хосте - две выборки одного распределения, а не
+два разных места. Корень измерен прямо: стенные часы хоста шагают НАЗАД (WSL2
+ресинк с Windows; за 45 секунд наблюдения два шага, -2.5 c и -5.4 c), а
+двухфазная свободная квитанция требовала строгого порядка отметок -
+`observed_time < phase_one_time` в `github_app_phase_two_receipt` и
+`issued < observed or current < observed` в `verify_two_phase`. Любой шаг часов
+назад между минтом фазы один и живой привязкой давал `phase one is stale for
+live binding`. Допуск теперь объявлен константой `MAX_CLOCK_SKEW_SECONDS = 60`
+(ровно столько же политика брокера уже даёт JWT), суммарная валидность
+осталась ограниченной суммой окна и допуска, а регрессии в
+`tests/verify_review_broker.py` детерминированы: шаг часов подставляется, а не
+ожидается.
+
+Урок для маршрута: четыре конфигурации в таблице выше сравнивались по ОДНОМУ
+прогону на конфигурацию, а одиночный прогон не отличает редкий флейк от
+детерминированной зависимости. Причинная история «зависит от порядка зеркала»
+родилась именно отсюда. Для класса «красное здесь, зелёное там» первым шагом
+идёт частота, а не место.
+
+Гарантия против возврата класса: `tests/verify_isolated_candidate_mirror.py`
+гоняет `bash tests/run-all.sh --quick` внутри материализованного изолированного
+кандидата и требует запечатанной последней строки. Сьют объявлен классом
+`mirror-runner` в `tests/OUT_OF_MIRROR.json` (в зеркало не входит - иначе
+рекурсия).
 
 ## P1 2026-09-10 (accepted from retro 2026-09-10) - the installed runtime poisons its own inventory with bytecode
 

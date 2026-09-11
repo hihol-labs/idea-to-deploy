@@ -3089,3 +3089,61 @@ explicit ledger-close step that entry promised, not new bypasses. They are carri
 unit's evidence (`dee8abbf`) is the tree that was actually verified, while the committed tree
 differs by the `verified` writes themselves - the same by-construction property recorded in the
 installed-proof decision above.
+
+## 2026-09-11: the free two-phase receipt tolerates a bounded backward clock step
+
+**Decision.** The chronology checks of the free review receipt no longer require a strict
+ordering of wall-clock stamps. `MAX_CLOCK_SKEW_SECONDS = 60` is declared in
+`skills/_shared/itd_free_reviewer_producer.py` and applied to all four comparisons the free
+receipt owns: the phase-one stamp against the live observation in
+`github_app_phase_two_receipt`; the phase-two stamp against that observation at mint time in
+`_phase_two_receipt` (the `phase two predates live observation` guard); and the issue stamp and
+the verifier clock against the observation in `verify_two_phase`. The fourth was found by the
+added regressions rather than by reading, which is why the count is stated here explicitly. The freshness
+window `MAX_LIVE_AGE_SECONDS = 300` is untouched, so total validity stays bounded by the sum.
+
+**Why.** The stamps are read from the host wall clock, and on this host the wall clock steps
+backwards: a 45-second measurement of `datetime.now(utc)` caught two backward steps, -2.478 s
+and -5.366 s, which is WSL2 resynchronising with the Windows host. With a strict ordering any
+such step between minting phase one and binding it live produced `phase one is stale for live
+binding`. That made `tests/verify_review_broker.py` red in roughly 8% of runs with no defect in
+the candidate, and in production the two phases are minted by different processes and hosts,
+where clock disagreement is expected rather than exceptional. The number is not invented: the
+shipped broker policy already grants exactly 60 seconds of clock tolerance to GitHub App JWT
+validation (`github.appAuthentication.jwtClockSkewSeconds`), and 300 to maker provenance.
+
+**Rejected: make only the test deterministic.** Passing a fixed `observed_at` from the suite
+would have turned the suite green while leaving the production path dependent on a monotonic
+wall clock across hosts. The measurement said the defect is in the check, not in the test.
+
+**Rejected: reuse the 300-second provenance allowance.** It would have doubled the effective
+validity window of a future-dated phase-one receipt for no measured need; the observed step is
+three orders below 300 seconds.
+
+**Constraint that follows, and what it cost twice in one unit.** The efficacy legs pin the
+sha256 of the WHOLE producer file, so every edit invalidates all three by construction. It
+happened twice here: the first fix re-minted them at `producerSha256 ec40a183`
+(`diagnostic-ec40a183`), and then the fourth chronology site - found by the added regressions
+rather than by reading - changed the file again and invalidated the same three legs, which were
+re-minted at `producerSha256 7a7ef0d9` (`diagnostic-7a7ef0d9`). **7a7ef0d9 is final and is what
+this candidate ships**; the earlier series stays in the immutable history as its own diagnostic
+folder, not rewritten. Each re-mint is three live runs, one of them on native Windows, so a
+producer edit is never a local change.
+
+## 2026-09-11: the quick mirror is verified inside an isolated candidate, and that oracle stays out of the mirror
+
+**Decision.** `tests/verify_isolated_candidate_mirror.py` materialises the staged tree into an
+isolated clone outside the repository and requires the last line of `bash tests/run-all.sh
+--quick` there to equal the sealed line byte for byte. The suite is declared `mirror-runner` in
+`tests/OUT_OF_MIRROR.json` and is deliberately absent from the mirror's own suite list.
+
+**Why.** The machine producer always executes a sealed command in `isolated-staged-tree` mode,
+while every ordinary check runs on the host checkout. Until this oracle existed, a divergence
+between the two places surfaced only when a receipt was being minted, and it then immobilised
+every gate that needs that receipt at once. Including the oracle in the mirror would run a
+mirror inside a mirror, so the exclusion is declared machine-readably rather than left implicit.
+
+**Constraint.** The oracle asserts an exact line, not "green": `verify_reviewer_provider_freshness`
+is red by construction because its input is a live provider-freshness pin, and calling that
+green would be a false green. When that suite's status legitimately changes, the sealed line in
+the oracle changes with it, in the same candidate.
