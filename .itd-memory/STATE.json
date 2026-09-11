@@ -573,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Activate BROKER-ISOLATION: make verify_review_broker pass inside an isolated staged-tree candidate under the quick mirror, RED-first, before RSI-DEBT-2.",
+  "nextAction": "Activate RSI-DEBT-2 (medium) next: BROKER-ISOLATION is verified and merged as ac4ba46; WIP=1, so no later unit is opened before it.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
