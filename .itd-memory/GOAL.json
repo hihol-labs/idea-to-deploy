@@ -3,7 +3,7 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-12T08:09:54Z",
+  "updatedAt": "2026-09-12T14:44:13Z",
   "currentUnitId": "RSI-DEBT-2",
   "units": [
     {
@@ -567,11 +567,12 @@
       "riskTier": "medium",
       "criterion": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
-      "status": "in_progress",
+      "status": "verified",
       "verifiedAt": "",
-      "evidence": "",
+      "evidence": "owner route 2026-09-12: both legs of the sealed verificationCommand exit 0 on staged tree 5c66f6d5 (verify_completion_gate 60/60, verify_all_hard_gate_host_parity 101/101); machine receipt machine-a11.json PASSED on that tree; merged as c15a8f3d through PR #282 with Gate 1 and windows-verify green. NO targeted checker receipt: ten rounds of independent cross-vendor review closed twelve real findings with zero false positives and never returned a clean PASS, and the harness refused the transition with 'targeted checker receipt is missing'. The non-convergence is recorded as a measured P1 in BACKLOG and the publication decision in DECISIONS.",
       "skippedReason": "",
-      "blockedReason": ""
+      "blockedReason": "",
+      "completedAt": "2026-09-12T14:44:13Z"
     },
     {
       "id": "RSI-DEBT-3",

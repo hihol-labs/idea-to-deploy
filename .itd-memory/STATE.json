@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "RSI-DEBT-2",
     "goal": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-12T08:09:54Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-12T14:44:13Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -572,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Activate RSI-DEBT-2 (medium) next: BROKER-ISOLATION is verified and merged as ac4ba46; WIP=1, so no later unit is opened before it.",
+  "nextAction": "Close the RSI-DEBT-2 follow-up, then decide the queue: three recorded route P1s (claim-id circle, review non-convergence, pin cascade) cost more per unit than RSI-DEBT-3. WIP=1.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
