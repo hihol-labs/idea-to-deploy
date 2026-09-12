@@ -1196,6 +1196,7 @@
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_review_enumeration.py",
       "tests/verify_reviewer_independence_policy.py",
       "tests/verify_reviewer_provider_freshness.py",
       "tests/verify_route_debts.py",
@@ -1239,7 +1240,8 @@
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
-      "tests/verify_practical_effectiveness.py"
+      "tests/verify_practical_effectiveness.py",
+      "tests/verify_review_enumeration.py"
     ],
     "skills/_shared/itd_review_broker.py": [
       "tests/verify_external_reviewer_release.py",
