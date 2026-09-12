@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-11T13:11:32Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-12T08:09:54Z",
+  "currentUnitId": "RSI-DEBT-2",
   "units": [
     {
       "id": "PE5-001",
@@ -567,7 +567,7 @@
       "riskTier": "medium",
       "criterion": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
-      "status": "pending",
+      "status": "in_progress",
       "verifiedAt": "",
       "evidence": "",
       "skippedReason": "",

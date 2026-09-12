@@ -62,6 +62,7 @@ RUNTIME_SHARED_FILES = (
     "itd_blind_protocol.py",
     "itd_verification_loop.py",
     "itd_verification_profiles.py",
+    "itd_bypass_audit.py",
 )
 RUNTIME_SKILL_FILES = (
     # itd_verification_loop loads this module by absolute path when it

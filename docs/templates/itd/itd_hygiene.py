@@ -16,8 +16,10 @@ import argparse
 import datetime as dt
 import fnmatch
 import hashlib
+import importlib.util
 import json
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -70,6 +72,101 @@ def problem(path: str, why: str, fix: str) -> str:
     return f"{path}: WHY: {why} | FIX: {fix}"
 
 
+# Один и тот же факт, что и BYPASS_AUDIT_LEDGER в hooks/completion-gate.sh:
+# строка аудита обхода идёт в НЕотслеживаемый append-only леджер, иначе она
+# пачкает отслеживаемый events.jsonl и ломает гейт точного дерева. Перенос в
+# events.jsonl - отдельный явный шаг ledger-close.
+BYPASS_AUDIT_LEDGER = ".itd-memory/completion-bypass.jsonl"
+
+
+def untracked_refusal(root: Path, relative: Path) -> str | None:
+    """Причина отказа, если путь НЕ доказан как неотслеживаемый.
+
+    Тот же трисостоятельный ответ, что и в коммит-гейте: код 0 -
+    отслеживается, код 1 - точно нет, всё остальное - отказ. Возврат «не
+    отслеживается» при ошибке git открывал бы запрет наружу.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", str(relative)],
+            cwd=str(root), capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"cannot prove {relative} is untracked: {exc}"
+    if done.returncode == 0:
+        return (f"bypassAuditLedger {relative} is tracked by git; the audit row "
+                "would dirty the reviewed candidate")
+    if done.returncode != 1:
+        return (f"cannot prove {relative} is untracked: git exited "
+                f"{done.returncode}")
+    return None
+
+
+def load_safe_atomic_module():
+    """Общий якорный примитив; отсутствие модуля - отказ, а не тихая запись."""
+    # Доверенный примитив берётся ТОЛЬКО из host-owned установки, никогда из
+    # проверяемого проекта. Поиск по предкам (моя же правка прошлого раунда)
+    # позволял чужому репозиторию подложить `skills/_shared/itd_safe_atomic.py`
+    # и получить выполнение произвольного кода внутри доверенного аудита
+    # обхода - находка независимого ревьюера. Внутри репозитория методологии
+    # шаблон лежит по известному фиксированному смещению и является ЧАСТЬЮ той
+    # же установки, поэтому этот путь допустим; всё остальное - отказ.
+    here = Path(__file__).resolve()
+    in_repo = here.parents[3] / "skills/_shared/itd_safe_atomic.py" \
+        if len(here.parents) > 3 and here.parent.name == "itd" \
+        and here.parents[1].name == "templates" else None
+    for candidate in (Path.home() / ".claude/skills/_shared/itd_safe_atomic.py",
+                      in_repo):
+        if candidate is None or not candidate.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location(
+            "itd_safe_atomic_hygiene", candidate)
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        # Тот же запрет на запись байткода, что и в коммит-гейте.
+        previous = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.dont_write_bytecode = previous
+        return module
+    raise RuntimeError("itd_safe_atomic.py is unavailable for the bypass audit")
+
+
+def ensure_audit_parent(root: Path, relative: Path) -> None:
+    """Тот же запрет на построение цепочек, что и в коммит-гейте.
+
+    Создаётся не более одного каталога первого уровня, якорно от корня
+    проекта; всё, что глубже, обязано существовать заранее.
+    """
+    parent_parts = relative.parts[:-1]
+    if not parent_parts:
+        return
+    if len(parent_parts) > 1:
+        if not root.joinpath(*parent_parts).is_dir():
+            raise RuntimeError(
+                f"bypassAuditLedger parent {Path(*parent_parts)} does not "
+                "exist; create it explicitly")
+        return
+    flags = (os.O_RDONLY | int(getattr(os, "O_DIRECTORY", 0))
+             | int(getattr(os, "O_NOFOLLOW", 0)))
+    fd = os.open(str(root), flags)
+    try:
+        try:
+            os.mkdir(parent_parts[0], 0o700, dir_fd=fd)
+        except FileExistsError:
+            pass
+    finally:
+        os.close(fd)
+
+
+def append_audit_row(root: Path, relative: Path, event: dict) -> None:
+    """Дозапись через якорный писатель без следования по симлинкам."""
+    payload = (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8")
+    load_safe_atomic_module().durable_append_bytes(relative, payload, root=root)
+
+
 DEFAULT_COMPLETION_POLICY = {
     "mode": "calibrated",
     "defaultRiskTier": "medium",
@@ -77,7 +174,7 @@ DEFAULT_COMPLETION_POLICY = {
     "runtimeSignalLedger": ".claude/completion/signals.jsonl",
     "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
     "verificationBaseline": "last-source-commit",
-    "bypassAuditLedger": ".itd-memory/events.jsonl",
+    "bypassAuditLedger": BYPASS_AUDIT_LEDGER,
     "runtimeLayers": [2, 3],
     "runtimeKinds": ["test_run", "app_start"],
     "signalProducer": "itd-completion-signals",
@@ -209,12 +306,24 @@ def completion_session_id(root: Path, policy: dict | None = None) -> str:
 def audit_completion_bypass(root: Path, policy: dict, reason: str,
                             boundary: str) -> str | None:
     errors: list[str] = []
-    relative = str(policy.get("bypassAuditLedger") or ".itd-memory/events.jsonl")
+    # Тот же неотслеживаемый леджер, что и у коммит-гейта: строка аудита
+    # не должна пачкать отслеживаемый events.jsonl (см. BYPASS_AUDIT_LEDGER
+    # в hooks/completion-gate.sh; расхождение копий пинится оракулом).
+    relative = str(policy.get("bypassAuditLedger")
+                   or BYPASS_AUDIT_LEDGER)
     target = resolve_repo_path(root, relative, "bypassAuditLedger", errors)
     if target is None or errors:
         return errors[0] if errors else "invalid bypass audit path"
+    # Тот же запрет, что и в коммит-гейте: отслеживаемая цель делает дерево
+    # отличным от прореверенного кандидата, поэтому её не выбирает НИКАКАЯ
+    # политика, а не только политика по умолчанию.
+    refusal = untracked_refusal(root, pathlib.Path(relative))
+    if refusal is not None:
+        return refusal
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
+        # Тот же порядок, что и в коммит-гейте: сначала доказать путь, потом
+        # создавать каталоги, иначе симлинк в звене уводит mkdir из проекта.
+        ensure_audit_parent(root, pathlib.Path(relative))
         now = dt.datetime.now(dt.timezone.utc)
         event = {
             "id": f"evt-completion-bypass-{int(now.timestamp() * 1_000_000)}",
@@ -226,10 +335,7 @@ def audit_completion_bypass(root: Path, policy: dict, reason: str,
             "session": completion_session_id(root, policy) or "unknown",
             "reason": reason[:500],
         }
-        with target.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        append_audit_row(root, Path(relative), event)
         return None
     except Exception as exc:
         return str(exc)
