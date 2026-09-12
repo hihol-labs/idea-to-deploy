@@ -3700,7 +3700,7 @@
   },
   "activeFollowup": {
     "unitId": "RSI-DEBT-2",
-    "status": "open",
+    "status": "closed",
     "openedAt": "2026-09-12",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": "hooks/completion-gate.sh",
@@ -3714,7 +3714,9 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    }
+    },
+    "closedAt": "2026-09-12T14:44:13Z",
+    "closureEvidence": "owner route 2026-09-12: both legs of the sealed verificationCommand exit 0 on staged tree 5c66f6d5 (verify_completion_gate 60 of 60, verify_all_hard_gate_host_parity 101 of 101), machine receipt machine-a11.json PASSED on that tree, merged as c15a8f3d through PR #282 with Gate 1 and windows-verify green. NO targeted checker receipt: ten rounds of independent cross-vendor review closed twelve real findings with zero false positives and never returned a clean PASS. The non-convergence is recorded as a measured P1 in BACKLOG with the round table; the publication decision and the two structural-guarantee decisions are in DECISIONS 2026-09-12."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
