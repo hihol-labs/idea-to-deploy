@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "BROKER-ISOLATION",
-    "goal": "tests/verify_review_broker.py passes inside an isolated staged-tree candidate under the quick mirror, not only standalone and not only on the host checkout: a new oracle runs bash tests/run-all.sh --quick inside a materialised isolated candidate and asserts its last line is exactly the sealed line, and the mirror-order dependency of free_review_phase is either declared as an input or removed. RED-first: the pre-fix bytes make the new oracle red on the same candidate.",
-    "status": "verified",
-    "startedAt": "2026-09-10T20:26:57Z",
+    "id": "RSI-DEBT-2",
+    "goal": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
+    "status": "in_progress",
+    "startedAt": "2026-09-12T08:09:54Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-11T13:11:32Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

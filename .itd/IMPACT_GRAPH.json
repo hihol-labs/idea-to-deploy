@@ -80,6 +80,7 @@
     ],
     ".gitignore": [
       "tests/verify_adjudication_channel.py",
+      "tests/verify_completion_gate.py",
       "tests/verify_dod_gate.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_harness_demo_capture_schema.py",
@@ -714,6 +715,7 @@
       "tests/verify_operational_cold_start.py"
     ],
     "docs/templates/itd/itd_hygiene.py": [
+      "tests/verify_completion_gate.py",
       "tests/verify_gate_registry_binding.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_strict_completion_policy.py"
@@ -1167,6 +1169,9 @@
     "skills/_shared/itd_blind_protocol.py": [
       "tests/verify_blind_protocol.py"
     ],
+    "skills/_shared/itd_bypass_audit.py": [
+      "tests/verify_completion_gate.py"
+    ],
     "skills/_shared/itd_captured_run.py": [
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_operating_loops_release.py"
@@ -1255,6 +1260,7 @@
       "tests/verify_reviewer_independence_policy.py"
     ],
     "skills/_shared/itd_safe_atomic.py": [
+      "tests/verify_completion_gate.py",
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_route_debts.py"
     ],

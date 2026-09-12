@@ -3624,6 +3624,63 @@
           "independent-review-efficacy"
         ]
       }
+    },
+    {
+      "id": "RSI-DEBT-2-1",
+      "unitId": "RSI-DEBT-2",
+      "criterion": "An audited COMPLETION_BYPASS never writes into a tracked file. The row goes to the untracked append-only ledger .itd-memory/completion-bypass.jsonl, the tracked .itd-memory/events.jsonl stays byte-identical across the bypass, and the same destination serves both the description marker and the ITD_COMPLETION_GATE=0 kill switch.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "The pre-fix bytes put the row into the tracked journal: the RED-first regressions failed 5 of 42 checks twice in a row before the fix and pass 42 of 42 after it. Restoring the tracked path as the default kills 7 checks, so the guarantee is not vacuous.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The bypass audit is durable and mandatory, but it no longer dirties the reviewed candidate mid-commit",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "completion-gate"
+        ]
+      }
+    },
+    {
+      "id": "RSI-DEBT-2-2",
+      "unitId": "RSI-DEBT-2",
+      "criterion": "The append is anchored to the project root and refuses to follow a symlink at any path component, so a link planted at the ledger path cannot redirect a trusted audit write; a failed audit stays fail-closed and denies the bypass.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "The regression plants a symlink at the ledger path and asserts both halves: the gate denies with exit 2 and the link target stays empty. The write goes through durable_append_bytes in skills/_shared/itd_safe_atomic.py, which validates every component from the root.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_gate.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A planted symlink cannot redirect the audit write, and an unwritable audit still refuses the bypass",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "completion-gate"
+        ]
+      }
+    },
+    {
+      "id": "RSI-DEBT-2-3",
+      "unitId": "RSI-DEBT-2",
+      "criterion": "The rows reach the canonical journal through an explicit idempotent ledger-close step, and the two producers of the default path cannot diverge silently: the commit gate and the hygiene template declare the same ledger and neither falls back to the tracked journal.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "skills/_shared/itd_bypass_audit.py carry moves the rows and is idempotent on an already carried id; the pin checks fail if either producer declares a different default. Host parity stays green at 101 of 101 and the quick mirror keeps its sealed last line.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The carry step is explicit and idempotent, and the duplicated default path is pinned instead of left to drift",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "hard-gate-host-parity"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3642,11 +3699,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "BROKER-ISOLATION",
-    "status": "closed",
-    "openedAt": "2026-09-11",
+    "unitId": "RSI-DEBT-2",
+    "status": "open",
+    "openedAt": "2026-09-12",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "skills/_shared/itd_free_reviewer_producer.py",
+    "rootCause": "hooks/completion-gate.sh",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
@@ -3657,9 +3714,7 @@
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-11T13:11:32Z",
-    "closureEvidence": "harness route 2026-09-11: both legs of the sealed verificationCommand exit 0 on staged tree e6a0c47a - tests/verify_review_broker.py PASSED with 835 checks and tests/verify_isolated_candidate_mirror.py PASSED with the isolated candidate's last mirror line exactly 'DONE fails: verify_reviewer_provider_freshness'; machine receipt machine-a11.json PASSED, producerRunId 6a41a3b5fe062d598235156b6e987029; the independent producer reached two consecutive clean PASSes after nine rounds that closed ten real findings. Commit and publication went through the owner route because no single receipt satisfies both itd_review_evidence.py:278 and itd_review_cache.py:453 - recorded in BACKLOG with the 2026-09-11 observation. Merged as ac4ba46 through PR #280."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

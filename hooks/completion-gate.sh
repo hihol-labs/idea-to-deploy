@@ -30,6 +30,7 @@ PreToolUse hook на Bash — коммит-гейт «Врата заверше�
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import hashlib
 import os
@@ -92,6 +93,52 @@ SOURCE_PATHSPECS = tuple(
 BYPASS_MARKER_RE = re.compile(r"(COMPLETION_BYPASS|SKILL_BYPASS)\s*:", re.I)
 BYPASS_REASON_RE = re.compile(
     r"(?:COMPLETION_BYPASS|SKILL_BYPASS)\s*:\s*(\S[^\r\n]*)", re.I)
+# Куда идёт строка аудита обхода. НЕ в `.itd-memory/events.jsonl`: этот файл
+# отслеживается git, а хук исполняется ВНУТРИ `git commit` — дозапись туда
+# делает рабочее дерево отличным от прореверенного кандидата, и гейт точного
+# дерева отказывает ровно тому коммиту, ради которого обход и выдан. Строки
+# копятся в неотслеживаемом append-only леджере, а в events.jsonl их переносит
+# отдельный явный шаг ledger-close (docs/completion-gate.md).
+# Тот же путь по умолчанию обязан стоять в шаблоне гигиены
+# (`audit_completion_bypass` в docs/templates/itd/itd_hygiene.py) — расхождение
+# двух копий пинится оракулом tests/verify_completion_gate.py.
+BYPASS_AUDIT_LEDGER = ".itd-memory/completion-bypass.jsonl"
+
+
+def load_safe_atomic():
+    """Защищённый писатель: якорь на корень проекта и отказ идти по симлинку."""
+    candidates = [
+        Path(__file__).resolve().parents[1] / "skills/_shared/itd_safe_atomic.py",
+        Path.home() / ".claude/skills/_shared/itd_safe_atomic.py",
+    ]
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    if plugin_root:
+        candidates.insert(
+            0, Path(plugin_root) / "skills/_shared/itd_safe_atomic.py")
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location(
+            "itd_safe_atomic_completion_gate", candidate)
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        # Байткод писать нельзя: установленный рантайм адресуется по
+        # содержимому, и `__pycache__` рядом с ним ломает сверку инвентаря
+        # (находка независимого ревьюера). Флаг возвращается на место,
+        # чтобы не менять поведение остального процесса.
+        previous = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.dont_write_bytecode = previous
+        return module
+    # Необнаружимый писатель — отказ, а не тихая дозапись обычным open():
+    # необаудируемый обход выдавать нельзя.
+    raise RuntimeError("itd_safe_atomic.py is unavailable for the bypass audit")
+
+
 DEFAULT_POLICY = {
     "mode": "calibrated",
     "defaultRiskTier": "medium",
@@ -99,7 +146,7 @@ DEFAULT_POLICY = {
     "runtimeSignalLedger": ".claude/completion/signals.jsonl",
     "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
     "verificationBaseline": "last-source-commit",
-    "bypassAuditLedger": ".itd-memory/events.jsonl",
+    "bypassAuditLedger": BYPASS_AUDIT_LEDGER,
     "runtimeLayers": [2, 3],
     "runtimeKinds": ["test_run", "app_start"],
     "signalProducer": "itd-completion-signals",
@@ -474,16 +521,84 @@ def completion_session_id(cwd: Path, payload: dict, policy: dict) -> str:
     return ""
 
 
+def ensure_ledger_parent(cwd: Path, relative: Path) -> None:
+    """Создать не более ОДНОГО каталога, и только якорно от корня проекта.
+
+    Пара «проверить путь, затем mkdir» остаётся уязвимой: между проверкой и
+    созданием звено можно подменить симлинком, и рекурсивный mkdir снова
+    пройдёт по подменённому пути (находка независимого ревьюера). Сузить окно
+    нельзя, поэтому опасная операция убрана: цепочки каталогов гейт не строит
+    вообще. Единственное, что он создаёт, - каталог ПЕРВОГО уровня внутри
+    корня проекта, одним вызовом относительно удерживаемого дескриптора корня;
+    пути между проверкой и созданием там просто нет. Всё, что глубже, обязано
+    существовать заранее: отсутствие - отказ, а не тихое создание.
+    """
+    parent_parts = relative.parts[:-1]
+    if not parent_parts:
+        return
+    if len(parent_parts) > 1:
+        if not cwd.joinpath(*parent_parts).is_dir():
+            raise ValueError(
+                f"bypassAuditLedger parent {Path(*parent_parts)} does not "
+                "exist; create it explicitly - the gate does not build nested "
+                "directories")
+        return
+    flags = (os.O_RDONLY | int(getattr(os, "O_DIRECTORY", 0))
+             | int(getattr(os, "O_NOFOLLOW", 0)))
+    fd = os.open(str(cwd), flags)
+    try:
+        try:
+            os.mkdir(parent_parts[0], 0o700, dir_fd=fd)
+        except FileExistsError:
+            # Уже есть - в том числе симлинком; писать туда откажется
+            # якорный писатель, а создавать сквозь ссылку нечего.
+            pass
+    finally:
+        os.close(fd)
+
+
+def refuse_unless_definitely_untracked(cwd: Path, relative: Path) -> None:
+    """Дозапись разрешает только ОПРЕДЕЛЁННЫЙ ответ «путь не отслеживается».
+
+    Возврат False при любой ошибке git открывал бы запрет наружу: недоступный,
+    зависший или просто сломанный `git` снова пускал бы строку аудита в
+    отслеживаемый файл (находка независимого ревьюера). Отслеживаемость
+    доказывается, а не предполагается: код 0 - отслеживается, код 1 - точно нет,
+    всё остальное (git отсутствует, таймаут, не репозиторий) - отказ.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", str(relative)],
+            cwd=str(cwd), capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError(
+            f"cannot prove {relative} is untracked: {exc}") from exc
+    if done.returncode == 0:
+        raise ValueError(
+            f"bypassAuditLedger {relative} is tracked by git; the audit row "
+            "would dirty the reviewed candidate mid-commit")
+    if done.returncode != 1:
+        raise ValueError(
+            f"cannot prove {relative} is untracked: git exited "
+            f"{done.returncode}")
+
+
 def audit_bypass(cwd: Path, payload: dict, reason: str, paths: list,
                  policy: dict, source: str) -> tuple[bool, str]:
     try:
         relative = Path(str(policy.get("bypassAuditLedger")
-                            or ".itd-memory/events.jsonl"))
+                            or BYPASS_AUDIT_LEDGER))
         if relative.is_absolute() or ".." in relative.parts:
             raise ValueError("bypassAuditLedger escapes project")
+        # Инвариант заявлен как «НИКАКАЯ политика не пишет в отслеживаемый
+        # путь», поэтому проверки на относительность мало: явный
+        # `.itd-memory/events.jsonl` снова сделал бы дерево отличным от
+        # прореверенного кандидата (находка независимого ревьюера).
+        refuse_unless_definitely_untracked(cwd, relative)
+        safe = load_safe_atomic()
         target = (cwd / relative).resolve(strict=False)
         target.relative_to(cwd.resolve())
-        target.parent.mkdir(parents=True, exist_ok=True)
+        ensure_ledger_parent(cwd, relative)
         now = time.time()
         event = {
             "id": f"evt-completion-bypass-{int(now * 1_000_000)}",
@@ -496,10 +611,14 @@ def audit_bypass(cwd: Path, payload: dict, reason: str, paths: list,
             "reason": reason[:500],
             "paths": paths[:50],
         }
-        with target.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        # Якорный писатель без следования по симлинкам: подложенная по пути
+        # леджера ссылка не должна перенаправить доверенную дозапись в чужой
+        # файл. Отказ писателя поднимается наружу и делает обход fail-closed.
+        safe.durable_append_bytes(
+            relative,
+            (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8"),
+            root=cwd,
+        )
         return True, str(target)
     except Exception as exc:
         return False, str(exc)
