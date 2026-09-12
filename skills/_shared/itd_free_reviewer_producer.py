@@ -1491,10 +1491,32 @@ def _review_representation_note(packet: dict[str, Any]) -> str:
     )
 
 
+ENUMERATION_REQUIREMENT = (
+    "List every defect you located inside the bound material you were given, "
+    "not only the strongest one. A BLOCKED verdict that names fewer defects "
+    "than you located is itself a defect of this review: the next round then "
+    "pays again for a defect this round had already seen. Severity rank "
+    "licenses no omission, so a high finding does not discharge the duty to "
+    "list the medium ones beside it. Do not invent or guess a defect to "
+    "lengthen the list; an unfound defect stays unlisted, and a bound range "
+    "you reviewed without locating anything is reported as an empty findings "
+    "list."
+)
+
+
 def _trusted_json_output_contract(
     schema: dict[str, Any], *, unit: bool = False,
 ) -> str:
-    """Put the closed output instruction after every untrusted model input."""
+    """Put the closed output instruction after every untrusted model input.
+
+    The enumeration requirement rides the same trusted tail as the output
+    contract, for the same reason: it must follow every untrusted candidate
+    byte so the material under review cannot argue its way out of being
+    enumerated.  Measured cause (ROUTE-REPAIR-1, RSI-DEBT-2 series): one call
+    returned one or two findings out of about eight simultaneous defects,
+    because a single high finding already justified BLOCKED and listing the
+    rest earned the call nothing.  Ten serial rounds paid for that silence.
+    """
     clean_example = (
         '{"verdict":"PASSED","findings":[],"unverified":[],'
         '"summary":"Concise unit result and cross-unit interfaces."}'
@@ -1509,6 +1531,7 @@ def _trusted_json_output_contract(
         "the closed schema below. The first byte MUST be { and the final byte "
         "MUST be }. Do not emit Markdown fences, commentary, headings, prefixes, "
         "suffixes, or multiple objects. Do not omit required fields or add fields.\n"
+        f"{ENUMERATION_REQUIREMENT}\n"
         f"CLEAN_OUTPUT_EXAMPLE={clean_example}\n"
         f"REQUIRED_JSON_SCHEMA={json.dumps(schema, sort_keys=True)}\n"
         "END TRUSTED OUTPUT CONTRACT\n"

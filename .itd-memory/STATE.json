@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "RSI-DEBT-2",
-    "goal": "audit_bypass in hooks/completion-gate.sh appends the COMPLETION_BYPASS audit row to the untracked append-only ledger .itd-memory/completion-bypass.jsonl through the anchored no-follow writer instead of the tracked events.jsonl, so a bypassed commit passes the exact-tree review gate without skip-worktree; ledger-close carries the rows into events.jsonl as an explicit step; RED-first: the pre-fix bytes write the row into the tracked file.",
-    "status": "verified",
-    "startedAt": "2026-09-12T08:09:54Z",
+    "id": "ROUTE-REPAIR-1",
+    "goal": "The exhaustive-enumeration requirement is emitted from the single trusted tail _trusted_json_output_contract in skills/_shared/itd_free_reviewer_producer.py, so the direct, unit and integration prompts carry it byte for byte with no private copies; it sits after all untrusted review material inside the trusted output block, and moving it into the prompt header turns the oracle red; it requires every defect the call located inside its bound material to be listed, declares a BLOCKED verdict that names fewer defects than the call located to be a defect of the review itself, denies severity rank as a licence to omit, and asks for no guesses, so an unfound defect is not invented; RED-first: tests/verify_review_enumeration.py is red twice in a row on the pre-fix bytes and green after the fix, with four lethal mutations (clause removed; clause moved before the untrusted material; the three prompt kinds diverge; clause absent from the unit kind); the unit evidence records the verdict-round count to terminal, the finding count per round and the terminal class the stop rule assigns, and introduces no round ceiling because .itd/STOP_RULE_POLICY.json forbids one by construction; the evidence records the ACTUAL last line of the full mirror with every red suite attributed to this candidate or to pristine main by a clean-worktree run, instead of asserting a sealed line; the evidence records the measured outcome of every pin this change touches, instead of asserting which pin applies; the findings-per-round comparison against the recorded baseline moves to the next unit reviewed after the authority snapshot is re-minted from merged main, because the snapshot may not be minted from a working branch and this unit's own rounds are therefore judged by the pre-fix producer. AMENDED BY THE OWNER 2026-09-12 after the stop rule returned REDESIGN_OR_DISCARD: the two replaced clauses asserted a sealed mirror line and a benchmark-pin re-record, and both premises were measured false.",
+    "status": "in_progress",
+    "startedAt": "2026-09-12T16:30:24Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-12T14:44:13Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

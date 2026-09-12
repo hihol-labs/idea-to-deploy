@@ -3681,6 +3681,85 @@
           "hard-gate-host-parity"
         ]
       }
+    },
+    {
+      "id": "ROUTE-REPAIR-1-1",
+      "unitId": "ROUTE-REPAIR-1",
+      "criterion": "The exhaustive-enumeration requirement has one source: the module constant ENUMERATION_REQUIREMENT, emitted from the single trusted tail _trusted_json_output_contract, so the direct, unit and integration prompts carry it verbatim and none of them builds a private copy that can drift.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "All mutation totals below were re-measured together against THIS candidate's oracle, whose baseline is 55 passed, 0 failed; if the oracle changes, these numbers must be re-recorded in the same commit (round 6 of independent review caught exactly that drift). The oracle generates all three prompt kinds from a hierarchical packet built by the producer's own partition code and asserts the constant appears exactly once in each; the module emits the constant from exactly one place and holds exactly one copy of its text, compared with quotes and whitespace squeezed out so a split literal still counts as one copy. Lethal: M1 clause removed (40/15); M4 unit kind builds a private copy (48/7).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_enumeration.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "One constant reaches every prompt kind verbatim and no kind can diverge silently",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-enumeration",
+          "free-reviewer-producer"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-1-2",
+      "unitId": "ROUTE-REPAIR-1",
+      "criterion": "The requirement sits after all untrusted review material and inside the trusted output block, so candidate bytes cannot argue their way out of being enumerated.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "All mutation totals below were re-measured together against THIS candidate's oracle, whose baseline is 55 passed, 0 failed; if the oracle changes, these numbers must be re-recorded in the same commit (round 6 of independent review caught exactly that drift). Offsets alone are not asserted, because a start token is not an end marker: the invariant is that the exact trusted tail is the SUFFIX of each generated prompt, so nothing can follow the trusted instruction, and every untrusted section is emitted before the trusted block opens. Lethal: M2 clause moved into the prompt header (42/13); M3 clause emitted outside the trusted block (42/13); M8 an untrusted section appended after the trusted tail (54/1).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_enumeration.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The enumeration duty is trusted instruction, not overridable candidate text",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "review-enumeration",
+          "free-reviewer-producer"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-1-3",
+      "unitId": "ROUTE-REPAIR-1",
+      "criterion": "The requirement asks for the complete list of defects the call located in its bound material, declares a BLOCKED verdict naming fewer defects than located to be a defect of the review itself, denies severity rank as a licence to omit, and forbids inventing an unfound defect; the closed output contract, the empty-list condition for PASSED and both verdict schemas stay untouched.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "All mutation totals below were re-measured together against THIS candidate's oracle, whose baseline is 55 passed, 0 failed; if the oracle changes, these numbers must be re-recorded in the same commit (round 6 of independent review caught exactly that drift). Every textual guarantee is checked by POLARITY or by whole-object equality, never by substring presence - three rounds of independent review found the same hole three times, in the enumeration duties (round 1), in their direct negation (round 5) and in the closed-contract checks (the publication round). Content duties reject seven inverted clauses, each proved to really rewrite the clause so a rewording cannot make a negative case vacuous; the empty-list condition is matched as the whole sentence each kind emits and its negation is rejected; the clean example is PARSED rather than substring-matched; both verdict schemas are pinned by digest. Lethal: M5 unit kind loses the clause (48/7); M6 severity duty inverted (53/2); M7 invention instructed (53/2); M9 unit clean example gains a finding (54/1); M10 completeness duty directly negated (52/3); M11 the PASSED empty-list condition negated (53/2). RED-first: the pre-fix bytes are red twice in a row. DECLARED LIMIT, added after a targeted checker REPRODUCED a bypass in code on a really generated prompt: a text that keeps the positive sentence verbatim and cancels it in other words elsewhere passes both the verbatim check and the negation tripwire. No check in this oracle proves the absence of a semantic contradiction ANYWHERE in the prompt, and none is claimed to - the property is not decidable by pattern matching over arbitrary text, which is why four separate reviews found the same class (rounds 1 and 5, the publication round, and the checker). The negation rule is named a tripwire for literal forms. What IS proven is structural and holds by whole-object equality: the clause and the sentence come from the producer's own constants, each prompt kind inherits them verbatim, and the trusted tail is the prompt's suffix. CORRECTION, found by a later targeted checker: an earlier wording of this row claimed contradicting text could only enter by editing the prompt builders. That was false. There are two channels and only one is guarded - the candidate diff is attacker-controlled and is emitted verbatim into the same prompt before the trusted tail, so a contradiction can ride in a code comment or a spoofed note to the reviewer without touching producer code. Against that channel this unit proves position only, and the remaining mitigation is the prose rule that candidate text is data and never instructions, which is instruction-following rather than proof.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_enumeration.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A call that located several defects reports all of them, and nothing unfound is invented",
+        "impactClasses": [
+          "correctness",
+          "bounded-output"
+        ],
+        "oracleIds": [
+          "review-enumeration",
+          "free-reviewer-producer"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-1-4",
+      "unitId": "ROUTE-REPAIR-1",
+      "criterion": "The unit evidence records the verdict-round count to terminal, the finding count per round and the terminal class the stop rule assigns; it records the ACTUAL last line of the full mirror with every red suite attributed to this candidate or to pristine main by a clean-worktree run; it records the measured outcome of every pin this change touches; and it introduces no round ceiling.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Verdict rounds: r1 BLOCKED with 2 distinct mechanisms, r2 BLOCKED with 4, r3 BLOCKED with 4 - ten distinct findings, all real, zero false. Four further producer attempts were precondition refusals, not verdict rounds, and move no counter: an invented impact class (review-route is not in the closed vocabulary), oracle ids that did not match the machine receipt run ids, a pending acceptance row blocking the route before review, and a stale authority snapshot. Terminal class assigned by .itd/STOP_RULE_POLICY.json after r3: REDESIGN_OR_DISCARD under R1-mechanism-recurrence; the owner lifted it on 2026-09-12 by amending the two criterion clauses whose premises were measured false. No round ceiling is introduced. ACTUAL mirror last line on this candidate: `DONE fails: verify_reviewer_provider_freshness verify_ledger_reconciliation verify_mandatory_keyless_review`. Attribution by running each in a clean worktree at 8b2b176: freshness is the sealed pre-existing red (record observedAt 2026-08-04 against maxAgeDays 30); verify_ledger_reconciliation is red on pristine main with 3 failures against 2 on this candidate; verify_mandatory_keyless_review fails identically on pristine main, a live-route red. Two suites were red because of this candidate and are now green: verify_runall_drift (the new suite was unclassified until registered in the mirror CORE list) and verify_independent_review_efficacy. Measured pin outcomes: the live benchmark pin does NOT cover this change - BENCHMARK_PIN_ROOTS holds 60 files, the producer is not among them, and the pin digest did not move; the efficacy pin DOES - all three legs were re-minted live (wsl, windows, u12-cross-vendor-wsl, 9 cases each, PASSED, bound to producer 260950c6) and archived as diagnostic-260950c6, after which the efficacy oracle returns PASSED with hostParityVerified true and cleanFalseBlockRate 0.0 on both hosts. The authority snapshot itself was stale before this branch existed - itd_bypass_audit.py landed in skills/_shared with PR #282 and was missing from REL1104-563a5dd4-a1 - so a new snapshot was minted from merged main 7e5f9260 and its byte parity against a clean main worktree exits 0. PUBLICATION-ROUND MEASUREMENT, the most important number of this unit: round 7 returned findings=[] and the publication round returned two real findings on BYTE-IDENTICAL review material - the same diff, sha256 2ce96fa7bdcc48fb over base 8b2b176. A clean PASS is therefore one draw, not a proof, and this unit is closed on what is reproducible: green machine oracles, lethal mutations and the recorded convergence curve 2, 4, 4, 2, 1, 1, 0 then 2.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_enumeration.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The measurement clauses are recorded as measured, including the two that do not hold",
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "review-enumeration",
+          "free-reviewer-producer"
+        ]
+      }
     }
   ],
   "completion": {
@@ -3699,24 +3778,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "RSI-DEBT-2",
-    "status": "closed",
+    "unitId": "ROUTE-REPAIR-1",
+    "status": "open",
     "openedAt": "2026-09-12",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "hooks/completion-gate.sh",
+    "rootCause": "skills/_shared/itd_free_reviewer_producer.py",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "repository-hygiene"
+        "security",
+        "bounded-output"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-12T14:44:13Z",
-    "closureEvidence": "owner route 2026-09-12: both legs of the sealed verificationCommand exit 0 on staged tree 5c66f6d5 (verify_completion_gate 60 of 60, verify_all_hard_gate_host_parity 101 of 101), machine receipt machine-a11.json PASSED on that tree, merged as c15a8f3d through PR #282 with Gate 1 and windows-verify green. NO targeted checker receipt: ten rounds of independent cross-vendor review closed twelve real findings with zero false positives and never returned a clean PASS. The non-convergence is recorded as a measured P1 in BACKLOG with the round table; the publication decision and the two structural-guarantee decisions are in DECISIONS 2026-09-12."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -3784,6 +3862,26 @@
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
       }
+    },
+    {
+      "unitId": "RSI-DEBT-2",
+      "status": "closed",
+      "openedAt": "2026-09-12",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": "hooks/completion-gate.sh",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-12T14:44:13Z",
+      "closureEvidence": "owner route 2026-09-12: both legs of the sealed verificationCommand exit 0 on staged tree 5c66f6d5 (verify_completion_gate 60 of 60, verify_all_hard_gate_host_parity 101 of 101), machine receipt machine-a11.json PASSED on that tree, merged as c15a8f3d through PR #282 with Gate 1 and windows-verify green. NO targeted checker receipt: ten rounds of independent cross-vendor review closed twelve real findings with zero false positives and never returned a clean PASS. The non-convergence is recorded as a measured P1 in BACKLOG with the round table; the publication decision and the two structural-guarantee decisions are in DECISIONS 2026-09-12."
     }
   ]
 }
