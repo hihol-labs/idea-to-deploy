@@ -61,6 +61,13 @@ def make_goal(root: Path, *, attempts: int = 2, wall: int = 3600,
     (root / "baseline.txt").write_text("baseline\n", encoding="utf-8")
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "baseline"], cwd=root, check=True)
+    # Stage a real candidate. This fixture used to leave the index equal to
+    # HEAD, so every receipt it minted bound an EMPTY diff - the exact defect
+    # ROUTE-REPAIR-2 closes. The bounded-autonomy behaviour under test is about
+    # attempts and budgets, not about reviewing nothing, so the fixture now
+    # carries one staged change like any real candidate.
+    (root / "candidate.txt").write_text("candidate\n", encoding="utf-8")
+    subprocess.run(["git", "add", "candidate.txt"], cwd=root, check=True)
     mem = root / ".itd-memory"
     mem.mkdir(parents=True)
     (root / "result.txt").write_text("fail", encoding="utf-8")

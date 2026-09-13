@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-12T21:10:36Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-13T11:59:14Z",
+  "currentUnitId": "ROUTE-REPAIR-2",
   "units": [
     {
       "id": "PE5-001",
@@ -582,6 +582,17 @@
       "status": "verified",
       "verifiedAt": "2026-09-12T21:10:36Z",
       "evidence": "owner route 2026-09-12: the sealed verificationCommand exits 0 on merged main tree 3be3a49f (verify_review_enumeration 55/55, verify_free_reviewer_producer 307 checks PASSED); machine receipt machine-main-a1.json PASSED and adjudication-main-a1.json outcome PASSED on that same tree; merged as 2d50a12 through PR #284 with Gate 1 (1m31s) and windows-verify (4m39s) green. NO harness transition: itd_goal_verify validates the adjudication in the default staged mode, and after a merge there is no staged candidate at all - the index equals HEAD and the machine diff is empty - so a post-merge receipt can never satisfy it. Recorded as actor human-owner by the precedent of REL-1.104.0 and RSI-DEBT-2. Independent review, counted by source rather than as one drifting total: the code candidate took EIGHT verdict rounds with the curve 2, 4, 4, 2, 1, 1, 0 and then 2 in the publication round, sixteen distinct findings; three targeted checks contributed two more, both corrections to claims rather than to code; the ledger-close candidate ran its own rounds, recorded in its own commit. All real, zero false. Clean PASS on both the staged candidate and the committed head of the code candidate. Measured and recorded rather than claimed: a clean PASS is one draw - the publication round returned two real findings on byte-identical material (diff sha256 2ce96fa7bdcc48fb) to the round that returned findings=[].",
+      "skippedReason": "",
+      "blockedReason": ""
+    },
+    {
+      "id": "ROUTE-REPAIR-2",
+      "riskTier": "medium",
+      "criterion": "A staged candidate whose diff is empty is refused as empty both when a receipt is minted and when one is validated; itd_goal_verify accepts an explicit candidate mode and validates in committed-head on a clean worktree with a single-parent HEAD while refusing a dirty tree; and a review receipt chain minted under the claim id `<UNIT>:general-review` passes the review cache with no workaround. Each of the three guarantees is RED-first and killed by its own mutation.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
       "skippedReason": "",
       "blockedReason": ""
     },
