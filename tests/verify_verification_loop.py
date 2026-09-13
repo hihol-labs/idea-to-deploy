@@ -8,6 +8,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -1349,6 +1350,312 @@ check("single pre-flight violation keeps the historical message",
       and "checker report escapes" in single_flight.stdout
       and "checker prompt escapes" not in single_flight.stdout,
       single_flight.stdout)
+
+# --- ROUTE-REPAIR-2: an empty candidate binds nothing and must be refused ---
+#
+# Measured on merged main 1a31fea: candidate_context(repo, "low", "staged")
+# returned the sha256 of the empty string while committed-head returned a real
+# digest. A staged receipt minted after a merge therefore did not fail; it
+# succeeded and attested to an empty diff. Both mint and validation must refuse
+# it, because a receipt over nothing is worse than a missing receipt: it looks
+# like evidence.
+#
+# The refusal also runs on the validation side, after a receipt is proven to
+# describe THIS candidate. An earlier version of this block DECLARED that
+# branch untestable, reasoning that once minting refuses an empty candidate no
+# such receipt can exist. That was wrong and independent review caught it: the
+# receipt digest is a self-consistency hash over public fields, so a fixture
+# can build a matching receipt by hand without the CLI and reach the branch.
+# It is exercised below rather than excused.
+EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
+
+empty_root = fixture()
+git(empty_root, "commit", "-qm", "candidate")          # nothing left staged
+empty_mint = run([
+    "machine", "--root", str(empty_root), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "staged",
+    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+], empty_root)
+check("staged mint refuses an empty candidate (RR2)",
+      empty_mint.returncode != 0 and "empty" in empty_mint.stdout.lower(),
+      empty_mint.stdout + empty_mint.stderr)
+
+loop_module = load_loop_module()
+# The refusal deliberately does NOT live inside candidate_context: there it
+# fired before the historical "does not match the exact current candidate"
+# refusal and rewrote its reason. It runs at every mint site and, on the
+# validation side, only after the receipt is proven to describe THIS candidate,
+# so a matching receipt over nothing is the case it catches.
+empty_raised = ""
+try:
+    loop_module.assert_candidate_not_empty(
+        {"diffHash": loop_module.EMPTY_DIFF_SHA256}, "staged")
+except loop_module.LoopError as exc:
+    empty_raised = exc.why
+check("an empty candidate is refused as binding nothing (RR2)",
+      "empty" in empty_raised.lower() and "binds nothing" in empty_raised,
+      empty_raised or "no LoopError raised")
+
+nonempty_ok = True
+try:
+    loop_module.assert_candidate_not_empty({"diffHash": "a" * 64}, "staged")
+except loop_module.LoopError as exc:
+    nonempty_ok = False
+check("a non-empty candidate is not refused by the same guard (RR2)",
+      nonempty_ok, "the guard rejects real candidates too")
+
+# Pin the PRODUCTION constant, not a local literal: comparing two expressions
+# in this file would exercise no code under test.
+check("the guard's empty digest is the sha256 of the empty string (RR2)",
+      load_loop_module().EMPTY_DIFF_SHA256 == EMPTY_SHA256
+      == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      load_loop_module().EMPTY_DIFF_SHA256)
+
+# The validation-side branch, reached by a hand-built receipt. The receipt
+# digest is a self-consistency hash over public fields, so a fixture can build
+# a receipt that MATCHES the current (empty) candidate without the CLI, which
+# is exactly the shape of a receipt minted before this change. The refusal must
+# still fire there, after the candidate-equality check has already passed.
+empty_context = loop_module.candidate_context(empty_root, "low", "staged")
+check("the fixture really holds an empty staged candidate (RR2)",
+      empty_context["diffHash"] == EMPTY_SHA256, empty_context["diffHash"])
+legacy = loop_module.seal_receipt({
+    "version": loop_module.RECEIPT_VERSION,
+    "kind": "adjudication",
+    "createdAt": "2026-09-13T00:00:00Z",
+    "unitId": "U-loop",
+    "riskTier": "low",
+    "candidate": empty_context,
+    "candidateDigest": loop_module.candidate_digest(empty_context),
+    "policySha256": loop_module.load_policy()[1],
+    "outcome": "PASSED",
+})
+legacy_path = (empty_root / ".itd-memory" / "verification-loop"
+               / "legacy-empty-adjudication.json")
+legacy_path.parent.mkdir(parents=True, exist_ok=True)
+legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+legacy_why = ""
+try:
+    loop_module.validate_adjudication(empty_root, legacy_path, "low", "U-loop")
+except loop_module.LoopError as exc:
+    legacy_why = exc.why
+check("a legacy receipt matching an empty candidate is still refused (RR2)",
+      "empty" in legacy_why.lower() and "binds nothing" in legacy_why,
+      legacy_why or "the receipt was accepted")
+
+# committed-head on the same tree still yields a real candidate, so the refusal
+# narrows exactly the mode that could not be honest.
+head_context = loop_module.candidate_context(empty_root, "low", "committed-head")
+check("committed-head still binds a non-empty candidate on the same tree (RR2)",
+      head_context["diffHash"] != EMPTY_SHA256, head_context["diffHash"])
+
+# --- ROUTE-REPAIR-2: the review claim chain is a documented route ---
+#
+# itd_review_cache validates against `<UNIT>:general-review`. Minting the whole
+# chain under that claim id already works; nothing in the route said so, so the
+# discovery was paid for once per session.
+claim_root = fixture()
+claim_machine = last_path(run([
+    "machine", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
+    "--risk-tier", "low", "--candidate-mode", "staged",
+    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+], claim_root))
+claim_adj = last_path(run([
+    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
+    "--risk-tier", "low", "--machine", str(claim_machine),
+], claim_root))
+claim_bound = ""
+try:
+    loop_module.validate_adjudication(
+        claim_root, claim_adj, "low", "U-loop:general-review")
+    claim_bound = "bound"
+except loop_module.LoopError as exc:
+    claim_bound = f"UNVERIFIED: {exc.why}"
+check("the review subclaim chain validates under the cache's claim id (RR2)",
+      claim_bound == "bound", claim_bound)
+
+claim_wrong = ""
+try:
+    loop_module.validate_adjudication(claim_root, claim_adj, "low", "U-loop")
+    claim_wrong = "accepted"
+except loop_module.LoopError as exc:
+    claim_wrong = exc.why
+check("a subclaim receipt does not unlock the bare unit (RR2)",
+      claim_wrong != "accepted", claim_wrong)
+
+# The criterion names the review CACHE as the consumer, so the proof must run
+# through it and not stop at validate_adjudication: an earlier version of this
+# block only called the loop directly, and independent review pointed out the
+# unit could be marked verified without ever exercising the consumer it names.
+cache_spec = importlib.util.spec_from_file_location(
+    "itd_review_cache_fixture", CACHE)
+assert cache_spec and cache_spec.loader
+cache_module = importlib.util.module_from_spec(cache_spec)
+cache_spec.loader.exec_module(cache_module)
+
+(claim_root / ".itd-memory").mkdir(parents=True, exist_ok=True)
+(claim_root / ".itd-memory" / "GOAL.json").write_text(json.dumps({
+    "version": 1, "goal": "claim chain fixture", "status": "active",
+    "createdAt": "2026-09-13T00:00:00Z", "updatedAt": "2026-09-13T00:00:00Z",
+    "currentUnitId": "U-loop",
+    "units": [{"id": "U-loop", "riskTier": "low", "status": "in_progress",
+               "criterion": "c", "verificationCommand": "true",
+               "verifiedAt": "", "evidence": "", "skippedReason": "",
+               "blockedReason": ""}],
+}), encoding="utf-8")
+check("the cache derives the subclaim id from the active unit (RR2)",
+      cache_module.review_claim_id(claim_root, "general") == "U-loop:general-review",
+      cache_module.review_claim_id(claim_root, "general"))
+
+cache_bound = ""
+try:
+    accepted = cache_module.validate_review_receipt(
+        claim_root, claim_adj, "low", "general")
+    cache_bound = str(accepted.get("claimId") or "")
+except cache_module.CacheError as exc:
+    cache_bound = f"UNVERIFIED: {exc}"
+check("the review cache accepts the subclaim chain with no workaround (RR2)",
+      cache_bound == "U-loop:general-review", cache_bound)
+
+cache_security = ""
+try:
+    cache_module.validate_review_receipt(claim_root, claim_adj, "low", "security")
+    cache_security = "accepted"
+except cache_module.CacheError as exc:
+    cache_security = str(exc)
+check("a general-review receipt does not unlock the security claim (RR2)",
+      cache_security != "accepted", cache_security)
+
+# The criterion says the CACHE refuses a chain minted under the BARE unit id.
+# An earlier version of this block proved only the two neighbouring cases - a
+# suffixed receipt validated as a bare unit, and a suffixed chain accepted by
+# the cache - and independent review pointed out that neither is the stated
+# one. A whole chain is therefore minted under "U-loop" and handed to the
+# cache, which is exactly the shape every earlier session produced by default.
+bare_machine = last_path(run([
+    "machine", "--root", str(claim_root), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--candidate-mode", "staged",
+    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+], claim_root))
+bare_adj = last_path(run([
+    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop",
+    "--risk-tier", "low", "--machine", str(bare_machine),
+], claim_root))
+bare_cache = ""
+try:
+    cache_module.validate_review_receipt(claim_root, bare_adj, "low", "general")
+    bare_cache = "accepted"
+except cache_module.CacheError as exc:
+    bare_cache = str(exc)
+check("the cache refuses a chain minted under the bare unit id (RR2)",
+      bare_cache != "accepted" and "another unit" in bare_cache, bare_cache)
+
+# --- ROUTE-REPAIR-2: the mirror attribution must DERIVE, not be asserted ---
+#
+# Round 2 caught this row claiming `passed` while naming the full mirror, which
+# is red. The first repair swapped in the sealed command - and round 3 called
+# that laundering, correctly: the new command did not verify the row's claim
+# either. The claim is not "the mirror is green" but "the attribution follows
+# from the two recorded lines", and THAT is executable: the suites red on this
+# candidate minus the suites red on pristine main must equal exactly the one
+# regression the row names as its own. If either line is edited or the named
+# regression stops matching, this check fails.
+attribution_row = next(
+    item for item in json.loads(
+        (ROOT / ".itd" / "ACCEPTANCE_CONTRACT.json").read_text(encoding="utf-8")
+    )["criteria"] if item["id"] == "ROUTE-REPAIR-2-4"
+)
+
+
+def mirror_reds(text: str) -> list[set[str]]:
+    """Every quoted `DONE fails: ...` RESULT line, as a set of suite names.
+
+    Prose that merely mentions the marker is not a result line: this evidence
+    explains what it parses, and an earlier version of this parser counted that
+    sentence as a third mirror run. A result line either names suites or says
+    `none`; anything else is skipped rather than silently returned as empty.
+    """
+    found = []
+    for chunk in text.split("DONE fails:")[1:]:
+        names = []
+        tokens = chunk.replace("`", " ").split()
+        if tokens[:1] == ["none"]:
+            found.append(set())
+            continue
+        for token in tokens:
+            if token.startswith("verify_"):
+                names.append(token)
+            elif token == "blocked:":
+                continue
+            else:
+                break
+        if names:
+            found.append(set(names))
+    return found
+
+
+quoted = mirror_reds(attribution_row["evidence"])
+check("the row quotes exactly two mirror result lines (RR2)",
+      len(quoted) == 2, f"found {len(quoted)} DONE-fails lines")
+if len(quoted) == 2:
+    candidate_reds, main_reds = quoted
+    own = candidate_reds - main_reds
+    check("the candidate's own regression derives from the two lines (RR2)",
+          own == {"verify_goal_bounded_autonomy"}, sorted(own))
+    check("every other red is present on pristine main too (RR2)",
+          candidate_reds - own <= main_reds,
+          sorted(candidate_reds - own - main_reds))
+    # The named regression is built FROM the derived set, so naming a
+    # different suite cannot satisfy this. Collect EVERY such claim rather than
+    # searching for the expected one: an earlier version only asserted that the
+    # right suite was named and would have passed with a second, false
+    # attribution sitting beside it, which is what its own name promised to
+    # reject.
+    claimed = set(re.findall(
+        r"(verify_[A-Za-z0-9_]+),? WAS caused by it",
+        attribution_row["evidence"]))
+    check("the row names the derived regression and no other (RR2)",
+          claimed == own, f"claimed={sorted(claimed)} derived={sorted(own)}")
+check("the row does not claim the mirror is green (RR2)",
+      "THE MIRROR IS NOT GREEN" in attribution_row["evidence"],
+      attribution_row["evidence"][:120])
+
+loop_doc = (ROOT / "docs" / "VERIFICATION_LOOP.md").read_text(encoding="utf-8")
+# Substring presence is not a guarantee: `:general-review` and the cache path
+# both already appeared elsewhere in this document while the duty they belong
+# to was unstated, and a mutation that deleted the duty survived a presence
+# test. Each duty is therefore matched as a whole clause.
+CLAIM_DUTIES = (
+    "One claim id runs through the whole chain.",
+    "is the consumer of a review receipt",
+    "receipt belongs to another unit",
+    "must all carry that same `--unit-id`",
+    "never unlocks the other",
+    # Where each failure surfaces. Added after the route stated it and a
+    # mutation that deleted the statement SURVIVED: the sentence existed in the
+    # document while no duty required it, so the text was decoration.
+    "MIXING ids breaks at the MINT",
+    "minted CONSISTENTLY under the bare unit id",
+)
+missing = [duty for duty in CLAIM_DUTIES if duty not in loop_doc]
+check("the route states every duty of the general-review claim chain (RR2)",
+      not missing, "docs/VERIFICATION_LOOP.md is missing: " + "; ".join(missing))
+
+# DECLARED LIMIT, replacing a check that pretended to more than it did.
+# An earlier version rejected two literal strings and called itself a polarity
+# check on "the route never licenses a bare-unit chain". Independent review
+# pointed out that any other wording escapes it - and ROUTE-REPAIR-1 already
+# measured that widening such a pattern list never converges, four times over.
+# The semantic claim "no sentence anywhere licenses the opposite" is not
+# decidable by pattern matching, so it is NOT claimed here.
+#
+# What IS established, behaviourally rather than textually: the cache refuses a
+# chain minted under the bare unit id. That is proved above by "a subclaim
+# receipt does not unlock the bare unit" and by "the review cache accepts the
+# subclaim chain with no workaround", and M12 - which strips the suffix from
+# the cache's own claim id - kills both. Documentation cannot license what the
+# code refuses, so the duty rests on the executable proof plus the positive
+# clauses of CLAIM_DUTIES, not on scanning prose for its negation.
 
 print(f"\n{PASSED} passed, {FAILED} failed")
 raise SystemExit(1 if FAILED else 0)

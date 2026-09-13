@@ -265,9 +265,116 @@ def main() -> int:
         check("report --json backpressure counts blocked as open", ok, r.stdout[:300])
 
     work_deadline_runtime_checks()
+    candidate_mode_checks()
 
     print(f"\n{PASSED} passed, {FAILED} failed")
     return 1 if FAILED else 0
+
+
+def candidate_mode_checks() -> None:
+    """ROUTE-REPAIR-2: the post-merge transition needs an honest candidate mode.
+
+    itd_goal_verify validated an adjudication in the default staged mode. After
+    a merge the index equals HEAD, so the staged diff is empty and no honest
+    receipt can satisfy it - three units in a row (REL-1.104.0, RSI-DEBT-2,
+    ROUTE-REPAIR-1) were closed by the owner instead of the harness. The tool
+    must accept an explicit mode and pass it through to the Verification Loop.
+    """
+    usage = run(VERIFY, "--help", cwd=ROOT)
+    text = usage.stdout + usage.stderr
+    check("goal verify exposes an explicit candidate mode (RR2)",
+          "--candidate-mode" in text, text[:400])
+    check("the candidate mode offers exactly the two loop modes (RR2)",
+          "staged" in text and "committed-head" in text, text[:400])
+
+    bad = run(VERIFY, "--goal", REL_GOAL, "--candidate-mode", "whatever",
+              "G-001", cwd=ROOT)
+    # Must fail as a REJECTED VALUE, not as an unknown flag: otherwise this
+    # check passes today for the wrong reason and would keep passing if the
+    # option were later removed.
+    check("an unknown candidate mode is refused as an invalid choice (RR2)",
+          bad.returncode != 0
+          and "invalid choice" in (bad.stdout + bad.stderr),
+          (bad.stdout + bad.stderr)[:300])
+
+    # A flag that parses but is not threaded would satisfy every check above.
+    # Prove the mode reaches the Verification Loop by minting a real receipt
+    # for a committed single-parent HEAD and verifying the unit with it: the
+    # staged default must refuse the same receipt, the committed-head mode must
+    # accept it. This is the post-merge circle itself, end to end.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _git(root, "init", "-q")
+        _git(root, "config", "user.name", "Goal Tools")
+        _git(root, "config", "user.email", "goal@example.test")
+        (root / ".gitignore").write_text(".itd-memory/\n", encoding="utf-8")
+        (root / ".itd").mkdir()
+        (root / ".itd" / "SCOPE_LOCK.md").write_text("# Scope\n", encoding="utf-8")
+        (root / ".itd" / "ACCEPTANCE_CONTRACT.json").write_text(
+            '{"criteria":[{"id":"AC-1","status":"pending"}]}\n', encoding="utf-8")
+        _git(root, "add", ".")
+        _git(root, "commit", "-qm", "baseline")
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        goal_path = make_ledger(mem)
+        # Low risk keeps this proof about the candidate mode: an unknown tier
+        # would demand a checker receipt and fail for an unrelated reason.
+        seeded = load(goal_path)
+        seeded["units"][0]["riskTier"] = "low"
+        goal_path.write_text(json.dumps(seeded), encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        r = run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        check("fixture unit activates for the candidate-mode proof (RR2)",
+              r.returncode == 0, r.stdout + r.stderr)
+
+        (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+        _git(root, "add", "app.py")
+        _git(root, "commit", "-qm", "candidate")
+
+        loop = ROOT / "skills" / "_shared" / "itd_verification_loop.py"
+        cmd = unit_command(goal_path, "G-001")
+        # The receipt risk tier must equal the unit's sealed tier, or the loop
+        # refuses the chain before the candidate mode is ever consulted.
+        tier = str(load(goal_path)["units"][0].get("riskTier") or "unknown")
+        machine = _last_path(run(
+            loop, "machine", "--root", str(root), "--unit-id", "G-001",
+            "--risk-tier", tier, "--candidate-mode", "committed-head",
+            "--command", "oracle=" + cmd, cwd=root))
+        adj = _last_path(run(
+            loop, "adjudicate", "--root", str(root), "--unit-id", "G-001",
+            "--risk-tier", tier, "--candidate-mode", "committed-head",
+            "--machine", str(machine), cwd=root))
+        rel_adj = adj.relative_to(root).as_posix()
+
+        staged = run(VERIFY, "--goal", rel, "G-001",
+                     "--verification-receipt", rel_adj, cwd=root)
+        check("the staged default still refuses a committed-head receipt (RR2)",
+              staged.returncode != 0, (staged.stdout + staged.stderr)[:400])
+
+        committed = run(VERIFY, "--goal", rel, "G-001",
+                        "--candidate-mode", "committed-head",
+                        "--verification-receipt", rel_adj, cwd=root)
+        check("committed-head verifies the post-merge candidate (RR2)",
+              committed.returncode == 0, (committed.stdout + committed.stderr)[:400])
+        check("the post-merge transition is recorded as verified (RR2)",
+              load(goal_path)["units"][0]["status"] == "verified",
+              json.dumps(load(goal_path)["units"][0])[:300])
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=str(root), check=True,
+                   capture_output=True, text=True)
+
+
+def _last_path(proc: subprocess.CompletedProcess) -> Path:
+    return Path(proc.stdout.strip().splitlines()[-1])
+
+
+def unit_command(goal_path: Path, uid: str) -> str:
+    for item in load(goal_path)["units"]:
+        if item["id"] == uid:
+            return str(item["verificationCommand"])
+    raise AssertionError(uid)
 
 
 # --- Перенесено из verify_work_deadline_runtime (LPD003-4) ------------------
