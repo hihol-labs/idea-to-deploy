@@ -238,6 +238,27 @@ def repository_root(root: Path | str) -> Path:
                         "Run the Verification Loop inside a valid Git repository.") from exc
 
 
+EMPTY_DIFF_SHA256 = sha256_bytes(b"")
+
+
+def assert_candidate_not_empty(context: dict[str, str], mode: str) -> None:
+    """Refuse a receipt over nothing; it reads as evidence but attests to none.
+
+    Measured on merged main: after a merge the index equals HEAD, so the staged
+    diff is empty and ``diffHash`` is the sha256 of the empty string. Minting
+    then SUCCEEDED and bound an empty candidate, which is worse than refusing,
+    because a later reader cannot tell it from a receipt over real content. The
+    honest post-merge route is ``committed-head``, so the refusal points there.
+    """
+    if str(context.get("diffHash") or "") != EMPTY_DIFF_SHA256:
+        return
+    raise LoopError(
+        f"{mode} candidate diff is empty and binds nothing",
+        "Stage the intended change, or use committed-head after a merge; a "
+        "receipt over an empty diff is not evidence.",
+    )
+
+
 def candidate_context(
     root: Path | str,
     risk_tier: str,
@@ -1143,6 +1164,11 @@ def validate_common(receipt: dict[str, Any], *, kind: str, repo: Path,
             or receipt.get("candidateDigest") != candidate_digest(current):
         raise LoopError("receipt does not match the exact current candidate",
                         "Any candidate change invalidates evidence; rerun verifier/checker.")
+    # Only after the receipt is proven to describe THIS candidate: a matching
+    # receipt over an empty diff is the dangerous case, because it reads as
+    # evidence while attesting to nothing. A mismatching receipt keeps its own
+    # historical refusal above, which this must not rewrite.
+    assert_candidate_not_empty(current, candidate_mode)
     ensure_fresh(receipt, policy)
     producer = receipt.get("producer") or {}
     if producer.get("id") != "itd-verification-loop" or producer.get("role") == "maker":
@@ -1664,6 +1690,7 @@ def command_machine(args: argparse.Namespace) -> int:
     repo = repository_root(args.root)
     risk = args.risk_tier
     context = candidate_context(repo, risk, args.candidate_mode)
+    assert_candidate_not_empty(context, args.candidate_mode)
     executed_tree = assert_checkout_matches_candidate(repo, context)
     commands: list[tuple[str, str]] = []
     for raw in args.command:
@@ -1747,6 +1774,7 @@ def command_checker(args: argparse.Namespace) -> int:
     repo = repository_root(args.root)
     risk = args.risk_tier
     context = candidate_context(repo, risk, args.candidate_mode)
+    assert_candidate_not_empty(context, args.candidate_mode)
     inspected_tree = assert_checkout_matches_candidate(repo, context)
     root = receipt_root(repo, policy)
     checker = {"provider": args.checker_provider.strip(),
@@ -2185,6 +2213,7 @@ def command_adjudicate(args: argparse.Namespace) -> int:
     repo = repository_root(args.root)
     risk = args.risk_tier
     context = candidate_context(repo, risk, args.candidate_mode)
+    assert_candidate_not_empty(context, args.candidate_mode)
     root = receipt_root(repo, policy)
     machine_path = secure_dependency_path(repo, root, args.machine, "machine receipt")
     machine = read_json(machine_path, "machine receipt")
@@ -2338,6 +2367,7 @@ def command_prepare_adjudication(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
     context = candidate_context(repo, args.risk_tier, args.candidate_mode)
+    assert_candidate_not_empty(context, args.candidate_mode)
     root = receipt_root(repo, policy)
     checker_path = secure_dependency_path(repo, root, args.checker, "checker receipt")
     checker = read_json(checker_path, "checker receipt")

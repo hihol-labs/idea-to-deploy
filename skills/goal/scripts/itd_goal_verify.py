@@ -191,7 +191,8 @@ def die(msg: str, code: int = 2) -> None:
 
 
 def validate_verification_receipt(goal_path: Path, receipt_path: str,
-                                  risk_tier: str, unit_id: str) -> dict:
+                                  risk_tier: str, unit_id: str,
+                                  candidate_mode: str = "staged") -> dict:
     """Consume an adjudicated exact-candidate receipt from the shared harness."""
     spec = importlib.util.spec_from_file_location(
         "itd_goal_verification_loop", VERIFICATION_LOOP_PATH)
@@ -205,7 +206,7 @@ def validate_verification_receipt(goal_path: Path, receipt_path: str,
     relative = path.relative_to(project_root).as_posix()
     try:
         receipt = module.validate_adjudication(
-            project_root, path, risk_tier, unit_id)
+            project_root, path, risk_tier, unit_id, candidate_mode)
     except module.LoopError as exc:
         raise VerificationReceiptError(
             f"Verification Loop receipt UNVERIFIED: {exc.why}; FIX: {exc.fix}") from exc
@@ -860,7 +861,8 @@ def recover_goal_transition(goal_path: Path, receipt_path: str = "",
                             *, verified_context: bool = False,
                             expected_unit_id: str | None = None,
                             writer: object | None = None,
-                            lock_held: bool = False) -> str | None:
+                            lock_held: bool = False,
+                            candidate_mode: str = "staged") -> str | None:
     """Finish or roll back one interrupted Goal/event/STATE transaction.
 
     A verified projection needs the existing current-candidate receipt unless
@@ -916,7 +918,8 @@ def recover_goal_transition(goal_path: Path, receipt_path: str = "",
         try:
             checked = validate_verification_receipt(goal_path, receipt_path,
                                                     str(unit.get("riskTier") or "unknown"),
-                                                    str(unit["id"]))
+                                                    str(unit["id"]),
+                                                    candidate_mode)
         except VerificationReceiptError as exc:
             raise RuntimeError(f"verified transition recovery receipt is unverified: {exc}") from exc
         if not receipt_binds_command(checked, str(unit.get("verificationCommand") or "")):
@@ -1205,7 +1208,8 @@ def current_canonical_event(goal_path: Path, unit_id: str, decision: str) -> dic
     return None
 
 
-def cmd_reconcile(goal: dict, goal_path: Path, unit: dict, receipt_path: str) -> int:
+def cmd_reconcile(goal: dict, goal_path: Path, unit: dict, receipt_path: str,
+                  candidate_mode: str = "staged") -> int:
     """Recover the selected interrupted transition or repair its STATE mirror.
 
     Reconciliation never creates canonical events or accepts prose as evidence.
@@ -1213,6 +1217,7 @@ def cmd_reconcile(goal: dict, goal_path: Path, unit: dict, receipt_path: str) ->
     if transition_recovery_path(goal_path).exists():
         try:
             outcome = recover_goal_transition(goal_path, receipt_path,
+                                              candidate_mode=candidate_mode,
                                               expected_unit_id=str(unit.get("id") or ""))
         except Exception as exc:
             die(f"reconcile cannot recover interrupted transition: {exc}", 1)
@@ -1228,7 +1233,7 @@ def cmd_reconcile(goal: dict, goal_path: Path, unit: dict, receipt_path: str) ->
     try:
         checked = validate_verification_receipt(
             goal_path, receipt_path, str(unit.get("riskTier") or "unknown"),
-            str(unit["id"]))
+            str(unit["id"]), candidate_mode)
         if not receipt_binds_command(checked, str(unit.get("verificationCommand") or "")):
             die("reconcile receipt lacks Goal verificationCommand", 1)
     except VerificationReceiptError as exc:
@@ -1526,7 +1531,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                tokens_used: int | None,
                elapsed_seconds_observed: int | None,
                checkpoint_ready: str, checkpoint_blocker: str,
-               checkpoint_remainder: str, checkpoint_estimate: str) -> int:
+               checkpoint_remainder: str, checkpoint_estimate: str,
+               candidate_mode: str = "staged") -> int:
     if recheck:
         if unit["status"] != "verified":
             die(f"--recheck applies to verified units; {unit['id']} is "
@@ -1660,7 +1666,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         try:
             verification_receipt = validate_verification_receipt(
                 goal_path, verification_receipt_path,
-                str(unit.get("riskTier") or "unknown"), str(unit["id"]))
+                str(unit.get("riskTier") or "unknown"), str(unit["id"]),
+                candidate_mode)
             if not receipt_binds_command(verification_receipt, command):
                 receipt_error = "receipt machine evidence does not contain Goal verificationCommand"
         except VerificationReceiptError as exc:
@@ -1865,6 +1872,17 @@ def main() -> int:
                    help="deprecated plain text; rejected when a checker is required")
     p.add_argument("--verification-receipt", default="",
                    help="adjudicated exact-candidate Verification Loop receipt")
+    # After a merge the index equals HEAD, so a staged candidate has an empty
+    # diff and no honest receipt can satisfy the default mode. Three units in a
+    # row were closed by the owner for exactly that reason, so the mode is
+    # explicit rather than inferred: the caller states which candidate the
+    # receipt describes, and the Verification Loop still refuses a dirty tree,
+    # a merge-parent HEAD and an empty diff on its own.
+    p.add_argument("--candidate-mode", choices=("staged", "committed-head"),
+                   default="staged",
+                   help="candidate the adjudication receipt must describe: "
+                        "staged (default) before the commit, committed-head "
+                        "for a clean single-parent HEAD after it")
     args = p.parse_args()
 
     actions = sum(bool(x) for x in
@@ -1914,13 +1932,14 @@ def main() -> int:
     if args.ack_handoff:
         return cmd_ack_handoff(goal, args.goal, unit, args.reason)
     if args.reconcile:
-        return cmd_reconcile(goal, args.goal, unit, args.verification_receipt)
+        return cmd_reconcile(goal, args.goal, unit, args.verification_receipt,
+                             args.candidate_mode)
     return cmd_verify(goal, args.goal, unit, args.recheck, args.timeout,
                       args.approach, args.review_evidence,
                       args.verification_receipt, args.tokens_used,
                       args.elapsed_seconds, args.checkpoint_ready,
                       args.checkpoint_blocker, args.checkpoint_remainder,
-                      args.checkpoint_estimate)
+                      args.checkpoint_estimate, args.candidate_mode)
 
 
 if __name__ == "__main__":

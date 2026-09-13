@@ -3760,6 +3760,85 @@
           "free-reviewer-producer"
         ]
       }
+    },
+    {
+      "id": "ROUTE-REPAIR-2-1",
+      "unitId": "ROUTE-REPAIR-2",
+      "criterion": "A candidate whose diff is empty is refused as binding nothing, at every mint site and on the validation side, without rewriting the historical refusal that a receipt does not match the exact current candidate.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Measured on merged main 1a31fea before the fix: candidate_context(repo, 'low', 'staged') returned diffHash e3b0c44298fc..., the sha256 of the empty string, while committed-head on the same tree returned 0d121610aa7c... Minting therefore SUCCEEDED over an empty candidate. RED-first: the mint check and the guard check both failed on the pre-fix bytes. The first implementation placed the guard inside candidate_context and broke two existing checks - 'default staged check does not weaken after commit' and 'a second commit cannot borrow the earlier candidate review' - because it fired BEFORE the historical candidate-equality refusal and replaced its reason; the refusal itself was never lost. The guard was moved after that comparison on the validation side and onto each of the four mint sites, and both historical checks are green again. An earlier version of this candidate DECLARED the validation-side branch untestable, reasoning that once minting refuses an empty candidate no such receipt can exist. Independent review refuted it: the receipt digest is a self-consistency hash over public fields, so a fixture builds a matching receipt by hand and reaches the branch. That check now exists, and it is the shape of a receipt minted before this change. Lethal mutations, all re-measured in ONE run after the last edit against the baseline 117 passed 0 failed and 69 passed 0 failed: M2 guard is a no-op (112/5); M3 guard accepts the empty digest (112/5); M11 validation-side guard removed (116/1); and the guard's FOUR mint sites, each removed on its own - M1a machine, M1b checker, M1c adjudicate, M1d prepare-adjudication, all 116/1. Per-site mutation is the point: the earlier single mutation deleted all four guards at once and read as lethal because the one covered site failed, which hid that three sites had no check. When the sites were split, M1d SURVIVED - prepare-adjudication was untested even after the fix that round 6 asked for - and it is lethal only now that the site is driven. M2 and M3 land on the same total here, which they did not before the hand-built-receipt check was added; the earlier acceptance text explained a difference that the same commit then erased, and this sentence records that the table is only valid as re-measured together.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The empty-candidate refusal narrows what is accepted and leaves every prior refusal intact, on the mint side and on the validation side; both sides are exercised, the validation side by a hand-built receipt.",
+        "impactClasses": [
+          "correctness",
+          "bounded-output"
+        ],
+        "oracleIds": [
+          "verification-loop",
+          "goal-tools"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-2-2",
+      "unitId": "ROUTE-REPAIR-2",
+      "criterion": "itd_goal_verify accepts an explicit candidate mode and validates a post-merge adjudication in committed-head, while the staged default still refuses that receipt and a dirty tree is refused by the loop.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Three units in a row were closed by the owner rather than the harness - REL-1.104.0, RSI-DEBT-2, ROUTE-REPAIR-1 - against 3 owner-route rows among 15 verified unit events. The cause is machine: validate_verification_receipt called validate_adjudication with the default staged mode and had no way to say committed-head. The mode is now threaded through cmd_verify, cmd_reconcile AND recover_goal_transition, because leaving the recovery path on staged would reproduce the same circle one level down in the repair. The proof is end to end rather than a parsed flag: a git fixture commits a candidate, mints a real machine receipt and adjudication in committed-head, and then the staged default refuses that receipt while committed-head carries the unit to verified. Lethal, from the same single re-measurement against the baseline 117/0 and 69/0: M4 mode not threaded to the loop (69->67/2); M5 option removed (69->31/38); the loop suite is untouched by both, which is the expected blast radius for a goal-tool change. A flag that parsed but was not threaded would have satisfied the earlier, weaker checks, which is why the end-to-end proof was added. HOST PARITY, caught by CI and by nothing else. The end-to-end proof failed on windows-verify while every local Linux run was green: tempfile.mkdtemp hands back the Windows 8.3 short form (C:\\\\Users\\\\RUNNER~1\\\\...) while the Verification Loop prints the long one (C:\\\\Users\\\\runneradmin\\\\...), so Path.relative_to raised ValueError on a path that is in fact inside the fixture. Both sides are resolved before the comparison. The defect was in THIS candidate's own new test, not in the code under test, and no oracle, review round or mutation could have surfaced it - the Windows leg is the only thing that runs that path shape. SECOND OCCURRENCE of the same host-parity class, again caught only by windows-verify: the Verification Loop fixture also handed back the 8.3 short form, so the review cache rejected a receipt as `outside the target repository` although it sat inside the fixture. Fixed once in `fixture()` rather than at each call site. Two occurrences in one unit say this is a class and not an accident: every temp-dir root that is later compared for containment must be resolved, and no local Linux run can show it.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The post-merge transition now has an honest harness route; the dirty-tree and merge-parent refusals are unchanged and still come from the Verification Loop, not from the new option.",
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "goal-tools",
+          "verification-loop"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-2-3",
+      "unitId": "ROUTE-REPAIR-2",
+      "criterion": "The route states that every receipt in a review chain carries the same `<UNIT>:general-review` claim id and names itd_review_cache as the consumer and its refusal; the cache itself refuses a chain minted under the bare unit id, and a general-review receipt does not unlock the security claim.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "This criterion was narrowed by measurement before it was sealed and again while it was being met. A live probe minted a machine receipt and an adjudication under 'ROUTE-REPAIR-2:general-review' and validate_adjudication accepted the chain under exactly the claim id itd_review_cache builds, so the circle was never a code defect. The first scope text then claimed no part of the route said so; that is measurably false - docs/VERIFICATION_LOOP.md line 194 names the claim id in a comment - and the scope was corrected rather than the finding reworded. What was missing is the consequence: that every link carries the same id, who the consumer is, and what its refusal reads like. The first version of this check tested substring presence and a mutation that deleted the duty SURVIVED it, the same hole independent review found three times in ROUTE-REPAIR-1. The check now matches five whole clauses plus polarity. Lethal after the rebuild, from the same single re-measurement against the baseline 117/0: M6 chain duty (116/1); M7 cache consumer duty (116/1); M8 same-unit-id duty (116/1); M9 claim separation duty (116/1); M16 and M17, one per half of the failure-mode split (116/1 each); and M12, which strips the `:general-review` suffix from the cache's own claim id, kills three checks (114/3) - the proof now fails when the CONSUMER changes, which is what round 1 said was missing. The line-number citation this scope first used for the route document was replaced by a content citation, because this candidate inserts lines above it and independent review measured that the number goes stale the moment the change lands. The claim chain is now proved THROUGH its consumer: independent review round 1 found that the checks called validate_adjudication directly and never itd_review_cache, so the unit could have been marked verified without exercising the consumer its own criterion names. The suite now derives the claim id with cache_module.review_claim_id, accepts the chain through cache_module.validate_review_receipt, and proves a general-review receipt does not unlock the security claim. DECLARED LIMIT, after the full-unit review round. This criterion does NOT claim that no sentence anywhere in the route licenses a bare-unit chain. An earlier version asserted that as a polarity check which rejected two literal strings; independent review showed any other wording escapes it, and ROUTE-REPAIR-1 already measured four times that widening such a pattern list never converges. The check was removed rather than widened, and M10 - which licensed a bare-unit chain in prose - is dropped from the mutation table with it, since a mutation must kill a guarantee that is actually claimed. What remains is stronger and behavioural: the cache refuses a chain minted under the bare unit id, proved by two checks and killed by M12. Documentation cannot license what the code refuses. Two corrections came from the third full-unit round and both were real. The route claimed a mixed claim id breaks at the CACHE; it does not - an adjudication validates its dependencies against its own unit id, so a mixed chain is refused at the MINT, and only a chain minted consistently under the bare id reaches the cache. That is why earlier sessions paid at the gate rather than at the producer. And the criterion's own case was not tested: the checks proved the two NEIGHBOURING cases - a suffixed receipt validated as a bare unit, and a suffixed chain accepted - while the stated one, a bare chain refused BY THE CACHE, was missing. It is now minted and handed to validate_review_receipt. Recorded because it repeated three times in this unit: every finding I closed by ADDING TEXT produced text that nothing required. M16 initially SURVIVED - the corrected failure-mode sentence sat in the route while no duty demanded it, so it was decoration. It became lethal only after the clause entered CLAIM_DUTIES. The mutation run is the only thing that separates a guarantee from its description; neither the suite nor the review does. The fragment list this criterion once used was replaced by ONE normalized block after round 6 showed the fragments were matched independently anywhere in the document, so rearranged or unrelated text could satisfy all of them once the canonical explanation was gone.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The documented duty is pinned by whole-clause matching after substring presence was measured to accept its own deletion; the ABSENCE of a licensing sentence is explicitly not claimed, and the duty rests on the executable cache refusal instead.",
+        "impactClasses": [
+          "documentation-accuracy",
+          "correctness"
+        ],
+        "oracleIds": [
+          "verification-loop"
+        ]
+      }
+    },
+    {
+      "id": "ROUTE-REPAIR-2-4",
+      "unitId": "ROUTE-REPAIR-2",
+      "criterion": "The full mirror's ACTUAL last line is recorded, with every red suite attributed to this candidate or to pristine main by a clean-worktree run.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "THE MIRROR IS NOT GREEN AND THIS ROW DOES NOT CLAIM IT IS. The criterion is that the actual line is recorded with attribution, not that the suite passes; `bash tests/run-all.sh` is the SOURCE of the quoted lines, not the verifier of this criterion, and naming it as this row's verificationCommand while marking the row passed was an overclaim that independent review round 2 caught. The first repair merely swapped in the sealed command, and round 3 called that laundering - correctly, because those suites did not verify this row's claim either. The claim is now EXECUTABLE instead: tests/verify_verification_loop.py parses the two `DONE fails:` lines out of this very evidence, derives candidate reds minus pristine-main reds, and requires that difference to be exactly the one suite this row names as its own regression. Editing either quoted line, or naming a different suite, fails the sealed command. The mirror output stays quoted below because the check reads it from here. On this candidate the full mirror ended with: `DONE fails: verify_reviewer_provider_freshness verify_ledger_reconciliation verify_goal_bounded_autonomy verify_mandatory_keyless_review`. A clean-worktree run of pristine main 1a31fea in a separate git worktree ended with: `DONE fails: verify_reviewer_provider_freshness verify_ledger_reconciliation verify_mandatory_keyless_review blocked: verify_independent_review_efficacy`. Attribution follows from the two lines rather than from memory: three of the four reds are pre-existing on pristine main and none is caused by this candidate; the fourth, verify_goal_bounded_autonomy, WAS caused by it and was a real regression rather than a false block - that fixture left the index equal to HEAD, so every receipt it minted bound an empty diff, which is the first case the new guard caught. Staging a real candidate in the fixture repairs it (42 passed, 0 failed) and touches no guarantee that suite makes. This row exists because round 1 found the mirror line recorded only in the commit message while the frozen scope requires it in the evidence; its own first version then overclaimed, which is recorded here rather than quietly corrected. Measured while fixing this: six EARLIER rows - GPG-004-PA3, U-NTFS-DIRSIZE-AC8, U12:general-review-2, U17:general-review-2, REL-1.103.0-3-mirror and REL-1.104.0-3-mirror - also carry status passed with `bash tests/run-all.sh` as their verificationCommand. Whether the mirror was green in those eras is NOT established here, so this is recorded as a question rather than asserted as six defects, and none of those rows is touched: accepted evidence stays immutable. It goes to BACKLOG for ROUTE-REPAIR-3. Lethal, from the same single re-measurement against the baseline 117/0 and 69/0: M13 removes the candidate regression from the recorded mirror line (115/2); M14 names a different suite as this candidate's regression (116/1); M15 adds a SECOND false attribution beside the true one (116/1). M15 exists because round 4 found the check's own name promising `and no other` while it only searched for the expected suite - a false extra attribution would have passed the sealed command. The check now collects every `verify_... WAS caused by it` claim and requires the SET to equal the derived difference. The parser that reads those lines rejects prose that merely mentions the marker, because the sentence explaining the parser was itself counted as a third mirror run and turned the baseline red - fixed in the parser rather than in the prose, so a later edit to the wording cannot break it again.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Every red suite in the mirror is attributed by a measured clean-worktree comparison, the one regression this candidate caused is named as such, and the row states plainly that the mirror is red rather than implying a green run through its command field.",
+        "impactClasses": [
+          "reconciliation",
+          "test-coverage"
+        ],
+        "oracleIds": [
+          "goal-tools",
+          "verification-loop"
+        ]
+      }
     }
   ],
   "completion": {

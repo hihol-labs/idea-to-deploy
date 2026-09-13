@@ -171,6 +171,23 @@ tails, so alternate field names cannot turn secrets or PII into durable memory.
 
 ## Canonical producer sequence
 
+One claim id runs through the whole chain. `skills/review/scripts/itd_review_cache.py`
+is the consumer of a review receipt, and `review_claim_id` builds the id it
+validates against as `<active-unit>:general-review` (or `:security-review`), so
+a chain minted under the bare unit id is refused with `review receipt is
+UNVERIFIED: receipt belongs to another unit`. The machine receipt, the checker
+receipt and the adjudication must all carry that same `--unit-id`, and the two
+failure modes surface at different moments. MIXING ids breaks at the MINT: an
+adjudication validates its machine and checker dependencies against its own
+unit id, so a chain whose links disagree is refused while it is being built. A
+chain minted CONSISTENTLY under the bare unit id mints cleanly and is refused
+later, by the cache, which is why that failure surfaces late and why every
+session that defaulted to the bare id paid for the discovery at the gate rather
+than at the producer. `v2_primary_unit` derives the root unit from
+the exact `:general-review` suffix, so the subclaim keeps the general and
+security claims separate while still resolving to one primary unit - a receipt
+minted under one claim never unlocks the other.
+
 Keep the checkout identical to the staged index; unstaged or non-ignored
 untracked files fail closed. Put the exact checker prompt and report under the
 durable, Git-ignored Verification Loop directory. Start the prompt from
@@ -192,7 +209,9 @@ SHD="skills/_shared"
 VL="$SHD/itd_verification_loop.py"
 
 # CLAIM_ID is G-00X for /goal, or <active-unit>:general-review /
-# <active-unit>:security-review for cache gates.
+# <active-unit>:security-review for cache gates. EVERY receipt in the chain -
+# machine, checker and adjudication - carries the SAME CLAIM_ID; see the
+# paragraph under this block before minting the first one.
 MACHINE_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" machine --root . \
   --unit-id "$CLAIM_ID" --risk-tier "$RISK_TIER" \
   --command "oracle=$VERIFICATION_COMMAND" \
