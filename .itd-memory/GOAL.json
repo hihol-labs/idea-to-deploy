@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-13T11:59:14Z",
-  "currentUnitId": "ROUTE-REPAIR-2",
+  "updatedAt": "2026-09-13T21:21:55Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "PE5-001",
@@ -590,11 +590,19 @@
       "riskTier": "medium",
       "criterion": "A staged candidate whose diff is empty is refused as empty both when a receipt is minted and when one is validated; itd_goal_verify accepts an explicit candidate mode and validates in committed-head on a clean worktree with a single-parent HEAD while refusing a dirty tree; and a review receipt chain minted under the claim id `<UNIT>:general-review` passes the review cache with no workaround. Each of the three guarantees is RED-first and killed by its own mutation.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py",
-      "status": "in_progress",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-13T21:21:55Z",
+      "evidence": "exit 0: 117 passed, 0 failed",
       "skippedReason": "",
-      "blockedReason": ""
+      "blockedReason": "",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/ROUTE-REPAIR-2/adjudication-close.json",
+        "sha256": "928f385164557ba2b1e7539788bd11682440d5e180c510d431a686b479aa0989",
+        "receiptSha256": "2ee380fa356a0031965ad0b973d64650f7fa73202d1a788a57e0f6711c6eb64e",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/ROUTE-REPAIR-2/machine-close.json",
+        "machineSha256": "868600cc9a158268ce3686d2a326c712b0908a79718da9efb69bf2d79fdaa421"
+      }
     },
     {
       "id": "RSI-DEBT-3",

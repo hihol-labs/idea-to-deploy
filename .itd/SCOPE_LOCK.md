@@ -1,5 +1,32 @@
 # ROUTE-REPAIR-2
 
+**Публикация закрытия леджера (2026-09-14) - отдельный кандидат этого же юнита.**
+Код-кандидат смержен как `dee34a3` через PR #289, Gate 1 и windows-verify зелёные,
+`--no-verify` не применялся ни разу за юнит. Переход в леджере уже сделан ХАРНЕСОМ:
+`itd_goal_verify --candidate-mode committed-head` вернул `VERIFIED` с
+`actor: harness` и `verifiedAt 2026-09-13T21:21:55Z`, 47/50. Это первый машинный
+close после ДВУХ подряд закрытий маршрутом владельца (RSI-DEBT-2 2026-09-12,
+ROUTE-REPAIR-1 2026-09-12); маршрутом владельца закрыты три из четырёх
+предшествующих юнитов, но не подряд - между REL-1.104.0 и RSI-DEBT-2 стоит
+машинный close BROKER-ISOLATION 2026-09-11. Формулировка «three units in a row»
+в смерженном код-кандидате и близкая формулировка «ВПЕРВЫЕ за четыре юнита»
+в описании `session_2026-09-14.md` не совпадают с журналом событий; принятое
+evidence не переписывается, расхождение записано в BACKLOG. Этот кандидат
+публикует уже записанный переход и то, что маршрут стоил.
+
+Allowed для кандидата закрытия ровно пять путей: `.itd-memory/GOAL.json`,
+`.itd-memory/STATE.json`, `.itd-memory/events.jsonl` (все три уже записаны
+харнесом и агентом не редактируются), `BACKLOG.md` (новые записи и поправки к
+двум существующим) и этот файл. `.itd/ACCEPTANCE_CONTRACT.json` НЕ трогается:
+строки `ROUTE-REPAIR-2-1..4` внесены код-кандидатом и стоят `passed`, а
+`activeFollowup` был закрыт ещё на ROUTE-REPAIR-1, поэтому открывать и тут же
+закрывать followup ради формы значило бы подгонять запись под класс.
+
+Forbidden дополнительно к списку ниже: редактировать `verified`, `evidence` или
+`verifiedAt` руками; переписывать запечатанный критерий RSI-DEBT-3; активировать
+RSI-DEBT-3 до мержа этого кандидата (WIP=1).
+
+
 Current unit ROUTE-REPAIR-2, medium risk, activated by the harness on 2026-09-13. Owner-approved queue (2026-09-12, superseding the 2026-09-08 order): ROUTE-REPAIR-1 (done, merged 2d50a12) -> ROUTE-REPAIR-2 -> ROUTE-REPAIR-3 (the metric sees the route) -> RSI-DEBT-3. One plan item is one session.
 
 One measured root, three places. The binding a consumer expects is fixed, while the only honest receipt the lifecycle can produce at that point does not match it, so the route either refuses valid evidence or accepts evidence that attests to nothing.

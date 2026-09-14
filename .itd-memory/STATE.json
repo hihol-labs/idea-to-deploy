@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "ROUTE-REPAIR-2",
     "goal": "A staged candidate whose diff is empty is refused as empty both when a receipt is minted and when one is validated; itd_goal_verify accepts an explicit candidate mode and validates in committed-head on a clean worktree with a single-parent HEAD while refusing a dirty tree; and a review receipt chain minted under the claim id `<UNIT>:general-review` passes the review cache with no workaround. Each of the three guarantees is RED-first and killed by its own mutation.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-13T11:59:14Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-13T21:21:55Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
