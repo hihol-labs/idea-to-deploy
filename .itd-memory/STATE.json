@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "RSI-DEBT-3",
     "goal": "itd_goal_verify.py records the unit evidence as one line per top-level command of an `A && B` verificationCommand in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, the terminal event repeats the same summary, a single command keeps its current form, and the compound case is a RED-first regression.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-14T14:03:49Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-09-15T10:50:41Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

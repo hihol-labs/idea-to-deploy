@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-14T14:03:49Z",
-  "currentUnitId": "RSI-DEBT-3",
+  "updatedAt": "2026-09-15T10:50:41Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "PE5-001",
@@ -609,11 +609,19 @@
       "riskTier": "low",
       "criterion": "itd_goal_verify.py records the unit evidence as one line per top-level command of an `A && B` verificationCommand in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, the terminal event repeats the same summary, a single command keeps its current form, and the compound case is a RED-first regression.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
-      "status": "in_progress",
-      "verifiedAt": "",
-      "evidence": "",
+      "status": "verified",
+      "verifiedAt": "2026-09-15T10:50:41Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py: exit 0, stdout sha256 e6c6d968d224b833, 83 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py: exit 0, stdout sha256 2aee43278cf00b0c, ALL PASS",
       "skippedReason": "",
-      "blockedReason": ""
+      "blockedReason": "",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/RSI-DEBT-3/adjudication-close.json",
+        "sha256": "89dc8a253a2d091545040628ceddcf069bbafded08418fd6451cb7bfece8a1ba",
+        "receiptSha256": "aeb1c73230d7af8ac082af16e89be5e2256560c4ef9907a071aa49e1169bb98c",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/RSI-DEBT-3/machine-close.json",
+        "machineSha256": "3debdf07e011cfaef1b2a1d3d482eee5cfa461287c592ebded0021bb7010f8c8"
+      }
     }
   ],
   "handoffState": {
