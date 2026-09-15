@@ -27,6 +27,7 @@ validate_state): opt-in working_deadline профиль — явный вход 
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -101,7 +102,346 @@ def events(mem: Path) -> list[dict]:
     return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+def output_command(message: str, exit_code: int = 0) -> str:
+    return (f'"{PY}" -c "import sys; print({message!r}); '
+            f'sys.exit({exit_code})"')
+
+
+def command_evidence(command: str, exit_code: int, stdout: str,
+                     last_line: str) -> str:
+    digest = hashlib.sha256(stdout.encode("utf-8")).hexdigest()[:16]
+    return (f"{command}: exit {exit_code}, stdout sha256 {digest}, "
+            f"{last_line}")
+
+
+def check_compound_verification_evidence() -> None:
+    first_message = "first top-level verification command completed successfully"
+    second_message = "second top-level verification command completed successfully"
+    first = output_command(first_message)
+    second = output_command(second_message)
+    compound = f"{first} && {second}"
+    expected = "\n".join((
+        command_evidence(first, 0, first_message + "\n", first_message),
+        command_evidence(second, 0, second_message + "\n", second_message),
+    ))
+    if len(expected) <= 200:
+        raise AssertionError("compound evidence fixture must exercise the legacy cap")
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = compound
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        terminal = [event for event in events(mem)
+                    if event.get("name") == "G-001"
+                    and event.get("decision") == "verified"]
+        check("compound verification records one complete evidence line per command",
+              result.returncode == 0 and stored == expected,
+              repr(stored) + " != " + repr(expected))
+        check("compound terminal event repeats the exact unit evidence",
+              len(terminal) == 1 and terminal[0].get("evidence") == expected,
+              str(terminal))
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = first
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("single verification command keeps its legacy evidence form",
+              result.returncode == 0
+              and stored == f"exit 0: {first_message}", repr(stored))
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        long_message = "single-command-" + ("x" * 220)
+        single = output_command(long_message)
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = single
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("single verification command retains the legacy 200-character cap",
+              result.returncode == 0
+              and stored == f"exit 0: {long_message}"[:200], repr(stored))
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        quoted_message = "quoted && literal stays in the first command"
+        quoted = output_command(quoted_message)
+        compound_quoted = f"{quoted} && {second}"
+        expected_quoted = "\n".join((
+            command_evidence(quoted, 0, quoted_message + "\n", quoted_message),
+            command_evidence(second, 0, second_message + "\n", second_message),
+        ))
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = compound_quoted
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("quoted && is not treated as a top-level boundary",
+              result.returncode == 0 and stored == expected_quoted,
+              repr(stored))
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        state_first = "ITD_CHAIN_VALUE='kept value'"
+        state_second = 'printf "%s\\n" "$ITD_CHAIN_VALUE"'
+        compound_state = f"{state_first} && {state_second}"
+        expected_state = "\n".join((
+            command_evidence(state_first, 0, "", "(no output)"),
+            command_evidence(state_second, 0, "kept value\n", "kept value"),
+        ))
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = compound_state
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("compound verification keeps same-shell state between commands",
+              result.returncode == 0 and stored == expected_state,
+              repr(stored))
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        marker = root / "second-command-ran.txt"
+        first_failure = output_command("first command failed", 7)
+        second_write = (f'"{PY}" -c "from pathlib import Path; '
+                        'Path(\'second-command-ran.txt\').write_text('
+                        '\'ran\', encoding=\'utf-8\')"')
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = (
+            f"{first_failure} && {second_write}")
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        failed = [event for event in events(mem)
+                  if event.get("name") == "G-001"
+                  and event.get("decision") == "verification_failed"]
+        expected_failure = command_evidence(
+            first_failure, 7, "first command failed\n", "first command failed")
+        check("compound verification preserves && short-circuiting",
+              result.returncode == 1 and not marker.exists(),
+              result.stdout + result.stderr)
+        check("compound failure evidence names only the executed command",
+              len(failed) == 1 and failed[0].get("evidence") == expected_failure,
+              str(failed))
+
+    # A per-command line drops the whole-record 200-character cap, so the one
+    # part of it that can grow without bound - the command's own last output
+    # line - has to be capped instead. Without that cap a chatty command turns
+    # one ledger row into an unbounded blob; the check is proven by mutation
+    # rather than by RED-first, because the cap shipped with the form.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        chatty_message = "chatty-" + ("y" * 260)
+        chatty = output_command(chatty_message)
+        compound_chatty = f"{chatty} && {second}"
+        expected_chatty = "\n".join((
+            command_evidence(chatty, 0, chatty_message + "\n",
+                             chatty_message[:200]),
+            command_evidence(second, 0, second_message + "\n", second_message),
+        ))
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = compound_chatty
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("a compound line caps the command's last output line",
+              result.returncode == 0 and stored == expected_chatty,
+              repr(stored))
+
+    # The per-command form models exactly one shape - a top-level `&&` chain.
+    # Any other top-level operator is not parsed but REFUSED, and the legacy
+    # single-line form is kept: a wrong split would put a command in the
+    # ledger that nobody executed as written. A pipe is the cheapest witness.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        piped = f"{output_command('piped first leg')} | cat && {second}"
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = piped
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("an unmodelled top-level operator keeps the legacy evidence form",
+              result.returncode == 0 and stored == f"exit 0: {second_message}",
+              repr(stored))
+
+    # A command that the shell STARTED but that never wrote its status is not
+    # the same as one that never ran: the chain did not finish. `exit 3` as the
+    # second leg ends the whole shell before the status is recorded, and the
+    # ledger must say so with the shell's own exit code - not inherit the zero
+    # of the leg before it and read as verified.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        aborted = f"{first} && exit 3"
+        expected_aborted = "\n".join((
+            command_evidence(first, 0, first_message + "\n", first_message),
+            command_evidence("exit 3", 3, "",
+                             "shell exited 3 before the command completed"),
+        ))
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = aborted
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        failed = [event for event in events(mem)
+                  if event.get("name") == "G-001"
+                  and event.get("decision") == "verification_failed"]
+        check("a leg that ends the shell is recorded as unfinished, not verified",
+              result.returncode == 1 and len(failed) == 1
+              and failed[0].get("evidence") == expected_aborted,
+              str(failed) + " " + result.stdout + result.stderr)
+
+    # An unquoted `#` starts a comment that swallows the rest of the line -
+    # including an `&&` after it. A splitter that cut there would RUN the
+    # commented-out command and record it; the shell never would. The second
+    # leg writes a marker file, so "not recorded" is checked as "not run".
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        marker = root / "commented-leg-ran.txt"
+        commented = (f"{first} # trailing note && \"{PY}\" -c "
+                     "\"from pathlib import Path; Path('commented-leg-ran.txt')"
+                     ".write_text('ran', encoding='utf-8')\"")
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = commented
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("an unquoted # keeps the legacy form and the commented leg never runs",
+              result.returncode == 0 and not marker.exists()
+              and stored == f"exit 0: {first_message}", repr(stored))
+
+    # `2>&1` is a descriptor duplication, not a control operator; refusing it
+    # as a lone `&` would push the most common real-world chain back to the
+    # one-line record. The stderr text lands in stdout, so it is in the digest.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        noisy_message = "stderr leg says hello"
+        noisy = (f'"{PY}" -c "import sys; print({noisy_message!r}, '
+                 f'file=sys.stderr)" 2>&1')
+        compound_noisy = f"{noisy} && {second}"
+        expected_noisy = "\n".join((
+            command_evidence(noisy, 0, noisy_message + "\n", noisy_message),
+            command_evidence(second, 0, second_message + "\n", second_message),
+        ))
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = compound_noisy
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        result = run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        check("a 2>&1 redirection is not mistaken for a control operator",
+              result.returncode == 0 and stored == expected_noisy,
+              repr(stored))
+
+    # A trailing backslash would continue the last leg into the generated
+    # group closer and change what the shell runs; the splitter refuses it and
+    # the command is executed as written by the legacy path. Whatever the
+    # shell makes of it, the record must be the one-line legacy form.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td).resolve()
+        mem = root / ".itd-memory"
+        mem.mkdir()
+        continued = f"{first} && {second} \\"
+        goal_path = make_ledger(mem)
+        data = load(goal_path)
+        data["units"] = data["units"][:1]
+        data["units"][0]["verificationCommand"] = continued
+        goal_path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+        rel = os.path.join(".itd-memory", "GOAL.json")
+        run(VERIFY, "--goal", rel, "--activate", "G-001", cwd=root)
+        run(VERIFY, "--goal", rel, "G-001", cwd=root)
+        stored = unit(load(goal_path), "G-001").get("evidence", "")
+        recorded = [event for event in events(mem)
+                    if event.get("name") == "G-001"
+                    and event.get("decision") in ("verified", "verification_failed")]
+        stored = stored or (recorded[-1].get("evidence", "") if recorded else "")
+        check("a trailing backslash keeps the legacy form instead of a split",
+              bool(stored) and stored.startswith("exit ") and "\n" not in stored
+              and ": exit " not in stored, repr(stored))
+
+
 def main() -> int:
+    check_compound_verification_evidence()
+
     with tempfile.TemporaryDirectory() as td:
         proj = Path(td)
         mem = proj / ".itd-memory"

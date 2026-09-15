@@ -81,6 +81,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from datetime import datetime
@@ -756,7 +757,7 @@ def transition_event(goal_path: Path, unit_id: str, decision: str,
         "type": "unit",
         "name": unit_id,
         "decision": decision,
-        "evidence": evidence[:EVIDENCE_MAX],
+        "evidence": clamp_evidence(evidence),
         "ledger": goal_path.name,
         # Binds a recovery record to this one append.  It is deliberately not
         # an alternate authority for transitions: the JSONL event remains the
@@ -1019,7 +1020,7 @@ def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str,
         "type": "unit",
         "name": unit_id,
         "decision": decision,
-        "evidence": evidence[:EVIDENCE_MAX],
+        "evidence": clamp_evidence(evidence),
         # Имя юнита не уникально между леджерами (live: `G-001` — пять разных
         # юнитов), поэтому событие несёт СВОЙ леджер (S10-LEDGER).
         "ledger": goal_path.name,
@@ -1311,6 +1312,198 @@ def open_units_summary(goal: dict) -> str:
 def decisive_line(output: str) -> str:
     lines = [l.strip() for l in output.splitlines() if l.strip()]
     return lines[-1] if lines else "(no output)"
+
+
+def clamp_evidence(evidence: str) -> str:
+    """Cap a single-line record; leave a per-command record whole.
+
+    The 200-character cap keeps one ledger row readable, and that is still
+    right for the legacy one-line form. A compound `A && B` record is one
+    line per top-level command and is bounded where it can actually grow:
+    the command text comes from the sealed ledger, and the only free-growing
+    part of a line - the last output line - is capped by
+    command_evidence_line. Re-capping the joined record here would cut the
+    second command's line off entirely and hide that it ran at all, which is
+    the exact defect the per-command form exists to fix.
+    """
+    if "\n" in evidence:
+        return evidence
+    return evidence[:EVIDENCE_MAX]
+
+
+def split_top_level_and(command: str) -> list[str] | None:
+    """Split a `A && B` chain into its top-level commands, else None.
+
+    Fail-safe by construction. A static parser for arbitrary shell is a known
+    dead end in this repository (U16 measured it over eleven rounds), so this
+    one models exactly ONE shape - segments joined by top-level `&&` - and
+    refuses everything else: any other top-level operator (`|`, `||`, `;`, a
+    lone `&`, a newline, a subshell, a command substitution, a heredoc) makes
+    it return None and the caller keeps the legacy single-line evidence.
+    Refusing is never wrong, it only records less; guessing would put a claim
+    in the ledger that no one executed.
+    """
+    if command.rstrip(" \t").endswith("\\"):
+        # A trailing backslash would continue the line into the generated
+        # group closer and change what the shell runs. Refused outright.
+        return None
+    segments: list[str] = []
+    current: list[str] = []
+    quote = ""
+    index = 0
+    size = len(command)
+    while index < size:
+        char = command[index]
+        if quote:
+            current.append(char)
+            if char == "\\" and quote == '"' and index + 1 < size:
+                current.append(command[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+            index += 1
+            continue
+        if char == "\\" and index + 1 < size:
+            current.append(char)
+            current.append(command[index + 1])
+            index += 2
+            continue
+        if char in "'\"":
+            quote = char
+            current.append(char)
+            index += 1
+            continue
+        if command.startswith("&&", index):
+            segments.append("".join(current))
+            current = []
+            index += 2
+            continue
+        if char in "><" and index + 1 < size and command[index + 1] == "&":
+            # `2>&1` / `<&0`: a file-descriptor duplication, not a control
+            # operator. The only `&` this splitter accepts outside `&&`.
+            current.append(char)
+            current.append("&")
+            index += 2
+            continue
+        if command.startswith("<<", index) or char in "|;&()`#\n\r":
+            # `#` is refused too: an unquoted comment swallows everything
+            # after it, including an `&&`, and splitting there would record
+            # a command the shell never ran.
+            return None
+        current.append(char)
+        index += 1
+    if quote:
+        return None
+    segments.append("".join(current))
+    stripped = [segment.strip() for segment in segments]
+    if len(stripped) < 2 or any(not segment for segment in stripped):
+        return None
+    return stripped
+
+
+def command_evidence_line(command: str, rc: int, stdout: str, tail: str) -> str:
+    """One ledger line for one top-level command: what ran, and what it said."""
+    digest = hashlib.sha256(stdout.encode("utf-8")).hexdigest()[:16]
+    return f"{command}: exit {rc}, stdout sha256 {digest}, {tail[:EVIDENCE_MAX]}"
+
+
+def compound_script(segments: list[str], capture: Path) -> tuple[str, dict[str, str]]:
+    """Build a script that runs the chain in ONE shell, each command apart.
+
+    Same shell, because `A && B` may legitimately carry state from A into B
+    and running the segments as separate processes would silently change what
+    the sealed command means. Short-circuiting is preserved by nesting each
+    following command inside a success test, so a command that never ran
+    leaves no file and therefore cannot be described in the ledger.
+    """
+    env: dict[str, str] = {}
+    lines = ["__itd_rc=0"]
+    indent = ""
+    for position, segment in enumerate(segments, start=1):
+        out_key = f"ITD_EVIDENCE_{position}_OUT"
+        err_key = f"ITD_EVIDENCE_{position}_ERR"
+        rc_key = f"ITD_EVIDENCE_{position}_RC"
+        # .as_posix() after .resolve(): Git Bash reads a forward-slash path on
+        # native Windows, and the resolved form avoids the 8.3 short shape that
+        # every containment comparison downstream would then have to undo.
+        env[out_key] = (capture / f"{position}.out").as_posix()
+        env[err_key] = (capture / f"{position}.err").as_posix()
+        env[rc_key] = (capture / f"{position}.rc").as_posix()
+        if position > 1:
+            lines.append(f'{indent}if [ "$__itd_rc" -eq 0 ]; then')
+            indent += "  "
+        lines.append(f"{indent}{{ {segment}")
+        lines.append(f'{indent}}} > "${out_key}" 2> "${err_key}"')
+        lines.append(f"{indent}__itd_rc=$?")
+        lines.append(f'{indent}printf \'%s\\n\' "$__itd_rc" > "${rc_key}"')
+    for _ in segments[1:]:
+        indent = indent[:-2]
+        lines.append(f"{indent}fi")
+    lines.append('exit "$__itd_rc"')
+    return "\n".join(lines) + "\n", env
+
+
+def run_compound_verification(sh: str, segments: list[str],
+                              timeout: float) -> tuple[str, int]:
+    """Run a top-level `&&` chain and return (multiline evidence, exit code)."""
+    with tempfile.TemporaryDirectory() as raw:
+        capture = Path(raw).resolve()
+        script, script_env = compound_script(segments, capture)
+        env = dict(os.environ)
+        env.update(script_env)
+        timed_out = False
+        try:
+            proc = subprocess.run([sh, "-c", script], capture_output=True,
+                                  encoding="utf-8", errors="replace",
+                                  timeout=timeout, env=env)
+            shell_rc = proc.returncode
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            shell_rc = 124
+
+        def read(path: Path) -> str:
+            try:
+                return path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                return ""
+
+        lines: list[str] = []
+        rc = shell_rc
+        for position, segment in enumerate(segments, start=1):
+            rc_path = capture / f"{position}.rc"
+            stdout = read(capture / f"{position}.out")
+            stderr = read(capture / f"{position}.err")
+            if not rc_path.is_file():
+                # The previous command succeeded, so the shell started this
+                # one, and it did not write its status: it was still running
+                # at the timeout, or the shell itself went away first (a
+                # segment that calls `exit`, a kill). Either way the chain did
+                # not finish and the ledger must not read as if it had - the
+                # shell's own exit code is the authority, never a zero
+                # inherited from the command before.
+                rc = shell_rc if shell_rc != 0 else 1
+                reason = (f"timeout after {timeout}s" if timed_out
+                          else f"shell exited {shell_rc} before the command completed")
+                lines.append(command_evidence_line(segment, rc, stdout, reason))
+                break
+            try:
+                rc = int(rc_path.read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                rc = 1
+            tail = decisive_line(stdout + (("\n" + stderr) if stderr else ""))
+            lines.append(command_evidence_line(segment, rc, stdout, tail))
+            if rc != 0:
+                # `&&` short-circuited: the remaining commands never ran, and
+                # a line for them would claim an outcome nobody produced.
+                break
+        # Declared limit, not a guard: if the shell dies AFTER the last status
+        # file is written and BEFORE its own `exit`, every recorded status is
+        # authoritative and the chain did complete, so `rc` is the last
+        # command's. A check for that window cannot be built deterministically
+        # and a guard nothing can kill is exactly what this repository refuses
+        # to carry (M10 survived and was removed rather than kept as prose).
+        return "\n".join(lines), rc
 
 
 def cmd_activate(goal: dict, goal_path: Path, unit: dict,
@@ -1649,18 +1842,25 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         # cmd.exe даёт ложные verified (см. Shell contract в шапке).
         output, rc = ("no POSIX sh on PATH — verificationCommand contract "
                       "requires sh (Git Bash / WSL); refusing cmd.exe fallback"), 127
+        evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
     else:
-        try:
-            # encoding pinned + errors replaced: an arbitrary verificationCommand on
-            # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
-            proc = subprocess.run([sh, "-c", command], capture_output=True,
-                                  encoding="utf-8", errors="replace", timeout=timeout)
-            output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
-            rc = proc.returncode
-        except subprocess.TimeoutExpired:
-            output, rc = f"timeout after {timeout}s", 124
-
-    evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
+        segments = split_top_level_and(command)
+        if segments is None:
+            try:
+                # encoding pinned + errors replaced: an arbitrary verificationCommand on
+                # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
+                proc = subprocess.run([sh, "-c", command], capture_output=True,
+                                      encoding="utf-8", errors="replace", timeout=timeout)
+                output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+                rc = proc.returncode
+            except subprocess.TimeoutExpired:
+                output, rc = f"timeout after {timeout}s", 124
+            evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
+        else:
+            # A compound command used to be recorded by its LAST line alone, so
+            # the ledger named only the final leg and did not show that the
+            # first one ran at all (RSI-DEBT-3). One line per top-level command.
+            evidence, rc = run_compound_verification(sh, segments, timeout)
     receipt_error = ""
     if rc == 0 and verification_receipt_path.strip():
         try:
@@ -1684,7 +1884,8 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             if not verification_receipt_path.strip():
                 checker_error = f"{required_checker_mode} checker receipt is missing"
         if checker_error:
-            evidence = (evidence + "; checker UNVERIFIED: " + checker_error)[:EVIDENCE_MAX]
+            evidence = clamp_evidence(
+                evidence + "; checker UNVERIFIED: " + checker_error)
             record_attempt(unit, approach, command, "unverified", evidence,
                            None, recheck, tokens_used, required_checker_mode)
             write_verify_signal(goal_path, unit["id"], 1, command, evidence)

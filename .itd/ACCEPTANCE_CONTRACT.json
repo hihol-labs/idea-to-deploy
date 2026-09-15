@@ -3839,6 +3839,61 @@
           "verification-loop"
         ]
       }
+    },
+    {
+      "id": "RSI-DEBT-3-1",
+      "unitId": "RSI-DEBT-3",
+      "criterion": "For an `A && B` verificationCommand the unit evidence is one line per top-level command in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, and the terminal unit event repeats exactly that multi-line record.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "RED-first on the merged bytes e97fc7c: tests/verify_goal_tools.py reported 72 passed, 5 failed, and the compound success stored only `exit 0: <B last line>` - the last line of one run, the first leg absent, which is the live defect the ROUTE-REPAIR-2 close hit when its receipt had to be re-minted (recorded evidence `exit 0: 117 passed, 0 failed`). After the fix 83 passed, 0 failed (80 at the first green, 83 after three checks added for holes found by review and by the mutation run). The whole-record 200-character cap is replaced by clamp_evidence: a single-line record keeps the cap, a multi-line record is stored whole, and the only free-growing part of a compound line - the command's last output line - is capped at EVIDENCE_MAX instead. Lethal, measured in ONE final run in a disposable worktree against baseline 83/0: M1 event writer re-truncates the record (81/2); M2 splitter stops tracking quotes (76/7); M7 last-line cap removed (82/1). The digest is over the command's stdout alone and the last line over stdout plus stderr, so a failing leg's message is kept without changing what the digest names.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The ledger names every leg that ran, with its own exit code and output digest, and the event is byte-identical to the unit record; the cap moved to the one field that can grow, so no leg is cut off to fit.",
+        "impactClasses": [
+          "correctness",
+          "bounded-output"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound"
+        ]
+      }
+    },
+    {
+      "id": "RSI-DEBT-3-2",
+      "unitId": "RSI-DEBT-3",
+      "criterion": "A single verificationCommand keeps its legacy `exit <code>: <last line>` evidence and its 200-character cap byte-for-byte; a command with any top-level operator other than `&&` - including an unquoted `#` and a trailing backslash - is refused by the splitter and recorded in that same legacy form rather than split by guess; a `>&`/`<&` descriptor duplication such as `2>&1` is the one `&` accepted as part of a leg.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "The splitter models exactly one shape and returns None for `|`, `||`, `;`, a lone `&`, parentheses, backticks, `<<`, an unquoted `#`, a newline, an unterminated quote or a trailing backslash; None routes to the untouched legacy path. A static parser for arbitrary shell is a measured dead end in this repository (U16), so the limit is declared rather than approached. The `#` case is the one the in-house reviewer's question surfaced and it is a real wrong-split: an unquoted comment swallows the `&&` after it, so splitting there would RUN and RECORD a leg the shell never executes - the check writes a marker file from the commented leg and requires it absent. `2>&1` was the opposite defect, a false refusal of the most common real chain; `>&`/`<&` is now the only `&` accepted outside `&&`. Checks: the legacy form; the legacy 200 cap on a 220-character last line; a piped first leg keeps `exit 0: <last line>`; the commented leg never runs; `2>&1` records two lines; a trailing backslash keeps the one-line form. Lethal from the final run against baseline 83/0: M6 a single command treated as compound (81/2, both legacy checks); M8 the refuse set reduced to `#` alone (82/1, pipe check); M11 `#` removed from the refuse set (82/1); M12 the `>&` allowance removed (82/1); M13 the trailing-backslash refusal removed (82/1). The pipe, tail-cap, `#`, `2>&1` and backslash checks were added after implementation and are proven by mutation rather than RED-first; the record says so instead of claiming otherwise.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Nothing that verified before records differently now, and the new form is entered only through one unambiguous shape - everything else fails safe to the old record.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound"
+        ]
+      }
+    },
+    {
+      "id": "RSI-DEBT-3-3",
+      "unitId": "RSI-DEBT-3",
+      "criterion": "The chain runs in ONE shell so `A && B` keeps the state A leaves; `&&` short-circuits as before; a leg that never ran is not described; and a leg the shell started but did not finish is recorded with the shell's exit code and the unit does not verify.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "compound_script emits one `sh -c` program: each leg in a `{ }` group redirected to its own out/err files with its status written after it, every following leg nested in `if [ \"$__itd_rc\" -eq 0 ]`. Checks: `X='kept value' && printf $X` records `kept value`; a failing first leg leaves the second's marker file unwritten and the failure event names only the executed leg; `A && exit 3` - the group exit ends the shell before its status is written - is recorded as `exit 3: exit 3, stdout sha256 <empty>, shell exited 3 before the command completed` and the unit stays in_progress. That last case was found by the mutation run, not by planning: the first missing-status branch read `if not timed_out: break`, its mutation SURVIVED, and the cause was a dead branch - after a failed leg the walk already stops on rc != 0, so a missing status after a successful leg can only mean the shell died, and the old code then returned the predecessor's zero and VERIFIED an unfinished chain. Lethal from the final run against baseline 83/0: M3 `( )` subshell instead of `{ }` (81/2); M4 walk continues after a failed leg (82/1); M5 chain no longer short-circuits (82/1); M9 unfinished leg inherits zero (82/1). M10, re-applying the shell exit code after the walk, SURVIVED as redundant and was removed; the one window it covered - the shell dying between the last status write and its own exit - has no deterministic fixture and is declared in the code. The capture root is `Path(mkdtemp).resolve().as_posix()`; that path shape is exercised only by the windows-verify CI leg, which no local oracle or mutation replaces. In-house independent review (code-reviewer subagent, whole unit vs main e97fc7c) returned PASSED with two minor findings and four unverified items; both minors are answered by construction or by the M9 fixture, and its open question about wrong splits produced the `#` hole closed in row 2.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Per-leg records do not change what the sealed command executes - same shell, same short-circuit - and the ledger can no longer read as verified for a chain that did not finish.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound"
+        ]
+      }
     }
   ],
   "completion": {

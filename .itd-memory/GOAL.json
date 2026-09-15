@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-13T21:21:55Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-14T14:03:49Z",
+  "currentUnitId": "RSI-DEBT-3",
   "units": [
     {
       "id": "PE5-001",
@@ -609,7 +609,7 @@
       "riskTier": "low",
       "criterion": "itd_goal_verify.py records the unit evidence as one line per top-level command of an `A && B` verificationCommand in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, the terminal event repeats the same summary, a single command keeps its current form, and the compound case is a RED-first regression.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
-      "status": "pending",
+      "status": "in_progress",
       "verifiedAt": "",
       "evidence": "",
       "skippedReason": "",
