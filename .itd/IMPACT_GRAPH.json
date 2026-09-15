@@ -1083,6 +1083,7 @@
       "tests/verify_external_pilot_collection.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_gate_registry_profiles.py",
+      "tests/verify_goal_tools.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops.py",
