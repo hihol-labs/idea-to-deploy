@@ -14,6 +14,44 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P2 — стоимость маршрута RSI-DEBT-3: четыре дефекта маршрута, измеренные за один low-risk юнит
+(RSI-DEBT-3, 2026-09-15)
+
+Первый low-risk юнит серии; всё ниже - замеры, не впечатления.
+
+1. **Кросс-вендорный продюсер `UNAVAILABLE` по лимиту подписки.** Прогон по
+   юниту целиком (`committed-head`, база `main`) вернул exit 3:
+   `You've hit your usage limit ... try again at Sep 19th, 2026 11:32 AM`;
+   прямой `codex exec --model gpt-5.6-sol` даёт то же при живом логине. По
+   политике это положительное свидетельство отсутствия транспорта, не вердикт.
+   Владелец выбрал публикацию по low-risk маршруту (machine + adjudication,
+   чекер на low «forbidden as unnecessary cost»); независимое ревью по юниту
+   целиком дал субагент code-reviewer (PASSED, 2 minor, 4 unverified). Запись
+   «подписанный кросс-вендорный PASS не доходит до гейта на low-risk маршруте»
+   получила вторую точку данных: на low `routeIndependence: null` по построению.
+2. **`/review`-форк дважды вернул пустой результат** («Skill execution
+   completed», без отчёта; в scratchpad остались только его рабочие патчи).
+   Ревью пришлось вести субагентом напрямую; тот упёрся в лимит 15 ходов и
+   выдал отчёт с третьего захода - та же ловушка, что на ROUTE-REPAIR-2.
+3. **Гейт завершения снова агрегировал худший сигнал, а не последний.** После
+   перегенерации `IMPACT_GRAPH.json` сьют `verify_verification_profiles` был
+   зелёным в полном зеркале, но коммит получил вето по устаревшему `108/1`;
+   снято честным перепрогоном того же сьюта (109/0). Третье наблюдение класса
+   (REL-1.104.0, ROUTE-REPAIR-1).
+4. **Scratchpad потерян дважды за сессию** (перезапуски): одноразовый worktree
+   мутаций и `mutate.py` пересоздавались; `git worktree list` накопил
+   `prunable` регистрации от четырёх сессий. Долг «прогонщик мутаций в
+   `tests/`» (2026-09-14) подтверждён третьим случаем.
+
+Отдельно, в плюс маршруту: закрытие юнита прошло ХАРНЕСОМ в
+`--candidate-mode committed-head` с первого захода (режим дал ROUTE-REPAIR-2),
+и evidence вышло двумя строками - предмет юнита проверен на его же закрытии;
+в цели 48/50 юнитов verified, PE5-008 и PE5-009 остаются blocked.
+Для чистого дерева под committed-head незакоммиченный `.itd/DECISIONS.md`
+откладывался `git stash push`/`pop` (обратимо, с копией в scratchpad) - это
+трение маршрута: чекпоинт `/session-save` дописывает DECISIONS в рабочее
+дерево, а close требует чистоты.
+
 ## P3 — две записи о закрытиях расходятся с журналом событий
 (ROUTE-REPAIR-2, 2026-09-14)
 
@@ -1963,7 +2001,7 @@ holds write access, with RED-first fixtures for an inherited-ACE case and a
 foreign-writable case. Out of ROUTE-DEBTS-FOLLOWUP-A13 scope by construction:
 its frozen surface is the owner comparison.
 
-## P3 — goal harness: unit `evidence` keeps only the last stdout line of a compound verificationCommand (2026-09-08)
+## CLOSED 2026-09-15 (RSI-DEBT-3, PR #291 cd9979c; the harness close recorded TWO lines on its own close) — goal harness: unit `evidence` keeps only the last stdout line of a compound verificationCommand (2026-09-08)
 
 `skills/goal/scripts/itd_goal_verify.py` stores the final stdout line as the unit's
 `evidence` and repeats it in the terminal event. For `A && B` commands (for

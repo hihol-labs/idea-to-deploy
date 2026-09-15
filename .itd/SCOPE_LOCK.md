@@ -1,5 +1,23 @@
 # RSI-DEBT-3
 
+**Ledger close (2026-09-15) - a separate candidate of the same unit.** The code
+candidate merged as `cd9979c` through PR #291 (Gate 1 and windows-verify green;
+owner decision (a) on 2026-09-15: publish on the low-risk route while the
+cross-vendor producer is `UNAVAILABLE` on the OpenAI subscription limit until
+2026-09-19). The transition was made by the HARNESS: `itd_goal_verify RSI-DEBT-3
+--candidate-mode committed-head` on the clean merged head returned `VERIFIED`,
+actor harness, and the recorded evidence is the two-line per-command form this
+unit delivers. 48/50.
+
+Allowed for the close candidate, exactly: `.itd-memory/GOAL.json`,
+`.itd-memory/STATE.json`, `.itd-memory/events.jsonl` (written by the harness,
+not hand-edited), `.itd/DECISIONS.md` (two durable decisions appended by the
+2026-09-15 checkpoint), `BACKLOG.md` (one route-cost record, one record closed)
+and this file. `.itd/ACCEPTANCE_CONTRACT.json` is NOT touched: the
+`RSI-DEBT-3-1..3` rows landed with the code candidate and `activeFollowup` has
+been closed since ROUTE-REPAIR-1.
+
+
 Current unit: `RSI-DEBT-3`, low risk. The owner approved this sealed unit after
 the ROUTE-REPAIR-2 ledger-close merged as `e97fc7c` through PR #290.
 
