@@ -20,7 +20,7 @@
       "officialSource": "https://docs.anthropic.com/en/docs/claude-code/overview",
       "minimumVersion": "2.1.0",
       "status": "unavailable-transport-not-enrolled",
-      "unavailabilityEvidence": "A paid Claude subscription now exists - Claude Code 2.1.186 was observed on WSL on 2026-09-15, above the pinned 2.1.0 minimum - so the earlier 'no paid subscription' reason is retired. The route stays typed unavailable for a current reason instead: it is deliberately unenrolled as a reviewer transport. No signed dual-host live proof exists for it, and cross-vendor independence requires a non-Anthropic reviewer whenever the maker is Claude. Declaring it available requires that signed WSL/Windows proof first."
+      "unavailabilityEvidence": "Observed on 2026-09-15: Claude Code 2.1.186 is installed on WSL, above the pinned 2.1.0 minimum. An installed executable and its version do not establish subscription state, and this inventory does not observe subscription state at all, so the earlier 'no paid subscription' reason is retired as unobserved rather than replaced by the opposite claim. The route stays typed unavailable for a reason that is directly observable: it is deliberately unenrolled as a reviewer transport. No signed dual-host live proof exists for it, and cross-vendor independence requires a non-Anthropic reviewer whenever the maker is Claude. Declaring it available requires that signed WSL/Windows proof first."
     },
     {
       "id": "github-copilot-user",
