@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         exact(row, expected, f"{row.get('id')} optional freshness row")
         version(row["minimumVersion"])
-    if optional[0]["status"] != "unavailable-no-paid-subscription":
+    if optional[0]["status"] != "unavailable-transport-not-enrolled":
         raise AssertionError("unconfigured Anthropic route is not typed unavailable")
     if route[0]["status"] != "available":
         raise AssertionError("mandatory OpenAI transport is not available")

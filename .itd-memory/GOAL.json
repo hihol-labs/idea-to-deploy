@@ -3,8 +3,8 @@
   "goal": "Довести практическую эффективность Idea to Deploy до машинно подтверждённых 5,0/5,0 по каждой из шести осей аудита без синтетической подмены внешнего adoption/outcome evidence.",
   "status": "active",
   "createdAt": "2026-07-15T19:12:04Z",
-  "updatedAt": "2026-09-15T10:50:41Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-19T17:08:26Z",
+  "currentUnitId": "CLOSE-BLOCKERS-1",
   "units": [
     {
       "id": "PE5-001",
@@ -622,6 +622,17 @@
         "machinePath": ".itd-memory/verification-loop/RSI-DEBT-3/machine-close.json",
         "machineSha256": "3debdf07e011cfaef1b2a1d3d482eee5cfa461287c592ebded0021bb7010f8c8"
       }
+    },
+    {
+      "id": "CLOSE-BLOCKERS-1",
+      "riskTier": "medium",
+      "criterion": "The reviewer-provider freshness oracle is green with the Anthropic row typed `unavailable-transport-not-enrolled` and a current `checkedAt`; the session-close contract that the session-save resolver actually applies in this repository declares `startupTimeoutSeconds` as an integer of at least 600; and that guarantee is pinned by a RED-first check.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_reviewer_provider_freshness.py && sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py",
+      "status": "in_progress",
+      "verifiedAt": "",
+      "evidence": "",
+      "skippedReason": "",
+      "blockedReason": ""
     }
   ],
   "handoffState": {

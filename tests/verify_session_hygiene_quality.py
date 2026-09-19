@@ -534,6 +534,109 @@ def test_methodology_debug_scan_exclusions() -> None:
     )
 
 
+SESSION_CLOSE_RESOLVER = (
+    'HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"',
+    'if [ ! -f "$HY" ] && [ -f "docs/SESSION_EXIT_CONTRACT.json" ]; then',
+    '  HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"',
+    'elif [ ! -f "$HY" ]; then',
+    '  HY="$HOME/.claude/templates/itd/itd_hygiene.py"',
+    "fi",
+)
+STARTUP_TIMEOUT_FLOOR = 600
+
+
+def startup_timeout_fits(contract: dict) -> bool:
+    declared = contract.get("startupTimeoutSeconds")
+    return type(declared) is int and declared >= STARTUP_TIMEOUT_FLOOR
+
+
+def applied_session_close_contract(root: Path) -> Path:
+    # The resolver pinned above, evaluated without a shell: on native Windows a
+    # bare `bash` can resolve to the WSL shim, so the test models the pinned text
+    # instead of executing it. Any edit to the resolver turns the pin below red
+    # before this model can drift from it.
+    project_runner = root / ".itd" / "itd_hygiene.py"
+    docs_contract = root / "docs" / "SESSION_EXIT_CONTRACT.json"
+    if not project_runner.is_file() and docs_contract.is_file():
+        return docs_contract
+    return root / ".itd" / "SESSION_EXIT_CONTRACT.json"
+
+
+def test_methodology_startup_timeout_declared() -> None:
+    # The session-save resolver swaps the whole script+contract pair when the
+    # project has no .itd/itd_hygiene.py, so the contract that runs is whatever
+    # the resolver selects, not whichever file one expects. Without the key the
+    # runner falls back to its 120 second default, under which the startup probe
+    # (the quick mirror, measured at 259-281 seconds on 2026-09-14/15) can never
+    # pass, and the close stays red for a reason that looks like a hang.
+    skill = (ROOT / "skills" / "session-save" / "SKILL.md").read_text(encoding="utf-8")
+    lines = skill.splitlines()
+    anchors = [i for i, line in enumerate(lines) if line == SESSION_CLOSE_RESOLVER[0]]
+    resolver = (
+        tuple(lines[anchors[0]:anchors[0] + len(SESSION_CLOSE_RESOLVER)])
+        if len(anchors) == 1 else ()
+    )
+    check(
+        "session-save resolver is the one this pin models",
+        resolver == SESSION_CLOSE_RESOLVER,
+        f"anchors={len(anchors)} resolver={list(resolver)!r}",
+    )
+
+    applied = applied_session_close_contract(ROOT)
+    check(
+        "the applied session-close contract exists",
+        applied.is_file(),
+        str(applied.relative_to(ROOT)),
+    )
+    contract = json.loads(applied.read_text(encoding="utf-8")) if applied.is_file() else {}
+    check(
+        "methodology close declares a startup timeout the quick mirror fits in",
+        startup_timeout_fits(contract),
+        f"{applied.name}: startupTimeoutSeconds={contract.get('startupTimeoutSeconds')!r}",
+    )
+
+    # RED side of the same predicate, asserted on every run: the state this
+    # unit repaired (no key), the limit that was declared but too tight (300),
+    # and the non-integer forms must all be refused.
+    without_key = {k: v for k, v in contract.items() if k != "startupTimeoutSeconds"}
+    refused = {
+        "no key": without_key,
+        "300": {**without_key, "startupTimeoutSeconds": 300},
+        "599": {**without_key, "startupTimeoutSeconds": 599},
+        "string": {**without_key, "startupTimeoutSeconds": "600"},
+        "bool": {**without_key, "startupTimeoutSeconds": True},
+        "float": {**without_key, "startupTimeoutSeconds": 600.0},
+    }
+    leaked = sorted(name for name, value in refused.items() if startup_timeout_fits(value))
+    check(
+        "the startup timeout predicate refuses every too-tight or malformed limit",
+        not leaked,
+        f"accepted={leaked}",
+    )
+
+    # The resolver model itself: both branches, on throwaway roots.
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td).resolve()
+        fallback = base / "fallback"
+        (fallback / "docs").mkdir(parents=True)
+        (fallback / "docs" / "SESSION_EXIT_CONTRACT.json").write_text("{}", encoding="utf-8")
+        project = base / "project"
+        (project / ".itd").mkdir(parents=True)
+        (project / "docs").mkdir()
+        (project / ".itd" / "itd_hygiene.py").write_text("", encoding="utf-8")
+        (project / "docs" / "SESSION_EXIT_CONTRACT.json").write_text("{}", encoding="utf-8")
+        check(
+            "resolver model follows the docs pair when the project runner is absent",
+            applied_session_close_contract(fallback)
+            == fallback / "docs" / "SESSION_EXIT_CONTRACT.json",
+        )
+        check(
+            "resolver model keeps the project pair when the project runner exists",
+            applied_session_close_contract(project)
+            == project / ".itd" / "SESSION_EXIT_CONTRACT.json",
+        )
+
+
 def test_cleanup_requires_tracking_proof() -> None:
     # S2 deletion-safety pin: when git cannot prove tracking state (any rc
     # outside {0,1}, including the degraded rc=127 spawn fallback), cleanup
@@ -610,6 +713,7 @@ def main() -> int:
     test_external_scheduler_contract()
     test_integration_contract()
     test_methodology_debug_scan_exclusions()
+    test_methodology_startup_timeout_declared()
     print()
     if FAILURES:
         print(f"FAILED: {len(FAILURES)} — " + ", ".join(FAILURES))
