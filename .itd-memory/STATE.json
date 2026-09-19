@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "RSI-DEBT-3",
-    "goal": "itd_goal_verify.py records the unit evidence as one line per top-level command of an `A && B` verificationCommand in the form `<command>: exit <code>, stdout sha256 <16 hex>, <last line>`, the terminal event repeats the same summary, a single command keeps its current form, and the compound case is a RED-first regression.",
-    "status": "verified",
-    "startedAt": "2026-09-14T14:03:49Z",
+    "id": "CLOSE-BLOCKERS-1",
+    "goal": "The reviewer-provider freshness oracle is green with the Anthropic row typed `unavailable-transport-not-enrolled` and a current `checkedAt`; the session-close contract that the session-save resolver actually applies in this repository declares `startupTimeoutSeconds` as an integer of at least 600; and that guarantee is pinned by a RED-first check.",
+    "status": "in_progress",
+    "startedAt": "2026-09-19T17:08:26Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-09-15T10:50:41Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

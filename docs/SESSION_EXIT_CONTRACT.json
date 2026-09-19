@@ -5,6 +5,7 @@
   "requireCleanGit": true,
   "requiredStateFiles": [".itd-memory/STATE.json"],
   "startupProbeCommand": "bash tests/run-all.sh --quick",
+  "startupTimeoutSeconds": 600,
   "cleanupManifest": ".itd-memory/session-artifacts.json",
   "qualityLedger": "docs/QUALITY.json",
   "qualityMaxAgeDays": 30,

@@ -3894,6 +3894,61 @@
           "goal-sealed-compound"
         ]
       }
+    },
+    {
+      "id": "CLOSE-BLOCKERS-1-1",
+      "unitId": "CLOSE-BLOCKERS-1",
+      "criterion": "The reviewer-provider freshness oracle is green with a current `checkedAt` and still validates the signed dual-host proofs it binds.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Bound by the sealed command: tests/verify_reviewer_provider_freshness.py exits 0 on the candidate, which requires `checkedAt` within maxAgeDays and, separately, each signed dual-host proof to validate by signature and be fresh by its own observedAt. Observed by the maker and NOT bound by any receipt (recorded in BACKLOG as a session measurement): on 2026-09-15 the stale date was the only failing assertion, and the CLI versions and official sources were re-checked before the date moved.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_reviewer_provider_freshness.py && sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The oracle, not the maker's narration, carries the claim: the date is current and the proofs it binds validate on the candidate.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound"
+        ]
+      }
+    },
+    {
+      "id": "CLOSE-BLOCKERS-1-2",
+      "unitId": "CLOSE-BLOCKERS-1",
+      "criterion": "The Anthropic row is typed `unavailable-transport-not-enrolled` with a reason that holds today, the route is not declared available, and the one assertion that hardcodes the status changed RED-first.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Bound by the sealed command: tests/verify_reviewer_provider_freshness.py requires optionalTransports[0].status to equal `unavailable-transport-not-enrolled` and requires an unavailable row to carry `unavailabilityEvidence` instead of `requiredEvidence`, so the row cannot pass as available. Exactly one assertion in the repository hardcodes the status literal; the literal itself also appears in the record and in this unit's prose. Observed by the maker and NOT bound: Claude Code 2.1.186 on WSL against the 2.1.0 pin, which is why the earlier 'no paid subscription' reason was retired.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_reviewer_provider_freshness.py && sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Correcting a false reason does not weaken the gate: the route stays unavailable, and availability still requires a signed dual-host proof that does not exist.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound"
+        ]
+      }
+    },
+    {
+      "id": "CLOSE-BLOCKERS-1-3",
+      "unitId": "CLOSE-BLOCKERS-1",
+      "criterion": "The session-close contract that the session-save resolver actually applies in this repository declares `startupTimeoutSeconds` as an integer of at least 600, and a RED-first check pins it.",
+      "source": ".itd/SCOPE_LOCK.md",
+      "evidence": "Bound by the sealed command: tests/verify_session_hygiene_quality.py pins the six resolver lines of skills/session-save/SKILL.md verbatim, evaluates that pinned resolver to find the applied contract, and requires it to declare an integer startupTimeoutSeconds of at least 600. The RED side runs every time: the same predicate must refuse a contract without the key, 300, 599, a string, a bool and a float; and the resolver model is exercised on both branches over throwaway roots. Four single-guarantee mutations in a disposable worktree were each lethal - resolver text edited, key deleted, floor lowered to 300, model ignoring the project runner - and the worktree matched the candidate afterwards. The quick mirror is bound as the second command of the machine receipt.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_reviewer_provider_freshness.py && sh skills/_shared/itd_py.sh tests/verify_session_hygiene_quality.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The declared limit is the applied limit, it leaves a real margin over the measured run, and deleting the key now turns an oracle red.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "goal-sealed-compound",
+          "quick-mirror"
+        ]
+      }
     }
   ],
   "completion": {

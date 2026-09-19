@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "checkedAt": "2026-08-04",
+  "checkedAt": "2026-09-15",
   "maxAgeDays": 30,
   "mandatoryRoute": [
     {
@@ -19,8 +19,8 @@
       "id": "anthropic-subscription",
       "officialSource": "https://docs.anthropic.com/en/docs/claude-code/overview",
       "minimumVersion": "2.1.0",
-      "status": "unavailable-no-paid-subscription",
-      "unavailabilityEvidence": "The user confirmed that no paid Claude subscription is available; the Anthropic executable/auth route is deliberately unconfigured and must remain typed UNAVAILABLE."
+      "status": "unavailable-transport-not-enrolled",
+      "unavailabilityEvidence": "A paid Claude subscription now exists - Claude Code 2.1.186 was observed on WSL on 2026-09-15, above the pinned 2.1.0 minimum - so the earlier 'no paid subscription' reason is retired. The route stays typed unavailable for a current reason instead: it is deliberately unenrolled as a reviewer transport. No signed dual-host live proof exists for it, and cross-vendor independence requires a non-Anthropic reviewer whenever the maker is Claude. Declaring it available requires that signed WSL/Windows proof first."
     },
     {
       "id": "github-copilot-user",
