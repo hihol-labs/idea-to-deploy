@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "CLOSE-BLOCKERS-1",
     "goal": "The reviewer-provider freshness oracle is green with the Anthropic row typed `unavailable-transport-not-enrolled` and a current `checkedAt`; the session-close contract that the session-save resolver actually applies in this repository declares `startupTimeoutSeconds` as an integer of at least 600; and that guarantee is pinned by a RED-first check.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-19T17:08:26Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-19T21:22:54Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
