@@ -2567,3 +2567,22 @@ Note on direction: this change lowers the reported number. That is deliberate - 
 anti-Goodhart case, a proposal that makes our own metric worse in order to make it true. The
 count of owner-route closes to date is four in the series (LPD-003-3, N7, N8, REL-1.104.0),
 which is the signal that made the blindness worth fixing rather than tolerating.
+
+## P2 - pre-push хук блокирует `git push --delete` смерженной ветки
+(сессия 2026-09-20)
+
+После сквош-мержа PR #295 удаление ветки на origin через `git push --delete`
+отклонено pre-push хуком: для удаления рефа нет кандидата и квитанции. Ветку
+удалили через `gh api -X DELETE .../git/refs/heads/...`. Штатной уборки
+смерженной ветки через git нет. Кандидат правки: хук пропускает push, в
+котором все обновления рефов - удаления веток, уже влитых в `main`.
+
+## P2 - хук «Bash-мутация state-леджера» срабатывает на read-only команды
+(сессия 2026-09-20)
+
+Хук перевалидации срабатывал после команд, которые леджер только читали
+(`sed -n`, `grep`, `python3` с `json.load`), и каждый раз печатал один и тот же
+десяток WARNING про исторические леджеры без unit-событий. Наблюдалось на
+каждой Bash-команде сессии, где в тексте встречался путь `.itd-memory/GOAL`.
+Детектор смотрит на упоминание пути, а не на запись. Цена - шум в контексте,
+не ложный блок.
