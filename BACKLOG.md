@@ -14,6 +14,16 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P2 — манифест реконсиляции не применяется к ложной явной метке
+(LEDGER-ARCHIVE-1, ревьюер 2026-09-20)
+
+`itd_unit_lifecycle.attribute`: строка с явной меткой `ledger`, не называющей
+владельца, при 0 или 2+ владельцах уходит в `explicit-not-owner` без обращения
+к `LEDGER-RECONCILIATION.json`. Это соответствует критерию юнита (считать, не
+угадывать) и не регресс, но именно такие строки манифест и призван объяснять.
+На живом каталоге таких строк 0. Решить отдельным юнитом: звать `reconciled()`
+последним средством и в этой ветке, RED-first.
+
 ## P1 — компактный goal-репортёр предлагает закрыть цель при живых blocked-юнитах
 (ROUTE-REPAIR-3 сессия, 2026-09-15)
 
@@ -965,7 +975,9 @@ R1 остановил бы серию на r14, находки r41..r65 на 100
   чистом кандидате — сигналы не разделены по ветке/сессии; обход
   `ITD_COMPLETION_GATE=0` с причиной в description (2026-09-03, дважды).
   Ключевать сигналы по ветке или по дереву кандидата.
-- [ ] `tests/verify_ledger_reconciliation.py` красный на main
+- [x] (закрыто 2026-09-20, `LEDGER-ARCHIVE-1`: проверка заменена инвариантом
+  владения, проверка порядка режет ветку целиком; оракул 91/0)
+  `tests/verify_ledger_reconciliation.py` красный на main
   («repo: blocked lifecycles are reported» — blocked=0, verified=2, total=3):
   воспроизводится с `events.jsonl` из `03aaa85`, т.е. предшествует STOPRULE-1.
   Леджер событий ротирован до 10 строк, и проверка «>=1 blocked в репо»

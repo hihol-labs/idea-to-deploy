@@ -3545,3 +3545,15 @@ PE5-эры числятся за новым `GOAL.json` ПО ИМЕНИ. Зам�
 `CLOSE-BLOCKERS-1`; файл пишет харнес, руками он не правился.
 
 **Ссылки:** `.itd-memory/NEXT-SESSION-BRIEF.md` (задача 0), `BACKLOG.md`.
+
+## 2026-09-20 - цель расширена до 4 юнитов: ROUTE-DEBTS-ORACLE-1 перед REL-1.105.0
+
+Владелец утвердил формулировку `REL-1.105.0` (high; команда `REL-1.104.0` с тремя
+правками: строка зеркала `DONE fails:none`, явный `[Unreleased]` над заголовком
+версии, нога `verify_live_model_benchmark`) и вариант A по риску последней ноги.
+Почему отдельный юнит: `tests/verify_route_debts.py` красен на `main`
+(`TypeError: validate_adjudication() takes 4 positional arguments but 5 were
+given` - заглушки оракула отстали от вызова в `itd_goal_verify.py:209`), а нога
+`--installed-proof` релиза идёт через тот же файл. Релизный юнит не чинит
+собственный экзамен. Порядок: `ROUTE-REPAIR-3` -> `ROUTE-DEBTS-ORACLE-1` ->
+`REL-1.105.0`. Режим `--installed-proof` отдельно не замерялся.
