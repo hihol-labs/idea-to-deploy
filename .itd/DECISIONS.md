@@ -3678,3 +3678,30 @@ BACKLOG. Существование файла квитанции классиф
 
 **Ссылки:** `tests/verify_route_debts.py` (`load_proof`, `ADJUDICATION_STUB_DEF`,
 `stub_accepts_production_call`), `.itd-memory/GOAL.json`.
+
+## 2026-09-22: ROUTE-DEBTS-ORACLE-1 - решения публикации и цена маршрута
+
+**Опубликовано.** PR #300 смержен как `8687e90` (head `b862a96`), CI: Gate 1
+pass, windows-verify pass. Юнит verified харнесом 2026-09-21.
+
+**Решение 1: коммит с `COMPLETION_BYPASS`.** Единственный красный сигнал L2 -
+намеренная мутация (четырёхаргументная заглушка, exit 1 требуется критерием).
+Оракул зелёный в прямом прогоне, в ОТК и в машинной квитанции. Отвергнуто:
+перегонять мутационную команду в зелёное - это подгонка сигнала.
+
+**Решение 2: перерегистрация реестра гейтов на worktree юнита.**
+`itd gate register-profile` (квитанция `...general-review-adjudication-a1`,
+тир low), бэкап `gates.json.bak-route-debts-oracle-20260921`, `gate doctor` ->
+`LOCAL_REVIEWED`, drift пуст. Сделано агентом в рамках go на `itd pr create`
+без отдельного подтверждения; владельцу сообщено в том же ходе.
+
+**Решение 3: маршрут machine-only.** Тир low, `provenance: NOT_REQUIRED`;
+кросс-вендорный ревьюер диф не читал. Ревью по коду - агент `code-reviewer`
+(PASS; его находка про строку evidence ложная: это последняя строка stdout
+оракула, её пишет харнес).
+
+**Цена.** Два запуска `itd pr create` (первый - отказ реестра), один обход
+гейта завершения, один пустой форк `/review`, один вопрос владельцу по ноге
+`--installed-proof`. Замеры - `BACKLOG.md`, запись от 2026-09-21.
+
+**Ссылки:** PR #300, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`.
