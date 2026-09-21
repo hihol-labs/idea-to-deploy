@@ -38,6 +38,19 @@ EXCLUDED_FROM_DENOMINATOR = ("blocked", "skipped", "superseded")
 # STATE.currentUnit и ни в одном GOAL-леджере не числятся.
 STATE_LEDGER = "STATE"
 
+# Класс маршрута verified-цикла (ROUTE-REPAIR-3). До него метрика считала
+# любой `verified` одним и тем же: на живом логе (дерево dba30dd) 17 переходов
+# харнеса без квитанции чекера и 3 записи рукой владельца были неотличимы от
+# полной независимой верификации. Классов ровно три, цикл попадает ровно в один.
+ROUTE_CLASSES = ("verifiedIndependent", "verifiedMachineOnly", "verifiedOwnerRoute")
+# Написание метки нормализуется, а не принимается на веру: в живом логе один и
+# тот же маршрут записан и как `owner`, и как `owner-route`.
+OWNER_ROUTE_LABELS = ("owner", "owner-route")
+# Литерал на месте квитанции — это её отсутствие (live: `checkerReceipt: "none"`
+# у RSI-DEBT-2), иначе owner-запись без чекера выглядела бы независимой.
+ABSENT_RECEIPT = ("", "none", "null", "n/a")
+HARNESS_ACTOR = "harness"
+
 
 def _parse_at(value) -> datetime | None:
     if not isinstance(value, str) or not value:
@@ -215,6 +228,45 @@ def attribute(event: dict, ledgers: list[dict],
     return (None, "outside-all-windows") if not fits else (None, "ambiguous")
 
 
+def _label(value) -> str:
+    """Метка в канонической форме: регистр, края, `_`/пробел -> `-`."""
+    if not isinstance(value, str):
+        return ""
+    return "-".join(value.strip().lower().replace("_", "-").split())
+
+
+def _receipt_bound(value) -> bool:
+    """Привязана ли квитанция: непустой путь или непустой объект.
+
+    Любая другая форма (список, число, bool) — отсутствие: ни один писатель её
+    не выпускает, а засчитать неизвестную форму значило бы завысить
+    независимость.
+    """
+    if isinstance(value, dict):
+        return bool(value)
+    return _label(value) not in ABSENT_RECEIPT
+
+
+def route_class(event: dict) -> str:
+    """Класс маршрута `verified`-события — ровно один из ROUTE_CLASSES.
+
+    Порядок — это решение, а не случайность. Owner-маршрут проверяется ПЕРВЫМ
+    и побеждает привязанную квитанцию: путь, вписанный рукой рядом с переходом,
+    записанным рукой, никто не валидировал (live: ROUTE-REPAIR-1, 2026-09-12 —
+    `owner-route` вместе с adjudication-квитанцией). Любой писатель, кроме
+    харнеса, — тоже owner-маршрут: `verified` ставит только ОТК, и запись в
+    обход него не может считаться ни машинной, ни независимой. Существование
+    файла квитанции здесь не проверяется — модуль читает только лог событий.
+    """
+    by_label = _label(event.get("route")) in OWNER_ROUTE_LABELS
+    by_writer = _label(event.get("actor")) != HARNESS_ACTOR
+    if by_label or by_writer:
+        return "verifiedOwnerRoute"
+    if _receipt_bound(event.get("checkerReceipt")):
+        return "verifiedIndependent"
+    return "verifiedMachineOnly"
+
+
 def build(mem: Path) -> dict:
     """Разбор unit-событий каталога памяти в жизненные циклы + сводка."""
     mem = Path(mem)
@@ -285,6 +337,8 @@ def build(mem: Path) -> dict:
         lc = {"ledger": key[0], "unit": key[1], "startedAt": at,
               "endedAt": None, "outcome": "open", "reactivations": 0,
               "noActivation": no_activation,
+              # Класс маршрута есть только у verified-цикла; у остальных None.
+              "routeClass": None,
               "reverification": no_activation and key in verified_before}
         if lc["reverification"]:
             lc["noActivation"] = False
@@ -311,6 +365,8 @@ def build(mem: Path) -> dict:
                 lc = new_lc(key, at_s, no_activation=True)
             lc["outcome"] = decision
             lc["endedAt"] = at_s
+            if decision == "verified":
+                lc["routeClass"] = route_class(e)
             if decision == "verified" and not lc["noActivation"]:
                 # Повторной верификацией считается только та, у которой БЫЛА
                 # настоящая активация. Иначе пара `verified, verified` вовсе
@@ -344,6 +400,11 @@ def build(mem: Path) -> dict:
         "lifecycles": lifecycles,
         "lifecyclesTotal": total,
         "lifecyclesVerified": verified,
+        # Три класса маршрута; их сумма по построению равна lifecyclesVerified,
+        # а `vcr` от них не зависит (ROUTE-REPAIR-3).
+        **{cls: sum(1 for lc in lifecycles
+                    if lc["outcome"] == "verified" and lc["routeClass"] == cls)
+           for cls in ROUTE_CLASSES},
         "lifecyclesBlocked": blocked,
         "lifecyclesOpen": open_count,
         "lifecyclesWip": len(wip),

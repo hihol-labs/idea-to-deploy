@@ -3,7 +3,7 @@
   "goal": "Метрика маршрута различает независимую, машинную и owner-верификацию, атрибуция событий переживает архивирование леджера, и это выпущено релизом 1.105.0.",
   "status": "active",
   "createdAt": "2026-09-20T11:07:20Z",
-  "updatedAt": "2026-09-21T10:20:35Z",
+  "updatedAt": "2026-09-21T17:18:47Z",
   "currentUnitId": "",
   "units": [
     {
@@ -20,7 +20,9 @@
       "riskTier": "low",
       "criterion": "itd_unit_lifecycle.build assigns every verified lifecycle to exactly one named route class - verifiedIndependent (the verified event binds a checker/adjudication receipt), verifiedMachineOnly (a harness transition with a machine receipt and no checker receipt), verifiedOwnerRoute (the transition was recorded by the owner) - itd_metrics.py surfaces all three counters, their sum equals unitsVerified, vcr keeps its current value and definition, spelling variants of the route label (owner / owner-route) and the literal string none in checkerReceipt are normalised rather than trusted, and each class is a RED-first regression proved by mutation.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_metric.py && sh skills/_shared/itd_py.sh tests/verify_retro_scan.py",
-      "status": "pending"
+      "status": "verified",
+      "verifiedAt": "2026-09-21T17:18:47Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_route_metric.py: exit 0, stdout sha256 3b26a3ddf7e62e8a, 58 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_retro_scan.py: exit 0, stdout sha256 ea6eac370ddd0795, 28 passed, 0 failed"
     },
     {
       "id": "ROUTE-DEBTS-ORACLE-1",

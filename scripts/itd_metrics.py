@@ -34,7 +34,7 @@ def unit_vcr(workspace: Path) -> dict:
     `blocked` — легитимный терминал, не промах верификации.
     """
     keys = ("unitsBlocked", "unitsOpen", "unitsWip", "unitsExcluded",
-            "unattributedEvents")
+            "unattributedEvents") + LIFECYCLE.ROUTE_CLASSES
     total = {"unitsActivated": 0, "unitsVerified": 0, "vcr": None}
     total.update({k: 0 for k in keys})
     activated = verified = denominator = 0
@@ -55,6 +55,10 @@ def unit_vcr(workspace: Path) -> dict:
         total["unitsWip"] += lc["lifecyclesWip"]
         total["unitsExcluded"] += lc["lifecyclesExcluded"]
         total["unattributedEvents"] += lc["unattributedEvents"]
+        # Класс маршрута каждого verified-цикла (ROUTE-REPAIR-3): сумма трёх
+        # счётчиков равна unitsVerified, `vcr` от них не зависит.
+        for cls in LIFECYCLE.ROUTE_CLASSES:
+            total[cls] += lc[cls]
     total["unitsActivated"] = activated
     total["unitsVerified"] = verified
     total["vcr"] = round(verified / denominator, 3) if denominator else None

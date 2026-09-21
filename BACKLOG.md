@@ -14,6 +14,17 @@
 - [ ] Publish one version-pinned, reproducible brownfield example run through the
   completed façade.
 
+## P1 — харнес не пишет квитанцию чекера в verified-событие
+(ROUTE-REPAIR-3, 2026-09-21)
+
+`transition_event` (`skills/goal/scripts/itd_goal_verify.py:751`) кладёт
+`verificationReceipt` только в юнит леджера, а в событие `events.jsonl` - нет.
+Класс `verifiedIndependent` метрики маршрута читает событие, поэтому для
+переходов харнеса он останется 0 даже при полном независимом чекере (живой
+каталог: 0 / 17 / 3). Отдельный юнит, RED-first: verified-событие медиум/хай
+юнита несёт `checkerReceipt` с путём adjudication-квитанции; поверхность
+пиненая - заложить live re-pin.
+
 ## P1 — семь замеров маршрута публикации LEDGER-ARCHIVE-1 (2026-09-21)
 
 Юнит low-risk, диф - одна функция плюс оракул, а маршрут стоил двух заходов
