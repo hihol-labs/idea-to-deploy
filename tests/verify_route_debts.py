@@ -64,6 +64,44 @@ ADAPTER_SOURCES = (
 )
 
 
+# Every injected Verification Loop stub shares this header so that the oracle
+# exercises the call shape production actually makes, not the shape it made
+# when the stubs were written.
+ADJUDICATION_STUB_DEF = "def validate_adjudication(root,path,risk,unit,candidate_mode='staged'):\n"
+
+
+def adjudication_call_shape() -> tuple[int, tuple[str, ...]]:
+    """Read the validate_adjudication call itd_goal_verify.py makes, from its source."""
+    import ast
+    tree = ast.parse((ROOT / "skills/goal/scripts/itd_goal_verify.py").read_text(encoding="utf-8"))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Attribute) and node.func.attr == "validate_adjudication"]
+    assert len(calls) == 1, f"expected one production validate_adjudication call, found {len(calls)}"
+    call = calls[0]
+    assert not any(isinstance(arg, ast.Starred) for arg in call.args)
+    assert all(keyword.arg for keyword in call.keywords)
+    return len(call.args), tuple(keyword.arg for keyword in call.keywords)
+
+
+def stub_accepts_production_call() -> None:
+    import inspect
+    positional, keywords = adjudication_call_shape()
+    assert positional >= 5, f"production passes candidate_mode positionally; saw {positional} arguments"
+    namespace: dict = {}
+    exec(ADJUDICATION_STUB_DEF + " return None\n", namespace)
+    sentinel = dict.fromkeys(keywords)
+    for name, target in (
+            ("oracle stub", namespace["validate_adjudication"]),
+            ("real validator", module("itd_route_debts_loop_shape",
+                                      ROOT / "skills/_shared/itd_verification_loop.py").validate_adjudication)):
+        try:
+            inspect.signature(target).bind(*range(positional), **sentinel)
+        except TypeError as exc:
+            raise AssertionError(
+                f"{name} rejects the production validate_adjudication call shape "
+                f"({positional} positional, keywords {keywords}): {exc}") from exc
+
+
 def module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     value = importlib.util.module_from_spec(spec)
@@ -497,6 +535,7 @@ def installed_canary_regressions() -> None:
 
 def repair_regressions() -> None:
     """Exercise the actual transition and diagnostic writers with temp ledgers."""
+    stub_accepts_production_call()
     goal_module = module("route_goal", ROOT / "skills/goal/scripts/itd_goal_verify.py")
     producer = module("route_producer", ROOT / "skills/_shared/itd_free_reviewer_producer.py")
     atomic = module("route_safe_atomic", ROOT / "skills/_shared/itd_safe_atomic.py")
@@ -992,7 +1031,7 @@ def repair_regressions() -> None:
         fake_loop.write_text(
             "from pathlib import Path\n"
             "class LoopError(Exception):\n    why=''; fix=''\n"
-            "def validate_adjudication(root,path,risk,unit):\n"
+            + ADJUDICATION_STUB_DEF +
             " Path(root,'machine.json').write_text('{\\\"runs\\\":[{\\\"command\\\":\\\"swapped\\\"}]}',encoding='utf-8')\n"
             " return {'version':1,'dependencies':{'machine':{'path':'machine.json','sha256':'" + machine_sha + "'}}}\n",
             encoding="utf-8")
@@ -1010,7 +1049,7 @@ def repair_regressions() -> None:
         fake_loop.write_text(
             "from pathlib import Path\n"
             "class LoopError(Exception):\n    why=''; fix=''\n"
-            "def validate_adjudication(root,path,risk,unit):\n"
+            + ADJUDICATION_STUB_DEF +
             " Path(path).write_text('{\\\"changed\\\":true}',encoding='utf-8')\n"
             " return {'version':1,'dependencies':{'machine':{'path':'machine.json','sha256':'" + machine_sha + "'}}}\n",
             encoding="utf-8")
@@ -1029,7 +1068,7 @@ def repair_regressions() -> None:
         for replacement in ("true", "1.0"):
             fake_loop.write_text(
                 "class LoopError(Exception):\n    why=''; fix=''\n"
-                "def validate_adjudication(root,path,risk,unit):\n"
+                + ADJUDICATION_STUB_DEF +
                 " return {'version':1,'dependencies':{'machine':{'path':'machine.json','sha256':'" + machine_sha + "'}}}\n",
                 encoding="utf-8")
             machine.write_text('{"runs":[{"command":"fixture-cmd"}]}', encoding="utf-8")
@@ -1180,7 +1219,7 @@ def sol_a7_regressions(goal_module, producer, atomic) -> None:
         fake_loop.write_text(
             "import os\nfrom pathlib import Path\n"
             "class LoopError(Exception):\n    why=''; fix=''\n"
-            "def validate_adjudication(root,path,risk,unit):\n"
+            + ADJUDICATION_STUB_DEF +
             " path=Path(path); outside=Path(root)/'elsewhere'\n"
             " if path.parent.name=='receipts':\n"
             "  path.parent.rename(path.parent.with_name('receipts-real'))\n"

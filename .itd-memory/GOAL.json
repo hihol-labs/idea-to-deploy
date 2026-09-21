@@ -3,7 +3,7 @@
   "goal": "Метрика маршрута различает независимую, машинную и owner-верификацию, атрибуция событий переживает архивирование леджера, и это выпущено релизом 1.105.0.",
   "status": "active",
   "createdAt": "2026-09-20T11:07:20Z",
-  "updatedAt": "2026-09-21T17:18:47Z",
+  "updatedAt": "2026-09-21T20:26:40Z",
   "currentUnitId": "",
   "units": [
     {
@@ -27,9 +27,11 @@
     {
       "id": "ROUTE-DEBTS-ORACLE-1",
       "riskTier": "low",
-      "status": "pending",
-      "criterion": "tests/verify_route_debts.py exits 0 in its default mode: the validate_adjudication stubs the oracle injects accept the call shape skills/goal/scripts/itd_goal_verify.py actually makes (today a fifth positional argument raises TypeError at the first stub and aborts every later check), no production module is changed to make the oracle pass, the --installed-proof mode accepts .itd-memory/host-inputs/REL-1.104.0/INSTALLED.json, and the repair is RED-first: the suite is red on the parent commit and a mutation that restores a four-argument stub turns it red again.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py && sh skills/_shared/itd_py.sh tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/REL-1.104.0/INSTALLED.json"
+      "status": "verified",
+      "criterion": "tests/verify_route_debts.py exits 0 in its default mode: the validate_adjudication stubs the oracle injects accept the call shape skills/goal/scripts/itd_goal_verify.py actually makes (today a fifth positional argument raises TypeError at the first stub and aborts every later check), no production module is changed to make the oracle pass, and the repair is RED-first: the suite is red on the parent commit and a mutation that restores a four-argument stub turns it red again. The --installed-proof mode is accepted by REL-1.105.0 on the release tree, not here: the 1.104.0 proof binds the runtime of tag v1.104.0 (16dcdb41) and the source runtime has moved since (owner decision 2026-09-21).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
+      "verifiedAt": "2026-09-21T20:26:40Z",
+      "evidence": "exit 0: PASS tests/verify_blind_protocol.py"
     },
     {
       "id": "REL-1.105.0",
