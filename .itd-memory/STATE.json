@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "CLOSE-BLOCKERS-1",
-    "goal": "The reviewer-provider freshness oracle is green with the Anthropic row typed `unavailable-transport-not-enrolled` and a current `checkedAt`; the session-close contract that the session-save resolver actually applies in this repository declares `startupTimeoutSeconds` as an integer of at least 600; and that guarantee is pinned by a RED-first check.",
+    "id": "LEDGER-ARCHIVE-1",
+    "goal": "itd_unit_lifecycle.attribute does not trust an explicit event ledger label that names a ledger which does not own the unit: when exactly one ledger in the memory directory owns the unit id the event is attributed to that owner, otherwise it is counted as unattributed; a label naming a ledger that owns the unit and the STATE pseudo-ledger keep their current behaviour; on the live memory directory the PE5-era lifecycles labelled GOAL.json are attributed to GOAL-2026-09-20.json with lifecyclesVerified, unattributedEvents and vcr unchanged; and the guarantee is a RED-first regression in tests/verify_ledger_reconciliation.py proved by mutation.",
     "status": "verified",
-    "startedAt": "2026-09-19T17:08:26Z",
+    "startedAt": "2026-09-20T16:29:54Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-19T21:22:54Z"
+    "riskTier": "low",
+    "completedAt": "2026-09-21T10:20:35Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

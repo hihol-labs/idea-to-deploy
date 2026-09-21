@@ -208,6 +208,79 @@ def main() -> int:
               and r3["lifecycles"][0]["ledger"] == "GOAL-axis1.json",
               json.dumps(r3["unattributedEvents"]))
 
+    # ------------------------------------------- A2. archived ledger (LEDGER-ARCHIVE-1)
+    # An explicit label is a claim, not a fact: archiving renames GOAL.json and a
+    # new GOAL.json takes the name, so rows labelled `GOAL.json` then name a
+    # ledger that no longer owns their unit (live 2026-09-20: 40 rows, 13 cycles).
+    with tempfile.TemporaryDirectory() as td:
+        mem = Path(td) / ".itd-memory"
+        mem.mkdir()
+        ledger(mem / "GOAL-2026-01-01.json", ["OLD-1", "BOTH-1"],
+               "2025-12-01T00:00:00Z", "2026-01-01T00:00:00Z")
+        ledger(mem / "GOAL-2026-01-02.json", ["BOTH-1"],
+               "2025-12-01T00:00:00Z", "2026-01-01T00:00:00Z")
+        ledger(mem / "GOAL.json", ["NEW-1"],
+               "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z")
+        write_events(mem, [
+            ev("OLD-1", "activated", "2025-12-10T10:00:00Z", ledger="GOAL.json"),
+            ev("OLD-1", "verified", "2025-12-10T11:00:00Z", ledger="GOAL.json"),
+            ev("NEW-1", "activated", "2026-01-01T10:00:00Z", ledger="GOAL.json"),
+            ev("NEW-1", "verified", "2026-01-01T11:00:00Z", ledger="GOAL.json"),
+            ev("TASK-1", "activated", "2026-01-01T12:00:00Z", ledger=L.STATE_LEDGER),
+            ev("TASK-1", "verified", "2026-01-01T13:00:00Z", ledger=L.STATE_LEDGER),
+        ])
+        ra = L.build(mem)
+        by_unit = {lc["unit"]: lc["ledger"] for lc in ra["lifecycles"]}
+        check("a stale explicit label follows the unit to its sole owner",
+              by_unit.get("OLD-1") == "GOAL-2026-01-01.json"
+              and ra["unattributedEvents"] == 0, json.dumps(by_unit))
+        check("an explicit label naming an owner of the unit is kept",
+              by_unit.get("NEW-1") == "GOAL.json", json.dumps(by_unit))
+        check("the explicit STATE pseudo-ledger is kept",
+              by_unit.get("TASK-1") == L.STATE_LEDGER, json.dumps(by_unit))
+        leds = L.load_ledgers(mem)
+        check("a stale explicit label reports its own reason, not `explicit`",
+              L.attribute(ev("OLD-1", "verified", "2025-12-10T11:00:00Z",
+                             ledger="GOAL.json"), leds)
+              == ("GOAL-2026-01-01.json", "explicit-stale-sole-owner"),
+              json.dumps(L.attribute(ev("OLD-1", "verified", "2025-12-10T11:00:00Z",
+                                        ledger="GOAL.json"), leds)))
+        # Two owners, label names neither: the window would fit both, and even a
+        # single fit must not be adopted - a wrong label is not evidence for any
+        # particular owner. Counted, never guessed.
+        # The REASON is part of the contract: `None` alone would also be returned
+        # by `no-timestamp`/`ambiguous`, so a legacy reason must not pass here
+        # (reviewer 2026-09-21, medium).
+        several = L.attribute(ev("BOTH-1", "verified", "2025-12-10T11:00:00Z",
+                                 ledger="GOAL.json"), leds)
+        check("a stale explicit label with several owners is unattributed",
+              several == (None, "explicit-not-owner"), json.dumps(several))
+        nobody = L.attribute(ev("NOBODY-1", "verified", "2025-12-10T11:00:00Z",
+                                ledger="GOAL.json"), leds)
+        check("a stale explicit label with no owner at all is unattributed",
+              nobody == (None, "explicit-not-owner"), json.dumps(nobody))
+        # A label is only a label when it is a non-empty string. Anything else
+        # is not a claim at all: it must neither crash the owner lookup nor be
+        # treated as a (stale) explicit label - the row is inferred as if it
+        # carried none (reviewer 2026-09-21, medium).
+        for bad in (["GOAL.json"], {"name": "GOAL.json"}, 7, True, ""):
+            try:
+                got = L.attribute(ev("OLD-1", "verified", "2025-12-10T11:00:00Z",
+                                     ledger=bad), leds)
+            except Exception as exc:  # noqa: BLE001 - the crash IS the finding
+                got = ("<raised>", repr(exc))
+            check(f"a non-string ledger label {bad!r} is not an explicit claim",
+                  got[0] == "GOAL-2026-01-01.json"
+                  and not str(got[1]).startswith("explicit"), json.dumps(got))
+        check("a label naming a ledger absent from the directory is not trusted",
+              L.attribute(ev("OLD-1", "verified", "2025-12-10T11:00:00Z",
+                             ledger="GOAL-gone.json"), leds)[0]
+              == "GOAL-2026-01-01.json")
+        write_events(mem, [ev("BOTH-1", "activated", "2025-12-11T10:00:00Z",
+                              ledger="GOAL.json")])
+        check("an unowned explicit label with several owners is counted",
+              L.build(mem)["unattributedEvents"] == 1)
+
     # ---------------------------------------------------------------- B. lifecycles
     with tempfile.TemporaryDirectory() as td:
         mem = Path(td) / ".itd-memory"
@@ -720,13 +793,24 @@ def main() -> int:
     # and over EVERY branch, because fixing two of three is exactly how this
     # class kept coming back (reviewer 2026-08-17).
     src = UNIT_LOG.read_text(encoding="utf-8")
-    for branch, anchor in (("activate", 'if a.command == "activate":'),
-                           ("verified", 'if a.command == "verified":'),
-                           ("close", 'if a.command == "close":'),
-                           ("backfill", "# backfill-activation")):
+    anchors = (("activate", 'if a.command == "activate":'),
+               ("verified", 'if a.command == "verified":'),
+               ("close", 'if a.command == "close":'),
+               ("backfill", "# backfill-activation"))
+    for i, (branch, anchor) in enumerate(anchors):
+        # The segment is the WHOLE branch, up to the next branch's anchor. It
+        # used to end at the first `return 0`, and the recovery early-return
+        # added to `verified`/`close` (#267) ends before either call - so the
+        # check found nothing (`@-1`) and failed on a correct order. The calls
+        # are matched with `(`: a bare name also hits `save_state_locked` text.
         seg = src[src.index(anchor):]
-        seg = seg[:seg.index("return 0") + 8]
-        ae, ss = seg.find("append_event"), seg.find("save_state")
+        # EVERY segment is closed, the last one by the module entry point: an
+        # open tail let an unrelated later `append_event(` satisfy the backfill
+        # check on the branch's behalf (reviewer 2026-09-21, low).
+        closer = (anchors[i + 1][1] if i + 1 < len(anchors)
+                  else '\nif __name__ == "__main__":')
+        seg = seg[:seg.index(closer)]
+        ae, ss = seg.find("append_event("), seg.find("save_state(")
         check(f"{branch}: the event is appended before STATE is persisted",
               ae >= 0 and (ss < 0 or ae < ss), f"append_event@{ae} save_state@{ss}")
 
@@ -771,10 +855,24 @@ def main() -> int:
               r["lifecyclesOpen"] == 0,
               json.dumps([lc["unit"] for lc in r["lifecycles"]
                           if lc["outcome"] == "open"]))
-        check("repo: blocked lifecycles are reported, not counted as misses",
-              r["lifecyclesBlocked"] >= 1 and r["vcr"] == 1.0,
-              f"vcr={r['vcr']} blocked={r['lifecyclesBlocked']} "
-              f"verified={r['lifecyclesVerified']} total={r['lifecyclesTotal']}")
+        # The former `repo: blocked lifecycles >= 1` check pinned a FACT of a
+        # rotating, gitignored log and lost its subject when the log rotated
+        # (BACKLOG 2026-09-03); section D pins that guarantee on the frozen
+        # fixture. What is pinned here is an invariant of any honest log: a
+        # lifecycle never sits under a ledger that does not own its unit
+        # (LEDGER-ARCHIVE-1; live RED before the fix: 13 PE5-era cycles).
+        owned = {led["name"]: led["unitIds"] for led in L.load_ledgers(real)}
+        # A manifest entry may legitimately name a ledger that owns nothing
+        # (live: G-001 -> `RECONCILIATION`); that pair is explained, not
+        # misplaced (reviewer 2026-09-20).
+        explained = {(unit, led) for (unit, _at), led
+                     in L.load_reconciliation(real).items()}
+        misplaced = [(lc["unit"], lc["ledger"]) for lc in r["lifecycles"]
+                     if lc["ledger"] != L.STATE_LEDGER
+                     and (lc["unit"], lc["ledger"]) not in explained
+                     and lc["unit"] not in owned.get(lc["ledger"], set())]
+        check("repo: no lifecycle sits under a ledger that does not own its unit",
+              not misplaced, json.dumps(misplaced[:5]))
 
     # ------------------------------------- G. explained vs anomalous (R4e)
     # A `verified` row with no activation is the writer anomaly that started

@@ -142,14 +142,28 @@ def attribute(event: dict, ledgers: list[dict],
               reconciliation: dict[tuple[str, str], str] | None = None) -> tuple[str | None, str]:
     """(ledger, reason). None означает НЕатрибутировано — это видимый счётчик,
     а не тихая догадка."""
+    name = event.get("name")
+    # Владельцы теперь считаются ДО разбора метки, а метка бывает на любой
+    # строке: нестроковое имя (`["G-1"]`) роняло бы поиск по множеству.
+    owners = ([led for led in ledgers if name in led["unitIds"]]
+              if isinstance(name, str) else [])
+
     explicit = event.get("ledger")
     if isinstance(explicit, str) and explicit:
-        return explicit, "explicit"
+        # Метка — это ЗАЯВЛЕНИЕ строки, а не факт: архивирование переименовывает
+        # GOAL.json, имя занимает новый леджер, и метка начинает называть файл,
+        # который этим юнитом не владеет (live 2026-09-20: 40 строк, 13 циклов
+        # PE5-эры). Доверяем ей, только пока она называет владельца или STATE.
+        if explicit == STATE_LEDGER or any(led["name"] == explicit for led in owners):
+            return explicit, "explicit"
+        # Ложная метка не свидетельствует ни в чью пользу, поэтому окно здесь не
+        # применяется: единственный владелец — вывод, всё остальное — счётчик.
+        if len(owners) == 1:
+            return owners[0]["name"], "explicit-stale-sole-owner"
+        return None, "explicit-not-owner"
 
-    name = event.get("name")
     raw_at = event.get("at")
     at = _parse_at(raw_at if isinstance(raw_at, str) else event.get("ts"))
-    owners = [led for led in ledgers if name in led["unitIds"]]
 
     def reconciled() -> tuple[str | None, str]:
         """Ручная запись — ТОЛЬКО последнее средство.
