@@ -3656,3 +3656,25 @@ BACKLOG. Существование файла квитанции классиф
 
 **Ссылки:** `skills/_shared/itd_unit_lifecycle.py` (`route_class`),
 `tests/verify_route_metric.py`.
+
+## 2026-09-21: ROUTE-DEBTS-ORACLE-1 - нога `--installed-proof` убрана из юнита
+
+**Решение (владелец).** Из `criterion` и `verificationCommand` юнита убрана приёмка
+`.itd-memory/host-inputs/REL-1.104.0/INSTALLED.json`. Остаются: default-режим
+`tests/verify_route_debts.py` exit 0, запрет продакшн-правок, RED-first и мутация.
+Приёмка `--installed-proof` остаётся за `REL-1.105.0` на релизном дереве.
+
+**Почему.** Замер в сессии: пруф 1.104.0 привязан к `runtimeSha256 16dcdb41...` -
+это ровно runtime дерева тега `v1.104.0` (проверено `git archive v1.104.0` +
+`runtime_plan`). Текущий source даёт `247291e2...`: после релиза 7 коммитов
+меняли `skills/` и `scripts/`. `load_proof` сравнивает пруф с рабочим деревом,
+поэтому правкой заглушек ногу не озеленить. При декомпозиции режим
+`--installed-proof` отдельно не замерялся (запись 2026-09-20).
+
+**Отвергнуто.** Биндить оракул к дереву тега `v<release>` (меняет смысл экзамена:
+дрейф source после релиза перестаёт краснить; это уже не low-юнит); перечеканить
+пруф 1.104.0 под текущий source (переписывает историческое доказательство,
+а `REL-1.105.0` всё равно раскатывает заново).
+
+**Ссылки:** `tests/verify_route_debts.py` (`load_proof`, `ADJUDICATION_STUB_DEF`,
+`stub_accepts_production_call`), `.itd-memory/GOAL.json`.

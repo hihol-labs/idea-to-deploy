@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ROUTE-REPAIR-3",
-    "goal": "itd_unit_lifecycle.build assigns every verified lifecycle to exactly one named route class - verifiedIndependent (the verified event binds a checker/adjudication receipt), verifiedMachineOnly (a harness transition with a machine receipt and no checker receipt), verifiedOwnerRoute (the transition was recorded by the owner) - itd_metrics.py surfaces all three counters, their sum equals unitsVerified, vcr keeps its current value and definition, spelling variants of the route label (owner / owner-route) and the literal string none in checkerReceipt are normalised rather than trusted, and each class is a RED-first regression proved by mutation.",
+    "id": "ROUTE-DEBTS-ORACLE-1",
+    "goal": "tests/verify_route_debts.py exits 0 in its default mode: the validate_adjudication stubs the oracle injects accept the call shape skills/goal/scripts/itd_goal_verify.py actually makes (today a fifth positional argument raises TypeError at the first stub and aborts every later check), no production module is changed to make the oracle pass, and the repair is RED-first: the suite is red on the parent commit and a mutation that restores a four-argument stub turns it red again. The --installed-proof mode is accepted by REL-1.105.0 on the release tree, not here: the 1.104.0 proof binds the runtime of tag v1.104.0 (16dcdb41) and the source runtime has moved since (owner decision 2026-09-21).",
     "status": "verified",
-    "startedAt": "2026-09-21T16:41:26Z",
+    "startedAt": "2026-09-21T20:11:10Z",
     "ledger": "GOAL.json",
     "riskTier": "low",
-    "completedAt": "2026-09-21T17:18:47Z"
+    "completedAt": "2026-09-21T20:26:40Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
