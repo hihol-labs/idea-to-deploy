@@ -3747,3 +3747,97 @@ Gate 1 красный на A, лишняя цепочка ревью. (2) Зап
 **Ссылки:** `tests/itd_benchmark_pin.py`, `.github/workflows/meta-review.yml`
 (шаг «Replay fresh live-model evidence»), `docs/RELEASE_RUNBOOK.md`,
 `.itd-memory/verification-loop/REL-1.105.0-live-record-a1.{log,candidate}`.
+
+## 2026-09-22: REL-1.105.0 - решения публикации и цена маршрута
+
+**Опубликовано.** PR #302 смержен как `97cc1290` (head `7b16082`, дерево `1918b00e` =
+дерево кандидата), CI: Gate 1 pass, windows-verify pass. Релиз `v1.105.0` опубликован
+`gh release create --target 97cc1290...`. Раскатка: WSL runtime
+`1.105.0-8ee73e60de632900`, Windows runtime `1.105.0-8ee73e60de632900`, codex 1.105.0.
+
+**Решение 1: owner-adjudication по стоп-правилу (вариант A владельца).** Независимый
+ревьюер gpt-5.6-sol в раундах rel5/pub1/rel7/rel9 повторно поднимал три слабости
+ЗАПЕЧАТАННОГО `verificationCommand` (нога зеркала без `pipefail`, нога тега проверяет
+только непосредственного родителя, conformance-якорь `endswith`) - один механизм при
+изменённом кандидате (LPD-003-3). Оракул запечатан, инструкция владельца - не менять.
+Владелец подписал диспозиции `accepted-trade-off` (ADR-007): adj1 (staged), pub2 и pub3
+(committed-head) - `ADJUDICATED` для `REL-1.105.0` и `REL-1.105.0:general-review`.
+Отвергнуто: правка оракула (нарушает seal и инструкцию), owner-маршрут без квитанций
+(худший класс метрики маршрута). Слабости - Declared limits в SCOPE_LOCK и BACKLOG P2
+для следующего релизного юнита.
+
+**Решение 2: два `COMPLETION_BYPASS` на релизном коммите.** Строгий reader гейта
+завершения роняет леджер сессии на первой строке слоя 2 с пустым evidence; строку 1994
+оставил прогон зеркала субагентом-ревьюером через `| tail -5`. Класс BACKLOG P2
+2026-09-07. Леджер сигналов не правился, `--no-verify` не использовался; зеркало на
+точном дереве - `DONE fails:none`, exit 0 (declared host input, машинная квитанция).
+
+**Решение 3: публикационная цепочка перечеканена установленным loop'ом.** Первый
+`itd pr create` заблокировал pre-push: установленный runtime 1.104.0 не принял
+квитанцию tree-loop'а 1.105.0 (круг двух валидаторов, BACKLOG P2 2026-09-07). По
+прецеденту pub7 1.104.0 цепочка pub3 отчеканена loop'ом
+`~/.local/share/itd/runtime/1.104.0-2e96b3bd835e765c`, реестр зарегистрирован на
+`general-adjudication-pub3`, doctor `LOCAL_REVIEWED`.
+
+**Решение 4: канарейки и installed-proof - на staged ledger-close кандидате.** На чистом
+merged main staged-кандидат пуст, и с ROUTE-REPAIR-2 машинная квитанция канарейки
+отвергается (`staged candidate diff is empty and binds nothing`); валидатор
+`tests/verify_route_debts.py` вызывает `validate_adjudication` в staged-режиме. Поэтому
+порядок 2026-09-10 применён буквально: пакет ledger-close заморожен -> канарейки WSL/
+Windows на нём -> `INSTALLED.json` -> ОТК -> переход -> коммит. Замер: одна упавшая
+канарейка (`a1`, WSL) до диагноза.
+
+**Цена.** 10 раундов cross-vendor ревью (24 уникальные находки, 0 ложных), 3
+публикационных заходa (pub1 BLOCKED, pub2 не принят pre-push'ем, pub3 - PR), 2 обхода
+гейта завершения, 1 заблокированный `itd pr create`, 1 упавшая канарейка. Замеры -
+`BACKLOG.md`, запись от 2026-09-22.
+
+**Ссылки:** PR #302, release v1.105.0, `.itd/SCOPE_LOCK.md`, `BACKLOG.md`,
+`.itd-memory/verification-loop/REL-1.105.0-{sign-and-adjudicate.py,completion-bypass-note.md}`.
+
+## 2026-09-22: REL-1.105.0 - блокировка на дефекте Windows-теста и юнит WIN-TESTQUOTE-1
+
+**Контекст.** Канарейка Windows a4 на ledger-close кандидате: нативные тесты `114 passed,
+3 failed` в `tests/verify_verification_loop.py` (RR2). Корень подтверждён пробой:
+`json.dumps(sys.executable)` ASCII-экранирует кириллицу в пути интерпретатора владельца
+(`C:\Users\Дмитрий\...\python.exe`), cmd.exe не исполняет, machine FAILED, тест парсит
+JSON отказа как путь и сообщает «escapes». Дефект теста, невидимый на ASCII-раннере CI, на
+main с #289 (2026-09-14). `--installed-proof` требует зелёные нативные тесты на Windows.
+
+**Решение (владелец, вариант A).** `REL-1.105.0` заблокирован харнесом с причиной; заведён
+low-юнит `WIN-TESTQUOTE-1` (GOAL.json дополнен по прецеденту 2026-09-20): helper
+`interpreter_oracle()` в трёх местах + RED-first блок (алиас интерпретатора под каталогом
+`Дмитрий/` через реальный shell-транспорт: старое квотирование FAILED, новое PASSED;
+статический гард; cleanup). WSL 121/0, мутация 120/1, нативный Windows под интерпретатором
+владельца 121/0. Верифицирован харнесом маршрутом low (machine + adjudication), PR #303 →
+`70016a32`. `REL-1.105.0` реактивирован; `tests/` не входит в инвентарь runtime, поэтому
+runtime `1.105.0-8ee73e60de632900` остаётся валидным - патч-релиз не нужен.
+
+**Отвергнуто.** Owner-маршрут для REL-1.105.0 (класс `verifiedOwnerRoute` - против смысла
+цели); ASCII-`%TEMP%` как условие среды (проверено - не помогает, дефект в квотировании);
+правка теста внутри REL-1.105.0 (вне скоупа, WIP=1).
+
+**Ссылки:** `.itd-memory/verification-loop/REL-1.105.0-windows-canary-diagnosis.md`,
+`host-inputs/REL-1.105.0/windows-diagnosis-a4/`, PR #303, BACKLOG P1 2026-09-22 (д).
+
+## 2026-09-22: цель внутреннего качества закрыта - 5/5 юнитов verified харнесом
+
+**Итог.** `LEDGER-ARCHIVE-1`, `ROUTE-REPAIR-3`, `ROUTE-DEBTS-ORACLE-1`, `REL-1.105.0`,
+`WIN-TESTQUOTE-1` - все `verified` переходами харнеса (`actor: harness`), ни один - owner-
+маршрутом. `REL-1.105.0` (high) закрыт квитанцией otk1: машинная квитанция всей sealed-
+команды одним оракулом на staged ledger-close кандидате + owner-adjudication подписанных
+диспозиций по трём слабостям запечатанного оракула (ADR-007), затем харнес сам исполнил
+команду на хосте: `VERIFIED REL-1.105.0`. Релиз v1.105.0 опубликован и раскатан, installed-
+proof a3/a5 принят.
+
+**Что осталось долгами (не в этой цели).** BACKLOG P1 2026-09-22 (а-д): устаревающая
+документация как класс находок ревьюера; sealed-оракул как неисправимая поверхность
+(ревью оракула до seal); круг двух валидаторов на pre-push; строки с пустым evidence в
+леджере сигналов (два `COMPLETION_BYPASS` на релизном коммите и один на fix-коммите);
+канарейка на чистом main после ROUTE-REPAIR-2. BACKLOG P2 2026-09-22: три слабости
+release-оракула для следующего релизного юнита.
+
+**Ссылки:** `.itd-memory/GOAL.json` (`status: done`), `events.jsonl` (verified-события с
+`ledger: GOAL.json`), `.itd/ACCEPTANCE_CONTRACT.json` (`closedFollowups` REL-1.105.0),
+`HANDOFF.md` «Чекпоинты».
+

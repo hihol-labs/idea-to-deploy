@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "WIN-TESTQUOTE-1",
-    "goal": "tests/verify_verification_loop.py no longer builds any machine-oracle command through json.dumps(sys.executable) with default ASCII escaping: every interpreter reference inside an oracle command is quoted so that a non-ASCII interpreter path (the owner's native Windows python.exe lives under C:\\Users\\Дмитрий) survives the native shell transport; the guarantee is a RED-first regression inside the suite itself - a check that runs the machine oracle through an interpreter alias placed under a non-ASCII directory and fails with the old quoting - proved by mutation; the unit command exits 0, i.e. the suite is green on WSL and the static guard finds zero json.dumps(sys.executable) sites. This text is the single source of the criterion; SCOPE_LOCK references it and does not restate it.",
+    "id": "REL-1.105.0",
+    "goal": "Release 1.105.0 ships the LEDGER-ARCHIVE-1 attribution fix and the ROUTE-REPAIR-3 route-class counters: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.105.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.105.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.105.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.105.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
     "status": "verified",
-    "startedAt": "2026-09-22T12:52:25Z",
+    "startedAt": "2026-09-22T13:35:18Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-09-22T13:05:34Z"
+    "riskTier": "high",
+    "completedAt": "2026-09-22T14:10:05Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -574,7 +574,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "REL-1.105.0 (high) is active on branch chore/release-1.105.0 over fad7915. The candidate (version bump 1.105.0 in the ten enumerated places, CHANGELOG [1.105.0], SCOPE_LOCK/HANDOFF/DECISIONS/BACKLOG/acceptance rows, ledger activation, re-recorded live-model evidence run 20260922T094239Z-728ce2e8) is one release commit that is re-created after every review round that changes the tree: staged over fad7915 -> mandatory cross-vendor route (maker claude-fable-5-1 / anthropic-subscription, independent reviewer gpt-5.6-sol / openai-subscription, keyless producer from authority REL1105-f43de442-a1) signed PASSED -> adjudicate both claims -> review-cache record -> commit; then the same route on committed-head -> gate registry re-registration -> draft PR through the itd CLI -> mark ready. The exact current phase (staged or committed, which round) is ONLY the last entry of the checkpoints section in HANDOFF.md; this field does not track it. Merge, tag, release and rollout only on the owner's command. WIP=1.",
+  "nextAction": "Goal 'route metric distinguishes independent/machine/owner verification, attribution survives ledger archiving, released as 1.105.0' is DONE (5/5 units verified by the goal harness): LEDGER-ARCHIVE-1, ROUTE-REPAIR-3, ROUTE-DEBTS-ORACLE-1, REL-1.105.0 (release v1.105.0 = 97cc1290, rollout WSL+Windows runtime 1.105.0-8ee73e60de632900, installed proof a3/a5), WIN-TESTQUOTE-1. This candidate is the REL-1.105.0 ledger-close + goal closure; publish it through the route (owner-adjudicated general claim, gate registry, itd pr create). WIP is free: no unit is active. Next goal is the owner's call (candidates: BACKLOG P1 2026-09-22 route observations a-d, P2 sealed-oracle weaknesses for the next release unit).",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
