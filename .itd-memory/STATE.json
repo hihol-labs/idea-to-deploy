@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ROUTE-DEBTS-ORACLE-1",
-    "goal": "tests/verify_route_debts.py exits 0 in its default mode: the validate_adjudication stubs the oracle injects accept the call shape skills/goal/scripts/itd_goal_verify.py actually makes (today a fifth positional argument raises TypeError at the first stub and aborts every later check), no production module is changed to make the oracle pass, and the repair is RED-first: the suite is red on the parent commit and a mutation that restores a four-argument stub turns it red again. The --installed-proof mode is accepted by REL-1.105.0 on the release tree, not here: the 1.104.0 proof binds the runtime of tag v1.104.0 (16dcdb41) and the source runtime has moved since (owner decision 2026-09-21).",
-    "status": "verified",
-    "startedAt": "2026-09-21T20:11:10Z",
+    "id": "REL-1.105.0",
+    "goal": "Release 1.105.0 ships the LEDGER-ARCHIVE-1 attribution fix and the ROUTE-REPAIR-3 route-class counters: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.105.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.105.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.105.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.105.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
+    "status": "in_progress",
+    "startedAt": "2026-09-22T09:02:08Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-09-21T20:26:40Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -523,7 +522,8 @@
     ".itd/GPG-002_COMPLETION_EVIDENCE.json",
     ".itd-memory/verification-loop/GPG-002-fix-final-adjudication.json",
     ".itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-adjudication-a1.json",
-    ".itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md"
+    ".itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md",
+    "HANDOFF.md"
   ],
   "completedModules": [
     "goal.bounded_autonomy",
@@ -573,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "ROUTE-REPAIR-1 verified and merged. Next: ROUTE-REPAIR-2 (claim-id circle + live-benchmark pin cascade), then ROUTE-REPAIR-3 (the metric sees the route), then RSI-DEBT-3. Before any of them, /retro on one measurement: a clean independent-review PASS is one draw, not a proof - measured on byte-identical material this session. WIP=1.",
+  "nextAction": "REL-1.105.0 (high) is active on branch chore/release-1.105.0 over fad7915. The candidate (version bump 1.105.0 in the ten enumerated places, CHANGELOG [1.105.0], SCOPE_LOCK/HANDOFF/DECISIONS/BACKLOG/acceptance rows, ledger activation, re-recorded live-model evidence run 20260922T094239Z-728ce2e8) is one release commit that is re-created after every review round that changes the tree: staged over fad7915 -> mandatory cross-vendor route (maker claude-fable-5-1 / anthropic-subscription, independent reviewer gpt-5.6-sol / openai-subscription, keyless producer from authority REL1105-f43de442-a1) signed PASSED -> adjudicate both claims -> review-cache record -> commit; then the same route on committed-head -> gate registry re-registration -> draft PR through the itd CLI -> mark ready. The exact current phase (staged or committed, which round) is ONLY the last entry of the checkpoints section in HANDOFF.md; this field does not track it. Merge, tag, release and rollout only on the owner's command. WIP=1.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"

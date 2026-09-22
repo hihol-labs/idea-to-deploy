@@ -3949,6 +3949,50 @@
           "quick-mirror"
         ]
       }
+    },
+    {
+      "id": "REL-1.105.0-1-version",
+      "criterion": "Команда критерия выходит 0, то есть строка 1.105.0 стоит во всех местах, которые команда перечисляет ПОИМЁННО и чьё число она же печатает: .claude-plugin/plugin.json, .codex-plugin/plugin.json, .claude-plugin/marketplace.json, docs/HARNESS_DOCS_STATE.json, бейджи README.md и README.ru.md, docs/HARNESS_CONFORMANCE_REPORT.md, docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json, VERSION в tests/verify_external_reviewer_release.py, и в CHANGELOG.md ровно один заголовок ## [1.105.0] стоит первым версионным заголовком, а над ним - ## [Unreleased]. Места заякорены (JSON-поле, регулярное выражение по всей строке или точное равенство), а не поиск подстроки, с одним объявленным исключением: строка docs/HARNESS_CONFORMANCE_REPORT.md проверяется как единственная строка с idea-to-deploy **v, оканчивающаяся ожидаемым текстом (Declared limits в .itd/SCOPE_LOCK.md, BACKLOG P2 2026-09-22). Число мест в тексте критерия не зашивается: его печатает сама команда. Больше критерий не утверждает ничего - ни про тег, ни про публикацию, ни про раскатку.",
+      "source": "Релизный конвейер docs/RELEASE_RUNBOOK.md, пункты 1 и 4; третья нога verificationCommand юнита REL-1.105.0 в .itd-memory/GOAL.json (команда ниже - её байт-в-байт копия).",
+      "evidence": "Утверждение критерия ровно одно и проверяется его командой. Исполнено 2026-09-22 на дереве ветки chore/release-1.105.0 (база origin/main fad7915): rc=0, вывод 'version consistent 1.105.0 10/10 places anchored'. Мутационного полотна у однострочных замен версии нет по природе правки: каждая замена выполнена скриптом с проверкой ровно одного вхождения старой строки в файле, иначе бамп падал. CHANGELOG: прежний блок [Unreleased] стал записью ## [1.105.0] - 2026-09-22 с блок-цитатой о PR цикла и секцией Boundaries; над ним открыт новый пустой [Unreleased].",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.105.0';e=re.escape(v);J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text(encoding='utf-8');one=lambda pat,txt: len(re.findall(pat,txt,re.M))==1;mk=json.load(open('.claude-plugin/marketplace.json'));badge=lambda p: one(r'^\\[!\\[Version: '+e+r'\\]\\(https://img\\.shields\\.io/badge/Version-'+e+r'-purple\\.svg\\)\\]\\(CHANGELOG\\.md\\)$',T(p));places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: [p.get('version') for p in mk.get('plugins',[]) if p.get('name')=='idea-to-deploy']==[v]),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: badge('README.md')),('README.ru.md',lambda: badge('README.ru.md')),('conformance',lambda: (lambda d: len(d)==1 and d[0].rstrip().endswith('idea-to-deploy **v'+v+'**.'))([l for l in T('docs/HARNESS_CONFORMANCE_REPORT.md').splitlines() if 'idea-to-deploy **v' in l])),('rc-contract',lambda: J('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json','version')==v),('release-oracle',lambda: one(r'^VERSION = '+chr(34)+e+chr(34)+r'$',T('tests/verify_external_reviewer_release.py'))),('changelog',lambda: (lambda h: len(h)>1 and h[0]=='## [Unreleased]' and h[1]=='## ['+v+']' and len([x for x in h if x=='## ['+v+']'])==1)([l.split(' - ')[0].strip() for l in T('CHANGELOG.md').splitlines() if l.startswith('## [')]))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)), 'anchored')\"",
+      "reviewEvidence": {
+        "claim": "Команда критерия сама перечисляет проверяемые места, сама считает их число и падает на любом расхождении; критерий не утверждает ничего сверх её выхода и не зашивает счётчик.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "release-version-consistency",
+          "harness-docs-freshness",
+          "external-reviewer-release",
+          "host-adapters",
+          "itd-runtime-install",
+          "git-gate-hooks",
+          "gate-control",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "REL-1.105.0-2-mirror",
+      "criterion": "Команда критерия выходит 0, то есть машинно установлено ровно одно: быстрый профиль зеркала на дереве кандидата не падает ни на одном сьюте - последняя строка вывода дословно равна 'DONE fails:none'. Больше критерий не утверждает ничего: ни про полный прогон зеркала, ни про какие-либо иные проверки.",
+      "source": "Пол методологии: релиз не выпускается на красном зеркале; вторая нога verificationCommand юнита REL-1.105.0 в .itd-memory/GOAL.json (команда ниже - её байт-в-байт копия, включая завершающий grep -qx: строка проверяется по коду выхода, а сама она видна в quick.log объявленного host input).",
+      "evidence": "Утверждение критерия и есть выход его команды, проверено исполнением 2026-09-22 на дереве кандидата ветки chore/release-1.105.0. Как это попадает в exact-tree улику: изолированный машинный оракул не может гнать зеркало сам (копия дерева без git-чекаута, checkout-bound сьюты красные по построению), поэтому полный вывод зеркала, прогнанного на хосте на точном staged-дереве кандидата, и sidecar с этим деревом, кодом выхода и последней строкой лежат в объявленном host input .itd-memory/host-inputs/REL-1.105.0/source-<label>/ (quick.log, quick.json, expected-tree.txt); машинная команда quick-mirror (quick_mirror_check.py в том же input) проверяет sha256 лога против sidecar, последнюю строку лога дословно, код выхода 0, равенство дерева sidecar ожидаемому и единственность строки DONE; квитанция хеш-привязывает input целиком, а её reviewedTree сверяется с expected-tree.txt. Ловушка предыдущего релиза учтена: улика лежит ТОЛЬКО под путём, который SCOPE_LOCK разрешает для host inputs.",
+      "verificationCommand": "bash tests/run-all.sh --quick | tail -1 | grep -qx 'DONE fails:none'",
+      "reviewEvidence": {
+        "claim": "Быстрый профиль зеркала на дереве кандидата зелёный целиком - это проверяет команда критерия.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "quick-mirror",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -3967,25 +4011,22 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ROUTE-REPAIR-1",
-    "status": "closed",
-    "openedAt": "2026-09-12",
+    "unitId": "REL-1.105.0",
+    "status": "open",
+    "openedAt": "2026-09-22",
     "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "skills/_shared/itd_free_reviewer_producer.py",
+    "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "security",
-        "bounded-output"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
-    },
-    "closedAt": "2026-09-12T21:10:50Z",
-    "closureEvidence": "Merged as 2d50a12 through PR #284 with Gate 1 and windows-verify green. The sealed verificationCommand exits 0 on merged main tree 3be3a49f; machine and adjudication receipts PASSED on that tree. The unit transition was recorded through the owner route because itd_goal_verify validates receipts in staged mode and no staged candidate exists after a merge; that circle is recorded in BACKLOG as its own P1."
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4073,6 +4114,27 @@
       },
       "closedAt": "2026-09-12T14:44:13Z",
       "closureEvidence": "owner route 2026-09-12: both legs of the sealed verificationCommand exit 0 on staged tree 5c66f6d5 (verify_completion_gate 60 of 60, verify_all_hard_gate_host_parity 101 of 101), machine receipt machine-a11.json PASSED on that tree, merged as c15a8f3d through PR #282 with Gate 1 and windows-verify green. NO targeted checker receipt: ten rounds of independent cross-vendor review closed twelve real findings with zero false positives and never returned a clean PASS. The non-convergence is recorded as a measured P1 in BACKLOG with the round table; the publication decision and the two structural-guarantee decisions are in DECISIONS 2026-09-12."
+    },
+    {
+      "unitId": "ROUTE-REPAIR-1",
+      "status": "closed",
+      "openedAt": "2026-09-12",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": "skills/_shared/itd_free_reviewer_producer.py",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "bounded-output"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-12T21:10:50Z",
+      "closureEvidence": "Merged as 2d50a12 through PR #284 with Gate 1 and windows-verify green. The sealed verificationCommand exits 0 on merged main tree 3be3a49f; machine and adjudication receipts PASSED on that tree. The unit transition was recorded through the owner route because itd_goal_verify validates receipts in staged mode and no staged candidate exists after a merge; that circle is recorded in BACKLOG as its own P1."
     }
   ]
 }
