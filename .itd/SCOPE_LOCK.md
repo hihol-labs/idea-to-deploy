@@ -1,32 +1,51 @@
-# WIN-TESTQUOTE-1
+# REL-1.105.0 - ledger closure
 
-Current unit `WIN-TESTQUOTE-1`, low risk, activated by the goal harness on 2026-09-22 over
-`origin/main` `97cc1290` (release v1.105.0). Opened because the Windows native canary of
-`REL-1.105.0` (now `blocked`) failed on a test-only defect. The criterion and the
-verificationCommand live ONLY in `.itd-memory/GOAL.json`; this file references them and does
-not restate them. Review claim ids: `WIN-TESTQUOTE-1`, `WIN-TESTQUOTE-1:general-review`.
+The release itself is published: PR #302 merged as `97cc1290` (head `7b16082`, tree
+`1918b00e`), release `v1.105.0` on that commit, runtime `1.105.0-8ee73e60de632900`
+installed on WSL and Windows. The unit was `blocked` on 2026-09-22 by a test-only Windows
+defect and re-activated after `WIN-TESTQUOTE-1` merged as `70016a32` (PR #303). Unit
+`REL-1.105.0` (high) is `in_progress` in `.itd-memory/GOAL.json`: the criterion and the
+sealed verificationCommand live ONLY there and are not restated here. Review claim ids:
+`REL-1.105.0`, `REL-1.105.0:general-review`.
+
+This candidate, staged over `origin/main` `70016a32`, is the ledger-close package the release
+owed, frozen BEFORE the native canaries and the harness verification run on it (DECISIONS
+2026-09-10 and 2026-09-22, decision 4): the installed proof and the goal verification bind
+this staged tree. `tests/` is not part of the installed runtime inventory, so the fix merged
+by #303 leaves runtime `1.105.0-8ee73e60de632900` valid.
 
 ## In scope
 
-- `tests/verify_verification_loop.py`: one helper `interpreter_oracle()` replacing the three
-  `json.dumps(sys.executable)` oracle commands, plus the RED-first regression block
-  (`WIN-TESTQUOTE-1` checks: fixed quoting green through the transport on an interpreter
-  alias under a non-ASCII directory, old quoting red on it, static guard).
-- `.itd/SCOPE_LOCK.md` (this file); canonical unit ledgers written by the goal harness.
+- `.itd/DECISIONS.md`: appended entries (publication decisions, route cost, the
+  WIN-TESTQUOTE-1 detour).
+- `BACKLOG.md`: one P1 entry with five route observations.
+- `.itd/SCOPE_LOCK.md`: this file. `HANDOFF.md`: checkpoints.
+- Harness transitions written by `itd_goal_verify.py` on this candidate:
+  `.itd-memory/GOAL.json`, `STATE.json`, `events.jsonl`; the acceptance followup of
+  the unit flipping to `closed` with its closure evidence.
+- Git-ignored host inputs `.itd-memory/host-inputs/REL-1.105.0/` (native canaries
+  `native-<Host>-<label>/`, `REL-1.105.0-native-<Host>-<label>/`, `INSTALLED.json`).
 
 ## Required evidence
 
-- The unit's verificationCommand exits 0 (suite green on WSL, zero `json.dumps(sys.executable)`
-  sites).
-- Mutation: restoring `json.dumps(sys.executable)` at any one site makes the suite red.
-- Native Windows: the suite exits 0 in `C:\itd-src\idea-to-deploy` on this candidate tree,
-  under the owner's interpreter `C:\Users\Дмитрий\...\python.exe` (the failing host).
+- `tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/REL-1.105.0/INSTALLED.json` exits 0 on the host.
+- The unit's sealed verificationCommand exits 0 end to end inside the goal harness
+  (`itd_goal_verify.py REL-1.105.0 --verification-receipt <adjudication>`).
 - `sh skills/_shared/itd_py.sh tests/meta_review.py` exits 0; `bash tests/run-all.sh --quick`
   ends with `DONE fails:none`.
 
-## Forbidden
+## Declared limits
 
-- Any change under `skills/`, `hooks/`, `scripts/`, `agents/`; any other test file; the sealed
-  oracles of `REL-1.105.0` or this unit; touching the release, the tag or the installed runtime.
-- Continuing `REL-1.105.0` in this candidate: its ledger-close package is parked in the git
-  stash and returns only after this unit is merged.
+- The sealed verificationCommand keeps the three weaknesses recorded on the release
+  candidate (quick-mirror leg without `pipefail`, tag leg checking only the immediate
+  first parent, conformance-report place anchored by `endswith`); they are BACKLOG P2
+  2026-09-22 and are not repaired here. The owner-signed `accepted-trade-off`
+  dispositions of 2026-09-22 cover them for this unit's review claims.
+- Native canaries are recorded on this staged candidate, not on the clean merged main:
+  after ROUTE-REPAIR-2 an empty staged diff is refused and the canary validator checks
+  the adjudication in staged mode (BACKLOG P1 2026-09-22, observation д).
+
+## Out of scope
+
+Every production module and test; the sealed oracle; the gate registry beyond
+re-registration for publication; the completion gate; any other unit.

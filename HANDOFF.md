@@ -408,4 +408,40 @@ _(дописывать по фазам: дата/время, фаза, sha/де�
   -> коммит -> та же процедура на committed-head (прецедент 1.104.0 pub7) -> register ->
   PR. Скрипт `REL-1.105.0-sign-and-adjudicate.py`; без подписи владельца ничего не
   минтится и не коммитится.
+- 2026-09-22 rel10/adj1 -> коммит `7b16082` (дерево `1918b00e`): диспозиции подписаны
+  (вариант A), adj1 ADJUDICATED x2, кэш ADJUDICATED; pub2 (tree-loop) ADJUDICATED x2, но
+  `itd pr create` заблокирован pre-push'ем установленного runtime 1.104.0; pub3 установленным
+  loop'ом ADJUDICATED x2 -> register-profile (pub3) -> doctor LOCAL_REVIEWED -> **PR #302**
+  ready, CI 2/2 -> по команде владельца merge `97cc1290` (дерево = кандидату) -> release
+  `v1.105.0` published -> ноги тега и релиза sealed-команды exit 0 -> раскатка WSL
+  (`1.105.0-8ee73e60de632900`, codex 1.105.0) и Windows (clone `97cc129`, тот же runtime),
+  sync --check оба чистые. Канарейка WSL a1 на чистом main УПАЛА: пустой staged-дифф
+  (ROUTE-REPAIR-2) -> канарейки и ОТК на staged ledger-close кандидате (этот пакет).
+  Дальше: WSL canary a2 -> canary-close transport/canary/copy a4 -> assemble -> installed-proof
+  -> otk machine (staged) -> sign-and-adjudicate otk -> goal verify -> re-mint на финальном
+  дереве -> commit -> pub -> PR -> merge по команде.
+- 2026-09-22 канарейки на ledger-close кандидате: WSL a2 RECORDED; Windows a4 (транспорт ok, дерево
+  `e83bf06c`) - нативные тесты `114 passed, 3 failed` в `tests/verify_verification_loop.py` (RR2:
+  «adjudication receipt escapes»). Диагноз подтверждён пробой: тест строит команду оракула через
+  `json.dumps(sys.executable)` -> кириллица в пути `C:\Users\Дмитрий` экранируется в `\u0414…`,
+  cmd.exe не исполняет, machine FAILED, тест парсит JSON ошибки как путь. Дефект ТЕСТА, невидим на
+  ASCII-раннере CI; production-loop PASSED с обычными кавычками. `tests/` не в инвентаре runtime ->
+  патч-релиз не нужен. Файлы: `REL-1.105.0-windows-canary-diagnosis.md`,
+  `host-inputs/REL-1.105.0/windows-diagnosis-a4/`. Маршрут остановлен: нужен новый юнит (fix теста,
+  RED-first на Windows) -> затем канарейки/installed-proof/ОТК REL-1.105.0 на ledger-close кандидате
+  над исправленным main. Решение владельца.
+- 2026-09-22 вариант A: REL-1.105.0 `blocked` харнесом; юнит WIN-TESTQUOTE-1 (low) добавлен и
+  VERIFIED (machine+adjudication a1; WSL 121/0, мутация 120/1, нативный Windows 121/0), коммит
+  `5a02c31`, PR #303 merged -> `70016a32`. REL-1.105.0 реактивирован; ledger-close пакет
+  возвращён из stash на main `70016a32` (SCOPE_LOCK переписан под новую базу, DECISIONS
+  дополнен). Дальше: канарейки WSL a3 / Windows a5 на ЭТОМ staged кандидате -> assemble ->
+  installed-proof -> otk machine -> sign-and-adjudicate otk -> goal verify -> re-mint -> commit.
+- 2026-09-22 ЗАКРЫТИЕ: канарейки WSL a3 + Windows a5 RECORDED на дереве `dd3e4837` (Windows a5
+  потребовал `git fetch origin main` в клоне и чистки `__pycache__` в установленном runtime -
+  дрейф инвентаря); `INSTALLED.json` a3/a5, `--installed-proof` PASS; otk machine PASSED
+  (вся sealed-команда одним оракулом, bindsCommand true); адьюдикация otk1 ADJUDICATED
+  (диспозиции владельца); харнес: **`VERIFIED REL-1.105.0`** (85/0 на последней ноге); цель
+  **5/5, `status: done`**. Дальше только публикация этого ledger-close кандидата: general-claim
+  (owner-adjudication на финальном дереве) -> commit -> pub на committed-head -> register ->
+  `itd pr create` -> ready -> merge -> `/session-save --close`.
 

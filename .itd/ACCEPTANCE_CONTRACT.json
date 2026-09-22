@@ -4011,22 +4011,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.105.0",
-    "status": "open",
-    "openedAt": "2026-09-22",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd/SCOPE_LOCK.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "high",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit: the internal-work goal closed on 2026-09-22 with 5/5 units verified. The next unit opens a new followup."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4135,6 +4122,26 @@
       },
       "closedAt": "2026-09-12T21:10:50Z",
       "closureEvidence": "Merged as 2d50a12 through PR #284 with Gate 1 and windows-verify green. The sealed verificationCommand exits 0 on merged main tree 3be3a49f; machine and adjudication receipts PASSED on that tree. The unit transition was recorded through the owner route because itd_goal_verify validates receipts in staged mode and no staged candidate exists after a merge; that circle is recorded in BACKLOG as its own P1."
+    },
+    {
+      "unitId": "REL-1.105.0",
+      "status": "closed",
+      "openedAt": "2026-09-22",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd/SCOPE_LOCK.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-22T14:11:16Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-22 (VERIFIED REL-1.105.0, sealed verificationCommand exit 0 end to end on staged ledger-close tree dd3e4837 over 70016a32; last leg 85 passed, 0 failed) with adjudicated receipt REL-1.105.0-adjudication-otk1.json (owner-signed accepted-trade-off dispositions of the three sealed-oracle weaknesses, outcome ADJUDICATED, machine otk1 PASSED binding the whole command). Release: PR #302 merged 97cc1290, tag v1.105.0 on that commit, GitHub release published 2026-09-22T12:09:52Z; live evidence run 20260922T094239Z-728ce2e8 on the release tree (154/0); rollout WSL + Windows runtime 1.105.0-8ee73e60de632900, codex 1.105.0; native canaries a3 (WSL) and a5 (Windows, after WIN-TESTQUOTE-1 / PR #303 fixed the json.dumps interpreter quoting) assembled into host-inputs/REL-1.105.0/INSTALLED.json, tests/verify_route_debts.py --installed-proof PASS. Review: 10 cross-vendor rounds (gpt-5.6-sol), 24 distinct findings, none false; three sealed-oracle weaknesses carried as Declared limits + BACKLOG P2. Route class: independent review with owner adjudication on the sealed-oracle findings, not owner-route."
     }
   ]
 }
