@@ -47,6 +47,19 @@ def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
                           errors="replace", env=env, timeout=30)
 
 
+def interpreter_oracle(executable: str | None = None, label: str = "ok") -> str:
+    r"""Oracle command that runs the given interpreter with a no-op.
+
+    WIN-TESTQUOTE-1: the command travels through the loop's native shell
+    transport (``sh -c`` / ``cmd.exe /d /c``) as text. json.dumps() looked like
+    a quoting shortcut but escapes every non-ASCII character of the path
+    (C:\Users\Дмитрий -> \u0414...), and no shell un-escapes that, so the
+    oracle exited 1 on every host whose interpreter lives under a non-ASCII
+    directory. Plain double quotes are what both shells actually read.
+    """
+    return f'{label}="{executable or sys.executable}" -c "pass"'
+
+
 def git(root: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=root, check=True,
                    text=True, capture_output=True)
@@ -1380,7 +1393,7 @@ git(empty_root, "commit", "-qm", "candidate")          # nothing left staged
 empty_mint = run([
     "machine", "--root", str(empty_root), "--unit-id", "U-loop",
     "--risk-tier", "low", "--candidate-mode", "staged",
-    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+    "--command", interpreter_oracle(),
 ], empty_root)
 check("staged mint refuses an empty candidate (RR2)",
       empty_mint.returncode != 0 and "empty" in empty_mint.stdout.lower(),
@@ -1499,7 +1512,7 @@ claim_root = fixture()
 claim_machine = last_path(run([
     "machine", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
     "--risk-tier", "low", "--candidate-mode", "staged",
-    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+    "--command", interpreter_oracle(),
 ], claim_root))
 claim_adj = last_path(run([
     "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
@@ -1576,7 +1589,7 @@ check("a general-review receipt does not unlock the security claim (RR2)",
 bare_machine = last_path(run([
     "machine", "--root", str(claim_root), "--unit-id", "U-loop",
     "--risk-tier", "low", "--candidate-mode", "staged",
-    "--command", "ok=" + json.dumps(sys.executable) + " -c \"pass\"",
+    "--command", interpreter_oracle(),
 ], claim_root))
 bare_adj = last_path(run([
     "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop",
@@ -1712,6 +1725,59 @@ check("the route states the claim chain as one canonical block (RR2)",
 # the cache's own claim id - kills both. Documentation cannot license what the
 # code refuses, so the duty rests on the executable proof plus the positive
 # clauses of the canonical block, not on scanning prose for its negation.
+
+# --- WIN-TESTQUOTE-1: oracle commands survive a non-ASCII interpreter path ---
+#
+# The three machine oracles above quoted the interpreter with json.dumps(),
+# which ASCII-escapes the path. The native Windows canary of REL-1.105.0 ran
+# them under C:\Users\Дмитрий\...\python.exe: the oracle exited 1, the
+# machine verdict was FAILED, `adjudicate` refused, and last_path() turned the
+# refusal JSON into a path that inside() reported as escaping the receipt root.
+# CI runners have ASCII paths, so only a real host could see it. The alias below
+# reproduces the host on every platform that can link the interpreter; the old
+# quoting must stay red on it and the fixed quoting green.
+quote_root = fixture()
+alias_dir = Path(tempfile.mkdtemp(prefix="itd-quote-")).resolve() / "Дмитрий"
+alias_dir.mkdir()
+alias = alias_dir / Path(sys.executable).name
+alias_note = ""
+try:
+    os.symlink(sys.executable, alias)
+except (OSError, NotImplementedError) as exc:
+    alias_note = f"symlink unavailable ({exc.__class__.__name__}); using the host interpreter path"
+    alias = Path(sys.executable)
+alias_is_non_ascii = any(ord(ch) > 127 for ch in str(alias))
+
+
+def oracle_verdict(command: str) -> str:
+    proc = run([
+        "machine", "--root", str(quote_root), "--unit-id", "U-quote",
+        "--risk-tier", "low", "--candidate-mode", "staged", "--command", command,
+    ], quote_root)
+    receipt = last_path(proc)
+    if not receipt.is_file():
+        return f"no receipt: {proc.stdout.strip()[-200:]}"
+    return str(json.loads(receipt.read_text(encoding="utf-8")).get("verdict"))
+
+
+fixed_verdict = oracle_verdict(interpreter_oracle(str(alias)))
+check("the fixed interpreter quoting passes through the shell transport (WIN-TESTQUOTE-1)",
+      fixed_verdict == "PASSED", f"{fixed_verdict}; {alias_note}")
+old_verdict = oracle_verdict("ok=" + json.dumps(str(alias)) + " -c \"pass\"")
+if alias_is_non_ascii:
+    check("the old json.dumps quoting fails on a non-ASCII interpreter path (WIN-TESTQUOTE-1)",
+          old_verdict == "FAILED", f"{old_verdict}; alias {alias}")
+else:
+    check("the old json.dumps quoting is exercised on the only interpreter path available (WIN-TESTQUOTE-1)",
+          old_verdict in {"PASSED", "FAILED"},
+          f"{old_verdict}; {alias_note}; ASCII path cannot show the RED leg - the POSIX mirror does")
+check("the alias really lives under a non-ASCII directory when a link is possible (WIN-TESTQUOTE-1)",
+      alias_is_non_ascii or bool(alias_note), f"alias {alias}; {alias_note}")
+check("no oracle in this suite quotes the interpreter through json.dumps any more (WIN-TESTQUOTE-1)",
+      not re.search(r"json\.dumps\(\s*sys\.executable\s*\)", Path(__file__).read_text(encoding="utf-8")),
+      "an ASCII-escaping interpreter quoting site is still present")
+import shutil as _shutil
+_shutil.rmtree(alias_dir.parent, ignore_errors=True)   # the alias fixture is evidence only while the checks run
 
 print(f"\n{PASSED} passed, {FAILED} failed")
 raise SystemExit(1 if FAILED else 0)
