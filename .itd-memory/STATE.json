@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "G-002",
     "goal": "hooks/pre-flight-check.sh на первом промпте сессии печатает полный дамп и пишет sentinel (по образцу session-open-diagnostic.sh); на последующих промптах той же сессии вывод <=1024 байт и содержит только дельту: новые коммиты с прошлого промпта и предупреждение о параллельной сессии, если оно появилось; при отсутствии дельты вывод пустой; MEMORY.md индекса памяти проекта <=24400 байт и ни одна строка не длиннее 200 символов; tests/verify_preflight_budget.py RED на дофиксовых байтах и GREEN после.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-23T16:29:37Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-09-23T19:03:30Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

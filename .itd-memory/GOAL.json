@@ -3,8 +3,8 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-23T16:29:37Z",
-  "currentUnitId": "G-002",
+  "updatedAt": "2026-09-23T19:03:30Z",
+  "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
     "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
@@ -35,7 +35,17 @@
       "riskTier": "low",
       "criterion": "hooks/pre-flight-check.sh на первом промпте сессии печатает полный дамп и пишет sentinel (по образцу session-open-diagnostic.sh); на последующих промптах той же сессии вывод <=1024 байт и содержит только дельту: новые коммиты с прошлого промпта и предупреждение о параллельной сессии, если оно появилось; при отсутствии дельты вывод пустой; MEMORY.md индекса памяти проекта <=24400 байт и ни одна строка не длиннее 200 символов; tests/verify_preflight_budget.py RED на дофиксовых байтах и GREEN после.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py && test \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-23T19:03:30Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py: exit 0, stdout sha256 b8ab83a87bd10ce4, PASSED: 0 failed\ntest \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-002/G-002-adjudication-a2-ch.json",
+        "sha256": "06a6b5ebef03a4e0c6f442772006cfbdc6a8819a98d1f48022e826f272efebd3",
+        "receiptSha256": "268591c9287df19cf5cffd6902794b8e3be65f2f52f772e634fa52d89cf105eb",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-002/G-002-machine-m2-ch.json",
+        "machineSha256": "a4a1538701bce671669705f48f0dc9d5473e05c7f27d854c0002a3fdc9c5d4ef"
+      }
     },
     {
       "id": "G-003",

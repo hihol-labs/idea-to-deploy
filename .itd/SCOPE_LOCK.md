@@ -1,7 +1,9 @@
 # G-002 CONTEXT-BUDGET-1 - the pre-flight hook stops re-dumping the world on every prompt
 
-Unit `G-002` (low) is `in_progress` in `.itd-memory/GOAL.json` (harness activation
-2026-09-23T16:29:37Z, goal PROPORTIONALITY-DEFAULT, 1/5 verified); the criterion and the
+Unit `G-002` (low) is `verified` in `.itd-memory/GOAL.json` (harness activation
+2026-09-23T16:29:37Z, harness verification 2026-09-23T19:03:30Z with receipt
+`G-002-adjudication-a2-ch.json` committed-head over `d927053`, tree `cd4e3a9e` = commit
+`453f28b`; goal PROPORTIONALITY-DEFAULT, 2/5 verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-002-context-budget` over main `d927053`. Review claim ids: `G-002`,
 `G-002:general-review`. Risk tier `low` (sealed at decomposition): machine-only review
@@ -81,3 +83,13 @@ every line <= 200 characters).
 - `MEMORY_INDEX_MAX_LINES` and the shape of the first-prompt dump.
 - The `.itd-memory/MEMORY.md` project-local index (54 KB): same rule applies later, not
   part of the G-002 criterion (host index only).
+
+## Route history
+
+- Machine-only route (low): oracle RED-first on the pre-fix hook (13 failed), GREEN after,
+  mutations 3/3 lethal; m1 x2 (staged cd4e3a9e) -> a1 x2 -> check 0 x2 -> review cache
+  PASSED -> commit `453f28b`; live evidence pin intact (154/0, the hook is outside the
+  60-file pin); m2-ch/a2-ch (committed-head) -> harness verified. Ledger-close (this
+  commit): GOAL/STATE/events by the harness, acceptance followup G-002 with two
+  evidence-first criteria (oracleIds = machine run ids preflight-budget / meta-review /
+  ledger-state), this file.
