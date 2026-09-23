@@ -87,6 +87,25 @@ those two defaults stay `medium` and no repo policy file is introduced.
   non-activation goal projection behaviourally; the live-transcript self-check finding is
   declared out of scope (above). PUB1 was UNVERIFIED because no acceptance followup was open
   (the whole 507 KB contract went into each unit prompt) - fixed by commit 0f535c9.
+- Checker rounds c12 (PASSED_WITH_WARNINGS, tree 141bdbcc) and c13 (PASSED, tree 64560089,
+  commit 5f5db74): the goal projection drops `riskTierMatch` in every decision; a dangling
+  or looping SCOPE_LOCK symlink is an existing entry that fails to read (`os.path.lexists`);
+  the oracle asserts the printed match pattern.
+- Publication round PUB3 (gpt-5.6-sol on 5f5db74, BLOCKED, 9 unique findings reported
+  twice by the unit and integration reviewers): `_path_tokens` strips Markdown presentation
+  (`**db/schema.rb**`, `[x.py]`, `~~x~~`, `_x_`) before matching, five cases + the
+  `__init__.py` guard pinned; STATE.currentUnit.goal mirror synced to the amended criterion
+  by hand (no status transition; `--reconcile` is a NOOP on text-only drift - BACKLOG P3);
+  `.itd-memory/contracts/G-001.md`, CHANGELOG and the oracle docstring aligned with the
+  riskTierMatch/riskTierForced contract; the four architecture-content findings on the
+  recorded benchmark output are declared out of scope (Declared limits, widened).
+- Checker round c14 (BLOCKED, `reports/G-001-targeted-c14.md`): markup and sentence
+  punctuation nest in either order (`**db/schema.rb**.`), so `_strip_markup` now iterates
+  to a fixed point (markup both sides, `.?` right side only - dotfiles keep their dot); the
+  underscore guard is pinned on the tokens themselves (`__init__.py`, `_config.yml`, `.env`).
+- Checker round c15 (PASSED_WITH_WARNINGS, tree 0220d251): CHANGELOG and the task contract
+  said forced high applies to declared low/medium; the code raises every tier below high,
+  `unknown` included (oracle `activate-unknown-plus-strict-forced-high`) - wording fixed.
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
@@ -108,10 +127,15 @@ those two defaults stay `medium` and no repo policy file is introduced.
 
 - SCOPE_LOCK Allowed Change Areas are matched as read at activation time, unbound to the
   unit (checker c3 minor 2); the goal text is the primary input.
-- The recorded live-benchmark transcript (run 20260923T110238Z-e468a267) contains the
-  model's own contract self-check that declared the PRD user-story requirement met with 4
-  stories; the benchmark verifier pins hashes and does not re-judge that content. Noted by
-  the PUB2 reviewer; out of this unit's scope (BACKLOG P3 2026-09-23).
+- `tests/fixtures/live-model-evidence/runs/20260923T110238Z-e468a267/**` is RECORDED
+  model output of the live benchmark (fixture-03-cli-tool: the model's own PRD,
+  PROJECT_ARCHITECTURE, transcript and self-check), re-recorded by commit 8f843d3 only
+  because the evidence pin binds to the skills tree. Its content is evidence of what the
+  model produced, not product code of this unit: the benchmark verifier pins hashes and
+  structure and does not re-judge the architecture merit of the recorded documents
+  (unbounded counters, CSV key mutation, timezone buckets, line-length bounds, the 4-story
+  self-check - PUB2 F6, PUB3 F5-F8). Editing those files would falsify the evidence. Out of
+  this unit's scope; the self-check gap is BACKLOG P3 2026-09-23.
 - Forced `high` has no CLI escape hatch; the owner edits the policy file to change a class.
 - Matching is lexical; a goal text that hides its money/auth nature is not detected - the
   reviewer contour on high units remains the backstop, this is a floor, not a classifier.

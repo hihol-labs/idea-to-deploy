@@ -15,9 +15,11 @@ Audit 2026-09-22 (advisor x3): the proportionality machinery exists but is not a
      each with non-empty `keywords`, non-empty `paths` and `tier: high`.
   3. `skills/task/scripts/itd_unit_log.py activate` forces `riskTier=high` when the goal
      text or the Allowed Change Areas of the neighbouring `.itd/SCOPE_LOCK.md` match a strict
-     class, prints the class and the matched pattern, records `riskTierForced` in
-     `STATE.currentUnit`; a policy without a valid `strictClasses` makes activate refuse
-     before writing anything; `--risk-tier` stays mandatory (regression pin).
+     class, prints the class and the matched pattern, records `riskTierMatch` in
+     `STATE.currentUnit` for every hit and `riskTierForced` only when a lower declared
+     tier was raised; an existing but unreadable SCOPE_LOCK fails the activation closed;
+     a policy without a valid `strictClasses` makes activate refuse before writing
+     anything; `--risk-tier` stays mandatory (regression pin).
   4. ADR-011 records the default change; the oracle is registered in tests/run-all.sh.
 
 `--mutations` copies the product tree into a temp dir, applies four independent
@@ -168,6 +170,27 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                                   ("tune app.prod.yaml limits", "prod-config")):
             hit = rc_mod.match_strict_class(goal_txt, "", classes)
             c(f"matcher-dotfile-{cls_exp}-{goal_txt.split()[-1]}", bool(hit) and hit[0] == cls_exp, repr(hit))
+        # PUB3 F3: Markdown presentation around a path must not hide it from the matcher
+        for area, cls_exp in (("**db/schema.rb**", "db-schema"), ("[src/auth/login.py]", "auth"),
+                              ("~~config/production.yaml~~", "prod-config"), ("_migrations/0001.sql_", "db-schema"),
+                              ("**`payments/refund.py`**", "money")):
+            scope_md = f"# Scope Lock\n\n## Allowed Change Areas\n\n- {area}\n\n## Forbidden Change Areas\n\n- x\n"
+            hit = rc_mod.match_strict_class("Reindex", scope_md, classes)
+            c(f"matcher-markup-wrapped-path-{cls_exp}-{area.strip('*[]~_`')[:12]}",
+              bool(hit) and hit[0] == cls_exp and hit[3] == "SCOPE_LOCK", f"{area!r} -> {hit!r}")
+        # checker c14: markup followed by sentence punctuation, in either nesting order
+        for area, cls_exp in (("**db/schema.rb**.", "db-schema"), ("[db/schema.rb].", "db-schema"),
+                              ("_config/production.yaml_?", "prod-config"), ("**payments/refund.py**?", "money")):
+            scope_md = f"# Scope Lock\n\n## Allowed Change Areas\n\n- {area}\n\n## Forbidden Change Areas\n\n- x\n"
+            hit = rc_mod.match_strict_class("Reindex", scope_md, classes)
+            c(f"matcher-markup-then-punct-{cls_exp}-{area.strip('*[]~_.?')[:12]}",
+              bool(hit) and hit[0] == cls_exp and hit[3] == "SCOPE_LOCK", f"{area!r} -> {hit!r}")
+        # checker c14: the underscore guard is pinned on the token itself, not only on "no hit"
+        toks = rc_mod._path_tokens("wire __init__.py and _config.yml and **_db/schema.rb_**. and **.env**.")
+        c("matcher-dunder-tokens-preserved", "__init__.py" in toks and "_config.yml" in toks
+          and "db/schema.rb" in toks and ".env" in toks, repr(toks))
+        hit = rc_mod.match_strict_class("wire __init__.py exports", "", classes)
+        c("matcher-dunder-file-not-mangled", hit is None, repr(hit))
         # checker c2 F2: keywords apply to Allowed Change Areas too, not only paths
         scope_kw = "# Scope Lock\n\n## Allowed Change Areas\n\n- payment refund handler logic\n\n## Forbidden Change Areas\n\n- x\n"
         hit = rc_mod.match_strict_class("tidy handler", scope_kw, classes)

@@ -20,8 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prod-config, db-schema, auth, secrets; keywords + paths, `tier: high`); читатель -
   новый `skills/_shared/itd_risk_classes.py` (fail-closed загрузчик, лексический матчер).
 - `skills/task/scripts/itd_unit_log.py activate`: совпадение goal/SCOPE_LOCK со strict-
-  классом принудительно ставит `riskTier=high`, печатает причину, пишет
-  `riskTierForced` в STATE; сломанная политика - отказ до записи.
+  классом печатает класс и паттерн и пишет `riskTierMatch` в STATE при любом объявленном
+  тире; если объявлен тир ниже high (low/medium/unknown) - принудительно ставит `riskTier=high` и пишет
+  `riskTierForced`; сломанная политика или нечитаемый SCOPE_LOCK - отказ до записи.
 - Оракул `tests/verify_risk_tier_default.py` (RED-first, 4 летальные мутации через копию
   дерева), регистрация в `tests/run-all.sh`; `/task` Step 3.5 документирует поведение.
 

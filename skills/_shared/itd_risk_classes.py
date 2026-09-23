@@ -47,6 +47,8 @@ _FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 # Split on whitespace and the punctuation Markdown bullets wrap paths in; a token is
 # path-like when it carries a slash or a dot-extension (leading dot allowed).
 _SPLIT_RE = re.compile(r"[\s`'\"(),;:<>]+")
+_MARKUP_CHARS = "*[]!~|\\#=+"
+_SENTENCE_CHARS = ".?"
 _PATH_LIKE_RE = re.compile(r"\.[\w\-]+(?:\.[\w\-]+)*|[\w\-]+(?:\.[\w\-]+)+")
 # A keyword is bounded by non-letters: `_`, digits and punctuation end a word, so
 # `auth_service`, `payments_api` and `oauth2` hit while `unauthorized` does not.
@@ -143,10 +145,26 @@ def allowed_areas(scope_text: str) -> str:
     return "\n".join(out)
 
 
+def _strip_markup(tok: str) -> str:
+    """Drop Markdown presentation around a token: `**db/schema.rb**`, `[x.py]`, `~~old~~`,
+    `_italic/path_` (PUB3 F3). A leading `_` is kept unless the token is wrapped on both
+    sides, so `__init__.py` and `_config.yml` survive."""
+    # Markup and sentence punctuation nest in either order (`**x**.`, `.**x**`, `_x_?`),
+    # so strip both until the token is stable (checker c14).
+    while True:
+        before = tok
+        # a leading dot is a dotfile (`.env`), so sentence punctuation goes only from the right
+        tok = tok.strip(_MARKUP_CHARS).rstrip(_SENTENCE_CHARS)
+        while len(tok) > 2 and tok[0] == "_" and tok[-1] == "_":
+            tok = tok[1:-1]
+        if tok == before:
+            return tok
+
+
 def _path_tokens(text: str) -> list[str]:
     out: list[str] = []
     for raw in _SPLIT_RE.split(text):
-        tok = raw.rstrip(".").lower()
+        tok = _strip_markup(raw).lower()
         if not tok:
             continue
         if "/" in tok or _PATH_LIKE_RE.fullmatch(tok):
