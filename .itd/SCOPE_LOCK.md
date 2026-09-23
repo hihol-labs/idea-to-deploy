@@ -3,12 +3,14 @@
 Unit `G-001` (medium) is `verified` in `.itd-memory/GOAL.json`: first harness transition
 2026-09-23T11:07:49Z (receipt `G-001-adjudication-a3-ch.json` over `8f843d3`), re-anchored by
 the harness `--recheck` 2026-09-23T12:53:17Z to receipt `G-001-adjudication-a9-ch.json`
-(committed-head over `ef7d368`, tree `1c2428cb` = commit `027759d`); the criterion and the
+(committed-head over `ef7d368`, tree `1c2428cb` = commit `027759d`) and again
+2026-09-23T13:29:03Z to receipt `G-001-adjudication-a12-ch.json` (committed-head over
+`27e7c0f`, tree `6413d3ea` = commit `8e12675`, the current one); the criterion and the
 verificationCommand live ONLY there and are not restated here. The publication candidate is
 the WHOLE G-001 branch over main `2487397`: the product change (`befa5d9`), the live
 evidence re-record (`8f843d3`), the ledger-close and acceptance followup (`833b61a`,
 `0f535c9`), the review-driven fixes (`5f5db74`, `ef7d368`, `027759d`, and the heading-form
-fix of this round) and the ledger re-anchor (`27e7c0f`). Review claim ids: `G-001`,
+fix `8e12675`) and the ledger re-anchors (`27e7c0f`, and this ledger-only commit). Review claim ids: `G-001`,
 `G-001:general-review`. Complete file inventory of the branch (`git diff --stat 2487397..HEAD`
 plus this round), by class:
 
@@ -168,6 +170,11 @@ those two defaults stay `medium` and no repo policy file is introduced.
   c18 entry no longer calls the 27e7c0f re-anchor "this candidate". Checker c22 (BLOCKED,
   tree f9ac7cfa): the inventory also names `skills/_shared/WORKING_DEADLINE_POLICY.json`;
   the PUB5 heading-form oracle names are unique (indexed).
+- Checker round c23 (PASSED, tree 6413d3ea, commit 8e12675). Ledger-close 3 (this
+  ledger-only commit): the verified receipt of G-001 re-anchored again by the harness
+  (`--recheck --candidate-mode committed-head`, receipt `G-001-adjudication-a12-ch.json`
+  over 27e7c0f -> tree 6413d3ea = 8e12675, event 2026-09-23T13:29:03Z); the acceptance
+  evidence strings name c2..c23, PUB1..PUB5 and both re-anchors (a9-ch, a12-ch current).
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
