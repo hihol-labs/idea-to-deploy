@@ -332,7 +332,15 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
    `sh "$SHD/itd_py.sh" "$TT/itd_unit_log.py" activate U-<next> --goal "<one-line task>" --risk-tier <low|medium|high|unknown>`
    (`--risk-tier` обязателен: маршрут ревью пропорционален тиру, а тир не
    выводится из имени юнита; неклассифицированный риск объявляется как
-   `unknown` и идёт по строгому маршруту)
+   `unknown` и идёт по строгому маршруту). **Strict-классы (ADR-011, G-001):**
+   если текст `--goal` или Allowed Change Areas в `.itd/SCOPE_LOCK.md` попадают
+   в `strictClasses` политики (`money` / `prod-config` / `db-schema` / `auth` /
+   `secrets`), писатель печатает класс и совпадение и записывает `riskTierMatch`
+   в STATE; если объявленный тир ниже `high` - поднимает его и записывает
+   `riskTierForced` — не спорь с ним и не
+   переформулируй goal ради дешёвого маршрута; тир меняется правкой политики.
+   SCOPE_LOCK читается в момент активации — пиши его ДО `activate`, иначе
+   матчер увидит области предыдущего юнита.
    — скрипт сам выставит `currentUnit` (атомарно) и запишет событие
    `activated` (actor: harness).
 3. **On verified completion** (the target skill's adjudication receipt passed

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "mode": "calibrated",
-  "defaultRiskTier": "medium",
+  "defaultRiskTier": "low",
   "strictRiskTiers": ["high"],
   "runtimeSignalLedger": ".claude/completion/signals.jsonl",
   "verificationContract": ".itd/VERIFICATION_CONTRACT.json",
@@ -16,6 +16,7 @@
   "notes": [
     "mode=strict makes every source commit and explicit close require runtime evidence.",
     "mode=calibrated applies the hard rule to active units whose riskTier is listed in strictRiskTiers.",
+    "defaultRiskTier=low is the target-project FALLBACK tier (ADR-011, audit 2026-09-22): it applies only when neither STATE.currentUnit nor the GOAL unit declares a tier (/task makes --risk-tier mandatory at activation); money, prod-config, db-schema, auth and secrets are forced to high by strictClasses in PROPORTIONALITY_POLICY.json when /task activates a unit (itd_unit_log.py activate). Units activated through /goal keep the owner-approved tier from GOAL.json - the matcher does not run there (BACKLOG follow-up). A project without this file falls back to the built-in medium default.",
     "Host-private hook transport may collect signals, but policy and bypass audit state remain project-local.",
     "In strict mode the workspace-writable signal ledger is diagnostic only: the completion boundary reruns every executable command from verificationContract before allowing a source commit.",
     "verificationContract is pinned to the canonical .itd/VERIFICATION_CONTRACT.json path and must match HEAD plus the last source-code checkpoint; changing the oracle after code work requires an explicit audited human bypass.",

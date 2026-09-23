@@ -53,6 +53,7 @@ RUNTIME_SHARED_FILES = (
     "itd_review_broker.py",
     "itd_review_broker_primitives.py",
     "itd_review_evidence.py",
+    "itd_risk_classes.py",
     "itd_safe_atomic.py",
     "itd_safe_atomic_windows.py",
     "itd_reviewer_independence.py",
