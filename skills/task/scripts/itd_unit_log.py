@@ -48,7 +48,12 @@ STATE_LOCK_WAIT_SECONDS = 5.0
 # в репо методологии и в установленном ~/.claude/skills.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_shared"))
 import itd_unit_lifecycle as LC  # noqa: E402
+import itd_risk_classes as RC  # noqa: E402
 from itd_safe_atomic import atomic_replace_bytes, durable_append_bytes, ledger_events, open_private_lock_fd, read_ledger_snapshot  # noqa: E402
+
+# Единственный читатель strictClasses политики пропорциональности (G-001):
+# классы, которые high по построению, какой бы тир ни объявил агент.
+PROPORTIONALITY_POLICY_PATH = Path(__file__).resolve().parents[2] / "_shared" / "PROPORTIONALITY_POLICY.json"
 
 # Терминалы, которыми можно закрыть цикл вручную при реконсиляции.
 CLOSE_OUTCOMES = ("superseded", "abandoned", "blocked", "skipped")
@@ -406,6 +411,24 @@ def main() -> int:
                        + "): маршрут ревью пропорционален тиру, а тир не "
                          "выводится из имени юнита; неклассифицированный риск "
                          "объявляется явно как unknown и идёт по строгому маршруту", 1)
+        # Strict-классы (G-001): деньги / прод-конфиг / схема БД / auth / секреты —
+        # high по построению. Объявленный тир ниже — принудительно поднимается,
+        # причина печатается и остаётся в STATE как riskTierForced. Сломанная
+        # политика — отказ ДО события: угадывать маршрут ревью нельзя.
+        try:
+            strict_classes = RC.load_strict_classes(
+                json.loads(PROPORTIONALITY_POLICY_PATH.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            return die(f"PROPORTIONALITY_POLICY strictClasses недоступны или некорректны: {exc}", 2)
+        forced = RC.match_strict_class(a.goal, RC.read_scope_lock(mem), strict_classes)
+        risk_tier = a.risk_tier
+        forced_note = None
+        if forced and risk_tier != "high":
+            forced_note = {"declared": risk_tier, "class": forced[0],
+                           "match": RC.describe(forced)}
+            risk_tier = "high"
+            print(f"riskTier forced to high (declared {forced_note['declared']}): "
+                  f"{forced_note['match']}")
         try:
             ledger = resolve_ledger(mem, a.unit_id, a.ledger)
         except LedgerAmbiguity as exc:
@@ -418,7 +441,9 @@ def main() -> int:
         append_event(mem, a.unit_id, "activated", a.goal, ledger)
         state["currentUnit"] = {"id": a.unit_id, "goal": a.goal, "status": "in_progress",
                                 "startedAt": now_iso(), "ledger": ledger,
-                                "riskTier": a.risk_tier}
+                                "riskTier": risk_tier}
+        if forced_note:
+            state["currentUnit"]["riskTierForced"] = forced_note
         save_state(mem, state, expected_sha256=state_sha256)
         print(f"activated {a.unit_id}: {a.goal}")
         return 0

@@ -4,6 +4,23 @@
 **Last reviewed:** 2026-08-10
 **Next review:** 2026-08-30
 
+## P3 — strict-классы не применяются при `/goal --activate` (2026-09-22, G-001 follow-up)
+
+`itd_unit_log.py activate` (G-001, ADR-011) принудительно поднимает тир до `high` по
+`strictClasses`, но `skills/goal/scripts/itd_goal_verify.py --activate` пишет `riskTier`
+из `GOAL.json` через тот же STATE-писатель, не прогоняя матчер: тир goal-юнита задаёт
+владелец при декомпозиции. Кандидат на юнит после G-005: прогонять
+`itd_risk_classes.match_strict_class` по `criterion` юнита при `--activate` и при записи
+`GOAL.json` (`/goal` Step 1) и отказывать/поднимать тир с тем же `riskTierForced`.
+
+## P3 — архивный леджер GOAL-2026-09-20.json: PE5-001/PE5-002 verified без unit-событий (2026-09-22)
+
+`validate_state.py` (через state-guard) предупреждает на каждой мутации леджера: юниты
+`PE5-001` и `PE5-002` стоят `verified` в `GOAL-2026-09-20.json`, но в `events.jsonl` нет ни
+одного unit-события для них. Леджер архивный (цель PE5 закрыта как abandoned, #296),
+поэтому в скоуп текущей цели не входит; закрыть отдельным ledger-юнитом: либо дописать
+события из исторических квитанций, либо демотировать статусы с пометкой причины.
+
 ## P2 — release-oracle: три слабости sealed-оракула REL-1.105.0 (2026-09-22)
 
 **Нога зеркала** (gpt-5.6-sol, rel7, medium): `bash tests/run-all.sh --quick | tail -1 |

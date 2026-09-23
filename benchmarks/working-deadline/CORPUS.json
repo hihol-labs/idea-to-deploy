@@ -4,9 +4,9 @@
   "frozenAt": "2026-07-16T09:42:38Z",
   "scope": "Internal deterministic contract and mutation benchmark only; never external adoption or observed productivity evidence.",
   "policyPath": "skills/_shared/WORKING_DEADLINE_POLICY.json",
-  "policySha256": "bee496c285ce18fa14e84e327346853aa4bffc2161fb55349a83f9ea0b46bf62",
+  "policySha256": "5ff39d21185c970b55581789b4fa06496c1f941cc4b7188d3e0ce696102c2493",
   "inheritedPolicyPath": "skills/_shared/PROPORTIONALITY_POLICY.json",
-  "inheritedPolicySha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+  "inheritedPolicySha256": "0c4d486fea866fa912cc1a35963e783d5bf0d5c0e93896336417f9dbfd2ff614",
   "requirements": {
     "softCheckpointSeconds": 1800,
     "hardPauseSeconds": 2700,

@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.105.0 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - G-001 RISK-TIER-1: пропорциональность становится дефолтом (ADR-011)
+
+- `docs/templates/itd/COMPLETION_POLICY.json`: `defaultRiskTier` medium -> **low** для
+  целевых проектов; встроенные дефолты `hooks/completion-gate.sh` и `itd_hygiene.py`
+  остаются `medium` (fail-closed для проекта без файла политики).
+- `skills/_shared/PROPORTIONALITY_POLICY.json`: новый блок `strictClasses` (money,
+  prod-config, db-schema, auth, secrets; keywords + paths, `tier: high`); читатель -
+  новый `skills/_shared/itd_risk_classes.py` (fail-closed загрузчик, лексический матчер).
+- `skills/task/scripts/itd_unit_log.py activate`: совпадение goal/SCOPE_LOCK со strict-
+  классом принудительно ставит `riskTier=high`, печатает причину, пишет
+  `riskTierForced` в STATE; сломанная политика - отказ до записи.
+- Оракул `tests/verify_risk_tier_default.py` (RED-first, 4 летальные мутации через копию
+  дерева), регистрация в `tests/run-all.sh`; `/task` Step 3.5 документирует поведение.
+
 ## [1.105.0] - 2026-09-22
 
 > Цикл покрывает PR #280 (юнит `BROKER-ISOLATION`, medium risk), PR #282 (юнит

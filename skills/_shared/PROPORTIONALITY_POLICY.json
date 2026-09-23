@@ -10,41 +10,71 @@
     "static": {
       "normalizedTimeUnits": 1,
       "normalizedTokenUnits": 1,
-      "capabilities": ["syntax"]
+      "capabilities": [
+        "syntax"
+      ]
     },
     "targeted": {
       "normalizedTimeUnits": 3,
       "normalizedTokenUnits": 4,
-      "capabilities": ["behavior"]
+      "capabilities": [
+        "behavior"
+      ]
     },
     "review": {
       "normalizedTimeUnits": 4,
       "normalizedTokenUnits": 5,
-      "capabilities": ["consistency"]
+      "capabilities": [
+        "consistency"
+      ]
     },
     "security": {
       "normalizedTimeUnits": 5,
       "normalizedTokenUnits": 6,
-      "capabilities": ["security"]
+      "capabilities": [
+        "security"
+      ]
     },
     "full": {
       "normalizedTimeUnits": 8,
       "normalizedTokenUnits": 10,
-      "capabilities": ["integration"]
+      "capabilities": [
+        "integration"
+      ]
     }
   },
   "riskRoutes": {
     "low": {
-      "contours": ["static"],
-      "requiredCapabilities": ["syntax"]
+      "contours": [
+        "static"
+      ],
+      "requiredCapabilities": [
+        "syntax"
+      ]
     },
     "medium": {
-      "contours": ["static", "targeted"],
-      "requiredCapabilities": ["syntax", "behavior"]
+      "contours": [
+        "static",
+        "targeted"
+      ],
+      "requiredCapabilities": [
+        "syntax",
+        "behavior"
+      ]
     },
     "high": {
-      "contours": ["static", "targeted", "review", "full"],
-      "requiredCapabilities": ["syntax", "behavior", "consistency", "integration"]
+      "contours": [
+        "static",
+        "targeted",
+        "review",
+        "full"
+      ],
+      "requiredCapabilities": [
+        "syntax",
+        "behavior",
+        "consistency",
+        "integration"
+      ]
     }
   },
   "signalContours": {
@@ -54,9 +84,270 @@
     "security": "security"
   },
   "invariants": {
-    "lowForbiddenContours": ["review", "security", "full"],
-    "alwaysFullContours": ["static", "targeted", "review", "security", "full"],
+    "lowForbiddenContours": [
+      "review",
+      "security",
+      "full"
+    ],
+    "alwaysFullContours": [
+      "static",
+      "targeted",
+      "review",
+      "security",
+      "full"
+    ],
     "unknownRisk": "fail-closed",
     "unknownSignal": "ignore-with-visible-warning"
+  },
+  "strictClassesNote": "G-001 (audit 2026-09-22): classes that are high by construction whatever tier the agent declares. Read only by skills/_shared/itd_risk_classes.py; keywords match whole words bounded by non-letters (trailing * = stem) in the unit goal AND in the Allowed Change Areas of .itd/SCOPE_LOCK.md; paths fnmatch path-like tokens (dotfiles included) of both. Lexical floor, not a classifier - the reviewer contour on high units stays the backstop; a hit on a docs/fixture path raises cost, never lowers safety.",
+  "strictClasses": {
+    "money": {
+      "tier": "high",
+      "keywords": [
+        "payment",
+        "payments",
+        "billing",
+        "invoice",
+        "invoices",
+        "refund",
+        "refunds",
+        "payout",
+        "payouts",
+        "wallet",
+        "ledger balance",
+        "money transfer",
+        "деньг*",
+        "оплат*",
+        "платеж*",
+        "платёж*",
+        "инвойс*",
+        "возврат средств",
+        "выплат*",
+        "касс*",
+        "checkout page",
+        "checkout flow",
+        "checkout session",
+        "корзин*",
+        "stripe",
+        "yookassa",
+        "юкасс*",
+        "paypal",
+        "cloudpayments",
+        "tinkoff acquiring",
+        "sber acquiring",
+        "эквайринг*",
+        "subscription pricing",
+        "pricing plan",
+        "tariff*",
+        "тариф*",
+        "предоплат*",
+        "автоплат*",
+        "prepayment",
+        "prepaid",
+        "pre checkout query",
+        "pre_checkout_query",
+        "successful payment",
+        "telegram stars",
+        "юkassa",
+        "ю kassa"
+      ],
+      "paths": [
+        "*payment*",
+        "*billing*",
+        "*invoice*",
+        "*checkout*",
+        "*payout*"
+      ]
+    },
+    "prod-config": {
+      "tier": "high",
+      "keywords": [
+        "production config",
+        "prod config",
+        "docker-compose.prod",
+        "nginx.conf",
+        "прод-конфиг*",
+        "продакшен*",
+        "продакшн*",
+        "kubernetes",
+        "k8s",
+        "helm chart",
+        "terraform",
+        "production settings",
+        "production.py",
+        "dockerfile.prod"
+      ],
+      "paths": [
+        "*.prod.*",
+        "*docker-compose*.yml",
+        "*docker-compose*.yaml",
+        "*nginx*.conf",
+        "*/k8s/*",
+        "*/helm/*",
+        "*/terraform/*",
+        "*.tf",
+        "*/deploy/*.sh",
+        "*/deploy/*.yml",
+        "*/deploy/*.yaml",
+        "*/deploy/*.json",
+        "*/deploy/*.env*",
+        "*production*",
+        "dockerfile.prod*",
+        "*/workflows/*deploy*",
+        "*/sites-enabled/*"
+      ]
+    },
+    "db-schema": {
+      "tier": "high",
+      "keywords": [
+        "migration",
+        "migrations",
+        "миграци*",
+        "migrate the schema",
+        "models.py",
+        "nullable column",
+        "db migration",
+        "db migrations",
+        "database migration",
+        "database migrations",
+        "schema migration",
+        "schema migrations",
+        "alembic",
+        "alter table",
+        "drop table",
+        "add column",
+        "drop column",
+        "db schema",
+        "database schema",
+        "миграция бд",
+        "миграцию бд",
+        "миграции бд",
+        "миграция схемы",
+        "миграцию схемы",
+        "миграция базы",
+        "миграцию базы",
+        "схема бд",
+        "схемы бд",
+        "схему бд",
+        "схема базы",
+        "схему базы"
+      ],
+      "paths": [
+        "*migrations/*",
+        "*alembic/*",
+        "*.sql",
+        "*/schema.rb",
+        "*.prisma",
+        "*/schema.prisma",
+        "*/migrations.*",
+        "*/schema.sql",
+        "*/models.py",
+        "*/migrate/*"
+      ]
+    },
+    "auth": {
+      "tier": "high",
+      "keywords": [
+        "auth",
+        "authn",
+        "authz",
+        "oauth",
+        "jwt",
+        "login",
+        "password",
+        "passwords",
+        "session cookie",
+        "авториз*",
+        "аутентиф*",
+        "парол*",
+        "логин*",
+        "signin",
+        "sign-in",
+        "sign in",
+        "signup",
+        "sign-up",
+        "sign up",
+        "auth guard",
+        "auth middleware",
+        "authentic*",
+        "authoriz*",
+        "bearer",
+        "bearer token",
+        "get current user",
+        "current user dependency",
+        "security.py"
+      ],
+      "paths": [
+        "*/auth/*",
+        "*/auth.py",
+        "*/auth.ts",
+        "*/auth_*",
+        "*_auth.*",
+        "*/login/*",
+        "*/login.*",
+        "*/oauth*",
+        "*/jwt*",
+        "*/signin*",
+        "*/signup*",
+        "*auth*.vue",
+        "*auth*.ts",
+        "*auth*.tsx",
+        "*auth*.js",
+        "*login*.vue",
+        "*/security.py",
+        "*/core/security.*"
+      ]
+    },
+    "secrets": {
+      "tier": "high",
+      "keywords": [
+        "secret",
+        "secrets",
+        "api key",
+        "api keys",
+        "credential",
+        "credentials",
+        "private key",
+        "client secret",
+        "секрет*",
+        "api-ключ*",
+        "учётные данные",
+        "учетные данные",
+        "api_key",
+        "api-key",
+        "apikey",
+        "id_rsa",
+        "ssh key",
+        "ssh keys",
+        "bot token",
+        "vault token",
+        "vault secret",
+        "access token",
+        "refresh token",
+        "access key",
+        "secret key",
+        "telegram token",
+        "bot_token",
+        "api token",
+        "jose",
+        "python-jose"
+      ],
+      "paths": [
+        "*.env",
+        "*.env.*",
+        "*/secrets/*",
+        "*.pem",
+        "*.key",
+        "*/credentials*",
+        "*_credentials.*",
+        "*id_rsa*",
+        "*id_ed25519*",
+        "*.p12",
+        "*.pfx",
+        "*.npmrc",
+        "*.netrc",
+        "*/vault/*"
+      ]
+    }
   }
 }

@@ -13,7 +13,7 @@
   },
   "inheritsVerificationPolicy": {
     "path": "skills/_shared/PROPORTIONALITY_POLICY.json",
-    "sha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+    "sha256": "0c4d486fea866fa912cc1a35963e783d5bf0d5c0e93896336417f9dbfd2ff614",
     "relationship": "cadence-overlay-only"
   },
   "timebox": {

@@ -4,7 +4,7 @@
   "frozenAt": "2026-07-15",
   "scope": "Internal deterministic A/B benchmark only; never external adoption or outcome evidence.",
   "policyPath": "skills/_shared/PROPORTIONALITY_POLICY.json",
-  "policySha256": "125fba97057ca900bcad4c3bd16900615f2f7c853c55290c111257851d563c6c",
+  "policySha256": "0c4d486fea866fa912cc1a35963e783d5bf0d5c0e93896336417f9dbfd2ff614",
   "requirements": {
     "minimumPairsPerRisk": 3,
     "requiredQualityRate": 1.0,

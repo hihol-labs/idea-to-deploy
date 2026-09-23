@@ -3841,3 +3841,31 @@ release-оракула для следующего релизного юнита
 `ledger: GOAL.json`), `.itd/ACCEPTANCE_CONTRACT.json` (`closedFollowups` REL-1.105.0),
 `HANDOFF.md` «Чекпоинты».
 
+
+## 2026-09-22: открыта цель «пропорциональность по умолчанию» по итогам аудита /advisor
+
+**Решение.** Аудит методологии (advisor + business-analyst + devils-advocate, read-only)
+показал: главная статья расхода - маршрут верификации, а не хуки (Pre-хуки на Bash = 1.44%
+активного wall по трейсам; A/B RETRO-2026-07-08 - x3.5 wall при одинаковой доле
+верифицированного завершения). Механика пропорциональности уже написана
+(PROPORTIONALITY_POLICY, risk routes в VERIFICATION_LOOP, calibrated completion-gate), но не
+применяется: 30 high / 21 medium / 5 low в леджерах; `--risk-tier` в `itd_unit_log activate`
+опционален. Владелец утвердил цель из пяти юнитов (`.itd-memory/GOAL.json`): G-001
+RISK-TIER-1 (обязательный тир, шаблон low для проектов, strictClasses, ADR-011), G-002
+CONTEXT-BUDGET-1 (pre-flight sentinel + дельта <=1 КБ, MEMORY.md в лимит), G-003
+HOOKS-TIER-EXIT-1 (ранний выход low в дорогих хуках, гейты безопасности исключены), G-004
+HOOKS-AUTOINSTALL-1 (/adopt и /project предлагают установить хуки; README без «not
+auto-installed»), G-005 PILOT-LOW-1 (>=5 юнитов low/medium на внешнем авторизованном проекте,
+леджер через itd_external_pilot.py, comparableUnits>=5).
+
+**Отвергнуто.** Слияние 19 хуков в один процесс (1.44% wall; единый таймаут и единая точка
+отказа гейтов - против docs/harness-best-effort.md). Потолок раундов ревью (запрещён
+STOP_RULE_POLICY.json по замеру S04b/R6). Новые профили строгости (lite/strict) - дубль
+существующей risk-таблицы; нужна калибровка, не новая поверхность.
+
+**Ограничение.** Классы money / prod-config / db-schema / auth / secrets остаются high по
+построению независимо от указанного тира. Прежний леджер внутреннего качества (done, 5/5)
+переименован в `GOAL-2026-09-22.json`.
+
+**Ссылки:** `.itd-memory/GOAL.json`, `GOAL-2026-09-22.json`, RETRO-2026-07-08, RETRO-2026-09-13,
+`docs/PRACTICAL_EFFECTIVENESS_CONTRACT.json`, BACKLOG P3 2026-09-22 (архивный леджер).

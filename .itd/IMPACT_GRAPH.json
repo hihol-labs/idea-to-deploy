@@ -135,6 +135,7 @@
       "tests/verify_retro_scan.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_evidence.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_state_hardening.py",
@@ -214,6 +215,7 @@
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_verdict_contract.py",
@@ -283,6 +285,7 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_platform_tmp_and_new_hooks.py",
       "tests/verify_review_broker_deployment.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     "README.ru.md": [
@@ -482,6 +485,9 @@
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_operating_loops_release.py"
     ],
+    "docs/adr/ADR-011-default-risk-tier-low.md": [
+      "tests/verify_risk_tier_default.py"
+    ],
     "docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json": [
       "tests/verify_external_reviewer_release.py"
     ],
@@ -669,6 +675,7 @@
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_completion_gate.py",
       "tests/verify_completion_policy_calibration.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_strict_completion_policy.py"
     ],
     "docs/templates/itd/FRESH_SESSION_WORKTREE_CONTRACT.json": [
@@ -724,6 +731,7 @@
     "docs/templates/itd/itd_hygiene.py": [
       "tests/verify_completion_gate.py",
       "tests/verify_gate_registry_binding.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_strict_completion_policy.py"
     ],
@@ -819,6 +827,7 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_live_model_benchmark.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_strict_completion_policy.py",
       "tests/verify_targeted_regression.py"
     ],
@@ -1126,6 +1135,7 @@
     ],
     "skills/_shared/PROPORTIONALITY_POLICY.json": [
       "tests/verify_proportionality_benchmark.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_unit_log.py",
       "tests/verify_verification_profiles.py",
       "tests/verify_work_deadline_contract.py"
@@ -1250,7 +1260,8 @@
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_practical_effectiveness.py",
-      "tests/verify_review_enumeration.py"
+      "tests/verify_review_enumeration.py",
+      "tests/verify_risk_tier_default.py"
     ],
     "skills/_shared/itd_review_broker.py": [
       "tests/verify_external_reviewer_release.py",
@@ -1269,6 +1280,9 @@
     "skills/_shared/itd_reviewer_independence.py": [
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_reviewer_independence_policy.py"
+    ],
+    "skills/_shared/itd_risk_classes.py": [
+      "tests/verify_risk_tier_default.py"
     ],
     "skills/_shared/itd_safe_atomic.py": [
       "tests/verify_completion_gate.py",
@@ -1383,7 +1397,8 @@
       "tests/verify_review_autoping.py"
     ],
     "skills/deploy/SKILL.md": [
-      "tests/verify_predeploy_independent_review.py"
+      "tests/verify_predeploy_independent_review.py",
+      "tests/verify_risk_tier_default.py"
     ],
     "skills/deploy/agents/openai.yaml": [
       "tests/verify_host_adapters.py"
@@ -1412,6 +1427,7 @@
       "tests/verify_goal_verify_shell.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
       "tests/verify_verify_signal_and_watchdog.py"
     ],
@@ -1514,6 +1530,7 @@
     ],
     "skills/task/scripts/itd_unit_log.py": [
       "tests/verify_ledger_reconciliation.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
       "tests/verify_unit_log.py"
     ],
@@ -1778,6 +1795,7 @@
       "tests/verify_quick_regression.py",
       "tests/verify_review_broker_deployment.py",
       "tests/verify_review_evidence.py",
+      "tests/verify_risk_tier_default.py",
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_targeted_regression.py",
