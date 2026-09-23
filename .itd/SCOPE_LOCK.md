@@ -1,221 +1,98 @@
-# G-001 RISK-TIER-1 - proportionality becomes the default
+# G-002 CONTEXT-BUDGET-1 - the pre-flight hook stops re-dumping the world on every prompt
 
-Unit `G-001` (medium) is `verified` in `.itd-memory/GOAL.json`: first harness transition
-2026-09-23T11:07:49Z (receipt `G-001-adjudication-a3-ch.json` over `8f843d3`), re-anchored by
-the harness `--recheck` 2026-09-23T12:53:17Z to receipt `G-001-adjudication-a9-ch.json`
-(committed-head over `ef7d368`, tree `1c2428cb` = commit `027759d`) and again
-2026-09-23T13:29:03Z to receipt `G-001-adjudication-a12-ch.json` (committed-head over
-`27e7c0f`, tree `6413d3ea` = commit `8e12675`, the current one); the criterion and the
-verificationCommand live ONLY there and are not restated here. The publication candidate is
-the WHOLE G-001 branch over main `2487397`: the product change (`befa5d9`), the live
-evidence re-record (`8f843d3`), the ledger-close and acceptance followup (`833b61a`,
-`0f535c9`), the review-driven fixes (`5f5db74`, `ef7d368`, `027759d`, and the heading-form
-fix `8e12675`) and the ledger re-anchors (`27e7c0f`, and this ledger-only commit). Review claim ids: `G-001`,
-`G-001:general-review`. Complete file inventory of the branch (`git diff --stat 2487397..HEAD`
-plus this round), by class:
+Unit `G-002` (low) is `verified` in `.itd-memory/GOAL.json` (harness activation
+2026-09-23T16:29:37Z, harness verification 2026-09-23T19:03:30Z with receipt
+`G-002-adjudication-a2-ch.json` committed-head over `d927053`, tree `cd4e3a9e` = commit
+`453f28b`; goal PROPORTIONALITY-DEFAULT, 2/5 verified); the criterion and the
+verificationCommand live ONLY there and are not restated here. Branch
+`feat/g-002-context-budget` over main `d927053`. Review claim ids: `G-002`,
+`G-002:general-review`. Risk tier `low` (sealed at decomposition): machine-only review
+route - the machine receipt is adjudicated alone, no fresh-session checker, no producer
+round unless a strict-class signal appears (none: no money/prod-config/db-schema/auth/
+secrets surface is touched).
 
-- product code: `skills/_shared/PROPORTIONALITY_POLICY.json`, `skills/_shared/itd_risk_classes.py`
-  (new), `skills/task/scripts/itd_unit_log.py`, `skills/goal/scripts/itd_goal_verify.py`,
-  `scripts/itd_install_runtime.py` (runtime manifest lists the new module);
-- template + docs: `docs/templates/itd/COMPLETION_POLICY.json`,
-  `docs/adr/ADR-011-default-risk-tier-low.md` (new), `skills/task/SKILL.md`, `CHANGELOG.md`;
-- tests: `tests/verify_risk_tier_default.py` (new), `tests/run-all.sh`;
-- frozen digests: `skills/_shared/WORKING_DEADLINE_POLICY.json` (inheritsVerificationPolicy
-  sha256 re-pin), `benchmarks/proportionality/CORPUS.json` + `CORPUS.sha256`,
-  `benchmarks/working-deadline/CORPUS.json` + `CORPUS.sha256`;
-- recorded live evidence (hash-pinned model output, not reviewed for content - Declared
-  limits): `tests/fixtures/live-model-evidence/**` (run 20260923T110238Z-e468a267 + `latest.json`);
-- goal ledger (harness-written transitions): `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`,
-  `.itd-memory/events.jsonl`; archived ledger `.itd-memory/GOAL-2026-09-22.json` and the
-  session note `.itd-memory/session_2026-09-22_4.md` (befa5d9); task contract
-  `.itd-memory/contracts/G-001.md`;
-- contract layer: `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `.itd/IMPACT_GRAPH.json`,
-  this file; backlog: `BACKLOG.md`.
-
-The "In scope" section below describes the product change and the review rounds; it is
-not the inventory.
-
-Measured before the first edit: criterion part (1) - `itd_unit_log.py activate` refusing
-without `--risk-tier` - is ALREADY enforced (`skills/task/scripts/itd_unit_log.py:403-408`,
-pinned by `tests/verify_unit_log.py` "activate-without-risk-tier-refused"). The audit claim
-"optional flag" was wrong; the new oracle pins it as a regression, no product change there.
-The repository has NO `.itd/COMPLETION_POLICY.json`: its completion gate runs on the
-built-in `DEFAULT_POLICY` (medium) in `hooks/completion-gate.sh:142` and
-`docs/templates/itd/itd_hygiene.py:170`; "the methodology repo stays medium" therefore means
-those two defaults stay `medium` and no repo policy file is introduced.
+Measured before the first edit (main `d927053`): `hooks/pre-flight-check.sh` emits the
+full dump on EVERY `UserPromptSubmit` (git context, ITD state, contract drift, memory
+index, staleness) - ~4-6 KB per prompt on this repository; the only per-session state it
+keeps is the cwd history for context-switch detection. `hooks/session-open-diagnostic.sh`
+already implements the once-per-session pattern (tempdir sentinel keyed by session id).
+The host memory index `~/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md`
+is 50 525 bytes, 141 lines, 89 lines longer than 200 characters (budget: <= 24 400 bytes,
+every line <= 200 characters).
 
 ## In scope
 
-- `skills/_shared/PROPORTIONALITY_POLICY.json`: new `strictClasses` object (money,
-  prod-config, db-schema, auth, secrets), each with `keywords[]`, `paths[]`, `tier: high`.
-- `skills/_shared/itd_risk_classes.py` (new): fail-closed loader + matcher shared by the
-  unit writer; keywords and path patterns are both matched over the goal text AND the
-  "Allowed Change Areas" bullets of `.itd/SCOPE_LOCK.md` next to the memory dir (when it
-  exists): keywords as whole words bounded by non-letters after camelCase/ACRONYM splitting
-  and `_`/`-` joiners -> spaces (tried on both the split and the plain form), path patterns
-  by fnmatch with a virtual leading slash over path-like tokens (dotfiles included).
-- `skills/task/scripts/itd_unit_log.py` `activate`: after the tier check, a strict-class
-  match forces `riskTier=high`, prints the class + matched pattern, and records
-  `riskTierForced{declared,class,match}` in `STATE.currentUnit`.
-- `docs/templates/itd/COMPLETION_POLICY.json`: `defaultRiskTier` medium -> low + note.
-- `docs/adr/ADR-011-default-risk-tier-low.md` (new).
-- `tests/verify_risk_tier_default.py` (new, registered in `tests/run-all.sh`),
-  mutations by copying `skills/` into a temp dir.
-- `skills/task/SKILL.md` Step 3.5 (one paragraph), `CHANGELOG.md` [Unreleased].
-- `skills/goal/scripts/itd_goal_verify.py` state projection: one `cur.pop("riskTierForced")`
-  so a goal unit never inherits a /task unit's forced-tier note (checker c2 F5).
-- Checker round c2 (BLOCKED, `reports/G-001-targeted-c2.md`): F1 dotfile tokens, F2
-  keywords over Allowed Change Areas, F3 word boundaries, F4 narrower path patterns, F5
-  above, F6 dead regex, F7 template note - all closed in the candidate; the oracle pins each.
-- Checker round c3 (BLOCKED, `reports/G-001-targeted-c3.md`): the F4 narrowing lost
-  repo-root `k8s/`, `helm/`, `deploy/`, `terraform/` paths -> `_path_hit` tries a virtual
-  leading slash (pinned positive); `checkout` keyword dropped (git phrasing), never-covered
-  artefacts added (`*production*`, `dockerfile.prod*`, workflows deploy, `id_rsa`, `api_key`);
-  ADR-011 "only writer" wording corrected; SCOPE_LOCK-at-activation limit declared. Live
-  benchmark pin (minor 6) is re-recorded after the commit, as every skills/docs change requires.
-- Checker round c4 (BLOCKED, `reports/G-001-targeted-c4.md`): the c3 db-schema keyword
-  narrowing dropped plain `migration`/`migrations`/`миграци*` (fail-open) -> restored; ADR-011
-  rule applied explicitly: a false positive raises review cost, a false negative lowers safety,
-  so the stem stays even though it also hits reviewer-migration wording. Added schema artefacts
-  (`*/schema.rb`, `*.prisma`, `*/models.py`, `*/migrations.*`) and payment-provider vocabulary
-  (stripe, yookassa/юкасс*, paypal, cloudpayments, эквайринг*, tariff/тариф*). F5 now pinned
-  behaviourally (write_state_projection on a STATE carrying a stale `riskTierForced`).
-- Checker round c5 (BLOCKED, `reports/G-001-targeted-c5.md`): camelCase identifiers on the
-  owner's Vue/TS stack (`AuthService`, `authStore.ts`, `LoginView.vue`, `getApiKey`) never hit
-  because the text was lower-cased before the word boundary -> `_words()` splits camelCase
-  first and keywords are tried on both forms (brand names like `YooKassa` stay whole);
-  Rails `*/migrate/*`, signin/signup, bot/vault/access/refresh token, `.npmrc`/`.netrc`
-  added; ADR-011 now states the template default is the FALLBACK tier (route cost is set by
-  the declared tier + forced classes) and lists the accepted false positives (3/61
-  historical goals). The lexical floor's vocabulary is NOT claimed complete: the claim is
-  the five classes, the oracle-pinned cases and the declared limits.
-- Checker round c6 (BLOCKED, `reports/G-001-targeted-c6.md`): snake_case/SCREAMING_CASE
-  identifiers never hit multi-word keywords (`access_token`, `BOT_TOKEN`) and ACRONYMWord
-  stayed fused (`JWTBearer`) -> `_words()` also splits ACRONYM->Word and turns `_`/`-` into
-  spaces; `authentic*`/`authoriz*` stems, prefixed money forms; the non-activation branch of
-  the goal projection also drops `riskTierForced`; SCOPE_LOCK matching description corrected;
-  two more accepted false positives listed in ADR-011.
-- Checker round c7 (PASSED_WITH_WARNINGS, `reports/G-001-targeted-c7.md`; the loop accepts
-  only a clean PASSED): whitespace runs/line wraps now collapse in `_words()`; the scope
-  section is recognised as `Allowed Change Areas` or `In scope` at any heading level with an
-  optional colon; declared-stack vocabulary (aiogram `pre_checkout_query`, Telegram Stars,
-  MinIO access/secret key, `TELEGRAM_TOKEN`, python-jose, `security.py`/`get_current_user`,
-  bearer, `ЮKassa`); ADR-011 figure 3 -> 5 of 61 with the three new accepted false positives;
-  template note says FALLBACK.
-- Checker round c8 (BLOCKED, `reports/G-001-targeted-c8.md`): the c7 heading regex ended the
-  scope section at ANY heading (`### Backend` sub-sections, a fenced `# comment`) -> the
-  section now runs until a heading of the same or a higher level, headings need whitespace
-  after the hashes, fenced code is skipped; three cases pinned (nested, fenced, same-level end).
-- Publication round PUB2 (keyless opposite-GPT producer, gpt-5.6-sol, BLOCKED, 8 unique
-  findings): G-001 criterion wording aligned with what was built (object, no repo policy
-  file - DECISIONS 2026-09-23 correction); a strict-class match is now recorded as
-  `riskTierMatch` for every declared tier, `riskTierForced` only when raised; fence closing
-  requires the opening delimiter char and length; an existing unreadable SCOPE_LOCK fails
-  the activation closed; the oracle asserts the repo policy file is absent and pins the
-  non-activation goal projection behaviourally; the live-transcript self-check finding is
-  declared out of scope (above). PUB1 was UNVERIFIED because no acceptance followup was open
-  (the whole 507 KB contract went into each unit prompt) - fixed by commit 0f535c9.
-- Checker rounds c12 (PASSED_WITH_WARNINGS, tree 141bdbcc) and c13 (PASSED, tree 64560089,
-  commit 5f5db74): the goal projection drops `riskTierMatch` in every decision; a dangling
-  or looping SCOPE_LOCK symlink is an existing entry that fails to read (`os.path.lexists`);
-  the oracle asserts the printed match pattern.
-- Publication round PUB3 (gpt-5.6-sol on 5f5db74, BLOCKED, 9 unique findings reported
-  twice by the unit and integration reviewers): `_path_tokens` strips Markdown presentation
-  (`**db/schema.rb**`, `[x.py]`, `~~x~~`, `_x_`) before matching, five cases + the
-  `__init__.py` guard pinned; STATE.currentUnit.goal mirror synced to the amended criterion
-  by hand (no status transition; `--reconcile` is a NOOP on text-only drift - BACKLOG P3);
-  `.itd-memory/contracts/G-001.md`, CHANGELOG and the oracle docstring aligned with the
-  riskTierMatch/riskTierForced contract; the four architecture-content findings on the
-  recorded benchmark output are declared out of scope (Declared limits, widened).
-- Checker round c14 (BLOCKED, `reports/G-001-targeted-c14.md`): markup and sentence
-  punctuation nest in either order (`**db/schema.rb**.`), so `_strip_markup` now iterates
-  to a fixed point (markup both sides, `.?` right side only - dotfiles keep their dot); the
-  underscore guard is pinned on the tokens themselves (`__init__.py`, `_config.yml`, `.env`).
-- Checker round c15 (PASSED_WITH_WARNINGS, tree 0220d251): CHANGELOG and the task contract
-  said forced high applies to declared low/medium; the code raises every tier below high,
-  `unknown` included (oracle `activate-unknown-plus-strict-forced-high`) - wording fixed.
-- Publication round PUB4 (gpt-5.6-sol on ef7d368, BLOCKED, 6 unique findings reported
-  twice): a fence line with an info string (```text) is content, not a closer (CommonMark);
-  a nested `### In scope` inside an open section is a sub-heading and never discards what
-  was collected, a non-scope heading at the same or a higher level closes the section
-  without ending the scan, so a later `## In scope` unions with the first (the c9
-  observation in BACKLOG P3, now fixed and pinned); the oracle exercises the EFFECTIVE
-  built-in medium defaults (imports `itd_hygiene.py` and `hooks/completion-gate.sh`,
-  resolves an empty project) and pins the activation-level fail-closed on a malformed
-  policy (no STATE/events written); the verified receipt of G-001 is re-anchored to the
-  final head with `itd_goal_verify.py --recheck --candidate-mode committed-head` after
-  this fix commit, and the acceptance evidence text is refreshed to the final round.
-- Checker round c17 (PASSED_WITH_WARNINGS, tree d33c56b4): a backtick marker whose info
-  string contains a backtick (a line starting with inline ```code```) opened a fence and hid
-  every later heading (pre-existing, same family as PUB4 F3) -> such a line is not a fence
-  opener (CommonMark); a `~~~` info string may still contain backticks; both pinned.
-- Checker round c18 (PASSED, tree 1c2428cb, commit 027759d). Ledger-close 2 (commit 27e7c0f):
-  the verified receipt of G-001 re-anchored by the harness (`--recheck --candidate-mode
-  committed-head`, receipt `G-001-adjudication-a9-ch.json` over 027759d, event
-  2026-09-23T12:53:17Z) - PUB4 F1; `.itd/ACCEPTANCE_CONTRACT.json` G-001 criteria evidence
-  refreshed to the final route - PUB4 F2; DECISIONS records the re-anchor rule. Checker c19
-  (PASSED_WITH_WARNINGS, tree af07ecde): the ledger evidence now says "no manual status or
-  receipt transition" and names the two documented manual text edits (criterion 5f5db74,
-  STATE mirror ef7d368); the DECISIONS commit count corrected (ef7d368 is four commits after
-  8f843d3, two semantic).
-- Publication round PUB5 (gpt-5.6-sol on 27e7c0f, BLOCKED, 3 unique findings reported
-  twice): this header no longer names the superseded a3-ch receipt as the verification and
-  describes the candidate as the whole branch, not a ledger-close package (F1/F2);
-  `allowed_areas` normalises the heading title - ATX closing hashes (`## In scope ##`),
-  inline presentation (`## **In scope**`, `_x_`, backticks), whitespace runs and a trailing
-  colon - before the scope-heading test (F3, a c9 observation; the "5 of 61 vs 4 of 66"
-  figure stays open in BACKLOG); six heading
-  forms plus a `## Not in scope` negative pinned. Checker c21 (BLOCKED, tree d1c24a9f): the
-  header's "union" claim replaced by the complete branch file inventory by class; the
-  c18 entry no longer calls the 27e7c0f re-anchor "this candidate". Checker c22 (BLOCKED,
-  tree f9ac7cfa): the inventory also names `skills/_shared/WORKING_DEADLINE_POLICY.json`;
-  the PUB5 heading-form oracle names are unique (indexed).
-- Checker round c23 (PASSED, tree 6413d3ea, commit 8e12675). Ledger-close 3 (this
-  ledger-only commit): the verified receipt of G-001 re-anchored again by the harness
-  (`--recheck --candidate-mode committed-head`, receipt `G-001-adjudication-a12-ch.json`
-  over 27e7c0f -> tree 6413d3ea = 8e12675, event 2026-09-23T13:29:03Z); the acceptance
-  evidence strings name c2..c23, PUB1..PUB5 and both re-anchors (a9-ch, a12-ch current).
-- `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
-  and module are attached.
-- Frozen-digest cascade, mechanical only (no semantic change to either policy):
-  `PROPORTIONALITY_POLICY.json` sha256 re-pinned in
-  `skills/_shared/WORKING_DEADLINE_POLICY.json` (`inheritsVerificationPolicy.sha256`),
-  `benchmarks/proportionality/CORPUS.json` (`policySha256`) and
-  `benchmarks/working-deadline/CORPUS.json` (`inheritedPolicySha256`, plus the
-  working-deadline policy's own `policySha256`); both `CORPUS.sha256` seals recomputed.
+- `hooks/pre-flight-check.sh`: per-session, per-repository state file in the temp dir
+  (`claude-preflight-<session>-<repo-key>.json`) recording that the full dump fired and
+  the last seen HEAD sha + the last seen parallel-session lock timestamp. First prompt
+  of a session (or first prompt in a repository the session has not visited): full dump
+  as today, state written. Later prompts: ONLY the delta - commits that appeared since the
+  last prompt (`git log --oneline <last>..HEAD`, capped) and the parallel-session warning
+  if a fresh lock appeared or its timestamp advanced; the whole output is capped at 1024
+  bytes; no delta -> no output at all (exit 0, nothing on stdout). Context-switch to a
+  different repository counts as a first prompt for that repository. State-file
+  failures fall back to the full dump (fail-open toward more context, never toward
+  silence on the first prompt).
+- `tests/verify_preflight_budget.py` (new, registered in `tests/run-all.sh`): drives the
+  real hook as a subprocess in a throwaway git repository with an isolated HOME/TMPDIR
+  and a fresh session id: first prompt carries the full dump; second prompt with no
+  change is empty; a new commit yields a delta <= 1024 bytes naming the commit and
+  nothing else; a fresh `.active-session.lock` yields the warning; a second repository in
+  the same session gets its own first dump; an unreadable state file degrades to the full
+  dump; RED on the pre-fix hook (measured); `--mutations` >= 3 lethal (sentinel never
+  written, delta cap removed, commit delta ignored). The host memory index budget
+  (<= 24 400 bytes, lines <= 200 chars) is checked when that file exists on the host and
+  reported as skipped otherwise (CI has no host memory).
+- Host memory index consolidation (durable state, approval-diff gate): older session
+  entries moved into a dated archive topic file, remaining hooks shortened to one line
+  <= 200 characters; shown as a before/after diff and applied only after the owner's go.
+- `.itd/IMPACT_GRAPH.json` regeneration; `CHANGELOG.md` [Unreleased]; the hook table row
+  in `docs/HARNESS_ENGINEERING_MAP.md` (one line: first prompt full, then delta).
 
-## Required evidence
+## Allowed Change Areas
 
-- `sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py`: RED on pre-fix bytes
-  (recorded), GREEN after, >=3 lethal mutations reported by the oracle itself.
-- `sh skills/_shared/itd_py.sh tests/verify_unit_log.py` and
-  `tests/verify_proportionality_benchmark.py` stay green (policy shape consumers).
-- `bash tests/run-all.sh --quick` last line `DONE fails:none`.
+- `hooks/pre-flight-check.sh`
+- `tests/verify_preflight_budget.py`, `tests/run-all.sh`
+- `.itd/IMPACT_GRAPH.json`, `CHANGELOG.md`, `docs/HARNESS_ENGINEERING_MAP.md`
+- `.itd/SCOPE_LOCK.md`, `.itd-memory/contracts/G-002.md`, `.itd/DECISIONS.md`, `BACKLOG.md`
+- host memory index `~/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md`
+  (+ archive topic file) - outside the repository, after approval
+
+## Forbidden Change Areas
+
+- `hooks/session-open-diagnostic.sh` and every other hook (G-003 owns hook tier exits).
+- `skills/**`, `.claude/settings.json`, `docs/templates/**` (G-004 owns auto-install).
+- Goal ledger transitions by hand (`GOAL.json` / `STATE.json` / `events.jsonl` are written
+  by `itd_goal_verify.py` only); `.itd/ACCEPTANCE_CONTRACT.json` until the publication step.
+- Any change to what the FIRST prompt prints (the full dump keeps its sections and order).
 
 ## Declared limits
 
-- SCOPE_LOCK Allowed Change Areas are matched as read at activation time, unbound to the
-  unit (checker c3 minor 2); the goal text is the primary input.
-- `tests/fixtures/live-model-evidence/runs/20260923T110238Z-e468a267/**` is RECORDED
-  model output of the live benchmark (fixture-03-cli-tool: the model's own PRD,
-  PROJECT_ARCHITECTURE, transcript and self-check), re-recorded by commit 8f843d3 only
-  because the evidence pin binds to the skills tree. Its content is evidence of what the
-  model produced, not product code of this unit: the benchmark verifier pins hashes and
-  structure and does not re-judge the architecture merit of the recorded documents
-  (unbounded counters, CSV key mutation, timezone buckets, line-length bounds, the 4-story
-  self-check - PUB2 F6, PUB3 F5-F8). Editing those files would falsify the evidence. Out of
-  this unit's scope; the self-check gap is BACKLOG P3 2026-09-23.
-- Forced `high` has no CLI escape hatch; the owner edits the policy file to change a class.
-- Matching is lexical; a goal text that hides its money/auth nature is not detected - the
-  reviewer contour on high units remains the backstop, this is a floor, not a classifier.
-- `/goal --activate` writes `riskTier` from `GOAL.json` through the same STATE writer but
-  does NOT run the strict-class matcher (goal units are owner-approved with an explicit
-  tier at decomposition); recorded as a follow-up, not silently claimed.
+- The delta is git-visible state only: new commits and a parallel-session lock. Changes
+  to GOAL/STATE, contracts, drift or the memory index between prompts are NOT re-emitted
+  (they are re-read by the skills that need them); the next full dump is the next session.
+- The 1024-byte cap truncates the commit list from the end and appends a marker; it never
+  drops the parallel-session warning (emitted first).
+- Session identity follows the hook's existing rule (payload session_id, then
+  `CLAUDE_SESSION_ID`, then parent pid); a host that changes the id per prompt gets a full
+  dump per prompt - unchanged from today, not a regression.
 
 ## Out of scope
 
-- `hooks/*` early exit by tier (G-003), pre-flight sentinel (G-002), hook auto-install
-  (G-004), external pilot (G-005).
-- Changing `RISK_TIERS`, `riskRoutes`, `signalContours` or any contour cost.
-- `hooks/completion-gate.sh` / `itd_hygiene.py` built-in defaults (stay medium).
-- The archived `GOAL-2026-09-20.json` event gap (BACKLOG P3).
+- Hook early-exit by tier (G-003), hook auto-install (G-004), external pilot (G-005).
+- `MEMORY_INDEX_MAX_LINES` and the shape of the first-prompt dump.
+- The `.itd-memory/MEMORY.md` project-local index (54 KB): same rule applies later, not
+  part of the G-002 criterion (host index only).
+
+## Route history
+
+- Machine-only route (low): oracle RED-first on the pre-fix hook (13 failed), GREEN after,
+  mutations 3/3 lethal; m1 x2 (staged cd4e3a9e) -> a1 x2 -> check 0 x2 -> review cache
+  PASSED -> commit `453f28b`; live evidence pin intact (154/0, the hook is outside the
+  60-file pin); m2-ch/a2-ch (committed-head) -> harness verified. Ledger-close (this
+  commit): GOAL/STATE/events by the harness, acceptance followup G-002 with two
+  evidence-first criteria (oracleIds = machine run ids preflight-budget / meta-review /
+  ledger-state), this file.
+- Publication round PUB1 (producer UNVERIFIED before any review): the followup's
+  reviewPolicy carried minimumIndependentReviewers=1 copied from the medium unit; a low
+  review requires zero independent reviewers - set to 0 (ledger-only commit).

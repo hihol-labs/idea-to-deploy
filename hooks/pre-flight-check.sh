@@ -19,6 +19,13 @@ What it does:
      10 minutes — warns that a parallel session is (likely) active. The
      legacy Claude-private path is an optional read fallback only.
   3. Emits everything as `hookSpecificOutput.additionalContext`.
+  4. G-002 (v1.106): the full dump above fires ONCE per session per repository
+     (state file in the temp dir keyed by session id + repository). Every later
+     prompt of the same session emits only the delta - commits that appeared
+     since the previous prompt and the parallel-session warning when a fresh
+     lock appeared or advanced - capped at PREFLIGHT_DELTA_MAX_BYTES; with no
+     delta the hook prints nothing. An unreadable state file degrades to the
+     full dump (fail-open toward context, never toward silence).
 
 Does NOT block: always exits 0 with permission allow. Timeout-safe:
 every external call has a 2-second deadline; the hook as a whole must
@@ -49,6 +56,8 @@ LOCK_FRESH_SECONDS = 600  # 10 minutes
 MEMORY_INDEX_MAX_LINES = 30
 CWD_HISTORY_MAX = 10
 CWD_SWITCH_WARN_THRESHOLD = 5  # warn about /session-save after this many switches in 30 min
+PREFLIGHT_DELTA_MAX_BYTES = 1024  # G-002: later prompts of a session get at most this much
+PREFLIGHT_DELTA_COMMITS_MAX = 20
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> str:
@@ -785,6 +794,93 @@ def persist_errors_context(cwd: Path) -> str:
     )
 
 
+def _preflight_repo_key(top: str) -> str:
+    import hashlib
+    return hashlib.sha1(top.encode("utf-8", errors="replace")).hexdigest()[:12]
+
+
+def preflight_state_path(top: str) -> Path:
+    """Per-session, per-repository state: sentinel + last seen HEAD + last seen lock."""
+    key = _preflight_repo_key(top) if top else "nogit"
+    return Path(tempfile.gettempdir()) / f"claude-preflight-{session_id()}-{key}.json"
+
+
+def _load_preflight_state(path: Path) -> dict | None:
+    """None when the session has not fired here yet; raises when the file exists but
+    cannot be read - the caller then falls back to the full dump."""
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not data.get("fired"):
+        raise ValueError("preflight state is not a fired record")
+    return data
+
+
+def _save_preflight_state(path: Path, state: dict) -> None:
+    try:
+        path.write_text(json.dumps(state), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _head_sha(cwd: Path) -> str:
+    return run(["git", "rev-parse", "HEAD"], cwd=cwd)
+
+
+def _lock_stamp(mem_dir: Path | None) -> float:
+    if mem_dir is None:
+        return 0.0
+    lock = mem_dir / ".active-session.lock"
+    try:
+        return float(json.loads(lock.read_text(encoding="utf-8", errors="replace")).get("timestamp", 0))
+    except Exception:
+        return 0.0
+
+
+def _new_commits(cwd: Path, last_head: str, head: str) -> str:
+    if not head or not last_head or head == last_head:
+        return ""
+    log = run(["git", "log", "--oneline", f"--max-count={PREFLIGHT_DELTA_COMMITS_MAX}",
+               f"{last_head}..{head}"], cwd=cwd)
+    if not log:  # last head rewritten (rebase/reset): show what HEAD is now
+        log = run(["git", "log", "--oneline", "-5", head], cwd=cwd)
+    return log
+
+
+def _cap_delta(parts: list[str]) -> str:
+    """Join delta parts under PREFLIGHT_DELTA_MAX_BYTES; the first part (the parallel
+    session warning) is never dropped, the commit list is trimmed from the end."""
+    text = "\n\n".join(parts)
+    if len(text.encode("utf-8")) <= PREFLIGHT_DELTA_MAX_BYTES:
+        return text
+    lines = text.splitlines()
+    marker = "(…delta truncated at 1 KB)"
+    while lines and len(("\n".join(lines) + "\n" + marker).encode("utf-8")) > PREFLIGHT_DELTA_MAX_BYTES:
+        lines.pop()
+    return "\n".join(lines) + "\n" + marker
+
+
+def preflight_delta(cwd: Path, state: dict, local_mem: Path | None) -> tuple[str, dict]:
+    """What changed since the previous prompt of this session: a fresh/advanced
+    parallel-session lock and new commits. Returns (delta text, updated state)."""
+    parts: list[str] = []
+    stamp = _lock_stamp(local_mem)
+    last_stamp = float(state.get("lockTs") or 0.0)
+    if local_mem is not None and stamp > last_stamp:
+        lock = session_lock_context(local_mem)
+        if lock:
+            parts.append(lock)
+    head = _head_sha(cwd)
+    last_head = str(state.get("head") or "")
+    new_commits = _new_commits(cwd, last_head, head)
+    if new_commits:
+        parts.append("Новые коммиты с прошлого промпта:\n```\n" + new_commits + "\n```")
+    updated = dict(state)
+    updated["head"] = head or last_head
+    updated["lockTs"] = max(stamp, last_stamp)
+    return (_cap_delta(parts) if parts else ""), updated
+
+
 def main() -> int:
     global _PAYLOAD_SID
     try:
@@ -796,6 +892,23 @@ def main() -> int:
 
     cwd = Path(os.getcwd())
     sections: list[str] = []
+
+    # G-002: once per session per repository the full dump below fires; afterwards
+    # only the delta since the previous prompt is emitted (bounded), or nothing.
+    top = run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
+    state_path = preflight_state_path(top)
+    try:
+        state = _load_preflight_state(state_path)
+    except Exception:
+        state = None  # unreadable state: fall back to the full dump
+    if state is not None:
+        delta, updated = preflight_delta(cwd, state, find_local_project_memory_dir(cwd))
+        _save_preflight_state(state_path, updated)
+        if delta:
+            sys.stdout.write(json.dumps({"hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": "[PRE-FLIGHT DELTA]\n\n" + delta}}, ensure_ascii=False))
+        return 0
 
     # Context switch detection (Gap #5)
     ctx_switch = context_switch_detect(cwd)
@@ -849,6 +962,10 @@ def main() -> int:
     staleness = memory_staleness_check(cwd, index_mem)
     if staleness:
         sections.append(staleness)
+
+    _save_preflight_state(state_path, {
+        "fired": True, "head": _head_sha(cwd) if top else "",
+        "lockTs": _lock_stamp(local_mem), "at": time.time()})
 
     if not sections:
         return 0  # nothing to report, stay silent

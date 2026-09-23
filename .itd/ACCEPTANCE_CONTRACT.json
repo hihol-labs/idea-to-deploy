@@ -4031,6 +4031,44 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "G-002-1-oracle",
+      "unitId": "G-002",
+      "criterion": "Команда критерия выходит 0: tests/verify_preflight_budget.py зелёный на дереве кандидата - реальный pre-flight хук в throwaway git-репо печатает полный дамп на первом промпте сессии, на последующих только дельту (новые коммиты, появившийся/продвинувшийся lock) <= 1024 байт, без дельты молчит, нечитаемый state -> полный дамп; host-индекс памяти <= 24 400 байт и строки <= 200 символов. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Единственный источник критерия юнита G-002 - criterion и verificationCommand в .itd-memory/GOAL.json; команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "Оракул RED на дофиксовом хуке (main d927053: FAILED 13), GREEN на кандидате; --mutations 3/3 летальны (state never written, cap removed, commit delta ignored); маршрут low = machine-only: m1 x2 (staged cd4e3a9e) -> a1 x2 -> check exit 0; m2-ch (committed-head над d927053, дерево cd4e3a9e = коммит 453f28b) -> a2-ch -> check exit 0; харнес перевёл G-002 в verified (events.jsonl 2026-09-23T19:03:30Z, квитанция G-002-adjudication-a2-ch.json); host-индекс консолидирован после approve владельца (архив = оригинал verbatim; 50 525 -> 17 028 байт, max 199 символов).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py && test \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400",
+      "reviewEvidence": {
+        "claim": "Оракул юнита и бюджет host-индекса зелёные на точном дереве кандидата - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "preflight-budget",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "G-002-2-ledger",
+      "unitId": "G-002",
+      "criterion": "Команда критерия выходит 0: scripts/validate_state.py принимает .itd-memory/GOAL.json и STATE.json на дереве кандидата - G-002 verified с evidence и квитанцией, currentUnitId пуст, STATE-проекция согласована. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Ledger-close юнита: переходы пишет только харнес (itd_goal_verify.py), ручные правки леджера запрещены (/goal Rules).",
+      "evidence": "Активация (2026-09-23T16:29:37Z) и переход verified (2026-09-23T19:03:30Z) записаны харнесом (actor harness) с квитанцией G-002-adjudication-a2-ch.json (committed-head над d927053 -> дерево cd4e3a9e = коммит 453f28b); ручных переходов статуса/квитанции нет.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4049,19 +4087,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "G-001",
+    "unitId": "G-002",
     "status": "open",
     "openedAt": "2026-09-23",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "low",
       "requiredImpactClasses": [
         "correctness",
         "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 1,
+      "minimumIndependentReviewers": 0,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     }
