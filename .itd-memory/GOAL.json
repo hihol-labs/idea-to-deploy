@@ -3,8 +3,8 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-22T19:37:34Z",
-  "currentUnitId": "G-001",
+  "updatedAt": "2026-09-23T11:07:49Z",
+  "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
     "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
@@ -17,7 +17,17 @@
       "riskTier": "medium",
       "criterion": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а .itd/COMPLETION_POLICY.json репозитория методологии остаётся medium; skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый strictClasses[] (money, prod-config, db-schema, auth, secrets) с path/keyword-паттернами, и itd_unit_log activate принудительно ставит high при совпадении, печатая причину; ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-23T11:07:49Z",
+      "evidence": "exit 0: PASSED: 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-001/G-001-adjudication-a3-ch.json",
+        "sha256": "7a97a38ae0fbe1d3f7a480608177a27b1d654f63d244600c17ed9c9d97be5a37",
+        "receiptSha256": "e9271902d3332e3f44ab1f8399873896b5e3bf3b44ecbd03b506a98bd79b31ff",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-001/G-001-machine-m10-ch.json",
+        "machineSha256": "332f4bfa41c2b5a6d050a9cbb2e8ee537f906683dff1347011cc438b92a9c825"
+      }
     },
     {
       "id": "G-002",

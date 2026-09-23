@@ -4,6 +4,41 @@
 **Last reviewed:** 2026-08-10
 **Next review:** 2026-08-30
 
+## P2 — дефекты маршрута, вскрытые на G-001 (2026-09-23)
+
+(a) **completion-gate не различает контрольный прогон.** RED-first-контроль независимого
+чекера (оракул юнита на БАЗОВОМ дереве в scratchpad, ожидаемо FAILED) пишет L2-сигнал
+`fail` по ключу команды; зелёный прогон кандидата другой командой его не гасит - коммит
+проходит только через `COMPLETION_BYPASS` (дважды на G-001). Нужен класс сигнала
+«control run» (cwd вне git-root или явный маркер) либо агрегация по тесту, а не по строке.
+
+(b) **review-gate в worktree судит установленным валидатором.** `methodology_checkout()`
+требует git toplevel == provenance checkout; в worktree кандидат с изменённым
+`WORKING_DEADLINE_POLICY.json` получает cache-miss от установленного 1.105.0. Обход -
+`sync-to-active.sh` из worktree (provenance переезжает). Кандидат: признавать worktree
+того же репозитория (`git worktree list`) как checkout.
+
+(c) **`parse_report` рвёт fenced JSON на обратных кавычках внутри строк.** Отчёт чекера с
+литеральными ``` в `unverified` -> UNVERIFIED «no valid verdict block». Кандидат: искать
+последний fenced-блок с конца / парсить по балансу фигурных скобок; в CHECKER_PROMPT.md
+добавить запрет обратных кавычек внутри JSON-строк.
+
+(d) **ОТК после коммита требует `--candidate-mode committed-head`.** `itd_goal_verify.py`
+по умолчанию валидирует квитанцию в режиме staged; после коммита кандидата staged-квитанция
+(base = предыдущий HEAD) не совпадает. Документировать в `/goal` Step 2 и в
+VERIFICATION_LOOP.md «Canonical producer sequence».
+
+(e) `itd_hygiene.py:262` отвергает `riskTier: unknown`, хотя `/task` допускает
+`--risk-tier unknown` (чекер c8).
+
+## P3 — наблюдения чекера c9 по парсеру SCOPE_LOCK и ADR-011 (2026-09-23)
+
+`allowed_areas()` переключает fence на любой ``` или ~~~ независимо от открывшего; заголовки с
+закрывающими `##` и **bold** не распознаются; вложенный `### In scope` под
+`## Allowed Change Areas` сбрасывает уже собранные буллеты. Всё вне шаблонных форм;
+SCOPE_LOCK - вторичная сеть по ADR-011. ADR-011 «5 из 61» vs чекер «4 из 66» - разница в
+извлечении текста целей из events.jsonl/GOAL*.json; уточнить методику при G-005.
+
 ## P3 — strict-классы не применяются при `/goal --activate` (2026-09-22, G-001 follow-up)
 
 `itd_unit_log.py activate` (G-001, ADR-011) принудительно поднимает тир до `high` по

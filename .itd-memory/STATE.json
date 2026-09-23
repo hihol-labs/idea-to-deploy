@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "G-001",
     "goal": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а .itd/COMPLETION_POLICY.json репозитория методологии остаётся medium; skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый strictClasses[] (money, prod-config, db-schema, auth, secrets) с path/keyword-паттернами, и itd_unit_log activate принудительно ставит high при совпадении, печатая причину; ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-22T19:37:34Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-23T11:07:49Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

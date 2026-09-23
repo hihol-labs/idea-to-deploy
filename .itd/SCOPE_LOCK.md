@@ -1,7 +1,10 @@
 # G-001 RISK-TIER-1 - proportionality becomes the default
 
-Unit `G-001` (medium) is `in_progress` in `.itd-memory/GOAL.json`; the criterion and the
-verificationCommand live ONLY there and are not restated here. Review claim ids:
+Unit `G-001` (medium) is `verified` in `.itd-memory/GOAL.json` (harness transition
+2026-09-23T11:07:49Z, receipt `G-001-adjudication-a3-ch.json`, committed-head over `8f843d3`);
+the criterion and the verificationCommand live ONLY there and are not restated here. This
+candidate is the ledger-close package: GOAL/STATE/events transitions written by the harness,
+DECISIONS 2026-09-23, BACKLOG P2/P3 2026-09-23, this file. Review claim ids:
 `G-001`, `G-001:general-review`.
 
 Measured before the first edit: criterion part (1) - `itd_unit_log.py activate` refusing

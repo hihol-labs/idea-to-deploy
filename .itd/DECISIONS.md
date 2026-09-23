@@ -3869,3 +3869,31 @@ STOP_RULE_POLICY.json по замеру S04b/R6). Новые профили ст
 
 **Ссылки:** `.itd-memory/GOAL.json`, `GOAL-2026-09-22.json`, RETRO-2026-07-08, RETRO-2026-09-13,
 `docs/PRACTICAL_EFFECTIVENESS_CONTRACT.json`, BACKLOG P3 2026-09-22 (архивный леджер).
+
+## 2026-09-23: G-001 RISK-TIER-1 verified харнесом - цена маршрута и два решения по ходу
+
+**Итог.** Коммит `befa5d9` (дерево `10711aad`) + evidence-коммит `8f843d3`; G-001 `verified`
+переходом харнеса (квитанция `G-001-adjudication-a3-ch.json`, режим committed-head). Маршрут:
+10 свежих targeted-чекеров (c1 sonnet - 403 auth, c2..c9 на коде, c10 на evidence), 28 находок
+закрыто, 0 ложных; 9 деревьев кандидата, 8 прогонов quick-зеркала `DONE fails:none`, мутации
+4/4 на каждом дереве; два `COMPLETION_BYPASS` (сигнал RED-first-контроля чекера на базовом
+дереве держит L2 красным по ключу команды).
+
+**Решение 1 - граница приёмки лексического пола.** С раунда c6 промпт чекера объявляет:
+полнота словаря `strictClasses` не заявляется; блокеры - регрессии запиненных случаев,
+fail-open на объявленном стеке владельца (FastAPI/Vue/TS/PostgreSQL/Redis/MinIO/aiogram),
+docs-vs-code и дефекты матчера; остальное - наблюдения. Почему: раунды c3-c5 показали
+surface-growth treadmill (каждый раунд - новый класс словаря); без границы серия не
+сходится (прецедент LPD-003-3, 2026-08-25). Отвергнуто: потолок раундов
+(STOP_RULE_POLICY) и молчаливое принятие PASSED_WITH_WARNINGS (loop принимает только PASSED).
+
+**Решение 2 - при конфликте «ложное срабатывание vs пропуск» побеждает более широкий
+стем** (`migration`, `миграци*`, `authoriz*`): false positive поднимает цену ревью, false
+negative снижает безопасность (ADR-011). Принятые ложные срабатывания перечислены в ADR-011.
+
+**Ограничение.** Гейт коммита в worktree судит установленным валидатором, пока provenance
+(`~/.claude/.itd-install-source.json`) указывает на canonical checkout; `sync-to-active.sh`
+выполнен из worktree - после мержа пересинхронизировать с canonical checkout.
+
+**Ссылки:** `docs/adr/ADR-011-default-risk-tier-low.md`, `.itd-memory/verification-loop/
+reports/G-001-targeted-c2..c10.md`, `receipts/G-001/`, BACKLOG P2/P3 2026-09-23.
