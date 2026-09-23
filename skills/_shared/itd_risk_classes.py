@@ -43,7 +43,7 @@ _ALLOWED_HEADINGS = ("allowed change areas", "in scope")
 # `### Backend` sub-sections stay inside `## Allowed Change Areas`; fenced code is skipped
 # (checker c8).
 _HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})[ \t]+(.+?)\s*:?\s*$")
-_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(.*)$")
 # Split on whitespace and the punctuation Markdown bullets wrap paths in; a token is
 # path-like when it carries a slash or a dot-extension (leading dot allowed).
 _SPLIT_RE = re.compile(r"[\s`'\"(),;:<>]+")
@@ -118,13 +118,18 @@ def allowed_areas(scope_text: str) -> str:
     fence = ""         # the delimiter that opened the current fence ("" = not fenced)
     for line in scope_text.splitlines():
         fm = _FENCE_RE.match(line)
+        # a backtick marker whose info string contains a backtick is inline code, not a
+        # fence (CommonMark; checker c17): `\`\`\`rm -rf\`\`\` is forbidden` opens nothing
+        if fm and not fence and fm.group(1)[0] == "`" and "`" in fm.group(2):
+            fm = None
         if fm:
-            marker = fm.group(1)
+            marker, rest = fm.group(1), fm.group(2)
             if not fence:
                 fence = marker                      # open: remember char + length
-            elif marker[0] == fence[0] and len(marker) >= len(fence):
-                fence = ""                          # close: same char, not shorter
-            # a mismatched marker inside a fence is just fenced content
+            elif marker[0] == fence[0] and len(marker) >= len(fence) and not rest.strip():
+                fence = ""                          # close: same char, not shorter, bare
+            # a mismatched marker or a marker with an info string (```text) inside a
+            # fence is fenced content, not a closer (CommonMark; PUB4 F3)
             if level:
                 out.append(line)
             continue
@@ -133,11 +138,16 @@ def allowed_areas(scope_text: str) -> str:
             depth = len(m.group(1))
             title = m.group(2).strip().lower()
             if title in _ALLOWED_HEADINGS:
-                level = depth
-                out = []
+                if not level:
+                    level = depth                   # open a scope section
+                elif depth > level:
+                    out.append(line)                # nested `### In scope` is a sub-heading
+                else:
+                    level = depth                   # another scope section: union, never discard
                 continue
             if level and depth <= level:
-                break
+                level = 0                           # section over; a later one may reopen
+                continue
             if level:
                 out.append(line)      # a deeper sub-heading stays inside the section
         elif level:

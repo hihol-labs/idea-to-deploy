@@ -28,6 +28,7 @@ Run: sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py [--mutations]
 """
 from __future__ import annotations
 
+import importlib.machinery
 import importlib.util
 import json
 import os
@@ -55,7 +56,9 @@ def read(path: Path) -> str:
 
 
 def load_module(path: Path, name: str):
-    spec = importlib.util.spec_from_file_location(name, path)
+    # an explicit source loader: `hooks/completion-gate.sh` is Python behind a .sh suffix
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -110,6 +113,24 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
     # the methodology repository stays on the BUILT-IN medium default: introducing a repo
     # policy file would change which policy source governs it (PUB2 reviewer)
     c("methodology-repo-has-no-policy-file", not (root / ".itd" / "COMPLETION_POLICY.json").exists())
+    # PUB4 F6: exercise the EFFECTIVE defaults, not only the source text - import both
+    # resolvers and resolve a project with no policy file and no STATE/GOAL
+    with tempfile.TemporaryDirectory() as empty:
+        try:
+            hyg = load_module(root / "docs" / "templates" / "itd" / "itd_hygiene.py", "itd_hygiene_for_oracle")
+            c("hygiene-effective-default-medium",
+              hyg.DEFAULT_COMPLETION_POLICY.get("defaultRiskTier") == "medium"
+              and hyg.active_risk_tier(Path(empty), dict(hyg.DEFAULT_COMPLETION_POLICY)) == "medium")
+        except Exception as exc:  # noqa: BLE001
+            c("hygiene-effective-default-medium", False, repr(exc))
+        try:
+            gate = load_module(root / "hooks" / "completion-gate.sh", "completion_gate_for_oracle")
+            policy = gate.load_policy(Path(empty))
+            c("completion-gate-effective-default-medium",
+              policy.get("defaultRiskTier") == "medium"
+              and gate.active_risk_tier(Path(empty), policy) == "medium")
+        except Exception as exc:  # noqa: BLE001
+            c("completion-gate-effective-default-medium", False, repr(exc))
 
     # 2. strictClasses shape
     policy = json.loads(read(root / "skills" / "_shared" / "PROPORTIONALITY_POLICY.json"))
@@ -252,6 +273,31 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                                   ("подключить ЮKassa", "money")):
             hit = rc_mod.match_strict_class(goal_txt, "", classes)
             c(f"matcher-c7-{goal_txt.split()[-1]}", bool(hit) and hit[0] == cls_exp, repr(hit))
+        # PUB4 F3: a fence line with an info string is content, not a closer (CommonMark)
+        scope_info = ("# Scope Lock\n\n## Allowed Change Areas\n\n```bash\n```not-a-closing-fence\n"
+                      "## Forbidden Change Areas\n```\n\n- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
+        hit = rc_mod.match_strict_class("tidy the handler", scope_info, classes)
+        c("matcher-pub4-info-string-fence-not-a-closer", bool(hit) and hit[0] == "money" and hit[3] == "SCOPE_LOCK", repr(hit))
+        # checker c17: a line starting with inline triple-backtick code is NOT a fence opener
+        scope_inline = ("# Scope Lock\n\n```rm -rf``` is forbidden here\n\n## Allowed Change Areas\n\n"
+                        "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
+        hit = rc_mod.match_strict_class("tidy the handler", scope_inline, classes)
+        c("matcher-c17-inline-backtick-line-not-a-fence-opener", bool(hit) and hit[0] == "money", repr(hit))
+        scope_tilde_inline = ("# Scope Lock\n\n## Allowed Change Areas\n\n~~~text with `code`\n## Not a heading\n~~~\n\n"
+                              "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
+        hit = rc_mod.match_strict_class("tidy the handler", scope_tilde_inline, classes)
+        c("matcher-c17-tilde-info-string-with-backtick-still-a-fence", bool(hit) and hit[0] == "money", repr(hit))
+        # PUB4 F4: a nested allowed heading never discards what was collected; a later
+        # deeper heading stays inside; a second allowed section unions with the first
+        areas = rc_mod.allowed_areas("# Scope Lock\n\n## Allowed Change Areas\n\n- `app/billing/stripe.py`\n\n"
+                                     "### In scope\n\n- docs\n\n### Backend\n\n- `app/auth/router.py`\n\n"
+                                     "## Forbidden Change Areas\n\n- `db/migrations/`\n")
+        c("matcher-pub4-nested-allowed-heading-keeps-content",
+          "stripe.py" in areas and "router.py" in areas and "migrations" not in areas, repr(areas))
+        areas = rc_mod.allowed_areas("# Scope Lock\n\n## Allowed Change Areas\n\n- docs/x.md\n\n"
+                                     "## Forbidden Change Areas\n\n- `db/migrations/`\n\n## In scope\n\n- `app/billing/stripe.py`\n")
+        c("matcher-pub4-second-allowed-section-unions",
+          "docs/x.md" in areas and "stripe.py" in areas and "migrations" not in areas, repr(areas))
         # checker c8: sub-headings and fenced code do not end the scope section
         scope_nested = ("# Scope Lock\n\n## Allowed Change Areas\n\n### Backend\n\n- `app/auth/router.py`\n\n"
                         "### Frontend\n\n- `src/views/Home.vue`\n\n## Forbidden Change Areas\n\n- x\n")
@@ -371,6 +417,23 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                            capture_output=True, text=True, timeout=30, cwd=project)
         c("activate-dangling-scope-lock-symlink-fails-closed",
           r.returncode != 0 and not (mem / "STATE.json").exists(), f"rc={r.returncode}")
+
+    # PUB4 F5: a malformed strictClasses policy fails the ACTIVATION closed - not only the
+    # loader - and nothing is written (STATE/events absent)
+    with tempfile.TemporaryDirectory() as tmp:
+        tree = Path(tmp) / "tree"
+        shutil.copytree(root / "skills", tree / "skills")
+        pol = tree / "skills" / "_shared" / "PROPORTIONALITY_POLICY.json"
+        broken = json.loads(pol.read_text(encoding="utf-8")); broken.pop("strictClasses", None)
+        pol.write_text(json.dumps(broken), encoding="utf-8")
+        project = Path(tmp) / "project"; mem = project / ".itd-memory"; mem.mkdir(parents=True)
+        r = subprocess.run([sys.executable, str(tree / "skills" / "task" / "scripts" / "itd_unit_log.py"),
+                            "activate", "U-1", "--goal", "Add refund endpoint for payments", "--risk-tier", "low",
+                            "--dir", str(mem)], capture_output=True, text=True, timeout=30, cwd=project)
+        c("activate-malformed-policy-fails-closed-no-write",
+          r.returncode != 0 and "strictClasses" in (r.stdout + r.stderr)
+          and not (mem / "STATE.json").exists() and not (mem / "events.jsonl").exists(),
+          f"rc={r.returncode} out={(r.stdout + r.stderr)[:160]!r}")
 
     # 5. ADR + registration
     adr = root / "docs" / "adr" / "ADR-011-default-risk-tier-low.md"

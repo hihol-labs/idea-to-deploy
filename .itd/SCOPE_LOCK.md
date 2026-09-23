@@ -106,6 +106,21 @@ those two defaults stay `medium` and no repo policy file is introduced.
 - Checker round c15 (PASSED_WITH_WARNINGS, tree 0220d251): CHANGELOG and the task contract
   said forced high applies to declared low/medium; the code raises every tier below high,
   `unknown` included (oracle `activate-unknown-plus-strict-forced-high`) - wording fixed.
+- Publication round PUB4 (gpt-5.6-sol on ef7d368, BLOCKED, 6 unique findings reported
+  twice): a fence line with an info string (```text) is content, not a closer (CommonMark);
+  a nested `### In scope` inside an open section is a sub-heading and never discards what
+  was collected, a non-scope heading at the same or a higher level closes the section
+  without ending the scan, so a later `## In scope` unions with the first (the c9
+  observation in BACKLOG P3, now fixed and pinned); the oracle exercises the EFFECTIVE
+  built-in medium defaults (imports `itd_hygiene.py` and `hooks/completion-gate.sh`,
+  resolves an empty project) and pins the activation-level fail-closed on a malformed
+  policy (no STATE/events written); the verified receipt of G-001 is re-anchored to the
+  final head with `itd_goal_verify.py --recheck --candidate-mode committed-head` after
+  this fix commit, and the acceptance evidence text is refreshed to the final round.
+- Checker round c17 (PASSED_WITH_WARNINGS, tree d33c56b4): a backtick marker whose info
+  string contains a backtick (a line starting with inline ```code```) opened a fence and hid
+  every later heading (pre-existing, same family as PUB4 F3) -> such a line is not a fence
+  opener (CommonMark); a `~~~` info string may still contain backticks; both pinned.
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
