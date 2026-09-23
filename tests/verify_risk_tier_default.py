@@ -278,6 +278,16 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                       "## Forbidden Change Areas\n```\n\n- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
         hit = rc_mod.match_strict_class("tidy the handler", scope_info, classes)
         c("matcher-pub4-info-string-fence-not-a-closer", bool(hit) and hit[0] == "money" and hit[3] == "SCOPE_LOCK", repr(hit))
+        # PUB5 F3: ATX closing hashes and inline presentation around the heading title
+        for idx, heading in enumerate(("## Allowed Change Areas ##", "## **In scope**", "## _Allowed Change Areas_:",
+                                       "### `In scope` ###", "##   In   scope   :  ", "## **Allowed Change Areas:**"), 1):
+            scope_h = f"# Scope Lock\n\n{heading}\n\n- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n"
+            hit = rc_mod.match_strict_class("tidy the handler", scope_h, classes)
+            c(f"matcher-pub5-heading-form-{idx}-{heading.strip('#* _:`').replace(' ', '-')[:24]}",
+              bool(hit) and hit[0] == "money" and hit[3] == "SCOPE_LOCK", f"{heading!r} -> {hit!r}")
+        # a heading that only CONTAINS the words is not a scope heading
+        scope_not = "# Scope Lock\n\n## Not in scope\n\n- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n"
+        c("matcher-pub5-not-in-scope-heading-ignored", rc_mod.match_strict_class("tidy the handler", scope_not, classes) is None)
         # checker c17: a line starting with inline triple-backtick code is NOT a fence opener
         scope_inline = ("# Scope Lock\n\n```rm -rf``` is forbidden here\n\n## Allowed Change Areas\n\n"
                         "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")

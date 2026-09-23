@@ -108,6 +108,19 @@ def _keyword_hit(keyword: str, text: str) -> bool:
                      text) is not None
 
 
+_CLOSING_HASHES_RE = re.compile(r"[ \t]+#+[ \t]*$")
+
+
+def _heading_title(raw: str) -> str:
+    """Normalise an ATX heading title for the scope-section test: drop the optional closing
+    hash sequence (`## In scope ##`), inline presentation (`## **In scope**`, `_x_`,
+    backticks) and a trailing colon (PUB5 F3; CommonMark 4.2)."""
+    title = _CLOSING_HASHES_RE.sub("", raw.strip())
+    title = title.strip().strip("*_`~").strip()
+    title = title.rstrip(":").strip().strip("*_`~").strip()
+    return _WS_RE.sub(" ", title).lower()
+
+
 def allowed_areas(scope_text: str) -> str:
     """Return the body of the `Allowed Change Areas` / `In scope` section of a SCOPE_LOCK.md
     text ('' if absent); heading level and a trailing colon do not matter."""
@@ -136,7 +149,7 @@ def allowed_areas(scope_text: str) -> str:
         m = None if fence else _HEADING_RE.match(line)
         if m:
             depth = len(m.group(1))
-            title = m.group(2).strip().lower()
+            title = _heading_title(m.group(2))
             if title in _ALLOWED_HEADINGS:
                 if not level:
                     level = depth                   # open a scope section

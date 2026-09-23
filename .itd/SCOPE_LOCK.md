@@ -1,11 +1,37 @@
 # G-001 RISK-TIER-1 - proportionality becomes the default
 
-Unit `G-001` (medium) is `verified` in `.itd-memory/GOAL.json` (harness transition
-2026-09-23T11:07:49Z, receipt `G-001-adjudication-a3-ch.json`, committed-head over `8f843d3`);
-the criterion and the verificationCommand live ONLY there and are not restated here. This
-candidate is the ledger-close package: GOAL/STATE/events transitions written by the harness,
-DECISIONS 2026-09-23, BACKLOG P2/P3 2026-09-23, this file. Review claim ids:
-`G-001`, `G-001:general-review`.
+Unit `G-001` (medium) is `verified` in `.itd-memory/GOAL.json`: first harness transition
+2026-09-23T11:07:49Z (receipt `G-001-adjudication-a3-ch.json` over `8f843d3`), re-anchored by
+the harness `--recheck` 2026-09-23T12:53:17Z to receipt `G-001-adjudication-a9-ch.json`
+(committed-head over `ef7d368`, tree `1c2428cb` = commit `027759d`); the criterion and the
+verificationCommand live ONLY there and are not restated here. The publication candidate is
+the WHOLE G-001 branch over main `2487397`: the product change (`befa5d9`), the live
+evidence re-record (`8f843d3`), the ledger-close and acceptance followup (`833b61a`,
+`0f535c9`), the review-driven fixes (`5f5db74`, `ef7d368`, `027759d`, and the heading-form
+fix of this round) and the ledger re-anchor (`27e7c0f`). Review claim ids: `G-001`,
+`G-001:general-review`. Complete file inventory of the branch (`git diff --stat 2487397..HEAD`
+plus this round), by class:
+
+- product code: `skills/_shared/PROPORTIONALITY_POLICY.json`, `skills/_shared/itd_risk_classes.py`
+  (new), `skills/task/scripts/itd_unit_log.py`, `skills/goal/scripts/itd_goal_verify.py`,
+  `scripts/itd_install_runtime.py` (runtime manifest lists the new module);
+- template + docs: `docs/templates/itd/COMPLETION_POLICY.json`,
+  `docs/adr/ADR-011-default-risk-tier-low.md` (new), `skills/task/SKILL.md`, `CHANGELOG.md`;
+- tests: `tests/verify_risk_tier_default.py` (new), `tests/run-all.sh`;
+- frozen digests: `skills/_shared/WORKING_DEADLINE_POLICY.json` (inheritsVerificationPolicy
+  sha256 re-pin), `benchmarks/proportionality/CORPUS.json` + `CORPUS.sha256`,
+  `benchmarks/working-deadline/CORPUS.json` + `CORPUS.sha256`;
+- recorded live evidence (hash-pinned model output, not reviewed for content - Declared
+  limits): `tests/fixtures/live-model-evidence/**` (run 20260923T110238Z-e468a267 + `latest.json`);
+- goal ledger (harness-written transitions): `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`,
+  `.itd-memory/events.jsonl`; archived ledger `.itd-memory/GOAL-2026-09-22.json` and the
+  session note `.itd-memory/session_2026-09-22_4.md` (befa5d9); task contract
+  `.itd-memory/contracts/G-001.md`;
+- contract layer: `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `.itd/IMPACT_GRAPH.json`,
+  this file; backlog: `BACKLOG.md`.
+
+The "In scope" section below describes the product change and the review rounds; it is
+not the inventory.
 
 Measured before the first edit: criterion part (1) - `itd_unit_log.py activate` refusing
 without `--risk-tier` - is ALREADY enforced (`skills/task/scripts/itd_unit_log.py:403-408`,
@@ -121,7 +147,7 @@ those two defaults stay `medium` and no repo policy file is introduced.
   string contains a backtick (a line starting with inline ```code```) opened a fence and hid
   every later heading (pre-existing, same family as PUB4 F3) -> such a line is not a fence
   opener (CommonMark); a `~~~` info string may still contain backticks; both pinned.
-- Checker round c18 (PASSED, tree 1c2428cb, commit 027759d). Ledger-close 2 (this candidate):
+- Checker round c18 (PASSED, tree 1c2428cb, commit 027759d). Ledger-close 2 (commit 27e7c0f):
   the verified receipt of G-001 re-anchored by the harness (`--recheck --candidate-mode
   committed-head`, receipt `G-001-adjudication-a9-ch.json` over 027759d, event
   2026-09-23T12:53:17Z) - PUB4 F1; `.itd/ACCEPTANCE_CONTRACT.json` G-001 criteria evidence
@@ -130,6 +156,18 @@ those two defaults stay `medium` and no repo policy file is introduced.
   receipt transition" and names the two documented manual text edits (criterion 5f5db74,
   STATE mirror ef7d368); the DECISIONS commit count corrected (ef7d368 is four commits after
   8f843d3, two semantic).
+- Publication round PUB5 (gpt-5.6-sol on 27e7c0f, BLOCKED, 3 unique findings reported
+  twice): this header no longer names the superseded a3-ch receipt as the verification and
+  describes the candidate as the whole branch, not a ledger-close package (F1/F2);
+  `allowed_areas` normalises the heading title - ATX closing hashes (`## In scope ##`),
+  inline presentation (`## **In scope**`, `_x_`, backticks), whitespace runs and a trailing
+  colon - before the scope-heading test (F3, a c9 observation; the "5 of 61 vs 4 of 66"
+  figure stays open in BACKLOG); six heading
+  forms plus a `## Not in scope` negative pinned. Checker c21 (BLOCKED, tree d1c24a9f): the
+  header's "union" claim replaced by the complete branch file inventory by class; the
+  c18 entry no longer calls the 27e7c0f re-anchor "this candidate". Checker c22 (BLOCKED,
+  tree f9ac7cfa): the inventory also names `skills/_shared/WORKING_DEADLINE_POLICY.json`;
+  the PUB5 heading-form oracle names are unique (indexed).
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
