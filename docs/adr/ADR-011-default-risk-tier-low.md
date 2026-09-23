@@ -23,7 +23,7 @@ lever; the route is.
 
 1. `docs/templates/itd/COMPLETION_POLICY.json` - what `/adopt` and `/project` install into
    a target project - carries **`defaultRiskTier: low`**. The methodology repository keeps
-   no `.itd/COMPLETION_POLICY.json`; its completion gate runs on the built-in `medium`
+   no `.itd/COMPLETION_POLICY.json` (the oracle asserts its absence); its completion gate runs on the built-in `medium`
    defaults in `hooks/completion-gate.sh` and `docs/templates/itd/itd_hygiene.py`, which
    stay `medium` as the fail-closed fallback for any project without a policy file.
 2. `PROPORTIONALITY_POLICY.json` gains a machine-readable **`strictClasses`** object with
@@ -33,9 +33,11 @@ lever; the route is.
 3. `skills/task/scripts/itd_unit_log.py activate` (the /task writer of
    `STATE.currentUnit.riskTier`; `/goal --activate` projects the owner-approved tier from
    `GOAL.json` and does not run the matcher) matches the unit goal and the Allowed Change Areas of
-   `.itd/SCOPE_LOCK.md` against `strictClasses`; on a hit it **forces `riskTier=high`**,
-   prints the class and pattern, and records `riskTierForced{declared,class,match}` in
-   STATE. `--risk-tier` stays mandatory (unchanged since LPD-002 R4c).
+   `.itd/SCOPE_LOCK.md` against `strictClasses`; on a hit it prints the class and pattern
+   and records `riskTierMatch{class,match}` in STATE whatever the declared tier; when the
+   declared tier is below `high` it also **forces `riskTier=high`** and records
+   `riskTierForced{declared,class,match}`. `--risk-tier` stays mandatory (unchanged since
+   LPD-002 R4c). An existing but unreadable SCOPE_LOCK fails the activation closed.
 
 ## Consequences
 

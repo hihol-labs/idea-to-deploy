@@ -105,11 +105,9 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
     hyg_src = read(root / "docs" / "templates" / "itd" / "itd_hygiene.py")
     c("hygiene-builtin-default-medium",
       re.search(r'DEFAULT_COMPLETION_POLICY\s*=\s*\{[^}]*"defaultRiskTier":\s*"medium"', hyg_src, re.S) is not None)
-    repo_policy = root / ".itd" / "COMPLETION_POLICY.json"
-    repo_ok = True
-    if repo_policy.is_file():
-        repo_ok = json.loads(read(repo_policy)).get("defaultRiskTier") == "medium"
-    c("methodology-repo-stays-medium", repo_ok)
+    # the methodology repository stays on the BUILT-IN medium default: introducing a repo
+    # policy file would change which policy source governs it (PUB2 reviewer)
+    c("methodology-repo-has-no-policy-file", not (root / ".itd" / "COMPLETION_POLICY.json").exists())
 
     # 2. strictClasses shape
     policy = json.loads(read(root / "skills" / "_shared" / "PROPORTIONALITY_POLICY.json"))
@@ -240,6 +238,14 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                         "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
         hit = rc_mod.match_strict_class("tidy the handler", scope_fenced, classes)
         c("matcher-c8-fenced-comment", bool(hit) and hit[0] == "money" and hit[3] == "SCOPE_LOCK", repr(hit))
+        scope_mismatch = ("# Scope Lock\n\n## Allowed Change Areas\n\n```bash\n~~~\n# run\n```\n\n"
+                          "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
+        hit = rc_mod.match_strict_class("tidy the handler", scope_mismatch, classes)
+        c("matcher-pub2-mismatched-fence-marker-stays-fenced", bool(hit) and hit[0] == "money", repr(hit))
+        scope_longer = ("# Scope Lock\n\n## Allowed Change Areas\n\n````\n```\n# run\n````\n\n"
+                        "- `app/billing/stripe.py`\n\n## Forbidden Change Areas\n\n- x\n")
+        hit = rc_mod.match_strict_class("tidy the handler", scope_longer, classes)
+        c("matcher-pub2-shorter-marker-does-not-close", bool(hit) and hit[0] == "money", repr(hit))
         scope_ends = ("# Scope Lock\n\n## Allowed Change Areas\n\n- `docs/README.md`\n\n## Forbidden Change Areas\n\n"
                       "- `app/billing/stripe.py`\n")
         hit = rc_mod.match_strict_class("tidy docs", scope_ends, classes)
@@ -264,13 +270,24 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                                              "units": [{"id": "G-9", "criterion": "c", "verificationCommand": "true",
                                                         "status": "pending", "riskTier": "low"}]}), encoding="utf-8")
             (mem / "STATE.json").write_text(json.dumps({"version": 1, "currentUnit": {"id": "U-old", "status": "verified",
-                                                        "riskTier": "high", "riskTierForced": {"declared": "low", "class": "money", "match": "x"}}}), encoding="utf-8")
+                                                        "riskTier": "high", "riskTierForced": {"declared": "low", "class": "money", "match": "x"},
+                                                        "riskTierMatch": {"class": "money", "match": "x"}}}), encoding="utf-8")
             unit = json.loads(goal_path.read_text(encoding="utf-8"))["units"][0]
             proj = gv_mod.state_projection(goal_path, unit, "activated")
             gv_mod.write_state_projection(proj, goal_path, unit, "activated")
             cu = json.loads((mem / "STATE.json").read_text(encoding="utf-8")).get("currentUnit") or {}
             c("goal-activate-projection-has-no-stale-forced-flag",
-              cu.get("id") == "G-9" and "riskTierForced" not in cu, repr(cu)[:200])
+              cu.get("id") == "G-9" and "riskTierForced" not in cu and "riskTierMatch" not in cu, repr(cu)[:200])
+            # non-activation branch (PUB2): a 'verified' projection over a stale forced note
+            (mem / "STATE.json").write_text(json.dumps({"version": 1, "currentUnit": {"id": "G-9", "status": "in_progress",
+                                                        "riskTier": "high", "riskTierForced": {"declared": "low", "class": "money", "match": "x"},
+                                                        "riskTierMatch": {"class": "money", "match": "x"}}}), encoding="utf-8")
+            proj = gv_mod.state_projection(goal_path, unit, "verified")
+            gv_mod.write_state_projection(proj, goal_path, unit, "verified")
+            cu2 = json.loads((mem / "STATE.json").read_text(encoding="utf-8")).get("currentUnit") or {}
+            c("goal-verified-projection-has-no-stale-forced-flag",
+              cu2.get("id") == "G-9" and cu2.get("status") == "verified" and "riskTierForced" not in cu2
+              and "riskTierMatch" not in cu2, repr(cu2)[:200])
     except Exception as exc:  # noqa: BLE001
         c("goal-activate-projection-has-no-stale-forced-flag", False, repr(exc)[:200])
 
@@ -281,7 +298,8 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
     forced = (cu or {}).get("riskTierForced") or {}
     c("activate-money-goal-forced-high",
       rc == 0 and (cu or {}).get("riskTier") == "high" and forced.get("declared") == "low"
-      and forced.get("class") == "money" and "money" in out, f"rc={rc} out={out!r} cu={cu}")
+      and forced.get("class") == "money" and "money" in out
+      and "keyword 'payments'" in out and "in goal" in out, f"rc={rc} out={out!r} cu={cu}")
     rc, out, cu = activate(root, "Rename helper in docs generator", "low")
     c("activate-neutral-goal-stays-low",
       rc == 0 and (cu or {}).get("riskTier") == "low" and "riskTierForced" not in (cu or {}),
@@ -299,9 +317,37 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
     c("activate-unknown-plus-strict-forced-high",
       rc == 0 and (cu or {}).get("riskTier") == "high", f"rc={rc} cu={cu}")
     rc, out, cu = activate(root, "Add refund endpoint for payments", "high")
-    c("activate-declared-high-not-marked-forced",
-      rc == 0 and (cu or {}).get("riskTier") == "high" and "riskTierForced" not in (cu or {}),
-      f"rc={rc} cu={cu}")
+    c("activate-declared-high-records-match-not-forced",
+      rc == 0 and (cu or {}).get("riskTier") == "high" and "riskTierForced" not in (cu or {})
+      and ((cu or {}).get("riskTierMatch") or {}).get("class") == "money" and "matched" in out,
+      f"rc={rc} out={out!r} cu={cu}")
+    rc, out, cu = activate(root, "Add refund endpoint for payments", "low")
+    c("activate-forced-also-records-match",
+      rc == 0 and ((cu or {}).get("riskTierMatch") or {}).get("class") == "money"
+      and ((cu or {}).get("riskTierForced") or {}).get("declared") == "low", f"cu={cu}")
+    rc, out, cu = activate(root, "Rename helper in docs generator", "low")
+    c("activate-neutral-goal-no-match-note", rc == 0 and "riskTierMatch" not in (cu or {}), f"cu={cu}")
+    # F5 (PUB2): an EXISTING but unreadable SCOPE_LOCK fails closed - nothing is written
+    with tempfile.TemporaryDirectory() as project:
+        mem = Path(project) / ".itd-memory"; mem.mkdir()
+        itd = Path(project) / ".itd"; itd.mkdir()
+        (itd / "SCOPE_LOCK.md").write_bytes(b"\xff\xfe## Allowed Change Areas\n- `app/billing/x.py`\n")
+        r = subprocess.run([sys.executable, str(root / "skills" / "task" / "scripts" / "itd_unit_log.py"),
+                            "activate", "U-1", "--goal", "tidy the handler", "--risk-tier", "low", "--dir", str(mem)],
+                           capture_output=True, text=True, timeout=30, cwd=project)
+        c("activate-unreadable-scope-lock-fails-closed",
+          r.returncode != 0 and "SCOPE_LOCK" in (r.stdout + r.stderr)
+          and not (mem / "STATE.json").exists() and not (mem / "events.jsonl").exists(),
+          f"rc={r.returncode} out={(r.stdout + r.stderr)[:160]!r}")
+    with tempfile.TemporaryDirectory() as project:
+        mem = Path(project) / ".itd-memory"; mem.mkdir()
+        itd = Path(project) / ".itd"; itd.mkdir()
+        os.symlink(itd / "missing-target.md", itd / "SCOPE_LOCK.md")   # dangling symlink
+        r = subprocess.run([sys.executable, str(root / "skills" / "task" / "scripts" / "itd_unit_log.py"),
+                            "activate", "U-1", "--goal", "tidy the handler", "--risk-tier", "low", "--dir", str(mem)],
+                           capture_output=True, text=True, timeout=30, cwd=project)
+        c("activate-dangling-scope-lock-symlink-fails-closed",
+          r.returncode != 0 and not (mem / "STATE.json").exists(), f"rc={r.returncode}")
 
     # 5. ADR + registration
     adr = root / "docs" / "adr" / "ADR-011-default-risk-tier-low.md"

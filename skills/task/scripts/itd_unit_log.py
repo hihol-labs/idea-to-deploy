@@ -420,15 +420,25 @@ def main() -> int:
                 json.loads(PROPORTIONALITY_POLICY_PATH.read_text(encoding="utf-8")))
         except (OSError, ValueError) as exc:
             return die(f"PROPORTIONALITY_POLICY strictClasses недоступны или некорректны: {exc}", 2)
-        forced = RC.match_strict_class(a.goal, RC.read_scope_lock(mem), strict_classes)
+        try:
+            scope_text = RC.read_scope_lock(mem)
+        except RC.StrictClassPolicyError as exc:
+            return die(f"SCOPE_LOCK недоступен для strict-классов: {exc}", 2)
+        forced = RC.match_strict_class(a.goal, scope_text, strict_classes)
         risk_tier = a.risk_tier
         forced_note = None
-        if forced and risk_tier != "high":
-            forced_note = {"declared": risk_tier, "class": forced[0],
-                           "match": RC.describe(forced)}
-            risk_tier = "high"
-            print(f"riskTier forced to high (declared {forced_note['declared']}): "
-                  f"{forced_note['match']}")
+        match_note = None
+        if forced:
+            # Совпадение записывается ВСЕГДА (аудит одинаков независимо от объявленного
+            # тира); riskTierForced - только когда тир реально поднят.
+            match_note = {"class": forced[0], "match": RC.describe(forced)}
+            if risk_tier != "high":
+                forced_note = {"declared": risk_tier, **match_note}
+                risk_tier = "high"
+                print(f"riskTier forced to high (declared {forced_note['declared']}): "
+                      f"{forced_note['match']}")
+            else:
+                print(f"strict class matched, declared tier already high: {match_note['match']}")
         try:
             ledger = resolve_ledger(mem, a.unit_id, a.ledger)
         except LedgerAmbiguity as exc:
@@ -442,6 +452,8 @@ def main() -> int:
         state["currentUnit"] = {"id": a.unit_id, "goal": a.goal, "status": "in_progress",
                                 "startedAt": now_iso(), "ledger": ledger,
                                 "riskTier": risk_tier}
+        if match_note:
+            state["currentUnit"]["riskTierMatch"] = match_note
         if forced_note:
             state["currentUnit"]["riskTierForced"] = forced_note
         save_state(mem, state, expected_sha256=state_sha256)

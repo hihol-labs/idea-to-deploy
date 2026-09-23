@@ -19,7 +19,8 @@ module is the single reader of `strictClasses` in `PROPORTIONALITY_POLICY.json`:
     against path-like tokens (anything with a `/` or a dot-extension, dotfiles included:
     `.env`, `.env.example`, `app.prod.yaml`, `db/migrations/0004.sql`). The scope section is
     `## Allowed Change Areas` or `## In scope` at any heading level and runs until a heading of
-    the same or a higher level; deeper sub-headings and fenced code stay inside it.
+    the same or a higher level; deeper sub-headings and fenced code stay inside it (a fence
+    closes only with the same delimiter character and at least the opening length).
     Returns `(class, kind, pattern, where)` for the first hit in class order, else None.
 
 Only stdlib. Shared by `skills/task/scripts/itd_unit_log.py`; tests:
@@ -28,6 +29,7 @@ Only stdlib. Shared by `skills/task/scripts/itd_unit_log.py`; tests:
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
 from pathlib import Path
 
@@ -41,7 +43,7 @@ _ALLOWED_HEADINGS = ("allowed change areas", "in scope")
 # `### Backend` sub-sections stay inside `## Allowed Change Areas`; fenced code is skipped
 # (checker c8).
 _HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})[ \t]+(.+?)\s*:?\s*$")
-_FENCE_RE = re.compile(r"^\s{0,3}(```|~~~)")
+_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 # Split on whitespace and the punctuation Markdown bullets wrap paths in; a token is
 # path-like when it carries a slash or a dot-extension (leading dot allowed).
 _SPLIT_RE = re.compile(r"[\s`'\"(),;:<>]+")
@@ -111,14 +113,20 @@ def allowed_areas(scope_text: str) -> str:
         return ""
     out: list[str] = []
     level = 0          # heading level that opened the section; 0 = not inside
-    fenced = False
+    fence = ""         # the delimiter that opened the current fence ("" = not fenced)
     for line in scope_text.splitlines():
-        if _FENCE_RE.match(line):
-            fenced = not fenced
+        fm = _FENCE_RE.match(line)
+        if fm:
+            marker = fm.group(1)
+            if not fence:
+                fence = marker                      # open: remember char + length
+            elif marker[0] == fence[0] and len(marker) >= len(fence):
+                fence = ""                          # close: same char, not shorter
+            # a mismatched marker inside a fence is just fenced content
             if level:
                 out.append(line)
             continue
-        m = None if fenced else _HEADING_RE.match(line)
+        m = None if fence else _HEADING_RE.match(line)
         if m:
             depth = len(m.group(1))
             title = m.group(2).strip().lower()
@@ -181,12 +189,20 @@ def match_strict_class(goal: str, scope_text: str, classes: dict[str, dict]):
 
 
 def read_scope_lock(mem_dir: Path) -> str:
-    """SCOPE_LOCK.md lives next to the memory dir: <project>/.itd/SCOPE_LOCK.md."""
+    """SCOPE_LOCK.md lives next to the memory dir: <project>/.itd/SCOPE_LOCK.md.
+
+    A missing file is an empty scope (legitimate); an EXISTING file that cannot be read or
+    decoded is a safety input that failed - fail closed instead of silently matching nothing.
+    """
     path = Path(mem_dir).resolve().parent / ".itd" / "SCOPE_LOCK.md"
+    # lexists: a dangling or looping symlink still IS an entry the owner put there - a
+    # failure to read it must not degrade into "no scope" (checker c12)
+    if not os.path.lexists(path):
+        return ""
     try:
         return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise StrictClassPolicyError(f"{path} exists but cannot be read as UTF-8 text: {exc}") from exc
 
 
 def describe(hit) -> str:

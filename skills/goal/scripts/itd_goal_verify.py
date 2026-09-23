@@ -711,12 +711,14 @@ def write_state_projection(projection: tuple[object, dict, str] | None, goal_pat
             # A forced-tier note belongs to the /task unit that earned it; a goal
             # unit carries its owner-approved tier and must not inherit the flag.
             cur.pop("riskTierForced", None)
+            cur.pop("riskTierMatch", None)
         else:
             cur.update({"id": unit["id"], "goal": unit.get("criterion") or "",
                         "status": decision, "ledger": goal_path.name,
                         "riskTier": unit.get("riskTier") or "unknown",
                         "completedAt": event_at or now_iso()})
             cur.pop("riskTierForced", None)
+            cur.pop("riskTierMatch", None)
         state["currentUnit"] = cur
         if decision == "activated":
             files = state.get("ledgerFiles")

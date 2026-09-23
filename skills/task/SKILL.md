@@ -335,8 +335,9 @@ SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shar
    `unknown` и идёт по строгому маршруту). **Strict-классы (ADR-011, G-001):**
    если текст `--goal` или Allowed Change Areas в `.itd/SCOPE_LOCK.md` попадают
    в `strictClasses` политики (`money` / `prod-config` / `db-schema` / `auth` /
-   `secrets`), писатель сам поднимает тир до `high`, печатает класс и
-   совпадение и записывает `riskTierForced` в STATE — не спорь с ним и не
+   `secrets`), писатель печатает класс и совпадение и записывает `riskTierMatch`
+   в STATE; если объявленный тир ниже `high` - поднимает его и записывает
+   `riskTierForced` — не спорь с ним и не
    переформулируй goal ради дешёвого маршрута; тир меняется правкой политики.
    SCOPE_LOCK читается в момент активации — пиши его ДО `activate`, иначе
    матчер увидит области предыдущего юнита.

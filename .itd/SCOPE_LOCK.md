@@ -78,6 +78,15 @@ those two defaults stay `medium` and no repo policy file is introduced.
   scope section at ANY heading (`### Backend` sub-sections, a fenced `# comment`) -> the
   section now runs until a heading of the same or a higher level, headings need whitespace
   after the hashes, fenced code is skipped; three cases pinned (nested, fenced, same-level end).
+- Publication round PUB2 (keyless opposite-GPT producer, gpt-5.6-sol, BLOCKED, 8 unique
+  findings): G-001 criterion wording aligned with what was built (object, no repo policy
+  file - DECISIONS 2026-09-23 correction); a strict-class match is now recorded as
+  `riskTierMatch` for every declared tier, `riskTierForced` only when raised; fence closing
+  requires the opening delimiter char and length; an existing unreadable SCOPE_LOCK fails
+  the activation closed; the oracle asserts the repo policy file is absent and pins the
+  non-activation goal projection behaviourally; the live-transcript self-check finding is
+  declared out of scope (above). PUB1 was UNVERIFIED because no acceptance followup was open
+  (the whole 507 KB contract went into each unit prompt) - fixed by commit 0f535c9.
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
@@ -99,6 +108,10 @@ those two defaults stay `medium` and no repo policy file is introduced.
 
 - SCOPE_LOCK Allowed Change Areas are matched as read at activation time, unbound to the
   unit (checker c3 minor 2); the goal text is the primary input.
+- The recorded live-benchmark transcript (run 20260923T110238Z-e468a267) contains the
+  model's own contract self-check that declared the PRD user-story requirement met with 4
+  stories; the benchmark verifier pins hashes and does not re-judge that content. Noted by
+  the PUB2 reviewer; out of this unit's scope (BACKLOG P3 2026-09-23).
 - Forced `high` has no CLI escape hatch; the owner edits the policy file to change a class.
 - Matching is lexical; a goal text that hides its money/auth nature is not detected - the
   reviewer contour on high units remains the backstop, this is a floor, not a classifier.
