@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "G-001",
-    "goal": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а репозиторий методологии остаётся на встроенном medium (файл .itd/COMPLETION_POLICY.json в нём не заводится, дефолт живёт в hooks/completion-gate.sh и docs/templates/itd/itd_hygiene.py); skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый объект strictClasses ровно с пятью классами (money, prod-config, db-schema, auth, secrets), каждый с keywords/paths и tier=high, и itd_unit_log activate принудительно ставит high при совпадении, печатая класс и совпавший паттерн и записывая совпадение в STATE (riskTierMatch; riskTierForced - когда тир поднят); ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
-    "status": "verified",
-    "startedAt": "2026-09-22T19:37:34Z",
+    "id": "G-002",
+    "goal": "hooks/pre-flight-check.sh на первом промпте сессии печатает полный дамп и пишет sentinel (по образцу session-open-diagnostic.sh); на последующих промптах той же сессии вывод <=1024 байт и содержит только дельту: новые коммиты с прошлого промпта и предупреждение о параллельной сессии, если оно появилось; при отсутствии дельты вывод пустой; MEMORY.md индекса памяти проекта <=24400 байт и ни одна строка не длиннее 200 символов; tests/verify_preflight_budget.py RED на дофиксовых байтах и GREEN после.",
+    "status": "in_progress",
+    "startedAt": "2026-09-23T16:29:37Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-23T13:29:03Z"
+    "riskTier": "low"
   },
   "gateResults": {
     "acceptanceContract": "pending",

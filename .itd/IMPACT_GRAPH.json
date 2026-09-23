@@ -284,6 +284,7 @@
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_platform_tmp_and_new_hooks.py",
+      "tests/verify_preflight_budget.py",
       "tests/verify_review_broker_deployment.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_tool_trust_inventory.py"
@@ -925,6 +926,7 @@
       "tests/verify_host_neutral_memory.py",
       "tests/verify_init_contracts.py",
       "tests/verify_operational_continuation.py",
+      "tests/verify_preflight_budget.py",
       "tests/verify_state_hardening.py",
       "tests/verify_v147_fixes.py"
     ],
@@ -1260,6 +1262,7 @@
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_practical_effectiveness.py",
+      "tests/verify_preflight_budget.py",
       "tests/verify_review_enumeration.py",
       "tests/verify_risk_tier_default.py"
     ],
@@ -1792,6 +1795,7 @@
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_continuation.py",
+      "tests/verify_preflight_budget.py",
       "tests/verify_quick_regression.py",
       "tests/verify_review_broker_deployment.py",
       "tests/verify_review_evidence.py",

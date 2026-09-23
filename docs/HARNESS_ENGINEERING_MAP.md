@@ -188,7 +188,7 @@ Claude Code и Codex. Документ не заявляет поддержку 
 | `model-policy.sh` | PreToolUse (Task\|Agent) | feedforward | computational | weaker-model override даёт advisory; явный `effort=low` вне bounded low/medium mechanical `working_deadline` требует native ASK. Protected review/security/root-cause/architecture floors и evidence contours не понижаются незаметно; hard deny не добавляется |
 | `check-skills.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит skill-hint; маршрут выбирает модель |
 | `context-aware.sh` | UserPromptSubmit | feedforward | inferential | soft — инжектит проектный контекст |
-| `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume |
+| `pre-flight-check.sh` | UserPromptSubmit | feedforward | inferential | soft — git-статус + `MEMORY.md` в контекст для resume; полный дамп один раз на сессию/репо, далее только дельта <= 1 КБ (G-002) |
 | `session-open-diagnostic.sh` | UserPromptSubmit | feedforward | inferential | soft — диагностика состояния на старте сессии |
 | `context-budget.sh` | PreToolUse | feedforward | inferential | soft — мягко рекомендует ограничить unbounded-вывод |
 | `cost-tracker.sh` | PreToolUse + PostToolUse | feedforward + feedback | computational | **blocking** — PreToolUse `deny` только следующей дорогой попытки у estimate ceiling; PostToolUse observed/estimated usage ledger остаётся soft |

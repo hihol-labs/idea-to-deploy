@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.105.0 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - G-002 CONTEXT-BUDGET-1: pre-flight контекст <= 1 КБ на промпт
+
+- `hooks/pre-flight-check.sh`: полный дамп (git, ITD state, drift, индекс памяти) теперь
+  печатается ОДИН раз на сессию и репозиторий (state-файл в temp dir по session id +
+  репо); последующие промпты получают только дельту - новые коммиты с прошлого промпта и
+  предупреждение о параллельной сессии, если lock появился или продвинулся - не больше
+  1024 байт; без дельты хук молчит. Нечитаемый state-файл -> полный дамп (fail-open в
+  сторону контекста).
+- Оракул `tests/verify_preflight_budget.py` (реальный хук subprocess'ом, RED-first, 3
+  летальные мутации), регистрация в `tests/run-all.sh`; бюджет host-индекса памяти
+  (<= 24 400 байт, строки <= 200 символов) проверяется там, где индекс есть.
+
 ### Changed - G-001 RISK-TIER-1: пропорциональность становится дефолтом (ADR-011)
 
 - `docs/templates/itd/COMPLETION_POLICY.json`: `defaultRiskTier` medium -> **low** для
