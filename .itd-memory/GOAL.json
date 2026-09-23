@@ -3,7 +3,7 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-23T11:28:47Z",
+  "updatedAt": "2026-09-23T12:53:17Z",
   "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
@@ -18,15 +18,15 @@
       "criterion": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а репозиторий методологии остаётся на встроенном medium (файл .itd/COMPLETION_POLICY.json в нём не заводится, дефолт живёт в hooks/completion-gate.sh и docs/templates/itd/itd_hygiene.py); skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый объект strictClasses ровно с пятью классами (money, prod-config, db-schema, auth, secrets), каждый с keywords/paths и tier=high, и itd_unit_log activate принудительно ставит high при совпадении, печатая класс и совпавший паттерн и записывая совпадение в STATE (riskTierMatch; riskTierForced - когда тир поднят); ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
       "status": "verified",
-      "verifiedAt": "2026-09-23T11:07:49Z",
+      "verifiedAt": "2026-09-23T12:53:17Z",
       "evidence": "exit 0: PASSED: 0 failed",
       "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-001/G-001-adjudication-a3-ch.json",
-        "sha256": "7a97a38ae0fbe1d3f7a480608177a27b1d654f63d244600c17ed9c9d97be5a37",
-        "receiptSha256": "e9271902d3332e3f44ab1f8399873896b5e3bf3b44ecbd03b506a98bd79b31ff",
+        "path": ".itd-memory/verification-loop/receipts/G-001/G-001-adjudication-a9-ch.json",
+        "sha256": "5c1036fafff29f6c5cf112d122c21c0ff77f3000b35ed36c63a625bfdac388b7",
+        "receiptSha256": "ce4a03814f6844fadd3d36aaded09c3c008a81483c10263ede856417f319cd3b",
         "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-001/G-001-machine-m10-ch.json",
-        "machineSha256": "332f4bfa41c2b5a6d050a9cbb2e8ee537f906683dff1347011cc438b92a9c825"
+        "machinePath": ".itd-memory/verification-loop/receipts/G-001/G-001-machine-m23-ch.json",
+        "machineSha256": "83cbacbcc18a8cdec378b798bc0df70a6466fcdbb6272740cf783bd8d2d39891"
       }
     },
     {

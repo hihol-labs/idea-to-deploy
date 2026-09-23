@@ -121,6 +121,15 @@ those two defaults stay `medium` and no repo policy file is introduced.
   string contains a backtick (a line starting with inline ```code```) opened a fence and hid
   every later heading (pre-existing, same family as PUB4 F3) -> such a line is not a fence
   opener (CommonMark); a `~~~` info string may still contain backticks; both pinned.
+- Checker round c18 (PASSED, tree 1c2428cb, commit 027759d). Ledger-close 2 (this candidate):
+  the verified receipt of G-001 re-anchored by the harness (`--recheck --candidate-mode
+  committed-head`, receipt `G-001-adjudication-a9-ch.json` over 027759d, event
+  2026-09-23T12:53:17Z) - PUB4 F1; `.itd/ACCEPTANCE_CONTRACT.json` G-001 criteria evidence
+  refreshed to the final route - PUB4 F2; DECISIONS records the re-anchor rule. Checker c19
+  (PASSED_WITH_WARNINGS, tree af07ecde): the ledger evidence now says "no manual status or
+  receipt transition" and names the two documented manual text edits (criterion 5f5db74,
+  STATE mirror ef7d368); the DECISIONS commit count corrected (ef7d368 is four commits after
+  8f843d3, two semantic).
 - `.itd/IMPACT_GRAPH.json` regeneration (`tests/build_impact_graph.py`) so the new suite
   and module are attached.
 - Frozen-digest cascade, mechanical only (no semantic change to either policy):
