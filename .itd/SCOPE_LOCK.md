@@ -93,3 +93,6 @@ every line <= 200 characters).
   commit): GOAL/STATE/events by the harness, acceptance followup G-002 with two
   evidence-first criteria (oracleIds = machine run ids preflight-budget / meta-review /
   ledger-state), this file.
+- Publication round PUB1 (producer UNVERIFIED before any review): the followup's
+  reviewPolicy carried minimumIndependentReviewers=1 copied from the medium unit; a low
+  review requires zero independent reviewers - set to 0 (ledger-only commit).

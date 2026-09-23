@@ -4099,7 +4099,7 @@
         "correctness",
         "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 1,
+      "minimumIndependentReviewers": 0,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     }
