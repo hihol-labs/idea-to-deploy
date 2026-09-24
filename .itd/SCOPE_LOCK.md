@@ -7,8 +7,9 @@ Unit `G-003` (medium) is `verified` in `.itd-memory/GOAL.json` (harness activati
 committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`, re-bound by
 `--recheck` 13:00:54Z to committed-head receipt `G-003-adjudication-a8-ch.json` over
 commit `abea0d4` (PUB1b fixes) and 13:38:53Z to `G-003-adjudication-a11-ch.json` over
-commit `81e9317` (STATE-only redesign after PUB2); goal PROPORTIONALITY-DEFAULT, 3/5
-verified); the criterion and the
+commit `81e9317` (STATE-only redesign after PUB2) and 16:25:49Z to
+`G-003-adjudication-a14-ch.json` over commit `f089716` (PUB3/c15/c16 fixes); goal
+PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-003-hooks-tier-exit` over main `8d192dd`. Review claim ids: `G-003`,
 `G-003:general-review`. Risk tier `medium` (sealed at decomposition): targeted
@@ -174,3 +175,5 @@ would remove the grace window and increase friction).
   does not prove. The recurring class (docs lag the code after each fix) is removed at the
   source: CHANGELOG and the criterion carry no mutation counts and no claim beyond the
   oracle; the evidence is brought up to this round.
+- c17 PASSED on `6e0fa0e7` -> commit `f089716`; harness `--recheck` re-bound G-003 (a14-ch,
+  oracle 99/0).
