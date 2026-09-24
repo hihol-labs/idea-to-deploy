@@ -217,7 +217,9 @@ h_unchanged=0
 # Sync executable hooks (*.sh) AND their Python libraries (*.py, e.g.
 # completion_lib.py imported by the completion-* hooks) — a lib left unsynced
 # makes its hooks silently no-op on a fresh machine (import fails, fail-safe).
-for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
+# TIER_EXEMPT.json is the data file tier_exempt.py reads (G-003); without it the
+# advisory hooks never go quiet on a low-risk unit.
+for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hooks/TIER_EXEMPT.json; do
   [ -e "$src_hook" ] || continue
   name="$(basename "$src_hook")"
   dst="$ACTIVE/hooks/$name"
@@ -227,7 +229,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
       printf "  + would add   %s\n" "$name"
     else
       cp "$src_hook" "$dst"
-      chmod +x "$dst"
+      case "$name" in *.json) ;; *) chmod +x "$dst" ;; esac
       printf "  + added       %s\n" "$name"
     fi
     h_added=$((h_added + 1))
@@ -243,7 +245,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
     printf "  ~ would sync  %s (content drift)\n" "$name"
   else
     cp "$src_hook" "$dst"
-    chmod +x "$dst"
+    case "$name" in *.json) ;; *) chmod +x "$dst" ;; esac
     printf "  ~ updated     %s\n" "$name"
   fi
   h_updated=$((h_updated + 1))

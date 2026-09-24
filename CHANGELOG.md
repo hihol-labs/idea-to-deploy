@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.105.0 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - G-003 HOOKS-TIER-EXIT-1: advisory-хуки молчат на low-юните
+
+- `hooks/TIER_EXEMPT.json` (новый) перечисляет ровно четыре advisory-хука -
+  `context-aware`, `context-budget`, `stuck-detection`, `handoff-readiness`; при
+  `riskTier=low` АКТИВНОГО юнита (status `in_progress`/`verifying`) каждый выходит сразу
+  после чтения payload: exit 0, без вывода, без записи state. Закрытый юнит (verified,
+  оставленный харнесом в `currentUnit`) не глушит ничего. Проект берётся только из `cwd`
+  payload'а (без фоллбэка на `CLAUDE_PROJECT_DIR`/cwd процесса): хук без `cwd` или вне
+  ITD-проекта не молчит никогда. Хелпер `hooks/tier_exempt.py` берёт тир только явно (STATE
+  `currentUnit.riskTier`, затем юнит `GOAL.currentUnitId`), без фоллбэка на дефолт
+  политики; любая ошибка - хук работает как раньше. Гейты, enforcement-хуки, поставщики
+  evidence и `check-skills` (пишет sentinel для hard gate `check-tool-skill`) в список
+  не входят.
+- `scripts/sync-to-active.sh` ставит `hooks/TIER_EXEMPT.json` вместе с хуками.
+- Оракул `tests/verify_hook_tier_exit.py`: medium/high/без тира - вывод и exit байт в
+  байт как у дофиксовых байтов (`tests/fixtures/hook_tier_exit/*.prefix.txt`, пин
+  sha256 + сверка с git); low - тишина и ни одной записи (и через фоллбэк на GOAL),
+  закрытый low-юнит, чужой/отсутствующий `cwd`, неактивная цель и расхождение
+  STATE/GOAL - вывод как до фикса; RED-first, 8/8 летальных мутаций.
+
 ### Changed - G-002 CONTEXT-BUDGET-1: pre-flight контекст <= 1 КБ на промпт
 
 - `hooks/pre-flight-check.sh`: полный дамп (git, ITD state, drift, индекс памяти) теперь

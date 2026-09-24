@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "description": "Advisory hooks allowed to exit early (exit 0, no output, no state write) when the active unit's riskTier is exactly low. Gates, enforcement hooks, evidence producers and session-context hooks are never listed (tests/verify_hook_tier_exit.py). G-003, ADR-011.",
+  "exemptTier": "low",
+  "hooks": [
+    {"script": "context-aware.sh", "reason": "long-session hint only; no deny, no evidence read by any gate"},
+    {"script": "context-budget.sh", "reason": "soft reminder about unbounded output; never blocks"},
+    {"script": "stuck-detection.sh", "reason": "repeat-pattern hint only; its window state is read by nothing else"},
+    {"script": "handoff-readiness.sh", "reason": "Stop-time /session-save reminder; systemMessage only, never a deny"}
+  ]
+}

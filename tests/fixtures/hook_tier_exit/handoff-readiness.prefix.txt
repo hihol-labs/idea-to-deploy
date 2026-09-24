@@ -163,15 +163,6 @@ def latest_session_age_min(mem_dir: Path | None) -> float | None:
         return None
 
 
-def tier_exempt(payload: object) -> bool:
-    """G-003: silent on a low-risk unit (hooks/TIER_EXEMPT.json); False if unavailable."""
-    try:
-        from tier_exempt import exempt
-    except Exception:
-        return False
-    return exempt("handoff-readiness.sh", payload)
-
-
 def main() -> int:
     if os.environ.get("ITD_HANDOFF_READINESS", "1") == "0":
         return 0
@@ -180,8 +171,6 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except Exception:
         payload = {}
-    if tier_exempt(payload):
-        return 0
 
     # Safety: if a Stop hook is already steering the turn, stay silent.
     if payload.get("stop_hook_active"):

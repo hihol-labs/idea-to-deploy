@@ -3,8 +3,8 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-23T19:03:30Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-23T19:54:45Z",
+  "currentUnitId": "G-003",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
     "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
@@ -53,7 +53,7 @@
       "riskTier": "medium",
       "criterion": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "G-004",

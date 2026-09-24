@@ -58,22 +58,11 @@ def write_state(state: dict) -> None:
         pass
 
 
-def tier_exempt(payload: object) -> bool:
-    """G-003: silent on a low-risk unit (hooks/TIER_EXEMPT.json); False if unavailable."""
-    try:
-        from tier_exempt import exempt
-    except Exception:
-        return False
-    return exempt("context-aware.sh", payload)
-
-
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        json.load(sys.stdin)  # consume stdin
     except Exception:
-        payload = {}
-    if tier_exempt(payload):
-        return 0
+        pass
 
     state = read_state()
     state["count"] = state.get("count", 0) + 1
