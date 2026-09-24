@@ -177,3 +177,11 @@ would remove the grace window and increase friction).
   oracle; the evidence is brought up to this round.
 - c17 PASSED on `6e0fa0e7` -> commit `f089716`; harness `--recheck` re-bound G-003 (a14-ch,
   oracle 99/0).
+- PUB4 (gpt-5.6-sol) BLOCKED on `4c9fbe7`: (important) the oracle did not prove that a valid
+  but conflicting GOAL leaves an active low STATE unit exempt - a GOAL-veto implementation
+  passed every case (new mutation: SURVIVED on the 4c9fbe7 oracle); (important) the
+  acceptance `source` called GOAL.json the sole source of a criterion that states more;
+  (minor) the TIER_EXEMPT.json description excluded "session-context" hooks while listing
+  context-aware. Fixed: oracle variants statelow-goalother / -goalinactive / -goalmedium
+  (silent, no write) make the mutation lethal; the source says the criterion refines the
+  GOAL criterion by what the oracle checks; the description names the session-start hooks.

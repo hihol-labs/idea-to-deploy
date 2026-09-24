@@ -19,8 +19,9 @@ unit's riskTier is `low`. This oracle checks, on real subprocess runs of each li
   active, nor when only GOAL names the low unit, nor when STATE.currentUnit is not an
   object (a string or a list), nor when STATE exists but cannot be read or parsed (including a dangling
   symlink), nor for a noncanonical tier such as "LOW" - all byte-identical to pre-fix;
-- STATE's active low unit decides alone: GOAL is never consulted (an unparsable GOAL
-  changes nothing) and the hook stays silent;
+- STATE's active low unit decides alone: GOAL is never consulted - neither an unparsable
+  GOAL nor a valid GOAL that names another unit, is not active, or gives the unit another
+  tier changes anything - and the hook stays silent;
 - "byte-identical" covers exit code, stdout and stderr of every step plus the set of files
   and directories whose content or mtime changed (a file created and removed again, or
   rewritten with the same bytes, still counts as touched);
@@ -58,7 +59,8 @@ PREFIX_SHA256 = {
     "handoff-readiness.sh": "b4cb6aaf7632cc76e60ebe78364f412986027fe5d6d75c79b49b9200766dea63",
     "stuck-detection.sh": "84526f255c6a4e8b4f70ccc046005199852243b983544be276b1e991038e5135",
 }
-# Gates, enforcement hooks, evidence producers and session-context hooks: never exempt.
+# Gates, enforcement hooks, evidence producers and the session-start context hooks
+# (pre-flight-check, session-open-diagnostic): never exempt.
 FORBIDDEN = {
     "state-guard.sh", "pii-egress-guard.sh", "completion-gate.sh", "check-review-before-commit.sh",
     "completion-signals.sh", "completion-stop.sh", "check-skills.sh", "check-tool-skill.sh",
@@ -140,6 +142,19 @@ def build_env(root: Path, hook: str, tier: str | None, variant: str = "state") -
                 "units": [dict(unit, criterion="c", verificationCommand="true")]}
         (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
     (proj / ".itd-memory" / "STATE.json").write_text(json.dumps(state), encoding="utf-8")
+    if variant in ("statelow-goalother", "statelow-goalinactive", "statelow-goalmedium"):
+        # STATE holds the active low unit; GOAL is valid JSON that disagrees with it
+        goal = {"version": 1, "status": "active", "currentUnitId": "U-1",
+                "units": [dict(unit, criterion="c", verificationCommand="true")]}
+        if variant == "statelow-goalother":
+            goal["currentUnitId"] = "U-2"
+            goal["units"].append(dict(unit, id="U-2", riskTier="medium", criterion="c",
+                                      verificationCommand="true"))
+        elif variant == "statelow-goalinactive":
+            goal["status"] = "abandoned"
+        else:
+            goal["units"][0]["riskTier"] = "medium"
+        (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
     if variant in ("dangling", "statelow-badgoal"):
         goal_path = proj / ".itd-memory" / "GOAL.json"
         if variant == "dangling":
@@ -280,10 +295,12 @@ def suite(hooks_dir: Path) -> list[str]:
                   f"steps {steps!r}"[:300])
             changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
             check(f"low-no-write:{hook}", not changed, f"changed {changed}")
-            steps, before, after = run(cand, hook, root, "low", "statelow-badgoal")
-            check(f"statelow-badgoal-silent:{hook}",
-                  all(rc == 0 and out == "" and err == "" for rc, out, err in steps) and before == after,
-                  f"steps {steps!r}"[:300])
+            for variant in ("statelow-badgoal", "statelow-goalother", "statelow-goalinactive",
+                            "statelow-goalmedium"):
+                steps, before, after = run(cand, hook, root, "low", variant)
+                check(f"{variant}-silent:{hook}",
+                      all(rc == 0 and out == "" and err == "" for rc, out, err in steps)
+                      and before == after, f"steps {steps!r}"[:300])
             want = behaviour(prefix_script(hook), hook, root, "low", "verified")
             got = behaviour(cand, hook, root, "low", "verified")
             check(f"closed-unit-not-exempt:{hook}", got == want,
@@ -321,6 +338,14 @@ MUTATIONS = [
      "goal = _read(memory / \"GOAL.json\") or {}\n        return next((u.get(\"riskTier\") "
      "for u in goal.get(\"units\") or [] if isinstance(u, dict) and "
      "u.get(\"id\") == goal.get(\"currentUnitId\")), None)  # no active STATE unit"),
+    ("a valid conflicting GOAL vetoes the STATE exemption", "tier_exempt.py",
+     'return unit["riskTier"]  # exact JSON value',
+     'goal = _read(memory / "GOAL.json") or {}\n'
+     '    if goal and (goal.get("status") != "active" or goal.get("currentUnitId") != unit.get("id")\n'
+     '            or any(isinstance(u, dict) and u.get("id") == unit.get("id") and u.get("riskTier") != "low"\n'
+     '                   for u in goal.get("units") or [])):\n'
+     '        return None\n'
+     '    return unit["riskTier"]  # exact JSON value'),
     ("tier compared case-insensitively", "tier_exempt.py",
      'return unit["riskTier"]  # exact JSON value', 'return str(unit["riskTier"]).lower()  # exact JSON value'),
     ("duplicate list entry accepted", "TIER_EXEMPT.json",
