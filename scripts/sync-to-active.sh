@@ -217,7 +217,9 @@ h_unchanged=0
 # Sync executable hooks (*.sh) AND their Python libraries (*.py, e.g.
 # completion_lib.py imported by the completion-* hooks) — a lib left unsynced
 # makes its hooks silently no-op on a fresh machine (import fails, fail-safe).
-for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
+# TIER_EXEMPT.json is the data file tier_exempt.py reads (G-003); without it the
+# advisory hooks never go quiet on a low-risk unit.
+for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hooks/TIER_EXEMPT.json; do
   [ -e "$src_hook" ] || continue
   name="$(basename "$src_hook")"
   dst="$ACTIVE/hooks/$name"
@@ -227,7 +229,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
       printf "  + would add   %s\n" "$name"
     else
       cp "$src_hook" "$dst"
-      chmod +x "$dst"
+      case "$name" in *.json) chmod 644 "$dst" ;; *) chmod +x "$dst" ;; esac
       printf "  + added       %s\n" "$name"
     fi
     h_added=$((h_added + 1))
@@ -235,6 +237,19 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
   fi
 
   if cmp -s "$src_hook" "$dst"; then
+    # a data file converges to non-executable even when its bytes did not change;
+    # the mode drift is reported, so --check shows what a real run would do
+    case "$name" in *.json)
+      # any mode other than 644 is drift (find -perm is POSIX; stat flags are not)
+      if [ -n "$(find "$dst" -prune ! -perm 644 2>/dev/null)" ]; then
+        if [ "$DRY_RUN" = "1" ]; then
+          printf "  ~ would chmod %s (mode drift -> 644)\n" "$name"
+        else
+          printf "  ~ chmod       %s (mode drift -> 644)\n" "$name"
+        fi
+      fi
+      [ "$DRY_RUN" = "1" ] || chmod 644 "$dst" ;;
+    esac
     h_unchanged=$((h_unchanged + 1))
     continue
   fi
@@ -243,7 +258,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py; do
     printf "  ~ would sync  %s (content drift)\n" "$name"
   else
     cp "$src_hook" "$dst"
-    chmod +x "$dst"
+    case "$name" in *.json) chmod 644 "$dst" ;; *) chmod +x "$dst" ;; esac
     printf "  ~ updated     %s\n" "$name"
   fi
   h_updated=$((h_updated + 1))

@@ -35,22 +35,11 @@ RISKY = [
 ]
 
 
-def tier_exempt(payload: object) -> bool:
-    """G-003: silent on a low-risk unit (hooks/TIER_EXEMPT.json); False if unavailable."""
-    try:
-        from tier_exempt import exempt
-    except Exception:
-        return False
-    return exempt("context-budget.sh", payload)
-
-
 def main() -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except Exception:
         return 0  # bad/empty payload — stay silent, never break the session
-    if tier_exempt(payload):
-        return 0
 
     command = (payload.get("tool_input") or {}).get("command", "")
     if not command or BOUNDED.search(command):

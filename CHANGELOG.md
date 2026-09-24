@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.105.0 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - G-003 HOOKS-TIER-EXIT-1: advisory-хуки молчат на low-юните
+
+- `hooks/TIER_EXEMPT.json` (новый) перечисляет ровно четыре advisory-хука -
+  `context-aware`, `context-budget`, `stuck-detection`, `handoff-readiness`; при
+  `riskTier=low` АКТИВНОГО юнита (status `in_progress`/`verifying`) каждый выходит сразу
+  после чтения payload: exit 0, без вывода, без записи state. Закрытый юнит (verified,
+  оставленный харнесом в `currentUnit`) не глушит ничего. Проект берётся только из `cwd`
+  payload'а (без фоллбэка на `CLAUDE_PROJECT_DIR`/cwd процесса): хук без `cwd` или вне
+  ITD-проекта не молчит никогда. Хелпер `hooks/tier_exempt.py` берёт тир ТОЛЬКО из
+  `.itd-memory/STATE.json`: `currentUnit` - объект с активным статусом и `riskTier`,
+  равным JSON-строке `"low"`; `GOAL.json` не читается вовсе (харнес цели и писатель юнита
+  проецируют активный юнит с тиром в STATE). Отсутствующий, нечитаемый (включая битый
+  симлинк) STATE, `currentUnit` не-объект, юнит без тира, тир `"LOW"` - хук работает как
+  раньше; фоллбэка на дефолт политики нет. `context-aware` определяет temp-каталог
+  лениво: `tempfile.gettempdir()` пишет пробный файл и раньше срабатывал до проверки тира. Гейты, enforcement-хуки, поставщики
+  evidence и `check-skills` (пишет sentinel для hard gate `check-tool-skill`) в список
+  не входят.
+- `scripts/sync-to-active.sh` ставит `hooks/TIER_EXEMPT.json` вместе с хуками и приводит
+  его к `644` (в том числе без изменения байтов; расхождение прав видно и в `--check`).
+- Оракул `tests/verify_hook_tier_exit.py`: medium/high/без тира - вывод и exit байт в
+  байт как у дофиксовых байтов (`tests/references/hook_tier_exit/*.prefix.txt`, пин
+  sha256 + сверка с git); low - тишина и ни одной записи; закрытый low-юнит,
+  чужой/отсутствующий `cwd`, low-юнит только в GOAL, `currentUnit` строкой или списком,
+  нечитаемый STATE, тир "LOW" - вывод как до фикса; снимок файловой системы
+  учитывает mtime файлов и каталогов (создание-и-удаление и перезапись теми же байтами
+  видны); в списке ровно четыре записи без дублей; RED-first; каждая мутация оракула (`--mutations`) летальна.
+
 ### Changed - G-002 CONTEXT-BUDGET-1: pre-flight контекст <= 1 КБ на промпт
 
 - `hooks/pre-flight-check.sh`: полный дамп (git, ITD state, drift, индекс памяти) теперь

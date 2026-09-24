@@ -3978,3 +3978,22 @@ GOAL/STATE/drift (их читают скиллы по месту, повтор �
 **Ограничение.** Дельта - только git-видимое состояние и lock; проектный
 `.itd-memory/MEMORY.md` (54 КБ) под тот же бюджет не подведён - BACKLOG P3.
 
+
+## 2026-09-24: ранний выход по тиру - только 4 advisory-хука, check-skills исключён (G-003)
+- Почему: context-aware / context-budget / stuck-detection / handoff-readiness ничего не блокируют и не питают гейты; check-skills пишет skill-active sentinel для hard gate check-tool-skill - его тишина убрала бы grace-окно и увеличила трение.
+- Отвергнуто: включить check-skills (самый дорогой, 204 мс) - ломает enforcement-цепочку.
+- Ограничение: экономия ~0.1-0.2 c на вызов; основной выигрыш - контекст.
+- Ссылки: hooks/TIER_EXEMPT.json, tests/verify_hook_tier_exit.py.
+
+## 2026-09-24: тир для раннего выхода - только проект из payload cwd и только активный юнит (G-003)
+- Почему: фоллбэк на CLAUDE_PROJECT_DIR/cwd процесса ставил сьюты репо под его живой STATE (c2 F1); харнес оставляет verified-юнит в currentUnit (c1). Активный = STATE status in_progress/verifying, цель status active, тот же id.
+- Отвергнуто: цепочка payload cwd -> CLAUDE_PROJECT_DIR -> getcwd; фоллбэк на defaultRiskTier (шаблон проекта = low).
+- Ограничение: хост без cwd в payload не получит тишины (безопасное направление).
+- Ссылки: hooks/tier_exempt.py, .itd-memory/verification-loop/reports/G-003-targeted-c1..c5.md.
+
+## 2026-09-24: тир для раннего выхода - только из STATE, фоллбэк на GOAL удалён (G-003)
+- Почему: pre-PR ревью PUB1b и PUB2 дважды нашли один механизм - кривой STATE (сначала нечитаемый, затем `currentUnit` не-объект) уводил в фоллбэк на GOAL и глушил хуки; по стоп-правилу повтор механизма после фикса = дефект формы, а не экземпляра. Харнес цели и `itd_unit_log` всегда пишут активный юнит с `riskTier` в STATE, так что фоллбэк практически не нужен.
+- Отвергнуто: латать очередную форму STATE (treadmill); фоллбэк по образцу `completion-gate.active_risk_tier`.
+- Ограничение: проект, где тир записан только в GOAL, не получает тишины (безопасное направление).
+- Отменяет: часть записи 2026-09-24 «тир ... только проект из payload cwd и только активный юнит» про юнит активной цели GOAL.
+- Ссылки: hooks/tier_exempt.py, .itd-memory/verification-loop/G-003-PUB2-report.md.negative-*/report.json.

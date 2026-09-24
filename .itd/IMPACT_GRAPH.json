@@ -101,6 +101,7 @@
     ".itd-memory/GOAL.json": [
       "tests/verify_efficiency_attribution.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
@@ -124,6 +125,7 @@
       "tests/verify_goal_tools.py",
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_docs_freshness.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_ledger_reconciliation.py",
@@ -321,6 +323,7 @@
     ],
     "benchmarks/harness-components/completion-stop.py": [
       "tests/verify_completion_policy_calibration.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_tool_trust_inventory.py",
       "tests/verify_verification_profiles.py"
@@ -437,7 +440,8 @@
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_bypass_friction.py",
       "tests/verify_external_write_gate.py",
-      "tests/verify_graduated_trust.py"
+      "tests/verify_graduated_trust.py",
+      "tests/verify_hook_tier_exit.py"
     ],
     "docs/HOST_ADAPTER_CONTRACT.md": [
       "tests/verify_live_model_benchmark.py"
@@ -740,8 +744,12 @@
       "tests/verify_init_contracts.py",
       "tests/verify_operational_cold_start.py"
     ],
+    "hooks/TIER_EXEMPT.json": [
+      "tests/verify_hook_tier_exit.py"
+    ],
     "hooks/careful.sh": [
       "tests/verify_hook_table_completeness.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_narration_final.py",
       "tests/verify_v147_fixes.py",
       "tests/verify_worktree_hook_safety.py"
@@ -774,6 +782,7 @@
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_redteam_multihost.py",
@@ -792,6 +801,7 @@
       "tests/verify_brownfield_and_gate.py",
       "tests/verify_commit_completeness_gate.py",
       "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_review_cache.py",
       "tests/verify_routing.py",
       "tests/verify_skill_enforcement.py",
@@ -803,6 +813,7 @@
       "tests/verify_bypass_friction.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
       "tests/verify_redteam_multihost.py",
       "tests/verify_retro_scan.py",
@@ -827,6 +838,7 @@
       "tests/verify_control_quality.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_strict_completion_policy.py",
@@ -834,10 +846,12 @@
     ],
     "hooks/completion-signals.sh": [
       "tests/verify_completion_signals_powershell.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_strict_completion_policy.py"
     ],
     "hooks/completion-stop.sh": [
       "tests/verify_completion_policy_calibration.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_verification_profiles.py"
     ],
     "hooks/completion_lib.py": [
@@ -851,10 +865,12 @@
       "tests/verify_verify_signal_and_watchdog.py"
     ],
     "hooks/context-aware.sh": [
-      "tests/verify_hook_depth.py"
+      "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py"
     ],
     "hooks/context-budget.sh": [
-      "tests/verify_hook_depth.py"
+      "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py"
     ],
     "hooks/cost-tracker.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
@@ -867,17 +883,20 @@
     ],
     "hooks/crash-recovery.sh": [
       "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_init_contracts.py",
       "tests/verify_state_hardening.py"
     ],
     "hooks/cross-review-precommit.sh": [
       "tests/verify_cross_review_precommit.py",
-      "tests/verify_feature_ledger_fallbacks.py"
+      "tests/verify_feature_ledger_fallbacks.py",
+      "tests/verify_hook_tier_exit.py"
     ],
     "hooks/execution-trace.sh": [
       "tests/verify_execution_trace_outcome.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py"
     ],
     "hooks/freeze.sh": [
@@ -885,9 +904,11 @@
       "tests/verify_gate_taxonomy.py",
       "tests/verify_hook_depth.py",
       "tests/verify_hook_table_completeness.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_registration_and_counts.py"
     ],
     "hooks/handoff-readiness.sh": [
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_platform_tmp_and_new_hooks.py"
     ],
@@ -901,6 +922,7 @@
       "tests/verify_predeploy_independent_review.py"
     ],
     "hooks/model-policy.sh": [
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
       "tests/verify_model_policy_hint.py"
     ],
@@ -917,12 +939,14 @@
       "tests/verify_external_write_gate.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_pii_egress.py"
     ],
     "hooks/pre-flight-check.sh": [
       "tests/verify_fresh_session_resume.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_init_contracts.py",
       "tests/verify_operational_continuation.py",
@@ -940,24 +964,31 @@
       "tests/verify_verify_signal_and_watchdog.py"
     ],
     "hooks/risk-score.sh": [
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_risk_score.py",
       "tests/verify_route_debts.py"
     ],
     "hooks/session-open-diagnostic.sh": [
       "tests/verify_fresh_session_resume.py",
       "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_neutral_memory.py"
     ],
     "hooks/state-guard.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_state_hardening.py"
     ],
     "hooks/stuck-detection.sh": [
-      "tests/verify_hook_depth.py"
+      "tests/verify_hook_depth.py",
+      "tests/verify_hook_tier_exit.py"
+    ],
+    "hooks/tier_exempt.py": [
+      "tests/verify_hook_tier_exit.py"
     ],
     "hooks/validate_state_core.py": [
       "tests/verify_operating_loops_release.py",
@@ -972,6 +1003,7 @@
       "tests/verify_verdict_contract.py"
     ],
     "hooks/wip-gate.sh": [
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_platform_tmp_and_new_hooks.py"
     ],
     "scripts/itd.py": [
@@ -1258,6 +1290,7 @@
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_harness_conformance.py",
       "tests/verify_harness_docs_freshness.py",
+      "tests/verify_hook_tier_exit.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",

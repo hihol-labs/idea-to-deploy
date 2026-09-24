@@ -3,7 +3,7 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-23T19:03:30Z",
+  "updatedAt": "2026-09-24T18:24:53Z",
   "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
@@ -53,7 +53,17 @@
       "riskTier": "medium",
       "criterion": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
-      "status": "pending"
+      "status": "verified",
+      "verifiedAt": "2026-09-24T18:24:53Z",
+      "evidence": "exit 0: PASSED: 0 failed, 111 passed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-003/G-003-adjudication-a17-ch.json",
+        "sha256": "a627797ea65604ef90452ffd5909882e3abced5391aeab8f4459f6687a1e0996",
+        "receiptSha256": "c71d48614332a84b9b8279609d6c7151d8102d4a5f283b6313df328fd89e9eb1",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-003/G-003-machine-m34-ch.json",
+        "machineSha256": "3f156c1576f5d0e827a251323422be08dc6fdf145d925335773d9f3269d0b4e1"
+      }
     },
     {
       "id": "G-004",

@@ -114,21 +114,10 @@ def detect_stuck(window: list[str]) -> str | None:
     return None
 
 
-def tier_exempt(payload: object) -> bool:
-    """G-003: silent on a low-risk unit (hooks/TIER_EXEMPT.json); False if unavailable."""
-    try:
-        from tier_exempt import exempt
-    except Exception:
-        return False
-    return exempt("stuck-detection.sh", payload)
-
-
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except Exception:
-        return 0
-    if tier_exempt(payload):
         return 0
 
     tool = (payload or {}).get("tool_name") or ""

@@ -118,7 +118,7 @@
 |---|---|---|---|
 | `pre-flight-check.sh` | `git rev-parse`, `git branch --show-current`, `git log --oneline -10`, `git status --short` (все с 2с timeout); чтение `MEMORY.md`, `.active-session.lock`, `plugin.json`, `session_*.md` | `/tmp/claude-cwd-history-{session_id}.json` | Нет |
 | `session-open-diagnostic.sh` | Чтение `session_*.md`, `LAUNCH_PLAN.md`, `BACKLOG.md`, `ROADMAP_v*.md`, `MEMORY.md` | `/tmp/claude-session-diag-{session_id}.done` (sentinel) | Нет |
-| `context-aware.sh` | Stdin consume только | `/tmp/claude-context-{session_id}.json` (counter state) | Нет |
+| `context-aware.sh` | Stdin (payload `cwd`); с G-003 чтение `hooks/TIER_EXEMPT.json` и `.itd-memory/STATE.json` проекта из `cwd` - на активном low-юните ранний выход без записи | `/tmp/claude-context-{session_id}.json` (counter state) | Нет |
 
 Ни один не вызывает `eval`/`os.system` с user-controlled input. Таймаут на git жёсткий. State files sandbox'ятся session_id.
 
