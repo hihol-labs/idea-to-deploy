@@ -59,7 +59,7 @@ would remove the grace window and increase friction).
 - `hooks/context-aware.sh`, `hooks/context-budget.sh`, `hooks/stuck-detection.sh`,
   `hooks/handoff-readiness.sh`
 - `scripts/sync-to-active.sh`
-- `tests/verify_hook_tier_exit.py`, `tests/fixtures/hook_tier_exit/*.prefix.txt`,
+- `tests/verify_hook_tier_exit.py`, `tests/references/hook_tier_exit/*.prefix.txt`,
   `tests/run-all.sh`
 - `.itd/IMPACT_GRAPH.json`, `CHANGELOG.md`, `docs/HARNESS_ENGINEERING_MAP.md`
 - `.itd/SCOPE_LOCK.md`, `.itd-memory/contracts/G-003.md`, `.itd/DECISIONS.md`, `BACKLOG.md`

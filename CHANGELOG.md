@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   не входят.
 - `scripts/sync-to-active.sh` ставит `hooks/TIER_EXEMPT.json` вместе с хуками.
 - Оракул `tests/verify_hook_tier_exit.py`: medium/high/без тира - вывод и exit байт в
-  байт как у дофиксовых байтов (`tests/fixtures/hook_tier_exit/*.prefix.txt`, пин
+  байт как у дофиксовых байтов (`tests/references/hook_tier_exit/*.prefix.txt`, пин
   sha256 + сверка с git); low - тишина и ни одной записи (и через фоллбэк на GOAL),
   закрытый low-юнит, чужой/отсутствующий `cwd`, неактивная цель и расхождение
   STATE/GOAL - вывод как до фикса; RED-first, 8/8 летальных мутаций.

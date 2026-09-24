@@ -20,7 +20,7 @@ unit's riskTier is `low`. This oracle checks, on real subprocess runs of each li
 - "byte-identical" covers exit code, stdout and stderr of every step plus the set of files
   the hook creates/changes/removes;
 - medium / high / no tier: the candidate hook's (exit, stdout) per step is byte-identical
-  to the pre-fix hook bytes (`tests/fixtures/hook_tier_exit/<hook>.prefix.txt`, pinned by
+  to the pre-fix hook bytes (`tests/references/hook_tier_exit/<hook>.prefix.txt`, pinned by
   sha256 and, when the base commit is reachable, re-derived from git) run on the same
   fixture in the same isolated paths - and the provocation is non-trivial (the pre-fix
   hook prints or writes something on it).
@@ -43,7 +43,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-FIXTURES = REPO / "tests" / "fixtures" / "hook_tier_exit"
+FIXTURES = REPO / "tests" / "references" / "hook_tier_exit"
 BASE_COMMIT = "8d192dd"
 APPROVED = {"context-aware.sh", "context-budget.sh", "stuck-detection.sh", "handoff-readiness.sh"}
 PREFIX_SHA256 = {
