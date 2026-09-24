@@ -4,6 +4,48 @@
 **Last reviewed:** 2026-08-10
 **Next review:** 2026-08-30
 
+## P2 — `tier_exempt` пишет байткод в установленный рантайм (2026-09-24, G-003 PUB5)
+
+Источник: pre-PR ревью PUB5 (BLOCKED, находка important), PR #307 смержен owner-маршрутом
+с этой находкой открытой. Четыре advisory-хука (`context-aware`, `context-budget`,
+`stuck-detection`, `handoff-readiness`) делают `from tier_exempt import exempt` без
+запрета байткода, поэтому импорт создаёт `hooks/__pycache__/tier_exempt.cpython-*.pyc`
+рядом с модулем. На хосте подтверждено: `~/.claude/hooks/__pycache__/tier_exempt.cpython-312.pyc`
+(2026-09-24 16:17). Следствия: путь low не «без записи», как заявляет критерий G-003;
+байткод в установленном рантайме - тот же класс, что P1 2026-09-10 «the installed runtime
+poisons its own inventory with bytecode». Оракул `tests/verify_hook_tier_exit.py`
+снимает только TMPDIR и `.itd-memory` проекта, каталог хелпера не проверяет.
+
+Готовый фикс (образец - `hooks/completion-gate.sh`, `hooks/pii-egress-guard.sh`), в каждом
+из четырёх хуков:
+
+```python
+def tier_exempt(payload: object) -> bool:
+    """G-003: silent on a low-risk unit (hooks/TIER_EXEMPT.json); False if unavailable."""
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True  # no __pycache__ next to the installed helper
+    try:
+        from tier_exempt import exempt
+    except Exception:
+        return False
+    finally:
+        sys.dont_write_bytecode = previous
+    return exempt("<hook>.sh", payload)
+```
+
+Плюс нога оракула: прогон на low БЕЗ `PYTHONDONTWRITEBYTECODE` (сейчас `build_env` в
+`tests/verify_hook_tier_exit.py` ставит его безусловно и этим маскирует запись) и снимок
+каталога хелпера (копия `hooks/` во временном дереве) до и после - новых файлов нет;
+RED на текущих байтах только при снятой переменной. При раскатке фикса удалить
+`~/.claude/hooks/__pycache__/tier_exempt.*.pyc`, а затем сам каталог `__pycache__`, если он
+опустел (`rmdir`, без `-r`). Сейчас в каталоге лежат ещё четыре старых `.pyc`
+(`check-skills`, `check-tool-skill`, `completion_lib`, `validate_state_core`, июнь-август).
+Пункт P1 2026-09-10 их не покрывает (его область - инвентарь `scripts/` и `skills/`), поэтому
+их чистка - шаг ЭТОГО пункта: удалить все четыре при той же раскатке, затем `rmdir`. Перед
+удалением проверить, что их источники не пишут байткод снова (`check-skills.sh` и
+`check-tool-skill.sh` - python-хуки; `completion_lib`, `validate_state_core` - импортируемые
+модули); источник, который пишет, чинится тем же приёмом `sys.dont_write_bytecode`.
+
 ## P2 — дефекты маршрута, вскрытые на G-003 (2026-09-24)
 
 (a) **`--recheck` на грязном рабочем дереве демотирует юнит.** `itd_goal_verify.py --recheck`
@@ -20,6 +62,16 @@
 (c) **Наблюдения чекеров G-003 (не дефекты кандидата).** Хост без `cwd` в payload не
 получает тишины advisory-хуков (безопасное направление; живой Codex-хост не проверялся);
 Allowed Change Areas SCOPE_LOCK не перечисляют ledger-файлы, которые пишет харнес.
+
+## Отложено для /retro (2026-09-24, итог G-003)
+
+Три кандидата решением владельца идут через `/retro`, не отдельными юнитами:
+
+1. **Дешёвый путь для `PASSED_WITH_WARNINGS` с одними мелкими правками документации.**
+   Сейчас маршрут не принимает этот вердикт: правки, затем свежий чекер. На G-003 это
+   дало лишние раунды чекеров (c3/c4) при находках уровня minor в тексте.
+2. **`meta_review` выходит с кодом 0 при Important-находках** - см. P2 G-003 (b).
+3. **`--recheck` на грязном рабочем дереве переводит юнит в `regressed`** - см. P2 G-003 (a).
 
 ## P3 — синк `TIER_EXEMPT.json`: непроверенные среды (2026-09-24, G-003 c16)
 
