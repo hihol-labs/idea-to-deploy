@@ -122,3 +122,19 @@ would remove the grace window and increase friction).
   path-only delta -> commit `13f9a66`. A `--recheck` on a dirty tree demoted the unit
   (regressed); the harness transitions were committed unchanged after c8 PASSED -> commit
   `3a5ce9e`, then the harness re-verified G-003 on the clean tree (a5-ch).
+- PUB1 (producer launched from inside the candidate repository) UNVERIFIED before any
+  review - the credential-bearing producer must run from the installed copy. PUB1b
+  (gpt-5.6-sol, fresh session) BLOCKED on four findings: an unreadable STATE fell back to
+  GOAL, tiers were lower-cased ("LOW" silenced), the oracle's content-only snapshot missed
+  create-then-delete and same-byte rewrites, duplicate list entries passed. Fixed with
+  RED-first (oracle variants badstate/upper, mtime-aware snapshot, list:no-duplicates;
+  RED 8 failed on the 8d82092 helper); the stricter snapshot also exposed that
+  context-aware called `tempfile.gettempdir()` (which writes a probe file) at import,
+  before the tier exit - now resolved lazily (RED 2 failed on the 8d82092 hook). Oracle
+  83/0, mutations 12/12.
+- c10 (targeted, fresh opus) PASSED_WITH_WARNINGS on tree `236e8be3`: PUB1b findings
+  confirmed closed (RED 10 failed on the 8d82092 hooks, mutations 12/12); two minor - the
+  docstring/CHANGELOG claimed any unreadable GOAL answers False although an active STATE
+  unit with a tier decides alone (wording narrowed to the actual rule, pinned by oracle
+  case statelow-badgoal), and a dangling-symlink STATE counted as absent (now unreadable;
+  oracle variant dangling, RED 4 failed on the c10 helper; 13th mutation).

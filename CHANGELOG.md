@@ -19,7 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   после чтения payload: exit 0, без вывода, без записи state. Закрытый юнит (verified,
   оставленный харнесом в `currentUnit`) не глушит ничего. Проект берётся только из `cwd`
   payload'а (без фоллбэка на `CLAUDE_PROJECT_DIR`/cwd процесса): хук без `cwd` или вне
-  ITD-проекта не молчит никогда. Хелпер `hooks/tier_exempt.py` берёт тир только явно (STATE
+  ITD-проекта не молчит никогда. STATE, который есть (включая битый симлинк), но не
+  читается или не парсится, ничего не глушит, и перехода к GOAL при этом нет; GOAL
+  читается только как фоллбэк (нет юнита в STATE или у активного юнита нет тира), и битый
+  GOAL тогда тоже ничего не глушит; активный юнит STATE с тиром решает сам; тир сравнивается строго с
+  JSON-строкой `"low"`. `context-aware` определяет temp-каталог лениво:
+  `tempfile.gettempdir()` пишет пробный файл и раньше срабатывал до проверки тира. Хелпер `hooks/tier_exempt.py` берёт тир только явно (STATE
   `currentUnit.riskTier`, затем юнит `GOAL.currentUnitId`), без фоллбэка на дефолт
   политики; любая ошибка - хук работает как раньше. Гейты, enforcement-хуки, поставщики
   evidence и `check-skills` (пишет sentinel для hard gate `check-tool-skill`) в список
@@ -29,7 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   байт как у дофиксовых байтов (`tests/references/hook_tier_exit/*.prefix.txt`, пин
   sha256 + сверка с git); low - тишина и ни одной записи (и через фоллбэк на GOAL),
   закрытый low-юнит, чужой/отсутствующий `cwd`, неактивная цель и расхождение
-  STATE/GOAL - вывод как до фикса; RED-first, 8/8 летальных мутаций.
+  STATE/GOAL, нечитаемый STATE, тир "LOW" - вывод как до фикса; снимок файловой системы
+  учитывает mtime файлов и каталогов (создание-и-удаление и перезапись теми же байтами
+  видны); в списке ровно четыре записи без дублей; RED-first, 13/13 летальных мутаций.
 
 ### Changed - G-002 CONTEXT-BUDGET-1: pre-flight контекст <= 1 КБ на промпт
 

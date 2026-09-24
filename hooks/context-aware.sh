@@ -23,7 +23,6 @@ import tempfile
 import time
 
 # Session tool call counter file (platform temp: /tmp on Unix, %TEMP% on Windows)
-COUNTER_DIR = tempfile.gettempdir()
 TOOL_CALL_THRESHOLD = 40  # Suggest fresh context after this many calls
 WARNING_INTERVAL_SEC = 300  # Don't warn more than once per 5 min
 
@@ -39,7 +38,9 @@ def session_id() -> str:
 
 
 def counter_file() -> str:
-    return os.path.join(COUNTER_DIR, f"claude-context-{session_id()}.json")
+    # gettempdir() probes the directory with a temporary file, so it is resolved only
+    # when the counter is needed - never before the G-003 tier exit.
+    return os.path.join(tempfile.gettempdir(), f"claude-context-{session_id()}.json")
 
 
 def read_state() -> dict:

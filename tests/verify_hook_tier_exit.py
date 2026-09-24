@@ -16,9 +16,14 @@ unit's riskTier is `low`. This oracle checks, on real subprocess runs of each li
   payload `cwd` outside any ITD project while CLAUDE_PROJECT_DIR and the process cwd point
   at the low project (how the repository's own suites drive hooks); nor when STATE and GOAL
   name different units (or STATE's active unit has no id), nor when the goal is not
-  active - all byte-identical to pre-fix;
+  active, nor when STATE exists but cannot be read or parsed (including a dangling
+  symlink), nor for a noncanonical tier such as "LOW" - all byte-identical to pre-fix;
+- STATE's active low unit decides alone: an unparsable GOAL is then never consulted and
+  the hook stays silent (the documented rule);
 - "byte-identical" covers exit code, stdout and stderr of every step plus the set of files
-  the hook creates/changes/removes;
+  and directories whose content or mtime changed (a file created and removed again, or
+  rewritten with the same bytes, still counts as touched);
+- the list holds exactly four entries, no duplicates;
 - medium / high / no tier: the candidate hook's (exit, stdout) per step is byte-identical
   to the pre-fix hook bytes (`tests/references/hook_tier_exit/<hook>.prefix.txt`, pinned by
   sha256 and, when the base commit is reachable, re-derived from git) run on the same
@@ -107,6 +112,9 @@ def build_env(root: Path, hook: str, tier: str | None, variant: str = "state") -
         goal = {"version": 1, "status": "active", "currentUnitId": "U-2",
                 "units": [dict(unit, id="U-2", criterion="c", verificationCommand="true")]}
         (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
+    if variant == "upper":
+        unit["riskTier"] = str(tier).upper()  # noncanonical spelling is not "low"
+        state = {"version": 1, "currentUnit": unit}
     if variant == "noid":
         # STATE's active unit carries neither id nor tier: GOAL cannot be tied to it
         state = {"version": 1, "currentUnit": {"status": "in_progress"}}
@@ -125,6 +133,24 @@ def build_env(root: Path, hook: str, tier: str | None, variant: str = "state") -
                 "units": [dict(unit, criterion="c", verificationCommand="true")]}
         (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
     (proj / ".itd-memory" / "STATE.json").write_text(json.dumps(state), encoding="utf-8")
+    if variant in ("dangling", "statelow-badgoal"):
+        goal_path = proj / ".itd-memory" / "GOAL.json"
+        if variant == "dangling":
+            # STATE.json is a dangling symlink: it exists as an entry but cannot be read
+            (proj / ".itd-memory" / "STATE.json").unlink()
+            (proj / ".itd-memory" / "STATE.json").symlink_to(root / "missing-state.json")
+            goal = {"version": 1, "status": "active", "currentUnitId": "U-1",
+                    "units": [dict(unit, criterion="c", verificationCommand="true")]}
+            goal_path.write_text(json.dumps(goal), encoding="utf-8")
+        else:
+            # STATE's active low unit decides alone; an unparsable GOAL is never consulted
+            goal_path.write_text("{not json", encoding="utf-8")
+    if variant == "badstate":
+        # STATE exists but cannot be parsed; GOAL names an active low unit
+        goal = {"version": 1, "status": "active", "currentUnitId": "U-1",
+                "units": [dict(unit, criterion="c", verificationCommand="true")]}
+        (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
+        (proj / ".itd-memory" / "STATE.json").write_text("{not json", encoding="utf-8")
     subprocess.run(["git", "init", "-q", str(proj)], check=True, capture_output=True)
     (proj / "work.txt").write_text("uncommitted\n", encoding="utf-8")
     if hook == "context-aware.sh":
@@ -139,10 +165,22 @@ def build_env(root: Path, hook: str, tier: str | None, variant: str = "state") -
 
 
 def snapshot(root: Path) -> dict:
+    """path -> (sha256 or None, mtime_ns) for every file AND directory under root.
+
+    Directory mtimes expose a file that was created and removed again; file mtimes expose
+    a rewrite with identical bytes - both invisible to a content-only snapshot."""
     out = {}
-    for p in sorted(root.rglob("*")):
-        if p.is_file() and ".git" not in p.relative_to(root).parts:
-            out[str(p.relative_to(root))] = hashlib.sha256(p.read_bytes()).hexdigest()
+    for p in sorted([root, *root.rglob("*")]):
+        rel = p.relative_to(root)
+        if ".git" in rel.parts:
+            continue
+        st = p.lstat()
+        if p.is_symlink():
+            out[str(rel)] = ("->" + os.readlink(p), st.st_mtime_ns)
+        elif p.is_dir():
+            out[str(rel) + "/"] = (None, st.st_mtime_ns)
+        elif p.is_file():
+            out[str(rel)] = (hashlib.sha256(p.read_bytes()).hexdigest(), st.st_mtime_ns)
     return out
 
 
@@ -205,6 +243,9 @@ def check_list(hooks_dir: Path) -> set[str]:
     check("list:no-hardgate", not (names & hard), f"hard gates listed: {sorted(names & hard)}")
     check("list:no-forbidden", not (names & FORBIDDEN), f"forbidden listed: {sorted(names & FORBIDDEN)}")
     check("list:exact", names == APPROVED, f"got {sorted(names)}")
+    listed_scripts = [str(e.get("script")) for e in entries if isinstance(e, dict)]
+    check("list:no-duplicates", len(entries) == len(APPROVED) == len(set(listed_scripts)),
+          f"entries {listed_scripts}")
     return names
 
 
@@ -232,6 +273,10 @@ def suite(hooks_dir: Path) -> list[str]:
                   f"steps {steps!r}"[:300])
             changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
             check(f"low-no-write:{hook}", not changed, f"changed {changed}")
+            steps, before, after = run(cand, hook, root, "low", "statelow-badgoal")
+            check(f"statelow-badgoal-silent:{hook}",
+                  all(rc == 0 and out == "" for rc, out, _ in steps) and before == after,
+                  f"steps {steps!r}"[:300])
             steps, before, after = run(cand, hook, root, "low", "goal")
             check(f"goal-fallback-silent:{hook}",
                   all(rc == 0 and out == "" for rc, out, _ in steps) and before == after,
@@ -244,7 +289,8 @@ def suite(hooks_dir: Path) -> list[str]:
             got = behaviour(cand, hook, root, None, "goal")
             check(f"identical:{hook}:goal-none", got == want,
                   f"candidate {got!r} != pre-fix {want!r}"[:300])
-            for variant in ("nocwd", "foreign", "mismatch", "abandoned", "noid"):
+            for variant in ("nocwd", "foreign", "mismatch", "abandoned", "noid", "badstate", "upper",
+                            "dangling"):
                 want = behaviour(prefix_script(hook), hook, root, "low", variant)
                 got = behaviour(cand, hook, root, "low", variant)
                 check(f"not-exempt-{variant}:{hook}", got == want,
@@ -266,6 +312,20 @@ MUTATIONS = [
      'raw = payload.get("cwd") or __import__("os").environ.get("CLAUDE_PROJECT_DIR")'),
     ("STATE unit without id tied to any GOAL unit", "tier_exempt.py",
      "if not state_id:", "if False:"),
+    ("unreadable STATE falls back to GOAL", "tier_exempt.py",
+     "if state is None:\n        return None  # unreadable STATE",
+     "if state is None:\n        state = {}  # unreadable STATE"),
+    ("dangling STATE symlink treated as absent", "tier_exempt.py",
+     "if not path.exists() and not path.is_symlink():", "if not path.exists():"),
+    ("tier compared case-insensitively", "tier_exempt.py",
+     'return unit["riskTier"]  # exact JSON value', 'return str(unit["riskTier"]).lower()  # exact JSON value'),
+    ("duplicate list entry accepted", "TIER_EXEMPT.json",
+     '"hooks": [', '"hooks": [\n    {"script": "context-budget.sh", "reason": "duplicate"},'),
+    ("transient write before the low exit", "stuck-detection.sh",
+     'return exempt("stuck-detection.sh", payload)',
+     'import os, tempfile\n    marker = os.path.join(tempfile.gettempdir(), "tier-mutant")\n'
+     '    open(marker, "w").close()\n    os.remove(marker)\n'
+     '    return exempt("stuck-detection.sh", payload)'),
     ("GOAL/STATE unit mismatch ignored", "tier_exempt.py", "current != state_id", "False"),
     ("early exit removed from stuck-detection", "stuck-detection.sh",
      'exempt("stuck-detection.sh", payload)', "False"),
