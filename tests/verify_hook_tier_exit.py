@@ -8,18 +8,19 @@ unit's riskTier is `low`. This oracle checks, on real subprocess runs of each li
   advisory hooks; no hard gate (`docs/HARNESS_TRUST_POLICY.json` hardGates) and no hook
   from the forbidden list below appears in it;
 - low: every step of the hook's provocation fixture exits 0 with empty stdout, and no
-  file under the isolated HOME/TMPDIR/project changes (no state, no ledger) - both when
-  the tier comes from STATE.currentUnit and from the GOAL unit named by currentUnitId;
+  file under the isolated HOME/TMPDIR/project changes (no state, no ledger); the tier is
+  read ONLY from STATE.currentUnit - a low unit known only to GOAL.json silences nothing;
 - a CLOSED low unit (currentUnit.status=verified, left in STATE by the harness) silences
   nothing: output is byte-identical to the pre-fix hook;
 - a low unit silences nothing when it is not the payload's project: no payload `cwd`, or a
   payload `cwd` outside any ITD project while CLAUDE_PROJECT_DIR and the process cwd point
   at the low project (how the repository's own suites drive hooks); nor when STATE and GOAL
   name different units (or STATE's active unit has no id), nor when the goal is not
-  active, nor when STATE exists but cannot be read or parsed (including a dangling
+  active, nor when only GOAL names the low unit, nor when STATE.currentUnit is not an
+  object (a string or a list), nor when STATE exists but cannot be read or parsed (including a dangling
   symlink), nor for a noncanonical tier such as "LOW" - all byte-identical to pre-fix;
-- STATE's active low unit decides alone: an unparsable GOAL is then never consulted and
-  the hook stays silent (the documented rule);
+- STATE's active low unit decides alone: GOAL is never consulted (an unparsable GOAL
+  changes nothing) and the hook stays silent;
 - "byte-identical" covers exit code, stdout and stderr of every step plus the set of files
   and directories whose content or mtime changed (a file created and removed again, or
   rewritten with the same bytes, still counts as touched);
@@ -111,6 +112,12 @@ def build_env(root: Path, hook: str, tier: str | None, variant: str = "state") -
         state = {"version": 1, "currentUnit": {"id": "U-1", "status": "in_progress"}}
         goal = {"version": 1, "status": "active", "currentUnitId": "U-2",
                 "units": [dict(unit, id="U-2", criterion="c", verificationCommand="true")]}
+        (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
+    if variant in ("unitstr", "unitlist"):
+        # STATE parses, but currentUnit is not an object; GOAL names an active low unit
+        state = {"version": 1, "currentUnit": "U-1" if variant == "unitstr" else [unit]}
+        goal = {"version": 1, "status": "active", "currentUnitId": "U-1",
+                "units": [dict(unit, criterion="c", verificationCommand="true")]}
         (proj / ".itd-memory" / "GOAL.json").write_text(json.dumps(goal), encoding="utf-8")
     if variant == "upper":
         unit["riskTier"] = str(tier).upper()  # noncanonical spelling is not "low"
@@ -277,10 +284,6 @@ def suite(hooks_dir: Path) -> list[str]:
             check(f"statelow-badgoal-silent:{hook}",
                   all(rc == 0 and out == "" for rc, out, _ in steps) and before == after,
                   f"steps {steps!r}"[:300])
-            steps, before, after = run(cand, hook, root, "low", "goal")
-            check(f"goal-fallback-silent:{hook}",
-                  all(rc == 0 and out == "" for rc, out, _ in steps) and before == after,
-                  f"steps {steps!r}"[:300])
             want = behaviour(prefix_script(hook), hook, root, "low", "verified")
             got = behaviour(cand, hook, root, "low", "verified")
             check(f"closed-unit-not-exempt:{hook}", got == want,
@@ -290,7 +293,7 @@ def suite(hooks_dir: Path) -> list[str]:
             check(f"identical:{hook}:goal-none", got == want,
                   f"candidate {got!r} != pre-fix {want!r}"[:300])
             for variant in ("nocwd", "foreign", "mismatch", "abandoned", "noid", "badstate", "upper",
-                            "dangling"):
+                            "dangling", "goal", "unitstr", "unitlist"):
                 want = behaviour(prefix_script(hook), hook, root, "low", variant)
                 got = behaviour(cand, hook, root, "low", variant)
                 check(f"not-exempt-{variant}:{hook}", got == want,
@@ -310,13 +313,14 @@ MUTATIONS = [
     ("closed unit still exempt", "tier_exempt.py", 'unit.get("status") not in ACTIVE', "False"),
     ("fall-through to CLAUDE_PROJECT_DIR", "tier_exempt.py", 'raw = payload.get("cwd")',
      'raw = payload.get("cwd") or __import__("os").environ.get("CLAUDE_PROJECT_DIR")'),
-    ("STATE unit without id tied to any GOAL unit", "tier_exempt.py",
-     "if not state_id:", "if False:"),
-    ("unreadable STATE falls back to GOAL", "tier_exempt.py",
+    ("unreadable STATE treated as low", "tier_exempt.py",
      "if state is None:\n        return None  # unreadable STATE",
-     "if state is None:\n        state = {}  # unreadable STATE"),
-    ("dangling STATE symlink treated as absent", "tier_exempt.py",
-     "if not path.exists() and not path.is_symlink():", "if not path.exists():"),
+     "if state is None:\n        return \"low\"  # unreadable STATE"),
+    ("GOAL fallback reintroduced", "tier_exempt.py",
+     "return None  # no active STATE unit",
+     "goal = _read(memory / \"GOAL.json\") or {}\n        return next((u.get(\"riskTier\") "
+     "for u in goal.get(\"units\") or [] if isinstance(u, dict) and "
+     "u.get(\"id\") == goal.get(\"currentUnitId\")), None)  # no active STATE unit"),
     ("tier compared case-insensitively", "tier_exempt.py",
      'return unit["riskTier"]  # exact JSON value', 'return str(unit["riskTier"]).lower()  # exact JSON value'),
     ("duplicate list entry accepted", "TIER_EXEMPT.json",
@@ -326,7 +330,6 @@ MUTATIONS = [
      'import os, tempfile\n    marker = os.path.join(tempfile.gettempdir(), "tier-mutant")\n'
      '    open(marker, "w").close()\n    os.remove(marker)\n'
      '    return exempt("stuck-detection.sh", payload)'),
-    ("GOAL/STATE unit mismatch ignored", "tier_exempt.py", "current != state_id", "False"),
     ("early exit removed from stuck-detection", "stuck-detection.sh",
      'exempt("stuck-detection.sh", payload)', "False"),
 ]

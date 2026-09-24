@@ -229,7 +229,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hoo
       printf "  + would add   %s\n" "$name"
     else
       cp "$src_hook" "$dst"
-      case "$name" in *.json) ;; *) chmod +x "$dst" ;; esac
+      case "$name" in *.json) chmod 644 "$dst" ;; *) chmod +x "$dst" ;; esac
       printf "  + added       %s\n" "$name"
     fi
     h_added=$((h_added + 1))
@@ -237,6 +237,8 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hoo
   fi
 
   if cmp -s "$src_hook" "$dst"; then
+    # a data file converges to non-executable even when its bytes did not change
+    case "$name" in *.json) [ "$DRY_RUN" = "1" ] || chmod 644 "$dst" ;; esac
     h_unchanged=$((h_unchanged + 1))
     continue
   fi
@@ -245,7 +247,7 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hoo
     printf "  ~ would sync  %s (content drift)\n" "$name"
   else
     cp "$src_hook" "$dst"
-    case "$name" in *.json) ;; *) chmod +x "$dst" ;; esac
+    case "$name" in *.json) chmod 644 "$dst" ;; *) chmod +x "$dst" ;; esac
     printf "  ~ updated     %s\n" "$name"
   fi
   h_updated=$((h_updated + 1))

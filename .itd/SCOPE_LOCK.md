@@ -33,11 +33,11 @@ would remove the grace window and increase friction).
   `codex-dispatch.py` send it on all four events), walked up to the nearest
   `.itd-memory/`; no fall-through to `CLAUDE_PROJECT_DIR` or the process cwd - a payload
   without `cwd` or outside any ITD project silences nothing (the repository's own suites
-  drive hooks that way and must not be governed by its live STATE). Tier: explicit
-  `STATE.currentUnit.riskTier` of an ACTIVE unit (status `in_progress`/`verifying`), else
-  the unit of an ACTIVE goal (`GOAL.status: active`) named by `currentUnitId` - and, when
-  STATE names an active unit, only that same unit; a closed unit (the harness leaves a
-  verified unit in `currentUnit`) silences nothing. NO
+  drive hooks that way and must not be governed by its live STATE). Tier: ONLY
+  `STATE.currentUnit.riskTier` of an ACTIVE unit (status `in_progress`/`verifying`),
+  `currentUnit` an object; `GOAL.json` is never read (owner decision 2026-09-24 after the
+  PUB1b/PUB2 recurrence); a closed unit (the harness leaves a verified unit in
+  `currentUnit`) silences nothing. NO
   fallback to a policy default (the project template default is `low`; a missing tier
   must not silence anything). True only when the tier is exactly `low`, the script is
   listed and the list parses; any error -> False (the hook behaves as before).
@@ -141,3 +141,11 @@ would remove the grace window and increase friction).
   oracle variant dangling, RED 4 failed on the c10 helper; 13th mutation).
 - c11 PASSED on `0504126f` -> commit `abea0d4`; harness `--recheck` re-bound G-003 on the
   clean tree (a8-ch, oracle 91/0).
+- PUB2 (gpt-5.6-sol) BLOCKED on `cb92e7d`: (important) a parseable STATE whose
+  `currentUnit` is not an object fell back to the GOAL unit; (minor) sync kept an existing
+  executable bit on `TIER_EXEMPT.json`. The first finding repeats the PUB1b mechanism
+  (broken STATE -> GOAL fallback) after a fix, so by the stop rule the design was changed,
+  not patched (owner decision 2026-09-24): the GOAL fallback is removed and the tier comes
+  from STATE only. Oracle: goal-only / currentUnit-string / currentUnit-list are
+  not-exempt (RED 12 failed on the cb92e7d helper), 99/0; mutations rebuilt for the new
+  rule, 11/11. Sync normalizes the JSON to 644 even when its bytes are unchanged.
