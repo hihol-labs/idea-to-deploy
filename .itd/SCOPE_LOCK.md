@@ -4,8 +4,9 @@ Unit `G-003` (medium) is `verified` in `.itd-memory/GOAL.json` (harness activati
 2026-09-23T19:54:45Z; harness transitions: verified 2026-09-24T09:52:24Z with receipt
 `G-003-adjudication-a1.json` over staged tree `ce1ae38e` = commit `3c9cc38`, regressed
 11:00:04Z by a `--recheck` refused on a dirty working tree, verified again 11:24:15Z with
-committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`; goal
-PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
+committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`, re-bound by
+`--recheck` 13:00:54Z to committed-head receipt `G-003-adjudication-a8-ch.json` over
+commit `abea0d4` (PUB1b fixes); goal PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-003-hooks-tier-exit` over main `8d192dd`. Review claim ids: `G-003`,
 `G-003:general-review`. Risk tier `medium` (sealed at decomposition): targeted
@@ -138,3 +139,5 @@ would remove the grace window and increase friction).
   unit with a tier decides alone (wording narrowed to the actual rule, pinned by oracle
   case statelow-badgoal), and a dangling-symlink STATE counted as absent (now unreadable;
   oracle variant dangling, RED 4 failed on the c10 helper; 13th mutation).
+- c11 PASSED on `0504126f` -> commit `abea0d4`; harness `--recheck` re-bound G-003 on the
+  clean tree (a8-ch, oracle 91/0).
