@@ -6,7 +6,9 @@ Unit `G-003` (medium) is `verified` in `.itd-memory/GOAL.json` (harness activati
 11:00:04Z by a `--recheck` refused on a dirty working tree, verified again 11:24:15Z with
 committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`, re-bound by
 `--recheck` 13:00:54Z to committed-head receipt `G-003-adjudication-a8-ch.json` over
-commit `abea0d4` (PUB1b fixes); goal PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
+commit `abea0d4` (PUB1b fixes) and 13:38:53Z to `G-003-adjudication-a11-ch.json` over
+commit `81e9317` (STATE-only redesign after PUB2); goal PROPORTIONALITY-DEFAULT, 3/5
+verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-003-hooks-tier-exit` over main `8d192dd`. Review claim ids: `G-003`,
 `G-003:general-review`. Risk tier `medium` (sealed at decomposition): targeted
@@ -149,3 +151,5 @@ would remove the grace window and increase friction).
   from STATE only. Oracle: goal-only / currentUnit-string / currentUnit-list are
   not-exempt (RED 12 failed on the cb92e7d helper), 99/0; mutations rebuilt for the new
   rule, 11/11. Sync normalizes the JSON to 644 even when its bytes are unchanged.
+- c13 PASSED on `4150525f` -> commit `81e9317`; harness `--recheck` re-bound G-003 (a11-ch,
+  oracle 99/0).

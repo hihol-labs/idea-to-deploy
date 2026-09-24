@@ -3,7 +3,7 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-24T13:00:54Z",
+  "updatedAt": "2026-09-24T13:38:53Z",
   "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
@@ -54,15 +54,15 @@
       "criterion": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
       "status": "verified",
-      "verifiedAt": "2026-09-24T13:00:54Z",
-      "evidence": "exit 0: PASSED: 0 failed, 91 passed",
+      "verifiedAt": "2026-09-24T13:38:53Z",
+      "evidence": "exit 0: PASSED: 0 failed, 99 passed",
       "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-003/G-003-adjudication-a8-ch.json",
-        "sha256": "21a8ba8289559883a507f348b2c306c5521f3b7d00d2de9ab5dfc095329a4ff0",
-        "receiptSha256": "ea166bc0cacc1f6654228425306458c0debffd80c9455ec447b0de609f7f91b4",
+        "path": ".itd-memory/verification-loop/receipts/G-003/G-003-adjudication-a11-ch.json",
+        "sha256": "d7a39816ba16174d0d439e886914f0e244b28ff54b1b2637afe930211e5f7e88",
+        "receiptSha256": "1ab89526bb136a3d71ab9a0954be62fd5d373253f5c15dd28f491f28f6325a76",
         "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-003/G-003-machine-m18-ch.json",
-        "machineSha256": "e6c2ec12a21bc6aecbdb76cd7093cb626c10a756d07302ce69cd580179e2a94f"
+        "machinePath": ".itd-memory/verification-loop/receipts/G-003/G-003-machine-m22-ch.json",
+        "machineSha256": "fe823271b0ce313d1238a970607ed71c2a9a1de427128d574a08c8987dfb40aa"
       }
     },
     {
