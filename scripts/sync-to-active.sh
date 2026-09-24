@@ -237,8 +237,19 @@ for src_hook in "$REPO_ROOT"/hooks/*.sh "$REPO_ROOT"/hooks/*.py "$REPO_ROOT"/hoo
   fi
 
   if cmp -s "$src_hook" "$dst"; then
-    # a data file converges to non-executable even when its bytes did not change
-    case "$name" in *.json) [ "$DRY_RUN" = "1" ] || chmod 644 "$dst" ;; esac
+    # a data file converges to non-executable even when its bytes did not change;
+    # the mode drift is reported, so --check shows what a real run would do
+    case "$name" in *.json)
+      # any mode other than 644 is drift (find -perm is POSIX; stat flags are not)
+      if [ -n "$(find "$dst" -prune ! -perm 644 2>/dev/null)" ]; then
+        if [ "$DRY_RUN" = "1" ]; then
+          printf "  ~ would chmod %s (mode drift -> 644)\n" "$name"
+        else
+          printf "  ~ chmod       %s (mode drift -> 644)\n" "$name"
+        fi
+      fi
+      [ "$DRY_RUN" = "1" ] || chmod 644 "$dst" ;;
+    esac
     h_unchanged=$((h_unchanged + 1))
     continue
   fi

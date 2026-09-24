@@ -29,14 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evidence и `check-skills` (пишет sentinel для hard gate `check-tool-skill`) в список
   не входят.
 - `scripts/sync-to-active.sh` ставит `hooks/TIER_EXEMPT.json` вместе с хуками и приводит
-  его к `644` (в том числе без изменения байтов).
+  его к `644` (в том числе без изменения байтов; расхождение прав видно и в `--check`).
 - Оракул `tests/verify_hook_tier_exit.py`: medium/high/без тира - вывод и exit байт в
   байт как у дофиксовых байтов (`tests/references/hook_tier_exit/*.prefix.txt`, пин
   sha256 + сверка с git); low - тишина и ни одной записи; закрытый low-юнит,
   чужой/отсутствующий `cwd`, low-юнит только в GOAL, `currentUnit` строкой или списком,
   нечитаемый STATE, тир "LOW" - вывод как до фикса; снимок файловой системы
   учитывает mtime файлов и каталогов (создание-и-удаление и перезапись теми же байтами
-  видны); в списке ровно четыре записи без дублей; RED-first, 11/11 летальных мутаций.
+  видны); в списке ровно четыре записи без дублей; RED-first; каждая мутация оракула (`--mutations`) летальна.
 
 ### Changed - G-002 CONTEXT-BUDGET-1: pre-flight контекст <= 1 КБ на промпт
 

@@ -153,3 +153,24 @@ would remove the grace window and increase friction).
   rule, 11/11. Sync normalizes the JSON to 644 even when its bytes are unchanged.
 - c13 PASSED on `4150525f` -> commit `81e9317`; harness `--recheck` re-bound G-003 (a11-ch,
   oracle 99/0).
+- PUB3 (gpt-5.6-sol) BLOCKED on `9573fd9`: (important) the `G-003-1-oracle` criterion
+  text still promised pre-fix behaviour for an inactive GOAL / STATE-GOAL mismatch, which
+  the STATE-only rule no longer implies (the redesign updated the evidence, not the
+  criterion); (minor) `sync-to-active.sh --check` did not report the JSON mode drift the
+  real run fixes. Fixed: the criterion states the STATE-only rule; `--check` prints
+  `would chmod ... (mode drift -> 644)` and the real run reports the chmod (checked live:
+  755 -> check reports, stays 755 -> sync -> 644 -> check silent).
+- c15 (targeted, fresh opus) PASSED_WITH_WARNINGS on `b8befbb6`: (minor) the `[ -x ]`
+  condition regressed the unconditional `chmod 644` of the unchanged-bytes branch (a 664
+  file stayed 664); (minor) the criterion says the low case prints nothing while the
+  oracle checked stdout only. Fixed: a real run always sets 644 again and any mode other
+  than 644 is reported (POSIX `find -perm`); the low checks require an empty stderr too
+  (new mutation "stderr written before the low exit": SURVIVED on the c15 oracle, lethal
+  after); 12 mutations.
+- c16 (targeted, fresh opus) PASSED_WITH_WARNINGS on `0194f4bd`: all PUB3 and c15
+  findings closed (sync checked on 755/664/600/644, stderr mutation RED reproduced), no
+  functional defect; three documentation lags - a stale mutation count in CHANGELOG and in
+  the acceptance evidence, and "(GOAL.json не читается)" in the criterion, which the oracle
+  does not prove. The recurring class (docs lag the code after each fix) is removed at the
+  source: CHANGELOG and the criterion carry no mutation counts and no claim beyond the
+  oracle; the evidence is brought up to this round.

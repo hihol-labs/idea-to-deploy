@@ -7,7 +7,7 @@ unit's riskTier is `low`. This oracle checks, on real subprocess runs of each li
 - the list parses, its exempt tier is exactly `low`, and it names exactly the approved
   advisory hooks; no hard gate (`docs/HARNESS_TRUST_POLICY.json` hardGates) and no hook
   from the forbidden list below appears in it;
-- low: every step of the hook's provocation fixture exits 0 with empty stdout, and no
+- low: every step of the hook's provocation fixture exits 0 with empty stdout and stderr, and no
   file under the isolated HOME/TMPDIR/project changes (no state, no ledger); the tier is
   read ONLY from STATE.currentUnit - a low unit known only to GOAL.json silences nothing;
 - a CLOSED low unit (currentUnit.status=verified, left in STATE by the harness) silences
@@ -276,13 +276,13 @@ def suite(hooks_dir: Path) -> list[str]:
                 check(f"identical:{hook}:{tier or 'none'}", got == want,
                       f"candidate {got!r} != pre-fix {want!r}"[:300])
             steps, before, after = run(cand, hook, root, "low")
-            check(f"low-silent:{hook}", all(rc == 0 and out == "" for rc, out, _ in steps),
+            check(f"low-silent:{hook}", all(rc == 0 and out == "" and err == "" for rc, out, err in steps),
                   f"steps {steps!r}"[:300])
             changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
             check(f"low-no-write:{hook}", not changed, f"changed {changed}")
             steps, before, after = run(cand, hook, root, "low", "statelow-badgoal")
             check(f"statelow-badgoal-silent:{hook}",
-                  all(rc == 0 and out == "" for rc, out, _ in steps) and before == after,
+                  all(rc == 0 and out == "" and err == "" for rc, out, err in steps) and before == after,
                   f"steps {steps!r}"[:300])
             want = behaviour(prefix_script(hook), hook, root, "low", "verified")
             got = behaviour(cand, hook, root, "low", "verified")
@@ -330,6 +330,10 @@ MUTATIONS = [
      'import os, tempfile\n    marker = os.path.join(tempfile.gettempdir(), "tier-mutant")\n'
      '    open(marker, "w").close()\n    os.remove(marker)\n'
      '    return exempt("stuck-detection.sh", payload)'),
+    ("stderr written before the low exit", "stuck-detection.sh",
+     'return exempt("stuck-detection.sh", payload)',
+     'quiet = exempt("stuck-detection.sh", payload)\n'
+     '    if quiet:\n        sys.stderr.write("tier\\n")\n    return quiet'),
     ("early exit removed from stuck-detection", "stuck-detection.sh",
      'exempt("stuck-detection.sh", payload)', "False"),
 ]
