@@ -8,7 +8,8 @@ committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`, re
 `--recheck` 13:00:54Z to committed-head receipt `G-003-adjudication-a8-ch.json` over
 commit `abea0d4` (PUB1b fixes) and 13:38:53Z to `G-003-adjudication-a11-ch.json` over
 commit `81e9317` (STATE-only redesign after PUB2) and 16:25:49Z to
-`G-003-adjudication-a14-ch.json` over commit `f089716` (PUB3/c15/c16 fixes); goal
+`G-003-adjudication-a14-ch.json` over commit `f089716` (PUB3/c15/c16 fixes) and 18:24:53Z
+to `G-003-adjudication-a17-ch.json` over commit `3bc880b` (PUB4/c20 fixes); goal
 PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-003-hooks-tier-exit` over main `8d192dd`. Review claim ids: `G-003`,
@@ -185,3 +186,8 @@ would remove the grace window and increase friction).
   context-aware. Fixed: oracle variants statelow-goalother / -goalinactive / -goalmedium
   (silent, no write) make the mutation lethal; the source says the criterion refines the
   GOAL criterion by what the oracle checks; the description names the session-start hooks.
+- c20 (targeted, fresh opus) PASSED_WITH_WARNINGS on `112f4678`: PUB4 findings closed (the
+  GOAL-veto mutant survives the 4c9fbe7 oracle, 95/0, and dies now); two minor lags - the
+  oracle evidence still cited 99/0 and 12/12, and the FORBIDDEN comment still excluded all
+  session-context hooks. Both fixed; c21 PASSED on `b9d4598a` -> commit `3bc880b`; harness
+  `--recheck` re-bound G-003 (a17-ch, oracle 111/0).
