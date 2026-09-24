@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "G-003",
     "goal": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-23T19:54:45Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-24T11:24:15Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

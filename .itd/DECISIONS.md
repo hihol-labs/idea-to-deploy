@@ -3978,3 +3978,15 @@ GOAL/STATE/drift (их читают скиллы по месту, повтор �
 **Ограничение.** Дельта - только git-видимое состояние и lock; проектный
 `.itd-memory/MEMORY.md` (54 КБ) под тот же бюджет не подведён - BACKLOG P3.
 
+
+## 2026-09-24: ранний выход по тиру - только 4 advisory-хука, check-skills исключён (G-003)
+- Почему: context-aware / context-budget / stuck-detection / handoff-readiness ничего не блокируют и не питают гейты; check-skills пишет skill-active sentinel для hard gate check-tool-skill - его тишина убрала бы grace-окно и увеличила трение.
+- Отвергнуто: включить check-skills (самый дорогой, 204 мс) - ломает enforcement-цепочку.
+- Ограничение: экономия ~0.1-0.2 c на вызов; основной выигрыш - контекст.
+- Ссылки: hooks/TIER_EXEMPT.json, tests/verify_hook_tier_exit.py.
+
+## 2026-09-24: тир для раннего выхода - только проект из payload cwd и только активный юнит (G-003)
+- Почему: фоллбэк на CLAUDE_PROJECT_DIR/cwd процесса ставил сьюты репо под его живой STATE (c2 F1); харнес оставляет verified-юнит в currentUnit (c1). Активный = STATE status in_progress/verifying, цель status active, тот же id.
+- Отвергнуто: цепочка payload cwd -> CLAUDE_PROJECT_DIR -> getcwd; фоллбэк на defaultRiskTier (шаблон проекта = low).
+- Ограничение: хост без cwd в payload не получит тишины (безопасное направление).
+- Ссылки: hooks/tier_exempt.py, .itd-memory/verification-loop/reports/G-003-targeted-c1..c5.md.

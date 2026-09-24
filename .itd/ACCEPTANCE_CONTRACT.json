@@ -4069,6 +4069,44 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "G-003-1-oracle",
+      "unitId": "G-003",
+      "criterion": "Команда критерия выходит 0: tests/verify_hook_tier_exit.py зелёный на дереве кандидата - hooks/TIER_EXEMPT.json перечисляет ровно четыре advisory-хука (без hardGates и запретного списка); при riskTier=low АКТИВНОГО юнита проекта из payload cwd каждый выходит с exit 0 без вывода и без записи; на medium/high/без тира, закрытом юните, чужом или отсутствующем cwd, неактивной цели и расхождении STATE/GOAL exit, stdout, stderr и набор тронутых файлов совпадают с дофиксовыми байтами хука. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Единственный источник критерия юнита G-003 - criterion и verificationCommand в .itd-memory/GOAL.json; команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "Оракул RED на дофиксовых хуках (8d192dd: FAILED 11-12), GREEN на кандидате (74/0); --mutations 8/8 летальны; маршрут medium: свежие targeted-чекеры c1 BLOCKED, c2 BLOCKED, c3 и c4 PASSED_WITH_WARNINGS (все находки закрыты с RED-first), c5 PASSED -> коммит 3c9cc38; M-I10 meta_review (копии в tests/fixtures) -> перенос в tests/references, c6 BLOCKED, c7 PASSED -> коммит 13f9a66; meta_review Critical 0 / Important 0; харнес верифицировал G-003 на чистом дереве с committed-head квитанцией G-003-adjudication-a5-ch.json (events.jsonl 2026-09-24T11:24:15Z).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
+      "reviewEvidence": {
+        "claim": "Оракул юнита зелёный на точном дереве кандидата - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "hook-tier-exit",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "G-003-2-ledger",
+      "unitId": "G-003",
+      "criterion": "Команда критерия выходит 0: scripts/validate_state.py принимает .itd-memory/GOAL.json и STATE.json на дереве кандидата - G-003 verified с evidence и квитанцией, currentUnitId пуст, STATE-проекция согласована. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Ledger-close юнита: переходы пишет только харнес (itd_goal_verify.py), ручные правки леджера запрещены (/goal Rules).",
+      "evidence": "Все переходы записаны харнесом (actor harness): activated 2026-09-23T19:54:45Z; verified 2026-09-24T09:52:24Z (квитанция G-003-adjudication-a1.json, staged-дерево ce1ae38e = коммит 3c9cc38); regressed 11:00:04Z (--recheck отказал на грязном рабочем дереве, оракул зелёный); verified 11:24:15Z (G-003-adjudication-a5-ch.json, committed-head над 13f9a66 -> коммит 3a5ce9e, где зафиксированы предыдущие переходы без изменений после чекера c8). Ручных переходов статуса/квитанции нет.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4087,19 +4125,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "G-002",
+    "unitId": "G-003",
     "status": "open",
-    "openedAt": "2026-09-23",
+    "openedAt": "2026-09-24",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "low",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "repository-hygiene"
       ],
-      "minimumIndependentReviewers": 0,
+      "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
     }

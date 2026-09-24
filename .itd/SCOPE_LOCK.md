@@ -1,7 +1,11 @@
 # G-003 HOOKS-TIER-EXIT-1 - advisory hooks go quiet on a low-risk unit
 
-Unit `G-003` (medium) is `in_progress` in `.itd-memory/GOAL.json` (harness activation
-2026-09-23T19:54:45Z; goal PROPORTIONALITY-DEFAULT, 2/5 verified); the criterion and the
+Unit `G-003` (medium) is `verified` in `.itd-memory/GOAL.json` (harness activation
+2026-09-23T19:54:45Z; harness transitions: verified 2026-09-24T09:52:24Z with receipt
+`G-003-adjudication-a1.json` over staged tree `ce1ae38e` = commit `3c9cc38`, regressed
+11:00:04Z by a `--recheck` refused on a dirty working tree, verified again 11:24:15Z with
+committed-head receipt `G-003-adjudication-a5-ch.json` over commit `3a5ce9e`; goal
+PROPORTIONALITY-DEFAULT, 3/5 verified); the criterion and the
 verificationCommand live ONLY there and are not restated here. Branch
 `feat/g-003-hooks-tier-exit` over main `8d192dd`. Review claim ids: `G-003`,
 `G-003:general-review`. Risk tier `medium` (sealed at decomposition): targeted
@@ -111,3 +115,10 @@ would remove the grace window and increase friction).
   without id and tier silences nothing (oracle variant `noid`, RED 4 failed on the c3
   helper); the identity check now compares exit, stdout, stderr and the set of files a
   hook touches; 8th mutation.
+- c4 PASSED_WITH_WARNINGS (two doc lines), c5 PASSED on `ce1ae38e` -> commit `3c9cc38`.
+- After the commit meta_review reported Important M-I10 (pinned copies under
+  `tests/fixtures/`, reserved for skill fixtures); moved to `tests/references/`. c6 BLOCKED
+  (the fix tree also claimed verified while its ledger said in_progress), c7 PASSED on the
+  path-only delta -> commit `13f9a66`. A `--recheck` on a dirty tree demoted the unit
+  (regressed); the harness transitions were committed unchanged after c8 PASSED -> commit
+  `3a5ce9e`, then the harness re-verified G-003 on the clean tree (a5-ch).
