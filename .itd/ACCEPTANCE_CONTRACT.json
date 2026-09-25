@@ -4145,6 +4145,44 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "G-005-1-oracle",
+      "unitId": "G-005",
+      "criterion": "Команда критерия выходит 0: scripts/itd_external_pilot.py aggregate проходит по леджеру docs/evidence/external-outcomes/PILOT-LOW-1.jsonl (метаданные с consent, только verified-юниты, каждая пара baseline/followup полная), агрегат показывает comparableUnits >= 5 и isMethodologyRepository/synthetic/fixture = false, файл docs/retros/RETRO-PILOT-LOW-1.md существует. Критерий не утверждает ничего сверх выхода этой команды: правдивость замеров и выводов ретро проверяет ревью, а не оракул.",
+      "source": "Уточняет criterion юнита G-005 из .itd-memory/GOAL.json; команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "Пилот PILOT-LOW-1 проведён 2026-09-25 на внешнем публичном проекте владельца (consent, псевдонимы proj_320bb41855b2 / op_f7918ef010fd): 5 пар baseline/followup, followup-юниты по маршруту low закрыты харнесом проекта по адъюдицированным машинным квитанциям; aggregate comparableUnits 5. Маршрут medium: машинные квитанции PASSED (pilot-aggregate, ledger-state, meta-review на isolated-staged-tree); свежие targeted-чекеры c1 BLOCKED (8 находок, исправлены), c2/c3/c4/c5 PASSED_WITH_WARNINGS (формулировки, исправлены по решению владельца), c6 PASSED -> дерево bf40fe65 (коммит 86fe44a); харнес перевёл G-005 в verified квитанцией G-005-adjudication-a1.json (events.jsonl 2026-09-25T17:57:21Z). Pre-PR opposite-GPT PUB1 (gpt-5.6-sol) на 86fe44a вернул UNVERIFIED по предусловию (критерии G-005 в кандидате были pending) -> следующий коммит переводит их в passed и вносит записи ОТК, по прецеденту G-004.",
+      "reviewEvidence": {
+        "claim": "Леджер пилота агрегируется и ретро существует - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "pilot-aggregate",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
+      "status": "passed"
+    },
+    {
+      "id": "G-005-2-ledger",
+      "unitId": "G-005",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме после переходов харнеса для G-005.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "Все переходы записаны харнесом (actor harness): activated 2026-09-25T13:12:57Z; verified 2026-09-25T17:57:21Z с квитанцией G-005-adjudication-a1.json (targeted-чекер c6 PASSED); validate_state OK.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4163,7 +4201,7 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "G-004",
+    "unitId": "G-005",
     "status": "open",
     "openedAt": "2026-09-25",
     "selectedClaim": "LOCAL_REVIEWED",
@@ -4307,6 +4345,26 @@
       },
       "closedAt": "2026-09-22T14:11:16Z",
       "closureEvidence": "Verified by the goal harness on 2026-09-22 (VERIFIED REL-1.105.0, sealed verificationCommand exit 0 end to end on staged ledger-close tree dd3e4837 over 70016a32; last leg 85 passed, 0 failed) with adjudicated receipt REL-1.105.0-adjudication-otk1.json (owner-signed accepted-trade-off dispositions of the three sealed-oracle weaknesses, outcome ADJUDICATED, machine otk1 PASSED binding the whole command). Release: PR #302 merged 97cc1290, tag v1.105.0 on that commit, GitHub release published 2026-09-22T12:09:52Z; live evidence run 20260922T094239Z-728ce2e8 on the release tree (154/0); rollout WSL + Windows runtime 1.105.0-8ee73e60de632900, codex 1.105.0; native canaries a3 (WSL) and a5 (Windows, after WIN-TESTQUOTE-1 / PR #303 fixed the json.dumps interpreter quoting) assembled into host-inputs/REL-1.105.0/INSTALLED.json, tests/verify_route_debts.py --installed-proof PASS. Review: 10 cross-vendor rounds (gpt-5.6-sol), 24 distinct findings, none false; three sealed-oracle weaknesses carried as Declared limits + BACKLOG P2. Route class: independent review with owner adjudication on the sealed-oracle findings, not owner-route."
+    },
+    {
+      "unitId": "G-004",
+      "status": "closed",
+      "openedAt": "2026-09-25",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd/SCOPE_LOCK.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-25T13:10:00Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-25T07:33:11Z with receipt G-004-adjudication-a1.json (targeted checker c6 PASSED on tree e6822619). Implementation PR #309 merged 60f5801 by the owner route after pre-PR PUB3; ledger-close PR #310 merged 5c00f6f (owner command, CI Gate 1 + windows-verify pass, gate doctor LOCAL_REVIEWED)."
     }
   ]
 }

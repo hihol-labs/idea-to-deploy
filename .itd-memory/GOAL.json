@@ -3,7 +3,7 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-25T07:33:11Z",
+  "updatedAt": "2026-09-25T17:57:21Z",
   "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
@@ -89,7 +89,17 @@
       "riskTier": "medium",
       "criterion": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
-      "status": "pending"
+      "status": "verified",
+      "verifiedAt": "2026-09-25T17:57:21Z",
+      "evidence": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)\nsh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\": exit 0, stdout sha256 e81027888014d7ba, comparableUnits 5\ntest -f docs/retros/RETRO-PILOT-LOW-1.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-adjudication-a1.json",
+        "sha256": "32805130950b56f99d15df731181f0b7ffaa4ff7dacf1c0608786a9960bb30fd",
+        "receiptSha256": "724dbe3a5b58df314b8c25e4e846d5bed54f6f8dc222381a6c2ab028f9e719cc",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-machine-9997248806955c26.json",
+        "machineSha256": "69814f92639733a0bbacb5d0ca45bf60934de79510a228e2e7353e7273c38762"
+      }
     }
   ]
 }

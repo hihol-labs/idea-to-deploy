@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "G-004",
-    "goal": "Скиллы /adopt и /project завершаются явным шагом предложения установить enforcement-хуки в .claude/settings.json целевого проекта с подтверждением пользователя; helper-скрипт при подтверждении добавляет записи хуков идемпотентно (повторный запуск не дублирует), при отказе не трогает файл; README.md и README.ru.md не содержат строку 'not auto-installed' и описывают шаг установки; tests/verify_hooks_autoinstall.py RED на дофиксовых байтах и GREEN после.",
+    "id": "G-005",
+    "goal": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
     "status": "verified",
-    "startedAt": "2026-09-24T20:30:36Z",
+    "startedAt": "2026-09-25T13:12:57Z",
     "ledger": "GOAL.json",
     "riskTier": "medium",
-    "completedAt": "2026-09-25T07:33:11Z"
+    "completedAt": "2026-09-25T17:57:21Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
