@@ -23,7 +23,7 @@ Prerequisites:
 ```
 /adopt plan:
   - CLAUDE.md:              append methodology block
-  - .claude/settings.json:  merge hooks
+  - enforcement hooks:      offered at the end (Step 7)
   - memory dir:             create + sentinel /session-save
   - Plugin hooks dir:       <resolved path>
   - Detected stack:         <stack>
@@ -38,10 +38,13 @@ Proceed? [yes/no]
 - [ ] One blank line separates existing content from the begin marker
 - [ ] Block references the methodology's core rules (not a rewrite of user's style guide)
 
-### Step 2 — .claude/settings.json merge
+### Step 7 — enforcement hooks offer (last step, after the voice-chain answer)
+- [ ] Skill shows `itd_project_hooks.py plan --root <project>` output (read-only; the file is unchanged by it)
+- [ ] Skill asks explicit confirmation; on «нет» `apply` is NOT run and `.claude/settings.json` is byte-identical to before
+- [ ] On «да» the skill runs `itd_project_hooks.py apply --root <project> --yes` and reports `created | merged | unchanged`
 - [ ] Pre-existing keys (`permissions`, `env`, `statusLine`, `model`, ...) preserved
 - [ ] Pre-existing hooks in `hooks.UserPromptSubmit` / `hooks.PreToolUse` arrays preserved — NOT overwritten
-- [ ] Methodology hooks added only if absent (matched by `command` path): `pre-flight-check.sh`, `check-skills.sh`, `check-tool-skill.sh`, `check-skill-completeness.sh`, `check-commit-completeness.sh`, `check-review-before-commit.sh`, `session-open-diagnostic.sh`
+- [ ] Methodology hooks added only if absent (matched by event + matcher + `command` path): `pre-flight-check.sh`, `check-skills.sh`, `check-tool-skill.sh`, `check-skill-completeness.sh`, `check-commit-completeness.sh`, `check-review-before-commit.sh`, `session-open-diagnostic.sh`
 - [ ] `{{PLUGIN_HOOKS_DIR}}` placeholder substituted with the resolved plugin hooks dir from Step 0
 - [ ] JSON remains valid (parse with `python3 -c "import json; json.load(open('.claude/settings.json'))"` — no syntax errors from merge)
 
@@ -53,16 +56,16 @@ Proceed? [yes/no]
 
 ### Step 4 — Voice-chain question
 - [ ] Skill asks ONE question at the end: «Сгенерировать план документов? (1) /strategy — обновит существующий план, (2) /blueprint — создаст с нуля, (3) пропустить»
-- [ ] If user picks 1 or 2 — skill invokes the corresponding skill via Skill tool; `/adopt` itself exits cleanly
+- [ ] Step 7 (hooks offer) runs before the chain; if user picks 1 or 2 — skill then invokes the corresponding skill via Skill tool
 - [ ] If user picks 3 — skill exits with: «OK, план-документы не создаю. /strategy или /blueprint можно запустить позже вручную.»
-- [ ] If user passed `skip-chain` argument at invocation — skip Step 4 entirely
+- [ ] If user passed `skip-chain` argument at invocation — skip the voice-chain question entirely, but the Step 7 hooks offer still runs
 
 ## /adopt — Scenario B: second run (idempotency)
 
 User runs `/adopt` again on the same project after Scenario A.
 
 - [ ] Skill detects CLAUDE.md with `<!-- idea-to-deploy:begin v1.20 -->` marker → "skip (already adopted)" decision
-- [ ] Skill detects .claude/settings.json with all methodology hooks already present → "skip (already registered)" decision
+- [ ] Step 7 plan reports `unchanged` for .claude/settings.json with all methodology hooks already present → «хуки уже установлены», no apply
 - [ ] Skill detects existing memory dir with MEMORY.md → "skip (already bootstrapped)" decision
 - [ ] Plan preview shows 3 "skip" decisions
 - [ ] Skill jumps straight to voice-chain Step 4 — user may still want plan docs they declined on first adoption

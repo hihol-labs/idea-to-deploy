@@ -3,7 +3,7 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-24T18:24:53Z",
+  "updatedAt": "2026-09-25T07:33:11Z",
   "currentUnitId": "",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
@@ -71,7 +71,17 @@
       "riskTier": "medium",
       "criterion": "Скиллы /adopt и /project завершаются явным шагом предложения установить enforcement-хуки в .claude/settings.json целевого проекта с подтверждением пользователя; helper-скрипт при подтверждении добавляет записи хуков идемпотентно (повторный запуск не дублирует), при отказе не трогает файл; README.md и README.ru.md не содержат строку 'not auto-installed' и описывают шаг установки; tests/verify_hooks_autoinstall.py RED на дофиксовых байтах и GREEN после.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && ! grep -q \"not auto-installed\" README.md README.ru.md",
-      "status": "pending"
+      "status": "verified",
+      "verifiedAt": "2026-09-25T07:33:11Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py: exit 0, stdout sha256 8628f09c6b2e7964, PASSED: 0 failed, 66 passed\n! grep -q \"not auto-installed\" README.md README.ru.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-004/G-004-adjudication-a1.json",
+        "sha256": "c9035d044d53d02daf5b93ec1a4a14fbc8e420d8afc09848901fc25a8e3e02b0",
+        "receiptSha256": "a11a1c372a63f5b1d410d6ebe71ced2f088077f21c653e8235e3882cebf87253",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-004/G-004-machine-m2.json",
+        "machineSha256": "782e5e394e0bbf1e2ee420e51eb47b18d23ddb52c8664bb950647c449ce84a0e"
+      }
     },
     {
       "id": "G-005",

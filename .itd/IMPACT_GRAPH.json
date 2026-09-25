@@ -281,6 +281,7 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_table_completeness.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_init_contracts.py",
       "tests/verify_mandatory_keyless_review.py",
@@ -293,6 +294,7 @@
     ],
     "README.ru.md": [
       "tests/verify_harness_docs_freshness.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_operating_loops_release.py"
     ],
     "agents/code-reviewer.md": [
@@ -814,6 +816,7 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_redteam_multihost.py",
       "tests/verify_retro_scan.py",
@@ -905,6 +908,7 @@
       "tests/verify_hook_depth.py",
       "tests/verify_hook_table_completeness.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_registration_and_counts.py"
     ],
     "hooks/handoff-readiness.sh": [
@@ -979,6 +983,7 @@
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_state_hardening.py"
@@ -1286,11 +1291,15 @@
     "skills/_shared/itd_project_checks.sh": [
       "tests/verify_project_checks.py"
     ],
+    "skills/_shared/itd_project_hooks.py": [
+      "tests/verify_hooks_autoinstall.py"
+    ],
     "skills/_shared/itd_py.sh": [
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_harness_conformance.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
@@ -1370,6 +1379,7 @@
     ],
     "skills/adopt/SKILL.md": [
       "tests/verify_gate_registry_profiles.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_session_hygiene_quality.py",
@@ -1395,6 +1405,7 @@
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_cost_gate.py",
       "tests/verify_external_write_gate.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py"
     ],
     "skills/adopt/scripts/itd_adopt.py": [
@@ -1478,6 +1489,9 @@
     ],
     "skills/perf/SKILL.md": [
       "tests/verify_refute_fleet.py"
+    ],
+    "skills/project/SKILL.md": [
+      "tests/verify_hooks_autoinstall.py"
     ],
     "skills/refactor/references/worktree-isolation.md": [
       "tests/verify_feature_ledger_fallbacks.py",

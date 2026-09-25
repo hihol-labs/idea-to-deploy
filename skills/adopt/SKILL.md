@@ -117,7 +117,7 @@ Before writing anything:
    ```
    /adopt plan:
      - CLAUDE.md:              [create | append methodology block | skip (already adopted)]
-     - .claude/settings.json:  [create | merge hooks | skip (already registered)]
+     - enforcement hooks:      offered at the end (Step 7) — shown as a helper plan, installed only on your «да»
      - memory dir:             [create + sentinel /session-save | skip (already bootstrapped)]
      - .itd/ + .itd-memory/:   [scaffold (recommended) | skip (already present)] — опционально, скажи «без .itd» чтобы пропустить
      - example test:           [create + run (recommended — тестов не найдено) | skip (тесты уже есть)] — «без example test» чтобы пропустить
@@ -159,29 +159,13 @@ Branch on existing state:
 > AGENTS.md»). Контент НЕ дублировать — только указатель. Если `AGENTS.md` уже
 > существует со своим содержимым — не трогать.
 
-### Step 2: Write / merge .claude/settings.json
+### Step 2: `.claude/settings.json` — deferred to the final offer (Step 7)
 
-**Step 2.0 — user-level installation detect (v1.42.0).** Before writing any
-project-level hooks, check `~/.claude/settings.json`: if the ITD hooks are
-already registered **user-level** (command paths reference our hook script
-names — on Windows via the python.exe wrapper form), do NOT duplicate them at
-project level: every hook would fire twice per event, and bare `.sh` commands
-do not execute on Windows anyway (live case: OneOfS adoption 2026-07-02).
-In that case write/merge ONLY the `permissions` key from the template and
-report: «hooks уже зарегистрированы user-level — project-дубли пропущены».
-Project-level hook registration remains the right path for machines where the
-plugin is installed without `sync-to-active.sh` (no user-level registration).
-
-Read the template from `references/project-settings-template.json`. It encodes the same hook layout that `scripts/sync-to-active.sh` installs at user-level, but pointed at the plugin's hooks (via `~/.claude/plugins/idea-to-deploy/hooks/` by default — use the plugin hooks dir resolved in Step 0.4). Substitute `{{PLUGIN_HOOKS_DIR}}` in every `command` value. The template carries two keys: `hooks` (enforcement) and `permissions.ask` (recommended ASK guardrails for dangerous OS tool-classes — native Claude Code permissions, no custom DSL). Strip the `_comment_*` keys before writing.
-
-Branch (apply the same logic independently to `hooks` and to `permissions`):
-
-- **`.claude/settings.json` absent** → `mkdir -p .claude/` and `Write` the template (hooks + permissions) with plugin-dir paths substituted, comments stripped.
-- **Exists, no `hooks` key** → `Edit` to add the `hooks` key from the template. Preserve every other key (`env`, `statusLine`, `model`, …).
-- **Exists with `hooks` key** → merge. For each event (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`), add any of our hook entries that are missing, matched by `command` path. **Never** remove the user's existing hooks. If all our hooks are already present → skip.
-- **`permissions` merge** → add our `permissions.ask` rules that are missing, matched by exact rule string (e.g. `Bash(rm:*)`). **Never** remove or reorder the user's existing `permissions.allow` / `permissions.deny` / other `permissions.ask` rules. If the user has no `permissions` key, create it with our `ask` list. If all our rules are already present → skip. This guardrail set is a recommended default — if the user declines, omit it; do not force it.
-
-**Never** touch `~/.claude/settings.json` (user-level). Project-level settings apply in this directory only.
+`/adopt` no longer writes `.claude/settings.json` in the middle of adoption. The
+enforcement hooks and the recommended `permissions.ask` guardrails are offered as
+the **last** step of the skill (Step 7), with an explicit confirmation and a
+deterministic helper (`skills/_shared/itd_project_hooks.py`) instead of hand
+edits. Keep the plugin hooks dir resolved in Step 0.4 for Step 7.
 
 ### Step 3: Bootstrap memory dir
 
@@ -196,9 +180,9 @@ Branch (apply the same logic independently to `hooks` and to `permissions`):
 
    - **Date:** today (`YYYY-MM-DD`).
    - **Project + branch:** `$PROJECT_ROOT` and `git branch --show-current`.
-   - **Summary:** «Проект адоптирован в методологию idea-to-deploy v1.20 через `/adopt`. Установлены: `CLAUDE.md` в корень, `.claude/settings.json` с hooks-регистрацией (project-level), memory dir инициализирован.»
+   - **Summary:** «Проект адоптирован в методологию idea-to-deploy v1.20 через `/adopt`. Установлены: `CLAUDE.md` в корень, memory dir инициализирован; enforcement-хуки в `.claude/settings.json` предлагаются последним шагом (Step 7) с подтверждением.»
    - **Key decisions:** «Выбрана минимальная адоптация без reverse-engineering plan-документов (по ROADMAP_v1.20 §Scope). Plan-документы будут сгенерированы отдельно через `/strategy` или `/blueprint` по запросу пользователя.»
-   - **Changed files:** `CLAUDE.md`, `.claude/settings.json`, `MEMORY.md` (newly indexed), plus any that were append-merged.
+   - **Changed files:** `CLAUDE.md`, `MEMORY.md` (newly indexed), plus any that were append-merged (`.claude/settings.json` only later, if accepted in Step 7).
    - **Blockers:** «Нет.»
    - **Next steps:** «Опционально запустить `/strategy` (live reassessment) или `/blueprint` (plan с нуля), если нужны LAUNCH_PLAN.md / STRATEGIC_PLAN.md.»
    - **Non-obvious context:** detected stack (Step 0.5), current branch, count of root-level files, presence of `README.md`. Mark explicitly: «Стек детектирован по манифестам, проверь вручную.»
@@ -413,7 +397,7 @@ Summarize, with exact absolute paths:
 ```
 Adoption complete. Wrote / updated:
   - <ABS>/CLAUDE.md                          (created | appended | unchanged)
-  - <ABS>/.claude/settings.json              (created | merged | unchanged)
+  - <ABS>/.claude/settings.json              (offered in Step 7: created | merged | unchanged | declined)
   - <ABS>/.itd/ + .itd-memory/STATE.json     (scaffolded | skipped — declined | skipped — already present)
   - <ABS>/tests/<example test>               (created + run: PASS/FAIL | skipped — tests exist | skipped — declined | skipped — no built-in runner)
   - runnability check (init validator)       (PASS | FAIL: <why> | skipped — declined | skipped — no commits)
@@ -424,7 +408,7 @@ Adoption complete. Wrote / updated:
   - <MEMORY>/session_<DATE>.md               (sentinel)
   - <MEMORY>/.active-session.lock            (written)
 
-Next Claude Code session in this project will:
+If the hooks are accepted in Step 7, the next Claude Code session in this project will:
   - Auto-run pre-flight-check.sh on every user prompt
   - Auto-run session-open-diagnostic.sh on the first prompt
   - Auto-run check-skills.sh → skill hints per trigger phrase
@@ -435,11 +419,11 @@ Even if all three operations were skips (idempotent re-run), still print the sum
 
 ### Step 5: Voice-chain — ask about plan documents
 
-If the argument `skip-chain` was passed → skip this step and exit.
+If the argument `skip-chain` was passed → skip Steps 5-6 and go straight to Step 7 (the hook offer is never skipped by `skip-chain`).
 
 Otherwise, ask the user **in text** (not as an interactive prompt — so it works in headless and pipe mode):
 
-> «Адоптация завершена (CLAUDE.md + .claude/settings.json + memory dir).
+> «Адоптация завершена (CLAUDE.md + memory dir; enforcement-хуки предложу последним шагом).
 >
 > Хочешь сгенерировать plan-документы для этого проекта сейчас?
 >
@@ -478,12 +462,62 @@ user says something ambiguous:
 
 Tell the user which skill you're invoking and why in one sentence, e.g. «Запускаю `/strategy` — вижу README.md и 127 коммитов, это live reassessment кейс.»
 
+Whatever the answer, run **Step 7 before** handing control to `/strategy` or
+`/blueprint` (or before exiting): the hook offer is the last thing `/adopt` itself
+does, and the chained skill starts only after the user has answered it.
+
+### Step 7: Offer to install the enforcement hooks (final step, explicit confirmation)
+
+Claude Code host only. On the Codex adapter (Step -1) the bundled
+`hooks/hooks.json` is the registration path — report «хуки Codex регистрируются
+адаптером» and skip this step.
+
+1. Resolve the helper and show its read-only plan (it never writes):
+
+   ```bash
+   SHD="<plugin root>/skills/_shared"; [ -f "$SHD/itd_project_hooks.py" ] || SHD="$HOME/.claude/skills/_shared"
+   sh "$SHD/itd_py.sh" "$SHD/itd_project_hooks.py" plan --root "$PROJECT_ROOT" --hooks-dir "<plugin hooks dir from Step 0.4>"
+   ```
+
+   The plan names the target file, `create | merge | unchanged`, and every hook
+   and `permissions.ask` rule that would be added. A hook whose script is already
+   registered user-level from an idea-to-deploy hooks dir (`~/.claude/settings.json`,
+   read only) is listed as skipped and not added — a project duplicate would fire it
+   twice; the other hooks and the permissions are still offered. When
+   `.claude/settings.json` is a symlink the plan names the real file that will be written
+   (quote it in the question); a link that resolves outside the project (dangling or not) is
+   refused with WHY/FIX. A `warning:` line
+   about unreadable user-level settings goes into the question as is. `unchanged` → report
+   «хуки уже установлены» and finish.
+
+2. Ask for explicit confirmation **in text**:
+
+   > «Установить enforcement-хуки idea-to-deploy в `<ABS>/.claude/settings.json`?
+   > Выше — точный список того, что добавится (свои хуки, `env`, `model` и правила
+   > `permissions` сохраняются). Без хуков методология работает только как подсказки.
+   > — **да** → установлю
+   > — **нет** → файл не трогаю»
+
+3. On «да» (yes / ok / equivalent) — and only then:
+
+   ```bash
+   sh "$SHD/itd_py.sh" "$SHD/itd_project_hooks.py" apply --root "$PROJECT_ROOT" --hooks-dir "<plugin hooks dir>" --yes
+   ```
+
+   Report the helper's line (`created | merged | unchanged <path>`). A non-zero exit
+   prints WHY/FIX and leaves the file untouched — show it, do not hand-edit around it.
+
+4. On «нет», silence or anything ambiguous — do NOT run `apply` and do not touch
+   the file; report «хуки не установлены по решению пользователя; установить позже:
+   `itd_project_hooks.py apply --root <ABS> --yes`». A decline is never re-asked in
+   the same run.
+
 ## Idempotency
 
 Every write is guarded:
 
 - `CLAUDE.md` — marker `<!-- idea-to-deploy:begin v1.20 -->` makes re-runs no-ops.
-- `.claude/settings.json` — hook entries are matched by `command` path; duplicates are not added.
+- `.claude/settings.json` — written only by `itd_project_hooks.py apply --yes` after the Step 7 confirmation; hook entries are matched by (event, matcher, command), so a re-run adds nothing and leaves the file byte-identical.
 - Memory dir — `/session-save` appends to `MEMORY.md`; sentinel session file is auto-numbered.
 - `.itd/` — scaffold is skipped when the directory already exists (never overwrites filled-in contracts).
 - `.itd-memory/session-artifacts.json` — fixed empty/object shape; cleanup never rewrites it and missing targets are no-ops.
@@ -504,22 +538,23 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 
 ## Rules
 
-1. **Never rewrite user content** — `CLAUDE.md` is append-only (guarded by marker); `settings.json` is merge-only (guarded by command-path match).
+1. **Never rewrite user content** — `CLAUDE.md` is append-only (guarded by marker); `settings.json` is merge-only (guarded by the helper's (event, matcher, command) match) and is written only after an explicit «да» in Step 7.
 2. **Never touch user-level `~/.claude/settings.json`** — adoption is project-scoped.
 3. **Never commit** — the user decides when to commit the new files.
 4. **Never reverse-engineer plan docs** — delegate to `/strategy` or `/blueprint` via voice-chain.
 5. **Never run on the methodology repo itself** — Step 0.2 self-reference guard is mandatory.
 6. **Always show the plan before writing** — three write operations, user approves before anything happens.
 7. **Always print the final summary** — even if all three operations were no-ops.
-8. **Always offer the voice-chain question** — unless `skip-chain` was explicitly passed.
+8. **Always offer the voice-chain question** — unless `skip-chain` was explicitly passed (then go straight to Step 7).
+9. **Always end with the hook offer (Step 7)** on Claude Code — plan first, `apply --yes` only on an explicit yes, no write on a decline.
 
 ## Self-validation
 
 Before reporting adoption as complete, verify:
 
 - [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
-- [ ] `$PROJECT_ROOT/.claude/settings.json` exists and references all 3 project-level hook commands in `hooks.UserPromptSubmit` (pre-flight-check, session-open-diagnostic, check-skills), all 7 in `hooks.PreToolUse` (check-tool-skill, check-commit-completeness, check-review-before-commit, check-dod-before-commit, cross-review-precommit, check-skill-completeness, pii-egress-guard), all 3 in `hooks.PostToolUse` (record-agent-skill on `Task|Agent`; cost-tracker + risk-score on `*`), and handoff-readiness in `hooks.Stop`
-- [ ] `$PROJECT_ROOT/.claude/settings.json` carries the recommended `permissions.ask` OS-tool-class guardrails (rm/sudo/chown/dd/mkfs/kill/…) merged without clobbering the user's existing `permissions` (or the user explicitly declined them)
+- [ ] Step 7 ran last: the helper `plan` was shown, the user was asked explicitly, and `apply --yes` ran only on a yes (its `created | merged | unchanged` line reported); on a decline `.claude/settings.json` is byte-identical to before (or absent) and the decline is reported
+- [ ] When accepted and not registered user-level, `$PROJECT_ROOT/.claude/settings.json` carries every template hook as an (event, matcher, command) entry and the recommended `permissions.ask` guardrails, with the user's existing hooks, keys and permissions preserved
 - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
 - [ ] `.itd/SESSION_EXIT_CONTRACT.json`, `.itd/QUALITY.json`, `.itd/QUALITY_SCORECARD.json`, `.itd/HARNESS_ABLATION.json`, and `.itd/itd_hygiene.py` exist when scaffolding was accepted; detected fields are filled without invented evidence
 - [ ] External `.github/workflows/itd-hygiene.yml` was copied only after explicit opt-in (or the decline/non-GitHub reason was recorded); monthly has a real component candidate before scheduling
@@ -537,7 +572,7 @@ Before reporting adoption as complete, verify:
 - [ ] Memory dir exists with `MEMORY.md` indexing at least the sentinel session
 - [ ] `.active-session.lock` written in memory dir
 - [ ] Sentinel `session_YYYY-MM-DD.md` exists in memory dir
-- [ ] Voice-chain question was either asked (Step 5) or skipped on `skip-chain` flag
+- [ ] Voice-chain question was either asked (Step 5) or skipped on `skip-chain` flag — Step 7 ran in both cases
 - [ ] Product type detected and reported (or explicitly `unknown`); when not `unknown` and chaining to `/blueprint`, the starter/golden-path hint was passed in
 - [ ] Next-skill invocation happened correctly (or user explicitly opted out)
 
@@ -561,23 +596,29 @@ Claude: [/adopt]
 
   /adopt plan:
     - CLAUDE.md:                  create
-    - .claude/settings.json:      create
+    - enforcement hooks:          offered at the end (Step 7)
     - memory dir:                 create + sentinel /session-save
     - .itd/ + .itd-memory/:       scaffold (recommended)
     - Detected product type:      api_service → starter api-fastapi
   Proceed? [yes/no]
 User: yes
-  Step 1/4 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
-  Step 2/4 — .claude/settings.json . written (hooks: 3 UserPromptSubmit, 4 PreToolUse, 1 Stop)
-  Step 3/4 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
-  Step 4/4 — .itd/ scaffold ........ OK (all templates + state/artifact manifest)
-
-  Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.
+  Step 1 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
+  Step 3 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
+  Step 3.5 — .itd/ scaffold ...... OK (all templates + state/artifact manifest)
 
   Хочешь сгенерировать plan-документы сейчас?
   — да → запущу /strategy (вижу README.md + 84 коммита = live reassessment)
   — нет → закончу, сгенерируешь позже вручную
 User: да
+  Step 7 — itd_project_hooks.py plan:
+    plan: create /home/user/work/shop-api/.claude/settings.json
+    + UserPromptSubmit [*] ~/.claude/plugins/idea-to-deploy/hooks/pre-flight-check.sh
+    + PreToolUse [Bash] ~/.claude/plugins/idea-to-deploy/hooks/check-review-before-commit.sh
+    ... (+ permissions.ask Bash(rm:*) ...)
+  Установить enforcement-хуки в .claude/settings.json? — да / нет
+User: да
+  created /home/user/work/shop-api/.claude/settings.json
+  Adoption complete. Next session will auto-run pre-flight + session-open-diagnostic + check-skills.
   Запускаю /strategy. [/strategy $PROJECT_ROOT]
 ```
 
@@ -599,6 +640,7 @@ Claude: [/adopt]
   — да → я оценю состояние и запущу /strategy или /blueprint
   — нет → закончу
 User: нет
+  Step 7 — itd_project_hooks.py plan: unchanged → хуки уже установлены.
   Готово. Если понадобятся plan-документы — вызови /strategy или /blueprint.
 ```
 
@@ -606,7 +648,7 @@ User: нет
 
 ### Plugin hooks dir not found
 
-If `~/.claude/plugins/idea-to-deploy/hooks/` does not exist AND `$CLAUDE_PLUGIN_DIR` is unset, the plugin may have been installed via `git clone + bash scripts/sync-to-active.sh` (legacy path). In that case hooks live at `~/.claude/hooks/` directly — fall back to that path when writing `.claude/settings.json`. If that also fails, ask the user for the correct path.
+If `~/.claude/plugins/idea-to-deploy/hooks/` does not exist AND `$CLAUDE_PLUGIN_DIR` is unset, the plugin may have been installed via `git clone + bash scripts/sync-to-active.sh` (legacy path). In that case hooks live at `~/.claude/hooks/` directly — pass that path as `--hooks-dir` in Step 7 (the helper tries the same order when `--hooks-dir` is omitted). If that also fails, ask the user for the correct path.
 
 ### CLAUDE.md is very large (> 20 KB)
 
@@ -629,4 +671,4 @@ Current `/adopt` uses marker `v1.20`. When a future version changes the canonica
 
 ### Ctrl+C mid-adoption
 
-All three writes are idempotent. If adoption was interrupted after Step 1 (CLAUDE.md written) but before Step 2 (settings.json missing) — a re-run picks up from Step 2 cleanly. No partial-state recovery needed.
+All writes are idempotent. If adoption was interrupted before Step 7 (settings.json not offered yet) — a re-run reaches Step 7 and offers the hooks again. No partial-state recovery needed.

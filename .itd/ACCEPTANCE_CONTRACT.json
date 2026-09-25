@@ -4107,6 +4107,44 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "G-004-1-oracle",
+      "unitId": "G-004",
+      "criterion": "Команда критерия выходит 0: tests/verify_hooks_autoinstall.py зелёный на дереве кандидата - skills/_shared/itd_project_hooks.py без аргументов молчит, plan ничего не пишет, apply без --yes отказывает, apply --yes идемпотентно (событие + matcher + команда) сливает шаблон adopt в <root>/.claude/settings.json с сохранением чужих хуков, ключей и permissions, не дублирует хуки, уже зарегистрированные user-level из каталога хуков idea-to-deploy (каталог hooks рядом с user-level settings.json или каталог плагина), никогда не пишет user-level файл и отказывает с WHY/FIX на битом JSON, записях хуков или шаблоне неверной формы, пути вне проекта, симлинк-петле и несуществующем --root; последний Step в skills/adopt/SKILL.md и skills/project/SKILL.md запускает plan, спрашивает подтверждение, каждый его пункт с apply --yes начинается с условия «да», а пункт «нет» запрещает apply и запись (структурная проверка текста пунктов регулярными выражениями, не проверка смысла: намеренно противоречивый пункт ловит ревью, а не оракул); README.md и README.ru.md не содержат 'not auto-installed' и описывают шаг. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита G-004 из .itd-memory/GOAL.json (источник цели юнита); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "Оракул RED на дофиксовых байтах (49a149e), GREEN на кандидате (149/0); --mutations 28/28 летальны с контрольной копией; маршрут medium: code-reviewer PASSED_WITH_WARNINGS (critical про allowed-tools отклонён: поле снимает запрос разрешения, не ограничивает), свежие targeted-чекеры c1 BLOCKED (5 находок), c2/c3/c4/c5 PASSED_WITH_WARNINGS (находки закрыты, на c3 - фикс класса «запись вне проекта»), c6 PASSED -> дерево e6822619; ledger c7 PASSED -> 44f55cd2; run-all --quick DONE fails:none; meta_review Critical 0 / Important 0; харнес перевёл G-004 в verified квитанцией G-004-adjudication-a1.json (events.jsonl 2026-09-25T07:33:11Z). Pre-PR opposite-GPT PUB1 (gpt-5.6-sol) BLOCKED на 6 находках (чужой .claude/hooks засчитывался как user-level; записи хуков и шаблон неверной формы давали трейсбек; no-arg без изоляции HOME/cwd; plan не проверялся на файле, требующем слияния; проверка SKILL.md по разрозненным словам) -> исправлено с проверками оракула и мутациями; c12 PASSED_WITH_WARNINGS (правило пунктов SKILL.md ужесточено), c13 PASSED_WITH_WARNINGS (ограничение проверки названо), c14 PASSED; PUB2 (gpt-5.6-sol) BLOCKED на 7 находках - повтор механизма «неполная проверка формы» -> фикс формы: строгая схема без умолчаний, подстановка каталога после разбора шаблона, shlex для команд, resolve --root под обработкой, оракул - матрица неправильных форм x (plan, apply) с общим контрактом отказа; c15 BLOCKED: трейсбеки на RecursionError, ошибках ОС и NaN -> класс закрыт верхнеуровневой ловушкой (любой сбой - WHY/FIX), строгим JSON без NaN/Infinity и проверкой .claude-не-каталога, с проверками и мутациями; c16 BLOCKED: 1e999 записывался как Infinity, отказ после записи говорил «nothing was written», FIFO вместо settings.json подвешивал plan, нечитаемый user-level каталог давал отказ -> исправлено (parse_float + allow_nan=False, честный текст отказа после записи, только обычный файл, exists() под обработкой) с проверками и мутациями.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && ! grep -q \"not auto-installed\" README.md README.ru.md",
+      "reviewEvidence": {
+        "claim": "Оракул юнита зелёный на точном дереве кандидата - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "hooks-autoinstall",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "G-004-2-ledger",
+      "unitId": "G-004",
+      "criterion": "Команда критерия выходит 0: scripts/validate_state.py принимает .itd-memory/GOAL.json и .itd-memory/STATE.json кандидата, где переходы G-004 записаны харнесом цели. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Ledger-close юнита: переходы пишет только харнес (itd_goal_verify.py), агент их не правит.",
+      "evidence": "Все переходы записаны харнесом (actor harness): activated 2026-09-24T20:30:36Z; verified 2026-09-25T07:33:11Z с квитанцией G-004-adjudication-a1.json (targeted-чекер c6 PASSED, оракул 66/0); validate_state OK.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4125,9 +4163,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "G-003",
+    "unitId": "G-004",
     "status": "open",
-    "openedAt": "2026-09-24",
+    "openedAt": "2026-09-25",
     "selectedClaim": "LOCAL_REVIEWED",
     "rootCause": ".itd/SCOPE_LOCK.md",
     "reviewPolicy": {

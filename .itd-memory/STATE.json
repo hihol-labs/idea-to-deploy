@@ -37,13 +37,13 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "G-003",
-    "goal": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
+    "id": "G-004",
+    "goal": "Скиллы /adopt и /project завершаются явным шагом предложения установить enforcement-хуки в .claude/settings.json целевого проекта с подтверждением пользователя; helper-скрипт при подтверждении добавляет записи хуков идемпотентно (повторный запуск не дублирует), при отказе не трогает файл; README.md и README.ru.md не содержат строку 'not auto-installed' и описывают шаг установки; tests/verify_hooks_autoinstall.py RED на дофиксовых байтах и GREEN после.",
     "status": "verified",
-    "startedAt": "2026-09-23T19:54:45Z",
+    "startedAt": "2026-09-24T20:30:36Z",
     "ledger": "GOAL.json",
     "riskTier": "medium",
-    "completedAt": "2026-09-24T18:24:53Z"
+    "completedAt": "2026-09-25T07:33:11Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
