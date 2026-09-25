@@ -1,31 +1,28 @@
-# G-004 ledger-close - publication decisions, route cost, deferred findings
+# G-005 PILOT-LOW-1 - external pilot evidence, retro and route observations
 
-Documentation-only closure of unit `G-004` (HOOKS-AUTOINSTALL-1, medium), which shipped as PR #309
-(squash `60f5801`, head `dc415b3`, CI Gate 1 + windows-verify pass) and is `verified` by the goal
-harness in `.itd-memory/GOAL.json` (goal PROPORTIONALITY-DEFAULT, 4/5). Review claim id:
-`G-004:general-review`, risk tier `medium`. No production module, hook, skill, script or oracle
-changes.
+Evidence and documentation unit `G-005` (medium) of goal PROPORTIONALITY-DEFAULT. The pilot ran
+on an external public repository of the owner (pseudonym `proj_320bb41855b2`, consent given
+2026-09-25): 5 comparable pairs of low units, baseline without the `/task` pipeline and followup
+through `/task` -> `/test` on the low route. Review claim id: `G-005:general-review`, risk tier
+`medium`. No production module, hook, skill, script or oracle changes.
 
 ## In scope
 
-- `.itd/DECISIONS.md`: two appended entries - the hooks offer as the final step of `/adopt` and
-  `/project` (with the rejected alternatives), and the owner-route publication of #309 with its cost
-  (code-reviewer + 17 targeted checkers, producer rounds PUB1..PUB3) and the PUB3 dispositions.
-- `BACKLOG.md`: a P2 section with the three open PUB3 findings (symlink-swap race, user-level dedup
-  by script name, narrow `BAD_TEMPLATES`), a P3 section for the stale "all three skips" sentence of
-  `/adopt` (found by the ledger-close checker c1, not by PUB3), and a "Отложено для /retro (итог
-  G-004)" section with three route-cost candidates.
-- `tests/fixtures/fixture-17-adopt/notes.md`: the Scenario B checklist follows the Step 7 offer
-  (PUB3 finding 4).
+- `docs/evidence/external-outcomes/PILOT-LOW-1.jsonl`: the pseudonymous pilot ledger written only
+  by `scripts/itd_external_pilot.py` (metadata + 10 verified units, no names, paths or code).
+- `docs/retros/RETRO-PILOT-LOW-1.md`: method, facts, comparison with the historical high units,
+  observations, limitations and proposals.
+- `.itd-memory/measurements/pilot-low-1/`: `measure_window.py` (window metrics from transcripts),
+  `mutate.py` (mutation runner used by the followup units), `historical.jsonl` (high-unit windows).
+- `.itd/DECISIONS.md`: pilot decisions (token metric, repository class, excluded module, goal text
+  rule).
+- `BACKLOG.md`: route findings of the pilot.
+- `.itd/ACCEPTANCE_CONTRACT.json`: closes the G-004 follow-up, opens G-005 with two criteria.
+- `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness
+  transitions for G-005.
 - `.itd/SCOPE_LOCK.md`: this file.
 
 ## Out of scope
 
-- Fixing the PUB3 findings (a)-(c) - recorded, not implemented.
-- Any change to `skills/`, `hooks/`, `scripts/`, the oracle, the goal ledger or the acceptance contract.
-
-## Verification
-
-- `sh skills/_shared/itd_py.sh tests/meta_review.py --verbose` - FINAL STATUS PASSED.
-- `sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py` - green (the fixture notes are not read by it).
-- Targeted fresh-session checker over the factual claims of the documents.
+- Any change to skills, hooks, agents, scripts, tests or the strict-class policy (proposals only).
+- The pilot project's own code, commits and backlog (they live in its repository).

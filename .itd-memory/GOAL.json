@@ -3,8 +3,8 @@
   "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
   "status": "active",
   "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-25T07:33:11Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-25T13:12:57Z",
+  "currentUnitId": "G-005",
   "nonGoals": [
     "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
     "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
@@ -89,7 +89,7 @@
       "riskTier": "medium",
       "criterion": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
-      "status": "pending"
+      "status": "in_progress"
     }
   ]
 }
