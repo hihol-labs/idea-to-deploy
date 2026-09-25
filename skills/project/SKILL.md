@@ -121,6 +121,38 @@ Tell the user: "Читаю вашу документацию и создаю п�
 
 **After В (гайд):** "Гайд создан. Откройте CLAUDE_CODE_GUIDE.md и копируйте промпты по одному шагу. Или скажите 'начинай с шага 1' — и я буду выполнять шаги последовательно."
 
+Offer these next steps together with Step 6 — Step 6 is the last thing `/project` does.
+
+### Step 6: Offer to install the enforcement hooks (final step, explicit confirmation)
+
+The created project (`$PROJECT_ROOT` — the directory /kickstart, /blueprint or /guide
+worked in) gets the same offer as `/adopt` Step 7. Claude Code host only; on the Codex
+adapter the bundled `hooks/hooks.json` registers the hooks — skip with that reason.
+Skip silently when `$PROJECT_ROOT` is the idea-to-deploy repository itself.
+
+1. Show the helper's read-only plan (it never writes; without `--hooks-dir` it tries
+   `$CLAUDE_PLUGIN_DIR/hooks`, `~/.claude/plugins/idea-to-deploy/hooks`, `~/.claude/hooks`):
+
+   ```bash
+   SHD="$HOME/.claude/skills/_shared"; [ -f "$SHD/itd_project_hooks.py" ] || SHD="<plugin root>/skills/_shared"
+   sh "$SHD/itd_py.sh" "$SHD/itd_project_hooks.py" plan --root "$PROJECT_ROOT"
+   ```
+
+   `unchanged` → report «хуки уже установлены» and finish. Hooks already registered
+   user-level from an idea-to-deploy hooks dir are listed as skipped (no duplicates);
+   the rest and `permissions.ask` are still offered.
+
+2. Ask for explicit confirmation in text: «Установить enforcement-хуки idea-to-deploy в
+   `<ABS>/.claude/settings.json`? Выше — точный список добавляемого; ваши ключи и хуки
+   сохраняются. — **да** → установлю / — **нет** → файл не трогаю».
+
+3. Only on «да»: `sh "$SHD/itd_py.sh" "$SHD/itd_project_hooks.py" apply --root "$PROJECT_ROOT" --yes`
+   and report its `created | merged | unchanged` line (a non-zero exit shows WHY/FIX and
+   leaves the file untouched).
+
+4. On «нет» or an ambiguous answer — no `apply`, the file is not touched; report
+   «хуки не установлены; позже: `itd_project_hooks.py apply --root <ABS> --yes`».
+
 ## Examples
 
 ### Example 1: Vague idea
@@ -155,6 +187,7 @@ Actions:
 2. Если задача по существующему коду (Step 2 сигналы) — redirect в /task без вопроса А/Б/В. Не пытайся обработать daily-work задачи
 3. Задай ровно ОДИН routing-вопрос (А/Б/В). Не задавай уточняющих вопросов про стек, фичи, архитектуру — это работа целевого скилла
 4. Если сценарий очевиден из контекста ("у меня есть документация" = В, "покажи план заказчику" = Б) — не задавай routing-вопрос, сразу делегируй
+5. Заверши Step 6: предложение enforcement-хуков — план хелпера, явное «да», `apply --yes` только после него; при «нет» `.claude/settings.json` не трогается. User-level `~/.claude/settings.json` не пишется никогда
 
 ## Self-validation
 
@@ -163,6 +196,7 @@ Before delegating to target skill, verify:
 - [ ] Target skill (/kickstart, /blueprint, /guide, or /task) matches scenario
 - [ ] All required user input collected before delegation
 - [ ] Delegation uses Skill tool (not inline execution)
+- [ ] After the target skill: Step 6 hook offer shown last — `apply --yes` ran only on an explicit yes, a decline left `.claude/settings.json` untouched
 
 ## Troubleshooting
 

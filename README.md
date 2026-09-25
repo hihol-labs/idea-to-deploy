@@ -120,7 +120,7 @@ The skills and agents are then registered under:
 ~/.claude/plugins/idea-to-deploy/
   ├── skills/          # 40 skill directories
   ├── agents/          # 10 subagent definitions
-  └── hooks/           # optional enforcement hooks (not auto-installed)
+  └── hooks/           # enforcement hooks - /adopt and /project offer to install them
 ```
 
 Sanity check inside Claude Code:
@@ -464,6 +464,15 @@ Skills can invoke each other. This is the maximum depth and the chains:
 > `/plugin install` registers skills and agents but deliberately does not write
 > `~/.claude/settings.json`. Codex uses its bundled adapter registration instead;
 > do not copy these Claude paths into Codex.
+
+**Per-project install (offered by `/adopt` and `/project`).** Both skills end with
+an explicit step: they show the read-only plan of
+`skills/_shared/itd_project_hooks.py plan --root <project>` (what would be added to
+`<project>/.claude/settings.json`), ask for confirmation, and only on a yes run
+`itd_project_hooks.py apply --root <project> --yes`. The merge is idempotent (a
+re-run adds nothing), keeps your own hooks, keys and permissions, skips each hook
+already registered user-level from an idea-to-deploy hooks dir, and never writes `~/.claude/settings.json`. On a
+no the file is not touched; the same command installs the hooks later.
 
 The methodology is only effective if the active host invokes the skills.
 Trigger matching is necessary but not sufficient: under pressure or on an
