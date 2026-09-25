@@ -4151,7 +4151,7 @@
       "unitId": "G-005",
       "criterion": "Команда критерия выходит 0: scripts/itd_external_pilot.py aggregate проходит по леджеру docs/evidence/external-outcomes/PILOT-LOW-1.jsonl (метаданные с consent, только verified-юниты, каждая пара baseline/followup полная), агрегат показывает comparableUnits >= 5 и isMethodologyRepository/synthetic/fixture = false, файл docs/retros/RETRO-PILOT-LOW-1.md существует. Критерий не утверждает ничего сверх выхода этой команды: правдивость замеров и выводов ретро проверяет ревью, а не оракул.",
       "source": "Уточняет criterion юнита G-005 из .itd-memory/GOAL.json; команда ниже - байт-в-байт копия verificationCommand юнита.",
-      "evidence": "Пилот PILOT-LOW-1 проведён 2026-09-25 на внешнем публичном проекте владельца (consent, псевдонимы proj_320bb41855b2 / op_f7918ef010fd): 5 пар baseline/followup, followup-юниты по маршруту low закрыты харнесом проекта по адъюдицированным машинным квитанциям; aggregate comparableUnits 5.",
+      "evidence": "Пилот PILOT-LOW-1 проведён 2026-09-25 на внешнем публичном проекте владельца (consent, псевдонимы proj_320bb41855b2 / op_f7918ef010fd): 5 пар baseline/followup, followup-юниты по маршруту low закрыты харнесом проекта по адъюдицированным машинным квитанциям; aggregate comparableUnits 5. Маршрут medium: машинные квитанции PASSED (pilot-aggregate, ledger-state, meta-review на isolated-staged-tree); свежие targeted-чекеры c1 BLOCKED (8 находок, исправлены), c2/c3/c4/c5 PASSED_WITH_WARNINGS (формулировки, исправлены по решению владельца), c6 PASSED -> дерево bf40fe65 (коммит 86fe44a); харнес перевёл G-005 в verified квитанцией G-005-adjudication-a1.json (events.jsonl 2026-09-25T17:57:21Z). Pre-PR opposite-GPT PUB1 (gpt-5.6-sol) на 86fe44a вернул UNVERIFIED по предусловию (критерии G-005 в кандидате были pending) -> следующий коммит переводит их в passed и вносит записи ОТК, по прецеденту G-004.",
       "reviewEvidence": {
         "claim": "Леджер пилота агрегируется и ретро существует - это и проверяет команда критерия.",
         "impactClasses": [
@@ -4163,14 +4163,14 @@
         ]
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": "G-005-2-ledger",
       "unitId": "G-005",
       "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме после переходов харнеса для G-005.",
       "source": "Инвариант леджера цели.",
-      "evidence": "G-005 активирован харнесом 2026-09-25T13:12:57Z.",
+      "evidence": "Все переходы записаны харнесом (actor harness): activated 2026-09-25T13:12:57Z; verified 2026-09-25T17:57:21Z с квитанцией G-005-adjudication-a1.json (targeted-чекер c6 PASSED); validate_state OK.",
       "reviewEvidence": {
         "claim": "Леджер цели валиден - это проверяет команда критерия.",
         "impactClasses": [
@@ -4182,7 +4182,7 @@
         ]
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "completion": {
