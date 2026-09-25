@@ -4019,3 +4019,44 @@ BACKLOG P2 2026-09-24 с готовым фиксом.
 **Ссылки:** PR #307, `BACKLOG.md`; отчёты чекеров и продюсера - git-ignored
 `.itd-memory/verification-loop/` канонического чекаута (`reports/G-003-targeted-c*.md`,
 `G-003-PUB*-report.md.negative-*/report.json`).
+
+## 2026-09-25: G-004 - предложение enforcement-хуков как последний шаг /adopt и /project
+
+**Решение.** Хуки ставит только детерминированный хелпер `skills/_shared/itd_project_hooks.py`
+(`plan` read-only, `apply --yes` после явного «да»), а не правки агента. `/adopt` Step 2 больше не
+пишет `.claude/settings.json`; предложение - финальный Step 7 (после ответа на voice-chain,
+`skip-chain` его не пропускает), в `/project` - Step 6.
+
+**Почему.** Критерий юнита: установка только с подтверждением, идемпотентно, отказ не трогает
+файл. Ручной merge агентом нельзя проверить оракулом.
+
+**Отвергнуто.** Находка code-reviewer «allowed-tools у /project = Read, Bash не выполнится» -
+`allowed-tools` снимает запрос разрешения, а не ограничивает (прецеденты: `/task` с
+`allowed-tools: Read` и `/review` с `Read Glob Grep` вызывают `sh itd_py.sh`); расширять права
+роутера не нужно. Семантическая проверка текста SKILL.md
+регулярками - оракул проверяет структуру пунктов, противоречивую формулировку ловит ревью (c13).
+
+**Цена поведения.** `/adopt` больше не ставит хуки молча: при отказе проект остаётся без них.
+
+**Ссылки:** PR #309, `tests/verify_hooks_autoinstall.py`, `.itd-memory/contracts/G-004.md`.
+
+## 2026-09-25: G-004 - публикация owner-маршрутом и цена маршрута
+
+**Опубликовано.** PR #309 смержен 2026-09-25 как `60f5801` (head `dc415b3`), CI: Gate 1 pass,
+windows-verify pass. Юнит verified харнесом цели (квитанция `G-004-adjudication-a1.json`,
+targeted-чекер c6 PASSED); итоговое дерево `09fe5082` прошло c17 PASSED, кэш ревью совпадал.
+
+**Решение: owner-маршрут.** Pre-PR продюсер (gpt-5.6-sol): PUB1 BLOCKED (6, закрыты), PUB2 BLOCKED
+(7; повтор механизма «неполная проверка формы» - закрыт как форма: строгая схема, подстановка
+после разбора, shlex, одна ловушка отказов), PUB3 BLOCKED (4, новые поверхности). По решению
+владельца серия остановлена; ветка запушена `--no-verify` по его явному подтверждению (прецедент
+#307). Диспозиции PUB3: гонка подмены симлинка и дедупликация по имени скрипта - верны, вне
+критерия, BACKLOG P2 2026-09-25 (a)/(b); узость `BAD_TEMPLATES` - BACKLOG (c); чек-лист
+fixture-17 - исправлен этим ledger-close.
+
+**Цена.** code-reviewer + 17 свежих targeted-чекеров (c1 BLOCKED, c2..c5 PWW, c6 PASSED, c7 PASSED
+ledger, c8..c10 PWW только по записям доказательств, c11 PASSED, c12/c13 PWW, c14 PASSED, c15/c16
+BLOCKED, c17 PASSED) и 3 раунда продюсера; один раз отчёт чекера переотправлялся из-за
+`parse_report`. Три кандидата удешевления - BACKLOG «Отложено для /retro (итог G-004)».
+
+**Ссылки:** PR #309, `BACKLOG.md`, отчёты `.itd-memory/verification-loop/reports/G-004-*` (git-ignored).

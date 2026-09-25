@@ -65,10 +65,10 @@ Proceed? [yes/no]
 User runs `/adopt` again on the same project after Scenario A.
 
 - [ ] Skill detects CLAUDE.md with `<!-- idea-to-deploy:begin v1.20 -->` marker → "skip (already adopted)" decision
-- [ ] Step 7 plan reports `unchanged` for .claude/settings.json with all methodology hooks already present → «хуки уже установлены», no apply
 - [ ] Skill detects existing memory dir with MEMORY.md → "skip (already bootstrapped)" decision
-- [ ] Plan preview shows 3 "skip" decisions
-- [ ] Skill jumps straight to voice-chain Step 4 — user may still want plan docs they declined on first adoption
+- [ ] Plan preview shows the "skip" decisions for CLAUDE.md and the memory dir, and "enforcement hooks: offered at the end (Step 7)"
+- [ ] Skill asks the voice-chain question — user may still want plan docs they declined on first adoption
+- [ ] Step 7 runs after that answer: its plan reports `unchanged` for .claude/settings.json with all methodology hooks already present → «хуки уже установлены», no apply
 - [ ] NO new writes happen to any file
 
 ## /adopt — Scenario C: self-reference refusal
