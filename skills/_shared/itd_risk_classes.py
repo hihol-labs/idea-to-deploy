@@ -231,8 +231,9 @@ _SAFE_PATH_RE = re.compile(r"[A-Za-z0-9_.\-/*?]+")
 
 def is_test_path(token: str) -> bool:
     # the charset is checked on the raw token: Unicode strip()/lower() first would turn a padded
-    # `\xa0tests/x.py` or a Kelvin sign U+212A into ASCII and let them through (checker c4)
-    raw = (token or "").replace("\\", "/")
+    # `\xa0tests/x.py` or a Kelvin sign U+212A into ASCII and let them through (checker c4), and
+    # `\` is outside the set rather than rewritten to `/` (PUB1)
+    raw = token or ""
     if not raw or not _SAFE_PATH_RE.fullmatch(raw):
         return False
     tok = raw.lower()
@@ -254,7 +255,7 @@ _LIST_ITEM_RE = re.compile(r"^\s{0,12}(?:[-*+]|\d{1,9}[.)])\s+")
 # `(updated)` and nothing else. Prose, a second path, markup, a continuation line, a sub-heading
 # or a fence is not in the grammar, so the goal stays a source.
 _TEST_ITEM_RE = re.compile(
-    r"^\s{0,12}(?:[-*+]|\d{1,9}[.)])\s+(`?)([^\s`]+)\1(?:\s+\((?:new|updated)\))?\s*$",
+    r"^[ \t]{0,12}(?:[-*+]|\d{1,9}[.)])[ \t]+(`?)([^\s`]+)\1(?:[ \t]+\((?:new|updated)\))?[ \t]*$",
     re.IGNORECASE | re.ASCII)
 
 

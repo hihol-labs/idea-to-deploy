@@ -1,11 +1,11 @@
 # Task Contract: TIER-SOURCE-1 - tests-only scope: the goal text stops forcing a strict class
 
 ## Scope
-- `skills/_shared/itd_risk_classes.py`: `is_test_path(token)` - an ASCII token in `[A-Za-z0-9_./*?-]` without a
+- `skills/_shared/itd_risk_classes.py`: `is_test_path(token)` - an ASCII token in `[A-Za-z0-9_./*?-]` (no `\`) without a
   `..` segment, with a directory segment `tests`, `test` or `__tests__`, or a code file named
   `test_*.py`, `*_test.*`, `*.test.*`, `*.spec.*`, `conftest.py`; `tests_only(areas)` - every
   non-blank line matches the whitelist grammar `_TEST_ITEM_RE` (one `-`/`*`/`+`/`1.`/`1)` item, one
-  path, an optional `(new)`/`(updated)`, ASCII whitespace only) and names a test path (owner decision 2026-09-26 after REDESIGN_OR_DISCARD);
+  path, an optional `(new)`/`(updated)`, spaces or tabs only) and names a test path (owner decision 2026-09-26 after REDESIGN_OR_DISCARD);
   `names_unit` - the first line of the Current Task opens with the unit id (a stale scope may
   raise a tier, never lower it); `match_strict_class` ignores the goal (keywords and paths) under
   both conditions; `exempt_goal_hit` returns the goal hit that was set aside.

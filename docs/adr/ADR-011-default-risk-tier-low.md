@@ -81,12 +81,13 @@ tests-only unit depending on goal wording: the same module went `low` from its d
 `high` from a detailed description with "payment". Owner decision 2026-09-26 (`.itd/DECISIONS.md`):
 
 - When every non-blank line of the Allowed Change Areas is one list item (`-`, `*`, `+`, `1.` or
-  `1)`, indented by at most 12 ASCII spaces or tabs) holding exactly one path, optionally in a code
+  `1)`, indented by at most 12 spaces or tabs, separated by spaces or tabs) holding exactly one
+  path, optionally in a code
   span, and optionally ` (new)` or ` (updated)` in any letter case, and the first line of the Current
   Task opens with the unit being activated, the goal text (keywords and paths) is not a source.
   A test path is a `tests/`, `test/` or `__tests__/` directory, or a `test_*.py`, `*_test.*`,
   `*.test.*`, `*.spec.*`, `conftest.py` code file (`api.spec.yaml` is not one), written in
-  ASCII `[A-Za-z0-9_./*?-]` without a `..` segment (a Unicode letter such as the invisible U+3164
+  ASCII `[A-Za-z0-9_./*?-]` (no `\`) without a `..` segment (a Unicode letter such as the invisible U+3164
   could make one path read as two). The grammar is a whitelist: the owner chose it on
   2026-09-26 after the stop rule ended a review series of a blacklist lexer (REDESIGN_OR_DISCARD
   at round c2). The set-aside goal hit is printed and recorded as

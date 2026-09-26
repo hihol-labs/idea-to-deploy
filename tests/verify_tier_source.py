@@ -25,8 +25,9 @@ Contract of this oracle (all fixtures are synthetic, not code of the pilot proje
      stale scope of a previous unit, even one that mentions the new unit elsewhere; activate
      prints a hint), prose or a bare name inside a tests item and a glued token keep `high` for
      a lower declared tier; an area hit next to a goal hit records no `riskTierExempt`.
-  4. The goal harness STATE projection drops `riskTierExempt`; the docs name the exemption and
-     the oracle is registered in tests/run-all.sh.
+  4. The goal harness STATE projection drops `riskTierExempt` on the activated and the verified
+     branch (executed, not read); the docs name the exemption and the oracle is registered in
+     tests/run-all.sh.
 
 `--mutations` copies the product tree into a temp dir, applies independent mutations (including
 the pre-fix bytes of the two changed modules from commit 06bee64) and requires the suite to go RED
@@ -77,8 +78,8 @@ NEUTRAL_GOAL = TEMPLATE.format(path="src/gw.py", doc="Gateway adapter")
 TEST_PATHS = ("tests/test_x.py", "tests/", "tests/unit/helpers.py", "pkg/tests/conftest.py", "tests/./x.py",
               "src/__tests__/a.ts", "test/foo.js", "app/foo_test.go", "web/src/a.spec.ts",
               "web/src/a.test.tsx", "test_fx.py", "conftest.py", "./tests/x.py", "/tests/",
-              "tests/unit/*.py", "tests\\test_win.py")
-NON_TEST_PATHS = ("\u00a0tests/test_a.py", "tests/test_a.py\u00a0", "tests/test_\u212aey.py", " tests/test_a.py",
+              "tests/unit/*.py")
+NON_TEST_PATHS = ("tests\\test_win.py", "tests\\..\\src\\x.py", "\u00a0tests/test_a.py", "tests/test_a.py\u00a0", "tests/test_\u212aey.py", " tests/test_a.py",
                   "**/*", "/", "./", "*", ".", "tests/a\u3164b.py", "tests/\u01c0.py", "tests/\u0442\u0435\u0441\u0442.py",
                   "tests/test_x.py|src/gw.py", "tests/a.py+src/b.py", "tests/a\u2192b.py", "\u201ctests/a.py\u201d",
                   "src/fx.py", "tests/../src/fx.py", "../tests/x.py", "a/../tests/x.py", "testdata/rates.json",
@@ -103,6 +104,7 @@ FLOOR = (
     ("glued-token", ["- tests/test_fx_rates.py|src/fx/rates.py"], HOT_GOAL, "money"),
     ("glob-everything", ["- `tests/` and `**/*`"], HOT_GOAL, "money"),
     ("letterless-alone", ["- **/*"], HOT_GOAL, "money"),
+    ("backslash-path", ["- tests\\test_fx_rates.py"], HOT_GOAL, "money"),
     ("nbsp-padded-code-span", ["- `\u00a0tests/test_fx_rates.py`"], HOT_GOAL, "money"),
     ("invisible-letter-join", ["- tests/test_fx_rates.py\u3164src/fx/rates.py"], HOT_GOAL, "money"),
     ("openapi-spec-not-a-test", ["- `docs/api.spec.yaml`"], HOT_GOAL, "money"),
@@ -244,6 +246,13 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                 ("-\u00a0`tests/test_a.py`", False),
                 ("- `tests/test_a.py`\u00a0(new)", False),
                 ("- **/*", False),
+                ("- tests\\test_x.py", False),
+                ("\t- `tests/test_a.py`", True),
+                ("- `tests/test_a.py`\t(new)", True),
+                # this case is decided by str.splitlines (it splits on \v, \f and \r), not by the
+                # separator class of _TEST_ITEM_RE: widening `[ \t]` to `\s` leaves it unchanged,
+                # so that widening is an equivalent mutant (dropping `\t` is caught by the tab cases)
+                ("-\v`tests/test_a.py`", False),
                 ("- `\u00a0tests/test_a.py`", False),
                 ("- `tests/test_a.py\u001f`", False),
                 ("- /", False),
@@ -332,8 +341,30 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
         c("exempt-hit-reported-on-tests-scope", bool(eh) and eh[0] == "money" and eh[3] == "goal", f"hit={eh}")
 
     # 4. goal projection, docs, registration
-    gv = read(root / "skills" / "goal" / "scripts" / "itd_goal_verify.py")
-    c("goal-projection-drops-exempt", gv.count('cur.pop("riskTierExempt", None)') == 2)
+    # the goal harness STATE projection drops a stale riskTierExempt on both branches
+    try:
+        gv = load_module(root / "skills" / "goal" / "scripts" / "itd_goal_verify.py", "itd_goal_verify_ts")
+        stale = {"class": "money", "match": "x", "reason": "tests-only"}
+        with tempfile.TemporaryDirectory() as tmp:
+            mem = Path(tmp) / ".itd-memory"
+            mem.mkdir()
+            goal_path = mem / "GOAL.json"
+            goal_path.write_text(json.dumps({
+                "version": 1, "goal": "g", "status": "active", "createdAt": "2026-01-01T00:00:00Z",
+                "updatedAt": "2026-01-01T00:00:00Z", "currentUnitId": "",
+                "units": [{"id": "G-9", "criterion": "c", "verificationCommand": "true",
+                           "status": "pending", "riskTier": "low"}]}), encoding="utf-8")
+            unit = json.loads(read(goal_path))["units"][0]
+            for decision, before in (("activated", {"id": "U-old", "status": "verified", "riskTier": "low"}),
+                                     ("verified", {"id": "G-9", "status": "in_progress", "riskTier": "low"})):
+                (mem / "STATE.json").write_text(json.dumps(
+                    {"version": 1, "currentUnit": {**before, "riskTierExempt": stale}}), encoding="utf-8")
+                gv.write_state_projection(gv.state_projection(goal_path, unit, decision), goal_path, unit, decision)
+                cu = json.loads(read(mem / "STATE.json")).get("currentUnit") or {}
+                c(f"goal-{decision}-projection-drops-exempt",
+                  cu.get("id") == "G-9" and "riskTierExempt" not in cu, repr(cu)[:200])
+    except Exception as exc:  # noqa: BLE001 - a crash is a failed check, not a pass
+        c("goal-projection-drops-exempt", False, repr(exc)[:200])
     skill = read(root / "skills" / "task" / "SKILL.md")
     c("task-skill-documents-exemption", "riskTierExempt" in skill and "tests-only" in skill)
     adr = read(root / "docs" / "adr" / "ADR-011-default-risk-tier-low.md")
@@ -364,6 +395,7 @@ def replace_once(root: Path, rel: str, old: str, new: str) -> None:
 
 RC_REL = "skills/_shared/itd_risk_classes.py"
 LOG_REL = "skills/task/scripts/itd_unit_log.py"
+GV_REL = "skills/goal/scripts/itd_goal_verify.py"
 
 
 def m_prefix_bytes(root: Path) -> None:
@@ -388,7 +420,14 @@ def mutations() -> None:
         ("dotdot-escape-allowed", lambda r: replace_once(r, RC_REL, 'if ".." in parts:', "if False:")),
         ("spec-of-any-extension-is-a-test", lambda r: append(r, RC_REL, "_CODE_EXTS = _CODE_EXTS | {'yaml', 'yml', 'json', 'csv'}")),
         ("trailing-text-allowed", lambda r: replace_once(
-            r, RC_REL, r"(?:\s+\((?:new|updated)\))?\s*$", r"(?:\s+\((?:new|updated)\))?.*$")),
+            r, RC_REL, r"(?:[ \t]+\((?:new|updated)\))?[ \t]*$", r"(?:[ \t]+\((?:new|updated)\))?.*$")),
+        ("backslash-normalised-before-charset", lambda r: replace_once(
+            r, RC_REL, 'raw = token or ""', 'raw = (token or "").replace(chr(92), "/")')),
+        ("activated-projection-keeps-exempt", lambda r: replace_once(
+            r, GV_REL, 'cur.pop("riskTierExempt", None)\n        else:', 'pass\n        else:')),
+        ("verified-projection-keeps-exempt", lambda r: replace_once(
+            r, GV_REL, 'cur.pop("riskTierExempt", None)\n        state["currentUnit"] = cur',
+            'pass\n        state["currentUnit"] = cur')),
         ("letterless-test-path", lambda r: append(r, RC_REL, (
             "_orig_is_test_path = is_test_path\n"
             "is_test_path = lambda token: _orig_is_test_path(token) or not re.search('[a-z]', (token or '').lower())"))),
