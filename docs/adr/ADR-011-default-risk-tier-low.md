@@ -73,3 +73,32 @@ lever; the route is.
 - Rejected: merging hooks into one process (1.44% of wall; single timeout, single point of
   failure), a review-round budget (forbidden by `STOP_RULE_POLICY.json`, measured S04b/R6),
   new lite/strict profiles (duplicate of the existing risk table).
+
+## Amendment 2026-09-26 - TIER-SOURCE-1: tests-only scope
+
+Pilot PILOT-LOW-1 (`docs/retros/RETRO-PILOT-LOW-1.md`, observations 1-2) measured the tier of a
+tests-only unit depending on goal wording: the same module went `low` from its docstring and
+`high` from a detailed description with "payment". Owner decision 2026-09-26 (`.itd/DECISIONS.md`):
+
+- When every non-blank line of the Allowed Change Areas is one list item (`-`, `*`, `+`, `1.` or
+  `1)`, indented by at most 12 ASCII spaces or tabs) holding exactly one path, optionally in a code
+  span, and optionally ` (new)` or ` (updated)` in any letter case, and the first line of the Current
+  Task opens with the unit being activated, the goal text (keywords and paths) is not a source.
+  A test path is a `tests/`, `test/` or `__tests__/` directory, or a `test_*.py`, `*_test.*`,
+  `*.test.*`, `*.spec.*`, `conftest.py` code file (`api.spec.yaml` is not one), written in
+  ASCII `[A-Za-z0-9_./*?-]` without a `..` segment (a Unicode letter such as the invisible U+3164
+  could make one path read as two). The grammar is a whitelist: the owner chose it on
+  2026-09-26 after the stop rule ended a review series of a blacklist lexer (REDESIGN_OR_DISCARD
+  at round c2). The set-aside goal hit is printed and recorded as
+  `riskTierExempt{class,match,reason}`; the tier is not raised.
+- Strict paths and keywords inside the Allowed Change Areas still force `high`. Any line outside
+  the grammar (prose, a continuation line, two paths, markup, a sub-heading, a fence, a non-test
+  path), no SCOPE_LOCK and a Current Task that does not open with the unit keep the goal as the
+  primary input described above. What the grammar does not admit keeps the floor: the exemption
+  lowers it, so its false negatives only cost review.
+- The unit binding keeps the stale-scope limitation above one-directional: a SCOPE_LOCK left over
+  from the previous unit may still raise a tier, but it cannot lower one, even when it mentions the
+  new unit elsewhere (a title, Forbidden, "follow-up of U-3"). `activate` prints a hint when a
+  tests-only scope does not open its Current Task with the unit.
+- Rejected: a tier by paths only for every unit (a change to payment logic in a file without a
+  money path would go `low`). Oracle: `tests/verify_tier_source.py`.

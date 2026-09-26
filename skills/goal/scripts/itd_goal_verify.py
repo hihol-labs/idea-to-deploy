@@ -712,6 +712,7 @@ def write_state_projection(projection: tuple[object, dict, str] | None, goal_pat
             # unit carries its owner-approved tier and must not inherit the flag.
             cur.pop("riskTierForced", None)
             cur.pop("riskTierMatch", None)
+            cur.pop("riskTierExempt", None)
         else:
             cur.update({"id": unit["id"], "goal": unit.get("criterion") or "",
                         "status": decision, "ledger": goal_path.name,
@@ -719,6 +720,7 @@ def write_state_projection(projection: tuple[object, dict, str] | None, goal_pat
                         "completedAt": event_at or now_iso()})
             cur.pop("riskTierForced", None)
             cur.pop("riskTierMatch", None)
+            cur.pop("riskTierExempt", None)
         state["currentUnit"] = cur
         if decision == "activated":
             files = state.get("ledgerFiles")

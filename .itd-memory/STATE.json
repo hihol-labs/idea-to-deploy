@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "G-005",
-    "goal": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
-    "status": "verified",
-    "startedAt": "2026-09-25T13:12:57Z",
+    "id": "TIER-SOURCE-1",
+    "goal": "When every path in the Allowed Change Areas of .itd/SCOPE_LOCK.md is a test path, a strict-class match in the unit goal text no longer forces riskTier high, while a strict-class path or keyword inside the Allowed Change Areas still forces high and a scope with any non-test path (or with no path at all) keeps the goal as a source: the new oracle tests/verify_tier_source.py is RED on the pre-fix bytes and GREEN after - synthetic pilot-style pairs (docstring template vs a detailed description with a strict word, not code of the pilot project) get one tier on a tests-only scope, a money or auth path in the scope stays high, a mixed scope stays high - and tests/verify_risk_tier_default.py stays green.",
+    "status": "in_progress",
+    "startedAt": "2026-09-26T10:34:17Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-25T17:57:21Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

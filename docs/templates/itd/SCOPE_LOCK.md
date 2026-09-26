@@ -2,7 +2,7 @@
 
 ## Current Task
 
-- Replace this line with the current task.
+- Start this line with the unit id, then the task (for example `U-3: ...`).
 
 ## Allowed Change Areas
 

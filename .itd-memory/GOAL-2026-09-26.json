@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
+  "status": "done",
+  "createdAt": "2026-09-22T19:20:49Z",
+  "updatedAt": "2026-09-25T20:31:04Z",
+  "currentUnitId": "",
+  "nonGoals": [
+    "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
+    "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
+    "Удаление или ослабление хуков-гейтов безопасности (state-guard, pii-egress-guard, completion-gate в strict)."
+  ],
+  "units": [
+    {
+      "id": "G-001",
+      "name": "RISK-TIER-1",
+      "riskTier": "medium",
+      "criterion": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а репозиторий методологии остаётся на встроенном medium (файл .itd/COMPLETION_POLICY.json в нём не заводится, дефолт живёт в hooks/completion-gate.sh и docs/templates/itd/itd_hygiene.py); skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый объект strictClasses ровно с пятью классами (money, prod-config, db-schema, auth, secrets), каждый с keywords/paths и tier=high, и itd_unit_log activate принудительно ставит high при совпадении, печатая класс и совпавший паттерн и записывая совпадение в STATE (riskTierMatch; riskTierForced - когда тир поднят); ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
+      "status": "verified",
+      "verifiedAt": "2026-09-23T13:29:03Z",
+      "evidence": "exit 0: PASSED: 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-001/G-001-adjudication-a12-ch.json",
+        "sha256": "cf0b2ccf11c94f0875812bfbedc241be62b33e1a7179a2256637a4162e26f866",
+        "receiptSha256": "47f28984966b69f26539ea2260275ea90b39fc9c97f482d8074ffede3f341668",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-001/G-001-machine-m30-ch.json",
+        "machineSha256": "ff713a7a8108eeafb608f207e77d3074db3562b8e651649b6b0419b171273118"
+      }
+    },
+    {
+      "id": "G-002",
+      "name": "CONTEXT-BUDGET-1",
+      "riskTier": "low",
+      "criterion": "hooks/pre-flight-check.sh на первом промпте сессии печатает полный дамп и пишет sentinel (по образцу session-open-diagnostic.sh); на последующих промптах той же сессии вывод <=1024 байт и содержит только дельту: новые коммиты с прошлого промпта и предупреждение о параллельной сессии, если оно появилось; при отсутствии дельты вывод пустой; MEMORY.md индекса памяти проекта <=24400 байт и ни одна строка не длиннее 200 символов; tests/verify_preflight_budget.py RED на дофиксовых байтах и GREEN после.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py && test \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400",
+      "status": "verified",
+      "verifiedAt": "2026-09-23T19:03:30Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py: exit 0, stdout sha256 b8ab83a87bd10ce4, PASSED: 0 failed\ntest \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-002/G-002-adjudication-a2-ch.json",
+        "sha256": "06a6b5ebef03a4e0c6f442772006cfbdc6a8819a98d1f48022e826f272efebd3",
+        "receiptSha256": "268591c9287df19cf5cffd6902794b8e3be65f2f52f772e634fa52d89cf105eb",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-002/G-002-machine-m2-ch.json",
+        "machineSha256": "a4a1538701bce671669705f48f0dc9d5473e05c7f27d854c0002a3fdc9c5d4ef"
+      }
+    },
+    {
+      "id": "G-003",
+      "name": "HOOKS-TIER-EXIT-1",
+      "riskTier": "medium",
+      "criterion": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
+      "status": "verified",
+      "verifiedAt": "2026-09-24T18:24:53Z",
+      "evidence": "exit 0: PASSED: 0 failed, 111 passed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-003/G-003-adjudication-a17-ch.json",
+        "sha256": "a627797ea65604ef90452ffd5909882e3abced5391aeab8f4459f6687a1e0996",
+        "receiptSha256": "c71d48614332a84b9b8279609d6c7151d8102d4a5f283b6313df328fd89e9eb1",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-003/G-003-machine-m34-ch.json",
+        "machineSha256": "3f156c1576f5d0e827a251323422be08dc6fdf145d925335773d9f3269d0b4e1"
+      }
+    },
+    {
+      "id": "G-004",
+      "name": "HOOKS-AUTOINSTALL-1",
+      "riskTier": "medium",
+      "criterion": "Скиллы /adopt и /project завершаются явным шагом предложения установить enforcement-хуки в .claude/settings.json целевого проекта с подтверждением пользователя; helper-скрипт при подтверждении добавляет записи хуков идемпотентно (повторный запуск не дублирует), при отказе не трогает файл; README.md и README.ru.md не содержат строку 'not auto-installed' и описывают шаг установки; tests/verify_hooks_autoinstall.py RED на дофиксовых байтах и GREEN после.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && ! grep -q \"not auto-installed\" README.md README.ru.md",
+      "status": "verified",
+      "verifiedAt": "2026-09-25T07:33:11Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py: exit 0, stdout sha256 8628f09c6b2e7964, PASSED: 0 failed, 66 passed\n! grep -q \"not auto-installed\" README.md README.ru.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/G-004/G-004-adjudication-a1.json",
+        "sha256": "c9035d044d53d02daf5b93ec1a4a14fbc8e420d8afc09848901fc25a8e3e02b0",
+        "receiptSha256": "a11a1c372a63f5b1d410d6ebe71ced2f088077f21c653e8235e3882cebf87253",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/G-004/G-004-machine-m2.json",
+        "machineSha256": "782e5e394e0bbf1e2ee420e51eb47b18d23ddb52c8664bb950647c449ce84a0e"
+      }
+    },
+    {
+      "id": "G-005",
+      "name": "PILOT-LOW-1",
+      "riskTier": "medium",
+      "criterion": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
+      "status": "verified",
+      "verifiedAt": "2026-09-25T17:57:21Z",
+      "evidence": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)\nsh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\": exit 0, stdout sha256 e81027888014d7ba, comparableUnits 5\ntest -f docs/retros/RETRO-PILOT-LOW-1.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-adjudication-a1.json",
+        "sha256": "32805130950b56f99d15df731181f0b7ffaa4ff7dacf1c0608786a9960bb30fd",
+        "receiptSha256": "724dbe3a5b58df314b8c25e4e846d5bed54f6f8dc222381a6c2ab028f9e719cc",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-machine-9997248806955c26.json",
+        "machineSha256": "69814f92639733a0bbacb5d0ca45bf60934de79510a228e2e7353e7273c38762"
+      }
+    }
+  ]
+}
