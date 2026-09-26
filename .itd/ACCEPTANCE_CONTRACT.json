@@ -4189,7 +4189,7 @@
       "unitId": "TIER-SOURCE-1",
       "criterion": "Команда критерия выходит 0: tests/verify_tier_source.py зелёный на дереве кандидата - шесть синтетических пар в стиле пилота (шаблон с docstring против подробного описания со strict-словом или strict-путём) дают один тир на tests-only области (каждая непустая строка Allowed Change Areas - один пункт списка ровно с одним путём из ASCII-символов и необязательной пометкой (new) или (updated)), Current Task которой начинается с id активируемого юнита, через match_strict_class и через itd_unit_log.py activate (объявленный low остаётся low, отложенное совпадение записано как riskTierExempt); путь или ключевое слово strict-класса в самой области, любая строка вне грамматики (проза, два пути, продолжение пункта, склеенный токен, путь без букв, невидимая буква, не-тестовый путь), отсутствие SCOPE_LOCK, выход через .. и Current Task другого юнита (в том числе упоминающий новый юнит в другом месте) поднимают low до high; tests/verify_risk_tier_default.py зелёный. Критерий не утверждает ничего сверх выхода этой команды.",
       "source": "Уточняет criterion юнита TIER-SOURCE-1 из .itd-memory/GOAL.json (привязка к id юнита - уточнение исполнителя, грамматика белого списка - решение владельца после REDESIGN_OR_DISCARD, .itd/DECISIONS.md 2026-09-26); команда ниже - байт-в-байт копия verificationCommand юнита.",
-      "evidence": "Финальный оракул tests/verify_tier_source.py: на дофиксовых байтах 06bee64 - 39 проверок красные (без краха; 12 из них - один тир по парам); на кандидате GREEN, --mutations 16/16 летальны; tests/verify_risk_tier_default.py GREEN. Ход ревью (targeted-чекеры c1..c6, стоп-правило и решение владельца) - в .itd/DECISIONS.md и отчётах .itd-memory/verification-loop/reports/TIER-SOURCE-1-targeted-c*.md.",
+      "evidence": "Финальный оракул tests/verify_tier_source.py: на дофиксовых байтах 06bee64 - 39 проверок красные (без краха; 12 из них - один тир по парам); на кандидате GREEN, --mutations 16/16 летальны; tests/verify_risk_tier_default.py GREEN. Ход ревью (targeted-чекеры c1..c6, стоп-правило и решение владельца) - в .itd/DECISIONS.md и отчётах .itd-memory/verification-loop/reports/TIER-SOURCE-1-targeted-c*.md. Юнит verified харнесом цели 2026-09-26T12:54:53Z с квитанцией .itd-memory/verification-loop/receipts/030e16ec4015bc5c/TIER-SOURCE-1-adjudication-a1.json (targeted-чекер c7 PASSED на дереве 1148c05b, коммит 3c163af).",
       "reviewEvidence": {
         "claim": "Исключение tests-only и сохранённый пол проверяет команда критерия.",
         "impactClasses": [
@@ -4201,14 +4201,14 @@
         ]
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": "TIER-SOURCE-1-2-ledger",
       "unitId": "TIER-SOURCE-1",
       "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме после переходов харнеса для TIER-SOURCE-1.",
       "source": "Инвариант леджера цели.",
-      "evidence": "Активация записана харнесом (actor harness) 2026-09-26; verified - после маршрута medium.",
+      "evidence": "Переходы записаны харнесом (actor harness): activated 2026-09-26, verified 2026-09-26T12:54:53Z с квитанцией .itd-memory/verification-loop/receipts/030e16ec4015bc5c/TIER-SOURCE-1-adjudication-a1.json; validate_state OK.",
       "reviewEvidence": {
         "claim": "Леджер цели валиден - это проверяет команда критерия.",
         "impactClasses": [
@@ -4220,7 +4220,7 @@
         ]
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "completion": {

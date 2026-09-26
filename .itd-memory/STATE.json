@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "TIER-SOURCE-1",
     "goal": "When every path in the Allowed Change Areas of .itd/SCOPE_LOCK.md is a test path, a strict-class match in the unit goal text no longer forces riskTier high, while a strict-class path or keyword inside the Allowed Change Areas still forces high and a scope with any non-test path (or with no path at all) keeps the goal as a source: the new oracle tests/verify_tier_source.py is RED on the pre-fix bytes and GREEN after - synthetic pilot-style pairs (docstring template vs a detailed description with a strict word, not code of the pilot project) get one tier on a tests-only scope, a money or auth path in the scope stays high, a mixed scope stays high - and tests/verify_risk_tier_default.py stays green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-26T10:34:17Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-26T12:54:53Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -573,7 +574,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Goal PROPORTIONALITY-DEFAULT is DONE (5/5 units verified by the goal harness): G-001 strict classes force high and the target template defaults to low (#305), G-002 pre-flight context budget (#306), G-003 advisory hooks quiet on a low unit (#307), G-004 hooks offer in /adopt and /project (#309), G-005 external low-route pilot PILOT-LOW-1 with retro (#311). This candidate is the G-005 ledger-close and goal closure. WIP is free: no unit is active. Next goal is the owner's call (candidates: BACKLOG P1 2026-09-25 - strict-class tier from goal wording, stale .pyc in /test Step 5.5 mutation runs; P2 low-route friction and G-005 route findings).",
+  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2: TIER-SOURCE-1 is verified by the goal harness (commit 3c163af, targeted checker c7 PASSED on tree 1148c05b after c1/c2 BLOCKED, the stop rule REDESIGN_OR_DISCARD and the owner's whitelist-grammar decision). This candidate records the harness transitions, the passed criteria and the re-recorded live benchmark evidence. Next: pre-PR cross-review, push, PR, merge; then ledger-close; then activate REL-1.106.0 (high) in a fresh session.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
