@@ -91,7 +91,9 @@ tests-only unit depending on goal wording: the same module went `low` from its d
   could make one path read as two). The grammar is a whitelist: the owner chose it on
   2026-09-26 after the stop rule ended a review series of a blacklist lexer (REDESIGN_OR_DISCARD
   at round c2). The set-aside goal hit is printed and recorded as
-  `riskTierExempt{class,match,reason}`; the tier is not raised.
+  `riskTierExempt{class,match,reason}`; the tier is not raised. When a strict path or keyword of
+  the areas forces `high`, the set-aside goal hit is still printed and recorded next to
+  `riskTierForced` (next to `riskTierMatch` when `high` was declared).
 - Strict paths and keywords inside the Allowed Change Areas still force `high`. Any line outside
   the grammar (prose, a continuation line, two paths, markup, a sub-heading, a fence, a non-test
   path), no SCOPE_LOCK and a Current Task that does not open with the unit keep the goal as the

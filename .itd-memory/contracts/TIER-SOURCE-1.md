@@ -10,7 +10,9 @@
   raise a tier, never lower it); `match_strict_class` ignores the goal (keywords and paths) under
   both conditions; `exempt_goal_hit` returns the goal hit that was set aside.
 - `skills/task/scripts/itd_unit_log.py activate`: prints the set-aside hit and records
-  `riskTierExempt{class,match,reason}` in `STATE.currentUnit`; tier is not raised.
+  `riskTierExempt{class,match,reason}` in `STATE.currentUnit` - also next to `riskTierForced` (or
+  `riskTierMatch` when high is declared) when the areas themselves force high; the goal does not
+  raise the tier.
 - `skills/goal/scripts/itd_goal_verify.py`: the STATE projection drops `riskTierExempt`.
 - Docs: `skills/task/SKILL.md`, ADR-011 amendment, SCOPE_LOCK template, CHANGELOG `[Unreleased]`.
 - `tests/verify_tier_source.py` (new, in `tests/run-all.sh`, in `.itd/IMPACT_GRAPH.json`).

@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   записанный только ASCII-символами `[A-Za-z0-9_./*?-]` без сегмента `..`; набор символов
   проверяется по токену как есть (`\` в набор не входит и не заменяется), пробелы не
   обрезаются, регистр приводится уже после проверки. `itd_unit_log.py activate` печатает
-  отложенное совпадение и пишет его в STATE как `riskTierExempt`; тир не поднимается.
+  отложенное совпадение и пишет его в STATE как `riskTierExempt`; тир не поднимается. Если тир
+  поднимает путь или слово самой области, `riskTierExempt` пишется рядом с `riskTierForced` (при
+  объявленном `high` - рядом с `riskTierMatch`).
 - Пол сохраняется: путь или ключевое слово strict-класса в самой области и любая строка вне
   грамматики (проза, продолжение пункта, два пути в строке, разметка, подзаголовок, fence,
   не-тестовый путь, `api.spec.yaml`, `tests/a.py|src/b.py`, `**/*`, невидимая буква U+3164), отсутствие SCOPE_LOCK и
@@ -38,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ADR-011 и `skills/task/SKILL.md`. `PROPORTIONALITY_POLICY.json` не меняется (его SHA-256 закреплён).
 - Новый оракул `tests/verify_tier_source.py` (в `tests/run-all.sh`): шесть синтетических пар в
   стиле пилота дают один тир на tests-only области, пол держится в 25 случаях; на дофиксовых
-  байтах 40 проверок красные, `--mutations` - 19 из 19 летальны.
+  байтах 43 проверки красные, `--mutations` - 22 из 22 летальны.
 
 ### Changed - G-004 HOOKS-AUTOINSTALL-1: /adopt и /project предлагают установить enforcement-хуки
 

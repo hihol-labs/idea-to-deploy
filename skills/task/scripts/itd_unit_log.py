@@ -441,7 +441,9 @@ def main() -> int:
                 print(f"strict class matched, declared tier already high: {match_note['match']}")
         # TIER-SOURCE-1: на tests-only области goal не источник пола; отложенное
         # совпадение печатается и остаётся в STATE, чтобы низкий тир был объясним.
-        exempt = None if forced else RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)
+        # Пишется и рядом с riskTierForced от пути/слова самой области: оба - факты
+        # аудита (PUB2).
+        exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)
         exempt_note = None
         if exempt:
             exempt_note = {"class": exempt[0], "match": RC.describe(exempt),

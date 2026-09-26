@@ -24,7 +24,9 @@ Contract of this oracle (all fixtures are synthetic, not code of the pilot proje
      a tests-only SCOPE_LOCK whose Current Task does not open with the unit being activated (a
      stale scope of a previous unit, even one that mentions the new unit elsewhere; activate
      prints a hint), prose or a bare name inside a tests item and a glued token keep `high` for
-     a lower declared tier; an area hit next to a goal hit records no `riskTierExempt`.
+     a lower declared tier; an area hit next to a set-aside goal hit records both notes
+     (`riskTierForced` and `riskTierExempt`, or `riskTierMatch` and `riskTierExempt` when `high`
+     is declared) and prints the set-aside hit, and no other floor case records `riskTierExempt`.
   4. The goal harness STATE projection drops `riskTierExempt` on the activated and the verified
      branch (executed, not read); the docs name the exemption and the oracle is registered in
      tests/run-all.sh.
@@ -112,6 +114,9 @@ FLOOR = (
     ("bare-name-in-item", ["- tests/test_fx_rates.py, Dockerfile"], HOT_GOAL, "money"),
     ("prose-line-in-scope", ["Tests and the converter:", "- `tests/test_fx_rates.py`"], HOT_GOAL, "money"),
 )
+
+# floor cases whose goal hit is set aside by a tests-only, unit-bound scope: class of that goal hit
+EXEMPT_FLOOR = {"area-hit-and-goal-hit": "money"}
 
 fails: list[str] = []
 
@@ -314,8 +319,27 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
         code, out, cu = activate(root, goal, "low", lines)
         forced = (cu or {}).get("riskTierForced") or {}
         c(f"floor-{label}-activate-high", code == 0 and (cu or {}).get("riskTier") == "high"
-          and forced.get("class") == cls and "riskTierExempt" not in (cu or {}),
-          f"rc={code} currentUnit={cu}")
+          and forced.get("class") == cls, f"rc={code} currentUnit={cu}")
+        # PUB2: a goal hit set aside by a tests-only scope is recorded even when the area itself
+        # forces high - both notes are audit facts; no other floor case sets a goal hit aside
+        exempt = (cu or {}).get("riskTierExempt")
+        if label in EXEMPT_FLOOR:
+            c(f"floor-{label}-exempt-recorded-next-to-forced",
+              isinstance(exempt, dict) and exempt.get("class") == EXEMPT_FLOOR[label]
+              and "tests-only" in str(exempt.get("reason", "")), f"riskTierExempt={exempt}")
+            c(f"floor-{label}-exempt-printed-when-forced",
+              "strict class not applied" in out and "tests-only" in out, out.strip()[-300:])
+            # declared high: nothing is forced, the area hit is riskTierMatch, the note stays (c13)
+            code_h, out_h, cu_h = activate(root, goal, "high", lines)
+            exempt_h = (cu_h or {}).get("riskTierExempt")
+            c(f"floor-{label}-exempt-recorded-next-to-match-when-declared-high",
+              code_h == 0 and (cu_h or {}).get("riskTier") == "high"
+              and "riskTierForced" not in (cu_h or {})
+              and ((cu_h or {}).get("riskTierMatch") or {}).get("class") == cls
+              and isinstance(exempt_h, dict) and exempt_h.get("class") == EXEMPT_FLOOR[label]
+              and "strict class not applied" in out_h, f"rc={code_h} currentUnit={cu_h}")
+        else:
+            c(f"floor-{label}-no-exempt-note", exempt is None, f"riskTierExempt={exempt}")
     stale = bullets(["tests/test_fx_rates.py"])
     hit = strict(rc, HOT_GOAL, scope_md(stale, "U-7"), classes, "U-1")
     c("floor-stale-scope-of-U-7-matcher-money", bool(hit) and hit[0] == "money", f"hit={hit}")
@@ -440,8 +464,20 @@ def mutations() -> None:
             r, RC_REL, "if not raw or not _SAFE_PATH_RE.fullmatch(raw):", "if not raw:")),
         ("unit-id-anywhere", lambda r: append(r, RC_REL, (
             "names_unit = lambda scope_text, unit_id: bool(unit_id) and unit_id in (scope_text or '')"))),
-        ("exempt-written-when-forced", lambda r: replace_once(
-            r, LOG_REL, "exempt = None if forced else RC.exempt_goal_hit(", "exempt = RC.exempt_goal_hit(")),
+        ("exempt-dropped-when-forced", lambda r: replace_once(
+            r, LOG_REL, "exempt = RC.exempt_goal_hit(", "exempt = None if forced else RC.exempt_goal_hit(")),
+        ("exempt-dropped-when-declared-high", lambda r: replace_once(
+            r, LOG_REL, "exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)",
+            "exempt = None if (forced and not forced_note) else RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)")),
+        # suppresses the print only when a lower declared tier was raised (forced_note), so it
+        # is caught by floor-*-exempt-printed-when-forced alone: the pair checks raise nothing
+        # and the declared-high check has a match but no forced_note
+        ("exempt-print-suppressed-when-forced", lambda r: replace_once(
+            r, LOG_REL, 'print(f"strict class not applied (',
+            '(forced and forced_note) or print(f"strict class not applied (')),
+        ("exempt-written-without-set-aside", lambda r: replace_once(
+            r, LOG_REL, "exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)",
+            "exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id) or forced")),
         ("non-item-lines-skipped", lambda r: replace_once(
             r, RC_REL, "return False                    # any other line", "continue  #")),
         ("vacuous-tests-only", lambda r: append(r, RC_REL, (
