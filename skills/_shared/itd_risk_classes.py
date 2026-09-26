@@ -22,6 +22,13 @@ module is the single reader of `strictClasses` in `PROPORTIONALITY_POLICY.json`:
     the same or a higher level; deeper sub-headings and fenced code stay inside it (a fence
     closes only with the same delimiter character and at least the opening length).
     Returns `(class, kind, pattern, where)` for the first hit in class order, else None.
+  * Tests-only scope (TIER-SOURCE-1, pilot PILOT-LOW-1): when the Allowed Change Areas are a
+    list of test paths only (`tests_only`, `is_test_path`) and the Current Task opens with the
+    unit being activated (`names_unit`), the goal text is not a source - it describes the module
+    under test, and the pilot measured the same module going low or high by wording alone.
+    Strict paths and keywords inside the areas still hit; a mixed scope, a scope without any
+    path, an item with prose, a Current Task that does not open with the unit and a missing
+    SCOPE_LOCK keep the goal. `exempt_goal_hit` returns the goal hit that was set aside.
 
 Only stdlib. Shared by `skills/task/scripts/itd_unit_log.py`; tests:
 `tests/verify_risk_tier_default.py`.
@@ -38,6 +45,7 @@ FORCED_TIER = "high"
 # The scope section is recognised by heading text, not by exact bytes: any `#` level, an
 # optional trailing colon, and the two spellings the templates use (checker c7).
 _ALLOWED_HEADINGS = ("allowed change areas", "in scope")
+_CURRENT_TASK_HEADINGS = ("current task",)
 # A heading needs whitespace after the hashes (a shell comment `#run` is not one) and the
 # section ends only at a heading of the SAME or HIGHER level than the one that opened it, so
 # `### Backend` sub-sections stay inside `## Allowed Change Areas`; fenced code is skipped
@@ -124,6 +132,11 @@ def _heading_title(raw: str) -> str:
 def allowed_areas(scope_text: str) -> str:
     """Return the body of the `Allowed Change Areas` / `In scope` section of a SCOPE_LOCK.md
     text ('' if absent); heading level and a trailing colon do not matter."""
+    return _section_body(scope_text, _ALLOWED_HEADINGS)
+
+
+def _section_body(scope_text: str, titles: tuple[str, ...]) -> str:
+    """Body of every section whose heading title is in `titles`, joined in order."""
     if not scope_text:
         return ""
     out: list[str] = []
@@ -150,7 +163,7 @@ def allowed_areas(scope_text: str) -> str:
         if m:
             depth = len(m.group(1))
             title = _heading_title(m.group(2))
-            if title in _ALLOWED_HEADINGS:
+            if title in titles:
                 if not level:
                     level = depth                   # open a scope section
                 elif depth > level:
@@ -201,8 +214,97 @@ def _path_hit(token: str, pattern: str) -> bool:
     return fnmatch.fnmatchcase(token, pattern) or fnmatch.fnmatchcase("/" + token, pattern)
 
 
-def match_strict_class(goal: str, scope_text: str, classes: dict[str, dict]):
+# A test path has a test directory segment or a test file name; anything else (and any path
+# that escapes through `..`) is not one, so a scope with a single such token keeps the goal.
+_TEST_DIRS = frozenset({"tests", "test", "__tests__"})
+_TEST_FILES = ("test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py")
+# a test file name counts only on a code file: `api.spec.yaml` is an OpenAPI document, not a test
+_CODE_EXTS = frozenset({"py", "js", "jsx", "ts", "tsx", "mjs", "cjs", "go", "rb", "java", "kt",
+                        "rs", "php", "cs", "swift", "vue", "svelte"})
+
+
+# a glued token (`tests/a.py|src/b.py`, `tests/a.py→src/b.py`) is not one path: only this ASCII
+# set - a Unicode letter such as U+3164 (invisible) or U+01C0 (looks like `|`) would let a line
+# read as two paths while the lexer sees one under tests/ (checker c3)
+_SAFE_PATH_RE = re.compile(r"[A-Za-z0-9_.\-/*?]+")
+
+
+def is_test_path(token: str) -> bool:
+    # the charset is checked on the raw token: Unicode strip()/lower() first would turn a padded
+    # `\xa0tests/x.py` or a Kelvin sign U+212A into ASCII and let them through (checker c4), and
+    # `\` is outside the set rather than rewritten to `/` (PUB1)
+    raw = token or ""
+    if not raw or not _SAFE_PATH_RE.fullmatch(raw):
+        return False
+    tok = raw.lower()
+    parts = tok.split("/")
+    if ".." in parts:
+        return False                # `tests/../src/x.py` is not under tests/
+    # a trailing slash names a directory: `tests/` is a test dir, not a file called `tests`
+    dirs = parts if tok.endswith("/") else parts[:-1]
+    if any(p in _TEST_DIRS for p in dirs):
+        return True
+    name = parts[-1]
+    return (name.rpartition(".")[2] in _CODE_EXTS
+            and any(fnmatch.fnmatchcase(name, p) for p in _TEST_FILES))
+
+
+_LIST_ITEM_RE = re.compile(r"^\s{0,12}(?:[-*+]|\d{1,9}[.)])\s+")
+# A tests-only line is a whitelist, not a lexer (owner decision 2026-09-26, after the stop rule
+# fired on c2): one list item, one path (optionally in a code span), an optional `(new)` or
+# `(updated)` and nothing else. Prose, a second path, markup, a continuation line, a sub-heading
+# or a fence is not in the grammar, so the goal stays a source.
+_TEST_ITEM_RE = re.compile(
+    r"^[ \t]{0,12}(?:[-*+]|\d{1,9}[.)])[ \t]+(`?)([^\s`]+)\1(?:[ \t]+\((?:new|updated)\))?[ \t]*$",
+    re.IGNORECASE | re.ASCII)
+
+
+def tests_only(areas: str) -> bool:
+    """True when every non-blank line of the Allowed Change Areas matches `_TEST_ITEM_RE` and
+    names a test path (`is_test_path`); an empty scope never is tests-only (not vacuous)."""
+    found = False
+    for line in (areas or "").splitlines():
+        if not line.strip():
+            continue
+        m = _TEST_ITEM_RE.match(line)
+        if not m or not is_test_path(m.group(2)):
+            return False                    # any other line keeps the goal as a source
+        found = True
+    return found
+
+
+def names_unit(scope_text: str, unit_id: str) -> bool:
+    """The first line of the Current Task section opens with the unit id as a whole token
+    (`- U-3: ...`; `U-3` does not match `U-12`, `XU-3` or `U-3.5`). A mention anywhere else - a
+    title, Forbidden, "follow-up of U-3" - does not bind a stale scope to a new unit."""
+    if not unit_id:
+        return False
+    for line in _section_body(scope_text, _CURRENT_TASK_HEADINGS).splitlines():
+        if line.strip():
+            head = _LIST_ITEM_RE.sub("", line, count=1).lstrip(" \t*_`[")
+            return re.match(re.escape(unit_id) + r"(?![\w\-]|\.\w)", head) is not None
+    return False
+
+
+def tests_only_scope(scope_text: str, unit_id: str) -> bool:
+    """Precondition of the goal exemption: tests-only Allowed Change Areas in a SCOPE_LOCK that
+    opens its Current Task with the unit being activated. SCOPE_LOCK is not bound to a unit
+    (ADR-011): a stale scope of the previous unit may only raise a tier, so without the unit id
+    the goal stays a source."""
+    return tests_only(allowed_areas(scope_text or "")) and names_unit(scope_text, unit_id)
+
+
+def exempt_goal_hit(goal: str, scope_text: str, classes: dict[str, dict], unit_id: str = ""):
+    """The strict-class hit in the goal that a tests-only scope set aside, else None."""
+    if not tests_only_scope(scope_text, unit_id):
+        return None
+    return match_strict_class(goal, "", classes)
+
+
+def match_strict_class(goal: str, scope_text: str, classes: dict[str, dict], unit_id: str = ""):
     areas = allowed_areas(scope_text or "")
+    if tests_only_scope(scope_text, unit_id):
+        goal = ""       # TIER-SOURCE-1: the goal names the module under test, not the change
     # keywords see camel-split words; path patterns see the raw lower-cased tokens
     goal_plain = (goal or "").lower()
     areas_plain = areas.lower()

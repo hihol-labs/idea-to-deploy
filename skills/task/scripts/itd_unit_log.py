@@ -424,7 +424,7 @@ def main() -> int:
             scope_text = RC.read_scope_lock(mem)
         except RC.StrictClassPolicyError as exc:
             return die(f"SCOPE_LOCK недоступен для strict-классов: {exc}", 2)
-        forced = RC.match_strict_class(a.goal, scope_text, strict_classes)
+        forced = RC.match_strict_class(a.goal, scope_text, strict_classes, a.unit_id)
         risk_tier = a.risk_tier
         forced_note = None
         match_note = None
@@ -439,6 +439,21 @@ def main() -> int:
                       f"{forced_note['match']}")
             else:
                 print(f"strict class matched, declared tier already high: {match_note['match']}")
+        # TIER-SOURCE-1: на tests-only области goal не источник пола; отложенное
+        # совпадение печатается и остаётся в STATE, чтобы низкий тир был объясним.
+        # Пишется и рядом с riskTierForced от пути/слова самой области: оба - факты
+        # аудита (PUB2).
+        exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)
+        exempt_note = None
+        if exempt:
+            exempt_note = {"class": exempt[0], "match": RC.describe(exempt),
+                           "reason": "Allowed Change Areas are tests-only: the goal text is not a strict-class source"}
+            print(f"strict class not applied ({exempt_note['match']}): Allowed Change Areas are tests-only")
+        elif (forced and forced[3] == "goal" and RC.tests_only(RC.allowed_areas(scope_text))
+              and not RC.names_unit(scope_text, a.unit_id)):
+            print(f"hint: Allowed Change Areas are tests-only, but the Current Task of .itd/SCOPE_LOCK.md "
+                  f"does not open with {a.unit_id} - a scope not bound to the unit keeps the goal text "
+                  f"as a strict-class source")
         try:
             ledger = resolve_ledger(mem, a.unit_id, a.ledger)
         except LedgerAmbiguity as exc:
@@ -456,6 +471,8 @@ def main() -> int:
             state["currentUnit"]["riskTierMatch"] = match_note
         if forced_note:
             state["currentUnit"]["riskTierForced"] = forced_note
+        if exempt_note:
+            state["currentUnit"]["riskTierExempt"] = exempt_note
         save_state(mem, state, expected_sha256=state_sha256)
         print(f"activated {a.unit_id}: {a.goal}")
         return 0

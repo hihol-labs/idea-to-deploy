@@ -1,105 +1,39 @@
 {
   "version": 1,
-  "goal": "Обычный юнит на целевом проекте идёт по маршруту low/medium с обязательным риск-тиром, pre-flight контекст на промпт не превышает 1 КБ, enforcement-хуки предлагаются к установке при /adopt и /project, и эффект измерен на одном внешнем пилоте (аудит /advisor 2026-09-22).",
-  "status": "done",
-  "createdAt": "2026-09-22T19:20:49Z",
-  "updatedAt": "2026-09-25T20:31:04Z",
+  "goal": "Юнит, меняющий только тесты, не форсируется в high словами из прозы goal, а релиз v1.106.0 доставляет G-001..G-004 и этот фикс на WSL и Windows (утверждено владельцем 2026-09-26, BACKLOG P1 2026-09-25).",
+  "status": "active",
+  "createdAt": "2026-09-26T10:45:00Z",
+  "updatedAt": "2026-09-26T12:54:53Z",
   "currentUnitId": "",
   "nonGoals": [
-    "Слияние хуков в один процесс-мультиплексор (1.44% активного wall по трейсам; единая точка отказа гейтов).",
-    "Потолок раундов ревью (запрещён .itd/STOP_RULE_POLICY.json по замеру S04b/R6).",
-    "Удаление или ослабление хуков-гейтов безопасности (state-guard, pii-egress-guard, completion-gate в strict)."
+    "Тир только по путям без учёта прозы goal для не-тестовых областей (ослабляет пол strict-классов, потребовал бы правки ADR-011).",
+    "Проверка criterion юнита цели strict-матчером при /goal --activate (отдельный пункт BACKLOG).",
+    "Остальные находки BACKLOG P1/P2 пилота (устаревший .pyc в /test Step 5.5, трение маршрута low)."
   ],
   "units": [
     {
-      "id": "G-001",
-      "name": "RISK-TIER-1",
+      "id": "TIER-SOURCE-1",
+      "criterion": "When every path in the Allowed Change Areas of .itd/SCOPE_LOCK.md is a test path, a strict-class match in the unit goal text no longer forces riskTier high, while a strict-class path or keyword inside the Allowed Change Areas still forces high and a scope with any non-test path (or with no path at all) keeps the goal as a source: the new oracle tests/verify_tier_source.py is RED on the pre-fix bytes and GREEN after - synthetic pilot-style pairs (docstring template vs a detailed description with a strict word, not code of the pilot project) get one tier on a tests-only scope, a money or auth path in the scope stays high, a mixed scope stays high - and tests/verify_risk_tier_default.py stays green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
       "riskTier": "medium",
-      "criterion": "skills/task/scripts/itd_unit_log.py activate без --risk-tier завершается exit!=0 с понятной ошибкой; docs/templates/itd/COMPLETION_POLICY.json (шаблон для проектов) несёт defaultRiskTier=low, а репозиторий методологии остаётся на встроенном medium (файл .itd/COMPLETION_POLICY.json в нём не заводится, дефолт живёт в hooks/completion-gate.sh и docs/templates/itd/itd_hygiene.py); skills/_shared/PROPORTIONALITY_POLICY.json содержит машиночитаемый объект strictClasses ровно с пятью классами (money, prod-config, db-schema, auth, secrets), каждый с keywords/paths и tier=high, и itd_unit_log activate принудительно ставит high при совпадении, печатая класс и совпавший паттерн и записывая совпадение в STATE (riskTierMatch; riskTierForced - когда тир поднят); ADR-011 фиксирует смену дефолтного тира; tests/verify_risk_tier_default.py RED на дофиксовых байтах и GREEN после, с >=3 летальными мутациями.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
       "status": "verified",
-      "verifiedAt": "2026-09-23T13:29:03Z",
-      "evidence": "exit 0: PASSED: 0 failed",
+      "verifiedAt": "2026-09-26T12:54:53Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_tier_source.py: exit 0, stdout sha256 3982d34641e97d41, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py: exit 0, stdout sha256 46bb31e715e043c9, PASSED: 0 failed",
       "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-001/G-001-adjudication-a12-ch.json",
-        "sha256": "cf0b2ccf11c94f0875812bfbedc241be62b33e1a7179a2256637a4162e26f866",
-        "receiptSha256": "47f28984966b69f26539ea2260275ea90b39fc9c97f482d8074ffede3f341668",
+        "path": ".itd-memory/verification-loop/receipts/030e16ec4015bc5c/TIER-SOURCE-1-adjudication-a1.json",
+        "sha256": "9a6400cbc57af8a21779f1fc26f1324256210454e5377ef3f52958052d3ad6e4",
+        "receiptSha256": "90210173f06b0fab53d9bfc61850a748ea68ce1e059f0c1e018e6961368c806e",
         "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-001/G-001-machine-m30-ch.json",
-        "machineSha256": "ff713a7a8108eeafb608f207e77d3074db3562b8e651649b6b0419b171273118"
+        "machinePath": ".itd-memory/verification-loop/receipts/030e16ec4015bc5c/TIER-SOURCE-1-machine-e3ba3bc86e31fa32.json",
+        "machineSha256": "cafd43f7dafbc80ec4b82fad9901a8fecd759e165be14bc989bc3c951e12e6bb"
       }
     },
     {
-      "id": "G-002",
-      "name": "CONTEXT-BUDGET-1",
-      "riskTier": "low",
-      "criterion": "hooks/pre-flight-check.sh на первом промпте сессии печатает полный дамп и пишет sentinel (по образцу session-open-diagnostic.sh); на последующих промптах той же сессии вывод <=1024 байт и содержит только дельту: новые коммиты с прошлого промпта и предупреждение о параллельной сессии, если оно появилось; при отсутствии дельты вывод пустой; MEMORY.md индекса памяти проекта <=24400 байт и ни одна строка не длиннее 200 символов; tests/verify_preflight_budget.py RED на дофиксовых байтах и GREEN после.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py && test \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400",
-      "status": "verified",
-      "verifiedAt": "2026-09-23T19:03:30Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_preflight_budget.py: exit 0, stdout sha256 b8ab83a87bd10ce4, PASSED: 0 failed\ntest \"$(wc -c < \"$HOME/.claude/projects/-home-hihol-projects-idea-to-deploy/memory/MEMORY.md\")\" -le 24400: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-002/G-002-adjudication-a2-ch.json",
-        "sha256": "06a6b5ebef03a4e0c6f442772006cfbdc6a8819a98d1f48022e826f272efebd3",
-        "receiptSha256": "268591c9287df19cf5cffd6902794b8e3be65f2f52f772e634fa52d89cf105eb",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-002/G-002-machine-m2-ch.json",
-        "machineSha256": "a4a1538701bce671669705f48f0dc9d5473e05c7f27d854c0002a3fdc9c5d4ef"
-      }
-    },
-    {
-      "id": "G-003",
-      "name": "HOOKS-TIER-EXIT-1",
-      "riskTier": "medium",
-      "criterion": "hooks/TIER_EXEMPT.json перечисляет хуки с дорогими проверками, которым разрешён ранний выход при riskTier=low активного юнита (гейты безопасности state-guard, pii-egress-guard, completion-gate, check-review-before-commit в список не входят и оракул это запрещает); каждый перечисленный хук при low завершается exit 0 без вывода и без записи в state/ledger; при medium/high stdout и exit-код байт в байт совпадают с дофиксовым поведением на фикстурах; tests/verify_hook_tier_exit.py RED на дофиксовых байтах и GREEN после.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_tier_exit.py",
-      "status": "verified",
-      "verifiedAt": "2026-09-24T18:24:53Z",
-      "evidence": "exit 0: PASSED: 0 failed, 111 passed",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-003/G-003-adjudication-a17-ch.json",
-        "sha256": "a627797ea65604ef90452ffd5909882e3abced5391aeab8f4459f6687a1e0996",
-        "receiptSha256": "c71d48614332a84b9b8279609d6c7151d8102d4a5f283b6313df328fd89e9eb1",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-003/G-003-machine-m34-ch.json",
-        "machineSha256": "3f156c1576f5d0e827a251323422be08dc6fdf145d925335773d9f3269d0b4e1"
-      }
-    },
-    {
-      "id": "G-004",
-      "name": "HOOKS-AUTOINSTALL-1",
-      "riskTier": "medium",
-      "criterion": "Скиллы /adopt и /project завершаются явным шагом предложения установить enforcement-хуки в .claude/settings.json целевого проекта с подтверждением пользователя; helper-скрипт при подтверждении добавляет записи хуков идемпотентно (повторный запуск не дублирует), при отказе не трогает файл; README.md и README.ru.md не содержат строку 'not auto-installed' и описывают шаг установки; tests/verify_hooks_autoinstall.py RED на дофиксовых байтах и GREEN после.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && ! grep -q \"not auto-installed\" README.md README.ru.md",
-      "status": "verified",
-      "verifiedAt": "2026-09-25T07:33:11Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py: exit 0, stdout sha256 8628f09c6b2e7964, PASSED: 0 failed, 66 passed\n! grep -q \"not auto-installed\" README.md README.ru.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/G-004/G-004-adjudication-a1.json",
-        "sha256": "c9035d044d53d02daf5b93ec1a4a14fbc8e420d8afc09848901fc25a8e3e02b0",
-        "receiptSha256": "a11a1c372a63f5b1d410d6ebe71ced2f088077f21c653e8235e3882cebf87253",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/G-004/G-004-machine-m2.json",
-        "machineSha256": "782e5e394e0bbf1e2ee420e51eb47b18d23ddb52c8664bb950647c449ce84a0e"
-      }
-    },
-    {
-      "id": "G-005",
-      "name": "PILOT-LOW-1",
-      "riskTier": "medium",
-      "criterion": "На одном авторизованном внешнем проекте (product-factory-os, jogai или hihol-landing; выбор владельца) через /adopt и /task выполнены >=5 сопоставимых юнитов с riskTier low или medium; записи ведутся scripts/itd_external_pilot.py в леджере docs/evidence/external-outcomes/PILOT-LOW-1.jsonl с consent; агрегат aggregate показывает comparableUnits>=5, isMethodologyRepository=false, synthetic=false, fixture=false; сравнение wall-clock и числа tool-вызовов с историческими high-юнитами записано в docs/retros/RETRO-PILOT-LOW-1.md.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json && sh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\" && test -f docs/retros/RETRO-PILOT-LOW-1.md",
-      "status": "verified",
-      "verifiedAt": "2026-09-25T17:57:21Z",
-      "evidence": "sh skills/_shared/itd_py.sh scripts/itd_external_pilot.py aggregate --ledger docs/evidence/external-outcomes/PILOT-LOW-1.jsonl --out .itd-memory/pilot-low-1-aggregate.json: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)\nsh skills/_shared/itd_py.sh -c \"import json,sys;a=json.load(open('.itd-memory/pilot-low-1-aggregate.json'));ok=a['comparableUnits']>=5 and not a['isMethodologyRepository'] and not a['synthetic'] and not a['fixture'];print('comparableUnits',a['comparableUnits']);sys.exit(0 if ok else 1)\": exit 0, stdout sha256 e81027888014d7ba, comparableUnits 5\ntest -f docs/retros/RETRO-PILOT-LOW-1.md: exit 0, stdout sha256 e3b0c44298fc1c14, (no output)",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-adjudication-a1.json",
-        "sha256": "32805130950b56f99d15df731181f0b7ffaa4ff7dacf1c0608786a9960bb30fd",
-        "receiptSha256": "724dbe3a5b58df314b8c25e4e846d5bed54f6f8dc222381a6c2ab028f9e719cc",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/7fc62802a156ca5b/G-005-machine-9997248806955c26.json",
-        "machineSha256": "69814f92639733a0bbacb5d0ca45bf60934de79510a228e2e7353e7273c38762"
-      }
+      "id": "REL-1.106.0",
+      "criterion": "Release 1.106.0 ships the PROPORTIONALITY-DEFAULT units G-001..G-004 (strict classes force high, the target template defaults to low, the pre-flight context budget, advisory hooks quiet on a low unit, the enforcement-hooks offer in /adopt and /project) and the TIER-SOURCE-1 tests-only exemption: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.106.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.106.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.106.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.106.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/meta_review.py && bash tests/run-all.sh --quick | tail -1 | grep -qx 'DONE fails:none' && sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.106.0';e=re.escape(v);J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text(encoding='utf-8');one=lambda pat,txt: len(re.findall(pat,txt,re.M))==1;mk=json.load(open('.claude-plugin/marketplace.json'));badge=lambda p: one(r'^\\[!\\[Version: '+e+r'\\]\\(https://img\\.shields\\.io/badge/Version-'+e+r'-purple\\.svg\\)\\]\\(CHANGELOG\\.md\\)$',T(p));places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: [p.get('version') for p in mk.get('plugins',[]) if p.get('name')=='idea-to-deploy']==[v]),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: badge('README.md')),('README.ru.md',lambda: badge('README.ru.md')),('conformance',lambda: (lambda d: len(d)==1 and d[0].rstrip().endswith('idea-to-deploy **v'+v+'**.'))([l for l in T('docs/HARNESS_CONFORMANCE_REPORT.md').splitlines() if 'idea-to-deploy **v' in l])),('rc-contract',lambda: J('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json','version')==v),('release-oracle',lambda: one(r'^VERSION = '+chr(34)+e+chr(34)+r'$',T('tests/verify_external_reviewer_release.py'))),('changelog',lambda: (lambda h: len(h)>1 and h[0]=='## [Unreleased]' and h[1]=='## ['+v+']' and len([x for x in h if x=='## ['+v+']'])==1)([l.split(' - ')[0].strip() for l in T('CHANGELOG.md').splitlines() if l.startswith('## [')]))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)), 'anchored')\" && sh skills/_shared/itd_py.sh -c \"import json,subprocess,sys;run=lambda a: subprocess.run(['git',*a],capture_output=True,text=True);v='1.106.0';r=run(['rev-parse','v'+v+'^{commit}']);sys.exit('tag v'+v+' does not exist yet') if r.returncode else None;tag=r.stdout.strip();g=lambda *a: (lambda x: x.stdout.strip() if x.returncode==0 else sys.exit('git '+' '.join(a)+' failed'))(run(list(a)));fp=g('rev-list','--first-parent','origin/main').split();sys.exit('tag v'+v+' is not on the first-parent chain of origin/main: '+tag) if tag not in fp else None;ver=lambda c: json.loads(g('show',c+':.claude-plugin/plugin.json'))['version'];sys.exit('tag commit does not carry '+v+': '+ver(tag)) if ver(tag)!=v else None;par=g('rev-list','--parents','-n','1',tag).split()[1:];sys.exit('first parent already carries '+v+': '+par[0]) if par and ver(par[0])==v else None;print('tag',tag,'first introduces',v,'on the first-parent chain; parents',len(par))\" && sh skills/_shared/itd_py.sh -c \"import json,subprocess,sys;v='1.106.0';r=subprocess.run(['gh','release','view','v'+v,'--json','tagName,isDraft,isPrerelease,publishedAt,targetCommitish'],capture_output=True,text=True);sys.exit('GitHub release v'+v+' is not published: '+(r.stderr.strip() or r.stdout.strip())) if r.returncode else None;d=json.loads(r.stdout);tag=subprocess.run(['git','rev-parse','v'+v+'^{commit}'],capture_output=True,text=True).stdout.strip();bad=[n for n,ok in (('tagName',d.get('tagName')=='v'+v),('isDraft',d.get('isDraft') is False),('isPrerelease',d.get('isPrerelease') is False),('publishedAt',bool(d.get('publishedAt'))),('targetCommitish',d.get('targetCommitish')==tag)) if not ok];sys.exit('GitHub release v'+v+' is not a published release on the tag commit: '+', '.join(bad)) if bad else None;print('GitHub release published',d['tagName'],d['publishedAt'],'target',d['targetCommitish'])\" && bash scripts/sync-to-active.sh --check && CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude bash scripts/sync-to-active.sh --check && sh skills/_shared/itd_py.sh -c \"import pathlib,sys;v='1.106.0';ok=lambda d: d.is_dir() and (d/'scripts'/'itd.py').is_file() and (d/'skills').is_dir();w=[p for p in pathlib.Path.home().joinpath('.local/share/itd/runtime').glob(v+'-*') if ok(p)];n=[p for p in pathlib.Path('/mnt/c/Users/Дмитрий/AppData/Local/ITD/runtime').glob(v+'-*') if ok(p)];sys.exit('rollout missing or invalid: wsl=%s windows=%s' % ([p.name for p in w],[p.name for p in n])) if not (w and n) else None;print('rollout',v,w[-1].name,n[-1].name)\" && sh skills/_shared/itd_py.sh tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/REL-1.106.0/INSTALLED.json && sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py",
+      "riskTier": "high",
+      "status": "pending"
     }
   ]
 }
