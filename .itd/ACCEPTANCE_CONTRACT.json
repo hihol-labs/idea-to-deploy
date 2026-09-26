@@ -4239,22 +4239,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "TIER-SOURCE-1",
-    "status": "open",
-    "openedAt": "2026-09-26",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/TIER-SOURCE-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit: TIER-SOURCE-1 closed on 2026-09-26 (goal TIER-SOURCE-1 -> REL-1.106.0 at 1/2). REL-1.106.0 opens a new followup when it is activated."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4423,6 +4410,26 @@
       },
       "closedAt": "2026-09-25T20:31:04Z",
       "closureEvidence": "Verified by the goal harness on 2026-09-25T17:57:21Z with receipt G-005-adjudication-a1.json (targeted checker c6 PASSED on tree bf40fe65); both criteria passed. Implementation PR #311 merged 3a6b594 (head 867c0a7) by the owner route after pre-PR PUB1 UNVERIFIED (criteria pending in the candidate), PUB2 BLOCKED (2, fixed) and PUB3 BLOCKED (2, new surfaces; dispositions in the PR body and .itd/DECISIONS.md); targeted checkers c7 and c8 PASSED on the later commits. The pilot aggregate holds 5 comparable pairs; the 20 followup mutations were re-run with the fixed runner, 20 of 20 caught. Goal PROPORTIONALITY-DEFAULT closed 5/5 by this ledger-close."
+    },
+    {
+      "unitId": "TIER-SOURCE-1",
+      "status": "closed",
+      "openedAt": "2026-09-26",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/TIER-SOURCE-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-26T19:42:55Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-26T12:54:53Z with receipt TIER-SOURCE-1-adjudication-a1.json (targeted checker c7 PASSED on tree 1148c05b, commit 3c163af) after checkers c1 and c2 BLOCKED, the stop rule REDESIGN_OR_DISCARD on c2 and the owner's whitelist-grammar decision; both criteria passed. Implementation PR #313 merged 1937063 (head 8c3da22, tree 75a0aa93; CI Gate 1 + windows-verify pass) after pre-PR PUB1 BLOCKED on 17cd5a9 (fixed in ec7bd9c), PUB2 BLOCKED on ec7bd9c (fixed in 8c3da22) and PUB3 PASSED on 8c3da22, bound to the Verification Loop (check --require-mandatory-route rc 0). 16 targeted checkers in total: c1, c2 BLOCKED; c7, c8, c11, c16 PASSED; ten PASSED_WITH_WARNINGS. The installed copy was synced from the worktree .claude/worktrees/tier-source-1 at 8c3da22 (tree equal to the merged tree; sync-to-active --check from that worktree without drift); the install provenance names that worktree, so a re-sync from the canonical checkout is still due. Goal TIER-SOURCE-1 -> REL-1.106.0 stays active at 1/2."
     }
   ]
 }

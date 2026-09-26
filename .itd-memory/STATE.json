@@ -574,7 +574,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2: TIER-SOURCE-1 is verified by the goal harness (commit 3c163af, targeted checker c7 PASSED on tree 1148c05b after c1/c2 BLOCKED, the stop rule REDESIGN_OR_DISCARD and the owner's whitelist-grammar decision). This candidate records the harness transitions, the passed criteria and the re-recorded live benchmark evidence. Next: pre-PR cross-review, push, PR, merge; then ledger-close; then activate REL-1.106.0 (high) in a fresh session.",
+  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2: TIER-SOURCE-1 is verified by the goal harness and shipped as PR #313 (main 1937063, pre-PR PUB3 PASSED after PUB1/PUB2 BLOCKED). This candidate is the TIER-SOURCE-1 ledger-close: the followup moves to closedFollowups and .itd/DECISIONS.md records the publication and the route cost. WIP is free. Next: after this ledger-close merges, re-sync the installed copy from the canonical checkout (the install provenance still names the worktree .claude/worktrees/tier-source-1, whose tree equals main), then activate REL-1.106.0 (high) through the goal harness and run it by docs/RELEASE_RUNBOOK.md (release v1.106.0 with G-001..G-004 and TIER-SOURCE-1, rollout WSL + Windows, installed proof).",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
