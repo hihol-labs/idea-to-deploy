@@ -574,7 +574,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Goal 'route metric distinguishes independent/machine/owner verification, attribution survives ledger archiving, released as 1.105.0' is DONE (5/5 units verified by the goal harness): LEDGER-ARCHIVE-1, ROUTE-REPAIR-3, ROUTE-DEBTS-ORACLE-1, REL-1.105.0 (release v1.105.0 = 97cc1290, rollout WSL+Windows runtime 1.105.0-8ee73e60de632900, installed proof a3/a5), WIN-TESTQUOTE-1. This candidate is the REL-1.105.0 ledger-close + goal closure; publish it through the route (owner-adjudicated general claim, gate registry, itd pr create). WIP is free: no unit is active. Next goal is the owner's call (candidates: BACKLOG P1 2026-09-22 route observations a-d, P2 sealed-oracle weaknesses for the next release unit).",
+  "nextAction": "Goal PROPORTIONALITY-DEFAULT is DONE (5/5 units verified by the goal harness): G-001 strict classes force high and the target template defaults to low (#305), G-002 pre-flight context budget (#306), G-003 advisory hooks quiet on a low unit (#307), G-004 hooks offer in /adopt and /project (#309), G-005 external low-route pilot PILOT-LOW-1 with retro (#311). This candidate is the G-005 ledger-close and goal closure. WIP is free: no unit is active. Next goal is the owner's call (candidates: BACKLOG P1 2026-09-25 - strict-class tier from goal wording, stale .pyc in /test Step 5.5 mutation runs; P2 low-route friction and G-005 route findings).",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"
