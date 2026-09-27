@@ -11,3 +11,6 @@ __pycache__/
 .itd-memory/
 tests/fixtures/*/output/
 benchmarks/review-evalset/RESULTS.json
+
+# /handoff: локальный пакет передачи, не входит в отревьюенный дифф (HANDOFF-UNTRACKED-1)
+/HANDOFF.md

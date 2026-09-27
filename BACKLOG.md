@@ -320,6 +320,25 @@ staged-кандидата (`native_source_candidate_repo` -> `candidate_context(
 (стоп-правило REDESIGN_OR_DISCARD на rel5, ADR-007 по pub3). Кандидат: HANDOFF как derived/untracked
 вью (как `.itd-memory/PROGRESS.md`) или вне диффа релизного юнита; живое состояние - в памяти сессии.
 
+Статус 2026-09-27: закрыто юнитом HANDOFF-UNTRACKED-1 - корневой `HANDOFF.md` в `.gitignore` и вне
+индекса, шаблоны SCOPE_LOCK релиза и ledger-close в `docs/RELEASE_RUNBOOK.md` (DECISIONS 2026-09-27).
+
+## P3 — исторические пакеты `.itd-memory/HANDOFF-*.md` в git (2026-09-27, HANDOFF-UNTRACKED-1)
+
+Юнит HANDOFF-UNTRACKED-1 вывел из git только корневой `HANDOFF.md`. Ранее через `git add -f`
+в индекс попал `.itd-memory/HANDOFF-RSI-ROUTE-P1.md` - это расходится с новым правилом `/handoff`
+(«без `git add -f`»). Кандидат: то же решение для исторических пакетов (`git rm --cached`, ссылки в
+DECISIONS остаются) или явная запись, что закоммиченные пакеты - архив и правило к ним не
+применяется. Найдено ревью юнита (minor 6).
+
+## P3 — wip-gate подсказывает на запись корневого `HANDOFF.md` (2026-09-27, HANDOFF-UNTRACKED-1)
+
+После HANDOFF-UNTRACKED-1 `HANDOFF.md` нет ни в одном Allowed Change Areas, поэтому запись пакета
+через `/handoff` во время юнита в `verifying` или `recovery_required` дает мягкую подсказку
+`hooks/wip-gate.sh` «вне Allowed Change Areas» (пример 3 скилла - восстановление после гейта).
+Не блок, rate-limited шум. Кандидат: исключить игнорируемый корневой `/HANDOFF.md` в wip-gate.
+Найдено чекером c1 юнита (minor 5).
+
 ## P2 — goal-report: `[machine_only]` у legacy-юнита с явным тиром (2026-09-27)
 
 `itd_goal_report.py --compact` печатает `REL-1.106.0 [machine_only]` при `riskTier: high`.

@@ -1,38 +1,35 @@
-# REL-1.106.0 ledger-close
+# HANDOFF-UNTRACKED-1
 
 ## Current Task
 
-REL-1.106.0 ledger-close - record the publication and rollout of release 1.106.0, revert the
-fourth amendment of the unit command, run the goal harness ОТК on this candidate, close the
-followup and the goal.
-
-Unit `REL-1.106.0` (high) shipped as PR #315 (squash `f3e0f42`, tree `30f62a28`, CI Gate 1 +
-windows-verify pass), tag and GitHub release `v1.106.0` on `f3e0f42`, rollout on WSL and Windows.
-This candidate is staged over `f3e0f42`. The criterion and the verificationCommand live ONLY in
-`.itd-memory/GOAL.json`.
+- HANDOFF-UNTRACKED-1: `HANDOFF.md` stops being tracked by git in this repository and stays a
+  local hand-over packet; the `/handoff` skill and the release and ledger-close SCOPE_LOCK
+  templates no longer put `HANDOFF.md` inside a reviewed diff. Goal unit (medium). The criterion
+  and the verificationCommand live ONLY in `.itd-memory/GOAL.json`.
 
 ## Allowed Change Areas
 
-- `.itd-memory/GOAL.json` - the last leg of the REL-1.106.0 verificationCommand back to its
-  2026-09-26 form (owner decision 2026-09-27); status transitions only through the goal harness.
-- `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - goal harness projections and events.
-- `.itd/ACCEPTANCE_CONTRACT.json` - the REL-1.106.0 followup moves to `closedFollowups` after the
-  harness marks the unit verified.
-- `.itd/DECISIONS.md`, `BACKLOG.md`, `HANDOFF.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
-- `.itd-memory/host-inputs/REL-1.106.0/` (git-ignored, host-owned): native canaries on this
-  candidate and `INSTALLED.json`.
+- `.gitignore` - a root-anchored `/HANDOFF.md` rule.
+- `HANDOFF.md` - removed from the index only (`git rm --cached`); the local file stays. Its
+  survival is a working-tree fact: proven by the machine leg `local-packet` (`test -s HANDOFF.md`)
+  over the declared ignored input `HANDOFF.md`, not by the reviewed tree.
+- `skills/handoff/SKILL.md` - where the packet lives and that it never enters a reviewed diff.
+- `docs/RELEASE_RUNBOOK.md` - a section with the release and ledger-close SCOPE_LOCK templates.
+- `tests/verify_handoff_untracked.py` (new), `tests/run-all.sh` - the oracle and its registration.
+- `.itd/IMPACT_GRAPH.json` - rebuilt by `tests/build_impact_graph.py`.
+- `tests/fixtures/live-model-evidence/` - only if the live pin moves (it did not: the changed
+  skill file is outside the narrowed pin).
+- `.itd-memory/GOAL.json`, `.itd-memory/GOAL-2026-09-27.json`, `.itd-memory/STATE.json`,
+  `.itd-memory/events.jsonl` - the new goal ledger, the archive of the closed one, harness
+  projections and events.
+- `.itd/SCOPE_LOCK.md` (this file), `.itd/DECISIONS.md`, `BACKLOG.md` - records.
 
-## Required
+## Forbidden Change Areas
 
-- Native canaries on WSL and Windows recorded on this staged candidate; `INSTALLED.json` accepted
-  by `tests/verify_route_debts.py --installed-proof`.
-- The whole verificationCommand exits 0 on this candidate as one machine run; independent review
-  and adjudication for the claim `REL-1.106.0`; the goal harness marks the unit verified with that
-  receipt.
-- A `/review` pass before the multi-file commit; merge, push and any further release action only
-  on the owner's explicit command.
+- `.itd-memory/HANDOFF-*.md` and other hand-over files; hooks, agents, other skills; README.
+- The unit criterion and verificationCommand; unit statuses by hand.
+- Push, PR, merge - only on the owner's explicit command.
 
-## Forbidden
+## Review Rule
 
-- Any change to skills, hooks, agents, scripts, tests or the other nine legs of the unit command.
-- Editing unit statuses by hand; deleting runtime directories of earlier releases.
+If the diff touches an area outside allowed scope, pause and reclassify the task before continuing.

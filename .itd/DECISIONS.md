@@ -4294,3 +4294,23 @@ Windows: клон `C:\itd-src\idea-to-deploy` на `f3e0f42`, нативная �
 **Цена.** 7 раундов Sol до коммита (rel2..rel8) и 2 публикационных (pub2, pub3; pub1 прерван до
 Sol), 6 проходов /review, 3 подписи ADR-007 (adj1, adj2 и otk1 в ledger-close), 1 COMPLETION_BYPASS,
 4 поправки команды юнита (одна откатана).
+
+## 2026-09-27: HANDOFF-UNTRACKED-1 - корневой HANDOFF.md вне git
+
+**Контекст.** Закоммиченный `HANDOFF.md` всегда на шаг позади своего коммита: файл внутри коммита
+не может записать ревью этого же коммита. В REL-1.106.0 это дало находки независимого ревьюера в
+rel4, rel5 (стоп-правило REDESIGN_OR_DISCARD) и pub3 (ADR-007). BACKLOG P2 2026-09-27.
+
+**Решение (владелец, 2026-09-27, план юнита одобрен).** Корневой `HANDOFF.md` - локальный пакет
+рабочего дерева: строка `/HANDOFF.md` в `.gitignore` (якорь на корень, `HANDOFF.md` фикстур не
+задет), `git rm --cached` (локальный файл остается). `/handoff` получил раздел «Где живёт пакет»:
+не в Allowed Change Areas, не в коммит, без `git add -f`. Шаблоны SCOPE_LOCK релиза и ledger-close
+- в `docs/RELEASE_RUNBOOK.md` (выбор владельца: вне pin-roots, общий шаблон SCOPE_LOCK для
+/adopt не тронут); `HANDOFF.md` в них в Forbidden. Оракул `tests/verify_handoff_untracked.py`:
+RED 11 failed на `fde64c2`, GREEN после.
+
+**Почему не derived-вью.** Генерировать пакет из STATE (как `PROGRESS.md`) - отдельная работа и
+потеря прозы передачи; вывод из-под git снимает саму причину находок.
+
+**Вне юнита.** `.itd-memory/HANDOFF-*.md` (исторические пакеты), формулировки README.
+Live-пин не сдвинут: `skills/handoff/SKILL.md` вне суженного пина (`methodologyTree` совпадает).
