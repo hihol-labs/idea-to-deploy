@@ -323,6 +323,38 @@ staged-кандидата (`native_source_candidate_repo` -> `candidate_context(
 Статус 2026-09-27: закрыто юнитом HANDOFF-UNTRACKED-1 - корневой `HANDOFF.md` в `.gitignore` и вне
 индекса, шаблоны SCOPE_LOCK релиза и ledger-close в `docs/RELEASE_RUNBOOK.md` (DECISIONS 2026-09-27).
 
+## P3 — остаточные пробелы оракула `verify_handoff_untracked.py` (2026-09-27, HANDOFF-UNTRACKED-1)
+
+Minor-находки маршрута юнита, не закрытые в PR #317 (оракул - структурная текстовая проверка):
+- `skill-no-commit-instruction` исключает строки вне секции по значению, а не по позиции (Sol p4,
+  ADR-007 adj1): дословная копия строки секции в другом месте скилла пройдет.
+- `skill-forbids-force-add` ловит только литерал `git add -f`; `git add --force` или `git add
+  HANDOFF.md` внутри секции проходят (c4).
+- `no-destructive-remove` не видит `rm ./HANDOFF.md`, `rm "HANDOFF.md"`, `unlink`, прозу «удали»;
+  ложно красный на `git rm HANDOFF.md --cached` и `HANDOFF.md.bak` (c5).
+- `repo_ignores` признает только корневой `.gitignore`, вложенный `docs/.gitignore` с `HANDOFF.md`
+  пройдет; нога с глобальным excludes требует git >= 2.31 (c8).
+- ОТК `--recheck` при понижении юнита очищает `verifiedAt`/`evidence`, но оставляет
+  `verificationReceipt.outcome: PASSED` - устаревшая квитанция читается как текущая (close-c1).
+
+## P2 — pull коммита `54878b3` удаляет локальный `HANDOFF.md` в других чекаутах (2026-09-27, HANDOFF-UNTRACKED-1)
+
+Коммит HANDOFF-UNTRACKED-1 убирает `HANDOFF.md` из индекса; при pull git удаляет неизмененный
+отслеживаемый файл из рабочего дерева (файл с локальными правками - отказ merge). Содержимое в
+истории: после pull `git show fde64c2:HANDOFF.md > HANDOFF.md`. Сделать при следующей раскатке на
+Windows-клоне и в других чекаутах; кандидат - строка в `/handoff` («Где живёт пакет») о переходе:
+сохранить копию до pull. Канонический чекаут восстановлен 2026-09-27 (хеш = вход m8).
+
+## P2 — красный сигнал completion без привязки к HEAD не вытесняется (2026-09-27, HANDOFF-UNTRACKED-1)
+
+RED-first прогон оракула на дофиксовом дереве в scratch-worktree (`cd <wt> && sh ... | tail -1`)
+записал сигнал L2 fail с ключом, включающим `cd <wt>`, и без `head`. Такой сигнал считается
+действующим навсегда (`hooks/completion_lib.py`, фильтр по head пропускает сигналы без head), а
+вытеснить его можно только той же командой в том же каталоге - worktree уже удален. Итог: 3
+COMPLETION_BYPASS в юните. Кандидаты: привязывать сигнал к HEAD каталога `cd`, либо не считать
+сигнал из каталога вне репозитория, либо явная команда "expected RED". Обход до фикса: RED-проверку
+оформлять как утверждение с exit 0 (оракул красный = успех утверждения).
+
 ## P3 — исторические пакеты `.itd-memory/HANDOFF-*.md` в git (2026-09-27, HANDOFF-UNTRACKED-1)
 
 Юнит HANDOFF-UNTRACKED-1 вывел из git только корневой `HANDOFF.md`. Ранее через `git add -f`

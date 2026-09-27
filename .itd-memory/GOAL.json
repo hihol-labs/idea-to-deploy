@@ -3,15 +3,25 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-27T15:16:46Z",
-  "currentUnitId": "HANDOFF-UNTRACKED-1",
+  "updatedAt": "2026-09-27T20:05:47Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
       "criterion": "HANDOFF-UNTRACKED-1: HANDOFF.md is no longer tracked by git in this repository (listed in .gitignore, removed from the index) and stays a local hand-over packet; the /handoff skill and the release and ledger-close SCOPE_LOCK templates no longer require HANDOFF.md inside a reviewed diff; the new oracle tests/verify_handoff_untracked.py is RED on the pre-fix tree and GREEN after, and meta_review stays clean.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_handoff_untracked.py && sh skills/_shared/itd_py.sh tests/meta_review.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-27T20:05:47Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_handoff_untracked.py: exit 0, stdout sha256 14dfef1d97362cc2, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/meta_review.py: exit 0, stdout sha256 fd65bc9997b01c0e, FINAL STATUS: PASSED",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/HANDOFF-UNTRACKED-1/HANDOFF-UNTRACKED-1-adjudication-close2.json",
+        "sha256": "a2557ca3bb057511dabce1a346045c61d986eed3a27bd1b8bd993ba10d2eb2c3",
+        "receiptSha256": "897ab19390c19e18b367150cc43ac8135557a0d5cd05ae91262da9bee527d090",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/HANDOFF-UNTRACKED-1/HANDOFF-UNTRACKED-1-machine-close3.json",
+        "machineSha256": "1306bb8b482eebb8f6c77e819326d2c841f8b9aad197715d9d00f3902d7dabde"
+      }
     },
     {
       "id": "CLOSURE-DELTA-1",
