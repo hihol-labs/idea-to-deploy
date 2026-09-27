@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "HANDOFF-UNTRACKED-1",
     "goal": "HANDOFF-UNTRACKED-1: HANDOFF.md is no longer tracked by git in this repository (listed in .gitignore, removed from the index) and stays a local hand-over packet; the /handoff skill and the release and ledger-close SCOPE_LOCK templates no longer require HANDOFF.md inside a reviewed diff; the new oracle tests/verify_handoff_untracked.py is RED on the pre-fix tree and GREEN after, and meta_review stays clean.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-27T15:16:46Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-27T20:05:47Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
