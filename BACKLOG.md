@@ -302,6 +302,24 @@ SCOPE_LOCK - вторичная сеть по ADR-011. ADR-011 «5 из 61» vs 
 поэтому в скоуп текущей цели не входит; закрыть отдельным ledger-юнитом: либо дописать
 события из исторических квитанций, либо демотировать статусы с пометкой причины.
 
+## P2 — release-oracle: installed-proof и live-evidence не сочетаются в одной команде (2026-09-27)
+
+`tests/verify_route_debts.py --installed-proof` перепроверяет квитанции канареек только против
+staged-кандидата (`native_source_candidate_repo` -> `candidate_context(source_repo|ROOT, "low")`), поэтому ОТК
+релиза идет на staged ledger-close; `verify_live_model_benchmark.py --require-evidence` на таком
+чекауте падает на `dirty-state digest is pinned`. В REL-1.106.0 флаг из ноги live-evidence снят
+(DECISIONS 2026-09-27), привязку доказывают CI Gate 1 и оракул `live-model-pin`. Кандидаты: режим
+`--candidate-mode committed-head` в installed-proof (продюсер канарейки его уже принимает локально)
+или верификатор evidence на чистой материализации HEAD. Проверка: одна команда релиза с обеими
+проверками выходит 0 на одном чекауте.
+
+## P2 — HANDOFF.md вне релизных диффов (2026-09-27)
+
+Закоммиченный HANDOFF всегда на шаг позади своего коммита: файл внутри коммита не может записать
+ревью этого же коммита. В REL-1.106.0 это дало находки независимого ревьюера в rel4, rel5 и pub3
+(стоп-правило REDESIGN_OR_DISCARD на rel5, ADR-007 по pub3). Кандидат: HANDOFF как derived/untracked
+вью (как `.itd-memory/PROGRESS.md`) или вне диффа релизного юнита; живое состояние - в памяти сессии.
+
 ## P2 — goal-report: `[machine_only]` у legacy-юнита с явным тиром (2026-09-27)
 
 `itd_goal_report.py --compact` печатает `REL-1.106.0 [machine_only]` при `riskTier: high`.

@@ -4244,3 +4244,53 @@ conformance на копии реальных файлов, 10 для тега н
 
 **Попутно.** В записях 2026-09-27 выше одна ссылка («итог в HANDOFF») заменена до коммита: записи
 еще не в main, а HANDOFF больше не хранит итог. Закоммиченные записи журнала не правились.
+
+## 2026-09-27: REL-1.106.0 - откат четвертой поправки: нога live-evidence снова без `--require-evidence`
+
+**Что обнаружилось.** После мержа (#315 -> `f3e0f42`) и раскатки сборка installed-proof упала:
+`tests/verify_route_debts.py` перепроверяет квитанции канареек только против staged-кандидата
+(`native_source_candidate_repo` -> `candidate_context(source_repo|ROOT, "low")`), а staged-канарейка на пустом
+diff отвергается loop'ом. Значит нога installed-proof требует staged-кандидата (ОТК 1.105.0 шел на
+staged ledger-close), а нога live-evidence с `--require-evidence` - чистого чекаута (проверка
+`dirty-state digest is pinned`). Одна команда в одном чекауте обоим условиям не удовлетворяет. При
+поправке 2026-09-27 нога installed-proof не проверялась - ошибка мейкера.
+
+**Решение (владелец, 2026-09-27).** Последняя нога возвращается к виду, утвержденному 2026-09-26
+(`sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py`); остальные девять ног без
+изменений. Привязка live-evidence к релизному дереву `30f62a28` доказана вне ОТК: CI Gate 1 на PR #315
+(`--require-evidence --max-age-days 30`, pass на этом дереве) и машинный оракул `live-model-pin`
+(верификатор с `--require-evidence` на чистой материализации дерева, 154/0; квитанции rel8, pub2,
+pub4). Канарейки и ОТК - на staged-кандидате ledger-close, как в 1.105.0.
+
+**Отвергнуто.** Нога, материализующая HEAD во временный worktree (новый код оракула в команде,
+риск новых находок); починка `verify_route_debts.py` под committed-head канарейки внутри релиза
+(вынесено в BACKLOG).
+
+## 2026-09-27: REL-1.106.0 - публикация, раскатка и цена маршрута
+
+**Маршрут до коммита.** /review (code-reviewer): полный проход BLOCKED (1 important + 2 minor,
+исправлено) и дельты после каждой правки. Независимый ревьюер gpt-5.6-sol на staged-деревьях: rel2
+(2 находки), rel3 (1), rel4 (1), rel5 (1, high) - стоп-правило REDESIGN_OR_DISCARD на rel5
+(HANDOFF.md::specification-compliance), владелец выбрал переделать форму; rel6 PASSED; rel7 - 0
+находок и 1 unverified (не было выполненного верификатора live-evidence) - закрыто host input
+`live-pin` и десятым машинным оракулом; rel8 PASSED 0/0 -> adjudication x2 -> коммит `16fcf91` с
+COMPLETION_BYPASS (строка 1990 леджера сигналов - фоновой прогон зеркала с пустым evidence).
+
+**Публикация.** pub1 прерван (старый скрипт цепочки без режима committed-head); pub2 - 0 находок и 1
+unverified; pub3 (Sol на машинных pub2) - 1 находка: последний чекпоинт закоммиченного HANDOFF
+устарел. ADR-007 owner-adjudication (accepted-trade-off, подпись владельца): adj1 квитанциями loop
+дерева; установленный itd 1.105.0 их не принял («receipt does not match the exact current
+candidate») -> перечеканка установленным loop'ом: машинные pub4, adj2 (владелец подписал заново под
+новыми хешами; строки диспозиций байт-идентичны adj1). Реестр гейтов на канонический чекаут (бэкап
+`gates.json.bak-rel1106-20260927`), doctor LOCAL_REVIEWED. PR #315 -> CI pass x2 -> squash-merge по
+команде владельца `f3e0f42` (дерево = отревьюенное `30f62a28`). Релиз `v1.106.0` на `f3e0f42`.
+
+**Раскатка.** WSL: синк плагина и установок Claude (WSL+Windows), `itd`/pre-push на runtime
+`1.106.0-b0fa237bd07d88b8`, Codex 1.106.0, authority после мержа `REL1106-30f62a28-a1` (parity 0).
+Windows: клон `C:\itd-src\idea-to-deploy` на `f3e0f42`, нативная установка. Канарейки committed-head
+(a3 WSL, a4 Windows) записаны, но installed-proof их не принимает (staged-only) - отсюда откат
+четвертой поправки (запись выше) и канарейки на staged ledger-close.
+
+**Цена.** 7 раундов Sol до коммита (rel2..rel8) и 2 публикационных (pub2, pub3; pub1 прерван до
+Sol), 6 проходов /review, 3 подписи ADR-007 (adj1, adj2 и otk1 в ledger-close), 1 COMPLETION_BYPASS,
+4 поправки команды юнита (одна откатана).

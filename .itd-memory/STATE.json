@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "REL-1.106.0",
     "goal": "Release 1.106.0 ships the PROPORTIONALITY-DEFAULT units G-001..G-004 (strict classes force high, the target template defaults to low, the pre-flight context budget, advisory hooks quiet on a low unit, the enforcement-hooks offer in /adopt and /project) and the TIER-SOURCE-1 tests-only exemption: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.106.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.106.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.106.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.106.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-26T21:01:47Z",
     "ledger": "GOAL.json",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-09-27T12:23:02Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -573,7 +574,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2; REL-1.106.0 (high) is activated by the goal harness on branch chore/release-1.106.0 over origin/main 2a1ea19. The candidate is staged and not committed; it carries the live-model run 20260926T213612Z-b152bdfe, bound by the content pin (do not re-record unless a pinned file changes). Next, on the staged tree that will be committed: every requirement in the Required section of .itd/SCOPE_LOCK.md that HANDOFF.md checkpoints do not yet confirm for that tree - the delta /review of changes since the last reviewed tree, the live-model pin check, the quick mirror capture, both machine receipts, the gpt-5.6-sol round, adjudication of both claims, the review cache - then the commit. Push, PR, merge, tag, release and the Windows rollout only on the owner explicit command.",
+  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is done at 2/2: REL-1.106.0 verified by the goal harness (release v1.106.0, PR #315 -> f3e0f42, rollout WSL + Windows). This candidate is the ledger-close. WIP is free. Next: a new goal chosen by the owner (candidates in BACKLOG: goal-report [machine_only] label, installed-proof vs live-evidence, HANDOFF out of release diffs, P1 tier-by-wording for non-test scopes).",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"

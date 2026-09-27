@@ -84,3 +84,11 @@ P2 - ревью до коммита.
   а SCOPE_LOCK утверждал обратное; 3 minor. Решение владельца: добавить флаги CI в ногу. Сделано
   (DECISIONS 2026-09-27, RED/GREEN на дереве `6be6ba05`), SCOPE_LOCK и HANDOFF поправлены.
   Дальше: пин-чек, дельта-`/review` и цепочка `rel7` на новом дереве.
+- 2026-09-27 публикация и раскатка: PR #315 -> `f3e0f42` (дерево `30f62a28`), релиз `v1.106.0`,
+  раскатка WSL + Windows (DECISIONS 2026-09-27). Ledger-close на ветке `chore/rel-1.106.0-ledger-close`:
+  откат ноги live-evidence (конфликт с installed-proof). Дальше: канарейки на staged ledger-close,
+  INSTALLED.json, ОТК-маршрут, verify харнесом.
+- 2026-09-27 ОТК: канарейки a5 (WSL) / a6 (Windows) на staged ledger-close `ddafaef2`, INSTALLED.json,
+  installed-proof rc 0; ОТК-машина otk1 (вся команда, bindsCommand) PASSED; adjudication otk1
+  (ADR-007, подпись владельца); харнес `VERIFIED REL-1.106.0 - exit 0: 85 passed, 0 failed`; цель
+  2/2 done, followup закрыт. Дальше: /review и коммит ledger-close, PR по команде владельца.
