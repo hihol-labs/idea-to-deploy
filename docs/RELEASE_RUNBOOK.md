@@ -79,6 +79,78 @@
    tool-вызовом (Claude Code подхватывает регистрации горячо, рестарт для
    хуков не нужен — проверено v1.75–v1.78.1).
 
+## SCOPE_LOCK релизного и ledger-close юнита
+
+Шаблоны `.itd/SCOPE_LOCK.md` для двух юнитов публикации. Корневой `HANDOFF.md`
+не отслеживается git (`/HANDOFF.md` в `.gitignore`, HANDOFF-UNTRACKED-1): файл
+внутри коммита не может записать ревью этого же коммита, и в REL-1.106.0 это
+дало находки ревьюера в rel4, rel5 и pub3. Поэтому пакет передачи не входит в
+Allowed Change Areas и не добавляется через `git add -f`; живое состояние
+передачи — в памяти сессии и в `HANDOFF.md` рабочего дерева. Заменить
+`X.Y.Z`, `REL-X.Y.Z` и список юнитов.
+
+```markdown
+# REL-X.Y.Z
+
+## Current Task
+
+- REL-X.Y.Z: release X.Y.Z ships <units>. The criterion and the verificationCommand live ONLY
+  in `.itd-memory/GOAL.json`; contract and this file reference them and do not restate them.
+
+## Allowed Change Areas
+
+- The version files the unit command enumerates (manifests, READMEs, docs) - the version bump.
+- `CHANGELOG.md` - one `## [X.Y.Z]` section right under `## [Unreleased]`.
+- `tests/fixtures/live-model-evidence/` - live benchmark evidence re-recorded on the release tree.
+- `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - harness
+  projections and events.
+- `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md`
+  (this file) - records.
+
+## Forbidden Change Areas
+
+- `HANDOFF.md` - a local untracked hand-over packet; it never enters the reviewed diff.
+- Skills, hooks, agents, scripts and tests beyond the version strings and the live evidence
+  above; unit statuses by hand.
+- Merge, tag, release and rollout - only on the owner's explicit command.
+
+## Review Rule
+
+A `/review` pass before the multi-file commit. If the diff touches an area outside allowed scope,
+pause and reclassify the task before continuing.
+```
+
+```markdown
+# REL-X.Y.Z ledger-close
+
+## Current Task
+
+- REL-X.Y.Z ledger-close: record the publication and rollout of release X.Y.Z, run the goal
+  harness ОТК on this candidate, close the followup and the goal.
+
+## Allowed Change Areas
+
+- `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status
+  transitions only through the goal harness.
+- `.itd/ACCEPTANCE_CONTRACT.json` - the followup moves to `closedFollowups` after the harness
+  marks the unit verified.
+- `.itd/DECISIONS.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
+- `.itd-memory/host-inputs/REL-X.Y.Z/` (git-ignored, host-owned) - native canaries and
+  `INSTALLED.json`.
+
+## Forbidden Change Areas
+
+- `HANDOFF.md` - a local untracked hand-over packet; it never enters the reviewed diff.
+- Any change to skills, hooks, agents, scripts, tests or the legs of the unit command.
+- Editing unit statuses by hand; deleting runtime directories of earlier releases.
+- Merge and push - only on the owner's explicit command.
+
+## Review Rule
+
+A `/review` pass before the multi-file commit. If the diff touches an area outside allowed scope,
+pause and reclassify the task before continuing.
+```
+
 ## Грабли (проверено кровью)
 
 - **sed/heredoc с backticks через двойной шелл** (Git Bash → `wsl bash -lc

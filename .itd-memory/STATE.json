@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL-1.106.0",
-    "goal": "Release 1.106.0 ships the PROPORTIONALITY-DEFAULT units G-001..G-004 (strict classes force high, the target template defaults to low, the pre-flight context budget, advisory hooks quiet on a low unit, the enforcement-hooks offer in /adopt and /project) and the TIER-SOURCE-1 tests-only exemption: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.106.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.106.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.106.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.106.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
-    "status": "verified",
-    "startedAt": "2026-09-26T21:01:47Z",
+    "id": "HANDOFF-UNTRACKED-1",
+    "goal": "HANDOFF-UNTRACKED-1: HANDOFF.md is no longer tracked by git in this repository (listed in .gitignore, removed from the index) and stays a local hand-over packet; the /handoff skill and the release and ledger-close SCOPE_LOCK templates no longer require HANDOFF.md inside a reviewed diff; the new oracle tests/verify_handoff_untracked.py is RED on the pre-fix tree and GREEN after, and meta_review stays clean.",
+    "status": "in_progress",
+    "startedAt": "2026-09-27T15:16:46Z",
     "ledger": "GOAL.json",
-    "riskTier": "high",
-    "completedAt": "2026-09-27T12:23:02Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

@@ -84,6 +84,7 @@
       "tests/verify_dod_gate.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_handoff_untracked.py",
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
@@ -262,9 +263,6 @@
       "tests/verify_external_reviewer_release.py",
       "tests/verify_feature_ledger_completeness.py",
       "tests/verify_operating_loops_release.py"
-    ],
-    "HANDOFF.md": [
-      "tests/verify_completion_signal_classes.py"
     ],
     "LAUNCH_PLAN.md": [
       "tests/verify_harness_demo_absorption.py",
@@ -471,6 +469,9 @@
     "docs/QUALITY_SCORECARD.json": [
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_session_hygiene_quality.py"
+    ],
+    "docs/RELEASE_RUNBOOK.md": [
+      "tests/verify_handoff_untracked.py"
     ],
     "docs/SESSION_EXIT_CONTRACT.json": [
       "tests/verify_session_hygiene_quality.py"
@@ -1301,6 +1302,7 @@
     ],
     "skills/_shared/itd_py.sh": [
       "tests/verify_fail_closed_hygiene.py",
+      "tests/verify_handoff_untracked.py",
       "tests/verify_harness_conformance.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_tier_exit.py",
@@ -1485,6 +1487,9 @@
       "tests/verify_route_debts.py",
       "tests/verify_tier_source.py",
       "tests/verify_verify_signal_and_watchdog.py"
+    ],
+    "skills/handoff/SKILL.md": [
+      "tests/verify_handoff_untracked.py"
     ],
     "skills/infra/agents/openai.yaml": [
       "tests/verify_host_adapters.py"
@@ -1848,6 +1853,7 @@
       "tests/verify_completion_signal_classes.py",
       "tests/verify_cost_gate.py",
       "tests/verify_external_reviewer_release.py",
+      "tests/verify_handoff_untracked.py",
       "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
