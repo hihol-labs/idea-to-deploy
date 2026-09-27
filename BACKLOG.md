@@ -302,7 +302,28 @@ SCOPE_LOCK - вторичная сеть по ADR-011. ADR-011 «5 из 61» vs 
 поэтому в скоуп текущей цели не входит; закрыть отдельным ledger-юнитом: либо дописать
 события из исторических квитанций, либо демотировать статусы с пометкой причины.
 
+## P2 — goal-report: `[machine_only]` у legacy-юнита с явным тиром (2026-09-27)
+
+`itd_goal_report.py --compact` печатает `REL-1.106.0 [machine_only]` при `riskTier: high`.
+Причина: `checker_mode` отчёта (`skills/goal/scripts/itd_goal_report.py:99`) без `runPolicy`
+всегда возвращает `machine_only`, а ОТК для того же юнита без `runPolicy` берёт тир явно
+(`skills/goal/scripts/itd_goal_verify.py:1775-1781`: по умолчанию `machine_only`, medium ->
+`targeted`, high -> `full`) и без квитанции чекера `verified` не ставит (`:1929`). Маршрут от
+этого не меняется - только метка в
+handoff врёт о цене проверки (TIER-SOURCE-1, medium, в отчёте тоже был бы `machine_only`).
+Кандидат фикса: отчёт повторяет правило ОТК для `policy is None` (явный тир -> режим) через
+общий хелпер; оракул - отчёт и ОТК дают один режим на матрице {без policy, adaptive,
+requireIndependentReview} x {low, medium, high, без тира}. Отдельным юнитом после
+REL-1.106.0 (в релиз не входит - SCOPE_LOCK Forbidden).
+
 ## P2 — release-oracle: три слабости sealed-оракула REL-1.105.0 (2026-09-22)
+
+Статус 2026-09-27: закрыто в команде юнита REL-1.106.0 до первого раунда ревью (решение
+владельца 2026-09-27, DECISIONS): нога зеркала требует код выхода раннера 0 и последнюю строку
+через временный файл (в dash нет pipefail), строка conformance сравнивается целиком, нога тега
+читает все более ранние точки изменения `.claude-plugin/plugin.json` на first-parent цепочке.
+Для следующего релизного юнита - копировать команду REL-1.106.0, не REL-1.105.0. Перенос якоря
+в `source-template/version_consistency.py` - вместе с host input этого релиза.
 
 **Нога зеркала** (gpt-5.6-sol, rel7, medium): `bash tests/run-all.sh --quick | tail -1 |
 grep -qx 'DONE fails:none'` без `set -o pipefail` - ненулевой выход раннера при

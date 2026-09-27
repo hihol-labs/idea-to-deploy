@@ -4221,6 +4221,50 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "REL-1.106.0-1-version",
+      "criterion": "Команда критерия выходит 0, то есть строка 1.106.0 стоит во всех местах, которые команда перечисляет ПОИМЁННО и чьё число она же печатает: .claude-plugin/plugin.json, .codex-plugin/plugin.json, .claude-plugin/marketplace.json, docs/HARNESS_DOCS_STATE.json, бейджи README.md и README.ru.md, docs/HARNESS_CONFORMANCE_REPORT.md, docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json, VERSION в tests/verify_external_reviewer_release.py, и в CHANGELOG.md ровно один заголовок ## [1.106.0] стоит первым версионным заголовком, а над ним - ## [Unreleased]. Места заякорены (JSON-поле, регулярное выражение по всей строке или точное равенство), а не поиск подстроки; строка docs/HARNESS_CONFORMANCE_REPORT.md - единственная строка с idea-to-deploy **v, и она целиком равна ожидаемой строке (поправка оракула по решению владельца 2026-09-27, BACKLOG P2 2026-09-22). Число мест в тексте критерия не зашивается: его печатает сама команда. Больше критерий не утверждает ничего - ни про тег, ни про публикацию, ни про раскатку.",
+      "source": "Релизный конвейер docs/RELEASE_RUNBOOK.md, пункты 1 и 4; третья нога verificationCommand юнита REL-1.106.0 в .itd-memory/GOAL.json (команда ниже - её байт-в-байт копия).",
+      "evidence": "Утверждение критерия ровно одно и проверяется его командой. Исполнено 2026-09-27 на дереве ветки chore/release-1.106.0 (база origin/main 2a1ea19): rc=0, вывод 'version consistent 1.106.0 10/10 places anchored'. Мутационного полотна у однострочных замен версии нет по природе правки: в каждом из девяти файлов ровно одна строка содержала 1.105.0 до замены и ровно одна строка содержит 1.106.0 после неё (grep -c считает строки, а не вхождения; в бейджах README.md и README.ru.md версия стоит на этой строке дважды - в alt-тексте и в URL картинки, и заякоренная нога проверяет строку бейджа целиком). CHANGELOG: прежний блок [Unreleased] стал записью ## [1.106.0] - 2026-09-27 с блок-цитатой о PR цикла и секцией Boundaries; над ним открыт новый пустой [Unreleased].",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -c \"import json,pathlib,re,sys;v='1.106.0';e=re.escape(v);J=lambda p,k: json.load(open(p))[k];T=lambda p: pathlib.Path(p).read_text(encoding='utf-8');one=lambda pat,txt: len(re.findall(pat,txt,re.M))==1;mk=json.load(open('.claude-plugin/marketplace.json'));badge=lambda p: one(r'^\\[!\\[Version: '+e+r'\\]\\(https://img\\.shields\\.io/badge/Version-'+e+r'-purple\\.svg\\)\\]\\(CHANGELOG\\.md\\)$',T(p));places=[('plugin.json',lambda: J('.claude-plugin/plugin.json','version')==v),('codex-plugin',lambda: J('.codex-plugin/plugin.json','version')==v),('marketplace',lambda: [p.get('version') for p in mk.get('plugins',[]) if p.get('name')=='idea-to-deploy']==[v]),('docs-state',lambda: J('docs/HARNESS_DOCS_STATE.json','pluginVersion')==v),('README.md',lambda: badge('README.md')),('README.ru.md',lambda: badge('README.ru.md')),('conformance',lambda: [l for l in T('docs/HARNESS_CONFORMANCE_REPORT.md').splitlines() if 'idea-to-deploy **v' in l]==['> **\\u0420\\u0435\\u0437\\u0443\\u043b\\u044c\\u0442\\u0430\\u0442: 5,0/5,0.** \\u0422\\u0435\\u043a\\u0443\\u0449\\u0438\\u0439 \\u043f\\u0430\\u043a\\u0435\\u0442 \\u2014 idea-to-deploy **v'+v+'**.']),('rc-contract',lambda: J('docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json','version')==v),('release-oracle',lambda: one(r'^VERSION = '+chr(34)+e+chr(34)+r'$',T('tests/verify_external_reviewer_release.py'))),('changelog',lambda: (lambda h: len(h)>1 and h[0]=='## [Unreleased]' and h[1]=='## ['+v+']' and len([x for x in h if x=='## ['+v+']'])==1)([l.split(' - ')[0].strip() for l in T('CHANGELOG.md').splitlines() if l.startswith('## [')]))];bad=[n for n,f in places if not f()];sys.exit('version drift in %d of %d places: %s' % (len(bad),len(places),', '.join(bad))) if bad else None;print('version consistent', v, '%d/%d places' % (len(places),len(places)), 'anchored')\"",
+      "reviewEvidence": {
+        "claim": "Команда критерия сама перечисляет проверяемые места, сама считает их число и падает на любом расхождении; критерий не утверждает ничего сверх её выхода и не зашивает счётчик.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "release-version-consistency",
+          "harness-docs-freshness",
+          "external-reviewer-release",
+          "host-adapters",
+          "itd-runtime-install",
+          "git-gate-hooks",
+          "gate-control",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
+    },
+    {
+      "id": "REL-1.106.0-2-mirror",
+      "criterion": "Команда критерия выходит 0, то есть машинно установлено ровно одно: быстрый профиль зеркала на дереве кандидата не падает ни на одном сьюте - раннер выходит 0, и последняя строка его stdout дословно равна 'DONE fails:none'. Больше критерий не утверждает ничего: ни про полный прогон зеркала, ни про какие-либо иные проверки.",
+      "source": "Пол методологии: релиз не выпускается на красном зеркале; вторая нога verificationCommand юнита REL-1.106.0 в .itd-memory/GOAL.json (команда ниже - её байт-в-байт копия: вывод раннера пишется во временный файл, код выхода раннера и последняя строка файла сверяются одним case с образцом 0:DONE fails:none - в POSIX sh нет pipefail, поправка оракула по решению владельца 2026-09-27; сама строка видна в quick.log объявленного host input).",
+      "evidence": "Утверждение критерия и есть выход его команды. Как это попадает в exact-tree улику: изолированный машинный оракул не может гнать зеркало сам (копия дерева без git-чекаута, checkout-bound сьюты красные по построению), поэтому полный вывод зеркала, прогнанного на хосте на точном staged-дереве кандидата ветки chore/release-1.106.0, и sidecar с этим деревом, кодом выхода раннера и последней строкой лежат в объявленном host input .itd-memory/host-inputs/REL-1.106.0/source-<label>/ (quick.log, quick.json, expected-tree.txt); машинная команда quick-mirror (quick_mirror_check.py в том же input) проверяет sha256 лога против sidecar, последнюю строку лога дословно, код выхода 0, равенство дерева sidecar ожидаемому и единственность строки DONE; квитанция хеш-привязывает input целиком, а её reviewedTree сверяется с expected-tree.txt. Статус passed держится только на захвате со статусом READY_FOR_EXACT_MACHINE для того дерева, которое коммитится; при NOT_READY строка возвращается в pending до коммита.",
+      "verificationCommand": "{ f=$(mktemp); bash tests/run-all.sh --quick >\"$f\"; r=$?; l=$(tail -n 1 \"$f\"); rm -f \"$f\"; case \"$r:$l\" in '0:DONE fails:none') true ;; *) false ;; esac; }",
+      "reviewEvidence": {
+        "claim": "Быстрый профиль зеркала на дереве кандидата зелёный целиком - это проверяет команда критерия.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "quick-mirror",
+          "meta-review"
+        ]
+      },
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4239,9 +4283,22 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit: TIER-SOURCE-1 closed on 2026-09-26 (goal TIER-SOURCE-1 -> REL-1.106.0 at 1/2). REL-1.106.0 opens a new followup when it is activated."
+    "unitId": "REL-1.106.0",
+    "status": "open",
+    "openedAt": "2026-09-27",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd/SCOPE_LOCK.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
