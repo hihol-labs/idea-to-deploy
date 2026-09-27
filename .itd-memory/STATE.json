@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "TIER-SOURCE-1",
-    "goal": "When every path in the Allowed Change Areas of .itd/SCOPE_LOCK.md is a test path, a strict-class match in the unit goal text no longer forces riskTier high, while a strict-class path or keyword inside the Allowed Change Areas still forces high and a scope with any non-test path (or with no path at all) keeps the goal as a source: the new oracle tests/verify_tier_source.py is RED on the pre-fix bytes and GREEN after - synthetic pilot-style pairs (docstring template vs a detailed description with a strict word, not code of the pilot project) get one tier on a tests-only scope, a money or auth path in the scope stays high, a mixed scope stays high - and tests/verify_risk_tier_default.py stays green.",
-    "status": "verified",
-    "startedAt": "2026-09-26T10:34:17Z",
+    "id": "REL-1.106.0",
+    "goal": "Release 1.106.0 ships the PROPORTIONALITY-DEFAULT units G-001..G-004 (strict classes force high, the target template defaults to low, the pre-flight context budget, advisory hooks quiet on a low unit, the enforcement-hooks offer in /adopt and /project) and the TIER-SOURCE-1 tests-only exemption: the unit command exits 0, i.e. meta_review is clean, the quick mirror's last line is exactly 'DONE fails:none', the version 1.106.0 stands in every place the command enumerates, CHANGELOG.md has exactly one '## [1.106.0]' heading as the first version heading with '## [Unreleased]' above it, the tag v1.106.0 points at the first commit of the origin/main first-parent chain that carries the version, the GitHub release is published on that tag commit, the live benchmark evidence is re-recorded on the release tree (tests/verify_live_model_benchmark.py green), and the native rollout on WSL and Windows is proved by .itd-memory/host-inputs/REL-1.106.0/INSTALLED.json accepted by tests/verify_route_debts.py --installed-proof. This text is the single source of the criterion; contract, SCOPE_LOCK and HANDOFF reference it and do not restate it.",
+    "status": "in_progress",
+    "startedAt": "2026-09-26T21:01:47Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-26T12:54:53Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",
@@ -574,7 +573,7 @@
     "lastEventId": "",
     "lastEventAt": "2026-07-14T13:39:02Z"
   },
-  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2: TIER-SOURCE-1 is verified by the goal harness and shipped as PR #313 (main 1937063, pre-PR PUB3 PASSED after PUB1/PUB2 BLOCKED). This candidate is the TIER-SOURCE-1 ledger-close: the followup moves to closedFollowups and .itd/DECISIONS.md records the publication and the route cost. WIP is free. Next: after this ledger-close merges, re-sync the installed copy from the canonical checkout (the install provenance still names the worktree .claude/worktrees/tier-source-1, whose tree equals main), then activate REL-1.106.0 (high) through the goal harness and run it by docs/RELEASE_RUNBOOK.md (release v1.106.0 with G-001..G-004 and TIER-SOURCE-1, rollout WSL + Windows, installed proof).",
+  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is 1/2; REL-1.106.0 (high) is activated by the goal harness on branch chore/release-1.106.0 over origin/main 2a1ea19. The candidate is staged and not committed; it carries the live-model run 20260926T213612Z-b152bdfe, bound by the content pin (do not re-record unless a pinned file changes). Next, on the staged tree that will be committed: every requirement in the Required section of .itd/SCOPE_LOCK.md that HANDOFF.md checkpoints do not yet confirm for that tree - the delta /review of changes since the last reviewed tree, the live-model pin check, the quick mirror capture, both machine receipts, the gpt-5.6-sol round, adjudication of both claims, the review cache - then the commit. Push, PR, merge, tag, release and the Windows rollout only on the owner explicit command.",
   "ledgerFiles": [
     ".itd-memory/GOAL.json",
     ".itd-memory/events.jsonl"

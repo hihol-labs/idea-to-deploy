@@ -9,7 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Цикл после 1.105.0 открыт; записи появляются по мере слияния юнитов.
+> Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
+
+## [1.106.0] - 2026-09-27
+
+> Цикл покрывает PR #305 (юнит `G-001` RISK-TIER-1, medium risk), PR #306
+> (юнит `G-002` CONTEXT-BUDGET-1, low risk), PR #307 (юнит `G-003`
+> HOOKS-TIER-EXIT-1, medium risk), PR #309 (юнит `G-004` HOOKS-AUTOINSTALL-1,
+> medium risk) и PR #313 (юнит `TIER-SOURCE-1`, medium risk). PR #304, #308,
+> #310, #312 и #314 - **ledger-close**, по конвенции репо отдельной записи не
+> получают. PR #303 (юнит `WIN-TESTQUOTE-1`) из кода правит только оракул
+> `tests/verify_verification_loop.py` (интерпретатор в командах оракула в
+> кавычках, чтобы не-ASCII путь к python не ломал их), остальное - записи
+> своего юнита (`.itd/SCOPE_LOCK.md`, леджеры `.itd-memory`); поставляемое
+> поведение не меняется, записи он не получает. PR #311 (юнит `G-005`,
+> medium risk) записывает улики внешнего пилота low-маршрута и его ретро
+> (`docs/evidence/external-outcomes/PILOT-LOW-1.jsonl`,
+> `docs/retros/RETRO-PILOT-LOW-1.md`), замеры пилота в
+> `.itd-memory/measurements/pilot-low-1/` и записи своего юнита (строки
+> приемки `G-005-1-oracle` и `G-005-2-ledger` в
+> `.itd/ACCEPTANCE_CONTRACT.json`, SCOPE_LOCK, DECISIONS, BACKLOG,
+> леджеры); ни скиллов, ни хуков, ни поставляемого поведения он не меняет
+> и записи тоже не получает.
+
+### Boundaries
+- Кода по существу сверх перечисленных PR релиз не вносит: только версия в
+  манифестах, бейджах, пинах документации и release-оракуле, эта запись и
+  перепин live-model evidence на релизное дерево.
+- Раскатка: релиз - предусловие нативной установки 1.106.0 на WSL и Windows
+  (синк `~/.claude` обоих хостов без дрейфа и content-addressed runtime
+  `itd`/`pre-push` версии 1.106.0); до неё установленный runtime остаётся
+  1.105.0.
 
 ### Fixed - TIER-SOURCE-1: юнит «только тесты» не уходит в high из-за слов в goal
 
