@@ -4265,6 +4265,44 @@
         ]
       },
       "status": "passed"
+    },
+    {
+      "id": "CLOSURE-DELTA-1-1-oracle",
+      "unitId": "CLOSURE-DELTA-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_closure_delta.py зелёный на дереве кандидата - scripts/itd_closure_delta.py принимает (exit 0, тишина) только closure-записи юнита квитанции после её reviewedTree: GOAL.json, STATE.json и дописанные события events.jsonl равны - и ничему сверх того - тому, что харнес цели ЭТОГО дерева пишет при verify-переходе юнита во временной копии (нормализуются только время - реальные моменты одного перехода: verifiedAt <= updatedAt <= at события = completedAt, окно минута, - id/transaction события в форме харнеса, evidence по сегментам команды, riskTier и verificationReceipt, полностью выведенный из файла квитанции); перенос activeFollowup в ACCEPTANCE_CONTRACT.json, дописывание целых UTF-8 строк в конец DECISIONS.md, вставка целых UTF-8 строк в BACKLOG.md; итоговый леджер проходит scripts/validate_state.py дерева квитанции; записи леджера меняются только для юнита, verified в итоговом GOAL.json. Любой другой путь, добавление, удаление, смена mode и каждое расхождение с эталоном - exit 1 (путь + WHY + FIX); ошибки входа, дерево без STATE.json, deadline/bounded юнит - exit 2; без аргументов - тихий 0. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита CLOSURE-DELTA-1 из .itd-memory/GOAL.json (семантика BACKLOG - вставка строк, DECISIONS - только в конец, SCOPE_LOCK и owner-route не closure - решения владельца 2026-09-28; эталон от харнеса вместо перечня форм - решение владельца 2026-09-29 после стоп-правила по Sol p2..p4, .itd/DECISIONS.md); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "Оракул 170 проверок: фикстура несёт харнес и валидатор этого чекаута с отличимым префиксом id событий (evt-fixture-), базовый переход пишет харнес фикстурного дерева, по случаю на каждое правило с путём правила в диагностике; без инструмента оракул печатает 171 результатов: на копии ed47135 строка-итог 165 failed, на дереве кандидата без инструмента 164 failed (run-all-registered проходит; c18 minor); мутации по одной на правило 88/88 убиты (input-случаи пинят фрагмент сообщения своего правила - два мутанта пережили первый прогон под соседними правилами) (шардовые логи с sha256 инструмента и оракула) (свежие шардовые логи с sha256 инструмента и оракула; временные случаи оракула считают смещения от последнего чтения часов харнеса - флейк на секундной границе, найденный изолированной машинной квитанцией, закрыт) (.itd-memory/verification-loop/reports/CLOSURE-DELTA-1-mutate.py, шарды .itd-memory/verification-loop/reports/CLOSURE-DELTA-1-mutate-{0,1,2}.log - единственное место логов, заголовок = sha256 инструмента и оракула дерева). Маршрут до редизайна: targeted-чекеры c1..c12, Sol p1 UNVERIFIED, p2..p4 BLOCKED одним механизмом (форма записей) - стоп-правило, редизайн; c13 BLOCKED на редизайне (нормализуемые поля) - закрыто выводом каждого поля из авторитета (квитанция, сплиттер харнеса); c14..c16 PWW/PASSED; c18 PWW (только формулировка RED, закрыта); Sol p5 BLOCKED - последний допуск по форме (события сверх перехода) снят: дописанные события равны эталону и ничему больше. c18 PWW (формулировка RED), c19 PASSED. Sol p6 BLOCKED новым механизмом (границы deadline/sealed решал отказ харнеса; таймаут/OSError трейсбеком; docstring оракула) - закрыто: границы отказывает сам инструмент до подмены, таймаут ITD_CLOSURE_DELTA_TIMEOUT и OSError -> exit 2, случаи deadline/sealed пиняют сообщение инструмента, новый случай input-harness-timeout. c20 PWW (устаревшие логи в reports/, isdigit не-ASCII) - закрыто: ручка ITD_CLOSURE_DELTA_TIMEOUT = только ASCII-цифры > 0, случаи accept-timeout-knob-ignored-*, мутант timeout-knob-ascii. c21 PWW (лишние копии логов) -> архив, c22 PASSED. Sol p7 BLOCKED (5 находок: нормализация handoffState, тир квитанции не сверялся, validate_ledger глотал таймаут/OSError, dependencies не-объект, OSError без оракула) - закрыто: handoff byte-for-byte, candidate.riskTier == тир юнита (exit 2), только отсутствующий валидатор пропускается, распаковка копии доказана на имени > 255 байт; плюс допуск обратного шага часов 60 с (флейк фикстуры WSL2) с граничными случаями. Стоп-правило после p7 (7 раундов Sol, 23 чекера): владелец выбрал owner-маршрут (решение 2026-09-30 «A»), Sol p8 - негейтящее наблюдение. Квитанция .itd-memory/verification-loop/receipts/d04acd7becae0eb0/CLOSURE-DELTA-1-adjudication-a2.json - adjudication PASSED на кодовом дереве 1c531f92 до редизайна; в этом дереве юнит in_progress: переход харнеса в verified записывается вне коммита юнита и входит в ledger-close. История: квитанция close2 HANDOFF-UNTRACKED-1 против ed47135 - exit 0, против fde64c2 - exit 1; a2 против пост-ОТК дерева 7fd97578 - exit 0.",
+      "reviewEvidence": {
+        "claim": "Правила closure-дельты и их отказы проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "closure-delta",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
+      "status": "passed"
+    },
+    {
+      "id": "CLOSURE-DELTA-1-2-ledger",
+      "unitId": "CLOSURE-DELTA-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-09-27 (actor harness), юнит in_progress; переход в verified записывается вне коммита юнита и входит в ledger-close. validate_state OK.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4283,9 +4321,22 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit: REL-1.106.0 closed on 2026-09-27; goal TIER-SOURCE-1 -> REL-1.106.0 done at 2/2."
+    "unitId": "CLOSURE-DELTA-1",
+    "status": "open",
+    "openedAt": "2026-09-27",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/CLOSURE-DELTA-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
