@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "HANDOFF-UNTRACKED-1",
-    "goal": "HANDOFF-UNTRACKED-1: HANDOFF.md is no longer tracked by git in this repository (listed in .gitignore, removed from the index) and stays a local hand-over packet; the /handoff skill and the release and ledger-close SCOPE_LOCK templates no longer require HANDOFF.md inside a reviewed diff; the new oracle tests/verify_handoff_untracked.py is RED on the pre-fix tree and GREEN after, and meta_review stays clean.",
-    "status": "verified",
-    "startedAt": "2026-09-27T15:16:46Z",
+    "id": "CLOSURE-DELTA-1",
+    "goal": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
+    "status": "in_progress",
+    "startedAt": "2026-09-27T20:40:06Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-27T20:05:47Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

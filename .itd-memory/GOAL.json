@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-27T20:05:47Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-27T20:40:06Z",
+  "currentUnitId": "CLOSURE-DELTA-1",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -28,7 +28,7 @@
       "criterion": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
       "riskTier": "medium",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "FLAKE-ADJCHAN-1",
