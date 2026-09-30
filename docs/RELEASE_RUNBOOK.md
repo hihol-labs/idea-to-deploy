@@ -79,6 +79,49 @@
    tool-вызовом (Claude Code подхватывает регистрации горячо, рестарт для
    хуков не нужен — проверено v1.75–v1.78.1).
 
+## Команда релизного ОТК на одном чистом чекауте (INSTALLED-PROOF-HEAD-1)
+
+Обе ноги релизного оракула требуют одного состояния: чистый чекаут, HEAD которого и есть
+кандидат (после коммита релизного юнита или после мержа). Нога live-evidence пинит дайджест
+`git status` чистого дерева (`dirty-state digest is pinned`); нога installed-proof принимает
+канарейки, отчеканенные в режиме committed-head на таком чекауте - режим читается из
+`candidate.baseCommit` квитанции (равен HEAD - staged, равен единственному родителю HEAD -
+committed-head, иное - отказ), после чего валидаторы пересчитывают контекст в этом режиме и
+сравнивают байт-в-байт. В REL-1.106.0 первая нога шла на staged ledger-close, а вторая падала
+на нем же - одна команда не могла пройти обе (DECISIONS 2026-09-27).
+
+1. На каждом нативном хосте (WSL и Windows) - канарейка из установленного runtime на чистом
+   чекауте релизного коммита (`git status --porcelain` пуст). Команда `native=` обязана
+   байт-в-байт совпадать с `native_test_command()` оракула: интерпретатор установленного
+   wrapper'а, `-I -B tests/verify_route_debts.py --native-test-log <абсолютный путь лога>`;
+   ниже POSIX-форма (shlex), на Windows оракул строит форму в двойных кавычках с
+   нормализованным путем лога - брать ее из `native_test_command()`, не набирать руками;
+   лог - под `.itd-memory/host-inputs/REL-X.Y.Z/`:
+   ```bash
+   sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py machine \
+     --root . --unit-id ROUTE-DEBTS:deployment-canary --risk-tier low \
+     --candidate-mode committed-head \
+     --command "native=<python> -I -B tests/verify_route_debts.py --native-test-log <лог>" \
+     --output .itd-memory/verification-loop/<канарейка>/machine.json
+   sh skills/_shared/itd_py.sh skills/_shared/itd_verification_loop.py adjudicate \
+     --root . --unit-id ROUTE-DEBTS:deployment-canary --risk-tier low \
+     --candidate-mode committed-head \
+     --machine .itd-memory/verification-loop/<канарейка>/machine.json \
+     --output .itd-memory/verification-loop/<канарейка>/adjudication.json
+   ```
+   Хостовая запись (`--native-proof`), снимки квитанций и `INSTALLED.json` - как в предыдущих
+   релизах (`.itd-memory/host-inputs/ROUTE-DEBTS/` - образец).
+2. Одна команда ОТК на том же чистом чекауте - обе ноги, один `&&`, ничего между ними:
+   ```bash
+   sh skills/_shared/itd_py.sh tests/verify_route_debts.py --installed-proof .itd-memory/host-inputs/REL-X.Y.Z/INSTALLED.json && sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30
+   ```
+   Любая правка файла из пина после чеканки (в том числе `INSTALLED.json` вне git-ignored
+   каталога) делает вторую ногу красной; коммит поверх релизного после чеканки делает
+   красной первую (`baseCommit` канарейки больше не HEAD и не его родитель - stale). Режим
+   читается из квитанции, а не из способа чеканки: канарейка, отчеканенная staged до коммита,
+   после него принимается как committed-head на тех же условиях. Оракул шаблона:
+   `tests/verify_installed_proof_head.py`.
+
 ## SCOPE_LOCK релизного и ledger-close юнита
 
 Шаблоны `.itd/SCOPE_LOCK.md` для двух юнитов публикации. Корневой `HANDOFF.md`

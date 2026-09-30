@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "FLAKE-ADJCHAN-1",
-    "goal": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
-    "status": "verified",
-    "startedAt": "2026-09-30T16:44:01Z",
+    "id": "INSTALLED-PROOF-HEAD-1",
+    "goal": "INSTALLED-PROOF-HEAD-1: tests/verify_route_debts.py --installed-proof accepts native canary receipts minted in committed-head mode on a clean checkout whose HEAD tree equals the candidate, and still rejects foreign, stale or mismatched receipts; docs/RELEASE_RUNBOOK.md gives a release command template that carries both the installed-proof leg and verify_live_model_benchmark.py --require-evidence and runs on one clean checkout; the new oracle tests/verify_installed_proof_head.py is RED on the pre-fix code and GREEN after, and tests/verify_route_debts.py stays green.",
+    "status": "in_progress",
+    "startedAt": "2026-09-30T18:30:36Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-09-30T18:03:07Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",

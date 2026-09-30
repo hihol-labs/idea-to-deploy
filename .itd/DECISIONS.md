@@ -4666,3 +4666,70 @@ keyring - staged-квитанция для PR не годится, делать 
 
 **Отложено (BACKLOG).** `tests/verify_push_gate_adjudicated.py:138` - та же сортировка по `st_mtime`;
 часовой сьют в `windows-verify.yml` (кандидат).
+
+## 2026-09-30 - INSTALLED-PROOF-HEAD-1: режим кандидата канарейки читается из квитанции
+
+**Проблема.** `validate_native_canary` в `tests/verify_route_debts.py` перепроверял квитанции
+канареек только как staged-кандидат (`validate_machine` / `validate_adjudication` без режима), а
+staged-квитанция на чистом чекауте отвергается loop'ом (пустой diff). Нога live-evidence с
+`--require-evidence` требует чистого чекаута. Одна команда релиза не проходила обе ноги - в
+REL-1.106.0 флаг сняли (DECISIONS 2026-09-27, BACKLOG P2).
+
+**Решение.** Режим кандидата не выбирает вызывающий и не хранится в квитанции отдельным полем -
+он читается из `candidate.baseCommit` квитанции относительно HEAD чекаута
+(`canary_candidate_mode`): равен HEAD - `staged`, равен единственному родителю HEAD -
+`committed-head`, иное - отказ «binds neither the checkout HEAD nor its single parent». Дальше
+`validate_machine` и `validate_adjudication` пересчитывают полный контекст в этом режиме и
+сравнивают байт-в-байт (`validate_common`), поэтому чужая, устаревшая и подмененная квитанция
+сохраняют отказы. Структурный результат replay получает поле `candidateMode` (validatorSha256 и
+так меняется при любой правке файла - старые пруфы не переигрываются независимо от этого).
+Merge-коммит как HEAD остается отказом (loop: «committed-head requires one exact single-parent
+commit»).
+
+**Отвергнуто.** Флаг `--candidate-mode` у `--installed-proof` (режим, названный вызывающим, дает
+слабее привязку, чем режим, выведенный из квитанции и пересчитанный); материализация HEAD во
+временный worktree внутри команды релиза (новый код в команде - отвергнуто еще 2026-09-27).
+
+**Шаблон релиза.** `docs/RELEASE_RUNBOOK.md`, раздел «Команда релизного ОТК на одном чистом
+чекауте»: канарейки чеканятся `--candidate-mode committed-head` на чистом чекауте релизного
+коммита, одна строка `verify_route_debts.py --installed-proof ... && verify_live_model_benchmark.py
+--require-evidence --max-age-days 30`.
+
+**Проверка.** Оракул `tests/verify_installed_proof_head.py` (run-all CORE): на дофиксовом
+валидаторе FAILED 8/4 (красные - обе приемки committed-head с «receipt does not match the exact
+current candidate», восстановления фикстуры, обе проверки runbook, регистрация; зеленые - sanity
+фикстуры и три отказа), после - PASSED 12/12; агрегат `tests/verify_route_debts.py` exit 0 (A2
+staged-фикстура + 14 фокусных сьютов); IMPACT_GRAPH FRESH (454/1248/165).
+
+**Отложено (BACKLOG).** Пункт 4 «--installed-proof reports the wrong reason on a dirty tree» -
+отдельный юнит; перечеканка реальных канареек REL - в составе следующего релизного юнита.
+
+**/review r1 (code-reviewer, PASSED_WITH_WARNINGS, 0 Critical).** Закрыто в кандидате: (1) режим
+называет то, что квитанция СВЯЗЫВАЕТ на чекауте, а не способ чеканки - staged-чеканка до коммита
+после него принимается как committed-head на тех же условиях (by design, docstring + runbook +
+кейс оракула `accepts-staged-mint-after-its-commit-as-committed-head`); (2) вызов git обернут:
+TimeoutExpired/OSError -> ValueError, таймаут 60 с (нативный Windows-replay отдает FAIL, не трейс);
+(5) отказы stale/foreign в оракуле пинуют текст причины; (7) runbook: POSIX-форма `native=` помечена,
+Windows-форму брать из `native_test_command()`; формулировка stale уточнена. Принято без правки:
+(3) HEAD читается независимо от loop - `candidate_repo` уже resolved root; (4) `candidateMode` в
+результате replay - старые пруфы и так инвалидирует validatorSha256; (6) Windows CI - вне контракта;
+(8) контракт юнита git-ignored - по правилу репо.
+
+**/review r2 (дельта фиксов, PASSED_WITH_WARNINGS, 0 Critical/Important).** Все четыре фикса
+подтверждены, включая вывод о равенстве контекстов staged-чеканки до коммита и committed-head после
+(та же пара деревьев, те же флаги diff). Остаток Minor - ambient `GIT_*` при `git rev-list`: принят
+без правки, собственный git-helper loop'а (`itd_review_cache.git`) наследует окружение так же, а
+побайтовый пересчет контекста ограничивает ошибку отказом, не ложной приемкой.
+
+**Sol (gpt-5.6-sol) на staged-кандидате.** s1 UNVERIFIED (reviewPolicy активного followup вне
+закрытого словаря: adjudicator `sealed-host-union`, класс `docs` не существует - исправлено на
+`correctness`/`repository-hygiene`, критерии переведены в passed с oracleIds по id прогонов машинной
+квитанции); s2 UNVERIFIED (продюсер сверяет unitId машинной квитанции с активным юнитом - квитанция
+под claim `:general-review` не годится, нужна под чистым id); s3 BLOCKED, 1 находка medium:
+`module()` оракула грузил модули через `spec.loader.exec_module`, который может отдать
+timestamp-валидный устаревший `.pyc` - оракул исполнял бы старые байты валидатора; исправлено:
+`exec(compile(path.read_bytes(), ...))` в свежий `types.ModuleType` (оракул 13/13).
+s4 BLOCKED, 1 находка medium (test-reliability): baseline-коммиты primary/foreign фикстур
+байт-идентичны (дерево, автор, сообщение) - в одну секунду совпали бы хэши, и foreign-квитанция
+связывала бы родителя primary HEAD, а причина отказа зависела бы от времени; исправлено: label фикстуры
+в сообщении baseline-коммита + проверка `foreign-baseline-commit-is-distinct` (оракул 14/14).

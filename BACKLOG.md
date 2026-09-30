@@ -313,6 +313,14 @@ staged-кандидата (`native_source_candidate_repo` -> `candidate_context(
 или верификатор evidence на чистой материализации HEAD. Проверка: одна команда релиза с обеими
 проверками выходит 0 на одном чекауте.
 
+Статус 2026-09-30: закрыто юнитом INSTALLED-PROOF-HEAD-1 - `validate_native_canary` читает режим
+кандидата из `candidate.baseCommit` квитанции (HEAD = staged, родитель HEAD = committed-head, иное =
+отказ) и передает его обоим валидаторам; шаблон команды релиза на одном чистом чекауте - в
+`docs/RELEASE_RUNBOOK.md`; оракул `tests/verify_installed_proof_head.py` (run-all CORE).
+Остаток (/review r1, Important-1): квитанция не хранит способ чеканки - валидатор выводит режим из
+`baseCommit`; если понадобится доказывать именно committed-head-чеканку, поле режима в квитанции -
+территория loop'а, отдельный юнит.
+
 ## P2 — HANDOFF.md вне релизных диффов (2026-09-27)
 
 Закоммиченный HANDOFF всегда на шаг позади своего коммита: файл внутри коммита не может записать

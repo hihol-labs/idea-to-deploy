@@ -4342,6 +4342,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "INSTALLED-PROOF-HEAD-1-1-oracle",
+      "unitId": "INSTALLED-PROOF-HEAD-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_installed_proof_head.py зеленый (validate_native_canary читает режим кандидата из candidate.baseCommit квитанции относительно HEAD чекаута - HEAD = staged, единственный родитель HEAD = committed-head, иное = отказ - и передает его validate_machine и validate_adjudication; канарейка committed-head на чистом чекауте принимается напрямую и из изолированного чекаута агрегата; пересобранная над другим diff (mismatched), после сдвига HEAD (stale) и из другого репозитория (foreign) - отказ; docs/RELEASE_RUNBOOK.md несет однострочную команду с обеими ногами --installed-proof и --require-evidence и называет чеканку --candidate-mode committed-head; сьют зарегистрирован в run-all) И tests/verify_route_debts.py остается зеленым.",
+      "source": "Уточняет criterion юнита INSTALLED-PROOF-HEAD-1 из .itd-memory/GOAL.json (BACKLOG P2 2026-09-27: installed-proof и live-evidence не сочетались в одной команде релиза); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: оракул на дофиксовом валидаторе - FAILED: 8 failed (4 passed); красные - обе приемки committed-head (LoopError: receipt does not match the exact current candidate), восстановление фикстуры после mismatch/stale, обе проверки runbook, регистрация в run-all; зеленые - sanity фикстуры (baseCommit = родитель HEAD) и три отказа. После фикса: PASSED: 0 failed (12 passed); после правок по /review r1 (обертка git, пин причин отказа, кейс staged-чеканки до коммита): PASSED: 0 failed (13 passed); tests/run-all.sh --quick DONE fails:none; tests/build_impact_graph.py --check FRESH (nodes 454, edges 1248, suitesAttached 165); py_compile OK. Агрегат tests/verify_route_debts.py после фикса: exit 0 - A2 staged-фикстура и все 14 фокусных сьютов PASS.",
+      "reviewEvidence": {
+        "claim": "Нога installed-proof принимает committed-head канарейки на чистом чекауте и по-прежнему отказывает чужим, устаревшим и подмененным - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_installed_proof_head.py && sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
+      "status": "passed"
+    },
+    {
+      "id": "INSTALLED-PROOF-HEAD-1-2-ledger",
+      "unitId": "INSTALLED-PROOF-HEAD-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-09-30T18:30:36Z (actor harness), юнит in_progress, riskTier high; переход в verified записывается вне коммита юнита и входит в ledger-close. validate_state: OK (GOAL.json, STATE.json) на staged-кандидате 2026-09-30.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4360,9 +4398,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - FLAKE-ADJCHAN-1 closed 2026-09-30; next INSTALLED-PROOF-HEAD-1 (high) after its activation"
+    "unitId": "INSTALLED-PROOF-HEAD-1",
+    "status": "open",
+    "openedAt": "2026-09-30",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/INSTALLED-PROOF-HEAD-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-09-30 (evt-goal-1790793036); high = full independent checker before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
