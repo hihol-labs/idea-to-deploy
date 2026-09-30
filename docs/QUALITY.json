@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewedAt": "2026-08-28",
+  "reviewedAt": "2026-09-30",
   "maxAgeDays": 30,
   "gradeScale": {
     "A": "verification green; understandable; stable tests; boundaries and conventions compliant",
@@ -110,7 +110,7 @@
       "testStability": "stable",
       "architectureBoundaries": "compliant",
       "codeConventions": "followed",
-      "reviewedAt": "2026-08-28",
+      "reviewedAt": "2026-09-30",
       "evidence": [
         "docs/HARNESS_CONFORMANCE_REPORT.md",
         "docs/HARNESS_CONFORMANCE_CONTRACT.json",
@@ -121,7 +121,7 @@
       "priorities": [
         "Renew live-model evidence within 30 days to retain the 5/5 claim."
       ],
-      "notes": "Re-reviewed 2026-08-28 (N7/ORACLE-DEBT): verify_harness_conformance.py --axis all и verify_live_model_benchmark.py --require-evidence --max-age-days 30 перепрогнаны свежими; live-улика (observedAt 2026-08-27T08:14:46Z) зелена на ЧИСТОМ дереве (exit 0, 154/0) — красный dirty-state digest в рабочем дереве был следствием незакоммиченных правок, а не устаревания улики."
+      "notes": "Re-reviewed 2026-09-30 (docs-freshness refresh, decision of the owner 2026-09-30 '1'): inventory, conformance-contract digest and plugin version unchanged since 2026-08-28 (verify_harness_docs_freshness.py PASS + 3 mutations); verify_harness_conformance.py --axis all and verify_live_model_benchmark.py --require-evidence --max-age-days 30 re-run on the committed tree (live evidence observedAt 2026-09-26T21:36:12Z); the only red before this refresh was the calendar window (reviewedAt 2026-08-28 + 30 days, expired 2026-09-28). Previous: Re-reviewed 2026-08-28 (N7/ORACLE-DEBT): verify_harness_conformance.py --axis all и verify_live_model_benchmark.py --require-evidence --max-age-days 30 перепрогнаны свежими; live-улика (observedAt 2026-08-27T08:14:46Z) зелена на ЧИСТОМ дереве (exit 0, 154/0) — красный dirty-state digest в рабочем дереве был следствием незакоммиченных правок, а не устаревания улики."
     }
   ]
 }
