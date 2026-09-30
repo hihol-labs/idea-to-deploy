@@ -4643,3 +4643,26 @@ IMPACT_GRAPH FRESH.
 **Отложено (BACKLOG).** `tests/verify_push_gate_adjudicated.py:138` - та же сортировка по
 `st_mtime`, отдельный юнит; Windows CI запускает канальный оракул напрямую - часовой сьют туда
 не добавлен (run-all строже CI по правилу дрейф-гарда).
+
+## 2026-09-30 - FLAKE-ADJCHAN-1: ledger-close (юнит verified харнесом, цель 3/5)
+
+**Факт.** PR #322 смержен сквошем в main `5c90b0a` (дерево `af3d34efd838`); ОТК харнеса на
+committed-head: `VERIFIED FLAKE-ADJCHAN-1` - часовой оракул exit 0 (14 passed), канальный exit 0
+(65 checks), квитанция `.itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-adjudication-a2.json` (machine f997c2b9, mandatory route rc 0). Установка синхронизирована
+(`sync-to-active`). WIP свободен, следующий юнит INSTALLED-PROOF-HEAD-1 (high).
+
+**Цена маршрута.** Одна сессия 2026-09-30 (~2.5 ч): 2 прохода /review (первый - находка о графе из
+`git ls-files`, второй PASSED на точном staged-дереве), 0 fresh-чекеров (low = machine-only), 0 раундов
+Sol; квитанций Verification Loop 4 машинных + 4 adjudication (одна лишняя пара под unit-id без
+`:general-review` - «receipt belongs to another unit»); 1 COMPLETION_BYPASS (красные разведочные
+команды в леджере сигналов); 2 отказа `register-profile` (относительный путь квитанции, отсутствующий
+keyring sha) до REGISTERED; CI: Gate 1 1m19s, windows-verify 5m24s.
+
+**Уроки.** (1) Реестр гейта валидирует квитанцию только на committed-head с `--expected-repository` и
+keyring - staged-квитанция для PR не годится, делать пару m/a на committed-head сразу после коммита.
+(2) Путь квитанции в `register-profile` обязан быть абсолютным, keyring sha обязателен - сообщение
+«local-review profile evidence is invalid» не называет поле. (3) Гейт завершения судит по последнему
+прогону каждой уникальной команды: разведочные heredoc'и не должны заканчиваться токенами линтеров.
+
+**Отложено (BACKLOG).** `tests/verify_push_gate_adjudicated.py:138` - та же сортировка по `st_mtime`;
+часовой сьют в `windows-verify.yml` (кандидат).
