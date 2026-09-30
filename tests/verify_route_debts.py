@@ -328,6 +328,36 @@ def native_source_candidate_repo(value: object, loop) -> Path:
     return source_repo
 
 
+def canary_candidate_mode(candidate: object, repo: Path) -> str:
+    """Name the exact candidate a canary binds on this checkout, from the receipt alone.
+
+    A canary minted before the commit binds the index against HEAD (``staged``);
+    a canary minted on the clean checkout of the release commit binds HEAD
+    against its single parent (``committed-head``). The receipt records only
+    ``baseCommit``, so the mode is read from it, never nominated by the caller:
+    the validators then recompute the full context under that mode and compare
+    byte-exactly, so a foreign, stale or edited receipt keeps its refusal. The
+    mode names what the receipt BINDS on this checkout, not how it was minted:
+    a receipt minted staged before the commit binds the same parent tree pair
+    as one minted committed-head after it, and is accepted on the same terms.
+    """
+    if not isinstance(candidate, dict) or not isinstance(candidate.get("baseCommit"), str):
+        raise ValueError("native canary candidate is malformed")
+    try:
+        listed = subprocess.run(["git", "rev-list", "--parents", "-n", "1", "HEAD"], cwd=repo,
+                                capture_output=True, text=True, encoding="utf-8", timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError(f"native source checkout HEAD is unreadable: {exc}") from exc
+    parts = listed.stdout.split()
+    if listed.returncode or not parts:
+        raise ValueError("native source checkout has no readable HEAD")
+    if candidate["baseCommit"] == parts[0]:
+        return "staged"
+    if len(parts) == 2 and candidate["baseCommit"] == parts[1]:
+        return "committed-head"
+    raise ValueError("native canary binds neither the checkout HEAD nor its single parent")
+
+
 def validate_native_canary(path: Path, host: dict, expected: dict, loop,
                            candidate_repo: Path | None = None) -> dict:
     unit = "ROUTE-DEBTS:deployment-canary"
@@ -344,9 +374,10 @@ def validate_native_canary(path: Path, host: dict, expected: dict, loop,
     if sha(mp_snapshot) != sha(mp) or sha(ap_snapshot) != sha(ap):
         raise ValueError("native receipt snapshot differs from canonical receipt")
     machine = object_file(mp)
+    mode = canary_candidate_mode(machine.get("candidate"), candidate_repo)
     loop.validate_machine(machine, repo=candidate_repo, risk="low", unit_id=unit,
-                          policy=policy, policy_sha=policy_sha)
-    adjudication = loop.validate_adjudication(candidate_repo, ap, "low", unit)
+                          policy=policy, policy_sha=policy_sha, candidate_mode=mode)
+    adjudication = loop.validate_adjudication(candidate_repo, ap, "low", unit, mode)
     if (machine["verdict"] != "PASSED" or machine["producer"]["host"] != platform.system()
             or machine["candidate"]["methodologyVersion"] != expected["release"]
             or adjudication["outcome"] != "PASSED"
@@ -369,7 +400,7 @@ def validate_native_canary(path: Path, host: dict, expected: dict, loop,
     return {"status": "PASSED", "platform": platform.system(), "validatorSha256": sha(Path(__file__)),
             "runtimeSha256": expected["runtimeSha256"], "machineSha256": sha(mp),
             "adjudicationSha256": sha(ap), "nativeTestsSha256": sha(test_log),
-            "candidateDigest": machine["candidateDigest"]}
+            "candidateDigest": machine["candidateDigest"], "candidateMode": mode}
 
 
 def installed_proof(path: Path) -> None:

@@ -86,6 +86,7 @@
       "tests/verify_goal_tools.py",
       "tests/verify_handoff_untracked.py",
       "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
@@ -179,6 +180,7 @@
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_push_gate_adjudicated.py",
@@ -219,6 +221,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_platform_tmp_and_new_hooks.py",
@@ -478,7 +481,8 @@
       "tests/verify_session_hygiene_quality.py"
     ],
     "docs/RELEASE_RUNBOOK.md": [
-      "tests/verify_handoff_untracked.py"
+      "tests/verify_handoff_untracked.py",
+      "tests/verify_installed_proof_head.py"
     ],
     "docs/SESSION_EXIT_CONTRACT.json": [
       "tests/verify_session_hygiene_quality.py"
@@ -534,6 +538,7 @@
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_harness_demo_pilots.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_predeploy_independent_review.py",
       "tests/verify_route_debts.py",
@@ -555,6 +560,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_harness_demo_capture_schema.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_route_debts.py",
       "tests/verify_verification_loop.py"
@@ -1383,6 +1389,7 @@
       "tests/verify_goal_tools.py",
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_harness_demo_pilots.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_mandatory_keyless_review.py",
@@ -1873,6 +1880,7 @@
       "tests/verify_cost_gate.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_handoff_untracked.py",
+      "tests/verify_installed_proof_head.py",
       "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops_release.py",
@@ -2018,6 +2026,7 @@
       "tests/verify_route_debts.py"
     ],
     "tests/verify_live_model_benchmark.py": [
+      "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_tree_pin_debris.py"
     ],
@@ -2087,6 +2096,9 @@
     ],
     "tests/verify_risk_score.py": [
       "tests/verify_route_debts.py"
+    ],
+    "tests/verify_route_debts.py": [
+      "tests/verify_installed_proof_head.py"
     ],
     "tests/verify_routing.py": [
       "tests/verify_triggers.py"
