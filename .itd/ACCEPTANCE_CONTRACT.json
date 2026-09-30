@@ -4398,23 +4398,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "INSTALLED-PROOF-HEAD-1",
-    "status": "open",
-    "openedAt": "2026-09-30",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/INSTALLED-PROOF-HEAD-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "high",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    },
-    "note": "Activated by the goal harness 2026-09-30 (evt-goal-1790793036); high = full independent checker before the PR."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - INSTALLED-PROOF-HEAD-1 closed 2026-09-30; next TIER-WORDING-2 (medium) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4662,6 +4648,27 @@
       },
       "closedAt": "2026-09-30T18:04:09Z",
       "closureEvidence": "Verified by the goal harness on 2026-09-30T18:03:07Z (VERIFIED FLAKE-ADJCHAN-1 - clock oracle exit 0 PASSED: 0 failed (14 passed), channel oracle exit 0 checks 65) on the merged tree af3d34efd838 (main 5c90b0a = squash of PR #322) with receipt .itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-adjudication-a2.json (committed-head machine f997c2b9 PASSED, mandatory route check rc 0). Publication: low route = machine-only; /review PASSED_WITH_WARNINGS on the working tree (impact graph built from git ls-files -> suite staged, graph rebuilt), /review PASSED on the exact staged tree af3d34ef; review cache PASSED under FLAKE-ADJCHAN-1:general-review (staged a1); gate registry re-registered with a committed-head receipt (a2, keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #322, CI Gate 1 + windows-verify pass, squash merge."
+    },
+    {
+      "unitId": "INSTALLED-PROOF-HEAD-1",
+      "status": "closed",
+      "openedAt": "2026-09-30",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/INSTALLED-PROOF-HEAD-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-30T20:42:17Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-30T20:40:59Z (VERIFIED INSTALLED-PROOF-HEAD-1 - tests/verify_installed_proof_head.py exit 0 PASSED: 0 failed (14 passed), tests/verify_route_debts.py exit 0) on the merged tree f417f432d1a5 (main 3fe4b10 = squash of PR #324) with receipt .itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-adjudication-a3.json (machine b7cd1fbd: a committed-head mint on the branch commit 187c443, tree-identical to merged main 3fe4b10 and therefore valid for a3; checker on merged HEAD bound to the signed Sol p1 phase-one; mandatory route check rc 0). Publication: high route = /review r1 (PASSED_WITH_WARNINGS, fixes applied) + r2 delta; gpt-5.6-sol on the staged tree: s1/s2 UNVERIFIED (route), s3/s4 BLOCKED (one real finding each, fixed), s5 PASSED; committed-head p1 PASSED; review cache PASSED under INSTALLED-PROOF-HEAD-1:general-review (staged a1); gate registry registered with the committed-head adjudication a2 (branch commit 187c443) (keyring 90df6b85) -> doctor LOCAL_REVIEWED signed-keyless-route cross-vendor; itd pr create -> PR #324, CI Gate 1 1m35s + windows-verify 5m52s pass, squash merge; sync-to-active done.",
+      "note": "Activated by the goal harness 2026-09-30 (evt-goal-1790793036); high = full independent checker before the PR."
     }
   ]
 }

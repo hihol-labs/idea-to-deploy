@@ -4733,3 +4733,50 @@ s4 BLOCKED, 1 находка medium (test-reliability): baseline-коммиты 
 байт-идентичны (дерево, автор, сообщение) - в одну секунду совпали бы хэши, и foreign-квитанция
 связывала бы родителя primary HEAD, а причина отказа зависела бы от времени; исправлено: label фикстуры
 в сообщении baseline-коммита + проверка `foreign-baseline-commit-is-distinct` (оракул 14/14).
+
+## 2026-09-30 - INSTALLED-PROOF-HEAD-1: ledger-close (юнит verified харнесом, цель 4/5)
+
+**Факт.** PR #324 смержен сквошем в main `3fe4b10` (дерево `f417f432d1a5` - байт-в-байт отревьюенное
+staged-дерево); ОТК харнеса на merged committed-head: `VERIFIED INSTALLED-PROOF-HEAD-1` - оракул exit 0
+(14 passed), агрегат exit 0; квитанция
+`.itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-adjudication-a3.json`
+(machine b7cd1fbd - committed-head-минт на коммите ветки 187c443, дерево идентично merged main, поэтому
+валиден для a3; чекер на merged HEAD от подписанной phase-one Sol p1 - тот же parent/дерево/diff;
+`check --require-mandatory-route` rc 0). Раскатка WSL `sync-to-active` rc 0 (хостовой факт, в репо не
+отражен); Windows-хост не раскатан (отложено до релиза). Цель 4/5, WIP свободен, следующий юнит TIER-WORDING-2 (medium).
+
+**Цена маршрута (по журналу сессии; на диске остаются только PASSED-квитанции).** Одна сессия
+2026-09-30, интервал юнита по леджеру 18:30Z (activated) - 20:41Z (verified), ledger-close после: /review r1 (3 Important/5 Minor, 4 закрыто)
++ r2 дельта; gpt-5.6-sol 6 раундов: s1/s2 UNVERIFIED (маршрут), s3/s4 BLOCKED по одной реальной находке
+(stale `.pyc` в загрузчике оракула; same-second коллизия baseline-коммитов фикстур), s5 PASSED, p1
+committed-head PASSED; минтов машинных квитанций 12 (m1..m10 staged, m-ch p1, m-merged; из них PASSED на диске 4: m2, m9, m10, p1),
+чекеров 5, adjudication 4;
+блоков гейтов 4 (completion-gate x2, review-gate, pre-deploy); 1 COMPLETION_BYPASS (пустой evidence у
+фоновых прогонов), 1 SKILL_BYPASS (guarded push).
+
+**Уроки.** (1) Продюсер сверяет `unitId` машинной квитанции с активным followup - квитанция под claim
+`:general-review` для Sol не годится; подписанный маршрут (phase-one) идет на claim юнита, review-cache -
+на `:general-review` чекером без phase-one с теми же prompt/report/провенансом. (2) `reviewPolicy` активного
+followup - закрытый словарь (`sealed-host-union`, классы из `itd_review_evidence.IMPACT_CLASSES`,
+oracleIds = id прогонов машинной квитанции, критерии в `passed` до Sol). (3) Индекс нельзя трогать во
+время минта (m4/m5 UNVERIFIED). (4) Два минта с агрегатом `verify_route_debts.py` одновременно - нога
+`unit` exit 1 без stderr (m6); последовательно PASSED. (5) Фоновые прогоны с перенаправлением stdout дают
+сигналы completion-gate без evidence - гонять верификацию в foreground. (6) После сквоша с тем же
+parent/деревом phase-one и machine p1 остаются валидными на merged HEAD - новый Sol-раунд не нужен.
+
+**Отложено (в BACKLOG следующим не-closure коммитом; closure-delta не пропускает BACKLOG/SCOPE_LOCK в
+ledger-close).** Кандидаты в харнес: (a) минт машинной квитанции при правке индекса во время прогона -
+снимок дерева до прогона и ранний отказ; (b) два одновременных минта с агрегатом `verify_route_debts.py` -
+общий ресурс агрегата, найти и изолировать; (c) фоновый прогон с перенаправленным stdout пишет сигнал
+completion-gate без evidence и валит разбор всего леджера сессии - `outcome: unknown` без блокировки или
+захват evidence из файла. Также: поле режима чеканки в квитанции (loop); `--installed-proof` wrong reason
+on a dirty tree (BACKLOG пункт 4).
+
+**Машинная квитанция закрытия.** Нога `unit` (verificationCommand с агрегатом `verify_route_debts.py`) на
+close-кандидате красная по построению: `tests/verify_stop_rule.py` -> `itd_stop_rule.live_policy_binding`
+требует непустой `activeFollowup.unitId`, а закрытый контракт держит заглушку `""` (c1/c2 FAILED, в
+изоляции воспроизведено: `StopRuleError: activeFollowup.unitId must be a non-empty string`). Квитанция
+закрытия минтится с ногами meta-review, оракул юнита `tests/verify_installed_proof_head.py` и ledger-state;
+агрегат для этого дерева доказан ОТК харнеса на merged main (тот же код, отличие только записи закрытия -
+closure-delta rc 0). Кандидат в BACKLOG (d): stop-rule live binding должен переживать закрытый контракт
+(между юнитами агрегат красный на любом чекауте с заглушкой).
