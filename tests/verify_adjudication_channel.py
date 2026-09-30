@@ -104,9 +104,17 @@ def machine(root: Path, unit: str = "U-adj") -> subprocess.CompletedProcess[str]
                 "--timeout", "10"], root)
 
 
-def checker(root: Path, verdict: str, artifact_id: str, unit: str = "U-adj"):
+def checker(root: Path, verdict: str, artifact_id: str, unit: str = "U-adj",
+            ) -> tuple[subprocess.CompletedProcess[str], Path | None]:
+    """Run the checker and return (process, the receipt it minted or None).
+
+    The receipt is located by a snapshot taken before the run - a BLOCKED
+    checker exits non-zero before printing its path, and the file time is not
+    a usable order on this host (see newest_receipt).
+    """
     prompt, report = artifacts(root, verdict, artifact_id)
-    return run([
+    before = receipts(root, "checker")
+    proc = run([
         "checker", "--root", str(root), "--unit-id", unit,
         "--risk-tier", "medium", "--mode", "targeted",
         "--report", str(report), "--prompt-file", str(prompt),
@@ -115,17 +123,37 @@ def checker(root: Path, verdict: str, artifact_id: str, unit: str = "U-adj"):
         "--checker-provider", "openai", "--checker-model", "gpt-checker",
         "--checker-session", "checker-session",
     ], root)
+    return proc, newest_receipt(root, "checker", before=before)
 
 
 def last_path(proc: subprocess.CompletedProcess[str]) -> Path:
     return Path(proc.stdout.strip().splitlines()[-1])
 
 
-def newest_receipt(root: Path, kind: str) -> Path | None:
+def receipts(root: Path, kind: str) -> frozenset[Path]:
+    """Every durable receipt of `kind` under the fixture: a set, no order, no clock."""
     base = root / ".itd-memory" / "verification-loop" / "receipts"
-    found = sorted(base.rglob(f"*{kind}*.json"),
-                   key=lambda p: p.stat().st_mtime) if base.is_dir() else []
-    return found[-1] if found else None
+    return frozenset(base.rglob(f"*{kind}*.json")) if base.is_dir() else frozenset()
+
+
+def newest_receipt(root: Path, kind: str,
+                   before: frozenset[Path] = frozenset()) -> Path | None:
+    """The one receipt of `kind` minted since the `before` snapshot.
+
+    Deterministic by construction: the minted receipt is the set difference
+    between the files on disk now and the snapshot taken before the minting
+    command ran.  File times never enter the choice - the wall clock of this
+    host steps backwards (WSL2 resync, BACKLOG 2026-09-11), so a receipt written
+    later may carry an older st_mtime and the former mtime sort returned the
+    previous run's file.  None when nothing new was minted; more than one new
+    receipt is an ambiguity and a refusal, never "the last element".
+    """
+    minted = sorted(receipts(root, kind) - before)
+    if len(minted) > 1:
+        raise RuntimeError(
+            f"{len(minted)} new {kind} receipts since the snapshot; snapshot before "
+            f"each minting command: {[path.name for path in minted]}")
+    return minted[0] if minted else None
 
 
 def canonical_digest(value) -> str:
@@ -221,8 +249,7 @@ if not gate_only:
           machine_proc.stdout + machine_proc.stderr)
     machine_path = last_path(machine_proc)
 
-    blocked_proc = checker(root, "BLOCKED", "blocked")
-    blocked_path = newest_receipt(root, "checker")
+    blocked_proc, blocked_path = checker(root, "BLOCKED", "blocked")
     check("BLOCKED checker receipt is minted durably",
           blocked_proc.returncode != 0 and blocked_path is not None,
           blocked_proc.stdout + blocked_proc.stderr)
@@ -334,8 +361,7 @@ if not gate_only:
     v2_root = fixture()
     v2_machine = machine(v2_root, unit="U-v2")
     v2_machine_path = last_path(v2_machine)
-    v2_checker_proc = checker(v2_root, "BLOCKED", "v2", unit="U-v2")
-    v2_checker_path = newest_receipt(v2_root, "checker")
+    v2_checker_proc, v2_checker_path = checker(v2_root, "BLOCKED", "v2", unit="U-v2")
     check("v2 fixture checker is durable", v2_checker_path is not None,
           v2_checker_proc.stdout + v2_checker_proc.stderr)
     assert v2_checker_path is not None
@@ -406,8 +432,7 @@ if not gate_only:
         # binding and human affirmation do not.
         general_claim = "U-v2:general-review"
         general_machine_path = last_path(machine(v2_root, unit=general_claim))
-        checker(v2_root, "BLOCKED", "v2-general", unit=general_claim)
-        general_checker = newest_receipt(v2_root, "checker")
+        _, general_checker = checker(v2_root, "BLOCKED", "v2-general", unit=general_claim)
         assert general_checker is not None
         general_approval = json.loads(json.dumps(v2_draft))
         general_approval["checkerReceiptSha256"] = hashlib.sha256(
@@ -429,8 +454,7 @@ if not gate_only:
         # A fresh checker file can reuse this approval only because its
         # complete semantic report/candidate binding is unchanged; its whole
         # file SHA remains independently revalidated.
-        checker(v2_root, "BLOCKED", "v2-reissued", unit="U-v2")
-        v2_reissued_checker = newest_receipt(v2_root, "checker")
+        _, v2_reissued_checker = checker(v2_root, "BLOCKED", "v2-reissued", unit="U-v2")
         assert v2_reissued_checker is not None
         reissued = json.loads(json.dumps(v2_draft))
         reissued["checkerReceiptSha256"] = hashlib.sha256(
@@ -469,11 +493,10 @@ if not gate_only:
     # A clean review needs no adjudication: dispositions over PASSED refuse.
     clean_root = fixture()
     clean_machine = last_path(machine(clean_root))
-    clean_proc = checker(clean_root, "PASSED", "clean")
+    clean_proc, clean_minted = checker(clean_root, "PASSED", "clean")
     check("clean checker mints", clean_proc.returncode == 0,
           clean_proc.stdout + clean_proc.stderr)
-    clean_path = last_path(clean_proc) if clean_proc.returncode == 0 \
-        else newest_receipt(clean_root, "checker")
+    clean_path = last_path(clean_proc) if clean_proc.returncode == 0 else clean_minted
     laundering = adjudicate(clean_root, clean_machine, clean_path,
                             dispositions_value(clean_path), name="clean")
     check("dispositions over a clean PASSED review refuse",
@@ -489,8 +512,7 @@ cache = load_module(CACHE, "itd_adjudication_cache_fixture")
 gate_root = fixture()
 gate_claim = cache.review_claim_id(gate_root, "general")
 gate_machine = last_path(machine(gate_root, unit=gate_claim))
-checker(gate_root, "BLOCKED", "gate", unit=gate_claim)
-gate_checker = newest_receipt(gate_root, "checker")
+_, gate_checker = checker(gate_root, "BLOCKED", "gate", unit=gate_claim)
 check("gate fixture minted a durable BLOCKED checker receipt",
       gate_checker is not None, "no checker receipt on disk")
 assert gate_checker is not None
