@@ -4303,6 +4303,45 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "FLAKE-ADJCHAN-1-1-oracle",
+      "unitId": "FLAKE-ADJCHAN-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_adjudication_channel_clock.py зелёный (helper newest_receipt выбирает квитанцию разностью множеств относительно снимка до команды минта, без времени файла и часов - AST-проверка кода, не текста; фикстура с инвертированными mtime, где записанная второй квитанция старше на измеренный шаг 5.366 с, воспроизводит дефект для mtime-сортировки и не ломает helper; равные mtime, ничего нового, чужой kind, пустой корень, две новые квитанции = отказ; каждый выбор чекерской квитанции в оракуле привязан к снимку внутри checker(); сьют зарегистрирован в run-all) И tests/verify_adjudication_channel.py остаётся зелёным (65 проверок).",
+      "source": "Уточняет criterion юнита FLAKE-ADJCHAN-1 из .itd-memory/GOAL.json (BACKLOG P1 2026-09-11: обратный шаг часов WSL2 подменил чекерскую квитанцию U-v2:general-review квитанцией U-v2 внутри изоляции машинной квитанции); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: финальный часовой оракул на дереве HEAD (helper до фикса + run-all без регистрации) - FAILED: 10 failed (4 passed), зелёные только sanity-проверки фикстуры (мтаймы инвертированы, mtime-сортировка отдаёт старый файл). После фикса: часовой оракул PASSED: 0 failed (14 passed); канальный оракул {checks: 65, status: PASSED} до и после; tests/build_impact_graph.py --check FRESH; py_compile OK (ruff/pyflakes в среде нет). /review (PASSED_WITH_WARNINGS) нашёл: build_impact_graph читает git ls-files, неотслеженный сьют не попадал в граф и verify_verification_profiles был красным (unattachedSuites); исправлено - сьют застейджен, граф пересобран (edges 1236 -> 1238, suitesAttached 163 -> 164), --check FRESH; мелкие замечания к тесту (kind= по ключу, узкий TypeError, докстринг) закрыты в том же диффе.",
+      "reviewEvidence": {
+        "claim": "Выбор квитанции в оракуле канала не зависит от часов хоста - это и проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "adjudication-channel-clock",
+          "adjudication-channel",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py && sh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py",
+      "status": "passed"
+    },
+    {
+      "id": "FLAKE-ADJCHAN-1-2-ledger",
+      "unitId": "FLAKE-ADJCHAN-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-09-30 (actor harness), юнит in_progress; переход в verified записывается вне коммита юнита и входит в ledger-close. validate_state OK.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4321,9 +4360,21 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - CLOSURE-DELTA-1 closed 2026-09-30; next FLAKE-ADJCHAN-1 (low) after its activation"
+    "unitId": "FLAKE-ADJCHAN-1",
+    "status": "open",
+    "openedAt": "2026-09-30",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/FLAKE-ADJCHAN-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "low",
+      "requiredImpactClasses": [
+        "correctness"
+      ],
+      "minimumIndependentReviewers": 0,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "machine-only"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

@@ -1867,6 +1867,7 @@
       "tests/verify_stop_rule.py"
     ],
     "tests/run-all.sh": [
+      "tests/verify_adjudication_channel_clock.py",
       "tests/verify_closure_delta.py",
       "tests/verify_completion_signal_classes.py",
       "tests/verify_cost_gate.py",
@@ -1904,6 +1905,7 @@
       "tests/verify_risk_score.py"
     ],
     "tests/verify_adjudication_channel.py": [
+      "tests/verify_adjudication_channel_clock.py",
       "tests/verify_route_debts.py"
     ],
     "tests/verify_adopt_context.py": [

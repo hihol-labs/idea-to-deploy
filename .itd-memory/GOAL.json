@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-30T16:09:11Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-09-30T16:44:01Z",
+  "currentUnitId": "FLAKE-ADJCHAN-1",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -45,7 +45,7 @@
       "criterion": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py && sh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py",
       "riskTier": "low",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "INSTALLED-PROOF-HEAD-1",

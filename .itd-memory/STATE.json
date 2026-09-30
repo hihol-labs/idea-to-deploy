@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "CLOSURE-DELTA-1",
-    "goal": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
-    "status": "verified",
-    "startedAt": "2026-09-27T20:40:06Z",
+    "id": "FLAKE-ADJCHAN-1",
+    "goal": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
+    "status": "in_progress",
+    "startedAt": "2026-09-30T16:44:01Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-09-30T16:09:11Z"
+    "riskTier": "low"
   },
   "gateResults": {
     "acceptanceContract": "pending",
