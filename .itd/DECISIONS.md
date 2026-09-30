@@ -4582,3 +4582,35 @@ WSL2-хостах ровно так же, как брокер до BROKER-ISOLAT
 **Почему.** Прецеденты: ROUTE-DEBTS (стоп после 5 BLOCKED), LEDGER-ARCHIVE-1 (#297, после p4),
 G-003 (#307, после PUB5), G-005 (#311, после PUB3). Цена ещё одного раунда 1,5-3 ч без гарантии
 сходимости; цена owner-маршрута - подпись владельца под диспозициями, что и предусмотрено ADR-007.
+
+## 2026-09-30 - CLOSURE-DELTA-1: ledger-close, цена маршрута, первое живое применение инструмента
+
+**Что.** PR #319 смержен squash -> main 13c3951 (дерево 509d2379) owner-маршрутом; перед этим ветка
+перебазирована на 1417df8 (docs-freshness #320), потому что CI Gate 1 берёт `ref: head`, а не
+merge-ref, и календарный красный `verify_harness_docs_freshness` не снимался ни rerun'ом, ни
+close/reopen; патч байт-в-байт тот же (sha256 37ab11f46fc06e00). ОТК: post-merge чекер c24 (opus)
+PASSED на 509d2379 (дельта от 21468def = ровно два docs-файла #320, патч идентичен, оракул 170
+GREEN, meta-review PASSED, freshness GREEN), committed-head machine + adjudication a1 ->
+`VERIFIED CLOSURE-DELTA-1 - exit 0: PASSED: 0 failed`, цель 2/5, следующий FLAKE-ADJCHAN-1.
+Переход харнеса проверен самим инструментом: `itd_closure_delta.py --receipt <a1> --tree <staged>`
+-> exit 0 - первое живое самоприменение на реальном леджере.
+
+**Цена маршрута.** 2026-09-27..30, четыре сессии; 24 targeted-чекера (opus) c1..c24, из них
+c1..c12 старый дизайн, c13..c24 эталонный; 8 раундов Sol (p1 UNVERIFIED, p2..p7 BLOCKED, p8
+BLOCKED как наблюдение), 2 отказа транспорта (refresh-токен) с re-login владельца; редизайн
+«эталон от харнеса» после p4; мутационные прогоны 4 полных (77 -> 80 -> 81 -> 88); оракул
+155 -> 170 проверок; дополнительный low-юнит docs-freshness (#320) ради CI; 3 COMPLETION_BYPASS
+(устаревшие сигналы чекеров), push --no-verify x2 (owner-маршрут + rebase). Инструмент - 900
+строк, оракул - 750.
+
+**Отложено (BACKLOG).** Sol p8: (1) `Workspace.harness()` импортирует модуль харнеса дерева
+in-process без таймаута/SystemExit; (2) `CLOCK_SKEW` +5 мин в будущее против docstring;
+(3) `--repo DIR` без --receipt/--tree - тихий no-op; (4) tarfile-fallback < 3.12 без валидации
+членов; (5) `clean_env` оракула наследует `ITD_CLOSURE_DELTA_TIMEOUT`; (6) шесть input-случаев без
+фрагмента сообщения. c23 minor: комментарий фикстуры «earlier unit»; не-ISO `updatedAt` дерева
+ревью выключает нижнюю границу времени. c16 minor: слабый фрагмент "at", лишняя EVENTS-диагностика
+при чужом currentUnit, длинная строка docstring. Подключение к маршруту ledger-close - P2.
+
+**Почему.** Стоп-правило и owner-маршрут - решение владельца (запись выше); rebase вместо
+admin-merge - чтобы не обходить защиту main, при этом диспозиции остаются привязаны к тому же
+патчу; post-merge чекер вместо переиспользования c23 - ОТК требует квитанцию на точное дерево.

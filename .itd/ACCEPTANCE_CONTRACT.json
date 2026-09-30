@@ -4321,22 +4321,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "CLOSURE-DELTA-1",
-    "status": "open",
-    "openedAt": "2026-09-27",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/CLOSURE-DELTA-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - CLOSURE-DELTA-1 closed 2026-09-30; next FLAKE-ADJCHAN-1 (low) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4545,6 +4532,26 @@
       },
       "closedAt": "2026-09-27T12:23:27Z",
       "closureEvidence": "Verified by the goal harness on 2026-09-27 (VERIFIED REL-1.106.0, exit 0, 85 passed, 0 failed) with receipt REL-1.106.0-adjudication-otk1.json: OTK machine otk1 runs the whole unit command as one oracle (bindsCommand true) on the staged ledger-close candidate ddafaef2, owner ADR-007 dispositions (Sol pub3 finding, accepted-trade-off). Release: PR #315 -> f3e0f42 (tree 30f62a28), tag and GitHub release v1.106.0; rollout WSL + Windows, native canaries a5/a6, INSTALLED.json accepted by --installed-proof."
+    },
+    {
+      "unitId": "CLOSURE-DELTA-1",
+      "status": "closed",
+      "openedAt": "2026-09-27",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/CLOSURE-DELTA-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-09-30T16:10:51Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-30 (VERIFIED CLOSURE-DELTA-1 - exit 0: PASSED: 0 failed) on the merged tree 509d2379 (main 13c3951 = squash of PR #319) with receipt .itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-adjudication-a1.json (post-merge checker c24 PASSED, committed-head machine PASSED). Publication: owner route after Sol p1 UNVERIFIED and p2..p7 BLOCKED (stop rule, owner decision A 2026-09-30), 24 targeted checkers c1..c24, 88/88 mutants, 170 oracle checks; Sol p8 observed BLOCKED with 6 findings on new surfaces -> BACKLOG. The harness transition of this very closure was checked by scripts/itd_closure_delta.py --receipt <a1> --tree <staged>: exit 0 (first live self-application)."
     }
   ]
 }

@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-27T20:40:06Z",
-  "currentUnitId": "CLOSURE-DELTA-1",
+  "updatedAt": "2026-09-30T16:09:11Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -28,7 +28,17 @@
       "criterion": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-30T16:09:11Z",
+      "evidence": "exit 0: PASSED: 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-adjudication-a1.json",
+        "sha256": "8d258d2d31c6d41b615e83152e4a04ea9ded8ed870721eeb075e79a8afda9571",
+        "receiptSha256": "481c7e6e88104effd8a2da201434de5a202e22637afa2495fd7cb45b52299c28",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-machine-f49606424e7ad765.json",
+        "machineSha256": "2e8e6f002a5f0416c73950d1b600d93392882b0402335ec2c077b0cda744710c"
+      }
     },
     {
       "id": "FLAKE-ADJCHAN-1",

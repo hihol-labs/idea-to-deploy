@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "CLOSURE-DELTA-1",
     "goal": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-27T20:40:06Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-09-30T16:09:11Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

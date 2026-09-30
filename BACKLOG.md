@@ -371,6 +371,24 @@ DECISIONS остаются) или явная запись, что закомм�
 Не блок, rate-limited шум. Кандидат: исключить игнорируемый корневой `/HANDOFF.md` в wip-gate.
 Найдено чекером c1 юнита (minor 5).
 
+## P2 — `itd_closure_delta.py`: находки Sol p8 и minor'ы чекеров (2026-09-30, CLOSURE-DELTA-1)
+
+Наблюдение Sol p8 (gpt-5.6-sol, BLOCKED, негейтящее по решению владельца «A») на дереве 21468def и
+minor'ы c16/c23 - все вне вердикта инструмента на записанных леджерах, для следующего юнита по
+инструменту: (1) `Workspace.harness()` импортирует `itd_goal_verify.py` дерева ревью in-process ради
+`split_top_level_and` - без таймаута и без контура SystemExit; кандидат: вынести сплиттер в
+subprocess или зеркалить его; (2) `CLOCK_SKEW` пропускает до 5 мин в будущее, docstring обещает
+«не в будущем» - согласовать (0 или задокументированный допуск); (3) `--repo DIR` без
+`--receipt/--tree` - тихий no-op, должен быть exit 2 при любом аргументе кроме пустого argv;
+(4) tarfile-fallback без `data_filter` (Python < 3.12) распаковывает без проверки членов - явная
+валидация или отказ на таком рантайме; (5) `clean_env` оракула наследует `ITD_CLOSURE_DELTA_TIMEOUT`
+из окружения - снимать всегда, задавать только в случаях таймаута; (6) input-случаи
+receipt-outside-repository / not-json / bad-tree / receipt-without-tree / no-state / bad-state без
+фрагмента сообщения правила; c23: комментарий фикстуры «handoff of an earlier unit» при
+`unitId == UNIT`; не-ISO `updatedAt` дерева ревью молча выключает нижнюю границу времени
+(`parse_time` -> None); c16: слабый фрагмент "at" в `reject-event-at-before-updated-at`, лишняя
+EVENTS-диагностика при чужом currentUnit, длинная строка docstring.
+
 ## P2 — подключить `itd_closure_delta.py` к маршруту ledger-close (2026-09-28, CLOSURE-DELTA-1)
 
 CLOSURE-DELTA-1 дал инструмент и оракул, но маршрут его пока не вызывает: ни шаблон ledger-close в
@@ -378,6 +396,10 @@ CLOSURE-DELTA-1 дал инструмент и оракул, но маршрут
 ledger-close `itd_closure_delta.py --receipt <adjudication> --tree <кандидат>`; (2) коммит юнита
 вместе с переходом ОТК, когда дельта от `reviewedTree` - только closure-записи (снимает порядок
 «копия пост-ОТК леджера -> `git checkout --` -> коммит -> копии обратно», сессия 2026-09-27).
+
+Статус 2026-09-30: первое живое применение - переход ОТК CLOSURE-DELTA-1 на смерженном дереве
+509d2379 проверен `itd_closure_delta.py --receipt <a1 post-merge> --tree <staged>` -> exit 0 (запись в
+.itd/DECISIONS.md 2026-09-30). Подключение к маршруту по-прежнему открыто.
 Известные границы инструмента:
 - `.itd/SCOPE_LOCK.md` не closure-запись: SCOPE_LOCK ledger-close должен войти в дерево, которое
   ревьюится (как в квитанции close2: `68bb0510` -> `ed47135` принято).
@@ -411,6 +433,11 @@ ledger-close `itd_closure_delta.py --receipt <adjudication> --tree <кандид
 `DONE fails: verify_harness_docs_freshness`. Причина - календарь, не дифф юнита. Нужен отдельный
 юнит: пересмотр harness-доков и новая дата `reviewedAt` (сверка с `docs/QUALITY.json`, которую
 проверяет тот же оракул).
+
+Статус 2026-09-30: закрыто low-юнитом docs-freshness (PR #320 -> `1417df8`): `reviewedAt` 2026-09-30 в
+`docs/HARNESS_DOCS_STATE.json` и `docs/QUALITY.json` (корень + строка harness-engineering-conformance),
+конформность 5/5 и live-benchmark 154/0 на чистом дереве. Системная причина (окно протухает по
+календарю) остаётся в P1 «оракул свежести протухает по календарю».
 
 ## P2 — goal-report: `[machine_only]` у legacy-юнита с явным тиром (2026-09-27)
 
