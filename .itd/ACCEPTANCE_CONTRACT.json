@@ -4360,21 +4360,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "FLAKE-ADJCHAN-1",
-    "status": "open",
-    "openedAt": "2026-09-30",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/FLAKE-ADJCHAN-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "low",
-      "requiredImpactClasses": [
-        "correctness"
-      ],
-      "minimumIndependentReviewers": 0,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "machine-only"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - FLAKE-ADJCHAN-1 closed 2026-09-30; next INSTALLED-PROOF-HEAD-1 (high) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4603,6 +4591,25 @@
       },
       "closedAt": "2026-09-30T16:10:51Z",
       "closureEvidence": "Verified by the goal harness on 2026-09-30 (VERIFIED CLOSURE-DELTA-1 - exit 0: PASSED: 0 failed) on the merged tree 509d2379 (main 13c3951 = squash of PR #319) with receipt .itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-adjudication-a1.json (post-merge checker c24 PASSED, committed-head machine PASSED). Publication: owner route after Sol p1 UNVERIFIED and p2..p7 BLOCKED (stop rule, owner decision A 2026-09-30), 24 targeted checkers c1..c24, 88/88 mutants, 170 oracle checks; Sol p8 observed BLOCKED with 6 findings on new surfaces -> BACKLOG. The harness transition of this very closure was checked by scripts/itd_closure_delta.py --receipt <a1> --tree <staged>: exit 0 (first live self-application)."
+    },
+    {
+      "unitId": "FLAKE-ADJCHAN-1",
+      "status": "closed",
+      "openedAt": "2026-09-30",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/FLAKE-ADJCHAN-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "low",
+        "requiredImpactClasses": [
+          "correctness"
+        ],
+        "minimumIndependentReviewers": 0,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "machine-only"
+      },
+      "closedAt": "2026-09-30T18:04:09Z",
+      "closureEvidence": "Verified by the goal harness on 2026-09-30T18:03:07Z (VERIFIED FLAKE-ADJCHAN-1 - clock oracle exit 0 PASSED: 0 failed (14 passed), channel oracle exit 0 checks 65) on the merged tree af3d34efd838 (main 5c90b0a = squash of PR #322) with receipt .itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-adjudication-a2.json (committed-head machine f997c2b9 PASSED, mandatory route check rc 0). Publication: low route = machine-only; /review PASSED_WITH_WARNINGS on the working tree (impact graph built from git ls-files -> suite staged, graph rebuilt), /review PASSED on the exact staged tree af3d34ef; review cache PASSED under FLAKE-ADJCHAN-1:general-review (staged a1); gate registry re-registered with a committed-head receipt (a2, keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #322, CI Gate 1 + windows-verify pass, squash merge."
     }
   ]
 }

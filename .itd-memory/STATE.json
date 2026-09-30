@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "FLAKE-ADJCHAN-1",
     "goal": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-09-30T16:44:01Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-09-30T18:03:07Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

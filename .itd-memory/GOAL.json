@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-30T16:44:01Z",
-  "currentUnitId": "FLAKE-ADJCHAN-1",
+  "updatedAt": "2026-09-30T18:03:07Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -45,7 +45,17 @@
       "criterion": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py && sh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py",
       "riskTier": "low",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-30T18:03:07Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py: exit 0, stdout sha256 920be4c849f6d48b, PASSED: 0 failed (14 passed)\nsh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py: exit 0, stdout sha256 ffd0067ba86b80c6, {\"checks\": 65, \"failures\": [], \"status\": \"PASSED\"}",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-adjudication-a2.json",
+        "sha256": "7601f9a86e6371ec32bf3ffca1d23dcb1d6815b5928946e955914f49067b8c80",
+        "receiptSha256": "d3e8a1c6b3706f4bf96414d123fdf4c5620b4ab67e0c0d1e3d31bf50b6c773aa",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-machine-f997c2b9dcb58345.json",
+        "machineSha256": "e039039a3770d4418cb80e47bb42578c92f2c6def6075d48791da8ab1472b22d"
+      }
     },
     {
       "id": "INSTALLED-PROOF-HEAD-1",
