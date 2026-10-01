@@ -4380,6 +4380,45 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "TIER-WORDING-2-1-oracle",
+      "unitId": "TIER-WORDING-2",
+      "criterion": "Команда критерия выходит 0: tests/verify_tier_wording.py зеленый на дереве кандидата - семь синтетических пар (шаблонный goal против подробного описания со strict-словом или strict-путем) над одной не-тестовой областью-списком путей (каждая непустая строка Allowed Change Areas - один пункт грамматики TIER-SOURCE-1 ровно с одним путем: тестовым либо одним конкретным файлом без * и ?, без .. в любом месте токена, с непустой основой имени и расширением из закрытого набора _FILE_EXTS) в SCOPE_LOCK с обычной раскладкой (каждый пункт, который hooks/wip-gate.sh читает как разрешенную область, входит в секцию, прочитанную матчером, и нет ATX- или setext-заголовка, который лишь начинается с названия области), Current Task которой начинается с id активируемого юнита, дают один тир через match_strict_class и через itd_unit_log.py activate (объявленный low остается low, medium остается medium, отложенное совпадение записано как riskTierExempt с причиной a list of paths); путь или ключевое слово strict-класса в самой области-списке поднимает low до high; область вне грамматики (проза, два пути, каталог, глоб, имя без расширения, расширение вне набора, .., обратная косая черта, не-ASCII буква), нестандартная раскладка, область другого юнита и отсутствие SCOPE_LOCK оставляют goal источником; tests/verify_tier_source.py и tests/verify_risk_tier_default.py зеленые. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита TIER-WORDING-2 из .itd-memory/GOAL.json (правило - решение владельца 2026-10-01, вариант A, .itd/DECISIONS.md; исключение каталогов, глобов и имен без расширения - уточнение исполнителя); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_tier_wording.py на дофиксовом матчере (дерево 90c4a16 + оракул) - FAILED: 87 failed (212 passed), без краха; красные - один тир по парам, запись и печать riskTierExempt, API is_file_path / path_list, документы и регистрация; лог .itd-memory/verification-loop/reports/TIER-WORDING-2-red-first.log (sha256 f0c210815fedd632). После фикса и правок по /review r1 (PASSED_WITH_WARNINGS, 1 Important + 6 Minor, отчет .itd-memory/verification-loop/reports/claude-review-tier-wording-2-staged-r1.md): PASSED: 0 failed (492 passed), --mutations 28/28. Targeted-чекер c1 (opus, дерево 4962a71eb514) BLOCKED: проверку раскладки обходили заголовок области с отступом в четыре пробела и заголовок внутри fence (отчет .itd-memory/verification-loop/reports/TIER-WORDING-2-targeted-c1.md) - проверка переделана на включение чтения wip-gate в чтение матчера (gate_items). После редизайна: PASSED: 0 failed (523 passed); --mutations 33/33 летальны, включая дофиксовые байты 90c4a16. tests/verify_tier_source.py: пять прежних кейсов пола (mixed-scope, lookalike-testdata, lookalike-contest, lookalike-docs, openapi-spec-not-a-test) перезакреплены как области-списки, PASSED: 0 failed, --mutations 22/22 летальны. tests/verify_risk_tier_default.py зеленый на точной копии кандидата; на каноническом чекауте его проверка methodology-repo-has-no-policy-file красная и до правки - из-за локального git-ignored .itd/COMPLETION_POLICY.json.",
+      "reviewEvidence": {
+        "claim": "Правило области-списка путей и сохраненный пол проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "tier-wording",
+          "tier-source",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py && sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
+      "status": "passed"
+    },
+    {
+      "id": "TIER-WORDING-2-2-ledger",
+      "unitId": "TIER-WORDING-2",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-01 (actor harness), юнит in_progress, riskTier medium; переход в verified записывается вне коммита юнита и входит в ledger-close. validate_state OK на кандидате 2026-10-01.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4398,9 +4437,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - INSTALLED-PROOF-HEAD-1 closed 2026-09-30; next TIER-WORDING-2 (medium) after its activation"
+    "unitId": "TIER-WORDING-2",
+    "status": "open",
+    "openedAt": "2026-10-01",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/TIER-WORDING-2.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-01; rule approved by the owner 2026-10-01 (variant A); medium = targeted independent checker before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

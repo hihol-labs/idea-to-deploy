@@ -105,3 +105,59 @@ tests-only unit depending on goal wording: the same module went `low` from its d
   tests-only scope does not open its Current Task with the unit.
 - Rejected: a tier by paths only for every unit (a change to payment logic in a file without a
   money path would go `low`). Oracle: `tests/verify_tier_source.py`.
+
+## Amendment 2026-10-01 - TIER-WORDING-2: path-list scope
+
+BACKLOG P1 2026-09-25 stayed open for a scope with a non-test path: the same change over the same
+files went `low` or `high` by the words of its goal, and the pilot rule "goal = template + first
+docstring line" was a workaround. Owner decision 2026-10-01 (variant A, `.itd/DECISIONS.md`); it
+supersedes two lines of the 2026-09-26 amendment - "a non-test path keeps the goal as the primary
+input" and the rejection of a tier by paths:
+
+- The exemption now holds for a path list: every non-blank line of the Allowed Change Areas is one
+  list item of the 2026-09-26 grammar holding exactly one path that is a test path or one concrete
+  file, and the first line of the Current Task opens with the unit being activated. A concrete
+  file is written in the same ASCII set, has no `*` or `?`, no `..` anywhere in the token, and its
+  last segment has a non-empty stem and an extension of the closed set `_FILE_EXTS` of
+  `skills/_shared/itd_risk_classes.py` (code, documentation, configuration and script extensions).
+- A directory (`src/`, `src/fx`), a glob (`src/*`), an extensionless name (`Dockerfile`; a dotfile
+  without an extension such as `.gitignore` or `.github`) and any other extension are not concrete
+  files: such an item may hold files the matcher never saw, so the scope keeps the goal as a
+  source. A dotfile with an admitted extension (`.eslintrc.json`) is a file. Test directories and
+  test globs stay admitted as on 2026-09-26. Everything else that kept the goal on 2026-09-26
+  still does: prose, two paths, a continuation line, markup, a sub-heading, a fence, no SCOPE_LOCK
+  and a Current Task that does not open with the unit (`activate` prints the hint for a path list
+  too).
+- The exemption (tests-only scopes included) also requires the plain layout of the SCOPE_LOCK
+  (`plain_scope_layout`), in two rules. Containment: every item line that `hooks/wip-gate.sh`
+  reads as allowed scope is a line of the section the strict reader read. The hook opens a
+  section on any stripped line that starts with `## allowed change areas` (any case), closes it
+  only on another `## ` line and knows no fences; `gate_items` mirrors exactly that reader, and
+  the oracle pins the three hook lines it mirrors. So a suffixed heading
+  (`## Allowed Change Areas (continued)`), a `# Notes` after the areas, a scope heading indented
+  by four spaces or placed inside a fence cannot hide an item from the matcher (review r1 and
+  checker c1; the matcher side of BACKLOG P2 2026-09-26). Titles: an ATX heading whose title only
+  starts with a scope title (`### In scope for the backend`) and a setext heading with such a
+  title keep the goal too - no reader opens them, but a person reads them as scope; fences are
+  not tracked for this second rule, so such a line inside a fence only keeps the goal. A section
+  under any other title (`## Notes`, `## Also allowed`, `## 2. Allowed Change Areas`,
+  `## Additional allowed change areas`) is not scope for either reader and does not affect the
+  exemption. The title rule covers the commonest spelling only and is not a guarantee about how
+  a person reads the file (checker c2, accepted): the guarantee is containment for the two
+  machine readers.
+- Strict paths and keywords inside the Allowed Change Areas still force `high`. The set-aside goal
+  hit is printed and recorded as `riskTierExempt` with the reason "Allowed Change Areas are a list
+  of paths" (a tests-only scope keeps its 2026-09-26 reason), next to `riskTierForced` or
+  `riskTierMatch` when the areas hit.
+- Accepted cost: a change to money or auth logic inside a file whose path carries no strict
+  pattern or keyword takes the declared tier even when its goal says "payment"; the admitted
+  extensions include the usual carriers of configuration and credentials (`scripts/release.sh`,
+  `config/app.yaml`, `service-account.json`), so the agent has to declare `high` itself when the
+  change is in a strict class. For such a scope
+  the floor is the list of files, and the list is declared, not measured: `hooks/wip-gate.sh`
+  gives a soft, rate-limited hint on an edit outside the Allowed Change Areas and `/review` checks
+  the diff against the scope; neither blocks. Binding the tier to the real diff at `verified`
+  (variant B) is a separate unit.
+
+Oracle: `tests/verify_tier_wording.py`; `tests/verify_tier_source.py` pins that five former floor
+cases (a mixed scope and four one-file look-alikes) are path lists now.

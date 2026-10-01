@@ -26,12 +26,20 @@ module is the single reader of `strictClasses` in `PROPORTIONALITY_POLICY.json`:
     list of test paths only (`tests_only`, `is_test_path`) and the Current Task opens with the
     unit being activated (`names_unit`), the goal text is not a source - it describes the module
     under test, and the pilot measured the same module going low or high by wording alone.
-    Strict paths and keywords inside the areas still hit; a mixed scope, a scope without any
-    path, an item with prose, a Current Task that does not open with the unit and a missing
-    SCOPE_LOCK keep the goal. `exempt_goal_hit` returns the goal hit that was set aside.
+    Strict paths and keywords inside the areas still hit; a scope without any path, an item
+    with prose, a Current Task that does not open with the unit and a missing SCOPE_LOCK keep
+    the goal. `exempt_goal_hit` returns the goal hit that was set aside.
+  * Path-list scope (TIER-WORDING-2, owner decision 2026-10-01): the same holds when the items
+    are test paths or concrete files (`path_list`, `is_file_path`) - the tier of a change over
+    the same files must not follow the words of its goal. A directory, a glob, an extensionless
+    name (a dotfile without an extension included), a name with `..` and an extension outside
+    `_FILE_EXTS` are not concrete files: they may hold files the matcher never saw, so such a
+    scope keeps the goal. So does a SCOPE_LOCK outside the plain layout (`plain_scope_layout`):
+    `hooks/wip-gate.sh` reads an item the strict reader did not (`gate_items`), or a heading only
+    starts with a scope title.
 
 Only stdlib. Shared by `skills/task/scripts/itd_unit_log.py`; tests:
-`tests/verify_risk_tier_default.py`.
+`tests/verify_risk_tier_default.py`, `tests/verify_tier_source.py`, `tests/verify_tier_wording.py`.
 """
 from __future__ import annotations
 
@@ -273,6 +281,45 @@ def tests_only(areas: str) -> bool:
     return found
 
 
+# A non-test item of a path list names one concrete file (TIER-WORDING-2): the same ASCII set as a
+# test path, no wildcard, no `..` segment, and a file name with a stem and an extension of this
+# closed set. A directory (`src/`, `src/fx`), a glob (`src/*`), an extensionless name
+# (`Dockerfile`; a dotfile without an extension - `.gitignore`, `.github`) or another extension
+# (`conf.d`) may be a container of files the matcher never saw, so such an item keeps the goal
+# as a source. `..` is refused anywhere in the token, not only as a segment: `_path_tokens` does
+# not read a slash-less `x..sql` as a path, so no strict path pattern would see it (review r1).
+_FILE_EXTS = _CODE_EXTS | frozenset({
+    "md", "rst", "txt", "json", "jsonl", "yaml", "yml", "toml", "ini", "cfg", "conf", "xml", "csv",
+    "sh", "bash", "ps1", "bat", "cmd", "sql", "html", "htm", "css", "scss", "sass", "less",
+    "c", "h", "cc", "cpp", "hpp", "m", "scala", "dart", "ex", "exs", "lua", "pl", "r", "lock"})
+
+
+def is_file_path(token: str) -> bool:
+    # the raw token is tested, as in is_test_path: no strip, no lower, no `\` rewrite
+    path = token or ""
+    if not _SAFE_PATH_RE.fullmatch(path) or "*" in path or "?" in path:
+        return False
+    if ".." in path:
+        return False                # `src/../payments/x.py`, `x..sql`
+    stem, dot, ext = path.rpartition("/")[2].rpartition(".")
+    return bool(stem and dot) and ext.lower() in _FILE_EXTS
+
+
+def path_list(areas: str) -> bool:
+    """True when every non-blank line of the Allowed Change Areas matches `_TEST_ITEM_RE` and names
+    a test path (`is_test_path`) or one concrete file (`is_file_path`); an empty scope never is a
+    path list (not vacuous)."""
+    found = False
+    for line in (areas or "").splitlines():
+        if not line.strip():
+            continue
+        m = _TEST_ITEM_RE.match(line)
+        if not m or not (is_test_path(m.group(2)) or is_file_path(m.group(2))):
+            return False            # a line outside the grammar keeps the goal as a source
+        found = True
+    return found
+
+
 def names_unit(scope_text: str, unit_id: str) -> bool:
     """The first line of the Current Task section opens with the unit id as a whole token
     (`- U-3: ...`; `U-3` does not match `U-12`, `XU-3` or `U-3.5`). A mention anywhere else - a
@@ -286,25 +333,77 @@ def names_unit(scope_text: str, unit_id: str) -> bool:
     return False
 
 
-def tests_only_scope(scope_text: str, unit_id: str) -> bool:
-    """Precondition of the goal exemption: tests-only Allowed Change Areas in a SCOPE_LOCK that
-    opens its Current Task with the unit being activated. SCOPE_LOCK is not bound to a unit
-    (ADR-011): a stale scope of the previous unit may only raise a tier, so without the unit id
-    the goal stays a source."""
-    return tests_only(allowed_areas(scope_text or "")) and names_unit(scope_text, unit_id)
+# What `hooks/wip-gate.sh` opens as the allowed section: a stripped line that starts with `## `
+# and, lower-cased, with this prefix. The hook is the one other machine reader of the section.
+_GATE_SCOPE_PREFIX = "## allowed change areas"
+_SETEXT_UNDERLINE_RE = re.compile(r"^\s{0,3}(?:=+|-+)\s*$")
+
+
+def gate_items(scope_text: str) -> list[str]:
+    """The Allowed Change Areas item lines as `hooks/wip-gate.sh` (`allowed_areas`) reads them:
+    a stripped line that starts with `## ` toggles the section (open when it starts with
+    `## allowed change areas` in any case), a stripped `- ` line inside it is an item. No fences,
+    no indent limit, no other heading level: this mirrors the hook, it is not Markdown."""
+    items: list[str] = []
+    inside = False
+    for line in (scope_text or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            inside = stripped.lower().startswith(_GATE_SCOPE_PREFIX)
+        elif inside and stripped.startswith("- "):
+            items.append(stripped)
+    return items
+
+
+def plain_scope_layout(scope_text: str) -> bool:
+    """Fail-closed guard of the exemption: the strict reader must have seen everything another
+    reader takes for the allowed scope (review r1, checker c1; BACKLOG P2 2026-09-26).
+
+    1. Containment: every item line the hook reads (`gate_items`) is a line of the section the
+       strict reader read. Whatever opens a section for the hook only - a suffixed heading
+       (`## Allowed Change Areas (continued)`), a `# Notes` that ends the section here but not
+       there, a heading indented by four spaces, a heading inside a fence - hides nothing.
+    2. Titles a person reads as scope but no reader opens: an ATX heading whose title only starts
+       with a scope title (`### In scope for the backend`) and a setext heading with such a title.
+       Fences are not tracked for this rule, so such a line inside one only keeps the goal."""
+    text = scope_text or ""
+    seen = {line.strip() for line in allowed_areas(text).splitlines()}
+    if any(item not in seen for item in gate_items(text)):
+        return False                # the hook reads an item the strict reader did not
+    previous = ""
+    for line in text.splitlines():
+        m = _HEADING_RE.match(line)
+        if m:
+            title = _heading_title(m.group(2))
+            if title not in _ALLOWED_HEADINGS and title.startswith(_ALLOWED_HEADINGS):
+                return False        # a scope-titled heading the strict reader does not open
+        elif (_SETEXT_UNDERLINE_RE.match(line)
+              and _heading_title(previous).startswith(_ALLOWED_HEADINGS)):
+            return False            # a setext scope heading is not opened either
+        previous = line
+    return True
+
+
+def path_list_scope(scope_text: str, unit_id: str) -> bool:
+    """Precondition of the goal exemption: path-list Allowed Change Areas in a plain-layout
+    SCOPE_LOCK that opens its Current Task with the unit being activated. SCOPE_LOCK is not
+    bound to a unit (ADR-011): a stale scope of the previous unit may only raise a tier, so
+    without the unit id the goal stays a source."""
+    return (path_list(allowed_areas(scope_text or "")) and plain_scope_layout(scope_text)
+            and names_unit(scope_text, unit_id))
 
 
 def exempt_goal_hit(goal: str, scope_text: str, classes: dict[str, dict], unit_id: str = ""):
-    """The strict-class hit in the goal that a tests-only scope set aside, else None."""
-    if not tests_only_scope(scope_text, unit_id):
+    """The strict-class hit in the goal that a path-list scope set aside, else None."""
+    if not path_list_scope(scope_text, unit_id):
         return None
     return match_strict_class(goal, "", classes)
 
 
 def match_strict_class(goal: str, scope_text: str, classes: dict[str, dict], unit_id: str = ""):
     areas = allowed_areas(scope_text or "")
-    if tests_only_scope(scope_text, unit_id):
-        goal = ""       # TIER-SOURCE-1: the goal names the module under test, not the change
+    if path_list_scope(scope_text, unit_id):
+        goal = ""       # the listed paths are the change; the goal only describes it
     # keywords see camel-split words; path patterns see the raw lower-cased tokens
     goal_plain = (goal or "").lower()
     areas_plain = areas.lower()
