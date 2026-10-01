@@ -1,17 +1,27 @@
 {
   "version": 1,
   "goal": "STOPRULE-STUB-1: the stop-rule live policy binding and the closure-delta tool both pass on a ledger-close tree, so tests/verify_stop_rule.py and the aggregate tests/verify_route_debts.py are green on main between units, without a false ALIGNED binding for a closed unit (variant A, approved by the owner 2026-10-01).",
-  "status": "active",
+  "status": "done",
   "createdAt": "2026-10-01T16:51:52Z",
-  "updatedAt": "2026-10-01T16:51:52Z",
-  "currentUnitId": "STOPRULE-STUB-1",
+  "updatedAt": "2026-10-01T19:11:34Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "STOPRULE-STUB-1",
       "criterion": "STOPRULE-STUB-1: on a closed-contract tree (activeFollowup is exactly {unitId: '', status: 'none', note?} and STATE.currentUnit is not in progress) itd_stop_rule.live_policy_binding returns the state NO_ACTIVE_UNIT with aligned false and raises nothing, and itd_stop_rule.py --check-binding prints NO_ACTIVE_UNIT with a WHY and FIX line and exits 2; a broken contract (an empty unitId with any other status or extra keys, or an empty contract while STATE has a unit in progress) is still refused; on a copy of the tracked tree carrying the closed-contract stub and a verified STATE.currentUnit tests/verify_stop_rule.py exits 0; the new oracle tests/verify_stop_rule_closed_contract.py is RED on the pre-fix code and GREEN after, and tests/verify_stop_rule.py and tests/verify_closure_delta.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py && sh skills/_shared/itd_py.sh tests/verify_stop_rule.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-01T19:11:34Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py: exit 0, stdout sha256 bab3780410d354cd, PASSED: 0 failed (98 passed)\nsh skills/_shared/itd_py.sh tests/verify_stop_rule.py: exit 0, stdout sha256 3295376f4adc615c, RESULT: 593 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_closure_delta.py: exit 0, stdout sha256 9651dc9dad85238f, PASSED: 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/1c71586ca66580f5/STOPRULE-STUB-1-adjudication-a1.json",
+        "sha256": "e9271aa7436a228946b5360d7d8fa6277fc76f4d9c2bec625b1c048b2c0c6bdc",
+        "receiptSha256": "5b37999315eb8a0f8f3d13f69909a5ff33ca2153dc9cef797cbf64d5e114acb1",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/1c71586ca66580f5/STOPRULE-STUB-1-machine-3abddaa3bd145f74.json",
+        "machineSha256": "d68fd6793b935ac9d64a623f9f3ccea10e07eca8d0f28f67ccfe2b6e7b2c73ba"
+      }
     }
   ]
 }

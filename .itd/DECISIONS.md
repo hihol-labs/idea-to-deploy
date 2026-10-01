@@ -5018,3 +5018,38 @@ failed (21 passed)` (`.itd-memory/verification-loop/reports/STOPRULE-STUB-1-red-
 c2 прогнал 9640 записей через `closed_contract` и `check_acceptance` closure-delta - расхождений нет.
 Sol: первый абзац этой записи еще называл `note` строкой (исправлено в тексте выше), оракул не
 проверял `note: false` и `note: {}` (добавлены кейсы и две мутации; оракул 98 проверок, мутации 20/20).
+
+## 2026-10-01 - STOPRULE-STUB-1: ledger-close (юнит verified харнесом, цель 1/1)
+
+**Публикация.** Владелец 2026-10-01: «мержи и закрывай юнит». PR #330 (head `ef852ae`, дерево
+`bbf1bc8c1ff5`) смержен сквошем -> main `20b8bda` (то же дерево, родитель `58ded36`), ветка удалена.
+
+**ОТК.** Квитанция a1 (`receipts/1c71586ca66580f5/STOPRULE-STUB-1-adjudication-a1.json`), отчеканенная
+на коммите ветки, прошла `check --require-mandatory-route` на merged head без перечеканки. Харнес:
+`VERIFIED STOPRULE-STUB-1` 2026-10-01T19:11:34Z с первой попытки (три ноги команды юнита exit 0:
+оракул 98 passed, `tests/verify_stop_rule.py` 593 passed, `tests/verify_closure_delta.py` PASSED),
+событие `evt-goal-1790881894-78db3610372f40d886c873688e7c911d`, actor harness. Единственный юнит
+цели verified -> `status: done` в `.itd-memory/GOAL.json`.
+
+**Цель цели - измерено на дереве этого закрытия** (пустая заглушка `activeFollowup`, verified
+`STATE.currentUnit`): `tests/verify_stop_rule.py` exit 0 (`LIVE BINDING: ledger= contract= ...
+aligned=False`, `RESULT: 593 passed, 0 failed`); `scripts/itd_stop_rule.py --check-binding` печатает
+`BINDING   NO_ACTIVE_UNIT` с WHY и FIX и выходит 2; агрегат `tests/verify_route_debts.py` exit 0
+за 2m10s, трейсбеков 0 (лог `.itd-memory/verification-loop/logs/STOPRULE-STUB-1-aggregate-close.log`).
+До фикса на main `58ded36` оба оракула падали `StopRuleError: activeFollowup.unitId must be a
+non-empty string`. Агрегат на main после мержа этого закрытия проверяется тем же прогоном.
+
+**Цена маршрута.** `/review` r1 - субагент code-reviewer (форк `/review` не вызывался - BACKLOG P3
+пустого вердикта), PASSED, 5 Minor. Targeted-чекеры (opus, свежие сессии): c1 PASSED_WITH_WARNINGS
+(1 Minor: тип `note`), c2 PASSED, c3 PASSED на дельте после Sol = 3 раунда. gpt-5.6-sol: p1 BLOCKED
+(2 Minor про `note`), p2 PASSED 0 находок = 2 раунда. Машинные квитанции: m1..m3 staged
+(`:general-review`) + 2 committed-head. Гейты: completion-gate - 1 блок на первом коммите
+(COMPLETION_BYPASS, одноразовые патч-команды), еще один обход на amend. ОТК - 1 попытка. Одна сессия
+(продолжение после TIER-WORDING-2).
+
+**Уроки.** (1) Сверка с писателем формы обязана включать все поля, а не только множество ключей: тип
+`note` разошелся с closure-delta и был найден двумя ревьюерами независимо. (2) Имена ног машинной
+квитанции, заданные равными `oracleIds` критерия до первого минта, убрали отказ продюсера Sol, который
+стоил раунда на TIER-WORDING-2. (3) Маркер мутации обязан быть уникальным во всем файле - второй
+экземпляр проверки типа в `machine_ready_binding` дал отказ применения мутанта, а не ложную
+летальность (оракул проверяет `count == 1`).
