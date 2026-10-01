@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "TIER-WORDING-2",
     "goal": "TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on the wording of the unit goal: synthetic pairs (a template goal vs a detailed description containing a strict word) over the same non-test Allowed Change Areas get one tier, while a strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle tests/verify_tier_wording.py is RED on the pre-fix matcher and GREEN after, and tests/verify_tier_source.py and tests/verify_risk_tier_default.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-01T09:56:01Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-10-01T13:04:51Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

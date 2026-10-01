@@ -1,10 +1,10 @@
 {
   "version": 1,
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
-  "status": "active",
+  "status": "done",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-10-01T09:56:01Z",
-  "currentUnitId": "TIER-WORDING-2",
+  "updatedAt": "2026-10-01T13:04:51Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -79,7 +79,17 @@
       "criterion": "TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on the wording of the unit goal: synthetic pairs (a template goal vs a detailed description containing a strict word) over the same non-test Allowed Change Areas get one tier, while a strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle tests/verify_tier_wording.py is RED on the pre-fix matcher and GREEN after, and tests/verify_tier_source.py and tests/verify_risk_tier_default.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py && sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-01T13:04:51Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py: exit 0, stdout sha256 1441670e44288a82, PASSED: 0 failed (523 passed)\nsh skills/_shared/itd_py.sh tests/verify_tier_source.py: exit 0, stdout sha256 00b42d8b58a4f918, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py: exit 0, stdout sha256 46bb31e715e043c9, PASSED: 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/37b03b48b4d2d2cb/TIER-WORDING-2-adjudication-a1.json",
+        "sha256": "26993d47f35e1e663b8fe0981ed232dcb12dcbb8b19ef27d32dad919ce29b1ae",
+        "receiptSha256": "88b05b9ca26b426f84e963945a3f16e54abc04329cee20f72b67c55ee1bde061",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/37b03b48b4d2d2cb/TIER-WORDING-2-machine-89bcf9f0f3d68002.json",
+        "machineSha256": "9fd380ab77c77b99d06bae85e87b423448edd9baadf5a92eda35b368273b1ae3"
+      }
     }
   ]
 }
