@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-30T20:40:59Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-01T09:56:01Z",
+  "currentUnitId": "TIER-WORDING-2",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -79,7 +79,7 @@
       "criterion": "TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on the wording of the unit goal: synthetic pairs (a template goal vs a detailed description containing a strict word) over the same non-test Allowed Change Areas get one tier, while a strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle tests/verify_tier_wording.py is RED on the pre-fix matcher and GREEN after, and tests/verify_tier_source.py and tests/verify_risk_tier_default.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py && sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
       "riskTier": "medium",
-      "status": "pending"
+      "status": "in_progress"
     }
   ]
 }

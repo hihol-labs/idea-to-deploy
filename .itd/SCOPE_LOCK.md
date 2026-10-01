@@ -1,48 +1,55 @@
-# INSTALLED-PROOF-HEAD-1 installed-proof accepts committed-head canaries on one clean checkout
+# TIER-WORDING-2 strict-class tier independent of goal wording on a path-list scope
 
 ## Current Task
 
-- INSTALLED-PROOF-HEAD-1: `tests/verify_route_debts.py --installed-proof` accepts native canary
-  receipts minted in committed-head mode on a clean checkout whose HEAD tree equals the
-  candidate, and still rejects foreign, stale or mismatched receipts; `docs/RELEASE_RUNBOOK.md`
-  carries a release command template that runs the installed-proof leg and
-  `verify_live_model_benchmark.py --require-evidence` on one clean checkout; the new oracle
-  `tests/verify_installed_proof_head.py` is RED on the pre-fix validator and GREEN after, and
-  `tests/verify_route_debts.py` stays green. The criterion and the verificationCommand live ONLY
-  in `.itd-memory/GOAL.json`.
+- TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on
+  the wording of the unit goal: synthetic pairs (a template goal vs a detailed description
+  containing a strict word) over the same non-test Allowed Change Areas get one tier, while a
+  strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle
+  `tests/verify_tier_wording.py` is RED on the pre-fix matcher and GREEN after, and
+  `tests/verify_tier_source.py` and `tests/verify_risk_tier_default.py` stay green. The criterion
+  and the verificationCommand live ONLY in `.itd-memory/GOAL.json`. Rule approved by the owner on
+  2026-10-01 (variant A, `.itd/DECISIONS.md`).
 
 ## Allowed Change Areas
 
-- `tests/verify_route_debts.py` - `validate_native_canary` and a helper that reads the candidate
-  mode of a canary receipt from its `baseCommit` against the checkout HEAD (HEAD = staged, parent
-  of HEAD = committed-head, anything else = refusal) and passes it to `validate_machine` and
-  `validate_adjudication`. No change to what the aggregate asserts about the runtime, wrappers,
-  adapters or the native test log.
-- `tests/verify_installed_proof_head.py` (new)
-- `docs/RELEASE_RUNBOOK.md` - the release command template on one clean checkout.
+- `skills/_shared/itd_risk_classes.py` - the path-list predicate (`is_file_path`, `path_list`,
+  `gate_items`, `plain_scope_layout`, `path_list_scope`) and its use in `match_strict_class` /
+  `exempt_goal_hit`; `is_test_path`, `tests_only`, `names_unit`, the section reader and the
+  keyword/path matching are not changed.
+- `skills/task/scripts/itd_unit_log.py` - the reason text of `riskTierExempt` and the hint for a
+  path-list scope that is not bound to the unit.
+- `tests/verify_tier_wording.py` (new)
+- `tests/verify_tier_source.py` - re-pin of the floor cases whose scope is now a path list, and
+  the docstring that describes them.
 - `tests/run-all.sh` - register the oracle in CORE.
+- `docs/adr/ADR-011-default-risk-tier-low.md` - amendment 2026-10-01.
+- `skills/task/SKILL.md` - Step 3.5 text of the exemption.
+- `CHANGELOG.md` - the Unreleased entry.
 - `.itd/IMPACT_GRAPH.json` - rebuilt by `tests/build_impact_graph.py`.
-- `.itd-memory/contracts/INSTALLED-PROOF-HEAD-1.md` (new)
+- `.itd-memory/contracts/TIER-WORDING-2.md` (new)
 - `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status
   transitions only through the goal harness.
 - `.itd/DECISIONS.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
-- `.itd/ACCEPTANCE_CONTRACT.json` - the INSTALLED-PROOF-HEAD-1 activeFollowup and criteria
-  INSTALLED-PROOF-HEAD-1-1-oracle, INSTALLED-PROOF-HEAD-1-2-ledger.
+- `.itd/ACCEPTANCE_CONTRACT.json` - the TIER-WORDING-2 activeFollowup and criteria
+  TIER-WORDING-2-1-oracle, TIER-WORDING-2-2-ledger.
+- Live-model benchmark evidence pin - only if Gate 1 requires a re-record after the `skills/`
+  change, through the documented re-record route.
 
 ## Forbidden Change Areas
 
 - `HANDOFF.md` - a local untracked hand-over packet; it never enters the reviewed diff.
-- `skills/_shared/itd_verification_loop.py` and every producer: committed-head minting already
-  works there; the defect is in the installed-proof validator of the aggregate oracle.
-- `tests/verify_live_model_benchmark.py` - the live-evidence leg is correct; the template only
-  runs it on the checkout it already requires.
-- The release oracle command of any future REL unit (BACKLOG item 4 "wrong reason on a dirty
-  tree" stays a separate unit).
+- `skills/_shared/PROPORTIONALITY_POLICY.json` - the strict classes, their keywords and paths.
+- `hooks/wip-gate.sh` and the section reader shared with it (BACKLOG P2 2026-09-26 stays a
+  separate unit); the matcher only mirrors the hook's reader read-only (`gate_items`).
+- Binding the tier to the real diff at `verified` (variant B - a separate high unit by the owner's
+  decision).
+- STOPRULE-STUB-1 (BACKLOG P1 2026-10-01).
 - The unit criterion and verificationCommand; editing unit statuses by hand.
 - Merge and push - only on the owner's explicit command.
 
 ## Review Rule
 
-High tier: full independent checker from a fresh session and a different model/provider
-(gpt-5.6-sol pre-PR), plus a `/review` pass before the multi-file commit. If the diff touches an
-area outside allowed scope, pause and reclassify the task before continuing.
+Medium tier: `/review` before the multi-file commit and a targeted independent checker from a
+fresh session and a different model/provider (gpt-5.6-sol pre-PR). If the diff touches an area
+outside allowed scope, pause and reclassify the task before continuing.

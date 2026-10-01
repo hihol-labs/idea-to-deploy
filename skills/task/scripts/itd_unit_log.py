@@ -439,19 +439,20 @@ def main() -> int:
                       f"{forced_note['match']}")
             else:
                 print(f"strict class matched, declared tier already high: {match_note['match']}")
-        # TIER-SOURCE-1: на tests-only области goal не источник пола; отложенное
-        # совпадение печатается и остаётся в STATE, чтобы низкий тир был объясним.
-        # Пишется и рядом с riskTierForced от пути/слова самой области: оба - факты
-        # аудита (PUB2).
+        # TIER-SOURCE-1 / TIER-WORDING-2: на области-списке путей (тестовые пути или
+        # конкретные файлы) goal не источник пола; отложенное совпадение печатается и
+        # остаётся в STATE, чтобы низкий тир был объясним. Пишется и рядом с
+        # riskTierForced от пути/слова самой области: оба - факты аудита (PUB2).
         exempt = RC.exempt_goal_hit(a.goal, scope_text, strict_classes, a.unit_id)
         exempt_note = None
+        areas_kind = "tests-only" if RC.tests_only(RC.allowed_areas(scope_text)) else "a list of paths"
         if exempt:
             exempt_note = {"class": exempt[0], "match": RC.describe(exempt),
-                           "reason": "Allowed Change Areas are tests-only: the goal text is not a strict-class source"}
-            print(f"strict class not applied ({exempt_note['match']}): Allowed Change Areas are tests-only")
-        elif (forced and forced[3] == "goal" and RC.tests_only(RC.allowed_areas(scope_text))
+                           "reason": f"Allowed Change Areas are {areas_kind}: the goal text is not a strict-class source"}
+            print(f"strict class not applied ({exempt_note['match']}): Allowed Change Areas are {areas_kind}")
+        elif (forced and forced[3] == "goal" and RC.path_list(RC.allowed_areas(scope_text))
               and not RC.names_unit(scope_text, a.unit_id)):
-            print(f"hint: Allowed Change Areas are tests-only, but the Current Task of .itd/SCOPE_LOCK.md "
+            print(f"hint: Allowed Change Areas are {areas_kind}, but the Current Task of .itd/SCOPE_LOCK.md "
                   f"does not open with {a.unit_id} - a scope not bound to the unit keeps the goal text "
                   f"as a strict-class source")
         try:

@@ -7,7 +7,11 @@ module got `low` from its docstring and `high` from a detailed description with 
 "payment", and a unit that only adds tests could not leave the high route. Owner rule
 (`.itd/DECISIONS.md` 2026-09-26): when every path in the Allowed Change Areas is a test path, the
 goal text (keywords and paths) does not force `high`; a strict-class path or keyword inside the
-areas still does; a mixed scope, a pathless scope and a missing SCOPE_LOCK keep the goal as a source.
+areas still does; a pathless scope and a missing SCOPE_LOCK keep the goal as a source.
+TIER-WORDING-2 (owner decision 2026-10-01) widened the rule from test paths to a list of test
+paths and concrete files: a mixed scope and the non-test look-alikes that name one file set the
+goal aside too, with the path-list reason (`tests/verify_tier_wording.py` owns that rule; this
+oracle pins that the tests-only wording and its floor did not move).
 
 Contract of this oracle (all fixtures are synthetic, not code of the pilot project):
 
@@ -20,13 +24,16 @@ Contract of this oracle (all fixtures are synthetic, not code of the pilot proje
      is recorded as `riskTierExempt`, no `riskTierForced`). A control check proves each pair's
      goal does hit a strict class without the scope, so the pair exercises the exemption.
   3. The floor stays: a money / auth / secrets path or a strict keyword inside a tests-only scope,
-     a mixed scope, a pathless scope, no SCOPE_LOCK, a `..` escape, non-test look-alike names and
+     a pathless scope, no SCOPE_LOCK, a `..` escape, an extensionless name next to a test path and
      a tests-only SCOPE_LOCK whose Current Task does not open with the unit being activated (a
      stale scope of a previous unit, even one that mentions the new unit elsewhere; activate
      prints a hint), prose or a bare name inside a tests item and a glued token keep `high` for
      a lower declared tier; an area hit next to a set-aside goal hit records both notes
      (`riskTierForced` and `riskTierExempt`, or `riskTierMatch` and `riskTierExempt` when `high`
      is declared) and prints the set-aside hit, and no other floor case records `riskTierExempt`.
+     A mixed scope and a one-file look-alike (`testdata/rates.json`, `src/contest.py`,
+     `docs/testing.md`, `docs/api.spec.yaml`) are path lists, not tests-only: `tests_only` still
+     refuses them, the goal hit is set aside with the path-list reason and the tier is not raised.
   4. The goal harness STATE projection drops `riskTierExempt` on the activated and the verified
      branch (executed, not read); the docs name the exemption and the oracle is registered in
      tests/run-all.sh.
@@ -95,12 +102,8 @@ FLOOR = (
     ("auth-path-in-tests-scope", ["- `tests/auth/test_session.py`"], NEUTRAL_GOAL, "auth"),
     ("keyword-in-tests-scope", ["- `tests/test_rounding.py` - refund rounding cases"], NEUTRAL_GOAL, "money"),
     ("secrets-path-in-tests-scope", ["- `tests/fixtures/.env.test`"], NEUTRAL_GOAL, "secrets"),
-    ("mixed-scope", ["- `tests/test_fx_rates.py`", "- `src/fx/rates.py`"], HOT_GOAL, "money"),
     ("pathless-scope", ["- the unit tests only"], HOT_GOAL, "money"),
     ("dotdot-escape", ["- `tests/../src/fx/rates.py`"], HOT_GOAL, "money"),
-    ("lookalike-testdata", ["- `testdata/rates.json`"], HOT_GOAL, "money"),
-    ("lookalike-contest", ["- `src/contest.py`"], HOT_GOAL, "money"),
-    ("lookalike-docs", ["- `docs/testing.md`"], HOT_GOAL, "money"),
     ("area-hit-and-goal-hit", ["- `tests/test_payment_gateway.py`"], HOT_GOAL, "money"),
     ("prose-in-item", ["- `tests/test_fx_rates.py` (new) plus the rate helper"], HOT_GOAL, "money"),
     ("glued-token", ["- tests/test_fx_rates.py|src/fx/rates.py"], HOT_GOAL, "money"),
@@ -109,7 +112,6 @@ FLOOR = (
     ("backslash-path", ["- tests\\test_fx_rates.py"], HOT_GOAL, "money"),
     ("nbsp-padded-code-span", ["- `\u00a0tests/test_fx_rates.py`"], HOT_GOAL, "money"),
     ("invisible-letter-join", ["- tests/test_fx_rates.py\u3164src/fx/rates.py"], HOT_GOAL, "money"),
-    ("openapi-spec-not-a-test", ["- `docs/api.spec.yaml`"], HOT_GOAL, "money"),
     ("extensionless-file-in-scope", ["- `tests/test_fx_rates.py`", "- `Dockerfile`"], HOT_GOAL, "money"),
     ("bare-name-in-item", ["- tests/test_fx_rates.py, Dockerfile"], HOT_GOAL, "money"),
     ("prose-line-in-scope", ["Tests and the converter:", "- `tests/test_fx_rates.py`"], HOT_GOAL, "money"),
@@ -117,6 +119,18 @@ FLOOR = (
 
 # floor cases whose goal hit is set aside by a tests-only, unit-bound scope: class of that goal hit
 EXEMPT_FLOOR = {"area-hit-and-goal-hit": "money"}
+
+# (label, raw Allowed Change Areas lines, goal, class of the goal hit) - TIER-WORDING-2: not
+# tests-only, yet a list of test paths and concrete files, so the goal hit is set aside with the
+# path-list reason; before 2026-10-01 these five were FLOOR cases
+PATH_LIST_NOT_TESTS_ONLY = (
+    ("mixed-scope", ["- `tests/test_fx_rates.py`", "- `src/fx/rates.py`"], HOT_GOAL, "money"),
+    ("lookalike-testdata", ["- `testdata/rates.json`"], HOT_GOAL, "money"),
+    ("lookalike-contest", ["- `src/contest.py`"], HOT_GOAL, "money"),
+    ("lookalike-docs", ["- `docs/testing.md`"], HOT_GOAL, "money"),
+    ("openapi-spec-not-a-test", ["- `docs/api.spec.yaml`"], HOT_GOAL, "money"),
+)
+PROSE_SCOPE = next(lines for label, lines, _g, _c in FLOOR if label == "prose-in-item")
 
 fails: list[str] = []
 
@@ -340,6 +354,22 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
               and "strict class not applied" in out_h, f"rc={code_h} currentUnit={cu_h}")
         else:
             c(f"floor-{label}-no-exempt-note", exempt is None, f"riskTierExempt={exempt}")
+    # 3a. not tests-only, but a path list (TIER-WORDING-2): the goal hit is set aside, the tier
+    # is not raised and the reason names the path list, not tests-only
+    for label, lines, goal, cls in PATH_LIST_NOT_TESTS_ONLY:
+        if callable(tests_only):
+            c(f"path-list-{label}-is-not-tests-only", tests_only("\n".join(lines)) is False)
+        hit = strict(rc, goal, scope_md(lines), classes, "U-1")
+        c(f"path-list-{label}-matcher-none", hit is None, f"hit={hit}")
+        code, out, cu = activate(root, goal, "low", lines)
+        exempt = (cu or {}).get("riskTierExempt")
+        c(f"path-list-{label}-activate-low", code == 0 and (cu or {}).get("riskTier") == "low"
+          and "riskTierForced" not in (cu or {}) and "riskTierMatch" not in (cu or {}),
+          f"rc={code} currentUnit={cu}")
+        c(f"path-list-{label}-exempt-reason-is-path-list",
+          isinstance(exempt, dict) and exempt.get("class") == cls
+          and "list of paths" in str(exempt.get("reason", ""))
+          and "tests-only" not in str(exempt.get("reason", "")), f"riskTierExempt={exempt}")
     stale = bullets(["tests/test_fx_rates.py"])
     hit = strict(rc, HOT_GOAL, scope_md(stale, "U-7"), classes, "U-1")
     c("floor-stale-scope-of-U-7-matcher-money", bool(hit) and hit[0] == "money", f"hit={hit}")
@@ -357,8 +387,8 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
     c("floor-no-scope-lock-activate-high", code == 0 and (cu or {}).get("riskTier") == "high",
       f"rc={code} currentUnit={cu}")
     if callable(exempt_goal_hit):
-        c("exempt-hit-none-on-mixed-scope",
-          exempt_goal_hit(HOT_GOAL, scope_md(FLOOR[4][1]), classes, "U-1") is None)
+        c("exempt-hit-none-on-prose-scope",
+          exempt_goal_hit(HOT_GOAL, scope_md(PROSE_SCOPE), classes, "U-1") is None)
         c("exempt-hit-none-without-unit-id",
           exempt_goal_hit(HOT_GOAL, scope_md(bullets(["tests/test_fx_rates.py"])), classes) is None)
         eh = exempt_goal_hit(HOT_GOAL, scope_md(bullets(["tests/test_fx_rates.py"])), classes, "U-1")
@@ -438,7 +468,7 @@ def mutations() -> None:
         ("exemption-drops-the-areas-too", lambda r: append(r, RC_REL, (
             "_orig_match = match_strict_class\n"
             "def match_strict_class(goal, scope_text, classes, unit_id=''):\n"
-            "    if tests_only_scope(scope_text, unit_id):\n"
+            "    if path_list_scope(scope_text, unit_id):\n"
             "        return None\n"
             "    return _orig_match(goal, scope_text, classes, unit_id)"))),
         ("dotdot-escape-allowed", lambda r: replace_once(r, RC_REL, 'if ".." in parts:', "if False:")),

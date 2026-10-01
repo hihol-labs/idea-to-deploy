@@ -98,6 +98,7 @@
       "tests/verify_route_debts.py",
       "tests/verify_snapshot.py",
       "tests/verify_strict_completion_policy.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_verification_loop.py"
     ],
     ".itd-memory/GOAL.json": [
@@ -149,6 +150,7 @@
       "tests/verify_strict_completion_policy.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_unit_log.py",
       "tests/verify_v147_fixes.py"
     ],
@@ -198,7 +200,8 @@
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_stop_rule.py",
       "tests/verify_targeted_regression.py",
-      "tests/verify_tier_source.py"
+      "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py"
     ],
     ".itd/IMPACT_GRAPH.json": [
       "tests/verify_runall_drift.py",
@@ -233,6 +236,7 @@
       "tests/verify_route_debts.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
     ],
@@ -509,7 +513,8 @@
     ],
     "docs/adr/ADR-011-default-risk-tier-low.md": [
       "tests/verify_risk_tier_default.py",
-      "tests/verify_tier_source.py"
+      "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py"
     ],
     "docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json": [
       "tests/verify_external_reviewer_release.py"
@@ -1030,7 +1035,8 @@
     ],
     "hooks/wip-gate.sh": [
       "tests/verify_hook_tier_exit.py",
-      "tests/verify_platform_tmp_and_new_hooks.py"
+      "tests/verify_platform_tmp_and_new_hooks.py",
+      "tests/verify_tier_wording.py"
     ],
     "scripts/itd.py": [
       "tests/verify_external_reviewer_release.py",
@@ -1201,6 +1207,7 @@
       "tests/verify_proportionality_benchmark.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_unit_log.py",
       "tests/verify_verification_profiles.py",
       "tests/verify_work_deadline_contract.py"
@@ -1335,7 +1342,8 @@
       "tests/verify_preflight_budget.py",
       "tests/verify_review_enumeration.py",
       "tests/verify_risk_tier_default.py",
-      "tests/verify_tier_source.py"
+      "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py"
     ],
     "skills/_shared/itd_review_broker.py": [
       "tests/verify_external_reviewer_release.py",
@@ -1357,7 +1365,8 @@
     ],
     "skills/_shared/itd_risk_classes.py": [
       "tests/verify_risk_tier_default.py",
-      "tests/verify_tier_source.py"
+      "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py"
     ],
     "skills/_shared/itd_safe_atomic.py": [
       "tests/verify_completion_gate.py",
@@ -1609,6 +1618,7 @@
       "tests/verify_task_deployment_baseline.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_verification_profiles.py"
     ],
     "skills/task/references/routing-matrix.md": [
@@ -1620,6 +1630,7 @@
       "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_unit_log.py"
     ],
     "skills/test/SKILL.md": [
@@ -1894,6 +1905,7 @@
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_tier_source.py",
+      "tests/verify_tier_wording.py",
       "tests/verify_tool_trust_inventory.py",
       "tests/verify_verification_profiles.py"
     ],
@@ -2147,6 +2159,9 @@
     ],
     "tests/verify_task_piv_lite.py": [
       "tests/verify_operating_loops_release.py"
+    ],
+    "tests/verify_tier_wording.py": [
+      "tests/verify_tier_source.py"
     ],
     "tests/verify_triggers.py": [
       "tests/verify_routing.py"
