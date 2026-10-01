@@ -4,6 +4,47 @@
 **Last reviewed:** 2026-08-10
 **Next review:** 2026-08-30
 
+## P1 - STOPRULE-STUB-1: stop-rule live binding и closure-delta несовместимы на закрытом контракте (2026-10-01, ledger-close INSTALLED-PROOF-HEAD-1)
+
+`scripts/itd_closure_delta.py` принимает ledger-close только если `activeFollowup` после закрытия равен
+ровно `{unitId: "", status: "none", note?}`; `itd_stop_rule.live_policy_binding` (вызывается
+`tests/verify_stop_rule.py`, а тот - агрегатом `tests/verify_route_debts.py`) требует непустой
+`activeFollowup.unitId` и падает `StopRuleError: activeFollowup.unitId must be a non-empty string`.
+Следствие: агрегат красный на main между юнитами (после закрытий 42fe1ba, bc763ac, ed47135, 63d6342), а
+records-only close не может удовлетворить оба гейта (Sol close-p1 BLOCKED, owner-adjudication ADR-007
+a2 в `receipts/e44c85e4d4ea8d72/`). Измерено 2026-10-01: заглушка с `unitId=INSTALLED-PROOF-HEAD-1` ->
+stop-rule 593/0, closure-delta rc 1; пустая заглушка -> closure-delta rc 0, stop-rule rc 1.
+
+Кандидат фикса (одно из двух, решение владельца): stop-rule binding терпит пустую запись закрытого
+контракта (binding = «нет активного юнита», проверка пропускается с явной строкой), либо closure-delta
+принимает заглушку, называющую закрытый юнит. Проверка: на дереве любого ledger-close оба инструмента
+зелёные; оракул stop-rule с фикстурой закрытого контракта; агрегат зелёный на main между юнитами.
+
+## P2 - ловушки маршрута публикации INSTALLED-PROOF-HEAD-1 (2026-09-30/10-01)
+
+Источник: `.itd/DECISIONS.md`, записи 2026-09-30 (фикс и ledger-close юнита). Кандидаты в харнес:
+
+- (a) Правка индекса во время минта машинной квитанции -> `executed tree does not match reviewedTree`
+  после полного прогона всех ног (m4/m5). Минт мог бы снимать снимок дерева до прогона и отказывать
+  сразу при расхождении, не тратя минуты на оракулы.
+- (b) Два одновременных минта, оба с агрегатом `tests/verify_route_debts.py` -> нога `unit` exit 1
+  без stderr (m6); последовательно - PASSED. У агрегата есть общий ресурс (кандидат: фикстуры в
+  `tempfile.gettempdir()` или установленные wrappers); найти и изолировать или сериализовать минты.
+- (c) Фоновый прогон с перенаправленным stdout пишет в леджер completion-gate сигнал с пустым
+  `evidence`, а разбор леджера сессии валит ВЕСЬ коммит (2 блока, 1 COMPLETION_BYPASS). Писать
+  `outcome: unknown` без блокировки или захватывать evidence из файла перенаправления.
+- (d) Продюсер Sol сверяет `unitId` машинной квитанции с активным followup - квитанция под claim
+  `:general-review` для него не годится (s2 UNVERIFIED), а для review-cache годится только она;
+  две цепочки на один кандидат. Документировать в `docs/VERIFICATION_LOOP.md` или принимать оба claim.
+- (e) `reviewPolicy` активного followup - закрытый словарь (`sealed-host-union`, классы из
+  `itd_review_evidence.IMPACT_CLASSES`, `oracleIds` = id прогонов машинной квитанции), ошибка даёт
+  невнятное «active review policy values are invalid» (s1). Назвать поле в сообщении.
+- (f) Checker verb пишет BLOCKED-квитанцию в `receipts/` до отказа «not accepted», но путь не печатает -
+  вход для `prepare-adjudication` приходится искать по времени. Печатать путь при BLOCKED.
+- (g) Квитанция не хранит способ чеканки - валидатор installed-proof выводит режим из `baseCommit`
+  (by design); поле режима в квитанции - территория loop'а, если понадобится доказывать именно
+  committed-head-чеканку.
+
 ## P1 - тир strict-класса зависит от формулировки goal, а не от кода (2026-09-25, PILOT-LOW-1)
 
 Источник: `docs/retros/RETRO-PILOT-LOW-1.md`, наблюдения 1-2. Strict-матчер
