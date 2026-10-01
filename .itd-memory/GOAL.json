@@ -1,95 +1,17 @@
 {
   "version": 1,
-  "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
-  "status": "done",
-  "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-10-01T13:04:51Z",
-  "currentUnitId": "",
+  "goal": "STOPRULE-STUB-1: the stop-rule live policy binding and the closure-delta tool both pass on a ledger-close tree, so tests/verify_stop_rule.py and the aggregate tests/verify_route_debts.py are green on main between units, without a false ALIGNED binding for a closed unit (variant A, approved by the owner 2026-10-01).",
+  "status": "active",
+  "createdAt": "2026-10-01T16:51:52Z",
+  "updatedAt": "2026-10-01T16:51:52Z",
+  "currentUnitId": "STOPRULE-STUB-1",
   "units": [
     {
-      "id": "HANDOFF-UNTRACKED-1",
-      "criterion": "HANDOFF-UNTRACKED-1: HANDOFF.md is no longer tracked by git in this repository (listed in .gitignore, removed from the index) and stays a local hand-over packet; the /handoff skill and the release and ledger-close SCOPE_LOCK templates no longer require HANDOFF.md inside a reviewed diff; the new oracle tests/verify_handoff_untracked.py is RED on the pre-fix tree and GREEN after, and meta_review stays clean.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_handoff_untracked.py && sh skills/_shared/itd_py.sh tests/meta_review.py",
+      "id": "STOPRULE-STUB-1",
+      "criterion": "STOPRULE-STUB-1: on a closed-contract tree (activeFollowup is exactly {unitId: '', status: 'none', note?} and STATE.currentUnit is not in progress) itd_stop_rule.live_policy_binding returns the state NO_ACTIVE_UNIT with aligned false and raises nothing, and itd_stop_rule.py --check-binding prints NO_ACTIVE_UNIT with a WHY and FIX line and exits 2; a broken contract (an empty unitId with any other status or extra keys, or an empty contract while STATE has a unit in progress) is still refused; on a copy of the tracked tree carrying the closed-contract stub and a verified STATE.currentUnit tests/verify_stop_rule.py exits 0; the new oracle tests/verify_stop_rule_closed_contract.py is RED on the pre-fix code and GREEN after, and tests/verify_stop_rule.py and tests/verify_closure_delta.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py && sh skills/_shared/itd_py.sh tests/verify_stop_rule.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
       "riskTier": "medium",
-      "status": "verified",
-      "verifiedAt": "2026-09-27T20:05:47Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_handoff_untracked.py: exit 0, stdout sha256 14dfef1d97362cc2, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/meta_review.py: exit 0, stdout sha256 fd65bc9997b01c0e, FINAL STATUS: PASSED",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/HANDOFF-UNTRACKED-1/HANDOFF-UNTRACKED-1-adjudication-close2.json",
-        "sha256": "a2557ca3bb057511dabce1a346045c61d986eed3a27bd1b8bd993ba10d2eb2c3",
-        "receiptSha256": "897ab19390c19e18b367150cc43ac8135557a0d5cd05ae91262da9bee527d090",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/HANDOFF-UNTRACKED-1/HANDOFF-UNTRACKED-1-machine-close3.json",
-        "machineSha256": "1306bb8b482eebb8f6c77e819326d2c841f8b9aad197715d9d00f3902d7dabde"
-      }
-    },
-    {
-      "id": "CLOSURE-DELTA-1",
-      "criterion": "CLOSURE-DELTA-1: a new scripts/itd_closure_delta.py proves that the diff between a verified tree (taken from a receipt) and a later tree touches only closure records - the unit transition in .itd-memory/GOAL.json and STATE.json, appended lines in events.jsonl, the followup move in .itd/ACCEPTANCE_CONTRACT.json, appended entries in .itd/DECISIONS.md and BACKLOG.md - and exits non-zero for any other path or any edit that is not an append; the new oracle tests/verify_closure_delta.py covers accepted deltas and rejected mutations (foreign path, edit in the middle of DECISIONS, a changed unit command leg).",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
-      "riskTier": "medium",
-      "status": "verified",
-      "verifiedAt": "2026-09-30T16:09:11Z",
-      "evidence": "exit 0: PASSED: 0 failed",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-adjudication-a1.json",
-        "sha256": "8d258d2d31c6d41b615e83152e4a04ea9ded8ed870721eeb075e79a8afda9571",
-        "receiptSha256": "481c7e6e88104effd8a2da201434de5a202e22637afa2495fd7cb45b52299c28",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/1727800fb20c724b/CLOSURE-DELTA-1-machine-f49606424e7ad765.json",
-        "machineSha256": "2e8e6f002a5f0416c73950d1b600d93392882b0402335ec2c077b0cda744710c"
-      }
-    },
-    {
-      "id": "FLAKE-ADJCHAN-1",
-      "criterion": "FLAKE-ADJCHAN-1: newest_receipt in tests/verify_adjudication_channel.py selects the receipt deterministically without st_mtime; the new test tests/verify_adjudication_channel_clock.py builds receipts with deliberately inverted mtimes, is RED on the pre-fix helper and GREEN after, and tests/verify_adjudication_channel.py stays green.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py && sh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py",
-      "riskTier": "low",
-      "status": "verified",
-      "verifiedAt": "2026-09-30T18:03:07Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_adjudication_channel_clock.py: exit 0, stdout sha256 920be4c849f6d48b, PASSED: 0 failed (14 passed)\nsh skills/_shared/itd_py.sh tests/verify_adjudication_channel.py: exit 0, stdout sha256 ffd0067ba86b80c6, {\"checks\": 65, \"failures\": [], \"status\": \"PASSED\"}",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-adjudication-a2.json",
-        "sha256": "7601f9a86e6371ec32bf3ffca1d23dcb1d6815b5928946e955914f49067b8c80",
-        "receiptSha256": "d3e8a1c6b3706f4bf96414d123fdf4c5620b4ab67e0c0d1e3d31bf50b6c773aa",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/05f2f7aa77e8c2c5/FLAKE-ADJCHAN-1-machine-f997c2b9dcb58345.json",
-        "machineSha256": "e039039a3770d4418cb80e47bb42578c92f2c6def6075d48791da8ab1472b22d"
-      }
-    },
-    {
-      "id": "INSTALLED-PROOF-HEAD-1",
-      "criterion": "INSTALLED-PROOF-HEAD-1: tests/verify_route_debts.py --installed-proof accepts native canary receipts minted in committed-head mode on a clean checkout whose HEAD tree equals the candidate, and still rejects foreign, stale or mismatched receipts; docs/RELEASE_RUNBOOK.md gives a release command template that carries both the installed-proof leg and verify_live_model_benchmark.py --require-evidence and runs on one clean checkout; the new oracle tests/verify_installed_proof_head.py is RED on the pre-fix code and GREEN after, and tests/verify_route_debts.py stays green.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_installed_proof_head.py && sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
-      "riskTier": "high",
-      "status": "verified",
-      "verifiedAt": "2026-09-30T20:40:59Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_installed_proof_head.py: exit 0, stdout sha256 1b9ff1ac7091493d, PASSED: 0 failed (14 passed)\nsh skills/_shared/itd_py.sh tests/verify_route_debts.py: exit 0, stdout sha256 21e3cb77967766fa, PASS tests/verify_blind_protocol.py",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-adjudication-a3.json",
-        "sha256": "2f457057b12f61a6238b70509bd705bd46149818ddabbe2c6481a01c27d654ca",
-        "receiptSha256": "3918aaba740526e673d6741c2b2af1fd3a68542303afcf9a16cd22c63cd3e296",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-machine-b7cd1fbdaba72c32.json",
-        "machineSha256": "fb899391feba1cee8793770b93b4362a73ff04adc945483f757bfa4b86225982"
-      }
-    },
-    {
-      "id": "TIER-WORDING-2",
-      "criterion": "TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on the wording of the unit goal: synthetic pairs (a template goal vs a detailed description containing a strict word) over the same non-test Allowed Change Areas get one tier, while a strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle tests/verify_tier_wording.py is RED on the pre-fix matcher and GREEN after, and tests/verify_tier_source.py and tests/verify_risk_tier_default.py stay green.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py && sh skills/_shared/itd_py.sh tests/verify_tier_source.py && sh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py",
-      "riskTier": "medium",
-      "status": "verified",
-      "verifiedAt": "2026-10-01T13:04:51Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_tier_wording.py: exit 0, stdout sha256 1441670e44288a82, PASSED: 0 failed (523 passed)\nsh skills/_shared/itd_py.sh tests/verify_tier_source.py: exit 0, stdout sha256 00b42d8b58a4f918, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/verify_risk_tier_default.py: exit 0, stdout sha256 46bb31e715e043c9, PASSED: 0 failed",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/37b03b48b4d2d2cb/TIER-WORDING-2-adjudication-a1.json",
-        "sha256": "26993d47f35e1e663b8fe0981ed232dcb12dcbb8b19ef27d32dad919ce29b1ae",
-        "receiptSha256": "88b05b9ca26b426f84e963945a3f16e54abc04329cee20f72b67c55ee1bde061",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/37b03b48b4d2d2cb/TIER-WORDING-2-machine-89bcf9f0f3d68002.json",
-        "machineSha256": "9fd380ab77c77b99d06bae85e87b423448edd9baadf5a92eda35b368273b1ae3"
-      }
+      "status": "in_progress"
     }
   ]
 }

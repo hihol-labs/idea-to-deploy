@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "TIER-WORDING-2",
-    "goal": "TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on the wording of the unit goal: synthetic pairs (a template goal vs a detailed description containing a strict word) over the same non-test Allowed Change Areas get one tier, while a strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle tests/verify_tier_wording.py is RED on the pre-fix matcher and GREEN after, and tests/verify_tier_source.py and tests/verify_risk_tier_default.py stay green.",
-    "status": "verified",
-    "startedAt": "2026-10-01T09:56:01Z",
+    "id": "STOPRULE-STUB-1",
+    "goal": "STOPRULE-STUB-1: on a closed-contract tree (activeFollowup is exactly {unitId: '', status: 'none', note?} and STATE.currentUnit is not in progress) itd_stop_rule.live_policy_binding returns the state NO_ACTIVE_UNIT with aligned false and raises nothing, and itd_stop_rule.py --check-binding prints NO_ACTIVE_UNIT with a WHY and FIX line and exits 2; a broken contract (an empty unitId with any other status or extra keys, or an empty contract while STATE has a unit in progress) is still refused; on a copy of the tracked tree carrying the closed-contract stub and a verified STATE.currentUnit tests/verify_stop_rule.py exits 0; the new oracle tests/verify_stop_rule_closed_contract.py is RED on the pre-fix code and GREEN after, and tests/verify_stop_rule.py and tests/verify_closure_delta.py stay green.",
+    "status": "in_progress",
+    "startedAt": "2026-10-01T16:51:52Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-10-01T13:04:51Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",
