@@ -3,8 +3,8 @@
   "goal": "Remove five friction sources found in the REL-1.106.0 route without weakening any gate: HANDOFF.md out of reviewed diffs, a machine proof that closure records are the only delta after verification, a deterministic adjudication-channel test, one release command that carries installed-proof and live-evidence binding, and a strict-class tier independent of goal wording for non-test scopes (approved by the owner 2026-09-27).",
   "status": "active",
   "createdAt": "2026-09-27T14:15:50Z",
-  "updatedAt": "2026-09-30T18:30:36Z",
-  "currentUnitId": "INSTALLED-PROOF-HEAD-1",
+  "updatedAt": "2026-09-30T20:40:59Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "HANDOFF-UNTRACKED-1",
@@ -62,7 +62,17 @@
       "criterion": "INSTALLED-PROOF-HEAD-1: tests/verify_route_debts.py --installed-proof accepts native canary receipts minted in committed-head mode on a clean checkout whose HEAD tree equals the candidate, and still rejects foreign, stale or mismatched receipts; docs/RELEASE_RUNBOOK.md gives a release command template that carries both the installed-proof leg and verify_live_model_benchmark.py --require-evidence and runs on one clean checkout; the new oracle tests/verify_installed_proof_head.py is RED on the pre-fix code and GREEN after, and tests/verify_route_debts.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_installed_proof_head.py && sh skills/_shared/itd_py.sh tests/verify_route_debts.py",
       "riskTier": "high",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-09-30T20:40:59Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_installed_proof_head.py: exit 0, stdout sha256 1b9ff1ac7091493d, PASSED: 0 failed (14 passed)\nsh skills/_shared/itd_py.sh tests/verify_route_debts.py: exit 0, stdout sha256 21e3cb77967766fa, PASS tests/verify_blind_protocol.py",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-adjudication-a3.json",
+        "sha256": "2f457057b12f61a6238b70509bd705bd46149818ddabbe2c6481a01c27d654ca",
+        "receiptSha256": "3918aaba740526e673d6741c2b2af1fd3a68542303afcf9a16cd22c63cd3e296",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/35db1078e2dc6111/INSTALLED-PROOF-HEAD-1-machine-b7cd1fbdaba72c32.json",
+        "machineSha256": "fb899391feba1cee8793770b93b4362a73ff04adc945483f757bfa4b86225982"
+      }
     },
     {
       "id": "TIER-WORDING-2",
