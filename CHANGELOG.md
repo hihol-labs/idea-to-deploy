@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - STOPRULE-STUB-1: живая привязка стоп-правила признает закрытый контракт
+
+- После каждого ledger-close `activeFollowup` в `.itd/ACCEPTANCE_CONTRACT.json` - закрытая запись
+  `{unitId: "", status: "none", note?}`, которую требует `scripts/itd_closure_delta.py`, а
+  `itd_stop_rule.live_policy_binding` требовала непустой id юнита и падала `StopRuleError`. Оракул
+  `tests/verify_stop_rule.py` зовет живую привязку при загрузке, поэтому он и агрегат
+  `tests/verify_route_debts.py` были красными на main между юнитами.
+- Теперь ровно эта запись при `STATE.currentUnit`, который отсутствует или в терминальном статусе
+  юнита, дает состояние `NO_ACTIVE_UNIT` (`aligned: false`, пустые id, ноль критериев);
+  `scripts/itd_stop_rule.py --check-binding` печатает `BINDING   NO_ACTIVE_UNIT` со строками WHY и
+  FIX и выходит 2 - ревью начинать не с чем. Каждый результат привязки получил поле `state`
+  (`ALIGNED`, `ROUTE_DEFECT`, `NO_ACTIVE_UNIT`).
+- Отказ сохранен для всех других форм: пустой id с другим статусом, без статуса или с лишними
+  ключами, id из пробелов, закрытая запись при юните в работе или без статуса в STATE. Тип `note`
+  не проверяется - как и в `scripts/itd_closure_delta.py`: привязка принимает ровно то, что пишет
+  ledger-close. Попутно `activeFollowup` или `STATE.currentUnit`, которые не объект (непустая
+  строка, число, список), теперь отказ `StopRuleError`, а не `AttributeError`.
+- Отвергнут вариант «closure-delta принимает заглушку с id закрытого юнита»: привязка выдала бы
+  ALIGNED для уже закрытого юнита (решение владельца 2026-10-01).
+- Оракул: `tests/verify_stop_rule_closed_contract.py` (RED на дофиксовых байтах `58ded36`, мутации
+  летальны; копия отслеживаемого дерева с закрытой записью проходит `tests/verify_stop_rule.py`).
+
 ### Fixed - TIER-WORDING-2: тир strict-класса не зависит от формулировки goal на области-списке путей
 
 - После TIER-SOURCE-1 текст goal оставался источником strict-классов для любой области с

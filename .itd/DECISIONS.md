@@ -4956,3 +4956,65 @@ escape скриптом. (5) Чекпоинт сессии нельзя писа
 `tests/verify_route_debts.py` на таком дереве красный по построению (stop-rule live binding), критерий
 этого юнита агрегат не включает. Windows-хост не раскатан (отложено до релиза). Цель «Remove five
 friction sources...» закрыта 5/5.
+
+## 2026-10-01 - STOPRULE-STUB-1: живая привязка стоп-правила признает закрытый контракт (вариант A)
+
+**Проблема.** `scripts/itd_closure_delta.py` принимает ledger-close только с закрытой записью
+`activeFollowup = {unitId: "", status: "none", note?}`, а `itd_stop_rule.live_policy_binding`
+требовала непустой `activeFollowup.unitId` и бросала `StopRuleError`. `tests/verify_stop_rule.py:189`
+зовет живую привязку против репозитория при загрузке, поэтому он и агрегат `tests/verify_route_debts.py`
+были красными на main после каждого закрытия (BACKLOG P1 2026-10-01).
+
+**Решение (владелец, 2026-10-01, «Утверждаю вариант A»).** Привязка распознает ровно закрытую запись
+(ключи - подмножество `{unitId, status, note}`, `unitId == ""`, `status == "none"`, `note` любого типа - как в closure-delta, уточнено после
+/review r1 и чекера c1, см. ниже) и,
+если `STATE.currentUnit` отсутствует или в терминальном статусе юнита, возвращает состояние
+`NO_ACTIVE_UNIT` (`aligned: false`, пустые id, ноль критериев). CLI `--check-binding` печатает это
+состояние со строками WHY и FIX и выходит 2: ревью начинать не с чем. Все результаты получили поле
+`state`. `scripts/itd_closure_delta.py` не меняется.
+
+**Отвергнуто.** Вариант B (closure-delta принимает заглушку с id закрытого юнита): привязка сравнила бы
+`activeFollowup.unitId` с `STATE.currentUnit.id` того же закрытого юнита, статус юнита она не смотрит,
+его критерии `passed` - вышло бы ALIGNED для закрытого юнита (проверено по STATE и контракту main
+`58ded36`). Выход 0 для `NO_ACTIVE_UNIT` - отвергнут: автоматика, ждущая выровненной привязки перед
+ревью, приняла бы «ревьюировать нечего» за разрешение начать.
+
+**Уточнение исполнителя.** (1) Закрытая запись при юните в работе, без статуса или при `currentUnit`,
+который не объект, - сломанная бухгалтерия, отказ `StopRuleError` (fail-closed). (2) Множества
+закрытых ключей и терминальных статусов - копии `FOLLOWUP_EMPTY_KEYS` (`scripts/itd_closure_delta.py`)
+и `TERMINALS` (`skills/_shared/itd_unit_lifecycle.py`); оракул сверяет их как литералы, без импорта.
+(3) Попутный дефект той же функции: `activeFollowup`, который не объект, давал `AttributeError` вместо
+`StopRuleError` (класс «трейсбек вместо типизированного отказа», r31) - нашел RED-прогон оракула,
+исправлен в этом же юните.
+
+**Проверка.** RED-first: `tests/verify_stop_rule_closed_contract.py` на дофиксовом коде - `FAILED: 24
+failed (21 passed)` (`.itd-memory/verification-loop/reports/STOPRULE-STUB-1-red-first.log`, sha256
+`16edc93b993fe412`). После фикса `PASSED: 0 failed (76 passed)`, `--mutations` 16/16 летальны;
+копия отслеживаемого дерева с закрытой записью и verified `STATE.currentUnit` проходит
+`tests/verify_stop_rule.py`. Агрегат на main проверяется после ledger-close этого юнита.
+
+**/review r1 (code-reviewer, дерево `7b8de366a6f0`) - PASSED, 5 Minor; targeted-чекер c1 (opus, то же
+дерево) - PASSED_WITH_WARNINGS, 1 Minor** (отчеты
+`.itd-memory/verification-loop/reports/claude-review-stoprule-stub-1-staged-r1.md`,
+`STOPRULE-STUB-1-targeted-c1.md`). Fail-open не найден: `NO_ACTIVE_UNIT` достигается только ровно
+закрытой записью и терминальным или отсутствующим `currentUnit`, новых путей в ALIGNED нет, выход 2
+безопасен для всех вызывающих (привязку зовут только два оракула и сам CLI). Исправлено:
+- Оба ревьюера нашли одно и то же: `closed_contract` требовал строковый `note`, а `check_acceptance`
+  в `scripts/itd_closure_delta.py` тип `note` не проверяет - ledger-close с `note: null` прошел бы
+  closure-delta и уронил бы привязку, то есть несовместимость двух гейтов, которую устраняет цель,
+  вернулась бы для нестрокового `note`. Проверка типа снята: привязка принимает ровно то, что пишет
+  closure-delta (менять closure-delta этот юнит не может). Оракул переводит `note` null/0/[] в
+  закрытые формы.
+- Отказ `StopRuleError` для не-объектного `STATE.currentUnit` при обычном контракте (раньше
+  `AttributeError` для непустой строки) закреплен кейсами и мутацией; формулировка CHANGELOG
+  уточнена (касается непустых не-объектов), SCOPE_LOCK называет хелпер и константы.
+- Оставлено как есть: пустой `STATE.json` при закрытом контракте читается как «юнита нет»
+  (безопасная сторона - `aligned: false`, выход 2); длинное тире в заголовке контракта и оракула
+  скопировано из шаблона.
+
+**Targeted-чекер c2 (opus, дерево `3f4e71f9f2f5`) - PASSED, 0 находок; pre-PR gpt-5.6-sol p1
+(committed-head `c8abc94`) - BLOCKED, 2 находки** (отчеты `STOPRULE-STUB-1-targeted-c2.md` и
+`STOPRULE-STUB-1-sol-p1.json.negative-rr215khv/report.json` в `.itd-memory/verification-loop/reports/`).
+c2 прогнал 9640 записей через `closed_contract` и `check_acceptance` closure-delta - расхождений нет.
+Sol: первый абзац этой записи еще называл `note` строкой (исправлено в тексте выше), оракул не
+проверял `note: false` и `note: {}` (добавлены кейсы и две мутации; оракул 98 проверок, мутации 20/20).

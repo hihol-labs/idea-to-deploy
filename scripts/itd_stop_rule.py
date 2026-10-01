@@ -1837,6 +1837,24 @@ def check_policy_binding(history: dict, policy: dict, root: Path) -> dict | None
     }
 
 
+# STOPRULE-STUB-1: закрытая запись, которую оставляет ledger-close (FOLLOWUP_EMPTY_KEYS в
+# scripts/itd_closure_delta.py), и терминальные статусы юнита (TERMINALS в
+# skills/_shared/itd_unit_lifecycle.py); расхождение копий ловит
+# tests/verify_stop_rule_closed_contract.py.
+CLOSED_FOLLOWUP_KEYS = frozenset({"unitId", "status", "note"})
+LEDGER_TERMINAL_STATUSES = ("verified", "blocked", "skipped", "abandoned", "superseded")
+NO_ACTIVE_UNIT = "NO_ACTIVE_UNIT"
+
+
+def closed_contract(followup) -> bool:
+    """Ровно закрытая запись {unitId: "", status: "none", note?}: любая другая форма
+    (лишний ключ, другой статус, unitId из пробелов) остается сломанной привязкой. Тип
+    note не проверяется, как и в check_acceptance closure-delta: привязка принимает ровно
+    то, что принимает писатель, иначе два гейта снова несовместимы (чекер c1)."""
+    return (isinstance(followup, dict) and set(followup) <= CLOSED_FOLLOWUP_KEYS
+            and followup.get("unitId") == "" and followup.get("status") == "none")
+
+
 def live_policy_binding(policy: dict, root: Path) -> dict:
     """Живая проверка привязки: два леджера читаются с диска."""
     binding_policy = policy["policyBinding"]
@@ -1848,11 +1866,26 @@ def live_policy_binding(policy: dict, root: Path) -> dict:
         raise StopRuleError(f"state ledger is missing: {ledger_path}")
     contract = read_json_document(contract_path, "acceptance contract")
     ledger = read_json_document(ledger_path, "state ledger")
-    contract_unit = require_unit_identifier(
-        (contract.get("activeFollowup") or {}).get("unitId"),
-        "activeFollowup.unitId")
+    followup = contract.get("activeFollowup")
+    current = ledger.get("currentUnit")
+    if closed_contract(followup):
+        # STOPRULE-STUB-1: между юнитами контракт несет закрытую запись ledger-close, и
+        # ревьюировать нечего - это отдельное состояние, а не сломанная привязка. Юнит
+        # в работе при закрытой записи - уже сломанная бухгалтерия, она отказывает.
+        status = current.get("status") if isinstance(current, dict) else None
+        if current is not None and status not in LEDGER_TERMINAL_STATUSES:
+            raise StopRuleError(
+                "activeFollowup is the closed-contract record, but currentUnit.status is "
+                f"{status!r}: the ledger has a unit that is not closed")
+        return {"state": NO_ACTIVE_UNIT, "ledgerUnit": "", "contractUnit": "",
+                "criteriaPresent": False, "criteriaMatchingStatus": 0, "criteriaTotal": 0,
+                "requiredCriteriaStatus": binding_policy["requireCriteriaStatus"],
+                "statusSatisfied": False, "aligned": False}
+    if not isinstance(followup, dict):
+        raise StopRuleError(f"activeFollowup must be an object, got {type(followup).__name__}")
+    contract_unit = require_unit_identifier(followup.get("unitId"), "activeFollowup.unitId")
     ledger_unit = require_unit_identifier(
-        (ledger.get("currentUnit") or {}).get("id"),
+        current.get("id") if isinstance(current, dict) else None,
         "currentUnit.id")
     # Префикс сравнивается по границе идентификатора: голый startswith считал бы
     # критерии юнита LPD003-30 своими для активного LPD003-3.
@@ -1869,7 +1902,9 @@ def live_policy_binding(policy: dict, root: Path) -> dict:
     # критерий активного юнита ещё pending, — значит «выровнено» при pending
     # было бы обещанием, которого маршрут не сдержит.
     status_satisfied = bool(criteria) and len(passed) == len(criteria)
+    aligned = contract_unit == ledger_unit and bool(criteria) and status_satisfied
     return {
+        "state": "ALIGNED" if aligned else "ROUTE_DEFECT",
         "ledgerUnit": ledger_unit,
         "contractUnit": contract_unit,
         "criteriaPresent": bool(criteria),
@@ -1877,7 +1912,7 @@ def live_policy_binding(policy: dict, root: Path) -> dict:
         "criteriaTotal": len(criteria),
         "requiredCriteriaStatus": wanted,
         "statusSatisfied": status_satisfied,
-        "aligned": contract_unit == ledger_unit and bool(criteria) and status_satisfied,
+        "aligned": aligned,
     }
 
 
@@ -2532,13 +2567,19 @@ def main(argv: list[str] | None = None) -> int:
             if args.json:
                 print(json.dumps(binding, ensure_ascii=False, sort_keys=True))
             else:
-                state = "ALIGNED" if binding["aligned"] else "ROUTE_DEFECT"
+                state = binding["state"]
                 print(f"BINDING   {state}")
                 print(f"  леджер:  {binding['ledgerUnit']}")
                 print(f"  контракт:{binding['contractUnit']}")
                 print(f"  критериев {binding['criteriaTotal']}, "
                       f"в статусе passed {binding['criteriaMatchingStatus']}")
-                if not binding["aligned"]:
+                if state == NO_ACTIVE_UNIT:
+                    print("  WHY: активного юнита нет - activeFollowup это закрытая запись "
+                          "ledger-close, ревьюировать нечего.")
+                    print("  FIX: активировать следующий юнит (/goal --activate или "
+                          "itd_unit_log.py activate), завести его activeFollowup и "
+                          "критерии и повторить.")
+                elif not binding["aligned"]:
                     if binding["contractUnit"] != binding["ledgerUnit"] or not binding["criteriaPresent"]:
                         print("  WHY: ревью пойдёт по политике чужого юнита и о "
                               "кандидате не будет свидетельствовать.")

@@ -147,6 +147,7 @@
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_state_hardening.py",
       "tests/verify_stop_rule.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_strict_completion_policy.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
@@ -192,6 +193,7 @@
       "tests/verify_risk_score.py",
       "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
     ],
@@ -199,6 +201,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_stop_rule.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
@@ -241,7 +244,8 @@
       "tests/verify_verification_loop.py"
     ],
     ".itd/STOP_RULE_POLICY.json": [
-      "tests/verify_stop_rule.py"
+      "tests/verify_stop_rule.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     ".itd/VERIFICATION_CONTRACT.json": [
       "tests/verify_completion_adversarial_corpus.py",
@@ -497,6 +501,7 @@
     "docs/VERIFICATION_LOOP.md": [
       "tests/verify_authority_check.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_verification_loop.py"
     ],
     "docs/WORKING_DEADLINE_MODE.md": [
@@ -1050,7 +1055,8 @@
       "tests/verify_authority_check.py"
     ],
     "scripts/itd_closure_delta.py": [
-      "tests/verify_closure_delta.py"
+      "tests/verify_closure_delta.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     "scripts/itd_external_outcomes.py": [
       "tests/verify_external_outcome_contract.py",
@@ -1108,7 +1114,8 @@
       "tests/verify_targeted_regression.py"
     ],
     "scripts/itd_stop_rule.py": [
-      "tests/verify_stop_rule.py"
+      "tests/verify_stop_rule.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     "scripts/sync-to-active.sh": [
       "tests/verify_completion_signals_powershell.py",
@@ -1342,6 +1349,7 @@
       "tests/verify_preflight_budget.py",
       "tests/verify_review_enumeration.py",
       "tests/verify_risk_tier_default.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
     ],
@@ -1384,7 +1392,8 @@
     ],
     "skills/_shared/itd_unit_lifecycle.py": [
       "tests/verify_ledger_reconciliation.py",
-      "tests/verify_route_metric.py"
+      "tests/verify_route_metric.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     "skills/_shared/itd_verdict_taxonomy.py": [
       "tests/verify_blind_protocol.py",
@@ -1903,6 +1912,7 @@
       "tests/verify_risk_tier_default.py",
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
+      "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
@@ -2110,7 +2120,8 @@
       "tests/verify_route_debts.py"
     ],
     "tests/verify_route_debts.py": [
-      "tests/verify_installed_proof_head.py"
+      "tests/verify_installed_proof_head.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     "tests/verify_routing.py": [
       "tests/verify_triggers.py"
@@ -2148,7 +2159,8 @@
       "tests/verify_operating_loops_release.py"
     ],
     "tests/verify_stop_rule.py": [
-      "tests/verify_route_debts.py"
+      "tests/verify_route_debts.py",
+      "tests/verify_stop_rule_closed_contract.py"
     ],
     "tests/verify_strict_completion_policy.py": [
       "tests/verify_completion_adversarial_corpus.py",

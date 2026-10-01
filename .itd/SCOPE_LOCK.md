@@ -1,50 +1,46 @@
-# TIER-WORDING-2 strict-class tier independent of goal wording on a path-list scope
+# STOPRULE-STUB-1 stop-rule live binding recognises the closed contract
 
 ## Current Task
 
-- TIER-WORDING-2: for scopes that are not tests-only the strict-class tier no longer depends on
-  the wording of the unit goal: synthetic pairs (a template goal vs a detailed description
-  containing a strict word) over the same non-test Allowed Change Areas get one tier, while a
-  strict-class path or keyword inside the Allowed Change Areas still forces high; the new oracle
-  `tests/verify_tier_wording.py` is RED on the pre-fix matcher and GREEN after, and
-  `tests/verify_tier_source.py` and `tests/verify_risk_tier_default.py` stay green. The criterion
-  and the verificationCommand live ONLY in `.itd-memory/GOAL.json`. Rule approved by the owner on
-  2026-10-01 (variant A, `.itd/DECISIONS.md`).
+- STOPRULE-STUB-1: on a closed-contract tree (activeFollowup is exactly {unitId: '', status:
+  'none', note?} and STATE.currentUnit is not in progress) `itd_stop_rule.live_policy_binding`
+  returns the state NO_ACTIVE_UNIT with aligned false and raises nothing, and
+  `scripts/itd_stop_rule.py --check-binding` prints NO_ACTIVE_UNIT with a WHY and FIX line and exits
+  2; a broken contract is still refused; on a copy of the tracked tree carrying the
+  closed-contract stub and a verified STATE.currentUnit `tests/verify_stop_rule.py` exits 0; the
+  new oracle `tests/verify_stop_rule_closed_contract.py` is RED on the pre-fix code and GREEN
+  after. The criterion and the verificationCommand live ONLY in `.itd-memory/GOAL.json`. Variant A
+  approved by the owner on 2026-10-01 (`.itd/DECISIONS.md`).
 
 ## Allowed Change Areas
 
-- `skills/_shared/itd_risk_classes.py` - the path-list predicate (`is_file_path`, `path_list`,
-  `gate_items`, `plain_scope_layout`, `path_list_scope`) and its use in `match_strict_class` /
-  `exempt_goal_hit`; `is_test_path`, `tests_only`, `names_unit`, the section reader and the
-  keyword/path matching are not changed.
-- `skills/task/scripts/itd_unit_log.py` - the reason text of `riskTierExempt` and the hint for a
-  path-list scope that is not bound to the unit.
-- `tests/verify_tier_wording.py` (new)
-- `tests/verify_tier_source.py` - re-pin of the floor cases whose scope is now a path list, and
-  the docstring that describes them.
+- `scripts/itd_stop_rule.py` - `live_policy_binding` (the closed-contract branch, the `state`
+  field of the result, typed refusal of a non-object `activeFollowup` / `currentUnit`), the new
+  helper `closed_contract` with the constants `CLOSED_FOLLOWUP_KEYS`, `LEDGER_TERMINAL_STATUSES`,
+  `NO_ACTIVE_UNIT`, and the `--check-binding` output; no other function changes.
+- `tests/verify_stop_rule_closed_contract.py` (new)
+- `tests/verify_stop_rule.py` - only if a pinned expectation of the binding result has to name the
+  new `state` field.
 - `tests/run-all.sh` - register the oracle in CORE.
-- `docs/adr/ADR-011-default-risk-tier-low.md` - amendment 2026-10-01.
-- `skills/task/SKILL.md` - Step 3.5 text of the exemption.
+- `docs/VERIFICATION_LOOP.md` - the `--check-binding` paragraph.
 - `CHANGELOG.md` - the Unreleased entry.
 - `.itd/IMPACT_GRAPH.json` - rebuilt by `tests/build_impact_graph.py`.
-- `.itd-memory/contracts/TIER-WORDING-2.md` (new)
-- `.itd-memory/GOAL.json`, `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status
-  transitions only through the goal harness.
+- `.itd-memory/contracts/STOPRULE-STUB-1.md` (new)
+- `.itd-memory/GOAL.json`, `.itd-memory/GOAL-2026-10-01.json` (archive of the finished goal),
+  `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status transitions only through the
+  goal harness.
 - `.itd/DECISIONS.md`, `BACKLOG.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
-- `.itd/ACCEPTANCE_CONTRACT.json` - the TIER-WORDING-2 activeFollowup and criteria
-  TIER-WORDING-2-1-oracle, TIER-WORDING-2-2-ledger.
-- Live-model benchmark evidence pin - only if Gate 1 requires a re-record after the `skills/`
-  change, through the documented re-record route.
+- `.itd/ACCEPTANCE_CONTRACT.json` - the STOPRULE-STUB-1 activeFollowup and criteria
+  STOPRULE-STUB-1-1-oracle, STOPRULE-STUB-1-2-ledger.
 
 ## Forbidden Change Areas
 
 - `HANDOFF.md` - a local untracked hand-over packet; it never enters the reviewed diff.
-- `skills/_shared/PROPORTIONALITY_POLICY.json` - the strict classes, their keywords and paths.
-- `hooks/wip-gate.sh` and the section reader shared with it (BACKLOG P2 2026-09-26 stays a
-  separate unit); the matcher only mirrors the hook's reader read-only (`gate_items`).
-- Binding the tier to the real diff at `verified` (variant B - a separate high unit by the owner's
-  decision).
-- STOPRULE-STUB-1 (BACKLOG P1 2026-10-01).
+- `scripts/itd_closure_delta.py` - variant B (a stub naming the closed unit) is rejected: the
+  binding would report ALIGNED for a closed unit.
+- `.itd/STOP_RULE_POLICY.json` and the frozen binding invariants
+  (`EXPECTED_BINDING_INVARIANTS`).
+- `machine_ready_binding`, the history verdicts and every other path of the stop rule.
 - The unit criterion and verificationCommand; editing unit statuses by hand.
 - Merge and push - only on the owner's explicit command.
 

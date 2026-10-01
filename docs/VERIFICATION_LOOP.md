@@ -423,6 +423,13 @@ python3 scripts/itd_stop_rule.py --history tests/references/stop-rule/s04b.json
 python3 scripts/itd_stop_rule.py --check-binding
 ```
 
+Между юнитами привязка печатает третье состояние `NO_ACTIVE_UNIT` (STOPRULE-STUB-1):
+`activeFollowup` - ровно закрытая запись ledger-close `{unitId: "", status: "none", note?}`,
+а `STATE.currentUnit` отсутствует или в терминальном статусе. Ревьюировать нечего, поэтому выход 2,
+как у `ROUTE_DEFECT`, со строками WHY и FIX; любая другая форма (пустой `unitId` с другим
+статусом или лишними ключами, юнит в работе при закрытой записи) - по-прежнему отказ
+`STOP-RULE INPUT REJECTED`.
+
 Статус правила — **decides-with-human-confirmation** (политика 1.2.0): оно
 решает ОСТАНОВКУ и печатает терминал, основание и поимённый список раундов; на
 терминалах решения владельца (`REDESIGN_OR_DISCARD`, `SURFACE_TREADMILL`) оно

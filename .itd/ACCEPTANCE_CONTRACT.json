@@ -4419,6 +4419,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "STOPRULE-STUB-1-1-oracle",
+      "unitId": "STOPRULE-STUB-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_stop_rule_closed_contract.py зеленый на дереве кандидата - на закрытом контракте (activeFollowup ровно {unitId: '', status: 'none', note?} с note любого типа, как в closure-delta, и STATE.currentUnit отсутствует или в терминальном статусе) live_policy_binding возвращает state NO_ACTIVE_UNIT, aligned false, без исключения, а scripts/itd_stop_rule.py --check-binding печатает NO_ACTIVE_UNIT со строками WHY и FIX и выходит 2; пустой unitId с другим статусом, без статуса или с лишними ключами, unitId из пробелов и закрытая запись при юните в работе или без статуса в STATE по-прежнему отказ; на копии отслеживаемого дерева с закрытой записью и verified STATE.currentUnit tests/verify_stop_rule.py выходит 0; tests/verify_stop_rule.py и tests/verify_closure_delta.py зеленые. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита STOPRULE-STUB-1 из .itd-memory/GOAL.json (вариант A - решение владельца 2026-10-01, .itd/DECISIONS.md); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_stop_rule_closed_contract.py на дофиксовом коде (дерево 58ded36 + оракул) - FAILED: 24 failed (21 passed), без краха оракула; красные - все закрытые формы (StopRuleError activeFollowup.unitId must be a non-empty string), поле state результатов, activeFollowup-строка (AttributeError вместо StopRuleError), CLI NO_ACTIVE_UNIT/WHY/FIX/--json, константы сверки, документы, регистрация и копия дерева с закрытой записью; лог .itd-memory/verification-loop/reports/STOPRULE-STUB-1-red-first.log (sha256 16edc93b993fe412). После фикса: PASSED: 0 failed (76 passed), --mutations 16/16. /review r1 (code-reviewer) PASSED, 5 minor; targeted-чекер c1 (opus, дерево 7b8de366a6f0) PASSED_WITH_WARNINGS, 1 minor: closed_contract требовал строковый note, а closure-delta тип note не проверяет - несовместимость гейтов для нестрокового note; проверка типа снята, незакрепленный отказ для не-объектного currentUnit закреплен. После правок: PASSED: 0 failed (90 passed), --mutations 18/18; targeted-чекер c2 (opus, дерево 3f4e71f9f2f5) PASSED, 0 находок. Pre-PR gpt-5.6-sol p1 (committed-head c8abc94) BLOCKED, 2 находки: запись DECISIONS называла note строкой; оракул не проверял note false и {} - исправлено. Итог: PASSED: 0 failed (98 passed); --mutations 20/20 летальны, включая дофиксовые байты 58ded36. tests/verify_stop_rule.py: RESULT: 593 passed, 0 failed; tests/verify_closure_delta.py: PASSED: 0 failed.",
+      "reviewEvidence": {
+        "claim": "Признание закрытого контракта и сохраненные отказы проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py && sh skills/_shared/itd_py.sh tests/verify_stop_rule.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
+      "status": "passed"
+    },
+    {
+      "id": "STOPRULE-STUB-1-2-ledger",
+      "unitId": "STOPRULE-STUB-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-01 (actor harness), юнит in_progress, riskTier medium; прежний леджер цели (5/5 done) переименован в .itd-memory/GOAL-2026-10-01.json; переход в verified записывается вне коммита юнита и входит в ledger-close.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4437,9 +4475,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - TIER-WORDING-2 closed 2026-10-01; the goal is done 5/5"
+    "unitId": "STOPRULE-STUB-1",
+    "status": "open",
+    "openedAt": "2026-10-01",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/STOPRULE-STUB-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-01; variant A approved by the owner 2026-10-01; medium = targeted independent checker before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
