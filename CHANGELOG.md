@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - COMPLETION-FALSE-RED-1: ожидаемый exit 2 `--check-binding` не считается красным слоем
+
+- `scripts/itd_stop_rule.py --check-binding` выходит 2, когда привязка не выровнена или активного юнита
+  нет; гейт завершения записывал это как проваленный тест и требовал COMPLETION_BYPASS на коммитах
+  ledger-close. Теперь в литеральной форме `sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py
+  --check-binding; echo "EXIT: $?"` строка `EXIT: 2` вырезается до вычисления исхода, если скрипт сам
+  доказал исполнение строкой `BINDING <STATE>` и хук, пересчитав ответ своим интерпретатором, получил
+  тот же код и то же состояние. Любая другая форма и любой другой код - как раньше.
+- Оракул: `tests/verify_completion_false_red.py` (RED на хуках `9a7ce8e`, 5 провалов из 44;
+  `--mutations` - 11 из 11). Механика - `docs/completion-gate.md`.
+- Гашение одноразового красного и объявленный прогон мутации вынесены в COMPLETION-SUPERSEDE-1
+  (решение владельца после стоп-правила).
+
 ### Fixed - GOALVERIFY-FAILPATH-1: провал составной verificationCommand больше не роняет харнес цели
 
 - С RSI-DEBT-3 `skills/goal/scripts/itd_goal_verify.py` пишет составную команду `A && B` по

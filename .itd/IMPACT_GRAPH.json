@@ -249,6 +249,7 @@
     ],
     ".itd/VERIFICATION_CONTRACT.json": [
       "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_false_red.py",
       "tests/verify_completion_gate.py",
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_gate_control.py",
@@ -865,6 +866,7 @@
     "hooks/completion-gate.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_false_red.py",
       "tests/verify_completion_gate.py",
       "tests/verify_completion_policy_calibration.py",
       "tests/verify_completion_signals_powershell.py",
@@ -878,6 +880,7 @@
       "tests/verify_targeted_regression.py"
     ],
     "hooks/completion-signals.sh": [
+      "tests/verify_completion_false_red.py",
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_strict_completion_policy.py"
@@ -889,6 +892,7 @@
     ],
     "hooks/completion_lib.py": [
       "tests/verify_completion_adversarial_corpus.py",
+      "tests/verify_completion_false_red.py",
       "tests/verify_completion_gate.py",
       "tests/verify_completion_signal_classes.py",
       "tests/verify_control_quality.py",
@@ -1114,6 +1118,7 @@
       "tests/verify_targeted_regression.py"
     ],
     "scripts/itd_stop_rule.py": [
+      "tests/verify_completion_false_red.py",
       "tests/verify_stop_rule.py",
       "tests/verify_stop_rule_closed_contract.py"
     ],
@@ -1336,6 +1341,7 @@
     ],
     "skills/_shared/itd_py.sh": [
       "tests/verify_closure_delta.py",
+      "tests/verify_completion_false_red.py",
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_handoff_untracked.py",
       "tests/verify_harness_conformance.py",
@@ -2160,6 +2166,7 @@
       "tests/verify_operating_loops_release.py"
     ],
     "tests/verify_stop_rule.py": [
+      "tests/verify_completion_false_red.py",
       "tests/verify_route_debts.py",
       "tests/verify_stop_rule_closed_contract.py"
     ],
