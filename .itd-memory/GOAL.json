@@ -3,15 +3,25 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-02T07:23:09Z",
-  "currentUnitId": "GOALVERIFY-FAILPATH-1",
+  "updatedAt": "2026-10-02T07:48:44Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
       "criterion": "GOALVERIFY-FAILPATH-1: when a compound verificationCommand fails, skills/goal/scripts/itd_goal_verify.py prints the decisive line 'FAILED <unit> stays in_progress' with the per-leg evidence and exits 1 without a traceback (no UnboundLocalError on output), the single-command and no-sh failure paths keep their output; the new oracle tests/verify_goal_verify_failpath.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py and tests/verify_goal_verify_shell.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_verify_failpath.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_verify_shell.py",
       "riskTier": "low",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-02T07:48:44Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_goal_verify_failpath.py: exit 0, stdout sha256 17a65ee63b017f3b, DONE fails:0\nsh skills/_shared/itd_py.sh tests/verify_goal_tools.py: exit 0, stdout sha256 e6c6d968d224b833, 83 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_goal_verify_shell.py: exit 0, stdout sha256 8df69f23105ef4cd, verify_goal_verify_shell: all ok",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/7143a43f8c74a0bc/GOALVERIFY-FAILPATH-1-adjudication-a1.json",
+        "sha256": "c4fe4e14997374bef5b265394f1eed9ad8d0ecc6c56a80074a3c997bf61cc0b0",
+        "receiptSha256": "20d2655bad282f7aa36f1e4831accbf576c7a6b51327bad8211d84c1ea28fb67",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/7143a43f8c74a0bc/GOALVERIFY-FAILPATH-1-machine-86a02d559388d128.json",
+        "machineSha256": "bf7426e6185a2af6a819d2432a4c1900ac27eca01a9986e7f6b6126174a4cf3b"
+      }
     },
     {
       "id": "COMPLETION-FALSE-RED-1",

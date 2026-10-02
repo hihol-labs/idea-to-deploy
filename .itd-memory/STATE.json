@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "GOALVERIFY-FAILPATH-1",
     "goal": "GOALVERIFY-FAILPATH-1: when a compound verificationCommand fails, skills/goal/scripts/itd_goal_verify.py prints the decisive line 'FAILED <unit> stays in_progress' with the per-leg evidence and exits 1 without a traceback (no UnboundLocalError on output), the single-command and no-sh failure paths keep their output; the new oracle tests/verify_goal_verify_failpath.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py and tests/verify_goal_verify_shell.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-02T07:23:09Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-10-02T07:48:44Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
