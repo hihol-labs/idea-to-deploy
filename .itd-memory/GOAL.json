@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-02T08:40:59Z",
-  "currentUnitId": "COMPLETION-FALSE-RED-1",
+  "updatedAt": "2026-10-02T14:21:08Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -28,7 +28,17 @@
       "criterion": "COMPLETION-FALSE-RED-1 (narrowed by the owner 2026-10-02 after the stop rule REDESIGN_OR_DISCARD on Sol s1-s6): the completion signals (hooks/completion_lib.py) stop counting the declared exit 2 of scripts/itd_stop_rule.py --check-binding as a red test layer in exactly one literal form 'sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py --check-binding; echo \"EXIT: $?\"' with proof of execution (exactly one BINDING line before the only EXIT line), while another exit code, any other form, a missing script and a missing BINDING line still block the commit; the new oracle tests/verify_completion_false_red.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py and tests/verify_completion_adversarial_corpus.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py",
       "riskTier": "high",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-02T14:21:08Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py: exit 0, stdout sha256 f0e14394b6346b76, PASSED: 0 failed (44 passed)\nsh skills/_shared/itd_py.sh tests/verify_completion_gate.py: exit 0, stdout sha256 485226f60d5ca91d, 60 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py: exit 0, stdout sha256 0fa112199015bdb8, }",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/fe576cf0315f572d/COMPLETION-FALSE-RED-1-adjudication-a2.json",
+        "sha256": "ab2302f7bf1e666c571a5641346754e3b69c32143f4c76cd368851a32a3f89a3",
+        "receiptSha256": "d611508158e3542ce668aafa76f5702b7a0d4fcb6f30c81886fe4b4919a68466",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/fe576cf0315f572d/COMPLETION-FALSE-RED-1-machine-a37949b8252702e9.json",
+        "machineSha256": "d6d9a941bf26e3d8f6c00037e46d547e76ace6d575c4a957c72d5b09096c6484"
+      }
     },
     {
       "riskTier": "high",
