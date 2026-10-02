@@ -1,42 +1,39 @@
-# GOALVERIFY-FAILPATH-1 clean failure path of the goal harness
+# COMPLETION-FALSE-RED-1 completion gate without false red layers
 
 ## Current Task
 
-- GOALVERIFY-FAILPATH-1: when a compound verificationCommand fails,
-  `skills/goal/scripts/itd_goal_verify.py` prints the decisive line `FAILED <unit> stays
-  in_progress` with the per-leg evidence and exits 1 without a traceback (no `UnboundLocalError`
-  on `output`); the single-command and no-sh failure paths keep their output; the new oracle
-  `tests/verify_goal_verify_failpath.py` is RED on the pre-fix code and GREEN after. The criterion
-  and the verificationCommand live ONLY in `.itd-memory/GOAL.json`. First unit of the goal "route
-  traps of TIER-WORDING-2", approved by the owner on 2026-10-01 (`.itd/DECISIONS.md`).
+- COMPLETION-FALSE-RED-1 (narrowed by the owner 2026-10-02, option A after the stop rule
+  REDESIGN_OR_DISCARD): the declared exit 2 of `scripts/itd_stop_rule.py --check-binding` in one literal
+  form with proof of execution is not a red test layer; other forms and codes still block. The criterion
+  and the verificationCommand live ONLY in `.itd-memory/GOAL.json`; the split unit COMPLETION-SUPERSEDE-1
+  (pending) carries the mutation-run and supersede classes.
 
 ## Allowed Change Areas
 
-- `skills/goal/scripts/itd_goal_verify.py` - `cmd_verify`, the compound branch binds `output`;
-  no other function changes.
-- `tests/verify_goal_verify_failpath.py` (new)
-- `tests/run-all.sh` - register the oracle in CORE.
-- `CHANGELOG.md` - the Unreleased entry (added after `/review` r1 minor 2).
+- `hooks/completion_lib.py` - the `DECLARED_CHECKS` block (`strip_expected_exit`,
+  `_has_conditional_operator`) and two lines in `classify_bash`.
+- `tests/verify_completion_false_red.py` (new), `tests/run-all.sh` - register the oracle in CORE.
+- `docs/completion-gate.md` (one section), `CHANGELOG.md` (Unreleased), `BACKLOG.md`.
 - `.itd/IMPACT_GRAPH.json` - rebuilt by `tests/build_impact_graph.py`.
-- `.itd-memory/contracts/GOALVERIFY-FAILPATH-1.md` (new)
-- `.itd-memory/GOAL.json` (the new goal ledger), `.itd-memory/GOAL-2026-10-01-stoprule.json`
-  (archive of the finished goal), `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status
-  transitions only through the goal harness.
-- `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
-- `.itd/ACCEPTANCE_CONTRACT.json` - the GOALVERIFY-FAILPATH-1 activeFollowup and criteria
-  GOALVERIFY-FAILPATH-1-1-oracle, GOALVERIFY-FAILPATH-1-2-ledger.
+- `.itd-memory/contracts/COMPLETION-FALSE-RED-1.md` (new); `.itd-memory/GOAL.json` (narrowed criterion of
+  this unit and the new pending unit COMPLETION-SUPERSEDE-1 - owner decision 2026-10-02),
+  `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - status transitions only through the goal harness.
+- `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md` (this file), `.itd/ACCEPTANCE_CONTRACT.json` (the
+  activeFollowup and criteria of this unit).
 
 ## Forbidden Change Areas
 
 - `HANDOFF.md` - a local untracked hand-over packet; it never enters the reviewed diff.
-- `run_compound_verification`, `decisive_line`, the ledger evidence format and every success
-  path of the harness.
-- The other six units of the goal (one unit per session).
-- The unit criterion and verificationCommand; editing unit statuses by hand.
-- Merge and push - only on the owner's explicit command.
+- `hooks/completion-gate.sh`, `hooks/completion-signals.sh`, `skills/test/SKILL.md` - unchanged in the
+  narrowed unit; the mutation markers of `tests/verify_completion_adversarial_corpus.py` must keep matching.
+- `outcome_from` and the text heuristics (FAIL/PASS regexes); `docs/templates/itd/itd_hygiene.py`
+  (it does not read the new annotations - a BACKLOG item, not this unit).
+- The other pending units of the goal, including COMPLETION-SUPERSEDE-1 (one unit per session).
+- Further changes to the unit criterion and verificationCommand (beyond the owner narrowing of 2026-10-02); editing unit statuses by hand.
+- Merge and push to main - only on the owner's explicit command.
 
 ## Review Rule
 
-Low tier: `/review` before the multi-file commit and machine-only adjudication (no independent
-checker). If the diff touches an area outside allowed scope, pause and reclassify the task before
-continuing.
+High tier: `/review` before the multi-file commit, a full independent fresh-session checker and
+the pre-PR opposite-model review (Sol). If the diff touches an area outside allowed scope, pause and
+reclassify the task before continuing.

@@ -4495,6 +4495,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "COMPLETION-FALSE-RED-1-1-oracle",
+      "unitId": "COMPLETION-FALSE-RED-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_completion_false_red.py зеленый на дереве кандидата - эхо 'EXIT: 2' объявленной чек-команды в единственной побайтной литеральной форме (разделители '; ') 'sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py --check-binding; echo \"EXIT: $?\"' при ровно одной строке BINDING до единственной строки EXIT, подтвержденной пересчетом ответа хуком (тот же код и та же строка BINDING), и явном pass остатка вывода от хвоста не больше одного стейтмента не дает красного слоя (и в калиброванном, и в строгом режиме гейта, хук сигналов не рисует пометку), а другой код, отсутствие или позднее положение строки BINDING, вторая строка EXIT, хвост в строке EXIT, другой скрипт, лишний аргумент, другой интерпретатор, редирект, префикс (cd, переменная, обертка), &&/||, printf, одинарные кавычки, второе эхо $? отсутствующий файл скрипта и ответ, расходящийся с пересчетом (шим), остаются красными; реальный провал теста после проверки и молча упавший хвост блокируют коммит; tests/verify_completion_gate.py и tests/verify_completion_adversarial_corpus.py зеленые. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита COMPLETION-FALSE-RED-1 из .itd-memory/GOAL.json, суженный владельцем 2026-10-02 (вариант A после стоп-правила REDESIGN_OR_DISCARD на Sol s1-s6); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_completion_false_red.py на хуках 9a7ce8e - FAILED: 5 failed (39 passed): снятие кода, аннотация, гейт calibrated/strict и хук красные, все guard-проверки зеленые; лог .itd-memory/verification-loop/reports/COMPLETION-FALSE-RED-1-red-first.log (sha256 f8d0fbd836ec2a2c). После фикса: PASSED: 0 failed (44 passed); --mutations: 11 из 11 летальны. История: широкий вариант (три класса, разбор shell) прошел /review r1-r6 и Sol s1-s6 BLOCKED; стоп-правило REDESIGN_OR_DISCARD; владелец сузил юнит до класса 2; /review n1 BLOCKED (молча упавший хвост) - исправлено: остаток обязан сам дать pass; Sol p1 BLOCKED (многострочный хвост) - хвост не больше одного стейтмента; Sol p2 BLOCKED (разделители) - литерал побайтно; Sol n4 BLOCKED (BACKLOG) - пункт восстановлен; Sol n5 BLOCKED (шим в PATH) - хук пересчитывает ответ сам.",
+      "reviewEvidence": {
+        "claim": "Ожидаемый exit 2 scripts/itd_stop_rule.py --check-binding в единственной литеральной форме с доказательством исполнения не дает красного слоя, а любая другая форма и реальный провал по-прежнему блокируют - это проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py",
+      "status": "passed"
+    },
+    {
+      "id": "COMPLETION-FALSE-RED-1-2-ledger",
+      "unitId": "COMPLETION-FALSE-RED-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-02T08:40:59Z (actor harness, evt-goal-1790930459), юнит in_progress, riskTier high; переход в verified записывается вне коммита юнита и входит в ledger-close.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4513,9 +4551,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - GOALVERIFY-FAILPATH-1 closed 2026-10-02; goal 1/7, next COMPLETION-FALSE-RED-1 (high) after its activation"
+    "unitId": "COMPLETION-FALSE-RED-1",
+    "status": "active",
+    "openedAt": "2026-10-02",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/COMPLETION-FALSE-RED-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-02 (evt-goal-1790930459); second unit of the goal approved by the owner 2026-10-01; high = full independent checker and Sol before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

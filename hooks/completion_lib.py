@@ -811,6 +811,88 @@ def _git_head(cwd: Path | None) -> str:
         return ""
 
 
+# ---------------------------------------------------------------------------
+# COMPLETION-FALSE-RED-1: объявленный ожидаемый код выхода чек-команды.
+# `scripts/itd_stop_rule.py --check-binding` выходит 2, когда привязка не
+# выровнена или активного юнита нет, - это ответ проверки, а не провал теста.
+# Форма намеренно одна и литеральная (решение владельца после стоп-правила
+# REDESIGN_OR_DISCARD: разбор произвольного shell ломался на каждом раунде):
+#   <литерал чек-команды>; echo "EXIT: $?"[; ...]
+# и сам скрипт доказывает, что исполнился: ровно одна строка `BINDING <STATE>`
+# в выводе стоит до единственной строки `EXIT: N`, и хук сам пересчитывает
+# ответ (тот же код и та же строка BINDING); остаток без строки `EXIT`
+# обязан сам дать явный pass (иначе молча упавший хвост стал бы unknown), а
+# хвост - не больше одного стейтмента: префикс никогда не делает вердикт
+# зеленее, чем тот же хвост, запущенный отдельно.
+# Любая другая форма судится как до фикса.
+# ---------------------------------------------------------------------------
+
+DECLARED_CHECKS = {
+    "sh skills/_shared/itd_py.sh scripts/itd_stop_rule.py --check-binding": (
+        "scripts/itd_stop_rule.py", frozenset({2}), re.compile(r"^BINDING\s+[A-Z_]+$")),
+}
+_EXIT_ECHO_LITERAL = 'echo "EXIT: $?"'
+_EXIT_LINE_RE = re.compile(r"^EXIT: (\d+)$")
+
+
+def strip_expected_exit(command: str, text: str, cwd: Path | None = None):
+    """(текст, [{"script", "code"}]): строка `EXIT: N` объявленной чек-команды
+    вырезается до вычисления исхода, только в литеральной форме (см. выше);
+    иначе текст возвращается без изменений."""
+    if not text or cwd is None:
+        return text, []
+    if "\n" in command or not any(
+            command == lit + "; " + _EXIT_ECHO_LITERAL
+            or command.startswith(lit + "; " + _EXIT_ECHO_LITERAL + "; ")
+            for lit in DECLARED_CHECKS):
+        return text, []  # литерал побайтно, включая разделители (Sol p2)
+    try:
+        statements = [s.strip() for s in _split_top(command, statements=True) if s.strip()]
+    except _UncertainShellParse:
+        return text, []
+    if len(statements) > 3:
+        return text, []  # хвост - один стейтмент (`&&`/`||` тоже делят): исход = хвост отдельно (Sol p1)
+    entry = DECLARED_CHECKS.get(statements[0])
+    if not entry or sum(1 for st in statements if "$?" in st) != 1:
+        return text, []
+    script, codes, marker = entry
+    lines = text.split("\n")
+    exits = [i for i, line in enumerate(lines) if _EXIT_ECHO_RE.search(line)]
+    if len(exits) != 1:
+        return text, []
+    match = _EXIT_LINE_RE.match(lines[exits[0]].strip())
+    if not match or int(match.group(1)) not in codes:
+        return text, []
+    marks = [i for i, line in enumerate(lines) if marker.match(line.strip())]
+    if len(marks) != 1 or marks[0] > exits[0]:
+        return text, []  # нет доказательства, что ответил сам скрипт
+    binding = lines[marks[0]].strip()
+    del lines[exits[0]]
+    stripped = "\n".join(lines)
+    if outcome_from(stripped, None) != "pass":
+        return text, []  # хвост без явного зелёного - код остаётся (находка /review n1)
+    code = int(match.group(1))
+    if _recompute_check(Path(cwd) / script, Path(cwd)) != (code, binding):
+        return text, []  # ответ не подтверждён пересчётом (Sol n5: шим вместо скрипта)
+    return stripped, [{"script": script, "code": code}]
+
+
+def _recompute_check(script: Path, root: Path):
+    """(код, строка BINDING) настоящего ответа чек-команды: хук сам запускает
+    скрипт своим интерпретатором (не через PATH оболочки) в корне проекта.
+    Шим вместо скрипта может разве что повторить правдивый ответ. Любой сбой
+    пересчёта - None (снятия нет)."""
+    import sys
+    try:
+        proc = subprocess.run([sys.executable, str(script), "--check-binding"], cwd=str(root),
+                              capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    marks = [line.strip() for line in (proc.stdout or "").splitlines()
+             if line.startswith("BINDING")]
+    return (proc.returncode, marks[0]) if len(marks) == 1 else None
+
+
 def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict | None:
     """Одна Bash/PowerShell-команда -> один runtime-сигнал (или None).
 
@@ -851,6 +933,8 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
         return None
     command = effective  # дальше классифицируем и храним развёрнутую команду
     text, code = _extract_output(tool_response)
+    # Объявленный ожидаемый код чек-команды - ответ, а не провал (FALSE-RED-1).
+    text, expected_exit = strip_expected_exit(command, text, cwd)
     outcome = outcome_from(text, code)
 
     anomaly = RESOURCE_ANOMALY_RE.search(text) if text else None
@@ -907,6 +991,8 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     # УПОМИНАЕТ «out of memory», не должен становиться ложно-красным слоем.
     if anomaly:
         sig["anomaly"] = "memory"
+    if expected_exit:
+        sig["expected_exit"] = expected_exit
 
     # Полный контекст ошибки (пункт 1 статьи: «не просто сообщение»): команда
     # уже в сигнале, добавляем хвост вывода (stderr/stdout смешаны в text).
