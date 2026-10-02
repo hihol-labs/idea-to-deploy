@@ -1,27 +1,59 @@
 {
   "version": 1,
-  "goal": "STOPRULE-STUB-1: the stop-rule live policy binding and the closure-delta tool both pass on a ledger-close tree, so tests/verify_stop_rule.py and the aggregate tests/verify_route_debts.py are green on main between units, without a false ALIGNED binding for a closed unit (variant A, approved by the owner 2026-10-01).",
-  "status": "done",
-  "createdAt": "2026-10-01T16:51:52Z",
-  "updatedAt": "2026-10-01T19:11:34Z",
-  "currentUnitId": "",
+  "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
+  "status": "active",
+  "createdAt": "2026-10-01T20:40:19Z",
+  "updatedAt": "2026-10-02T07:23:09Z",
+  "currentUnitId": "GOALVERIFY-FAILPATH-1",
   "units": [
     {
-      "id": "STOPRULE-STUB-1",
-      "criterion": "STOPRULE-STUB-1: on a closed-contract tree (activeFollowup is exactly {unitId: '', status: 'none', note?} and STATE.currentUnit is not in progress) itd_stop_rule.live_policy_binding returns the state NO_ACTIVE_UNIT with aligned false and raises nothing, and itd_stop_rule.py --check-binding prints NO_ACTIVE_UNIT with a WHY and FIX line and exits 2; a broken contract (an empty unitId with any other status or extra keys, or an empty contract while STATE has a unit in progress) is still refused; on a copy of the tracked tree carrying the closed-contract stub and a verified STATE.currentUnit tests/verify_stop_rule.py exits 0; the new oracle tests/verify_stop_rule_closed_contract.py is RED on the pre-fix code and GREEN after, and tests/verify_stop_rule.py and tests/verify_closure_delta.py stay green.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py && sh skills/_shared/itd_py.sh tests/verify_stop_rule.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
+      "id": "GOALVERIFY-FAILPATH-1",
+      "criterion": "GOALVERIFY-FAILPATH-1: when a compound verificationCommand fails, skills/goal/scripts/itd_goal_verify.py prints the decisive line 'FAILED <unit> stays in_progress' with the per-leg evidence and exits 1 without a traceback (no UnboundLocalError on output), the single-command and no-sh failure paths keep their output; the new oracle tests/verify_goal_verify_failpath.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py and tests/verify_goal_verify_shell.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_goal_verify_failpath.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py && sh skills/_shared/itd_py.sh tests/verify_goal_verify_shell.py",
+      "riskTier": "low",
+      "status": "in_progress"
+    },
+    {
+      "id": "COMPLETION-FALSE-RED-1",
+      "criterion": "COMPLETION-FALSE-RED-1: the completion signals (hooks/completion_lib.py) and the completion gate stop counting three expected outcomes as a red test layer - the expected failures of a declared mutation run (/test Step 5.5), a declared expected exit code of a check command (exit 2 of scripts/itd_stop_rule.py --check-binding), and a red signal keyed by a one-off command that a later green run of the same oracle script supersedes - while a real failing test, an unexpected exit code and a red run without a later green run of the same script still block the commit; the new oracle tests/verify_completion_false_red.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py and tests/verify_completion_adversarial_corpus.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py",
+      "riskTier": "high",
+      "status": "pending"
+    },
+    {
+      "id": "ORACLE-LEGS-1",
+      "criterion": "ORACLE-LEGS-1: skills/_shared/itd_verification_loop.py machine, minting for the claim equal to the active follow-up unit, refuses before running any leg when a reviewEvidence.oracleIds entry of that unit's acceptance criteria is not among the --command leg ids, and the refusal names the criterion and the missing oracle; a :general-review claim and a complete leg set mint as before; the new oracle tests/verify_machine_oracle_legs.py is RED on the pre-fix code and GREEN after, and tests/verify_verification_loop.py and tests/verify_review_evidence.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle_legs.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py && sh skills/_shared/itd_py.sh tests/verify_review_evidence.py",
       "riskTier": "medium",
-      "status": "verified",
-      "verifiedAt": "2026-10-01T19:11:34Z",
-      "evidence": "sh skills/_shared/itd_py.sh tests/verify_stop_rule_closed_contract.py: exit 0, stdout sha256 bab3780410d354cd, PASSED: 0 failed (98 passed)\nsh skills/_shared/itd_py.sh tests/verify_stop_rule.py: exit 0, stdout sha256 3295376f4adc615c, RESULT: 593 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_closure_delta.py: exit 0, stdout sha256 9651dc9dad85238f, PASSED: 0 failed",
-      "verificationReceipt": {
-        "path": ".itd-memory/verification-loop/receipts/1c71586ca66580f5/STOPRULE-STUB-1-adjudication-a1.json",
-        "sha256": "e9271aa7436a228946b5360d7d8fa6277fc76f4d9c2bec625b1c048b2c0c6bdc",
-        "receiptSha256": "5b37999315eb8a0f8f3d13f69909a5ff33ca2153dc9cef797cbf64d5e114acb1",
-        "outcome": "PASSED",
-        "machinePath": ".itd-memory/verification-loop/receipts/1c71586ca66580f5/STOPRULE-STUB-1-machine-3abddaa3bd145f74.json",
-        "machineSha256": "d68fd6793b935ac9d64a623f9f3ccea10e07eca8d0f28f67ccfe2b6e7b2c73ba"
-      }
+      "status": "pending"
+    },
+    {
+      "id": "MEMORY-COLLISION-DENY-1",
+      "criterion": "MEMORY-COLLISION-DENY-1: hooks/state-guard.sh denies a Write that would replace an existing session_*.md memory file younger than the collision window and names the next free suffix in its reason, while Edit, an append and a Write to a new file pass, within the existing per-session deny budget; the new oracle tests/verify_memory_collision_deny.py is RED on the pre-fix hook and GREEN after, and tests/verify_host_neutral_memory.py and tests/verify_all_hard_gate_host_parity.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_memory_collision_deny.py && sh skills/_shared/itd_py.sh tests/verify_host_neutral_memory.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
+      "riskTier": "low",
+      "status": "pending"
+    },
+    {
+      "id": "TEST-RULES-1",
+      "criterion": "TEST-RULES-1: skills/test/SKILL.md Step 5.5 states two rules - a mutation marker must occur exactly once in the mutated file and the mutation helper checks that before applying it, and fixtures with non-ASCII or invisible characters are written as escape sequences by a script because the file-write tool decodes them; the new oracle tests/verify_test_skill_rules.py checks both rules in the skill text and is RED before the edit and GREEN after, and tests/verify_refute_fleet.py stays green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_test_skill_rules.py && sh skills/_shared/itd_py.sh tests/verify_refute_fleet.py",
+      "riskTier": "low",
+      "status": "pending"
+    },
+    {
+      "id": "OTK-FAILED-ATTEMPT-1",
+      "criterion": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_failed_attempt.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py && sh skills/_shared/itd_py.sh tests/verify_retro_scan.py",
+      "riskTier": "medium",
+      "status": "pending"
+    },
+    {
+      "id": "OTK-HOST-TREE-1",
+      "criterion": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_host_tree.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py",
+      "riskTier": "high",
+      "status": "pending"
     }
   ]
 }
