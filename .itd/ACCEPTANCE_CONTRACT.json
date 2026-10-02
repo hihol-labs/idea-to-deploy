@@ -4513,23 +4513,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GOALVERIFY-FAILPATH-1",
-    "status": "open",
-    "openedAt": "2026-10-02",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/GOALVERIFY-FAILPATH-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "low",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 0,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "machine-only"
-    },
-    "note": "Activated by the goal harness 2026-10-02; first unit of the goal approved by the owner 2026-10-01; low = machine-only adjudication, /review before the commit."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - GOALVERIFY-FAILPATH-1 closed 2026-10-02; goal 1/7, next COMPLETION-FALSE-RED-1 (high) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -4840,6 +4826,27 @@
       "closedAt": "2026-10-01T19:11:54Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-01T19:11:34Z (VERIFIED STOPRULE-STUB-1 - tests/verify_stop_rule_closed_contract.py exit 0 PASSED: 0 failed (98 passed), tests/verify_stop_rule.py exit 0 RESULT: 593 passed, 0 failed, tests/verify_closure_delta.py exit 0 PASSED: 0 failed) on the merged tree bbf1bc8c1ff5 (main 20b8bda = squash of PR #330) with receipt .itd-memory/verification-loop/receipts/1c71586ca66580f5/STOPRULE-STUB-1-adjudication-a1.json (machine: a committed-head mint on the branch commit ef852ae, tree-identical to merged main 20b8bda and bound to the same parent 58ded36; checker bound to the signed gpt-5.6-sol phase-one p2; mandatory route check rc 0 on the merged head). Publication: medium route = /review r1 (code-reviewer, PASSED, 5 minor); targeted checkers in fresh sessions on the staged tree: c1 PASSED_WITH_WARNINGS (1 minor: note type, fixed), c2 PASSED, c3 PASSED on the delta after Sol p1; gpt-5.6-sol committed-head p1 BLOCKED (2 minor, fixed), p2 PASSED with 0 findings; gate registry registered with the committed-head adjudication a1 (keyring 90df6b85) -> doctor LOCAL_REVIEWED signed-keyless-route cross-vendor; itd pr create -> PR #330, CI Gate 1 2m3s + windows-verify 5m18s pass, squash merge on the owner's command.",
       "note": "Activated by the goal harness 2026-10-01; variant A approved by the owner 2026-10-01; medium = targeted independent checker before the PR."
+    },
+    {
+      "unitId": "GOALVERIFY-FAILPATH-1",
+      "status": "closed",
+      "openedAt": "2026-10-02",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/GOALVERIFY-FAILPATH-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "low",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 0,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "machine-only"
+      },
+      "note": "Activated by the goal harness 2026-10-02; first unit of the goal approved by the owner 2026-10-01; low = machine-only adjudication, /review before the commit.",
+      "closedAt": "2026-10-02T07:48:44Z",
+      "closureEvidence": "Verified by the goal harness on 2026-10-02T07:48:44Z (VERIFIED GOALVERIFY-FAILPATH-1 - tests/verify_goal_verify_failpath.py exit 0 DONE fails:0, tests/verify_goal_tools.py exit 0 83 passed, 0 failed, tests/verify_goal_verify_shell.py exit 0 all ok; event evt-goal-1790927324-73bb59fa5f3d4a8492e3a72be15b6dd8, actor harness) on the merged tree bbc30e97bb09 (main ddeb833 = squash of PR #333, tree-identical to the branch commit cfa3a87) with receipt .itd-memory/verification-loop/receipts/7143a43f8c74a0bc/GOALVERIFY-FAILPATH-1-adjudication-a1.json (machine-only, low; committed-head mint on merged main, legs unit/meta-review/ledger-state; mandatory route check rc 0). Publication: low route = /review r1 (fork, PASSED, 2 minor: CHANGELOG entry added, goal text six vs seven units left as approved by the owner); machine receipts staged a1 + committed-head a2 under GOALVERIFY-FAILPATH-1:general-review, review-cache PASSED; gate registry registered with a2 (keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #333, CI Gate 1 1m41s + windows-verify 3m59s pass, squash merge on the owner's command."
     }
   ]
 }

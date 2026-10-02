@@ -5091,3 +5091,25 @@ non-empty string`. Агрегат на main после мержа этого з�
 - **Вне скоупа (замечено /review r1):** текст цели в `.itd-memory/GOAL.json` называет «six route
   traps (a-f)», а юнитов семь (седьмой добавлен владельцем 2026-10-01) - текст одобрен владельцем и
   руками не правится; путь timeout (rc 124) составной ветки новым оракулом не покрыт.
+
+## 2026-10-02 - GOALVERIFY-FAILPATH-1: ledger-close (юнит verified харнесом, цель 1/7)
+
+**Публикация.** Владелец 2026-10-02: «мержи и закрывай юнит». PR #333 (head `cfa3a87`, дерево
+`bbc30e97bb09`) смержен сквошем -> main `ddeb833` (то же дерево, родитель `65867c2`).
+
+**ОТК.** Машинная квитанция под claim юнита отчеканена committed-head на merged main
+(`receipts/7143a43f8c74a0bc/GOALVERIFY-FAILPATH-1-adjudication-a1.json`, ноги unit / meta-review /
+ledger-state), `check --require-mandatory-route` rc 0. Харнес: `VERIFIED GOALVERIFY-FAILPATH-1`
+2026-10-02T07:48:44Z с первой попытки (оракул DONE fails:0, goal_tools 83/0, goal_verify_shell ok),
+actor harness; currentUnitId пуст, следующий юнит COMPLETION-FALSE-RED-1 (high) - новой сессией.
+
+**Цена маршрута.** `/review` r1 (форк) PASSED, 2 Minor - одна сессия, 0 раундов переделки кода.
+Машинные квитанции: staged m+a1 и committed-head m+a2 (`:general-review`), unit m+a1 на main.
+Completion-gate: 1 ложный красный L2 на коммите юнита (текст `git diff` из форка /review с именем
+`tests/run-all.sh` засчитан как прогон тестов) -> COMPLETION_BYPASS. ОТК - 1 попытка.
+
+**Уроки.** (1) Квитанция под claim юнита на merged main переиспользует каталог кандидата
+(`7143a43f…`): дерево и дифф к родителю те же, перечеканка ноги не меняет результат, но обязательна,
+потому что claim `:general-review` не принимается харнесом цели. (2) `itd pr create` берет тело PR из
+коммита: строку атрибуции PR приходится дописывать отдельно (`gh pr edit --body-file`). (3) Внешние
+записи `gh` проходят гейт только с явным `--repo`.
