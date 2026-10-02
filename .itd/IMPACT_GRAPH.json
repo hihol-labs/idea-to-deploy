@@ -1521,6 +1521,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_goal_verify_failpath.py",
       "tests/verify_goal_verify_shell.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",

@@ -1869,6 +1869,11 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
             # the ledger named only the final leg and did not show that the
             # first one ran at all (RSI-DEBT-3). One line per top-level command.
             evidence, rc = run_compound_verification(sh, segments, timeout)
+            # The failure path prints the decisive line of `output`; for a chain
+            # that is the per-command record, whose last line is the command
+            # that stopped it (`&&` short-circuits), not an unbound name
+            # (GOALVERIFY-FAILPATH-1).
+            output = evidence
     receipt_error = ""
     if rc == 0 and verification_receipt_path.strip():
         try:

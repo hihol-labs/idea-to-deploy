@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - GOALVERIFY-FAILPATH-1: провал составной verificationCommand больше не роняет харнес цели
+
+- С RSI-DEBT-3 `skills/goal/scripts/itd_goal_verify.py` пишет составную команду `A && B` по
+  строке на каждую команду верхнего уровня, но эта ветка не задавала `output`, а путь провала
+  печатал `decisive_line(output)`: любой провал составной команды заканчивался
+  `UnboundLocalError` и traceback после строки `FAILED`.
+- Теперь решающая строка провала составной команды - запись той команды, на которой цепочка
+  остановилась (`&&` замыкает, поэтому она последняя); выход 1 без traceback. Одиночная команда
+  и отказ без `sh` на PATH печатают то же, что раньше.
+- Оракул: `tests/verify_goal_verify_failpath.py` (RED на дофиксовых байтах `65867c2`, мутации
+  фикса летальны).
+
 ### Fixed - STOPRULE-STUB-1: живая привязка стоп-правила признает закрытый контракт
 
 - После каждого ledger-close `activeFollowup` в `.itd/ACCEPTANCE_CONTRACT.json` - закрытая запись
