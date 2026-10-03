@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T19:19:30Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-03T19:44:10Z",
+  "currentUnitId": "TEST-RULES-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -96,7 +96,7 @@
       "criterion": "TEST-RULES-1: skills/test/SKILL.md Step 5.5 states two rules - a mutation marker must occur exactly once in the mutated file and the mutation helper checks that before applying it, and fixtures with non-ASCII or invisible characters are written as escape sequences by a script because the file-write tool decodes them; the new oracle tests/verify_test_skill_rules.py checks both rules in the skill text and is RED before the edit and GREEN after, and tests/verify_refute_fleet.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_test_skill_rules.py && sh skills/_shared/itd_py.sh tests/verify_refute_fleet.py",
       "riskTier": "low",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "OTK-FAILED-ATTEMPT-1",

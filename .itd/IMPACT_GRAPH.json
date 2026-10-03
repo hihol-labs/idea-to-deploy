@@ -1666,7 +1666,8 @@
       "tests/verify_unit_log.py"
     ],
     "skills/test/SKILL.md": [
-      "tests/verify_refute_fleet.py"
+      "tests/verify_refute_fleet.py",
+      "tests/verify_test_skill_rules.py"
     ],
     "skills/tool-sync/agents/openai.yaml": [
       "tests/verify_host_adapters.py"
@@ -1937,6 +1938,7 @@
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_targeted_regression.py",
+      "tests/verify_test_skill_rules.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
       "tests/verify_tool_trust_inventory.py",

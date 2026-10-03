@@ -76,6 +76,9 @@ jobs:
       - name: Run refute-pass fleet doc-contract (v1.60.0, Ось 2)
         run: python3 tests/verify_refute_fleet.py
 
+      - name: Run /test Step 5.5 unique-marker and escaped-fixture rules (TEST-RULES-1)
+        run: python3 tests/verify_test_skill_rules.py
+
       - name: Run risk-tier => model monotonicity invariant (v1.60.0, Ось 2)
         run: python3 tests/verify_model_risk_monotonic.py
 

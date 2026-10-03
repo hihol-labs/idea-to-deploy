@@ -174,6 +174,22 @@ breaking what it supposedly checks, treat its coverage claim as unproven.
   mutation run the same oracle the same way from the project root: the later
   green record supersedes the red one (`docs/completion-gate.md`). A red without
   a record, or without that final green run, still blocks the commit.
+- **Unique mutation marker (TEST-RULES-1).** The marker - the exact text a
+  mutation replaces - must occur **exactly once** in the mutated file. With a
+  repeated marker the mutant lands on the first copy, which may not be the code
+  path the test covers, or is refused: the run then proves nothing either way
+  (STOPRULE-STUB-1: the same type check sat in a second function and the
+  mutant did not apply). The mutation helper checks `text.count(marker) == 1`
+  **before applying** the mutant and refuses otherwise; widen the marker with
+  the surrounding lines until it is unique.
+- **Fixtures with non-ASCII or invisible characters (TEST-RULES-1).** The
+  file-write tool decodes escape sequences: `\u00a0` typed into it lands in
+  the file as the character itself, and an invisible one (U+00A0, U+3164, curly
+  quotes) then disappears from every diff and review. Write such a fixture as
+  escape sequences by a script (a Bash heredoc running Python that writes
+  `"\u00a0"`, not the raw character), then read the written bytes back
+  with Python (`repr()` of the line shows a backslash sequence, not the
+  character; `text.count(chr(0xa0)) == 0`) before trusting it.
 
 **Invariant:** the refute pass can only REMOVE vacuous tests from the trusted
 coverage set; it never fabricates a passing test and never reports mutation
