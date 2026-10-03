@@ -56,6 +56,7 @@ V2_APPROVAL_DOMAIN = "itd-human-adjudication-binding-v2"
 V2_CONFIRMATION_TEMPLATE = ("I affirm exact v2 approval binding {sha256} and "
                             "accept every recorded disposition")
 RISK_TIERS = {"low", "medium", "high", "unknown"}
+ACCEPTANCE_CONTRACT_PATH = ".itd/ACCEPTANCE_CONTRACT.json"
 CHECKER_MODES = {"targeted", "full"}
 FENCED_JSON_RE = re.compile(r"```json\s*(.*?)```", re.I | re.S)
 CHECKOUT_PROBE_TIMEOUT_SECONDS = 60
@@ -1685,6 +1686,90 @@ def validate_adjudication(root: Path | str, receipt_path: Path | str,
     return receipt
 
 
+def assert_oracle_legs_declared(repo: Path, tree: str, claim: str,
+                                leg_ids: list[str]) -> None:
+    """Refuse to mint the unit receipt when its legs miss a declared oracle.
+
+    ORACLE-LEGS-1: the Sol producer requires every ``reviewEvidence.oracleIds``
+    entry of the active unit's criteria to be a run id of the machine receipt
+    (``itd_review_evidence.coverage_matrix``). A receipt minted without one of
+    them was only rejected there, after it had been minted and a reviewer run
+    paid for. The contract is read from the candidate tree, so the check sees
+    the same bytes the producer later reviews. Only the claim equal to the
+    open ``activeFollowup.unitId`` is checked; a ``:general-review`` claim, a
+    foreign or closed unit, a candidate without the contract and a contract
+    that is not a JSON object are left to the consumers as before. A follow-up
+    without ``reviewPolicy`` is checked too, although the producer enforces
+    coverage only under a policy: declared ``oracleIds`` name legs whether or
+    not a policy is set (owner-approved criterion, 2026-10-03).
+    """
+    def probe(*git_args: str) -> subprocess.CompletedProcess[bytes]:
+        try:
+            return subprocess.run(
+                ["git", *git_args], cwd=str(repo), capture_output=True,
+                timeout=CHECKOUT_PROBE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            raise LoopError("acceptance contract probe of the candidate timed out",
+                            "Repair Git object access and retry; no leg ran.") from exc
+
+    listed = probe("ls-tree", "--name-only", tree, "--", ACCEPTANCE_CONTRACT_PATH)
+    if listed.returncode != 0:
+        raise LoopError("acceptance contract lookup in the candidate failed",
+                        "Repair Git object access and retry; no leg ran.")
+    if not listed.stdout.strip():
+        return
+    blob = probe("cat-file", "blob", f"{tree}:{ACCEPTANCE_CONTRACT_PATH}")
+    if blob.returncode != 0:
+        raise LoopError("acceptance contract of the candidate could not be read",
+                        "Repair Git object access and retry; no leg ran.")
+    try:
+        acceptance = json.loads(blob.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return
+    followup = acceptance.get("activeFollowup") if isinstance(acceptance, dict) else None
+    if not claim or not isinstance(followup, dict) or followup.get("unitId") != claim:
+        return
+    evidence = _review_evidence_module()
+    if evidence.followup_is_closed(followup):
+        return
+    try:
+        criteria = evidence.active_criteria(acceptance, claim)
+    except evidence.ReviewEvidenceError as exc:
+        raise LoopError(
+            f"acceptance criteria of {claim} are malformed: {exc}",
+            f"Repair the criteria of {claim} in {ACCEPTANCE_CONTRACT_PATH}; no leg ran.",
+        ) from exc
+    legs = set(leg_ids)
+    missing: list[str] = []
+    for row in criteria:
+        if "reviewEvidence" not in row:
+            continue
+        # A declared but malformed oracle list is refused here with the
+        # producer's own rule (Sol s1): skipping it would mint and run every
+        # leg for a criterion the producer then rejects.
+        spec = row["reviewEvidence"]
+        try:
+            if not isinstance(spec, dict):
+                raise evidence.ReviewEvidenceError(
+                    f"{row['id']} review evidence is not an object")
+            oracle_ids = evidence._string_list(
+                spec.get("oracleIds"), f"{row['id']} oracle IDs")
+        except evidence.ReviewEvidenceError as exc:
+            raise LoopError(
+                f"acceptance criteria of {claim} are malformed: {exc}",
+                f"Repair reviewEvidence of {row['id']} in {ACCEPTANCE_CONTRACT_PATH}; no leg ran.",
+            ) from exc
+        missing.extend(f"{row['id']} oracle {oracle}"
+                       for oracle in oracle_ids if oracle not in legs)
+    if missing:
+        raise LoopError(
+            "machine legs do not cover the declared oracles: "
+            + "; ".join(f"{item} is missing" for item in missing),
+            "Add a --command <oracle>=<command> leg for each missing oracle id, or correct "
+            f"reviewEvidence.oracleIds in {ACCEPTANCE_CONTRACT_PATH}; no leg ran.",
+        )
+
+
 def command_machine(args: argparse.Namespace) -> int:
     policy, policy_sha = load_policy()
     repo = repository_root(args.root)
@@ -1698,6 +1783,8 @@ def command_machine(args: argparse.Namespace) -> int:
         if not sep or not ident.strip() or not command.strip():
             raise LoopError(f"invalid --command value: {raw!r}", "Use --command id=executable command.")
         commands.append((ident.strip(), command.strip()))
+    assert_oracle_legs_declared(repo, executed_tree, args.unit_id,
+                                [ident for ident, _ in commands])
     runs: list[dict[str, Any]] = []
     evidence_clock = EvidenceClock()
     with sealed_declared_inputs(repo, args.input, policy) as (input_manifests, input_root):
@@ -2489,6 +2576,25 @@ def _independence_module():
     module = _util.module_from_spec(spec)
     sys.modules.setdefault("itd_reviewer_independence", module)
     spec.loader.exec_module(module)
+    return module
+
+
+def _review_evidence_module():
+    # Compile the source bytes: an import may run a __pycache__ entry whose
+    # size and mtime still match after an edit, and the pre-leg check must
+    # apply the producer's current rules (Sol s3).
+    import types as _types
+    path = Path(__file__).resolve().parent / "itd_review_evidence.py"
+    try:
+        source = path.read_bytes()
+    except OSError as exc:
+        raise LoopError(
+            "review evidence module is unavailable",
+            "Restore skills/_shared/itd_review_evidence.py.",
+        ) from exc
+    module = _types.ModuleType("itd_review_evidence")
+    module.__file__ = str(path)
+    exec(compile(source, str(path), "exec"), module.__dict__)
     return module
 
 

@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T08:28:57Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-03T11:52:38Z",
+  "currentUnitId": "ORACLE-LEGS-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -62,7 +62,7 @@
       "criterion": "ORACLE-LEGS-1: skills/_shared/itd_verification_loop.py machine, minting for the claim equal to the active follow-up unit, refuses before running any leg when a reviewEvidence.oracleIds entry of that unit's acceptance criteria is not among the --command leg ids, and the refusal names the criterion and the missing oracle; a :general-review claim and a complete leg set mint as before; the new oracle tests/verify_machine_oracle_legs.py is RED on the pre-fix code and GREEN after, and tests/verify_verification_loop.py and tests/verify_review_evidence.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle_legs.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py && sh skills/_shared/itd_py.sh tests/verify_review_evidence.py",
       "riskTier": "medium",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "MEMORY-COLLISION-DENY-1",
