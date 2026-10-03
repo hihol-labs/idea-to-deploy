@@ -4665,23 +4665,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "MEMORY-COLLISION-DENY-1",
-    "status": "active",
-    "openedAt": "2026-10-03",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/MEMORY-COLLISION-DENY-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "low",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 0,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "machine-only"
-    },
-    "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791053572); fifth unit of the goal approved by the owner 2026-10-01; criterion checked against hooks/state-guard.sh and approved by the owner 2026-10-03 before activation (no ownership check, shell channel stays soft); low = machine-only adjudication, /review before the commit."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - MEMORY-COLLISION-DENY-1 closed 2026-10-03; goal 5/8, next TEST-RULES-1 (low) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5076,6 +5062,27 @@
       "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791028358); fourth unit of the goal approved by the owner 2026-10-01; criterion and implementation notes approved by the owner 2026-10-03 before activation; medium = targeted checker and Sol before the PR.",
       "closedAt": "2026-10-03T12:47:12Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-03T12:47:12Z (VERIFIED ORACLE-LEGS-1 - tests/verify_machine_oracle_legs.py exit 0 PASSED: 0 failed (25 passed), tests/verify_verification_loop.py exit 0 121 passed, 0 failed, tests/verify_review_evidence.py exit 0 all ok; event evt-goal-1791031632-54ba48b5159a49f18ff3016279e90bc8, actor harness) on the merged tree b56bb6a30592 (main 4f2f811 = squash of PR #339, tree-identical to the branch commit 90514bf) with receipt .itd-memory/verification-loop/receipts/00cfa70c2226d4da/ORACLE-LEGS-1-adjudication-a2.json (medium, full checker gpt-5.6-sol committed-head p1, keyring 90df6b85; check --require-mandatory-route rc 0). Publication: criterion and implementation notes approved by the owner before activation; /review r1 PASSED_WITH_WARNINGS, r2 PASSED; staged Sol s1, s3 and s4 BLOCKED (fixed), s2 BLOCKED (refuted), stop rule CONTINUE after each; s5 PASSED on b56bb6a30592; committed-head p1 PASSED; CI Gate 1 and windows-verify pass; merged on the owner's command."
+    },
+    {
+      "unitId": "MEMORY-COLLISION-DENY-1",
+      "status": "closed",
+      "openedAt": "2026-10-03",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/MEMORY-COLLISION-DENY-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "low",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 0,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "machine-only"
+      },
+      "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791053572); fifth unit of the goal approved by the owner 2026-10-01; criterion checked against hooks/state-guard.sh and approved by the owner 2026-10-03 before activation (no ownership check, shell channel stays soft); low = machine-only adjudication, /review before the commit.",
+      "closedAt": "2026-10-03T19:19:30Z",
+      "closureEvidence": "Verified by the goal harness on 2026-10-03T19:19:30Z (VERIFIED MEMORY-COLLISION-DENY-1 - tests/verify_memory_collision_deny.py exit 0 PASSED: 0 failed, tests/verify_host_neutral_memory.py exit 0 18 passed, 0 failed, tests/verify_all_hard_gate_host_parity.py exit 0 101 passed, 0 failed; event evt-goal-1791055170-5555d9514e2a4ebb84467db0240e5d21, actor harness) on the merged tree 5a9494acd641 (main 548ef1c = squash of PR #341, tree-identical to the branch commit 2f50cde) with receipt .itd-memory/verification-loop/receipts/82dd314f583addf6/MEMORY-COLLISION-DENY-1-adjudication-a1.json (machine-only, low; committed-head mint on merged main, legs unit/meta-review/ledger-state; mandatory route check rc 0). Publication: criterion checked against hooks/state-guard.sh and approved by the owner before activation; low route = /review r1 (fork, PASSED, 3 minor: stale comment rewritten, the reverse cost of the shared budget recorded in DECISIONS, incident id in the refusal kept); machine receipts staged a1 + committed-head a2 under MEMORY-COLLISION-DENY-1:general-review, review-cache PASSED; gate registry registered with a2 (keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #341, CI Gate 1 1m19s + windows-verify 5m11s pass, squash merge on the owner's command."
     }
   ]
 }
