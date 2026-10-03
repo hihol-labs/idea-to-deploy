@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "ORACLE-LEGS-1",
     "goal": "ORACLE-LEGS-1: skills/_shared/itd_verification_loop.py machine, minting for the claim equal to the active follow-up unit, refuses before running any leg when a reviewEvidence.oracleIds entry of that unit's acceptance criteria is not among the --command leg ids, and the refusal names the criterion and the missing oracle; a :general-review claim and a complete leg set mint as before; the new oracle tests/verify_machine_oracle_legs.py is RED on the pre-fix code and GREEN after, and tests/verify_verification_loop.py and tests/verify_review_evidence.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-03T11:52:38Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-10-03T12:47:12Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
