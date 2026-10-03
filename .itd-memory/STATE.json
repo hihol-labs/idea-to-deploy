@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "TEST-RULES-1",
     "goal": "TEST-RULES-1: skills/test/SKILL.md Step 5.5 states two rules - a mutation marker must occur exactly once in the mutated file and the mutation helper checks that before applying it, and fixtures with non-ASCII or invisible characters are written as escape sequences by a script because the file-write tool decodes them; the new oracle tests/verify_test_skill_rules.py checks both rules in the skill text and is RED before the edit and GREEN after, and tests/verify_refute_fleet.py stays green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-03T19:44:10Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-10-03T20:30:25Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
