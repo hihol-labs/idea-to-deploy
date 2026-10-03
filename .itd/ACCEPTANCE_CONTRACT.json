@@ -4627,23 +4627,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ORACLE-LEGS-1",
-    "status": "active",
-    "openedAt": "2026-10-03",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/ORACLE-LEGS-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    },
-    "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791028358); fourth unit of the goal approved by the owner 2026-10-01; criterion and implementation notes approved by the owner 2026-10-03 before activation; medium = targeted checker and Sol before the PR."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - ORACLE-LEGS-1 closed 2026-10-03; goal 4/8, next MEMORY-COLLISION-DENY-1 (low) after its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5017,6 +5003,27 @@
       "note": "Activated by the goal harness 2026-10-02 (evt-goal-1790972982); third unit of the goal approved by the owner 2026-10-01; criterion wording approved by the owner 2026-10-02 before activation; high = full independent checker and Sol before the PR.",
       "closedAt": "2026-10-03T08:28:57Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-03T08:28:57Z (VERIFIED COMPLETION-SUPERSEDE-1 - tests/verify_completion_supersede.py exit 0 PASSED: 0 failed (83 passed), tests/verify_completion_gate.py exit 0 60 passed, 0 failed, tests/verify_completion_adversarial_corpus.py exit 0, tests/verify_completion_false_red.py exit 0 PASSED: 0 failed (44 passed); event evt-goal-1791016137-0e9f76424fd24e819066e05b91c808b3, actor harness) on the merged tree ec31b044fcef (main 2b2c59a = squash of PR #337, tree-identical to the branch commit 1fba1f7) with receipt .itd-memory/verification-loop/receipts/8d15e8bd105db53d/COMPLETION-SUPERSEDE-1-adjudication-a2.json (high, full checker gpt-5.6-sol committed-head p1, keyring 90df6b85; check --require-mandatory-route rc 0). Publication: criterion rewritten and approved by the owner before activation; /review r1 BLOCKED, r2 PASSED_WITH_WARNINGS; staged Sol s1 and s3 BLOCKED (stop rule CONTINUE both times), s2 lost its producer with the session (no verdict), s4 PASSED on ec31b044fcef; committed-head p1 PASSED; CI Gate 1 and windows-verify pass; merged on the owner's command."
+    },
+    {
+      "unitId": "ORACLE-LEGS-1",
+      "status": "closed",
+      "openedAt": "2026-10-03",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/ORACLE-LEGS-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791028358); fourth unit of the goal approved by the owner 2026-10-01; criterion and implementation notes approved by the owner 2026-10-03 before activation; medium = targeted checker and Sol before the PR.",
+      "closedAt": "2026-10-03T12:47:12Z",
+      "closureEvidence": "Verified by the goal harness on 2026-10-03T12:47:12Z (VERIFIED ORACLE-LEGS-1 - tests/verify_machine_oracle_legs.py exit 0 PASSED: 0 failed (25 passed), tests/verify_verification_loop.py exit 0 121 passed, 0 failed, tests/verify_review_evidence.py exit 0 all ok; event evt-goal-1791031632-54ba48b5159a49f18ff3016279e90bc8, actor harness) on the merged tree b56bb6a30592 (main 4f2f811 = squash of PR #339, tree-identical to the branch commit 90514bf) with receipt .itd-memory/verification-loop/receipts/00cfa70c2226d4da/ORACLE-LEGS-1-adjudication-a2.json (medium, full checker gpt-5.6-sol committed-head p1, keyring 90df6b85; check --require-mandatory-route rc 0). Publication: criterion and implementation notes approved by the owner before activation; /review r1 PASSED_WITH_WARNINGS, r2 PASSED; staged Sol s1, s3 and s4 BLOCKED (fixed), s2 BLOCKED (refuted), stop rule CONTINUE after each; s5 PASSED on b56bb6a30592; committed-head p1 PASSED; CI Gate 1 and windows-verify pass; merged on the owner's command."
     }
   ]
 }
