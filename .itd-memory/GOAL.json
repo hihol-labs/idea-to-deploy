@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T11:52:38Z",
-  "currentUnitId": "ORACLE-LEGS-1",
+  "updatedAt": "2026-10-03T12:47:12Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -62,7 +62,17 @@
       "criterion": "ORACLE-LEGS-1: skills/_shared/itd_verification_loop.py machine, minting for the claim equal to the active follow-up unit, refuses before running any leg when a reviewEvidence.oracleIds entry of that unit's acceptance criteria is not among the --command leg ids, and the refusal names the criterion and the missing oracle; a :general-review claim and a complete leg set mint as before; the new oracle tests/verify_machine_oracle_legs.py is RED on the pre-fix code and GREEN after, and tests/verify_verification_loop.py and tests/verify_review_evidence.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle_legs.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py && sh skills/_shared/itd_py.sh tests/verify_review_evidence.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-03T12:47:12Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle_legs.py: exit 0, stdout sha256 f720d2b5a06e0717, PASSED: 0 failed (25 passed)\nsh skills/_shared/itd_py.sh tests/verify_verification_loop.py: exit 0, stdout sha256 29a59e4b619128b5, 121 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_review_evidence.py: exit 0, stdout sha256 e2488952479ebe80, verify_review_evidence: all ok",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/00cfa70c2226d4da/ORACLE-LEGS-1-adjudication-a2.json",
+        "sha256": "b9a68e0c99e74bd4f4574f1a9de0b48df73342f72813c5b5ced947eed6a073c1",
+        "receiptSha256": "0fcbbeee85419febb74d48e881ea6dabbadd9a0feede5544e0a0d30e3ef78243",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/00cfa70c2226d4da/ORACLE-LEGS-1-machine-7d1146240cc4b990.json",
+        "machineSha256": "6ebfcbd0e0994d51ee66efd7b8fac3aa21918f61d62dd325c05a2c3f02b9678b"
+      }
     },
     {
       "id": "MEMORY-COLLISION-DENY-1",
