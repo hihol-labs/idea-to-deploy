@@ -4571,6 +4571,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "ORACLE-LEGS-1-1-oracle",
+      "unitId": "ORACLE-LEGS-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_machine_oracle_legs.py зеленый на дереве кандидата - itd_verification_loop.py machine для claim, равного открытому activeFollowup.unitId контракта приемки в дереве кандидата, при оракуле из reviewEvidence.oracleIds критерия юнита, которого нет среди id ног --command, выходит с UNVERIFIED до запуска первой ноги, называет каждый такой критерий и оракул и не пишет квитанцию; некорректное явное владение критериями юнита и объявленный, но некорректный reviewEvidence или oracleIds (не объект, не список, пустой, не строка, пробелы по краям, повтор) тоже отказывают до ног, как и таймаут git-пробы контракта; правила продюсера компилируются из текущего исходника itd_review_evidence.py, а не из устаревшего __pycache__; полный набор ног (и лишние ноги), claim :general-review, claim другого юнита, закрытый followup и критерии без reviewEvidence минтят квитанцию как раньше; followup без reviewPolicy проверяется так же; режим committed-head читает контракт закоммиченного дерева; tests/verify_verification_loop.py и tests/verify_review_evidence.py зеленые. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита ORACLE-LEGS-1 из .itd-memory/GOAL.json (редакция и уточнения реализации утверждены владельцем 2026-10-03 до активации); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_machine_oracle_legs.py --loop на itd_verification_loop.py коммита d8dfed2 - FAILED: 18 failed (7 passed of 25), лог .itd-memory/verification-loop/reports/ORACLE-LEGS-1-red-first.log, sha256 459f983fb7f8626c; после фикса PASSED: 0 failed (25 passed); verify_verification_loop 121 passed, 0 failed; verify_review_evidence all ok.",
+      "reviewEvidence": {
+        "claim": "Отказ минта без ноги объявленного оракула и неизменность остальных путей проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_machine_oracle_legs.py && sh skills/_shared/itd_py.sh tests/verify_verification_loop.py && sh skills/_shared/itd_py.sh tests/verify_review_evidence.py",
+      "status": "passed"
+    },
+    {
+      "id": "ORACLE-LEGS-1-2-ledger",
+      "unitId": "ORACLE-LEGS-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-03T11:52:38Z (actor harness, evt-goal-1791028358), юнит in_progress, riskTier medium; переход в verified записывается вне коммита юнита и входит в ledger-close.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4589,9 +4627,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - COMPLETION-SUPERSEDE-1 closed 2026-10-03; goal 3/8, next ORACLE-LEGS-1 (medium) after its activation"
+    "unitId": "ORACLE-LEGS-1",
+    "status": "active",
+    "openedAt": "2026-10-03",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/ORACLE-LEGS-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791028358); fourth unit of the goal approved by the owner 2026-10-01; criterion and implementation notes approved by the owner 2026-10-03 before activation; medium = targeted checker and Sol before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

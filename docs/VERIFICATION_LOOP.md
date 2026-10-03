@@ -188,6 +188,17 @@ the exact `:general-review` suffix, so the subclaim keeps the general and
 security claims separate while still resolving to one primary unit - a receipt
 minted under one claim never unlocks the other.
 
+The machine receipt minted under the bare unit id must carry a leg for every
+`reviewEvidence.oracleIds` entry of that unit's acceptance criteria, because the
+pre-PR producer accepts a criterion only when each of its oracle ids is a run id
+of the receipt. `itd_verification_loop.py machine` checks this before the first
+leg runs (ORACLE-LEGS-1): when the claim equals the open
+`activeFollowup.unitId` of `.itd/ACCEPTANCE_CONTRACT.json` in the candidate
+tree, a missing leg is refused with `UNVERIFIED` naming each criterion and
+oracle id, and no receipt is written. Name the legs after the oracle ids
+(`--command unit=... --command meta-review=...`). A `:general-review` claim, a
+foreign or closed unit and a candidate without that contract are not checked.
+
 Keep the checkout identical to the staged index; unstaged or non-ignored
 untracked files fail closed. Put the exact checker prompt and report under the
 durable, Git-ignored Verification Loop directory. Start the prompt from
@@ -211,10 +222,16 @@ VL="$SHD/itd_verification_loop.py"
 # CLAIM_ID is G-00X for /goal, or <active-unit>:general-review /
 # <active-unit>:security-review for cache gates. EVERY receipt in the chain -
 # machine, checker and adjudication - carries the SAME CLAIM_ID; see the
-# paragraph under this block before minting the first one.
+# paragraph under this block before minting the first one. Under the bare id of
+# an open follow-up unit, pass one --command per reviewEvidence.oracleIds entry
+# of its criteria, the leg id equal to the oracle id; a missing one is refused
+# before any leg runs (ORACLE-LEGS-1, see the paragraph above). The legs below
+# match criteria that declare unit, meta-review and ledger-state.
 MACHINE_RECEIPT=$(sh "$SHD/itd_py.sh" "$VL" machine --root . \
   --unit-id "$CLAIM_ID" --risk-tier "$RISK_TIER" \
-  --command "oracle=$VERIFICATION_COMMAND" \
+  --command "unit=$VERIFICATION_COMMAND" \
+  --command "meta-review=sh skills/_shared/itd_py.sh tests/meta_review.py" \
+  --command "ledger-state=sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json" \
   ${DECLARED_MACHINE_INPUT:+--input "$DECLARED_MACHINE_INPUT"})
 
 # Omit checker + --checker only for low risk. Provider/model/session values
