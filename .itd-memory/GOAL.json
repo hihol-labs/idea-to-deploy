@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T12:47:12Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-03T18:52:52Z",
+  "currentUnitId": "MEMORY-COLLISION-DENY-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -79,7 +79,7 @@
       "criterion": "MEMORY-COLLISION-DENY-1: hooks/state-guard.sh denies a Write that would replace an existing session_*.md memory file younger than the collision window and names the next free suffix in its reason, while Edit, an append and a Write to a new file pass, within the existing per-session deny budget; the new oracle tests/verify_memory_collision_deny.py is RED on the pre-fix hook and GREEN after, and tests/verify_host_neutral_memory.py and tests/verify_all_hard_gate_host_parity.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_memory_collision_deny.py && sh skills/_shared/itd_py.sh tests/verify_host_neutral_memory.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
       "riskTier": "low",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "TEST-RULES-1",

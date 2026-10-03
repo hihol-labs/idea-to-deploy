@@ -15,6 +15,10 @@ state-guard (v1.80.0) — страж state-леджеров `.itd-memory/`.
    escape-hatch для ложных срабатываний, как у narration-final. Ownerless-локи
    (легаси /session-save без поля session) НЕ гейтятся — атрибуция невозможна,
    false-deny хуже. Отключение: ITD_STATE_GUARD=0.
+   MEMORY-COLLISION-DENY-1: Write поверх существующего СВЕЖЕГО (<6 ч)
+   `session_*.md` памяти сессий тоже ОТКЛОНЯЕТСЯ, причина называет следующий
+   свободный суффикс дня; тот же deny-бюджет. Edit, дозапись и новый файл
+   проходят; Bash-канал (mv/cp/редирект) остаётся soft-предупреждением.
 
 2. **PostToolUse Write|Edit|MultiEdit|NotebookEdit (v1.75.0, soft).**
    (а) правка леджера валидируется НЕМЕДЛЕННО через validate_state_core (тот же
@@ -247,9 +251,10 @@ def heartbeat_lock(cwd: Path, sid: str, deep: bool = True) -> None:
 # --- v1.84.0 (retro 2026-07-11 P8): коллизии файлов памяти сессий ------------
 # Live-инцидент: mv поверх существующего session_*.md параллельной сессии затёр
 # её хронику (восстанавливали из JSONL-транскрипта). Прямые записи в memory-дир
-# обходят lockfile-дисциплину /session-save. Soft-guard (warn, не deny —
-# ownership файла памяти неатрибутируем): перезапись СУЩЕСТВУЮЩЕГО и СВЕЖЕГО
-# session-файла подсвечивается один раз per (session, file).
+# обходят lockfile-дисциплину /session-save. Перезапись СУЩЕСТВУЮЩЕГО и
+# СВЕЖЕГО session-файла: Write — deny в общем бюджете отказов
+# (MEMORY-COLLISION-DENY-1, memory_collision_decision); Bash-канал — soft-warn
+# один раз per (session, file).
 SESSION_MEM_FILE_RE = re.compile(
     r"(?:^|[\\/])(?:\.itd-memory|memory)[\\/]"
     r"session_\d{4}-\d{2}-\d{2}[^\\/]*\.md$", re.I)
@@ -261,9 +266,9 @@ BASH_MEM_WRITE_VERB_RE = re.compile(
 MEM_FRESH_SECONDS = 6 * 3600
 
 
-def memory_collision_context(sid: str, file_path: str) -> str | None:
-    m = SESSION_MEM_FILE_RE.search(file_path or "")
-    if not m:
+def _fresh_session_memo(file_path: str) -> Path | None:
+    """Существующий session_*.md моложе окна коллизии, иначе None."""
+    if not SESSION_MEM_FILE_RE.search(file_path or ""):
         return None
     p = Path(file_path)
     try:
@@ -272,7 +277,22 @@ def memory_collision_context(sid: str, file_path: str) -> str | None:
         age = time.time() - p.stat().st_mtime
     except OSError:
         return None
-    if age > MEM_FRESH_SECONDS:
+    return p if age <= MEM_FRESH_SECONDS else None
+
+
+def _next_free_session_name(p: Path) -> str:
+    """Первое свободное имя дня: session_YYYY-MM-DD_N.md, N >= 2."""
+    m = re.match(r"session_\d{4}-\d{2}-\d{2}", p.name, re.I)
+    base = m.group(0) if m else p.stem
+    n = 2
+    while n < 1000 and (p.parent / f"{base}_{n}.md").exists():
+        n += 1
+    return f"{base}_{n}.md"
+
+
+def memory_collision_context(sid: str, file_path: str) -> str | None:
+    p = _fresh_session_memo(file_path)
+    if p is None:
         return None
     safe = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in p.name)[:60]
     sentinel = Path(tempfile.gettempdir()) / f"claude-memcol-{sid[:40]}-{safe}.state"
@@ -397,6 +417,32 @@ def ledger_gate_decision(cwd: Path, sid: str, file_path: str) -> tuple[str, str]
     )
 
 
+def memory_collision_decision(cwd: Path, sid: str, file_path: str) -> tuple[str, str]:
+    """MEMORY-COLLISION-DENY-1: ('allow'|'warn'|'deny', reason) для Write поверх
+    свежего session_*.md. Владение файлом неатрибутируемо, поэтому отказ не
+    зависит от автора; ложный отказ ограничен общим бюджетом MAX_DENIES."""
+    p = _fresh_session_memo(file_path)
+    if p is None:
+        return "allow", ""
+    nxt = _next_free_session_name(p)
+    if _deny_count(sid, cwd) >= MAX_DENIES:
+        return "warn", (
+            f"⚠️ MEMORY-GUARD (auto-allow после {MAX_DENIES} отказов): Write "
+            f"перезаписывает свежий '{p.name}' — если хроника не твоя, она "
+            f"потеряна; следующий свободный файл дня: '{nxt}'."
+        )
+    _bump_deny(sid, cwd)
+    return "deny", (
+        f"FAILED: перезапись файла памяти сессии заблокирована | WHY: '{p.name}' "
+        f"уже существует и свежий (<6 ч) — его могла записать параллельная или "
+        f"прошлая сессия, Write затрёт её хронику (TIER-WORDING-2: файл прошлой "
+        f"сессии затёрт, восстанавливали из резервной копии харнеса) | FIX: пиши "
+        f"в следующий свободный файл '{nxt}' или дописывай '{p.name}' Edit'ом; "
+        f"осознанная перезапись пройдёт после {MAX_DENIES} отказов. "
+        f"Отключение: ITD_STATE_GUARD=0."
+    )
+
+
 # ---------------------------------------------------------------------------
 # PostToolUse Bash — детект мутации леджера в обход Write/Edit (v1.76.0)
 # ---------------------------------------------------------------------------
@@ -492,11 +538,14 @@ def main() -> int:
             return deny(reason)
         ctx = reason if action == "warn" else None
         if tool == "Write":
-            # v1.84.0 P8: Write поверх свежего чужого session_*.md (Edit не
+            # MEMORY-COLLISION-DENY-1 (было soft, v1.84.0 P8): Write поверх
+            # свежего session_*.md отклоняется в общем deny-бюджете (Edit не
             # гейтится — он требует предварительного Read того же содержимого)
-            mem_ctx = memory_collision_context(sid, file_path)
-            if mem_ctx:
-                ctx = (ctx + "\n" + mem_ctx) if ctx else mem_ctx
+            mem_action, mem_reason = memory_collision_decision(cwd, sid, file_path)
+            if mem_action == "deny":
+                return deny(mem_reason)
+            if mem_reason:
+                ctx = (ctx + "\n" + mem_reason) if ctx else mem_reason
         return emit("PreToolUse", ctx)
 
     # --- PostToolUse ---
