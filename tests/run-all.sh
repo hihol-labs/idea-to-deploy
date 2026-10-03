@@ -188,7 +188,7 @@ CORE="meta_review verify_triggers verify_gate_taxonomy verify_registration_and_c
 # --- полный python-набор обоих workflow --------------------------------------
 FULL="verify_cmp_protocol verify_dod_gate verify_skill_enforcement verify_agent_review_sentinel \
 verify_review_cache verify_review_sentinel_diffbind verify_risk_score \
-verify_review_autoping verify_refute_fleet \
+verify_review_autoping verify_refute_fleet verify_test_skill_rules \
 verify_dod_coverage verify_stall_fallback verify_feature_ledger \
 verify_feature_ledger_completeness verify_feature_ledger_fallbacks \
 verify_retro_abstention_review verify_feature_ledger_adoptions \

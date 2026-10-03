@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "MEMORY-COLLISION-DENY-1",
-    "goal": "MEMORY-COLLISION-DENY-1: hooks/state-guard.sh denies a Write that would replace an existing session_*.md memory file younger than the collision window and names the next free suffix in its reason, while Edit, an append and a Write to a new file pass, within the existing per-session deny budget; the new oracle tests/verify_memory_collision_deny.py is RED on the pre-fix hook and GREEN after, and tests/verify_host_neutral_memory.py and tests/verify_all_hard_gate_host_parity.py stay green.",
-    "status": "verified",
-    "startedAt": "2026-10-03T18:52:52Z",
+    "id": "TEST-RULES-1",
+    "goal": "TEST-RULES-1: skills/test/SKILL.md Step 5.5 states two rules - a mutation marker must occur exactly once in the mutated file and the mutation helper checks that before applying it, and fixtures with non-ASCII or invisible characters are written as escape sequences by a script because the file-write tool decodes them; the new oracle tests/verify_test_skill_rules.py checks both rules in the skill text and is RED before the edit and GREEN after, and tests/verify_refute_fleet.py stays green.",
+    "status": "in_progress",
+    "startedAt": "2026-10-03T19:44:10Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-10-03T19:19:30Z"
+    "riskTier": "low"
   },
   "gateResults": {
     "acceptanceContract": "pending",
