@@ -135,6 +135,7 @@
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_ledger_reconciliation.py",
+      "tests/verify_memory_collision_deny.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
@@ -1027,6 +1028,7 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
+      "tests/verify_memory_collision_deny.py",
       "tests/verify_state_hardening.py"
     ],
     "hooks/stuck-detection.sh": [
@@ -2075,6 +2077,9 @@
     ],
     "tests/verify_machine_oracle.py": [
       "tests/verify_quick_regression.py"
+    ],
+    "tests/verify_memory_collision_deny.py": [
+      "tests/verify_state_hardening.py"
     ],
     "tests/verify_narration_final.py": [
       "tests/verify_harness_map_fixtures.py",

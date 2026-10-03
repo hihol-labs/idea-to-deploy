@@ -193,7 +193,7 @@ verify_dod_coverage verify_stall_fallback verify_feature_ledger \
 verify_feature_ledger_completeness verify_feature_ledger_fallbacks \
 verify_retro_abstention_review verify_feature_ledger_adoptions \
 verify_init_contracts verify_review_report_file \
-verify_state_hardening verify_source_read_contract \
+verify_state_hardening verify_memory_collision_deny verify_source_read_contract \
 verify_execution_trace_outcome \
 verify_signal_attribution \
 verify_verify_signal_and_watchdog \
