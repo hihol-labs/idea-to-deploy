@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-02T20:29:42Z",
-  "currentUnitId": "COMPLETION-SUPERSEDE-1",
+  "updatedAt": "2026-10-03T08:28:57Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -45,7 +45,17 @@
       "id": "COMPLETION-SUPERSEDE-1",
       "criterion": "COMPLETION-SUPERSEDE-1 (split from COMPLETION-FALSE-RED-1 by the owner 2026-10-02): the completion gate stops counting a red run of an oracle (a one-off run or a /test Step 5.5 mutation run alike) when the latest runner record of the same invocation is green; the invocation identity and the outcome come from the record written by the runner (skills/_shared/itd_py.sh: script path, arguments, run directory, exit code) and not from parsing the command text, and a record counts only when its run id appears in the output of the Bash call the hook itself observed; superseding only removes a red and never creates a pass. A red whose latest record of that invocation is red, a red without a runner record, a record not matched to an observed call and a real failing test still block the commit. The runner keeps the exit code, stdout and stderr of the wrapped command unchanged, and a failure to write the record leaves the run judged as before the fix. The new oracle tests/verify_completion_supersede.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py, tests/verify_completion_adversarial_corpus.py and tests/verify_completion_false_red.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_supersede.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py && sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-03T08:28:56Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_completion_supersede.py: exit 0, stdout sha256 273923268864b573, PASSED: 0 failed (83 passed)\nsh skills/_shared/itd_py.sh tests/verify_completion_gate.py: exit 0, stdout sha256 485226f60d5ca91d, 60 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py: exit 0, stdout sha256 0fa112199015bdb8, }\nsh skills/_shared/itd_py.sh tests/verify_completion_false_red.py: exit 0, stdout sha256 f0e14394b6346b76, PASSED: 0 failed (44 passed)",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/8d15e8bd105db53d/COMPLETION-SUPERSEDE-1-adjudication-a2.json",
+        "sha256": "126563cf8533043e3e8834c386f5ab41ddf9fff1caeab022ff0035ab8a110203",
+        "receiptSha256": "df55700026abee936a23628556c49a9f04b786d60ac75362257437274d10d01c",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/8d15e8bd105db53d/COMPLETION-SUPERSEDE-1-machine-944efbe05248415a.json",
+        "machineSha256": "8e5d8113578c7665b9e3b360674054f603917fef95761778199c9bf3ec2989f1"
+      }
     },
     {
       "id": "ORACLE-LEGS-1",

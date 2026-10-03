@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "COMPLETION-SUPERSEDE-1",
     "goal": "COMPLETION-SUPERSEDE-1 (split from COMPLETION-FALSE-RED-1 by the owner 2026-10-02): the completion gate stops counting a red run of an oracle (a one-off run or a /test Step 5.5 mutation run alike) when the latest runner record of the same invocation is green; the invocation identity and the outcome come from the record written by the runner (skills/_shared/itd_py.sh: script path, arguments, run directory, exit code) and not from parsing the command text, and a record counts only when its run id appears in the output of the Bash call the hook itself observed; superseding only removes a red and never creates a pass. A red whose latest record of that invocation is red, a red without a runner record, a record not matched to an observed call and a real failing test still block the commit. The runner keeps the exit code, stdout and stderr of the wrapped command unchanged, and a failure to write the record leaves the run judged as before the fix. The new oracle tests/verify_completion_supersede.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py, tests/verify_completion_adversarial_corpus.py and tests/verify_completion_false_red.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-02T20:29:42Z",
     "ledger": "GOAL.json",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-10-03T08:28:57Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
