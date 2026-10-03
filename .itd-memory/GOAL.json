@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T18:52:52Z",
-  "currentUnitId": "MEMORY-COLLISION-DENY-1",
+  "updatedAt": "2026-10-03T19:19:30Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -79,7 +79,17 @@
       "criterion": "MEMORY-COLLISION-DENY-1: hooks/state-guard.sh denies a Write that would replace an existing session_*.md memory file younger than the collision window and names the next free suffix in its reason, while Edit, an append and a Write to a new file pass, within the existing per-session deny budget; the new oracle tests/verify_memory_collision_deny.py is RED on the pre-fix hook and GREEN after, and tests/verify_host_neutral_memory.py and tests/verify_all_hard_gate_host_parity.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_memory_collision_deny.py && sh skills/_shared/itd_py.sh tests/verify_host_neutral_memory.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
       "riskTier": "low",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-03T19:19:30Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_memory_collision_deny.py: exit 0, stdout sha256 fa92755d2d043c40, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/verify_host_neutral_memory.py: exit 0, stdout sha256 478f4c99ad24c6d7, 18 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py: exit 0, stdout sha256 61308afe214eab7e, 101 passed, 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/82dd314f583addf6/MEMORY-COLLISION-DENY-1-adjudication-a1.json",
+        "sha256": "a40b54f3236c540dec6170d2ce08334e0dff5d5fda0dc7d6efe262d45ceb033d",
+        "receiptSha256": "2a7044ac89b7032f6b01009b8c30e04bfe75f00d90969861e5ebd5ae050b0771",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/82dd314f583addf6/MEMORY-COLLISION-DENY-1-machine-48dce421f407e5cf.json",
+        "machineSha256": "d6a145c43be38ac983c237b939458fe41d6225526d20c9110eb59e63ea7a19f5"
+      }
     },
     {
       "id": "TEST-RULES-1",

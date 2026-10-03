@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "MEMORY-COLLISION-DENY-1",
     "goal": "MEMORY-COLLISION-DENY-1: hooks/state-guard.sh denies a Write that would replace an existing session_*.md memory file younger than the collision window and names the next free suffix in its reason, while Edit, an append and a Write to a new file pass, within the existing per-session deny budget; the new oracle tests/verify_memory_collision_deny.py is RED on the pre-fix hook and GREEN after, and tests/verify_host_neutral_memory.py and tests/verify_all_hard_gate_host_parity.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-03T18:52:52Z",
     "ledger": "GOAL.json",
-    "riskTier": "low"
+    "riskTier": "low",
+    "completedAt": "2026-10-03T19:19:30Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
