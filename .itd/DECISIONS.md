@@ -5381,3 +5381,27 @@ evt-completion-bypass-1791054342789863): единственный красный
   «escape sequence» + «script». M2 - проверка подключения к `tests/run-all.sh` подстрочная и прошла бы
   на комментарии; принято - оракул сам требует шаг в CI-workflow, а `tests/verify_runall_drift.py`
   (CI ⊆ run-all, парсит `FULL=`) краснеет, если шаг CI есть, а в списке run-all имени нет.
+
+## 2026-10-03 - TEST-RULES-1: ledger-close (юнит verified харнесом, цель 6/8)
+
+**Публикация.** Владелец 2026-10-03: «Да, как есть» (критерий и план до активации), «мерж» после зеленого CI.
+PR #343 (head `d72dd77`, дерево `3c480b6ce5a5`) смержен сквошем -> main `9ecd445` (то же дерево, родитель
+`dec2218`).
+
+**ОТК.** Квитанция committed-head на main под claim юнита (каталог `e5b543ff4e4c57d1`: дерево и дифф к родителю те
+же) -> adjudication a1, `check --require-mandatory-route` rc 0. Харнес: `VERIFIED TEST-RULES-1`
+2026-10-03T20:30:25Z с первой попытки (оракул 8/0, refute fleet 19/0), actor harness; currentUnitId пуст,
+следующий юнит OTK-FAILED-ATTEMPT-1 (medium, на старте выбор владельца) - новой сессией.
+
+**Цена маршрута.** Маршрут low без внешнего ревьюера: RED-first на байтах dec2218 (0/8), 10 мутаций (все
+летальны), /review r1 PASSED (2 minor, оба приняты с обоснованием) и машинные квитанции (staged a1 под
+`:general-review`, committed-head a2 для реестра, a1 под claim юнита для ОТК). CI с первого запуска.
+COMPLETION_BYPASS на одном коммите (d72dd77): красные L2 - ad-hoc python-проба форка /review (вывод `-> 0`) и
+RED-воспроизведение на байтах main, запущенное без записи прогона. Своя ошибка атрибуции (повтор маркера
+приписан TIER-WORDING-2 вместо STOPRULE-STUB-1) найдена до /review и исправлена в четырех файлах.
+
+**Уроки.** (1) RED-first воспроизведение тоже запускать через `ITD_RUN_RECORD=1 sh skills/_shared/itd_py.sh`,
+иначе одноразовый красный держит коммит. (2) Запись review-cache принимает только staged-кандидата: на
+committed-head она отклоняется («receipt does not match the exact current candidate») - писать ее до коммита.
+(3) Heartbeat-хук переписывает `.itd-memory/.active-session.lock` id текущей сессии, но с устаревшими `branch` и
+`note`, и pre-flight показывает ложное предупреждение о параллельной сессии - кандидат в BACKLOG.

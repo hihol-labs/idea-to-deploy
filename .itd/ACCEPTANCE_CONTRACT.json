@@ -4703,23 +4703,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "TEST-RULES-1",
-    "status": "active",
-    "openedAt": "2026-10-03",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/TEST-RULES-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "low",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 0,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "machine-only"
-    },
-    "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791056650); sixth unit of the goal approved by the owner 2026-10-01; criterion checked against skills/test/SKILL.md Step 5.5 and approved by the owner 2026-10-03 before activation; low = machine-only adjudication, /review before the commit."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - TEST-RULES-1 closed 2026-10-03; goal 6/8, next OTK-FAILED-ATTEMPT-1 (medium) after the owner's choice and its activation"
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5135,6 +5121,27 @@
       "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791053572); fifth unit of the goal approved by the owner 2026-10-01; criterion checked against hooks/state-guard.sh and approved by the owner 2026-10-03 before activation (no ownership check, shell channel stays soft); low = machine-only adjudication, /review before the commit.",
       "closedAt": "2026-10-03T19:19:30Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-03T19:19:30Z (VERIFIED MEMORY-COLLISION-DENY-1 - tests/verify_memory_collision_deny.py exit 0 PASSED: 0 failed, tests/verify_host_neutral_memory.py exit 0 18 passed, 0 failed, tests/verify_all_hard_gate_host_parity.py exit 0 101 passed, 0 failed; event evt-goal-1791055170-5555d9514e2a4ebb84467db0240e5d21, actor harness) on the merged tree 5a9494acd641 (main 548ef1c = squash of PR #341, tree-identical to the branch commit 2f50cde) with receipt .itd-memory/verification-loop/receipts/82dd314f583addf6/MEMORY-COLLISION-DENY-1-adjudication-a1.json (machine-only, low; committed-head mint on merged main, legs unit/meta-review/ledger-state; mandatory route check rc 0). Publication: criterion checked against hooks/state-guard.sh and approved by the owner before activation; low route = /review r1 (fork, PASSED, 3 minor: stale comment rewritten, the reverse cost of the shared budget recorded in DECISIONS, incident id in the refusal kept); machine receipts staged a1 + committed-head a2 under MEMORY-COLLISION-DENY-1:general-review, review-cache PASSED; gate registry registered with a2 (keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #341, CI Gate 1 1m19s + windows-verify 5m11s pass, squash merge on the owner's command."
+    },
+    {
+      "unitId": "TEST-RULES-1",
+      "status": "closed",
+      "openedAt": "2026-10-03",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/TEST-RULES-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "low",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 0,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "machine-only"
+      },
+      "note": "Activated by the goal harness 2026-10-03 (evt-goal-1791056650); sixth unit of the goal approved by the owner 2026-10-01; criterion checked against skills/test/SKILL.md Step 5.5 and approved by the owner 2026-10-03 before activation; low = machine-only adjudication, /review before the commit.",
+      "closedAt": "2026-10-03T20:30:25Z",
+      "closureEvidence": "Verified by the goal harness on 2026-10-03T20:30:25Z (VERIFIED TEST-RULES-1 - tests/verify_test_skill_rules.py exit 0 8 passed, 0 failed, tests/verify_refute_fleet.py exit 0 19 passed, 0 failed; event evt-goal-1791059425-bf4dbeaa76fc40c3b0e4e0865c665ac7, actor harness) on the merged tree 3c480b6ce5a5 (main 9ecd445 = squash of PR #343, tree-identical to the branch commit d72dd77) with receipt .itd-memory/verification-loop/receipts/e5b543ff4e4c57d1/TEST-RULES-1-adjudication-a1.json (machine-only, low; committed-head mint on merged main, legs unit/meta-review/ledger-state; mandatory route check rc 0). Publication: criterion checked against skills/test/SKILL.md Step 5.5 and approved by the owner before activation; low route = RED-first on the bytes of dec2218 (0/8), 10 lethal mutations, /review r1 (fork, PASSED, 2 minor accepted and recorded in DECISIONS); machine receipts staged a1 + committed-head a2 under TEST-RULES-1:general-review, review-cache PASSED; gate registry registered with a2 (keyring 90df6b85) -> doctor LOCAL_REVIEWED; itd pr create -> PR #343, CI Gate 1 1m44s + windows-verify 4m19s pass, squash merge on the owner's command."
     }
   ]
 }
