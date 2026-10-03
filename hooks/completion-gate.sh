@@ -734,7 +734,7 @@ def main() -> int:
             return deny(reason)
 
         if strict:
-            evidence_ok, evidence_reason = runtime_evidence_status(signals, policy)
+            evidence_ok, evidence_reason = runtime_evidence_status(cl.counted_signals(cwd, signals), policy)
             if not evidence_ok:
                 return strict_deny(evidence_reason, risk_tier)
             rerun_ok, rerun_reason = rerun_strict_verification(cwd, policy)

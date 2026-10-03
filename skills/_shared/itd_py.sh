@@ -60,6 +60,23 @@ if [ $# -eq 0 ]; then
   exit 0
 fi
 
+# Запись прогона (COMPLETION-SUPERSEDE-1) — только по явному ITD_RUN_RECORD=1:
+# обёртка itd_run_record.py исполняет ту же команду тем же интерпретатором,
+# возвращает её код выхода и пишет запись прогона (скрипт, аргументы, каталог,
+# код, режим, интерпретатор, хвост вывода) + строку
+# `ITD-RUN <id>` в stderr. Без переменной (и без файла обёртки) запуск прежний.
+case "$0" in
+  */*) RECORDER="${0%/*}/itd_run_record.py" ;;
+  *) RECORDER="./itd_run_record.py" ;;
+esac
+if [ "${ITD_RUN_RECORD:-}" = "1" ] && [ -f "$RECORDER" ]; then
+  if [ "$ISOLATED" -eq 1 ]; then
+    set -- "$RECORDER" --itd-isolated "$@"
+  else
+    set -- "$RECORDER" "$@"
+  fi
+fi
+
 if [ -n "$PYBIN" ]; then
   if [ "$ISOLATED" -eq 1 ]; then
     exec "$PYBIN" -I "$@"
