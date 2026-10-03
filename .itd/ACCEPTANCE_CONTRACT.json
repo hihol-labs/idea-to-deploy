@@ -4533,6 +4533,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "COMPLETION-SUPERSEDE-1-1-oracle",
+      "unitId": "COMPLETION-SUPERSEDE-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_completion_supersede.py зеленый на дереве кандидата - красный прогон оракула с записью раннера (rc != 0) не дает красного слоя, когда последняя запись того же вызова (скрипт, аргументы, режим --itd-isolated, интерпретатор, слой) - зеленый прогон из корня проекта на текущем HEAD (у проекта есть HEAD, и зеленый сигнал называет тот же; и в калиброванном, и в строгом режиме гейта); запись привязывается к сигналу только по единственной строке ITD-RUN <id> и только если каждая наблюденная строка вызова - строка самого прогона (не чаще, чем он ее напечатал) либо одно эхо кода в форме 'EXIT: N', равное записанному, и расходуется первым вызовом, показавшим ее id, даже без привязки; строки сравниваются посимвольно; каталог записей доступен только владельцу; красный без записи, запись без файла, испорченная запись, повтор id, вывод другой команды до или после прогона в том же вызове, зеленый другого скрипта, с другими аргументами, в другом режиме, другим интерпретатором или другого слоя, зеленый вне корня проекта, зеленый с исходом не pass или кодом не 0, более поздний красный и реальный провал теста блокируют коммит; раннер без ITD_RUN_RECORD=1 побайтно прежний, с переменной сохраняет код выхода, stdout и stderr обернутой команды, добавляет одну строку ITD-RUN в stderr и пересылает SIGTERM обернутой команде; tests/verify_completion_gate.py, tests/verify_completion_adversarial_corpus.py и tests/verify_completion_false_red.py зеленые. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита COMPLETION-SUPERSEDE-1 из .itd-memory/GOAL.json (редакция утверждена владельцем 2026-10-02 до активации); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_completion_supersede.py на hooks и skills/_shared коммита 308df99 (--hooks/--shared) - FAILED: 21 failed (62 passed), лог .itd-memory/verification-loop/reports/COMPLETION-SUPERSEDE-1-red-first.log, sha256 c7ebf12902522791; после фикса PASSED: 0 failed (83 passed).",
+      "reviewEvidence": {
+        "claim": "Гашение красного по записи раннера и все блокирующие ветки проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_supersede.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py && sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py",
+      "status": "passed"
+    },
+    {
+      "id": "COMPLETION-SUPERSEDE-1-2-ledger",
+      "unitId": "COMPLETION-SUPERSEDE-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-02T20:29:42Z (actor harness, evt-goal-1790972982), юнит in_progress, riskTier high; переход в verified записывается вне коммита юнита и входит в ledger-close.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4551,9 +4589,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - COMPLETION-FALSE-RED-1 closed 2026-10-02; goal 2/8, next COMPLETION-SUPERSEDE-1 (high) after its activation"
+    "unitId": "COMPLETION-SUPERSEDE-1",
+    "status": "active",
+    "openedAt": "2026-10-02",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/COMPLETION-SUPERSEDE-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-02 (evt-goal-1790972982); third unit of the goal approved by the owner 2026-10-01; criterion wording approved by the owner 2026-10-02 before activation; high = full independent checker and Sol before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

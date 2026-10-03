@@ -251,6 +251,7 @@
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_gate.py",
+      "tests/verify_completion_supersede.py",
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_gate_control.py",
       "tests/verify_gate_registry_binding.py",
@@ -870,6 +871,7 @@
       "tests/verify_completion_gate.py",
       "tests/verify_completion_policy_calibration.py",
       "tests/verify_completion_signals_powershell.py",
+      "tests/verify_completion_supersede.py",
       "tests/verify_control_quality.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
@@ -882,6 +884,7 @@
     "hooks/completion-signals.sh": [
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_signals_powershell.py",
+      "tests/verify_completion_supersede.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_strict_completion_policy.py"
     ],
@@ -895,6 +898,7 @@
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_gate.py",
       "tests/verify_completion_signal_classes.py",
+      "tests/verify_completion_supersede.py",
       "tests/verify_control_quality.py",
       "tests/verify_init_contracts.py",
       "tests/verify_signal_attribution.py",
@@ -1342,6 +1346,7 @@
     "skills/_shared/itd_py.sh": [
       "tests/verify_closure_delta.py",
       "tests/verify_completion_false_red.py",
+      "tests/verify_completion_supersede.py",
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_handoff_untracked.py",
       "tests/verify_harness_conformance.py",
@@ -1381,6 +1386,9 @@
       "tests/verify_risk_tier_default.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
+    ],
+    "skills/_shared/itd_run_record.py": [
+      "tests/verify_completion_supersede.py"
     ],
     "skills/_shared/itd_safe_atomic.py": [
       "tests/verify_completion_gate.py",

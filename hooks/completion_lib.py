@@ -893,6 +893,135 @@ def _recompute_check(script: Path, root: Path):
     return (proc.returncode, marks[0]) if len(marks) == 1 else None
 
 
+# ---------------------------------------------------------------------------
+# COMPLETION-SUPERSEDE-1: запись прогона раннером вместо разбора текста команды.
+# `ITD_RUN_RECORD=1 sh skills/_shared/itd_py.sh <script>` пишет запись
+# {id, script, args, cwd, rc, isolated, python, lines} и строку `ITD-RUN <id>`
+# в stderr. Запись привязывается к сигналу, только если ВЕСЬ вывод, который хук
+# наблюдал сам, принадлежит этому прогону, и расходуется первым таким вызовом.
+# Красный с записью снимается, когда ПОСЛЕДНЯЯ запись того же вызова — зелёный
+# прогон из корня проекта; снятие только убирает красный, pass не создаёт.
+# ---------------------------------------------------------------------------
+RUN_LINE_RE = re.compile(r"^ITD-RUN ([0-9a-f]{32})$")
+# Только литерал `echo "EXIT: $?"`; код выхода - не больше трех цифр (0..255 у шелла):
+# длинная цифровая строка не доходит до int() и не роняет классификацию.
+_RUN_EXIT_ECHO_RE = re.compile(r"^EXIT: ([0-9]{1,3})$")
+
+
+def run_records_dir() -> Path:
+    override = os.environ.get("ITD_RUN_RECORD_DIR")
+    if override:
+        return Path(override)
+    return Path.home() / ".local" / "state" / "itd" / "runs"
+
+
+def _run_fields_ok(run) -> bool:
+    return (isinstance(run, dict)
+            and isinstance(run.get("id"), str) and bool(run["id"])
+            and isinstance(run.get("script"), str) and bool(run["script"])
+            and isinstance(run.get("args"), list)
+            and all(isinstance(a, str) for a in run["args"])
+            and isinstance(run.get("cwd"), str) and bool(run["cwd"])
+            and type(run.get("rc")) is int
+            and type(run.get("isolated")) is bool
+            and isinstance(run.get("python"), str) and bool(run["python"]))
+
+
+def match_run_record(text: str) -> dict | None:
+    """Запись прогона, которому принадлежит весь наблюдённый вывод, или None.
+
+    Fail-closed: ровно одна строка `ITD-RUN <id>`; запись существует и
+    корректна; каждая непустая строка вывода — посимвольно строка самого
+    прогона (не чаще, чем прогон её напечатал) либо одно эхо кода выхода,
+    равное записанному. Порядок строк не важен: stdout и stderr вызова приходят
+    раздельно. Вывод любой другой команды того же вызова (до или после прогона)
+    отвязывает запись. Запись расходуется первым вызовом, показавшим её id, —
+    даже если привязка не состоялась: повтор того же id её уже не найдёт.
+    """
+    # Пустые строки не сравниваются: хост склеивает stdout и stderr вызова через
+    # перевод строки, и пустая строка на стыке ничья. Команда, печатающая только
+    # пустые строки, для гейта равна молчащей (граница в docs/completion-gate.md).
+    lines = [ln for ln in (text or "").splitlines() if ln]
+    ids = [ln.split(" ", 1)[1] for ln in lines if RUN_LINE_RE.match(ln)]
+    shown: dict = {}
+    for run_id in set(ids):
+        path = run_records_dir() / (run_id + ".json")
+        try:
+            raw = path.read_text(encoding="utf-8")
+            path.unlink()
+        except OSError:
+            continue
+        shown[run_id] = raw
+    if len(ids) != 1 or ids[0] not in shown:
+        return None
+    run_id = ids[0]
+    try:
+        rec = json.loads(shown[run_id])
+    except ValueError:
+        return None
+    if not (_run_fields_ok(rec) and rec["id"] == run_id
+            and isinstance(rec.get("lines"), list)
+            and all(isinstance(ln, str) for ln in rec["lines"])):
+        return None
+    budget: dict = {}
+    for ln in rec["lines"]:
+        budget[ln] = budget.get(ln, 0) + 1
+    echoes = 0
+    for ln in lines:
+        if RUN_LINE_RE.match(ln):
+            continue
+        if budget.get(ln, 0) > 0:
+            budget[ln] -= 1
+            continue
+        m = _RUN_EXIT_ECHO_RE.match(ln)
+        if m is None or echoes or int(m.group(1)) != rec["rc"]:
+            return None
+        echoes += 1
+    return {k: rec[k] for k in ("id", "script", "args", "cwd", "rc", "isolated", "python")}
+
+
+def _real(path) -> str:
+    return os.path.normcase(os.path.realpath(str(path)))
+
+
+def _run_key(sig) -> tuple | None:
+    """Идентичность вызова: скрипт, аргументы, режим, интерпретатор, слой."""
+    run = sig.get("run") if isinstance(sig, dict) else None
+    if not _run_fields_ok(run):
+        return None
+    return (run["script"], tuple(run["args"]), run["isolated"], run["python"],
+            sig.get("layer"))
+
+
+def counted_signals(cwd: Path, signals: list) -> list:
+    """Сигналы без красных, которые вытеснила более поздняя зелёная запись."""
+    head = _git_head(cwd)
+    root = _real(cwd)
+    seen: set = set()
+    recorded: dict = {}  # индекс сигнала -> ключ вызова
+    latest: dict = {}    # ключ вызова -> зелёная ли его последняя запись
+    for i, s in enumerate(signals):
+        key = _run_key(s)
+        if key is None or s["run"]["id"] in seen:
+            continue
+        seen.add(s["run"]["id"])
+        recorded[i] = key
+        green = (s.get("outcome") == "pass"
+                 and s["run"]["rc"] == 0
+                 and _real(s["run"]["cwd"]) == root
+                 and bool(head) and s.get("head") == head)
+        latest[key] = green
+    out = []
+    for i, s in enumerate(signals):
+        key = recorded.get(i)
+        if (key is not None and s.get("outcome") == "fail"
+                and s["run"]["rc"] != 0
+                and latest[key]):  # последняя запись зелёная => она позже красного
+            continue
+        out.append(s)
+    return out
+
+
 def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict | None:
     """Одна Bash/PowerShell-команда -> один runtime-сигнал (или None).
 
@@ -960,7 +1089,7 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
     ev = ""
     for line in reversed(text.splitlines()):
         s = line.strip()
-        if s:
+        if s and not RUN_LINE_RE.match(s):
             ev = s[:200]
             break
 
@@ -993,6 +1122,11 @@ def classify_bash(command: str, tool_response, cwd: Path | None = None) -> dict 
         sig["anomaly"] = "memory"
     if expected_exit:
         sig["expected_exit"] = expected_exit
+    # Запись прогона раннером (SUPERSEDE-1): исход сигнала не меняется, запись
+    # лишь даёт идентичность вызова для counted_signals.
+    run = match_run_record(text)
+    if run:
+        sig["run"] = run
 
     # Полный контекст ошибки (пункт 1 статьи: «не просто сообщение»): команда
     # уже в сигнале, добавляем хвост вывода (stderr/stdout смешаны в text).
@@ -1314,6 +1448,7 @@ def compute_verdict(cwd: Path, signals: list) -> dict:
     real_tests = False if declared_l2 else repo_has_tests(cwd)
     has_tests = real_tests or declared_l2
     head = _git_head(cwd)
+    signals = counted_signals(cwd, signals)
     l1s, l1e = _layer_status(signals, 1, head)
     l2s, l2e = _layer_status(signals, 2, head)
     l3s, l3e = _layer_status(signals, 3, head)

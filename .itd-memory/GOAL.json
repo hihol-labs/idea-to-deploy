@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-02T14:21:08Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-02T20:29:42Z",
+  "currentUnitId": "COMPLETION-SUPERSEDE-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -43,9 +43,9 @@
     {
       "riskTier": "high",
       "id": "COMPLETION-SUPERSEDE-1",
-      "criterion": "COMPLETION-SUPERSEDE-1 (split from COMPLETION-FALSE-RED-1 by the owner 2026-10-02): the completion gate stops counting the expected red of a declared mutation run (/test Step 5.5) and a red of a one-off oracle run that a later green run of the same oracle supersedes, judged from execution evidence recorded by the runner (skills/_shared/itd_py.sh: argv, run directory, tree, exit code) and not from parsing the command text; a real failing test, a red without a later green run of the same recorded invocation and a run without a runner record still block the commit; the new oracle tests/verify_completion_supersede.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py, tests/verify_completion_adversarial_corpus.py and tests/verify_completion_false_red.py stay green.",
+      "criterion": "COMPLETION-SUPERSEDE-1 (split from COMPLETION-FALSE-RED-1 by the owner 2026-10-02): the completion gate stops counting a red run of an oracle (a one-off run or a /test Step 5.5 mutation run alike) when the latest runner record of the same invocation is green; the invocation identity and the outcome come from the record written by the runner (skills/_shared/itd_py.sh: script path, arguments, run directory, exit code) and not from parsing the command text, and a record counts only when its run id appears in the output of the Bash call the hook itself observed; superseding only removes a red and never creates a pass. A red whose latest record of that invocation is red, a red without a runner record, a record not matched to an observed call and a real failing test still block the commit. The runner keeps the exit code, stdout and stderr of the wrapped command unchanged, and a failure to write the record leaves the run judged as before the fix. The new oracle tests/verify_completion_supersede.py is RED on the pre-fix code and GREEN after, and tests/verify_completion_gate.py, tests/verify_completion_adversarial_corpus.py and tests/verify_completion_false_red.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_completion_supersede.py && sh skills/_shared/itd_py.sh tests/verify_completion_gate.py && sh skills/_shared/itd_py.sh tests/verify_completion_adversarial_corpus.py && sh skills/_shared/itd_py.sh tests/verify_completion_false_red.py",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "ORACLE-LEGS-1",

@@ -165,6 +165,15 @@ breaking what it supposedly checks, treat its coverage claim as unproven.
 - Confirmed (fails under mutation) → real coverage, keep it.
 - **Trivial / non-behavioral tests are NOT mutation-checked** — the cost is not
   justified.
+- **Record the mutation run (COMPLETION-SUPERSEDE-1).** The red of a mutation run
+  is expected, but the completion gate sees a failed test. Launch the oracle
+  through the runner with a record — `ITD_RUN_RECORD=1 sh skills/_shared/itd_py.sh
+  <oracle> [args]`, one recorded run per Bash call with nothing else printing in
+  it, the oracle's summary line kept in the output (`| tail -3`, not `| tail -1`
+  or `| cut`) — and after reverting the
+  mutation run the same oracle the same way from the project root: the later
+  green record supersedes the red one (`docs/completion-gate.md`). A red without
+  a record, or without that final green run, still blocks the commit.
 
 **Invariant:** the refute pass can only REMOVE vacuous tests from the trusted
 coverage set; it never fabricates a passing test and never reports mutation
