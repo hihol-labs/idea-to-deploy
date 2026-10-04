@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-04T11:34:46Z",
-  "currentUnitId": "OTK-FAILED-ATTEMPT-1",
+  "updatedAt": "2026-10-04T13:30:32Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -113,7 +113,17 @@
       "criterion": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_failed_attempt.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py && sh skills/_shared/itd_py.sh tests/verify_retro_scan.py",
       "riskTier": "medium",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-04T13:30:32Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_otk_failed_attempt.py: exit 0, stdout sha256 fea4c86fa8124c73, 16 passed, 0 failed\nsh skills/_shared/itd_py.sh tests/verify_closure_delta.py: exit 0, stdout sha256 9651dc9dad85238f, PASSED: 0 failed\nsh skills/_shared/itd_py.sh tests/verify_retro_scan.py: exit 0, stdout sha256 ea6eac370ddd0795, 28 passed, 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/fb1755141f95f717/OTK-FAILED-ATTEMPT-1-adjudication-a2.json",
+        "sha256": "253dc9feb78c03ee27889e621bdb331eba6fa6fb5f9976c1c34ea99063837bf1",
+        "receiptSha256": "f058919e8b907d35007abb3f89de1894a6de85ed952049fdc8f5e19a7d916c9e",
+        "outcome": "PASSED",
+        "machinePath": ".itd-memory/verification-loop/receipts/fb1755141f95f717/OTK-FAILED-ATTEMPT-1-machine-8b55cd7bee39fb93.json",
+        "machineSha256": "e1d8433a8a02eff773be330bb90208b066e8102fa0e9a27d58262b6f8d86f4f7"
+      }
     },
     {
       "id": "OTK-HOST-TREE-1",

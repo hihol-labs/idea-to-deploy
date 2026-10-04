@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "OTK-FAILED-ATTEMPT-1",
     "goal": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-04T11:34:46Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-10-04T13:30:32Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",
