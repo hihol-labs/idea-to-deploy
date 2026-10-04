@@ -65,18 +65,20 @@ def read_unit(mem):
 
 
 def failed_events(mem, unit_id):
-    path = os.path.join(mem, "events.jsonl")
-    if not os.path.isfile(path):
-        return []
+    # A failed attempt goes to the untracked attempts journal (OTK-FAILED-ATTEMPT-1); the
+    # tracked events.jsonl is read too, so a regression back into it is still counted.
     out = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            event = json.loads(line)
-            if event.get("name") == unit_id and event.get("decision") == "verification_failed":
-                out.append(event)
+    for path in (os.path.join(mem, "events.jsonl"), os.path.join(mem, "attempts", "attempts.jsonl")):
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                event = json.loads(line)
+                if event.get("name") == unit_id and event.get("decision") == "verification_failed":
+                    out.append(event)
     return out
 
 

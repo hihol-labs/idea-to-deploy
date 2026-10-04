@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-03T20:30:25Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-04T11:34:46Z",
+  "currentUnitId": "OTK-FAILED-ATTEMPT-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -113,7 +113,7 @@
       "criterion": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_failed_attempt.py && sh skills/_shared/itd_py.sh tests/verify_closure_delta.py && sh skills/_shared/itd_py.sh tests/verify_retro_scan.py",
       "riskTier": "medium",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "OTK-HOST-TREE-1",

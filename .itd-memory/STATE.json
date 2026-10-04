@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "TEST-RULES-1",
-    "goal": "TEST-RULES-1: skills/test/SKILL.md Step 5.5 states two rules - a mutation marker must occur exactly once in the mutated file and the mutation helper checks that before applying it, and fixtures with non-ASCII or invisible characters are written as escape sequences by a script because the file-write tool decodes them; the new oracle tests/verify_test_skill_rules.py checks both rules in the skill text and is RED before the edit and GREEN after, and tests/verify_refute_fleet.py stays green.",
-    "status": "verified",
-    "startedAt": "2026-10-03T19:44:10Z",
+    "id": "OTK-FAILED-ATTEMPT-1",
+    "goal": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
+    "status": "in_progress",
+    "startedAt": "2026-10-04T11:34:46Z",
     "ledger": "GOAL.json",
-    "riskTier": "low",
-    "completedAt": "2026-10-03T20:30:25Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",
