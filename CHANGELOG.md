@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - OTK-FAILED-ATTEMPT-1: неудачная попытка ОТК не блокирует следующую
+
+- Харнес цели писал событие `verification_failed` в отслеживаемый `.itd-memory/events.jsonl`. После
+  неудачной попытки в режиме `committed-head` рабочее дерево отличалось от кандидата: следующая попытка
+  с той же квитанцией отклонялась («working tree differs from the staged candidate»), а
+  `scripts/itd_closure_delta.py` отвергал строку в дельте ledger-close.
+- Теперь событие неудачной попытки уходит в неотслеживаемый журнал `.itd-memory/attempts/attempts.jsonl`
+  (решение владельца, вариант A). Каталог игнорирует сам себя (`.gitignore` = `*`), поэтому журнал не
+  попадает в кандидата и там, где `.itd-memory/` отслеживается. `itd_retro_scan.py` считает провалы из
+  обоих журналов (`failedVerifications`). Переходы юнита по-прежнему пишутся в `events.jsonl`.
+- Правило игнорирования не снимает отслеживание: если путь журнала уже под git, запись отклоняется
+  строкой `ERROR: the failed attempt is not journalled ... tracked by git`, попытка остается FAILED
+  (выход 1), в отслеживаемый файл ничего не дописывается. Проверку пропускает только доказанное
+  отсутствие git (нет бинаря или «not a git repository»); любая другая ошибка `git ls-files` - тоже отказ.
+- Оракул: `tests/verify_otk_failed_attempt.py`, подключен к `tests/run-all.sh`.
+
 ### Changed - TEST-RULES-1: `/test` Step 5.5 - уникальный маркер мутации и фикстуры в escape
 
 - Маркер мутации (строка, которую заменяет мутант) обязан встречаться в мутируемом файле ровно

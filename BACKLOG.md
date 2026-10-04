@@ -59,6 +59,17 @@ stop-rule 593/0, closure-delta rc 1; пустая заглушка -> closure-de
   `docs/completion-gate.md`. Остаток (P3): `itd_hygiene.py close` записи прогона не читает; запись
   включается явно, без переменной прогон судится по тексту команды как раньше.
 
+## P2 - сигнал гейта завершения под неигнорируемым `.claude/` меняет кандидата (2026-10-04, OTK-FAILED-ATTEMPT-1)
+
+`itd_goal_verify.py` при любом исходе пишет runtime-сигнал в `.claude/completion/signals.jsonl`
+(`write_verify_signal`). В репо методологии `.claude/` в `.gitignore`, а в целевом проекте, где `.claude/`
+коммитится (например, ради `settings.json`), файл становится неотслеживаемым неигнорируемым входом:
+`assert_checkout_matches_candidate` (`skills/_shared/itd_verification_loop.py`) отказывает следующей
+попытке committed-head с той же квитанцией. Найдено оракулом `tests/verify_otk_failed_attempt.py`
+(фикстура без правила для `.claude/` давала `.claude/completion/signals.jsonl` в
+`git ls-files --others --exclude-standard`); в юнит не вошло - это не запись неудачной попытки.
+Кандидат: каталог сигналов игнорирует сам себя тем же приемом (`.gitignore` = `*`).
+
 ## P2 - ловушки маршрута TIER-WORDING-2 (2026-10-01)
 
 Источник: `.itd/DECISIONS.md`, запись «2026-10-01 - TIER-WORDING-2: ledger-close» (уроки 1-5).
@@ -76,6 +87,9 @@ stop-rule 593/0, closure-delta rc 1; пустая заглушка -> closure-de
   `scripts/itd_closure_delta.py` такую строку в дельте закрытия не принимает. Пришлось сохранить
   строку вне git и вернуть журнал к коммиту. Кандидат: писать событие неудачной попытки туда, где
   его не сверяет кандидат (неотслеживаемый журнал попыток), либо принимать его в closure-delta.
+  Взято юнитом OTK-FAILED-ATTEMPT-1 (2026-10-04, вариант A владельца): событие провала пишется в
+  `.itd-memory/attempts/attempts.jsonl`, каталог игнорирует сам себя (`.gitignore` = `*`); retro-scan
+  читает оба журнала. Остаток - отдельная запись P2 2026-10-04 (сигнал гейта завершения).
 - (c) Нога `tests/verify_risk_tier_default.py` (`methodology-repo-has-no-policy-file`) красная на
   каноническом чекауте с локальным git-ignored `.itd/COMPLETION_POLICY.json`, хотя в изолированной
   копии кандидата зеленая - ОТК исполняет команду юнита в рабочем дереве хоста. Первая попытка ОТК

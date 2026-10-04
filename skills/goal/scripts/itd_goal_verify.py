@@ -23,6 +23,9 @@ Guarantees:
   - verified only with evidence from an ACTUAL command run (never hand-set).
   - every transition appends a unit event to events.jsonl with actor "harness"
     (VCR in itd_metrics.py counts them automatically).
+  - a failed attempt is not a transition: its `verification_failed` event goes
+    to the untracked attempts journal (`attempts/attempts.jsonl` beside the
+    ledger), so the candidate tree stays the reviewed one (OTK-FAILED-ATTEMPT-1).
   - blocked requires a non-empty reason (fail-closed, mirrors skippedReason).
 
 Ships inside the skill (skills/goal/scripts/) so both sync-to-active and the
@@ -1017,10 +1020,53 @@ def commit_goal_transition(goal: dict, goal_path: Path, unit: dict, decision: st
         return True
 
 
+def attempts_journal(goal_path: Path) -> Path:
+    """The untracked journal of failed attempts (OTK-FAILED-ATTEMPT-1, owner choice A).
+
+    Appended to the tracked events.jsonl, a failed attempt changed the candidate
+    tree: the next committed-head attempt with the same receipt was refused and
+    closure-delta rejected the line. The directory ignores itself (`.gitignore`
+    = `*`), so the journal stays out of every candidate even where .itd-memory/
+    is tracked; the retro scan reads it next to events.jsonl. An ignore rule
+    does not untrack a path, so a tracked attempts path is refused before any
+    write instead of being appended to (Sol s1).
+    """
+    directory = goal_path.parent / "attempts"
+    # Only a positively established "no git" skips the guard; any other git
+    # failure refuses the write (Sol s2). C locale keeps the message stable.
+    env = {**os.environ, "LC_ALL": "C", "LANGUAGE": "C"}
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "-z", "--", "attempts"], cwd=str(goal_path.parent),
+            capture_output=True, timeout=60, env=env)
+    except FileNotFoundError:
+        tracked = None  # no git binary: nothing can be tracked
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"cannot tell whether the attempts journal is tracked: {exc}") from exc
+    if tracked is not None and tracked.returncode != 0:
+        if b"not a git repository" not in tracked.stderr.lower():
+            reason = tracked.stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or [""]
+            raise RuntimeError("cannot tell whether the attempts journal is tracked: git ls-files "
+                               f"exit {tracked.returncode}: {reason[0]}")
+        tracked = None  # not a repository: nothing can be tracked
+    if tracked is not None and tracked.stdout.strip(b"\0"):
+        names = ", ".join(tracked.stdout.decode("utf-8", "replace").strip("\0").split("\0"))
+        raise RuntimeError(f"attempts journal path is tracked by git ({names}); "
+                           "untrack it with `git rm --cached` so failed attempts stay out of the candidate")
+    if not os.path.lexists(directory):
+        directory.mkdir(exist_ok=True)
+    if directory.is_symlink() or not directory.is_dir():
+        raise RuntimeError(f"attempts journal directory is unsafe: {directory}")
+    ignore = directory / ".gitignore"
+    if read_ledger_snapshot(ignore) != b"*\n":
+        atomic_replace_bytes(ignore, b"*\n")
+    return directory / "attempts.jsonl"
+
+
 def append_event(goal_path: Path, unit_id: str, decision: str, evidence: str,
-                 *, event: dict | None = None) -> dict:
+                 *, event: dict | None = None, journal: Path | None = None) -> dict:
     """Append the canonical event. Failure is fatal; callers must repair, not retry."""
-    events = goal_path.parent / "events.jsonl"
+    events = journal or goal_path.parent / "events.jsonl"
     evt = event or {
         "id": f"evt-goal-{int(time.time())}",
         "at": now_iso(),
@@ -2028,7 +2074,13 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                 f"wall-clock limit reached after failure ({int(elapsed)}s/"
                 f"{policy['maxWallClockSecondsPerUnit']}s)", "wall_clock",
                 int(elapsed))
-    append_event(goal_path, unit["id"], "verification_failed", evidence)
+    try:
+        journal = attempts_journal(goal_path)
+    except (OSError, RuntimeError) as exc:
+        # The attempt has failed either way; the record is refused, not redirected to the tracked log.
+        print(f"ERROR: the failed attempt is not journalled: {exc}")
+    else:
+        append_event(goal_path, unit["id"], "verification_failed", evidence, journal=journal)
     print(f"FAILED {unit['id']} stays in_progress — {evidence}")
     print(decisive_line(output))
     return 1

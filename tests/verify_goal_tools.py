@@ -96,10 +96,13 @@ def unit(goal: dict, uid: str) -> dict:
 
 
 def events(mem: Path) -> list[dict]:
-    p = mem / "events.jsonl"
-    if not p.is_file():
-        return []
-    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    """Harness events: the tracked journal plus the untracked attempts journal of failed
+    attempts (OTK-FAILED-ATTEMPT-1)."""
+    out: list[dict] = []
+    for p in (mem / "events.jsonl", mem / "attempts" / "attempts.jsonl"):
+        if p.is_file():
+            out += [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return out
 
 
 def output_command(message: str, exit_code: int = 0) -> str:

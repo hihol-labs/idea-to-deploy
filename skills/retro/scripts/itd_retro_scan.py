@@ -14,6 +14,8 @@ Sources scanned (all optional — missing ones are reported as absent, never
 fatal):
   <workspace>/*/.itd-memory/events.jsonl  — unit events: activated / verified /
       regressed / verification_failed / blocked → per-project VCR + global VCR
+  <workspace>/*/.itd-memory/attempts/attempts.jsonl — failed harness attempts
+      (untracked, OTK-FAILED-ATTEMPT-1) → failedVerifications
   <workspace>/*/.itd-memory/GOAL.json     — goal status, N/M verified,
       backpressure, blocked units with reasons
   <workspace>/*/.itd-memory/STATE.json    — pending gates, blockers
@@ -111,8 +113,12 @@ def scan_project(mem: Path) -> dict:
     p["unattributedEvents"] = lc["unattributedEvents"]
     p["vcr"] = lc["vcr"]
     p["regressions"] = sum(1 for e in events if e.get("decision") == "regressed")
+    # A failed harness attempt lives in the untracked attempts journal since
+    # OTK-FAILED-ATTEMPT-1; events.jsonl still holds the ones written before it.
+    attempts = [e for e in read_jsonl(mem / "attempts" / "attempts.jsonl")
+                if e.get("type") == "unit"]
     p["failedVerifications"] = sum(
-        1 for e in events if e.get("decision") == "verification_failed")
+        1 for e in events + attempts if e.get("decision") == "verification_failed")
 
     goal = read_json(mem / "GOAL.json")
     if goal:
