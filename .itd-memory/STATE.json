@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "OTK-HOST-TREE-1",
     "goal": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-04T15:14:53Z",
     "ledger": "GOAL.json",
-    "riskTier": "high"
+    "riskTier": "high",
+    "completedAt": "2026-10-06T18:55:26Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

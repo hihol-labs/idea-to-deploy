@@ -1,10 +1,10 @@
 {
   "version": 1,
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
-  "status": "active",
+  "status": "done",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-04T15:14:53Z",
-  "currentUnitId": "OTK-HOST-TREE-1",
+  "updatedAt": "2026-10-06T18:55:26Z",
+  "currentUnitId": "",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -130,7 +130,17 @@
       "criterion": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_host_tree.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py",
       "riskTier": "high",
-      "status": "in_progress"
+      "status": "verified",
+      "verifiedAt": "2026-10-06T18:55:26Z",
+      "evidence": "sh skills/_shared/itd_py.sh tests/verify_otk_host_tree.py: exit 0, stdout sha256 af567f0e297a8bb5, PASSED: 0 failed (28 passed)\nsh skills/_shared/itd_py.sh tests/verify_goal_tools.py: exit 0, stdout sha256 e6c6d968d224b833, 83 passed, 0 failed",
+      "verificationReceipt": {
+        "path": ".itd-memory/verification-loop/receipts/a7353c8bdba8064b/OTK-HOST-TREE-1-adjudication-a1.json",
+        "sha256": "0fbc9289832e1cd4e2711ef5e386cde0249044f042da3dd114b8deae8e6eb2b8",
+        "receiptSha256": "71577d789d65d04eb1f7093028397624eb1b46784b965c51e487f566f95951ef",
+        "outcome": "ADJUDICATED",
+        "machinePath": ".itd-memory/verification-loop/receipts/a7353c8bdba8064b/OTK-HOST-TREE-1-machine-9a8b0da819460eef.json",
+        "machineSha256": "6fd61c2c09493351e307f2515d4550d72d6110089a144a189eeaa10a6e06dadb"
+      }
     }
   ]
 }
