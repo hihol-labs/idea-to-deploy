@@ -30,9 +30,12 @@ every outcome and is not the failed-attempt record - BACKLOG P2 2026-10-04):
   5. An ignore rule does not untrack a path (Sol s1): where the attempts journal is already tracked,
      the failed attempt still exits 1 with its FAILED line and no traceback, names the refusal
      ("not journalled ... tracked by git") and leaves the checkout unchanged.
-  6. Only a positively established non-repository skips that guard (Sol s2): a git failure inside a
-     repository (a broken index) refuses the journal ("cannot tell whether ...", no attempts
-     directory created), while a directory without git journals the failed attempt.
+  6. Only a positively established non-repository skips that guard (Sol s2): a git failure inside
+     the ledger's repository (a broken index) refuses the journal ("cannot tell whether ...", no
+     attempts directory created), while a directory without git journals the failed attempt. Since
+     OTK-HOST-TREE-1 the command runs in a copy built by git, so a broken index in the repository
+     the command runs from refuses the run itself ("nothing ran"); the journal guard is reached
+     with the ledger in a broken repository and the command in a healthy one.
 
 RED on the pre-fix tree (e725c07): the failed attempt changes the tracked events.jsonl - legs of
 points 2, 3 (journal) and 4 (closure-delta) fail.
@@ -203,7 +206,16 @@ def main() -> int:
         cd.git(repo3, "add", "-A")
         cd.git(repo3, "commit", "-qm", "candidate")
         (repo3 / ".git" / "index").write_bytes(b"not an index")  # git ls-files now exits 128
-        failed3 = cd.run_harness(repo3, UNIT)
+        refused3 = cd.run_harness(repo3, UNIT)
+        check("git-failure-in-command-repo-refuses-the-run",
+              refused3.returncode == 1 and "nothing ran" in refused3.stdout
+              and "VERIFIED" not in refused3.stdout and "Traceback" not in refused3.stdout + refused3.stderr
+              and not (repo3 / ".itd-memory" / "attempts").exists(),
+              (refused3.stdout + refused3.stderr)[-300:])
+        healthy = make_repo(tmp, "healthy-cwd", tmp / "never.flag")
+        failed3 = subprocess.run([PY, str(repo3 / cd.HARNESS), "--goal", str(repo3 / cd.GOAL), UNIT],
+                                 cwd=str(healthy), capture_output=True, encoding="utf-8",
+                                 errors="replace", env=cd.clean_env(), timeout=120)
         out3 = failed3.stdout + failed3.stderr
         check("git-failure-attempt-fails-cleanly",
               act3.returncode == 0 and failed3.returncode == 1

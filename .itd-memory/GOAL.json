@@ -3,8 +3,8 @@
   "goal": "Remove the six route traps of TIER-WORDING-2 (BACKLOG P2 2026-10-01, items a-f) without weakening any gate: a clean failure path of the goal harness, an early oracle-leg check, a hard stop for overwriting a fresh session memory file, the /test rules for unique mutation markers and escaped fixtures, a failed harness attempt that does not block the next one, and a harness verdict independent of local ignored files, and a completion gate without false red layers (approved by the owner 2026-10-01; one unit per session).",
   "status": "active",
   "createdAt": "2026-10-01T20:40:19Z",
-  "updatedAt": "2026-10-04T13:30:32Z",
-  "currentUnitId": "",
+  "updatedAt": "2026-10-04T15:14:53Z",
+  "currentUnitId": "OTK-HOST-TREE-1",
   "units": [
     {
       "id": "GOALVERIFY-FAILPATH-1",
@@ -130,7 +130,7 @@
       "criterion": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_host_tree.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py",
       "riskTier": "high",
-      "status": "pending"
+      "status": "in_progress"
     }
   ]
 }

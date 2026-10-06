@@ -35,7 +35,16 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         print(f"FAIL  {name}" + (f" — {detail}" if detail else ""))
 
 
+VERIFY_ACTIONS = ("--seal", "--activate", "--block", "--budget-exhausted",
+                  "--deadline-check", "--ack-handoff", "--reconcile")
+
+
 def run(script: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess:
+    if script == VERIFY and not any(arg in VERIFY_ACTIONS for arg in args):
+        # result.txt is git-ignored in this fixture. Since OTK-HOST-TREE-1 the
+        # harness runs the command in a copy without ignored files, so the
+        # input is declared to it, as it already is to the machine receipt.
+        args = (*args, "--input", "result.txt")
     env = {**os.environ, "PYTHONUTF8": "1"}
     return subprocess.run(
         [PY, str(script), *args], cwd=str(cwd), capture_output=True,

@@ -4723,6 +4723,44 @@
       },
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
       "status": "passed"
+    },
+    {
+      "id": "OTK-HOST-TREE-1-1-oracle",
+      "unitId": "OTK-HOST-TREE-1",
+      "criterion": "Команда критерия выходит 0: tests/verify_otk_host_tree.py зеленый на дереве кандидата - во временном git-репозитории вердикт харнеса одинаков на чистом чекауте и с git-ignored файлом, который меняет результат ноги (в обе стороны, одиночная команда и цепочка &&); незакоммиченные правки, неотслеживаемые неигнорируемые и force-added файлы видны команде, git-ignored - нет, относительный cwd сохраняется, команда не меняет дерево хоста; --input копирует git-ignored вход и отказывает отслеживаемому пути, .git, пути вне репо, ссылке и отсутствующему пути без изменения леджера; каталог вне git (нет .git в нем и выше) исполняется на хосте со строкой 'host tree: not a git repository', ошибка git и отсутствие git внутри чекаута отказывают прогону; унаследованные репозиторные переменные git не доходят до команды; формат evidence прежний; tests/verify_goal_tools.py зеленый. Фильтры git и другие программы, настроенные владельцем в git, вне критерия (решение владельца после стоп-правила, 2026-10-06). Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "Уточняет criterion юнита OTK-HOST-TREE-1 из .itd-memory/GOAL.json (цель «ловушки маршрута TIER-WORDING-2», одобрена владельцем 2026-10-01; вариант A выбран владельцем 2026-10-04 после замера, .itd/DECISIONS.md); команда ниже - байт-в-байт копия verificationCommand юнита.",
+      "evidence": "RED-first: tests/verify_otk_host_tree.py на байтах 86ca61f (itd_goal_verify.py) в изолированной копии - 24 failed, 3 passed (.itd-memory/verification-loop/reports/OTK-HOST-TREE-1-mutate.log, строка red-86ca61f; первый RED-лог OTK-HOST-TREE-1-red-first.log - 17 failed, 3 passed на ранней версии оракула). После правки 27/0; 14 мутаций фикса на изолированных копиях летальны (host cwd, без add --all, затравка из HEAD, без смещения cwd, нет git как ошибка, ошибка git как нет git, откат копии на хост, входы не копируются, нет строки дерева, GIT_* не очищены, проверка каталога вызывающего выключена, проверка .git выключена, базовый список без GIT_INTERNAL_SUPER_PREFIX, список установленного git игнорируется), контроль зеленый. verify_goal_tools 83/0, verify_otk_failed_attempt 17/0, verify_goal_bounded_autonomy 42/0, verify_closure_delta, verify_verification_profiles 109/0, verify_goal_verify_failpath, verify_goal_verify_shell, meta_review зеленые. /review r1 PASSED_WITH_WARNINGS (I-1 GIT_* внесен); Sol s2 BLOCKED - 2 находки внесены (отсутствие git внутри чекаута, неполный список переменных); Sol s3b BLOCKED - кейс цепочки в обе стороны внесен (28/0), фильтры git - граница по решению владельца (стоп-правило REDESIGN_OR_DISCARD).",
+      "reviewEvidence": {
+        "claim": "Вердикт харнеса не зависит от git-ignored локальных файлов - это проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "unit",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_otk_host_tree.py && sh skills/_shared/itd_py.sh tests/verify_goal_tools.py",
+      "status": "passed"
+    },
+    {
+      "id": "OTK-HOST-TREE-1-2-ledger",
+      "unitId": "OTK-HOST-TREE-1",
+      "criterion": "Команда критерия выходит 0: .itd-memory/GOAL.json и .itd-memory/STATE.json валидны по схеме на дереве кандидата.",
+      "source": "Инвариант леджера цели.",
+      "evidence": "В дереве кандидата записан переход харнеса activated 2026-10-04T15:14:53Z (evt-goal-1791126893-c435e387824d4ec5960d760104ce0922, actor harness), юнит in_progress, riskTier high; validate_state.py для GOAL.json и STATE.json - exit 0 (нога ledger-state машинной квитанции на деревьях 4e15f700 и c3efc1e1); переход в verified записывается вне коммита юнита и входит в ledger-close.",
+      "reviewEvidence": {
+        "claim": "Леджер цели валиден и отражает переходы харнеса - это проверяет команда критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "ledger-state",
+          "meta-review"
+        ]
+      },
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/GOAL.json && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "status": "passed"
     }
   ],
   "completion": {
@@ -4741,9 +4779,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - OTK-FAILED-ATTEMPT-1 closed 2026-10-04; goal 7/8, next OTK-HOST-TREE-1 (high) after the owner's choice of variant and its activation"
+    "unitId": "OTK-HOST-TREE-1",
+    "status": "active",
+    "openedAt": "2026-10-04",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": ".itd-memory/contracts/OTK-HOST-TREE-1.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Activated by the goal harness 2026-10-04 (evt-goal-1791126893-c435e387824d4ec5960d760104ce0922); eighth and last unit of the goal approved by the owner 2026-10-01; variant A (isolated working-tree copy without git-ignored files + declared --input) chosen by the owner 2026-10-04 after a measurement; high = full independent checker before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "OTK-FAILED-ATTEMPT-1",
-    "goal": "OTK-FAILED-ATTEMPT-1: after a failed committed-head harness attempt the next attempt with the same receipt is not refused because of the failed-attempt record, the record still counts for the VCR of skills/retro/scripts/itd_retro_scan.py, and scripts/itd_closure_delta.py accepts the ledger-close delta of such a unit (the owner chooses between a separate untracked attempts journal and accepted harness lines at the unit start); the new oracle tests/verify_otk_failed_attempt.py is RED on the pre-fix code and GREEN after, and tests/verify_closure_delta.py and tests/verify_retro_scan.py stay green.",
-    "status": "verified",
-    "startedAt": "2026-10-04T11:34:46Z",
+    "id": "OTK-HOST-TREE-1",
+    "goal": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
+    "status": "in_progress",
+    "startedAt": "2026-10-04T15:14:53Z",
     "ledger": "GOAL.json",
-    "riskTier": "medium",
-    "completedAt": "2026-10-04T13:30:32Z"
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",
