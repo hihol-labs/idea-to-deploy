@@ -552,6 +552,47 @@ DESIRED_HOOKS=$(cat <<'JSON'
 JSON
 )
 
+# ADR-012 owner opt-out: hook files listed in $ACTIVE/itd-disabled-hooks.txt (one file name per line, '#' starts a
+# comment) are dropped from the registration, so a later sync does not bring back hooks the owner switched off.
+# The event keys stay (possibly empty) so the merge below still treats them as ITD-managed and removes the entries.
+DISABLED_HOOKS_FILE="$ACTIVE/itd-disabled-hooks.txt"
+if [ -f "$DISABLED_HOOKS_FILE" ]; then
+  _meta="$(mktemp)"
+  _filtered="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_DISABLED="$DISABLED_HOOKS_FILE" ITD_META="$_meta" "$PYBIN" - <<'PYX'
+import json, os, re
+names = set()
+for raw in open(os.environ["ITD_DISABLED"], encoding="utf-8-sig"):  # -sig: a BOM from a Windows editor
+    line = raw.split("#", 1)[0].strip()
+    if line:
+        names.add(line)
+data = json.loads(os.environ["ITD_DESIRED"])
+matched = set()
+for event, groups in data.items():
+    kept = []
+    for group in groups:
+        hooks = []
+        for hook in group.get("hooks", []):
+            m = re.search(r"hooks/([^/\s\"]+)", hook.get("command", ""))
+            if m and m.group(1) in names:
+                matched.add(m.group(1))
+            else:
+                hooks.append(hook)
+        if hooks:
+            group["hooks"] = hooks
+            kept.append(group)
+    data[event] = kept
+with open(os.environ["ITD_META"], "w", encoding="utf-8") as meta:
+    meta.write("%d\n%s\n" % (len(matched), " ".join(sorted(names - matched))))
+print(json.dumps(data))
+PYX
+)" || { rm -f "$_meta"; err "itd-disabled-hooks.txt: filter failed"; exit 1; }
+  DESIRED_HOOKS="$_filtered"
+  { read -r _n_disabled; read -r _unknown || true; } < "$_meta"
+  rm -f "$_meta"
+  ok "hooks disabled by $(basename "$DISABLED_HOOKS_FILE"): $_n_disabled"
+  [ -z "${_unknown:-}" ] || warn "itd-disabled-hooks.txt names no registered hook: $_unknown (check the spelling, e.g. 'check-tool-skill.sh')"
+fi
+
 # v1.38.0: platform-aware command form. On a Windows target, rewrite each
 # "~/.claude/hooks/X.sh" into a python.exe invocation with an absolute Windows
 # path — .sh files there have no executable shebang. Unix/WSL keeps bare paths
