@@ -26,6 +26,11 @@ Guarantees:
   - a failed attempt is not a transition: its `verification_failed` event goes
     to the untracked attempts journal (`attempts/attempts.jsonl` beside the
     ledger), so the candidate tree stays the reviewed one (OTK-FAILED-ATTEMPT-1).
+  - the command runs in a disposable copy of the working tree without
+    git-ignored files, so a local ignored file cannot change the verdict;
+    an ignored input is declared with --input, and a directory outside git
+    runs on the host with the line `host tree: not a git repository`
+    (OTK-HOST-TREE-1).
   - blocked requires a non-empty reason (fail-closed, mirrors skippedReason).
 
 Ships inside the skill (skills/goal/scripts/) so both sync-to-active and the
@@ -54,6 +59,7 @@ Usage:
   itd_goal_verify.py [--goal PATH] --seal
   itd_goal_verify.py [--goal PATH] --activate [UNIT_ID]
   itd_goal_verify.py [--goal PATH] [UNIT_ID]              # verify (default cmd)
+  itd_goal_verify.py [--goal PATH] [UNIT_ID] --input .itd/LOCAL.json  # + ignored input
   itd_goal_verify.py [--goal PATH] --recheck UNIT_ID      # re-run a verified unit
   itd_goal_verify.py [--goal PATH] --block UNIT_ID --reason "..."
   itd_goal_verify.py [--goal PATH] --budget-exhausted UNIT_ID \
@@ -1498,19 +1504,213 @@ def compound_script(segments: list[str], capture: Path) -> tuple[str, dict[str, 
     return "\n".join(lines) + "\n", env
 
 
+# Repository-local git variables. A harness started from a git hook or a
+# `git commit -a` subshell inherits them; kept, they point the copy's git and
+# the command back at the host index or repository (/review r1 of
+# OTK-HOST-TREE-1). The installed git names its own set
+# (`git rev-parse --local-env-vars`); this baseline adds the names other git
+# versions use, so a git that lists fewer cannot narrow the scrub (Sol s2).
+LOCAL_GIT_ENV = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
+    "GIT_SHALLOW_FILE", "GIT_COMMON_DIR", "GIT_INTERNAL_SUPER_PREFIX",
+)
+_local_git_env_cache: frozenset[str] | None = None
+
+
+def local_git_env() -> frozenset[str]:
+    """The baseline plus whatever the installed git reports as repository-local."""
+    global _local_git_env_cache
+    if _local_git_env_cache is None:
+        names = set(LOCAL_GIT_ENV)
+        try:
+            listed = subprocess.run(["git", "rev-parse", "--local-env-vars"],
+                                    capture_output=True, timeout=60,
+                                    env={k: v for k, v in os.environ.items()
+                                         if not k.startswith("GIT_")})
+            if listed.returncode == 0:
+                names.update(line.strip() for line in
+                             listed.stdout.decode("utf-8", "replace").splitlines()
+                             if line.strip())
+        except (OSError, subprocess.SubprocessError):
+            pass  # no usable git: the baseline still applies
+        _local_git_env_cache = frozenset(names)
+    return _local_git_env_cache
+
+
+def verification_env(**extra: str) -> dict[str, str]:
+    """The process environment without repository-local git variables."""
+    scrub = local_git_env()
+    env = {k: v for k, v in os.environ.items() if k not in scrub}
+    env.update(extra)
+    return env
+
+
+def enclosing_git_marker(cwd: Path) -> Path | None:
+    """The nearest `.git` (directory or file) at or above `cwd`, if any."""
+    for directory in (cwd, *cwd.parents):
+        marker = directory / ".git"
+        if os.path.lexists(marker):
+            return marker
+    return None
+
+
+def git_repository_of(cwd: Path) -> Path | None:
+    """The git top level of `cwd`; None only for a positively established non-repository.
+
+    Close to the rule of the attempts journal (Sol s2 of OTK-FAILED-ATTEMPT-1),
+    and stricter: "not a git repository" or a missing git binary count as
+    outside git only when no `.git` exists at or above `cwd` - a checkout git
+    cannot read (no binary, a ceiling, a broken `.git`) would otherwise run on
+    the host tree, the dependency this copy removes (Sol s2 of OTK-HOST-TREE-1).
+    Any other git failure refuses the run. C locale keeps the message stable.
+    """
+    env = verification_env(LC_ALL="C", LANGUAGE="C")
+    try:
+        probe = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=str(cwd),
+                               capture_output=True, timeout=60, env=env)
+    except FileNotFoundError:
+        reason = "git is not installed or not on PATH"
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"cannot tell whether {cwd} is a git repository: {exc}") from exc
+    else:
+        if probe.returncode == 0:
+            return Path(probe.stdout.decode("utf-8", "replace").strip())
+        last = probe.stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or [""]
+        if b"not a git repository" not in probe.stderr.lower():
+            raise RuntimeError(f"git rev-parse exit {probe.returncode}: {last[0]}")
+        reason = last[0]
+    marker = enclosing_git_marker(cwd.absolute())
+    if marker is not None:
+        raise RuntimeError(f"{marker} exists, but git cannot read the checkout ({reason}); "
+                           "the command is not run on the host tree")
+    return None
+
+
+def run_git(repo: Path, *args: str, index: Path | None = None) -> str:
+    """Run git in `repo` (C locale); a non-zero exit raises with git's last line."""
+    env = verification_env(LC_ALL="C", LANGUAGE="C")
+    if index is not None:
+        env["GIT_INDEX_FILE"] = str(index)
+    proc = subprocess.run(["git", *args], cwd=str(repo), capture_output=True,
+                          timeout=600, env=env)
+    if proc.returncode != 0:
+        reason = proc.stderr.decode("utf-8", "replace").strip().splitlines()[-1:] or [""]
+        raise RuntimeError(f"git {args[0]} exit {proc.returncode}: {reason[0]}")
+    return proc.stdout.decode("utf-8", "replace").strip()
+
+
+def working_tree_candidate(repo: Path) -> str:
+    """The tree of the working tree without git-ignored files (OTK-HOST-TREE-1).
+
+    A temporary index starts from the real index, so tracked paths - force-added
+    ones under an ignored directory too - stay tracked, and `add --all` brings in
+    unstaged changes, deletions and untracked files that are not ignored. The
+    real index is never touched; the new blobs land in the object database,
+    where the disposable clone reads them through `--shared`.
+    """
+    with tempfile.TemporaryDirectory(prefix="itd-goal-index-") as raw:
+        index = Path(raw) / "index"
+        run_git(repo, "read-tree", run_git(repo, "write-tree"), index=index)
+        run_git(repo, "add", "--all", index=index)
+        return run_git(repo, "write-tree", index=index)
+
+
+@contextlib.contextmanager
+def materialized_tree(repo: Path, tree: str):
+    """Check `tree` out in a disposable clone; no host working-tree file is copied.
+
+    The materialization of the machine receipt (`isolated_candidate` of the
+    Verification Loop), kept here because that one checks the tree through the
+    review-cache module of skills/review, and a plain verify must not need
+    another skill.
+    """
+    with tempfile.TemporaryDirectory(prefix="itd-goal-candidate-") as raw:
+        candidate = Path(raw) / "candidate"
+        run_git(repo, "clone", "--shared", "--no-checkout", "--quiet", str(repo), str(candidate))
+        run_git(candidate, "read-tree", "--reset", "-u", tree)
+        if run_git(candidate, "write-tree") != tree:
+            raise RuntimeError("the disposable checkout does not match the candidate tree")
+        yield candidate
+
+
+@contextlib.contextmanager
+def verification_workdir(inputs: list[str]):
+    """Where the verificationCommand runs: a disposable copy, never the host tree.
+
+    The verdict used to depend on whatever git-ignored files sat in the host
+    checkout (TIER-WORDING-2: a local `.itd/COMPLETION_POLICY.json` failed a leg
+    the isolated machine receipt passed). The copy is the working tree without
+    git-ignored files, materialized like the machine receipt does it; an ignored
+    input the command needs is declared with --input and copied with the
+    receipt's declared-input rules. Outside git nothing can be ignored, so the
+    host directory is used and the line says so. Every failure to build the
+    copy refuses the run before the command and before any verification
+    event or attempt (owner choice A, 2026-10-04).
+    """
+    cwd = Path.cwd()
+    with contextlib.ExitStack() as stack:
+        try:
+            repo = git_repository_of(cwd)
+            if repo is None:
+                if inputs:
+                    raise RuntimeError("--input needs a git repository; "
+                                       f"{cwd} is not one")
+                workdir, line = cwd, "host tree: not a git repository"
+            else:
+                relative = cwd.resolve().relative_to(repo.resolve())
+                manifests: list[dict] = []
+                loop = None
+                if inputs:
+                    spec = importlib.util.spec_from_file_location(
+                        "itd_goal_verification_loop", VERIFICATION_LOOP_PATH)
+                    if spec is None or spec.loader is None:
+                        raise RuntimeError("Verification Loop is unavailable for --input")
+                    loop = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(loop)
+                    try:
+                        policy, _ = loop.load_policy()
+                        manifests, _ = stack.enter_context(
+                            loop.sealed_declared_inputs(repo, inputs, policy))
+                    except loop.LoopError as exc:
+                        raise RuntimeError(f"{exc.why}; FIX: {exc.fix}") from exc
+                tree = working_tree_candidate(repo)
+                candidate = stack.enter_context(materialized_tree(repo, tree))
+                if loop is not None:
+                    try:
+                        loop.copy_declared_inputs(repo, candidate, manifests)
+                    except loop.LoopError as exc:
+                        raise RuntimeError(f"{exc.why}; FIX: {exc.fix}") from exc
+                workdir = candidate / relative
+                if not workdir.is_dir():
+                    raise RuntimeError(f"the caller's directory {relative.as_posix()} is not "
+                                       "part of the candidate (git-ignored or empty)")
+                declared = ", ".join(
+                    f"{item['path']} ({item['kind']} sha256 {str(item['sha256'])[:16]})"
+                    for item in manifests) or "none"
+                line = (f"isolated candidate: tree {tree} (working tree without git-ignored "
+                        f"files); declared inputs: {declared}")
+        except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
+            die(f"the verification copy was not built, nothing ran: {exc}", 1)
+        print(line)
+        yield workdir
+
+
 def run_compound_verification(sh: str, segments: list[str],
-                              timeout: float) -> tuple[str, int]:
+                              timeout: float, cwd: Path | None = None) -> tuple[str, int]:
     """Run a top-level `&&` chain and return (multiline evidence, exit code)."""
     with tempfile.TemporaryDirectory() as raw:
         capture = Path(raw).resolve()
         script, script_env = compound_script(segments, capture)
-        env = dict(os.environ)
-        env.update(script_env)
+        env = verification_env(**script_env)
         timed_out = False
         try:
             proc = subprocess.run([sh, "-c", script], capture_output=True,
                                   encoding="utf-8", errors="replace",
-                                  timeout=timeout, env=env)
+                                  timeout=timeout, env=env,
+                                  cwd=str(cwd) if cwd is not None else None)
             shell_rc = proc.returncode
         except subprocess.TimeoutExpired:
             timed_out = True
@@ -1779,7 +1979,9 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
                elapsed_seconds_observed: int | None,
                checkpoint_ready: str, checkpoint_blocker: str,
                checkpoint_remainder: str, checkpoint_estimate: str,
-               candidate_mode: str = "staged") -> int:
+               candidate_mode: str = "staged",
+               inputs: list[str] | None = None) -> int:
+    inputs = inputs or []
     if recheck:
         if unit["status"] != "verified":
             die(f"--recheck applies to verified units; {unit['id']} is "
@@ -1899,27 +2101,31 @@ def cmd_verify(goal: dict, goal_path: Path, unit: dict,
         evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
     else:
         segments = split_top_level_and(command)
-        if segments is None:
-            try:
-                # encoding pinned + errors replaced: an arbitrary verificationCommand on
-                # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
-                proc = subprocess.run([sh, "-c", command], capture_output=True,
-                                      encoding="utf-8", errors="replace", timeout=timeout)
-                output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
-                rc = proc.returncode
-            except subprocess.TimeoutExpired:
-                output, rc = f"timeout after {timeout}s", 124
-            evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
-        else:
-            # A compound command used to be recorded by its LAST line alone, so
-            # the ledger named only the final leg and did not show that the
-            # first one ran at all (RSI-DEBT-3). One line per top-level command.
-            evidence, rc = run_compound_verification(sh, segments, timeout)
-            # The failure path prints the decisive line of `output`; for a chain
-            # that is the per-command record, whose last line is the command
-            # that stopped it (`&&` short-circuits), not an unbound name
-            # (GOALVERIFY-FAILPATH-1).
-            output = evidence
+        # The command runs in a disposable copy without git-ignored files, so
+        # a local ignored file cannot change the verdict (OTK-HOST-TREE-1).
+        with verification_workdir(inputs) as workdir:
+            if segments is None:
+                try:
+                    # encoding pinned + errors replaced: an arbitrary verificationCommand on
+                    # Windows may emit cp1251/cp1252 bytes — never let decoding kill the ОТК.
+                    proc = subprocess.run([sh, "-c", command], capture_output=True,
+                                          encoding="utf-8", errors="replace", timeout=timeout,
+                                          cwd=str(workdir), env=verification_env())
+                    output = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+                    rc = proc.returncode
+                except subprocess.TimeoutExpired:
+                    output, rc = f"timeout after {timeout}s", 124
+                evidence = f"exit {rc}: {decisive_line(output)}"[:EVIDENCE_MAX]
+            else:
+                # A compound command used to be recorded by its LAST line alone, so
+                # the ledger named only the final leg and did not show that the
+                # first one ran at all (RSI-DEBT-3). One line per top-level command.
+                evidence, rc = run_compound_verification(sh, segments, timeout, workdir)
+                # The failure path prints the decisive line of `output`; for a chain
+                # that is the per-command record, whose last line is the command
+                # that stopped it (`&&` short-circuits), not an unbound name
+                # (GOALVERIFY-FAILPATH-1).
+                output = evidence
     receipt_error = ""
     if rc == 0 and verification_receipt_path.strip():
         try:
@@ -2149,6 +2355,13 @@ def main() -> int:
                    help="candidate the adjudication receipt must describe: "
                         "staged (default) before the commit, committed-head "
                         "for a clean single-parent HEAD after it")
+    # The command runs in a copy without git-ignored files (OTK-HOST-TREE-1);
+    # an ignored file or directory the command needs is declared here, by its
+    # repository-relative path, and copied with the Verification Loop's
+    # declared-input rules (no tracked path, no link, no .git).
+    p.add_argument("--input", action="append", default=[], metavar="PATH",
+                   help="git-ignored file or directory copied into the "
+                        "verification copy (repeatable; verify/--recheck only)")
     args = p.parse_args()
 
     actions = sum(bool(x) for x in
@@ -2160,6 +2373,8 @@ def main() -> int:
             "--ack-handoff, --recheck and --reconcile are mutually exclusive")
     if args.work_profile and not args.activate:
         die("--work-profile is valid only with --activate")
+    if args.input and (actions and not args.recheck):
+        die("--input is valid only with a verification run (verify or --recheck)")
 
     if transition_recovery_path(args.goal).exists() and not args.reconcile:
         die("interrupted Goal transition is pending; use --reconcile with current verification evidence", 1)
@@ -2205,7 +2420,8 @@ def main() -> int:
                       args.verification_receipt, args.tokens_used,
                       args.elapsed_seconds, args.checkpoint_ready,
                       args.checkpoint_blocker, args.checkpoint_remainder,
-                      args.checkpoint_estimate, args.candidate_mode)
+                      args.checkpoint_estimate, args.candidate_mode,
+                      args.input)
 
 
 if __name__ == "__main__":
