@@ -4779,23 +4779,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "OTK-HOST-TREE-1",
-    "status": "active",
-    "openedAt": "2026-10-04",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": ".itd-memory/contracts/OTK-HOST-TREE-1.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "high",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    },
-    "note": "Activated by the goal harness 2026-10-04 (evt-goal-1791126893-c435e387824d4ec5960d760104ce0922); eighth and last unit of the goal approved by the owner 2026-10-01; variant A (isolated working-tree copy without git-ignored files + declared --input) chosen by the owner 2026-10-04 after a measurement; high = full independent checker before the PR."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - OTK-HOST-TREE-1 closed 2026-10-06; goal 'route traps of TIER-WORDING-2' done 8/8. Methodology goals paused until the value measurement ends (BACKLOG P1 2026-10-04)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5253,6 +5239,27 @@
       "note": "Activated by the goal harness 2026-10-04 (evt-goal-1791113686-4cb5423a758e434c975b85f524215661); seventh unit of the goal approved by the owner 2026-10-01; variant A (untracked attempts journal) chosen by the owner 2026-10-04 before activation; medium = targeted checker before the PR.",
       "closedAt": "2026-10-04T13:30:32Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-04T13:30:32Z (VERIFIED OTK-FAILED-ATTEMPT-1 - tests/verify_otk_failed_attempt.py exit 0 16 passed, 0 failed, tests/verify_closure_delta.py exit 0 PASSED: 0 failed, tests/verify_retro_scan.py exit 0 28 passed, 0 failed; event evt-goal-1791120632-c247ec376d4640719d285ede648d22f5, actor harness) on the merged tree 831183451516 (main d5659d0 = squash of PR #345, tree-identical to the branch commit bcc1984, same parent e725c07) with receipt .itd-memory/verification-loop/receipts/fb1755141f95f717/OTK-FAILED-ATTEMPT-1-adjudication-a2.json (medium, Sol p1 phase-one bound, keyring 90df6b85; mandatory route check rc 0 on main). Publication: variant A chosen by the owner before activation; RED-first on the bytes of e725c07 (7 passed, 9 failed), 7 lethal mutations, /review PASSED (3 minor, 2 fixed, 1 accepted as the cost of variant A); Sol s1 BLOCKED (tracked attempts path) and s2 BLOCKED (fail-open on a git error) both taken, s3 PASSED; staged chains under the unit and :general-review claims check rc 0, review-cache PASSED; committed-head Sol p1 PASSED -> a2; gate registry registered with a2 -> doctor LOCAL_REVIEWED; itd pr create -> PR #345, CI Gate 1 1m46s + windows-verify 5m22s pass, squash merge on the owner's command."
+    },
+    {
+      "unitId": "OTK-HOST-TREE-1",
+      "status": "closed",
+      "openedAt": "2026-10-04",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": ".itd-memory/contracts/OTK-HOST-TREE-1.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "note": "Activated by the goal harness 2026-10-04 (evt-goal-1791126893-c435e387824d4ec5960d760104ce0922); eighth and last unit of the goal approved by the owner 2026-10-01; variant A (isolated working-tree copy without git-ignored files + declared --input) chosen by the owner 2026-10-04 after a measurement; high = full independent checker before the PR.",
+      "closedAt": "2026-10-06T18:55:26Z",
+      "closureEvidence": "Verified by the goal harness on 2026-10-06T18:55:26Z (VERIFIED OTK-HOST-TREE-1 - tests/verify_otk_host_tree.py exit 0 28 passed, 0 failed, tests/verify_goal_tools.py exit 0 83 passed, 0 failed; the first harness run inside the isolated copy: 'isolated candidate: tree 02e61811b7aa279ae91adf8b33837e48e77f3801 ... declared inputs: none'; event evt-goal-1791312926-5c28ea383c4b4606b7b76b66b5d89807, actor harness) on the merged tree 02e61811 (main aa4d2b2 = squash of PR #347, tree-identical to the branch commit 65713cc, same parent 86ca61f) with receipt .itd-memory/verification-loop/receipts/a7353c8bdba8064b/OTK-HOST-TREE-1-adjudication-a1.json (high, ADJUDICATED by the owner under ADR-007 after the stop rule REDESIGN_OR_DISCARD on Sol s2, s3b, s4; check --require-mandatory-route --accept-adjudicated-route rc 0 on the staged tree and on the committed head). Publication: variant A chosen by the owner after a measurement; RED-first on 86ca61f (24 failed, 3 passed), 14 lethal mutants, /review r1 PASSED_WITH_WARNINGS (I-1 GIT_* taken); Sol s1 UNVERIFIED before sending (criteria pending), s2 BLOCKED (2 taken), s3 UNAVAILABLE (Codex refresh_token_reused), s3b BLOCKED (chain case taken, git filters - boundary B by the owner), s4 BLOCKED (empty untracked cwd - signed accepted-trade-off); general-review ADJUDICATED a1, review-cache ADJUDICATED; gate registry on a1 -> doctor LOCAL_REVIEWED (human-adjudication); itd pr create -> PR #347, CI Gate 1 1m39s + windows-verify 6m0s pass, squash merge on the owner's command."
     }
   ]
 }

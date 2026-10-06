@@ -5526,3 +5526,39 @@ CHANGELOG, BACKLOG и контракт; находка (1) идет диспоз
 LFS; кандидат в BACKLOG), C (список запретов фильтров через `-c` - латка по одной находке, которую стоп-правило
 запрещает).
 
+## 2026-10-06 - OTK-HOST-TREE-1: ledger-close (юнит verified харнесом, цель 8/8 done)
+
+**Публикация.** Sol s4 (staged, дерево `02e61811`) - BLOCKED, 1 находка medium: запуск ОТК из пустой
+неотслеживаемой неигнорируемой папки отказывает ("git-ignored or empty"), git не хранит пустые папки.
+Стоп-правило - снова `REDESIGN_OR_DISCARD` (s2, s3b, s4; история
+`.itd-memory/verification-loop/OTK-HOST-TREE-1-stop-history-s2-s4.json`). **Решение владельца 2026-10-06:
+подписать как границу** - отказ fail-closed (команда не запускается, события нет), ложного вердикта нет,
+дерево кандидата не меняется. Черновик диспозиций составлен правилом (`--emit-dispositions`), владелец подписал
+(accepted-trade-off, Dmitry Hihol) -> `adjudicate` ADJUDICATED a1 (юнит и `:general-review`, подпись
+перепривязана к sha нового чекера) -> `check --require-mandatory-route --accept-adjudicated-route` rc 0 ->
+review-cache `ADJUDICATED`. Коммит `65713cc` (дерево `02e61811`) с COMPLETION_BYPASS: оценщик гейта завершения
+падал на сигнале runtime-журнала - зеленый составной прогон, помеченный хуком как fail с пустым evidence
+(журнал ротируется, номер строки не воспроизводим; аудит - события `evt-completion-bypass-1791306505518421`
+и `evt-completion-bypass-1791306551234958` в `.itd-memory/completion-bypass.jsonl`: первая попытка коммита не
+нашла файл сообщения, вторая создала коммит). Реестр гейтов на a1 (keyring `90df6b85`) -> doctor LOCAL_REVIEWED (human-adjudication) ->
+`itd pr create` -> PR #347, CI Gate 1 1m39s + windows-verify 6m0s pass, сквош по команде владельца -> main
+`aa4d2b2` (то же дерево, родитель `86ca61f`).
+
+**ОТК.** Квитанция a1 (`receipts/a7353c8bdba8064b/OTK-HOST-TREE-1-adjudication-a1.json`) прошла на merged head
+без перечеканки. Харнес: `VERIFIED OTK-HOST-TREE-1` 2026-10-06T18:55:26Z с первой попытки, первый прогон ОТК в
+изолированной копии (`isolated candidate: tree 02e61811...; declared inputs: none`), событие
+`evt-goal-1791312926-5c28ea383c4b4606b7b76b66b5d89807`, actor harness. Все юниты цели verified -> `status: done`.
+`scripts/itd_closure_delta.py` к этой дельте неприменим: принимает только PASSED-квитанцию, а квитанция юнита -
+ADJUDICATED; дельта - только записи (переход харнеса, follow-up, эта запись, строка BACKLOG).
+
+**Цена маршрута.** `/review`: форк вернул "completed" без вердикта, code-reviewer r1 уперся в 15 ходов,
+продолжен сообщением и прерван недельным лимитом sonnet (отчет записан целиком). Sol: s1 UNVERIFIED до отправки,
+s2/s3b/s4 BLOCKED (5 реальных находок: 3 внесены, 2 - границы с подписью владельца), s3 UNAVAILABLE - протух вход
+Codex; три попытки владельца войти уходили не туда (PowerShell/Windows, device-auth без поля кода), сработал
+браузерный `codex login` в WSL. Гейты: completion-gate - 1 блок (COMPLETION_BYPASS, два события аудита), pre-deploy - 2 блока
+(`cd $VAR`, путь вне репо в `git -C`). Мутации 14, все летальны. Две сессии.
+
+**Уроки.** (1) Стоп-правило трижды подряд вернуло задачу владельцу на одном механизме - границу "копия vs
+доверенные программы git" стоило назвать в контракте до первого раунда. (2) Чекер пишет BLOCKED-квитанцию,
+хотя сам выходит 1 - путь к ней надо брать из каталога квитанций. (3) Вход Codex: продюсер читает только
+`~/.codex/auth.json` в WSL; `pkill -f "codex login"` убил собственную оболочку (самосовпадение).
