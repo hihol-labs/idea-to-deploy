@@ -821,7 +821,8 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_predeploy_gate.py",
       "tests/verify_predeploy_independent_review.py",
-      "tests/verify_scrubber_precision.py"
+      "tests/verify_scrubber_precision.py",
+      "tests/verify_sync_manifest.py"
     ],
     "hooks/check-review-before-commit.sh": [
       "tests/verify_agent_review_sentinel.py",
@@ -833,7 +834,8 @@
       "tests/verify_live_model_benchmark.py",
       "tests/verify_redteam_multihost.py",
       "tests/verify_review_cache.py",
-      "tests/verify_review_sentinel_diffbind.py"
+      "tests/verify_review_sentinel_diffbind.py",
+      "tests/verify_sync_manifest.py"
     ],
     "hooks/check-skill-completeness.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
@@ -865,6 +867,7 @@
       "tests/verify_redteam_multihost.py",
       "tests/verify_retro_scan.py",
       "tests/verify_skill_enforcement.py",
+      "tests/verify_sync_manifest.py",
       "tests/verify_v147_fixes.py"
     ],
     "hooks/codex-dispatch.py": [
