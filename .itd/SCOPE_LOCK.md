@@ -1,28 +1,36 @@
-# GRAPH-LITE-1-CLOSE record the closure of GRAPH-LITE-1 after PR #351
+# GRAPH-LITE-2 close the six deferred findings of review p9 in /graph
 
 ## Current Task
 
-- GRAPH-LITE-1-CLOSE (records only, no goal unit): GRAPH-LITE-1 was merged on the owner's command as PR #351 -> `0a3e594`
-  and rolled out on WSL and Windows. This candidate records the closure: the acceptance contract moves the
-  GRAPH-LITE-1 follow-up to `closedFollowups` (no active unit), BACKLOG marks session 1 published and lists the six
-  medium findings of review p9 as GRAPH-LITE-2, ADR-013 records the trust boundary the owner accepted on p9, and
-  `.itd/DECISIONS.md` records the owner's adjudication. No code, no test, no skill change.
+- GRAPH-LITE-2 (no goal unit; BACKLOG P2 Graph Lite; owner instruction 2026-10-08): fix the six medium findings of the
+  independent review round p9 that the owner deferred when adjudicating GRAPH-LITE-1 - human-node inputs/outputs
+  validation, a controlled refusal on malformed receipt shapes, refusal of a changed git submodule or nested
+  repository, the run-id wording in SKILL.md, and two oracle cases (approve outside graph-runs, a symlinked
+  `.itd-memory/`). The trust boundary of approval.json stays as recorded in ADR-013 and is out of scope.
 
 ## Allowed Change Areas
 
-- `.itd/ACCEPTANCE_CONTRACT.json` - only `activeFollowup` (set to none) and one appended `closedFollowups` entry.
-- `BACKLOG.md` - the P2 Graph Lite section: the session 1 line and one new GRAPH-LITE-2 item.
-- `docs/adr/ADR-013-graph-lite-measured-exception.md` - one Consequences bullet (trust boundary).
-- `.itd/DECISIONS.md` - one entry appended at the end.
-- `.itd/SCOPE_LOCK.md` (this file).
+- `skills/graph/scripts/itd_graph.py`, `skills/graph/SKILL.md`.
+- `tests/verify_graph_skill.py`.
+- `CHANGELOG.md` (Unreleased), `BACKLOG.md` (the GRAPH-LITE-2 line).
+- `.itd/ACCEPTANCE_CONTRACT.json` - only `activeFollowup` (GRAPH-LITE-2) and its two criteria.
+- `tests/fixtures/live-model-evidence/` (re-recorded on the new methodology tree), `.itd/SCOPE_LOCK.md` (this file).
 
 ## Forbidden Change Areas
 
-- Code, hooks, skills (including `skills/graph/`), tests, CI, ledgers (`.itd-memory/**`), any other acceptance criterion.
-- The GRAPH-LITE-2 fixes themselves (a separate candidate) and session 2 of ADR-013.
+- Hooks, gates and their policies, other skills, ledgers (`.itd-memory/**`), any other acceptance criterion.
+- The approval trust boundary (ADR-013 Consequences), session 2 of ADR-013, the plugin version.
 - Merge only on the owner's command.
+
+## Recorded Evidence (not maker-authored)
+
+`tests/fixtures/live-model-evidence/runs/20261008T200636Z-5b2c36d7/**` and `latest.json` are observations written by
+`tests/run-live-model-benchmark.py`; their reviewable properties are integrity and freshness, checked by
+`tests/verify_live_model_benchmark.py --require-evidence` (machine leg `live-evidence`); `transcript.jsonl.gz` is gzip on
+disk and the review packet shows it decompressed.
 
 ## Review Rule
 
-Records only: machine receipt (`meta-review`) and the mandatory independent reviewer (Sol) on the committed head, as the
-gate registry requires a signed route for `itd pr create`.
+Minimal path of ADR-012 for the change (tests written and run, mutations of the fixes killed). Publication follows the
+gate registry: machine receipt on the committed head, the mandatory independent reviewer (Sol) on the same head,
+adjudication receipt registered for `itd pr create`.

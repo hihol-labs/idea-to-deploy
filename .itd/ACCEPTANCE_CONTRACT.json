@@ -4803,6 +4803,44 @@
           "live-evidence"
         ]
       }
+    },
+    {
+      "id": "GRAPH-LITE-2-1-run-tool",
+      "unitId": "GRAPH-LITE-2",
+      "criterion": "Команда критерия выходит 0: tests/verify_graph_skill.py зеленый на дереве кандидата - валидатор отвергает человеческий узел с пустыми или битыми inputs/outputs (G07); status сообщает receipt-mismatch, а close отказывает без traceback на receipt.json-массиве и на записи узла строкой; approve отказывает проекту с измененным вложенным репозиторием и с измененным настоящим git submodule (у которого .git - файл), record отказывает, если любой из них изменился во время прогона; approve отказывает каталогу вне .itd-memory/graph-runs/; init отказывает через символьную ссылку на .itd-memory/ и ничего не пишет по ней; все прежние проверки остаются зелеными. Критерий не утверждает ничего сверх выхода этой команды.",
+      "source": "BACKLOG P2 Graph Lite, пункт GRAPH-LITE-2 (6 medium-находок Sol p9, отложенных владельцем 2026-10-08); .itd/DECISIONS.md 2026-10-08.",
+      "evidence": "tests/verify_graph_skill.py - 195 passed, 0 failed; 6 мутаций фиксов (проверка inputs/outputs человека, вложенный репозиторий как dir, status и close на массиве, запись узла строкой, проверка предков пути) летальны, контроль зеленый.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_graph_skill.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Шесть отложенных находок p9 закрыты в скрипте и тестах /graph - это проверяет команда критерия.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "graph-skill"
+        ]
+      }
+    },
+    {
+      "id": "GRAPH-LITE-2-2-hygiene",
+      "unitId": "GRAPH-LITE-2",
+      "criterion": "Команды критерия выходят 0: meta_review и контрактная фикстура 33 (verify_snapshot --all) согласованы с SKILL.md, записанные live-evidence привязаны к новому дереву методологии (verify_live_model_benchmark --require-evidence). Критерий не утверждает ничего сверх выхода этих команд.",
+      "source": "Регистрация измененного скилла: пин live-benchmark рвется на любой правке skills/.",
+      "evidence": "meta_review PASSED, verify_snapshot --all contract 25/0, verify_live_model_benchmark --require-evidence 154/0 на перезаписанном пине.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/meta_review.py && sh skills/_shared/itd_py.sh tests/verify_snapshot.py --all && sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Скилл, его фикстура и live-evidence согласованы после правки - это проверяют команды критерия.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "meta-review",
+          "snapshot",
+          "live-evidence"
+        ]
+      }
     }
   ],
   "completion": {
@@ -4821,9 +4859,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - GRAPH-LITE-1 closed 2026-10-08 (PR #351 -> 0a3e594). Next by the owner's choice: GRAPH-LITE-2 hardening, then session 2 of ADR-013 (measurement protocol)."
+    "unitId": "GRAPH-LITE-2",
+    "status": "active",
+    "openedAt": "2026-10-08",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "rootCause": "docs/adr/ADR-013-graph-lite-measured-exception.md",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    },
+    "note": "Owner instruction 2026-10-08 ('дальше по плану'): the six medium findings of review p9 that the owner deferred as GRAPH-LITE-2 (BACKLOG P2 Graph Lite) before session 2 of ADR-013. No goal unit; medium = one independent checker (Sol) before the PR."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
