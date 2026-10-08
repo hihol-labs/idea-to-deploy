@@ -91,6 +91,12 @@ far. Per ADR-001 and the harness best-effort invariant it may TRANSPORT a graph;
   of item 6 can score. Until the rule of item 6 is met, nobody is asked to use it.
 - Cost of the record: 41 skills to keep registered (the count drift guards), one more suite in CI, the live-benchmark
   evidence re-recorded once.
+- **Trust boundary** (owner adjudication 2026-10-08, independent review round p9): `graph.json`, `approval.json`,
+  `receipt.json` and `decision.json` are plain files that any process of the same OS user can rewrite, exactly like
+  every ITD ledger (`STATE.json`, `GOAL.json`, receipts). Graph Lite binds intent (the exact digest, the human, the
+  time, the project tree state) and detects accidental change; it does not authenticate against a deliberately
+  forging process of the same user. Closing that gap would need a signing key the nodes cannot reach, which this
+  local, single-user model does not have.
 - Not covered: mutating nodes, per-node model routing, a cache of node receipts (ADR-009 B stays NO-GO), graphs that
   span several tasks or sessions.
 

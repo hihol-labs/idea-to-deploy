@@ -5626,3 +5626,16 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
 - Ограничение: ADR-012 п.5 в силе для всего остального; ADR-012 не переписан, получил пометку Amended by.
 - Ссылки: docs/adr/ADR-013-graph-lite-measured-exception.md, docs/graph-engineering.md, skills/graph/,
   tests/verify_graph_skill.py, BACKLOG P2 «Graph Lite (ADR-013): замер».
+
+## 2026-10-08 - GRAPH-LITE-1: находки ревью p9 подписаны владельцем, юнит закрыт
+- Почему: после девяти раундов независимого ревью Sol (p3-p8 исправлены с тестами, 180 проверок, 38 мутаций фиксов
+  летальны; две находки опровергнуты на деле) раунд p9 снова BLOCKED: 1 high (approval.json - обычный файл, процесс
+  того же пользователя может его переписать) и 6 medium. Владелец выбрал «подписать и публиковать» вместо еще одного
+  раунда.
+- Решение: 7 находок p9 - accepted-trade-off (`GRAPH-LITE-1-adjudication-a1`, ADJUDICATED); high - граница
+  модели доверия, записана в ADR-013 (Consequences, Trust boundary); 6 medium - BACKLOG GRAPH-LITE-2 до сессии 2.
+  PR #351 смержен по команде владельца -> `0a3e594`, раскатка WSL + Windows.
+- Отвергнуто: еще раунды без схождения (находки каждого раунда касались новых механизмов, добавленных в ответ на
+  предыдущий); подпись approval ключом (нет ключа, недоступного узлам, в локальной однопользовательской модели).
+- Ограничение: Graph Lite остается default-off; GRAPH-LITE-2 закрывается до сессии 2 замера.
+- Ссылки: docs/adr/ADR-013-graph-lite-measured-exception.md, BACKLOG P2 Graph Lite, PR #351.
