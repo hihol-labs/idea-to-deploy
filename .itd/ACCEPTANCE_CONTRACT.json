@@ -4821,23 +4821,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GRAPH-LITE-1",
-    "status": "active",
-    "openedAt": "2026-10-07",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "rootCause": "docs/adr/ADR-013-graph-lite-measured-exception.md",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    },
-    "note": "Owner decision 2026-10-07 (variant A+B): Graph Lite as the single measured exception to ADR-012 item 5 (ADR-013), session 1 of 3 - the default-off /graph skill, its run tool and oracle, the ADR, the vocabulary map and the registration of the 41st skill. No goal unit; medium = one independent checker (Sol) before the PR, as the gate registry requires a signed route for itd pr create."
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - GRAPH-LITE-1 closed 2026-10-08 (PR #351 -> 0a3e594). Next by the owner's choice: GRAPH-LITE-2 hardening, then session 2 of ADR-013 (measurement protocol)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5316,6 +5302,27 @@
       "note": "Activated by the goal harness 2026-10-04 (evt-goal-1791126893-c435e387824d4ec5960d760104ce0922); eighth and last unit of the goal approved by the owner 2026-10-01; variant A (isolated working-tree copy without git-ignored files + declared --input) chosen by the owner 2026-10-04 after a measurement; high = full independent checker before the PR.",
       "closedAt": "2026-10-06T18:55:26Z",
       "closureEvidence": "Verified by the goal harness on 2026-10-06T18:55:26Z (VERIFIED OTK-HOST-TREE-1 - tests/verify_otk_host_tree.py exit 0 28 passed, 0 failed, tests/verify_goal_tools.py exit 0 83 passed, 0 failed; the first harness run inside the isolated copy: 'isolated candidate: tree 02e61811b7aa279ae91adf8b33837e48e77f3801 ... declared inputs: none'; event evt-goal-1791312926-5c28ea383c4b4606b7b76b66b5d89807, actor harness) on the merged tree 02e61811 (main aa4d2b2 = squash of PR #347, tree-identical to the branch commit 65713cc, same parent 86ca61f) with receipt .itd-memory/verification-loop/receipts/a7353c8bdba8064b/OTK-HOST-TREE-1-adjudication-a1.json (high, ADJUDICATED by the owner under ADR-007 after the stop rule REDESIGN_OR_DISCARD on Sol s2, s3b, s4; check --require-mandatory-route --accept-adjudicated-route rc 0 on the staged tree and on the committed head). Publication: variant A chosen by the owner after a measurement; RED-first on 86ca61f (24 failed, 3 passed), 14 lethal mutants, /review r1 PASSED_WITH_WARNINGS (I-1 GIT_* taken); Sol s1 UNVERIFIED before sending (criteria pending), s2 BLOCKED (2 taken), s3 UNAVAILABLE (Codex refresh_token_reused), s3b BLOCKED (chain case taken, git filters - boundary B by the owner), s4 BLOCKED (empty untracked cwd - signed accepted-trade-off); general-review ADJUDICATED a1, review-cache ADJUDICATED; gate registry on a1 -> doctor LOCAL_REVIEWED (human-adjudication); itd pr create -> PR #347, CI Gate 1 1m39s + windows-verify 6m0s pass, squash merge on the owner's command."
+    },
+    {
+      "unitId": "GRAPH-LITE-1",
+      "status": "closed",
+      "openedAt": "2026-10-07",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "rootCause": "docs/adr/ADR-013-graph-lite-measured-exception.md",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "note": "Owner decision 2026-10-07 (variant A+B): Graph Lite as the single measured exception to ADR-012 item 5 (ADR-013), session 1 of 3 - the default-off /graph skill, its run tool and oracle, the ADR, the vocabulary map and the registration of the 41st skill. No goal unit; medium = one independent checker (Sol) before the PR, as the gate registry requires a signed route for itd pr create.",
+      "closedAt": "2026-10-08T18:56:53Z",
+      "closureEvidence": "Merged on the owner's command as PR #351 -> 0a3e594 (squash) at 2026-10-08T18:56:53Z. Publication route: machine receipt GRAPH-LITE-1 8/8 legs exit 0 on tree d9eb69e1 (meta-review, graph-skill 180/0, counts, triggers, snapshot, absorption contract, host-adapters, live-evidence 154/0); independent reviewer gpt-5.6-sol rounds p3-p8 BLOCKED and fixed, p9 BLOCKED adjudicated by the owner (GRAPH-LITE-1-adjudication-a1, 7 findings accepted as trade-offs: the approval trust boundary recorded in ADR-013, 6 medium items in BACKLOG GRAPH-LITE-2); gate registry LOCAL_REVIEWED; CI Gate 1 and windows-verify pass. Rollout 2026-10-08: sync-to-active on WSL and Windows added /graph, 36 hooks on each host, the 5 opted-out hooks stay off."
     }
   ]
 }
