@@ -1,0 +1,5 @@
+interface:
+  display_name: "Idea to Deploy Graph Lite"
+  short_description: "Explicit one-task agent graph: owner-approved digest, read-only nodes, human terminal (ADR-013)."
+policy:
+  allow_implicit_invocation: false

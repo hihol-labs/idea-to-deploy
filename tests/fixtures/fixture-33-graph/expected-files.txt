@@ -1,0 +1,16 @@
+# Expected files after /graph runs (all under the run directory, nothing else)
+#
+# .itd-memory/graph-runs/<run-id>/graph.json      — the designed graph (nodes, edges, state, prompts)
+# .itd-memory/graph-runs/<run-id>/approval.json   — owner approval of the exact graph digest
+# .itd-memory/graph-runs/<run-id>/nodes/<id>.md   — one file per executed node (hunters, skeptic, synthesizer)
+# .itd-memory/graph-runs/<run-id>/receipt.json    — graph digest, runtime (workflow|serial), per-node sha256
+# .itd-memory/graph-runs/<run-id>/decision.json   — the human terminal decision
+#
+# NOTHING else — /graph must not touch project sources, skills/, hooks/, docs,
+# CHANGELOG, ledgers (STATE.json / GOAL.json) or any leak journal; the leak
+# journal line is written by the human after the decision, not by the skill.
+#
+# The script half is machine-checked (tests/verify_graph_skill.py); the model
+# half (design quality, dialogue, decision) is manual via notes.md.
+# Validation deferred (status: contract) — same bucket as fixture-15-advisor /
+# fixture-19-grill-me.

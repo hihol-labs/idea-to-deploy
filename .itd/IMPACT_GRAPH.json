@@ -1199,6 +1199,7 @@
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_graph_skill.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_operating_loops.py",
@@ -1367,6 +1368,7 @@
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_supersede.py",
       "tests/verify_fail_closed_hygiene.py",
+      "tests/verify_graph_skill.py",
       "tests/verify_handoff_untracked.py",
       "tests/verify_harness_conformance.py",
       "tests/verify_harness_docs_freshness.py",
@@ -1568,6 +1570,15 @@
       "tests/verify_route_debts.py",
       "tests/verify_tier_source.py",
       "tests/verify_verify_signal_and_watchdog.py"
+    ],
+    "skills/graph/SKILL.md": [
+      "tests/verify_graph_skill.py"
+    ],
+    "skills/graph/agents/openai.yaml": [
+      "tests/verify_host_adapters.py"
+    ],
+    "skills/graph/scripts/itd_graph.py": [
+      "tests/verify_graph_skill.py"
     ],
     "skills/handoff/SKILL.md": [
       "tests/verify_handoff_untracked.py"

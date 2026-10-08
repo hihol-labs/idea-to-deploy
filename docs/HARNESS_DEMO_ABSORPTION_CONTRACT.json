@@ -98,7 +98,7 @@
       "reservedSkillDirectories": [
         "_shared"
       ],
-      "baseline": 40,
+      "baseline": 41,
       "baselineNames": [
         "adopt",
         "advisor",
@@ -116,6 +116,7 @@
         "explain",
         "github-workflow",
         "goal",
+        "graph",
         "grill-me",
         "guide",
         "handoff",

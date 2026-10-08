@@ -1,0 +1,30 @@
+{
+  "$schema_version": "2.0",
+  "fixture_type": "graph-run",
+  "skill_under_test": "/graph",
+  "status": "contract",
+  "description": "Deferred — /graph is Graph Lite (ADR-013, a measured exception to ADR-012): one explicit agent graph per task, written to .itd-memory/graph-runs/<run-id>/graph.json, approved by the owner as an exact digest, run through the host Workflow tool (or the serial plan when the host has none), recorded as one file per node plus receipt.json, and closed by a human decision. The script half (init/validate/approve/emit-workflow/emit-serial/record/close of skills/graph/scripts/itd_graph.py) is machine-checked by tests/verify_graph_skill.py; the model half (design quality, the approval dialogue, the decision) cannot be asserted by verify_snapshot.py's Phase 1 file-shaped schema, so it is deferred to the Phase 2 scheme (same read-and-advise bucket as fixture-15-advisor and fixture-19-grill-me). This stub satisfies check-skill-completeness.sh; notes.md documents the contract (explicit invocation only, approve-before-run, read-only nodes, human terminal, serial fallback, one file per node) for manual verification. Phase-2 CONTRACT validation is active: the guarantees quoted in notes.md are machine-pinned against SKILL.md by verify_snapshot.py (drift guard).",
+  "skill_contract": {
+    "skill": "graph",
+    "required_sections": [
+      "Trigger phrases",
+      "Recommended model",
+      "Instructions",
+      "Examples",
+      "Self-validation",
+      "Troubleshooting",
+      "Rules"
+    ],
+    "must_contain": [
+      "/graph",
+      ".itd-memory/graph-runs/",
+      "disable-model-invocation: true",
+      "ADR-013",
+      "emit-workflow",
+      "emit-serial",
+      "receipt.json",
+      "decision.json"
+    ],
+    "harness_suite": "tests/verify_graph_skill.py"
+  }
+}

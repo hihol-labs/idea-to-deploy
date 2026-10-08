@@ -7,6 +7,8 @@
   request, `/task` routing, mandatory `/review` before a multi-file commit, the `/test` refute pass, the Sol round
   for medium work) for this owner's installs. Does not touch ADR-011 (default risk tier `low`) or the human gates for
   irreversible actions.
+- **Amended by:** [ADR-013](ADR-013-graph-lite-measured-exception.md) (owner decision 2026-10-07) - one measured,
+  default-off exception to item 5: the `/graph` skill and its first template. Nothing else in this record changes.
 
 ## Context
 

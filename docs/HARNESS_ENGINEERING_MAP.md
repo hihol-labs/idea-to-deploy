@@ -1,7 +1,7 @@
 # Harness Engineering Map: idea-to-deploy ↔ Харнес-инженерия
 
 > Актуальность: **2026-08-11**, idea-to-deploy **v1.96.0** (+ U16 pre-deploy hook, ветка).
-> Текущий инвентарь: 40 skills, 10 subagents, 30 hooks, 12 hard gates, 18 soft hooks.
+> Текущий инвентарь (обновлён 2026-10-07, Graph Lite / ADR-013; остальной текст карты - на дату выше): 41 skills, 10 subagents, 30 hooks, 12 hard gates, 18 soft hooks.
 > Источник: [Harness Engineering (walkinglabs)](https://walkinglabs.github.io/learn-harness-engineering/ru/) + для оси I — исследование Anthropic «Effective harnesses for long-running agents»
 > Цель: проверить, в полной ли мере методология отражает философию, 5 принципов и инструменты харнес-инженерии; артикулировать gap'ы; зафиксировать осознанные out-of-scope решения.
 
@@ -39,7 +39,7 @@ Claude Code и Codex. Документ не заявляет поддержку 
 
 Статусы: ✅ **покрыто** (явная реализация с контрактом) · ◐ **частично** (gap артикулирован в §5) · ❌ **gap** (не реализовано и не замещено).
 
-Проверка текущего состояния: **40 skills, 10 subagents, 30 hooks, 12 hard gates, 18 soft hooks**, 2 Quality Gates, слой контрактов `.itd/`, host-neutral `.itd-memory/`, deterministic behavioural floor и свежий live-model evidence.
+Проверка текущего состояния: **41 skills, 10 subagents, 30 hooks, 12 hard gates, 18 soft hooks**, 2 Quality Gates, слой контрактов `.itd/`, host-neutral `.itd-memory/`, deterministic behavioural floor и свежий live-model evidence.
 
 ## 4. Таблица соответствия
 

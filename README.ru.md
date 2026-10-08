@@ -10,7 +10,7 @@
 [End-to-End пример](#end-to-end-пример) · [Контракты скиллов](#контракты-скиллов).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#скиллы)
+[![Skills: 41](https://img.shields.io/badge/Skills-41-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
 [![Version: 1.106.0](https://img.shields.io/badge/Version-1.106.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -47,7 +47,7 @@ AI coding agents мощные, но без harness работают как ст�
 ## Решение
 
 **idea-to-deploy** — это методология, а не просто набор инструментов. Её
-40 скиллов, 10 ролей агентов, 30 хуков, проектные контракты и персистентное
+41 скилл, 10 ролей агентов, 30 хуков, проектные контракты и персистентное
 состояние дают поддерживаемому coding host доказательный конвейер:
 
 ```
@@ -300,7 +300,7 @@ Host-neutral naming выходных артефактов остаётся от�
 | `/harden` | **Новое в v1.4.0.** Рубрика production-readiness — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 нагрузочные тесты, SRE runbook. Генерирует недостающие артефакты с согласия пользователя. |
 | `/infra` | **Новое в v1.4.0.** Генератор infrastructure-as-code — Terraform модули (DigitalOcean, AWS, Hetzner), Kubernetes-манифесты + Helm chart, обвязка секретов (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Для прода требует remote tfstate с локами. |
 
-### Workflow (5 скиллов)
+### Workflow (6 скиллов)
 
 | Скилл | Описание |
 |-------|----------|
@@ -309,6 +309,7 @@ Host-neutral naming выходных артефактов остаётся от�
 | `/handoff` | **Новое в v1.21.0.** Пишет компактный пакет контекста `HANDOFF.md` для передачи работы следующей сессии/агенту, когда обратного пути нет — компакция, делегирование, AFK-прогон или восстановление. Отличается от `/session-save` (сохранение вехи). |
 | `/goal` | **Новое в v1.44.0.** Режим долгой цели — декомпозирует цель на несколько сессий в упорядоченные проверяемые юниты в `.itd-memory/GOAL.json` (с одобрением пользователя), ведёт их по одному через штатный конвейер `/task` (WIP=1, `verified` только с evidence) и возобновляется между сессиями с первого не-verified юнита. Bounded-контур теперь исполняет наблюдаемые token/time/attempt stops, выбирает цену checker по запечатанному risk tier, выдаёт checkpoint ≤4 КБ и оценивает чистые A/B evidence детерминированным anti-Goodhart evaluator 5/5. Brownfield-first; не обходит `/review`, `/test` и DoD. |
 | `/retro` | **Новое в v1.46.0.** Самопредлагающий цикл улучшений самой методологии, разделённый ФАКТЫ / ПРЕДЛОЖЕНИЯ / MERGE: `itd_retro_scan.py` детерминированно агрегирует телеметрию (VCR, регрессии, активные цели, SKILL_BYPASS-леджер, cost), модель превращает факты в ранжированные предложения с обязательным evidence (анти-Гудхарт: только внешние сигналы), merge остаётся за человеком через обычный релизный конвейер. Сам методологию не правит; не гейт. |
+| `/graph` | **Новое (ещё не в релизе).** Graph Lite — одна задача превращается в явный граф агентов (узлы, стрелки, общее состояние, проверяющий отдельно от пишущего, человек в терминале): владелец утверждает точный digest графа, хост исполняет его через Workflow tool (или узел за узлом, если рантайма нет), каждый выход узла ложится файлом в `.itd-memory/graph-runs/<run-id>/`. Default-off (`disable-model-invocation`), узлы read-only, измеренное исключение из ADR-012 (ADR-013); шаблон `module-neighbour-check` ищет четыре класса дефектов (владелец, валюта и сумма, дедуп, время) по всему модулю денег и доступа. |
 
 ### Исследование (2 скилла)
 
@@ -387,6 +388,7 @@ Host-neutral naming выходных артефактов остаётся от�
 | `/handoff` | Состояние проекта + причина передачи (компакция / делегирование / AFK / восстановление) | `HANDOFF.md` (пакет контекста) + обновление `STATE.json` | Memory-write (`HANDOFF.md` в корне + `STATE.json`); без изменений кода | ✅ Перезаписывает пакет при каждом запуске |
 | `/goal` | Текст цели (пусто = resume активной цели) | `.itd-memory/GOAL.json` (персистентный реестр юнитов) + unit-события в `events.jsonl`; опциональные sealed `runPolicy`, журнал попыток и типизированные остановки по бюджету; юниты поставляются через штатный конвейер `/task` | Только memory-write; изменения кода — внутри `/task` под его гейтами | ✅ Resume-only — активный реестр никогда не пересоздаётся |
 | `/retro` | Workspace-корни для скана (по умолчанию cwd) | `docs/retros/RETRO-YYYY-MM-DD.md` (скан + ранжированные предложения с evidence); кандидаты в бэклог — на решение ПОЛЬЗОВАТЕЛЯ | Memory-write только отчёта — skills/hooks/docs не правит (самомержа нет) | ✅ Новый датированный отчёт на каждый запуск; скан детерминирован |
+| `/graph` | Текст задачи, шаблон (`module-neighbour-check --module <путь>`) или `--from graph.json` | `.itd-memory/graph-runs/<run-id>/` — `graph.json`, `approval.json`, `nodes/<id>.md`, `receipt.json`, `decision.json` | Только memory-write каталога прогона; узлы read-only по контракту (агент Explore без инструментов правки; изменение git-видимого файла проекта отказывает record) - не песочница; строку в журнал утечек вносит человек | ✅ Существующий прогон не перезаписывает; перепрогон — новый каталог |
 | `/market-scan` | Идея / проблема / сегмент / конкурент / вопрос о запуске | `MARKET_BRIEF.md` (датированное дополнение) + опционально `BACKLOG.md`/`LAUNCH_PLAN.md`; структурированная выжимка в stdout | Локальная запись доков + внешний read-only research-запрос (`last30days`); секреты не отправляются | ⚠️ Датированное дополнение — повторы добавляют новые доказательства |
 | `/mcp-docs` | Библиотека / фреймворк / API / вопрос о версии | Нет — структурированная выжимка в stdout; источник + решение в заметках | Нет (read-only; внешний запрос к докам, без записи файлов) | ✅ |
 | `/github-workflow` | Issue / PR / ветка / check run / релиз | GitHub Issues/PRs/релизы (внешне) + опционально `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | Запись в GitHub только по явному намерению; сначала читает git status | ⚠️ Внешние мутации — повторять осторожно |
@@ -659,6 +661,7 @@ Shared generators пока сохраняют legacy-compatible имена `CLAU
 | `/handoff` | Haiku | Sonnet | Структурированная суммаризация решений и состояния — минимум рассуждений |
 | `/goal` | Sonnet | Opus | Декомпозиция размытой цели в бинарно-проверяемые юниты — рассуждение; сама бухгалтерия юнитов механична |
 | `/retro` | Sonnet | Opus | Интерпретация телеметрии в ранжированные предложения — рассуждение; сам скан — скрипт |
+| `/graph` | Sonnet | Opus | Спроектировать граф и решить, нужен ли он вообще — рассуждение; узлы наследуют модель сессии, скрипт прогона детерминирован |
 | `/market-scan` | Sonnet | Opus | Синтез разнородных публичных сигналов + adversarial discovery выигрывают от Opus |
 | `/mcp-docs` | Haiku | Sonnet | Резолв library ID + узкий запрос к докам — точечный lookup, не глубокое рассуждение |
 | `/github-workflow` | Sonnet | Sonnet | gh/git операции + маппинг артефактов — структурно, не глубокое рассуждение |
@@ -779,7 +782,7 @@ Claude Code adapter обычно устанавливается в
 Контрибьюции приветствуются. Проект небольшой, поэтому процесс лёгкий:
 
 1. **Сообщить о баге / предложить скилл** — заведите GitHub issue с конкретным сценарием и ожидаемым поведением.
-2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующих 40. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Предложить новый скилл** — скиллы живут в `skills/<name>/SKILL.md` и следуют форме существующего 41. Нужны: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Исправить баг или отполировать скилл** — открывайте PR в `main`. Перед отправкой локально прогоните `tests/run-fixtures.sh`.
 4. **Улучшить документацию** — `README.md` и `README.ru.md` должны оставаться синхронными. Правки в одном требуют правок в другом.
 

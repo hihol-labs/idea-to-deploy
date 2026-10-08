@@ -99,8 +99,8 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 ## Known follow-up (doc drift)
 
 **✅ RESOLVED (v1.21.0 docs-sync pass; refreshed v1.93.0).** The original pass
-aligned **40 skills + 10 specialized subagents + 19 enforcement hooks**. The
-current live inventory is **40 skills + 10 specialized subagents + 30 hooks
+aligned the skill and subagent counts with **19 enforcement hooks**. The
+current live inventory is **41 skills + 10 specialized subagents + 30 hooks
 (12 hard, 18 soft)** and is checked by the documentation freshness and adapter
 parity suites:
 `.claude-plugin/plugin.json` `description` (also lists the new capabilities:
