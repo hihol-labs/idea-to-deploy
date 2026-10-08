@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - GRAPH-LITE-2: шесть отложенных находок ревью p9 в `/graph`
+
+- Валидатор проверяет `inputs`/`outputs` и у человеческого узла (G07).
+- Битая форма `receipt.json` (массив вместо объекта, запись узла строкой) дает контролируемый отказ `close` и
+  состояние `receipt-mismatch` в `status`, а не traceback.
+- Измененный git submodule или вложенный репозиторий в проекте отказывает `approve` (его содержимое не хэшируется);
+  если он изменился во время прогона, `record` отказывает.
+- SKILL.md: run-id - одно имя `[A-Za-z0-9][A-Za-z0-9._-]*`, вид `YYYY-MM-DD-<slug>` - рекомендация, скрипт ее не
+  требует.
+- `tests/verify_graph_skill.py` (195 проверок): две мутации валидатора, `approve` вне `.itd-memory/graph-runs/`,
+  символьная ссылка на `.itd-memory/`, битые формы квитанции без traceback, вложенный репозиторий и настоящий
+  локальный git submodule при approve и во время прогона; 6 мутаций фиксов летальны.
+
 ### Added - Graph Lite: скилл `/graph` как измеренное исключение из ADR-012 (ADR-013)
 
 - Запрос владельца 2026-10-07 по видео Greg Isenberg «Why Graph Engineering will 10x your Claude/Codex»:

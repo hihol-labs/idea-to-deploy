@@ -525,6 +525,10 @@ def validate_graph(graph) -> list[str]:
                 errs.append(f"G06: human node {i} must be read-only too (purity={n.get('purity')!r})")
             if not isinstance(n.get("prompt"), str) or not n.get("prompt", "").strip():
                 errs.append(f"G07: human node {i} needs a non-empty prompt (what the owner decides)")
+            for key in ("inputs", "outputs"):
+                v = n.get(key)
+                if not isinstance(v, list) or not v or not all(isinstance(x, str) and x for x in v):
+                    errs.append(f"G07: human node {i} needs a non-empty {key} list")
             continue
         if n.get("kind") != "agent":
             errs.append(f"G06: node {i} kind must be agent or human")
@@ -665,7 +669,8 @@ def project_tree_state(root: Path) -> dict:
         elif full.is_file():
             digest = sha256_bytes(full.read_bytes())
         elif full.exists():
-            digest = "dir"
+            raise Refused(f"the project holds a changed git submodule or nested repository at {rel}: its content "
+                          "cannot be verified - commit or clean it so that a run starts and ends without one")
         else:
             digest = "deleted"
         changes[rel] = f"{code}:{digest}"
@@ -683,8 +688,10 @@ def tree_differences(before: dict, after: dict) -> list[str]:
     return diffs
 
 
-def receipt_mismatches(run_dir: Path, receipt: dict, graph: dict) -> list[str]:
+def receipt_mismatches(run_dir: Path, receipt, graph: dict) -> list[str]:
     """Node files that are missing, extra or differ from the receipt's sha256/size."""
+    if not isinstance(receipt, dict):
+        return ["receipt.json is not an object"]
     nodes_dir = paths(run_dir)["nodes"]
     agent_ids = sorted(n["id"] for n in graph["nodes"] if n["kind"] == "agent")
     problems: list[str] = []
@@ -714,7 +721,9 @@ def receipt_mismatches(run_dir: Path, receipt: dict, graph: dict) -> list[str]:
             problems.append(f"nodes/{i}.md is missing")
             continue
         data = f.read_bytes()
-        entry = recorded.get(i) or {}
+        entry = recorded.get(i)
+        if not isinstance(entry, dict):
+            continue  # already reported as malformed above
         if entry.get("sha256") != sha256_bytes(data) or entry.get("bytes") != len(data):
             problems.append(f"nodes/{i}.md differs from the receipt")
     return problems
@@ -794,6 +803,10 @@ def run_state(run_dir: Path) -> dict:
         return state
     if p["receipt"].is_file():
         receipt = read_json(p["receipt"], "receipt.json")
+        if not isinstance(receipt, dict):
+            state["state"] = "receipt-mismatch"
+            state["reasons"] = ["receipt.json is not an object"]
+            return state
         state["state"] = "recorded" if receipt.get("graphDigest") == digest else "receipt-stale"
         if state["state"] == "receipt-stale":
             return state
@@ -1127,6 +1140,8 @@ def cmd_close(a) -> int:
     graph, digest = load_valid_graph(run_dir)
     load_matching_approval(run_dir, digest, graph)
     receipt = read_json(p["receipt"], "receipt.json (record the run first)")
+    if not isinstance(receipt, dict):
+        raise Refused("receipt.json is not an object - the recorded evidence is broken, start a new run")
     if receipt.get("graphDigest") != digest:
         raise Refused("receipt.json belongs to another graph digest")
     problems = receipt_mismatches(run_dir, receipt, graph)

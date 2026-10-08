@@ -224,6 +224,8 @@ def mutations(base: dict) -> list[tuple[str, str, dict]]:
     m("duplicate node id", "G02", lambda g: g["nodes"].append(dict(node(g, "hunt-owner"))))
     m("unknown role", "G11", lambda g: node(g, "synth").__setitem__("role", "wizard"))
     m("human node declared mutating", "G06", lambda g: node(g, "human").__setitem__("purity", "mutating"))
+    m("human node without inputs", "G07", lambda g: node(g, "human").__setitem__("inputs", []))
+    m("human node with a malformed outputs list", "G07", lambda g: node(g, "human").__setitem__("outputs", ["", 3]))
     m("bad runId", "G12", lambda g: g.__setitem__("runId", "../escape"))
     m("empty task", "G12", lambda g: g.__setitem__("task", "  "))
     m("wrong schemaVersion", "G01", lambda g: g.__setitem__("schemaVersion", 2))
@@ -489,6 +491,9 @@ def test_containment_and_integrity(tmp: Path) -> None:
     for cmd in ("validate", "digest", "status", "emit-workflow", "emit-serial"):
         r = run(cmd, str(outside))
         check(f"{cmd} refuses a run directory outside .itd-memory/graph-runs/", r.returncode == 2 and "graph-runs" in r.stdout, r.stdout)
+    r = run("approve", str(outside), "--digest", "0" * 64, "--by", "owner")
+    check("approve refuses a run directory outside .itd-memory/graph-runs/",
+          r.returncode == 2 and "graph-runs" in r.stdout and not (outside / "approval.json").exists(), r.stdout)
     r = run("record", str(outside), "--result", str(tmp / "x.json"), "--runtime", "serial")
     check("record refuses a run directory outside .itd-memory/graph-runs/", r.returncode == 2 and "graph-runs" in r.stdout, r.stdout)
     r = run("close", str(outside), "--decision", "x", "--by", "owner")
@@ -624,6 +629,22 @@ def test_containment_and_integrity(tmp: Path) -> None:
         aliased = True
     except (OSError, NotImplementedError):
         aliased = False
+    memreal = tmp / "memreal"
+    (memreal / "graph-runs").mkdir(parents=True)
+    memproj = tmp / "proj-memlink"
+    memproj.mkdir()
+    try:
+        os.symlink(memreal, memproj / ".itd-memory", target_is_directory=True)
+        memlinked = True
+    except (OSError, NotImplementedError):
+        memlinked = False
+    if memlinked:
+        r = run("init", str(memproj / ".itd-memory" / "graph-runs" / "via-link"), "--module", "x.ts")
+        check("a symlinked .itd-memory/ is refused and nothing is written through it",
+              r.returncode == 2 and "symbolic link" in r.stdout and ".itd-memory" in r.stdout
+              and not (memreal / "graph-runs" / "via-link").exists(), r.stdout)
+    else:
+        check("a symlinked .itd-memory/ is refused (SKIP: no symlink privilege)", True)
     if aliased:
         r = run("status", str(alias / ".itd-memory" / "graph-runs" / "clean"))
         check("a symbolic link above the project on the run path is refused",
@@ -684,6 +705,68 @@ def test_project_tree_check(tmp: Path) -> None:
         (pr / ".gitignore").write_text("build/\n", encoding="utf-8")
     r, rdir = attempt("gitignore", ignored)
     check("a new .gitignore is itself a project change", r.returncode == 2 and ".gitignore" in r.stdout, r.stdout)
+
+    def nested_repo(pr: Path) -> Path:
+        lib = pr / "vendor" / "lib"
+        lib.mkdir(parents=True)
+        (lib / "lib.txt").write_text("v1\n", encoding="utf-8")
+        for args in (["init", "-q"], ["add", "lib.txt"], ["commit", "-q", "-m", "lib"]):
+            subprocess.run(["git", "-C", str(lib), *args], check=True, capture_output=True, env=git_env())
+        for args in (["add", "vendor/lib"], ["commit", "-q", "-m", "embed lib"]):
+            subprocess.run(["git", "-C", str(pr), *args], check=True, capture_output=True, env=git_env())
+        return lib
+
+    run_dir, digest = init_run(tmp, "sub-dirty", project="tree-sub-dirty")
+    lib = nested_repo(run_dir.parent.parent.parent)
+    (lib / "lib.txt").write_text("edited before approval\n", encoding="utf-8")
+    r = run("approve", str(run_dir), "--digest", digest, "--by", "owner")
+    check("approve refuses a project with a changed nested repository or submodule",
+          r.returncode == 2 and "nested repository" in r.stdout and "vendor/lib" in r.stdout
+          and not (run_dir / "approval.json").exists(), r.stdout)
+
+    run_dir, digest = init_run(tmp, "sub-run", project="tree-sub-run")
+    lib = nested_repo(run_dir.parent.parent.parent)
+    r = run("approve", str(run_dir), "--digest", digest, "--by", "owner")
+    check("a clean nested repository does not block approval", r.returncode == 0, r.stdout)
+    (lib / "lib.txt").write_text("edited by a node\n", encoding="utf-8")
+    res = tmp / "sub-run.json"
+    write_json(res, good_result(load(run_dir), digest))
+    r = run("record", str(run_dir), "--result", str(res), "--runtime", "serial")
+    check("record refuses when a nested repository changed during the run",
+          r.returncode == 2 and "vendor/lib" in r.stdout and not (run_dir / "receipt.json").exists(), r.stdout)
+
+    def real_submodule(pr: Path) -> Path:
+        upstream = pr.parent / (pr.name + "-upstream")
+        upstream.mkdir()
+        (upstream / "mod.txt").write_text("v1\n", encoding="utf-8")
+        for args in (["init", "-q"], ["add", "mod.txt"], ["commit", "-q", "-m", "upstream"]):
+            subprocess.run(["git", "-C", str(upstream), *args], check=True, capture_output=True, env=git_env())
+        subprocess.run(["git", "-C", str(pr), "-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                        str(upstream), "vendor/sub"], check=True, capture_output=True, env=git_env())
+        subprocess.run(["git", "-C", str(pr), "commit", "-q", "-m", "add submodule"], check=True,
+                       capture_output=True, env=git_env())
+        return pr / "vendor" / "sub"
+
+    run_dir, digest = init_run(tmp, "gsub-dirty", project="tree-gsub-dirty")
+    sub = real_submodule(run_dir.parent.parent.parent)
+    check("the oracle builds a real submodule (.git is a file pointing into the superproject)",
+          (sub / ".git").is_file(), str(sub / ".git"))
+    (sub / "mod.txt").write_text("edited before approval\n", encoding="utf-8")
+    r = run("approve", str(run_dir), "--digest", digest, "--by", "owner")
+    check("approve refuses a project with a changed real git submodule",
+          r.returncode == 2 and "submodule" in r.stdout and "vendor/sub" in r.stdout
+          and not (run_dir / "approval.json").exists(), r.stdout)
+
+    run_dir, digest = init_run(tmp, "gsub-run", project="tree-gsub-run")
+    sub = real_submodule(run_dir.parent.parent.parent)
+    r = run("approve", str(run_dir), "--digest", digest, "--by", "owner")
+    check("a clean real submodule does not block approval", r.returncode == 0, r.stdout)
+    (sub / "mod.txt").write_text("edited by a node\n", encoding="utf-8")
+    res = tmp / "gsub-run.json"
+    write_json(res, good_result(load(run_dir), digest))
+    r = run("record", str(run_dir), "--result", str(res), "--runtime", "serial")
+    check("record refuses when a real submodule changed during the run",
+          r.returncode == 2 and "vendor/sub" in r.stdout and not (run_dir / "receipt.json").exists(), r.stdout)
 
     run_dir, digest = init_run(tmp, "legacy", project="tree-legacy")
     run("approve", str(run_dir), "--digest", digest, "--by", "owner")
@@ -777,6 +860,17 @@ def test_provenance_and_json(tmp: Path) -> None:
         r = run("close", str(run_dir), "--decision", "ok", "--by", "owner")
         check(f"close refuses a receipt with {label}", r.returncode == 2 and needle in r.stdout
               and not (run_dir / "decision.json").exists(), r.stdout)
+    for label, text in (("a JSON array instead of an object", "[]"),
+                        ("a node entry that is a string", json.dumps(dict(base, nodes=dict(base["nodes"], synth="abc"))))):
+        receipt_path.write_text(text, encoding="utf-8")
+        r = run("status", str(run_dir))
+        check(f"status refuses a receipt with {label} without a traceback",
+              r.returncode == 0 and '"state": "receipt-mismatch"' in r.stdout and "Traceback" not in r.stdout + r.stderr,
+              r.stdout + r.stderr[-300:])
+        r = run("close", str(run_dir), "--decision", "ok", "--by", "owner")
+        check(f"close refuses a receipt with {label} without a traceback",
+              r.returncode == 2 and "REFUSED" in r.stdout and "Traceback" not in r.stdout + r.stderr
+              and not (run_dir / "decision.json").exists(), r.stdout + r.stderr[-300:])
     receipt_path.write_text(intact, encoding="utf-8")
     r = run("status", str(run_dir))
     check("the intact receipt is recorded again", '"state": "recorded"' in r.stdout, r.stdout)
