@@ -111,7 +111,7 @@ unchanged:
 
 **Consequence:** Day-3 adds zero runtime, zero new skill, zero new hook *file* — only
 врезки, one new review check (`C-code-7`), and one new risk-signal (`MEMORY_RE`) inside
-the existing DoD hook. Counts stay 40 skills / 19 hooks. The Review date above is
+the existing DoD hook. Counts stay 41 skills / 19 hooks. The Review date above is
 unchanged; this note is re-evaluated on the same 2026-09-28 cycle.
 
 ---
@@ -135,5 +135,5 @@ this ADR rejects. The decision is unchanged:
   the same realization as `cost-tracker.sh` v1.30.0 and the `MEMORY_RE` signal.
 
 **Consequence:** Day-5 adds zero runtime, zero new skill, zero new hook file — only
-врезки (`ZT-1`, `MEM-7`, blueprint/adopt/review pointers). Counts stay 40 skills /
+врезки (`ZT-1`, `MEM-7`, blueprint/adopt/review pointers). Counts stay 41 skills /
 19 hooks. Re-evaluated on the same 2026-09-28 cycle.

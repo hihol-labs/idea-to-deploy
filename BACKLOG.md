@@ -52,6 +52,32 @@
   `.claude/traces` в рабочий каталог ревьюируемого клона.
 - **Команда проверки юнита цели записана раньше правил подсчета**: `verificationCommand` G-006 замера не передавал
   `--adjudications`, ОТК падал при готовом подсчете; исправлено решением владельца.
+- **Гейт завершения падает на любой исторической строке леджера с пустым evidence (2026-10-07, коммит Graph Lite).**
+  `hooks/completion-gate.sh read_strict_signals` разбирает весь `.claude/completion/signals.jsonl` и на первой же
+  строке layer 2 с `evidence: ""` возвращает «completion evaluation failed» вместо того, чтобы отбросить строку как
+  не-сигнал (тот же класс, что S9-U3 для слоя 0). Таких строк в леджере 229: хук сигналов классифицирует как
+  `test_run` фоновый запуск и `python3 -c` без вывода. Итог: strict-коммит блокируется при зеленых сьютах; обход -
+  `COMPLETION_BYPASS` с причиной (записан в events.jsonl). Фикс - в гейте, по правилу блокера.
+
+## P2 - Graph Lite (ADR-013): замер шаблона module-neighbour-check на neuroexpert (2026-10-07)
+
+Решение владельца 2026-10-07 (A+B): скилл `/graph` поставлен default-off как измеренное исключение из
+[ADR-012](docs/adr/ADR-012-minimal-path-default.md) п.5 ([ADR-013](docs/adr/ADR-013-graph-lite-measured-exception.md)).
+Правило решения зафиксировано в ADR-013 п.6 до прогона. По одной сессии на пункт:
+
+- [x] Сессия 1 (2026-10-07): ADR-013, `docs/graph-engineering.md`, `skills/graph/` + `tests/verify_graph_skill.py`,
+  фикстура 33, регистрация (41 скилл).
+- [ ] Сессия 2: протокол замера в формате `~/projects/itd-value-exp/PROTOCOL.json` (та же база neuroexpert, сеялка,
+  запечатанный манифест, свежие субагенты): ветка G - `/graph module-neighbour-check` на модуле; ветка K - проверка
+  по классам из CLAUDE.md neuroexpert одним свежим агентом. Метрика - доля пойманных посеянных дефектов в СОСЕДНИХ
+  функциях модуля (дефекты в функции задачи считаются отдельно и в правило не входят); цена - медиана времени и
+  токенов G/K. Не меньше 4 модулей денег и доступа, каждая пара в обоих порядках (кандидаты:
+  `packages/shared/src/billing/limits.ts`, `apps/web/lib/subscription.ts`,
+  `apps/worker/src/services/payment-reconcile.ts`, `packages/shared/src/authz.ts`).
+- [ ] Сессия 3: прогон, подсчет скриптом, вердикт по правилу ADR-013 (выигрыш >= 0.25 и медиана времени G/K <= 3.0);
+  при выигрыше - отдельная запись о включении шаблона для задач денег и доступа (строка в CLAUDE.md проекта, не
+  гейт), при проигрыше - шаблон остается default-off или удаляется по слову владельца.
+- Параллельно: каждый живой прогон `/graph` на neuroexpert - строка в `docs/LEAK_JOURNAL.md` проекта (пишет человек).
 
 ## P1 - STOPRULE-STUB-1: stop-rule live binding и closure-delta несовместимы на закрытом контракте (2026-10-01, ledger-close INSTALLED-PROOF-HEAD-1)
 

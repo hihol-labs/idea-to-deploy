@@ -10,7 +10,7 @@ extension point, not a supported claim. [Choose a host](#quick-start) ·
 [End-to-End Example](#end-to-end-example) · [Skill Contracts](#skill-contracts).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Skills: 40](https://img.shields.io/badge/Skills-40-green.svg)](#skills)
+[![Skills: 41](https://img.shields.io/badge/Skills-41-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
 [![Version: 1.106.0](https://img.shields.io/badge/Version-1.106.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
@@ -48,7 +48,7 @@ without blueprints:
 ## The Solution
 
 **idea-to-deploy** is a methodology, not just a set of tools. Its
-40 skills + 10 specialized agents, 30 hooks, project contracts, and persistent
+41 skills + 10 specialized agents, 30 hooks, project contracts, and persistent
 state give a supported coding host an evidence-gated delivery pipeline:
 
 ```
@@ -118,7 +118,7 @@ The skills and agents are then registered under:
 
 ```
 ~/.claude/plugins/idea-to-deploy/
-  ├── skills/          # 40 skill directories
+  ├── skills/          # 41 skill directories
   ├── agents/          # 10 subagent definitions
   └── hooks/           # enforcement hooks - /adopt and /project offer to install them
 ```
@@ -303,7 +303,7 @@ Claude-only. Host-neutral output naming remains follow-up work.
 | `/harden` | **New in v1.4.0.** Production-readiness hardening rubric — health checks, graceful shutdown, structured logging, rate limiting, Prometheus/Grafana, backup strategy, k6 load tests, SRE runbook. Generates missing artifacts on user approval. |
 | `/infra` | **New in v1.4.0.** Infrastructure-as-code generator — Terraform modules (DigitalOcean, AWS, Hetzner), Kubernetes manifests + Helm chart, secrets wiring (Vault, AWS Secrets Manager, Doppler, Sealed Secrets). Remote tfstate with locking enforced for prod. |
 
-### Workflow (5 skills)
+### Workflow (6 skills)
 
 | Skill | Description |
 |-------|-------------|
@@ -312,6 +312,7 @@ Claude-only. Host-neutral output naming remains follow-up work.
 | `/handoff` | **New in v1.21.0.** Write a compact `HANDOFF.md` context packet to transfer work to the next session/agent when there is no return path — compaction, delegation, AFK run, or recovery. Distinct from `/session-save` (milestone save). |
 | `/goal` | **New in v1.44.0.** Long-goal mode — decompose a multi-session goal into ordered verifiable units in `.itd-memory/GOAL.json` (user approval required), drive them one at a time through the standard `/task` pipeline (WIP=1, evidence-gated `verified`), and resume across sessions from the first non-verified unit. Its bounded envelope now enforces observed token/time/attempt stops, routes checker cost by sealed risk tier, emits ≤4 KB checkpoints, and can grade clean A/B evidence with a deterministic anti-Goodhart 5/5 evaluator. Brownfield-first; never bypasses `/review`, `/test`, or the DoD. |
 | `/retro` | **New in v1.46.0.** Self-proposing improvement cycle for the methodology itself, split FACTS / PROPOSALS / MERGE: `itd_retro_scan.py` deterministically aggregates telemetry (VCR, regressions, active goals, SKILL_BYPASS ledger, cost), the model turns facts into ranked proposals where every one cites evidence (anti-Goodhart: external signals only), and the human merges via the ordinary release pipeline. Never edits the methodology itself; not a gate. |
+| `/graph` | **New (unreleased).** Graph Lite — turn ONE task into an explicit agent graph (jobs, arrows, shared state, a checker separate from the writer, a human terminal), get the owner to approve the exact graph digest, run it through the host workflow runtime (or node by node when the host has none) and keep every node output as a file under `.itd-memory/graph-runs/<run-id>/`. Default-off (`disable-model-invocation`), read-only nodes, a measured exception to ADR-012 (ADR-013); the shipped template `module-neighbour-check` hunts four defect classes (owner, money, dedup, time) across a whole money/access module. |
 
 ### Research (2 skills)
 
@@ -390,6 +391,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
 | `/goal` | Goal text (empty = resume active goal) | `.itd-memory/GOAL.json` (persistent unit ledger) + unit events in `events.jsonl`; optional sealed `runPolicy`, attempt journal, and typed budget stops; units delivered via the standard `/task` pipeline | Memory-write only; code changes happen inside `/task` under its own gates | ✅ Resume-only — an active ledger is never recreated |
 | `/retro` | Workspace root(s) to scan (default cwd) | `docs/retros/RETRO-YYYY-MM-DD.md` (scan output + ranked evidence-cited proposals); backlog candidates for the USER to accept | Memory-write of the report only — never edits skills/hooks/docs (no self-merge) | ✅ New dated report each run; scan is deterministic |
+| `/graph` | Task text, or a template (`module-neighbour-check --module <path>`), or `--from graph.json` | `.itd-memory/graph-runs/<run-id>/` — `graph.json`, `approval.json`, `nodes/<id>.md`, `receipt.json`, `decision.json` | Memory-write of the run directory only; nodes are read-only by contract (Explore agent type without edit tools; a change to a git-visible project file refuses the record) - not a sandbox; the leak-journal line is written by the human | ✅ Refuses to overwrite an existing run; a rerun takes a new run directory |
 | `/market-scan` | Idea / problem / segment / competitor / launch question | `MARKET_BRIEF.md` (dated append) + optional `BACKLOG.md`/`LAUNCH_PLAN.md` updates; structured stdout summary | Local doc writes + external read-only research query (`last30days`); no secrets sent | ⚠️ Dated append — re-runs add new evidence |
 | `/mcp-docs` | Library / framework / API / version question | None — structured stdout summary; source + decision recorded in notes | None (read-only; external doc query, no file writes) | ✅ |
 | `/github-workflow` | Issue / PR / branch / check run / release | GitHub Issues/PRs/releases (external) + optional `.itd-integrations/github.json`, `BRANCH_FINISH.md`, `.rubric-status` | External writes to GitHub only on explicit intent; reads git status first | ⚠️ External mutations — re-run with care |
@@ -675,6 +677,7 @@ As of v1.3.0, the recommended model is also encoded in each skill's body in a `#
 | `/handoff` | Haiku | Sonnet | Structured summarization of decisions + state — minimal reasoning |
 | `/goal` | Sonnet | Opus | Decomposing a fuzzy goal into binary-verifiable units is reasoning; unit bookkeeping itself is mechanical |
 | `/retro` | Sonnet | Opus | Interpreting telemetry into ranked improvement proposals is reasoning; the scan itself is a script |
+| `/graph` | Sonnet | Opus | Designing the graph and deciding whether a graph is needed at all is reasoning; the nodes inherit the session model and the run tool is a deterministic script |
 | `/market-scan` | Sonnet | Opus | Synthesis of heterogeneous public signals + adversarial discovery benefit from Opus |
 | `/mcp-docs` | Haiku | Sonnet | Library ID resolve + narrow doc query — pointed lookup, not deep reasoning |
 | `/github-workflow` | Sonnet | Sonnet | gh/git ops + artifact mapping — structured, not deep reasoning |
@@ -795,7 +798,7 @@ Open an issue: [github.com/hihol-labs/idea-to-deploy/issues](https://github.com/
 Contributions are welcome. The project is small enough that process is lightweight:
 
 1. **Report issues / suggest skills** — open a GitHub issue with a concrete scenario and expected behavior.
-2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 40. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
+2. **Propose a new skill** — skills live under `skills/<name>/SKILL.md` and follow the shape documented in the existing 41. Each needs: frontmatter (name, description, triggers, allowed-tools, recommended model), Instructions, Examples, Troubleshooting.
 3. **Fix a bug or polish a skill** — open a PR against `main`. Run `tests/run-fixtures.sh` locally to sanity-check against fixtures before submitting.
 4. **Improve documentation** — both `README.md` and `README.ru.md` must stay in sync. Updates to one require updates to the other.
 

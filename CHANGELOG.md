@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.106.0 открыт; записи появляются по мере слияния юнитов.
 
+### Added - Graph Lite: скилл `/graph` как измеренное исключение из ADR-012 (ADR-013)
+
+- Запрос владельца 2026-10-07 по видео Greg Isenberg «Why Graph Engineering will 10x your Claude/Codex»:
+  граф = jobs + arrows + state, проверяющий отдельно от пишущего, человек в терминале, «наименьший граф,
+  который поднимает качество». Coding graph из видео уже совпадает с маршрутом ITD узел за узлом (карта -
+  `docs/graph-engineering.md`); новое - явный граф одной задачи файлами и хостовый Workflow tool как транспорт.
+- `skills/graph/` (41-й скилл, `disable-model-invocation: true`, default-off): `itd_graph.py init | validate |
+  approve | emit-workflow | emit-serial | record | close | status`. Граф лежит в
+  `.itd-memory/graph-runs/<run-id>/graph.json`; владелец утверждает точный `graphDigest`; изменённый граф
+  аннулирует утверждение; валидатор чистый (DAG, один человеческий терминал, узлы read-only, отдельный
+  checker-узел, промпт обязан объявлять read-only); `emit-workflow` печатает скрипт Workflow tool по слоям
+  (параллель внутри слоя, барьер между слоями, узел без выхода бросает ошибку); `emit-serial` - тот же граф
+  последовательным планом для хоста без рантайма; `record` пишет `nodes/<id>.md` на каждый узел и
+  `receipt.json` с sha256; `close` - решение человека. Шаблон `module-neighbour-check`: четыре охотника по
+  классам ADR-012 п.6 (владелец, валюта и сумма, дедуп, время) по всему модулю -> скептик -> синтезатор ->
+  человек.
+- Каталог прогона ограничен `<проект>/.itd-memory/graph-runs/<run-id>` без символьных ссылок; id узла - один
+  безопасный компонент пути; `record` сверяет выход каждого узла с его схемой (закрытое подмножество JSON-схемы),
+  отказывает каталогу с остатками прерванного прогона и пишет файлы узлов и квитанцию атомарно; `close` и
+  `status` перепроверяют утверждение и каждый файл узла по `receipt.json` (находки независимого ревью Sol).
+- Read-only узлов проверяется по факту: оба эмиттера запускают узлы субагентом `Explore` (без Edit, Write и
+  NotebookEdit), `approve` сохраняет git-состояние проекта (HEAD и изменённые пути с хэшем), `record` отказывает
+  при любой разнице; вне проверки git-ignored файлы, `.itd-memory/` и телеметрия харнеса; проект не под git
+  утвердить нельзя (вторая находка Sol).
+- Третий раунд ревью: символьная ссылка запрещена на всём пути прогона, человеческий узел тоже обязан быть
+  read-only, записанный или закрытый прогон нельзя утвердить заново, `status` проверяет `decision.json`, Workflow
+  бросает ошибку и на пустой строке, массиве и объекте; формулировки сужены: read-only узла - контракт с двумя
+  механизмами, не песочница (сеть и игнорируемые файлы не проверяются).
+- Четвертый раунд ревью: emit и record требуют полного утверждения (кто, когда, какой прогон, состояние дерева),
+  status и close проверяют runId, runtime, время и записи квитанции, NaN и Infinity отвергаются при разборе JSON;
+  в ADR-013 п.7 перечислено все, что разрешает исключение.
+- `tests/verify_graph_skill.py` (180 проверок: детерминизм init, 27 отрицательных мутаций валидатора, привязка
+  approve к digest и stale approval, структура Workflow-скрипта с `node --check`, серийный план, запись и
+  закрытие, ограничение каталога и символьные ссылки для каждой команды, проверка схем, частичный и подменённый
+  прогон, git-состояние проекта в том числе для проекта в подкаталоге монорепозитория, повторное утверждение,
+  проверка решения, привязка промпта и схемы к узлу, полнота утверждения и квитанции, числа RFC 8259, контракт
+  SKILL.md); фикстура `tests/fixtures/fixture-33-graph` (контракт); проводка в
+  `tests/run-all.sh` и `windows-verify.yml`.
+- `docs/adr/ADR-013-graph-lite-measured-exception.md`: исключение из ADR-012 п.5 с правилом решения,
+  записанным до прогона; `docs/graph-engineering.md`: ITD в словаре graph engineering (уровень 2 по видео).
+
+### Changed - счётчики 40 -> 41 скилл
+
+- `plugin.json` (+ фраза про Graph Lite), `marketplace.json`, оба README (Workflow 5 -> 6, таблицы контрактов
+  и моделей, бейдж), `docs/templates/global-claude-md.md`, `docs/HARNESS_ENGINEERING_MAP.md`,
+  `docs/HARNESS_DOCS_STATE.json`, `docs/CONTRACTS.md`, `docs/HARNESS_DEMO_ABSORPTION_CONTRACT.json`
+  (baseline 41 + имя) с пересчётом `.sha256` и `tests/verify_harness_demo_absorption.py`; ADR-012 получил
+  пометку «Amended by ADR-013».
+
 ### Fixed - OTK-HOST-TREE-1: вердикт ОТК не зависит от git-ignored локальных файлов
 
 - Харнес цели исполнял `verificationCommand` в рабочем дереве хоста, поэтому локальный git-ignored

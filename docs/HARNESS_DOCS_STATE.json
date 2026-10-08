@@ -4,7 +4,7 @@
   "maxAgeDays": 30,
   "pluginVersion": "1.106.0",
   "inventory": {
-    "skills": 40,
+    "skills": 41,
     "subagents": 10,
     "hooks": 30,
     "hardGates": 12,
