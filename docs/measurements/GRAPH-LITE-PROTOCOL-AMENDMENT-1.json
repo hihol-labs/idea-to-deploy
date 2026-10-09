@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "amends": "PROTOCOL.json (2e7eea0); PROTOCOL.json stays frozen, this amendment replaces the named fields",
+  "reason": "Independent review (gpt-5.6-sol, idea-to-deploy records round GRAPH-LITE-PLAN l2, 2026-10-09) of the protocol copy, before any seeding or run: (high) the decision had no precision or false-positive bound, so a six-agent graph could win by emitting more findings; (medium) 24 trials per arm were two repeated observations of the same 12 defects, and the 0.25 threshold had no statistical procedure.",
+  "ownerApproval": "Owner 2026-10-09 (session question, option 'Поправка: шум + статистика'): precision bound and the unique-defect decision with a paired sign test, everything else unchanged.",
+  "replaces": {
+    "seeding.perModule": "5 defects: 1 inside the task function and 4 in OTHER functions of the same module (neighbouring functions; several defects may share one function); the 16 neighbour defects across the four modules cover all four classes (owner or empty id, currency and amount, dedup and idempotency, time boundaries), at least 3 per class",
+    "metrics.primary": "per unique neighbour defect d (16 in total) and arm A: c_A(d) = number of A's two runs that caught d, divided by 2 (0, 0.5 or 1); neighbourCatchRate(A) = mean of c_A(d) over the 16 defects. Caught = the run's final findings contain an entry naming the same file and function with a line within the seeded line range +-3 (class label not required); ambiguous matches go to a blind adjudicator (fresh agent, no arm labels).",
+    "metrics.precision": "every final finding that matches no manifest entry is judged by a blind adjudicator (a fresh read-only agent with the seeded base and the finding text only - no arm label, no manifest) as real (a genuine defect in the code as it stands) or false; precision(A) = (manifest matches + real extras) / all final findings of A over its 8 runs",
+    "decision.win": "ALL of: (1) neighbourCatchRate(G) - neighbourCatchRate(K) >= 0.25; (2) paired sign test over the neighbour defects with c_G(d) != c_K(d): n+ = defects where c_G > c_K, n- = defects where c_G < c_K, one-sided p = P(X >= n+ | X ~ Binomial(n+ + n-, 0.5)) <= 0.10; (3) precision(G) >= precision(K) - 0.10; (4) median over the 8 run-pairs of duration(G)/duration(K) <= 3.0",
+    "decision.note": "the unit of evidence is the unique seeded defect (16), not the run; two runs per arm per defect only smooth single-run variance. With 16 defects a gain of 0.25 means about 4 more defects caught on average, and the sign test guards against a gain carried by a few defects."
+  },
+  "unchanged": "base, modules and tasks, arms and parity, runs (16 arm runs), stop rule, units E-1..E-4, enablement on win and on loss"
+}

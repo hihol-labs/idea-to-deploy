@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "title": "Graph Lite measurement on neuroexpert: /graph module-neighbour-check vs a single-agent class check (ADR-013 item 6)",
+  "status": "frozen",
+  "ownerApproval": "Owner 2026-10-09 (session question, option 'утверждаю как есть'): the protocol as drafted - modules M1-M4 with their tasks, arms G and K, 4 seeded defects per module (1 in the task function, 3 in neighbouring functions), 16 arm runs, decision rule gain >= 0.25 on neighbour defects AND median duration G/K <= 3.0, enablement on win through a hook trigger on strictClasses money/auth (owner decision 2026-10-09).",
+  "ownerGoal": "Owner 2026-10-08/09: the graph should become a mandatory, automatic template of idea-to-deploy for money and access tasks. ADR-012 item 5 and ADR-013 item 6 allow that only after a won measurement of the same kind as ~/projects/itd-value-exp; this protocol is that measurement.",
+  "question": "Does the explicit agent graph (four class hunters over the whole module -> skeptic -> synthesizer) catch more seeded defects in NEIGHBOURING functions of a money/access module than one agent doing the same four-class check, at an acceptable cost?",
+  "base": {
+    "repository": "/home/hihol/projects/neuroexpert",
+    "commit": "73003fe",
+    "commitNote": "local HEAD of codex/self-serve-audit-start (R-10), pushed; frozen for this measurement",
+    "baselineSuite": "pnpm --filter shared test",
+    "baselineResult": "recorded in E-2 before seeding (must be all green)"
+  },
+  "itd": {
+    "version": "2219fe0",
+    "runTool": "skills/graph/scripts/itd_graph.py at idea-to-deploy main 2219fe0 (GRAPH-LITE-1 + GRAPH-LITE-2)",
+    "frozenUntil": "end of E-4 (no change to skills/graph during the runs)"
+  },
+  "modules": [
+    {
+      "id": "M1",
+      "module": "packages/shared/src/billing/limits.ts",
+      "test": "packages/shared/tests/billing-limits.test.cjs",
+      "taskFunction": "packageLimitMessage",
+      "task": "Сообщение об исчерпании лимита пакетов должно показывать остаток (remaining) и точную дату обновления лимита - 1-е число следующего месяца по UTC в формате ДД.ММ.ГГГГ - вместо фразы «с 1-го числа следующего месяца». Сайт и бот по-прежнему показывают один и тот же текст."
+    },
+    {
+      "id": "M2",
+      "module": "packages/shared/src/orders/reconcile.ts",
+      "test": "packages/shared/tests/reconcile.test.cjs",
+      "taskFunction": "assessPackageRefund",
+      "task": "Сверка возврата должна принимать несколько частичных возвратов: функция получает список возвратов вместо одного и считает заказ возвращенным, когда сумма успешных возвратов этого платежа равна сумме заказа; сумма возвратов больше суммы заказа - mismatch, меньше - частичный возврат (отдельная причина)."
+    },
+    {
+      "id": "M3",
+      "module": "packages/shared/src/security/rate-limit.ts",
+      "test": "packages/shared/tests/rate-limit.test.cjs",
+      "taskFunction": "parseLimitEnv",
+      "task": "parseLimitEnv должна принимать значения с суффиксом k (например 10k = 10000) и отклонять нулевой лимит (0 -> fallback), чтобы опечатка в окружении не отключала ограничение."
+    },
+    {
+      "id": "M4",
+      "module": "packages/shared/src/authz.ts",
+      "test": "packages/shared/tests/authz.test.cjs",
+      "taskFunction": "reviewMutationDecision",
+      "task": "Добавить в reviewMutationDecision параметр isPlatformAdmin: администратор платформы может мутировать любой элемент review-queue (allow); правила для владельца и для элементов с business_id не меняются."
+    }
+  ],
+  "arms": {
+    "G": {
+      "name": "graph",
+      "procedure": [
+        "fresh clone of the seeded base of the module (outside every other clone), git work tree",
+        "itd_graph.py init <clone>/.itd-memory/graph-runs/<run-id> --template module-neighbour-check --module <module> --project <clone> --task <task>",
+        "itd_graph.py approve --by 'operator under the owner protocol approval' (the owner approves template, module and task once, in this protocol; the per-run digest differs only by the clone path)",
+        "itd_graph.py emit-workflow -> the host Workflow tool runs the approved script verbatim (nodes = Explore subagents)",
+        "result -> itd_graph.py record --runtime workflow; if the host workflow runtime fails, emit-serial and the same nodes as Explore subagents (recorded as runtime serial)"
+      ],
+      "output": "the synthesizer node output (findings with status confirmed or unverifiable) - what the human would read"
+    },
+    "K": {
+      "name": "single-agent class check",
+      "procedure": [
+        "fresh clone of the seeded base of the module",
+        "ONE fresh Explore subagent (the same agent type and model as the graph nodes) with prompts/arm-K.md: the four-class check line of the neuroexpert CLAUDE.md, the module, the task, the same read-only clause and the same findings schema as the synthesizer"
+      ],
+      "output": "the agent's findings"
+    },
+    "parity": "both arms are review-only (no implementation, no commit), read the same module of the same seeded base, use the same agent type and the inherited session model, and return the same findings schema; the only difference is the graph structure (4 hunters in parallel + skeptic + synthesizer vs one agent)"
+  },
+  "runs": {
+    "perModule": "two run-pairs per module in opposite orders (G then K, K then G); every arm run on its own fresh clone",
+    "total": "4 modules x 2 run-pairs x 2 arms = 16 arm runs",
+    "operator": "the orchestrating session; it never reads the sealed manifest before E-4 and never edits arm outputs"
+  },
+  "seeding": {
+    "agent": "a separate fresh-context subagent; the operator sees only per-module counts",
+    "perModule": "4 defects: 1 inside the task function and 3 in OTHER functions of the same module (neighbouring functions); together across the four modules the neighbour defects cover all four classes (owner or empty id, currency and amount, dedup and idempotency, time boundaries), at least 2 per class",
+    "constraint": "each defect is a realistic, plausible-looking change; the existing suite stays green on every seeded base; no comment or name hints at the defect",
+    "manifest": "sealed/manifest.json outside every clone, chmod 400; each entry: module, function, file, line range, class, inTask; its sha256 pinned by an amendment before the first arm run"
+  },
+  "metrics": {
+    "primary": "neighbour catch rate per arm = caught neighbour-defect trials / neighbour-defect trials (12 neighbour defects x 2 runs = 24 trials per arm); caught = the arm's final findings contain an entry naming the same file and function with a line within the seeded line range +-3 (class label not required); ambiguous matches go to a blind adjudicator (fresh agent, no arm labels)",
+    "secondary": [
+      "in-task catch rate (reported separately, not in the decision rule)",
+      "wall-clock duration per arm run: operator timestamps immediately before the first and after the last tool call of the arm (G: init..record; K: the Agent call)",
+      "tokens per arm run where the host reports them",
+      "findings outside the manifest per run (count, not judged; a noise indicator)"
+    ]
+  },
+  "decision": {
+    "win": "neighbourCatchRate(G) - neighbourCatchRate(K) >= 0.25 AND median over the 8 run-pairs of duration(G)/duration(K) <= 3.0",
+    "onWin": "owner decision 2026-10-09: the template becomes mandatory and automatic for money and access tasks through a hook trigger on the strictClasses money/auth of skills/_shared/PROPORTIONALITY_POLICY.json that launches /graph module-neighbour-check (the owner still approves the digest); this needs an amendment of ADR-013 and removing disable-model-invocation, as a separate idea-to-deploy unit",
+    "onLoss": "the template stays default-off (manual /graph), or is removed if the owner says so; no rerun to chase a result",
+    "note": "a gain below 0.25 on 24 trials per arm cannot be told from noise and is read as no difference"
+  },
+  "stopRule": {
+    "infrastructureFailure": "an arm that fails for a tool or environment reason (not for the work itself) voids its run-pair; a voided run-pair is rerun once on fresh clones of the same seeded base",
+    "invalid": "more than 2 voided run-pairs, a change to skills/graph during the runs, or any reading of the manifest before E-4 makes the experiment INVALID",
+    "noPeeking": "no interim scoring; the scorer runs once, in E-4"
+  },
+  "units": [
+    {
+      "id": "E-1",
+      "session": "this protocol, owner approval"
+    },
+    {
+      "id": "E-2",
+      "session": "freeze and verify the base, seed four bases with the seeder, verify the suite on each, seal and pin the manifest, scorer with tests"
+    },
+    {
+      "id": "E-3",
+      "session": "16 arm runs, results.json"
+    },
+    {
+      "id": "E-4",
+      "session": "score once, blind adjudication, verdict report; on WIN the idea-to-deploy enablement unit is planned separately"
+    }
+  ],
+  "knownLimitations": [
+    "one operator who also wrote the run tool; arms are fresh subagents that never see the manifest",
+    "the seeder is the same model class as the arms",
+    "review-only arms measure detection, not fixing; the decision is about detection, which is what the template is for",
+    "duration of G depends on the host workflow runtime and its concurrency; recorded as observed"
+  ],
+  "manifestSha256": ""
+}
