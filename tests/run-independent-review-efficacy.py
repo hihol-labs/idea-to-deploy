@@ -163,6 +163,12 @@ def trusted_review_requirements() -> str:
         "feasibility, correctness, scale and bounded output, reconciliation, "
         "numerical stability, generated-artifact freshness, error handling, "
         "repository hygiene, security, tests, and specification compliance. "
+        "Assess each contour for the concrete change and its required dependencies, "
+        "within FROZEN_SCOPE and FROZEN_ACCEPTANCE. A relevant uncovered contour "
+        "must name the affected changed behavior or acceptance claim and the "
+        "specific missing evidence. Missing repository-wide context alone is "
+        "not an uncovered contour for a self-contained change; do not expand "
+        "this review into an audit of unrelated or explicitly excluded systems. "
         "MACHINE_EVIDENCE is exact-candidate host-oracle evidence; use it for the "
         "contours it covers and mark a relevant uncovered contour unverified. "
         "Findings must identify the concrete changed file and line. Determine "
@@ -173,7 +179,7 @@ def trusted_review_requirements() -> str:
         "faults are deliberately not disclosed. You have no tools, no network "
         "and no filesystem access for this review: do not attempt to call any "
         "tool, search or fetch. Decide from the supplied text alone and mark "
-        "anything you cannot verify from it as unverified.\n"
+        "a relevant in-scope claim you cannot verify from it as unverified.\n"
         "END TRUSTED EFFICACY REVIEW CONTRACT\n"
     )
 

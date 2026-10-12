@@ -42,6 +42,10 @@ Use `skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless route is:
 
 `Sol -> Terra` and `Terra -> Sol`
 
+Approved maker compatibility also routes `gpt-6.1-sol` and `gpt-6-astra`
+to `gpt-5.6-terra`. Preserve the observed maker model in provenance; these
+entries extend the maker set only. Astra is not a reviewer or standby option.
+
 Run exactly one fresh OpenAI subscription session. A Sol maker selects Terra;
 a Terra maker selects Sol. Callers cannot select a third model or reuse the
 development session.

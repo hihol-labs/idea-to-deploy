@@ -71,7 +71,7 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 ROLES = {"hunter", "checker", "synthesizer", "planner", "researcher", "human"}
-TEMPLATES = ("module-neighbour-check",)
+TEMPLATES = ("module-neighbour-check", "contract-boundary-check")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 NODE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -726,6 +726,13 @@ def receipt_mismatches(run_dir: Path, receipt, graph: dict) -> list[str]:
             continue  # already reported as malformed above
         if entry.get("sha256") != sha256_bytes(data) or entry.get("bytes") != len(data):
             problems.append(f"nodes/{i}.md differs from the receipt")
+    if graph.get("template") == "contract-boundary-check":
+        try:
+            synthesis = run_dir / "synthesis.json"
+            if synthesis.is_symlink() or sha256_bytes(synthesis.read_bytes()) != receipt.get("synthesisSha256"): problems.append("derived synthesis hash mismatch")
+            outputs = {i: json.loads((nodes_dir / (i + ".md")).read_text(encoding="utf-8").split("```json\n", 1)[1].rsplit("\n```", 1)[0]) for i in agent_ids}
+            if read_json(synthesis, "synthesis") != v2_module().synthesize(graph, outputs): problems.append("derived synthesis differs from immutable node outputs")
+        except (ValueError, OSError, IndexError) as exc: problems.append("derived synthesis invalid: " + str(exc))
     return problems
 
 
@@ -766,6 +773,9 @@ def load_matching_approval(run_dir: Path, digest: str, graph: dict) -> dict:
     problems = approval_problems(approval, graph)
     if problems:
         raise Refused("approval.json is incomplete (" + "; ".join(problems) + ") - approve the graph again with `approve`")
+    if "policy" in approval:
+        try: v2_module("itd_graph_policy").validate_bound_approval(run_dir, graph, approval)
+        except (ValueError, OSError) as exc: raise Refused("policy approval invalid: " + str(exc)) from exc
     return approval
 
 
@@ -969,6 +979,14 @@ def emit_serial(graph: dict, digest: str) -> str:
 # --------------------------------------------------------------------------
 
 
+
+def v2_module(name="itd_graph_v2"):
+    import types
+    p = Path(__file__).with_name(name + ".py")
+    mod = types.ModuleType(name); mod.__file__ = str(p)
+    exec(compile(p.read_bytes(), str(p), "exec"), mod.__dict__)
+    return mod
+
 def cmd_init(a) -> int:
     run_dir = contained_run_dir(a.run_dir)
     p = paths(run_dir)
@@ -986,7 +1004,12 @@ def cmd_init(a) -> int:
             raise Refused("--module PATH is required for the module-neighbour-check template")
         project = a.project or str(Path.cwd())
         task = a.task or f"проверка модуля {a.module} по четырём классам (владелец, валюта и сумма, дедуп, время)"
-        graph = build_template(run_id, project, a.module, task)
+        if a.template == "contract-boundary-check":
+            if not a.contract: raise Refused("--contract FILE with contracts and functions is required")
+            spec = read_json(Path(a.contract), "contract")
+            try: graph = v2_module().build_graph(run_id, project, a.module, task, spec["contracts"], spec["functions"])
+            except (ValueError, KeyError, TypeError) as exc: raise Refused(str(exc)) from exc
+        else: graph = build_template(run_id, project, a.module, task)
     errs = validate_graph(graph)
     if errs:
         raise Refused("refusing to write an invalid graph: " + "; ".join(errs))
@@ -1043,7 +1066,10 @@ def cmd_approve(a) -> int:
 def cmd_emit(a, kind: str) -> int:
     run_dir = contained_run_dir(a.run_dir)
     graph, digest = load_valid_graph(run_dir)
-    load_matching_approval(run_dir, digest, graph)
+    approval = load_matching_approval(run_dir, digest, graph)
+    if "policy" in approval:
+        try: v2_module("itd_graph_policy").check_deadline(approval)
+        except ValueError as exc: raise Refused(str(exc)) from exc
     sys.stdout.write(emit_workflow(graph, digest) if kind == "workflow" else emit_serial(graph, digest))
     return 0
 
@@ -1107,6 +1133,13 @@ def cmd_record(a) -> int:
     if bad:
         raise Refused("node output does not match its schema: " + "; ".join(bad[:12])
                       + (f" (+{len(bad) - 12} more)" if len(bad) > 12 else ""))
+    derived = None
+    if graph.get("template") == "contract-boundary-check":
+        try: derived = v2_module().synthesize(graph, outputs)
+        except ValueError as exc: raise Refused("v2 finding/coverage integrity: " + str(exc)) from exc
+    if "policy" in approval:
+        try: v2_module("itd_graph_policy").check_deadline(approval)
+        except ValueError as exc: raise Refused(str(exc)) from exc
     receipt_nodes = {}
     staging = Path(tempfile.mkdtemp(prefix=".nodes.", dir=str(run_dir)))
     try:
@@ -1127,6 +1160,9 @@ def cmd_record(a) -> int:
         "resultSha256": sha256_bytes(canonical(result)),
         "nodes": receipt_nodes,
     }
+    if derived is not None:
+        atomic_write_json(run_dir / "synthesis.json", derived)
+        receipt["synthesisSha256"] = sha256_bytes((run_dir / "synthesis.json").read_bytes())
     atomic_write_json(p["receipt"], receipt)
     print(f"recorded {len(agent_ids)} node(s) under {p['nodes']} runtime {a.runtime}")
     print(f"receipt: {p['receipt']}")
@@ -1175,6 +1211,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--module")
     s.add_argument("--task")
     s.add_argument("--project")
+    s.add_argument("--contract")
     s.add_argument("--from", dest="from_graph")
     s.set_defaults(fn=cmd_init)
 

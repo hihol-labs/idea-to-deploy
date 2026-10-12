@@ -6,9 +6,9 @@
   "inventory": {
     "skills": 41,
     "subagents": 10,
-    "hooks": 30,
+    "hooks": 31,
     "hardGates": 12,
-    "softHooks": 18
+    "softHooks": 19
   },
   "conformanceContractSha256": "8f0f5d3bb7beff0c20b39ce5405a770de20d21e4cbb67162a8115f116366ef3e",
   "canonicalMap": "docs/HARNESS_ENGINEERING_MAP.md",

@@ -1,0 +1,192 @@
+{
+  "version": 2,
+  "registeredResult": {
+    "version": 2,
+    "outcome": "LOSE",
+    "catchRate": {
+      "G": "1",
+      "K": "1"
+    },
+    "gain": "0",
+    "signTest": {
+      "wins": 0,
+      "losses": 0,
+      "ties": 20,
+      "pValue": "1",
+      "unit": "unique-defect"
+    },
+    "precision": {
+      "G": "1",
+      "K": "47/48"
+    },
+    "medianCostRatio": "35137497529732953433815/17466196125084276379936",
+    "conditions": {
+      "gain": false,
+      "signTest": false,
+      "precision": true,
+      "cost": true
+    },
+    "claims": {
+      "G": {
+        "total": 92,
+        "real": 92,
+        "rejected": 0,
+        "matched": 40,
+        "duplicate": 32,
+        "extra": 20
+      },
+      "K": {
+        "total": 48,
+        "real": 47,
+        "rejected": 1,
+        "matched": 40,
+        "duplicate": 0,
+        "extra": 7
+      }
+    },
+    "cleanTasks": {
+      "G": {
+        "runs": 4,
+        "claims": 4,
+        "confirmedReal": 4,
+        "falsePositives": 0
+      },
+      "K": {
+        "runs": 4,
+        "claims": 4,
+        "confirmedReal": 4,
+        "falsePositives": 0
+      }
+    },
+    "routing": {
+      "G": {
+        "graph": 10,
+        "single": 6
+      },
+      "K": {
+        "graph": 0,
+        "single": 16
+      }
+    },
+    "tasks": 8,
+    "pairsPerTask": 2,
+    "uniqueDefects": 20,
+    "runs": 32,
+    "definitions": {
+      "emptyPrecision": "1",
+      "catchRate": "unique defects averaged over task pairs",
+      "cleanFalsePositives": "claims judged not real on tasks with no seeded defects"
+    }
+  },
+  "medianCostRatioApprox": 2.011742985026364,
+  "operational": {
+    "arms": 32,
+    "measuredNativeSessions": 52,
+    "modelWorkFailures": 0,
+    "checker": {
+      "proposals": 80,
+      "violated": 80,
+      "satisfied": 0,
+      "unknown": 0
+    },
+    "blindQuestions": 636,
+    "acceptedGraderSessions": 9,
+    "rejectedGraderSessions": 1,
+    "invalidPilotArms": 2,
+    "invalidPilotNativeSessions": 4
+  },
+  "limitations": [
+    "Synthetic cohort; trivial locally stated defects saturated both arms.",
+    "Two planned clean controls means seed-free; blind judges confirmed additional type-rejection violations in T8.",
+    "Native task delivery and lexical audits assume an honest host; no provider cryptographic attestation.",
+    "One preregistered judgment per question; judgment uncertainty and claim wording can affect precision.",
+    "Homogeneous Codex comparison, no cross-provider/model comparison."
+  ],
+  "currentScorerResult": {
+    "version": 2,
+    "outcome": "LOSE",
+    "catchRate": {
+      "G": "1",
+      "K": "1"
+    },
+    "gain": "0",
+    "signTest": {
+      "wins": 0,
+      "losses": 0,
+      "ties": 20,
+      "pValue": "1",
+      "unit": "unique-defect"
+    },
+    "precision": {
+      "G": "1",
+      "K": "47/48"
+    },
+    "medianCostRatio": "35137497529732953433815/17466196125084276379936",
+    "conditions": {
+      "gain": false,
+      "signTest": false,
+      "precision": true,
+      "cost": true,
+      "operationalCompleteness": true
+    },
+    "claims": {
+      "G": {
+        "total": 92,
+        "real": 92,
+        "rejected": 0,
+        "matched": 40,
+        "duplicate": 32,
+        "extra": 20
+      },
+      "K": {
+        "total": 48,
+        "real": 47,
+        "rejected": 1,
+        "matched": 40,
+        "duplicate": 0,
+        "extra": 7
+      }
+    },
+    "cleanTasks": {
+      "G": {
+        "runs": 4,
+        "claims": 4,
+        "confirmedReal": 4,
+        "falsePositives": 0
+      },
+      "K": {
+        "runs": 4,
+        "claims": 4,
+        "confirmedReal": 4,
+        "falsePositives": 0
+      }
+    },
+    "routing": {
+      "G": {
+        "graph": 10,
+        "single": 6
+      },
+      "K": {
+        "graph": 0,
+        "single": 16
+      }
+    },
+    "tasks": 8,
+    "pairsPerTask": 2,
+    "uniqueDefects": 20,
+    "runs": 32,
+    "definitions": {
+      "emptyPrecision": "1",
+      "catchRate": "unique defects averaged over task pairs",
+      "cleanFalsePositives": "claims judged not real on tasks with no seeded defects"
+    }
+  },
+  "postMeasurementRepair": {
+    "finding": "Missing preregistered operational-completeness WIN veto",
+    "originalSource": "source-snapshot/",
+    "originalSourceFiles": 11,
+    "registeredScorePreserved": true,
+    "allPreviousArithmeticUnchanged": true,
+    "onlyNewCondition": "operationalCompleteness=true"
+  }
+}

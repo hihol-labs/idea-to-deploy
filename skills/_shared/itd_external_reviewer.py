@@ -559,8 +559,20 @@ def contains_residual_credential(text: str) -> bool:
     return False
 
 
+# Legacy local review addresses mix GPG unit IDs with commit hashes and model
+# labels. They are code/artifact references, not opaque credential values.
+# Mask ONLY for the entropy heuristic; all credential-specific detectors still
+# inspect the original scrubbed text. Mixed-case unknown payloads do not match.
+HASHED_LOCAL_REVIEW_ARTIFACT_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])GPG-[0-9]{3}-(?:[a-z0-9]+-)*"
+    r"(?:adjudication|machine|checker|mem[0-9]+)-[0-9a-f]{8,40}"
+    r"-local-(?:sol|terra)[.](?:json|md)(?![A-Za-z0-9_.-])"
+)
+
+
 def contains_high_entropy_token(text: str) -> bool:
     masked, _references = _mask_safe_references(text)
+    masked = HASHED_LOCAL_REVIEW_ARTIFACT_RE.sub("[REVIEW-ARTIFACT-REFERENCE]", masked)
     for match in HIGH_ENTROPY_TOKEN_RE.finditer(masked):
         token = match.group(0)
         if not (

@@ -85,3 +85,19 @@ human approves the PR. Узел за узлом это уже маршрут ITD
 нужны несколько независимых взглядов и скептик; любая работа с параллельными ветками и
 дорогой ошибкой. Не звать: одна функция, один тест, одна правка - граф не поднимет качество
 (правило наименьшего графа), обычный минимальный путь ADR-012 дешевле.
+
+## Conditional contract-first v2
+
+The source implementation adds contract-boundary-check: contracts and integration explorers, then checker, then human. Synthesis is deterministic (synthesis.json), not another model call. Common task/contracts/function inventory reach every node. IDs are immutable; every proposal gets one contract/reachability assessment; unknown survives and same-line independent claims remain separate.
+
+Authorize a project policy once, after reviewing its exact contents. Get the template fingerprint with `python3 -I skills/graph/scripts/itd_graph_policy.py template-digest`. Write `.itd/GRAPH_POLICY.json` with exactly: version=1, enabled=true, project=absolute root, template=contract-boundary-check, templateSha256=that fingerprint, allowedModules=[relative globs], sensitivePaths=[relative globs], boundaries=[{id,paths:[relative globs]}], maxRuns=1..32, maxAgentNodes=3, maxSeconds=1..3600, expiresAt=UTC ISO. No project is opted in implicitly.
+
+`digest --project ROOT` prints the canonical policy digest; after owner approval, `authorize --project ROOT --digest SHA --by OWNER` records .itd/GRAPH_AUTHORIZATION.json. Changing policy or template invalidates that authorization. This record assumes an honest host; it is not cryptographic protection against the same OS principal.
+
+The task conductor writes `.itd-memory/graph-request.json` with exactly version=1, unitId=current unit, module=tracked relative path, task=original request, functions=[qualified function names], contracts=[{id,requirement}], changedFiles=[tracked relative paths]. An optional unresolved object needs findingId,reason,counterexample and at least two distinct evidence entries {path,sha256}. Evidence bytes are revalidated. An active STATE unit, when present, must match the request.
+
+`prepare --project ROOT --request .itd-memory/graph-request.json --session NATIVE_SESSION` returns a decision. graph selects the approved native plan; recorded reuses validated existing evidence; single retains the ordinary workflow. Execute graph layers with fresh read-only native subagents via emit-serial/emit-workflow and record the unedited JSON. Never silently repeat completed nodes or substitute another graph.
+
+A sensitive path must cross at least two owner-declared boundaries, or there must be a concrete evidence dispute. Counts and names alone are not behavioral proof; the map is project-maintained, not a learned production classifier. The UserPromptSubmit hook supplies the same authorized plan when configuration and a current request exist. The hook cannot call a model; the host/task conductor performs native orchestration. Other safety and completion gates remain intact.
+
+Fresh evaluation uses semantic matching for every proposed match, opaque IDs, native provenance, monotonic/boot-bound costs and clean/ordinary cases. See docs/measurements/graph-v2/PROTOCOL.json. The source is usable by project opt-in; installation/publication/global enablement is a separate operation.

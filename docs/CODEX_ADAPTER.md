@@ -105,6 +105,9 @@ metadata. Missing high/unknown model separation remains `UNVERIFIED`.
 
 For PR preparation, `/review` and `/cross-review` use the same
 `itd_free_reviewer_producer.py` route: `Sol -> Terra` and `Terra -> Sol`. Codex
+also routes approved `gpt-6.1-sol` and `gpt-6-astra` makers to `gpt-5.6-terra`,
+preserving their actual model identities. These are maker-only compatibility
+entries, not additional reviewer or standby models. Codex
 starts exactly one fresh opposite OpenAI model/session. Anthropic, GitHub
 Copilot and other adapters are not automatic fallbacks. There is no caller bypass and no provider API key in
 the default route. WSL uses WSL-native transports/auth; native Windows uses
@@ -127,3 +130,7 @@ Claude-direct versus Codex-dispatch decision proof. Run
 `python3 tests/verify_host_neutral_memory.py` and
 `python3 tests/verify_fresh_session_resume.py` for local-first continuity and
 cold-session reconstruction proof.
+
+## Conditional Graph Lite transport
+
+`hooks/graph-route.sh` calls the vendor-neutral `itd_graph_policy.py hook` with the standard lifecycle stdin. Its UserPromptSubmit additionalContext carries only an owner-authorized read-only serial plan; native Codex subagents execute it in layers. The hook itself never calls Claude CLI or a model. Shared contracts/schemas/receipts stay vendor-neutral; local native log paths and WSL monotonic/boot collection live only in the measurement adapter scripts/graph_v2_study.py and protocol. Codex-only efficacy is not a Claude/provider comparison.

@@ -240,6 +240,12 @@ OPENAI_REVIEW_MODEL_ALTERNATES = {
     "gpt-5.6-sol": "gpt-5.6-terra",
     "gpt-5.6-terra": "gpt-5.6-sol",
 }
+# Maker compatibility is separate from the supported reviewer/standby set.
+OPENAI_MAKER_REVIEW_MODELS = {
+    **OPENAI_REVIEW_MODEL_ALTERNATES,
+    "gpt-6.1-sol": "gpt-5.6-terra",
+    "gpt-6-astra": "gpt-5.6-terra",
+}
 PROVIDER_FAMILIES = {
     "anthropic": "anthropic",
     "anthropic-subscription": "anthropic",
@@ -3448,7 +3454,7 @@ def select_openai_reviewer_model(
                 "UNVERIFIED", "configured reviewer is outside the Sol/Terra pair"
             )
         return configured
-    alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker.casefold())
+    alternate = OPENAI_MAKER_REVIEW_MODELS.get(maker.casefold())
     if not alternate:
         raise FreeReviewError(
             "UNAVAILABLE", "maker is not a supported Sol/Terra model"
@@ -4213,7 +4219,7 @@ def require_opposite_openai_model(
                 "reviewer is not a supported cross-vendor OpenAI model",
             )
         return
-    alternate = OPENAI_REVIEW_MODEL_ALTERNATES.get(maker["model"].casefold())
+    alternate = OPENAI_MAKER_REVIEW_MODELS.get(maker["model"].casefold())
     if alternate is None:
         raise FreeReviewError(
             "UNAVAILABLE", "maker is not a supported Sol/Terra model"

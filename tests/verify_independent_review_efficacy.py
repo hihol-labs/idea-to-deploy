@@ -79,6 +79,12 @@ HISTORY_PINNED_SNAPSHOTS = {
     "diagnostic-68b25d08/wsl.json": "fbb80ad450db01eb40f9df43344fe557278353209b4cf09ae538eae3f3c3e6dc",
     "diagnostic-68b25d08/windows.json": "6e05d7ec97c97b538e5a278a2219bfd220aec000add60ff0a40bfcb4f6fd15a9",
     "diagnostic-68b25d08/u12-cross-vendor-wsl.json": "ddd7614628731bebc17b50cebc122b9de27cbc22f9bb2d7b6861b9f8c5249071",
+    "diagnostic-34778075-scope-v2/wsl.json": "ad652b4e099a9837d8384171dc26e2800f578522132414ce29f0a00941428f5d",
+    "diagnostic-34778075-scope-v2/windows.json": "707812368664e8f2b84689f9fdadcd3d91015e453a02a71e233afda6b772ffb8",
+    "diagnostic-34778075-scope-v2/u12-cross-vendor-wsl.json": "e08ebf9bbe818743f04666ef92437cde9fa2452952437679974384af0942e72d",
+    "diagnostic-71b0336d-astra-route/wsl.json": "3e2bc2373b17050c4f4d8bbb7f7b706b597dee83bc91efa4bb4b0ad89e8cb4f9",
+    "diagnostic-71b0336d-astra-route/windows.json": "6b0e2ad1c8b582949e9d0430163e436d750ea8787276ffb6a6e104ba79aae763",
+    "diagnostic-71b0336d-astra-route/u12-cross-vendor-wsl.json": "ede06ff25dcbc80fe5d62c5d13559dbf790eb7b0c30fcb03c8e91d76bcee75b0",
 }
 # These values are deliberately in the verifier rather than trusting a mutable
 # archive manifest.  They bind the accepted evidence to the bytes that Git
@@ -105,6 +111,8 @@ RESULTS = {
     "windows": ROOT / "benchmarks" / "independent-review-efficacy" / "results" / "windows.json",
 }
 EXPECTED_OPPOSITE = {
+    "gpt-6-astra": "gpt-5.6-terra",
+    "gpt-6.1-sol": "gpt-5.6-terra",
     "gpt-5.6-sol": "gpt-5.6-terra",
     "gpt-5.6-terra": "gpt-5.6-sol",
 }
@@ -844,6 +852,47 @@ def normalized_summary(value: object) -> str:
     return text
 
 
+def verify_function_anchor_matching(manifest: dict[str, Any]) -> None:
+    case = next(row for row in manifest["semanticCases"] if row["id"] == "high-export-capacity")
+    fault = case["expectedFaults"][0]
+    finding = {"file": fault["file"], "line": 3, "severity": "high", "summary": "Projected rows exceed Excel's 1,048,576 worksheet ceiling."}
+    if not finding_matches_fault(finding, fault, case):
+        raise AssertionError("semantic capacity finding at its containing function declaration was missed")
+    for change in ({"line": 2}, {"file": "other.ts"}, {"severity": "medium"}, {"summary": "Unrelated issue"}):
+        if finding_matches_fault({**finding, **change}, fault, case):
+            raise AssertionError("function anchor granted unrelated or weak finding credit")
+    unrelated = {"diff": "@@ -0,0 +1,9 @@\n+export function unrelated() {\n+  return 1;\n+}\n+export function actual() {\n+  const rows = manyRows();\n+  return writeWorksheet(rows);\n+}\n"}
+    if containing_function_anchor({"line": 1}, {"lineStart": 5, "lineEnd": 6}, unrelated):
+        raise AssertionError("neighboring function declaration gained fault credit")
+    nested = {"diff": "@@ -0,0 +1,6 @@\n+export function outer() {\n+  function inner() {\n+    const rows = manyRows();\n+    return writeWorksheet(rows);\n+  }\n+}\n"}
+    nested_fault = {"lineStart": 3, "lineEnd": 4}
+    if containing_function_anchor({"line": 1}, nested_fault, nested):
+        raise AssertionError("outer function gained credit for a nested-function defect")
+    if not containing_function_anchor({"line": 2}, nested_fault, nested):
+        raise AssertionError("immediate nested-function anchor was rejected")
+    arrow = {"diff": nested["diff"].replace("function inner()", "const inner = () =>")}
+    if containing_function_anchor({"line": 1}, nested_fault, arrow):
+        raise AssertionError("outer function gained credit for a nested arrow-function defect")
+    reconciliation = next(row for row in manifest["semanticCases"] if row["id"] == "high-reconciliation-omission")
+    omission = reconciliation["expectedFaults"][0]
+    closing = {"file": omission["file"], "line": 5, "severity": "high", "summary": "fx_other is omitted from closing."}
+    if not finding_matches_fault(closing, omission, reconciliation):
+        raise AssertionError("exact semantic omission at the immediately closing function brace was missed")
+    for change in ({"line": 6}, {"line": 7}, {"file": "other.ts"}, {"severity": "medium"}, {"summary": "Unrelated issue"}):
+        if finding_matches_fault({**closing, **change}, omission, reconciliation):
+            raise AssertionError("closing brace granted unrelated or weak finding credit")
+    if containing_function_anchor({"line": 3}, {"lineStart": 5, "lineEnd": 6}, unrelated):
+        raise AssertionError("neighboring function closing brace gained fault credit")
+    if containing_function_anchor({"line": 6}, nested_fault, nested):
+        raise AssertionError("outer closing brace gained credit for a nested-function defect")
+    if not containing_function_anchor({"line": 5}, nested_fault, nested):
+        raise AssertionError("immediately closing inner function brace was rejected")
+    misleading = {"diff": reconciliation["diff"].replace("'expense'", "'expense{function fake()'")}
+    if not finding_matches_fault(closing, omission, misleading):
+        raise AssertionError("string contents were interpreted as function structure")
+    print("PASS  containing-function anchors retain semantic detections without neighboring-function credit")
+
+
 def category_agrees(finding: dict[str, Any], fault: dict[str, Any]) -> bool:
     """Whether the reviewer's free-text label falls inside the declared set."""
     categories = {
@@ -854,7 +903,83 @@ def category_agrees(finding: dict[str, Any], fault: dict[str, Any]) -> bool:
     )
 
 
-def finding_matches_fault(finding: dict[str, Any], fault: dict[str, Any]) -> bool:
+def containing_function_anchor(finding: dict[str, Any], fault: dict[str, Any], case: dict[str, Any] | None) -> bool:
+    """Accept the immediate function declaration or adjacent closing brace."""
+    if case is None or type(finding.get("line")) is not int:
+        return False
+    lines: dict[int, str] = {}
+    number = 0
+    for row in str(case.get("diff", "")).splitlines():
+        hunk = re.match(r"^@@ -[0-9]+(?:,[0-9]+)? [+]([0-9]+)", row)
+        if hunk:
+            number = int(hunk.group(1))
+        elif number and row[:1] in {"+", " "} and not row.startswith("+++"):
+            lines[number] = row[1:]
+            number += 1
+    anchor = finding["line"]
+    declaration_pattern = r"^\s*(?:export\s+)?(?:async\s+)?function\s+[A-Za-z_$][A-Za-z0-9_$]*\s*\("
+    closing_anchor = (
+        anchor == fault["lineEnd"] + 1
+        and lines.get(anchor, "").strip() in {"}", "};"}
+    )
+    if closing_anchor:
+        declarations = [
+            number for number, row in lines.items()
+            if number < fault["lineStart"] and re.match(declaration_pattern, row)
+        ]
+        if not declarations:
+            return False
+        anchor = max(declarations)
+    declaration = lines.get(anchor, "")
+    function_word = r"\bfunction\b"
+    if not re.match(declaration_pattern, declaration):
+        return False
+    depth = 0
+    opened = False
+    nested: dict[int, int] = {}
+    for number in range(anchor, max(lines, default=0) + 1):
+        row = lines.get(number)
+        if closing_anchor and row is not None:
+            # Only complete, unescaped single-line literals are understood.
+            # Their text cannot introduce braces or nested function keywords.
+            # Escaped/unclosed strings, templates and comments still fail closed.
+            if chr(92) in row:
+                return False
+            literal = r"'[^'\r\n]*'" + "|" + r'"[^"\r\n]*"'
+            row = re.sub(literal, "", row)
+        # Reject ambiguous lexical boundaries instead of guessing through text.
+        if row is None or any(token in row for token in (chr(34), chr(39), chr(96), "//", "/*", "*/")):
+            return False
+        words = len(re.findall(function_word, row))
+        if (number == anchor and words != 1) or words > 1:
+            return False
+        direct_arrow = re.match(r"^\s*(?:const|let|var)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>", row)
+        if number > anchor and (words or direct_arrow) and "{" not in row:
+            return False
+        first_open = True
+        for char in row:
+            if char == "{":
+                depth += 1
+                opened = True
+                if number > anchor and first_open and (words or "=>" in row):
+                    nested[depth] = number
+                first_open = False
+            elif char == "}":
+                start = nested.pop(depth, None)
+                if start is not None and start <= fault["lineStart"] <= fault["lineEnd"] <= number:
+                    return False
+                depth -= 1
+                if depth < 0:
+                    return False
+                if opened and depth == 0:
+                    return (
+                        anchor < fault["lineStart"] <= fault["lineEnd"] <= number
+                        and (not closing_anchor or number == finding["line"])
+                    )
+    return False
+
+
+def finding_matches_fault(finding: dict[str, Any], fault: dict[str, Any], case: dict[str, Any] | None = None) -> bool:
     """Match on substance: file, line range, severity floor and a required literal.
 
     The reviewer's free-text `category` is advisory and deliberately NOT a
@@ -874,7 +999,8 @@ def finding_matches_fault(finding: dict[str, Any], fault: dict[str, Any]) -> boo
         and observed is not None
         and observed >= minimum
         and finding.get("file") == fault["file"]
-        and fault["lineStart"] <= finding.get("line", 0) <= fault["lineEnd"]
+        and (fault["lineStart"] <= finding.get("line", 0) <= fault["lineEnd"]
+             or containing_function_anchor(finding, fault, case))
         and any(normalized_summary(term) in summary for term in fault["summaryTerms"])
     )
 
@@ -1108,7 +1234,7 @@ def validate_host_result(
                 "categories", "summaryTerms",
             }, "expected fault")
             hits = [finding for finding in report["findings"]
-                    if finding_matches_fault(finding, fault)]
+                    if finding_matches_fault(finding, fault, definition)]
             matched.append(bool(hits))
             if hits and not any(category_agrees(finding, fault) for finding in hits):
                 # Detection stands on substance; the divergent label is stated
@@ -1478,6 +1604,7 @@ def main(argv: list[str] | None = None) -> int:
     verify_source_loading()
     verify_runner_flags(runner)
     verify_semantic_matcher(manifest, runner)
+    verify_function_anchor_matching(manifest)
     verify_prompt_boundary(manifest, runner)
     verify_manifest_contract(manifest, runner)
     host_metrics = {}

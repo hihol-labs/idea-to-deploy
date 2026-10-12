@@ -136,3 +136,7 @@ A change to shared methodology behavior is complete only when:
 Claude Code and Codex may expose different tools, but a project must converge
 to the same `.itd/` contracts, `.itd-memory/` state, review verdict schema, and
 verification evidence.
+
+## Conditional Graph Lite transport
+
+`hooks/graph-route.sh` calls the vendor-neutral `itd_graph_policy.py hook` with the standard lifecycle stdin. Its UserPromptSubmit additionalContext carries only an owner-authorized read-only serial plan; native Codex subagents execute it in layers. The hook itself never calls Claude CLI or a model. Shared contracts/schemas/receipts stay vendor-neutral; local native log paths and WSL monotonic/boot collection live only in the measurement adapter scripts/graph_v2_study.py and protocol. Codex-only efficacy is not a Claude/provider comparison.
