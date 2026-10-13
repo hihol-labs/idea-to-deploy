@@ -20,6 +20,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 BASE = REPO / "benchmarks" / "review-evalset"
+MANIFEST = REPO / "benchmarks" / "review-evalset" / "cases.json"
 
 # --- машинные правила рубрики: category -> [(present_re, absent_re|None)] ---
 RULES = {
@@ -65,7 +66,7 @@ def rule_hits(rule, text):
 
 
 def main():
-    manifest = json.loads((BASE / "cases.json").read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     cases = manifest["cases"]
     seeded = [c for c in cases if c["seeded"]]
     clean = [c for c in cases if not c["seeded"]]

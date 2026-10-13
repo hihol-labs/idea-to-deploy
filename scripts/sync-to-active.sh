@@ -426,7 +426,8 @@ DESIRED_HOOKS=$(cat <<'JSON'
         { "type": "command", "command": "~/.claude/hooks/session-open-diagnostic.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/pre-flight-check.sh",        "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/check-skills.sh",            "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/context-aware.sh",           "timeout": 5 }
+        { "type": "command", "command": "~/.claude/hooks/context-aware.sh",           "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/graph-route.sh",             "timeout": 10 }
       ]
     }
   ],

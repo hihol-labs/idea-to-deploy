@@ -4841,6 +4841,171 @@
           "live-evidence"
         ]
       }
+    },
+    {
+      "id": "GLV2-001-AC1",
+      "criterion": "V2 keeps common task/contracts, complete coverage, immutable IDs and orthogonal contract/reachability assessments; deterministic synthesis preserves unknown and independent same-line claims.",
+      "source": "User 2026-10-11 implementation request",
+      "evidence": "Bound native study replay and targeted regressions; exact candidate acceptance through GLV2-001 Verification Loop machine/checker/adjudication.",
+      "verificationCommand": "python3 -I tests/verify_graph_v2.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "graph-v2"
+        ],
+        "claim": "V2 keeps common task/contracts, complete coverage, immutable IDs and orthogonal contract/reachability assessments; deterministic synthesis preserves unknown and independent same-line claims."
+      },
+      "unitId": "GLV2-001"
+    },
+    {
+      "id": "GLV2-001-AC2",
+      "criterion": "Owner-authorized conditional preparation uses bounded project/template/request/session envelope and native hook; absent configuration is no-op, stale or unsafe permission cannot run models.",
+      "source": "User 2026-10-11 implementation request",
+      "evidence": "Bound native study replay and targeted regressions; exact candidate acceptance through GLV2-001 Verification Loop machine/checker/adjudication.",
+      "verificationCommand": "python3 -I tests/verify_graph_policy.py && python3 -I tests/verify_host_adapters.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "impactClasses": [
+          "security"
+        ],
+        "oracleIds": [
+          "graph-policy",
+          "host-adapters"
+        ],
+        "claim": "Owner-authorized conditional preparation uses bounded project/template/request/session envelope and native hook; absent configuration is no-op, stale or unsafe permission cannot run models."
+      },
+      "unitId": "GLV2-001"
+    },
+    {
+      "id": "GLV2-001-AC3",
+      "criterion": "Every scored match requires complete blind semantic judgments, with no positional auto-credit, exact arithmetic and fresh controlled data.",
+      "source": "User 2026-10-11 implementation request",
+      "evidence": "Bound native study replay and targeted regressions; exact candidate acceptance through GLV2-001 Verification Loop machine/checker/adjudication.",
+      "verificationCommand": "python3 -I tests/verify_graph_semantics.py && python3 -I tests/verify_graph_astra_amendment.py && python3 -I scripts/graph_v2_astra.py verify",
+      "status": "passed",
+      "reviewEvidence": {
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "graph-semantic",
+          "study"
+        ],
+        "claim": "Every scored match requires complete blind semantic judgments, with no positional auto-credit, exact arithmetic and fresh controlled data."
+      },
+      "unitId": "GLV2-001"
+    },
+    {
+      "id": "GLV2-001-AC4",
+      "criterion": "Existing graph behavior, packaging and cumulative quick regressions remain green.",
+      "source": "User 2026-10-11 implementation request",
+      "evidence": "Bound native study replay and targeted regressions; exact candidate acceptance through GLV2-001 Verification Loop machine/checker/adjudication.",
+      "verificationCommand": "python3 -I tests/verify_graph_skill.py && python3 -I tests/meta_review.py && bash tests/run-all.sh --quick",
+      "status": "passed",
+      "reviewEvidence": {
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "graph-legacy",
+          "meta-review",
+          "quick",
+          "host-adapters"
+        ],
+        "claim": "Existing graph behavior, packaging and cumulative quick regressions remain green."
+      },
+      "unitId": "GLV2-001"
+    },
+    {
+      "id": "GLV2-001-AC5",
+      "criterion": "Replay the sealed 32 Codex arms with the owner-approved Astra judge amendment; preserve native provenance, source freeze and scoring thresholds, and report the outcome without mandatory rollout.",
+      "source": "User 2026-10-11 implementation request",
+      "evidence": "Bound native study replay and targeted regressions; exact candidate acceptance through GLV2-001 Verification Loop machine/checker/adjudication.",
+      "verificationCommand": "python3 -I scripts/graph_v2_astra.py verify",
+      "status": "passed",
+      "reviewEvidence": {
+        "impactClasses": [
+          "performance"
+        ],
+        "oracleIds": [
+          "study"
+        ],
+        "claim": "Replay the sealed 32 Codex arms with the owner-approved Astra judge amendment; preserve native provenance, source freeze and scoring thresholds, and report the outcome without mandatory rollout."
+      },
+      "unitId": "GLV2-001"
+    },
+    {
+      "id": "GLV2-001-AC6",
+      "unitId": "GLV2-001",
+      "status": "passed",
+      "description": "Approved model compatibility keeps the closed reviewer route and honest maker provenance.",
+      "reviewEvidence": {
+        "claim": "gpt-6.1-sol and gpt-6-astra makers select gpt-5.6-terra; actual maker identity, existing routes and closed reviewer/standby set remain enforced.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "reviewer-compatibility",
+          "reviewer-efficacy"
+        ]
+      }
+    },
+    {
+      "id": "GLV2-CI-001-AC1",
+      "unitId": "GLV2-CI-001",
+      "status": "passed",
+      "criterion": "Fresh native Codex live-methodology evidence matches current source and passes the unchanged independent oracle.",
+      "reviewEvidence": {
+        "claim": "Fresh native Codex live-methodology evidence matches current source and passes the unchanged independent oracle.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "live-evidence"
+        ]
+      },
+      "evidence": "Implementation acceptance claim; current exact-candidate machine oracles below must all pass before independent review or publication. Published CI is checked separately at the new head."
+    },
+    {
+      "id": "GLV2-CI-001-AC2",
+      "unitId": "GLV2-CI-001",
+      "status": "passed",
+      "criterion": "The data-dependent result verifier is registered; self-test and drift guard pass on both hosts.",
+      "reviewEvidence": {
+        "claim": "The data-dependent result verifier is registered; self-test and drift guard pass on both hosts.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "drift",
+          "result-self-test",
+          "transport-diagnostic"
+        ]
+      },
+      "evidence": "Implementation acceptance claim; current exact-candidate machine oracles below must all pass before independent review or publication. Published CI is checked separately at the new head."
+    },
+    {
+      "id": "GLV2-CI-001-AC3",
+      "unitId": "GLV2-CI-001",
+      "status": "passed",
+      "criterion": "The candidate passes meta-review and cumulative quick regression before guarded publication.",
+      "reviewEvidence": {
+        "claim": "The candidate passes meta-review and cumulative quick regression before guarded publication.",
+        "impactClasses": [
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "meta-review",
+          "quick"
+        ]
+      },
+      "evidence": "Implementation acceptance claim; current exact-candidate machine oracles below must all pass before independent review or publication. Published CI is checked separately at the new head."
     }
   ],
   "completion": {
@@ -4859,9 +5024,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - GRAPH-LITE-2 closed 2026-10-08 (PR #353 -> 2219fe0). Next: the Graph Lite measurement in ~/projects/itd-graph-exp (protocol frozen 2026-10-09, units E-2..E-4); the enablement unit opens only on a won verdict."
+    "unitId": "GLV2-CI-001",
+    "status": "in_progress",
+    "openedAt": "2026-10-13",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "sourceRequest": "Owner authorized fresh live-methodology evidence and green PR 355 CI, keeping Graph optional and its measurement unchanged.",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "host-parity",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5382,6 +5561,29 @@
       "note": "Owner instruction 2026-10-08 ('дальше по плану'): the six medium findings of review p9 that the owner deferred as GRAPH-LITE-2 (BACKLOG P2 Graph Lite) before session 2 of ADR-013. No goal unit; medium = one independent checker (Sol) before the PR.",
       "closedAt": "2026-10-08T20:25:06Z",
       "closureEvidence": "Merged on the owner's command as PR #353 -> 2219fe0 (squash) at 2026-10-08T20:25:06Z. Machine receipt GRAPH-LITE-2 4/4 legs exit 0 on tree 7a6e87aa (meta-review, graph-skill 195/0, snapshot contract 25/0, live-evidence 154/0); gpt-5.6-sol g1 BLOCKED (no real submodule case; added), g2 PASSED; GRAPH-LITE-2-adjudication-a1 PASSED with the mandatory route; gate registry LOCAL_REVIEWED; CI Gate 1 and windows-verify pass. Rollout 2026-10-08: sync-to-active on WSL and Windows updated /graph, itd_graph.py identical to main on both hosts."
+    },
+    {
+      "unitId": "GLV2-001",
+      "status": "closed",
+      "openedAt": "2026-10-11",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "User explicitly requested implementation of conditional Graph Lite improvements, semantic scoring and a fresh Codex-only study; no Claude CLI. Owner approval 2026-10-12: support actual gpt-6.1-sol maker with mandatory gpt-5.6-terra review; no bypass or expanded cross-vendor route. Owner subsequently authorized gpt-6-astra maker -> gpt-5.6-terra independent review and draft PR; Graph remains optional and no new Graph measurement is authorized.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene",
+          "performance"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-13",
+      "closureEvidence": "0890d18; owner-approved ADJUDICATED receipts for GLV2-001; draft PR #355."
     }
   ]
 }

@@ -326,6 +326,60 @@
       "sourceGitBlobSha1": null,
       "classification": "diagnostic",
       "sizeBytes": 11399
+    },
+    {
+      "path": "diagnostic-34778075-scope-v2/wsl.json",
+      "sha256": "ad652b4e099a9837d8384171dc26e2800f578522132414ce29f0a00941428f5d",
+      "sourceProducerSha256": "3477807574efff2136704c3d1366ca43673f9fcb7961a1e6780e684f0f9f2df5",
+      "observedAt": "2026-10-12T10:30:14Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 9678
+    },
+    {
+      "path": "diagnostic-34778075-scope-v2/windows.json",
+      "sha256": "707812368664e8f2b84689f9fdadcd3d91015e453a02a71e233afda6b772ffb8",
+      "sourceProducerSha256": "3477807574efff2136704c3d1366ca43673f9fcb7961a1e6780e684f0f9f2df5",
+      "observedAt": "2026-10-12T10:30:52Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10205
+    },
+    {
+      "path": "diagnostic-34778075-scope-v2/u12-cross-vendor-wsl.json",
+      "sha256": "e08ebf9bbe818743f04666ef92437cde9fa2452952437679974384af0942e72d",
+      "sourceProducerSha256": "3477807574efff2136704c3d1366ca43673f9fcb7961a1e6780e684f0f9f2df5",
+      "observedAt": "2026-10-12T10:33:26Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10181
+    },
+    {
+      "path": "diagnostic-71b0336d-astra-route/wsl.json",
+      "sha256": "3e2bc2373b17050c4f4d8bbb7f7b706b597dee83bc91efa4bb4b0ad89e8cb4f9",
+      "sourceProducerSha256": "71b0336dab99620646d347dcd80d465878cf93df014fd5311e504ee32b164a03",
+      "observedAt": "2026-10-12T20:57:51Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10135
+    },
+    {
+      "path": "diagnostic-71b0336d-astra-route/windows.json",
+      "sha256": "6b0e2ad1c8b582949e9d0430163e436d750ea8787276ffb6a6e104ba79aae763",
+      "sourceProducerSha256": "71b0336dab99620646d347dcd80d465878cf93df014fd5311e504ee32b164a03",
+      "observedAt": "2026-10-12T20:47:54Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10260
+    },
+    {
+      "path": "diagnostic-71b0336d-astra-route/u12-cross-vendor-wsl.json",
+      "sha256": "ede06ff25dcbc80fe5d62c5d13559dbf790eb7b0c30fcb03c8e91d76bcee75b0",
+      "sourceProducerSha256": "71b0336dab99620646d347dcd80d465878cf93df014fd5311e504ee32b164a03",
+      "observedAt": "2026-10-12T21:01:50Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10336
     }
   ]
 }

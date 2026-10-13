@@ -47,7 +47,7 @@ AI coding agents мощные, но без harness работают как ст�
 ## Решение
 
 **idea-to-deploy** — это методология, а не просто набор инструментов. Её
-41 скилл, 10 ролей агентов, 30 хуков, проектные контракты и персистентное
+41 скилл, 10 ролей агентов, 31 хуков, проектные контракты и персистентное
 состояние дают поддерживаемому coding host доказательный конвейер:
 
 ```
@@ -475,7 +475,7 @@ Host-neutral naming выходных артефактов остаётся от�
 
 Методология эффективна, только если активный host вызывает подходящие skills.
 На неоднозначном промпте агент может скатиться в ad-hoc tools. Папка `hooks/`
-содержит **30 хуков: 12 hard gates и 18 soft hooks**. Сила enforcement —
+содержит **31 хуков: 12 hard gates и 19 soft hooks**. Сила enforcement —
 это **12 hard gates, а не 30**; полная таблица и метрика 12/12 behavioural
 coverage — в [README.md](README.md), синхронизацию держит
 `tests/verify_gate_taxonomy.py`.
@@ -486,7 +486,7 @@ coverage — в [README.md](README.md), синхронизацию держит
 `cost-tracker`, `narration-final`, `verdict-contract`,
 `completion-gate`, `state-guard`, `check-predeploy-gate`.
 
-**18 soft hooks:** `careful`, `check-skills`, `completion-signals`,
+**19 soft hooks:** `careful`, `check-skills`, `completion-signals`, `graph-route`,
 `completion-stop`, `context-aware`, `context-budget`, `crash-recovery`,
 `cross-review-precommit`, `execution-trace`, `freeze`,
 `handoff-readiness`, `model-policy`, `pre-flight-check`,
@@ -531,7 +531,7 @@ chmod +x ~/.claude/hooks/*.sh
 - **`check-skill-completeness.sh` (v1.5.1, PreToolUse на Write/Edit/MultiEdit)** — **до** любой правки `skills/*/SKILL.md` внутри методологического репозитория парсит pending tool input и проверяет наличие `references/`, триггеров в промпт-хуке и регрессионного фикстура. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — Write не запустится, файл не попадёт на диск.**
 - **`check-commit-completeness.sh` (v1.5.1, PreToolUse на Bash)** — перед любым `git commit` внутри методологического репозитория парсит staged diff и отказывает в коммите, если staged файл скилла без поддерживающих артефактов. **Жёсткий блок (exit 2 + `hookSpecificOutput.permissionDecision: "deny"`) — коммит не запустится.**
 
-Все 30 хуков регистрируются каноническими adapters. `handoff-readiness.sh`
+Все 31 хуков регистрируются каноническими adapters. `handoff-readiness.sh`
 мягкий и rate-limited; methodology-only hooks делают no-op на чужих проектах.
 `execution-trace.sh` записывает intent/outcome, а `cost-tracker.sh` разделяет
 estimated и host-observed tokens. Reload-поведение остаётся host-specific.

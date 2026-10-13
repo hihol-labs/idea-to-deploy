@@ -1,0 +1,240 @@
+{
+  "signatureHex": "1922a8a03fcfc91e178884e3b03d6c6226249fbdeea7790c2610c2cf68e4a823e90d7b2f3d7791a53a545fc5a146f8e434c0acbef508498a1acb128076673105",
+  "signed": {
+    "cases": [
+      {
+        "attempts": 1,
+        "id": "high-export-capacity",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
+        "report": {
+          "findings": [
+            {
+              "category": "scale and bounded output",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 10,
+              "severity": "high",
+              "summary": "The export always sends all expanded rows to one worksheet without enforcing EXCEL_MAX_ROWS. The supplied projection is 1,807,231 rows, exceeding Excel's 1,048,576-row limit, so the default annual export cannot meet the required single-sheet capacity and may fail to download or open."
+            },
+            {
+              "category": "resource usage",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "medium",
+              "summary": "Nested flatMap materializes the entire expanded annual dataset in browser memory before writing. At the supplied projected scale this is an unbounded large allocation, with no batching, limit, or failure handling to preserve the requirement that the export remain downloadable."
+            }
+          ],
+          "unverified": [
+            "The supplied change does not show whether buildAnnualExport is connected to the default annual export, whether writeSingleBrowserWorksheet rejects/truncates over-capacity data, or whether the resulting workbook is validated as downloadable."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a12fa6-1ce6-7f90-b288-3c540799cd7c"
+      },
+      {
+        "attempts": 1,
+        "id": "high-reconciliation-omission",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "`fx_other` is a declared supported consumption type but is excluded from the closing calculation. The observed 1,494,440 TRY `fx_other` total will leave displayed closing overstated by that amount, so it cannot reconcile for all supported types."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 1,
+              "severity": "high",
+              "summary": "The function returns only a scalar closing value; it does not provide the required opening, inflow, outflow, conversion, and closing turnover display for each pool consumer category."
+            }
+          ],
+          "unverified": [
+            "No evidence is provided that `sum` converts `fx_eur` values to exact TRY or that the required turnover breakdown is rendered and tested."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a12fa6-b98c-7740-b38e-3bc7cc83ebf3"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-allocation-rounding",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "high",
+              "summary": "Each detail amount is rounded independently, with no residual-cent distribution or final-row adjustment. Consequently the returned amounts can sum to a value different from the source amount, directly violating the exact reconciliation acceptance criterion; the supplied evidence confirms this drift occurs."
+            },
+            {
+              "category": "input-validation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "high",
+              "summary": "The function does not verify that shares sum to one, so even before rounding it can allocate more or less than the source amount and cannot guarantee the required source-total preservation for its accepted inputs."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a12fa7-0e38-7420-a0f8-a4719b2391bc"
+      },
+      {
+        "attempts": 1,
+        "id": "high-stale-generated-client",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
+        "report": {
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "`verify` no longer runs `prisma generate`, so generated Prisma client types are not refreshed before the full typecheck after schema changes. This violates the required release-gate ordering."
+            },
+            {
+              "category": "error-handling",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "`|| echo existing Prisma mismatch` converts every `tsc --noEmit` failure into a successful command exit, so typecheck failures are no longer non-zero and cannot serve as a release gate."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a12fa7-7604-79e3-9548-9eb22313d74b"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-repository-hygiene",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
+        "report": {
+          "findings": [
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "review-tools/local_probe.py",
+              "line": 1,
+              "severity": "high",
+              "summary": "Temporary local reviewer probe is added to the release tree, violating the stated scope and acceptance requirement to ship only product and durable public methodology artifacts."
+            },
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "ROOT_CAUSE.md",
+              "line": 1,
+              "severity": "high",
+              "summary": "Private root-cause scratch notes are added to the release tree, violating the stated acceptance requirement that such notes must not enter the release tree."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a12fa7-eca8-7d82-bf14-1baf28a39c17"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-bounded-reconciled-export",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a12fa8-5455-78f0-b0ff-c1c051c5b41b"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-inclusive-utc-day-span",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a12fa9-3fce-75e0-bf74-bb3f63af90ab"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-nearest-rank-percentile",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a12fa9-867a-7631-8787-679e35aac9c5"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-half-up-basis-point-fee",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a12faa-2315-76d0-9f0d-f9f12d83e2e8"
+      }
+    ],
+    "host": "windows",
+    "hostRuntime": {
+      "osName": "nt",
+      "pythonImplementation": "cpython",
+      "release": "11",
+      "system": "Windows"
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-independent-review-semantic-efficacy-run",
+    "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
+    "observedAt": "2026-10-12T10:30:52Z",
+    "producerSha256": "3477807574efff2136704c3d1366ca43673f9fcb7961a1e6780e684f0f9f2df5",
+    "reviewer": {
+      "isolation": {
+        "ephemeral": true,
+        "freshSession": true,
+        "inheritedContext": false,
+        "networkTools": false,
+        "observedToolCallsZero": true,
+        "paidApi": false,
+        "repositoryAccess": false,
+        "repositoryMutation": false,
+        "secrets": false,
+        "shellTools": false
+      },
+      "makerModel": "gpt-6.1-sol",
+      "makerProvider": "openai-subscription",
+      "paidApiCalls": 0,
+      "provider": "openai-subscription",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-5.6-terra",
+      "runtimeVersion": "0.157.1",
+      "transportExecutableSha256": "8cb0e69e99ff2a158c54815db82d0f2e524d8f301bc30184722cfd1ae5973574"
+    },
+    "runnerSha256": "b85c784a72776218fd0a73744dc90017cf13180603d7c0b73296408d737e71dd",
+    "version": 1
+  }
+}

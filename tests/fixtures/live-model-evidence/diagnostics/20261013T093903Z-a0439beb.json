@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "runId": "20261013T093903Z-a0439beb",
+  "classification": "unreviewable-native-jsonl",
+  "reason": "Codex 0.162.1 emitted duplicate item.id keys in native web_search events at lines 15 and 16; no independent reviewer was dispatched. Original bytes and reports remain unchanged.",
+  "retainedInput": ".itd-memory/ci355-native-diagnostics/20261013T093903Z-a0439beb",
+  "filesSha256": {
+    "run-report.json": "5b6033eebbe1b54a67ac18b089bf287625f41bb8ce95f45390a1bba7c8940203",
+    "transcript.jsonl.gz": "7cee667d43dabe50cfb6561d33114656e919bf17e60d4e09bc9d9363b510b55e",
+    "output/IMPLEMENTATION_PLAN.md": "a000b905f0bfc02592f5dc60a2745b851f8862a2d051767f17c479417f65bf06",
+    "output/PRD.md": "b59ec6bed3a53261acad994b9f3397cdf48a82b3c752f2aeca6e1bf48d6e655e",
+    "output/STRATEGIC_PLAN.md": "5825f0ff3162ce72aba3e1447e2fe4f9af7c86962bfa6e93b32ababde02fb88c",
+    "output/PROJECT_ARCHITECTURE.md": "76261a240630724550e04290ccf85e6a0e8c6b0dd73ce1027b87dfd10835ef1a",
+    "output/DEVILS_ADVOCATE_REVIEW.md": "727b602c9290fcaee5b5e18cec968ebfd2dcb3f0b87ff6697eb6060a6a3280ad",
+    "output/CLAUDE.md": "b064a69b6c27e53658c8743594939d036579b300193f61bad1fb32621e1f5c95",
+    "output/CLAUDE_CODE_GUIDE.md": "088b19806ffd470a2d3414e00ef04e7d7deeec9965eb284b51cb4ff64c5569f6"
+  },
+  "nextTransport": {
+    "provider": "openai",
+    "model": "gpt-6-astra",
+    "cliVersion": "0.162.1",
+    "web_search": "disabled",
+    "reason": "The representative fixture provides the task input; native web search is disabled to avoid malformed transport records, without changing the benchmark or oracle."
+  }
+}

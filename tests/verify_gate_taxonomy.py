@@ -102,8 +102,8 @@ def main():
 
     hard, soft = classify()
     check("exactly 12 hard gates (blocking-decision regex)", len(hard) == 12)
-    check("exactly 18 soft hooks", len(soft) == 18)
-    check("hard + soft == 30", len(hard) + len(soft) == 30)
+    check("exactly 19 soft hooks", len(soft) == 19)
+    check("hard + soft == 31", len(hard) + len(soft) == 31)
 
     md = open(README, encoding="utf-8").read()
 

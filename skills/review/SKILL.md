@@ -43,6 +43,10 @@ and `UNAVAILABLE` stop the gate. Anthropic, GitHub Copilot, Antigravity and
 paid API adapters are optional separately invoked facilities, not automatic
 fallbacks or quorum members.
 
+Approved maker compatibility also routes `gpt-6.1-sol` and `gpt-6-astra`
+to `gpt-5.6-terra`. Preserve the observed maker identity in provenance.
+These additions do not make either maker a reviewer or standby.
+
 The signed phase-one v2 receipt contains the exact attempt prefix and one fresh
 opposite-GPT identity plus its prompt/report. Missing or malformed route
 evidence is `UNVERIFIED`, and the broker must reject it before authorization.

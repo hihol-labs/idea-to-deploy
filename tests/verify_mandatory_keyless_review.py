@@ -210,14 +210,19 @@ def main() -> int:
             )
             check(
                 detail is not None
-                and prompt_path.read_bytes() == b"exact prompt",
+                and Path(detail["prompt"]).read_bytes() == b"exact prompt",
                 "negative review prompt was not persisted byte-exactly",
             )
             check(
-                json.loads(report_path.read_text(encoding="utf-8"))
+                json.loads(Path(detail["report"]).read_text(encoding="utf-8"))
                 == blocked_report,
                 "negative reviewer findings were not persisted",
             )
+            check(not prompt_path.exists() and not report_path.exists(),
+                  "negative attempt overwrote requested success output paths")
+            check(Path(detail["prompt"]).parent == Path(detail["report"]).parent
+                  and Path(detail["prompt"]).parent.parent == Path(raw),
+                  "negative artifacts escaped their immutable attempt namespace")
     else:
         raise AssertionError("negative reviewer report returned a route pass")
 

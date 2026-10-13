@@ -272,3 +272,13 @@ receipt-stale | closed` и digest. Что делает скрипт при лю�
   is enforced by the validator).
 - `/graph` MUST NOT re-use an approval after the graph changed, and MUST NOT become
   default-on without a won A/B measurement of the same kind as `~/projects/itd-value-exp`.
+
+## Contract-first v2 and conditional project policy (ADR-014)
+
+The manual /graph skill remains default-off. An explicitly owner-authorized project policy may automatically prepare contract-boundary-check and return its serial plan to the native host. No policy means a quiet no-op; touching a sensitive filename alone does not qualify. The owner authorizes the exact policy and template fingerprint once. Each run binds the instantiated graph digest, current project snapshot, request, policy, expiry, limits and host session. Nodes remain read-only; the human is terminal; no graph receipt sets verified or replaces an existing gate.
+
+Use itd_graph.py init <run-dir> --template contract-boundary-check --module <path> --task <text> --contract <JSON containing contracts and functions>, then the existing explicit approve/emit/record/close flow. The v2 graph has contracts and integration explorers in parallel, then a checker; synthesis.json is produced deterministically by record. Every node receives the original task, contracts and function inventory. Stable finding IDs bind exactly one independent contract/reachability assessment; missing/merged/foreign IDs and incomplete function coverage refuse recording. Unknown is retained; a blocked operational path does not erase a demonstrated helper-contract failure.
+
+Project configuration: .itd/GRAPH_POLICY.json and .itd/GRAPH_AUTHORIZATION.json; request: .itd-memory/graph-request.json. Read docs/graph-engineering.md for the closed formats. After the owner reviews a policy, run itd_graph_policy.py digest --project <root>, then authorize --project <root> --digest <exact digest> --by <owner>. The authorization is an honest-host record, not a signature against a malicious same-principal process.
+
+For opted-in work, the task conductor writes a bounded request from the actual scope/contracts, then runs itd_graph_policy.py prepare --project <root> --request .itd-memory/graph-request.json --session <native session id>. route=graph means execute emit-serial with fresh native subagents in layers; reuse saved completed outputs. route=recorded means consume the existing report, never spawn again. route=single means preserve the ordinary risk-derived path. The UserPromptSubmit hook carries the same plan if a current request is present; it cannot call Claude CLI or any model. Do not synthesize owner approval, increase limits or weaken gates because routing is inconvenient.

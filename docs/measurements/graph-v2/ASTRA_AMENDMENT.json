@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "authorization": "Owner instruction in this thread: делай на астра",
+  "measuredModel": "gpt-6.1-sol",
+  "graderModel": "gpt-6-astra",
+  "reasoningEffort": "high",
+  "scope": "Change the blind grader model before any grading sessions. Preserve the sealed 32-arm collection, all question/source capsule bytes, rubric, matching and score thresholds. Report this as an amended study with uniform measured agents and a different uniform judge model.",
+  "collectionSha256": "d95e4b27d1d0994a35e493a208c7d5c3a66189721129193057a959d84421cc3c",
+  "queueSha256": "eb6341801928878294599599fe2b03e54e4615dbe0e3ec7ea1f22b935f3f455e",
+  "originalGradingFreezeSha256": "a3b719f8496f797342abe2bc4a32245bc6018726fe11e4acefd5e2d6e85e43ac"
+}

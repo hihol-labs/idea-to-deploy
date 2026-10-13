@@ -11,6 +11,13 @@
   },
   "suites": [
     {
+      "suite": "tests/verify_graph_study_result.py",
+      "class": "external-evidence-absent",
+      "why": "Full replay needs retained local native transcripts, sealed source and grading data that are not stored in Git or produced by the general mirror. The self-test needs no external evidence.",
+      "reproduce": "python3 -I tests/verify_graph_study_result.py --self-test",
+      "precondition": "Full replay requires the matching immutable local study and source revision. The retained R2 Astra amendment is replayed separately by python3 -I scripts/graph_v2_astra.py verify without launching actors or judges."
+    },
+    {
       "suite": "tests/verify_diagnostics_pilot.py",
       "class": "phase-required",
       "why": "Требует --phase; без аргумента argparse завершает rc=2, что читается как ложный красный.",

@@ -175,7 +175,24 @@ SCRUB_REDACTED = [
 ]
 
 
+def verify_hashed_artifact_entropy_references() -> None:
+    references = [
+        "GPG-" + "001-general-review-adjudication-" + "f294c5329ecb" + "-local-terra.json",
+        ".itd-memory/verification-loop/reports/" + "GPG-001-general-review-mem8-" + "8dbd29fb" + "-local-terra.md",
+    ]
+    token = "aB3dE5fG7hI9jK2mN4pQ6rS8tU0vW1xY" * 2
+    for reference in references:
+        check(not reviewer.contains_high_entropy_token(reference), "hash-bound local review artifact address is not a credential")
+        check(reviewer.contains_high_entropy_token(reference + " " + token), "unrelated opaque credential remains caught beside artifact address")
+        check(reviewer.contains_residual_credential(_KEY_NAME + "=" + _Q + reference + _Q), "sensitive named literal remains caught even when artifact-shaped")
+        fake_key = "sk-" + "A" * 24
+        check(reviewer.contains_high_confidence_secret(reference + "/" + fake_key), "high-confidence credential remains caught inside an artifact path")
+        malformed = reference.replace("-local-", "-" + token + "-local-")
+        check(reviewer.contains_high_entropy_token(malformed), "mixed-case opaque suffix cannot masquerade as a hashed artifact reference")
+
+
 def main() -> int:
+    verify_hashed_artifact_entropy_references()
     for sample in SCRUB_INTACT:
         clean, redactions = reviewer.scrub(sample)
         check(

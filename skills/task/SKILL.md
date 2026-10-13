@@ -467,3 +467,7 @@ Supported. If `/refactor` is running and the user realizes "actually this is a p
 - **Never invoke `/project`** — `/task` is for **existing** code. If the user actually wants a new project, redirect them to `/project` explicitly and exit.
 - **Never invoke `/kickstart`, `/blueprint`, or `/guide`** — those are project-creation skills, not daily-work. If the task looks like "implement this from scratch based on existing docs", redirect to `/project` → vars А/В.
 - After the target skill completes, **offer** the next logical step but don't auto-chain without asking.
+
+### Conditional Graph Lite project policy (ADR-014)
+
+For an explicitly opted-in project, after task scope/contracts and before final validation, materialize .itd-memory/graph-request.json from the current unit, changed tracked files, original task, declared contracts and function inventory. Do not guess risk from filenames or model confidence. Invoke skills/graph/scripts/itd_graph_policy.py prepare with the real host session. A graph decision is owner policy authorization to execute its exact read-only native-agent plan; run the three v2 nodes in layers and record their unedited outputs. A recorded decision reuses the immutable report. A single decision keeps the ordinary path. Invalid/stale permission must not become inferred approval. The graph is additive and cannot replace this task pipeline, any risk-tier checker, or human approval for external actions. Without policy/request the hook is quiet and no graph runs.

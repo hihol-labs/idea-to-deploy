@@ -110,3 +110,7 @@ far. Per ADR-001 and the harness best-effort invariant it may TRANSPORT a graph;
   skill-hint friction ADR-012 removed.
 - **Reusing the GENG-A/B contract layer** (schemas, dual digest, node receipt cache): its value was not shown
   (GATE G0); Graph Lite keeps one digest, one approval and one receipt per run.
+
+## Amendment 2026-10-11
+
+ADR-014 adds an explicitly owner-authorized, bounded conditional project policy and the contract-boundary-check template. Default-off remains true without that policy. The old template/measurement is not reinterpreted and global mandatory enablement is not inferred from local opt-in.
