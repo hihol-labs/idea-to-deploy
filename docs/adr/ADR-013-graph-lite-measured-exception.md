@@ -114,3 +114,31 @@ far. Per ADR-001 and the harness best-effort invariant it may TRANSPORT a graph;
 ## Amendment 2026-10-11
 
 ADR-014 adds an explicitly owner-authorized, bounded conditional project policy and the contract-boundary-check template. Default-off remains true without that policy. The old template/measurement is not reinterpreted and global mandatory enablement is not inferred from local opt-in.
+
+## Measurement result 2026-10-13 (item 6): NOT_WON on both hosts
+
+The pre-registered rule of item 6 (as amended in `~/projects/itd-graph-exp`: 16 unique neighbour defects, a paired
+sign test, a precision bound; amendment 5 splits the decision by host and never pools the samples) was scored once
+per host with a blind adjudicator. Both measurements lost:
+
+| Host, model | Gain G-K (needs >= 0.25) | Sign test (needs p <= 0.10) | Precision G / K (G >= K - 0.10) | Median duration G/K (<= 3.0) | Verdict |
+|---|---|---|---|---|---|
+| Claude Code, claude-opus-5-5 (parallel Workflow) | -3/32 | n+=0, n-=2, p=1 | 0.638 / 0.872 | 2.658 | NOT_WON |
+| Codex, gpt-6.1-sol (serial native DAG) | -1/32 | n+=2, n-=2, p=11/16 | 0.900 / 0.938 | 2.424 (clock caveat) | NOT_WON |
+
+- **Consequence (item 6 on loss, by host):** the template stays default-off on both hosts; manual `/graph` stays
+  available; no hook trigger on the strictClasses money/auth; no rerun to chase a result. Removal was not chosen.
+  The enablement unit planned for a win is dropped.
+- On Claude the graph caught no neighbour defect more often than the single agent (the agent did so on two); on
+  Codex two each way. On Claude the graph emitted more false findings (21 vs 5) and cost about 5.4 times the tokens. Five of the 16
+  neighbour defects were missed by all 32 runs of both hosts; most are an empty or boundary input in a small helper
+  next to the task function - a candidate for the class-check line of the neuroexpert CLAUDE.md (ADR-012 item 6),
+  not measured here.
+- The operator's protocol deviations (a read of the manifest by the Codex scorer before the Claude scoring, a change
+  of `skills/graph` in main during the Claude runs with the last runs on a byte copy of 2219fe0, one voided run-pair,
+  the adjudication split into five batches) were accepted under the owner's delegation of 2026-10-13: none gave an
+  arm access to the manifest, and NOT_WON rests on the gain and the sign test, which depend on neither time nor the
+  adjudicator's answers.
+- ADR-014 (per-project conditional policy) is not affected: it never inferred global enablement from this measurement.
+- Records: `~/projects/itd-graph-exp` (`b01edfe` Claude E-4 report, `82cd431` decisions and the per-defect table
+  of both hosts; Codex `codex-full/REPORT.md`); `.itd/DECISIONS.md` 2026-10-13.

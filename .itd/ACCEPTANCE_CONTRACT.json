@@ -5006,6 +5006,95 @@
         ]
       },
       "evidence": "Implementation acceptance claim; current exact-candidate machine oracles below must all pass before independent review or publication. Published CI is checked separately at the new head."
+    },
+    {
+      "id": "REL-1.107.0-AC1",
+      "unitId": "REL-1.107.0",
+      "status": "passed",
+      "criterion": "Version 1.107.0 is consistent in the plugin manifests, marketplace entry, README badges, harness docs state, conformance report and the release-candidate contract, and the release contract oracle passes.",
+      "reviewEvidence": {
+        "claim": "Version 1.107.0 is consistent in the plugin manifests, marketplace entry, README badges, harness docs state, conformance report and the release-candidate contract, and the release contract oracle passes.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "release-contract",
+          "meta-review"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.107.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.107.0-AC2",
+      "unitId": "REL-1.107.0",
+      "status": "passed",
+      "criterion": "CHANGELOG has one ## [1.107.0] section under ## [Unreleased] covering the cycle PRs since 1.106.0; ADR-013 records the NOT_WON result and /graph stays default-off.",
+      "reviewEvidence": {
+        "claim": "CHANGELOG has one ## [1.107.0] section under ## [Unreleased] covering the cycle PRs since 1.106.0; ADR-013 records the NOT_WON result and /graph stays default-off.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "meta-review",
+          "graph-skill"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.107.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.107.0-AC3",
+      "unitId": "REL-1.107.0",
+      "status": "passed",
+      "criterion": "The global Codex router template in the candidate (docs/templates/global-codex-agents.md) carries the owner decision of 2026-10-06 (minimal path by default) and keeps the confirmation for irreversible and external actions. Deploying it to ~/.codex/AGENTS.md on WSL and Windows is a post-merge rollout step proven separately by byte comparison of the installed files; it is not claimed by this pre-merge criterion.",
+      "reviewEvidence": {
+        "claim": "The global Codex router template in the candidate (docs/templates/global-codex-agents.md) carries the owner decision of 2026-10-06 (minimal path by default) and keeps the confirmation for irreversible and external actions. Deploying it to ~/.codex/AGENTS.md on WSL and Windows is a post-merge rollout step proven separately by byte comparison of the installed files; it is not claimed by this pre-merge criterion.",
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "router-template"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.107.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.107.0-AC4",
+      "unitId": "REL-1.107.0",
+      "status": "passed",
+      "criterion": "Live-model evidence run 20261014T091617Z-0b733993 was recorded on commit 4bedcc8, whose content-pinned methodology tree (AGENTS.md, .codex-plugin, .claude-plugin, skills, agents, hooks, docs/templates/itd*, docs/HOST_ADAPTER_CONTRACT.md, docs/host-adapters.json) is byte-identical to this candidate's, and the unchanged oracle verify_live_model_benchmark.py --require-evidence --max-age-days 30 passes on the clean candidate. The run's generated output files are recorded as produced by the model (evidence of a run, not shipped methodology); their product quality is not a release criterion. transcript.jsonl.gz is gzip on disk and the review transport presents it as decoded JSONL. The cumulative quick regression passes.",
+      "reviewEvidence": {
+        "claim": "Live-model evidence run 20261014T091617Z-0b733993 was recorded on commit 4bedcc8, whose content-pinned methodology tree (AGENTS.md, .codex-plugin, .claude-plugin, skills, agents, hooks, docs/templates/itd*, docs/HOST_ADAPTER_CONTRACT.md, docs/host-adapters.json) is byte-identical to this candidate's, and the unchanged oracle verify_live_model_benchmark.py --require-evidence --max-age-days 30 passes on the clean candidate. The run's generated output files are recorded as produced by the model (evidence of a run, not shipped methodology); their product quality is not a release criterion. transcript.jsonl.gz is gzip on disk and the review transport presents it as decoded JSONL. The cumulative quick regression passes.",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "live-evidence",
+          "quick"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.107.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.107.0-AC5",
+      "unitId": "REL-1.107.0",
+      "status": "passed",
+      "criterion": "The oracles that turned red after #351 and #355 pass again: the PIV-lite frozen skill population follows the absorption contract (41), and the stop-rule live binding finds the tracked state ledger. .itd-memory/STATE.json and .itd-memory/events.jsonl are restored byte-identical from 7708aec, the last tree that tracked them; their contents, including the STATE event-cursor fields (lastEventId empty, lastEventAt 2026-07-14) that predate later events, are a pre-existing property of those ledgers and are not edited by hand in this release (ledgers change only through the harness; reconciling the cursor is a separate unit).",
+      "reviewEvidence": {
+        "claim": "The oracles that turned red after #351 and #355 pass again: the PIV-lite frozen skill population follows the absorption contract (41), and the stop-rule live binding finds the tracked state ledger. .itd-memory/STATE.json and .itd-memory/events.jsonl are restored byte-identical from 7708aec, the last tree that tracked them; their contents, including the STATE event-cursor fields (lastEventId empty, lastEventAt 2026-07-14) that predate later events, are a pre-existing property of those ledgers and are not edited by hand in this release (ledgers change only through the harness; reconciling the cursor is a separate unit).",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "fixed-oracles"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.107.0 must all pass before independent review and publication."
     }
   ],
   "completion": {
@@ -5024,11 +5113,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GLV2-CI-001",
+    "unitId": "REL-1.107.0",
     "status": "in_progress",
-    "openedAt": "2026-10-13",
+    "openedAt": "2026-10-14",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner authorized fresh live-methodology evidence and green PR 355 CI, keeping Graph optional and its measurement unchanged.",
+    "sourceRequest": "Owner 2026-10-14: ship every change made by Codex and Claude since 1.106.0 as the latest release, roll it out on WSL and Windows for Claude and Codex, and keep ITD the default methodology for all projects on this machine; align the global Codex router with the owner decision of 2026-10-06 (minimal path). Owner approved the whole plan: push/PR, squash-merge after green CI, tag and rollout without further questions.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
@@ -5584,6 +5673,27 @@
       },
       "closedAt": "2026-10-13",
       "closureEvidence": "0890d18; owner-approved ADJUDICATED receipts for GLV2-001; draft PR #355."
+    },
+    {
+      "unitId": "GLV2-CI-001",
+      "status": "closed",
+      "openedAt": "2026-10-13",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner authorized fresh live-methodology evidence and green PR 355 CI, keeping Graph optional and its measurement unchanged.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-13",
+      "closureEvidence": "Merged as PR #355 -> 9f4ae95 (squash, 2026-10-13); main tree equals origin/codex/graph-lite-v2 874c326; closed in REL-1.107.0."
     }
   ]
 }
