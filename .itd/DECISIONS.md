@@ -5698,3 +5698,12 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   отслеживаемые `.itd-memory/STATE.json` и `events.jsonl` из 7708aec - #355 удалил их вне своей области),
   `verify_preflight_budget` (индекс памяти хоста: 25 строк длиннее 200 знаков сокращены, полные строки - в
   MEMORY-archive-2026-09-23.md, раздел 2026-10-14; это окружение, не код).
+
+## 2026-10-14 - REL-1.107.0 закрыт: публикация и раскатка записаны
+- Почему: владелец 2026-10-14 («да, все три сделай») поручил закрыть запись о релизе после раскатки.
+- Решение: followup REL-1.107.0 перенесен в closedFollowups с closureEvidence (PR #356 -> 41416b9, Sol r6 PASSED,
+  adjudication a1, CI pass, релиз v1.107.0, раскатка WSL + Windows для Claude и Codex, живые проверки в новых
+  каталогах); activeFollowup - закрытая запись. На Windows Codex по слову владельца переведен на модель
+  `gpt-5.6-sol` (как на WSL): `gpt-6.1-sol` не поддерживается ChatGPT-аккаунтом (бэкап config.toml.bak-model-20261014).
+- Ограничение: развитие ITD по-прежнему остановлено ADR-012; следующий юнит - только по запросу владельца.
+- Ссылки: PR #356, release v1.107.0, .itd/ACCEPTANCE_CONTRACT.json closedFollowups REL-1.107.0.
