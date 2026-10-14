@@ -1,0 +1,582 @@
+{
+  "sessionState": "ACTIVE",
+  "currentStage": "VERIFY",
+  "intent": "Implement one mandatory fresh opposite-GPT pre-PR review while preserving evidence-first exact-candidate, MEM-8, WIP=1, nine-point and dual-host guarantees",
+  "classification": {
+    "productType": "engineering_methodology",
+    "domain": "agent_harness",
+    "complexity": "high",
+    "requiredModules": [
+      "goal",
+      "state_validation",
+      "host_adapters",
+      "ci"
+    ],
+    "infrastructure": []
+  },
+  "architecture": {
+    "pattern": "model_neutral_harness",
+    "backend": "Python stdlib scripts",
+    "frontend": "",
+    "database": "JSON ledgers",
+    "auth": "",
+    "deployment": "Codex and Claude Code host adapters"
+  },
+  "existingProject": {
+    "isExistingProject": true,
+    "detectedStack": [
+      "Python",
+      "Bash",
+      "GitHub Actions"
+    ],
+    "availableCommands": [
+      "sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "bash tests/run-all.sh"
+    ],
+    "currentTaskRoute": "task",
+    "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
+  },
+  "currentUnit": {
+    "id": "OTK-HOST-TREE-1",
+    "goal": "OTK-HOST-TREE-1: the harness verification of a unit gives the same outcome on a clean candidate checkout and on the same checkout with an extra git-ignored local file that changes a leg's result (the variant - an isolated copy of the tracked files or another approach - is chosen by the owner at the unit start after a measurement); the new oracle tests/verify_otk_host_tree.py is RED on the pre-fix code and GREEN after, and tests/verify_goal_tools.py stays green.",
+    "status": "verified",
+    "startedAt": "2026-10-04T15:14:53Z",
+    "ledger": "GOAL.json",
+    "riskTier": "high",
+    "completedAt": "2026-10-06T18:55:26Z"
+  },
+  "gateResults": {
+    "acceptanceContract": "pending",
+    "specComplianceReview": "pending",
+    "codeQualityReview": "pending",
+    "tests": "pending",
+    "tddRed": "passed",
+    "tddGreen": "passed",
+    "rootCause": "passed",
+    "scopeLock": "passed",
+    "dataAuthenticity": "passed",
+    "goldenFlows": "passed",
+    "fallbackPolicy": "passed",
+    "noSilentSubstitution": "passed",
+    "permissionMatrix": "passed",
+    "verificationContract": "passed",
+    "toolCapabilityRegistry": "passed",
+    "security": "passed",
+    "dependencies": "n/a",
+    "hardening": "passed",
+    "branchFinish": "pending",
+    "learningPromotion": "n/a",
+    "nextStepApproval": "approved",
+    "deploymentReadiness": "pending"
+  },
+  "verificationHistory": [
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_goal_bounded_autonomy.py",
+      "result": "passed",
+      "evidence": "25 passed, 0 failed; mutation refute-pass confirmed the critical guards"
+    },
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "command": "bash tests/run-all.sh",
+      "result": "passed",
+      "evidence": "DONE fails:none"
+    },
+    {
+      "at": "2026-07-14T22:37:32Z",
+      "command": "WSL/Windows parity verification and focused goal regressions",
+      "result": "passed",
+      "evidence": "WSL 35/35 + 7/7 + host adapters PASS; Windows 35/35 + 7/7 + canonical host adapters PASS; 7/7 deployed file hashes equal"
+    },
+    {
+      "at": "2026-07-15T05:35:00Z",
+      "command": "python3 docs/templates/itd/itd_hygiene.py close --root . --contract docs/SESSION_EXIT_CONTRACT.json",
+      "result": "passed",
+      "evidence": "exit 0 and empty stdout on clean detached worktree bce1425"
+    },
+    {
+      "at": "2026-07-21T23:15:10Z",
+      "command": "Verification Loop release, security and independent general review",
+      "result": "passed",
+      "evidence": "Linux 49/49; Windows 49/49; review/goal/DoD/risk 36/42/25/13; host adapters PASS; quick/full DONE fails:none; bound security and general adjudications PASSED"
+    },
+    {
+      "at": "2026-07-21T23:16:54Z",
+      "command": "Install v1.92.0 to WSL and Windows Codex/Claude profiles",
+      "result": "passed",
+      "evidence": "source/cache policy SHA-256 a7933d3a... matched; Claude sync --check had zero drift; Codex plugin list reports installed, enabled 1.92.0 on both hosts"
+    },
+    {
+      "at": "2026-07-26T21:49:52Z",
+      "command": "sh skills/_shared/itd_py.sh tests/verify_harness_demo_absorption.py --phase diagnostics",
+      "result": "passed",
+      "evidence": "HDX-007 VERIFIED: 31 mutation guards; exact adjudication .itd-memory/verification-loop/receipts/acbba410ebcf05d5/HDX-007-adjudication-a1.json"
+    },
+    {
+      "at": "2026-07-27T05:55:34Z",
+      "command": "HDX-008 exact-candidate Verification Loop",
+      "result": "passed",
+      "evidence": "tree c8227a299c664961441603a9e97d504ddd90fe53; focused 1/15/3 plus cleanup; frozen 34/34; recipes 91; quick fails:none; general/security findings 0; adjudication .itd-memory/verification-loop/receipts/5247045193ab037a/HDX-008-adjudication-a1.json"
+    },
+    {
+      "at": "2026-07-27T08:58:58Z",
+      "command": "HDX-009 real-project Pilot A exact-candidate Verification Loop",
+      "result": "passed",
+      "evidence": "methodology tree 7a250beca585601aa064975e85739a43c4ee0804; external pilot tree 1fac184d7d48509c3c6dde45ca1ffabd55ae11ee; six pilot mutation guards; state 91/91; goal 42/42; isolation 1/15/3; frozen contract 34; quick fails:none; security/general/acceptance findings 0; adjudication .itd-memory/verification-loop/receipts/e4957f6140a4b213/HDX-009-adjudication-a2.json"
+    },
+    {
+      "at": "2026-07-31T07:40:00Z",
+      "command": "GPG-001 checker-finding regressions and cumulative quick suite",
+      "result": "passed",
+      "evidence": "broker 541; primitives 158; policy 129; API reviewer 79 with liveExternalCalls=0; curl 14; manifest 15; deployment 23; cold-start all pass; host adapters PASS; quick DONE fails:none"
+    },
+    {
+      "at": "2026-07-31T11:00:00Z",
+      "command": "GPG-001 second-checker regressions and cumulative quick suite",
+      "result": "passed",
+      "evidence": "broker 541; primitives 158; policy 129; API reviewer 79 with liveExternalCalls=0; curl 14; release 14 criteria; Git hooks 28; server 43; manifest 15; deployment 23; cold-start all pass; host adapters PASS; quick DONE fails:none"
+    },
+    {
+      "at": "2026-07-31T11:35:00Z",
+      "command": "GPG-001 third-checker regressions, meta-review and cumulative quick suite",
+      "result": "passed",
+      "evidence": "hygiene 13; machine oracle 40; manifest 16; cold-start all pass; Git hooks 28; broker 541; primitives 158; policy 129; API reviewer 79 with liveExternalCalls=0; meta-review PASSED with 0 Critical/Important; host adapters PASS; quick DONE fails:none"
+    },
+    {
+      "at": "2026-07-31T12:05:00Z",
+      "command": "GPG-001 fourth-checker regressions, meta-review and cumulative quick suite",
+      "result": "passed",
+      "evidence": "machine oracle 40; manifest 17; broker policy 130 including mixed transparent schema; cold-start rejects HEAD/index verifier drift; broker 541; deployment 23; release criteria 14; server 43; meta-review 0 Critical/Important; host adapters PASS; quick DONE fails:none"
+    },
+    {
+      "at": "2026-07-31T14:00:00Z",
+      "command": "GPG-001 fifth-checker regressions, bounded CORE and cumulative quick suite",
+      "result": "passed",
+      "evidence": "hygiene 14; machine oracle 42; cold-start all pass including PyPy and untracked operand guards; operator 11; deployment 24; bounded CORE DONE fails:none; host adapters PASS; quick DONE fails:none"
+    },
+    {
+      "at": "2026-08-01T00:00:00Z",
+      "command": "GPG-001 sixth/latest-checker regressions and cumulative quick suite",
+      "result": "passed",
+      "evidence": "hygiene 15; machine oracle 44; Git hooks 30; manifest 19; broker 569; primitives 160; policy 130; server 45; deployment 24; artifact, receipt, callback, publication, readiness, policy-digest and enrollment-replay guards; adoption cold-start, meta-review, host adapters and quick all pass"
+    },
+    {
+      "at": "2026-08-01T08:52:38Z",
+      "command": "GPG-001 seventh-checker event/path/input regressions and cumulative quick suite",
+      "result": "passed",
+      "evidence": "external-review release PASSED; machine oracle 45; adoption cold-start all pass; host adapters 28 shared and 11 hard gates; bash tests/run-all.sh --quick DONE fails:none"
+    },
+    {
+      "at": "2026-08-01T11:44:43Z",
+      "command": "GPG-001 exact 0c8dfeb Terra review and bounded finding regressions",
+      "result": "blocked",
+      "evidence": "exact tree 0c8dfeb2b671dfc3291648671982e8a6409d975d; exact reconstruction true; secret scrub clean; 17/17 provider calls HTTP 200; BLOCKED with 8 findings and unverified 0; six findings refuted from official/API and code/test bindings; absolute interpreter and strict-prefix evidence defects fixed; broker 594, primitives 160 and adoption cold-start all pass"
+    },
+    {
+      "at": "2026-08-01T12:19:06Z",
+      "command": "GPG-001 free fresh-model exact-candidate Verification Loop for the staged broker/bootstrap tree",
+      "result": "passed",
+      "evidence": "tree f294c5329ecb950c22e1347547fa890ca7172dd5; machine receipts 17/17 and 8/8; fresh gpt-5.6-terra report findings 0 and unverified 0; exact adjudications .itd-memory/verification-loop/receipts/GPG-001-adjudication-f294c5329ecb-local-terra.json and GPG-001-general-review-adjudication-f294c5329ecb-local-terra.json"
+    },
+    {
+      "at": "2026-08-01T15:55:00Z",
+      "command": "Fresh bound /review of committed parent-to-HEAD GPG-001 diff plus independent single-finding refute",
+      "result": "blocked",
+      "evidence": "HEAD 954a3b67c1446a9592e9ef70885d5fa2b096b768, tree f294c5329ecb950c22e1347547fa890ca7172dd5; meta-review PASS; focused broker/server/oracle/gate/hygiene/release/adapter tests PASS; quick DONE fails:none; BLOCKED with confirmed removed-prompt-supply-chain-enforcement finding and unverified 0; durable report .itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md"
+    },
+    {
+      "at": "2026-08-01T17:25:00Z",
+      "command": "GPG-001 MEM-8 RED-to-GREEN recovery machine preflight",
+      "result": "passed",
+      "evidence": "RED on clean 954a3b6 with parent sensor exit 1; staged tree 091db828ba2adfaeb402a764ed24994d819f71ed targeted tool-trust 13/13, operational cold-start all pass, meta-review PASSED, host adapters PASS, quick DONE fails:none; exact fresh checker still required"
+    },
+    {
+      "at": "2026-08-01T17:45:00Z",
+      "command": "Fresh bound review of first MEM-8 recovery candidate",
+      "result": "blocked",
+      "evidence": "tree b52779bea1a8def593d6a4580733a6cd592a01ff; BLOCKED with 3 Critical and 1 Important confirmed findings: nested capability validator/schema mismatch, local unreviewed allow, missing run-all/CI sensor wiring, and shallow adopt no-mutation test; report .itd-memory/verification-loop/reports/GPG-001-general-review-mem8-b52779be-local-terra.md"
+    },
+    {
+      "at": "2026-08-01T18:05:00Z",
+      "command": "Fresh bound re-review of repaired MEM-8 candidate",
+      "result": "passed_with_warnings",
+      "evidence": "tree 8dbd29fbcda8e150218884345bae1b4f6e1f5b21; all MEM-8 findings refuted, one Important stale semantic-navigation demand SHA confirmed; report .itd-memory/verification-loop/reports/GPG-001-general-review-mem8-8dbd29fb-local-terra.md; warning reproduced and repaired, new exact review required"
+    },
+    {
+      "at": "2026-08-01T18:32:00Z",
+      "command": "Final exact MEM-8 machine, fresh full checker, adjudication, and local commit",
+      "result": "passed",
+      "evidence": "commit 43e65b06aa32731da7b6725a9d0e37de0c42dc43 tree 92fd0590a80d0234d829a13c5f572b28f6c7de4b; targeted 18/18, integration 14/14, semantic-navigation PASS, drift 5/5, cold-start all pass, meta-review PASSED, host adapters PASS, quick DONE fails:none; fresh gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/22764b59bfd656f6/GPG-001-general-review-adjudication-a1.json"
+    },
+    {
+      "at": "2026-08-01T19:01:02Z",
+      "command": "GPG-001 free isolated reviewer producer TDD, high-risk verification, fresh exact checker and adjudication",
+      "result": "passed",
+      "evidence": "staged tree e2ab8afbe092bc3bb00b7c376ef72411a7bc738c; producer 53, broker 721, server 50, deployment 25; tool trust, cold-start, meta-review, host adapters and quick all pass; fresh openai-codex-subscription gpt-5.6-terra findings=[] unverified=[]; adjudication .itd-memory/verification-loop/receipts/1dd8d0697e2f5434/GPG-001-general-review-adjudication-a1.json"
+    },
+    {
+      "at": "2026-08-02T16:47:51Z",
+      "command": "GPG-001 release, GitHub merge and dual-host deployment",
+      "result": "passed",
+      "evidence": "PR #177 merged as 234752828d463821814020bebf2cc3dc40399beb; release PR #178 passed meta-review and windows-verify then merged as 8c2bb1b0689ce68282a3ef10a2edc6143a097f8f; v1.95.0 installed/enabled in WSL and Windows Codex; both Claude sync checks zero drift; installed release and host-adapter smoke passed; durable proof index .itd/GPG-001_COMPLETION_EVIDENCE.json"
+    },
+    {
+      "at": "2026-08-02T17:49:25Z",
+      "command": "GPG-002 Windows-native UNC doctor implementation, release, dual-host deployment and live validation",
+      "result": "passed",
+      "evidence": "RED reproduced UNAVAILABLE after the hard 30-second child timeout; focused WSL/native-Windows tests pass 25/25 with 180 seconds only for complete standard/extended UNC shares. PR #180 merged as ed33169e8cc48f6a5da314586548ee0c5e2389cd; release PR #181 merged as 1422c94d28f7a6821f0038a766437b7618cc22f1 with meta-review/windows-verify success. Keyless run 20260802T215518Z-a3bff95a replays 95/95. Codex/Claude 1.95.1 dual-host install is zero-drift from the clean archive. Windows-bound adjudication 0dabd737b3a711c96c53f598529611708234cb790db03e59b535d46984438d09 made the real UNC doctor return LOCAL_REVIEWED in 32.57 seconds. Legacy credential returned 401 before removal; five branch remotes were sanitized and the final credential-bearing URL count is 0."
+    },
+    {
+      "at": "2026-08-03T00:10:00Z",
+      "command": "GPG-003 mandatory keyless route TDD and dual-host transport verification",
+      "result": "passed",
+      "evidence": "RED failed on absent route; GREEN WSL/native-Windows oracle 62/62, free producer 57/57, broker 736, server 50, cross-review hook 10/10, feature fallbacks 12/12, meta-review PASSED, host hard-gate parity 94/94, fixture 15/15 and quick DONE fails:none. Live ChatGPT-subscription smoke passed in WSL and native Windows with fresh sessions and no API keys; Claude revoked OAuth was typed UNAVAILABLE; Gemini 442-file/97,900,289-byte bundle bound successfully and its pinned WSL/native-Windows CLI contract advertises every invoked isolation/provenance flag."
+    },
+    {
+      "at": "2026-08-03T00:45:00Z",
+      "command": "First exact GPG-003 fresh Terra checker and bounded Gemini transport repair",
+      "result": "blocked",
+      "evidence": "Checker blocked tree 9d351b68afc7731215eb04ac01e01e4d6595d225 on a claimed Gemini flag incompatibility. Installed Gemini 0.49.0 source/help and real WSL/native-Windows full-bundle smokes prove --policy, --skip-trust and --session-id are supported; producer nevertheless gained a fail-closed pinned-CLI argument smoke. Eight false-positive credential fixture literals were replaced with explicit redaction markers; the rebuilt staged diff has redactions=0, residualCredential=false, highConfidence=false and highEntropy=false. A new exact machine receipt and fresh checker remain required."
+    },
+    {
+      "at": "2026-08-03T01:08:00Z",
+      "command": "Second exact GPG-003 fresh Terra checker and fail-closed CLI classification repair",
+      "result": "blocked",
+      "evidence": "After one procedural UNVERIFIED caused by a short-index diff hash, a new prompt fixed the canonical --full-index command. The next fresh checker confirmed one Important defect: every post-launch non-zero CLI exit was classified UNAVAILABLE and could advance the route. The repair now permits UNAVAILABLE only for positive closed auth/quota/network/status/timeout evidence; unknown exits, argument/protocol failures, oversized output and unclassified launch errors are terminal UNVERIFIED. Standard npm Claude native-payload discovery was also closed for Windows/WSL parity. Focused oracle 67/67 and producer 57/57 pass; a new exact machine receipt and fresh checker remain required."
+    },
+    {
+      "at": "2026-08-03T01:35:00Z",
+      "command": "PR #183 CI repair and guarded amended-Draft updater regression",
+      "result": "passed",
+      "evidence": "The first pushed candidate failed only because verify_review_autoping.py retained a stale cross-review section anchor; the repaired strict structured-verdict slice passes 12/12 and meta-review reports 0 Critical/Important. The guarded source CLI now uses an exact observed remote SHA force-with-lease for an amended matching Draft branch and skips push when already current; WSL CLI mutations pass 55 checks and native Windows passes 53. Because the candidate changed, its earlier exact receipts are superseded and a new committed-head machine/checker/adjudication cycle remains required."
+    },
+    {
+      "at": "2026-08-03T02:30:00Z",
+      "command": "Live guarded Draft update timeout reproduction and bounded repair",
+      "result": "blocked",
+      "evidence": "Exact tree 78a336826fe89e45447ebbfb07b78f73dff58526 passed a 9-command machine receipt, clean zero-redaction scrub, fresh gpt-5.6-terra full review with findings=[]/unverified=[], adjudication and LOCAL_REVIEWED doctor. The live source CLI then completed its machine preflight but killed git push at the separate fixed 300-second bound while pre-push reran the full contract; PR #183 remained at d46ba3b. The repair carries the existing CLI timeout into the guarded push with a closed 300..3600-second bound; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T02:45:00Z",
+      "command": "Live guarded Draft retry and PR-lookup classification repair",
+      "result": "blocked",
+      "evidence": "Exact timeout-repaired tree a5cd76d6ab71ac51570ccfa768a7efd1200bc6e9 passed 9-command machine, zero-redaction scrub, fresh Terra full review, adjudication and LOCAL_REVIEWED doctor. A transient nonzero gh pr view result was then misclassified as no PR, selecting an ordinary non-fast-forward push; the hook rejected its empty update stream and PR #183 remained d46ba3b. The repair permits Draft creation only for the exact no-PR diagnostic and makes all other lookup errors UNAVAILABLE or malformed output UNVERIFIED; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T03:05:00Z",
+      "command": "Installed gh PR lookup contract reproduction and explicit branch binding repair",
+      "result": "blocked",
+      "evidence": "Exact tree c21ea42b05abe6c2f0c8633a195d25ec01fa80cb passed machine, scrub, fresh Terra review, adjudication and LOCAL_REVIEWED doctor. A read-only installed-gh call proved that `gh pr view --repo` requires an explicit branch argument; the new fail-closed classifier stopped its usage error before push and PR #183 remained d46ba3b. The lookup now validates and supplies the current symbolic branch together with the repository; exact revalidation is required again."
+    },
+    {
+      "at": "2026-08-03T03:25:00Z",
+      "command": "Fresh exact branch-bound Terra review and no-PR diagnostic identity repair",
+      "result": "blocked",
+      "evidence": "Tree 453991ac077018f71d88a6348b2a9aa025502323 passed machine 9/9 and a clean zero-redaction scrub, but fresh Terra review confirmed one Important finding: branch-agnostic, stripped no-PR stderr could select the new-PR path for a substituted branch. The repair binds the diagnostic to the validated current branch, rejects quoted branches and surrounding whitespace, and permits only no terminator, LF or CRLF. A new exact cycle is required."
+    },
+    {
+      "at": "2026-08-03T03:50:00Z",
+      "command": "Guarded PR #183 update and GitHub CI feature-ledger diagnosis",
+      "result": "blocked",
+      "evidence": "Exact tree ccb41e237017f69b734c71a4a215855a8e4b78eb passed machine 9/9, clean scrub, fresh Terra review and adjudication. Guarded source CLI updated PR #183 to 2f79f53c881e2e3300a632fba27a0d859d1844bc; REST read-back matched despite a transient stale GraphQL post-write response. Both CI jobs then failed on the same reproducible drift guard: CHANGELOG cross-review was grounded but F-06 lacked the expected provider-neutral ledger keyword. The row now names the checker provider-neutral; exact revalidation is required before another guarded update."
+    },
+    {
+      "at": "2026-08-03T04:10:00Z",
+      "command": "Fresh exact Terra review of the CI-repaired GPG-003 candidate",
+      "result": "blocked",
+      "evidence": "Fresh gpt-5.6-terra review of tree fb272dcb00aaac04eecefa7057089964f0e0d5cf found one Important evidence-integrity defect: the phase-one signature bound only the terminal reviewer while the preceding routed attempts remained outside the signed payload. Publication stopped before push."
+    },
+    {
+      "at": "2026-08-03T04:28:00Z",
+      "command": "Signed attempt-ledger repair and dual-host focused verification",
+      "result": "passed",
+      "evidence": "Phase-one receipt v2 now signs the exact OpenAI-to-Anthropic-to-Gemini prefix; producer and broker independently reject missing, skipped, reordered, mistyped and reviewer-mismatched ledgers. WSL producer 65/65, broker 742/742, mandatory route 67/67, server 50/50, CLI 62/62, meta-review 0 findings, host adapters PASS, feature ledger 24/24 and quick DONE fails:none. Native Windows producer 65/65, mandatory route 67/67, CLI 60/60, host adapters and feature ledger pass. A new exact committed-head machine/checker/adjudication cycle remains required."
+    },
+    {
+      "at": "2026-08-03T04:50:00Z",
+      "command": "Fresh exact Terra review of signed attempt-ledger candidate",
+      "result": "blocked",
+      "evidence": "Fresh gpt-5.6-terra review blocked tree 321f2935797c8ba129785592ac1b8278bab20164 on two reproduced defects: Verification Loop/local publication could accept a generic checker without signed route evidence and parse_report defaulted a missing unverified field; the broker deployment guide still documented the obsolete reviewerProvider/reviewerModel key schema."
+    },
+    {
+      "at": "2026-08-03T05:00:00Z",
+      "command": "Mandatory route-to-publication bridge repair",
+      "result": "passed",
+      "evidence": "Verification Loop 76/76 proves generic publication denial, signed repository-bound phase-one/prompt/report/keyring/candidate/provenance/machine/base-range binding, foreign-repository/machine/base denial and closed report fields. Local doctor 27/27 requires --require-mandatory-route plus the selected repository. Producer 69/69, broker 742/742, server 50/50 and mandatory oracle 78/78 pass; initial pre-PR null coordinates are viable and deploy README uses the required three-provider reviewerModels map. Exact committed-head machine and fresh different-model review must be rerun on the amended commit."
+    },
+    {
+      "at": "2026-08-03T05:45:00Z",
+      "command": "Dual-host mandatory-route bridge verification",
+      "result": "passed",
+      "evidence": "WSL producer 71/71, mandatory route 82/82, Verification Loop 76/76, local doctor 27/27, broker 742/742, server 50/50, CLI 62/62, auto-ping 12/12, feature ledger 14/14, meta-review 0 findings, host adapters PASS and quick DONE fails:none. Native Windows producer 71/71, mandatory route 82/82, Verification Loop 75/75 applicable scenarios and local doctor 27/27 pass. Windows long-Unicode/8.3 evidence aliases are reconciled only by filesystem identity while symlink/reparse paths remain rejected; exact pinned-proxy and hash-bound direct subscription transports are closed configurations. Structurally valid negative reviews persist actionable diagnostics but cannot mint phase one; foreign signed bases cannot skip exact diff-range reconstruction; model provenance is accepted only from pinned runtime telemetry."
+    },
+    {
+      "at": "2026-08-03T06:20:00Z",
+      "command": "Real keyless Terra producer review of exact tree 02e9f6a56e4423af1c4b45be8194a222df9bce79",
+      "result": "blocked",
+      "evidence": "The OpenAI subscription route ran without API key or development context and returned one high-confidence integrity finding: a signed foreign baseCommit could skip exact diff comparison while borrowing the same parent/tree/machine candidate. The first negative result also exposed discarded findings, so valid BLOCKED/UNVERIFIED reports now persist diagnostic prompt/report/provenance without minting phase one. Publication remained stopped."
+    },
+    {
+      "at": "2026-08-03T06:55:00Z",
+      "command": "Real keyless Terra producer review of exact tree d1430c292963cc7f7a9db046c2d457f50c5447db",
+      "result": "blocked",
+      "evidence": "Fresh Terra returned one high-confidence provenance finding: OpenAI/Claude/Gemini adapters copied the caller-requested model into signed reviewer identity instead of consuming runtime model telemetry. The repair binds the single temporary Codex rollout session/model, Claude modelUsage, or Gemini init model; missing telemetry is UNAVAILABLE and ambiguity/mismatch is UNVERIFIED. Publication remained stopped."
+    },
+    {
+      "at": "2026-08-03T09:10:00Z",
+      "command": "PR #183 exact-candidate publication and clean-runner CI diagnosis",
+      "result": "blocked",
+      "evidence": "Exact tree 6242876f97a70fde2eb1c8a7fd6eed43fb398b7a passed 12 machine oracles, zero-redaction scrub, a fresh runtime-observed gpt-5.6-terra keyless review with findings=[]/unverified=[], high-risk adjudication and LOCAL_REVIEWED doctor. Guarded WSL pre-push passed and the exact lease updated Draft PR #183 to 9bcd4b303e61ecadac3074a3fdad7252d1e8d4a7. Clean GitHub runners then exposed two environmental evidence gaps: windows-verify omitted the hash-locked cryptography runtime required by shared Ed25519 verification, and meta-review correctly rejected live benchmark evidence pinned to the pre-GPG-003 methodology tree. Publication remains Draft while the locked runtime install, fresh live evidence and a new exact review cycle are completed."
+    },
+    {
+      "at": "2026-08-03T09:25:00Z",
+      "command": "Clean-runner dependency repair and fresh methodology-tree live benchmark",
+      "result": "passed",
+      "evidence": "windows-verify now installs the shared runtime from services/review_broker/requirements.lock with --require-hashes before Verification Loop. Fresh OpenAI subscription benchmark run 20260803T091512Z-4c8d0adc passed the external candidate and independent snapshot oracle on the current methodology tree; replay reports 95/95, workingTreeDirty=false, complete source pins and bounded sanitized transcript evidence. A new exact committed-head machine/keyless-review/adjudication cycle remains required because the candidate changed."
+    },
+    {
+      "at": "2026-08-03T19:38:51Z",
+      "command": "Safe-hook live benchmark for evidence-first GPG-003",
+      "result": "passed",
+      "evidence": "Fresh WSL-native OpenAI Codex run 20260803T193850Z-184b6adb passed all six required artifacts and the independent snapshot oracle on implementation commit 5fdbc30. Replay reports 95/95 with workingTreeDirty=false, hookPolicy=disabled, hookExecution=disabled-for-live-model-evidence, zero transcript redactions, complete source pins, and no dangerously-bypass-hook-trust. The two superseded unsafe evidence directories are removed from the candidate and remain recoverable from Git history."
+    },
+    {
+      "at": "2026-08-04T16:25:00Z",
+      "command": "ADR-006 single opposite-GPT implementation and dual-host pre-freeze validation",
+      "result": "passed",
+      "evidence": "Mandatory route 81/81 on WSL and native Windows reports route=[openai-subscription]; producer 105/105 on both hosts; Verification Loop 78/78, broker 741/741, server 50/50, doctor 28/28, optional Copilot adapter 49/49, host adapters, feature-ledger completeness, meta-review and quick suite DONE fails:none passed. Fresh signed Terra efficacy envelopes on WSL and Windows report critical/high detection 100%, medium detection 100%, clean false blocks 0%, missing-evidence detection 100% and finding retention 100%. Exact committed-candidate machine/review/adjudication remains pending."
+    },
+    {
+      "unitId": "S8-POLICY",
+      "at": "2026-08-15T12:30:00Z",
+      "gate": "acceptanceContract/codeQualityReview/specComplianceReview",
+      "evidence": "acceptanceContract: .itd-memory/contracts/S8-POLICY.md standards all met and .itd/ACCEPTANCE_CONTRACT.json activeFollowup S8 closed with every criterion passed. codeQualityReview: adjudication S8-POLICY-adjudication-gr.json PASSED over a fresh claude-sonnet-5 checker (mode full, own mutation and non-closed-status probes), 0 findings. specComplianceReview: meta_review.py FINAL STATUS PASSED (docs-vs-code rubric). branchFinish and deploymentReadiness stay pending: the branch is not finished and nothing is deployed."
+    }
+  ],
+  "decisionLog": [
+    {
+      "at": "2026-07-14T13:39:02Z",
+      "decision": "Keep bounded autonomy opt-in and use host-native continuation only as transport",
+      "why": "Preserves WIP=1 and all human, review, test, deploy, and external-write gates"
+    },
+    {
+      "at": "2026-07-21T23:15:10Z",
+      "decision": "Use exact-candidate proof-carrying adjudication as the default completion authority",
+      "why": "Separates maker, machine oracle and fresh semantic checker while keeping cost proportional to risk and preserving an explicit honest-host trust boundary"
+    },
+    {
+      "at": "2026-07-30T14:58:00Z",
+      "decision": "Keep PR #177 within frozen hierarchical review bounds by serializing live evidence and evidence-earned harness controls into a parked follow-up",
+      "why": "Preserves WIP=1, exact reconstruction, secret scrub and the 1.2 MB / 15-unit fail-closed limits without truncation or a generic binary exception"
+    },
+    {
+      "at": "2026-07-31T07:40:00Z",
+      "decision": "Reject the blocked 8d4748c candidate and fix every high-confidence checker finding before requesting another exact-candidate review",
+      "why": "Preserves fail-closed acceptance while adding immediate callback failure propagation, reservation-bound output caps, an OS-owned curl path, argv option-path binding, effective Compose duplicate rejection, and exact split-segment evidence"
+    },
+    {
+      "at": "2026-07-31T11:00:00Z",
+      "decision": "Batch every reproducible second-checker finding before spending on another full Terra review",
+      "why": "The ba490 tree review stopped fail closed on an invalid finding location, while local reproduction still proved bounded-output, worker-retry, delivery-conflict, and documentation defects that must be fixed on a new exact tree"
+    },
+    {
+      "at": "2026-07-31T11:35:00Z",
+      "decision": "Fix four reproduced 48aae checker warnings and reject two refuted warnings without weakening hierarchical or frozen-policy bindings",
+      "why": "Positional interpreter isolation, callback serialization, loader-path safety and fresh machine evidence are real trust boundaries; the compact-plan schema and closed const policy already satisfy their stated invariants"
+    },
+    {
+      "at": "2026-07-31T12:05:00Z",
+      "decision": "Fix four reproduced 4bf18 findings and preserve six independently refuted invariants",
+      "why": "Workflow isolation, organization ownership, mounted secret naming and HEAD-bound verifier bytes were real; compact-plan, mixed-transparent, hierarchical evidence, publication identity and preflight-only findings contradicted the staged implementation"
+    },
+    {
+      "at": "2026-07-31T14:00:00Z",
+      "decision": "Fix six reproduced 887a5 findings and preserve four independently refuted frozen bindings",
+      "why": "Strict direct-script parsing, deploy reproducibility, absolute operator storage, PyPy isolation, untracked operand rejection and bounded child capture were real; compact-plan, mixed-transparent, serialized plan-hash and closed-policy warnings repeated claims contradicted by tests"
+    },
+    {
+      "at": "2026-08-01T00:00:00Z",
+      "decision": "Batch every reproducible latest-checker trust defect before another paid exact review",
+      "why": "Exact artifacts, receipts, callbacks, readiness, policy digests and immutable successful Checks require fail-closed evidence; officially supported API and previously refuted compact-plan/hierarchical bindings remain unchanged"
+    },
+    {
+      "at": "2026-08-01T11:44:43Z",
+      "decision": "Fix the two reproducible 0c8dfeb checker defects and preserve six independently verified bindings",
+      "why": "Absolute attacker-controlled interpreter launch and partial hierarchical provider evidence were reproducible; official GitHub API support plus pre-push, compact-plan, unit-path, plan-hash and prompt/evidence checks contradict the other findings"
+    },
+    {
+      "at": "2026-08-01T15:20:00Z",
+      "decision": "Use a free isolated fresh different-model/session reviewer as the primary GPG-001 transport and retain paid API only as an explicitly authorized fallback",
+      "why": "Independent context, exact-candidate binding and App-side revalidation provide the required review property without making every pre-PR review a paid provider call"
+    },
+    {
+      "at": "2026-08-01T15:55:00Z",
+      "decision": "Stop GPG-001 implementation and restore MEM-8 before any further commit, push, or Draft PR update",
+      "why": "A fresh full-diff review and independent refute confirmed that commit 954a3b6 deleted the enforceable prompt-bearing tool trust registry, validator, adoption inventory, audit check and mutation sensor without replacement"
+    },
+    {
+      "at": "2026-08-02T16:47:51Z",
+      "decision": "Complete GPG-001 under the portable local-submission/local-review profile and keep App-backed PROTECTED as an optional upgrade",
+      "why": "The required independent exact-candidate review, guarded PR flow, owner-controlled merge/deploy, release and dual-host installation are proven without granting the reviewer merge/deploy authority or requiring administration on external repositories"
+    },
+    {
+      "at": "2026-08-02T17:49:25Z",
+      "decision": "Increase only the native-Windows UNC outer adjudication budget to 180 seconds and retain the 30-second default elsewhere",
+      "why": "The unconditional outer timeout killed a valid bounded validator during UNC cold-start; platform/path scoping fixes availability without weakening receipt identity, candidate binding, child probe bounds or fail-closed verdicts"
+    },
+    {
+      "at": "2026-08-02T22:45:00Z",
+      "decision": "Complete GPG-002 only after a merged patch release, dual-host zero-drift deployment and a Windows-bound real UNC doctor result",
+      "why": "The Windows-native adjudication took 92.5 seconds and the installed doctor completed in 32.57 seconds as LOCAL_REVIEWED, proving the scoped 180-second outer budget fixes availability without changing the selected protection claim"
+    },
+    {
+      "at": "2026-08-03T00:10:00Z",
+      "decision": "Use one mandatory keyless pre-PR producer ordered OpenAI, Anthropic, Gemini and preserve paid API only as a separately requested operator facility",
+      "why": "This removes the parallel-session API-key substitution, keeps the independent reviewer outside development context, permits only typed UNAVAILABLE failover, and preserves Verification Loop as the sole acceptance authority on WSL and Windows"
+    },
+    {
+      "at": "2026-08-03T00:45:00Z",
+      "decision": "Keep the supported Gemini isolation flags and add a pinned-bundle CLI contract smoke instead of weakening the fallback",
+      "why": "Gemini 0.49.0 source and real WSL/native-Windows help both advertise the disputed flags; enforcing that evidence in the producer turns future version drift into terminal UNVERIFIED before any review call"
+    },
+    {
+      "at": "2026-08-03T01:08:00Z",
+      "decision": "Require positive transport evidence before classifying any post-launch CLI failure as UNAVAILABLE",
+      "why": "Unknown non-zero exits can represent unsupported arguments or adapter/protocol defects; treating them as availability would silently bypass a broken earlier reviewer instead of stopping fail closed"
+    },
+    {
+      "at": "2026-08-03T01:35:00Z",
+      "decision": "Permit the guarded PR CLI to update only its matching existing Draft through an observed-SHA force-with-lease",
+      "why": "A reviewed single-commit amend must replace the previously observed Draft head without bypassing the receipt, maker, registry or pre-push gates; exact lease binding prevents overwriting an independently changed remote branch, and skipping an already-current push avoids an empty pre-push stream"
+    },
+    {
+      "at": "2026-08-03T02:30:00Z",
+      "decision": "Use the existing bounded PR command timeout for the guarded push instead of a fixed 300-second child limit",
+      "why": "The pre-push hook must finish the full fresh machine oracle; carrying a 300..3600-second positive budget fixes availability while preserving every hook, receipt, lease and exact-candidate check"
+    },
+    {
+      "at": "2026-08-03T02:45:00Z",
+      "decision": "Distinguish an exact no-PR diagnostic from every GitHub PR lookup failure before selecting push mode",
+      "why": "Network, auth or GraphQL failure cannot safely authorize the new-PR path; failing closed preserves the existing-Draft lease and prevents an ambiguous ordinary push"
+    },
+    {
+      "at": "2026-08-03T03:05:00Z",
+      "decision": "Bind both the current symbolic branch and repository in every gh PR lookup",
+      "why": "The installed GitHub CLI requires a branch when --repo is present; explicit validated coordinates make existing-Draft discovery deterministic and keep usage errors terminal"
+    },
+    {
+      "at": "2026-08-03T03:25:00Z",
+      "decision": "Bind the accepted no-PR diagnostic to the exact validated current branch without whitespace normalization",
+      "why": "A same-shape message naming another branch is not evidence that the active branch lacks a PR; exact coordinate and newline-policy binding prevents a substituted response from selecting the ordinary push path"
+    },
+    {
+      "at": "2026-08-03T03:50:00Z",
+      "decision": "Ground the mandatory keyless checker as provider-neutral in the canonical feature-ledger row",
+      "why": "The CI completeness guard maps the adopted cross-review frontier to that exact architectural property; adding it to F-06 restores Linux/Windows ledger coverage without changing behavior"
+    },
+    {
+      "at": "2026-08-03T19:45:00Z",
+      "decision": "Adopt evidence-first coverage, non-erasable host union and a two-reviewer quorum for high/unknown risk inside the existing nine-point plan",
+      "why": "Exact-candidate provenance cannot compensate for missing scale/business-invariant evidence or one model's blind spots; ADR-005 makes coverage and reviewer efficacy executable release gates without granting reviewers unsafe production access"
+    },
+    {
+      "at": "2026-08-04T18:00:00Z",
+      "decision": "Amend GPG-003 to one fresh opposite-GPT reviewer while retaining evidence-first machine oracles and all nine plan points",
+      "why": "A41/A42 showed the provider quorum made publication depend on unavailable subscriptions and Copilot transport formatting, while the PR #1326 false clean result was caused by missing scale/business-invariant evidence rather than reviewer count; ADR-006 preserves exact-candidate adjudication without blocking product work"
+    }
+  ],
+  "artifacts": [
+    "skills/goal/scripts/itd_goal_verify.py",
+    "skills/goal/scripts/itd_goal_report.py",
+    "hooks/validate_state_core.py",
+    "docs/templates/itd-memory/goal.schema.json",
+    "tests/verify_goal_bounded_autonomy.py",
+    "skills/_shared/itd_verification_loop.py",
+    "skills/_shared/VERIFICATION_LOOP_POLICY.json",
+    "docs/VERIFICATION_LOOP.md",
+    "docs/templates/itd/VERIFICATION_LOOP_CONTRACT.json",
+    "tests/verify_verification_loop.py",
+    "skills/_shared/itd_review_evidence.py",
+    "tests/verify_independent_review_efficacy.py",
+    "benchmarks/independent-review-efficacy/cases.json",
+    "docs/adr/ADR-005-evidence-first-deep-independent-review.md",
+    "CHANGELOG.md",
+    "docs/diagnostics-pilot/OBSERVATIONS.json",
+    "docs/diagnostics-pilot/LABEL_PACKET.json",
+    "docs/diagnostics-pilot/RESULTS.json",
+    "skills/_shared/itd_diagnostics_pilot.py",
+    "tests/verify_diagnostics_pilot.py",
+    "skills/_shared/itd_fresh_session_worktree.py",
+    "docs/templates/itd/FRESH_SESSION_WORKTREE_CONTRACT.json",
+    "tests/verify_fresh_session_worktree.py",
+    "tests/verify_harness_demo_pilots.py",
+    "docs/harness-demo-pilots/INDEX.json",
+    "docs/semantic-navigation/DEMAND.json",
+    "skills/_shared/itd_semantic_navigation.py",
+    "tests/verify_semantic_navigation.py",
+    "tests/verify_semantic_navigation_demand.py",
+    "HANDOFF.md",
+    "ROOT_CAUSE.md",
+    ".itd/GPG-001_NINE_POINT_PLAN.md",
+    ".itd/GPG-001_COMPLETION_EVIDENCE.json",
+    ".itd/GPG-002_ROOT_CAUSE.md",
+    ".itd/GPG-002_COMPLETION_EVIDENCE.json",
+    ".itd-memory/verification-loop/GPG-002-fix-final-adjudication.json",
+    ".itd-memory/verification-loop/receipts/811a95a4aa31177c/GPG-002-windows-unc-live-adjudication-a1.json",
+    ".itd-memory/verification-loop/reports/GPG-001-general-review-head-954a3b6-local-terra.md",
+    "HANDOFF.md"
+  ],
+  "completedModules": [
+    "goal.bounded_autonomy",
+    "verification_loop.v1",
+    "harness_demo.diagnostics_pilot",
+    "harness_demo.fresh_session_worktree",
+    "harness_demo.real_pilot_a",
+    "harness_demo.real_pilot_b",
+    "harness_demo.real_pilot_c",
+    "harness_demo.semantic_navigation_demand",
+    "harness_demo.semantic_navigation",
+    "gate_profile.windows_unc_doctor"
+  ],
+  "failedValidations": [],
+  "blockers": [
+    {
+      "id": "HDX-009-real-project-authorization",
+      "status": "resolved",
+      "requires": "User authorized hihol-labs/product-factory-os, HiH-DimaN/jogai, and HiH-DimaN/hihol-landing and delegated bounded task selection; pilots remain serial.",
+      "forbiddenSubstitution": "Do not count fixtures, the idea-to-deploy methodology repository, or unauthorized sibling repositories as pilot evidence."
+    },
+    {
+      "id": "GPG-001-MEM-8-regression",
+      "status": "resolved",
+      "requires": "Bounded RED-to-GREEN restoration of closed tool trust schema/validator, unknown-provider abstain default, adoption inventory, security MEM-8 check, and mutation tests, followed by a clean exact-candidate bound review.",
+      "forbiddenSubstitution": "Do not ignore the finding because the quick suite is green, roll back the accepted broker bootstrap, or continue/commit/push before a successful current review receipt."
+    },
+    {
+      "id": "GPG-001-live-gate-registry",
+      "status": "resolved",
+      "requires": "User selected the portable local-submission/local-review profile. The WSL registry validates as LOCAL_REVIEWED; live App/broker enrollment is an optional stronger profile and is not required for this claim.",
+      "forbiddenSubstitution": "Do not bypass the guarded pre-push hook with --no-verify, call LOCAL_REVIEWED protected, or claim App/ruleset enforcement without live enrollment evidence."
+    }
+  ],
+  "humanSteering": {
+    "approvalRequired": true,
+    "approvalStatus": "approved",
+    "recommendedNextStep": "Complete exact GPG-003 acceptance for one fresh opposite-GPT workflow: Sol maker to Terra or Terra maker to Sol, fail closed if that reviewer cannot be verified, with WSL and Windows parity.",
+    "alternatives": [
+      "Keep paid Responses API outside the default workflow and require a separately named, explicitly authorized operation if it remains available at all",
+      "Keep App-backed PROTECTED enforcement as a separate opt-in profile rather than coupling it to mandatory independent review"
+    ],
+    "pendingQuestions": []
+  },
+  "eventLog": {
+    "path": ".itd-memory/events.jsonl",
+    "lastEventId": "",
+    "lastEventAt": "2026-07-14T13:39:02Z"
+  },
+  "nextAction": "Goal TIER-SOURCE-1 -> REL-1.106.0 is done at 2/2: REL-1.106.0 verified by the goal harness (release v1.106.0, PR #315 -> f3e0f42, rollout WSL + Windows). This candidate is the ledger-close. WIP is free. Next: a new goal chosen by the owner (candidates in BACKLOG: goal-report [machine_only] label, installed-proof vs live-evidence, HANDOFF out of release diffs, P1 tier-by-wording for non-test scopes).",
+  "ledgerFiles": [
+    ".itd-memory/GOAL.json",
+    ".itd-memory/events.jsonl"
+  ]
+}

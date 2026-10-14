@@ -113,7 +113,7 @@ def validate_public_skills(contract: dict) -> None:
     public = [name for name in all_names if not name.startswith(prefix)]
     reserved = [name for name in all_names if name.startswith(prefix)]
     require(public == definition.get("baselineNames")
-            and len(public) == definition.get("baseline") == 40,
+            and len(public) == definition.get("baseline") == 41,
             "PIV-lite changed the frozen public skill population")
     require(reserved == definition.get("reservedSkillDirectories") == ["_shared"],
             "PIV-lite changed the reserved skill population")
@@ -208,7 +208,7 @@ def main() -> int:
     mutations = mutation_count(route)
     print(json.dumps({
         "mutationCases": mutations,
-        "publicLifecycleSkills": 40,
+        "publicLifecycleSkills": 41,
         "stages": ["plan", "implement", "validate", "review"],
         "status": "PASSED",
     }, sort_keys=True))
