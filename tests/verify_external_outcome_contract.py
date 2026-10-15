@@ -160,7 +160,18 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="itd-external-contract-") as td:
         root = Path(td)
         index = root / "INDEX.json"
-        index.write_text(json.dumps(good_index(), indent=2) + "\n", encoding="utf-8")
+        # The export CLI judges freshness against the real clock (maxExternalOutcomeAgeDays),
+        # so its fixture is dated relative to today; the fixed 2026-07-15 dates went stale on
+        # 2026-10-14 and turned this check red on every branch.
+        fresh = good_index()
+        observed = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(days=1)
+        started = observed - dt.timedelta(days=31)
+        fresh["observedAt"] = observed.isoformat().replace("+00:00", "Z")
+        for row in fresh["projects"]:
+            row.update(observedAt=fresh["observedAt"],
+                       startedAt=started.isoformat().replace("+00:00", "Z"))
+            resign(row)
+        index.write_text(json.dumps(fresh, indent=2) + "\n", encoding="utf-8")
         exported = root / "export.json"
         run = subprocess.run(
             [sys.executable, str(SCRIPT), "export", "--index", str(index), "--out", str(exported)],
