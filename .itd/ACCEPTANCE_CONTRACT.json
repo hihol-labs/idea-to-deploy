@@ -5183,22 +5183,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "PRODUCER-FALLBACK-LEDGER-1",
-    "status": "in_progress",
-    "openedAt": "2026-10-15",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-15 ('исправь продюсер отдельным юнитом'): a permitted Sol -> Terra transport fallback of the free reviewer producer ledgers the same direct prompt twice and its own binding check then refuses the receipt ('direct prompt ledger carries several entries'), so a degraded review could never pass (BROKER-SKEW-CLOCK-1 close rounds k2-k5).",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "security"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - PRODUCER-FALLBACK-LEDGER-1 closed 2026-10-15 (PR #360 -> cc298fb, rolled out on WSL and Windows). ITD development stays paused by ADR-012; the next unit opens only on an owner request."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5804,6 +5791,26 @@
       },
       "closedAt": "2026-10-15",
       "closureEvidence": "Merged as PR #358 -> 49c9592 (squash; tree 24de85c2 = the reviewed tree of 65e9e55). Machine receipt BROKER-SKEW-CLOCK-1 3/3 legs exit 0 (meta-review, review-broker 836 checks, ledgers: verify_stop_rule, verify_stop_rule_closed_contract, verify_goal_tools, cursor check); gpt-5.6-sol b1 PASSED; adjudication a1; gate doctor LOCAL_REVIEWED cross-vendor; CI Gate 1 and windows-verify pass. Test-only fix, no rollout needed."
+    },
+    {
+      "unitId": "PRODUCER-FALLBACK-LEDGER-1",
+      "status": "closed",
+      "openedAt": "2026-10-15",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-15 ('исправь продюсер отдельным юнитом'): a permitted Sol -> Terra transport fallback of the free reviewer producer ledgers the same direct prompt twice and its own binding check then refuses the receipt ('direct prompt ledger carries several entries'), so a degraded review could never pass (BROKER-SKEW-CLOCK-1 close rounds k2-k5).",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "security"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-15",
+      "closureEvidence": "Merged as PR #360 -> cc298fb (squash; tree c3387d38 = the reviewed tree of 43cc690). Machine receipt PRODUCER-FALLBACK-LEDGER-1 3/3 legs exit 0 (meta-review, producer 316 checks, related: verify_review_broker 836, verify_verification_loop 121/0, verify_external_reviewer_release); gpt-5.6-sol p1 PASSED; adjudication a1; gate doctor LOCAL_REVIEWED; CI Gate 1 and windows-verify pass. Rollout 2026-10-15: sync-to-active into ~/.claude on WSL and Windows (installed producer byte-identical to cc298fb on both), itd CLI and pre-push reinstalled on both hosts - runtime 1.107.0-0c6d4cc07440a40c with the fixed producer; gate doctor LOCAL_REVIEWED on the new runtime."
     }
   ]
 }

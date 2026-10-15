@@ -1,22 +1,19 @@
-# PRODUCER-FALLBACK-LEDGER-1
+# PRODUCER-FALLBACK-LEDGER-1 ledger-close
 
 ## Current Task
 
-- PRODUCER-FALLBACK-LEDGER-1: let a degraded (Sol -> Terra transport fallback) review bind both direct sends of its
-  prompt ledger instead of refusing its own receipt (owner 2026-10-15, "исправь продюсер отдельным юнитом").
+- PRODUCER-FALLBACK-LEDGER-1 ledger-close: record the merge of PR #360 and its rollout, close the followup (owner
+  2026-10-15, "да, сделай оба и мержи когда CI зеленый").
 
 ## Allowed Change Areas
 
-- `skills/_shared/itd_free_reviewer_producer.py` - the prompt ledger binding (`_direct_sends`,
-  `_prompt_ledger_binding`, `_bind_prompt_ledger`, `verify_prompt_ledger`, `phase_one_receipt`, `verify_phase_one`).
-- `tests/verify_free_reviewer_producer.py` - the fallback ledger cases.
-- `CHANGELOG.md`, `BACKLOG.md`, `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`,
-  `.itd/IMPACT_GRAPH.json` - records.
+- `.itd/ACCEPTANCE_CONTRACT.json` - the followup moves to `closedFollowups`; `activeFollowup` becomes the closed-contract
+  record `{unitId: "", status: "none", note}`.
+- `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
 
 ## Forbidden Change Areas
 
-- `HANDOFF.md`; the fallback policy itself (`transport_fallback_permitted`, the Sol/Terra pair); other skills, hooks,
-  agents and scripts; the ledger stays append-only and records every send.
+- `HANDOFF.md`; skills, hooks, agents, scripts, tests, live evidence and `.itd-memory/` ledgers.
 
 ## Review Rule
 
