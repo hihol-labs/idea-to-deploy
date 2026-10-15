@@ -184,9 +184,10 @@ quality rubric.
 **Stage A.5: Contract health (v1.67.0 — init-audit gap #3).** When `.itd/` exists, before reading the contracts as gates, verify they are trustworthy sensors — rubric check **I10** (Important tier, see `references/review-checklist.md`):
 
 ```bash
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" .itd/check_contract_drift.py            # derived contracts vs CLAUDE.md
-sh "$SHD/itd_py.sh" .itd/check_contract_drift.py --filled   # key contracts are not template prose
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+sh "$T/itd_tool.sh" check_contract_drift.py --root .            # derived contracts vs CLAUDE.md
+sh "$T/itd_tool.sh" check_contract_drift.py --root . --filled   # key contracts are not template prose
 ```
 
 - Any `DRIFT` line, or `FORBIDDEN_CHANGES.md` / `SCOPE_LOCK.md` / `VERIFICATION_CONTRACT.json` reported as `TMPL`/`MISS` → mark **I10 fail** (Important warning in the report, gate still passes) and say explicitly which gates are running blind on template prose. Do NOT escalate to BLOCKED — a stale contract is a warning about the sensors, not proof the change is wrong.

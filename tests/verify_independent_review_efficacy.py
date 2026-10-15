@@ -85,6 +85,12 @@ HISTORY_PINNED_SNAPSHOTS = {
     "diagnostic-71b0336d-astra-route/wsl.json": "3e2bc2373b17050c4f4d8bbb7f7b706b597dee83bc91efa4bb4b0ad89e8cb4f9",
     "diagnostic-71b0336d-astra-route/windows.json": "6b0e2ad1c8b582949e9d0430163e436d750ea8787276ffb6a6e104ba79aae763",
     "diagnostic-71b0336d-astra-route/u12-cross-vendor-wsl.json": "ede06ff25dcbc80fe5d62c5d13559dbf790eb7b0c30fcb03c8e91d76bcee75b0",
+    "diagnostic-f0cedfe6-fallback-ledger/wsl.json": "2ce127e706c480f75e99a40097558a70e23ae7e5725b6365f9d5f8a3b9437e1b",
+    "diagnostic-f0cedfe6-fallback-ledger/windows.json": "7d9e68bd7a4ff9a56171a92b98e29e5618879cfebcc4f0c3f7ea6567b17a22b9",
+    "diagnostic-f0cedfe6-fallback-ledger/u12-cross-vendor-wsl.json": "b99d504db44fd7b5ac6f6dd6e03ef289d051561e10e44c506afc288cc4b6254a",
+    "diagnostic-f0cedfe6-wsl-rerun1/wsl.json": "2c881206a81a39774c738fef0dcf744fa0ea30781ee9a7b64a82e25c859a84b3",
+    "diagnostic-f0cedfe6-wsl-rerun1/windows.json": "7d9e68bd7a4ff9a56171a92b98e29e5618879cfebcc4f0c3f7ea6567b17a22b9",
+    "diagnostic-f0cedfe6-wsl-rerun1/u12-cross-vendor-wsl.json": "b99d504db44fd7b5ac6f6dd6e03ef289d051561e10e44c506afc288cc4b6254a",
 }
 # These values are deliberately in the verifier rather than trusting a mutable
 # archive manifest.  They bind the accepted evidence to the bytes that Git

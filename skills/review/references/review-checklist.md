@@ -101,9 +101,9 @@ Check: file exists; for each step in IMPLEMENTATION_PLAN.md, there is a correspo
 
 ### I10. Contract health — .itd/ contracts in sync and actually filled (v1.67.0)
 Check (only when `.itd/` exists — otherwise N/A, not a failure):
-1. `SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" .itd/check_contract_drift.py` reports no `DRIFT` lines (derived contracts in sync with CLAUDE.md; сниппет самодостаточен — резолвер в той же строке, никогда не голый `python3`).
-2. `sh "$SHD/itd_py.sh" .itd/check_contract_drift.py --filled` reports all three key contracts `ok`: `FORBIDDEN_CHANGES.md` and `SCOPE_LOCK.md` carry project-specific content (no "Replace this line with…" placeholders), `VERIFICATION_CONTRACT.json` has ≥ 1 entry in `commands[]`.
-Fallback when the project's `.itd/` copy predates the `--filled` flag: apply the same two checks read-only via Grep. Rationale: a scaffold that is pure template prose is decoration, not a contract — the gates that read it (`/review` Stage A, `/task` tiers, wip-gate) run silently blind.
+1. `T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done; [ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"; sh "$T/itd_tool.sh" check_contract_drift.py --root .` reports no `DRIFT` lines (derived contracts in sync with CLAUDE.md; сниппет самодостаточен — резолвер в той же строке, никогда не голый `python3`).
+2. `sh "$T/itd_tool.sh" check_contract_drift.py --root . --filled` reports all three key contracts `ok`: `FORBIDDEN_CHANGES.md` and `SCOPE_LOCK.md` carry project-specific content (no "Replace this line with…" placeholders), `VERIFICATION_CONTRACT.json` has ≥ 1 entry in `commands[]`.
+Fallback when the installed tool predates the `--filled` flag: apply the same two checks read-only via Grep. Rationale: a scaffold that is pure template prose is decoration, not a contract — the gates that read it (`/review` Stage A, `/task` tiers, wip-gate) run silently blind.
 
 ---
 

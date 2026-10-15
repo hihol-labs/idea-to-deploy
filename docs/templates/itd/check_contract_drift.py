@@ -25,7 +25,8 @@ Advisory по умолчанию (exit 0). `--strict` -> exit 1 при любо�
 FORBIDDEN_CHANGES.md, SCOPE_LOCK.md, VERIFICATION_CONTRACT.json.
 
 Usage:
-  python3 .itd/check_contract_drift.py [--strict] [--filled] [--selftest]
+  sh <install>/skills/_shared/itd_tool.sh check_contract_drift.py [--root DIR] [--strict] [--filled] [--selftest]
+  (<install>: ~/.claude for Claude Code, the plugin root for Codex - INSTALL-OWNED-1)
 """
 from __future__ import annotations
 
@@ -42,9 +43,23 @@ try:  # legacy-консоль Windows (cp866/cp1252) не должна роня�
 except Exception:
     pass
 
-ROOT = Path(__file__).resolve().parents[1]
+def _default_root() -> Path:
+    """A legacy copy inside <project>/.itd/ checks its own project; the installed tool
+    (run through skills/_shared/itd_tool.sh) checks the current directory (INSTALL-OWNED-1)."""
+    here = Path(__file__).resolve()
+    return here.parents[1] if here.parent.name == ".itd" else Path.cwd().resolve()
+
+
+ROOT = _default_root()
 ITD_DIR = ROOT / ".itd"
 CLAUDE_MD = ROOT / "CLAUDE.md"
+
+
+def _set_root(root: Path) -> None:
+    global ROOT, ITD_DIR, CLAUDE_MD
+    ROOT = root.resolve()
+    ITD_DIR = ROOT / ".itd"
+    CLAUDE_MD = ROOT / "CLAUDE.md"
 MARKER_RE = re.compile(r"снапшот\s*@\s*([0-9a-f]{7,40})", re.I)
 
 # --filled: ключевые контракты и маркер шаблонного плейсхолдера
@@ -199,7 +214,10 @@ def main() -> None:
     ap.add_argument("--strict", action="store_true", help="exit 1 при DRIFT / незаполненности")
     ap.add_argument("--filled", action="store_true", help="проверить заполненность ключевых контрактов")
     ap.add_argument("--selftest", action="store_true", help="проверить чистую логику")
+    ap.add_argument("--root", type=Path, help="корень проекта (по умолчанию - текущий каталог)")
     args = ap.parse_args()
+    if args.root is not None:
+        _set_root(args.root)
     if args.selftest:
         sys.exit(selftest())
     sys.exit(run_filled(args.strict) if args.filled else run_check(args.strict))

@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 41](https://img.shields.io/badge/Skills-41-green.svg)](#скиллы)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#субагенты)
-[![Version: 1.107.0](https://img.shields.io/badge/Version-1.107.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.108.0](https://img.shields.io/badge/Version-1.108.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -155,6 +155,44 @@ fallback `.codex/hooks.json` и известные transport differences.
 
 Для обоих host’ов нужен `git`. Заметки о релизах — в
 [CHANGELOG](CHANGELOG.md).
+
+### Обновление - одна установка на все проекты
+
+Методология живет в установке, а не в проекте: правила, хуки, скиллы и
+инструменты `.itd` (`itd_hygiene.py`, `itd_progress.py`, `check_contract_drift.py`,
+`itd_init_validate.py`) запускаются из установленной копии через
+`skills/_shared/itd_tool.sh`. Подключенный проект хранит только свои контракты
+(`.itd/*.json`, `*.md`), состояние (`.itd-memory/`) и короткий блок-указатель в
+`CLAUDE.md` / `AGENTS.md`. Поэтому обновление установки обновляет все проекты
+на машине:
+
+- Claude Code: обновите плагин, затем доведите чекаут до того же релиза и
+  синхронизируйте из него - устаревший чекаут скопировал бы старые файлы поверх
+  новой установки:
+
+  ```bash
+  git -C ~/idea-to-deploy-src pull --ff-only
+  ```
+
+  ```bash
+  bash ~/idea-to-deploy-src/scripts/sync-to-active.sh
+  ```
+
+  Синк ставит хуки, скиллы, шаблоны и управляемый блок глобального `CLAUDE.md`.
+- Codex: обновите плагин через plugin UI Codex.
+
+Для совместимости остается один запасной путь: если установленная копия
+инструмента не найдена совсем, `itd_tool.sh` запускает старую копию проекта
+`.itd/<tool>.py`, оставленную прежним `/adopt`, и предупреждает об этом в stderr.
+Держите установку свежей, чтобы такая устаревшая копия не запускалась.
+
+В проектах, подключенных старыми версиями, может остаться скопированный блок
+правил или копии `.itd/*.py`. Список - только чтение, ничего не меняет (для Codex - тот
+же файл из корня плагина):
+
+```bash
+python3 ~/.claude/skills/_shared/itd_projects_doctor.py ~/projects
+```
 
 ### Использование
 

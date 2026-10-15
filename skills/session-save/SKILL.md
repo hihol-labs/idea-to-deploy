@@ -189,17 +189,19 @@ Durable = влияет на будущие правки (выбор подход
 
 ### Step 3.3: Regenerate PROGRESS view (v1.70.0)
 
-Если есть `.itd/itd_progress.py` — перегенерируй glance-вью (с
-Windows-фолбэком: `python3` может быть Store-заглушкой — v1.71.1, тот же
-класс, что валидация интерпретатора в `sync-to-active.sh`):
+Если в проекте есть `.itd-memory/` — перегенерируй glance-вью инструментом из
+установки (`itd_tool.sh`, INSTALL-OWNED-1: копия в `.itd/` проекта не используется;
+интерпретатор, включая Windows Store-заглушку, выбирает `itd_py.sh`):
 
 ```bash
-python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true  # win-ok: цепочка включает py -3
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+sh "$T/itd_tool.sh" itd_progress.py 2>/dev/null || true  # win-ok: itd_py.sh выбирает интерпретатор сам
 # → .itd-memory/PROGRESS.md
 ```
 
 Best-effort: скрипт всегда выходит с кодом 0, при ошибке НЕ блокируй
-сохранение сессии; ни один интерпретатор не найден — шаг тихо пропускается.
+сохранение сессии; нет установки или интерпретатора — шаг тихо пропускается.
 `PROGRESS.md` — derived-вью (канон: `STATE.json` / `GOAL.json` /
 `events.jsonl`), гейты на него не завязываются; в целевом проекте он —
 кандидат в `.gitignore` (перегенерируем, коммитить не обязательно).
@@ -316,18 +318,21 @@ For any risk signal whose sentinel is missing, add a **`## Самоаудит с
 
 ### Step 4.10: Explicit session close (only with `--close`)
 
-Normal checkpoints skip this step. For `--close`, resolve the project copy first,
-then the installed template, and run the **`itd_hygiene.py close`** boundary:
+Normal checkpoints skip this step. For `--close`, run the **`itd_hygiene.py close`**
+boundary from the installation (`itd_tool.sh`, INSTALL-OWNED-1 - a copy in the project's
+`.itd/` is not used); the contract is the project's own, or `docs/` in the methodology
+repository - recognized by its parsed plugin manifest (`skills/_shared/itd_contract_dir.py`:
+`.claude-plugin/plugin.json` with the top-level name `idea-to-deploy`) and only when that
+`docs/` contract exists. The helpers come from the installation - the host's plugin root
+(`$CLAUDE_PLUGIN_ROOT` / `$PLUGIN_ROOT`), then `~/.claude/skills/_shared`, then the Codex plugin
+cache entry with the highest version (version sort across marketplaces); the checkout's own
+`skills/_shared` only when nothing is installed - so a project cannot shadow them:
 
 ```bash
-HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"
-if [ ! -f "$HY" ] && [ -f "docs/SESSION_EXIT_CONTRACT.json" ]; then
-  HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"
-elif [ ! -f "$HY" ]; then
-  HY="$HOME/.claude/templates/itd/itd_hygiene.py"
-fi
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" "$HY" close --root . --contract "$CONTRACT"
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+CONTRACT="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" SESSION_EXIT_CONTRACT.json)/SESSION_EXIT_CONTRACT.json"
+sh "$T/itd_tool.sh" itd_hygiene.py close --root . --contract "$CONTRACT"
 ```
 
 For a deliberate exception, the user must supply a non-empty reason (for

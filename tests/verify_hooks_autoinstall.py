@@ -340,6 +340,26 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
               "user-level: permissions still merged")
         check(fails, digest(box.user) == user_before, "user-level settings never written")
 
+        # INSTALL-OWNED-1: a hook the user switched off for the whole machine
+        # (~/.claude/itd-disabled-hooks.txt, honoured by sync-to-active) is not
+        # re-enabled per project; comments, BOM and unknown names are tolerated.
+        box.settings.unlink(missing_ok=True)
+        box.user.write_text('{"model": "opus"}\n', encoding="utf-8")
+        disabled_list = box.user.parent / "itd-disabled-hooks.txt"
+        disabled_list.write_text("﻿# owner opt-out\ncheck-tool-skill.sh  # noisy\nno-such-hook.sh\n",
+                                 encoding="utf-8")
+        r = run(helper, "plan", *box.args())
+        check(fails, r.returncode == 0 and "disabled for this user" in r.stdout
+              and "check-tool-skill.sh" in r.stdout.split("disabled for this user", 1)[-1],
+              "disabled list: plan reports the skipped hook")
+        r = run(helper, "apply", *box.args("--yes"))
+        data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
+        got = triples(data)
+        check(fails, r.returncode == 0 and not any(t[2].endswith("/check-tool-skill.sh") for t in got)
+              and sorted(got) == sorted(t for t in expected if not t[2].endswith("/check-tool-skill.sh")),
+              "disabled list: the switched-off hook is not re-enabled at project level")
+        disabled_list.unlink()
+
         # A same-named script outside an idea-to-deploy hooks dir is not a registration.
         box.settings.unlink(missing_ok=True)
         box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [

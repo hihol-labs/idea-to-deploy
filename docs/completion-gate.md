@@ -61,7 +61,7 @@ advisory, а не в ложное «all green» (best-effort invariant).
 - `completion-stop` (Stop): при грязном по коду дереве и не-зелёном вердикте —
   мягкое напоминание, никогда не блокирует.
 - `/session-save --close`: явная граница завершения сессии. Runner
-  `.itd/itd_hygiene.py close` требует одновременно зелёные verification/startup
+  `itd_hygiene.py close` (из установки через `skills/_shared/itd_tool.sh`) требует одновременно зелёные verification/startup
   checks, свежий quality ledger, отсутствие debug-маркеров, manifest-cleanup и
   чистый `git status`. Это hard exit-код только по явному намерению закрыть
   сессию; обычный Stop остаётся soft.

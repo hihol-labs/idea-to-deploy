@@ -29,8 +29,9 @@ check. При провале временный клон СОХРАНЯЕТСЯ 
 негативный сценарии самим прогоном (никаких моков).
 
 Usage:
-  python3 .itd/itd_init_validate.py --bootstrap "make setup" --test "make test"
-  python3 .itd/itd_init_validate.py --selftest
+  sh <install>/skills/_shared/itd_tool.sh itd_init_validate.py --bootstrap "make setup" --test "make test"
+  sh <install>/skills/_shared/itd_tool.sh itd_init_validate.py --selftest
+  (<install>: ~/.claude for Claude Code, the plugin root for Codex - INSTALL-OWNED-1)
 """
 from __future__ import annotations
 

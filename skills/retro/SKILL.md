@@ -129,10 +129,10 @@ runner и активные контракты из `docs/`.
 benchmark drift. Операции cleanup безопасны для повторного запуска.
 
 ```bash
-HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"
-[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"; }
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" "$HY" periodic --mode weekly --root . --contract "$CONTRACT" --record
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+CONTRACT="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" SESSION_EXIT_CONTRACT.json)/SESSION_EXIT_CONTRACT.json"
+sh "$T/itd_tool.sh" itd_hygiene.py periodic --mode weekly --root . --contract "$CONTRACT" --record
 ```
 
 **Monthly component ablation** — выбрать ОДИН due-кандидат из
@@ -143,10 +143,10 @@ baseline, затем с его reversible `disableEnv`, записать мет�
 удалить, облегчить или оставить.
 
 ```bash
-HY=".itd/itd_hygiene.py"; ABL=".itd/HARNESS_ABLATION.json"
-[ -f "$HY" ] || { HY="docs/templates/itd/itd_hygiene.py"; ABL="docs/HARNESS_ABLATION.json"; }
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" "$HY" periodic --mode monthly --component <id> --root . --ablation-contract "$ABL" --record
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+ABL="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" HARNESS_ABLATION.json)/HARNESS_ABLATION.json"
+sh "$T/itd_tool.sh" itd_hygiene.py periodic --mode monthly --component <id> --root . --ablation-contract "$ABL" --record
 ```
 
 В репо методологии внешний transport уже материализован как
