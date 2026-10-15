@@ -1,22 +1,22 @@
-# BROKER-SKEW-CLOCK-1 ledger-close + EXTOUT-CLOCK-1
+# PRODUCER-FALLBACK-LEDGER-1
 
 ## Current Task
 
-- BROKER-SKEW-CLOCK-1 ledger-close: record the merge of PR #358 and close the followup (owner 2026-10-15,
-  "да, закрой и мержи когда CI зеленый").
+- PRODUCER-FALLBACK-LEDGER-1: let a degraded (Sol -> Terra transport fallback) review bind both direct sends of its
+  prompt ledger instead of refusing its own receipt (owner 2026-10-15, "исправь продюсер отдельным юнитом").
 
 ## Allowed Change Areas
 
-- `.itd/ACCEPTANCE_CONTRACT.json` - the followup moves to `closedFollowups`; `activeFollowup` becomes the closed-contract
-  record `{unitId: "", status: "none", note}`.
-- `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md` (this file) - records.
-- `tests/verify_external_outcome_contract.py` - the export fixture dated relative to today (EXTOUT-CLOCK-1): its fixed
-  2026-07-15 dates went stale against maxExternalOutcomeAgeDays 90 on 2026-10-14 and turned CI red on every branch.
-- `CHANGELOG.md` - one entry for that fix.
+- `skills/_shared/itd_free_reviewer_producer.py` - the prompt ledger binding (`_direct_sends`,
+  `_prompt_ledger_binding`, `_bind_prompt_ledger`, `verify_prompt_ledger`, `phase_one_receipt`, `verify_phase_one`).
+- `tests/verify_free_reviewer_producer.py` - the fallback ledger cases.
+- `CHANGELOG.md`, `BACKLOG.md`, `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`,
+  `.itd/IMPACT_GRAPH.json` - records.
 
 ## Forbidden Change Areas
 
-- `HANDOFF.md`; skills, hooks, agents, scripts, other tests, live evidence and `.itd-memory/` ledgers.
+- `HANDOFF.md`; the fallback policy itself (`transport_fallback_permitted`, the Sol/Terra pair); other skills, hooks,
+  agents and scripts; the ledger stays append-only and records every send.
 
 ## Review Rule
 
