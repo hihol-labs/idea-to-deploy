@@ -1497,6 +1497,137 @@ def main() -> int:
             "the direct route does not ledger its single prompt against "
             "promptSha256",
         )
+        # PRODUCER-FALLBACK-LEDGER-1: a permitted Sol -> Terra transport
+        # fallback sends the same direct prompt twice. Both sends stay in the
+        # ledger (nothing reaches a model the ledger does not hold), so the
+        # receipt of a degraded reviewer binds exactly two identical direct
+        # entries; anything else stays refused.
+        fallback_ledger_path = fixture / "fallback.ledger.jsonl"
+        fallback_ledger = producer.PromptLedger(fallback_ledger_path)
+
+        def unavailable_runner(prompt_text, report_schema, report_parser):
+            raise producer.FreeReviewError(
+                "UNAVAILABLE", "OpenAI reviewer transport is unavailable"
+            )
+
+        try:
+            producer.run_packet_review(
+                transparent_packet, unavailable_runner,
+                prompt_ledger=fallback_ledger,
+            )
+        except producer.FreeReviewError as exc:
+            check(exc.status == "UNAVAILABLE",
+                  "the primary transport failure lost its UNAVAILABLE status")
+        producer.run_packet_review(
+            transparent_packet, direct_runner, prompt_ledger=fallback_ledger,
+        )
+        fallback_binding = fallback_ledger.binding()
+        cross_maker = {"provider": "anthropic-subscription",
+                       "model": "claude-opus-5-5",
+                       "session": "maker-session-fallback"}
+        degraded_reviewer = {
+            "provider": "openai-subscription", "model": "gpt-5.6-terra",
+            "session": "fresh-thread-fallback",
+            "transportExecutableSha256": "5" * 64,
+            "degradedFrom": "gpt-5.6-sol",
+        }
+
+        def mint_as(reviewer_value, binding):
+            return producer.phase_one_receipt(
+                packet=transparent_packet,
+                prompt=producer.review_prompt(transparent_packet),
+                report=clean_verdict(), maker=cross_maker,
+                reviewer=reviewer_value, attempts=ledger_attempts,
+                isolation=producer.required_isolation(),
+                key_id="free-reviewer-2026-08", private_key=ledger_private,
+                issued_at="2026-08-18T09:00:00Z", prompt_ledger=binding,
+            )
+
+        def mint_why(reviewer_value, binding):
+            try:
+                mint_as(reviewer_value, binding)
+            except producer.FreeReviewError as exc:
+                return exc.status + ":" + exc.reason
+            return "MINTED"
+
+        check(
+            [entry["kind"] for entry in fallback_binding["entries"]]
+            == ["direct", "direct"]
+            and len({entry["sha256"] for entry in fallback_binding["entries"]}) == 1,
+            "the fallback did not ledger both sends of the same direct prompt",
+        )
+        fallback_receipt = None
+        try:
+            fallback_receipt = mint_as(degraded_reviewer, fallback_binding)
+        except producer.FreeReviewError as exc:
+            check(False, "a degraded reviewer's two-send direct ledger was refused: "
+                  + exc.status + ":" + exc.reason)
+        if fallback_receipt is not None:
+            check(
+                producer.verify_phase_one(fallback_receipt, ledger_keys)[
+                    "promptLedger"] == fallback_binding
+                and producer.verify_prompt_ledger(
+                    fallback_ledger_path.read_bytes(), fallback_receipt
+                )["status"] == "VERIFIED",
+                "the degraded receipt does not verify against its two-send ledger",
+            )
+        plain_reviewer = {key: value for key, value in degraded_reviewer.items()
+                          if key != "degradedFrom"}
+        check(
+            mint_why(plain_reviewer, fallback_binding).startswith("UNVERIFIED:"),
+            "a non-degraded reviewer minted a direct ledger with two sends",
+        )
+        check(
+            mint_why(degraded_reviewer, direct_binding).startswith("UNVERIFIED:"),
+            "a degraded reviewer minted a direct ledger without the failed send",
+        )
+        tripled = copy.deepcopy(fallback_binding)
+        tripled["entries"].append(dict(tripled["entries"][0]))
+        check(
+            mint_why(degraded_reviewer, tripled).startswith("UNVERIFIED:"),
+            "a degraded reviewer minted a direct ledger with a third send",
+        )
+        foreign_send = copy.deepcopy(fallback_binding)
+        foreign_send["entries"][0]["sha256"] = "1" * 64
+        check(
+            mint_why(degraded_reviewer, foreign_send).startswith("UNVERIFIED:"),
+            "a degraded direct ledger whose first send is another prompt was minted",
+        )
+        if fallback_receipt is not None:
+            # verify_prompt_ledger checks only the first direct entry against
+            # promptSha256; a second send of ANOTHER prompt must still fail
+            # there, through the binding's own same-prompt rule.
+            other_prompt = producer.review_prompt(transparent_packet) + "\nextra"
+            two_prompt_rows = [
+                producer._prompt_ledger_row(
+                    "direct", None, producer.review_prompt(transparent_packet)),
+                producer._prompt_ledger_row("direct", None, other_prompt),
+            ]
+            two_prompt_raw = "".join(
+                json.dumps(row, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":")) + "\n"
+                for row in two_prompt_rows
+            ).encode("utf-8")
+            two_prompt_receipt = copy.deepcopy(fallback_receipt)
+            two_prompt_receipt["signed"]["promptLedger"] = {
+                "kind": producer.PROMPT_LEDGER_KIND,
+                "sha256": hashlib.sha256(two_prompt_raw).hexdigest(),
+                "entries": [{"kind": "direct", "unitIndex": None,
+                             "sha256": row["sha256"]} for row in two_prompt_rows],
+            }
+            check(
+                ledger_why(two_prompt_raw, two_prompt_receipt).startswith(
+                    "UNVERIFIED:"),
+                "a degraded direct ledger whose second send is another prompt "
+                "verified",
+            )
+        mixed = copy.deepcopy(fallback_binding)
+        mixed["entries"][1] = {"kind": "integration", "unitIndex": None,
+                               "sha256": mixed["entries"][1]["sha256"]}
+        check(
+            mint_why(degraded_reviewer, mixed).startswith("UNVERIFIED:"),
+            "a direct ledger mixed with a hierarchical entry was minted",
+        )
         # A receipt whose ledger binding contradicts the prompt artifact
         # (a unit hash that no sent unit prompt has) must not be mintable.
         contradicting = copy.deepcopy(ledger_binding)

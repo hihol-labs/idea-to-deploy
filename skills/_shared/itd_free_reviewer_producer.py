@@ -2011,7 +2011,18 @@ class PromptLedger:
         }
 
 
-def _prompt_ledger_binding(value: object) -> dict[str, Any]:
+def _direct_sends(reviewer: object) -> int:
+    """Direct sends a receipt may ledger: the primary, plus the one permitted
+    Sol/Terra transport fallback when the reviewer identity declares it.
+
+    The fallback re-sends the same prompt after the primary transport failed
+    (``attempt(alternate)``); both sends reached a transport, so both stay in
+    the ledger, and the degraded identity is what makes the second one legal.
+    """
+    return 2 if isinstance(reviewer, dict) and "degradedFrom" in reviewer else 1
+
+
+def _prompt_ledger_binding(value: object, direct_sends: int = 1) -> dict[str, Any]:
     """Closed-shape check of a receipt's prompt ledger binding."""
     binding = exact_dict(value, {"kind", "sha256", "entries"}, "prompt ledger binding")
     entries = binding["entries"]
@@ -2033,8 +2044,21 @@ def _prompt_ledger_binding(value: object) -> dict[str, Any]:
         ):
             raise FreeReviewError("UNVERIFIED", "prompt ledger entry is invalid")
     kinds = [row["kind"] for row in entries]
-    if ("direct" in kinds) and (len(entries) != 1):
-        raise FreeReviewError("UNVERIFIED", "direct prompt ledger carries several entries")
+    if "direct" in kinds:
+        if any(kind != "direct" for kind in kinds):
+            raise FreeReviewError(
+                "UNVERIFIED", "direct prompt ledger is mixed with hierarchical entries"
+            )
+        if len(entries) != direct_sends:
+            raise FreeReviewError(
+                "UNVERIFIED",
+                "direct prompt ledger carries several entries" if direct_sends == 1
+                else "degraded direct prompt ledger does not carry both sends",
+            )
+        if len({row["sha256"] for row in entries}) != 1:
+            raise FreeReviewError(
+                "UNVERIFIED", "direct prompt ledger sends differ from each other"
+            )
     return binding
 
 
@@ -2044,7 +2068,7 @@ def _bind_prompt_ledger(
     """Every ledgered hash must be a prompt the signed artifact actually names."""
     entries = binding["entries"]
     if entries[0]["kind"] == "direct":
-        if entries[0]["sha256"] != prompt_sha256:
+        if any(entry["sha256"] != prompt_sha256 for entry in entries):
             raise FreeReviewError(
                 "UNVERIFIED", "prompt ledger differs from the direct prompt"
             )
@@ -2095,7 +2119,9 @@ def verify_prompt_ledger(ledger_raw: bytes, receipt: object) -> dict[str, Any]:
     signed = _phase_one_signed_payload(receipt)
     if "promptLedger" not in signed:
         raise FreeReviewError("UNVERIFIED", "receipt carries no prompt ledger binding")
-    binding = _prompt_ledger_binding(signed["promptLedger"])
+    binding = _prompt_ledger_binding(
+        signed["promptLedger"], _direct_sends(signed.get("reviewer"))
+    )
     if not isinstance(ledger_raw, bytes) or len(ledger_raw) > MAX_PROMPT_LEDGER_BYTES:
         raise FreeReviewError("UNVERIFIED", "prompt ledger is oversized")
     try:
@@ -4426,7 +4452,9 @@ def phase_one_receipt(
             raise FreeReviewError(
                 "UNVERIFIED", "legacy quorum receipts carry no prompt ledger"
             )
-        ledger_binding = _prompt_ledger_binding(prompt_ledger)
+        ledger_binding = _prompt_ledger_binding(
+            prompt_ledger, _direct_sends(reviewer_row)
+        )
         _bind_prompt_ledger(ledger_binding, prompt, prompt_sha256)
     signed = {
         "version": version,
@@ -4579,10 +4607,13 @@ def verify_phase_one(
     ):
         raise FreeReviewError("UNVERIFIED", "phase-one prompt/report binding is invalid")
     if "promptLedger" in signed:
-        ledger = _prompt_ledger_binding(signed["promptLedger"])
+        ledger = _prompt_ledger_binding(
+            signed["promptLedger"], _direct_sends(signed.get("reviewer"))
+        )
         if (
             ledger["entries"][0]["kind"] == "direct"
-            and ledger["entries"][0]["sha256"] != signed["promptSha256"]
+            and any(entry["sha256"] != signed["promptSha256"]
+                    for entry in ledger["entries"])
         ):
             raise FreeReviewError("UNVERIFIED", "phase-one prompt ledger binding is invalid")
     return signed
