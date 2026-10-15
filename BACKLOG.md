@@ -59,24 +59,14 @@
   `test_run` фоновый запуск и `python3 -c` без вывода. Итог: strict-коммит блокируется при зеленых сьютах; обход -
   `COMPLETION_BYPASS` с причиной (записан в events.jsonl). Фикс - в гейте, по правилу блокера.
 
-## P2 - `verify_review_broker`: проверка «beyond skew» недетерминирована (2026-10-14, ledger-close REL-1.107.0)
+## [x] P2/P3 закрыты 2026-10-14 (BROKER-SKEW-CLOCK-1)
 
-Корень: `ReviewBroker.bind_free_review` при каждом вызове грузит свежий экземпляр модуля продюсера
-(`_free_reviewer_module()`), а `bind_with_clock_at` в `tests/verify_review_broker.py` подменяет `now_iso` у своего
-экземпляра (`broker._free_reviewer_module()` строка 2543). Штамп фазы два (`_phase_two_receipt`, `issued_at or
-now_iso()`) поэтому идет от реальных часов, параметр `issue_moment` ничего не меняет, и проверка «minting accepted an
-observation beyond the declared skew ahead of its own phase-two stamp» проходит, только если от `issued_at` фазы один
-до нее прошло меньше ~6 с. Под нагрузкой (load average ~8) падает стабильно, в покое - иногда (на main 1 из 2).
-Фикс (только тест): на время `bind_with_clock_at` подменять `broker._free_reviewer_module` так, чтобы он возвращал
-тестовый экземпляр `free`. Статус: отдельный юнит по слову владельца (ADR-012); блокирует только ногу `quick`
-машинной квитанции на нагруженном хосте.
-
-## P3 - курсор событий в `.itd-memory/STATE.json` отстает от `events.jsonl` (2026-10-14, ревью REL-1.107.0 r4)
-
-`STATE.json` восстановлен в REL-1.107.0 байт в байт из 7708aec: `lastEventId` пустой, `lastEventAt` 2026-07-14, а в
-`events.jsonl` есть события с августа 2026. Свойство существовало и до #355. Сверить курсор средствами харнеса (не
-руками), если логика инкрементального воспроизведения или устаревания начнет ему доверять. Статус: не делать, пока не
-блокирует работу (ADR-012).
+- `verify_review_broker`, «beyond skew»: `bind_with_clock_at` подменяет `broker._free_reviewer_module`, и подмененные
+  часы доходят до штампа фазы два; новая проверка «issuedAt == подставленный момент» - RED без подмены, GREEN после
+  (836 проверок, 3 прогона под нагрузкой).
+- Курсор `.itd-memory/STATE.json` `eventLog`: ни один код харнеса его не пишет и не читает (только `/adopt` создает
+  пустым); выставлен на последнее событие `events.jsonl` (`evt-goal-1791312926-...`, 2026-10-06T18:55:26Z) скриптом из
+  самого журнала, наборы леджеров зеленые.
 
 ## P2 - Graph Lite (ADR-013): замер шаблона module-neighbour-check на neuroexpert (2026-10-07)
 

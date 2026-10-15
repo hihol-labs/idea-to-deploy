@@ -2949,9 +2949,15 @@ def free_review_phase() -> None:
         )
         real_now_iso = broker.now_iso
         real_free_now_iso = free.now_iso
+        real_free_loader = broker._free_reviewer_module
         broker.now_iso = lambda: iso_at(moment)
         if issue_moment is not None:
             free.now_iso = lambda: iso_at(issue_moment)
+        # bind_free_review loads a fresh producer module on every call; without
+        # handing it this instance the patched clock never reaches the
+        # phase-two stamp, which then follows the real wall clock and the
+        # "beyond the skew" case passes or fails with the run's duration.
+        broker._free_reviewer_module = lambda: free
         try:
             return skew_runtime.bind_free_review(
                 coordinates(), phase_one=phase_one,
@@ -2961,6 +2967,7 @@ def free_review_phase() -> None:
         finally:
             broker.now_iso = real_now_iso
             free.now_iso = real_free_now_iso
+            broker._free_reviewer_module = real_free_loader
             skew_store.close()
 
     tolerated = bind_with_clock_at(issued_at - dt.timedelta(seconds=5))
@@ -3002,6 +3009,11 @@ def free_review_phase() -> None:
     check(
         ahead["status"] == "PASSED",
         f"observation ahead of the phase-two stamp within the skew was refused: {ahead}",
+    )
+    check(
+        ahead["receipt"]["signed"]["issuedAt"] == iso_at(issue_base),
+        "the substituted producer clock did not reach the phase-two stamp, so the "
+        "skew cases below depend on how long the run takes",
     )
     ahead_observed = free.parse_time(
         ahead["receipt"]["signed"]["live"]["observedAt"], "live observedAt"
