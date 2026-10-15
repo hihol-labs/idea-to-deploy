@@ -5738,3 +5738,10 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   «ничего не дошло до модели мимо журнала»); снятие ограничения на число записей без привязки к `degradedFrom`.
 - Ссылки: CHANGELOG [Unreleased], tests/verify_free_reviewer_producer.py (fallback ledger).
 
+## 2026-10-15 - PRODUCER-FALLBACK-LEDGER-1 закрыт и раскатан
+- Почему: владелец «да, сделай оба и мержи когда CI зеленый» (раскатка + закрытие записи).
+- Решение: followup перенесен в closedFollowups (PR #360 -> cc298fb, machine 3/3, Sol p1 PASSED, a1, CI pass). Раскатка:
+  sync-to-active в ~/.claude на WSL и Windows (установленный продюсер байт в байт = cc298fb), itd CLI и pre-push
+  переустановлены на обоих хостах - рантайм 1.107.0-0c6d4cc07440a40c; gate doctor LOCAL_REVIEWED на новом рантайме.
+- Ссылки: PR #360, .itd/ACCEPTANCE_CONTRACT.json closedFollowups PRODUCER-FALLBACK-LEDGER-1.
+
