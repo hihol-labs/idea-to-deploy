@@ -5148,22 +5148,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "BROKER-SKEW-CLOCK-1",
-    "status": "in_progress",
-    "openedAt": "2026-10-14",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-14 ('доделай все три пункта'): fix the verify_review_broker skew flake (BACKLOG P2) and reconcile the STATE.json event cursor (BACKLOG P3).",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - BROKER-SKEW-CLOCK-1 closed 2026-10-15 (PR #358 -> 49c9592). ITD development stays paused by ADR-012; the next unit opens only on an owner request."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5749,6 +5736,26 @@
       },
       "closedAt": "2026-10-14T12:00:05Z",
       "closureEvidence": "Merged as PR #356 -> 41416b9 (squash, 2026-10-14; tree 0194f79e = the reviewed tree of fff3ef6). Machine receipt REL-1.107.0 7/7 legs exit 0 (release-contract, meta-review, graph-skill, router-template, live-evidence, fixed-oracles, quick); gpt-5.6-sol r3/r4 BLOCKED (criteria wording, scope range, ledger cursor note; fixed), r5 and r6 PASSED; REL-1.107.0-adjudication-a1 (runtime loop) ADJUDICATED; gate doctor LOCAL_REVIEWED cross-vendor; CI Gate 1 and windows-verify pass. Release v1.107.0 published on 41416b9 (2026-10-14T12:00:05Z). Rollout: plugin sources, Claude installs and Codex routers on WSL and Windows; itd and pre-push runtime 1.107.0-b09cdc48 on both hosts; Codex plugin 1.107.0 on both hosts; fresh-directory checks: Codex on WSL and Windows names Idea to Deploy with the minimal path, the Claude pre-flight hook fires on a new git project on both hosts."
+    },
+    {
+      "unitId": "BROKER-SKEW-CLOCK-1",
+      "status": "closed",
+      "openedAt": "2026-10-14",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-14 ('доделай все три пункта'): fix the verify_review_broker skew flake (BACKLOG P2) and reconcile the STATE.json event cursor (BACKLOG P3).",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-15",
+      "closureEvidence": "Merged as PR #358 -> 49c9592 (squash; tree 24de85c2 = the reviewed tree of 65e9e55). Machine receipt BROKER-SKEW-CLOCK-1 3/3 legs exit 0 (meta-review, review-broker 836 checks, ledgers: verify_stop_rule, verify_stop_rule_closed_contract, verify_goal_tools, cursor check); gpt-5.6-sol b1 PASSED; adjudication a1; gate doctor LOCAL_REVIEWED cross-vendor; CI Gate 1 and windows-verify pass. Test-only fix, no rollout needed."
     }
   ]
 }

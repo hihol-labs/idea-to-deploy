@@ -5716,3 +5716,14 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
 - Отвергнуто: менять `itd_review_broker._free_reviewer_module` (кэширование модуля) - это поведение поставки ради теста.
 - Ссылки: BACKLOG (закрыто 2026-10-14), CHANGELOG [Unreleased].
 
+## 2026-10-15 - BROKER-SKEW-CLOCK-1 закрыт
+- Почему: владелец «да, закрой и мержи когда CI зеленый».
+- Решение: followup перенесен в closedFollowups (PR #358 -> 49c9592, machine 3/3, Sol b1 PASSED, a1, CI pass);
+  activeFollowup - закрытая запись. Раскатка не нужна: изменен только тест и курсор леджера.
+- Ссылки: PR #358, .itd/ACCEPTANCE_CONTRACT.json closedFollowups BROKER-SKEW-CLOCK-1.
+- Дополнение (2026-10-15): CI PR закрытия был красным на обоих чеках из-за бомбы по времени в
+  `tests/verify_external_outcome_contract.py` (фикстура 2026-07-15 + лимит 90 дней -> красный на любой ветке с
+  2026-10-14). Владелец велел мержить при зеленом CI, поэтому минимальная правка теста (EXTOUT-CLOCK-1) идет в этом же PR:
+  RED на main, GREEN после (WSL и Windows-питон); локальный прогон всех 52 шагов meta-review - без других красных
+  (кроме окружения: нет pip, грязное дерево до коммита).
+
