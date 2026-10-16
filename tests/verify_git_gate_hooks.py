@@ -2,9 +2,12 @@
 """Mutation checks for host-global Git hooks and the machine workflow."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -159,15 +162,126 @@ def hook_phase() -> None:
             root=root,
         )
         check(True, "non-GitHub feature push is outside ITD registry")
-        rejects(
-            lambda: hook.enforce(
+        # GATE-OPTIN-1: the gate protects registered repositories only.
+        advisory = io.StringIO()
+        with contextlib.redirect_stderr(advisory):
+            hook.enforce(
                 "https://github.com/other/repo.git",
                 updates("refs/heads/topic"),
                 registry=managed,
                 root=root,
-            ),
-            "unregistered GitHub push is fail-closed",
+            )
+            hook.enforce(
+                "https://github.com/other/repo.git",
+                updates("refs/heads/main"),
+                registry=managed,
+                root=root,
+            )
+        lines = advisory.getvalue().splitlines()
+        check(
+            len(lines) == 2 and all("other/repo is not registered" in line for line in lines),
+            "unregistered GitHub pushes (topic and main) are advisory: one line each, never blocked",
         )
+        absent = root / "absent-registry.json"
+        with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(absent)}):
+            quiet = io.StringIO()
+            with contextlib.redirect_stderr(quiet):
+                hook.enforce(remote, updates("refs/heads/main"), root=root)
+            check(
+                quiet.getvalue() == "" and not absent.exists(),
+                "a machine with no registry at all pushes freely and silently (a fresh installation)",
+            )
+        corrupt = root / "corrupt-registry.json"
+        corrupt.write_text("{", encoding="utf-8")
+        with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(corrupt)}):
+            rejects(
+                lambda: hook.enforce(remote, updates("refs/heads/topic"), root=root),
+                "an invalid registry file still fails closed (it may hide registrations)",
+            )
+        # An existing registry path that cannot be read raises the same UNAVAILABLE status as a missing file;
+        # only a path that does not exist means "no registry" - everything else fails closed, even for a
+        # repository nobody registered, because the hidden content is unknown.
+        as_directory = root / "registry-as-directory"
+        as_directory.mkdir()
+        with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(as_directory)}):
+            rejects(
+                lambda: hook.enforce(
+                    "https://github.com/other/repo.git", updates("refs/heads/topic"), root=root
+                ),
+                "an existing registry path that cannot be read fails closed for every GitHub push",
+            )
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ITD_GATE_REGISTRY", None)
+            check(
+                hook.configured_registry_path().resolve() == hook.gate.live_default_registry_path(),
+                "the unresolved default registry path resolves to the gate's live default",
+            )
+        if hasattr(os, "mkfifo"):
+            fifo = root / "fifo-registry.json"
+            os.mkfifo(fifo)
+            # A FIFO is never opened: the previous hook would block here forever (a RED run shows as a timeout).
+            with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(fifo)}):
+                rejects(
+                    lambda: hook.enforce(
+                        "https://github.com/other/repo.git", updates("refs/heads/topic"), root=root
+                    ),
+                    "a FIFO at the registry path fails closed without being opened",
+                )
+        linked_registry = root / "linked-registry.json"
+        linked_registry.write_text(json.dumps(managed), encoding="utf-8")
+        link = root / "registry-link.json"
+        try:
+            link.symlink_to(linked_registry)
+            has_link = True
+        except (OSError, NotImplementedError):
+            has_link = False
+        if has_link:
+            with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(link)}):
+                advisory = io.StringIO()
+                with contextlib.redirect_stderr(advisory):
+                    hook.enforce(
+                        "https://github.com/other/repo.git", updates("refs/heads/topic"), root=root
+                    )
+                check(
+                    "other/repo is not registered" in advisory.getvalue(),
+                    "a symlink to a real registry file is read through the link",
+                )
+        # The helper itself: one non-blocking open, the type decided on the descriptor, the same bytes parsed.
+        check(
+            hook.read_registry_file(linked_registry) == hook.gate.load_registry(linked_registry),
+            "read_registry_file returns the validated registry gate.load_registry would return",
+        )
+        rejects(
+            lambda: hook.read_registry_file(as_directory),
+            "read_registry_file refuses a directory on the opened descriptor",
+        )
+        if hasattr(os, "mkfifo"):
+            rejects(
+                lambda: hook.read_registry_file(fifo),
+                "read_registry_file refuses a FIFO without blocking on it",
+            )
+        dangling = root / "dangling-registry.json"
+        try:
+            dangling.symlink_to(root / "nowhere.json")
+            linked = True
+        except (OSError, NotImplementedError):  # no symlink privilege on this host
+            linked = False
+        if linked:
+            with mock.patch.dict(os.environ, {"ITD_GATE_REGISTRY": str(dangling)}):
+                rejects(
+                    lambda: hook.enforce(
+                        "https://github.com/other/repo.git", updates("refs/heads/topic"), root=root
+                    ),
+                    "a dangling symlink at the registry path is an entry, not absence: it fails closed",
+                )
+        with contextlib.redirect_stderr(io.StringIO()) as quiet:
+            hook.enforce(
+                "https://git.example.test/team/repo.git",
+                updates("refs/heads/main"),
+                registry=managed,
+                root=root,
+            )
+        check(quiet.getvalue() == "", "a non-GitHub remote is outside the gate even on main, silently")
         rejects(
             lambda: hook.enforce(
                 remote,

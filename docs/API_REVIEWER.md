@@ -164,6 +164,15 @@ repositories; weaker profiles never borrow the strongest profile's claim.
 Legacy v1 organization-workflow registries remain readable but are never
 silently rewritten as v2.
 
+Registration is the opt-in (GATE-OPTIN-1): the global pre-push hook enforces
+these rules only for repositories present in `gates.json`. A push to an
+unregistered GitHub repository - any branch - passes with one advisory line on
+stderr; a non-GitHub remote and a machine without a registry file pass
+silently; a registry file that exists but cannot be read still blocks every
+GitHub push, because it may hide registrations. `itd gate unregister
+--repository <owner/repository>` removes a registration (v1 or v2, atomic,
+validated write) and returns the repository to the unprotected default.
+
 For `local-submission`, independently adjudicate the exact staged candidate,
 then wrap that unchanged index in exactly one normal single-parent commit.
 Register the adjudication after the commit but before guarded push:
