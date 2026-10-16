@@ -624,6 +624,25 @@ def test_methodology_startup_timeout_declared() -> None:
         and QUICK_MIRROR_RE.search(" ".join(quick[0].get("argv") or [])) is not None,
         f"{verification_rel}: {quick}",
     )
+    live = [c for c in verification.get("commands", [])
+            if c.get("id") == "live-model-evidence"]
+    check(
+        "methodology close replays the same strict live evidence as CI",
+        len(live) == 1
+        and live[0].get("argv") == [
+            "python3", "-I", "tests/verify_live_model_benchmark.py",
+            "--require-evidence", "--max-age-days", "30",
+        ]
+        and type(live[0].get("timeoutSeconds")) is int
+        and 60 <= live[0]["timeoutSeconds"] <= 180
+        and live[0].get("passFailParser") == "stdout_contains"
+        and live[0].get("expectedOutput") == "passed, 0 failed"
+        and {
+            "tests/verify_live_model_benchmark.py", "tests/itd_benchmark_pin.py",
+            "tests/run-live-model-benchmark.py", "tests/verify_snapshot.py",
+        }.issubset(live[0].get("trustedVerifierPaths") or []),
+        f"{verification_rel}: {live}",
+    )
 
     # RED side of the same predicate, asserted on every run: the state the 2026-09-15
     # unit repaired (no key), a limit too tight for any probe (30, 59),

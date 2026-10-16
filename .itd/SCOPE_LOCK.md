@@ -6,6 +6,10 @@
   explicit-close budgets and quality freshness, and repair the signed efficacy
   replay's named-function blank-line anchor. Obtain an exact-candidate acceptance
   receipt, commit locally and run explicit close, as requested on 2026-10-16.
+- Follow up on PR #366: refresh real source-bound live benchmark evidence,
+  include CI's strict evidence replay in explicit close, reaccept the exact
+  candidate, commit, push `fix/close-debt` and bring the PR's CI to green, as
+  explicitly authorized by the owner. Do not merge or release.
 
 ## Allowed Change Areas
 
@@ -16,11 +20,14 @@
   `tests/verify_session_hygiene_quality.py`, `tests/verify_independent_review_efficacy.py`.
 - `.itd/IMPACT_GRAPH.json`, `.itd/REVIEW_PROVIDER_FRESHNESS.json`, this scope and `CHANGELOG.md`.
 - Git-ignored runtime signals and Verification Loop artifacts produced by the harness.
+- `tests/fixtures/live-model-evidence/latest.json` and the immutable successful
+  run `tests/fixtures/live-model-evidence/runs/20261016T193843Z-faa5f07d/`.
 
 ## Forbidden Change Areas
 
 - Frozen efficacy cases, signed reports, immutable history and detection thresholds.
-- Other code, global installations, external services, push/PR/release/deploy.
+- Other code, global installations, external services outside the authorized
+  PR #366 branch update, merge/release/deploy.
 - Historical signal outcomes and provenance; never rewrite them to obtain a pass.
 
 ## Review Rule

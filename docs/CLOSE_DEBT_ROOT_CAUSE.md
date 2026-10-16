@@ -61,3 +61,24 @@ definitions, signed reports, thresholds and immutable history remain unchanged.
 
 The added regression in `verify_function_anchor_matching` reproduces the miss
 before the repair and tests the positive anchor and negative boundaries.
+
+## PR #366 CI follow-up: stale live benchmark evidence
+
+Gate 1 ran `verify_live_model_benchmark.py --require-evidence --max-age-days 30`
+and reported 151 passed / 3 failed: the live run still bound the methodology
+tree from before the `itd_hygiene.py` repair. The quick suite had run this
+verifier without `--require-evidence`, so explicit close did not replay the
+strict evidence checks required by CI.
+
+The canonical live runner produced a real PASS at
+`20261016T193843Z-faa5f07d` using native WSL Codex 0.161.0. Its blueprint and
+separate Devil's Advocate phases both exited zero; the independent snapshot
+oracle and strict archived replay passed (154 passed / 0 failed). No source
+pins, immutable reports, runner behavior or oracle thresholds were rewritten.
+Earlier transport failures remain recoverable in ignored local diagnostics.
+
+The close verification contract now declares the same strict, 30-day evidence
+replay as CI as a separate bounded 180-second leg. A focused regression fails
+when that leg is absent and checks its argv, dependency bindings and parser.
+This closes the local-close/CI coverage gap without duplicating quick or
+relaxing live evidence requirements.

@@ -1864,7 +1864,8 @@
       "tests/verify_cross_platform_runtime.py"
     ],
     "tests/itd_benchmark_pin.py": [
-      "tests/verify_live_model_benchmark.py"
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_session_hygiene_quality.py"
     ],
     "tests/meta_review.py": [
       "tests/verify_hook_count_words.py",
@@ -2085,6 +2086,7 @@
     "tests/run-live-model-benchmark.py": [
       "tests/verify_live_model_benchmark.py",
       "tests/verify_operating_loops_release.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_tree_pin_debris.py"
     ],
     "tests/verification_loop_fixture.py": [
@@ -2216,6 +2218,7 @@
     "tests/verify_live_model_benchmark.py": [
       "tests/verify_installed_proof_head.py",
       "tests/verify_operating_loops_release.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_tree_pin_debris.py"
     ],
     "tests/verify_machine_oracle.py": [
@@ -2325,6 +2328,7 @@
       "tests/verify_endpoint_regex.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_runall_drift.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_targeted_regression.py"
     ],
     "tests/verify_state_hardening.py": [
