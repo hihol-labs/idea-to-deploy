@@ -5289,22 +5289,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "GATE-OPTIN-1",
-    "status": "in_progress",
-    "openedAt": "2026-10-16",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-16 ('делать А после релиза', 'старт GATE-OPTIN-1'): the global pre-push gate must protect only the repositories registered in the gate registry; an unregistered repository, a non-GitHub remote or a machine without a registry file pushes freely (the unregistered GitHub case with one advisory line), a registry file that exists but is unreadable still fails closed; `itd gate unregister` removes a registration; the five product repositories leave the registry and only hihol-labs/idea-to-deploy stays. Basis: in the 2026-10-14..16 session the gate held 6 of 7 pushes of this repository and was bypassed with --no-verify 3 of 3 times in product repositories, where ADR-012 leaves the heavy route as the only legal pass. Rollout after the merge (not an acceptance criterion - recorded in the ledger-close as closure evidence): reinstall the itd runtime on WSL and Windows from the merged head, back up gates.json on both hosts, `itd gate unregister` the product repositories (WSL: HiH-DimaN/hihol-landing, hihol-labs/neuroexpert, newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS; Windows: newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS), leaving only hihol-labs/idea-to-deploy; a push from an unregistered product checkout passes the installed hook with the advisory line.",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "security"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - GATE-OPTIN-1 closed 2026-10-16 (PR #364 -> 8618209c, rolled out on WSL and Windows, registries hold only hihol-labs/idea-to-deploy). ITD development stays paused by ADR-012; the next unit opens only on an owner decision."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5951,6 +5938,26 @@
       },
       "closedAt": "2026-10-16",
       "closureEvidence": "Merged as PR #362 -> cb5e098a0ef5360da292ce76dc9241dea3640ed4 (squash; tree 2085c8b34816 = the reviewed tree of 0cf7c53). Machine receipt REL-1.108.0 receipts/7013bad51b3e4c6a PASSED, 9 legs exit 0 (install-owned 44/0, hygiene-resolver, hooks-autoinstall, cold-start, runtime-install, release-contract, meta-review, live-evidence 154/0, guards). CI: Gate 1 meta-review pass, windows-verify pass. Independent review gpt-5.6-sol p1-p9 BLOCKED; every finding on shipped code fixed in the unit, the p9 fix (version-sorted Codex cache) verified by the machine oracles only; owner decisions 2026-10-15 (scope freeze, p9 last) and 2026-10-16 ('publish with disclosure'): pushed --no-verify, PR opened with gh, gate registry untouched - LOCAL_REVIEWED was NOT reached for this candidate. Release v1.108.0 on cb5e098a. Rollout 2026-10-16: itd runtime 1.108.0-1736c3994727aeb4 and pre-push reinstalled on WSL (/usr/bin/python3.12) and natively on Windows (C:\\itd-src at cb5e098a, dirty=0); plugin sources and ~/.claude synchronized from the merge tree on both hosts (deploy-main-1108.sh), Codex caches refreshed. Review efficacy oracle stays red on wsl/high-reconciliation-omission (disclosed; BACKLOG P2)."
+    },
+    {
+      "unitId": "GATE-OPTIN-1",
+      "status": "closed",
+      "openedAt": "2026-10-16",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-16 ('делать А после релиза', 'старт GATE-OPTIN-1'): the global pre-push gate must protect only the repositories registered in the gate registry; an unregistered repository, a non-GitHub remote or a machine without a registry file pushes freely (the unregistered GitHub case with one advisory line), a registry file that exists but is unreadable still fails closed; `itd gate unregister` removes a registration; the five product repositories leave the registry and only hihol-labs/idea-to-deploy stays. Basis: in the 2026-10-14..16 session the gate held 6 of 7 pushes of this repository and was bypassed with --no-verify 3 of 3 times in product repositories, where ADR-012 leaves the heavy route as the only legal pass. Rollout after the merge (not an acceptance criterion - recorded in the ledger-close as closure evidence): reinstall the itd runtime on WSL and Windows from the merged head, back up gates.json on both hosts, `itd gate unregister` the product repositories (WSL: HiH-DimaN/hihol-landing, hihol-labs/neuroexpert, newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS; Windows: newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS), leaving only hihol-labs/idea-to-deploy; a push from an unregistered product checkout passes the installed hook with the advisory line.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "security"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-16",
+      "closureEvidence": "Merged as PR #364 -> 8618209c075bfe2b0b1809ccfdf59edf7a9a9dd3 (squash; tree = the reviewed tree c0564abc2932 of 087babe). Published through the local-review route: machine receipt GATE-OPTIN-1 receipts/98729e645541f5d4 PASSED 7/7 legs, Sol p7 PASSED (p1/p2 UNVERIFIED on criterion statuses, p3-p6 BLOCKED on real hook defects fixed in the unit with RED/GREEN cases: UNAVAILABLE as absence, Path.exists on a dangling symlink, an advisory on a registry-less machine, a FIFO hanging the open, the stat/open race), chain check rc=0, register-profile medium, doctor LOCAL_REVIEWED, itd pr create (maker claude-fable-5-1); CI Gate 1 pass, windows-verify pass. Rollout 2026-10-16: itd runtime 1.108.0-4f366157b15923f1 and pre-push reinstalled on WSL and natively on Windows (C:\\itd-src at 8618209c, dirty=0); gates.json backed up on both hosts; unregistered on WSL HiH-DimaN/hihol-landing, hihol-labs/neuroexpert, newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS and on Windows newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS (via the runtime's itd.py: the itd.cmd wrapper fails on the Cyrillic profile path under cmd.exe, BACKLOG P3) - both registries hold only hihol-labs/idea-to-deploy. Installed hook dry-run on WSL: unregistered HiH-DimaN/hihol-landing main -> advisory line, exit 0; registered hihol-labs/idea-to-deploy topic -> BLOCKED (itd pr create). Four product pushes passed the installed hook with the advisory and without --no-verify: site fd615bc, portfolio-cases 15f7637, itd-graph-exp a4c0922, neuroexpert d3eef87 (R-10, updates draft PR hihol-labs/neuroexpert#8)."
     }
   ]
 }

@@ -5901,3 +5901,14 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   разбираются и валидируются ровно прочитанные байты (предел gate.MAX_HTTP_RESPONSE_BYTES, validate_registry);
   lstat по неразрешенному пути остается только для решения об отсутствии (ENOENT). По правилу владельца
   (REL-1.108.0): p7 - последний раунд юнита; BLOCKED не на реальном дефекте -> публикация с раскрытием по OK владельца.
+
+## 2026-10-16 - GATE-OPTIN-1 закрыт и раскатан
+- Почему: владелец «старт GATE-OPTIN-1», список реестра подтвержден («согласен с этим»).
+- Решение: PR #364 (087babe) смержен squash -> main 8618209c штатным маршрутом (machine 7/7, Sol p7 PASSED после фиксов p3-p6,
+  LOCAL_REVIEWED, itd pr create - без --no-verify). Раскатка: рантайм 1.108.0-4f366157b15923f1 и pre-push на WSL и
+  Windows; реестры с бэкапами, сняты 5 репо на WSL и 3 на Windows - в обоих остался только hihol-labs/idea-to-deploy;
+  хук вхолостую: незарегистрированный репо - напоминание и exit 0, методология - BLOCKED. Первые пуши через новый гейт
+  (site, portfolio-cases, itd-graph-exp, neuroexpert R-10) прошли без --no-verify. Followup -> closedFollowups, активного
+  юнита нет. Побочная находка: itd.cmd на Windows ломается на кириллическом пути профиля - BACKLOG P3, снятие
+  регистраций сделано через itd.py рантайма напрямую.
+- Ссылки: PR #364, ACCEPTANCE_CONTRACT closedFollowups GATE-OPTIN-1, BACKLOG (закрыто P1, новый P3).
