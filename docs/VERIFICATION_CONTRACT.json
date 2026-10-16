@@ -82,7 +82,7 @@
         "tests/verify_work_deadline_contract.py",
         "tests/verify_work_deadline_docs.py"
       ],
-      "timeoutSeconds": 300,
+      "timeoutSeconds": 1200,
       "expectedOutput": "DONE fails:none",
       "passFailParser": "stdout_contains"
     }

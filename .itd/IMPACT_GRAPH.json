@@ -2070,6 +2070,7 @@
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_stop_rule_closed_contract.py",
+      "tests/verify_strict_completion_policy.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_test_skill_rules.py",
       "tests/verify_tier_source.py",
@@ -2209,7 +2210,8 @@
       "tests/verify_route_debts.py"
     ],
     "tests/verify_itd_runtime_install.py": [
-      "tests/verify_route_debts.py"
+      "tests/verify_route_debts.py",
+      "tests/verify_session_hygiene_quality.py"
     ],
     "tests/verify_live_model_benchmark.py": [
       "tests/verify_installed_proof_head.py",
@@ -2255,6 +2257,7 @@
     ],
     "tests/verify_quick_regression.py": [
       "tests/verify_machine_oracle.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_targeted_regression.py"
     ],
     "tests/verify_registration_and_counts.py": [

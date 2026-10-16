@@ -896,6 +896,28 @@ def verify_function_anchor_matching(manifest: dict[str, Any]) -> None:
     misleading = {"diff": reconciliation["diff"].replace("'expense'", "'expense{function fake()'")}
     if not finding_matches_fault(closing, omission, misleading):
         raise AssertionError("string contents were interpreted as function structure")
+    named_omission = {
+        **closing, "line": 6,
+        "summary": "`displayedClosing` omits the supported fx_other consumption type.",
+    }
+    if not finding_matches_fault(named_omission, omission, reconciliation):
+        raise AssertionError("named omission on the immediately following blank line was missed")
+    for change in (
+        {"line": 7}, {"line": 8}, {"file": "other.ts"}, {"severity": "medium"},
+        {"summary": "fx_other is omitted."},
+        {"summary": "otherClosing omits fx_other."},
+        {"summary": "notdisplayedClosing omits fx_other."},
+        {"summary": "displayedClosingExtra omits fx_other."},
+        {"summary": "displayedClosing has an unrelated issue."},
+    ):
+        if finding_matches_fault({**named_omission, **change}, omission, reconciliation):
+            raise AssertionError("blank-line anchor granted unrelated or weak finding credit")
+    nonblank = {**reconciliation, "diff": reconciliation["diff"].replace("+}\n+\n", "+}\n+const other = 1;\n")}
+    if finding_matches_fault(named_omission, omission, nonblank):
+        raise AssertionError("named omission gained credit on a neighboring statement")
+    missing_blank = {**reconciliation, "diff": reconciliation["diff"].replace("+}\n+\n", "+}\n")}
+    if finding_matches_fault(named_omission, omission, missing_blank):
+        raise AssertionError("named omission gained credit without an observed blank line")
     print("PASS  containing-function anchors retain semantic detections without neighboring-function credit")
 
 
@@ -910,7 +932,7 @@ def category_agrees(finding: dict[str, Any], fault: dict[str, Any]) -> bool:
 
 
 def containing_function_anchor(finding: dict[str, Any], fault: dict[str, Any], case: dict[str, Any] | None) -> bool:
-    """Accept the immediate function declaration or adjacent closing brace."""
+    """Accept an immediate function boundary, or its explicitly named blank tail."""
     if case is None or type(finding.get("line")) is not int:
         return False
     lines: dict[int, str] = {}
@@ -924,9 +946,15 @@ def containing_function_anchor(finding: dict[str, Any], fault: dict[str, Any], c
             number += 1
     anchor = finding["line"]
     declaration_pattern = r"^\s*(?:export\s+)?(?:async\s+)?function\s+[A-Za-z_$][A-Za-z0-9_$]*\s*\("
+    named_blank_anchor = (
+        anchor == fault["lineEnd"] + 2
+        and anchor in lines and not lines[anchor].strip()
+        and lines.get(anchor - 1, "").strip() in {"}", "};"}
+    )
+    closing_line = anchor - 1 if named_blank_anchor else anchor
     closing_anchor = (
-        anchor == fault["lineEnd"] + 1
-        and lines.get(anchor, "").strip() in {"}", "};"}
+        closing_line == fault["lineEnd"] + 1
+        and lines.get(closing_line, "").strip() in {"}", "};"}
     )
     if closing_anchor:
         declarations = [
@@ -940,6 +968,13 @@ def containing_function_anchor(finding: dict[str, Any], fault: dict[str, Any], c
     function_word = r"\bfunction\b"
     if not re.match(declaration_pattern, declaration):
         return False
+    if named_blank_anchor:
+        name = re.search(r"\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)", declaration)
+        if name is None or not re.search(
+            r"(?<![A-Za-z0-9_$])" + re.escape(name[1].casefold()) + r"(?![A-Za-z0-9_$])",
+            normalized_summary(finding.get("summary")),
+        ):
+            return False
     depth = 0
     opened = False
     nested: dict[int, int] = {}
@@ -980,7 +1015,7 @@ def containing_function_anchor(finding: dict[str, Any], fault: dict[str, Any], c
                 if opened and depth == 0:
                     return (
                         anchor < fault["lineStart"] <= fault["lineEnd"] <= number
-                        and (not closing_anchor or number == finding["line"])
+                        and (not closing_anchor or number == closing_line)
                     )
     return False
 

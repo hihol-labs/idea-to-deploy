@@ -360,10 +360,14 @@ def signal_schema_error(row: dict, policy: dict) -> str:
     if layer in runtime_layers:
         if not str(row.get("command") or "").strip():
             return "runtime signal command is empty"
-        if not str(row.get("evidence") or "").strip():
-            return "runtime signal evidence is empty"
         if str(row.get("kind") or "") not in set(policy.get("runtimeKinds") or []):
             return "runtime signal kind is not approved"
+        # An unknown outcome may have no captured evidence (redirected output or
+        # a background run). It claims neither pass nor fail and is excluded by
+        # runtime_evidence_status, after schema/provenance validation (CLOSE-DEBT-1).
+        if str(row.get("outcome") or "").lower() != "unknown" \
+                and not str(row.get("evidence") or "").strip():
+            return "runtime signal evidence is empty"
     return ""
 
 
@@ -395,15 +399,20 @@ def read_strict_signals(cwd: Path, session_id: str, policy: dict) -> list:
 def runtime_evidence_status(signals: list, policy: dict) -> tuple[bool, str]:
     layers = {int(x) for x in (policy.get("runtimeLayers") or [2, 3])}
     relevant = []
+    unobserved = 0
     for row in signals:
         try:
             layer = int(row.get("layer", 0))
         except (TypeError, ValueError):
             continue
         if layer in layers:
+            if str(row.get("outcome") or "").lower() == "unknown":
+                unobserved += 1  # an unobserved run is neither proof nor failure
+                continue
             relevant.append(row)
     if not relevant:
-        return False, "required L2/L3 runtime signal is missing"
+        note = f" ({unobserved} unobserved runs are not evidence)" if unobserved else ""
+        return False, "required L2/L3 runtime signal is missing" + note
     outcomes = {str(row.get("outcome") or "").lower() for row in relevant}
     if not outcomes or "" in outcomes or outcomes - {"pass", "fail"}:
         return False, "runtime signal outcome is ambiguous"

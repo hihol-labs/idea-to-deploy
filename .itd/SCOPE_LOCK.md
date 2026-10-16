@@ -1,20 +1,30 @@
-# GATE-OPTIN-1 ledger-close
+# CLOSE-DEBT-1: explicit-close repair
 
 ## Current Task
 
-- GATE-OPTIN-1 ledger-close: record the merge of PR #364, the rollout on WSL and Windows (runtime, registries) and the
-  first pushes through the opt-in gate; close the followup.
+- Repair strict handling of unknown runtime signals, update the repository's
+  explicit-close budgets and quality freshness, and repair the signed efficacy
+  replay's named-function blank-line anchor. Obtain an exact-candidate acceptance
+  receipt, commit locally and run explicit close, as requested on 2026-10-16.
 
 ## Allowed Change Areas
 
-- `.itd/ACCEPTANCE_CONTRACT.json` - the followup moves to `closedFollowups`; `activeFollowup` becomes the closed-contract
-  record `{unitId: "", status: "none", note}`.
-- `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md` (this file), `BACKLOG.md` - records.
+- `hooks/completion-gate.sh`, `docs/templates/itd/itd_hygiene.py`.
+- `docs/SESSION_EXIT_CONTRACT.json`, `docs/VERIFICATION_CONTRACT.json`,
+  `docs/QUALITY.json`, `docs/completion-gate.md`, `docs/CLOSE_DEBT_ROOT_CAUSE.md`.
+- `tests/verify_strict_completion_policy.py`,
+  `tests/verify_session_hygiene_quality.py`, `tests/verify_independent_review_efficacy.py`.
+- `.itd/IMPACT_GRAPH.json`, `.itd/REVIEW_PROVIDER_FRESHNESS.json`, this scope and `CHANGELOG.md`.
+- Git-ignored runtime signals and Verification Loop artifacts produced by the harness.
 
 ## Forbidden Change Areas
 
-- `HANDOFF.md`; skills, hooks, agents, scripts, tests, live evidence and `.itd-memory/` ledgers.
+- Frozen efficacy cases, signed reports, immutable history and detection thresholds.
+- Other code, global installations, external services, push/PR/release/deploy.
+- Historical signal outcomes and provenance; never rewrite them to obtain a pass.
 
 ## Review Rule
 
-Records only; one general-review checker (gpt-5.6-sol) on the exact candidate, then `itd pr create`.
+High risk: isolated exact-tree machine evidence and one fresh gpt-5.6-terra
+checker for the observed gpt-6.1-sol maker, followed by adjudication and receipt
+revalidation. No long-running goal is opened; the prior followup remains closed.
