@@ -339,6 +339,42 @@ def _review_units(
         wrapper_bytes = 2 if layers == 1 else 6
         return len(encoded.encode("utf-8")) - wrapper_bytes
 
+    def fits(text: str) -> bool:
+        return (
+            len(text.encode("utf-8")) <= maximum
+            and provider_json_bytes(text) <= maximum
+            and provider_json_bytes(text, 2) <= maximum_provider_content
+        )
+
+    def bounded_lines(path: str, text: str):
+        for line in text.splitlines(keepends=True):
+            if fits(line):
+                yield line
+                continue
+            # Only strictly decoded transparent JSONL can carry an oversized
+            # record. Ordinary source lines retain their fail-closed boundary.
+            if not path.endswith(TRANSPARENT_JSONL_SUFFIX):
+                raise BrokerError(
+                    "UNVERIFIED", "canonical review diff line exceeds unit bound"
+                )
+            offset = 0
+            while offset < len(line):
+                low, high, best = 1, min(maximum, len(line) - offset), 0
+                # Slice Unicode characters, never UTF-8 bytes. The three
+                # encoded footprints are monotone, including escaped controls.
+                while low <= high:
+                    middle = (low + high) // 2
+                    if fits(line[offset:offset + middle]):
+                        best, low = middle, middle + 1
+                    else:
+                        high = middle - 1
+                if best == 0:
+                    raise BrokerError(
+                        "UNVERIFIED", "JSONL fragment cannot fit review bounds"
+                    )
+                yield line[offset:offset + best]
+                offset += best
+
     full_bytes = full_diff.encode("utf-8")
     if (
         len(full_bytes) <= maximum
@@ -383,7 +419,7 @@ def _review_units(
         current_bytes = 0
 
     for path, file_diff in file_chunks:
-        file_lines = file_diff.splitlines(keepends=True)
+        file_lines = list(bounded_lines(path, file_diff))
         file_bytes = len(file_diff.encode("utf-8"))
         if file_bytes <= maximum:
             if current_lines and current_bytes + file_bytes > maximum:
@@ -414,8 +450,9 @@ def _review_units(
     # Raw UTF-8 bytes are not the provider-request footprint: the prompt holds
     # a JSON string and the provider request serializes that prompt again.
     # Keep complete files together when both encoded layers fit. Otherwise,
-    # deterministically repack the already-scrubbed diff at UTF-8 line
-    # boundaries. _request still enforces the absolute request ceiling after
+    # deterministically repack the already-scrubbed diff, preferring full lines
+    # but permitting UTF-8 fragments of oversized transparent JSONL records.
+    # _request still enforces the absolute request ceiling after
     # the variable candidate binding and schema are added.
     if any(
         provider_json_bytes(text) > maximum
@@ -443,7 +480,7 @@ def _review_units(
             current_provider_json_bytes = 0
 
         for path, file_diff in file_chunks:
-            for line in file_diff.splitlines(keepends=True):
+            for line in bounded_lines(path, file_diff):
                 raw_bytes = len(line.encode("utf-8"))
                 json_bytes = provider_json_bytes(line)
                 provider_json_size = provider_json_bytes(line, 2)
@@ -522,7 +559,7 @@ def _review_units(
         "version": 1,
         "mode": "hierarchical",
         "algorithm":
-            "deterministic-complete-file-then-utf8-line-boundary",
+            "deterministic-complete-file-then-utf8-line-jsonl-fragment-v2",
         "fullDiffSha256": sha256_bytes(full_bytes),
         "fullDiffBytes": len(full_bytes),
         "unitCount": len(units),
@@ -1321,7 +1358,10 @@ class ReviewerAdapter:
                 "a count above one proves that the remaining exact adjacent "
                 "segments are separately bound and reviewed. A full-file hunk "
                 "header may therefore span segments and does not declare that "
-                "this one unit contains the whole file. The "
+                "this one unit contains the whole file. An oversized declared "
+                "JSONL line may span UTF-8-safe segments inside the line; a "
+                "segment endpoint is a transport cut, not candidate EOF or "
+                "proof of a malformed record. The "
                 "downstream Verification Loop receipt for "
                 "this semantic check is created only after the immutable "
                 "review completes and cannot be embedded in the candidate; "

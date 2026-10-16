@@ -479,7 +479,7 @@
     "maxReviewUnits": 16,
     "hierarchicalReview": {
       "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
-      "partition": "deterministic-complete-file-then-utf8-line-boundary",
+      "partition": "deterministic-complete-file-then-utf8-line-jsonl-fragment-v2",
       "fullDiffScrubbedBeforePartition": true,
       "reviewPlanBoundByCandidateManifest": true,
       "allUnitsRequiredForSuccess": true,

@@ -1271,6 +1271,72 @@ def candidate_phase() -> None:
     )
 
 
+def oversized_jsonl_phase() -> None:
+    policy = broker.load_policy()
+    path = "evidence/transcript.jsonl.gz"
+    payloads = (
+        "x" * 126130,
+        "Ж🙂\\\"\t" * 5000,
+        "\\" * 21000,
+    )
+    for payload in payloads:
+        logical = (json.dumps({"output": payload}, ensure_ascii=False,
+                              separators=(",", ":")) + "\n").encode("utf-8")
+        compressed = gzip.compress(logical, mtime=0)
+        decoded, binding = broker._review_blob(path, compressed, policy)
+        full, line_bounds, chunks = broker._canonical_diff(
+            {path: {"previousPath": None, "status": "added"}},
+            {path: (b"", decoded)},
+        )
+        plan_text, units = broker._review_units(full, chunks, policy)
+        plan = json.loads(plan_text)
+        encoded = full.encode("utf-8")
+        check(
+            decoded == logical and binding == {
+                "encoding": "gzip-jsonl-utf8-v1",
+                "sha256": broker.sha256_bytes(logical), "bytes": len(logical),
+            } and line_bounds[path] == 1,
+            "oversized JSONL keeps the original decoded bytes, hash and line count",
+        )
+        check(
+            1 < len(units) <= policy["candidate"]["maxReviewUnits"]
+            and b"".join(unit.review_diff.encode("utf-8") for unit in units) == encoded
+            and plan["fullDiffSha256"] == broker.sha256_bytes(encoded)
+            and any(not unit.review_diff.endswith("\n") for unit in units[:-1]),
+            "oversized JSONL fragments reassemble the complete unmodified diff",
+        )
+        for index, unit in enumerate(units, start=1):
+            raw = unit.review_diff.encode("utf-8")
+            manifest = unit.manifest
+            once = json.dumps(unit.review_diff, ensure_ascii=False)
+            twice = json.dumps(once, ensure_ascii=False)
+            check(
+                raw == encoded[manifest["reviewDiffStartByte"]:
+                               manifest["reviewDiffEndByteExclusive"]]
+                and manifest["reviewDiffSha256"] == broker.sha256_bytes(raw)
+                and manifest["pathSegments"][path] == {"index": index, "count": len(units)}
+                and len(raw) <= policy["candidate"]["maxRawDiffBytes"]
+                and len(once.encode("utf-8")) - 2 <= policy["candidate"]["maxRawDiffBytes"]
+                and len(twice.encode("utf-8")) - 6 <= (
+                    policy["candidate"]["maxProviderRequestBytes"]
+                    - broker.HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+                ),
+                "each JSONL fragment is UTF-8-safe, hash-bound and double-JSON bounded",
+            )
+        for ordinary_path in ("evidence/transcript.jsonl", "source.txt"):
+            expect_error(
+                "UNVERIFIED",
+                lambda: broker._review_units(full, [(ordinary_path, full)], policy),
+                "ordinary over-bound lines remain rejected",
+            )
+        limited = copy.deepcopy(policy)
+        limited["candidate"]["maxReviewUnits"] = 1
+        expect_error(
+            "UNVERIFIED", lambda: broker._review_units(full, chunks, limited),
+            "fragmentation cannot bypass the review-unit count limit",
+        )
+
+
 class StaticResponse:
     def __init__(self, value: dict[str, Any]) -> None:
         self.raw = broker.canonical_json(value)
@@ -3110,6 +3176,7 @@ def main() -> int:
         policy_phase()
     if args.phase in {"all", "candidate"}:
         candidate_phase()
+        oversized_jsonl_phase()
     if args.phase in {"all", "adapter"}:
         adapter_phase()
     if args.phase in {"all", "process"}:

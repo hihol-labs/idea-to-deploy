@@ -10,6 +10,10 @@
   include CI's strict evidence replay in explicit close, reaccept the exact
   candidate, commit, push `fix/close-debt` and bring the PR's CI to green, as
   explicitly authorized by the owner. Do not merge or release.
+- Owner approval on 2026-10-17 extends this follow-up to the canonical review
+  transport's oversized-JSONL-line repair. Independently review the small repair
+  with the existing trusted producer before using an exact reviewed temporary
+  authority snapshot for the complete PR. Global installations remain unchanged.
 
 ## Allowed Change Areas
 
@@ -22,6 +26,13 @@
 - Git-ignored runtime signals and Verification Loop artifacts produced by the harness.
 - `tests/fixtures/live-model-evidence/latest.json` and the immutable successful
   run `tests/fixtures/live-model-evidence/runs/20261016T193843Z-faa5f07d/`.
+- `skills/_shared/itd_review_broker.py`, `skills/_shared/itd_free_reviewer_producer.py`,
+  `skills/_shared/itd_review_broker_primitives.py`,
+  `skills/_shared/REVIEW_BROKER_POLICY.json`,
+  `skills/_shared/REVIEW_BROKER_POLICY.schema.json`,
+  `tests/verify_review_broker.py`, `tests/verify_review_broker_policy.py`,
+  `tests/verify_free_reviewer_producer.py`,
+  `docs/adr/ADR-004-mandatory-keyless-review-route.md`.
 
 ## Forbidden Change Areas
 

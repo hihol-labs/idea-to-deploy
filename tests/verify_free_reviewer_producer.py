@@ -555,6 +555,11 @@ def main() -> int:
             .encode("utf-8") + b"\n"
             for index in range(5000)
         )
+        # One real CLI event can be longer than an empty review unit. Exercise
+        # UTF-8 and both JSON escaping layers through the complete producer route.
+        large_jsonl += (json.dumps({
+            "event": "oversized", "payload": "Ж🙂\\\"\t" * 10000,
+        }, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
         (large_repo / "review.jsonl.gz").write_bytes(
             gzip.compress(large_jsonl, mtime=0)
         )
@@ -579,6 +584,29 @@ def main() -> int:
             and 1 < plan["unitCount"] <= 16,
             "oversized keyless packet did not select the bounded review plan",
         )
+        continuation_units = [
+            ({"paths": ["review.jsonl.gz"], "pathSegments": {
+                "review.jsonl.gz": {"index": 1, "count": 2},
+            }}, 'diff --git a/review.jsonl.gz b/review.jsonl.gz\n+{"output":"prefix '),
+            ({"paths": ["review.jsonl.gz"], "pathSegments": {
+                "review.jsonl.gz": {"index": 2, "count": 2},
+            }}, 'diff --git a/phantom.txt b/phantom.txt"}\n'),
+        ]
+        check(
+            producer._check_unit_paths_against_headers(continuation_units) is None,
+            "a JSONL continuation is mistaken for a new diff header",
+        )
+        forged_continuation = copy.deepcopy(continuation_units)
+        forged_continuation[1][0]["paths"].append("phantom.txt")
+        forged_continuation[1][0]["pathSegments"]["phantom.txt"] = {
+            "index": 1, "count": 1,
+        }
+        try:
+            producer._check_unit_paths_against_headers(forged_continuation)
+        except producer.FreeReviewError as exc:
+            check(exc.status == "UNVERIFIED", "forged continuation path failed with wrong status")
+        else:
+            raise AssertionError("header-looking JSONL content can forge the unit path inventory")
         observed_prompts = []
 
         def fake_packet_runner(prompt_text, report_schema, report_parser):

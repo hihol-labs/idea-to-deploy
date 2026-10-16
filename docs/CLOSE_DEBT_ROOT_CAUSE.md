@@ -82,3 +82,29 @@ replay as CI as a separate bounded 180-second leg. A focused regression fails
 when that leg is absent and checks its argv, dependency bindings and parser.
 This closes the local-close/CI coverage gap without duplicating quick or
 relaxing live evidence requirements.
+
+## Review transport follow-up: one oversized JSONL event
+
+The complete, sanitized successful transcript contains 59 JSONL events. Event
+15 (`item.completed`, `command_execution`) occupies 126130 UTF-8 bytes on one
+line. The canonical planner accepts at most 80000 bytes per review unit and
+only splits complete lines, so it returns `UNVERIFIED` before model dispatch.
+The exact committed-head machine receipt for `cf6aba4` passes all six legs;
+this failure is in review transport, not the live evidence or product oracle.
+
+The bounded repair keeps complete files and lines together whenever they fit.
+Only declared transparent `.jsonl.gz` data may split an otherwise oversized
+line into UTF-8-safe fragments. Existing raw, JSON-encoded, provider-request,
+aggregate and unit-count limits remain enforced; original gzip bytes, decoded
+JSONL, source pins and hashes remain unchanged. Byte ranges and full ordered
+reconstruction bind every fragment. Ordinary over-bound source lines still
+fail closed. The partition identifier and reviewer boundary instructions must
+describe this behavior explicitly.
+
+Regression coverage must include raw-over-bound, Unicode/escape-heavy and
+encoded-only oversized records, exact reassembly and serialized request limits.
+The existing producer end-to-end fixture must review every fragment and final
+integration, retaining its tamper, malformed-data and negative-verdict guards.
+The owner explicitly authorized a temporary, independently reviewed authority
+snapshot for this repair; do not mutate the global installed producer or use
+unreviewed candidate code as its own review authority.

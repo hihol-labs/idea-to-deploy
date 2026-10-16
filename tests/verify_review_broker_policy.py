@@ -477,7 +477,7 @@ def main() -> int:
         == {
             "activation": "canonical-diff-bytes-gt-maxRawDiffBytes",
             "partition":
-                "deterministic-complete-file-then-utf8-line-boundary",
+                "deterministic-complete-file-then-utf8-line-jsonl-fragment-v2",
             "fullDiffScrubbedBeforePartition": True,
             "reviewPlanBoundByCandidateManifest": True,
             "allUnitsRequiredForSuccess": True,
