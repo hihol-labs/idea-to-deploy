@@ -5255,23 +5255,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.108.0",
-    "status": "in_progress",
-    "openedAt": "2026-10-15",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-15 ('да, делай юнит и релиз, мержи когда CI зеленый'): make the methodology effective for every project on the machine and for GitHub users - code and rules live in the installation, a project holds only its data and a pointer (INSTALL-OWNED-1, ADR-015) - and ship it with #358-#360 as release 1.108.0.",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "host-parity",
-        "repository-hygiene"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - REL-1.108.0 closed 2026-10-16 (PR #362 -> cb5e098a, release v1.108.0, rolled out on WSL and Windows). Next unit by owner decision 2026-10-16: GATE-OPTIN-1 (the pre-push gate blocks only registered repositories; see BACKLOG P1). ITD development otherwise stays paused by ADR-012."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -5897,6 +5883,27 @@
       },
       "closedAt": "2026-10-15",
       "closureEvidence": "Merged as PR #360 -> cc298fb (squash; tree c3387d38 = the reviewed tree of 43cc690). Machine receipt PRODUCER-FALLBACK-LEDGER-1 3/3 legs exit 0 (meta-review, producer 316 checks, related: verify_review_broker 836, verify_verification_loop 121/0, verify_external_reviewer_release); gpt-5.6-sol p1 PASSED; adjudication a1; gate doctor LOCAL_REVIEWED; CI Gate 1 and windows-verify pass. Rollout 2026-10-15: sync-to-active into ~/.claude on WSL and Windows (installed producer byte-identical to cc298fb on both), itd CLI and pre-push reinstalled on both hosts - runtime 1.107.0-0c6d4cc07440a40c with the fixed producer; gate doctor LOCAL_REVIEWED on the new runtime."
+    },
+    {
+      "unitId": "REL-1.108.0",
+      "status": "closed",
+      "openedAt": "2026-10-15",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-15 ('да, делай юнит и релиз, мержи когда CI зеленый'): make the methodology effective for every project on the machine and for GitHub users - code and rules live in the installation, a project holds only its data and a pointer (INSTALL-OWNED-1, ADR-015) - and ship it with #358-#360 as release 1.108.0.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-16",
+      "closureEvidence": "Merged as PR #362 -> cb5e098a0ef5360da292ce76dc9241dea3640ed4 (squash; tree 2085c8b34816 = the reviewed tree of 0cf7c53). Machine receipt REL-1.108.0 receipts/7013bad51b3e4c6a PASSED, 9 legs exit 0 (install-owned 44/0, hygiene-resolver, hooks-autoinstall, cold-start, runtime-install, release-contract, meta-review, live-evidence 154/0, guards). CI: Gate 1 meta-review pass, windows-verify pass. Independent review gpt-5.6-sol p1-p9 BLOCKED; every finding on shipped code fixed in the unit, the p9 fix (version-sorted Codex cache) verified by the machine oracles only; owner decisions 2026-10-15 (scope freeze, p9 last) and 2026-10-16 ('publish with disclosure'): pushed --no-verify, PR opened with gh, gate registry untouched - LOCAL_REVIEWED was NOT reached for this candidate. Release v1.108.0 on cb5e098a. Rollout 2026-10-16: itd runtime 1.108.0-1736c3994727aeb4 and pre-push reinstalled on WSL (/usr/bin/python3.12) and natively on Windows (C:\\itd-src at cb5e098a, dirty=0); plugin sources and ~/.claude synchronized from the merge tree on both hosts (deploy-main-1108.sh), Codex caches refreshed. Review efficacy oracle stays red on wsl/high-reconciliation-omission (disclosed; BACKLOG P2)."
     }
   ]
 }
