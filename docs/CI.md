@@ -197,6 +197,12 @@ itd gate register-profile \
 itd gate doctor --repository <owner/repository>
 ```
 
+Only registered repositories are gated: an unregistered GitHub repository, a
+non-GitHub remote or a machine without `gates.json` pushes freely (the
+unregistered GitHub case with one advisory line); `itd gate unregister
+--repository <owner/repository>` opts a repository back out. An unreadable
+registry file still blocks (GATE-OPTIN-1).
+
 The expected claim is `LOCAL_REVIEWED`, never `PROTECTED`. This portable route
 does not require an adoption verification contract: its guarded push validates
 the current exact independent adjudication instead of running an

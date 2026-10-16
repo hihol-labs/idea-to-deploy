@@ -510,6 +510,26 @@ def register_profile_entry(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def unregister_entry(args: argparse.Namespace) -> dict[str, Any]:
+    """Remove one repository from the gate registry (GATE-OPTIN-1: an unregistered repository pushes freely)."""
+    path = args.registry.resolve() if args.registry else gate.registry_path()
+    current = gate.load_registry(path)
+    repository = str(args.repository)
+    rows = [
+        row for row in current["repositories"]
+        if row["repository"].casefold() != repository.casefold()
+    ]
+    if len(rows) == len(current["repositories"]):
+        raise gate.GateError("UNVERIFIED", f"repository is not registered: {repository}")
+    target = save_registry({"version": current["version"], "repositories": rows}, path)
+    return {
+        "status": "UNREGISTERED",
+        "repository": repository,
+        "remaining": sorted(row["repository"] for row in rows),
+        "registry": str(target),
+    }
+
+
 def adopt_gate(args: argparse.Namespace) -> dict[str, Any]:
     root = args.root.resolve()
     if not root.is_dir():
@@ -2008,6 +2028,11 @@ def parser() -> argparse.ArgumentParser:
     profile.add_argument("--enrollment-receipt-sha256")
     profile.add_argument("--registry", type=Path)
     profile.set_defaults(handler=register_profile_entry)
+
+    unregister = gate_sub.add_parser("unregister")
+    unregister.add_argument("--repository", required=True)
+    unregister.add_argument("--registry", type=Path)
+    unregister.set_defaults(handler=unregister_entry)
 
     adopt = gate_sub.add_parser("adopt")
     adopt.add_argument("--root", type=Path, default=Path.cwd())

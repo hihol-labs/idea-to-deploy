@@ -394,6 +394,45 @@ def main() -> int:
             "local profile docs preserve review across exactly one commit",
         )
 
+    # GATE-OPTIN-1: `itd gate unregister` removes exactly one row of a v1 or v2 registry.
+    with tempfile.TemporaryDirectory(prefix="itd-unregister-") as raw:
+        root = Path(raw).resolve()
+        registry_path = root / "gates.json"
+        second = dict(local_profile(root)["repositories"][0])
+        second["repository"] = "other/second"
+        cli.save_registry({"version": 2, "repositories": [local_profile(root)["repositories"][0], second]},
+                          registry_path)
+        outcome = cli.unregister_entry(SimpleNamespace(repository="OTHER/Second", registry=registry_path))
+        reloaded = gate.load_registry(registry_path)
+        check(
+            outcome["status"] == "UNREGISTERED" and outcome["remaining"] == [REPOSITORY]
+            and reloaded["version"] == 2
+            and [row["repository"] for row in reloaded["repositories"]] == [REPOSITORY],
+            "unregister removes exactly the named row (case-insensitive) and keeps the v2 registry valid",
+        )
+        rejects(
+            "UNVERIFIED",
+            lambda: cli.unregister_entry(SimpleNamespace(repository="other/second", registry=registry_path)),
+            "unregistering an unknown repository is a typed refusal, not a silent success",
+        )
+        check(
+            [row["repository"] for row in gate.load_registry(registry_path)["repositories"]] == [REPOSITORY],
+            "a refused unregister leaves the registry unchanged",
+        )
+        cli.unregister_entry(SimpleNamespace(repository=REPOSITORY, registry=registry_path))
+        emptied = gate.load_registry(registry_path)
+        check(
+            emptied["version"] == 2 and emptied["repositories"] == [],
+            "unregistering the last row leaves an empty, still valid v2 registry",
+        )
+        legacy_path = root / "legacy.json"
+        cli.save_registry(legacy(root), legacy_path)
+        cli.unregister_entry(SimpleNamespace(repository=REPOSITORY, registry=legacy_path))
+        check(
+            gate.load_registry(legacy_path) == {"version": 1, "repositories": []},
+            "unregister works on a v1 registry and never changes its version",
+        )
+
     print(json.dumps({"checks": CHECKS, "status": "PASSED"}, sort_keys=True))
     return 0
 

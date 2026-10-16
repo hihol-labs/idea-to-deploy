@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -225,6 +226,78 @@ def machine_evidence_binding(value: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def configured_registry_path() -> Path:
+    """The registry path as configured, WITHOUT resolving symlinks.
+
+    gate.registry_path() resolves the path, so a dangling symlink there would resolve to its missing target
+    and look absent. Absence must be judged on the entry the owner configured; the same default as
+    gate.live_default_registry_path(), unresolved.
+    """
+    configured = os.environ.get("ITD_GATE_REGISTRY")
+    if configured:
+        return Path(configured).expanduser()
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local")))
+        return base / "ITD" / "gates.json"
+    return Path.home() / ".config" / "itd" / "gates.json"
+
+
+def read_registry_file(configured: Path) -> dict[str, Any]:
+    """Open the registry ONCE, non-blocking, and validate the opened descriptor, not the path.
+
+    A type check on the path and a later open are two operations: between them the entry can be swapped (a
+    FIFO would hang the open, a redirect would validate different bytes than those loaded). Here the only open
+    is non-blocking, the regular-file requirement is checked with fstat on that descriptor, and exactly the
+    bytes read from it are parsed and validated. A missing target (a dangling symlink) is not absence.
+    """
+    flags = (
+        os.O_RDONLY
+        | int(getattr(os, "O_NONBLOCK", 0))
+        | int(getattr(os, "O_NOCTTY", 0))
+        | int(getattr(os, "O_BINARY", 0))
+    )
+    try:
+        descriptor = os.open(configured, flags)
+    except OSError as exc:
+        raise PushBlocked(
+            "the ITD gate registry exists but cannot be opened; repair it before pushing"
+        ) from exc
+    limit = gate.MAX_HTTP_RESPONSE_BYTES
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise PushBlocked(
+                "the ITD gate registry path is not a regular file; repair it before pushing"
+            )
+        chunks: list[bytes] = []
+        remaining = limit + 1
+        while remaining > 0:
+            try:
+                chunk = os.read(descriptor, remaining)
+            except OSError as exc:
+                raise PushBlocked(
+                    "the ITD gate registry cannot be read; repair it before pushing"
+                ) from exc
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+    finally:
+        os.close(descriptor)
+    raw = b"".join(chunks)
+    if not raw or len(raw) > limit:
+        raise PushBlocked("the ITD gate registry size is invalid; repair it before pushing")
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise PushBlocked("the ITD gate registry JSON is invalid; repair it before pushing") from exc
+    try:
+        return gate.validate_registry(value)
+    except gate.GateError as exc:
+        raise PushBlocked(
+            "the ITD gate registry exists but is not a valid registry; repair it before pushing"
+        ) from exc
+
+
 def enforce(
     remote_url: str,
     raw_updates: bytes,
@@ -234,6 +307,40 @@ def enforce(
     root: Path | None = None,
 ) -> None:
     updates = parse_updates(raw_updates)
+    # GATE-OPTIN-1: the gate protects the repositories REGISTERED in gates.json (`itd gate register-profile`).
+    # A non-GitHub remote and a machine with no registry at all push freely and silently; a GitHub repository
+    # missing from an existing registry pushes freely with one advisory line on stderr. A registry path that
+    # exists but cannot be read still fails closed: it may hide registrations.
+    try:
+        repository = gate.github_repository_from_remote(remote_url)
+    except gate.GateError:
+        return
+    if registry is None:
+        # Absence means exactly ENOENT from lstat: no entry at the registry path at all (a fresh machine) -
+        # nothing to protect, nothing to say. Any other entry or outcome - a directory, a dangling symlink, a
+        # denied stat or read, invalid content - may hide registrations and fails closed.
+        configured = configured_registry_path()
+        try:
+            os.lstat(configured)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise PushBlocked(
+                "the ITD gate registry path cannot be inspected; repair it before pushing"
+            ) from exc
+        registry = read_registry_file(configured)
+    matches = [
+        row
+        for row in registry["repositories"]
+        if row["repository"].casefold() == repository.casefold()
+    ]
+    if not matches:
+        print(
+            f"ITD: {repository} is not registered in the ITD gate - pushing without "
+            "local review (register it with `itd gate register-profile` to require one).",
+            file=sys.stderr,
+        )
+        return
     protected = [
         row["remoteRef"] for row in updates if protected_ref(row["remoteRef"])
     ]
@@ -241,26 +348,6 @@ def enforce(
         raise PushBlocked(
             "direct push to protected branch is forbidden: "
             + ", ".join(sorted(protected))
-        )
-    try:
-        repository = gate.github_repository_from_remote(remote_url)
-    except gate.GateError:
-        return
-    if registry is None:
-        try:
-            registry = gate.load_registry()
-        except gate.GateError as exc:
-            raise PushBlocked(
-                "GitHub pushes require an available ITD gate registry"
-            ) from exc
-    matches = [
-        row
-        for row in registry["repositories"]
-        if row["repository"].casefold() == repository.casefold()
-    ]
-    if not matches:
-        raise PushBlocked(
-            "GitHub repository is not registered in the ITD gate"
         )
     environment = environment if environment is not None else os.environ
     if environment.get("ITD_GUARDED_PR_PUSH") != "1":
