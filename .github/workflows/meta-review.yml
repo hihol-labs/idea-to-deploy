@@ -127,6 +127,7 @@ jobs:
       - name: Prove cold-start adoption and operational-friction contracts
         run: |
           python3 tests/verify_operational_cold_start.py
+          python3 tests/verify_install_owned_tools.py
           python3 tests/verify_operational_continuation.py
           python3 tests/verify_bypass_friction.py
 

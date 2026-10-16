@@ -51,6 +51,12 @@ try:  # legacy-консоль Windows (cp866/cp1252) не должна роня�
 except Exception:
     pass
 
+# The .itd tools run from this hook's own installation (Claude: ~/.claude, Codex: the plugin root),
+# never from a project copy (INSTALL-OWNED-1). The hook always runs as a script file - by its shebang
+# (Claude), as `python <file>` (sync-to-active on Windows) or `[sys.executable, script]` (codex-dispatch.py);
+# stdin carries only the JSON payload, so __file__ is the installed hook.
+_TOOL_HELPER = Path(__file__).resolve().parent.parent / "skills" / "_shared" / "itd_tool.sh"
+
 GIT_TIMEOUT_SEC = 2
 LOCK_FRESH_SECONDS = 600  # 10 minutes
 MEMORY_INDEX_MAX_LINES = 30
@@ -443,7 +449,7 @@ def _unfilled_contracts(itd_dir: Path) -> list[str]:
 def itd_contract_drift_context(cwd: Path) -> str:
     """v1.65.0: advisory-детектор дрейфа производных .itd/*.md от CLAUDE.md.
 
-    Логика зеркалит .itd/check_contract_drift.py, но реализована ИНЛАЙН —
+    Логика зеркалит check_contract_drift.py (установка, docs/templates/itd), но реализована ИНЛАЙН —
     user-level хук не исполняет код из проектной директории (данные читаем,
     код не запускаем). Маркер «снапшот @ <sha>» в доке сравнивается с последним
     коммитом, тронувшим CLAUDE.md. Advisory-only, rate-limited, любая ошибка
@@ -509,7 +515,7 @@ def itd_contract_drift_context(cwd: Path) -> str:
         parts.append(
             f"⚠️ **Дрейф .itd-контрактов**: {', '.join(drift[:6])} — CLAUDE.md ушёл вперёд "
             f"(@ {current}) с момента снапшота. Пересверь и обнови маркер «снапшот @ <sha>» "
-            f"(детали: `python .itd/check_contract_drift.py`)."
+            f"(детали: `sh \"{_TOOL_HELPER}\" check_contract_drift.py --root .`)."
             + (f" Без маркера: {unmarked}." if unmarked else "")
         )
     if unfilled:
@@ -517,7 +523,7 @@ def itd_contract_drift_context(cwd: Path) -> str:
             f"⚠️ **Контракты-декорации**: {', '.join(unfilled[:4])} — шаблон с "
             "плейсхолдерами не является связывающим контрактом; гейты, которые его "
             "читают (/review Stage A, wip-gate), работают вслепую. Заполни при "
-            "первом касании (детали: `python .itd/check_contract_drift.py --filled`)."
+            f"первом касании (детали: `sh \"{_TOOL_HELPER}\" check_contract_drift.py --root . --filled`)."
         )
     return "\n\n".join(parts)
 

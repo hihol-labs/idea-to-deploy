@@ -78,7 +78,7 @@ background agents, transcript search). Standing rule for ALL of them:
 - Осознанный обход: `COMPLETION_BYPASS: <причина>` в description коммит-вызова;
   причина обязательна и записывается в `.itd-memory/events.jsonl`.
 - **Явное закрытие сессии:** `/session-save --close` запускает
-  `.itd/itd_hygiene.py close`; session closed только когда strict runtime
+  `itd_hygiene.py close` из установки; session closed только когда strict runtime
   evidence (если применимо), verification И clean state зелёные. Красный close
   сохраняет checkpoint, но оставляет сессию
   открытой с WHY+FIX. Обычный Stop остаётся soft — конец хода не равен концу

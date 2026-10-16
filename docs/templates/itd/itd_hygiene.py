@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Vendor-neutral session hygiene, quality, and harness-ablation runner.
 
-The script is copied into adopted projects as ``.itd/itd_hygiene.py``.  It is
+The script runs from the Idea to Deploy installation through
+``skills/_shared/itd_tool.sh`` (older adoptions copied it into ``.itd/``).  It is
 an explicit boundary, not a Stop hook: ordinary turns stay soft, while
 ``close`` returns non-zero unless verification AND clean-state checks pass.
 

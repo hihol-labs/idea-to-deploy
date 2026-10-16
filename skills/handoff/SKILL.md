@@ -125,16 +125,17 @@ callouts `> [!todo]` для первого действия и `> [!warning]` д
 `HANDOFF.md`. Если ведётся долгая цель (`/goal`) — актуализируй статусы юнитов
 в `.itd-memory/GOAL.json` (схема: `docs/templates/itd-memory/goal.schema.json`),
 чтобы получатель продолжил с первого не-verified юнита. Если в проекте есть
-`.itd/itd_progress.py` — перегенерируй glance-вью (best-effort, при ошибке не
-блокируй) → `.itd-memory/PROGRESS.md` (v1.70.0). На Windows `python3` может
-быть Store-заглушкой (см. валидацию интерпретатора в `sync-to-active.sh`) —
-поэтому с фолбэком (v1.71.1):
+`.itd-memory/` — перегенерируй glance-вью инструментом из установки (best-effort,
+при ошибке не блокируй) → `.itd-memory/PROGRESS.md` (v1.70.0; INSTALL-OWNED-1:
+копия в `.itd/` проекта не используется, интерпретатор выбирает `itd_py.sh`):
 
 ```bash
-python3 .itd/itd_progress.py 2>/dev/null || python .itd/itd_progress.py 2>/dev/null || py -3 .itd/itd_progress.py 2>/dev/null || true  # win-ok: цепочка включает py -3
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+sh "$T/itd_tool.sh" itd_progress.py 2>/dev/null || true  # win-ok: itd_py.sh выбирает интерпретатор сам
 ```
 
-Если ни один интерпретатор не сработал — шаг тихо пропускается (вью derived,
+Нет установки или интерпретатора — шаг тихо пропускается (вью derived,
 канон не страдает); при желании задай `ITD_WIN_PYTHON` и вызови им напрямую.
 Для публикации пакета в Obsidian-vault — `/obsidian-export`
 (если подключён).

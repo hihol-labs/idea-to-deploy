@@ -22,6 +22,9 @@ from pathlib import Path, PurePosixPath
 
 
 MARKER = "<!-- idea-to-deploy:begin codex-v1 -->"
+# Any idea-to-deploy block (an older version included) means the guidance entry is already there
+# (INSTALL-OWNED-1): re-adoption never stacks a second block.
+ANY_MARKER = "<!-- idea-to-deploy:begin "
 FAIL_CLOSED = (
     "Not supplied during adoption; fail closed and ask the project owner "
     "before relying on this field."
@@ -136,7 +139,7 @@ def plan(root: Path, plugin_root: Path, args: argparse.Namespace) -> dict:
     agents = root / "AGENTS.md"
     if not agents.exists():
         agents_action = "create"
-    elif MARKER in agents.read_text(encoding="utf-8", errors="replace"):
+    elif ANY_MARKER in agents.read_text(encoding="utf-8", errors="replace"):
         agents_action = "skip-marker-present"
     else:
         agents_action = "append-guarded-block"
@@ -174,7 +177,7 @@ def guidance_entry(root: Path, plugin_root: Path) -> str:
         target.write_text(block, encoding="utf-8")
         return "created"
     existing = target.read_text(encoding="utf-8")
-    if MARKER in existing:
+    if ANY_MARKER in existing:
         return "unchanged"
     separator = "" if not existing or existing.endswith("\n\n") else ("\n" if existing.endswith("\n") else "\n\n")
     target.write_text(existing + separator + block, encoding="utf-8")
@@ -207,7 +210,9 @@ def scaffold_contracts(root: Path, plugin_root: Path, args: argparse.Namespace,
     if itd.exists():
         return "unchanged"
     source = plugin_root / "docs" / "templates" / "itd"
-    shutil.copytree(source, itd)
+    # Contracts only: the .py tools run from the installation (skills/_shared/itd_tool.sh), so a
+    # project never freezes an old copy of them (INSTALL-OWNED-1).
+    shutil.copytree(source, itd, ignore=shutil.ignore_patterns("*.py", "__pycache__"))
 
     (itd / "SCOPE_LOCK.md").write_text(
         "# Scope Lock\n\n"

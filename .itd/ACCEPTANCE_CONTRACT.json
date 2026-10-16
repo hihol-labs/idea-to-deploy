@@ -5165,6 +5165,78 @@
         ]
       },
       "evidence": "Exact-candidate machine oracles must pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.108.0-AC1",
+      "unitId": "REL-1.108.0",
+      "status": "passed",
+      "criterion": "skills/_shared/itd_tool.sh runs the .itd tools from the installation in the order ITD_TEMPLATES_DIR, the source next to the helper, ~/.claude/templates/itd, and a legacy project copy only when nothing is installed (with a warning, disclosed in README); unknown tools are refused; check_contract_drift.py takes --root; nothing shipped (skills, hooks, agents, scripts, the whole docs tree with templates, plugin manifests, README) names a project copy .itd/<tool>.py or .itd/$var in any spelling except that fallback, and the opt-in CI hygiene template runs the tool from a pinned release clone; every hint names the helper host-neutrally (the pre-flight hook prints the path of its own installation, proven by running a copy of the hook from a separate installation); every itd_tool.sh invocation in any shipped file - in any shell form (sh, bash, command, a continuation line, a path kept in a variable) - takes the helper from the installation first - the host's plugin root ($CLAUDE_PLUGIN_ROOT / $PLUGIN_ROOT), then ~/.claude/skills/_shared, then the Codex plugin cache entry with the highest version (version sort across marketplaces and digit widths, never lexical order); the checkout's skills/_shared only when nothing is installed (proven by running the resolver lines, a home path with a space and a lexical-order trap included) - so a project cannot shadow it; the shipped-tree scan exempts only the helper's own legacy-fallback lines; the session-save close and retro resolvers pick the docs/ contracts only when skills/_shared/itd_contract_dir.py, given the contract name, parses the plugin manifest's top-level name idea-to-deploy and finds that file under docs/, .itd/ everywhere else (proven by running the pinned resolver lines in fixture checkouts).",
+      "reviewEvidence": {
+        "claim": "skills/_shared/itd_tool.sh runs the .itd tools from the installation in the order ITD_TEMPLATES_DIR, the source next to the helper, ~/.claude/templates/itd, and a legacy project copy only when nothing is installed (with a warning, disclosed in README); unknown tools are refused; check_contract_drift.py takes --root; nothing shipped (skills, hooks, agents, scripts, the whole docs tree with templates, plugin manifests, README) names a project copy .itd/<tool>.py or .itd/$var in any spelling except that fallback, and the opt-in CI hygiene template runs the tool from a pinned release clone; every hint names the helper host-neutrally (the pre-flight hook prints the path of its own installation, proven by running a copy of the hook from a separate installation); every itd_tool.sh invocation in any shipped file - in any shell form (sh, bash, command, a continuation line, a path kept in a variable) - takes the helper from the installation first - the host's plugin root ($CLAUDE_PLUGIN_ROOT / $PLUGIN_ROOT), then ~/.claude/skills/_shared, then the Codex plugin cache entry with the highest version (version sort across marketplaces and digit widths, never lexical order); the checkout's skills/_shared only when nothing is installed (proven by running the resolver lines, a home path with a space and a lexical-order trap included) - so a project cannot shadow it; the shipped-tree scan exempts only the helper's own legacy-fallback lines; the session-save close and retro resolvers pick the docs/ contracts only when skills/_shared/itd_contract_dir.py, given the contract name, parses the plugin manifest's top-level name idea-to-deploy and finds that file under docs/, .itd/ everywhere else (proven by running the pinned resolver lines in fixture checkouts).",
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "install-owned",
+          "hygiene-resolver"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.108.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.108.0-AC2",
+      "unitId": "REL-1.108.0",
+      "status": "passed",
+      "criterion": "/adopt copies contracts without the .py tools (proven by running its scaffold against the template tree), writes a closed short pointer block instead of the v1.20 rules copy, treats any idea-to-deploy marker as adopted (the Codex helper itd_adopt.py included: an older marker is never stacked with a second block), and its project-hooks helper does not re-enable hooks disabled in ~/.claude/itd-disabled-hooks.txt; the cold-start adoption journey still passes.",
+      "reviewEvidence": {
+        "claim": "/adopt copies contracts without the .py tools (proven by running its scaffold against the template tree), writes a closed short pointer block instead of the v1.20 rules copy, treats any idea-to-deploy marker as adopted (the Codex helper itd_adopt.py included: an older marker is never stacked with a second block), and its project-hooks helper does not re-enable hooks disabled in ~/.claude/itd-disabled-hooks.txt; the cold-start adoption journey still passes.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "install-owned",
+          "hooks-autoinstall",
+          "cold-start"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.108.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.108.0-AC3",
+      "unitId": "REL-1.108.0",
+      "status": "passed",
+      "criterion": "skills/_shared/itd_projects_doctor.py reports every drift kind (old rules block, tool copy, duplicate installed hooks with the disabled ones named from the hook path even behind an interpreter, project hooks, shadowing project skills) read-only - every scanned tree stays byte-identical; an installed hook is a home path (~, $HOME, %USERPROFILE% followed by a path separator, an absolute home directory, also quoted with spaces or inside a quoted script; the hook file name ends before shell punctuation; a command running installed and project hooks counts on both sides and every installed hook in it is checked against the disabled list), while relative, $CLAUDE_PROJECT_DIR and other paths are project hooks; the text mode prints nothing on a clean project and --json always prints the machine-readable report (empty when clean); exits 1 under --strict only with findings, 0 on --help and 2 on a usage error (a negative --depth included).",
+      "reviewEvidence": {
+        "claim": "skills/_shared/itd_projects_doctor.py reports every drift kind (old rules block, tool copy, duplicate installed hooks with the disabled ones named from the hook path even behind an interpreter, project hooks, shadowing project skills) read-only - every scanned tree stays byte-identical; an installed hook is a home path (~, $HOME, %USERPROFILE% followed by a path separator, an absolute home directory, also quoted with spaces or inside a quoted script; the hook file name ends before shell punctuation; a command running installed and project hooks counts on both sides and every installed hook in it is checked against the disabled list), while relative, $CLAUDE_PROJECT_DIR and other paths are project hooks; the text mode prints nothing on a clean project and --json always prints the machine-readable report (empty when clean); exits 1 under --strict only with findings, 0 on --help and 2 on a usage error (a negative --depth included).",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "install-owned"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.108.0 must all pass before independent review and publication."
+    },
+    {
+      "id": "REL-1.108.0-AC4",
+      "unitId": "REL-1.108.0",
+      "status": "passed",
+      "criterion": "Version 1.108.0 is consistent in the manifests, README badges, harness docs state, conformance report and release contract; CHANGELOG has the [1.108.0] section; live-model evidence run 20261015T212146Z-7692b309 passes the unchanged oracle on the release tree (its generated output files and transcript are recorded as the model produced them - evidence of a run, not shipped methodology; their product quality is not a release criterion); meta-review and the runtime inventory pass. The review efficacy evidence is re-recorded for the current producer on both hosts and archived; its oracle stays red on one WSL case (line anchoring of a correct finding), disclosed by owner decision 2026-10-15.",
+      "reviewEvidence": {
+        "claim": "Version 1.108.0 is consistent in the manifests, README badges, harness docs state, conformance report and release contract; CHANGELOG has the [1.108.0] section; live-model evidence run 20261015T212146Z-7692b309 passes the unchanged oracle on the release tree (its generated output files and transcript are recorded as the model produced them - evidence of a run, not shipped methodology; their product quality is not a release criterion); meta-review and the runtime inventory pass. The review efficacy evidence is re-recorded for the current producer on both hosts and archived; its oracle stays red on one WSL case (line anchoring of a correct finding), disclosed by owner decision 2026-10-15.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "release-contract",
+          "meta-review",
+          "live-evidence",
+          "runtime-install"
+        ]
+      },
+      "evidence": "Exact-candidate machine oracles of REL-1.108.0 must all pass before independent review and publication."
     }
   ],
   "completion": {
@@ -5183,9 +5255,23 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - PRODUCER-FALLBACK-LEDGER-1 closed 2026-10-15 (PR #360 -> cc298fb, rolled out on WSL and Windows). ITD development stays paused by ADR-012; the next unit opens only on an owner request."
+    "unitId": "REL-1.108.0",
+    "status": "in_progress",
+    "openedAt": "2026-10-15",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "sourceRequest": "Owner 2026-10-15 ('да, делай юнит и релиз, мержи когда CI зеленый'): make the methodology effective for every project on the machine and for GitHub users - code and rules live in the installation, a project holds only its data and a pointer (INSTALL-OWNED-1, ADR-015) - and ship it with #358-#360 as release 1.108.0.",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "medium",
+      "requiredImpactClasses": [
+        "correctness",
+        "host-parity",
+        "repository-hygiene"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

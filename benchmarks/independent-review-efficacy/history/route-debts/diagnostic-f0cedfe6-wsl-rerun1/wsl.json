@@ -1,0 +1,242 @@
+{
+  "signatureHex": "0e0c0737a344721c68fe8c00a5562b9abdeaa7080dca1aa4e081d9ffd263735a94d429b661acab09482578538ad5c999655a64d4e235e0f0975802554f72860a",
+  "signed": {
+    "cases": [
+      {
+        "attempts": 1,
+        "id": "high-export-capacity",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
+        "report": {
+          "findings": [
+            {
+              "category": "scale/bounded-output",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The nested flattening emits one row per conversion document without a row limit or partitioning. Given the supplied exact projection of 1,807,231 rows, this exceeds Excel's 1,048,576-row worksheet limit, so the default single-sheet export cannot meet the capacity/downloadability acceptance."
+            }
+          ],
+          "unverified": [
+            "The supplied change does not establish that buildAnnualExport is wired to the default annual-export path or that writeSingleBrowserWorksheet handles oversized input by a bounded, user-visible error; this cannot be verified from the diff alone."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1408d-da7c-7853-8c1b-9602adb23328"
+      },
+      {
+        "attempts": 1,
+        "id": "high-reconciliation-omission",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "certain",
+              "file": "src/turnover.ts",
+              "line": 6,
+              "severity": "high",
+              "summary": "`displayedClosing` subtracts expense and `fx_eur` but omits the declared supported `fx_other` consumption type. Given the supplied observed `fx_other` total of 1494440 TRY, affected closing balances are overstated by 1494440 TRY and cannot reconcile exactly."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "certain",
+              "file": "src/turnover.ts",
+              "line": 1,
+              "severity": "high",
+              "summary": "The new API returns only a closing value; it does not display or return the required opening, inflow, outflow, conversion, and closing turnover for every pool consumer category."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "certain",
+              "file": "src/turnover.ts",
+              "line": 9,
+              "severity": "medium",
+              "summary": "`fx_other` is advertised as a supported consumption type but is not incorporated into any turnover calculation, so support is internally inconsistent and the required turnover cannot be exact for that type."
+            }
+          ],
+          "unverified": [
+            "The supplied diff provides no evidence that consumers render the required per-category turnover fields or that tests cover reconciliation for expense, fx_eur, and fx_other."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1408e-118c-7181-99da-20c3e9d82692"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-allocation-rounding",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
+        "report": {
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "high",
+              "summary": "Each detail row is rounded independently, so the returned amounts can sum to a value different from the source amount. This directly violates the exact-to-the-cent reconciliation requirement; the documented 1578 TRY aggregate drift is evidence of this behavior."
+            },
+            {
+              "category": "input validation",
+              "confidence": "medium",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "medium",
+              "summary": "The function neither verifies that shares sum to 1 nor assigns any residual cent, so even valid-looking inputs can fail to preserve the source total and invalid share sets silently export unreconciled amounts."
+            }
+          ],
+          "unverified": [
+            "No test evidence is provided for cent-exact reconciliation across multi-row allocations, including residual-cent distribution and negative or fractional source amounts."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1408e-8347-78c2-a6a4-54aa98f6c686"
+      },
+      {
+        "attempts": 1,
+        "id": "high-stale-generated-client",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
+        "report": {
+          "findings": [
+            {
+              "category": "generated-artifact freshness",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "The verify script no longer runs `prisma generate` before TypeScript checking, so generated clients can be stale after schema changes and the required release-gate ordering is not met."
+            },
+            {
+              "category": "error handling",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "`|| echo existing Prisma mismatch` converts any `tsc --noEmit` failure into a successful command exit, so typecheck failures no longer fail the release gate."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1408e-e24d-7bd3-ad5d-32e2ea3d0d65"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-repository-hygiene",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
+        "report": {
+          "findings": [
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "review-tools/local_probe.py",
+              "line": 1,
+              "severity": "high",
+              "summary": "A temporary local reviewer probe is added to the release tree, violating the acceptance requirement that reviewer probes must not ship."
+            },
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "ROOT_CAUSE.md",
+              "line": 1,
+              "severity": "high",
+              "summary": "Private root-cause scratch notes are added to the release tree, violating the acceptance requirement that private scratch notes must not ship."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1408f-18ba-74a2-b5f5-3dab441a9cbb"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-bounded-reconciled-export",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1408f-5335-7241-a3a4-c7de7533f8f7"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-inclusive-utc-day-span",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1408f-cce1-7763-b252-1595707c57e5"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-nearest-rank-percentile",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a14090-2206-79d2-a5b5-c1b12bf6c46a"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-half-up-basis-point-fee",
+        "observedModel": "gpt-5.6-terra",
+        "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a14090-6cee-7721-ac41-7ded7596f24c"
+      }
+    ],
+    "host": "wsl",
+    "hostRuntime": {
+      "osName": "posix",
+      "pythonImplementation": "cpython",
+      "release": "6.6.87.2-microsoft-standard-WSL2",
+      "system": "Linux"
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-independent-review-semantic-efficacy-run",
+    "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
+    "observedAt": "2026-10-15T17:16:22Z",
+    "producerSha256": "f0cedfe670835ff61b7019d61578b713dcba5cce79ef734868c9dda4855cfd92",
+    "reviewer": {
+      "isolation": {
+        "ephemeral": true,
+        "freshSession": true,
+        "inheritedContext": false,
+        "networkTools": false,
+        "observedToolCallsZero": true,
+        "paidApi": false,
+        "repositoryAccess": false,
+        "repositoryMutation": false,
+        "secrets": false,
+        "shellTools": false
+      },
+      "makerModel": "gpt-6-astra",
+      "makerProvider": "openai-subscription",
+      "paidApiCalls": 0,
+      "provider": "openai-subscription",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-5.6-terra",
+      "runtimeVersion": "0.144.3",
+      "transportExecutableSha256": "37e6f5953f191b04f7b62cb07dae90f51d0947ad89f0355665b421fbde28700b"
+    },
+    "runnerSha256": "b85c784a72776218fd0a73744dc90017cf13180603d7c0b73296408d737e71dd",
+    "version": 1
+  }
+}

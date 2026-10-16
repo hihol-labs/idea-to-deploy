@@ -3,6 +3,8 @@ name: idea-to-deploy-hygiene
 # Opt-in external scheduler for an adopted project. Copy to
 # .github/workflows/itd-hygiene.yml only after the repository owner approves
 # recurring CI. It is read-only and uploads evidence instead of committing it.
+# The hygiene tool runs from a pinned Idea to Deploy release, never from a copy
+# in the project (INSTALL-OWNED-1): set ITD_REF to the release you run locally.
 "on":
   schedule:
     - cron: '17 3 * * 1'
@@ -19,6 +21,10 @@ name: idea-to-deploy-hygiene
         description: Monthly ablation candidate id
         required: false
         type: string
+
+env:
+  ITD_REF: v1.108.0
+  ITD_REPO: https://github.com/hihol-labs/idea-to-deploy
 
 permissions:
   contents: read
@@ -39,14 +45,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Fetch the pinned Idea to Deploy tools
+        run: git clone --quiet --depth 1 --branch "$ITD_REF" "$ITD_REPO" "$RUNNER_TEMP/itd"
       - name: Run weekly tracing cleanup
         run: >-
-          python3 .itd/itd_hygiene.py periodic --mode weekly --root .
+          python3 "$RUNNER_TEMP/itd/docs/templates/itd/itd_hygiene.py" periodic --mode weekly --root .
           --contract .itd/SESSION_EXIT_CONTRACT.json --record
       - name: Compute objective module quality scores
         if: always()
         run: >-
-          python3 .itd/itd_hygiene.py quality --scorecard
+          python3 "$RUNNER_TEMP/itd/docs/templates/itd/itd_hygiene.py" quality --scorecard
           .itd/QUALITY_SCORECARD.json --root . --record --json
       - name: Upload weekly evidence
         if: always()
@@ -70,11 +78,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Fetch the pinned Idea to Deploy tools
+        run: git clone --quiet --depth 1 --branch "$ITD_REF" "$ITD_REPO" "$RUNNER_TEMP/itd"
       - name: Require an explicit configured ablation candidate
         run: test -n "$ABLATION_COMPONENT"
       - name: Run reversible monthly ablation
         run: >-
-          python3 .itd/itd_hygiene.py periodic --mode monthly
+          python3 "$RUNNER_TEMP/itd/docs/templates/itd/itd_hygiene.py" periodic --mode monthly
           --component "$ABLATION_COMPONENT" --root .
           --contract .itd/SESSION_EXIT_CONTRACT.json
           --ablation-contract .itd/HARNESS_ABLATION.json --record

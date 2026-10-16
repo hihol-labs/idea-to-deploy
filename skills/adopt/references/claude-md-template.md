@@ -1,140 +1,24 @@
 <!--
 Canonical CLAUDE.md block for projects adopted into the idea-to-deploy methodology.
 
-/adopt skill appends everything between the BEGIN and END markers to the
-project's CLAUDE.md (or writes the whole file if CLAUDE.md is absent).
-Re-running /adopt detects the marker and does nothing — idempotent.
+/adopt appends everything between the BEGIN and END markers to the project's CLAUDE.md (or writes the whole file
+if CLAUDE.md is absent). Re-running /adopt detects any idea-to-deploy marker and does nothing - idempotent.
 
-To re-adopt after a methodology version bump, delete the block between the
-markers manually and re-run /adopt.
+The block is a POINTER, not a copy of the rules (INSTALL-OWNED-1): the rules, hooks, skills and .itd tools live in
+the installation (~/.claude for Claude Code, the plugin for Codex), so updating the installation updates every
+project. Never paste methodology rules into a project file - a copy freezes that project on an old version.
 -->
 
 <!-- idea-to-deploy:begin v{{VERSION}} -->
+## Idea to Deploy
 
-# Idea-to-Deploy methodology rules
+Проект работает по методологии Idea to Deploy из глобальной установки (`~/.claude`: хуки, скиллы, глобальный
+`CLAUDE.md`; для Codex - `~/.codex/AGENTS.md` и плагин). Действует минимальный путь по умолчанию (ADR-012):
 
-> Adopted into this project on {{ADOPTED_AT}} via `/adopt`.
-> These rules route Claude Code to the right skill automatically and keep
-> commits, tests, and documentation honest. Full methodology:
-> https://github.com/hihol-labs/idea-to-deploy
+- Обычную работу делай напрямую: пойми задачу, сделай, напиши или поправь тесты, прогони набор, покажи результат.
+- Скиллы - по прямой просьбе или когда скилл явно сокращает работу; план - коротко и только для большой задачи.
+- Подтверждение обязательно перед необратимым или внешним: деплой, миграции и прод-данные, деньги, push/PR, удаление.
+- Секреты не выводить и не отправлять наружу; тесты к новому коду и прогон набора перед коммитом.
 
-## ⚠️ Hard rule (violation = bug)
-
-### Step 0 — Pre-flight check (before any tool call)
-
-Before the first action, check repo state and context so you do not duplicate
-work done in parallel Claude sessions:
-
-1. `git log --oneline -10` + `git status --short` — recent commits? uncommitted WIP?
-2. `.itd-memory/MEMORY.md` (usually auto-loaded by `pre-flight-check.sh`;
-   if not, read it explicitly).
-3. `.itd-memory/.active-session.lock` — a fresh lockfile means a parallel
-   Claude session is running: stop and read `session_*.md` before acting.
-
-**If a recent commit already contains keywords from your task → the task is
-done. Read the commit instead of redoing the work.**
-
-### Step 1 — Choose a task-level skill (before any tool call)
-
-Evaluate the task **once**, not before every Bash/Edit/Write. If a skill fits,
-**invoke it via the Skill tool FIRST**, before Read/Edit/Bash/Write.
-
-**Creating a new project** — `/project` (router → `/kickstart` · `/blueprint` · `/guide`).
-
-**Working on existing code** — `/task` (daily-work router):
-- «close tech debt X / refactor Y» → `/task` → `/refactor`
-- «stack trace, fix the bug in Z» → `/task` → `/bugfix` (or `/bugfix` directly if the hook matched)
-- «update README / document API» → `/task` → `/doc`
-- «add tests / no coverage» → `/task` → `/test`
-- «endpoint is slow / find bottleneck» → `/task` → `/perf`
-- «check security / OWASP» → `/task` → `/security-audit`
-- «check dependencies / CVE» → `/task` → `/deps-audit`
-- «apply migration / schema change» → `/task` → `/migrate`
-- «prepare for prod / rate limit / runbook» → `/task` → `/harden`
-- «set up Terraform / Helm / K8s» → `/task` → `/infra`
-- «explain this code» → `/task` → `/explain`
-- «review this PR» → `/task` → `/review`
-
-**Deploying to production** — `/deploy`.
-
-**Strategic replanning** — `/strategy`. **Advisory-only analysis** — `/advisor`.
-
-**Always after any code** — `/review` and `/test`:
-- Committing more than 2 files without a prior `/review` is **forbidden**.
-- Writing new code without a follow-up `/test` is **forbidden**.
-
-**End of any significant work block** — `/session-save`:
-- After a feature, bug-fix, architectural decision, or `/kickstart` phase.
-- After a `/review` of 9+/10 that led to merge/PR.
-- After a long session (5+ significant actions without a save).
-
-### Step 1.5 — WIP=1 (one active unit at a time)
-
-- Only ONE task/unit may be «active» at any moment. The next unit starts only
-  after the current one passes its end-to-end verification (verificationCommand
-  from `.itd/ACCEPTANCE_CONTRACT.json` / `VERIFICATION_CONTRACT.json`, or the
-  project's test/lint gate when no contracts exist).
-- Don't "also refactor" feature B while implementing feature A — out-of-scope
-  improvements go to the backlog, not into the current diff.
-- If `.itd-memory/STATE.json` exists: `currentUnit.status ≠ verified/completed`
-  → do NOT open a new unit; run the current unit's verification first, or
-  explicitly reclassify (update `SCOPE_LOCK.md` + `currentUnit`) before edits.
-
-### Step 2 — Do not reflexively dismiss skill hints
-
-The hook `check-tool-skill.sh` reminds you before every Bash/Edit/Write (rate-limited).
-If the reminder appears — **re-evaluate task-level once**, then keep working.
-A formal dismissal ("skills don't match") is a methodology bypass = a bug.
-
-### Exceptions (no skill needed)
-
-- One-line fixes (typo, rename, trivial change)
-- Pure research queries («show where X is», «explain what Y does»)
-- When the user explicitly said «without a skill» / «just do it»
-
-## 4 принципа аккуратного кода
-
-> Адаптировано из [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills)
-> (Forrest Chang, ~54K stars), систематизировавшего [пост Andrej Karpathy](https://x.com/karpathy)
-> о типичных ошибках LLM-агентов. Применяется поверх скилл-роутинга выше.
-
-1. **Думай перед кодом.** Если задача допускает несколько интерпретаций — озвучь их и спроси. Если что-то неясно — остановись и уточни, не строй молчаливых допущений. Указывай на противоречия в требованиях, предлагай альтернативы, возражай там, где стоило бы.
-2. **Простота прежде всего.** Минимум кода под задачу. Никаких абстракций ради однократного использования, никаких фич «на будущее», никаких обработок сценариев, которые не могут произойти. Если решение получается на 1000 строк там, где хватило бы 100 — это сигнал переделать.
-3. **Хирургические правки.** Меняй только то, что просили. Не рефакторь соседний код, не удаляй чужой dead code без запроса, не меняй форматирование в незатронутых строках, сохраняй существующий стиль. Каждая изменённая строка должна трассироваться к запросу пользователя.
-4. **Целеориентированное выполнение.** Превращай размытую задачу в verifiable goal. Для багов: сначала напиши failing test, который воспроизводит проблему, потом делай так, чтобы он прошёл. LLM сильны в итерациях до конкретной цели — дай её явно.
-
-## Project-specific context
-
-Add anything here that Claude Code should know permanently about this project:
-tech stack, deploy target, conventions, non-obvious constraints, runbook URLs,
-important contacts. Everything above this section is methodology-canonical and
-updated by future `/adopt` re-runs; everything below is yours to edit freely.
-
-> Держи весь `CLAUDE.md` в пределах ~200 строк: это entry-роутер, он грузится в
-> контекст каждый ход. Тематические подробности — в `docs/claude/*.md` + строка
-> в индексе «когда читать» (сплит предлагает `/adopt` Step 3.8). Историю
-> изменений — в отдельный changelog-файл, который в контекст не грузится.
-
+Подключено {{ADOPTED_AT}} через `/adopt`. Контракты проекта - в `.itd/`, состояние - в `.itd-memory/`.
 <!-- idea-to-deploy:end -->
-
-## Skill decision (visible line + trigger map)
-
-On every substantive request, the FIRST line of the response declares the skill
-decision: `Скилл: /<name>` (then call it via the Skill tool before any
-Read/Edit/Bash/Write) or `Скилл: не нужен — <reason>`. Silently skipping is not
-allowed; an explicit refusal with a reason IS a valid decision (the enforcement
-hook treats it so — see `SKILL_BYPASS`).
-
-Trigger → skill (apply as a rule, not a hint):
-
-- New product/feature from an idea → `/project` (or `/discover` → `/blueprint`).
-- Advisory / consulting / "analyze, don't code" → `/advisor`.
-- Stress-test a plan/design/architecture before committing → `/grill-me`.
-- Product discovery (market, personas, competitors) → `/discover`.
-- Meeting / interview prep, drafting questions → `/advisor` (or `/grill-me`).
-- Existing-project task → `/task` (routes to bugfix/refactor/test/perf/…).
-- End of a working session → `/session-save` (always, before wrapping up).
-
-When several fit, pick the most specific; when none fit, say so in the decision line.
-Pure mechanics (file generation, browser ops) and tight back-and-forth wording
-iterations are legitimate `Скилл: не нужен` cases — name the reason, don't pretend.

@@ -27,12 +27,14 @@
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_depth.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_registration_and_counts.py",
       "tests/verify_retro_scan.py",
       "tests/verify_review_cache.py",
       "tests/verify_routing.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_skill_completeness_gate.py",
       "tests/verify_sync_manifest.py",
       "tests/verify_triggers.py",
@@ -42,6 +44,7 @@
       "tests/verify_external_reviewer_release.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_operating_loops_release.py"
     ],
@@ -242,6 +245,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_installed_proof_head.py",
       "tests/verify_machine_oracle_legs.py",
       "tests/verify_operating_loops.py",
@@ -281,6 +285,7 @@
     ],
     "AGENTS.md": [
       "tests/verify_host_adapters.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
@@ -321,6 +326,7 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_init_contracts.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_platform_tmp_and_new_hooks.py",
@@ -332,6 +338,7 @@
     "README.ru.md": [
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hooks_autoinstall.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operating_loops_release.py"
     ],
     "agents/code-reviewer.md": [
@@ -513,6 +520,7 @@
       "tests/verify_installed_proof_head.py"
     ],
     "docs/SESSION_EXIT_CONTRACT.json": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_session_hygiene_quality.py"
     ],
     "docs/VERIFICATION_CONTRACT.json": [
@@ -541,8 +549,12 @@
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
     ],
+    "docs/adr/ADR-015-installation-owned-methodology.md": [
+      "tests/verify_install_owned_tools.py"
+    ],
     "docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json": [
-      "tests/verify_external_reviewer_release.py"
+      "tests/verify_external_reviewer_release.py",
+      "tests/verify_install_owned_tools.py"
     ],
     "docs/api-reviewer/SHADOW_PILOT.json": [
       "tests/verify_api_reviewer.py",
@@ -699,6 +711,7 @@
       "tests/verify_verification_loop.py"
     ],
     "docs/templates/github/itd-hygiene.yml": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_session_hygiene_quality.py"
     ],
     "docs/templates/github/itd-machine-oracle.yml": [
@@ -788,18 +801,24 @@
     ],
     "docs/templates/itd/check_contract_drift.py": [
       "tests/verify_init_contracts.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operational_cold_start.py"
     ],
     "docs/templates/itd/itd_hygiene.py": [
       "tests/verify_completion_gate.py",
       "tests/verify_gate_registry_binding.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_strict_completion_policy.py"
     ],
     "docs/templates/itd/itd_init_validate.py": [
       "tests/verify_init_contracts.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operational_cold_start.py"
+    ],
+    "docs/templates/itd/itd_progress.py": [
+      "tests/verify_install_owned_tools.py"
     ],
     "hooks/TIER_EXEMPT.json": [
       "tests/verify_hook_tier_exit.py"
@@ -861,6 +880,7 @@
       "tests/verify_commit_completeness_gate.py",
       "tests/verify_hook_depth.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_review_cache.py",
       "tests/verify_routing.py",
       "tests/verify_skill_enforcement.py",
@@ -1021,6 +1041,7 @@
       "tests/verify_hook_tier_exit.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_init_contracts.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operational_continuation.py",
       "tests/verify_preflight_budget.py",
       "tests/verify_state_hardening.py",
@@ -1342,6 +1363,10 @@
       "tests/verify_harness_demo_capture_schema.py",
       "tests/verify_operating_loops_release.py"
     ],
+    "skills/_shared/itd_contract_dir.py": [
+      "tests/verify_install_owned_tools.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
     "skills/_shared/itd_diagnostics_pilot.py": [
       "tests/verify_diagnostics_pilot.py",
       "tests/verify_operating_loops_release.py"
@@ -1404,6 +1429,9 @@
     "skills/_shared/itd_project_hooks.py": [
       "tests/verify_hooks_autoinstall.py"
     ],
+    "skills/_shared/itd_projects_doctor.py": [
+      "tests/verify_install_owned_tools.py"
+    ],
     "skills/_shared/itd_py.sh": [
       "tests/verify_closure_delta.py",
       "tests/verify_completion_false_red.py",
@@ -1415,6 +1443,7 @@
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
       "tests/verify_operating_loops_release.py",
@@ -1424,6 +1453,7 @@
       "tests/verify_preflight_budget.py",
       "tests/verify_review_enumeration.py",
       "tests/verify_risk_tier_default.py",
+      "tests/verify_session_hygiene_quality.py",
       "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
@@ -1469,6 +1499,11 @@
       "tests/verify_semantic_navigation.py",
       "tests/verify_semantic_navigation_demand.py"
     ],
+    "skills/_shared/itd_tool.sh": [
+      "tests/verify_install_owned_tools.py",
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_session_hygiene_quality.py"
+    ],
     "skills/_shared/itd_unit_lifecycle.py": [
       "tests/verify_ledger_reconciliation.py",
       "tests/verify_route_metric.py",
@@ -1511,13 +1546,18 @@
       "tests/verify_gate_registry_profiles.py",
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_neutral_memory.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     "skills/adopt/references/agents-md-template.md": [
       "tests/verify_host_adapters.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_live_model_benchmark.py"
+    ],
+    "skills/adopt/references/claude-md-template.md": [
+      "tests/verify_install_owned_tools.py"
     ],
     "skills/adopt/references/codex-adoption.md": [
       "tests/verify_host_adapters.py",
@@ -1539,6 +1579,7 @@
       "tests/verify_host_adapters.py"
     ],
     "skills/adopt/scripts/itd_adopt.py": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py"
     ],
@@ -1717,6 +1758,7 @@
     ],
     "skills/session-save/SKILL.md": [
       "tests/verify_host_neutral_memory.py",
+      "tests/verify_install_owned_tools.py",
       "tests/verify_session_hygiene_quality.py"
     ],
     "skills/task/PIV_LITE_ROUTE.json": [
@@ -1765,6 +1807,9 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_otk_failed_attempt.py",
       "tests/verify_route_debts.py"
+    ],
+    "starters/bot-aiogram/files/bot/handlers/start.py": [
+      "tests/verify_install_owned_tools.py"
     ],
     "tests/OUT_OF_MIRROR.json": [
       "tests/verify_isolated_candidate_mirror.py",
@@ -2192,6 +2237,9 @@
     ],
     "tests/verify_operating_loops_release.py": [
       "tests/verify_external_reviewer_release.py"
+    ],
+    "tests/verify_operational_cold_start.py": [
+      "tests/verify_install_owned_tools.py"
     ],
     "tests/verify_otel_export.py": [
       "tests/verify_runall_drift.py"

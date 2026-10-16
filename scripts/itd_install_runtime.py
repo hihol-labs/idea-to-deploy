@@ -51,6 +51,8 @@ RUNTIME_SHARED_FILES = (
     "itd_incremental_diagnostics.py",
     "itd_operating_loops.py",
     "itd_project_hooks.py",
+    "itd_projects_doctor.py",
+    "itd_contract_dir.py",
     "itd_review_broker.py",
     "itd_review_broker_primitives.py",
     "itd_review_evidence.py",

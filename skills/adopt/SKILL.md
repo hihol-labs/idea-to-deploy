@@ -78,7 +78,7 @@ Before writing anything:
 
 3. **Detect existing state** (for idempotent reporting):
    - `CLAUDE.md` in root → present / absent.
-   - If present → contains marker `<!-- idea-to-deploy:begin v1.20 -->` → **already adopted**.
+   - If present → contains any marker `<!-- idea-to-deploy:begin ` (any version, including the old `v1.20` rules block) → **already adopted**. An old `v1.20` block is a heavy rules copy: offer (do not force) to replace it with the current pointer from `references/claude-md-template.md`.
    - `.claude/settings.json` → present / absent; if present, parse JSON and check whether our hook scripts already appear by `command` path.
    - Canonical continuity dir: `$PROJECT_ROOT/.itd-memory/`. Also detect a
      legacy `~/.claude/projects/-<dashed-cwd>/memory/` only for the migration
@@ -136,13 +136,13 @@ Before writing anything:
 ### Step 1: Write / merge CLAUDE.md
 
 Read the canonical template from `references/claude-md-template.md`. Fill in two placeholders:
-- `{{VERSION}}` → `1.20` (major.minor of the methodology at adoption time).
+- `{{VERSION}}` → the installed methodology major.minor (informational only - the block is a pointer and never needs an update).
 - `{{ADOPTED_AT}}` → today's date in `YYYY-MM-DD`.
 
 Branch on existing state:
 
 - **File absent** → `Write` the template as the entire file.
-- **File present without marker** → `Edit` and **append** the methodology block (wrapped in `<!-- idea-to-deploy:begin v1.20 -->` … `<!-- idea-to-deploy:end -->`) to the end of the file. Add a blank line before the marker. Do NOT modify any existing content above.
+- **File present without marker** → `Edit` and **append** the methodology pointer block (wrapped in `<!-- idea-to-deploy:begin v{{VERSION}} -->` … `<!-- idea-to-deploy:end -->`) to the end of the file. Add a blank line before the marker. Do NOT modify any existing content above.
 - **File present with marker** → skip. Report «CLAUDE.md уже содержит idea-to-deploy блок, не трогаю».
 
 **Never** rewrite or remove the user's existing content. The marker is the source of truth for future updates — a user who wants to re-adopt can delete the block manually.
@@ -180,7 +180,7 @@ edits. Keep the plugin hooks dir resolved in Step 0.4 for Step 7.
 
    - **Date:** today (`YYYY-MM-DD`).
    - **Project + branch:** `$PROJECT_ROOT` and `git branch --show-current`.
-   - **Summary:** «Проект адоптирован в методологию idea-to-deploy v1.20 через `/adopt`. Установлены: `CLAUDE.md` в корень, memory dir инициализирован; enforcement-хуки в `.claude/settings.json` предлагаются последним шагом (Step 7) с подтверждением.»
+   - **Summary:** «Проект адоптирован в методологию idea-to-deploy через `/adopt` (код и правила - в установке, в проекте только указатель и контракты). Установлены: `CLAUDE.md` в корень, memory dir инициализирован; enforcement-хуки в `.claude/settings.json` предлагаются последним шагом (Step 7) с подтверждением.»
    - **Key decisions:** «Выбрана минимальная адоптация без reverse-engineering plan-документов (по ROADMAP_v1.20 §Scope). Plan-документы будут сгенерированы отдельно через `/strategy` или `/blueprint` по запросу пользователя.»
    - **Changed files:** `CLAUDE.md`, `MEMORY.md` (newly indexed), plus any that were append-merged (`.claude/settings.json` only later, if accepted in Step 7).
    - **Blockers:** «Нет.»
@@ -198,7 +198,7 @@ If the user accepted:
 
 1. **Resolve templates dir** — try in order: (a) sibling of the plugin hooks dir resolved in Step 0.4: `<plugin>/docs/templates/itd/` (e.g. `~/.claude/plugins/idea-to-deploy/docs/templates/itd/`); (b) `~/.claude/templates/itd/` — `sync-to-active.sh` mirrors the templates there since v1.68.0 (Step 4/6), so sync-based installs carry them too; (c) `docs/templates/itd/` in a methodology repo checkout if one is known. If none exists, warn («шаблоны .itd/ не найдены — обнови установку: `bash scripts/sync-to-active.sh` из репо методологии») and skip to Step 4.
 2. **Skip if present** — if `$PROJECT_ROOT/.itd/` already exists, report «.itd/ уже существует, не трогаю» (idempotent) and continue.
- 3. **Copy every contract template plus the `.py` utilities** from the resolved templates directory into `$PROJECT_ROOT/.itd/`; do not maintain a hand-count. Fill only obvious placeholders (project name, detected stack, verify commands). For `SESSION_EXIT_CONTRACT.json`, fill the detected finite startup probe and real source/debug-scan paths; keep `COMPLETION_POLICY.json` calibrated unless the user explicitly chooses strict-by-default, because active `riskTier: high` units are already strict. For `QUALITY.json`, seed detected modules as grade `C`/`partial` with existing-path evidence until a real review promotes them. Fill `QUALITY_SCORECARD.json` from executable project evidence: exactly five weighted dimensions per module, real commands as probes, `attempts: 2` only for stability evidence, and conservative minimum scores. A file-existence check is not a substantive quality probe; if no command exists for a dimension, leave the scorecard visibly incomplete instead of inventing an A. Keep `HARNESS_ABLATION.json.candidates` empty until a reversible kill switch and fixed benchmark are known. Do NOT invent invariants, golden flows, or forbidden changes. Notable artifacts: `DECISIONS.md` is append-only; `itd_progress.py` is a derived glance view; `itd_hygiene.py` implements explicit close, idempotent manifest cleanup, weighted objective quality scoring, and periodic ablation.
+ 3. **Copy every contract template (the `.json` and `.md` files) - not the `.py` tools** - from the resolved templates directory into `$PROJECT_ROOT/.itd/`; do not maintain a hand-count. The tools (`itd_hygiene.py`, `itd_progress.py`, `check_contract_drift.py`, `itd_init_validate.py`) run from the installation through `skills/_shared/itd_tool.sh`, so every project follows the installed version (INSTALL-OWNED-1); a copy in the project would freeze it. Fill only obvious placeholders (project name, detected stack, verify commands). For `SESSION_EXIT_CONTRACT.json`, fill the detected finite startup probe and real source/debug-scan paths; keep `COMPLETION_POLICY.json` calibrated unless the user explicitly chooses strict-by-default, because active `riskTier: high` units are already strict. For `QUALITY.json`, seed detected modules as grade `C`/`partial` with existing-path evidence until a real review promotes them. Fill `QUALITY_SCORECARD.json` from executable project evidence: exactly five weighted dimensions per module, real commands as probes, `attempts: 2` only for stability evidence, and conservative minimum scores. A file-existence check is not a substantive quality probe; if no command exists for a dimension, leave the scorecard visibly incomplete instead of inventing an A. Keep `HARNESS_ABLATION.json.candidates` empty until a reversible kill switch and fixed benchmark are known. Do NOT invent invariants, golden flows, or forbidden changes. Notable artifacts: `DECISIONS.md` is append-only; the installed `itd_progress.py` is a derived glance view; the installed `itd_hygiene.py` implements explicit close, idempotent manifest cleanup, weighted objective quality scoring, and periodic ablation.
    For `TOOL_CAPABILITY_REGISTRY.json`, perform a **read-only inventory** of
    configured prompt-bearing connectors, browsers, research tools, and MCP
    providers visible through the current host. Record provider/source,
@@ -230,12 +230,12 @@ Closes init-audit gap #2 (2026-07-08): `/adopt` never proved the test harness wo
 
 ### Step 3.7: Runnability check — init validator on the legacy project (optional, recommended; v1.67.0)
 
-Closes init-audit gap #1: `/adopt` only detected the stack by manifests and never proved the project actually comes up from a clean clone. Offered in the Step 0.7 plan; skipped if the user said «без проверки запускаемости». Requires Step 3.5 (the validator is copied as `.itd/itd_init_validate.py`; when `.itd/` was declined, run it straight from the plugin templates dir).
+Closes init-audit gap #1: `/adopt` only detected the stack by manifests and never proved the project actually comes up from a clean clone. Offered in the Step 0.7 plan; skipped if the user said «без проверки запускаемости». Requires Step 3.5 (the validator runs from the installation through `skills/_shared/itd_tool.sh`; when `.itd/` was declined, run it straight from the plugin templates dir).
 
 1. **Detect commands** (best-effort, confirm with the user when ambiguous):
    - bootstrap: `make setup` (Makefile target exists) / `npm ci` / `pnpm install --frozen-lockfile` / `pip install -e .[dev]` / `poetry install` / `go mod download` / `cargo fetch`.
    - test: `make test` / `package.json scripts.test` / `python3 -m pytest` (or the Step 3.6 built-in-runner command) / `go test ./...` / `cargo test`. <!-- win-ok: команды проекта пользователя -->
-2. **Run**: `SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" .itd/itd_init_validate.py --bootstrap "<cmd>" --test "<cmd>"` — it clones the repo into an isolated temp dir and executes both commands there (launcher dodges the Windows Store python shim).
+2. **Run**: `T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done; [ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"; sh "$T/itd_tool.sh" itd_init_validate.py --bootstrap "<cmd>" --test "<cmd>"` — it clones the repo into an isolated temp dir and executes both commands there (launcher dodges the Windows Store python shim).
 3. **Advisory for brownfield** — a red result does NOT roll back the adoption. Report the WHY+FIX mark verbatim; a legacy project that cannot bootstrap from a clean clone is exactly what the user needs to see on day one (the validator keeps the failed clone for inspection). Record PASS/FAIL in the sentinel `/session-save`.
 4. Skip silently when the project has no commits yet (validator prints SKIP) or when secrets/external services make an isolated bootstrap impossible — say so explicitly instead of faking green.
 
@@ -516,7 +516,7 @@ Claude Code host only. On the Codex adapter (Step -1) the bundled
 
 Every write is guarded:
 
-- `CLAUDE.md` — marker `<!-- idea-to-deploy:begin v1.20 -->` makes re-runs no-ops.
+- `CLAUDE.md` — any `<!-- idea-to-deploy:begin ` marker makes re-runs no-ops.
 - `.claude/settings.json` — written only by `itd_project_hooks.py apply --yes` after the Step 7 confirmation; hook entries are matched by (event, matcher, command), so a re-run adds nothing and leaves the file byte-identical.
 - Memory dir — `/session-save` appends to `MEMORY.md`; sentinel session file is auto-numbered.
 - `.itd/` — scaffold is skipped when the directory already exists (never overwrites filled-in contracts).
@@ -552,11 +552,11 @@ Re-running `/adopt` twice in a row is safe and produces no extra output beyond a
 
 Before reporting adoption as complete, verify:
 
-- [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains `<!-- idea-to-deploy:begin v1.20 -->` marker
+- [ ] `$PROJECT_ROOT/CLAUDE.md` exists and contains an `<!-- idea-to-deploy:begin ` pointer marker (no copied rules)
 - [ ] Step 7 ran last: the helper `plan` was shown, the user was asked explicitly, and `apply --yes` ran only on a yes (its `created | merged | unchanged` line reported); on a decline `.claude/settings.json` is byte-identical to before (or absent) and the decline is reported
 - [ ] When accepted and not registered user-level, `$PROJECT_ROOT/.claude/settings.json` carries every template hook as an (event, matcher, command) entry and the recommended `permissions.ask` guardrails, with the user's existing hooks, keys and permissions preserved
 - [ ] `.itd/` + `.itd-memory/STATE.json` scaffolded — or the skip reason recorded (user declined / already present / templates dir absent)
-- [ ] `.itd/SESSION_EXIT_CONTRACT.json`, `.itd/QUALITY.json`, `.itd/QUALITY_SCORECARD.json`, `.itd/HARNESS_ABLATION.json`, and `.itd/itd_hygiene.py` exist when scaffolding was accepted; detected fields are filled without invented evidence
+- [ ] `.itd/SESSION_EXIT_CONTRACT.json`, `.itd/QUALITY.json`, `.itd/QUALITY_SCORECARD.json`, and `.itd/HARNESS_ABLATION.json` exist when scaffolding was accepted, and no `.itd/*.py` tool was copied; detected fields are filled without invented evidence
 - [ ] External `.github/workflows/itd-hygiene.yml` was copied only after explicit opt-in (or the decline/non-GitHub reason was recorded); monthly has a real component candidate before scheduling
 - [ ] `.itd-memory/session-artifacts.json` exists with an empty idempotent manifest and no pre-existing/tracked paths
 - [ ] Example test created **and actually run** with real output shown (or skip reason recorded: tests exist / declined / no built-in runner) — a red run is reported, never hidden
@@ -602,7 +602,7 @@ Claude: [/adopt]
     - Detected product type:      api_service → starter api-fastapi
   Proceed? [yes/no]
 User: yes
-  Step 1 — CLAUDE.md ............. written (2.1 KB, marker v1.20)
+  Step 1 — CLAUDE.md ............. written (pointer block, marker v1.108)
   Step 3 — memory bootstrap ...... OK (sentinel session_2026-04-17.md created)
   Step 3.5 — .itd/ scaffold ...... OK (all templates + state/artifact manifest)
 
@@ -630,7 +630,7 @@ User: адоптируй проект ещё раз
 Claude: [/adopt]
   Step 0 — discovery:
     Git repo:            /home/user/work/shop-api
-    Existing CLAUDE.md:  present, marker v1.20 found
+    Existing CLAUDE.md:  present, idea-to-deploy marker found
     Existing settings:   .claude/settings.json present, all hooks registered
     Memory dir:          exists, MEMORY.md has 12 sessions
 
@@ -667,7 +667,7 @@ Claude Code uses project-level `.claude/settings.json` automatically when you op
 
 ### User wants to re-adopt after a version bump
 
-Current `/adopt` uses marker `v1.20`. When a future version changes the canonical `CLAUDE.md` or settings template, re-run is a no-op because the marker matches. Workaround: the user deletes the block between markers manually, then re-invokes `/adopt`. A future `/adopt --refresh` flag can automate this; out of scope for v1.20.
+The project block is a pointer, not a copy of the rules (INSTALL-OWNED-1): rules, hooks, skills and the `.itd` tools live in the installation, so a methodology update reaches every project by updating the installation (`/plugin update` or `scripts/sync-to-active.sh`, Codex plugin refresh) - the project block never needs a re-adopt. An old `v1.20` rules block or copied `.itd/*.py` tools are reported by `skills/_shared/itd_projects_doctor.py`; replacing the block is offered, never forced.
 
 ### Ctrl+C mid-adoption
 

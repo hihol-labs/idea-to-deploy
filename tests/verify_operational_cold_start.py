@@ -325,8 +325,12 @@ def main() -> int:
               and not (project / ".claude").exists())
         check("no repo-local Codex hook duplication", not (project / ".codex").exists())
 
-        rc, out = run([PY, str(project / ".itd" / "check_contract_drift.py"),
-                       "--filled", "--strict"], project)
+        check("adoption copies contracts, not tools (INSTALL-OWNED-1)",
+              not list((project / ".itd").glob("*.py")),
+              str(sorted(p.name for p in (project / ".itd").glob("*.py"))))
+        # The tools run through the installed-tool resolver, as an adopted project runs them.
+        rc, out = run(["sh", str(ROOT / "skills" / "_shared" / "itd_tool.sh"), "check_contract_drift.py",
+                       "--root", ".", "--filled", "--strict"], project)
         check("adoption contracts are filled", rc == 0, out[-800:])
         rc, out = run([PY, str(VALIDATE_STATE), str(project / ".itd-memory" / "STATE.json")], project)
         check("adoption state validates", rc == 0, out[-800:])
@@ -364,7 +368,7 @@ def main() -> int:
         bootstrap = native_shell_join(PY, "-c", "print('bootstrap-ok')")
         full_tests = native_shell_join(
             PY, "-m", "unittest", "discover", "-s", "tests", "-v")
-        rc, out = run([PY, str(project / ".itd" / "itd_init_validate.py"),
+        rc, out = run(["sh", str(ROOT / "skills" / "_shared" / "itd_tool.sh"), "itd_init_validate.py",
                        "--bootstrap", bootstrap, "--test", full_tests, "--timeout", "120"], project)
         metrics["isolatedClonePassed"] = rc == 0 and "PASS." in out
         check("clean-clone bootstrap and tests pass", metrics["isolatedClonePassed"], out[-1200:])

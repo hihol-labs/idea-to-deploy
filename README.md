@@ -12,7 +12,7 @@ extension point, not a supported claim. [Choose a host](#quick-start) ·
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 41](https://img.shields.io/badge/Skills-41-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.107.0](https://img.shields.io/badge/Version-1.107.0-purple.svg)](CHANGELOG.md)
+[![Version: 1.108.0](https://img.shields.io/badge/Version-1.108.0-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)
@@ -156,6 +156,45 @@ local `.codex/hooks.json` fallback and the known transport differences.
 
 On both hosts, `git` is required by lifecycle, review, and continuity
 workflows. See the [CHANGELOG](CHANGELOG.md) for release notes.
+
+### Updating - one installation for every project
+
+The methodology lives in the installation, not in a project: rules, hooks,
+skills and the `.itd` tools (`itd_hygiene.py`, `itd_progress.py`,
+`check_contract_drift.py`, `itd_init_validate.py`) run from the installed copy
+through `skills/_shared/itd_tool.sh`. An adopted project holds only its own
+contracts (`.itd/*.json`, `*.md`), its state (`.itd-memory/`) and a short pointer
+block in `CLAUDE.md` / `AGENTS.md`. Updating the installation therefore updates
+every project on the machine:
+
+- Claude Code: update the plugin, then bring the checkout to the same release
+  and synchronize from it - a stale checkout would copy old files over the new
+  installation:
+
+  ```bash
+  git -C ~/idea-to-deploy-src pull --ff-only
+  ```
+
+  ```bash
+  bash ~/idea-to-deploy-src/scripts/sync-to-active.sh
+  ```
+
+  The sync installs hooks, skills, templates and the managed global `CLAUDE.md`
+  block.
+- Codex: refresh the plugin through the Codex plugin UI.
+
+One fallback remains for compatibility: when no installed copy of a tool is
+found at all, `itd_tool.sh` runs a legacy project copy `.itd/<tool>.py` left by
+an older `/adopt` and warns about it on stderr. Keep the installation current to
+avoid running such a stale copy.
+
+Projects adopted by older versions may still carry a copied rules block or
+copied `.itd/*.py` tools. List them read-only (nothing is changed; with Codex run the
+same file from the plugin root):
+
+```bash
+python3 ~/.claude/skills/_shared/itd_projects_doctor.py ~/projects
+```
 
 ### Usage
 

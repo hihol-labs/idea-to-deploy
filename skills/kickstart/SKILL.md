@@ -213,7 +213,7 @@ This phase is the **dedicated initialization phase** from the Anthropic long-run
 
    ```bash
    # after the initialization checkpoint commit (step 6) exists:
-   sh <plugin>/skills/_shared/itd_py.sh .itd/itd_init_validate.py \
+   sh <plugin>/skills/_shared/itd_tool.sh itd_init_validate.py \
      --bootstrap "<starter commands.bootstrap>" \
      --test      "<starter commands.test>"
    ```

@@ -11,10 +11,11 @@ GOAL.json; if this script or its output disappears, nothing may break.
 The script therefore degrades per-section on any missing/broken input and
 always exits 0 (unless --strict).
 
-Usage (from the project root, where /adopt copied it into .itd/):
-    python3 .itd/itd_progress.py            # write .itd-memory/PROGRESS.md
-    python3 .itd/itd_progress.py --stdout   # print instead of writing
-    python3 .itd/itd_progress.py --project-root /path/to/repo
+Usage (from the project root; the tool runs from the installation - INSTALL-OWNED-1):
+    sh <install>/skills/_shared/itd_tool.sh itd_progress.py            # write .itd-memory/PROGRESS.md
+    sh <install>/skills/_shared/itd_tool.sh itd_progress.py --stdout   # print instead of writing
+    sh <install>/skills/_shared/itd_tool.sh itd_progress.py --project-root /path/to/repo
+    (<install>: ~/.claude for Claude Code, the plugin root for Codex - INSTALL-OWNED-1)
 """
 from __future__ import annotations
 
@@ -186,7 +187,9 @@ def render(root: Path) -> str:
             "> DERIVED, regenerable — сгенерировано `itd_progress.py`; кандидат",
             "> в `.gitignore` целевого проекта. НЕ редактируй руками и НЕ",
             "> завязывай на этот файл гейты: канон — `STATE.json` / `GOAL.json`",
-            "> / `events.jsonl`. Перегенерация: `python3 .itd/itd_progress.py`.",
+            "> / `events.jsonl`. Перегенерация: `/session-save` или",
+            "> `sh <install>/skills/_shared/itd_tool.sh itd_progress.py` (<install> - `~/.claude` у",
+            "> Claude Code, корень плагина у Codex).",
         ],
         section_current_state(root, state),
         section_goal(goal),

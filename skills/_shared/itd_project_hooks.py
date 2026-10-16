@@ -345,8 +345,16 @@ def run(argv: list[str]) -> int:
     itd_dirs = dir_forms(hooks_dir.absolute().as_posix()) | dir_forms(
         (user_path.absolute().parent / "hooks").as_posix())
     registered = itd_script_names(user or {}, itd_dirs) & template_names
+    # Hooks the user switched off for the whole machine (sync-to-active honours the same list) are not
+    # re-enabled per project either (INSTALL-OWNED-1).
+    disabled_path = user_path.absolute().parent / "itd-disabled-hooks.txt"
+    try:
+        disabled_text = disabled_path.read_text(encoding="utf-8-sig")
+    except OSError:
+        disabled_text = ""
+    disabled = {line.split("#", 1)[0].strip() for line in disabled_text.splitlines()} & template_names
 
-    merged, added = merge(current, template, registered)
+    merged, added = merge(current, template, registered | disabled)
     old_text = settings.read_text(encoding="utf-8") if settings.exists() else ""
     new_text = render(merged)
     if not added:
@@ -362,6 +370,9 @@ def run(argv: list[str]) -> int:
         if registered:
             print(f"skip hooks registered user-level in {user_path}: "
                   f"{', '.join(sorted(registered))}")
+        if disabled:
+            print(f"skip hooks disabled for this user in {disabled_path}: "
+                  f"{', '.join(sorted(disabled))}")
         for line in added:
             print(line)
         return 0

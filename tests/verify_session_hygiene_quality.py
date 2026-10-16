@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import importlib.util
 import json
 import os
 import subprocess
@@ -535,14 +536,17 @@ def test_methodology_debug_scan_exclusions() -> None:
 
 
 SESSION_CLOSE_RESOLVER = (
-    'HY=".itd/itd_hygiene.py"; CONTRACT=".itd/SESSION_EXIT_CONTRACT.json"',
-    'if [ ! -f "$HY" ] && [ -f "docs/SESSION_EXIT_CONTRACT.json" ]; then',
-    '  HY="docs/templates/itd/itd_hygiene.py"; CONTRACT="docs/SESSION_EXIT_CONTRACT.json"',
-    'elif [ ! -f "$HY" ]; then',
-    '  HY="$HOME/.claude/templates/itd/itd_hygiene.py"',
-    "fi",
+    'T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done',
+    '[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ \'{print $(NF-2), $0}\' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"',
+    'CONTRACT="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" SESSION_EXIT_CONTRACT.json)/SESSION_EXIT_CONTRACT.json"',
+    'sh "$T/itd_tool.sh" itd_hygiene.py close --root . --contract "$CONTRACT"',
 )
 STARTUP_TIMEOUT_FLOOR = 600
+_spec = importlib.util.spec_from_file_location(
+    "itd_contract_dir_model", ROOT / "skills" / "_shared" / "itd_contract_dir.py")
+assert _spec is not None and _spec.loader is not None
+CONTRACT_DIR = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(CONTRACT_DIR)
 
 
 def startup_timeout_fits(contract: dict) -> bool:
@@ -555,27 +559,28 @@ def applied_session_close_contract(root: Path) -> Path:
     # bare `bash` can resolve to the WSL shim, so the test models the pinned text
     # instead of executing it. Any edit to the resolver turns the pin below red
     # before this model can drift from it.
-    project_runner = root / ".itd" / "itd_hygiene.py"
-    docs_contract = root / "docs" / "SESSION_EXIT_CONTRACT.json"
-    if not project_runner.is_file() and docs_contract.is_file():
-        return docs_contract
-    return root / ".itd" / "SESSION_EXIT_CONTRACT.json"
+    # INSTALL-OWNED-1: the runner always comes from the installation; only the
+    # contract differs - docs/ in the methodology repository (the parsed plugin
+    # manifest names it, see skills/_shared/itd_contract_dir.py, and the docs/
+    # contract exists - the helper checks both), .itd/ everywhere else. The model
+    # calls the same helper with the same contract name.
+    return root / CONTRACT_DIR.contract_dir(root, ["SESSION_EXIT_CONTRACT.json"]) / "SESSION_EXIT_CONTRACT.json"
 
 
 def test_methodology_startup_timeout_declared() -> None:
-    # The session-save resolver swaps the whole script+contract pair when the
-    # project has no .itd/itd_hygiene.py, so the contract that runs is whatever
-    # the resolver selects, not whichever file one expects. Without the key the
+    # The session-save resolver selects the contract (docs/ in the methodology
+    # repository, .itd/ elsewhere), so the contract that runs is whatever the
+    # resolver selects, not whichever file one expects. Without the key the
     # runner falls back to its 120 second default, under which the startup probe
     # (the quick mirror, measured at 259-281 seconds on 2026-09-14/15) can never
     # pass, and the close stays red for a reason that looks like a hang.
     skill = (ROOT / "skills" / "session-save" / "SKILL.md").read_text(encoding="utf-8")
     lines = skill.splitlines()
-    anchors = [i for i, line in enumerate(lines) if line == SESSION_CLOSE_RESOLVER[0]]
-    resolver = (
-        tuple(lines[anchors[0]:anchors[0] + len(SESSION_CLOSE_RESOLVER)])
-        if len(anchors) == 1 else ()
-    )
+    # The installation-first helper line also opens other snippets of the skill;
+    # the close resolver is the one place where the whole pinned block occurs.
+    anchors = [i for i in range(len(lines))
+               if tuple(lines[i:i + len(SESSION_CLOSE_RESOLVER)]) == SESSION_CLOSE_RESOLVER]
+    resolver = SESSION_CLOSE_RESOLVER if len(anchors) == 1 else ()
     check(
         "session-save resolver is the one this pin models",
         resolver == SESSION_CLOSE_RESOLVER,
@@ -617,21 +622,35 @@ def test_methodology_startup_timeout_declared() -> None:
     # The resolver model itself: both branches, on throwaway roots.
     with tempfile.TemporaryDirectory() as td:
         base = Path(td).resolve()
-        fallback = base / "fallback"
-        (fallback / "docs").mkdir(parents=True)
-        (fallback / "docs" / "SESSION_EXIT_CONTRACT.json").write_text("{}", encoding="utf-8")
+        methodology = base / "methodology"
+        (methodology / ".claude-plugin").mkdir(parents=True)
+        (methodology / ".claude-plugin" / "plugin.json").write_text('{\n  "name": "idea-to-deploy"\n}\n', encoding="utf-8")
+        (methodology / "docs").mkdir()
+        (methodology / "docs" / "SESSION_EXIT_CONTRACT.json").write_text("{}", encoding="utf-8")
         project = base / "project"
         (project / ".itd").mkdir(parents=True)
-        (project / "docs").mkdir()
+        (project / "docs" / "templates" / "itd").mkdir(parents=True)
+        # Neither a legacy runner copy, nor a docs/templates/itd/itd_hygiene.py, nor a docs/ contract of its own
+        # makes an ordinary project the methodology repository (INSTALL-OWNED-1).
         (project / ".itd" / "itd_hygiene.py").write_text("", encoding="utf-8")
+        (project / "docs" / "templates" / "itd" / "itd_hygiene.py").write_text("", encoding="utf-8")
         (project / "docs" / "SESSION_EXIT_CONTRACT.json").write_text("{}", encoding="utf-8")
+        (project / ".claude-plugin").mkdir()
+        (project / ".claude-plugin" / "plugin.json").write_text('{"name": "my-app"}', encoding="utf-8")
+        no_docs = base / "no-docs"
+        (no_docs / ".claude-plugin").mkdir(parents=True)
+        (no_docs / ".claude-plugin" / "plugin.json").write_text('{"name": "idea-to-deploy"}', encoding="utf-8")
         check(
-            "resolver model follows the docs pair when the project runner is absent",
-            applied_session_close_contract(fallback)
-            == fallback / "docs" / "SESSION_EXIT_CONTRACT.json",
+            "resolver model never picks a docs/ contract that does not exist",
+            applied_session_close_contract(no_docs) == no_docs / ".itd" / "SESSION_EXIT_CONTRACT.json",
         )
         check(
-            "resolver model keeps the project pair when the project runner exists",
+            "resolver model follows the docs contract in the methodology repository",
+            applied_session_close_contract(methodology)
+            == methodology / "docs" / "SESSION_EXIT_CONTRACT.json",
+        )
+        check(
+            "resolver model keeps the project contract in an ordinary project that carries methodology-like paths",
             applied_session_close_contract(project)
             == project / ".itd" / "SESSION_EXIT_CONTRACT.json",
         )

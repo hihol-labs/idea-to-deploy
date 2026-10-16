@@ -131,9 +131,9 @@ view (**`itd_hygiene.py quality`**) so stale or evidence-less grades cannot look
 authoritative:
 
 ```bash
-HY=".itd/itd_hygiene.py"; [ -f "$HY" ] || HY="$HOME/.claude/templates/itd/itd_hygiene.py"
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" "$HY" quality --root .
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+sh "$T/itd_tool.sh" itd_hygiene.py quality --root .
 ```
 
 Surface the lowest-grade module and its first priority in the routing context.
@@ -151,9 +151,9 @@ only when the user asks for a fresh assessment, the periodic record is due, or
 no record exists and the task is explicitly quality-oriented:
 
 ```bash
-HY=".itd/itd_hygiene.py"; [ -f "$HY" ] || HY="$HOME/.claude/templates/itd/itd_hygiene.py"
-SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"
-sh "$SHD/itd_py.sh" "$HY" quality --root . --scorecard .itd/QUALITY_SCORECARD.json --record
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+sh "$T/itd_tool.sh" itd_hygiene.py quality --root . --scorecard .itd/QUALITY_SCORECARD.json --record
 ```
 
 The scorer never promotes the tracked grade automatically. A computed grade
