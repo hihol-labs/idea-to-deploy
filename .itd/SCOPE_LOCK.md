@@ -1,4 +1,4 @@
-# CLOSE-DEBT-1: explicit-close repair
+# CLOSE-DEBT-1-LIVE: close debt and PR verification
 
 ## Current Task
 
@@ -23,6 +23,8 @@
 - `tests/verify_strict_completion_policy.py`,
   `tests/verify_session_hygiene_quality.py`, `tests/verify_independent_review_efficacy.py`.
 - `.itd/IMPACT_GRAPH.json`, `.itd/REVIEW_PROVIDER_FRESHNESS.json`, this scope and `CHANGELOG.md`.
+- `.itd/ACCEPTANCE_CONTRACT.json`: append the owner-approved current follow-up
+  and its criteria; preserve every historical criterion and closed follow-up.
 - Git-ignored runtime signals and Verification Loop artifacts produced by the harness.
 - `tests/fixtures/live-model-evidence/latest.json` and the immutable successful
   run `tests/fixtures/live-model-evidence/runs/20261016T193843Z-faa5f07d/`.

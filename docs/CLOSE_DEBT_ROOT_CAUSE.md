@@ -112,3 +112,13 @@ and the frozen reports instead of re-signing or weakening their applicability.
 The owner explicitly authorized a temporary, independently reviewed authority
 snapshot for this repair; do not mutate the global installed producer or use
 unreviewed candidate code as its own review authority.
+
+## Review context: closed history was sent as active acceptance
+
+With no active follow-up, the producer's generic projection included all 293
+historical criteria and the closed-followup archive. This exceeded the reviewer
+prompt bound even after the diff itself fit its units. The owner-approved
+`CLOSE-DEBT-1-LIVE` follow-up now declares three current criteria and their
+`quick`/`live` oracle coverage. The existing projection selects those criteria
+while hashing the complete unchanged history; no criterion is deleted and no
+prompt or review limit is raised.
