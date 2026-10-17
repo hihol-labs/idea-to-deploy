@@ -142,6 +142,62 @@ def bytecode_written_by(source: str, module_path: Path, directory: Path) -> bool
     return bool(list(directory.rglob("__pycache__")))
 
 
+def verify_direct_entrypoints(installed_root: Path) -> None:
+    """Direct callers must not need wrapper flags to keep the snapshot closed."""
+    before = runtime_inventory(installed_root)
+    environment = os.environ.copy()
+    for name in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX"):
+        environment.pop(name, None)
+    entries = (
+        ("scripts/itd.py", ["--help"], 0, "{gate,pr}"),
+        ("scripts/itd_pre_push.py", [], 1, "BLOCKED:"),
+        ("scripts/itd_machine_oracle.py", ["--help"], 0, "usage:"),
+        ("skills/_shared/itd_verification_loop.py", ["--help"], 0, "usage:"),
+    )
+    for flags in ([], ["-I"]):
+        for relative, arguments, expected_exit, expected_text in entries:
+            result = subprocess.run(
+                [sys.executable, *flags, "-X", "utf8",
+                 str(installed_root / relative), *arguments],
+                input="", capture_output=True, text=True, encoding="utf-8",
+                timeout=30, check=False, env=environment, cwd=installed_root,
+            )
+            label = f"direct {relative} flags={flags or 'ordinary'}"
+            check(
+                result.returncode == expected_exit
+                and expected_text in result.stdout + result.stderr,
+                f"{label} preserves its real exit/output: {result.stderr}",
+            )
+            check(
+                runtime_inventory(installed_root) == before,
+                f"{label} without -B leaves whole runtime inventory unchanged",
+            )
+        # --help does not load lazy broker or exact-context dependencies.
+        # run_path executes the entrypoint without an importing loader caching
+        # that entrypoint itself before its first instruction can run.
+        probe = (
+            "import pathlib,runpy,sys; root=pathlib.Path(sys.argv[1]); "
+            "loop=runpy.run_path(str(root/'skills/_shared/itd_verification_loop.py')); "
+            "loop['_review_cache_module'](); "
+            "producer=runpy.run_path(str(root/'skills/_shared/itd_free_reviewer_producer.py')); "
+            "assert producer['review_broker'].__name__ == 'itd_review_broker'; "
+            "assert sys.dont_write_bytecode; print('lazy runtime imports passed')"
+        )
+        result = subprocess.run(
+            [sys.executable, *flags, "-X", "utf8", "-c", probe, str(installed_root)],
+            capture_output=True, text=True, encoding="utf-8", timeout=30,
+            check=False, env=environment, cwd=installed_root,
+        )
+        check(
+            result.returncode == 0 and "lazy runtime imports passed" in result.stdout,
+            f"direct lazy/path-loaded dependencies without -B execute: {result.stderr}",
+        )
+        check(
+            runtime_inventory(installed_root) == before,
+            "lazy/path-loaded imports without -B leave whole runtime inventory unchanged",
+        )
+
+
 def main() -> int:
     for hook_name, symbol in HOOKS_LOADING_INSTALLED_MODULES:
         hook_source = (ROOT / "hooks" / hook_name).read_text(encoding="utf-8")
@@ -455,6 +511,7 @@ def main() -> int:
         )
         installed_root = Path(real_cli["runtimeRoot"])
         before_runtime_execution = runtime_inventory(installed_root)
+        verify_direct_entrypoints(installed_root)
         help_command = (
             ["cmd.exe", "/d", "/c", str(real_target), "--help"]
             if os.name == "nt" else [str(real_target), "--help"]

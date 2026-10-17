@@ -49,7 +49,13 @@ hooks. Install them with `scripts/itd_install_cli.py --apply` and
 materialize the same minimal content-addressed runtime under the host data
 directory and write wrappers that name only that snapshot; they never execute
 the mutable development checkout. Runtime entry points use Python `-I -B`, so
-ambient import paths and bytecode writes cannot mutate the snapshot. Reinstall
+ambient import paths and bytecode writes cannot mutate the snapshot.
+Direct execution of the CLI, pre-push, machine oracle and Verification Loop
+also sets `sys.dont_write_bytecode` before runtime dependency
+imports, so omitting `-B` at those entrypoints cannot add dependency caches.
+This does not protect an arbitrary external importing loader before an
+entrypoint's first instruction has executed, or a standalone direct call to
+other runtime modules such as the reviewer producer. Reinstall
 with `--replace-existing` only after reviewing the existing wrapper; a
 tampered/incomplete content-addressed runtime always fails closed.
 The closed inventory includes transitive path-loaded gate dependencies (the

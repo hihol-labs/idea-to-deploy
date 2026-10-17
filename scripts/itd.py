@@ -17,6 +17,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+# Direct Python callers may omit the wrapper's -B. Set this before importing
+# runtime dependencies so the content-addressed snapshot remains unchanged.
+sys.dont_write_bytecode = True
+
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,

@@ -18,6 +18,9 @@ import threading
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+# Direct execution must not cache path-loaded installed runtime dependencies.
+sys.dont_write_bytecode = True
+
 
 MAX_CONTRACT_BYTES = 1024 * 1024
 MAX_OUTPUT_BYTES = 1024 * 1024
