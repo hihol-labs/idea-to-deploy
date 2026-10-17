@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "REL-1.109.1",
     "goal": "Release v1.109.1: suppress dependency bytecode at four Python entrypoints, verify Windows and complete dual-host rollout",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-17T18:31:08Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-10-17T20:55:16Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

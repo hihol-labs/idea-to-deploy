@@ -5389,7 +5389,8 @@
   },
   "activeFollowup": {
     "unitId": "REL-1.109.1",
-    "status": "in_progress",
+    "status": "verified",
+    "closedAt": "2026-10-17T20:55:16Z",
     "openedAt": "2026-10-17",
     "selectedClaim": "LOCAL_REVIEWED",
     "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
