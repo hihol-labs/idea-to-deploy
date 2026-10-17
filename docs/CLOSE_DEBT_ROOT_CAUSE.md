@@ -92,19 +92,23 @@ only splits complete lines, so it returns `UNVERIFIED` before model dispatch.
 The exact committed-head machine receipt for `cf6aba4` passes all six legs;
 this failure is in review transport, not the live evidence or product oracle.
 
-The bounded repair keeps complete files and lines together whenever they fit.
-Only declared transparent `.jsonl.gz` data may split an otherwise oversized
-line into UTF-8-safe fragments. Existing raw, JSON-encoded, provider-request,
-aggregate and unit-count limits remain enforced; original gzip bytes, decoded
-JSONL, source pins and hashes remain unchanged. Byte ranges and full ordered
-reconstruction bind every fragment. Ordinary over-bound source lines still
-fail closed. The partition identifier and reviewer boundary instructions must
-describe this behavior explicitly.
+The bounded repair is broker-side representation, not a producer or partition
+change. A declared `.jsonl.gz` with an oversized raw/serialized record selects
+the lossless `gzip-jsonl-utf8-chunks-v2` view. A header binds the original source
+digest, bytes and line count; 4096-byte UTF-8-safe fragment rows bind source
+offsets and reconstruct the original JSONL exactly. Original gzip bytes and
+all existing ceilings stay unchanged. The original source is scanned before
+projection so fragment boundaries cannot conceal secrets. The producer and
+ordinary complete-line partition remain byte-identical to the accepted base.
 
 Regression coverage must include raw-over-bound, Unicode/escape-heavy and
 encoded-only oversized records, exact reassembly and serialized request limits.
-The existing producer end-to-end fixture must review every fragment and final
+The existing producer end-to-end fixture reviews every view range and final
 integration, retaining its tamper, malformed-data and negative-verdict guards.
+The rejected local `a153348` experiment changed the producer itself and was
+correctly refused by efficacy replay because signed diagnostics bind its exact
+source digest. The final representation-only approach preserves that digest
+and the frozen reports instead of re-signing or weakening their applicability.
 The owner explicitly authorized a temporary, independently reviewed authority
 snapshot for this repair; do not mutate the global installed producer or use
 unreviewed candidate code as its own review authority.

@@ -75,12 +75,14 @@ Its route is fixed: `OpenAI -> Anthropic -> GitHub Copilot`.
   enlarge the 2 MB model input or 1 MB captured-process-output boundaries.
 - A valid diff above the broker's direct bound uses that same deterministic
   complete-file/UTF-8-line plan instead of one oversized subscription request.
-  An oversized line in declared transparent `.jsonl.gz` data is the sole
-  exception: the v2 partition algorithm uses UTF-8-safe fragments, without
-  changing original bytes or any size/count ceiling. Exact ordered byte ranges
-  bind complete reconstruction; ordinary over-bound source lines still fail
-  closed. Reviewer instructions distinguish these transport fragments from
-  truncated candidate artifacts.
+  An oversized line in declared transparent `.jsonl.gz` data selects a lossless
+  `gzip-jsonl-utf8-chunks-v2` review view, not a larger unit. Its header binds
+  the original source digest, byte count and line count; UTF-8-safe fragment
+  rows carry exact source offsets and reconstruct every original byte. Review
+  coordinates refer to projection lines. Original gzip bytes and all ceilings
+  stay unchanged, as does the producer's complete-line partition protocol.
+  The original JSONL is scanned before projection to prevent secrets spanning
+  fragment boundaries; ordinary over-bound source lines still fail closed.
   The selected provider/model reviews every one of at most 16 exact units in a
   distinct isolated session and performs a final integration review. Phase one
   signs the canonical root/plan/unit-prompt/unit-report/integration-prompt

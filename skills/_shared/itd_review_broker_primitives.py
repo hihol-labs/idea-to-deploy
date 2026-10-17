@@ -2404,7 +2404,7 @@ class BrokerStore:
                     or review_plan["version"] != 1
                     or review_plan["mode"] != "hierarchical"
                     or review_plan["algorithm"]
-                    != "deterministic-complete-file-then-utf8-line-jsonl-fragment-v2"
+                    != "deterministic-complete-file-then-utf8-line-boundary"
                     or not re.fullmatch(
                         r"[0-9a-f]{64}",
                         str(review_plan["fullDiffSha256"]),

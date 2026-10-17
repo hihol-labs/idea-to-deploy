@@ -76,16 +76,14 @@ MAX_CODEX_ROLLOUT_BYTES = 16 * 1024 * 1024
 MAX_UNIT_PROMPT_BYTES = 128 * 1024
 MAX_INTEGRATION_PROMPT_BYTES = 256 * 1024
 
-# A bound unit is cut from one scrubbed diff by a size budget. Complete files
-# and lines are preferred; oversized transparent JSONL may split inside a line.
-# Paired records, hunks and whole files therefore straddle
+# A bound unit is cut from one scrubbed diff by a size budget at UTF-8 line
+# boundaries alone.  Paired records, hunks and whole files therefore straddle
 # unit boundaries, and a checker that judges only its own slice reports that
 # cut as a truncated artifact.  The reviewer is told the cut is transport, not
 # candidate state, and is given the exact boundary facts to say so from.
 BOUND_RANGE_DISCLAIMER = (
     "The bound range is cut from one scrubbed diff by a size budget at UTF-8 "
-    "boundaries. Complete files and lines are preferred, but an oversized "
-    "declared JSONL line may be split inside the line. Therefore a "
+    "line boundaries only, never on record, hunk or file boundaries, so a "
     "file or a record may begin or end part-way inside it. Content that runs "
     "past a bound range is carried by the adjacent bound ranges named in the "
     "bound-range facts, which are separately reviewed. A bound range that "
@@ -190,25 +188,18 @@ def _check_unit_paths_against_headers(
 ) -> None:
     """Refuse a plan whose per-unit path claims contradict the diff headers.
 
-    Diff headers remain whole; only transparent JSONL payload lines can be
-    fragmented. Ignore a leading continuation of such a line, which may
-    contain header-looking data. The real ``diff --git`` header of a file
-    lies inside the unit that carries the file's first segment; a
+    Units are cut at line boundaries, so the ``diff --git`` header of a file
+    lies whole inside the unit that carries the file's first segment; a
     header count or name that differs from the manifest means the inventory
     would be authored rather than derived.
     """
-    starts_at_line_boundary = True
     for unit, unit_text in units:
         segments = unit["pathSegments"]
         expected = [
             path for path in unit["paths"] if segments[path]["index"] == 1
         ]
-        header_text = unit_text
-        if not starts_at_line_boundary:
-            header_text = unit_text.partition("\n")[2]
-        starts_at_line_boundary = unit_text.endswith("\n")
         headers = [
-            line for line in header_text.splitlines(keepends=True)
+            line for line in unit_text.splitlines(keepends=True)
             if line.startswith("diff --git ")
         ]
         if len(headers) != len(expected) or any(
@@ -1580,7 +1571,7 @@ def _hierarchical_units(
         plan.get("version") != 1
         or plan.get("mode") != "hierarchical"
         or plan.get("algorithm")
-        != "deterministic-complete-file-then-utf8-line-jsonl-fragment-v2"
+        != "deterministic-complete-file-then-utf8-line-boundary"
         or plan.get("fullDiffSha256") != sha256_bytes(encoded)
         or plan.get("fullDiffBytes") != len(encoded)
         or type(plan.get("unitCount")) is not int
@@ -1755,7 +1746,7 @@ def _unit_review_prompt(
         f"{_closing_coverage_note(packet)}"
         "EVIDENCE_COVERAGE="
         f"{json.dumps(coverage, ensure_ascii=False, sort_keys=True)}\n"
-        f"BEGIN UNTRUSTED DIFF UNIT\n{unit_diff}\nEND UNTRUSTED DIFF UNIT\n"
+        f"BEGIN UNTRUSTED DIFF UNIT\n{unit_diff}END UNTRUSTED DIFF UNIT\n"
         f"{_trusted_json_output_contract(UNIT_VERDICT_SCHEMA, unit=True)}"
     )
     if len(prompt.encode("utf-8")) > MAX_UNIT_PROMPT_BYTES:

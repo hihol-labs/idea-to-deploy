@@ -30,6 +30,7 @@
   `skills/_shared/itd_review_broker_primitives.py`,
   `skills/_shared/REVIEW_BROKER_POLICY.json`,
   `skills/_shared/REVIEW_BROKER_POLICY.schema.json`,
+  `skills/_shared/REVIEW_BROKER_RUNTIME.schema.json`,
   `tests/verify_review_broker.py`, `tests/verify_review_broker_policy.py`,
   `tests/verify_free_reviewer_producer.py`,
   `docs/adr/ADR-004-mandatory-keyless-review-route.md`.
@@ -44,5 +45,6 @@
 ## Review Rule
 
 High risk: isolated exact-tree machine evidence and one fresh gpt-5.6-terra
-checker for the observed gpt-6.1-sol maker, followed by adjudication and receipt
+checker for the host-observed maker (gpt-6.1-sol initially, gpt-6-astra after
+the 2026-10-17 host model switch), followed by adjudication and receipt
 revalidation. No long-running goal is opened; the prior followup remains closed.
