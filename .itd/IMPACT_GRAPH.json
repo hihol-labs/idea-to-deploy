@@ -1180,6 +1180,7 @@
       "tests/verify_api_reviewer.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_git_gate_hooks.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_quick_regression.py"
     ],
@@ -1386,6 +1387,7 @@
       "tests/verify_copilot_reviewer.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_independent_review_efficacy.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle_legs.py",
       "tests/verify_mandatory_keyless_review.py",
       "tests/verify_review_enumeration.py",
@@ -1461,6 +1463,7 @@
     "skills/_shared/itd_review_broker.py": [
       "tests/verify_external_reviewer_release.py",
       "tests/verify_free_reviewer_producer.py",
+      "tests/verify_itd_runtime_install.py",
       "tests/verify_review_broker.py"
     ],
     "skills/_shared/itd_review_broker_primitives.py": [

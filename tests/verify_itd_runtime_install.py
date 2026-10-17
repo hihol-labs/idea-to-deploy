@@ -128,21 +128,151 @@ loader.exec_module(module)
 """
 
 
-def bytecode_written_by(source: str, module_path: Path, directory: Path) -> bool:
+def bytecode_written_by(
+    source: str, module_path: Path, directory: Path,
+    *, environment: dict[str, str] | None = None, isolated: bool = True,
+) -> bool:
     """Run `source` in a child WITHOUT -B and report whether it left bytecode."""
     for stale in directory.rglob("__pycache__"):
         for item in stale.iterdir():
             item.unlink()
         stale.rmdir()
-    subprocess.run(
-        [sys.executable, "-I", "-c", source, str(module_path)],
-        capture_output=True, text=True, timeout=30, check=False,
-        cwd=str(directory),
+    result = subprocess.run(
+        [sys.executable, *(["-I"] if isolated else []),
+         "-X", "utf8", "-c", source, str(module_path)],
+        capture_output=True, text=True, encoding="utf-8", timeout=30,
+        check=False, cwd=str(directory), env=environment,
     )
+    if result.returncode:
+        raise AssertionError(f"bytecode probe failed: {result.stderr}")
     return bool(list(directory.rglob("__pycache__")))
 
 
+def direct_launch_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    # Ordinary children do not have -I: import paths, startup customizations,
+    # optimization and cache redirection from the host can mask a missing guard.
+    for name in tuple(environment):
+        if name.upper().startswith("PYTHON"):
+            environment.pop(name)
+    return environment
+
+
+def verify_direct_environment() -> None:
+    """An ambient startup customization must not turn the cache oracle green."""
+    with tempfile.TemporaryDirectory(prefix="itd-direct-env-") as raw:
+        root = Path(raw).resolve()
+        probe_root = root / "runtime"
+        module_path = probe_root / "skills" / "probe.py"
+        module_path.parent.mkdir(parents=True)
+        module_path.write_text("VALUE = 1\n", encoding="utf-8")
+        ambient = root / "ambient"
+        ambient.mkdir()
+        marker = ambient / "startup-loaded"
+        (ambient / "sitecustomize.py").write_text(
+            "import sys\nsys.dont_write_bytecode = True\n"
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).touch()\n",
+            encoding="utf-8",
+        )
+        pollution = {
+            "PYTHONPATH": str(ambient), "PYTHONHOME": sys.base_prefix,
+            "PYTHONUSERBASE": str(ambient / "userbase"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONPYCACHEPREFIX": str(ambient / "redirected-cache"),
+            "ITD_DIRECT_ENV_SENTINEL": "retained",
+        }
+        with mock.patch.dict(os.environ, pollution):
+            legacy = os.environ.copy()
+            for name in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX"):
+                legacy.pop(name, None)
+            check(
+                not bytecode_written_by(
+                    BYTECODE_PROBE, module_path, probe_root,
+                    environment=legacy, isolated=False,
+                ) and marker.exists(),
+                "legacy child environment can mask an unguarded bytecode write",
+            )
+            marker.unlink()
+            clean = direct_launch_environment()
+            check(
+                not any(name.upper().startswith("PYTHON") for name in clean),
+                "direct child environment excludes Python startup/import overrides",
+            )
+            check(
+                clean.get("ITD_DIRECT_ENV_SENTINEL") == "retained"
+                and clean.get("PATH") == os.environ.get("PATH"),
+                "direct child environment preserves non-Python host settings",
+            )
+            check(
+                bytecode_written_by(
+                    BYTECODE_PROBE, module_path, probe_root,
+                    environment=clean, isolated=False,
+                ) and not marker.exists(),
+                "clean direct launch detects the unguarded write despite ambient masking",
+            )
+            check(
+                os.environ["PYTHONPATH"] == str(ambient),
+                "child environment sanitization does not mutate the parent environment",
+            )
+
+
+def verify_direct_entrypoints(installed_root: Path) -> None:
+    """Direct callers must not need wrapper flags to keep the snapshot closed."""
+    before = runtime_inventory(installed_root)
+    environment = direct_launch_environment()
+    entries = (
+        ("scripts/itd.py", ["--help"], 0, "{gate,pr}"),
+        ("scripts/itd_pre_push.py", [], 1, "BLOCKED:"),
+        ("scripts/itd_machine_oracle.py", ["--help"], 0, "usage:"),
+        ("skills/_shared/itd_verification_loop.py", ["--help"], 0, "usage:"),
+    )
+    for flags in ([], ["-I"]):
+        for relative, arguments, expected_exit, expected_text in entries:
+            result = subprocess.run(
+                [sys.executable, *flags, "-X", "utf8",
+                 str(installed_root / relative), *arguments],
+                input="", capture_output=True, text=True, encoding="utf-8",
+                timeout=30, check=False, env=environment, cwd=installed_root,
+            )
+            label = f"direct {relative} flags={flags or 'ordinary'}"
+            check(
+                result.returncode == expected_exit
+                and expected_text in result.stdout + result.stderr,
+                f"{label} preserves its real exit/output: {result.stderr}",
+            )
+            check(
+                runtime_inventory(installed_root) == before,
+                f"{label} without -B leaves whole runtime inventory unchanged",
+            )
+        # --help does not load lazy broker or exact-context dependencies.
+        # run_path executes the entrypoint without an importing loader caching
+        # that entrypoint itself before its first instruction can run.
+        probe = (
+            "import pathlib,runpy,sys; root=pathlib.Path(sys.argv[1]); "
+            "loop=runpy.run_path(str(root/'skills/_shared/itd_verification_loop.py')); "
+            "loop['_review_cache_module'](); "
+            "producer=runpy.run_path(str(root/'skills/_shared/itd_free_reviewer_producer.py')); "
+            "assert producer['review_broker'].__name__ == 'itd_review_broker'; "
+            "assert sys.dont_write_bytecode; print('lazy runtime imports passed')"
+        )
+        result = subprocess.run(
+            [sys.executable, *flags, "-X", "utf8", "-c", probe, str(installed_root)],
+            capture_output=True, text=True, encoding="utf-8", timeout=30,
+            check=False, env=environment, cwd=installed_root,
+        )
+        check(
+            result.returncode == 0 and "lazy runtime imports passed" in result.stdout,
+            f"direct lazy/path-loaded dependencies without -B execute: {result.stderr}",
+        )
+        check(
+            runtime_inventory(installed_root) == before,
+            "lazy/path-loaded imports without -B leave whole runtime inventory unchanged",
+        )
+
+
 def main() -> int:
+    verify_direct_environment()
     for hook_name, symbol in HOOKS_LOADING_INSTALLED_MODULES:
         hook_source = (ROOT / "hooks" / hook_name).read_text(encoding="utf-8")
         check(
@@ -455,6 +585,7 @@ def main() -> int:
         )
         installed_root = Path(real_cli["runtimeRoot"])
         before_runtime_execution = runtime_inventory(installed_root)
+        verify_direct_entrypoints(installed_root)
         help_command = (
             ["cmd.exe", "/d", "/c", str(real_target), "--help"]
             if os.name == "nt" else [str(real_target), "--help"]

@@ -31,6 +31,10 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Enforce this at the entrypoint, not only in wrappers: direct callers may
+# omit -B, and -I ignores PYTHONDONTWRITEBYTECODE from the environment.
+sys.dont_write_bytecode = True
+
 
 INSTALL_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = Path(__file__).with_name("VERIFICATION_LOOP_POLICY.json")

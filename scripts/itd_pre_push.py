@@ -11,6 +11,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Preserve the closed runtime even when this entrypoint is called without -B.
+sys.dont_write_bytecode = True
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"

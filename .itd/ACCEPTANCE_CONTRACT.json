@@ -5313,8 +5313,7 @@
         "impactClasses": ["correctness", "security", "bounded-output", "compatibility"],
         "oracleIds": ["quick"]
       }
-    }
-    ,
+    },
     {
       "id": "REL-1.109.0-AC1",
       "unitId": "REL-1.109.0",
@@ -5343,6 +5342,35 @@
         "oracleIds": ["live"]
       }
     }
+    ,
+    {
+      "id": "REL-1.109.1-AC1",
+      "unitId": "REL-1.109.1",
+      "status": "passed",
+      "criterion": "Direct execution of CLI, pre-push, machine oracle and Verification Loop without -B, ordinary or isolated, preserves their expected exit/output and the complete installed runtime inventory. Producer lazy broker and path-loaded review-cache imports are exercised after Verification Loop startup. The new regression is RED before the startup fix and GREEN after on WSL and native Windows; wrappers, producer code, inventory assertions and timeouts stay unchanged. Arbitrary external importlib loading and standalone direct calls to other modules are outside this entrypoint guarantee.",
+      "source": "Owner 2026-10-17 approved the source startup fix and v1.109.1, explicitly rejecting further ACL workarounds.",
+      "evidence": "New regression was RED on the original CLI ordinary no-B launch. Canonical review a1 found an ordinary-child environment isolation gap; its report and independent refutation remain retained. A new RED canary reproduced ambient sitecustomize masking before repair. The repaired test clears Python-prefixed child environment overrides without mutating the parent, and passed66 WSL checks and64 native Windows checks (two Unix-only fixtures unavailable). Native focused-v2 exited0 in25.656s, binds runtime7356230ed7ad0aeb1bddf7781579955c263b24d043ed3979fd32c3e6e3bc5b91 and regression SHA75a262bf894dcdccf883e87f2f362bb32abec4b940ed830acfa2d7300753cec4. Its log SHA33f594dd617f424bd1cdcb4a4458fb8288f423558ce55d9e94922686cfe2807a and helper/result are declared machine inputs. Current exact-candidate full machine and independent review remain mandatory before acceptance/publication.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_runtime_install.py",
+      "reviewEvidence": {
+        "claim": "Runtime startup suppression works at the real direct-launch boundary on both hosts without changing security decisions or accepting extra files.",
+        "impactClasses": ["correctness", "host-parity", "compatibility"],
+        "oracleIds": ["runtime-install", "native-focused"]
+      }
+    },
+    {
+      "id": "REL-1.109.1-AC2",
+      "unitId": "REL-1.109.1",
+      "status": "passed",
+      "criterion": "All current release mirrors declare1.109.1 and CHANGELOG documents only the bounded startup fix. The genuine fresh immutable H4 run passes unchanged strict replay against the current measured methodology pin; generated specimen flaws remain visible and are not shipped runtime code. These packaging/live preparation checks establish this criterion's passed status. After freezing, the independently mandatory exact-tree full regression and live machine legs named in reviewEvidence must pass before review/publication; their result is not implied by preparation status. Prior release/ACL failures and old runtimes remain retained. Publication and installed-host acceptance are subsequent authorized stages.",
+      "source": "Owner-authorized patch release and repository release runbook.",
+      "evidence": "Release oracle14criteria/5mutations, meta-review0critical/0important and harness-doc freshness checks passed for1.109.1. Real OpenAI H4 run20261017T182345Z-23c8dbc3 and independent advocate were retained, strict replay154/0; measured methodology pinad2c5a2a46f7b198bd734510a81add5b33f31c3570814855a5ea7f6c45520d3d equals the current source. The initial test clone also carried an unmeasured producer startup edit subsequently removed; H4 does not claim coverage of that module or the runtime fix. Runtime/native/full oracles cover the patch separately. No publication or installation of1.109.1 is claimed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "reviewEvidence": {
+        "claim": "The patch release is internally consistent, regression-tested and carries genuine source-bound workflow evidence without erasing historical findings.",
+        "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "oracleIds": ["full", "live"]
+      }
+    }
   ],
   "completion": {
     "status": "verified",
@@ -5360,11 +5388,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.109.0",
+    "unitId": "REL-1.109.1",
     "status": "in_progress",
     "openedAt": "2026-10-17",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-17 explicitly requested: prepare and publish v1.109.0, then update WSL and Windows installations and verify operation. This follow-up prepares the metadata and immutable live evidence without changing the merged implementation. Publication, tag creation and dual-host rollout are authorized subsequent stages and are recorded only after execution; passing preparation criteria does not claim those stages are done.",
+    "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",

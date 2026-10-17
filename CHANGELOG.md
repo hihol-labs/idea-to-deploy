@@ -9,7 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Цикл после 1.109.0 открыт; записи появляются по мере слияния юнитов.
+> Цикл после 1.109.1 открыт; записи появляются по мере слияния юнитов.
+
+## [1.109.1] - 2026-10-17
+
+### Fixed — direct runtime Python entrypoints
+
+- CLI, pre-push, machine oracle и Verification Loop задают
+  `sys.dont_write_bytecode` до импорта runtime-зависимостей. Прямой запуск без
+  `-B`, в том числе с `-I`, больше не создаёт `.pyc` внутри snapshot через эти
+  entrypoint. Регрессия проверяет обычный и изолированный запуск, lazy broker,
+  path-loaded review cache и неизменность полного runtime inventory.
+- Wrapper-флаги `-I -B`, закрытый inventory, правила приёмки и тайм-ауты
+  сохранены. ACL, глобальные настройки Python и старые runtime не меняются.
+- Гарантия относится к выполнению entrypoint и его последующим импортам, не к
+  произвольному внешнему importlib-loader, который может записать кеш самого
+  модуля ещё до выполнения его первой инструкции.
 
 ## [1.109.0] - 2026-10-17
 
