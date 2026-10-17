@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,8 +38,8 @@ def stale_live_guard_claims(documents: dict[str, str]) -> list[str]:
 def validate(state: dict, today: dt.date | None = None) -> list[str]:
     issues: list[str] = []
     versions = {
-        json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["version"],
-        json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"],
+        json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"],
+        json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"],
     }
     if versions != {state.get("pluginVersion")}:
         issues.append("plugin version drift")
@@ -91,7 +92,7 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
         issues.append("obsolete live-workflow guard instruction: " + ", ".join(stale_guard_docs))
 
     report = (ROOT / "docs" / "HARNESS_CONFORMANCE_REPORT.md").read_text(encoding="utf-8")
-    live = json.loads((ROOT / "tests" / "fixtures" / "live-model-evidence" / "latest.json").read_text())
+    live = json.loads((ROOT / "tests" / "fixtures" / "live-model-evidence" / "latest.json").read_text(encoding="utf-8"))
     report_markers = (
         "Результат: 5,0/5,0",
         f"v{state.get('pluginVersion')}",
@@ -103,7 +104,7 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
     if any(marker not in report for marker in report_markers):
         issues.append("conformance report evidence/limitation drift")
 
-    quality = json.loads((ROOT / "docs" / "QUALITY.json").read_text())
+    quality = json.loads((ROOT / "docs" / "QUALITY.json").read_text(encoding="utf-8"))
     if quality.get("reviewedAt") != state.get("reviewedAt"):
         issues.append("quality ledger review date drift")
     quality_rows = {row.get("id"): row for row in quality.get("modules", []) if isinstance(row, dict)}
@@ -121,7 +122,7 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
             or not required_quality_evidence.issubset(set(harness_row.get("evidence", [])))):
         issues.append("quality ledger harness-conformance row drift")
 
-    scorecard = json.loads((ROOT / "docs" / "QUALITY_SCORECARD.json").read_text())
+    scorecard = json.loads((ROOT / "docs" / "QUALITY_SCORECARD.json").read_text(encoding="utf-8"))
     probes = {probe.get("id"): probe for probe in scorecard.get("probes", []) if isinstance(probe, dict)}
     modules = {module.get("id"): module for module in scorecard.get("modules", []) if isinstance(module, dict)}
     harness_probe = probes.get("harness-conformance", {})
@@ -142,9 +143,21 @@ def validate(state: dict, today: dt.date | None = None) -> list[str]:
 
 
 def main() -> int:
-    state = json.loads((ROOT / "docs" / "HARNESS_DOCS_STATE.json").read_text())
+    state = json.loads((ROOT / "docs" / "HARNESS_DOCS_STATE.json").read_text(encoding="utf-8"))
     issues = validate(state)
     checks = [("current harness documentation state is fresh", not issues)]
+    original_read = Path.read_text
+
+    def legacy_read(path, encoding=None, errors=None):
+        return original_read(path, encoding=encoding or "cp1251", errors=errors)
+
+    try:
+        with patch.object(Path, "read_text", legacy_read):
+            legacy_issues = validate(state)
+        legacy_ok = not legacy_issues
+    except UnicodeError:
+        legacy_ok = False
+    checks.append(("UTF-8 JSON validation ignores the host default codepage", legacy_ok))
     mutated = json.loads(json.dumps(state))
     mutated["inventory"]["hooks"] -= 1
     checks.append(("mutation: inventory drift fails closed", bool(validate(mutated))))

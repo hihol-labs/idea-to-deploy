@@ -172,6 +172,7 @@ def main() -> int:
         [sys.executable, str(dispatcher_path), "--script", "check-skill-completeness.sh"],
         input=json.dumps(probe),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         cwd=ROOT,
         env=env,
@@ -190,6 +191,7 @@ def main() -> int:
         [sys.executable, str(ROOT / "hooks" / "check-skill-completeness.sh")],
         input=json.dumps(direct_probe),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         cwd=ROOT,
         env=env,
@@ -199,7 +201,12 @@ def main() -> int:
     try:
         direct_decision = json.loads(direct.stdout)["hookSpecificOutput"]
         codex_decision = json.loads(proc.stdout)["hookSpecificOutput"]
-        check(direct_decision == codex_decision, "Claude/Codex hard-gate decision payload diverges", errors)
+        check(direct_decision == codex_decision,
+              "Claude/Codex hard-gate decision payload diverges: "
+              + json.dumps({"direct": direct_decision, "codex": codex_decision}, ensure_ascii=True), errors)
+        check("\u274c" in direct_decision.get("permissionDecisionReason", "")
+              and "\u274c" in codex_decision.get("permissionDecisionReason", ""),
+              "UTF-8 deny reason was corrupted by the parent codepage", errors)
     except (json.JSONDecodeError, KeyError):
         errors.append("Claude/Codex parity probe returned an invalid decision payload")
 
@@ -228,12 +235,12 @@ def main() -> int:
         }
         model_direct = subprocess.run(
             [sys.executable, str(ROOT / "hooks" / "model-policy.sh")],
-            input=json.dumps(model_probe), text=True, capture_output=True,
+            input=json.dumps(model_probe), text=True, encoding="utf-8", capture_output=True,
             cwd=model_cwd, env=env, timeout=15,
         )
         model_codex = subprocess.run(
             [sys.executable, str(dispatcher_path), "--script", "model-policy.sh"],
-            input=json.dumps(model_probe), text=True, capture_output=True,
+            input=json.dumps(model_probe), text=True, encoding="utf-8", capture_output=True,
             cwd=ROOT, env=env, timeout=15,
         )
         try:
@@ -270,6 +277,22 @@ def main() -> int:
         trace_path = Path(unicode_cwd) / ".claude/traces/session-codex-unicode-test.jsonl"
         check(unicode_run.returncode == 0, f"Unicode transport probe failed (rc={unicode_run.returncode})", errors)
         check(trace_path.is_file(), "Unicode transport probe did not create an execution trace", errors)
+
+    if os.name == "nt" and sys.flags.utf8_mode:
+        # Exercise the parent decoder under the native legacy codepage even
+        # when CI normally starts this verifier with PYTHONUTF8=1. The child
+        # has utf8_mode=0, so this is one bounded pass rather than recursion.
+        legacy_env = env.copy()
+        legacy_env["PYTHONUTF8"] = "0"
+        legacy_env["PYTHONIOENCODING"] = "utf-8"
+        legacy = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve())],
+            text=True, encoding="utf-8", capture_output=True,
+            cwd=ROOT, env=legacy_env, timeout=120,
+        )
+        check(legacy.returncode == 0,
+              "legacy-parent host parity failed: "
+              + (legacy.stdout + legacy.stderr)[-3000:], errors)
 
     if errors:
         print("FAIL host adapters")
