@@ -5314,6 +5314,35 @@
         "oracleIds": ["quick"]
       }
     }
+    ,
+    {
+      "id": "REL-1.109.0-AC1",
+      "unitId": "REL-1.109.0",
+      "status": "pending",
+      "criterion": "All current release version mirrors declare 1.109.0; CHANGELOG includes the already merged GATE-OPTIN-1 and CLOSE-DEBT-1 changes, lossless JSONL review transport and strict live replay. Historical versions, review dates, signed efficacy evidence and accepted implementation code remain unchanged.",
+      "source": "Owner 2026-10-17 explicitly requested preparation and publication of v1.109.0, then WSL and Windows rollout with verification.",
+      "evidence": "Pending the current exact-tree release and full quick oracles; the version bump is not a claim of publication or installation.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
+      "reviewEvidence": {
+        "claim": "Release metadata, existing behavioral regressions, host adapter compatibility and runtime packaging pass the current exact-tree regression profile.",
+        "impactClasses": ["correctness", "host-parity", "repository-hygiene", "compatibility"],
+        "oracleIds": ["quick"]
+      }
+    },
+    {
+      "id": "REL-1.109.0-AC2",
+      "unitId": "REL-1.109.0",
+      "status": "pending",
+      "criterion": "A fresh real H4 run binds the final 1.109.0 methodology inputs and passes the unchanged structural oracle and strict freshness replay. Generated documents, transcript and fresh advocate findings remain immutable experimental evidence, not shipped CLI code or an assertion that the specimen is production-ready; neither human nor model findings are removed to obtain PASS.",
+      "source": "Release runbook and owner-authorized v1.109.0 preparation.",
+      "evidence": "Pending fresh generation on the clean committed release source, then exact-tree replay; old archives are preserved.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The release carries genuine, fresh, source-bound workflow evidence, with structural PASS distinguished from semantic approval of the generated specimen.",
+        "impactClasses": ["correctness", "generated-artifact-freshness"],
+        "oracleIds": ["live"]
+      }
+    }
   ],
   "completion": {
     "status": "verified",
@@ -5331,15 +5360,15 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "CLOSE-DEBT-1-LIVE",
+    "unitId": "REL-1.109.0",
     "status": "in_progress",
     "openedAt": "2026-10-17",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner approved repairing completion/close debt, refreshing real live evidence, fixing the canonical review transport, committing and updating PR #366 through green CI. The 2026-10-17 approval permits an independently reviewed temporary authority snapshot outside the checkout; merge, release and global installation changes are outside scope.",
+    "sourceRequest": "Owner 2026-10-17 explicitly requested: prepare and publish v1.109.0, then update WSL and Windows installations and verify operation. This follow-up prepares the metadata and immutable live evidence without changing the merged implementation. Publication, tag creation and dual-host rollout are authorized subsequent stages and are recorded only after execution; passing preparation criteria does not claim those stages are done.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
-      "requiredImpactClasses": ["correctness", "security", "repository-hygiene", "generated-artifact-freshness", "bounded-output", "compatibility"],
+      "riskTier": "medium",
+      "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
@@ -6010,6 +6039,23 @@
       },
       "closedAt": "2026-10-16",
       "closureEvidence": "Merged as PR #364 -> 8618209c075bfe2b0b1809ccfdf59edf7a9a9dd3 (squash; tree = the reviewed tree c0564abc2932 of 087babe). Published through the local-review route: machine receipt GATE-OPTIN-1 receipts/98729e645541f5d4 PASSED 7/7 legs, Sol p7 PASSED (p1/p2 UNVERIFIED on criterion statuses, p3-p6 BLOCKED on real hook defects fixed in the unit with RED/GREEN cases: UNAVAILABLE as absence, Path.exists on a dangling symlink, an advisory on a registry-less machine, a FIFO hanging the open, the stat/open race), chain check rc=0, register-profile medium, doctor LOCAL_REVIEWED, itd pr create (maker claude-fable-5-1); CI Gate 1 pass, windows-verify pass. Rollout 2026-10-16: itd runtime 1.108.0-4f366157b15923f1 and pre-push reinstalled on WSL and natively on Windows (C:\\itd-src at 8618209c, dirty=0); gates.json backed up on both hosts; unregistered on WSL HiH-DimaN/hihol-landing, hihol-labs/neuroexpert, newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS and on Windows newmen1234/buying, newmen1234/invoices, newmen1234/OneOfS (via the runtime's itd.py: the itd.cmd wrapper fails on the Cyrillic profile path under cmd.exe, BACKLOG P3) - both registries hold only hihol-labs/idea-to-deploy. Installed hook dry-run on WSL: unregistered HiH-DimaN/hihol-landing main -> advisory line, exit 0; registered hihol-labs/idea-to-deploy topic -> BLOCKED (itd pr create). Four product pushes passed the installed hook with the advisory and without --no-verify: site fd615bc, portfolio-cases 15f7637, itd-graph-exp a4c0922, neuroexpert d3eef87 (R-10, updates draft PR hihol-labs/neuroexpert#8)."
+    },
+    {
+      "unitId": "CLOSE-DEBT-1-LIVE",
+      "status": "closed",
+      "openedAt": "2026-10-17",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner approved repair of completion/close debt and canonical review transport, PR #366 publication and green CI; then explicitly authorized merge into main and post-merge CI verification.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": ["correctness", "security", "repository-hygiene", "generated-artifact-freshness", "bounded-output", "compatibility"],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-17",
+      "closureEvidence": "Reviewed head b0d7b420f966907a12a94baef25ce7c73adba441; full exact-tree quick and strict live replay passed; current runtime smoke41 passed. Repair review accepted; full Terra review retained12 findings on6 known flaws of the archived CLI specimen. Owner explicitly affirmed v2 binding870e3aaba7bbb4a3b74abac9b18ebefd81bc78d994256f49bfe22780a344ca81; final receipt f16c4caa84a211fe1b67b71d09b601b21191fba351aa55c1c44aa14214738290 is ADJUDICATED, not a relabeled clean review. Guarded publication succeeded; PR366 CI runs39023963197 and39023963152 passed. Owner-authorized merge9484d980e4f1b321564263c596770fa6e6e07bc3 reached main; post-merge push CI runs39024836403 and39024836386 passed. Original negative report and immutable archive remain retained. Global installations were not changed by this unit."
     }
   ]
 }
