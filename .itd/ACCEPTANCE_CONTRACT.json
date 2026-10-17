@@ -5321,7 +5321,7 @@
       "status": "passed",
       "criterion": "All current release version mirrors declare 1.109.0; CHANGELOG includes the already merged GATE-OPTIN-1 and CLOSE-DEBT-1 changes, lossless JSONL review transport and strict live replay. Historical versions, review dates, signed efficacy evidence and accepted implementation code remain unchanged.",
       "source": "Owner 2026-10-17 explicitly requested preparation and publication of v1.109.0, then WSL and Windows rollout with verification.",
-      "evidence": "Prepared metadata passed the release oracle (14 criteria, 5 mutation guards), documentation freshness, host adapters (30 hooks, 12 hard gates), meta-review and review-evidence regressions. Full exact-candidate regression evidence is additionally required before publication; this status does not claim publication or installation.",
+      "evidence": "Release oracle14criteria/5mutations, metadata and host checks passed in WSL. Native cp1251 exposed two verifier decoding defects: deterministic RED guards then passed on WSL and native Windows with the exact repaired verifier bytes. Existing assertions and production adapter/timeouts remain unchanged; the original unexplained parity inequality is retained, not relabeled, and payload diagnostics were added. Final exact-candidate full regression, native-file reruns and CI are still required before publication; no publication or installation is claimed.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
       "reviewEvidence": {
         "claim": "Release metadata, existing behavioral regressions, host adapter compatibility and runtime packaging pass the current exact-tree regression profile.",

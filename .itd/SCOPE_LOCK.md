@@ -21,6 +21,11 @@
   `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`,
   `tests/verify_external_reviewer_release.py`: current version mirrors only.
 - `CHANGELOG.md`: release notes and an empty next Unreleased cycle.
+- `tests/verify_harness_docs_freshness.py`, `tests/verify_host_adapters.py`:
+  bounded release-verifier repairs for explicit UTF-8 JSON/text transport,
+  legacy-codepage regressions and diagnostic parity output. Native cp1251
+  checks reproduced verifier defects during this owner-requested release;
+  retain the original failures and keep production adapter behavior unchanged.
 - `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, this scope:
   evidence-backed release and prior-follow-up records.
 - `tests/fixtures/live-model-evidence/latest.json` and one newly generated
@@ -41,7 +46,8 @@ obtain a clean semantic vote.
 ## Forbidden Change Areas
 
 - Runtime implementation, skills, hooks, agents, policies and test logic beyond
-  the version mirror above; frozen efficacy inputs and observations.
+  the declared version mirror and two verifier repairs; frozen efficacy inputs
+  and observations. Do not change adapter timeout limits or parity assertions.
 - Historical dates/outcomes/hashes, old runtimes, secrets, unrelated settings,
   disabled-hook choices and unrelated project checkouts.
 - Handwritten goal/unit verified statuses, acceptance without exact evidence,
@@ -49,8 +55,9 @@ obtain a clean semantic vote.
 
 ## Review Rule
 
-Medium risk: packaging metadata and immutable experimental evidence, not new
-implementation behavior. Require exact-tree machine evidence and one fresh
+Medium risk: packaging metadata, immutable experimental evidence and bounded
+verifier portability repairs, not new runtime implementation behavior.
+Require exact-tree machine evidence and one fresh
 canonical opposite-GPT review before publication. Old PR receipts and owner
 dispositions do not authorize a changed release candidate. Use host-native
 installed interpreters and verify actual installed runtimes after rollout.
