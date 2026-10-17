@@ -27,6 +27,8 @@
 - `tests/verify_itd_runtime_install.py`: direct ordinary/isolated no-B launch
   regressions and lazy/path-loaded dependency inventory proof.
 - `docs/CODEX_ADAPTER.md`: exact direct-execution guarantee and import boundary.
+- `.itd/IMPACT_GRAPH.json`: regenerate with unchanged tests/build_impact_graph.py
+  after the new regression dependency, preserving the freshness oracle.
 - `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, this scope:
   evidence-backed release and prior-follow-up records.
 - `tests/fixtures/live-model-evidence/latest.json` and one newly generated
