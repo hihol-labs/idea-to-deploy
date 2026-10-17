@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Обновление версии не меняет пороги efficacy, лимиты review-транспорта или
   правила приёмки. После выпуска установки WSL и Windows обновляются отдельно;
   прежние content-addressed runtime сохраняются для отката.
+- Реальный H4-прогон `20261017T111728Z-e7126baa` выполнен на чистом исходнике
+  1.109.0: одна генерация blueprint и отдельная свежая сессия advocate;
+  неизменённый strict replay прошёл 154 проверки без ошибок.
 
 ### Fixed - CLOSE-DEBT-1: runtime-сигналы и явное закрытие
 

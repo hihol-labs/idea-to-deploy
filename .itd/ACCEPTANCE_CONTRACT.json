@@ -5318,24 +5318,24 @@
     {
       "id": "REL-1.109.0-AC1",
       "unitId": "REL-1.109.0",
-      "status": "pending",
+      "status": "passed",
       "criterion": "All current release version mirrors declare 1.109.0; CHANGELOG includes the already merged GATE-OPTIN-1 and CLOSE-DEBT-1 changes, lossless JSONL review transport and strict live replay. Historical versions, review dates, signed efficacy evidence and accepted implementation code remain unchanged.",
       "source": "Owner 2026-10-17 explicitly requested preparation and publication of v1.109.0, then WSL and Windows rollout with verification.",
-      "evidence": "Pending the current exact-tree release and full quick oracles; the version bump is not a claim of publication or installation.",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
+      "evidence": "Prepared metadata passed the release oracle (14 criteria, 5 mutation guards), documentation freshness, host adapters (30 hooks, 12 hard gates), meta-review and review-evidence regressions. Full exact-candidate regression evidence is additionally required before publication; this status does not claim publication or installation.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
       "reviewEvidence": {
         "claim": "Release metadata, existing behavioral regressions, host adapter compatibility and runtime packaging pass the current exact-tree regression profile.",
         "impactClasses": ["correctness", "host-parity", "repository-hygiene", "compatibility"],
-        "oracleIds": ["quick"]
+        "oracleIds": ["full"]
       }
     },
     {
       "id": "REL-1.109.0-AC2",
       "unitId": "REL-1.109.0",
-      "status": "pending",
+      "status": "passed",
       "criterion": "A fresh real H4 run binds the final 1.109.0 methodology inputs and passes the unchanged structural oracle and strict freshness replay. Generated documents, transcript and fresh advocate findings remain immutable experimental evidence, not shipped CLI code or an assertion that the specimen is production-ready; neither human nor model findings are removed to obtain PASS.",
       "source": "Release runbook and owner-authorized v1.109.0 preparation.",
-      "evidence": "Pending fresh generation on the clean committed release source, then exact-tree replay; old archives are preserved.",
+      "evidence": "Real OpenAI subscription run 20261017T111728Z-e7126baa on clean source58bb5644a77f20106e3511451316b96c0c1e4c1d passed with one blueprint attempt and a separate fresh advocate. Methodology tree0f8feb63029f3dbd16f5c8992fdf27d631d23de5e496a9d3bac238ef230a6a66; strict replay154 passed,0 failed. Old archives are preserved; the final exact-candidate machine receipt must replay the same evidence again before acceptance.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The release carries genuine, fresh, source-bound workflow evidence, with structural PASS distinguished from semantic approval of the generated specimen.",
