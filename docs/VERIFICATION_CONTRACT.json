@@ -23,6 +23,19 @@
       "passFailParser": "stdout_contains"
     },
     {
+      "id": "live-model-evidence",
+      "argv": ["python3", "-I", "tests/verify_live_model_benchmark.py", "--require-evidence", "--max-age-days", "30"],
+      "trustedVerifierPaths": [
+        "tests/verify_live_model_benchmark.py",
+        "tests/itd_benchmark_pin.py",
+        "tests/run-live-model-benchmark.py",
+        "tests/verify_snapshot.py"
+      ],
+      "timeoutSeconds": 180,
+      "expectedOutput": "passed, 0 failed",
+      "passFailParser": "stdout_contains"
+    },
+    {
       "id": "quick-regression",
       "argv": ["python3", "-I", "tests/verify_quick_regression.py"],
       "trustedVerifierPaths": [
@@ -82,7 +95,7 @@
         "tests/verify_work_deadline_contract.py",
         "tests/verify_work_deadline_docs.py"
       ],
-      "timeoutSeconds": 300,
+      "timeoutSeconds": 1200,
       "expectedOutput": "DONE fails:none",
       "passFailParser": "stdout_contains"
     }

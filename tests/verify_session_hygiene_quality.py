@@ -6,6 +6,7 @@ import datetime as dt
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -541,7 +542,13 @@ SESSION_CLOSE_RESOLVER = (
     'CONTRACT="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" SESSION_EXIT_CONTRACT.json)/SESSION_EXIT_CONTRACT.json"',
     'sh "$T/itd_tool.sh" itd_hygiene.py close --root . --contract "$CONTRACT"',
 )
-STARTUP_TIMEOUT_FLOOR = 600
+# CLOSE-DEBT-1 (2026-10-16): the startup probe is a bounded smoke of the shipped runtime (the
+# installed-runtime inventory, 3 s offline), not a second quick mirror. The mirror runs exactly
+# once, as the argv-bound `quick-regression` verifier of the verification contract, and its budget
+# follows the measurement: 408 s unloaded on 2026-10-16, a timeout at 600 s under load, so 1200.
+STARTUP_TIMEOUT_FLOOR = 60
+QUICK_REGRESSION_FLOOR = 1200
+QUICK_MIRROR_RE = re.compile(r"run-all\.sh\s+--quick|verify_quick_regression")
 _spec = importlib.util.spec_from_file_location(
     "itd_contract_dir_model", ROOT / "skills" / "_shared" / "itd_contract_dir.py")
 assert _spec is not None and _spec.loader is not None
@@ -570,10 +577,8 @@ def applied_session_close_contract(root: Path) -> Path:
 def test_methodology_startup_timeout_declared() -> None:
     # The session-save resolver selects the contract (docs/ in the methodology
     # repository, .itd/ elsewhere), so the contract that runs is whatever the
-    # resolver selects, not whichever file one expects. Without the key the
-    # runner falls back to its 120 second default, under which the startup probe
-    # (the quick mirror, measured at 259-281 seconds on 2026-09-14/15) can never
-    # pass, and the close stays red for a reason that looks like a hang.
+    # resolver selects, not whichever file one expects. Keep the startup budget
+    # explicit: the runtime smoke and the quick regression have separate limits.
     skill = (ROOT / "skills" / "session-save" / "SKILL.md").read_text(encoding="utf-8")
     lines = skill.splitlines()
     # The installation-first helper line also opens other snippets of the skill;
@@ -595,22 +600,61 @@ def test_methodology_startup_timeout_declared() -> None:
     )
     contract = json.loads(applied.read_text(encoding="utf-8")) if applied.is_file() else {}
     check(
-        "methodology close declares a startup timeout the quick mirror fits in",
+        "methodology close declares a bounded startup timeout",
         startup_timeout_fits(contract),
         f"{applied.name}: startupTimeoutSeconds={contract.get('startupTimeoutSeconds')!r}",
     )
+    probe = str(contract.get("startupProbeCommand") or "")
+    check(
+        "the startup probe is a smoke of the shipped runtime, not a second quick mirror",
+        "verify_itd_runtime_install" in probe and not QUICK_MIRROR_RE.search(probe),
+        probe,
+    )
+    verification_rel = str(contract.get("verificationContract") or "")
+    verification_path = applied.parent.parent / verification_rel if applied.is_file() else None
+    try:
+        verification = json.loads(verification_path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - reported by the check below
+        verification = {}
+    quick = [c for c in verification.get("commands", []) if c.get("id") == "quick-regression"]
+    check(
+        "the quick mirror runs once, as the verification contract's quick-regression, with a measured budget",
+        len(quick) == 1 and type(quick[0].get("timeoutSeconds")) is int
+        and quick[0]["timeoutSeconds"] >= QUICK_REGRESSION_FLOOR
+        and QUICK_MIRROR_RE.search(" ".join(quick[0].get("argv") or [])) is not None,
+        f"{verification_rel}: {quick}",
+    )
+    live = [c for c in verification.get("commands", [])
+            if c.get("id") == "live-model-evidence"]
+    check(
+        "methodology close replays the same strict live evidence as CI",
+        len(live) == 1
+        and live[0].get("argv") == [
+            "python3", "-I", "tests/verify_live_model_benchmark.py",
+            "--require-evidence", "--max-age-days", "30",
+        ]
+        and type(live[0].get("timeoutSeconds")) is int
+        and 60 <= live[0]["timeoutSeconds"] <= 180
+        and live[0].get("passFailParser") == "stdout_contains"
+        and live[0].get("expectedOutput") == "passed, 0 failed"
+        and {
+            "tests/verify_live_model_benchmark.py", "tests/itd_benchmark_pin.py",
+            "tests/run-live-model-benchmark.py", "tests/verify_snapshot.py",
+        }.issubset(live[0].get("trustedVerifierPaths") or []),
+        f"{verification_rel}: {live}",
+    )
 
-    # RED side of the same predicate, asserted on every run: the state this
-    # unit repaired (no key), the limit that was declared but too tight (300),
+    # RED side of the same predicate, asserted on every run: the state the 2026-09-15
+    # unit repaired (no key), a limit too tight for any probe (30, 59),
     # and the non-integer forms must all be refused.
     without_key = {k: v for k, v in contract.items() if k != "startupTimeoutSeconds"}
     refused = {
         "no key": without_key,
-        "300": {**without_key, "startupTimeoutSeconds": 300},
-        "599": {**without_key, "startupTimeoutSeconds": 599},
-        "string": {**without_key, "startupTimeoutSeconds": "600"},
+        "30": {**without_key, "startupTimeoutSeconds": 30},
+        "59": {**without_key, "startupTimeoutSeconds": 59},
+        "string": {**without_key, "startupTimeoutSeconds": "180"},
         "bool": {**without_key, "startupTimeoutSeconds": True},
-        "float": {**without_key, "startupTimeoutSeconds": 600.0},
+        "float": {**without_key, "startupTimeoutSeconds": 180.0},
     }
     leaked = sorted(name for name, value in refused.items() if startup_timeout_fits(value))
     check(

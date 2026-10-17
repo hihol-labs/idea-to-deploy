@@ -1271,6 +1271,122 @@ def candidate_phase() -> None:
     )
 
 
+def oversized_jsonl_phase() -> None:
+    policy = broker.load_policy()
+    path = "evidence/transcript.jsonl.gz"
+    payloads = (
+        ({"output": "x" * 126130}, "\n"),
+        ({"output": "Ж🙂\\\"\t" * 5000}, "\n"),
+        ({"output": "\\" * 21000}, "\n"),
+        ({"x": "a" * 79986}, ""),
+        ({"output": "x" * 126130}, "\r\n"),
+    )
+    logical_cases = [
+        ((json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+          + ending).encode("utf-8"), 1)
+        for payload, ending in payloads
+    ]
+    logical_cases.append((
+        b'{"first":1}\r\n'
+        + (json.dumps({"middle": "Ж🙂" * 20000}, ensure_ascii=False)
+           + "\n").encode("utf-8") + b'{"last":3}',
+        3,
+    ))
+    for logical, source_line_count in logical_cases:
+        compressed = gzip.compress(logical, mtime=0)
+        decoded, binding = broker._review_blob(path, compressed, policy)
+        view = [json.loads(line) for line in decoded.splitlines()]
+        header, fragments = view[0], view[1:]
+        reconstructed = b"".join(row["utf8Text"].encode("utf-8") for row in fragments)
+        full, line_bounds, chunks = broker._canonical_diff(
+            {path: {"previousPath": None, "status": "added"}},
+            {path: (b"", decoded)},
+        )
+        plan_text, units = broker._review_units(full, chunks, policy)
+        plan = json.loads(plan_text)
+        encoded = full.encode("utf-8")
+        check(
+            reconstructed == logical and header == {
+                "kind": "itd-jsonl-source-v1",
+                "sourceSha256": broker.sha256_bytes(logical), "sourceBytes": len(logical),
+                "sourceLineCount": source_line_count,
+                "lineCoordinates": "projection-line-number",
+            } and binding == {
+                "encoding": "gzip-jsonl-utf8-chunks-v2",
+                "sha256": broker.sha256_bytes(decoded), "bytes": len(decoded),
+            } and line_bounds[path] == len(view)
+            and gzip.decompress(compressed) == logical,
+            "oversized JSONL projection preserves original gzip, decoded bytes and source hash",
+        )
+        source_offset = 0
+        for row in fragments:
+            chunk = row["utf8Text"].encode("utf-8")
+            check(
+                set(row) == {"byteOffset", "utf8Text"}
+                and row["byteOffset"] == source_offset
+                and chunk == logical[source_offset:source_offset + len(chunk)]
+                and 0 < len(chunk) <= 4096,
+                "source projection fragments cover exact ordered UTF-8 byte offsets",
+            )
+            source_offset += len(chunk)
+        check(
+            1 < len(units) <= policy["candidate"]["maxReviewUnits"]
+            and b"".join(unit.review_diff.encode("utf-8") for unit in units) == encoded
+            and plan["fullDiffSha256"] == broker.sha256_bytes(encoded)
+            and all(unit.review_diff.endswith("\n") for unit in units),
+            "projection review units preserve the unchanged complete-line partition protocol",
+        )
+        for index, unit in enumerate(units, start=1):
+            raw = unit.review_diff.encode("utf-8")
+            manifest = unit.manifest
+            once = json.dumps(unit.review_diff, ensure_ascii=False)
+            twice = json.dumps(once, ensure_ascii=False)
+            check(
+                raw == encoded[manifest["reviewDiffStartByte"]:
+                               manifest["reviewDiffEndByteExclusive"]]
+                and manifest["reviewDiffSha256"] == broker.sha256_bytes(raw)
+                and manifest["pathSegments"][path] == {"index": index, "count": len(units)}
+                and len(raw) <= policy["candidate"]["maxRawDiffBytes"]
+                and len(once.encode("utf-8")) - 2 <= policy["candidate"]["maxRawDiffBytes"]
+                and len(twice.encode("utf-8")) - 6 <= (
+                    policy["candidate"]["maxProviderRequestBytes"]
+                    - broker.HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+                ),
+                "each JSONL fragment is UTF-8-safe, hash-bound and double-JSON bounded",
+            )
+        for ordinary_path in ("evidence/transcript.jsonl", "source.txt"):
+            ordinary_full, _, ordinary_chunks = broker._canonical_diff(
+                {ordinary_path: {"previousPath": None, "status": "added"}},
+                {ordinary_path: (b"", logical)},
+            )
+            expect_error(
+                "UNVERIFIED",
+                lambda: broker._review_units(ordinary_full, ordinary_chunks, policy),
+                "ordinary over-bound lines remain rejected",
+            )
+        limited = copy.deepcopy(policy)
+        limited["candidate"]["maxReviewUnits"] = 1
+        expect_error(
+            "UNVERIFIED", lambda: broker._review_units(full, chunks, limited),
+            "fragmentation cannot bypass the review-unit count limit",
+        )
+
+    for sensitive in ("ops.person@example.com", "sk-" + "A" * 48):
+        logical = (json.dumps({"output": "x" * 4082 + " " + sensitive + " " + "x" * 90000})
+                   + "\n").encode("utf-8")
+        expect_error(
+            "UNVERIFIED",
+            lambda: broker._review_blob(path, gzip.compress(logical, mtime=0), policy),
+            "sensitive source cannot evade scanning across projection fragments",
+        )
+    limited = copy.deepcopy(policy)
+    limited["candidate"]["maxDecodedBlobBytes"] = 100
+    expect_error(
+        "UNVERIFIED", lambda: broker._project_jsonl(b'{"value":1}\n', limited),
+        "projection expansion cannot exceed the existing logical blob bound",
+    )
+
+
 class StaticResponse:
     def __init__(self, value: dict[str, Any]) -> None:
         self.raw = broker.canonical_json(value)
@@ -3110,6 +3226,7 @@ def main() -> int:
         policy_phase()
     if args.phase in {"all", "candidate"}:
         candidate_phase()
+        oversized_jsonl_phase()
     if args.phase in {"all", "adapter"}:
         adapter_phase()
     if args.phase in {"all", "process"}:

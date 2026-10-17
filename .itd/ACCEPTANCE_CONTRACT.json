@@ -5271,6 +5271,48 @@
         ]
       },
       "evidence": "Exact-candidate machine oracles of GATE-OPTIN-1 must all pass before independent review and publication."
+    },
+    {
+      "id": "CLOSE-DEBT-1-LIVE-AC1",
+      "unitId": "CLOSE-DEBT-1-LIVE",
+      "status": "passed",
+      "criterion": "Strict completion validates producer-attributed unknown signals but excludes them from proof; unknown-only, real failures and empty pass/fail evidence remain blocked. Explicit close runs quick once with its measured budget, a bounded startup smoke and the strict live-evidence replay. The efficacy matcher accepts only the explicitly named adjacent blank-line anchor with all existing fault guards retained.",
+      "source": "Owner close-debt requests of 2026-10-16 and continuation of PR #366.",
+      "evidence": "The full quick oracle passed on the implementation candidate; publication additionally requires the passing machine receipt and mandatory independent route for the current exact tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
+      "reviewEvidence": {
+        "claim": "Completion and efficacy behavior is covered by the full regression oracle, without rewriting historical signals or frozen efficacy observations.",
+        "impactClasses": ["correctness", "security", "repository-hygiene"],
+        "oracleIds": ["quick"]
+      }
+    },
+    {
+      "id": "CLOSE-DEBT-1-LIVE-AC2",
+      "unitId": "CLOSE-DEBT-1-LIVE",
+      "status": "passed",
+      "criterion": "The real successful live benchmark and its immutable archive bind the current methodology inputs, retain the complete sanitized transcript and outputs, and pass CI's required-evidence replay within the 30-day freshness window.",
+      "source": "Owner request to bring PR #366 to green CI after WSL authentication.",
+      "evidence": "Canonical run 20261016T193843Z-faa5f07d passed; the current-candidate strict live oracle must independently replay every source and artifact binding before publication.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "Current live evidence is genuine, fresh and reproducible from its retained archive.",
+        "impactClasses": ["correctness", "generated-artifact-freshness"],
+        "oracleIds": ["live"]
+      }
+    },
+    {
+      "id": "CLOSE-DEBT-1-LIVE-AC3",
+      "unitId": "CLOSE-DEBT-1-LIVE",
+      "status": "passed",
+      "criterion": "Oversized transparent JSONL records use a lossless broker-side view with exact source offsets, digest and byte count. Scanning occurs before projection and on the resulting diff. All existing blob, raw/serialized request, aggregate and unit-count ceilings remain enforced; original gzip bytes, producer code, ordinary complete-line partitioning and signed efficacy observations remain unchanged.",
+      "source": "Explicit owner approval on 2026-10-17 to repair review transport and finish PR #366 using an independently reviewed temporary authority snapshot.",
+      "evidence": "Broker, policy, producer and efficacy regressions passed, including UTF-8, CRLF, no-final-newline, multiline reconstruction, secret-boundary and overflow cases; the current exact-tree quick oracle is required again for acceptance.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
+      "reviewEvidence": {
+        "claim": "The supported representation preserves every source byte and complete review coverage without weakening security or resource bounds.",
+        "impactClasses": ["correctness", "security", "bounded-output", "compatibility"],
+        "oracleIds": ["quick"]
+      }
     }
   ],
   "completion": {
@@ -5289,9 +5331,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "",
-    "status": "none",
-    "note": "No active unit - GATE-OPTIN-1 closed 2026-10-16 (PR #364 -> 8618209c, rolled out on WSL and Windows, registries hold only hihol-labs/idea-to-deploy). ITD development stays paused by ADR-012; the next unit opens only on an owner decision."
+    "unitId": "CLOSE-DEBT-1-LIVE",
+    "status": "in_progress",
+    "openedAt": "2026-10-17",
+    "selectedClaim": "LOCAL_REVIEWED",
+    "sourceRequest": "Owner approved repairing completion/close debt, refreshing real live evidence, fixing the canonical review transport, committing and updating PR #366 through green CI. The 2026-10-17 approval permits an independently reviewed temporary authority snapshot outside the checkout; merge, release and global installation changes are outside scope.",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": ["correctness", "security", "repository-hygiene", "generated-artifact-freshness", "bounded-output", "compatibility"],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [

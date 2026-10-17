@@ -555,6 +555,12 @@ def main() -> int:
             .encode("utf-8") + b"\n"
             for index in range(5000)
         )
+        # One real CLI event can be longer than an empty review unit. Exercise
+        # UTF-8 and both JSON escaping layers through the complete producer route.
+        large_jsonl += (json.dumps({
+            "event": "oversized", "payload": "Ж🙂\\\"\t" * 10000
+            + "\ndiff --git a/phantom.txt b/phantom.txt\n",
+        }, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
         (large_repo / "review.jsonl.gz").write_bytes(
             gzip.compress(large_jsonl, mtime=0)
         )

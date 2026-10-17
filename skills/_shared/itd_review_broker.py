@@ -68,7 +68,9 @@ MAX_COMPARE_PAGES = 1000
 MERGE_GROUP_PAGE_SIZE = 100
 SANITIZER_VERSION = "itd-scrubber-v1"
 TRANSPARENT_JSONL_ENCODING = "gzip-jsonl-utf8-v1"
+TRANSPARENT_JSONL_PROJECTION_ENCODING = "gzip-jsonl-utf8-chunks-v2"
 TRANSPARENT_JSONL_SUFFIX = ".jsonl.gz"
+JSONL_PROJECTION_FRAGMENT_BYTES = 4096
 DECOMPRESSION_CHUNK_BYTES = 64 * 1024
 HIERARCHICAL_REQUEST_ENVELOPE_BYTES = 10_000
 
@@ -231,6 +233,84 @@ def _transparent_jsonl_suffix(policy: dict[str, Any]) -> str:
     return suffix
 
 
+def _jsonl_needs_projection(logical: bytes, policy: dict[str, Any]) -> bool:
+    maximum = int(policy["candidate"]["maxRawDiffBytes"])
+    provider_maximum = (
+        int(policy["candidate"]["maxProviderRequestBytes"])
+        - HIERARCHICAL_REQUEST_ENVELOPE_BYTES
+    )
+    for line in logical.decode("utf-8").splitlines(keepends=True):
+        # Include the canonical unified-diff prefix in all three footprints.
+        text = "+" + line
+        if not text.endswith("\n"):
+            # _complete_diff_line terminates the data line before its separate
+            # no-final-newline marker. That byte must fit the unit too.
+            text += "\n"
+        once = json.dumps(text, ensure_ascii=False)
+        twice = json.dumps(once, ensure_ascii=False)
+        if (
+            len(text.encode("utf-8")) > maximum
+            or len(once.encode("utf-8")) - 2 > maximum
+            or len(twice.encode("utf-8")) - 6 > provider_maximum
+        ):
+            return True
+    return False
+
+
+def _project_jsonl(logical: bytes, policy: dict[str, Any]) -> bytes:
+    representation = policy["candidate"]["transparentReview"]["representations"].get(
+        TRANSPARENT_JSONL_PROJECTION_ENCODING
+    )
+    if not isinstance(representation, dict) or (
+        representation.get("pathSuffix") != TRANSPARENT_JSONL_SUFFIX
+        or representation.get("maximumFragmentUtf8Bytes") != JSONL_PROJECTION_FRAGMENT_BYTES
+    ):
+        raise BrokerError("UNVERIFIED", "JSONL projection policy is unavailable")
+    # Scan BEFORE introducing fragment boundaries: otherwise a credential or
+    # PII pattern spanning two view rows could evade the ordinary diff scan.
+    reviewer = _reviewer_module()
+    text = logical.decode("utf-8")
+    clean, redactions = reviewer.scrub(text)
+    if (
+        redactions or clean != text
+        or reviewer.contains_high_confidence_secret(clean)
+        or reviewer.contains_residual_credential(clean)
+        or reviewer.contains_high_entropy_token(clean)
+    ):
+        raise BrokerError("UNVERIFIED", "JSONL projection requires a clean source")
+
+    maximum = int(policy["candidate"]["maxDecodedBlobBytes"])
+    projected = bytearray()
+
+    def append(row: dict[str, Any]) -> None:
+        encoded = (json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+                   + "\n").encode("utf-8")
+        if len(projected) + len(encoded) > maximum:
+            raise BrokerError("UNVERIFIED", "JSONL projection exceeds logical blob bound")
+        projected.extend(encoded)
+
+    lines = logical.splitlines(keepends=True)
+    append({
+        "kind": "itd-jsonl-source-v1", "sourceSha256": sha256_bytes(logical),
+        "sourceBytes": len(logical), "sourceLineCount": len(lines),
+        "lineCoordinates": "projection-line-number",
+    })
+    source_offset = 0
+    for line in lines:
+        offset = 0
+        while offset < len(line):
+            end = min(offset + JSONL_PROJECTION_FRAGMENT_BYTES, len(line))
+            while end < len(line) and line[end] & 0xC0 == 0x80:
+                end -= 1
+            append({
+                "byteOffset": source_offset + offset,
+                "utf8Text": line[offset:end].decode("utf-8"),
+            })
+            offset = end
+        source_offset += len(line)
+    return bytes(projected)
+
+
 def _review_blob(
     path: str,
     raw: bytes,
@@ -239,8 +319,12 @@ def _review_blob(
     suffix = _transparent_jsonl_suffix(policy)
     if path.endswith(suffix):
         logical = _decode_transparent_jsonl_gzip(raw, policy)
+        encoding = TRANSPARENT_JSONL_ENCODING
+        if _jsonl_needs_projection(logical, policy):
+            logical = _project_jsonl(logical, policy)
+            encoding = TRANSPARENT_JSONL_PROJECTION_ENCODING
         return logical, {
-            "encoding": TRANSPARENT_JSONL_ENCODING,
+            "encoding": encoding,
             "sha256": sha256_bytes(logical),
             "bytes": len(logical),
         }

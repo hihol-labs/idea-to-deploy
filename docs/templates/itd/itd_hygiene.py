@@ -440,6 +440,7 @@ def strict_runtime_completion_errors(root: Path, contract: dict,
                         "repair the ledger and rerun verification")]
     layers = {int(x) for x in (policy.get("runtimeLayers") or [2, 3])}
     relevant = []
+    unobserved = 0
     for index, row in enumerate(rows, 1):
         required = ("ts", "kind", "layer", "outcome")
         missing = [key for key in required if key not in row]
@@ -473,18 +474,26 @@ def strict_runtime_completion_errors(root: Path, contract: dict,
             return [problem(ledger_rel, "runtime signal producer provenance is invalid",
                             "rerun verification through completion-signals")]
         if layer in layers:
-            if not str(row.get("command") or "").strip() \
-                    or not str(row.get("evidence") or "").strip():
-                return [problem(ledger_rel,
-                                "runtime command/evidence is empty",
+            if not str(row.get("command") or "").strip():
+                return [problem(ledger_rel, "runtime command is empty",
                                 "rerun verification through completion-signals")]
             if str(row.get("kind") or "") not in set(
                     policy.get("runtimeKinds") or []):
                 return [problem(ledger_rel, "runtime signal kind is not approved",
                                 "run an approved test or startup probe")]
+            # Unknown may have no captured evidence (redirected/background run).
+            # Exclude it from proof only after schema/provenance validation;
+            # pass/fail claims still require evidence (CLOSE-DEBT-1).
+            if str(row.get("outcome") or "").lower() == "unknown":
+                unobserved += 1
+                continue
+            if not str(row.get("evidence") or "").strip():
+                return [problem(ledger_rel, "runtime evidence is empty",
+                                "rerun verification through completion-signals")]
             relevant.append(row)
     if not relevant:
-        return [problem(ledger_rel, "required L2/L3 runtime evidence is missing",
+        note = f" ({unobserved} unobserved runs are not evidence)" if unobserved else ""
+        return [problem(ledger_rel, "required L2/L3 runtime evidence is missing" + note,
                         "run the required tests/build/smoke in this session")]
     outcomes = {str(row.get("outcome") or "").lower() for row in relevant}
     if not outcomes or "" in outcomes or outcomes - {"pass", "fail"}:

@@ -253,9 +253,40 @@ def main() -> int:
 
         seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "unknown"}])
         result, decision, reason = run_gate(repo)
-        check("ambiguous runtime outcome is denied",
+        check("an unobserved run alone is not proof: unknown-only runtime evidence is denied",
               result.returncode == 2 and decision == "deny"
-              and ("ambiguous" in reason or "not verified" in reason))
+              and ("missing" in reason or "ambiguous" in reason or "not verified" in reason),
+              reason)
+
+        # CLOSE-DEBT-1: an unobserved run (output redirected/backgrounded -> outcome unknown,
+        # evidence empty) beside a real green run must not poison the ledger.
+        seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "unknown",
+                             "command": "bash tests/run-all.sh > run.log 2>&1", "evidence": ""},
+                            {"layer": 2, "kind": "test_run", "outcome": "pass",
+                             "command": "pytest", "evidence": "12 passed"}])
+        result, decision, reason = run_gate(repo)
+        check("an unobserved run beside green runtime evidence does not block the strict commit",
+              result.returncode == 0 and decision != "deny", reason)
+
+        seed_signals(repo, [{"layer": 3, "kind": "app_start", "outcome": "unknown",
+                             "evidence": ""}, {"layer": 2, "outcome": "pass"}])
+        result, decision, reason = run_gate(repo)
+        check("an unobserved L3 run beside green L2 evidence permits the strict commit",
+              result.returncode == 0 and decision != "deny", reason)
+
+        seed_signals(repo, [{"layer": 2, "outcome": "unknown", "evidence": ""},
+                            {"layer": 2, "outcome": "fail"}])
+        result, decision, reason = run_gate(repo)
+        check("an unobserved run cannot hide failed runtime evidence at commit",
+              result.returncode == 2 and decision == "deny" and "verification failed" in reason,
+              reason)
+
+        seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "pass",
+                             "command": "pytest", "evidence": ""}])
+        result, decision, reason = run_gate(repo)
+        check("a pass claim without evidence is still a schema error",
+              result.returncode == 2 and decision == "deny" and "evidence is empty" in reason,
+              reason)
 
         seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "fail",
                              "command": "pytest", "evidence": "1 failed"}])
@@ -482,6 +513,41 @@ def main() -> int:
         close = run_close(repo)
         check("strict explicit close accepts matching green runtime evidence",
               close.returncode == 0, close.stdout)
+
+        # CLOSE-DEBT-1: the same three rules at the explicit close boundary.
+        seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "unknown",
+                             "command": "bash tests/run-all.sh > run.log 2>&1", "evidence": ""},
+                            {"layer": 2, "outcome": "pass"}], "close-probe")
+        close = run_close(repo)
+        check("strict explicit close ignores an unobserved run beside green runtime evidence",
+              close.returncode == 0, close.stdout)
+
+        seed_signals(repo, [{"layer": 3, "kind": "app_start", "outcome": "unknown",
+                             "evidence": ""}, {"layer": 2, "outcome": "pass"}],
+                     "close-probe")
+        close = run_close(repo)
+        check("strict explicit close ignores an unobserved L3 run beside green L2 evidence",
+              close.returncode == 0, close.stdout)
+
+        seed_signals(repo, [{"layer": 2, "outcome": "unknown", "evidence": ""},
+                            {"layer": 2, "outcome": "fail"}], "close-probe")
+        close = run_close(repo)
+        check("an unobserved run cannot hide failed runtime evidence at explicit close",
+              close.returncode == 1 and "contains a failure" in close.stdout,
+              close.stdout)
+        seed_signals(repo, [{"layer": 2, "kind": "test_run", "outcome": "unknown",
+                             "command": "bash tests/run-all.sh > run.log 2>&1", "evidence": ""}],
+                     "close-probe")
+        close = run_close(repo)
+        check("strict explicit close denies unobserved runs alone",
+              close.returncode == 1 and "evidence is missing" in close.stdout
+              and "unobserved" in close.stdout, close.stdout)
+        seed_signals(repo, [{"layer": 2, "outcome": "pass", "evidence": ""}], "close-probe")
+        close = run_close(repo)
+        check("strict explicit close denies a pass claim without evidence",
+              close.returncode == 1 and "evidence is empty" in close.stdout, close.stdout)
+        # The later cases append to the ledger: restore the green baseline they build on.
+        seed_signals(repo, [{"layer": 2, "outcome": "pass"}], "close-probe")
 
         # S9-U3: учётная телеметрия делегирования (слой 0, без `producer` —
         # ровно то, что писал record-agent-skill.sh) не участвует в
