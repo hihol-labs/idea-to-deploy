@@ -577,7 +577,8 @@ def _context_mode_server(server: str) -> bool:
 def shell_commands(raw_tool: str, tool_input: dict[str, Any]) -> list[str] | None:
     """Command or code texts the tool runs on this machine, else None.
 
-    An executor input without the expected text field is classified whole.
+    An executor input without the expected text field keeps the generic tool
+    classification: the source it would run is not in the payload.
     """
     if raw_tool in {"Bash", "PowerShell"} \
             or canonical_tool_name(raw_tool) in {"bash", "powershell"}:
@@ -587,12 +588,13 @@ def shell_commands(raw_tool: str, tool_input: dict[str, Any]) -> list[str] | Non
         return None
     if name != "ctx_batch_execute":
         code = tool_input.get("code")
-        return [code if isinstance(code, str) else canonical_json(tool_input)]
+        return [code] if isinstance(code, str) else None
     commands = tool_input.get("commands")
     items = commands if isinstance(commands, list) else [commands]
-    return [item["command"]
-            if isinstance(item, dict) and isinstance(item.get("command"), str)
-            else canonical_json(item) for item in items]
+    if not all(isinstance(item, dict) and isinstance(item.get("command"), str)
+               for item in items):
+        return None
+    return [item["command"] for item in items]
 
 
 def classify(payload: dict[str, Any]) -> tuple[str, str]:

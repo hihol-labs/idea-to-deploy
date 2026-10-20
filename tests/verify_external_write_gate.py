@@ -376,13 +376,14 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         "curl -s https://example.test/x -o out.json && cut -d, -f1 out.json",
     ]
     for command in local_shell_cases:
-        request = payload("Bash", {"command": command})
-        _, local_preview = preview(state, request)
-        result = hook(state, request)
-        check(f"local shell is not an external action: {ascii(command[:48])}",
-              local_preview.get("requiresApproval") is False
-              and result.returncode == 0 and not result.stdout,
-              json.dumps(local_preview, ensure_ascii=False) + result.stdout)
+        for shell in ("Bash", "PowerShell"):
+            request = payload(shell, {"command": command})
+            _, local_preview = preview(state, request)
+            result = hook(state, request)
+            check(f"local shell is not an external action ({shell}): {ascii(command[:40])}",
+                  local_preview.get("requiresApproval") is False
+                  and result.returncode == 0 and not result.stdout,
+                  json.dumps(local_preview, ensure_ascii=False) + result.stdout)
     curl_then_local = payload("Bash", {"command":
         "curl -s https://example.test/status | jq . && ls -d out"})
     _, curl_then_local_preview = preview(state, curl_then_local)
@@ -521,6 +522,13 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
             "connector_id": "c-1", "enabled": True},
         "mcp__ccd_session_mgmt__delete_session": {"session_id": "s-1"},
         "mcp__ccd_host__clean_up_worktrees": {},
+        # Near misses of the exact (server, tool) list: another server or a
+        # longer name never inherits a local pair.
+        "mcp__other__update_plan": {"plan": []},
+        "mcp__ccd_session__update_plan": {"plan": []},
+        "mcp__ccd_turn_x__update_plan": {"plan": []},
+        "mcp__ccd_turn__update_plan_and_publish": {"plan": []},
+        "mcp__plugin_evil_ccd_turn__update_plan": {"plan": []},
     }
     for tool_name, tool_input in host_external_tools.items():
         request = payload(tool_name, tool_input)
@@ -572,8 +580,16 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
           preview(state, ctx_odd)[1].get("requiresApproval") is True)
     ctx_no_code = payload(context_mode + "ctx_execute", {
         "language": "shell", "cmd": "curl -d x https://api.example.test/i"})
-    check("context-mode executor without a code field is classified whole",
+    check("context-mode executor without a code field keeps the generic gate",
           preview(state, ctx_no_code)[1].get("requiresApproval") is True)
+    ctx_file_only = payload(context_mode + "ctx_execute_file", {
+        "path": "script.py", "language": "shell"})
+    check("context-mode file executor without code keeps the generic gate",
+          preview(state, ctx_file_only)[1].get("requiresApproval") is True)
+    ctx_batch_script = payload(context_mode + "ctx_batch_execute", {"commands": [
+        {"label": "s", "command": "git status"}, {"label": "r", "script": "run.sh"}]})
+    check("context-mode batch item without a string command keeps the generic gate",
+          preview(state, ctx_batch_script)[1].get("requiresApproval") is True)
     ctx_upgrade = payload(context_mode + "ctx_upgrade", {})
     _, ctx_upgrade_preview = preview(state, ctx_upgrade)
     check("context-mode tools outside the local list keep the generic gate",
