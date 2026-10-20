@@ -138,6 +138,16 @@ INERT_UTILITIES = {
     "[", "basename", "cd", "cut", "date", "dirname", "head", "ls", "mkdir",
     "pwd", "realpath", "sleep", "stat", "tail", "test", "tr", "uniq", "wc",
 }
+# Programs that only read or print local data and never run another program
+# (no rg: --pre; no sort: --compress-program; no find: -exec; no file: -z).
+# In a command made only of them a transport word is an argument, never the
+# program run. Matched case-sensitively, like the search narrowing.
+NON_EXECUTING_PROGRAMS = {
+    "[", "Get-ChildItem", "Get-Content", "Test-Path", "basename", "cat", "cd",
+    "cut", "dir", "dirname", "du", "egrep", "fgrep", "gc", "gci", "grep",
+    "head", "ls", "md5sum", "nl", "pwd", "readlink", "realpath", "sha256sum",
+    "stat", "tail", "test", "tr", "tree", "type", "uniq", "wc",
+}
 SEARCH_PROGRAMS = {"egrep", "fgrep", "grep", "rg"}
 SEARCH_FILTERS = {"cut", "head", "nl", "tail", "tr", "uniq", "wc"}
 LOCAL_GIT_SUBCOMMANDS = {
@@ -447,20 +457,51 @@ def _local_git_only(command: str) -> bool:
     return True
 
 
+def _non_executing(command: str) -> bool:
+    """Every simple command starts with a bare program that runs nothing else.
+
+    Redirections, script blocks, UNC paths and whatever ``_simple_commands``
+    cannot split (substitutions, ``${...}``, subshells, heredocs, uncertain
+    quoting) keep the whole-text checks.
+    """
+    commands = _simple_commands(command)
+    masked = _mask_quotes(command)
+    if not commands or masked is None:
+        return False
+    masked = re.sub(r"\s\d?>\s*/dev/null|\s2>&1", " ", masked)
+    if re.search(r"[<>{}]|(?:^|\s)(?:\\\\|//)", masked):
+        return False
+    return all(text.split()[0] in NON_EXECUTING_PROGRAMS for text, _ in commands)
+
+
 def _names_program(command: str, pattern: str) -> bool:
     """True when some word match may name a program to run.
 
-    A match is not a program when it is a hidden name (``~/.ssh``), a
-    directory component (``.../ssh-d2719c3f/x``, ``rsync-logs/``) or carries
-    a generated hex id (``/tmp/ssh-d2719c3f``). Other hyphenated names, such
-    as ``ssh-copy-id`` or ``rsync-ssl``, still count.
+    In a command that runs nothing else (``_non_executing``) a match is not a
+    program when it is a hidden name (``~/.ssh``), a directory component
+    (``.../ssh-d2719c3f/x``, ``rsync-logs/``) or the last path component with
+    a generated hex id (``/tmp/ssh-d2719c3f``). Anywhere else every match
+    counts: an expansion (``${x#.}``), a pipeline into a shell, sed or xargs
+    can turn such a path into the program name. The same name at command
+    position (``ssh-1a2b3c4d host``, bash ``\\ssh-1a2b3c4d``) and other
+    hyphenated names, such as ``ssh-copy-id`` or ``rsync-ssl``, still count.
     """
     lowered = command.lower()
+    if not _non_executing(command):
+        return bool(re.search(pattern, lowered))
     for match in re.finditer(pattern, lowered):
         before = lowered[match.start() - 1:match.start()]
         rest = re.match(r"[\w.~/\\-]*", lowered[match.end():]).group()
+        # A backslash is a path separator only after a path word; after a
+        # space, an operator or an expansion (``$x\``) bash reads it as an
+        # escape of a bare name.
+        word = re.search(r"[\w.~:\\/-]*\\\Z", lowered[:match.start()])
+        in_path = before == "/" or bool(
+            word and re.match(r"[\w.~:-]", word.group())
+            and lowered[word.start() - 1:word.start()] != "$")
         if before == "." or "/" in rest or "\\" in rest \
-                or re.match(r"-(?=[0-9a-f]*\d)[0-9a-f]{6,}(?![g-z])", rest):
+                or (in_path and re.match(
+                    r"-(?=[0-9a-f]*\d)[0-9a-f]{6,}(?![g-z])", rest)):
             continue
         return True
     return False
