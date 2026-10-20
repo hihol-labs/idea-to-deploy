@@ -5398,6 +5398,20 @@
         "impactClasses": ["repository-hygiene", "generated-artifact-freshness", "compatibility"],
         "oracleIds": ["docs-freshness", "release-mirrors", "impact-graph"]
       }
+    },
+    {
+      "id": "REL-1.109.2-AC3",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "A genuine fresh H4 live-model run on the clean committed 1.109.2 candidate passes the unchanged strict replay (tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30) against the current methodology pin, and the exact-tree full regression passes in an isolated checkout. Preparation status does not imply either leg: both are machine legs (live, full) of the committed-head receipt that must pass before review and publication. Publication and installed-host acceptance are later authorized stages.",
+      "source": "Owner 2026-10-20: publication session of REL-1.109.2; H4 and the opposite-GPT review approved.",
+      "evidence": "H4 run 20261020T182129Z-fe1dbfb2 from .itd-memory/verification-loop/REL-1.109.2-live-prepare.py on a disposable clean snapshot of the committed candidate 816e4fc (attempt record .itd-memory/host-inputs/REL-1.109.2/h4-a1): runner exit 0 and strict replay 154 passed, 0 failed inside the snapshot before the copy; the prepare script hash-checked every copied file. In the repository the same replay passes only on the clean committed tree (its dirty-state digest check fails while changes are uncommitted); that run is the live leg of the committed-head receipt.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The 1.109.2 candidate carries fresh live-model evidence bound to its methodology pin and passes the full regression on its exact tree.",
+        "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "oracleIds": ["full", "live"]
+      }
     }
   ],
   "completion": {
