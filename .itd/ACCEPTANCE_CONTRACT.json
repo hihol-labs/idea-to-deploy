@@ -5370,6 +5370,34 @@
         "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
         "oracleIds": ["full", "live"]
       }
+    },
+    {
+      "id": "REL-1.109.2-AC1",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "The external-write gate no longer denies or asks for: a path or hidden name containing a transport word (~/.ssh, .../ssh-d2719c3f/...), a pure grep/rg search, cd plus local git add/commit/status/diff/log/show/restore/stash chains with quoted data (including the exact quoted-delimiter heredoc commit), curl/wget write flags that belong to a separate pipeline of inert utilities, the built-in Claude desktop UI tools on the exact (server, tool) list, and context-mode executors whose code has no external action. Every command the f1aefe5 classifier kept under approval for a real external action still requires approval, as Bash and as PowerShell; anything bash, PowerShell and cmd read differently keeps the whole-text checks.",
+      "source": "Owner 2026-10-20: session 1 of the approved ITD change plan (patch 1.109.2), context-mode option 'parity with Bash'.",
+      "evidence": "tests/verify_external_write_gate.py 218 passed, 0 failed on WSL; the same file on the f1aefe5 classifier gives 194 passed, 24 failed - all 24 are the removed false denies, every keep-gated case passes on both; tests/verify_pii_egress.py PASSED on WSL and native Windows. Native Windows Python 3.12 with PYTHONUTF8=0 (load average 2.8) on the previous candidate: 209/210; the single failure was an empty preview output for one PowerShell case, and that case re-run 5 times on Windows gave unknown (gated) as PowerShell and as Bash. Earlier runs at load average 6-7 also hit the pre-existing 3-second Codex-dispatcher transport deadline (hooks/codex-dispatch.py:27) when the hook runs from the WSL checkout over UNC; main f1aefe5 fails that probe identically (direct hook 18-28 s). Differential check against the f1aefe5 classifier (git-ignored harness .itd-memory/verification-loop/REL-1.109.2-differential/): 1116 commands as Bash and as PowerShell, 0 weaker; randomized fuzz 100k commands whose differences are all intended (stray -d of an inert command, grep/rg/git arguments, dotted names, path components); 18k executed in a fake-PATH bash sandbox with no remote program run without approval. Five review rounds (rounds 1-4 found bypasses, round 5 PASSED) and two fresh precommit checkers (a1: lone CR, cmd single quotes, PATH= before grep; a2: quoted rg --pre, double quote inside single quotes) - all now regression tests, plus a redirected inert command that could write a curl config.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_write_gate.py",
+      "reviewEvidence": {
+        "claim": "False denies of the external-write gate are removed without weakening any approval the previous classifier required.",
+        "impactClasses": ["correctness", "security", "host-parity", "compatibility"],
+        "oracleIds": ["gate", "pii-egress"]
+      }
+    },
+    {
+      "id": "REL-1.109.2-AC2",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "All release mirrors declare 1.109.2, reviewedAt of docs/HARNESS_DOCS_STATE.json and docs/QUALITY.json is 2026-10-20, CHANGELOG/DECISIONS/BACKLOG describe only what the code and tests show, and the impact map is fresh. Live-model evidence, publication and rollout are later authorized stages, not implied here.",
+      "source": "Owner 2026-10-20 plan session 1 and the repository release runbook.",
+      "evidence": "tests/verify_harness_docs_freshness.py PASS (reviewedAt 2026-10-20, pluginVersion 1.109.2); tests/verify_external_reviewer_release.py and tests/build_impact_graph.py --check are machine legs of the precommit receipt. Full tests/run-all.sh on the candidate: only verify_ledger_reconciliation fails, caused by 8207 ignored local .itd-memory files; it passes on a clean main worktree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py",
+      "reviewEvidence": {
+        "claim": "The patch metadata is internally consistent and keeps Gate 1 docs freshness green after 2026-10-30.",
+        "impactClasses": ["repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "oracleIds": ["docs-freshness", "release-mirrors", "impact-graph"]
+      }
     }
   ],
   "completion": {
@@ -5388,16 +5416,15 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.109.1",
-    "status": "verified",
-    "closedAt": "2026-10-17T20:55:16Z",
-    "openedAt": "2026-10-17",
+    "unitId": "REL-1.109.2",
+    "status": "in_progress",
+    "openedAt": "2026-10-20",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
+    "sourceRequest": "Owner 2026-10-20 approved the ITD change plan; session 1 is patch 1.109.2 (false denies of the external-write gate, reviewedAt refresh). Owner chose context-mode 'parity with Bash' and to end this session at a local commit and hand-over; live evidence, guarded publication, CI, merge, release and WSL/Windows rollout are a separate session, each external step on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
-      "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+      "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
@@ -6085,6 +6112,23 @@
       },
       "closedAt": "2026-10-17",
       "closureEvidence": "Reviewed head b0d7b420f966907a12a94baef25ce7c73adba441; full exact-tree quick and strict live replay passed; current runtime smoke41 passed. Repair review accepted; full Terra review retained12 findings on6 known flaws of the archived CLI specimen. Owner explicitly affirmed v2 binding870e3aaba7bbb4a3b74abac9b18ebefd81bc78d994256f49bfe22780a344ca81; final receipt f16c4caa84a211fe1b67b71d09b601b21191fba351aa55c1c44aa14214738290 is ADJUDICATED, not a relabeled clean review. Guarded publication succeeded; PR366 CI runs39023963197 and39023963152 passed. Owner-authorized merge9484d980e4f1b321564263c596770fa6e6e07bc3 reached main; post-merge push CI runs39024836403 and39024836386 passed. Original negative report and immutable archive remain retained. Global installations were not changed by this unit."
+    },
+    {
+      "unitId": "REL-1.109.1",
+      "status": "closed",
+      "closedAt": "2026-10-17T20:55:16Z",
+      "openedAt": "2026-10-17",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "Release v1.109.1 at 4993649 (PR368), accounting PR369 merged f1aefe5; installed runtime 7356230e accepted 14/14 natively on WSL and Windows; final receipt d1e6cc09894969ed555cad3ad42065ba0f538cd9a58d7915df6467779eb931d1 is ADJUDICATED after the owner affirmed binding f3ab9e239ede0af7160da173c2fd65462baf55b90dd40ee144154466024efc1e, not a relabeled clean review. Moved to closedFollowups when REL-1.109.2 opened."
     }
   ]
 }

@@ -37,13 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL-1.109.1",
-    "goal": "Release v1.109.1: suppress dependency bytecode at four Python entrypoints, verify Windows and complete dual-host rollout",
-    "status": "verified",
-    "startedAt": "2026-10-17T18:31:08Z",
+    "id": "REL-1.109.2",
+    "goal": "Patch 1.109.2: remove false denies of the external-write gate behind pii-egress-guard (path fragments, grep/rg searches, local git chains, inert pipelines next to curl, built-in Claude desktop UI tools, context-mode executors with the Bash classification) without weakening any approval the 1.109.1 gate required, and refresh reviewedAt of the harness docs state and quality ledger; ends at a local commit and hand-over, publication is a separate session.",
+    "status": "in_progress",
+    "startedAt": "2026-10-20T14:00:48Z",
     "ledger": "STATE",
-    "riskTier": "medium",
-    "completedAt": "2026-10-17T20:55:16Z"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

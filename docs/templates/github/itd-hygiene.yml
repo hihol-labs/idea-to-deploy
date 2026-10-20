@@ -23,7 +23,7 @@ name: idea-to-deploy-hygiene
         type: string
 
 env:
-  ITD_REF: v1.109.1
+  ITD_REF: v1.109.2
   ITD_REPO: https://github.com/hihol-labs/idea-to-deploy
 
 permissions:
