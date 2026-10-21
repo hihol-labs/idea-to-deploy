@@ -148,6 +148,9 @@ NON_EXECUTING_PROGRAMS = {
     "head", "ls", "md5sum", "nl", "pwd", "readlink", "realpath", "sha256sum",
     "stat", "tail", "test", "tr", "tree", "type", "uniq", "wc",
 }
+# Output thrown away: ">/dev/null" or "2>&1" as a whole word, never a
+# longer path such as ">/dev/nullX".
+NULL_REDIRECT_RE = r"(?:\d?>\s*/dev/null|2>&1)(?![^\s;&|<>()])"
 SEARCH_PROGRAMS = {"egrep", "fgrep", "grep", "rg"}
 SEARCH_FILTERS = {"cut", "head", "nl", "tail", "tr", "uniq", "wc"}
 LOCAL_GIT_SUBCOMMANDS = {
@@ -401,7 +404,7 @@ def _http_scope(command: str) -> str:
         text for pipeline in pipelines
         if not all(text.split()[0] in INERT_UTILITIES
                    and not re.search(r"curl|wget", text, re.IGNORECASE)
-                   and ">" not in re.sub(r"\d?>\s*/dev/null|2>&1", "", text)
+                   and ">" not in re.sub(NULL_REDIRECT_RE, "", text)
                    for text in pipeline)
         for text in pipeline)
 
@@ -415,7 +418,7 @@ def _search_only(command: str) -> bool:
     masked = _mask_quotes(command)
     if not commands or masked is None:
         return False
-    masked = re.sub(r"\s\d?>\s*/dev/null|\s2>&1", " ", masked)
+    masked = re.sub(r"\s" + NULL_REDIRECT_RE, " ", masked)
     # rg runs --pre and --hostname-bin programs; quotes do not hide the flag.
     if re.search(r"[<>]", masked) or re.search(r"--pre|--hostname-bin", command):
         return False
@@ -468,7 +471,7 @@ def _non_executing(command: str) -> bool:
     masked = _mask_quotes(command)
     if not commands or masked is None:
         return False
-    masked = re.sub(r"\s\d?>\s*/dev/null|\s2>&1", " ", masked)
+    masked = re.sub(r"\s" + NULL_REDIRECT_RE, " ", masked)
     if re.search(r"[<>{}]|(?:^|\s)(?:\\\\|//)", masked):
         return False
     return all(text.split()[0] in NON_EXECUTING_PROGRAMS for text, _ in commands)
