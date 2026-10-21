@@ -364,6 +364,9 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         "cat ~/.ssh/config | grep Host",
         "ls -la ~/.ssh && stat ~/.ssh/config 2>/dev/null",
         "Get-ChildItem C:\\Users\\u\\.ssh",
+        # Review a10: a whole redirect glued to the last argument.
+        "ls -la ~/.ssh>/dev/null",
+        "grep -rn ssh skills/ 2>&1| head -5",
         'grep -n "ssh" notes/deploy.sh',
         'rg --no-config -n "nc|telnet" src/',
         'git commit -m "fix ssh hook"',
@@ -434,6 +437,13 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         # Only a whole ">/dev/null" or "2>&1" is thrown-away output.
         "ls ~/.ssh >/dev/nullX": "unknown",
         "ls ~/.ssh 2>&1x": "unknown",
+        "ls ~/.ssh>/dev/nullX": "unknown",
+        "ls ~/.ssh >>/dev/null": "unknown",
+        "ls ~/.ssh &>/dev/null": "unknown",
+        "ls ~/.ssh 12>/dev/null": "unknown",
+        "ls ~/.ssh *>/dev/null": "unknown",
+        "ls ~/.ssh 12>&1": "unknown",
+        "ls ~/.ssh\\*>/dev/null": "unknown",
         "/tmp/ssh-1a2b3c4d deploy.example.test": "unknown",
         "C:\\Temp\\ssh-1a2b3c4d.exe deploy.example.test": "unknown",
         "true\n# note\nssh deploy.example.test": "unknown",
